@@ -46,6 +46,7 @@ const showing = (
   onStarted = vi.fn(),
   traces: readonly SharedTrace[] = [],
   improving: ImprovedStation | null = null,
+  ask: string | null = null,
 ) => {
   render(
     <NewChatComposer
@@ -53,6 +54,7 @@ const showing = (
       teamId="team_1"
       traces={traces}
       defaultImproving={improving}
+      defaultAsk={ask}
       onStarted={onStarted}
     />,
   );
@@ -138,6 +140,30 @@ describe('NewChatComposer', () => {
 
     expect(started).toHaveBeenCalledWith(
       expect.objectContaining({ body: '', improving: 'station_spec' }),
+      expect.anything(),
+    );
+  });
+
+  it('starts with the question it was handed after the station, ready to send', async () => {
+    const user = userEvent.setup();
+    showing(
+      vi.fn(),
+      [],
+      SPEC,
+      'Sent back 31% (was 12%). What should change at this station?',
+    );
+
+    expect(box()).toHaveTextContent(
+      'Sent back 31% (was 12%). What should change at this station?',
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Send' }));
+
+    expect(started).toHaveBeenCalledWith(
+      expect.objectContaining({
+        body: expect.stringContaining('What should change at this station?'),
+        improving: 'station_spec',
+      }),
       expect.anything(),
     );
   });

@@ -148,7 +148,7 @@ const MEASURES: Record<NonNullable<JudgeStanding['measure']>, string> = {
   spearman: 'Spearman’s ρ',
 };
 
-const measureShown = (measure: JudgeStanding['measure']): string =>
+export const measureShown = (measure: JudgeStanding['measure']): string =>
   measure ? MEASURES[measure] : 'Agreement';
 
 export const statShown = (value: number | null): string =>

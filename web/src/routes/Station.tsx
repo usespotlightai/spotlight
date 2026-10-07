@@ -1,6 +1,6 @@
 import { useParams } from 'react-router';
 import { StationHeading } from '@/components/features/stations/StationHeading';
-import { StationLayout } from '@/components/features/stations/StationLayout';
+import { StationPane } from '@/components/features/stations/StationPane';
 import { StationSkeleton } from '@/components/features/stations/StationSkeleton';
 import { StationTabBody } from '@/components/features/stations/StationTabBody';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
@@ -56,17 +56,17 @@ export function Station() {
 
   return (
     <TrailContext value={forward}>
-      <PageHeader title={<Breadcrumbs segments={trail} />} />
+      <PageHeader title={<Breadcrumbs segments={trail} />} bordered={false} />
 
-      <StationLayout>
-        <StationHeading
-          slug={slug}
-          teamId={teamId}
-          line={line}
-          station={station}
-          tab={tab}
-        />
+      <StationHeading
+        slug={slug}
+        teamId={teamId}
+        line={line}
+        station={station}
+        tab={tab}
+      />
 
+      <StationPane>
         <StationTabBody
           slug={slug}
           teamId={teamId}
@@ -74,7 +74,7 @@ export function Station() {
           station={station}
           tab={tab}
         />
-      </StationLayout>
+      </StationPane>
     </TrailContext>
   );
 }

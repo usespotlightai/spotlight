@@ -7,6 +7,8 @@ type ImproveStationLinkProps = {
   slug: string;
   teamId: string;
   improving: ImprovedStation;
+  label?: string;
+  ask?: string;
   className?: string;
 };
 
@@ -14,16 +16,18 @@ export function ImproveStationLink({
   slug,
   teamId,
   improving,
+  label = 'Improve',
+  ask,
   className,
 }: ImproveStationLinkProps) {
   return (
     <PillLink
       to={teamSectionPath(slug, teamId, 'agent')}
-      state={{ improving }}
+      state={{ improving, ...(ask ? { ask } : {}) }}
       className={className}
     >
       <MousePointer2 aria-hidden />
-      Improve this station
+      {label}
     </PillLink>
   );
 }

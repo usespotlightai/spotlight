@@ -22,17 +22,14 @@ export type RunProposal = RunProposalResponseDto;
 
 export const FOCUS_PARAM = 'memory';
 
+export const WRITE_PARAM = 'write';
+
 export const memoryPath = (
   slug: string,
   teamId: string,
   memoryId: string,
 ): string =>
   `${teamSectionPath(slug, teamId, 'memory')}?${FOCUS_PARAM}=${encodeURIComponent(memoryId)}`;
-
-export const usedBy = (runs: number): string =>
-  runs === 0
-    ? 'Not used by any run yet'
-    : `Used by ${runs} ${runs === 1 ? 'run' : 'runs'}`;
 
 export const givenMemories = (memories: RunMemories): TeamMemory[] => {
   const briefed = new Set(memories.briefed.map((memory) => memory.id));
@@ -224,35 +221,6 @@ export const unnarrowed = (filter: MemoryFilter): MemoryFilter => ({
   path: null,
 });
 
-export const SOURCE_LABELS: Record<TeamMemory['source'], string> = {
-  person: 'From a person',
-  run: 'From a run',
-  outside: 'From outside the team',
-};
-
-export const placeOf = (
-  memory: Pick<TeamMemory, 'lineId' | 'stationId' | 'repository' | 'paths'>,
-  lines: readonly LineResponseDto[],
-): string => {
-  const line = lines.find((each) => each.id === memory.lineId);
-  const station = line?.stations.find((each) => each.id === memory.stationId);
-  const where = station
-    ? `${line?.name} › ${station.name}`
-    : line
-      ? line.name
-      : memory.lineId
-        ? 'Line deleted'
-        : 'The whole team';
-
-  if (!memory.repository) {
-    return where;
-  }
-
-  return memory.paths.length > 0
-    ? `${where} · ${memory.repository}: ${memory.paths.join(', ')}`
-    : `${where} · ${memory.repository}`;
-};
-
 export interface RememberedCount {
   readonly what: string;
   readonly count: number;
@@ -274,4 +242,91 @@ export const proposalStateOf = (proposal: RunProposal): string => {
   }
 
   return 'Waiting for you';
+};
+
+export const SOURCE_SHOWN: Record<TeamMemory['source'], string> = {
+  person: 'Person',
+  run: 'Run',
+  outside: 'Outside the team',
+};
+
+export const memoryListPath = (
+  slug: string,
+  teamId: string,
+  filter: MemoryFilter,
+): string => {
+  const query = new URLSearchParams(paramsOf(filter)).toString();
+  const base = teamSectionPath(slug, teamId, 'memory');
+
+  return query ? `${base}?${query}` : base;
+};
+
+export const memoryPathsOf = (
+  memories: readonly Pick<TeamMemory, 'paths'>[],
+  chosen: string | null,
+): string[] =>
+  [
+    ...new Set([
+      ...memories.flatMap((memory) => memory.paths),
+      ...(chosen ? [chosen] : []),
+    ]),
+  ].sort();
+
+export type PlaceKind = 'team' | 'line' | 'station' | 'repository' | 'path';
+
+export type PlaceNode = {
+  readonly kind: PlaceKind;
+  readonly label: string;
+  readonly joinedBy: string | null;
+  readonly children: readonly PlaceNode[];
+};
+
+export const placeTreeOf = (
+  memory: Pick<TeamMemory, 'lineId' | 'stationId' | 'repository' | 'paths'>,
+  lines: readonly LineResponseDto[],
+): PlaceNode => {
+  const line = lines.find((each) => each.id === memory.lineId);
+  const station = line?.stations.find((each) => each.id === memory.stationId);
+  const paths: PlaceNode[] = memory.paths.map((path) => ({
+    kind: 'path',
+    label: path,
+    joinedBy: ' › ',
+    children: [],
+  }));
+  const repository: PlaceNode[] = memory.repository
+    ? [
+        {
+          kind: 'repository',
+          label: memory.repository,
+          joinedBy: ' › ',
+          children: paths,
+        },
+      ]
+    : [];
+  const stations: PlaceNode[] = station
+    ? [
+        {
+          kind: 'station',
+          label: station.name,
+          joinedBy: ' › ',
+          children: repository,
+        },
+      ]
+    : repository;
+
+  if (line) {
+    return {
+      kind: 'line',
+      label: line.name,
+      joinedBy: null,
+      children: stations,
+    };
+  }
+
+  return {
+    kind: memory.lineId ? 'line' : 'team',
+    label: memory.lineId ? 'Line deleted' : 'The whole team',
+    joinedBy: null,
+    children: repository,
+  };
 };

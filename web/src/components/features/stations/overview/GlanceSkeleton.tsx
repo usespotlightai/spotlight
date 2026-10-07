@@ -3,13 +3,15 @@ import { GLANCE_COLUMNS } from '@/lib/station-outcomes';
 
 export function GlanceSkeleton() {
   return (
-    <div aria-hidden className="grid grid-cols-3 gap-4 sm:grid-cols-6">
-      {GLANCE_COLUMNS.map((column) => (
-        <div key={column.label} className="flex flex-col gap-1.5">
-          <Skeleton className="h-7 w-12" />
-          <Skeleton className="h-3 w-16" />
-        </div>
-      ))}
-    </div>
+    <section className="flex flex-col gap-1.5">
+      <h3 className="font-medium text-foreground text-xs">
+        Latest runs on this config
+      </h3>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+        {GLANCE_COLUMNS.map((column) => (
+          <Skeleton key={column.label} className="h-36 rounded-lg" />
+        ))}
+      </div>
+    </section>
   );
 }

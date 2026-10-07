@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  askHandedOver,
   type ChatMessage,
   chatPath,
   improvingHandedOver,
@@ -202,6 +203,20 @@ describe('tracesHandedOver', () => {
     expect(tracesHandedOver(null)).toEqual([]);
     expect(tracesHandedOver({ traces: 'task_1' })).toEqual([]);
     expect(tracesHandedOver({ traces: [{ taskId: 'task_1' }] })).toEqual([]);
+  });
+});
+
+describe('askHandedOver', () => {
+  it('takes the question handed over with the station', () => {
+    expect(askHandedOver({ ask: 'What should change?' })).toBe(
+      'What should change?',
+    );
+  });
+
+  it('takes nothing where no question, or a blank one, was handed over', () => {
+    expect(askHandedOver(null)).toBeNull();
+    expect(askHandedOver({ ask: '  ' })).toBeNull();
+    expect(askHandedOver({ ask: 42 })).toBeNull();
   });
 });
 

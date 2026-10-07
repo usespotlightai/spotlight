@@ -1,9 +1,18 @@
 import { type RefObject, useLayoutEffect, useRef, useState } from 'react';
 import { useGlide } from '@/hooks/useGlide';
-import { glideBetween, type Placement, placementOf } from '@/lib/flip';
+import {
+  glideBetween,
+  type Placement,
+  placementOf,
+  type Spots,
+  shiftBetween,
+  spotsOf,
+} from '@/lib/flip';
 import { canGlide } from '@/lib/glide';
 
 const CLAMPED = 'data-clamped';
+
+const PART = '[data-glide-part]';
 
 type RowExpansion = {
   readonly row: RefObject<HTMLLIElement | null>;
@@ -12,7 +21,7 @@ type RowExpansion = {
   readonly toggle: () => void;
 };
 
-type Pending = { readonly from: Placement; readonly to: Placement };
+type Pending = { readonly from: Placement; readonly spots: Spots };
 
 const placedWithCells = (row: HTMLElement): Placement =>
   placementOf(
@@ -20,20 +29,27 @@ const placedWithCells = (row: HTMLElement): Placement =>
     [...row.children].filter((each) => each instanceof HTMLElement),
   );
 
-const placedAs = (row: HTMLElement, clamped: boolean): Placement => {
+const partSpots = (row: HTMLElement): Spots =>
+  spotsOf([...row.querySelectorAll<HTMLElement>(PART)]);
+
+const measuredAs = <T>(
+  row: HTMLElement,
+  clamped: boolean,
+  measure: (row: HTMLElement) => T,
+): T => {
   const was = row.hasAttribute(CLAMPED);
   row.toggleAttribute(CLAMPED, clamped);
-  const placed = placedWithCells(row);
+  const measured = measure(row);
   row.toggleAttribute(CLAMPED, was);
 
-  return placed;
+  return measured;
 };
 
-export function useRowExpansion(): RowExpansion {
+export function useRowExpansion(startsOpen = false): RowExpansion {
   const row = useRef<HTMLLIElement>(null);
   const pending = useRef<Pending | null>(null);
-  const [expanded, setExpanded] = useState(false);
-  const [clamped, setClamped] = useState(true);
+  const [expanded, setExpanded] = useState(startsOpen);
+  const [clamped, setClamped] = useState(!startsOpen);
   const glide = useGlide();
 
   useLayoutEffect(() => {
@@ -42,9 +58,13 @@ export function useRowExpansion(): RowExpansion {
     pending.current = null;
 
     if (element && glided && !clamped) {
-      glide.play(
-        glideBetween(placedWithCells(element), glided.from, glided.to),
-      );
+      const now = placedWithCells(element);
+      const spots = partSpots(element);
+
+      glide.play([
+        ...glideBetween(now, glided.from, now),
+        ...shiftBetween(spots, glided.spots, spots),
+      ]);
     }
   }, [clamped, glide]);
 
@@ -63,7 +83,14 @@ export function useRowExpansion(): RowExpansion {
     }
 
     const open = placedWithCells(element);
-    glide.play(glideBetween(open, open, placedAs(element, true)), clamp);
+    const spots = partSpots(element);
+    glide.play(
+      [
+        ...glideBetween(open, open, measuredAs(element, true, placedWithCells)),
+        ...shiftBetween(spots, spots, measuredAs(element, true, partSpots)),
+      ],
+      clamp,
+    );
   };
 
   const expand = (element: HTMLLIElement | null) => {
@@ -76,7 +103,7 @@ export function useRowExpansion(): RowExpansion {
     if (canGlide(element)) {
       pending.current = {
         from: placedWithCells(element),
-        to: placedAs(element, false),
+        spots: partSpots(element),
       };
     }
     setClamped(false);

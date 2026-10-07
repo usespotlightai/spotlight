@@ -36,6 +36,7 @@ export function AgentHarnessMenu({
         >
           {harnesses.map((each) => (
             <DropdownMenuRadioItem
+              closeOnClick={false}
               key={each.id}
               value={each.id}
               disabled={!onHarness && each.id !== harness}

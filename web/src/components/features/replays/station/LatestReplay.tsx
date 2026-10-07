@@ -1,9 +1,17 @@
 import { ReplayStatePill } from '@/components/features/replays/ReplayStatePill';
 import { SuccessAgainstBaseline } from '@/components/features/replays/SuccessAgainstBaseline';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
 import { useReplays } from '@/hooks/api/useReplays';
+import { percentShown } from '@/lib/judge';
+import { COMPACT_PILL } from '@/lib/pill';
 import { loading } from '@/lib/query';
 import { baselineIn, candidateShown, latestOf } from '@/lib/replay';
+import { NO_SCORE_YET, SUCCEEDED } from '@/lib/replay-words';
 import { cn } from '@/lib/utils';
 
 type LatestReplayProps = {
@@ -16,10 +24,7 @@ export function LatestReplay({ teamId, setId, className }: LatestReplayProps) {
   const replays = useReplays(teamId, setId);
   const all = replays.data ?? [];
   const latest = latestOf(all);
-  const box = cn(
-    'flex min-w-0 flex-wrap items-center gap-2 text-xs',
-    className,
-  );
+  const box = cn('flex min-w-0 items-center gap-2 text-xs', className);
 
   if (loading(replays)) {
     return (
@@ -35,13 +40,31 @@ export function LatestReplay({ teamId, setId, className }: LatestReplayProps) {
     );
   }
 
+  const { successRate } = latest.totals;
+
   return (
     <span className={box}>
-      <span className="truncate text-muted-foreground">
-        Latest: {candidateShown(latest.candidate)}
-      </span>
-      <ReplayStatePill state={latest.state} />
-      <SuccessAgainstBaseline replay={latest} baseline={baselineIn(all)} />
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <button
+              type="button"
+              className="relative z-10 truncate text-foreground tabular-nums outline-none"
+            />
+          }
+        >
+          {successRate === null
+            ? NO_SCORE_YET
+            : `${percentShown(successRate)} ${SUCCEEDED}`}
+        </TooltipTrigger>
+        <TooltipContent className="flex max-w-xs flex-col gap-1 text-xs">
+          <span className="text-foreground">
+            {candidateShown(latest.candidate)}
+          </span>
+          <SuccessAgainstBaseline replay={latest} baseline={baselineIn(all)} />
+        </TooltipContent>
+      </Tooltip>
+      <ReplayStatePill state={latest.state} className={COMPACT_PILL} />
     </span>
   );
 }

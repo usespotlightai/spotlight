@@ -2,6 +2,7 @@ import type { Meta, StoryObj } from '@storybook/react-vite';
 import { Route } from 'react-router';
 import { stationTabPath } from '@/lib/station';
 import { Station } from '@/routes/Station';
+import { emptyOverview, seedOverview } from '@/stories/fixtures/insights';
 import {
   failStationReplays,
   refuseStationReplays,
@@ -26,6 +27,7 @@ import {
   seedStationClaimsJudge,
   seedStationJudgeAwaiting,
   seedStationJudgeHidden,
+  seedStationLongPrompt,
   seedStationWithoutRuns,
 } from '@/stories/fixtures/station';
 import { SLUG, TEAM_ID } from '@/stories/fixtures/team';
@@ -33,7 +35,6 @@ import { StoryPage } from '@/stories/StoryPage';
 
 const at = stationTabPath(SLUG, TEAM_ID, LINE_ID, STATION_ID, 'overview');
 const improve = stationTabPath(SLUG, TEAM_ID, LINE_ID, STATION_ID, 'improve');
-const config = stationTabPath(SLUG, TEAM_ID, LINE_ID, STATION_ID, 'config');
 
 const routes = (
   <Route
@@ -59,11 +60,6 @@ export const ImproveLoading: Story = {
   render: () => <StoryPage at={improve}>{routes}</StoryPage>,
 };
 
-export const ConfigLoading: Story = {
-  name: 'Config loading',
-  render: () => <StoryPage at={config}>{routes}</StoryPage>,
-};
-
 export const Failed: Story = {
   name: 'Error',
   render: () => (
@@ -84,24 +80,45 @@ export const WithData: Story = {
 
 export const Improve: Story = {
   render: () => (
-    <StoryPage at={improve} seed={seedStationSearches}>
+    <StoryPage
+      at={improve}
+      seed={(client) => {
+        seedOverview(client);
+        seedStationSearches(client);
+      }}
+    >
       {routes}
     </StoryPage>
   ),
 };
 
-export const Config: Story = {
+export const ImproveNothingStandsOut: Story = {
   render: () => (
-    <StoryPage at={config} seed={seedStationSearches}>
+    <StoryPage
+      at={improve}
+      seed={(client) => {
+        emptyOverview(client);
+        seedStationSearches(client);
+      }}
+    >
       {routes}
     </StoryPage>
   ),
 };
 
-export const ConfigJudgeByClaims: Story = {
-  name: 'Config judge by claims',
+export const JudgeByClaims: Story = {
+  name: 'Judge by claims',
   render: () => (
-    <StoryPage at={config} seed={seedStationClaimsJudge}>
+    <StoryPage at={at} seed={seedStationClaimsJudge}>
+      {routes}
+    </StoryPage>
+  ),
+};
+
+export const LongPrompt: Story = {
+  name: 'Long prompt',
+  render: () => (
+    <StoryPage at={at} seed={seedStationLongPrompt}>
       {routes}
     </StoryPage>
   ),

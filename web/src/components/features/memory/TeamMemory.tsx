@@ -1,8 +1,7 @@
 import { useSearchParams } from 'react-router';
-import { FocusedMemory } from '@/components/features/memory/FocusedMemory';
 import { TeamMemoryList } from '@/components/features/memory/TeamMemoryList';
 import { useLines } from '@/hooks/api/useLines';
-import { FOCUS_PARAM, filterOf, paramsOf } from '@/lib/memory';
+import { FOCUS_PARAM, filterOf, WRITE_PARAM } from '@/lib/memory';
 
 type TeamMemoryProps = {
   slug: string;
@@ -11,25 +10,26 @@ type TeamMemoryProps = {
 
 export function TeamMemory({ slug, teamId }: TeamMemoryProps) {
   const [params, setParams] = useSearchParams();
-  const filter = filterOf(params);
-  const focused = params.get(FOCUS_PARAM);
   const lines = useLines(teamId).data ?? [];
 
-  return focused ? (
-    <FocusedMemory
-      slug={slug}
-      teamId={teamId}
-      memoryId={focused}
-      lines={lines}
-      onShowAll={() => setParams(paramsOf(filter), { replace: true })}
-    />
-  ) : (
+  return (
     <TeamMemoryList
       slug={slug}
       teamId={teamId}
-      filter={filter}
+      filter={filterOf(params)}
+      opened={params.get(FOCUS_PARAM)}
+      writing={params.has(WRITE_PARAM)}
+      onWritten={() =>
+        setParams(
+          (was) => {
+            const next = new URLSearchParams(was);
+            next.delete(WRITE_PARAM);
+            return next;
+          },
+          { replace: true },
+        )
+      }
       lines={lines}
-      onFilter={(next) => setParams(paramsOf(next), { replace: true })}
     />
   );
 }

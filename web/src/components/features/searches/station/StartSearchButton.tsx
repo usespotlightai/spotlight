@@ -1,4 +1,3 @@
-import { Sparkles } from 'lucide-react';
 import { useState } from 'react';
 import { StartSearchDialog } from '@/components/features/searches/station/StartSearchDialog';
 import { Button } from '@/components/ui/button';
@@ -30,7 +29,6 @@ export function StartSearchButton({
         disabled={refusedBecause !== null}
         onClick={() => setOpen(true)}
       >
-        <Sparkles aria-hidden />
         Start a search
       </Button>
       {refusedBecause && (

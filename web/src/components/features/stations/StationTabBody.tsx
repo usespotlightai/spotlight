@@ -1,4 +1,3 @@
-import { StationConfigTab } from '@/components/features/stations/config/StationConfigTab';
 import { StationImproveTab } from '@/components/features/stations/improve/StationImproveTab';
 import { StationOverviewTab } from '@/components/features/stations/overview/StationOverviewTab';
 import type { LineResponseDto, StationResponseDto } from '@/lib/api';
@@ -34,26 +33,15 @@ export function StationTabBody({
     );
   }
 
-  if (tab === 'overview') {
-    return (
-      <StationOverviewTab
-        slug={slug}
-        teamId={teamId}
-        lineId={line.id}
-        station={station}
-      />
-    );
-  }
-
-  return tab === 'improve' ? (
-    <StationImproveTab
+  return tab === 'overview' ? (
+    <StationOverviewTab
       slug={slug}
       teamId={teamId}
       line={line}
       station={station}
     />
   ) : (
-    <StationConfigTab
+    <StationImproveTab
       slug={slug}
       teamId={teamId}
       line={line}

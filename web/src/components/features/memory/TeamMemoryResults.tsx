@@ -1,7 +1,9 @@
 import type { UseQueryResult } from '@tanstack/react-query';
 import { Spool } from 'lucide-react';
+import { NewMemoryRow } from '@/components/features/memory/NewMemoryRow';
 import { TeamMemoryRow } from '@/components/features/memory/TeamMemoryRow';
 import { TeamMemorySkeleton } from '@/components/features/memory/TeamMemorySkeleton';
+import { TeamMemoryTable } from '@/components/features/memory/TeamMemoryTable';
 import { WriteMemoryButton } from '@/components/features/memory/WriteMemoryButton';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { EmptyState } from '@/components/shared/EmptyState';
@@ -14,6 +16,9 @@ type TeamMemoryResultsProps = {
   slug: string;
   teamId: string;
   filter: MemoryFilter;
+  opened: string | null;
+  writing: boolean;
+  onWritten: () => void;
   lines: readonly LineResponseDto[];
   memories: UseQueryResult<TeamMemory[]>;
 };
@@ -22,10 +27,24 @@ export function TeamMemoryResults({
   slug,
   teamId,
   filter,
+  opened,
+  writing,
+  onWritten,
   lines,
   memories,
 }: TeamMemoryResultsProps) {
   const held = memories.data ?? [];
+
+  const rows = held.map((memory) => (
+    <TeamMemoryRow
+      key={memory.id}
+      slug={slug}
+      teamId={teamId}
+      memory={memory}
+      lines={lines}
+      startsOpen={memory.id === opened}
+    />
+  ));
 
   if (failed(memories)) {
     return (
@@ -43,13 +62,22 @@ export function TeamMemoryResults({
     return <TeamMemorySkeleton />;
   }
 
+  if (writing) {
+    return (
+      <TeamMemoryTable>
+        <NewMemoryRow teamId={teamId} lines={lines} onDone={onWritten} />
+        {rows}
+      </TeamMemoryTable>
+    );
+  }
+
   if (held.length === 0 && !narrowed(filter) && filter.standing === 'stands') {
     return (
       <Notice>
         <EmptyState
           icon={Spool}
           title="No memories yet"
-          action={<WriteMemoryButton teamId={teamId} />}
+          action={<WriteMemoryButton />}
         >
           Stations that keep memories propose them after runs. Approve them in
           the inbox, or write one yourself.
@@ -70,17 +98,5 @@ export function TeamMemoryResults({
     );
   }
 
-  return (
-    <ul className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto px-3 pb-3">
-      {held.map((memory) => (
-        <TeamMemoryRow
-          key={memory.id}
-          slug={slug}
-          teamId={teamId}
-          memory={memory}
-          lines={lines}
-        />
-      ))}
-    </ul>
-  );
+  return <TeamMemoryTable>{rows}</TeamMemoryTable>;
 }

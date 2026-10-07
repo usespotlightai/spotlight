@@ -3,6 +3,7 @@ import type {
   StationJudgeResponseDto,
 } from '@/lib/api';
 import { amountIn } from '@/lib/inbox';
+import { pointsShown } from '@/lib/replay-words';
 
 export type JudgeSettings = StationJudgeResponseDto;
 
@@ -80,3 +81,60 @@ export const alertPhrase = (
   currency: string | null = null,
 ): string =>
   `Alerts when the ${MEASURES[alert.measure].toLowerCase()} ${thresholdOf(alert, currency)}`;
+
+export type AlertTrigger = 'rises' | 'falls' | 'above' | 'below';
+
+export type AlertFace = {
+  readonly measure: string;
+  readonly trigger: AlertTrigger;
+  readonly threshold: string;
+  readonly window: string;
+};
+
+const changeShown = (
+  alert: AlertThreshold,
+  change: number,
+  currency: string | null,
+): string =>
+  alert.measure === 'cost_per_run'
+    ? amountIn(change, currency)
+    : pointsShown(change);
+
+export const alertFace = (
+  alert: AlertThreshold,
+  currency: string | null = null,
+): AlertFace => {
+  const measure = MEASURES[alert.measure];
+
+  if (alert.risesBy !== null) {
+    return {
+      measure,
+      trigger: 'rises',
+      threshold: `+${changeShown(alert, alert.risesBy, currency)}`,
+      window: changeOverRuns(alert.over),
+    };
+  }
+  if (alert.fallsBy !== null) {
+    return {
+      measure,
+      trigger: 'falls',
+      threshold: `−${changeShown(alert, alert.fallsBy, currency)}`,
+      window: changeOverRuns(alert.over),
+    };
+  }
+  if (alert.below !== null) {
+    return {
+      measure,
+      trigger: 'below',
+      threshold: `< ${amountOf(alert, alert.below, currency)}`,
+      window: overRuns(alert.over),
+    };
+  }
+
+  return {
+    measure,
+    trigger: 'above',
+    threshold: `> ${amountOf(alert, alert.above ?? 0, currency)}`,
+    window: overRuns(alert.over),
+  };
+};

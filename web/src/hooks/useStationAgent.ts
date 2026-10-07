@@ -6,11 +6,20 @@ type StationAgent = {
   effort: string | null | undefined;
 };
 
+export type EffortLevel = {
+  readonly name: string;
+  readonly at: number;
+  readonly levels: readonly string[];
+};
+
+const named = (effort: string): string =>
+  `${effort.charAt(0).toUpperCase()}${effort.slice(1)}`;
+
 export type StationAgentNames = {
   readonly harnessId: string | undefined;
   readonly harness: string;
   readonly model: string;
-  readonly effort: string | null;
+  readonly effort: EffortLevel | null;
 };
 
 export function useStationAgent({
@@ -34,9 +43,11 @@ export function useStationAgent({
     model: models.find((each) => each.id === model)?.name ?? 'Default model',
     effort:
       efforts.length > 0
-        ? effort
-          ? `${effort.charAt(0).toUpperCase()}${effort.slice(1)} effort`
-          : 'Default effort'
+        ? {
+            name: effort ? named(effort) : 'Default',
+            at: effort ? efforts.indexOf(effort) + 1 : 0,
+            levels: efforts.map(named),
+          }
         : null,
   };
 }

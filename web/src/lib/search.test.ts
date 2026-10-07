@@ -129,7 +129,7 @@ describe('search', () => {
     expect(startRefusal([setOf(6)], { state: 'searching' } as Search)).toBe(
       'A search of this station is underway.',
     );
-    expect(startRefusal([], null)).toBe('Open a replay set first.');
+    expect(startRefusal([], null)).toBe('Create a replay set first.');
     expect(startRefusal([setOf(2)], null)).toBe(
       'No replay set covers 5 different tasks yet.',
     );

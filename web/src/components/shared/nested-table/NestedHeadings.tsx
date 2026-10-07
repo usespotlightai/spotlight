@@ -44,7 +44,7 @@ export function NestedHeadings({
     <div
       ref={row}
       data-slot="nested-headings"
-      className="col-span-full hidden grid-cols-subgrid items-center border-border border-y bg-surface py-1.5 pr-2 text-[0.7rem] text-muted-foreground @4xl:grid"
+      className="col-span-full hidden grid-cols-subgrid items-center border-border border-y bg-surface py-1.5 pr-2 text-[0.7rem] text-muted-foreground @4xl:grid @lg:group-data-compact/nested:grid"
     >
       {headings.map((heading, column) => (
         <div

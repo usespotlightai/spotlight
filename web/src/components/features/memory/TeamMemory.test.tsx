@@ -21,17 +21,6 @@ vi.mock('@/hooks/api/useTeamMemories', () => ({
     return memoriesState;
   },
 }));
-const focusedState = {
-  data: undefined as unknown,
-  isPending: false,
-  isFetching: false,
-  errorUpdateCount: 0,
-  refetch,
-};
-
-vi.mock('@/hooks/api/useTeamMemory', () => ({
-  useTeamMemory: () => focusedState,
-}));
 vi.mock('@/hooks/api/useLines', () => ({
   useLines: () => ({
     data: [
@@ -51,11 +40,49 @@ vi.mock('@/hooks/api/useLines', () => ({
 vi.mock('@/components/features/memory/WriteMemoryButton', () => ({
   WriteMemoryButton: () => <button type="button">Write a memory</button>,
 }));
+vi.mock('@/components/features/memory/MemorySource', () => ({
+  MemorySource: () => null,
+}));
+const mutate = vi.fn();
+
+vi.mock('@/hooks/api/useWriteMemory', () => ({
+  useWriteMemory: () => ({ mutate: vi.fn(), isPending: false }),
+}));
+vi.mock('@/hooks/api/useSession', () => ({
+  useSession: () => ({ data: { user: { name: 'Ada Lovelace', image: null } } }),
+}));
+vi.mock('@/hooks/api/useEditMemory', () => ({
+  useEditMemory: () => ({ mutate, reset: vi.fn(), isPending: false }),
+}));
 vi.mock('@/components/features/memory/MemoryDetails', () => ({
-  MemoryDetails: ({ memoryId }: { memoryId: string }) => (
-    <p>Details of {memoryId}</p>
+  MemoryDetails: ({
+    memoryId,
+    editing,
+    onEdit,
+    onSave,
+  }: {
+    memoryId: string;
+    editing: boolean;
+    onEdit: () => void;
+    onSave: () => void;
+  }) => (
+    <div>
+      <p>Details of {memoryId}</p>
+      {editing ? (
+        <button type="button" onClick={onSave}>
+          Save
+        </button>
+      ) : (
+        <button type="button" onClick={onEdit}>
+          Edit
+        </button>
+      )}
+    </div>
   ),
 }));
+
+const rowsShown = () =>
+  Array.from(document.querySelectorAll('[data-slot="team-memory"]'));
 
 const memory = (over: Partial<Memory> = {}): Memory => ({
   id: 'memory_1',
@@ -125,16 +152,17 @@ describe('TeamMemory', () => {
 
     showing();
 
-    expect(screen.getAllByRole('listitem')).toHaveLength(2);
-    expect(screen.getByText('The whole team')).toBeVisible();
-    expect(
-      screen.getByText('Delivery › Implementation · acme/api: src/uploads.ts'),
-    ).toBeVisible();
-    expect(screen.getAllByText(/kept by Maya Chen/)).toHaveLength(2);
+    expect(rowsShown()).toHaveLength(2);
+    const places = screen.getAllByRole('list', { name: 'Where it applies' });
+    expect(places[0]).toHaveTextContent('The whole team');
+    expect(places[1]).toHaveTextContent(
+      'Delivery › Implementation › acme/api › src/uploads.ts',
+    );
+    expect(screen.getAllByText('Maya Chen')).toHaveLength(2);
     expect(asked[0]?.standing).toBe('stands');
   });
 
-  it('asks for the retired memories, and says why each was retired', () => {
+  it('asks for the retired memories, and says why each was retired', async () => {
     memoriesState.data = [
       memory({
         standing: 'retired',
@@ -150,6 +178,9 @@ describe('TeamMemory', () => {
     showing('/w/acme/team/team_1/memory?standing=retired');
 
     expect(asked[0]?.standing).toBe('retired');
+    await userEvent.click(
+      screen.getByRole('button', { name: /Name branches after the ticket/ }),
+    );
     const why = screen.getByRole('figure', { name: 'Why it was retired' });
     expect(within(why).getByText('Maya Chen')).toBeVisible();
     expect(within(why).getByText('retired this')).toBeVisible();
@@ -160,11 +191,114 @@ describe('TeamMemory', () => {
     memoriesState.data = [memory()];
     showing();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Retired' }));
+    await userEvent.click(screen.getByRole('link', { name: 'Retired' }));
 
     expect(screen.getByRole('status', { name: 'Where' })).toHaveTextContent(
       '?standing=retired',
     );
+  });
+
+  it('folds a branch of where an opened memory applies', async () => {
+    memoriesState.data = [
+      memory({
+        lineId: 'line_delivery',
+        stationId: 'station_build',
+        repository: 'acme/api',
+        paths: ['src/uploads.ts'],
+      }),
+    ];
+    showing();
+
+    await userEvent.click(
+      screen.getByRole('button', { name: /Name branches after the ticket/ }),
+    );
+    const fold = screen.getByRole('button', {
+      name: 'Hide what is under acme/api',
+    });
+    await userEvent.click(fold);
+
+    expect(
+      screen.getByRole('button', { name: 'Show what is under acme/api' }),
+    ).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('edits a memory in its own row, keeping where it applies', async () => {
+    memoriesState.data = [
+      memory({
+        lineId: 'line_delivery',
+        stationId: 'station_build',
+        repository: 'acme/api',
+        paths: ['src/uploads.ts'],
+      }),
+    ];
+    showing();
+
+    await userEvent.click(
+      screen.getByRole('button', { name: /Name branches after the ticket/ }),
+    );
+    await userEvent.click(screen.getByRole('button', { name: 'Edit' }));
+
+    const body = screen.getByRole('textbox', {
+      name: 'What the team should remember',
+    });
+    expect(screen.getByRole('button', { name: /^Kind:/ })).toBeInTheDocument();
+    expect(screen.getByRole('textbox', { name: 'Paths' })).toHaveValue(
+      'src/uploads.ts',
+    );
+
+    await userEvent.clear(body);
+    await userEvent.type(body, 'Name branches after the issue.');
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect(mutate).toHaveBeenCalledWith(
+      {
+        teamId: 'team_1',
+        memoryId: 'memory_1',
+        memory: expect.objectContaining({
+          body: 'Name branches after the issue.',
+          lineId: 'line_delivery',
+          stationId: 'station_build',
+          repository: 'acme/api',
+          paths: ['src/uploads.ts'],
+        }),
+      },
+      expect.anything(),
+    );
+  });
+
+  it('opens and closes a memory wherever its row is clicked', async () => {
+    memoriesState.data = [memory()];
+    showing();
+    const toggle = screen.getByRole('button', {
+      name: /Name branches after the ticket/,
+    });
+
+    await userEvent.click(screen.getByText('Maya Chen'));
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+
+    await userEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    expect(
+      screen.getByRole('textbox', { name: 'What the team should remember' }),
+    ).toBeInTheDocument();
+
+    await userEvent.click(screen.getByText('Maya Chen'));
+    expect(
+      screen.getByRole('textbox', { name: 'What the team should remember' }),
+    ).toBeInTheDocument();
+  });
+
+  it('writes a new memory in a row at the top, even when there are none', async () => {
+    memoriesState.data = [];
+    showing('/w/acme/team/team_1/memory?write=1');
+
+    expect(
+      screen.getByRole('listitem', { name: 'Write a memory' }),
+    ).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    expect(screen.getByRole('status', { name: 'Where' })).toHaveTextContent('');
+    expect(screen.getByText('No memories yet')).toBeInTheDocument();
   });
 
   it('opens a memory to show more about it', async () => {
@@ -192,7 +326,7 @@ describe('TeamMemory', () => {
     memoriesState.data = [];
     showing();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Retired' }));
+    await userEvent.click(screen.getByRole('link', { name: 'Retired' }));
 
     expect(screen.getByRole('status', { name: 'Where' })).toHaveTextContent(
       '?standing=retired',
@@ -232,33 +366,24 @@ describe('TeamMemory', () => {
 
     showing();
 
-    expect(screen.getByText('Used by 3 runs')).toBeVisible();
-    expect(screen.getByText('Not used by any run yet')).toBeVisible();
+    const rows = rowsShown();
+    expect(rows[0]).toHaveTextContent(/3$/);
+    expect(rows[1]).toHaveTextContent(/0$/);
   });
 
-  it('opens the one memory a link names, and goes back to every memory', async () => {
-    focusedState.data = memory({ id: 'memory_9', body: 'The one linked.' });
+  it('opens the memory a link names, among the rest', () => {
+    memoriesState.data = [
+      memory(),
+      memory({ id: 'memory_9', body: 'The one linked.' }),
+    ];
 
     showing('/w/acme/team/team_1/memory?memory=memory_9');
 
-    expect(screen.getByText('The one linked.')).toBeVisible();
-    expect(screen.getByText('Details of memory_9')).toBeInTheDocument();
-
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Show every memory' }),
-    );
-
-    expect(screen.getByRole('status', { name: 'Where' })).toHaveTextContent('');
-  });
-
-  it('says so when a link names a memory the team does not have', () => {
-    focusedState.data = null;
-
-    showing('/w/acme/team/team_1/memory?memory=memory_gone');
-
-    expect(screen.getByText('Memory not found on this team.')).toBeVisible();
+    expect(rowsShown()).toHaveLength(2);
     expect(
-      screen.getByRole('button', { name: 'Show every memory' }),
-    ).toBeVisible();
+      screen.getByRole('button', { name: 'The one linked.' }),
+    ).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getByText('Details of memory_9')).toBeInTheDocument();
+    expect(screen.queryByText('Details of memory_1')).not.toBeInTheDocument();
   });
 });

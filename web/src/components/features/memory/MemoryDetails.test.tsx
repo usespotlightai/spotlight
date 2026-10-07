@@ -59,10 +59,14 @@ const showing = () =>
   render(
     <MemoryRouter>
       <MemoryDetails
-        slug="acme"
         teamId="team_1"
         memoryId="memory_1"
-        lines={[]}
+        editing={false}
+        saving={false}
+        unsaveable={false}
+        onEdit={vi.fn()}
+        onCancel={vi.fn()}
+        onSave={vi.fn()}
       />
     </MemoryRouter>,
   );
@@ -72,17 +76,6 @@ beforeEach(() => {
 });
 
 describe('MemoryDetails', () => {
-  it('links to the run and the task a memory rests on', () => {
-    memoryState.data = detail();
-    showing();
-
-    expect(screen.getByRole('link', { name: 'Open its run' })).toHaveAttribute(
-      'href',
-      '/w/acme/team/team_1/runs/run_1',
-    );
-    expect(screen.getByRole('link', { name: 'Open its task' })).toBeVisible();
-  });
-
   it('offers to correct or retire a standing memory', () => {
     memoryState.data = detail();
     showing();

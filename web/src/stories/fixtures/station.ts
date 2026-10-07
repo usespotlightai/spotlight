@@ -180,6 +180,7 @@ const LISTED = {
   groups: [
     {
       ran: true,
+      pullRequest: { url: 'https://github.com/acme/config/pull/42' },
       firstRunId: 'run_docs_1',
       fingerprint:
         'b7d4a60c8e2f1a9b3d5c7e9f0a2b4c6d8e0f1a3b5c7d9e1f3a5b7c93f2a9c1e',
@@ -249,6 +250,7 @@ const LISTED = {
     },
     {
       ran: true,
+      pullRequest: null,
       firstRunId: 'run_queue_1',
       fingerprint:
         '3f2a9c1e5b7d4a60c8e2f1a9b3d5c7e9f0a2b4c6d8e0f1a3b5c7d9e1f3a5b7c9',
@@ -614,6 +616,34 @@ export const seedStationClaimsJudge = (client: QueryClient) => {
     stationJudgeKeys.forStation(STATION_ID),
     CLAIMS_AGREEMENT,
   );
+};
+
+const LONG_PROMPT = [
+  '## Role',
+  'Implement the spec on the task. Read the spec and the linked issue before touching any code, and keep the change to what the spec asks for.',
+  '## How to work',
+  '- Keep the change small',
+  '- Ask when the spec is unclear',
+  '- Write or update tests next to the code you change',
+  '- Run the checks before you hand over',
+  '## What to hand over',
+  'A pull request with a short summary of what changed and why, the checks you ran, and anything you could not do.',
+  '## What not to do',
+  '- Do not refactor code the spec does not touch',
+  '- Do not change public APIs without saying so',
+  '- Do not skip failing tests',
+].join('\n\n');
+
+const LONG_PROMPT_LINES: LineResponseDto[] = LINES.map((line) => ({
+  ...line,
+  stations: line.stations.map((each) =>
+    each.id === STATION_ID ? { ...each, agentPrompt: LONG_PROMPT } : each,
+  ),
+}));
+
+export const seedStationLongPrompt = (client: QueryClient) => {
+  seedStation(client);
+  client.setQueryData(lineKeys.forTeam(TEAM_ID), LONG_PROMPT_LINES);
 };
 
 export const failStation = (client: QueryClient) => {

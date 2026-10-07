@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   type AlertThreshold,
+  alertFace,
   alertPhrase,
   sharePercent,
 } from '@/lib/station-watch';
@@ -62,6 +63,35 @@ describe('alertPhrase', () => {
     expect(alertPhrase(alert('failed_rate', { risesBy: 0.01, over: 1 }))).toBe(
       'Alerts when the failed rate rises 1 point or more from one run to the next',
     );
+  });
+});
+
+describe('alertFace', () => {
+  it('shows a rate change in signed points over its window', () => {
+    expect(alertFace(alert('sent_back_rate', { risesBy: 0.2 }))).toEqual({
+      measure: 'Sent-back rate',
+      trigger: 'rises',
+      threshold: '+20 pts',
+      window: 'over 20 runs',
+    });
+    expect(alertFace(alert('accepted_rate', { fallsBy: 0.1 }))).toEqual({
+      measure: 'Accepted rate',
+      trigger: 'falls',
+      threshold: '−10 pts',
+      window: 'over 20 runs',
+    });
+  });
+
+  it('shows a level as a bound, a cost as a bare amount', () => {
+    expect(
+      alertFace(alert('cost_per_run', { above: 2, over: 10 })).threshold,
+    ).toBe('> 2.00');
+    expect(alertFace(alert('merged_rate', { below: 0.5, over: 1 }))).toEqual({
+      measure: 'Merged rate',
+      trigger: 'below',
+      threshold: '< 50%',
+      window: 'in a single run',
+    });
   });
 });
 

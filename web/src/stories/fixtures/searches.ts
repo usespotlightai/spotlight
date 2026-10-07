@@ -2,6 +2,7 @@ import type { QueryClient } from '@tanstack/react-query';
 import { lineKeys } from '@/hooks/api/useLines';
 import { replayRunKeys } from '@/hooks/api/useReplayRun';
 import { replaySetKeys } from '@/hooks/api/useReplaySets';
+import { replayKeys } from '@/hooks/api/useReplays';
 import { searchKeys } from '@/hooks/api/useSearches';
 import { searchRunKeys } from '@/hooks/api/useSearchRun';
 import { teamRunKeys } from '@/hooks/api/useTeamRuns';
@@ -14,7 +15,7 @@ import type {
   SearchRunResponseDto,
 } from '@/lib/api';
 import { failQuery } from '@/stories/failQuery';
-import { seedStationReplays } from '@/stories/fixtures/replays';
+import { seedReplaysOf, seedStationReplays } from '@/stories/fixtures/replays';
 import { seedNoRunMemories } from '@/stories/fixtures/run-memories';
 import {
   LINE_ID,
@@ -485,6 +486,8 @@ const withSource = (client: QueryClient) => {
 
 export const seedStationSearches = (client: QueryClient) => {
   seedStationReplays(client);
+  seedReplaysOf(client, SET_ID);
+  client.setQueryData(replayKeys.forSet(SMALL_SET.id), []);
   withSource(client);
   client.setQueryData(replaySetKeys.forStation(STATION_ID), [SET, SMALL_SET]);
   client.setQueryData(searchKeys.forStation(STATION_ID), [SUMMARY, EARLIER]);
@@ -497,6 +500,8 @@ export const seedStationSearchesAwaiting = (client: QueryClient) => {
 
 export const seedStationWithoutSearches = (client: QueryClient) => {
   seedStationReplays(client);
+  seedReplaysOf(client, SET_ID);
+  client.setQueryData(replayKeys.forSet(SMALL_SET.id), []);
   client.setQueryData(replaySetKeys.forStation(STATION_ID), [SET, SMALL_SET]);
   client.setQueryData(searchKeys.forStation(STATION_ID), []);
 };

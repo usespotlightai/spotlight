@@ -148,6 +148,16 @@ vi.mock('@/hooks/api/useStationOutcomes', () => ({
 const judged = vi.fn();
 const judgeFailing = vi.fn();
 
+const worthImproving = vi.fn();
+
+vi.mock('@/hooks/api/useInsightsOverview', () => ({
+  useInsightsOverview: () => ({
+    data: { worthImproving: worthImproving() },
+    isPending: false,
+    errorUpdateCount: 0,
+  }),
+}));
+
 vi.mock('@/hooks/api/useStationJudge', () => ({
   useStationJudge: () => ({
     data: judged(),
@@ -239,6 +249,7 @@ const OUTCOMES = {
   groups: [
     {
       ran: true,
+      pullRequest: null,
       firstRunId: 'run_2',
       fingerprint: 'a'.repeat(64),
       config: null,
@@ -248,6 +259,7 @@ const OUTCOMES = {
     },
     {
       ran: true,
+      pullRequest: null,
       firstRunId: 'run_1',
       fingerprint: 'b'.repeat(64),
       config: null,
@@ -274,7 +286,12 @@ const STATION = '/w/acme/team/team_1/lines/line_1/stations/station_2';
 function HandedOver() {
   const { state } = useLocation();
 
-  return <pre data-slot="handed-over">{JSON.stringify(state?.improving)}</pre>;
+  return (
+    <>
+      <pre data-slot="handed-over">{JSON.stringify(state?.improving)}</pre>
+      <pre data-slot="handed-ask">{state?.ask ?? ''}</pre>
+    </>
+  );
 }
 
 const renderAt = (stationId: string, tab?: string) =>
@@ -294,13 +311,23 @@ const renderAt = (stationId: string, tab?: string) =>
     </MemoryRouter>,
   );
 
+const laidOut = ({ track, slide }: { track: number; slide: number }) => {
+  vi.spyOn(HTMLElement.prototype, 'clientWidth', 'get').mockReturnValue(track);
+  vi.spyOn(HTMLElement.prototype, 'scrollWidth', 'get').mockReturnValue(600);
+  vi.spyOn(HTMLElement.prototype, 'offsetWidth', 'get').mockReturnValue(
+    slide - 8,
+  );
+  vi.spyOn(HTMLElement.prototype, 'offsetLeft', 'get').mockImplementation(
+    function (this: HTMLElement) {
+      return [...(this.parentElement?.children ?? [])].indexOf(this) * slide;
+    },
+  );
+};
+
 const sectionTitled = (title: string) =>
   screen
     .getByRole('heading', { name: title })
     .closest('section') as HTMLElement;
-
-const setting = (label: string) =>
-  screen.getByText(label, { selector: 'dt' }).nextElementSibling;
 
 beforeEach(() => {
   lines.mockReturnValue([line]);
@@ -311,6 +338,7 @@ beforeEach(() => {
   outcomesError.mockReturnValue(null);
   refetchOutcomes.mockClear();
   judged.mockReturnValue({ standing: STANDING });
+  worthImproving.mockReturnValue([]);
   judgeFailing.mockReturnValue(false);
   sets.mockReturnValue([]);
   setsFailing.mockReturnValue(false);
@@ -337,16 +365,20 @@ describe('Station', () => {
   it('walks back to the team and the board from the breadcrumbs, leaving the station unlinked', () => {
     renderAt('station_1');
 
-    expect(screen.getByRole('link', { name: /Platform/ })).toHaveAttribute(
+    const crumbs = within(
+      screen.getByRole('heading', { name: /Platform\s*Default\s*Triage/ }),
+    );
+
+    expect(crumbs.getByRole('link', { name: /Platform/ })).toHaveAttribute(
       'href',
       '/w/acme/team/team_1',
     );
-    expect(screen.getByRole('link', { name: 'Default' })).toHaveAttribute(
+    expect(crumbs.getByRole('link', { name: 'Default' })).toHaveAttribute(
       'href',
       '/w/acme/team/team_1/lines/line_1',
     );
     expect(
-      screen.queryByRole('link', { name: 'Triage' }),
+      crumbs.queryByRole('link', { name: 'Triage' }),
     ).not.toBeInTheDocument();
   });
 
@@ -356,22 +388,6 @@ describe('Station', () => {
     expect(
       document.querySelector('[data-slot="station-icon"] circle'),
     ).toHaveAttribute('stroke', '#93a1b5');
-  });
-
-  it('names the agent that works the station under its name', () => {
-    renderAt('station_2');
-
-    expect(
-      document.querySelector('[data-slot="station-agent"]'),
-    ).toHaveTextContent('Claude Code · Sonnet · High effort');
-  });
-
-  it('says no agent works the station where no harness is set', () => {
-    renderAt('station_1');
-
-    expect(
-      document.querySelector('[data-slot="station-agent"]'),
-    ).toHaveTextContent('No agent');
   });
 
   it('holds the shape of the station while the line loads', () => {
@@ -392,14 +408,14 @@ describe('Station', () => {
     const overview = screen.getByRole('status', {
       name: 'Loading the station',
     });
+    expect(overview).toHaveTextContent('Config');
     expect(overview).toHaveTextContent('Latest runs on this config');
-    expect(overview).toHaveTextContent('Recent runs');
     unmount();
 
     renderAt('station_2', 'improve');
     expect(
       screen.getByRole('status', { name: 'Loading the station' }),
-    ).toHaveTextContent('Pick past runs to replay');
+    ).not.toHaveTextContent('Latest runs on this config');
   });
 
   it('says the station could not be loaded, and tries again when asked', async () => {
@@ -443,9 +459,6 @@ describe('Station', () => {
       expect(
         screen.queryByRole('navigation', { name: 'Station' }),
       ).not.toBeInTheDocument();
-      expect(
-        document.querySelector('[data-slot="station-agent"]'),
-      ).not.toBeInTheDocument();
     });
 
     it('says nothing runs where tasks are completed, offering nothing to improve', () => {
@@ -455,13 +468,13 @@ describe('Station', () => {
         screen.getByText(/the line is done with them/),
       ).toBeInTheDocument();
       expect(
-        screen.queryByRole('link', { name: 'Improve this station' }),
+        screen.queryByRole('heading', { name: 'Worth improving' }),
       ).not.toBeInTheDocument();
     });
   });
 
   describe('its tabs', () => {
-    it('offers Overview, Improve and Config, each at its own address', () => {
+    it('offers Overview and Improve, each at its own address', () => {
       renderAt('station_2');
 
       const tabs = within(screen.getByRole('navigation', { name: 'Station' }));
@@ -474,10 +487,7 @@ describe('Station', () => {
         'href',
         `${STATION}/improve`,
       );
-      expect(tabs.getByRole('link', { name: 'Config' })).toHaveAttribute(
-        'href',
-        `${STATION}/config`,
-      );
+      expect(tabs.getAllByRole('link')).toHaveLength(2);
     });
 
     it('opens on the overview, marking it as the tab in view', () => {
@@ -496,14 +506,16 @@ describe('Station', () => {
       const user = userEvent.setup();
       renderAt('station_2');
 
-      await user.click(screen.getByRole('link', { name: 'Improve' }));
+      const tabs = within(screen.getByRole('navigation', { name: 'Station' }));
 
-      expect(screen.getByRole('link', { name: 'Improve' })).toHaveAttribute(
+      await user.click(tabs.getByRole('link', { name: 'Improve' }));
+
+      expect(tabs.getByRole('link', { name: 'Improve' })).toHaveAttribute(
         'aria-current',
         'page',
       );
       expect(
-        screen.getByRole('heading', { name: 'Talk it through with the agent' }),
+        screen.getByRole('heading', { name: 'Worth improving' }),
       ).toBeInTheDocument();
       expect(
         screen.queryByRole('heading', { name: 'Recent runs' }),
@@ -516,8 +528,15 @@ describe('Station', () => {
       renderAt('station_2');
 
       expect(
-        document.querySelector('[data-slot="station-glance"]'),
-      ).toHaveTextContent('Runs42Accepted28Sent back3Failed1');
+        [...document.querySelectorAll('[data-slot="glance-tile"]')]
+          .slice(0, 4)
+          .map((tile) => tile.textContent),
+      ).toEqual([
+        'Runs42',
+        'Accepted28of 42 runs',
+        'Sent back3of 42 runs',
+        'Failed1of 42 runs',
+      ]);
       expect(
         within(sectionTitled('Latest runs on this config')).getByRole('link', {
           name: 'See in Insights',
@@ -535,13 +554,96 @@ describe('Station', () => {
       ).not.toBeInTheDocument();
     });
 
+    it('offers no paging where every alert fits', () => {
+      renderAt('station_2');
+
+      expect(
+        screen.queryByRole('button', { name: 'Next alert rule' }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole('button', { name: /^Show page/ }),
+      ).not.toBeInTheDocument();
+    });
+
+    it('pages through the station’s alerts where they overflow', async () => {
+      const user = userEvent.setup();
+      laidOut({ track: 200, slide: 180 });
+      renderAt('station_2');
+
+      const previous = screen.getByRole('button', {
+        name: 'Previous alert rule',
+      });
+      const next = screen.getByRole('button', { name: 'Next alert rule' });
+
+      expect(previous).toBeDisabled();
+
+      await user.click(next);
+      await user.click(next);
+
+      expect(next).toBeDisabled();
+      expect(
+        screen.getByRole('button', { name: 'Show page 3 of 3' }),
+      ).toHaveAttribute('aria-current', 'true');
+    });
+
+    it('counts only the pages the track can scroll to', () => {
+      laidOut({ track: 450, slide: 180 });
+      renderAt('station_2');
+
+      expect(
+        screen.getAllByRole('button', { name: /^Show page/ }),
+      ).toHaveLength(2);
+    });
+
+    it('links to the pull request that brought the config in force', () => {
+      outcomes.mockReturnValue({
+        ...OUTCOMES,
+        groups: OUTCOMES.groups.map((group, at) =>
+          at === 0
+            ? {
+                ...group,
+                pullRequest: { url: 'https://github.com/acme/config/pull/42' },
+              }
+            : group,
+        ),
+      });
+
+      renderAt('station_2');
+
+      expect(
+        within(sectionTitled('Version')).getByRole('link', {
+          name: 'View pull request',
+        }),
+      ).toHaveAttribute('href', 'https://github.com/acme/config/pull/42');
+    });
+
+    it('offers no pull request where none brought the config', () => {
+      renderAt('station_2');
+
+      expect(
+        screen.queryByRole('link', { name: 'View pull request' }),
+      ).not.toBeInTheDocument();
+    });
+
+    it('says which config version is in force, linking to its history', () => {
+      renderAt('station_2');
+
+      const version = within(sectionTitled('Version'));
+
+      expect(version.getByText('version aaaaaaaa')).toBeInTheDocument();
+      expect(version.getByRole('link', { name: 'History' })).toHaveAttribute(
+        'href',
+        `${INSIGHTS}?tab=stations&stationId=station_2`,
+      );
+    });
+
     it('lists the station’s alerts in the order they were written', () => {
       renderAt('station_2');
 
       expect(
-        within(screen.getByRole('list', { name: 'Alerts' }))
+        within(screen.getByRole('list', { name: 'Alert rules' }))
           .getAllByRole('listitem')
-          .map((each) => each.textContent),
+          .map((each) => each.getAttribute('aria-label')),
       ).toEqual([
         'Alerts when the sent-back rate rises 20 points or more over 20 runs',
         'Alerts when the cost per run goes above 2.00 over 10 runs',
@@ -549,12 +651,12 @@ describe('Station', () => {
       ]);
     });
 
-    it('says in a line how far the judge is trusted, linking to its agreement in Insights', () => {
+    it('says how far the judge is trusted, linking to its agreement in Insights', () => {
       renderAt('station_2');
 
       expect(
         document.querySelector('[data-slot="judge-standing"]'),
-      ).toHaveTextContent('Trusted. Cohen’s kappa: 0.71 over 24 runs');
+      ).toHaveTextContent('Cohen’s kappa0.71Trusted above 0.60 over 24 runs');
       expect(
         screen.getByRole('link', { name: 'How it agrees with people' }),
       ).toHaveAttribute(
@@ -563,29 +665,32 @@ describe('Station', () => {
       );
     });
 
-    it('leaves the judge out where its agreement could not load', () => {
+    it('leaves out how far the judge is trusted where its agreement could not load', () => {
       judged.mockReturnValue(undefined);
       judgeFailing.mockReturnValue(true);
 
       renderAt('station_2');
 
       expect(
-        screen.queryByRole('heading', { name: 'Judge' }),
+        document.querySelector('[data-slot="judge-standing"]'),
       ).not.toBeInTheDocument();
+      expect(sectionTitled('Judge')).toHaveTextContent(
+        'Trusted from 0.60 agreement',
+      );
     });
 
-    it('shows no judge or alerts where none are set', () => {
+    it('shows no alerts and no judge standing where none are set', () => {
       renderAt('station_1');
 
       expect(
-        screen.queryByRole('heading', { name: 'Judge' }),
+        screen.queryByRole('link', { name: 'How it agrees with people' }),
       ).not.toBeInTheDocument();
       expect(
-        screen.queryByRole('heading', { name: 'Alerts you when' }),
+        screen.queryByRole('heading', { name: /^Alert rules/ }),
       ).not.toBeInTheDocument();
     });
 
-    it('lists its recent runs newest first, each linking to the run', () => {
+    it('lists the recent runs of the config in force newest first, each linking to the run', () => {
       renderAt('station_2');
 
       const runs = within(screen.getByRole('list', { name: 'Recent runs' }));
@@ -597,7 +702,6 @@ describe('Station', () => {
       ).toEqual([
         ['Completed', '/w/acme/team/team_1/runs/run_3'],
         ['Failed', '/w/acme/team/team_1/runs/run_2'],
-        ['Stopped', '/w/acme/team/team_1/runs/run_1'],
       ]);
     });
 
@@ -670,28 +774,121 @@ describe('Station', () => {
   });
 
   describe('its improve tab', () => {
-    it('lays out the ways to improve the station as numbered steps', () => {
+    it('lays out the ways to improve the station as cards', () => {
       renderAt('station_2', 'improve');
 
       expect(
         screen
-          .getAllByRole('heading', { level: 3 })
+          .getAllByRole('heading', { level: 2 })
           .map((each) => each.textContent),
       ).toEqual([
-        'Talk it through with the agent',
-        'Pick past runs to replay',
-        'Propose candidates',
-        'Or let a search find one',
+        'What stands out',
+        'Worth improving',
+        'Try a change',
+        'Replay sets',
+        'Searches',
       ]);
     });
 
-    it('hands the station to the agent to improve', async () => {
+    it('shows what got worse at the station against before and the team', () => {
+      worthImproving.mockReturnValue([
+        {
+          lineId: 'line_1',
+          stationId: 'station_2',
+          runs: 20,
+          worstBy: 2.5,
+          mixedCurrencies: false,
+          signals: [
+            {
+              signal: 'sent-back',
+              now: 0.3,
+              before: 0.1,
+              team: 0.12,
+              rose: true,
+              trails: true,
+              flaggedAbove: 0.2,
+            },
+          ],
+        },
+      ]);
+
+      renderAt('station_2', 'improve');
+
+      expect(
+        within(sectionTitled('Worth improving'))
+          .getAllByRole('img')
+          .map((each) => each.getAttribute('aria-label')),
+      ).toEqual([expect.stringMatching(/^Sent back 30%/)]);
+    });
+
+    it('asks the agent about one signal, handing over the station and what stood out', async () => {
+      const user = userEvent.setup();
+      worthImproving.mockReturnValue([
+        {
+          lineId: 'line_1',
+          stationId: 'station_2',
+          runs: 20,
+          worstBy: 2.5,
+          mixedCurrencies: false,
+          signals: [
+            {
+              signal: 'sent-back',
+              now: 0.3,
+              before: 0.1,
+              team: 0.12,
+              rose: true,
+              trails: true,
+              flaggedAbove: 0.2,
+            },
+          ],
+        },
+      ]);
+
+      renderAt('station_2', 'improve');
+
+      await user.click(
+        within(
+          screen.getByRole('list', { name: 'Signals worth improving' }),
+        ).getByRole('link', { name: 'Ask the agent' }),
+      );
+
+      expect(
+        screen.queryByRole('link', { name: 'Review with the agent' }),
+      ).not.toBeInTheDocument();
+      expect(
+        document.querySelector('[data-slot="handed-ask"]'),
+      ).toHaveTextContent(
+        /^Sent back 30%.*What should change at this station\?$/,
+      );
+      expect(
+        JSON.parse(
+          document.querySelector('[data-slot="handed-over"]')?.textContent ??
+            '',
+        ),
+      ).toMatchObject({ stationId: 'station_2' });
+    });
+
+    it('says when nothing stands out', () => {
+      renderAt('station_2', 'improve');
+
+      expect(sectionTitled('Worth improving')).toHaveTextContent(
+        'Every signal looks healthy over the last 30 days.',
+      );
+    });
+
+    it('hands the station to the agent when nothing stands out', async () => {
       const user = userEvent.setup();
       renderAt('station_2', 'improve');
 
       await user.click(
-        screen.getByRole('link', { name: 'Improve this station' }),
+        within(sectionTitled('Worth improving')).getByRole('link', {
+          name: 'Review with the agent',
+        }),
       );
+
+      expect(
+        document.querySelector('[data-slot="handed-ask"]'),
+      ).toBeEmptyDOMElement();
 
       expect(
         JSON.parse(
@@ -708,12 +905,12 @@ describe('Station', () => {
       });
     });
 
-    it('says no replay set is open yet, and offers to open one', () => {
+    it('says there is no replay set yet, and offers to create one', () => {
       renderAt('station_2', 'improve');
 
       expect(screen.getByText('No replay sets yet')).toBeInTheDocument();
       expect(
-        screen.getByRole('button', { name: 'Open a replay set' }),
+        screen.getByRole('button', { name: 'Create a replay set' }),
       ).toBeInTheDocument();
     });
 
@@ -743,59 +940,38 @@ describe('Station', () => {
       expect(refetchSets).toHaveBeenCalled();
     });
 
-    it('shows how to propose a candidate with the CLI, at the station’s address', () => {
-      renderAt('station_2', 'improve');
-
-      expect(screen.getByText('No candidates yet')).toBeInTheDocument();
-      expect(
-        screen.getByText('Propose a candidate with the CLI'),
-      ).toBeInTheDocument();
-      expect(
-        screen.getByText(
-          'spotlight replay propose --station core/default/spec --name <name> <station.json>',
-        ),
-      ).toBeInTheDocument();
-    });
-
     it('offers to search once there is a replay set to search on', () => {
       renderAt('station_2', 'improve');
 
       expect(screen.getByText('No searches yet')).toBeInTheDocument();
       expect(
-        screen.getByRole('link', { name: 'Open a replay set first' }),
+        screen.getByRole('link', { name: 'Create a replay set first' }),
       ).toHaveAttribute('href', '#replays');
     });
   });
 
   describe('its config', () => {
-    it('says it is set in Terraform, pointing to Improve to try a change', () => {
-      renderAt('station_2', 'config');
-
-      expect(screen.getByText(/Set in Terraform/)).toBeInTheDocument();
-      expect(
-        within(
-          screen.getByText(/Set in Terraform/).closest('p') as HTMLElement,
-        ).getByRole('link', { name: 'Improve' }),
-      ).toHaveAttribute('href', `${STATION}/improve`);
-    });
-
     it('shows the harness, model and effort the station runs on', () => {
-      renderAt('station_2', 'config');
+      renderAt('station_2');
 
-      expect(setting('Harness')).toHaveTextContent('Claude Code');
-      expect(setting('Model')).toHaveTextContent('Sonnet');
-      expect(setting('Effort')).toHaveTextContent('High effort');
+      expect(
+        document.querySelector('[data-slot="station-agent"]'),
+      ).toHaveTextContent('SonnetClaude Code');
+      expect(
+        screen.getByRole('list', { name: 'Effort: High, 2 of 2' }),
+      ).toBeInTheDocument();
     });
 
     it('says no agent works the station where no harness is set', () => {
-      renderAt('station_1', 'config');
+      renderAt('station_1');
 
-      expect(setting('Harness')).toHaveTextContent('No agent');
-      expect(screen.queryByText('Model')).not.toBeInTheDocument();
+      expect(
+        document.querySelector('[data-slot="station-agent"]'),
+      ).toHaveTextContent('No agent');
     });
 
     it('shows the skills the station gives its runs', () => {
-      renderAt('station_2', 'config');
+      renderAt('station_2');
 
       expect(
         within(screen.getByRole('list', { name: 'Skills' }))
@@ -804,14 +980,16 @@ describe('Station', () => {
       ).toEqual(['our-migrations', 'grafana-dashboards']);
     });
 
-    it('says so where a station gives no skills', () => {
-      renderAt('station_1', 'config');
+    it('lists no skills where a station gives none', () => {
+      renderAt('station_1');
 
-      expect(setting('Skills')).toHaveTextContent('None');
+      expect(
+        screen.queryByRole('list', { name: 'Skills' }),
+      ).not.toBeInTheDocument();
     });
 
     it('renders the prompt rather than its markdown, without letting it be written', () => {
-      renderAt('station_2', 'config');
+      renderAt('station_2');
 
       expect(screen.getByLabelText('Agent prompt')).toHaveAttribute(
         'contenteditable',
@@ -823,23 +1001,29 @@ describe('Station', () => {
     });
 
     it('says so where a station has no prompt', () => {
-      renderAt('station_1', 'config');
+      renderAt('station_1');
 
       expect(screen.getByText('No prompt.')).toBeInTheDocument();
     });
 
     it('shows how much of the station’s work its judge scores, and how far it must be trusted', () => {
-      renderAt('station_2', 'config');
+      renderAt('station_2');
 
-      expect(setting('Judges')).toHaveTextContent('20% of runs');
-      expect(setting('Minimum agreement to trust')).toHaveTextContent('0.60');
+      const judge = sectionTitled('Judge');
+
+      expect(judge).toHaveTextContent('20%of runs judged');
+      expect(
+        within(judge).getByRole('img', {
+          name: 'Cohen’s kappa 0.71 against a minimum of 0.60',
+        }),
+      ).toBeInTheDocument();
     });
 
     it('keeps the rubric folded away until asked, then shows it without letting it be written', async () => {
       const user = userEvent.setup();
-      renderAt('station_2', 'config');
+      renderAt('station_2');
 
-      const rubric = screen.getByRole('button', { name: 'Rubric' });
+      const rubric = screen.getByRole('button', { name: 'Show rubric' });
 
       expect(rubric).toHaveAttribute('aria-expanded', 'false');
       expect(screen.queryByLabelText('Rubric')).not.toBeInTheDocument();
@@ -847,6 +1031,7 @@ describe('Station', () => {
       await user.click(rubric);
 
       expect(rubric).toHaveAttribute('aria-expanded', 'true');
+      expect(rubric).toHaveTextContent('Hide rubric');
       expect(screen.getByLabelText('Rubric')).toHaveAttribute(
         'contenteditable',
         'false',
@@ -857,31 +1042,23 @@ describe('Station', () => {
     });
 
     it('says only people score runs where no judge is set', () => {
-      renderAt('station_1', 'config');
+      renderAt('station_1');
 
-      expect(
-        screen.getByText('No judge. Only people score runs here.'),
-      ).toBeInTheDocument();
+      expect(sectionTitled('Judge')).toHaveTextContent(
+        'No judgeOnly people score runs here.',
+      );
     });
 
-    it('shows what the station takes from its line, linking to the line', () => {
-      renderAt('station_2', 'config');
+    it('names the line the station ships through and its repositories', () => {
+      renderAt('station_2');
 
-      const fromLine = within(sectionTitled('From the line'));
+      const fromLine = within(sectionTitled('Ships through'));
 
-      expect(fromLine.getByRole('link', { name: 'Default' })).toHaveAttribute(
-        'href',
-        '/w/acme/team/team_1/lines/line_1',
-      );
+      expect(fromLine.getByText('Default')).toBeInTheDocument();
       expect(
         fromLine.getByText('usespotlightai/spotlight'),
       ).toBeInTheDocument();
-      expect(
-        fromLine.getByText(/Line names no Terraform source/),
-      ).toBeInTheDocument();
-      expect(
-        fromLine.getByText(/Line sets no replay_check/),
-      ).toBeInTheDocument();
+      expect(fromLine.queryByText(/replay_check/)).not.toBeInTheDocument();
     });
   });
 });

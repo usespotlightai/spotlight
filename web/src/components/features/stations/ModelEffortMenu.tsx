@@ -49,11 +49,15 @@ export function ModelEffortMenu({
                 value={effort || DEFAULT}
                 onValueChange={(next) => onEffort(chosen(next))}
               >
-                <DropdownMenuRadioItem value={DEFAULT}>
+                <DropdownMenuRadioItem closeOnClick={false} value={DEFAULT}>
                   <span className="text-muted-foreground">Default</span>
                 </DropdownMenuRadioItem>
                 {efforts.map((each) => (
-                  <DropdownMenuRadioItem key={each} value={each}>
+                  <DropdownMenuRadioItem
+                    closeOnClick={false}
+                    key={each}
+                    value={each}
+                  >
                     <span className="capitalize">{each}</span>
                   </DropdownMenuRadioItem>
                 ))}
@@ -74,11 +78,15 @@ export function ModelEffortMenu({
             value={model || DEFAULT}
             onValueChange={(next) => onModel(chosen(next))}
           >
-            <DropdownMenuRadioItem value={DEFAULT}>
+            <DropdownMenuRadioItem closeOnClick={false} value={DEFAULT}>
               <span className="text-muted-foreground">Default</span>
             </DropdownMenuRadioItem>
             {models.map((each) => (
-              <DropdownMenuRadioItem key={each.id} value={each.id}>
+              <DropdownMenuRadioItem
+                closeOnClick={false}
+                key={each.id}
+                value={each.id}
+              >
                 <span className="truncate">{each.name}</span>
               </DropdownMenuRadioItem>
             ))}

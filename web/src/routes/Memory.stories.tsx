@@ -1,16 +1,15 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { Route } from 'react-router';
+import { KIND_OPTIONS } from '@/lib/memory';
 import { teamSectionPath } from '@/lib/team';
 import { Memory } from '@/routes/Memory';
 import {
-  emptyTeamMemory,
-  FOCUSED_ID,
-  failTeamMemory,
-  loadTeamMemory,
-  MISSING_ID,
+  MEMORY_PAGE_STATES,
+  type MemoryPageArgs,
+  memoryPageQuery,
+  OPENABLE,
   SLUG,
-  seedMissingMemory,
-  seedTeamMemory,
+  seedMemoryPage,
   TEAM_ID,
 } from '@/stories/fixtures/team-memory';
 import { StoryPage } from '@/stories/StoryPage';
@@ -23,91 +22,101 @@ const at = teamSectionPath(SLUG, TEAM_ID, 'memory');
 
 const meta = {
   title: 'Team/Memory',
-} satisfies Meta;
+  args: {
+    state: 'data',
+    standing: 'stands',
+    kind: 'any',
+    count: 3,
+    opened: 'none',
+    writing: false,
+  },
+  argTypes: {
+    state: {
+      name: 'State',
+      control: 'inline-radio',
+      options: MEMORY_PAGE_STATES,
+      labels: {
+        data: 'With data',
+        empty: 'Empty',
+        loading: 'Loading',
+        error: 'Error',
+      },
+    },
+    standing: {
+      name: 'Tab',
+      control: 'inline-radio',
+      options: ['stands', 'retired'],
+      labels: { stands: 'Standing', retired: 'Retired' },
+    },
+    kind: {
+      name: 'Kind filter',
+      control: 'select',
+      options: ['any', ...KIND_OPTIONS.map((each) => each.value)],
+      labels: Object.fromEntries([
+        ['any', 'Every kind'],
+        ...KIND_OPTIONS.map((each) => [each.value, each.label]),
+      ]),
+    },
+    count: {
+      name: 'Standing memories',
+      control: { type: 'range', min: 0, max: 30 },
+    },
+    opened: {
+      name: 'Opened memory',
+      control: 'select',
+      options: ['none', ...OPENABLE],
+    },
+    writing: { name: 'Writing a new memory', control: 'boolean' },
+  },
+  render: (args) => (
+    <StoryPage
+      key={JSON.stringify(args)}
+      at={`${at}${memoryPageQuery(args)}`}
+      seed={seedMemoryPage(args)}
+    >
+      {routes}
+    </StoryPage>
+  ),
+} satisfies Meta<MemoryPageArgs>;
 
 export default meta;
 
 type Story = StoryObj<typeof meta>;
 
 export const Loading: Story = {
-  render: () => (
-    <StoryPage at={at} seed={loadTeamMemory}>
-      {routes}
-    </StoryPage>
-  ),
+  args: { state: 'loading' },
 };
 
 export const Empty: Story = {
-  render: () => (
-    <StoryPage at={at} seed={emptyTeamMemory}>
-      {routes}
-    </StoryPage>
-  ),
+  args: { state: 'empty' },
 };
 
 export const Failed: Story = {
   name: 'Error',
-  render: () => (
-    <StoryPage at={at} seed={failTeamMemory}>
-      {routes}
-    </StoryPage>
-  ),
+  args: { state: 'error' },
 };
 
-export const WithData: Story = {
-  render: () => (
-    <StoryPage at={at} seed={seedTeamMemory}>
-      {routes}
-    </StoryPage>
-  ),
-};
+export const WithData: Story = {};
 
 export const Opened: Story = {
-  render: () => (
-    <StoryPage at={at} seed={seedTeamMemory}>
-      {routes}
-    </StoryPage>
-  ),
-  play: async ({ canvas, userEvent }) => {
-    await userEvent.click(
-      await canvas.findByRole('button', { name: /410 Gone/ }),
-    );
-  },
+  args: { opened: 'memory_gone' },
 };
 
-export const Retired: Story = {
-  render: () => (
-    <StoryPage at={`${at}?standing=retired`} seed={seedTeamMemory}>
-      {routes}
-    </StoryPage>
-  ),
+export const Editing: Story = {
+  args: { opened: 'memory_gone' },
+  play: async ({ canvas, userEvent }) => {
+    await userEvent.click(await canvas.findByRole('button', { name: 'Edit' }));
+  },
 };
 
 export const Writing: Story = {
-  render: () => (
-    <StoryPage at={at} seed={seedTeamMemory}>
-      {routes}
-    </StoryPage>
-  ),
-  play: async ({ canvas, userEvent }) => {
-    await userEvent.click(
-      await canvas.findByRole('button', { name: 'Write a memory' }),
-    );
-  },
+  args: { writing: true },
 };
 
-export const Focused: Story = {
-  render: () => (
-    <StoryPage at={`${at}?memory=${FOCUSED_ID}`} seed={seedTeamMemory}>
-      {routes}
-    </StoryPage>
-  ),
+export const Filtered: Story = {
+  args: { kind: 'rationale' },
 };
 
-export const FocusedMissing: Story = {
-  render: () => (
-    <StoryPage at={`${at}?memory=${MISSING_ID}`} seed={seedMissingMemory}>
-      {routes}
-    </StoryPage>
-  ),
+export const Retired: Story = {
+  args: { standing: 'retired' },
 };

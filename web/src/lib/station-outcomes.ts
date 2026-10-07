@@ -134,10 +134,19 @@ export const GLANCE_COLUMNS = columnsNamed([
   'Median',
 ]);
 
+const newestInForce = (
+  groups: readonly FingerprintGroup[],
+): readonly StationRunOutcome[] =>
+  groups.find((group) => group.fingerprint !== null)?.runs ?? [];
+
+export const runsInForce = (
+  groups: readonly FingerprintGroup[],
+): StationRunOutcome[] => [...newestInForce(groups)].reverse();
+
 export const recentRuns = (
   groups: readonly FingerprintGroup[],
   count: number,
-): StationRunOutcome[] => groups.flatMap((group) => group.runs).slice(0, count);
+): StationRunOutcome[] => newestInForce(groups).slice(0, count);
 
 export const OUTCOME_HEADINGS: readonly NestedHeading[] = [
   { label: 'Run', indent: 'outer', size: 'minmax(12rem,3fr)' },
@@ -148,6 +157,11 @@ export const OUTCOME_HEADINGS: readonly NestedHeading[] = [
   { label: 'Took', numeric: true, size: SPREAD },
   { label: 'Cost', numeric: true, size: SPREAD },
   { label: 'Ended', numeric: true, size: SPREAD },
+];
+
+export const RECENT_RUN_HEADINGS: readonly NestedHeading[] = [
+  { label: 'Run', indent: 'edge', size: 'minmax(12rem,3fr)' },
+  ...OUTCOME_HEADINGS.slice(1),
 ];
 
 export type GroupSummary = {
@@ -198,4 +212,28 @@ export const groupSummary = (group: FingerprintGroup): GroupSummary => {
     took: tookShown(tally.medianMs),
     cost: costShown(tally.cost),
   };
+};
+
+export type ConfigVersion = {
+  readonly fingerprint: string;
+  readonly since: string | null;
+  readonly pullRequest: string | null;
+};
+
+export const configVersion = (
+  groups: readonly FingerprintGroup[],
+): ConfigVersion | null => {
+  const versioned = groups.filter(
+    (group): group is FingerprintGroup & { fingerprint: string } =>
+      group.fingerprint !== null,
+  );
+  const current = versioned[0];
+
+  return current
+    ? {
+        fingerprint: current.fingerprint.slice(0, 8),
+        since: current.firstDay ? dayShown(current.firstDay) : null,
+        pullRequest: current.pullRequest?.url ?? null,
+      }
+    : null;
 };

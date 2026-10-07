@@ -659,6 +659,13 @@ export const seedStationReplays = (client: QueryClient) => {
   client.setQueryData(replayCandidateKeys.forStation(ADDRESS), CANDIDATES);
 };
 
+export const seedReplaysOf = (client: QueryClient, setId: string) => {
+  client.setQueryData(replayKeys.forSet(setId), [
+    { ...CANDIDATE_REPLAY, setId },
+    { ...BASELINE, setId },
+  ]);
+};
+
 export const seedStationReplaysAwaiting = seedStation;
 
 export const seedStationWithoutReplays = (client: QueryClient) => {

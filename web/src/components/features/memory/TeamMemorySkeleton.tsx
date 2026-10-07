@@ -1,19 +1,32 @@
-import { Skeleton } from '@/components/shared/skeleton/Skeleton';
+import { MEMORY_COLUMNS } from '@/components/features/memory/columns';
+import { MemoryHead } from '@/components/features/memory/MemoryHead';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
+import { cn } from '@/lib/utils';
 
 export function TeamMemorySkeleton() {
   return (
     <div
       role="status"
       aria-label="Loading the team’s memory"
-      className="flex flex-col gap-2 px-3"
+      className="min-h-0 flex-1 overflow-y-auto px-1.5 pt-2 pb-1.5"
     >
-      <div className="flex flex-col gap-1.5 rounded-xl border border-border bg-card px-3 py-3">
-        <div className="flex flex-col text-sm leading-6">
+      <MemoryHead />
+
+      <ul className="flex flex-col">
+        <li
+          className={cn(
+            'grid h-9 items-center gap-3 rounded-md px-3 text-sm',
+            MEMORY_COLUMNS,
+          )}
+        >
           <SkeletonLine className="w-3/5" />
-        </div>
-        <Skeleton className="h-4 w-40 rounded-full" />
-      </div>
+          <SkeletonLine className="w-16 text-xs" />
+          <SkeletonLine className="w-24 text-xs" />
+          <SkeletonLine className="w-12 text-xs" />
+          <SkeletonLine className="w-16 text-xs" />
+          <SkeletonLine className="ml-auto w-6 text-xs" />
+        </li>
+      </ul>
     </div>
   );
 }

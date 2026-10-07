@@ -7,7 +7,12 @@ import type {
   TeamMemoryDetailResponseDto,
   TeamMemoryResponseDto,
 } from '@/lib/api';
-import { filterOf } from '@/lib/memory';
+import {
+  FOCUS_PARAM,
+  filterOf,
+  type MemoryKind,
+  WRITE_PARAM,
+} from '@/lib/memory';
 import { failQuery } from '@/stories/failQuery';
 import { MAYA_IMAGE } from '@/stories/fixtures/avatars';
 import { seedTeam, TEAM_ID } from '@/stories/fixtures/team-section';
@@ -165,38 +170,99 @@ const DETAIL: TeamMemoryDetailResponseDto = {
   successor: null,
 };
 
-const standingFilter = filterOf(new URLSearchParams());
-const retiredFilter = filterOf(new URLSearchParams('standing=retired'));
-
 const seedLines = (client: QueryClient) => {
   seedTeam(client);
   client.setQueryData(lineKeys.forTeam(TEAM_ID), LINES);
 };
 
-export const seedTeamMemory = (client: QueryClient) => {
-  seedLines(client);
-  client.setQueryData(teamMemoryKeys.listed(TEAM_ID, standingFilter), STANDING);
-  client.setQueryData(teamMemoryKeys.listed(TEAM_ID, retiredFilter), RETIRED);
-  client.setQueryData(teamMemoryKeys.one(TEAM_ID, DETAIL.id), DETAIL);
+const standingOf = (count: number): TeamMemoryResponseDto[] =>
+  Array.from({ length: count }, (_, at) => {
+    const base = STANDING[at % STANDING.length] as TeamMemoryResponseDto;
+
+    return at < STANDING.length
+      ? base
+      : { ...base, id: `${base.id}_${at}`, handle: `M-${41 + at}` };
+  });
+
+const detailOf = (
+  memory: TeamMemoryResponseDto,
+): TeamMemoryDetailResponseDto =>
+  memory.id === DETAIL.id
+    ? DETAIL
+    : {
+        ...memory,
+        harness: null,
+        steps: [],
+        notes: [],
+        superseded: null,
+        successor: null,
+      };
+
+export const OPENABLE = [...STANDING, ...RETIRED].map((memory) => memory.id);
+
+export const MEMORY_PAGE_STATES = [
+  'data',
+  'empty',
+  'loading',
+  'error',
+] as const;
+
+export type MemoryPageArgs = {
+  readonly state: (typeof MEMORY_PAGE_STATES)[number];
+  readonly standing: 'stands' | 'retired';
+  readonly kind: MemoryKind | 'any';
+  readonly count: number;
+  readonly opened: string;
+  readonly writing: boolean;
 };
 
-export const emptyTeamMemory = (client: QueryClient) => {
-  seedLines(client);
-  client.setQueryData(teamMemoryKeys.listed(TEAM_ID, standingFilter), []);
+const filterQueryOf = (args: MemoryPageArgs): URLSearchParams =>
+  new URLSearchParams({
+    ...(args.standing === 'retired' ? { standing: 'retired' } : {}),
+    ...(args.kind === 'any' ? {} : { kind: args.kind }),
+  });
+
+export const memoryPageQuery = (args: MemoryPageArgs): string => {
+  const query = filterQueryOf(args);
+
+  if (args.opened !== 'none') {
+    query.set(FOCUS_PARAM, args.opened);
+  }
+  if (args.writing) {
+    query.set(WRITE_PARAM, '1');
+  }
+
+  return query.size > 0 ? `?${query}` : '';
 };
 
-export const failTeamMemory = (client: QueryClient) => {
-  seedLines(client);
-  failQuery(client, teamMemoryKeys.listed(TEAM_ID, standingFilter));
-};
+export const seedMemoryPage =
+  (args: MemoryPageArgs) => (client: QueryClient) => {
+    seedLines(client);
+    const key = teamMemoryKeys.listed(TEAM_ID, filterOf(filterQueryOf(args)));
 
-export const loadTeamMemory = seedLines;
+    if (args.state === 'loading') {
+      return;
+    }
+    if (args.state === 'error') {
+      failQuery(client, key);
+      return;
+    }
 
-export const FOCUSED_ID = 'memory_gone';
+    const listed =
+      args.state === 'empty'
+        ? []
+        : (args.standing === 'retired'
+            ? RETIRED
+            : standingOf(args.count)
+          ).filter(
+            (memory) => args.kind === 'any' || memory.kind === args.kind,
+          );
 
-export const MISSING_ID = 'memory_missing';
-
-export const seedMissingMemory = (client: QueryClient) => {
-  seedLines(client);
-  client.setQueryData(teamMemoryKeys.one(TEAM_ID, MISSING_ID), null);
-};
+    client.setQueryData(key, listed);
+    for (const memory of listed) {
+      client.setQueryData(
+        teamMemoryKeys.one(TEAM_ID, memory.id),
+        detailOf(memory),
+      );
+    }
+  };

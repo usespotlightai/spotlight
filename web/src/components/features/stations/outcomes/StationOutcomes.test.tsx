@@ -74,6 +74,7 @@ const run = (over: Partial<StationRunOutcome>): StationRunOutcome => ({
 
 const NEWER: FingerprintGroup = {
   ran: true,
+  pullRequest: null,
   firstRunId: 'run_2',
   fingerprint: 'b7d4a60c8e2f1a9b3d5c7e9f',
   config: null,
@@ -101,6 +102,7 @@ const NEWER: FingerprintGroup = {
 
 const OLDER: FingerprintGroup = {
   ran: true,
+  pullRequest: null,
   firstRunId: 'run_0',
   fingerprint: '3f2a9c1e5b7d4a60',
   config: null,

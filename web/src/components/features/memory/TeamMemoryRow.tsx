@@ -1,13 +1,22 @@
-import { ChevronDown } from 'lucide-react';
-import { useState } from 'react';
+import { type MouseEvent, useEffect, useState } from 'react';
+import { MEMORY_COLUMNS } from '@/components/features/memory/columns';
+import { MemoryBodyInput } from '@/components/features/memory/MemoryBodyInput';
 import { MemoryDetails } from '@/components/features/memory/MemoryDetails';
 import { MemoryKindLabel } from '@/components/features/memory/MemoryKindLabel';
+import { MemoryKindSelect } from '@/components/features/memory/MemoryKindSelect';
+import { MemoryPlace } from '@/components/features/memory/MemoryPlace';
+import { MemoryPlaceEditor } from '@/components/features/memory/MemoryPlaceEditor';
+import { MemorySource } from '@/components/features/memory/MemorySource';
 import { RetirementNote } from '@/components/features/memory/RetirementNote';
-import { Pill } from '@/components/shared/Pill';
-import { Unfold } from '@/components/shared/Unfold';
+import { useEditMemory } from '@/hooks/api/useEditMemory';
+import { useMemoryDraft } from '@/hooks/useMemoryDraft';
+import { useRowExpansion } from '@/hooks/useRowExpansion';
 import type { LineResponseDto } from '@/lib/api';
-import { placeOf, SOURCE_LABELS, type TeamMemory, usedBy } from '@/lib/memory';
+import { placeTreeOf, SOURCE_SHOWN, type TeamMemory } from '@/lib/memory';
 import { cn } from '@/lib/utils';
+
+const OWN_CLICKS =
+  'button, a, input, textarea, select, [role^="menu"], [role="dialog"], form';
 
 type TeamMemoryRowProps = {
   slug: string;
@@ -24,67 +33,140 @@ export function TeamMemoryRow({
   lines,
   startsOpen = false,
 }: TeamMemoryRowProps) {
-  const [open, setOpen] = useState(startsOpen);
+  const { row, expanded, clamped, toggle } = useRowExpansion(startsOpen);
   const [seen, setSeen] = useState(startsOpen);
+  const [editing, setEditing] = useState(false);
+  const draft = useMemoryDraft(memory, lines);
+  const edit = useEditMemory();
+  const changing = editing && expanded;
+  const unsaveable = draft.empty || edit.isPending;
+
+  const startEditing = () => {
+    draft.reset(memory);
+    edit.reset();
+    setEditing(true);
+  };
+
+  const save = () => {
+    if (!unsaveable) {
+      edit.mutate(
+        { teamId, memoryId: memory.id, memory: draft.written() },
+        { onSuccess: () => setEditing(false) },
+      );
+    }
+  };
+
+  const flip = () => {
+    setSeen(true);
+    toggle();
+  };
+
+  const onRowClick = (event: MouseEvent<HTMLLIElement>) => {
+    if (
+      changing ||
+      (event.target as Element).closest(OWN_CLICKS) ||
+      window.getSelection()?.toString()
+    ) {
+      return;
+    }
+    flip();
+  };
+
+  useEffect(() => {
+    if (startsOpen) {
+      row.current?.scrollIntoView?.({ block: 'nearest' });
+    }
+  }, [startsOpen, row]);
 
   return (
+    // biome-ignore lint/a11y/useKeyWithClickEvents: the memory's own button is the keyboard path; this widens the click to the whole row
     <li
+      ref={row}
       data-slot="team-memory"
-      className="flex flex-col gap-2 rounded-xl border border-border bg-card px-3 py-3"
-    >
-      <button
-        type="button"
-        aria-expanded={open}
-        onClick={() => {
-          setSeen(true);
-          setOpen((was) => !was);
-        }}
-        className="flex w-full items-start gap-3 text-left outline-none"
-      >
-        <span className="flex min-w-0 flex-1 flex-col gap-1.5">
-          <span className="block whitespace-pre-wrap break-words text-foreground text-sm leading-6">
-            {memory.body}
-          </span>
-          <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-muted-foreground text-xs">
-            <span className="font-mono">{memory.handle}</span>
-            <Pill className="px-1.5 py-0">
-              <MemoryKindLabel kind={memory.kind} />
-            </Pill>
-            <span className="truncate">{placeOf(memory, lines)}</span>
-            <span aria-hidden>·</span>
-            <span>
-              {SOURCE_LABELS[memory.source]}, kept by{' '}
-              {memory.approvedBy.name ?? 'someone'}
-            </span>
-            <span aria-hidden>·</span>
-            <span>{usedBy(memory.runs)}</span>
-          </span>
-        </span>
-        <ChevronDown
-          aria-hidden
-          className={cn(
-            'mt-1.5 size-3.5 shrink-0 text-muted-foreground transition-transform duration-200',
-            open && 'rotate-180',
-          )}
-        />
-      </button>
-
-      {memory.retirement && (
-        <div className="text-muted-foreground text-xs leading-5">
-          <RetirementNote retirement={memory.retirement} />
-        </div>
+      data-clamped={clamped || undefined}
+      onClick={onRowClick}
+      className={cn(
+        'group/row rounded-md bg-accent transition-colors data-clamped:bg-transparent data-clamped:hover:bg-accent',
+        !changing && 'cursor-pointer',
       )}
+    >
+      <div
+        className={cn(
+          'relative grid min-h-9 items-start gap-3 rounded-md px-3 py-2 text-sm leading-5 group-data-clamped/row:h-9',
+          MEMORY_COLUMNS,
+        )}
+      >
+        {changing ? (
+          <MemoryBodyInput
+            value={draft.body}
+            onChange={draft.setBody}
+            onSave={save}
+            onCancel={() => setEditing(false)}
+          />
+        ) : (
+          <button
+            type="button"
+            aria-expanded={expanded}
+            onClick={flip}
+            className="min-w-0 whitespace-pre-wrap break-words text-left text-foreground leading-5 outline-none after:absolute after:inset-0 after:rounded-md focus-visible:underline group-data-clamped/row:truncate"
+          >
+            {memory.body}
+          </button>
+        )}
 
-      <Unfold open={open} appear={false}>
-        {seen && (
+        <span className="relative z-10 min-w-0 truncate text-muted-foreground text-xs leading-5">
+          {changing ? (
+            <MemoryKindSelect value={draft.kind} onChange={draft.setKind} />
+          ) : (
+            <MemoryKindLabel kind={memory.kind} />
+          )}
+        </span>
+
+        <span className="relative z-10 min-w-0 group-data-clamped/row:pointer-events-none">
+          {changing ? (
+            <MemoryPlaceEditor draft={draft} lines={lines} />
+          ) : (
+            <MemoryPlace tree={placeTreeOf(memory, lines)} open={expanded} />
+          )}
+        </span>
+
+        <div className="relative z-10 flex min-w-0 flex-col gap-2 text-muted-foreground text-xs leading-5 group-data-clamped/row:pointer-events-none">
+          <span className="truncate">{SOURCE_SHOWN[memory.source]}</span>
+          {seen && (
+            <div className="group-data-clamped/row:hidden">
+              <MemorySource slug={slug} teamId={teamId} memoryId={memory.id} />
+            </div>
+          )}
+        </div>
+
+        <span className="min-w-0 truncate text-muted-foreground text-xs leading-5">
+          {memory.approvedBy.name ?? 'Someone'}
+        </span>
+
+        <span className="truncate text-right text-muted-foreground text-xs leading-5 tabular-nums">
+          {memory.runs}
+        </span>
+      </div>
+
+      {seen && (
+        <div className="relative z-10 flex flex-col gap-3 px-3 pb-3 text-xs group-data-clamped/row:hidden">
+          {memory.retirement && (
+            <div className="text-muted-foreground leading-5">
+              <RetirementNote retirement={memory.retirement} />
+            </div>
+          )}
           <MemoryDetails
-            slug={slug}
             teamId={teamId}
             memoryId={memory.id}
-            lines={lines}
+            editing={changing}
+            saving={edit.isPending}
+            unsaveable={unsaveable}
+            onEdit={startEditing}
+            onCancel={() => setEditing(false)}
+            onSave={save}
           />
-        )}
-      </Unfold>
+        </div>
+      )}
     </li>
   );
 }

@@ -1,33 +1,35 @@
-import { StationAlerts } from '@/components/features/stations/overview/StationAlerts';
+import { StationConfig } from '@/components/features/stations/config/StationConfig';
 import { StationGlance } from '@/components/features/stations/overview/StationGlance';
-import { StationJudgeLine } from '@/components/features/stations/overview/StationJudgeLine';
-import { StationRecentRuns } from '@/components/features/stations/overview/StationRecentRuns';
-import type { StationResponseDto } from '@/lib/api';
+import { StationRuns } from '@/components/features/stations/overview/StationRuns';
+import type { LineResponseDto, StationResponseDto } from '@/lib/api';
 
 type StationOverviewTabProps = {
   slug: string;
   teamId: string;
-  lineId: string;
+  line: LineResponseDto;
   station: StationResponseDto;
 };
 
 export function StationOverviewTab({
   slug,
   teamId,
-  lineId,
+  line,
   station,
 }: StationOverviewTabProps) {
-  const at = { slug, teamId, lineId, stationId: station.id };
+  const at = { slug, teamId, lineId: line.id, stationId: station.id };
 
   return (
     <>
       <StationGlance {...at} />
 
-      {station.alerts.length > 0 && <StationAlerts alerts={station.alerts} />}
+      <StationConfig
+        slug={slug}
+        teamId={teamId}
+        line={line}
+        station={station}
+      />
 
-      {station.judge && <StationJudgeLine {...at} />}
-
-      <StationRecentRuns {...at} />
+      <StationRuns {...at} />
     </>
   );
 }
