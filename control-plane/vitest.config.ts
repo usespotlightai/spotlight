@@ -1,14 +1,18 @@
 import { resolve } from 'node:path';
 import swc from 'unplugin-swc';
 import { defineConfig } from 'vitest/config';
-import { databaseNamed, E2E_DATABASE } from './test/support/e2e-database-url';
-
-process.env.DATABASE_URL ??=
-  'postgres://postgres:postgres@localhost:5432/postgres';
+import {
+  databaseNamed,
+  E2E_DATABASE,
+  E2E_SERVER,
+} from './test/support/e2e-database-url';
+import { E2E_LONG_POLL_MS } from './test/support/long-poll';
 
 // Never the app's own database: a running control plane would take up the tests' work.
 const E2E_ENV = {
-  DATABASE_URL: databaseNamed(process.env.DATABASE_URL, E2E_DATABASE),
+  NODE_ENV: 'test',
+  LOG_LEVEL: 'warn',
+  DATABASE_URL: databaseNamed(E2E_SERVER, E2E_DATABASE),
   GITHUB_CLIENT_ID: 'test-client-id',
   GITHUB_CLIENT_SECRET: 'test-client-secret',
   GITHUB_APP_ID: 'test-app-id',
@@ -18,6 +22,7 @@ const E2E_ENV = {
   SPOTLIGHT_SECRETS_KEY: 'S9+m23g9lI8X4VNFd0ayFXJH7P14Q3GZGsNvjCglc/Q=',
   OUTBOUND_ALLOWED_HOSTS: '127.0.0.1',
   S3_BUCKET: 'files',
+  SPOTLIGHT_LONG_POLL_MS: String(E2E_LONG_POLL_MS),
 };
 
 const shared = {
@@ -45,6 +50,7 @@ const shared = {
 
 export default defineConfig({
   test: {
+    fsModuleCache: true,
     projects: [
       {
         ...shared,
@@ -62,6 +68,7 @@ export default defineConfig({
           environment: 'node',
           include: ['test/**/*.e2e-spec.ts'],
           restoreMocks: true,
+          isolate: false,
           env: E2E_ENV,
           globalSetup: ['test/support/e2e-database.ts'],
           testTimeout: 30_000,

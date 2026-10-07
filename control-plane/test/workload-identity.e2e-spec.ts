@@ -195,7 +195,7 @@ describe('a host claiming through a runner trust, as a platform workload with no
       .where(eq(schema.run.id, placed));
 
     expect(still?.state).toBe('queued');
-  }, 30_000);
+  });
 
   it('hands over a check placed on its trust’s label', async () => {
     const trust = await trusted();

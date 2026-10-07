@@ -3,6 +3,7 @@ name: spotlight
 x-control-plane-env: &control-plane-env
   NODE_ENV: development
   DATABASE_URL: ${DATABASE_URL:-postgres://postgres:postgres@db:5432/postgres}
+  SPOTLIGHT_E2E_DATABASE_URL: ${SPOTLIGHT_E2E_DATABASE_URL:-postgres://postgres:postgres@e2e-db:5432/postgres}
   BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET:-xj4/EgMfb/oOOX54xSnrKiCToESDSWJIy4mLF5Sxlo/IUzvEd/hJDh9VT2kqsyeo}
   BETTER_AUTH_URL: ${BETTER_AUTH_URL:-https://app.dev.usespotlight.ai}
   SPOTLIGHT_SECRETS_KEY: ${SPOTLIGHT_SECRETS_KEY:-3h+HUYiFyqYwqtMg1AXtsVO1pTcSprmLnsjvI18ksco=}
@@ -260,6 +261,23 @@ services:
       - "5432:5432"
     volumes:
       - db-data:/var/lib/postgresql
+
+  e2e-db:
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: .docker/postgres/Dockerfile
+    command: postgres -c fsync=off -c synchronous_commit=off -c full_page_writes=off
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    tmpfs:
+      - /var/lib/postgresql
 
 volumes:
   node-modules-web:

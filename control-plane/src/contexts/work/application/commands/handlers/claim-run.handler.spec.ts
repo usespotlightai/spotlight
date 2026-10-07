@@ -16,6 +16,7 @@ import { ClaimRunCommand } from '@work/application/commands/runner.commands';
 import type { ClaimedWorkDto } from '@work/application/dto/run.dto';
 import type { ClaimedCheck } from '@work/application/ports/check-work.port';
 import { ClaimsTaken } from '@work/application/services/claims-taken.service';
+import { LongPoll } from '@work/application/services/long-poll';
 import type { ProvisionFailures } from '@work/application/services/provision-failures.service';
 import type { RunLeases } from '@work/application/services/run-leases.service';
 import type {
@@ -142,6 +143,7 @@ const claiming = (
     }),
     { failed } as unknown as ProvisionFailures,
     { mayStart } as unknown as RunStartHooks,
+    new LongPoll(clock),
   );
 
   return {

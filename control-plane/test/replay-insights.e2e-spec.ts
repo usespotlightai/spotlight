@@ -28,7 +28,6 @@ import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/
 import { and, eq, isNotNull } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
-import { openDatabase, type TestDatabase } from './support/database';
 import { eventually } from './support/eventually';
 import * as schema from './support/schema';
 import { openTeam } from './support/team';
@@ -89,7 +88,6 @@ const judge: JudgePort = {
   },
 };
 
-let own: TestDatabase;
 let app: INestApplication;
 let db: DrizzleDatabase;
 let team: Awaited<ReturnType<typeof openTeam>>;
@@ -529,13 +527,9 @@ const tokenWith = async (scopes: readonly string[]): Promise<string> => {
   return issued.headers['spotlight-workspace-token'] as string;
 };
 
-const shared = process.env.DATABASE_URL;
-
 let fiveTasks: Original[];
 
 beforeAll(async () => {
-  own = await openDatabase('replay_insights');
-  process.env.DATABASE_URL = own.url;
   app = await openApp((module) =>
     module
       .overrideProvider(WORKSPACE_ARCHIVE_STORE)
@@ -658,8 +652,6 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await app?.close();
-  process.env.DATABASE_URL = shared;
-  await own?.close();
 });
 
 const replayedPath = (period?: string) =>

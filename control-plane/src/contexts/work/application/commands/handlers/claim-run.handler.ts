@@ -8,7 +8,7 @@ import type { ClaimedWorkDto } from '@work/application/dto/run.dto';
 import type { CheckWorkPort } from '@work/application/ports/check-work.port';
 import { claimedRun } from '@work/application/services/claimed-work';
 import type { ClaimsTaken } from '@work/application/services/claims-taken.service';
-import { longPolled, pollDeadline } from '@work/application/services/long-poll';
+import type { LongPoll } from '@work/application/services/long-poll';
 import type { ProvisionFailures } from '@work/application/services/provision-failures.service';
 import type { RunLeases } from '@work/application/services/run-leases.service';
 import type { RunStartHooks } from '@work/application/services/run-start-hooks.service';
@@ -30,6 +30,7 @@ export class ClaimRunHandler
     private readonly taken: ClaimsTaken,
     private readonly failures: ProvisionFailures,
     private readonly starting: RunStartHooks,
+    private readonly polls: LongPoll,
   ) {}
 
   async execute(command: ClaimRunCommand): Promise<ClaimedWorkDto | null> {
@@ -79,10 +80,9 @@ export class ClaimRunHandler
       return null;
     }
 
-    const until = pollDeadline(this.clock);
+    const until = this.polls.deadline();
 
-    const found = await longPolled<ClaimedWorkDto | 'handed-back'>(
-      this.clock,
+    const found = await this.polls.polled<ClaimedWorkDto | 'handed-back'>(
       async () => {
         const claimed = await this.runs.claimNext(claimant, this.clock.now());
         const start = claimed

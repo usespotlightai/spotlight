@@ -37,6 +37,7 @@ export const envSchema = databaseSchema
     OUTBOUND_ALLOWED_HOSTS: z.string().default(''),
     HOOK_SIGNING_KEY: z.string().min(1).optional(),
     OAUTH_CLIENTS: z.string().default('{}'),
+    SPOTLIGHT_LONG_POLL_MS: z.coerce.number().int().positive().default(10_000),
     MCP_RELIST_SECONDS: z.coerce.number().int().positive().default(600),
     SPOTLIGHT_CATALOG_URL: z.url().default('https://catalog.usespotlight.ai'),
     SPOTLIGHT_CATALOG_TOKEN: z.string().min(1).optional(),

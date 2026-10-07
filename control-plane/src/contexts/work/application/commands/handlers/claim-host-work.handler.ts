@@ -11,7 +11,7 @@ import type { ClaimedWorkDto } from '@work/application/dto/run.dto';
 import type { CheckWorkPort } from '@work/application/ports/check-work.port';
 import { claimedRun } from '@work/application/services/claimed-work';
 import type { ClaimsTaken } from '@work/application/services/claims-taken.service';
-import { longPolled, pollDeadline } from '@work/application/services/long-poll';
+import type { LongPoll } from '@work/application/services/long-poll';
 import type { RunLeases } from '@work/application/services/run-leases.service';
 import type { RunStartHooks } from '@work/application/services/run-start-hooks.service';
 import type {
@@ -34,6 +34,7 @@ export class ClaimHostWorkHandler
     private readonly clock: ClockPort,
     private readonly starting: RunStartHooks,
     private readonly taken: ClaimsTaken,
+    private readonly polls: LongPoll,
   ) {}
 
   async execute(command: ClaimHostWorkCommand): Promise<HostClaimDto> {
@@ -44,23 +45,19 @@ export class ClaimHostWorkHandler
         return { outcome: 'refused' };
       }
 
-      const until = pollDeadline(this.clock);
-      const started = await longPolled(
-        this.clock,
-        async () => {
-          const now = this.clock.now();
-          const attempt = await this.runners.start(
-            admitted.way,
-            command.host,
-            command.image,
-            now,
-            new Date(now.getTime() + CLAIM_WINDOW_MS),
-          );
+      const until = this.polls.deadline();
+      const started = await this.polls.polled(async () => {
+        const now = this.clock.now();
+        const attempt = await this.runners.start(
+          admitted.way,
+          command.host,
+          command.image,
+          now,
+          new Date(now.getTime() + CLAIM_WINDOW_MS),
+        );
 
-          return attempt.outcome === 'full' ? null : attempt;
-        },
-        until,
-      );
+        return attempt.outcome === 'full' ? null : attempt;
+      }, until);
 
       if (!started) {
         return { outcome: 'nothing' };
@@ -117,8 +114,7 @@ export class ClaimHostWorkHandler
       claims: 'any',
     };
 
-    const found = await longPolled<ClaimedWorkDto | 'handed-back'>(
-      this.clock,
+    const found = await this.polls.polled<ClaimedWorkDto | 'handed-back'>(
       async () => {
         const run = await this.runs.claimNext(claimant, this.clock.now());
         const start = run

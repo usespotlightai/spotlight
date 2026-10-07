@@ -34,6 +34,7 @@ import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { awaitingCheck } from './support/change-stacks';
 import { eventually } from './support/eventually';
 import { definitionOf } from './support/line-definition';
+import { E2E_LONG_POLL_MS } from './support/long-poll';
 import { forgetRunnersOf } from './support/runners';
 import * as schema from './support/schema';
 import { listSetUp, seatTeam } from './support/team';
@@ -312,7 +313,7 @@ describe('runner pools (e2e)', () => {
         kind: 'run',
         run: { id: anywhere },
       });
-    }, 60_000);
+    });
 
     it('issues a token Terraform does not keep when none is given', async () => {
       const made = await define({ key: 'ephemeral' }).expect(201);
@@ -333,7 +334,7 @@ describe('runner pools (e2e)', () => {
 
       await claimWith(token).expect(204);
       await claimWith(tokenOf('z')).expect(401);
-    }, 30_000);
+    });
 
     it('holds no more runs at once than maxRuns, keeping a host that asks for more waiting out its poll', async () => {
       const token = tokenOf('c');
@@ -346,8 +347,8 @@ describe('runner pools (e2e)', () => {
       const asked = Date.now();
       await claimWith(token).expect(204);
 
-      expect(Date.now() - asked).toBeGreaterThanOrEqual(9_000);
-    }, 30_000);
+      expect(Date.now() - asked).toBeGreaterThanOrEqual(E2E_LONG_POLL_MS);
+    });
 
     it('rotates its token in place: the pool keeps its id, the old token is refused at once, and a claimed run finishes', async () => {
       const old = tokenOf('d');

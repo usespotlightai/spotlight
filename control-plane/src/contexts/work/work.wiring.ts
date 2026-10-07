@@ -482,6 +482,7 @@ import { HookedTasks } from '@work/application/services/hooked-tasks.service';
 import { IntegrationTools } from '@work/application/services/integration-tools.service';
 import { LineAtHand } from '@work/application/services/line-at-hand.service';
 import { LineViews } from '@work/application/services/line-views.service';
+import { LongPoll } from '@work/application/services/long-poll';
 import { NetworkCalls } from '@work/application/services/network-calls.service';
 import { NoticeAtHand } from '@work/application/services/notice-at-hand.service';
 import { Notices } from '@work/application/services/notices.service';
@@ -841,6 +842,13 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     inject: [ForgetHeardHappenings, LOGGER],
     useFactory: (forgetting: ForgetHeardHappenings, logger: LoggerPort) =>
       new HeardHappeningsWorker(forgetting, logger),
+  },
+
+  {
+    provide: LongPoll,
+    inject: [CLOCK, ENV],
+    useFactory: (clock: ClockPort, env: Env) =>
+      new LongPoll(clock, env.SPOTLIGHT_LONG_POLL_MS),
   },
 
   {
@@ -2175,6 +2183,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     ClaimsTaken,
     ProvisionFailures,
     RunStartHooks,
+    LongPoll,
   ]),
 
   ...bindCommandHandler(ClaimHostWorkCommand, ClaimHostWorkHandler, [
@@ -2187,6 +2196,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     CLOCK,
     RunStartHooks,
     ClaimsTaken,
+    LongPoll,
   ]),
 
   ...bindCommandHandler(ClaimHostCallCommand, ClaimHostCallHandler, [
@@ -2194,6 +2204,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     RUNNERS,
     DrizzleNetworkCallRepository,
     CLOCK,
+    LongPoll,
   ]),
 
   ...bindCommandHandler(AnswerHostCallCommand, AnswerHostCallHandler, [
