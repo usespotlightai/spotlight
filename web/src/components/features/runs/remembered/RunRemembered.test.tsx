@@ -2,9 +2,9 @@ import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { RunSidePanel } from '@/components/features/runs/RunSidePanel';
 import { RunRemembered } from '@/components/features/runs/remembered/RunRemembered';
 import type { RunMemories, RunProposal, TeamMemory } from '@/lib/memory';
+import { WithRunSidePanel } from '@/test/WithRunSidePanel';
 
 const refetch = vi.fn();
 const rememberedState = {
@@ -18,7 +18,6 @@ const retire = {
   mutate: vi.fn(),
   reset: vi.fn(),
   isPending: false,
-  isError: false,
 };
 
 vi.mock('@/hooks/api/useRunMemories', () => ({
@@ -105,9 +104,9 @@ const REMEMBERED: RunMemories = {
 const showing = () =>
   render(
     <MemoryRouter>
-      <RunSidePanel>
+      <WithRunSidePanel>
         <RunRemembered slug="acme" teamId="team_1" runId="run_1" />
-      </RunSidePanel>
+      </WithRunSidePanel>
     </MemoryRouter>,
   );
 

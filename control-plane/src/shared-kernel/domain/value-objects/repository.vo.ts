@@ -14,7 +14,7 @@ export class Repository {
     const parts = raw.trim().split(SEPARATOR);
 
     if (parts.length !== 2) {
-      throw new InvalidRepositoryError('is named owner/name');
+      throw new InvalidRepositoryError('must be named owner/name');
     }
 
     const [owner, name] = parts as [string, string];
@@ -22,7 +22,7 @@ export class Repository {
     for (const part of [owner, name]) {
       if (part.length === 0 || part.length > MAX_LENGTH) {
         throw new InvalidRepositoryError(
-          `has an owner and a name of at most ${MAX_LENGTH} characters`,
+          `owner and name must each be at most ${MAX_LENGTH} characters`,
         );
       }
       if (!SHAPE.test(part) || part === '.' || part === '..') {

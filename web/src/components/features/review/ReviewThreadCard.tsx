@@ -72,7 +72,6 @@ export function ReviewThreadCard({
             open={replying}
             onOpenChange={setReplying}
             pending={draft.isPending}
-            failed={draft.isError}
             onSubmit={(body) =>
               draft.mutate(
                 {

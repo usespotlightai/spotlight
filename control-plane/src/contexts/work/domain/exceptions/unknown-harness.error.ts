@@ -2,7 +2,7 @@ export class UnknownHarnessError extends Error {
   readonly violation = 'invalid' as const;
 
   constructor(id: string) {
-    super(`No harness called "${id}" is known`);
+    super(`Harness ${id} not found.`);
     this.name = 'UnknownHarnessError';
   }
 }

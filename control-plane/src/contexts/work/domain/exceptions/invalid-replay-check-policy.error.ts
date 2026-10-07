@@ -11,7 +11,7 @@ export class InvalidReplayCheckPolicyError extends Error {
     readonly field: ReplayCheckField,
     reason: string,
   ) {
-    super(reason);
+    super(`Replay check ${field} ${reason}.`);
     this.name = 'InvalidReplayCheckPolicyError';
   }
 }

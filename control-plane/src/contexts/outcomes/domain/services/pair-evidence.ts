@@ -118,7 +118,7 @@ export class PairEvidence {
 
     if (!inA && !inB) {
       throw new InvalidScoreError(
-        'cites only hunks of the two changes the judge read',
+        'can cite only hunks the judge read',
         'reason',
       );
     }

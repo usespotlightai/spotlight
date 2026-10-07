@@ -7,7 +7,7 @@ export class TeamKeyFixedError extends Error {
     readonly key: string,
     readonly because: string,
   ) {
-    super(`The ${key} team ${because}`);
+    super(`Team ${key} ${because}.`);
     this.name = 'TeamKeyFixedError';
   }
 }

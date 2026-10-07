@@ -30,7 +30,7 @@ export class ProvisionSecret implements Secret {
     if (bytes < FEWEST_BYTES || bytes > MOST_BYTES) {
       throw new InvalidRunnerPoolError(
         'provision.secret',
-        `is whsec_ followed by ${FEWEST_BYTES} to ${MOST_BYTES} base64-encoded random bytes, as Standard Webhooks signing secrets are`,
+        `must be whsec_ followed by ${FEWEST_BYTES} to ${MOST_BYTES} base64-encoded random bytes`,
       );
     }
 

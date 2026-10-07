@@ -1577,6 +1577,25 @@ export type TeamRunResponseDto = {
   taskDescription: string | null;
 };
 
+export type TraceVolumeBucketResponseDto = {
+  /**
+   * When the bar starts
+   */
+  from: string;
+  /**
+   * When the bar ends, not included
+   */
+  to: string;
+  /**
+   * How many traces started in it
+   */
+  count: number;
+  /**
+   * Every fault the traces that started in it came to
+   */
+  faults: number;
+};
+
 export type TraceStationResponseDto = {
   name: string;
   color: string;
@@ -1615,6 +1634,26 @@ export type TeamTraceResponseDto = {
   faults: number;
   cost: number | null;
   currency: string | null;
+};
+
+export type TeamTracesResponseDto = {
+  range: '30m' | '1h' | '6h' | '1d' | '3d' | '7d' | '14d' | '30d' | '90d';
+  /**
+   * Where the range starts
+   */
+  from: string;
+  /**
+   * Where the range ends: when it was asked
+   */
+  to: string;
+  /**
+   * Every trace in the range, counted into evenly long bars from start to end, empty bars kept
+   */
+  volume: Array<TraceVolumeBucketResponseDto>;
+  /**
+   * Every trace in the range, latest first
+   */
+  traces: Array<TeamTraceResponseDto>;
 };
 
 export type ConfigChangeResponseDto = {
@@ -1955,6 +1994,14 @@ export type ChatProposalResponseDto = {
   stationId: string;
   stationName: string | null;
   stationColor: string | null;
+  /**
+   * Where the station stands on its line, from 0
+   */
+  stationPosition: number | null;
+  /**
+   * How many stations its line has
+   */
+  stationCount: number | null;
   title: string;
   description: string | null;
   state: 'open' | 'accepted' | 'created' | 'dismissed';
@@ -4270,6 +4317,10 @@ export type RunTallyResponseDto = {
   withdrawn: number;
   failed: number;
   /**
+   * Failed runs as a share of the runs; none where none ran
+   */
+  failedShare: number | null;
+  /**
    * Runs a person stopped
    */
   stopped: number;
@@ -4313,29 +4364,72 @@ export type RunTallyResponseDto = {
   p90Ms: number | null;
 };
 
+export type TallySharesResponseDto = {
+  /**
+   * Runs whose checks passed as a share of the runs checked; none where none were
+   */
+  checksPassed: number | null;
+  /**
+   * Runs a person accepted as a share of the runs that ran
+   */
+  accepted: number | null;
+  /**
+   * Merged tasks as a share of the runs that ran
+   */
+  merged: number | null;
+};
+
 export type FingerprintGroupResponseDto = {
   /**
-   * The station config these runs ran with; none for runs from before configs were fingerprinted
+   * The group’s oldest listed run: the run that started its config, or for a group carrying on the config of a run from before the listing, a group with no config, or a group of a config that never ran, its oldest run
+   */
+  firstRunId: string;
+  /**
+   * The station config in force when these runs started, or for a group that never ran its config, the config its runs were meant to run; none only for runs from before the station first ran a config
    */
   fingerprint: string | null;
+  /**
+   * Whether the group’s config is one the station ran: false for runs meant for a config other than the one in force that never ran it (never started, failed to provision or withdrawn), which are kept apart from the group in force
+   */
+  ran: boolean;
   config: StationConfigResponseDto | null;
   /**
-   * How the config differs from the one before it
+   * How the config differs from the last one the station ran before the group, listed or not, groups that never ran their config passed over; none where either config is not on record, or for a group carrying on the config in force
    */
   changes: Array<ConfigChangeResponseDto>;
   /**
-   * Its runs, the newest first
+   * Its runs that ended, the latest-started first, so the groups’ runs read in turn are the station’s latest-started runs
    */
   runs: Array<StationRunOutcomeResponseDto>;
+  tally: RunTallyResponseDto;
+  shares: TallySharesResponseDto;
+  /**
+   * The day its earliest-ended run ended; none where none ended
+   */
+  firstDay: string | null;
+  /**
+   * The day its latest-ended run ended; none where none ended
+   */
+  lastDay: string | null;
+};
+
+export type ConfigInForceResponseDto = {
+  /**
+   * One tally over the listed runs of the config the station last ran, as of the listed runs, back to its last change to another config it ran; runs meant for a config that never ran them, between, leave the stretch whole and are not counted
+   */
   tally: RunTallyResponseDto;
 };
 
 export type StationOutcomesResponseDto = {
   stationId: string;
   /**
-   * The station’s latest runs, in runs of the same config, the newest first
+   * The station’s latest-started runs in groups, the newest first, in the order the runs started: a new group starts at every run that ran a config other than the station’s run before it that ran one, listed or not; a run meant for another config than the one in force that never ran it (never started, failed to provision or withdrawn) starts or joins a group of that config that never ran, and the group in force starts again after it; a run with no config joins the group in force
    */
   groups: Array<FingerprintGroupResponseDto>;
+  /**
+   * The config the station last ran, as of the listed runs, with its tally; there under a config carried on from before the listing even when no listed run ran a config, and none when the station had run no config by the newest listed run
+   */
+  inForce: ConfigInForceResponseDto | null;
 };
 
 export type StationJudgeSettingsResponseDto = {
@@ -4380,6 +4474,21 @@ export type JudgeStandingResponseDto = {
   hiddenBecause: 'no-judge' | 'unreadable-rubric' | 'too-few-pairs' | 'no-agreement' | 'below-trust' | null;
 };
 
+export type AgreementReadingsResponseDto = {
+  /**
+   * How strong the kappa is: almost perfect from 0.81, substantial from 0.61, moderate from 0.41, fair to slight from 0, poor below; none without a kappa
+   */
+  kappa: 'almost-perfect' | 'substantial' | 'moderate' | 'fair-to-slight' | 'poor' | null;
+  /**
+   * How strong Pearson’s correlation is: very strong from 0.9, strong from 0.7, moderate from 0.5, weak from 0, inverse below; none without one
+   */
+  pearson: 'very-strong' | 'strong' | 'moderate' | 'weak' | 'inverse' | null;
+  /**
+   * How strong Spearman’s correlation is: very strong from 0.9, strong from 0.7, moderate from 0.5, weak from 0, inverse below; none without one
+   */
+  spearman: 'very-strong' | 'strong' | 'moderate' | 'weak' | 'inverse' | null;
+};
+
 export type ClaimAgreementResponseDto = {
   /**
    * The claim’s place, from 0
@@ -4391,6 +4500,10 @@ export type ClaimAgreementResponseDto = {
   pairs: number;
   observed: number | null;
   kappa: number | null;
+  /**
+   * How strong the kappa is: almost perfect from 0.81, substantial from 0.61, moderate from 0.41, fair to slight from 0, poor below; none without a kappa
+   */
+  reading: 'almost-perfect' | 'substantial' | 'moderate' | 'fair-to-slight' | 'poor' | null;
 };
 
 export type AgreementResponseDto = {
@@ -4402,9 +4515,22 @@ export type AgreementResponseDto = {
   kappa: number | null;
   spearman: number | null;
   /**
+   * Pearson’s correlation between the two scores, for a judge of numbers; none otherwise or where either side never changes
+   */
+  pearson: number | null;
+  /**
    * The mean absolute difference between the two scores
    */
   mae: number | null;
+  /**
+   * The root mean square difference between the two scores, for a judge of numbers
+   */
+  rmse: number | null;
+  /**
+   * The F1 score of the judge’s yes, or met, against people’s, for a judge of yes or no or of claims; none where neither said yes
+   */
+  f1: number | null;
+  readings: AgreementReadingsResponseDto;
   /**
    * For a judge of claims, how often it agrees with people on each claim; the figures above pool every claim. Empty otherwise
    */
@@ -4417,6 +4543,18 @@ export type ConfusionResponseDto = {
    * Counts of runs, a row for each judge score and a column for each score people gave
    */
   cells: Array<Array<number>>;
+};
+
+export type ScoreCountResponseDto = {
+  label: string;
+  /**
+   * Runs the judge gave this score, among runs with both scores
+   */
+  judge: number;
+  /**
+   * Runs people gave this score, among runs with both scores
+   */
+  people: number;
 };
 
 export type TrendPointResponseDto = {
@@ -4443,9 +4581,20 @@ export type RubricVersionResponseDto = {
   judged: number;
   agreement: AgreementResponseDto;
   confusion: ConfusionResponseDto;
+  /**
+   * How often each score was given, in the confusion’s order
+   */
+  distribution: Array<ScoreCountResponseDto>;
   trend: Array<TrendPointResponseDto>;
   firstAt: string;
   lastAt: string;
+};
+
+export type JudgeCoverageSharesResponseDto = {
+  both: number | null;
+  judgeOnly: number | null;
+  peopleOnly: number | null;
+  neither: number | null;
 };
 
 export type JudgeCoverageResponseDto = {
@@ -4457,6 +4606,10 @@ export type JudgeCoverageResponseDto = {
   judgeOnly: number;
   peopleOnly: number;
   neither: number;
+  /**
+   * Each count as a share of the runs
+   */
+  shares: JudgeCoverageSharesResponseDto;
 };
 
 export type StationJudgeAgreementResponseDto = {
@@ -4682,6 +4835,75 @@ export type HeadlineResponseDto = {
   peopleIds: Array<string>;
 };
 
+export type ChangeResponseDto = {
+  /**
+   * percent: moved by a share of what it was; points: a rate or share that moved by percentage points
+   */
+  unit: 'percent' | 'points';
+  /**
+   * How far it moved, as a fraction: 0.2 is 20% for percent and 20 points for points; none when it rose from 0
+   */
+  by: number | null;
+  /**
+   * Whether it rose from 0, so no percent can be given
+   */
+  fromZero: boolean;
+  direction: 'up' | 'down' | 'same';
+  /**
+   * Whether the move is good or bad for the team; flat where neither way is better or nothing moved
+   */
+  tone: 'good' | 'bad' | 'flat';
+};
+
+export type HeadlineChangesResponseDto = {
+  /**
+   * Spend against the period before, where both were in one currency
+   */
+  spend: ChangeResponseDto | null;
+  /**
+   * Pull requests merged against the period before
+   */
+  mergedPullRequests: ChangeResponseDto | null;
+  /**
+   * The merge rate against the period before, in points
+   */
+  mergeRate: ChangeResponseDto | null;
+  /**
+   * Cost per merged pull request against the period before, where both were in one currency
+   */
+  costPerMerge: ChangeResponseDto | null;
+  /**
+   * The median task to merge against the period before
+   */
+  taskToMerge: ChangeResponseDto | null;
+  /**
+   * Human touches per task against the period before
+   */
+  touchesPerTask: ChangeResponseDto | null;
+  /**
+   * Active people against the period before
+   */
+  activePeople: ChangeResponseDto | null;
+};
+
+export type ConfigMarkerResponseDto = {
+  lineId: string;
+  stationId: string;
+  /**
+   * The station config the station changed to
+   */
+  fingerprint: string;
+  /**
+   * The config the station’s previous run that ran a config ran with; a change back to an earlier config is a change too
+   */
+  previousFingerprint: string;
+  /**
+   * When the first run with it started, or ended where it never started
+   */
+  firstRunAt: string;
+  runId: string;
+};
+
 export type DayOutputResponseDto = {
   /**
    * A UTC day
@@ -4705,20 +4927,10 @@ export type DayOutputResponseDto = {
    */
   merged: number;
   mergedTaskIds: Array<string>;
-};
-
-export type ConfigMarkerResponseDto = {
-  lineId: string;
-  stationId: string;
   /**
-   * The station config the station changed to
+   * Each time a station ran with a new config whose first run started that UTC day
    */
-  fingerprint: string;
-  /**
-   * When the first run with it started, or ended where it never started
-   */
-  firstRunAt: string;
-  runId: string;
+  changes: Array<ConfigMarkerResponseDto>;
 };
 
 export type SignalReadingResponseDto = {
@@ -4746,6 +4958,10 @@ export type SignalReadingResponseDto = {
    * It trails the team
    */
   trails: boolean;
+  /**
+   * The line it crossed to be flagged: the lower of the period before and the team, each made 25% worse and, for a share, at least 5 points worse
+   */
+  flaggedAbove: number;
   /**
    * The currency now, before and team are spent in, for the cost signal; none for every other signal
    */
@@ -4792,11 +5008,11 @@ export type InsightsOverviewResponseDto = {
    */
   headline: HeadlineResponseDto;
   /**
-   * The period before, as long
+   * How the headline moved against the period before, as long
    */
-  before: HeadlineResponseDto;
+  changes: HeadlineChangesResponseDto;
   /**
-   * Spend and merged pull requests per day, oldest first
+   * Spend, merged pull requests and config changes per day, oldest first
    */
   output: Array<DayOutputResponseDto>;
   /**
@@ -4807,10 +5023,6 @@ export type InsightsOverviewResponseDto = {
    * Whether the period’s prices came in more than one currency
    */
   outputMixedCurrencies: boolean;
-  /**
-   * Each time a station ran with a new config this period
-   */
-  configChanges: Array<ConfigMarkerResponseDto>;
   /**
    * Stations with at least three runs whose signals rose against the period before or trail the team, the most signals first
    */
@@ -4825,6 +5037,14 @@ export type StationFlowResponseDto = {
    * Tasks it ran for
    */
   tasks: number;
+  /**
+   * Tasks it ran for the period before; 0 where it ran none
+   */
+  tasksBefore: number;
+  /**
+   * Its tasks against the period before
+   */
+  tasksChange: ChangeResponseDto | null;
   taskIds: Array<string>;
   /**
    * Runs it ran
@@ -4852,6 +5072,21 @@ export type StationFlowResponseDto = {
   unanswered: number;
 };
 
+export type DeliveryChangesResponseDto = {
+  /**
+   * Pull requests opened against the period before
+   */
+  opened: ChangeResponseDto | null;
+  /**
+   * First reviews against the period before
+   */
+  reviewed: ChangeResponseDto | null;
+  /**
+   * Pull requests merged against the period before
+   */
+  merged: ChangeResponseDto | null;
+};
+
 export type DeliveryFlowResponseDto = {
   /**
    * From a task opening to its pull request opening, for pull requests opened in the period
@@ -4874,6 +5109,10 @@ export type DeliveryFlowResponseDto = {
    */
   reviewedTaskIds: Array<string>;
   mergedTaskIds: Array<string>;
+  /**
+   * How each count moved against the period before, as long
+   */
+  changes: DeliveryChangesResponseDto;
 };
 
 export type FlowResponseDto = {
@@ -4897,10 +5136,64 @@ export type InsightsFlowResponseDto = {
    * This period
    */
   flow: FlowResponseDto;
+};
+
+export type TallyChangesResponseDto = {
   /**
-   * The period before, as long
+   * Runs against the period before
    */
-  before: FlowResponseDto;
+  runs: ChangeResponseDto | null;
+  /**
+   * Failed runs against the period before
+   */
+  failed: ChangeResponseDto | null;
+  /**
+   * Accepted runs against the period before
+   */
+  accepted: ChangeResponseDto | null;
+  /**
+   * Runs sent back against the period before
+   */
+  sentBack: ChangeResponseDto | null;
+  /**
+   * Merged tasks against the period before
+   */
+  merged: ChangeResponseDto | null;
+  /**
+   * Cost against the period before, where both were in one currency
+   */
+  cost: ChangeResponseDto | null;
+  /**
+   * The median run time against the period before
+   */
+  median: ChangeResponseDto | null;
+};
+
+export type TallySeenResponseDto = {
+  /**
+   * Whether any run was accepted this period or the period before
+   */
+  accepted: boolean;
+  /**
+   * Whether any run was sent back this period or the period before
+   */
+  sentBack: boolean;
+  /**
+   * Whether any task merged this period or the period before
+   */
+  merged: boolean;
+};
+
+export type TallyCountedResponseDto = {
+  failed: boolean;
+  stopped: boolean;
+  checksPassed: boolean;
+  checksFailed: boolean;
+  accepted: boolean;
+  sentBack: boolean;
+  handedOn: boolean;
+  merged: boolean;
+  withdrawn: boolean;
 };
 
 export type DayTallyResponseDto = {
@@ -4948,9 +5241,13 @@ export type StationReportResponseDto = {
    */
   tally: RunTallyResponseDto;
   /**
-   * How its runs went the period before
+   * How its runs moved against the period before
    */
-  before: RunTallyResponseDto;
+  changes: TallyChangesResponseDto;
+  /**
+   * Which of its counts were above zero in either period
+   */
+  seen: TallySeenResponseDto;
   /**
    * The tally per UTC day, oldest first
    */
@@ -4976,9 +5273,21 @@ export type InsightsStationsResponseDto = {
    */
   team: RunTallyResponseDto;
   /**
-   * The whole team, the period before
+   * How the whole team’s runs moved against the period before
    */
-  teamBefore: RunTallyResponseDto;
+  teamChanges: TallyChangesResponseDto;
+  /**
+   * Which of the whole team’s counts were above zero in either period
+   */
+  teamSeen: TallySeenResponseDto;
+  /**
+   * Which of the whole team’s counts are above zero this period, so some station counted one
+   */
+  teamCounted: TallyCountedResponseDto;
+  /**
+   * The whole team’s tally per UTC day, oldest first
+   */
+  teamTrend: Array<DayTallyResponseDto>;
   stations: Array<StationReportResponseDto>;
 };
 
@@ -5010,6 +5319,25 @@ export type HumanLoadResponseDto = {
   refusedTaskIds: Array<string>;
 };
 
+export type HumanLoadChangesResponseDto = {
+  /**
+   * Inbox asks per task against the period before
+   */
+  asksPerTask: ChangeResponseDto | null;
+  /**
+   * The median time to answer against the period before
+   */
+  toAnswer: ChangeResponseDto | null;
+  /**
+   * The sent-back rate against the period before, in points
+   */
+  sentBackRate: ChangeResponseDto | null;
+  /**
+   * Refused approvals against the period before
+   */
+  refused: ChangeResponseDto | null;
+};
+
 export type PersonUseResponseDto = {
   personId: string;
   name: string | null;
@@ -5037,23 +5365,23 @@ export type AdoptionResponseDto = {
   /**
    * People active this period
    */
-  active: Array<string>;
+  activeCount: number;
   /**
-   * People active the period before
+   * Active people against the period before
    */
-  activeBefore: Array<string>;
+  activeChange: ChangeResponseDto | null;
   /**
    * People whose first activity on the team was this period
    */
-  newAdopters: Array<string>;
+  newAdopterCount: number;
   /**
    * People active in the last 7 days
    */
-  weekly: Array<string>;
+  weeklyCount: number;
   /**
    * People active in the last 30 days
    */
-  monthly: Array<string>;
+  monthlyCount: number;
   /**
    * Weekly over monthly active people
    */
@@ -5075,14 +5403,10 @@ export type InsightsPeopleResponseDto = {
    */
   load: HumanLoadResponseDto;
   /**
-   * The period before, as long
+   * How the load moved against the period before, as long
    */
-  loadBefore: HumanLoadResponseDto;
+  loadChanges: HumanLoadChangesResponseDto;
   adoption: AdoptionResponseDto;
-  /**
-   * The name of everyone named by id above
-   */
-  people: Array<PersonNameResponseDto>;
 };
 
 export type CostSliceResponseDto = {
@@ -5200,13 +5524,9 @@ export type InsightsCostResponseDto = {
   truncated: boolean;
   cost: CostBreakdownResponseDto;
   /**
-   * Spend the period before
+   * Spend against the period before, where both periods were priced in one currency
    */
-  spendBefore: SpendResponseDto | null;
-  /**
-   * Whether the priced runs the period before came in more than one currency, so nothing was summed
-   */
-  mixedCurrenciesBefore: boolean;
+  spendChange: ChangeResponseDto | null;
 };
 
 export type TrendRuleResponseDto = {
@@ -5241,6 +5561,10 @@ export type SkillWeekResponseDto = {
    * Of those, the runs that read it
    */
   used: number;
+  /**
+   * The share of that week’s runs that read it; none where no run ended that week
+   */
+  usedShare: number | null;
 };
 
 export type SkillAtStationResponseDto = {
@@ -5394,6 +5718,10 @@ export type MeasureVerdictResponseDto = {
    * Whether the runs compared did better, worse or the same; insufficient below 5 settled runs on either side, or where the costs are in different currencies
    */
   verdict: 'better' | 'worse' | 'unchanged' | 'insufficient';
+  /**
+   * How far the measure moved: a share in points, a cost per run in percent; none where either side is unknown or the costs are in different currencies
+   */
+  change: ChangeResponseDto | null;
 };
 
 export type JudgeShareResponseDto = {
@@ -5415,9 +5743,9 @@ export type ChangeMarkerResponseDto = {
    */
   fingerprint: string;
   /**
-   * The config the station ran with just before
+   * The config the station’s previous run that ran a config ran with; a change back to an earlier config is a change too
    */
-  previousFingerprint: string | null;
+  previousFingerprint: string;
   /**
    * When the first run with the new config started
    */
@@ -5427,11 +5755,11 @@ export type ChangeMarkerResponseDto = {
    */
   runId: string;
   /**
-   * The station’s runs with the config before that started since its config before last changed, up to this change
+   * The station’s runs with the config before, from its config before last changing up to this change, a run that never started placed where it ended; one that failed provisioning counts as a failed run
    */
   before: RunTallyResponseDto;
   /**
-   * The station’s runs with this config that started from this change up to the next one
+   * The station’s runs with this config from this change up to the next one, and its runs meant to run this config that never ran it since the change before, even those that ended before this change; one that failed provisioning counts as a failed run
    */
   after: RunTallyResponseDto;
   /**
@@ -5446,6 +5774,10 @@ export type ChangeMarkerResponseDto = {
    * The judge’s scores of the runs after, only where the station’s judge is trusted
    */
   judgeAfter: JudgeShareResponseDto | null;
+  /**
+   * The judge’s mean score after against before, in points; none where either side went unjudged
+   */
+  judgeChange: ChangeResponseDto | null;
   /**
    * How the new config differs from the one before it
    */
@@ -5541,6 +5873,10 @@ export type SetupOutcomeResponseDto = {
    */
   costPerRun: number | null;
   currency: string | null;
+  /**
+   * Whether it has a cost per run in the currency the comparison is drawn in, so it can go on the chart
+   */
+  priced: boolean;
   outcomes: SetupOutcomesResponseDto;
   /**
    * The judge’s scores of this setup’s runs; none unless the comparison is narrowed to one station
@@ -5701,11 +6037,19 @@ export type StationAlertCrossingResponseDto = {
    */
   baseline: number | null;
   /**
+   * The measure against the baseline: points for a rate, percent for cost per run; none without a baseline
+   */
+  change: ChangeResponseDto | null;
+  /**
    * The run that crossed it
    */
   runId: string;
   taskId: string;
   raisedAt: string;
+  /**
+   * The shortest Insights period whose days hold the moment the alert went off
+   */
+  insightsPeriod: '7d' | '30d' | '90d';
   /**
    * When the station came back within the threshold, if it has
    */
@@ -5737,6 +6081,14 @@ export type WeekShareResponseDto = {
    * Of those, ones people or bots wrote that a Spotlight review task was opened on
    */
   touched: number;
+  /**
+   * Of those, the ones Spotlight made or reviewed
+   */
+  spotlight: number;
+  /**
+   * Of those, ones people wrote with no Spotlight review task
+   */
+  people: number;
   /**
    * Of those, ones bots wrote with no Spotlight review task
    */
@@ -5892,6 +6244,311 @@ export type InsightsPullRequestsResponseDto = {
    * How many review rounds merged pull requests took, Spotlight’s against people’s, in the same repositories
    */
   depth: Array<RoundsShareResponseDto>;
+};
+
+export type PercentilesResponseDto = {
+  /**
+   * The median, in milliseconds; none when nothing was measured
+   */
+  p50Ms: number | null;
+  /**
+   * What three in four stayed within, in milliseconds
+   */
+  p75Ms: number | null;
+  /**
+   * What nine in ten stayed within, in milliseconds
+   */
+  p90Ms: number | null;
+  /**
+   * What nineteen in twenty stayed within, in milliseconds
+   */
+  p95Ms: number | null;
+  /**
+   * How many were measured
+   */
+  count: number;
+};
+
+export type ByAuthorResponseDto = {
+  /**
+   * Pull requests Spotlight made
+   */
+  spotlight: PercentilesResponseDto;
+  /**
+   * Pull requests people made alone, in the repositories Spotlight merged into
+   */
+  people: PercentilesResponseDto;
+};
+
+export type PercentileChangesResponseDto = {
+  /**
+   * The median against the period before
+   */
+  p50: ChangeResponseDto | null;
+  /**
+   * The 75th percentile against the period before
+   */
+  p75: ChangeResponseDto | null;
+  /**
+   * The 90th percentile against the period before
+   */
+  p90: ChangeResponseDto | null;
+  /**
+   * The 95th percentile against the period before
+   */
+  p95: ChangeResponseDto | null;
+};
+
+export type ByAuthorChangesResponseDto = {
+  /**
+   * Pull requests Spotlight made
+   */
+  spotlight: PercentileChangesResponseDto;
+  /**
+   * Pull requests people made alone, in the repositories Spotlight merged into
+   */
+  people: PercentileChangesResponseDto;
+};
+
+export type MergeDayResponseDto = {
+  /**
+   * The UTC day
+   */
+  day: string;
+  /**
+   * Opened to merged, for pull requests merged that day
+   */
+  daily: ByAuthorResponseDto;
+  /**
+   * Opened to merged, for pull requests merged in the 7 days ending that day
+   */
+  rolling: ByAuthorResponseDto;
+};
+
+export type TypeMergeResponseDto = {
+  type: 'feature' | 'fix' | 'refactor' | 'tests' | 'chore' | 'other';
+  /**
+   * Merged in the period, Spotlight’s and people’s alone
+   */
+  merged: number;
+  /**
+   * Opened to merged
+   */
+  toMerge: ByAuthorResponseDto;
+};
+
+export type PercentileTypesResponseDto = {
+  p50: Array<'feature' | 'fix' | 'refactor' | 'tests' | 'chore' | 'other'>;
+  p75: Array<'feature' | 'fix' | 'refactor' | 'tests' | 'chore' | 'other'>;
+  p90: Array<'feature' | 'fix' | 'refactor' | 'tests' | 'chore' | 'other'>;
+  p95: Array<'feature' | 'fix' | 'refactor' | 'tests' | 'chore' | 'other'>;
+};
+
+export type RoundsCountResponseDto = {
+  rounds: '0' | '1' | '2' | '3+';
+  /**
+   * Merged with that many rounds
+   */
+  merged: number;
+  /**
+   * Those over everything merged across the buckets, from 0 to 1; none where nothing merged
+   */
+  share: number | null;
+};
+
+export type DepthWeekResponseDto = {
+  /**
+   * The Monday, UTC, the week starts on
+   */
+  week: string;
+  /**
+   * Merged that week
+   */
+  merged: number;
+  /**
+   * How many of them took each number of review rounds
+   */
+  rounds: Array<RoundsCountResponseDto>;
+};
+
+export type ReviewDayResponseDto = {
+  /**
+   * The UTC day
+   */
+  day: string;
+  /**
+   * Ready for review to the first review by anyone but the author, bots’ included, for pull requests first reviewed that day
+   */
+  toFirstReviewDaily: PercentilesResponseDto;
+  /**
+   * The same over the 7 days ending that day
+   */
+  toFirstReviewRolling: PercentilesResponseDto;
+  /**
+   * Pull requests ready and not yet reviewed at the end of the day
+   */
+  awaiting: number;
+  /**
+   * Reviews people submitted that day
+   */
+  humanReviews: number;
+};
+
+export type ReviewBotResponseDto = {
+  login: string;
+  /**
+   * Comments it left on pull requests active in the period, inline and in the conversation
+   */
+  comments: number;
+  /**
+   * Reviews it submitted
+   */
+  reviews: number;
+  /**
+   * Of the review threads it started, the share now resolved, from 0 to 1; none where it started none
+   */
+  resolvedShare: number | null;
+};
+
+export type PipelineTypeResponseDto = {
+  type: 'feature' | 'fix' | 'refactor' | 'tests' | 'chore' | 'other';
+  merged: number;
+};
+
+export type StagePartsResponseDto = {
+  queued: PercentilesResponseDto;
+  running: PercentilesResponseDto;
+  inbox: PercentilesResponseDto;
+};
+
+export type PercentileJamsResponseDto = {
+  p50: number;
+  p75: number;
+  p90: number;
+  p95: number;
+};
+
+export type PercentileWorstResponseDto = {
+  p50: boolean;
+  p75: boolean;
+  p90: boolean;
+  p95: boolean;
+};
+
+export type PercentilePartsResponseDto = {
+  p50: 'queued' | 'running' | 'inbox' | null;
+  p75: 'queued' | 'running' | 'inbox' | null;
+  p90: 'queued' | 'running' | 'inbox' | null;
+  p95: 'queued' | 'running' | 'inbox' | null;
+};
+
+export type StageTimesResponseDto = {
+  total: PercentilesResponseDto;
+  /**
+   * At a station, the time queued, running and in the inbox
+   */
+  parts: StagePartsResponseDto | null;
+  /**
+   * At each percentile, the stage’s time over the longest stage’s in the same layout and for the same kind of pull request, from 0 to 1
+   */
+  jam: PercentileJamsResponseDto;
+  /**
+   * At each percentile, whether this is the longest stage in the layout for the same kind of pull request; the first one on a tie
+   */
+  worst: PercentileWorstResponseDto;
+  /**
+   * At a station, the part that took longest at each percentile; queued first on a tie, none where no part took any time
+   */
+  longestPart: PercentilePartsResponseDto | null;
+};
+
+export type TypedStageTimesResponseDto = {
+  type: 'feature' | 'fix' | 'refactor' | 'tests' | 'chore' | 'other';
+  times: StageTimesResponseDto;
+};
+
+export type ByTypeResponseDto = {
+  all: StageTimesResponseDto;
+  /**
+   * The same, for each kind of pull request that went through it
+   */
+  types: Array<TypedStageTimesResponseDto>;
+};
+
+export type FlowStageResponseDto = {
+  /**
+   * Coding: task opened to pull request opened. Station: time the task spent at one station. Awaiting review: ready for review to the first review by anyone but the author, bots’ included. In review: first review to approval, or to merge where none approved. Awaiting merge: approval to merge
+   */
+  kind: 'coding' | 'station' | 'awaitingReview' | 'inReview' | 'awaitingMerge';
+  /**
+   * The station’s line; none for other stages
+   */
+  lineId: string | null;
+  /**
+   * The station; none for other stages
+   */
+  stationId: string | null;
+  times: ByTypeResponseDto;
+};
+
+export type FlowLayoutsResponseDto = {
+  /**
+   * Coding as each station the tasks went through, in order of first use, then the review stages
+   */
+  stations: Array<FlowStageResponseDto>;
+  /**
+   * Coding as one stage, then the review stages
+   */
+  stages: Array<FlowStageResponseDto>;
+};
+
+export type PipelineFlowResponseDto = {
+  /**
+   * Spotlight’s pull requests merged in the period
+   */
+  merged: number;
+  types: Array<PipelineTypeResponseDto>;
+  /**
+   * The stages in order, with coding shown by station or as one stage
+   */
+  layouts: FlowLayoutsResponseDto;
+};
+
+export type InsightsShippingResponseDto = {
+  period: InsightsPeriodResponseDto;
+  /**
+   * Whether only the latest pull requests or runs were counted
+   */
+  truncated: boolean;
+  /**
+   * Opened to merged, for pull requests merged in the period
+   */
+  toMerge: ByAuthorResponseDto;
+  /**
+   * Opened to merged at each percentile against the period before, as long
+   */
+  toMergeChanges: ByAuthorChangesResponseDto;
+  mergeDays: Array<MergeDayResponseDto>;
+  types: Array<TypeMergeResponseDto>;
+  /**
+   * At each percentile, the kinds in types by Spotlight’s opened to merged, slowest first; unmeasured last
+   */
+  slowestFirst: PercentileTypesResponseDto;
+  depth: Array<DepthWeekResponseDto>;
+  /**
+   * The weeks in depth summed, for each number of review rounds
+   */
+  depthTotals: Array<RoundsCountResponseDto>;
+  reviewDays: Array<ReviewDayResponseDto>;
+  /**
+   * The most comments first
+   */
+  bots: Array<ReviewBotResponseDto>;
+  pipeline: PipelineFlowResponseDto;
+  /**
+   * Whether anything merged, waited on a review or was reviewed by a person over the period
+   */
+  shippedAny: boolean;
 };
 
 export type InsightsPullRequestResponseDto = {
@@ -6141,6 +6798,10 @@ export type SetNoiseResponseDto = {
    */
   flippedTasks: Array<string>;
   measuredAt: string;
+  /**
+   * Whether the spread is too wide for a single copy of each run to tell a gain of the line’s min_gain from chance, by the same rule the search warnings use
+   */
+  noisyInOneCopy: boolean;
 };
 
 export type RateIntervalResponseDto = {
@@ -8045,6 +8706,10 @@ export type ReplayedBaselineResponseDto = {
   costPerRun: number | null;
   currency: string;
   endedAt: string | null;
+  /**
+   * Where it goes on the set’s cost and success chart: priced when finished, scored and costed in the chart currency; unfinished, unscored, unpriced or other-currency say why it is left off
+   */
+  charted: 'priced' | 'unpriced' | 'other-currency' | 'unscored' | 'unfinished';
 };
 
 export type ReplayedHeldOutResponseDto = {
@@ -8104,6 +8769,10 @@ export type ReplayedSeedResponseDto = {
    * How many searched runs it was scored on
    */
   scored: number;
+  /**
+   * Where it goes on the set’s cost and success chart: priced when finished, scored and costed in the chart currency; unfinished, unscored, unpriced or other-currency say why it is left off
+   */
+  charted: 'priced' | 'unpriced' | 'other-currency' | 'unscored' | 'unfinished';
 };
 
 export type ReplayedSearchResponseDto = {
@@ -8118,6 +8787,41 @@ export type ReplayedSearchResponseDto = {
    * The live config the search started from, scored on the same searched runs as its candidates, in the candidate’s currency
    */
   seed: ReplayedSeedResponseDto;
+};
+
+export type ReplayedShownResponseDto = {
+  /**
+   * compared when the baseline replayed some of its runs too, so it is set beside live on those runs only; overall otherwise, with nothing from live
+   */
+  basis: 'compared' | 'overall';
+  /**
+   * compared when the cost per run covers the compared runs; overall when it covers all its scored runs, because live is in another currency or there is no compared basis
+   */
+  costBasis: 'compared' | 'overall';
+  /**
+   * A success rate, 0 to 1, of the past runs it was scored on, each a replay of one past run; a task worked twice counts twice
+   */
+  successRate: number | null;
+  /**
+   * The success rate with its 95% interval over the tasks
+   */
+  interval: RateIntervalResponseDto | null;
+  /**
+   * The live config’s success rate on the same runs; null on the overall basis
+   */
+  liveSuccessRate: number | null;
+  /**
+   * How many runs the success rates cover
+   */
+  runs: number;
+  /**
+   * What it spent per run, in its own currency: on the compared runs when live is in the same currency, else over all its scored runs
+   */
+  costPerRun: number | null;
+  /**
+   * What the live config spent per run on the compared runs, in the candidate’s currency; null on the overall basis or when live is in another currency
+   */
+  liveCostPerRun: number | null;
 };
 
 export type ReplayedCandidateResponseDto = {
@@ -8214,6 +8918,14 @@ export type ReplayedCandidateResponseDto = {
    * The pull request Spotlight opens once a person picks it from its search; null until then
    */
   pullRequest: CandidatePullRequestResponseDto | null;
+  /**
+   * Where it goes on the set’s cost and success chart: priced when finished, scored and costed in the chart currency; unfinished, unscored, unpriced or other-currency say why it is left off
+   */
+  charted: 'priced' | 'unpriced' | 'other-currency' | 'unscored' | 'unfinished';
+  /**
+   * The success and cost to set beside live: on the compared runs when there are any, else overall
+   */
+  shown: ReplayedShownResponseDto;
 };
 
 export type ReplayedSetResponseDto = {
@@ -8236,7 +8948,11 @@ export type ReplayedSetResponseDto = {
    */
   baseline: ReplayedBaselineResponseDto | null;
   /**
-   * Candidates replayed over it in the period, newest first: searched ones whose search started in it, proposed ones whose replay did
+   * The currency its chart is drawn in: the baseline’s, else the newest candidate’s
+   */
+  chartCurrency: string | null;
+  /**
+   * Candidates replayed over it in the period, the largest gain against live first and those without one last, newest first among equals: searched ones whose search started in it, proposed ones whose replay did
    */
   candidates: Array<ReplayedCandidateResponseDto>;
 };
@@ -9833,9 +10549,9 @@ export type ListTeamTracesData = {
   };
   query?: {
     /**
-     * Only runs started at or after this. Defaults to 30 days.
+     * How far back from now to look, counting runs started since; 30d unless asked
      */
-    since?: unknown;
+    range?: '30m' | '1h' | '6h' | '1d' | '3d' | '7d' | '14d' | '30d' | '90d';
   };
   url: '/teams/{teamId}/traces';
 };
@@ -9845,10 +10561,14 @@ export type ListTeamTracesErrors = {
    * No valid session
    */
   401: unknown;
+  /**
+   * No such range
+   */
+  422: unknown;
 };
 
 export type ListTeamTracesResponses = {
-  200: Array<TeamTraceResponseDto>;
+  200: TeamTracesResponseDto;
 };
 
 export type ListTeamTracesResponse = ListTeamTracesResponses[keyof ListTeamTracesResponses];
@@ -12800,7 +13520,7 @@ export type LeaveAsHostData = {
 
 export type LeaveAsHostErrors = {
   /**
-   * Missing, rotated or unknown pool token, or a workload the trust does not admit
+   * Pool token is missing, rotated or unknown, or no trust admits this workload.
    */
   401: unknown;
 };
@@ -12831,7 +13551,7 @@ export type ReportHostPresenceData = {
 
 export type ReportHostPresenceErrors = {
   /**
-   * Missing, rotated or unknown pool token, or a workload the trust does not admit
+   * Pool token is missing, rotated or unknown, or no trust admits this workload.
    */
   401: unknown;
   /**
@@ -16535,7 +17255,7 @@ export type ListStationOutcomesData = {
   };
   query?: {
     /**
-     * How many of the latest runs to look at: 50 unless asked, 200 at most
+     * How many of the latest-started runs to look at: 50 unless asked, 200 at most
      */
     last?: number;
   };
@@ -17037,6 +17757,41 @@ export type ReadInsightsPullRequestsResponses = {
 };
 
 export type ReadInsightsPullRequestsResponse = ReadInsightsPullRequestsResponses[keyof ReadInsightsPullRequestsResponses];
+
+export type ReadInsightsShippingData = {
+  body?: never;
+  path: {
+    teamId: string;
+  };
+  query?: {
+    /**
+     * How many whole UTC days, up to and including today, to look at; 30d unless asked. Every answer also covers the period before, as long
+     */
+    period?: '7d' | '30d' | '90d';
+  };
+  url: '/teams/{teamId}/insights/shipping';
+};
+
+export type ReadInsightsShippingErrors = {
+  /**
+   * No valid session or token
+   */
+  401: unknown;
+  /**
+   * No such team for this caller
+   */
+  404: unknown;
+  /**
+   * No such period, or a filter it does not take: more tasks or repositories than it takes, a value longer than it takes, an unknown value, a value repeated where it takes one, a day outside the period, or a page past the last
+   */
+  422: unknown;
+};
+
+export type ReadInsightsShippingResponses = {
+  200: InsightsShippingResponseDto;
+};
+
+export type ReadInsightsShippingResponse = ReadInsightsShippingResponses[keyof ReadInsightsShippingResponses];
 
 export type ListInsightsPullRequestsData = {
   body?: never;

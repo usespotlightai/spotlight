@@ -11,7 +11,7 @@ export class IdempotencyKey {
     if (!SHAPE.test(raw)) {
       throw new InvalidIdentifierError(
         'idempotency key',
-        'is 1 to 255 visible characters, the same on every retry',
+        'must be 1 to 255 visible characters',
       );
     }
 

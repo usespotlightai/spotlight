@@ -9,6 +9,7 @@ import type {
   JudgeWithheld,
   SetupOutcome,
 } from '@outcomes/domain/services/setup-comparison';
+import type { Change } from '@outcomes/domain/value-objects/change.vo';
 
 export type StationStandingDto = Omit<StationJudgeStanding, 'rubricVersion'>;
 
@@ -16,7 +17,7 @@ export interface ChangeMarkerDto {
   readonly lineId: string;
   readonly stationId: string;
   readonly fingerprint: string;
-  readonly previousFingerprint: string | null;
+  readonly previousFingerprint: string;
   readonly firstRunAt: string;
   readonly runId: string;
   readonly before: RunTally;
@@ -24,6 +25,7 @@ export interface ChangeMarkerDto {
   readonly verdicts: readonly MeasureVerdict[];
   readonly judgeBefore: JudgeShare | null;
   readonly judgeAfter: JudgeShare | null;
+  readonly judgeChange: Change | null;
   readonly changes: readonly ConfigPart[];
 }
 

@@ -13,18 +13,14 @@ export class JudgeCriteria {
     passShare: number;
   }): JudgeCriteria {
     if (input.rubric === null && input.claims.length === 0) {
-      throw new InvalidCandidateError(
-        'judges by a rubric or by claims, when it judges at all',
-      );
+      throw new InvalidCandidateError('judge must use a rubric or claims');
     }
     if (
       !Number.isFinite(input.passShare) ||
       input.passShare < 0 ||
       input.passShare > 1
     ) {
-      throw new InvalidCandidateError(
-        'passes a run on a share of its judge’s claims from 0 to 1',
-      );
+      throw new InvalidCandidateError('judge pass share must be from 0 to 1');
     }
 
     return new JudgeCriteria(input.rubric, [...input.claims], input.passShare);

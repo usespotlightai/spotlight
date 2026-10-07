@@ -65,33 +65,33 @@ describe('replay words', () => {
 
   it('says why a run cannot be replayed in plain words', () => {
     expect(refusalShown('archive-gone')).toBe(
-      'The workspace it started from is no longer kept',
+      'Starting workspace is no longer kept',
     );
-    expect(refusalShown('unchecked')).toBe('It could not be checked just now');
+    expect(refusalShown('unchecked')).toBe('Couldn’t be checked just now');
   });
 
   it('says a run with no refusal can be replayed', () => {
     expect(replayableShown(null)).toBe('Can be replayed');
-    expect(replayableShown('task-gone')).toBe('Its task was deleted');
+    expect(replayableShown('task-gone')).toBe('Task was deleted');
   });
 
   it('names over budget as such, and says what it means', () => {
     expect(stateShown('over-budget')).toBe('Over budget');
     expect(stateNote('over-budget')).toBe(
-      'It spent its ceiling, so nothing more starts',
+      'Ceiling reached. No more runs start.',
     );
     expect(stateNote('finished')).toBeNull();
   });
 
   it('turns a refusal named as a reason’s detail into words', () => {
     expect(reasonShown(reason('unreplayable', 'task-gone'))).toBe(
-      'It could not be replayed or started: its task was deleted',
+      'Couldn’t be replayed or started: task was deleted',
     );
   });
 
   it('turns a run failure code into words, and keeps a sentence it does not know', () => {
     expect(reasonShown(reason('run-failed', 'runner-lost'))).toBe(
-      'The run failed: runner lost (not scored)',
+      'Run failed: runner lost (not scored)',
     );
     expect(failureShown('The agent stopped answering')).toBe(
       'The agent stopped answering',
@@ -100,28 +100,28 @@ describe('replay words', () => {
 
   it('says why checks were skipped, and where they failed', () => {
     expect(reasonShown(reason('check-skipped', 'out-of-time'))).toBe(
-      'Its checks could not run: the checks ran out of time',
+      'Checks couldn’t run: checks ran out of time',
     );
     expect(
       checksShown({ state: 'failed', failedAt: ['npm test'], why: null }),
     ).toBe('Checks failed at npm test');
     expect(
       checksShown({ state: 'unchecked', failedAt: [], why: 'undrafted' }),
-    ).toBe('Unchecked: its change was never drafted');
+    ).toBe('Unchecked: change never drafted');
   });
 
   it('says why the judge could not judge', () => {
     expect(reasonShown(reason('unjudged', 'ungrounded'))).toBe(
-      'The judge could not judge it: the judge cited nothing the run did',
+      'Judge couldn’t judge it: judge cited nothing the run did',
     );
   });
 
   it('keeps what the judge said as it was said', () => {
     expect(reasonShown(reason('judged', 'Drained the queue.'))).toBe(
-      'The judge passed it: Drained the queue.',
+      'Judge passed it: Drained the queue.',
     );
     expect(reasonShown(reason('nothing-judges'))).toBe(
-      'Neither checks nor a judge score this station',
+      'No checks or judge score this station',
     );
   });
 
@@ -166,6 +166,28 @@ describe('replay words', () => {
     expect(readings[2]?.advice).toMatch(/^Check this set to judge each change/);
   });
 
+  it('takes whether the noise is too wide from the server', () => {
+    const [noise] = healthReadingsOf(
+      {
+        ...NEVER_READ,
+        noise: {
+          replayId: 'r',
+          fingerprint: 'f',
+          repeats: 3,
+          perRepeat: [0.5, 0.56],
+          spread: 0.06,
+          flippedTasks: [],
+          measuredAt: '2026-10-02T09:00:00.000Z',
+          noisyInOneCopy: false,
+        },
+      },
+      0.05,
+    );
+
+    expect(noise?.tone).toBe('good');
+    expect(noise?.advice).toMatch(/^Noise is within the line’s minimum/);
+  });
+
   it('reads an unhealthy set line by line, each with what to do', () => {
     const readings = healthReadingsOf(
       {
@@ -177,6 +199,7 @@ describe('replay words', () => {
           spread: 0.2,
           flippedTasks: [],
           measuredAt: '2026-10-02T09:00:00.000Z',
+          noisyInOneCopy: true,
         },
         saturation: {
           replayId: 'r',
@@ -229,10 +252,10 @@ describe('replay words', () => {
       ['Almost none: the live config succeeds on 97%', 'bad'],
       ['Same verdict on 70% of 10 changes', 'bad'],
       ['1 of 12 changes flipped', 'bad'],
-      ['opus, high effort did not do clearly better', 'bad'],
+      ['opus, high effort didn’t do clearly better', 'bad'],
     ]);
     expect(readings[0]?.advice).toBe(
-      'More than the +5 pts the line counts as real, so one copy can’t tell a real gain from chance. Search with each run replayed more times, or raise the line’s min_gain.',
+      'One copy can’t tell a real gain from chance. Search with more repeats per run, or raise the line’s min_gain. Minimum real gain: +5 pts',
     );
     expect(readings[1]?.advice).toMatch(
       /Search for the same success at less cost/,
@@ -263,11 +286,11 @@ describe('replay words', () => {
 
     expect(readingOf('stopped')?.said).toBe('Could not be compared');
     expect(readingOf('stopped')?.advice).toBe(
-      'The live replay it was compared with was stopped, so this can’t be compared. Try the stronger model again.',
+      'Live replay to compare with was stopped. Try the stronger model again.',
     );
     expect(readingOf('over-budget')?.advice).toMatch(/ran over its ceiling/);
     expect(readingOf('gone')?.advice).toMatch(
-      /^The live replay it was compared with is gone/,
+      /^Live replay to compare with is gone/,
     );
     expect(readingOf('running')?.said).toBe('Nothing to compare with yet');
     expect(readingOf('running')?.tone).toBe('pending');
@@ -306,7 +329,7 @@ describe('replay words', () => {
     expect(
       balanceWarningShown({ dominant: 'failed', count: 7, entries: 8 }),
     ).toBe(
-      '7 of 8 runs failed, so the set says little about how other runs go. Add runs that turned out other ways.',
+      '7 of 8 runs failed. Add runs that turned out other ways to balance the set.',
     );
   });
 
@@ -332,6 +355,6 @@ describe('replay words', () => {
         median: new Date(Date.now() - 2 * 3_600_000).toISOString(),
         newest: at,
       }),
-    ).toBe('Ended between 3h ago and 30m ago, half of them by 2h ago');
+    ).toBe('Ended between 3h ago and 30m ago · Median: 2h ago');
   });
 });

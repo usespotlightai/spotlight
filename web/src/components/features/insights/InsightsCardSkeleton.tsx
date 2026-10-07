@@ -1,26 +1,13 @@
-import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
+import { Skeleton } from '@/components/shared/skeleton/Skeleton';
 
-type InsightsCardSkeletonProps = {
-  title: string;
-  rows: number;
-};
+const HEADER = 52;
+const ROW = 32;
 
-export function InsightsCardSkeleton({
-  title,
-  rows,
-}: InsightsCardSkeletonProps) {
+export function InsightsCardSkeleton({ rows }: { rows: number }) {
   return (
-    <div className="flex flex-col gap-2 rounded-xl border border-border bg-card p-3">
-      <p className="font-medium text-foreground text-sm">{title}</p>
-      <div className="flex flex-col gap-2">
-        {Array.from({ length: rows }, (_, at) => (
-          <SkeletonLine
-            // biome-ignore lint/suspicious/noArrayIndexKey: placeholder rows have no identity
-            key={at}
-            className={at % 2 === 0 ? 'w-3/4 text-xs' : 'w-1/2 text-xs'}
-          />
-        ))}
-      </div>
-    </div>
+    <Skeleton
+      className="w-full rounded-lg"
+      style={{ height: HEADER + rows * ROW }}
+    />
   );
 }

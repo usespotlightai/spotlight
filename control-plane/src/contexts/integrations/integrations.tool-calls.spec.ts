@@ -300,7 +300,7 @@ describe('IntegrationToolCalls', () => {
       const { comment, fetch } = wearing({});
 
       await expect(comment()).rejects.toThrow(
-        'The workspace holds no secret named LINEAR_API_KEY',
+        'Secret LINEAR_API_KEY not found. Please define it first.',
       );
       expect(fetch).not.toHaveBeenCalled();
     });

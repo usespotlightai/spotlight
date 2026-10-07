@@ -10,12 +10,11 @@ const draft = vi.fn();
 vi.mock('@/hooks/api/useDraftReviewComment', () => ({
   useDraftReviewComment: () => ({
     isPending: false,
-    isError: false,
     mutate: draft,
   }),
 }));
 vi.mock('@/hooks/api/useEditReviewComment', () => ({
-  useEditReviewComment: () => ({ isPending: false, isError: false }),
+  useEditReviewComment: () => ({ isPending: false }),
 }));
 vi.mock('@/hooks/api/useDeleteReviewComment', () => ({
   useDeleteReviewComment: () => ({ isPending: false }),

@@ -35,4 +35,19 @@ describe('RunEnd', () => {
     expect(endOf({ queuedAt: null, startedAt: null }).queuedMs).toBeNull();
     expect(endOf({ startedAt: null }).runningMs).toBeNull();
   });
+
+  it('ran its config only once it started and unless it was withdrawn', () => {
+    const started = new Date('2026-09-30T09:02:00.000Z');
+
+    expect(endOf({ startedAt: started }).ranItsConfig).toBe(true);
+    expect(endOf({ startedAt: started, ending: 'failed' }).ranItsConfig).toBe(
+      true,
+    );
+    expect(endOf({ startedAt: null, ending: 'failed' }).ranItsConfig).toBe(
+      false,
+    );
+    expect(
+      endOf({ startedAt: started, ending: 'withdrawn' }).ranItsConfig,
+    ).toBe(false);
+  });
 });

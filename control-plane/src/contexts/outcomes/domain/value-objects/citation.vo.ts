@@ -14,7 +14,7 @@ export class Citation {
   static ofStep(index: number): Citation {
     if (!Number.isInteger(index) || index < 0) {
       throw new InvalidScoreError(
-        'cites a step of its run by its place in the journal',
+        'must cite a step by its journal position',
         'reason',
       );
     }
@@ -24,10 +24,7 @@ export class Citation {
 
   static ofHunk(id: string): Citation {
     if (!id.trim()) {
-      throw new InvalidScoreError(
-        'cites a hunk of its run’s changes by its id',
-        'reason',
-      );
+      throw new InvalidScoreError('must cite a hunk by its id', 'reason');
     }
 
     return new Citation('hunk', null, id.trim());

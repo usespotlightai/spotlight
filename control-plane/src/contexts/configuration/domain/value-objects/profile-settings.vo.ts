@@ -65,8 +65,8 @@ export class ProfileSettings {
         throw new InvalidHarnessProfileError(
           ['permissions', rule.decision, rule.at],
           earlier.decision === rule.decision
-            ? `names ${rule.written} twice under ${rule.decision}`
-            : `names ${rule.written} under both ${earlier.decision} and ${rule.decision}; a rule says one thing`,
+            ? `lists ${rule.written} twice under ${rule.decision}`
+            : `lists ${rule.written} under both ${earlier.decision} and ${rule.decision}`,
         );
       }
     });
@@ -77,7 +77,7 @@ export class ProfileSettings {
       ) {
         throw new InvalidHarnessProfileError(
           ['mcpServers', at, 'name'],
-          `names the MCP server ${server.name} twice`,
+          `lists MCP server ${server.name} twice`,
         );
       }
     });

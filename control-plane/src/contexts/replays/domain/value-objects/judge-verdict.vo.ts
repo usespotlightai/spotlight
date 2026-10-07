@@ -78,28 +78,26 @@ export class JudgeVerdict {
 
     if (!isScale(input.scale)) {
       throw new InvalidReplayError(
-        `judge scores yes or no, from ${LOWEST} to ${HIGHEST}, or claim by claim, not on a ${input.scale} scale`,
+        `judge must score yes or no, ${LOWEST} to ${HIGHEST}, or by claims, not ${input.scale}`,
       );
     }
     if (!holds(input.scale, input.value)) {
       throw new InvalidReplayError(
-        `judge’s score ${input.value} is not on its ${input.scale} scale`,
+        `judge score ${input.value} is not on the ${input.scale} scale`,
       );
     }
     if (!marksHold(input.scale, input.value, marks)) {
       throw new InvalidReplayError(
-        'judge marks each claim met or not, and its score is the share met, when, and only when, it judges by claims',
+        'judge must mark claims only when it judges by claims',
       );
     }
     if ((marks?.length ?? 0) !== input.claims.length) {
       throw new InvalidReplayError(
-        'judge names each claim it marks, and names claims only when it marks them',
+        'judge must name exactly the claims it marks',
       );
     }
     if (!isShare(passShare)) {
-      throw new InvalidReplayError(
-        'judge passes a run on a share of its claims from 0 to 1',
-      );
+      throw new InvalidReplayError('judge pass share must be from 0 to 1');
     }
 
     return new JudgeVerdict(

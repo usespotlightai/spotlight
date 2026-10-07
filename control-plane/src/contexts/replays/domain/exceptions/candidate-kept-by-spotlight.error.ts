@@ -3,7 +3,7 @@ export class CandidateKeptBySpotlightError extends Error {
 
   constructor(candidateId: string) {
     super(
-      `The candidate ${candidateId} was made by Spotlight for a search or a change check; it goes with them`,
+      `Candidate ${candidateId} belongs to a search or change check. It is removed with them.`,
     );
     this.name = 'CandidateKeptBySpotlightError';
   }

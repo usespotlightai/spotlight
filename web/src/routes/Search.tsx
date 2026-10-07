@@ -44,7 +44,7 @@ export function Search() {
     return (
       <PageNotice>
         <MembersOnlyOrCouldNotLoad
-          membersOnly="Only the team’s members can see its searches"
+          membersOnly="Only team members can see its searches"
           what="The search"
           query={search}
         />

@@ -2,7 +2,7 @@ export class InvalidTaskAsideError extends Error {
   readonly violation = 'invalid' as const;
 
   constructor(reason: string) {
-    super(`A task aside ${reason}`);
+    super(`Task aside ${reason}.`);
     this.name = 'InvalidTaskAsideError';
   }
 }

@@ -150,9 +150,6 @@ export const heldBy = (
     harnesses,
   );
 
-export const refusal = (reason: string): string =>
-  `Refused: ${reason.charAt(0).toLowerCase()}${reason.slice(1)}`;
-
 export const RUNNER_FILTERS = [
   { id: 'all', label: 'All' },
   { id: 'running', label: 'Running' },
@@ -223,8 +220,8 @@ const isUnnamed = (kind: HeldRun['kind']): kind is UnnamedKind =>
 
 export const hiddenRunTip = (run: HeldRun): string =>
   run.kind === 'chat'
-    ? 'An agent chat for a team you’re not on, so its title is hidden.'
-    : 'A run for a team you’re not on, so its title is hidden.';
+    ? 'Title hidden. This agent chat belongs to a team you’re not on.'
+    : 'Title hidden. This run belongs to a team you’re not on.';
 
 export const runShown = (run: HeldRun | null): string => {
   if (run === null) {
@@ -252,9 +249,9 @@ export const heldRunPath = (
     : null;
 
 export const NONE_IN_FILTER: Record<Exclude<RunnerFilter, 'all'>, string> = {
-  running: 'No runner is running a run.',
-  idle: 'No host is idle.',
-  'not-answering': 'Every host is answering.',
+  running: 'No runs in progress.',
+  idle: 'No idle hosts.',
+  'not-answering': 'All hosts are answering.',
 };
 
 export const connectedIn = (

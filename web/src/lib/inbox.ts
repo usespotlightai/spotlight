@@ -268,7 +268,7 @@ export const noticeOf = (
 
 export const NOTICE_POINTS_LABEL = 'Details';
 
-export const GONE_FROM_INBOX = 'Nothing here is waiting on you any more.';
+export const GONE_FROM_INBOX = 'No longer waiting for you.';
 
 export const noticePreviewOf = (notice: InboxNotice): string =>
   notice.points[0] ?? '';
@@ -282,20 +282,20 @@ export const shownAt = (
 export const previewOf = (item: InboxItem): string => {
   if (item.aside?.form === 'memories') {
     return item.resolved
-      ? 'The memories a run proposed are decided.'
-      : 'A run proposed memories for the team to keep.';
+      ? 'Proposed memories decided.'
+      : 'A run proposed memories for the team.';
   }
 
   if (item.aside?.form === 'alert') {
     return item.resolved
-      ? 'The station is back within its alert.'
-      : 'A station crossed one of its alert thresholds.';
+      ? 'Station back within its alert threshold.'
+      : 'Station crossed an alert threshold.';
   }
 
   if (item.aside?.form === 'grade') {
     return item.resolved
-      ? 'This run is graded.'
-      : 'Grade a judged run, so the team can check its judge.';
+      ? 'Run graded.'
+      : 'A judged run needs your grade. Grades check the judge.';
   }
 
   const asked = item.notes[item.notes.length - 1];

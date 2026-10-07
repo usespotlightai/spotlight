@@ -3,7 +3,7 @@ export class RunRecordMovedOnError extends Error {
 
   constructor(runId: string) {
     super(
-      `This run's record changed since it was read, and cannot be written over (${runId})`,
+      `Record of run ${runId} changed since you loaded it. Please reload and try again.`,
     );
     this.name = 'RunRecordMovedOnError';
   }

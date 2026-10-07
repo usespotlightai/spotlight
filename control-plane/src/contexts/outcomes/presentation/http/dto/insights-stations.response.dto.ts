@@ -2,14 +2,154 @@ import { ApiProperty } from '@nestjs/swagger';
 import type {
   InsightsStationsDto,
   StationReportDto,
+  TallyChangesDto,
 } from '@outcomes/application/dto/insights.dto';
 import type {
   RunFailureSummary,
   TaskFailureSummary,
 } from '@outcomes/domain/services/failure-summaries';
+import type {
+  TallyCounted,
+  TallySeen,
+} from '@outcomes/domain/services/run-tally';
 import type { DayTally } from '@outcomes/domain/services/station-reports';
-import { InsightsPeriodResponseDto } from '@outcomes/presentation/http/dto/insights-common.response.dto';
+import {
+  ChangeResponseDto,
+  changeResponseOf,
+  InsightsPeriodResponseDto,
+} from '@outcomes/presentation/http/dto/insights-common.response.dto';
 import { RunTallyResponseDto } from '@outcomes/presentation/http/dto/station-outcomes.response.dto';
+
+export class TallyChangesResponseDto {
+  @ApiProperty({
+    type: ChangeResponseDto,
+    nullable: true,
+    description: 'Runs against the period before',
+  })
+  readonly runs: ChangeResponseDto | null;
+
+  @ApiProperty({
+    type: ChangeResponseDto,
+    nullable: true,
+    description: 'Failed runs against the period before',
+  })
+  readonly failed: ChangeResponseDto | null;
+
+  @ApiProperty({
+    type: ChangeResponseDto,
+    nullable: true,
+    description: 'Accepted runs against the period before',
+  })
+  readonly accepted: ChangeResponseDto | null;
+
+  @ApiProperty({
+    type: ChangeResponseDto,
+    nullable: true,
+    description: 'Runs sent back against the period before',
+  })
+  readonly sentBack: ChangeResponseDto | null;
+
+  @ApiProperty({
+    type: ChangeResponseDto,
+    nullable: true,
+    description: 'Merged tasks against the period before',
+  })
+  readonly merged: ChangeResponseDto | null;
+
+  @ApiProperty({
+    type: ChangeResponseDto,
+    nullable: true,
+    description:
+      'Cost against the period before, where both were in one currency',
+  })
+  readonly cost: ChangeResponseDto | null;
+
+  @ApiProperty({
+    type: ChangeResponseDto,
+    nullable: true,
+    description: 'The median run time against the period before',
+  })
+  readonly median: ChangeResponseDto | null;
+
+  constructor(changes: TallyChangesDto) {
+    this.runs = changeResponseOf(changes.runs);
+    this.failed = changeResponseOf(changes.failed);
+    this.accepted = changeResponseOf(changes.accepted);
+    this.sentBack = changeResponseOf(changes.sentBack);
+    this.merged = changeResponseOf(changes.merged);
+    this.cost = changeResponseOf(changes.cost);
+    this.median = changeResponseOf(changes.median);
+  }
+}
+
+export class TallySeenResponseDto {
+  @ApiProperty({
+    example: true,
+    description:
+      'Whether any run was accepted this period or the period before',
+  })
+  readonly accepted: boolean;
+
+  @ApiProperty({
+    example: false,
+    description:
+      'Whether any run was sent back this period or the period before',
+  })
+  readonly sentBack: boolean;
+
+  @ApiProperty({
+    example: true,
+    description: 'Whether any task merged this period or the period before',
+  })
+  readonly merged: boolean;
+
+  constructor(seen: TallySeen) {
+    this.accepted = seen.accepted;
+    this.sentBack = seen.sentBack;
+    this.merged = seen.merged;
+  }
+}
+
+export class TallyCountedResponseDto {
+  @ApiProperty({ example: true })
+  readonly failed: boolean;
+
+  @ApiProperty({ example: false })
+  readonly stopped: boolean;
+
+  @ApiProperty({ example: true })
+  readonly checksPassed: boolean;
+
+  @ApiProperty({ example: true })
+  readonly checksFailed: boolean;
+
+  @ApiProperty({ example: true })
+  readonly accepted: boolean;
+
+  @ApiProperty({ example: true })
+  readonly sentBack: boolean;
+
+  @ApiProperty({ example: false })
+  readonly handedOn: boolean;
+
+  @ApiProperty({ example: true })
+  readonly merged: boolean;
+
+  @ApiProperty({ example: false })
+  readonly withdrawn: boolean;
+
+  constructor(counted: TallyCounted) {
+    this.failed = counted.failed;
+    this.stopped = counted.stopped;
+    this.checksPassed = counted.checksPassed;
+    this.checksFailed = counted.checksFailed;
+    this.accepted = counted.accepted;
+    this.sentBack = counted.sentBack;
+    this.handedOn = counted.handedOn;
+    this.merged = counted.merged;
+    this.withdrawn = counted.withdrawn;
+  }
+}
 
 export class DayTallyResponseDto {
   @ApiProperty({ example: '2026-09-30', description: 'A UTC day' })
@@ -95,10 +235,16 @@ export class StationReportResponseDto {
   readonly tally: RunTallyResponseDto;
 
   @ApiProperty({
-    type: RunTallyResponseDto,
-    description: 'How its runs went the period before',
+    type: TallyChangesResponseDto,
+    description: 'How its runs moved against the period before',
   })
-  readonly before: RunTallyResponseDto;
+  readonly changes: TallyChangesResponseDto;
+
+  @ApiProperty({
+    type: TallySeenResponseDto,
+    description: 'Which of its counts were above zero in either period',
+  })
+  readonly seen: TallySeenResponseDto;
 
   @ApiProperty({
     type: DayTallyResponseDto,
@@ -126,7 +272,8 @@ export class StationReportResponseDto {
     this.lineId = report.lineId;
     this.stationId = report.stationId;
     this.tally = new RunTallyResponseDto(report.tally);
-    this.before = new RunTallyResponseDto(report.before);
+    this.changes = new TallyChangesResponseDto(report.changes);
+    this.seen = new TallySeenResponseDto(report.seen);
     this.trend = report.trend.map((each) => new DayTallyResponseDto(each));
     this.taskFailures = report.taskFailures.map(
       (each) => new TaskFailureSummaryResponseDto(each),
@@ -152,10 +299,31 @@ export class InsightsStationsResponseDto {
   readonly team: RunTallyResponseDto;
 
   @ApiProperty({
-    type: RunTallyResponseDto,
-    description: 'The whole team, the period before',
+    type: TallyChangesResponseDto,
+    description: 'How the whole team’s runs moved against the period before',
   })
-  readonly teamBefore: RunTallyResponseDto;
+  readonly teamChanges: TallyChangesResponseDto;
+
+  @ApiProperty({
+    type: TallySeenResponseDto,
+    description:
+      'Which of the whole team’s counts were above zero in either period',
+  })
+  readonly teamSeen: TallySeenResponseDto;
+
+  @ApiProperty({
+    type: TallyCountedResponseDto,
+    description:
+      'Which of the whole team’s counts are above zero this period, so some station counted one',
+  })
+  readonly teamCounted: TallyCountedResponseDto;
+
+  @ApiProperty({
+    type: DayTallyResponseDto,
+    isArray: true,
+    description: 'The whole team’s tally per UTC day, oldest first',
+  })
+  readonly teamTrend: readonly DayTallyResponseDto[];
 
   @ApiProperty({ type: StationReportResponseDto, isArray: true })
   readonly stations: readonly StationReportResponseDto[];
@@ -164,7 +332,12 @@ export class InsightsStationsResponseDto {
     this.period = new InsightsPeriodResponseDto(stations.period);
     this.truncated = stations.truncated;
     this.team = new RunTallyResponseDto(stations.team);
-    this.teamBefore = new RunTallyResponseDto(stations.teamBefore);
+    this.teamChanges = new TallyChangesResponseDto(stations.teamChanges);
+    this.teamSeen = new TallySeenResponseDto(stations.teamSeen);
+    this.teamCounted = new TallyCountedResponseDto(stations.teamCounted);
+    this.teamTrend = stations.teamTrend.map(
+      (each) => new DayTallyResponseDto(each),
+    );
     this.stations = stations.stations.map(
       (each) => new StationReportResponseDto(each),
     );

@@ -16,7 +16,6 @@ vi.mock('@/hooks/api/useDraftReviewComment', () => ({
   useDraftReviewComment: () => ({
     mutate: drafting,
     isPending: false,
-    isError: false,
   }),
 }));
 
@@ -24,7 +23,6 @@ vi.mock('@/hooks/api/useEditReviewComment', () => ({
   useEditReviewComment: () => ({
     mutate: editing,
     isPending: false,
-    isError: false,
   }),
 }));
 

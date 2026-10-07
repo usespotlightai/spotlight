@@ -165,7 +165,7 @@ export function SetupSteps({ teamId, body, about, resolved }: SetupStepsProps) {
           'bg-card',
         )}
       >
-        Take me there
+        Go to runners
       </Link>
     );
   };

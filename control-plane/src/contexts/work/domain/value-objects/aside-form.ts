@@ -9,7 +9,7 @@ export const asideForm = (raw: string): AsideForm => {
 
   if (!form) {
     throw new InvalidTaskAsideError(
-      `is one of ${ASIDE_FORMS.join(', ')}, not ${raw}`,
+      `form must be one of ${ASIDE_FORMS.join(', ')}, not ${raw}`,
     );
   }
 

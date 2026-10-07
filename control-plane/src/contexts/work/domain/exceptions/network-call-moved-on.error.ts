@@ -3,7 +3,7 @@ export class NetworkCallMovedOnError extends Error {
 
   constructor(id: string) {
     super(
-      `This network call has changed since it was read, and cannot be written over (${id})`,
+      `Network call ${id} changed since you loaded it. Please reload and try again.`,
     );
     this.name = 'NetworkCallMovedOnError';
   }

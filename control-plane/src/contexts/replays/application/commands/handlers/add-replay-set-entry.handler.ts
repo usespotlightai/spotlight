@@ -59,7 +59,7 @@ export class AddReplaySetEntryHandler
               taskId: null,
               stationId: null,
               refusal: 'unknown-run',
-              reason: 'there is no such run',
+              reason: 'run not found',
             },
             this.clock.now(),
             searched !== null,

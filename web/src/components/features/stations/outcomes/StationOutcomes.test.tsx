@@ -32,6 +32,7 @@ vi.mock('@/hooks/api/useLines', () => ({
 const TALLY: StationTally = {
   runs: 2,
   failed: 1,
+  failedShare: 0.5,
   stopped: 0,
   checksPassed: 1,
   checksFailed: 0,
@@ -46,6 +47,8 @@ const TALLY: StationTally = {
   unpriced: 0,
   mixedCurrencies: false,
 };
+
+const TODAY = new Date().toISOString().slice(0, 10);
 
 const run = (over: Partial<StationRunOutcome>): StationRunOutcome => ({
   runId: 'run_1',
@@ -70,12 +73,17 @@ const run = (over: Partial<StationRunOutcome>): StationRunOutcome => ({
 });
 
 const NEWER: FingerprintGroup = {
+  ran: true,
+  firstRunId: 'run_2',
   fingerprint: 'b7d4a60c8e2f1a9b3d5c7e9f',
   config: null,
   changes: [
     { part: 'effort', name: null, kind: 'changed', was: 'high', now: 'xhigh' },
   ],
   tally: TALLY,
+  shares: { checksPassed: 1, accepted: 0.5, merged: 0.5 },
+  firstDay: TODAY,
+  lastDay: TODAY,
   runs: [
     run({}),
     run({
@@ -92,10 +100,15 @@ const NEWER: FingerprintGroup = {
 };
 
 const OLDER: FingerprintGroup = {
+  ran: true,
+  firstRunId: 'run_0',
   fingerprint: '3f2a9c1e5b7d4a60',
   config: null,
   changes: [],
   tally: { ...TALLY, runs: 1, failed: 0 },
+  shares: { checksPassed: 1, accepted: 1, merged: 1 },
+  firstDay: TODAY,
+  lastDay: TODAY,
   runs: [run({ runId: 'run_0' })],
 };
 
@@ -122,39 +135,39 @@ beforeEach(() => {
 });
 
 describe('StationOutcomes', () => {
-  it('groups the runs by the config they ran with, newest first', () => {
+  it('groups the runs by the config they ran with, newest first, named by what changed', () => {
     showing();
 
-    expect(
-      groups().map(
-        (group) =>
-          group.querySelector('[data-slot="fingerprint"]')?.textContent,
-      ),
-    ).toEqual(['b7d4a60c', '3f2a9c1e']);
+    expect(groups().map((group) => group.textContent)).toEqual([
+      'Effort high → xhigh',
+      'Config 3f2a9c1e',
+    ]);
   });
 
-  it('says what changed from the config before', () => {
+  it('offers the impact of each config that changed something', () => {
     showing();
 
-    const [newer, older] = groups() as HTMLElement[];
+    const [newer, older] = screen
+      .getAllByRole('button', { name: /^Fold / })
+      .map((fold) => fold.closest('li') as HTMLElement);
 
     expect(
-      within(newer as HTMLElement).getByRole('list', { name: 'What changed' }),
-    ).toHaveTextContent('Effort high → xhigh');
+      within(newer as HTMLElement).getByRole('button', { name: 'Impact' }),
+    ).toBeInTheDocument();
     expect(
-      within(older as HTMLElement).queryByRole('list', {
-        name: 'What changed',
-      }),
+      within(older as HTMLElement).queryByRole('button', { name: 'Impact' }),
     ).not.toBeInTheDocument();
   });
 
-  it('tallies how each config’s runs went', () => {
+  it('sums each config’s runs in the same columns as its runs', () => {
     showing();
 
-    expect(
-      groups()[0]?.querySelector('[data-slot="station-tally"]'),
-    ).toHaveTextContent(
-      'Runs2Failed1Checks passed1Accepted1Merged1Cost$1.20Median3m',
+    const [newer] = screen
+      .getAllByRole('button', { name: /^Fold / })
+      .map((fold) => fold.closest('li') as HTMLElement);
+
+    expect(newer).toHaveTextContent(
+      'Checks100% passedNext50% acceptedDelivery50% mergedTook3mCost$1.20',
     );
   });
 
@@ -162,21 +175,21 @@ describe('StationOutcomes', () => {
     showing();
 
     const [first, second] = within(
-      within(groups()[0] as HTMLElement).getByRole('list', { name: 'Runs' }),
+      screen.getAllByRole('list', { name: 'Runs' })[0] as HTMLElement,
     ).getAllByRole('listitem');
 
     expect(first).toHaveTextContent(
-      'CompletedRound 1Checks passedClosedMerged3m$0.60',
+      'CompletedRound1ChecksChecks passedNextClosedDeliveryMergedTook3mCost$0.60',
     );
     expect(second).toHaveTextContent(
-      'FailedThe agent ran out of turnsRound 2––––',
+      'FailedThe agent ran out of turnsRound2Checks–Next–Delivery–Took–',
     );
     expect(
       within(second as HTMLElement).getByRole('link', { name: 'Failed' }),
     ).toHaveAttribute('href', '/w/acme/team/team_1/runs/run_2');
   });
 
-  it('names runs from before configs were recorded', () => {
+  it('names runs from before the first run with a config', () => {
     outcomes.mockReturnValue({
       stationId: 'station_1',
       groups: [{ ...OLDER, fingerprint: null }],
@@ -185,8 +198,21 @@ describe('StationOutcomes', () => {
     showing();
 
     expect(
-      screen.getByText('Before configs were recorded'),
+      screen.getByText('Before the first run with a config'),
     ).toBeInTheDocument();
+  });
+
+  it('marks a config whose runs never started, apart from the config in force', () => {
+    outcomes.mockReturnValue({
+      stationId: 'station_1',
+      groups: [{ ...NEWER, ran: false, firstRunId: 'run_3' }, OLDER],
+    });
+
+    showing();
+
+    const groups = document.querySelectorAll('[data-slot="config-group"]');
+    expect(groups[0]).toHaveTextContent('Never started');
+    expect(groups[1]).not.toHaveTextContent('Never started');
   });
 
   it('holds the shape of a config while they load', () => {
@@ -196,9 +222,6 @@ describe('StationOutcomes', () => {
 
     expect(
       screen.getByRole('status', { name: 'Loading how its runs turned out' }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('heading', { name: 'How its runs turned out' }),
     ).toBeInTheDocument();
   });
 
@@ -237,9 +260,7 @@ describe('StationOutcomes', () => {
     showing();
 
     expect(
-      screen.getByText(
-        'Only the team’s members can see how its runs turned out',
-      ),
+      screen.getByText('Only team members can see this station’s runs'),
     ).toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });

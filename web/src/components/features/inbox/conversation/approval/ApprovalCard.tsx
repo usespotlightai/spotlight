@@ -18,7 +18,6 @@ type ApprovalCardProps = {
   approval: Approval;
   viewerId?: string | null;
   pending: boolean;
-  failure?: string | null;
   onDecide?: (answer: ApprovalAnswer) => void;
 };
 
@@ -26,7 +25,6 @@ export function ApprovalCard({
   approval,
   viewerId = null,
   pending,
-  failure = null,
   onDecide,
 }: ApprovalCardProps) {
   const [mode, setMode] = useState<ApprovalMode>('viewing');
@@ -79,12 +77,6 @@ export function ApprovalCard({
           />
         ) : (
           <ApprovalAction approval={approval} />
-        )}
-
-        {deciding && failure && (
-          <p role="alert" className="text-destructive text-xs">
-            {failure}
-          </p>
         )}
 
         <ApprovalControls

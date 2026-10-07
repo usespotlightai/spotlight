@@ -45,7 +45,7 @@ const shown = (path: string) => {
         decision={QUEUE}
         path={path}
         reasoningAt="/runs/run_1"
-        disputing={{ pending: false, failed: false, dispute }}
+        disputing={{ pending: false, dispute }}
       />
     </MemoryRouter>,
   );

@@ -1,14 +1,15 @@
 import { StationIcon } from '@/components/features/board/column/StationIcon';
-import { FixedSettings } from '@/components/features/stations/FixedSettings';
-import { ImproveStationLink } from '@/components/features/stations/ImproveStationLink';
+import { StationAgentLine } from '@/components/features/stations/StationAgentLine';
+import { StationTabs } from '@/components/features/stations/StationTabs';
 import type { LineResponseDto, StationResponseDto } from '@/lib/api';
-import { stationShare } from '@/lib/station';
+import { type StationTab, stationShare } from '@/lib/station';
 
 type StationHeadingProps = {
   slug: string;
   teamId: string;
   line: LineResponseDto;
   station: StationResponseDto;
+  tab: StationTab;
 };
 
 export function StationHeading({
@@ -16,60 +17,53 @@ export function StationHeading({
   teamId,
   line,
   station,
+  tab,
 }: StationHeadingProps) {
   const works = station.kind === 'work';
 
   return (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-start gap-2">
-        <span className="mt-1 p-0.5">
-          <StationIcon
-            share={stationShare(
-              line.stations.findIndex((each) => each.id === station.id),
-              line.stations.length,
-            )}
-            color={station.color}
-            className="size-5"
-          />
-        </span>
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-col gap-1.5">
+        <div className="flex items-start gap-2">
+          <span className="mt-1 p-0.5">
+            <StationIcon
+              share={stationShare(
+                line.stations.findIndex((each) => each.id === station.id),
+                line.stations.length,
+              )}
+              color={station.color}
+              className="size-5"
+            />
+          </span>
 
-        <h1 className="font-semibold text-2xl text-foreground leading-8 tracking-tight">
-          {station.name}
-        </h1>
+          <h1 className="font-semibold text-2xl text-foreground leading-8 tracking-tight">
+            {station.name}
+          </h1>
+        </div>
+
+        {station.description && (
+          <p className="text-foreground text-sm leading-6">
+            {station.description}
+          </p>
+        )}
 
         {works && (
-          <ImproveStationLink
-            slug={slug}
-            teamId={teamId}
-            improving={{
-              lineId: line.id,
-              lineKey: line.key,
-              lineName: line.name,
-              stationId: station.id,
-              stationKey: station.key,
-              stationName: station.name,
-            }}
-            className="ml-auto"
+          <StationAgentLine
+            harness={station.harness}
+            model={station.model}
+            effort={station.effort}
           />
         )}
       </div>
 
-      {station.description && (
-        <p className="text-foreground text-sm leading-6">
-          {station.description}
-        </p>
-      )}
-
       {works && (
-        <div className="-ml-2 flex flex-wrap items-center gap-2">
-          <FixedSettings
-            slug={slug}
-            harness={station.harness}
-            model={station.model}
-            effort={station.effort}
-            repositories={line.repositories}
-          />
-        </div>
+        <StationTabs
+          slug={slug}
+          teamId={teamId}
+          lineId={line.id}
+          stationId={station.id}
+          current={tab}
+        />
       )}
     </div>
   );

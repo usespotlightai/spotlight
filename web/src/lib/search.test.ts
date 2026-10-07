@@ -117,17 +117,17 @@ describe('search', () => {
 
   it('counts distinct tasks, not runs, before a set may be searched', () => {
     expect(setRefusal(setOf(4))).toBe(
-      'It covers 4 tasks; a search needs runs of at least 5 different tasks, to hold some out.',
+      'Covers 4 tasks. A search holds some out. Minimum different tasks: 5',
     );
     expect(setRefusal(setOf(5))).toBeNull();
     expect(setRefusal(setOf(5, { stationGone: true }))).toBe(
-      'Its station is gone from its line.',
+      'Station is gone from its line.',
     );
   });
 
   it('refuses to start while a search is under way or no set is big enough', () => {
     expect(startRefusal([setOf(6)], { state: 'searching' } as Search)).toBe(
-      'A search of this station is under way.',
+      'A search of this station is underway.',
     );
     expect(startRefusal([], null)).toBe('Open a replay set first.');
     expect(startRefusal([setOf(2)], null)).toBe(
@@ -165,10 +165,14 @@ describe('search', () => {
     });
 
     expect(budget).toBeNull();
-    expect(problems.iterations).toBe('Give a whole number from 1 to 10.');
-    expect(problems.perIteration).toBe('Give a whole number from 1 to 5.');
-    expect(problems.repeats).toBe('Give a whole number from 1 to 5.');
-    expect(problems.ceiling).toBe('Give a ceiling above nothing.');
+    expect(problems.iterations).toBe(
+      'Please enter a whole number from 1 to 10.',
+    );
+    expect(problems.perIteration).toBe(
+      'Please enter a whole number from 1 to 5.',
+    );
+    expect(problems.repeats).toBe('Please enter a whole number from 1 to 5.');
+    expect(problems.ceiling).toBe('Please enter a ceiling above 0.');
     expect(problems.concurrency).toBeUndefined();
   });
 
@@ -204,14 +208,14 @@ describe('search', () => {
   it('may pick only a candidate whose search replay finished, never the seed', () => {
     expect(pickRefusal(candidate({}))).toBeNull();
     expect(pickRefusal(candidate({ replayState: 'running' }))).toBe(
-      'It can be picked once its replay on the searched tasks finishes.',
+      'Can be picked once its replay on the searched tasks finishes.',
     );
     expect(pickRefusal(candidate({ seed: true }))).not.toBeNull();
     expect(pickRefusal(candidate({ replayState: 'stopped' }))).toBe(
-      'It can’t be picked: its replay was stopped before it finished.',
+      'Can’t be picked. Its replay was stopped before finishing.',
     );
     expect(pickRefusal(candidate({ replayState: 'over-budget' }))).toBe(
-      'It can’t be picked: its replay ran over its ceiling before it finished.',
+      'Can’t be picked. Its replay hit its ceiling before finishing.',
     );
   });
 

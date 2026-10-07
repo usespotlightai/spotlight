@@ -10,6 +10,7 @@ import type {
 } from '@/lib/insights-changes';
 import { failQuery } from '@/stories/failQuery';
 import {
+  change,
   daysAgo,
   LINE_ID,
   loadInsights,
@@ -25,7 +26,7 @@ import { TEAM_ID } from '@/stories/fixtures/team';
 
 const usd = (amount: number) => ({ amount, currency: 'USD' });
 
-export const OPUS_CHANGE: ChangeMarker = {
+export const EFFORT_CHANGE: ChangeMarker = {
   lineId: LINE_ID,
   stationId: 'station_implementation',
   fingerprint: 'b'.repeat(64),
@@ -70,17 +71,36 @@ export const OPUS_CHANGE: ChangeMarker = {
   ],
   judgeBefore: { mean: 0.58, judged: 9 },
   judgeAfter: { mean: 0.74, judged: 11 },
+  judgeChange: change(0.16, 'good', 'points'),
   changes: [
-    { part: 'model', name: null, kind: 'changed', was: 'sonnet', now: 'opus' },
     {
-      part: 'skill',
-      name: 'our-migrations',
-      kind: 'added',
-      was: null,
-      now: 'our-migrations',
+      part: 'effort',
+      name: null,
+      kind: 'changed',
+      was: 'medium',
+      now: 'high',
     },
   ],
 };
+
+const REVIEW_PROMPT_WAS = [
+  'You review a pull request before a person sees it.',
+  '',
+  'Review the change.',
+  '',
+  'Read every changed file in full, not only the diff hunks.',
+  'Send the change back when a check fails or a test is missing.',
+].join('\n');
+
+const REVIEW_PROMPT_NOW = [
+  'You review a pull request before a person sees it.',
+  '',
+  'Review the change.',
+  '',
+  'Read every changed file in full, not only the diff hunks.',
+  'Leave one comment per problem, on the line it is about.',
+  'Send the change back when a check fails or a test is missing.',
+].join('\n');
 
 const REVIEW_CHANGE: ChangeMarker = {
   lineId: LINE_ID,
@@ -122,13 +142,14 @@ const REVIEW_CHANGE: ChangeMarker = {
   ],
   judgeBefore: null,
   judgeAfter: null,
+  judgeChange: null,
   changes: [
     {
       part: 'prompt',
       name: null,
       kind: 'changed',
-      was: 'Review the change.',
-      now: 'Review the change against the spec.',
+      was: REVIEW_PROMPT_WAS,
+      now: REVIEW_PROMPT_NOW,
     },
   ],
 };
@@ -136,7 +157,7 @@ const REVIEW_CHANGE: ChangeMarker = {
 const CHANGES: InsightsChanges = {
   period: PERIOD,
   truncated: false,
-  markers: [OPUS_CHANGE, REVIEW_CHANGE],
+  markers: [EFFORT_CHANGE, REVIEW_CHANGE],
   judges: [
     {
       lineId: LINE_ID,
@@ -176,6 +197,7 @@ const setup = (
   profileKey: null,
   tally: tally({ runs: 20 }),
   currency: 'USD',
+  priced: true,
   outcomes: {
     accepted: 0.5,
     sent_back: 0.2,
@@ -274,6 +296,7 @@ const SETUPS_AT_STATION: InsightsSetups = {
       profileKey: 'careful',
       costPerRun: null,
       currency: null,
+      priced: false,
       tally: tally({ runs: 2 }),
     }),
   ],
@@ -342,4 +365,33 @@ export const goneBeforeAfter = (client: QueryClient) => {
 export const failBeforeAfter = (client: QueryClient) => {
   loadInsights(client);
   failQuery(client, CHANGES_KEY);
+};
+
+const STATION_CHANGE: ChangeMarker = {
+  ...EFFORT_CHANGE,
+  runId: 'run_docs_1',
+  firstRunAt: daysAgo(1, 9),
+  fingerprint:
+    'b7d4a60c8e2f1a9b3d5c7e9f0a2b4c6d8e0f1a3b5c7d9e1f3a5b7c93f2a9c1e',
+  previousFingerprint:
+    '3f2a9c1e5b7d4a60c8e2f1a9b3d5c7e9f0a2b4c6d8e0f1a3b5c7d9e1f3a5b7c9',
+  changes: [
+    { part: 'prompt', name: null, kind: 'changed', was: null, now: null },
+    { part: 'effort', name: null, kind: 'changed', was: 'medium', now: 'high' },
+    {
+      part: 'skill',
+      name: 'grafana-dashboards',
+      kind: 'added',
+      was: null,
+      now: null,
+    },
+    { part: 'judge', name: 'sample', kind: 'changed', was: '0.1', now: '0.2' },
+  ],
+};
+
+export const seedStationChanges = (client: QueryClient) => {
+  client.setQueryData(CHANGES_KEY, {
+    ...CHANGES,
+    markers: [...CHANGES.markers, STATION_CHANGE],
+  });
 };

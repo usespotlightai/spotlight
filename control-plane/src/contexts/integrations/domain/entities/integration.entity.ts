@@ -54,7 +54,7 @@ export class Integration {
     if (new Set(words).size !== words.length) {
       throw new InvalidIntegrationError(
         source.value,
-        'says one of its words twice',
+        'defines a word more than once',
       );
     }
 
@@ -64,7 +64,7 @@ export class Integration {
       if (!offered.source.equals(source)) {
         throw new InvalidIntegrationError(
           source.value,
-          `offers ${offered.tool}, which is named for another integration`,
+          `offers tool ${offered.tool}, which is named for another integration`,
         );
       }
     }
@@ -74,7 +74,7 @@ export class Integration {
     if (new Set(tools).size !== tools.length) {
       throw new InvalidIntegrationError(
         source.value,
-        'offers one of its tools twice',
+        'offers a tool more than once',
       );
     }
 
@@ -95,7 +95,10 @@ export class Integration {
     const events = bindings.map((each) => each.event);
 
     if (new Set(events).size !== events.length) {
-      throw new InvalidIntegrationError(source.value, 'binds one event twice');
+      throw new InvalidIntegrationError(
+        source.value,
+        'binds an event more than once',
+      );
     }
 
     const actions = input.actions ?? DefinedActions.of([]);

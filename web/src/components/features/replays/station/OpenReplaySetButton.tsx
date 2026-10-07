@@ -34,11 +34,10 @@ export function OpenReplaySetButton({ at }: OpenReplaySetButtonProps) {
         open={open}
         onOpenChange={setOpen}
         title="Open a replay set"
-        description="Name the set, then pick the past runs to replay in it."
+        description="Name the set, then pick past runs to replay in it."
         submit="Open set"
         submitting="Opening…"
         pending={opening.isPending}
-        error={opening.error}
         onClosed={() => opening.reset()}
         onSubmit={(name) =>
           opening.mutate(

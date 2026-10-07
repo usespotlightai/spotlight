@@ -183,7 +183,7 @@ describe('a tool an MCP server offers', () => {
   it('lets a refusal to reach the host through as it is', async () => {
     const refusal = new OutboundRefusedError(
       'mcp.tracker.example',
-      'is not among the hosts this deployment allows outbound calls to',
+      'Host is not on the allowed list.',
     );
     const reached = await reaching(async () => {
       throw refusal;

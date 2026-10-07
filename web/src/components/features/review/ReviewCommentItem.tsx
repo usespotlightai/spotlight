@@ -89,7 +89,6 @@ export function ReviewCommentItem({
                 placeholder="Leave a comment"
                 initial={comment.body}
                 pending={edit.isPending}
-                failed={edit.isError}
                 onCancel={() => setEditing(false)}
                 onSubmit={(body) =>
                   edit.mutate(

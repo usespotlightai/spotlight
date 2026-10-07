@@ -1,11 +1,17 @@
 import type { ReactNode } from 'react';
+import { PaneScroller } from '@/components/shared/PaneScroller';
 
-export function StationLayout({ children }: { children: ReactNode }) {
+type StationLayoutProps = {
+  aside?: ReactNode;
+  children: ReactNode;
+};
+
+export function StationLayout({ aside, children }: StationLayoutProps) {
   return (
-    <div className="min-h-0 flex-1 overflow-y-auto">
+    <PaneScroller aside={aside}>
       <main className="mx-auto flex w-full max-w-3xl flex-col gap-8 px-8 py-8">
         {children}
       </main>
-    </div>
+    </PaneScroller>
   );
 }

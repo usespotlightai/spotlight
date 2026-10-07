@@ -1,3 +1,4 @@
+import { ArrowLeft } from 'lucide-react';
 import { useEffect } from 'react';
 import { Navigate, useNavigate, useSearchParams } from 'react-router';
 import { useConnectGitHub } from '@/hooks/api/useConnectGitHub';
@@ -44,21 +45,21 @@ export function GitHubInstalled() {
         {requested ? (
           <>
             <h1 className="font-medium text-foreground text-lg">
-              Asked for on your behalf
+              Approval requested
             </h1>
             <p className="text-muted-foreground text-sm leading-6">
-              Somebody who owns that GitHub organisation has to approve the App
-              before Spotlight can read or write anything.
+              A GitHub organisation owner must approve the App. Until then,
+              Spotlight can’t read or write anything.
             </p>
           </>
         ) : failed(connect) ? (
           <>
             <h1 className="font-medium text-foreground text-lg">
-              Something went wrong
+              Sorry, the GitHub App couldn’t connect
             </h1>
             <p className="text-muted-foreground text-sm leading-6">
-              Please try again in a few minutes, or go back and install it again
-              from the team’s integrations.
+              Please try again in a few minutes, or reinstall it from the team’s
+              integrations.
             </p>
           </>
         ) : (
@@ -71,8 +72,9 @@ export function GitHubInstalled() {
           <button
             type="button"
             onClick={() => void navigate(back, { replace: true })}
-            className="text-foreground text-sm underline underline-offset-2 hover:opacity-70"
+            className="flex items-center gap-1.5 self-center rounded-md px-1.5 py-0.5 text-foreground text-sm outline-none transition-colors hover:bg-border/50 focus-visible:ring-2 focus-visible:ring-ring"
           >
+            <ArrowLeft aria-hidden="true" className="size-4" />
             Back to the team’s integrations
           </button>
         )}

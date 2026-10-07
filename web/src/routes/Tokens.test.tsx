@@ -2,7 +2,6 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { WorkspaceTokenNameTakenError } from '@/hooks/api/useCreateWorkspaceToken';
 import { Tokens } from '@/routes/Tokens';
 
 const held = vi.fn();
@@ -10,9 +9,7 @@ const failing = vi.fn();
 const refetch = vi.fn();
 const workspace = vi.fn();
 const asked = vi.fn();
-const creating = vi.fn();
 const create = vi.fn();
-const revoking = vi.fn();
 const revoke = vi.fn();
 
 vi.mock('@/hooks/api/useWorkspace', () => ({
@@ -41,8 +38,6 @@ vi.mock('@/hooks/api/useCreateWorkspaceToken', async (actual) => ({
     reset: vi.fn(),
     isPending: false,
     isError: false,
-    error: null,
-    ...creating(),
   }),
 }));
 
@@ -51,9 +46,6 @@ vi.mock('@/hooks/api/useRevokeWorkspaceToken', () => ({
     mutate: revoke,
     reset: vi.fn(),
     isPending: false,
-    isError: false,
-    error: null,
-    ...revoking(),
   }),
 }));
 
@@ -95,8 +87,6 @@ describe('Tokens', () => {
     held.mockReturnValue([]);
     failing.mockReturnValue(false);
     workspace.mockReturnValue({ id: 'workspace_acme', role: 'owner' });
-    creating.mockReturnValue({});
-    revoking.mockReturnValue({});
     for (const each of [refetch, asked, create, revoke]) {
       each.mockClear();
     }
@@ -242,23 +232,6 @@ describe('Tokens', () => {
     ).toBeDisabled();
   });
 
-  it('says a taken token name is taken, and asks for another', async () => {
-    creating.mockReturnValue({
-      isError: true,
-      error: new WorkspaceTokenNameTakenError('terraform'),
-    });
-
-    const { dialog } = await openCreate();
-
-    expect(within(dialog).getByRole('alert')).toHaveTextContent(
-      'A token named terraform already exists. Choose another name.',
-    );
-    expect(within(dialog).getByLabelText('Name')).toHaveAttribute(
-      'aria-invalid',
-      'true',
-    );
-  });
-
   it('shows a new token once, to copy, until the person says it is copied', async () => {
     create.mockImplementation((_terms, { onSuccess }) =>
       onSuccess({ name: 'terraform', token: 'token_secret' }),
@@ -274,7 +247,7 @@ describe('Tokens', () => {
       name: 'The terraform token',
     });
     expect(shown).toHaveTextContent('token_secret');
-    expect(shown).toHaveTextContent('shown only this once');
+    expect(shown).toHaveTextContent('shown only once');
     expect(
       within(shown).getByRole('button', { name: 'Copy token' }),
     ).toBeInTheDocument();
@@ -332,27 +305,5 @@ describe('Tokens', () => {
     );
 
     expect(revoke).not.toHaveBeenCalled();
-  });
-
-  it('says why a token could not be revoked', async () => {
-    const person = userEvent.setup();
-    held.mockReturnValue([token()]);
-    revoking.mockReturnValue({
-      isError: true,
-      error: { detail: 'The workspace-token changed since it was read' },
-    });
-
-    renderPage();
-
-    await person.click(
-      screen.getByRole('button', { name: 'Actions for terraform' }),
-    );
-    await person.click(
-      await screen.findByRole('menuitem', { name: 'Revoke token' }),
-    );
-
-    expect(
-      within(await screen.findByRole('dialog')).getByRole('alert'),
-    ).toHaveTextContent('The workspace-token changed since it was read');
   });
 });

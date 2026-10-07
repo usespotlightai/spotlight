@@ -110,7 +110,7 @@ describe('ReplayComparison', () => {
     ]);
 
     expect(taskTitles()).toEqual(['WorseRegressed', 'Steady']);
-    expect(screen.getByText('Its checks failed: npm test')).toBeInTheDocument();
+    expect(screen.getByText('Checks failed: npm test')).toBeInTheDocument();
   });
 
   it('leads to the original run and to both replay runs', () => {

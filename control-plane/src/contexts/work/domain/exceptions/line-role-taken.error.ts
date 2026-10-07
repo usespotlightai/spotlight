@@ -5,7 +5,7 @@ export class LineRoleTakenError extends Error {
 
   constructor(readonly claim: RoleClaimedTwice) {
     super(
-      `The ${claim.line.value} line claims the role "${claim.role.value}", which another line already does`,
+      `Line ${claim.line.value} cannot take role ${claim.role.value}. Another line already has it.`,
     );
     this.name = 'LineRoleTakenError';
   }

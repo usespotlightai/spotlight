@@ -97,7 +97,7 @@ export class TaskProposal {
   private require(state: ProposalState, becoming: string): void {
     if (this.state !== state) {
       throw new InvalidChatTransitionError(
-        `has a proposal that is ${this.state}, so it cannot be ${becoming}`,
+        `Proposal is ${this.state}. It cannot be ${becoming}.`,
       );
     }
   }

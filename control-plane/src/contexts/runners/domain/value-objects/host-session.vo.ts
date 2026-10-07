@@ -13,7 +13,7 @@ export class HostSession {
     if (!value || value.length > MOST) {
       throw new InvalidHostReportError(
         'session',
-        `is between 1 and ${MOST} characters`,
+        `must be 1 to ${MOST} characters`,
       );
     }
 

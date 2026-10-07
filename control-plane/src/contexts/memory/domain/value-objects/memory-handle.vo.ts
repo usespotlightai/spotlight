@@ -11,7 +11,7 @@ export class MemoryHandle {
 
   static of(number: number): MemoryHandle {
     if (!Number.isInteger(number) || number < 1 || number > HIGHEST) {
-      throw new InvalidMemoryError(`is numbered from 1, not ${number}`);
+      throw new InvalidMemoryError(`handle must start at 1, not ${number}`);
     }
 
     return new MemoryHandle(number);
@@ -21,7 +21,7 @@ export class MemoryHandle {
     const matched = SHAPE.exec(raw.trim());
 
     if (!matched?.[1]) {
-      throw new InvalidMemoryError(`is named like M-12, not ${raw}`);
+      throw new InvalidMemoryError(`handle must look like M-12, not ${raw}`);
     }
 
     return MemoryHandle.of(Number(matched[1]));

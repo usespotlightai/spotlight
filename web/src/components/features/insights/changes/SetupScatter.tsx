@@ -13,6 +13,12 @@ import {
   type ReplayedPointMarkProps,
 } from '@/components/features/insights/candidates/ReplayedPointMark';
 import { ReplayedPointSaid } from '@/components/features/insights/candidates/ReplayedPointSaid';
+import { RunsSizeLegend } from '@/components/features/insights/changes/RunsSizeLegend';
+import { ChartTip } from '@/components/shared/chart/ChartTip';
+import { PointLabels } from '@/components/shared/chart/PointLabels';
+import { type TipPlacement, useCursorTooltip } from '@/hooks/useCursorTooltip';
+import { useDotHover } from '@/hooks/useDotHover';
+import { AXIS_TITLE, costTick } from '@/lib/chart';
 import { spentIn } from '@/lib/inbox';
 import { countShown, shareShown } from '@/lib/insights';
 import type { ReplayedPoint } from '@/lib/insights-candidates';
@@ -20,17 +26,22 @@ import {
   frontierOf,
   type OutcomeMeasure,
   outcomeLabel,
+  runsScaleOf,
   type SetupPoint,
 } from '@/lib/insights-changes';
 
-const HEIGHT = 240;
+const HEIGHT = 300;
+
+const TICKS = [0, 0.25, 0.5, 0.75, 1];
 
 const Said = ({
+  placement,
   active,
   payload,
   measure,
   currency,
 }: {
+  placement: TipPlacement;
   active?: boolean;
   payload?: { payload: SetupPoint | ReplayedPoint }[];
   measure: OutcomeMeasure;
@@ -43,11 +54,17 @@ const Said = ({
   }
 
   if ('mark' in point) {
-    return <ReplayedPointSaid point={point} currency={currency} />;
+    return (
+      <ReplayedPointSaid
+        point={point}
+        currency={currency}
+        placement={placement}
+      />
+    );
   }
 
   return (
-    <div className="whitespace-nowrap rounded-md border border-border bg-popover px-2.5 py-1.5 text-xs shadow-overlay">
+    <ChartTip placement={placement}>
       <p className="text-foreground">{point.label}</p>
       <p className="text-muted-foreground">
         {outcomeLabel(measure)} {shareShown(point.value)} ·{' '}
@@ -57,7 +74,7 @@ const Said = ({
         {countShown(point.runs)} {point.runs === 1 ? 'run' : 'runs'}
         {point.frontier ? ' · on the frontier' : ''}
       </p>
-    </div>
+    </ChartTip>
   );
 };
 
@@ -78,96 +95,129 @@ export function SetupScatter({
   measure,
   currency,
 }: SetupScatterProps) {
+  const cursor = useCursorTooltip();
+  const hover = useDotHover();
   const frontier = frontierOf(points);
   const rest = points.filter((each) => !each.frontier);
+  const runs = runsScaleOf(points);
 
   return (
     <figure data-slot="setup-scatter" className="flex flex-col gap-1">
-      <figcaption className="flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs">
-        <span className="flex items-center gap-1">
-          <span aria-hidden className="size-2 rounded-full bg-primary" />
+      <div
+        {...hover.area}
+        className="min-w-0 flex-1 [&_*:focus:not(:focus-visible)]:outline-none"
+      >
+        <div {...cursor.area}>
+          <ResponsiveContainer width="100%" height={HEIGHT}>
+            <ScatterChart margin={{ top: 20, right: 4, bottom: 4, left: 0 }}>
+              <XAxis
+                type="number"
+                dataKey="cost"
+                name="Cost per run"
+                padding={{ right: 64 }}
+                tickLine={false}
+                axisLine={{ stroke: 'var(--chart-grid)' }}
+                tick={{ fill: 'var(--chart-axis)', fontSize: 10 }}
+                tickFormatter={(cost: number) => costTick(cost, currency)}
+                height={40}
+                label={{
+                  ...AXIS_TITLE,
+                  value: 'Cost per run',
+                  position: 'insideBottom',
+                  offset: 0,
+                }}
+              />
+              <YAxis
+                type="number"
+                dataKey="value"
+                name={outcomeLabel(measure)}
+                domain={[0, 1]}
+                ticks={TICKS}
+                tickLine={false}
+                axisLine={false}
+                width={56}
+                tick={{ fill: 'var(--chart-axis)', fontSize: 10 }}
+                tickFormatter={(value: number) => shareShown(value)}
+                label={{
+                  ...AXIS_TITLE,
+                  value:
+                    replayed.length > 0
+                      ? `${outcomeLabel(measure)} · replay success`
+                      : outcomeLabel(measure),
+                  angle: -90,
+                  position: 'insideLeft',
+                  style: { textAnchor: 'middle' },
+                }}
+              />
+              <ZAxis
+                type="number"
+                dataKey="runs"
+                domain={[...runs.domain]}
+                range={[...runs.range]}
+              />
+              <Tooltip
+                {...cursor.tooltip}
+                {...hover.tooltip}
+                content={
+                  <Said
+                    placement={cursor.placement}
+                    measure={measure}
+                    currency={currency}
+                  />
+                }
+                cursor={false}
+              />
+              <Scatter
+                name="Other setups"
+                data={rest}
+                fill="var(--chart-1)"
+                isAnimationActive={false}
+              />
+              <Scatter
+                name="On the frontier"
+                data={frontier}
+                fill="var(--chart-primary)"
+                isAnimationActive={false}
+              />
+              {replayed.length > 0 && (
+                <Scatter
+                  name="Replayed"
+                  data={replayed}
+                  shape={replayedMark}
+                  isAnimationActive={false}
+                />
+              )}
+              <PointLabels
+                labels={frontier.map((point) => ({
+                  key: point.key,
+                  text: point.label,
+                  cost: point.cost,
+                  value: point.value,
+                }))}
+              />
+            </ScatterChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+      <figcaption className="flex flex-wrap items-center gap-x-4 gap-y-1 pl-14 text-muted-foreground text-[0.7rem]">
+        <RunsSizeLegend scale={runs} />
+        <span className="flex items-center gap-1.5">
+          <span aria-hidden className="size-2 rounded-full bg-chart-primary" />
           On the frontier
         </span>
-        <span className="flex items-center gap-1">
+        <span className="flex items-center gap-1.5">
           <span aria-hidden className="size-2 rounded-full bg-chart-1" />
           Other setups
         </span>
         {replayed.length > 0 && (
           <span
             data-slot="replayed-legend"
-            className="flex flex-wrap items-center gap-x-3 gap-y-1"
+            className="flex items-center gap-x-4"
           >
-            <span className="font-medium text-foreground">Replayed:</span>
             <ReplayedLegend points={replayed} hollow />
           </span>
         )}
       </figcaption>
-      <div className="[&_*:focus:not(:focus-visible)]:outline-none">
-        <ResponsiveContainer width="100%" height={HEIGHT}>
-          <ScatterChart margin={{ top: 8, right: 12, bottom: 4, left: 0 }}>
-            <XAxis
-              type="number"
-              dataKey="cost"
-              name="Cost per run"
-              tickLine={false}
-              axisLine={{ stroke: 'var(--border)' }}
-              tick={{ fill: 'var(--faint)', fontSize: 10 }}
-              tickFormatter={(cost: number) => spentIn(cost, currency)}
-            />
-            <YAxis
-              type="number"
-              dataKey="value"
-              name={outcomeLabel(measure)}
-              domain={[0, 1]}
-              tickLine={false}
-              axisLine={false}
-              width={replayed.length > 0 ? 56 : 40}
-              tick={{ fill: 'var(--faint)', fontSize: 10 }}
-              tickFormatter={(value: number) => shareShown(value)}
-              label={
-                replayed.length > 0
-                  ? {
-                      value: `${outcomeLabel(measure)} · replay success`,
-                      angle: -90,
-                      position: 'insideLeft',
-                      fill: 'var(--muted-foreground)',
-                      fontSize: 10,
-                      style: { textAnchor: 'middle' },
-                    }
-                  : undefined
-              }
-            />
-            <ZAxis type="number" dataKey="runs" range={[40, 240]} />
-            <Tooltip
-              content={<Said measure={measure} currency={currency} />}
-              isAnimationActive={false}
-              cursor={{ strokeDasharray: '3 3' }}
-            />
-            <Scatter
-              name="Other setups"
-              data={rest}
-              fill="var(--chart-1)"
-              isAnimationActive={false}
-            />
-            <Scatter
-              name="On the frontier"
-              data={frontier}
-              fill="var(--primary)"
-              line={{ stroke: 'var(--primary)', strokeDasharray: '4 3' }}
-              lineType="joint"
-              isAnimationActive={false}
-            />
-            {replayed.length > 0 && (
-              <Scatter
-                name="Replayed"
-                data={replayed}
-                shape={replayedMark}
-                isAnimationActive={false}
-              />
-            )}
-          </ScatterChart>
-        </ResponsiveContainer>
-      </div>
     </figure>
   );
 }

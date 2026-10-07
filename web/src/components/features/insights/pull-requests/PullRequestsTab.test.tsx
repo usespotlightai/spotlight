@@ -1,8 +1,15 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
+import {
+  MemoryRouter,
+  Route,
+  Routes,
+  useLocation,
+  useSearchParams,
+} from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { TeamInsights } from '@/components/features/insights/TeamInsights';
+import { PullRequestsTab } from '@/components/features/insights/pull-requests/PullRequestsTab';
+import { paramsOf, viewOf } from '@/lib/insights';
 import type {
   InsightsPullRequest,
   InsightsPullRequestList,
@@ -46,7 +53,6 @@ vi.mock('@/hooks/api/useInsightsPullRequestList', () => ({
     return answers.list;
   },
 }));
-vi.mock('@/hooks/api/useLines', () => ({ useLines: () => ({ data: [] }) }));
 
 const spread = { p50Ms: 3_600_000, p90Ms: 7_200_000, count: 2 };
 
@@ -165,12 +171,25 @@ const LIST = {
   ],
 } as unknown as InsightsPullRequestList;
 
+function Productivity() {
+  const [params, setParams] = useSearchParams();
+
+  return (
+    <PullRequestsTab
+      slug="acme"
+      teamId="team_1"
+      view={viewOf(params)}
+      onView={(next) => setParams(paramsOf(next), { replace: true })}
+    />
+  );
+}
+
 function Address() {
   const location = useLocation();
   return <output aria-label="Address">{location.search}</output>;
 }
 
-const showing = (search = '?tab=pull-requests') =>
+const showing = (search = '?tab=productivity') =>
   render(
     <MemoryRouter initialEntries={[`/w/acme/team/team_1/insights${search}`]}>
       <Routes>
@@ -178,7 +197,7 @@ const showing = (search = '?tab=pull-requests') =>
           path="/w/:slug/team/:teamId/insights"
           element={
             <>
-              <TeamInsights slug="acme" teamId="team_1" />
+              <Productivity />
               <Address />
             </>
           }
@@ -189,13 +208,15 @@ const showing = (search = '?tab=pull-requests') =>
 
 const address = () => screen.getByRole('status', { name: 'Address' });
 
+const PRODUCTIVITY = '/w/acme/team/team_1/insights?tab=productivity';
+
 beforeEach(() => {
   listed.length = 0;
   answers.summary = held(SUMMARY);
   answers.list = held(LIST);
 });
 
-describe('the Pull requests tab', () => {
+describe('the pull requests of the Productivity tab', () => {
   it('shows a faithful skeleton while it loads', () => {
     answers.summary = held(undefined);
 
@@ -243,7 +264,7 @@ describe('the Pull requests tab', () => {
   });
 
   it('opens the pull requests behind each number', () => {
-    showing('?tab=pull-requests&period=7d');
+    showing('?tab=productivity&period=7d');
 
     const tiles = screen.getByLabelText('Merged pull requests');
 
@@ -255,7 +276,7 @@ describe('the Pull requests tab', () => {
       ).getByRole('link', { name: '2' }),
     ).toHaveAttribute(
       'href',
-      '/w/acme/team/team_1/insights?tab=pull-requests&period=7d&author=spotlight&state=merged',
+      '/w/acme/team/team_1/insights?tab=productivity&period=7d&author=spotlight&state=merged',
     );
 
     const against = screen.getByRole('table', {
@@ -266,7 +287,53 @@ describe('the Pull requests tab', () => {
       within(against).getAllByRole('link', { name: '50% · 1' })[0],
     ).toHaveAttribute(
       'href',
-      '/w/acme/team/team_1/insights?tab=pull-requests&period=7d&author=spotlight&state=merged&reverted=true',
+      '/w/acme/team/team_1/insights?tab=productivity&period=7d&author=spotlight&state=merged&reverted=true',
+    );
+  });
+
+  it('opens the merged pull requests of each repository’s week, and of each type', async () => {
+    showing();
+
+    const repositories = screen.getByRole('table', {
+      name: 'Spotlight’s share by repository and week',
+    });
+
+    expect(
+      within(repositories).getByRole('link', { name: '75%' }),
+    ).toHaveAttribute(
+      'href',
+      `${PRODUCTIVITY}&repository=acme%2Fapi&state=merged&week=2026-09-28`,
+    );
+    expect(
+      within(repositories).getByRole('link', { name: '4' }),
+    ).toHaveAttribute(
+      'href',
+      `${PRODUCTIVITY}&repository=acme%2Fapi&state=merged`,
+    );
+
+    await userEvent.click(
+      within(
+        screen.getByRole('region', { name: 'What Spotlight ships' }),
+      ).getByRole('button', { name: 'Table' }),
+    );
+
+    const types = screen.getByRole('table', {
+      name: 'Merged pull requests by type',
+    });
+
+    expect(within(types).getByRole('link', { name: '2' })).toHaveAttribute(
+      'href',
+      `${PRODUCTIVITY}&author=spotlight&type=fix&state=merged`,
+    );
+  });
+
+  it('says when only the newest pull requests were counted', () => {
+    answers.summary = held({ ...SUMMARY, truncated: true });
+
+    showing();
+
+    expect(screen.getByRole('note')).toHaveTextContent(
+      'Only the newest 20,000 pull requests in this period are counted.',
     );
   });
 
@@ -291,7 +358,7 @@ describe('the Pull requests tab', () => {
   });
 
   it('reads its filters from the address, and keeps them there', async () => {
-    showing('?tab=pull-requests&author=people&week=2026-09-28&page=2');
+    showing('?tab=productivity&author=people&week=2026-09-28&page=2');
 
     expect(listed.at(-1)).toEqual({
       filter: { author: 'people', week: '2026-09-28' },
@@ -302,13 +369,13 @@ describe('the Pull requests tab', () => {
       screen.getByRole('button', { name: 'Stop narrowing by week of' }),
     );
 
-    expect(address()).toHaveTextContent('?tab=pull-requests&author=people');
+    expect(address()).toHaveTextContent('?tab=productivity&author=people');
   });
 
   it('says nothing matches, and offers every pull request', async () => {
     answers.list = held({ ...LIST, total: 0, pullRequests: [] });
 
-    showing('?tab=pull-requests&type=tests');
+    showing('?tab=productivity&type=tests');
 
     expect(screen.getByText('No pull requests match.')).toBeInTheDocument();
 
@@ -316,7 +383,64 @@ describe('the Pull requests tab', () => {
       screen.getByRole('button', { name: 'Show every pull request' }),
     );
 
-    expect(address()).toHaveTextContent('?tab=pull-requests');
+    expect(address()).toHaveTextContent('?tab=productivity');
     expect(address()).not.toHaveTextContent('type');
+  });
+
+  it('shows a skeleton for the list while only the list loads', () => {
+    answers.list = held(undefined);
+
+    showing();
+
+    expect(
+      screen.getByRole('status', { name: 'Loading the pull request list' }),
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText('Merged pull requests')).toBeInTheDocument();
+  });
+
+  it('offers to try the list again where only the list could not load', async () => {
+    answers.list = held(undefined, 1);
+
+    showing();
+
+    await userEvent.click(screen.getByRole('button', { name: /try again/i }));
+
+    expect(answers.list.refetch).toHaveBeenCalled();
+    expect(answers.summary.refetch).not.toHaveBeenCalled();
+  });
+
+  it('says no pull request is listed for the period where nothing narrows it', () => {
+    answers.list = held({ ...LIST, total: 0, pullRequests: [] });
+
+    showing();
+
+    expect(
+      screen.getByText('No pull requests in this period.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole('button', { name: 'Show every pull request' }),
+    ).toBeNull();
+  });
+
+  it('pages through the pull requests, keeping the page in the address', async () => {
+    answers.list = held({ ...LIST, total: 120 });
+
+    showing();
+
+    const pages = screen.getByRole('navigation', {
+      name: 'Pages of pull requests',
+    });
+
+    expect(within(pages).getByText('1–50 of 120')).toBeInTheDocument();
+    expect(
+      within(pages).getByRole('button', { name: 'Previous page' }),
+    ).toBeDisabled();
+
+    await userEvent.click(
+      within(pages).getByRole('button', { name: 'Next page' }),
+    );
+
+    expect(address()).toHaveTextContent('?tab=productivity&page=2');
+    expect(listed.at(-1)).toEqual({ filter: {}, page: 2 });
   });
 });

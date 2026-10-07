@@ -31,26 +31,26 @@ export const REACHES: readonly Told<TokenReach>[] = [
   {
     id: 'plan',
     label: 'Plan',
-    told: 'Reads, and checks expressions.',
+    told: 'Reads and checks expressions.',
   },
   {
     id: 'configure',
     label: 'Configure',
-    told: 'Also changes configuration, as Terraform does when it applies.',
+    told: 'Also changes configuration, like a Terraform apply.',
   },
 ];
 
 export const GRANTS: readonly Told<TokenGrant>[] = [
-  { id: 'secrets', label: 'Secrets', told: 'Manages secrets as well.' },
+  { id: 'secrets', label: 'Secrets', told: 'Also manages secrets.' },
   {
     id: 'runners',
     label: 'Runners',
-    told: 'Manages runner pools and runner trusts as well.',
+    told: 'Also manages runner pools and runner trusts.',
   },
   {
     id: 'trusts',
     label: 'Token trusts',
-    told: 'Manages workspace token trusts as well.',
+    told: 'Also manages workspace token trusts.',
   },
 ];
 

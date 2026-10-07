@@ -8,9 +8,11 @@ import type {
   JudgeStandingResponseDto,
   RubricVersionResponseDto,
   RunScoresResponseDto,
+  ScoreCountResponseDto,
   StationJudgeAgreementResponseDto,
   TrendPointResponseDto,
 } from '@/lib/api';
+import { type NestedHeading, SPREAD } from '@/lib/nested-table';
 
 export type StationJudgeAgreement = StationJudgeAgreementResponseDto;
 
@@ -33,6 +35,8 @@ export type CitedHunk = CitedHunkResponseDto;
 export type Grade = GradeResponseDto;
 
 export type ClaimAgreement = ClaimAgreementResponseDto;
+
+export type ScoreCount = ScoreCountResponseDto;
 
 export type ScoreKind = RunScores['kind'];
 
@@ -129,17 +133,13 @@ export const SAVING_GRADE = 'Saving…';
 
 export const RUBRIC_TEXT_LABEL = 'The judge’s rubric';
 
-export const CLAIM_AGREEMENT_LABEL = 'Agreement claim by claim';
+const CLAIM_COLUMN = 'Claim';
 
-export const POOLED_KAPPA = 'Cohen’s kappa, every claim';
+const KAPPA_COLUMN = 'Cohen’s kappa';
 
-export const CLAIM_COLUMN = 'Claim';
+const AGREED_COLUMN = 'Agreed';
 
-export const KAPPA_COLUMN = 'Cohen’s kappa';
-
-export const AGREED_COLUMN = 'Agreed';
-
-export const RUNS_COLUMN = 'Runs';
+const RUNS_COLUMN = 'Runs';
 
 export const YOUR_GRADE = 'Your grade';
 
@@ -162,22 +162,20 @@ const PERCENT = new Intl.NumberFormat('en', {
 export const percentShown = (share: number | null): string =>
   share === null ? '–' : PERCENT.format(share);
 
-export const versionShown = (version: string): string => version.slice(0, 7);
-
 export const standingShown = (standing: JudgeStanding): string => {
   switch (standing.hiddenBecause) {
     case null:
-      return `Trusted: ${measureShown(standing.measure)} is ${statShown(standing.agreement)} over ${standing.pairs} runs, at least the ${statShown(standing.trust)} it needs.`;
+      return `Trusted. ${measureShown(standing.measure)}: ${statShown(standing.agreement)} over ${standing.pairs} runs. Minimum required: ${statShown(standing.trust)}`;
     case 'no-judge':
-      return 'This station has no judge, so there are no scores to trust.';
+      return 'No judge on this station. No scores to trust.';
     case 'unreadable-rubric':
-      return 'Hidden: the station’s rubric names a scale that cannot be read.';
+      return 'Hidden. The rubric names a scale that cannot be read.';
     case 'too-few-pairs':
-      return `Hidden until more runs have both a judge score and people’s: ${standing.pairs} so far.`;
+      return `Hidden until more runs have both judge and human scores. Runs so far: ${standing.pairs}`;
     case 'no-agreement':
-      return 'Hidden: every score so far is the same, so agreement can’t be measured.';
+      return 'Hidden. Agreement can’t be measured while all scores are identical.';
     case 'below-trust':
-      return `Hidden: ${measureShown(standing.measure)} is ${statShown(standing.agreement)}, below the ${statShown(standing.trust)} it needs.`;
+      return `Hidden. ${measureShown(standing.measure)}: ${statShown(standing.agreement)}. Minimum required: ${statShown(standing.trust)}`;
   }
 };
 
@@ -196,11 +194,150 @@ export const hunkShown = (hunk: CitedHunk): string =>
 export const stepShown = (citation: Citation): string =>
   `Step ${citation.step?.index ?? ''}`.trim();
 
-export const coverageParts = (
+const COVERAGE_PARTS = [
+  { key: 'both', label: 'Both scores' },
+  { key: 'judgeOnly', label: 'Judge only' },
+  { key: 'peopleOnly', label: 'People only' },
+  { key: 'neither', label: 'Neither' },
+] as const;
+
+export type JudgeTile = {
+  readonly id: string;
+  readonly label: string;
+  readonly value: string;
+  readonly detail: string;
+};
+
+export const judgeTiles = (
+  standing: JudgeStanding,
   coverage: JudgeCoverage,
-): readonly { readonly label: string; readonly value: number }[] => [
-  { label: 'Both scores', value: coverage.both },
-  { label: 'Judge only', value: coverage.judgeOnly },
-  { label: 'People only', value: coverage.peopleOnly },
-  { label: 'Neither', value: coverage.neither },
+): JudgeTile[] => [
+  {
+    id: 'agreement',
+    label: measureShown(standing.measure),
+    value: statShown(standing.agreement),
+    detail: standing.trusted
+      ? `Trusted, needs ${statShown(standing.trust)}`
+      : standingShown(standing),
+  },
+  ...COVERAGE_PARTS.map((part) => ({
+    id: part.label,
+    label: part.label,
+    value: `${coverage[part.key]}`,
+    detail: `${percentShown(coverage.shares[part.key])} of the last ${coverage.runs}`,
+  })),
 ];
+
+type Readings = RubricVersion['agreement']['readings'];
+
+type KappaReading = NonNullable<Readings['kappa']>;
+
+type CorrelationReading = NonNullable<Readings['pearson']>;
+
+const KAPPA_READINGS: Record<KappaReading, string> = {
+  'almost-perfect': 'Almost perfect agreement',
+  substantial: 'Substantial agreement',
+  moderate: 'Moderate agreement',
+  'fair-to-slight': 'Fair to slight agreement',
+  poor: 'Less agreement than chance',
+};
+
+const CORRELATION_READINGS: Record<CorrelationReading, string> = {
+  'very-strong': 'Very strong correlation',
+  strong: 'Strong correlation',
+  moderate: 'Moderate correlation',
+  weak: 'Weak correlation',
+  inverse: 'Inverse correlation',
+};
+
+export type ComparisonStat = {
+  readonly label: string;
+  readonly value: string;
+  readonly note: string;
+};
+
+const KAPPA_NOTE =
+  'How often the judge and people agree, beyond what chance would give: 1 is perfect, 0 is chance. 0.81 and up is almost perfect, 0.61 to 0.80 substantial, 0.41 to 0.60 moderate, below 0 less than chance.';
+
+const correlationNote = (ranked: boolean): string =>
+  `How closely the judge’s scores ${ranked ? 'rank runs the way' : 'rise and fall with'} people’s do: 1 is in step, 0 is no relation. 0.9 and up is very strong, 0.7 to 0.9 strong, 0.5 to 0.7 moderate, below 0 inverse.`;
+
+const read = (reading: string | null, note: string): string =>
+  reading ? `${reading}. ${note}` : note;
+
+const correlationRead = (
+  reading: CorrelationReading | null,
+  ranked: boolean,
+): string =>
+  read(reading && CORRELATION_READINGS[reading], correlationNote(ranked));
+
+const kappaRead = (reading: KappaReading | null, note: string): string =>
+  read(reading && KAPPA_READINGS[reading], note);
+
+export const comparisonStats = (version: RubricVersion): ComparisonStat[] => {
+  const { agreement } = version;
+  const { readings } = agreement;
+
+  if (version.kind === 'number') {
+    return [
+      {
+        label: 'Pearson correlation',
+        value: statShown(agreement.pearson),
+        note: correlationRead(readings.pearson, false),
+      },
+      {
+        label: 'Spearman correlation',
+        value: statShown(agreement.spearman),
+        note: correlationRead(readings.spearman, true),
+      },
+      {
+        label: 'Mean absolute error',
+        value: statShown(agreement.mae),
+        note: 'How far the judge’s score is from people’s on average, in points on the rubric’s scale. Lower is better.',
+      },
+      {
+        label: 'Root mean square error',
+        value: statShown(agreement.rmse),
+        note: 'Like mean absolute error, but large misses count for more. Lower is better.',
+      },
+    ];
+  }
+
+  return [
+    {
+      label: 'Cohen’s kappa',
+      value: statShown(agreement.kappa),
+      note: kappaRead(
+        readings.kappa,
+        version.kind === 'claims'
+          ? `Across every claim together. ${KAPPA_NOTE}`
+          : KAPPA_NOTE,
+      ),
+    },
+    {
+      label: 'F1 score',
+      value: statShown(agreement.f1),
+      note: 'How well the judge’s yes matches people’s yes, missing none and adding none: 1 is a perfect match. Higher is better.',
+    },
+    {
+      label: 'Overall agreement',
+      value: percentShown(agreement.observed),
+      note: 'The share of runs where the judge and people gave the same score, chance included.',
+    },
+  ];
+};
+
+export const rubricShown = (version: RubricVersion): string =>
+  version.current
+    ? 'Current version'
+    : `Version until ${dayShown(version.lastAt.slice(0, 10))}`;
+
+export const CLAIM_HEADINGS: readonly NestedHeading[] = [
+  { label: CLAIM_COLUMN, indent: 'edge', size: 'minmax(12rem,3fr)' },
+  { label: KAPPA_COLUMN, size: 'minmax(10rem,2fr)' },
+  { label: AGREED_COLUMN, numeric: true, size: SPREAD },
+  { label: RUNS_COLUMN, numeric: true, size: SPREAD },
+];
+
+export const kappaNote = (reading: ClaimAgreement['reading']): string =>
+  kappaRead(reading, KAPPA_NOTE);

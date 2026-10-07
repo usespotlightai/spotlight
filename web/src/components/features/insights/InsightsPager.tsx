@@ -25,7 +25,7 @@ export function InsightsPager({
       <Button
         type="button"
         variant="outline"
-        size="icon-sm"
+        size="icon-xs"
         aria-label="Previous page"
         disabled={page <= 1}
         onClick={() => onPage(page - 1)}
@@ -35,7 +35,7 @@ export function InsightsPager({
       <Button
         type="button"
         variant="outline"
-        size="icon-sm"
+        size="icon-xs"
         aria-label="Next page"
         disabled={page >= lastPage}
         onClick={() => onPage(page + 1)}

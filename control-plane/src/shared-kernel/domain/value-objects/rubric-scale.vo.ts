@@ -40,7 +40,7 @@ const parsed = (rubric: string): ParsedRubric => {
 
     if (closing < 0) {
       throw new InvalidRubricScaleError(
-        `has front matter closed by a "${FENCE}" line`,
+        `front matter must end with a "${FENCE}" line`,
       );
     }
 
@@ -73,7 +73,7 @@ export class RubricScale {
 
     if (!kind) {
       throw new InvalidRubricScaleError(
-        `is named on the rubric's first line or in its front matter as "scores: yes-no" or "scores: 1-5", not "scores: ${named}"`,
+        `must be "scores: yes-no" or "scores: 1-5" on the first line or in front matter, not "scores: ${named}"`,
       );
     }
 

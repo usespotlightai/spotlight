@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { OutputAgainstCost } from '@/components/features/insights/OutputAgainstCost';
 import type { LineResponseDto } from '@/lib/api';
 import { BeforeAfterPanelContext } from '@/lib/before-after-panel';
-import { type OutputDay, stationNamesOf } from '@/lib/insights';
+import { type DayOutput, stationNamesOf } from '@/lib/insights';
 
 const NAMES = stationNamesOf([
   {
@@ -27,18 +27,32 @@ const NAMES = stationNamesOf([
   },
 ] as unknown as LineResponseDto[]);
 
-const DAYS: OutputDay[] = [
-  { day: '2026-09-29', runs: 0, spend: null, merged: 0, changes: [] },
+const DAYS: DayOutput[] = [
+  {
+    day: '2026-09-29',
+    runs: 0,
+    spend: null,
+    unpriced: 0,
+    mixedCurrencies: false,
+    merged: 0,
+    mergedTaskIds: [],
+    changes: [],
+  },
   {
     day: '2026-09-30',
     runs: 5,
-    spend: 4.2,
+    spend: { amount: 4.2, currency: 'USD' },
+    unpriced: 0,
+    mixedCurrencies: false,
     merged: 1,
+    mergedTaskIds: [],
     changes: [
       {
         lineId: 'line_1',
         stationId: 'station_build',
         fingerprint: 'b7d4a60c8e2f1a9b',
+        previousFingerprint:
+          '0000000000000000000000000000000000000000000000000000000000000000',
         firstRunAt: '2026-09-30T10:00:00.000Z',
         runId: 'run_1',
       },
@@ -46,10 +60,7 @@ const DAYS: OutputDay[] = [
   },
 ];
 
-const showing = (
-  currency: string | null = 'USD',
-  noSpend = 'Nothing was priced',
-) =>
+const showing = (currency: string | null = 'USD', noSpend = 'No priced runs') =>
   render(
     <MemoryRouter initialEntries={['/w/acme/team/team_1/insights?period=7d']}>
       <Routes>
@@ -85,7 +96,7 @@ describe('OutputAgainstCost', () => {
     ).toBeInTheDocument();
   });
 
-  it('opens the station’s before and after from a marker', async () => {
+  it('opens the impact of a station’s change from a marker', async () => {
     const show = vi.fn();
     render(
       <BeforeAfterPanelContext value={{ shown: null, show, close: vi.fn() }}>
@@ -99,7 +110,7 @@ describe('OutputAgainstCost', () => {
                   teamId="team_1"
                   days={DAYS}
                   currency="USD"
-                  noSpend="Nothing was priced"
+                  noSpend="No priced runs"
                   names={NAMES}
                 />
               }
@@ -115,19 +126,19 @@ describe('OutputAgainstCost', () => {
       }),
     );
     await userEvent.click(
-      await screen.findByRole('button', { name: 'Before and after' }),
+      await screen.findByRole('button', { name: 'Impact' }),
     );
 
     expect(show).toHaveBeenCalledWith({
       stationId: 'station_build',
-      fingerprint: 'b7d4a60c8e2f1a9b',
+      runId: 'run_1',
     });
   });
 
   it('puts a table behind the chart, each day leading to its runs', async () => {
     showing();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Show table' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Table' }));
 
     const table = screen.getByRole('table', {
       name: 'Output against cost, by day',
@@ -148,19 +159,17 @@ describe('OutputAgainstCost', () => {
       'href',
       '/w/acme/team/team_1/lines/line_1/stations/station_build',
     );
-    expect(screen.getByRole('button', { name: 'Show chart' })).toHaveAttribute(
+    expect(screen.getByRole('button', { name: 'Table' })).toHaveAttribute(
       'aria-pressed',
       'true',
     );
   });
 
   it('leaves spend out where it cannot be summed in one currency', () => {
-    showing(null, 'Prices came in more than one currency');
+    showing(null, 'Prices in more than one currency');
 
     expect(
-      screen.getByText(
-        /Prices came in more than one currency, so spend is left out/,
-      ),
+      screen.getByText(/Spend not shown\. Prices in more than one currency/),
     ).toBeInTheDocument();
   });
 });

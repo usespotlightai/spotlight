@@ -39,7 +39,7 @@ export function Tokens() {
     <>
       <SettingsPage
         title="Tokens"
-        description="A workspace token lets Terraform or a script act in this workspace, within what the token may do. Only owners and admins of the workspace can see, create and revoke them."
+        description="Workspace token: lets Terraform or a script act in this workspace. Only owners and admins can see, create and revoke tokens."
       >
         {created && (
           <TokenCreated
@@ -82,7 +82,7 @@ export function Tokens() {
 
           {tokens.data?.length === 0 && (
             <p className="px-4 py-4 text-muted-foreground text-sm">
-              No tokens yet.
+              No tokens yet. Create one for Terraform or a script.
             </p>
           )}
 

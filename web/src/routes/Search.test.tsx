@@ -83,7 +83,6 @@ vi.mock('@/hooks/api/usePickSearchCandidate', () => ({
   usePickSearchCandidate: () => ({
     mutate: vi.fn(),
     isPending: false,
-    isError: false,
   }),
 }));
 
@@ -300,7 +299,7 @@ describe('Search', () => {
     renderSearch();
 
     expect(
-      screen.getByText('Only the team’s members can see its searches'),
+      screen.getByText('Only team members can see its searches'),
     ).toBeInTheDocument();
   });
 
@@ -315,7 +314,7 @@ describe('Search', () => {
       screen.getByRole('link', { name: 'See the station’s searches' }),
     ).toHaveAttribute(
       'href',
-      '/w/acme/team/team_1/lines/line_1/stations/station_1#searches',
+      '/w/acme/team/team_1/lines/line_1/stations/station_1/improve#searches',
     );
   });
 
@@ -337,7 +336,7 @@ describe('Search', () => {
     ).toBeInTheDocument();
     expect(screen.getByText('Finished')).toBeInTheDocument();
     expect(
-      screen.getByText('It ran every iteration it was given.'),
+      screen.getByText('Ran every iteration it was given.'),
     ).toBeInTheDocument();
     expect(screen.getByText('$12.00 of $20.00')).toBeInTheDocument();
     expect(
@@ -373,7 +372,7 @@ describe('Search', () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        /the frontier joins only those that succeed as often as the live config/,
+        /candidates matching the live config’s success, within noise/,
       ),
     ).toBeInTheDocument();
   });
@@ -396,7 +395,7 @@ describe('Search', () => {
 
     renderSearch();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Show table' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Table' }));
 
     const table = screen.getByRole('table', {
       name: 'Candidates by success and cost',
@@ -416,7 +415,7 @@ describe('Search', () => {
     ]);
     expect(slots('gain-verdict')).toEqual([
       '+20 pts(+5 to +35)· Better',
-      '+10 pts(−20 to +40)· Within noise',
+      '+10 pts(−20 to +40)· within noise',
     ]);
     expect(slots('pair-tally')).toEqual([
       'Side by side with the search’s starting config: 3 wins, 1 loss, 1 tie',
@@ -430,7 +429,7 @@ describe('Search', () => {
 
     expect(
       screen.getByText(
-        '1 candidate on the frontier gained only on the tasks the search could see, not on the held-out ones.',
+        '1 frontier candidate gained only on searched tasks, not held-out ones.',
       ),
     ).toBeInTheDocument();
 
@@ -439,11 +438,11 @@ describe('Search', () => {
     });
     expect(within(first).getByText('Only on seen tasks')).toBeInTheDocument();
     expect(within(first).getByRole('note')).toHaveTextContent(
-      'Its gain showed only on the tasks the search could see.',
+      'Gain showed only on searched tasks.',
     );
     expect(within(first).getByRole('button', { name: 'Pick' })).toBeEnabled();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Show table' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Table' }));
 
     const table = screen.getByRole('table', {
       name: 'Candidates by success and cost',
@@ -508,7 +507,7 @@ describe('Search', () => {
     expect(within(first).queryByText('Only on seen tasks')).toBeNull();
     expect(within(first).queryByRole('note')).toBeNull();
     expect(
-      screen.queryByText(/on the frontier gained only on the tasks/),
+      screen.queryByText(/frontier candidates? gained only on searched tasks/),
     ).toBeNull();
   });
 
@@ -518,7 +517,7 @@ describe('Search', () => {
     renderSearch();
 
     expect(
-      screen.getByText(/a gain in success counts as real from \+5 pts/),
+      screen.getByText(/· Minimum real gain: \+5 pts/),
     ).toBeInTheDocument();
   });
 
@@ -537,7 +536,7 @@ describe('Search', () => {
     ).toBeInTheDocument();
     expect(within(first).getByText('On the frontier')).toBeInTheDocument();
     expect(
-      within(first).getByRole('link', { name: 'Its held-out replay' }),
+      within(first).getByRole('link', { name: 'Held-out replay' }),
     ).toHaveAttribute(
       'href',
       '/w/acme/team/team_1/lines/line_1/stations/station_1/replays/replay_tests_held',
@@ -545,7 +544,7 @@ describe('Search', () => {
     expect(within(first).getByRole('button', { name: 'Pick' })).toBeEnabled();
 
     expect(
-      screen.getByText('Its agent proposed nothing that could be replayed.'),
+      screen.getByText('Search agent proposed nothing replayable.'),
     ).toBeInTheDocument();
 
     const seed = screen.getByRole('list', { name: 'Where it started' });

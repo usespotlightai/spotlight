@@ -48,7 +48,7 @@ export function TraceList({
     );
   }
 
-  const worked = traces.data ?? [];
+  const worked = traces.data?.traces ?? [];
 
   if (worked.length === 0) {
     return (
@@ -58,7 +58,7 @@ export function TraceList({
           title="No traces"
           action={<CreateTaskLink slug={slug} teamId={teamId} />}
         >
-          {`Nothing was traced in the ${rangeOf(range).label.toLowerCase()}. A task leaves a trace once a station works it.`}
+          {`No traces in the ${rangeOf(range).label.toLowerCase()}. Create a task to leave one.`}
         </EmptyState>
       </Notice>
     );
@@ -83,7 +83,13 @@ export function TraceList({
 
   return (
     <div className="relative flex min-h-0 flex-1 flex-col">
-      <TraceVolume traces={worked} range={range} />
+      {traces.data && (
+        <TraceVolume
+          volume={traces.data.volume}
+          from={traces.data.from}
+          to={traces.data.to}
+        />
+      )}
 
       <div className="min-h-0 flex-1 overflow-y-auto px-1.5 pb-1.5">
         <TraceHead />

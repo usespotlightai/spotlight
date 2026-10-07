@@ -33,7 +33,7 @@ const counted = (
   least = 1,
 ): number => {
   if (!Number.isInteger(value) || value < least || value > most) {
-    throw new InvalidSearchError(`${what} from ${least} to ${most}`);
+    throw new InvalidSearchError(`${what} must be from ${least} to ${most}`);
   }
 
   return value;
@@ -56,23 +56,19 @@ export class SearchBudget {
     repeats?: number;
   }): SearchBudget {
     return new SearchBudget(
-      counted(input.iterations, MOST_ITERATIONS, 'runs its agent'),
+      counted(input.iterations, MOST_ITERATIONS, 'iterations'),
       counted(
         input.perIteration,
         MOST_PER_ITERATION,
-        'takes a number of candidates from each of its agent’s runs',
+        'candidates per iteration',
       ),
       Spend.ceiling(input.ceiling.amount, input.ceiling.currency),
       counted(
         input.concurrency ?? SEARCH_CONCURRENCY,
         MOST_CONCURRENCY,
-        'runs a number of replay runs at once',
+        'concurrency',
       ),
-      counted(
-        input.repeats ?? 1,
-        MOST_REPEATS,
-        'replays each run a number of times',
-      ),
+      counted(input.repeats ?? 1, MOST_REPEATS, 'repeats'),
     );
   }
 
@@ -92,7 +88,7 @@ export class SearchBudget {
 
     if (perRun.amount < LEAST_RUN) {
       throw new InvalidSearchError(
-        `is capped high enough to give each replay run at least ${LEAST_RUN} ${this.ceiling.currency}; raise its ceiling or lower its iterations or candidates`,
+        `ceiling must allow at least ${LEAST_RUN} ${this.ceiling.currency} per replay run. Please raise it or lower iterations or candidates`,
       );
     }
 

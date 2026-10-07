@@ -12,7 +12,6 @@ vi.mock('@/hooks/api/useSubmitReview', () => ({
   useSubmitReview: () => ({
     mutate: submitting,
     isPending: false,
-    isError: false,
   }),
 }));
 
@@ -51,7 +50,7 @@ describe('SubmitReviewButton', () => {
       screen.getByRole('button', { name: /Finish review/ }),
     );
     expect(
-      screen.getByText('1 comment will post to the pull request.'),
+      screen.getByText('Posts 1 comment to the pull request.'),
     ).toBeInTheDocument();
 
     await userEvent.type(
@@ -84,9 +83,7 @@ describe('SubmitReviewButton', () => {
     );
 
     expect(
-      screen.getByText(
-        '1 comment will post once the task opens its pull request.',
-      ),
+      screen.getByText('Posts 1 comment when the task opens its pull request.'),
     ).toBeInTheDocument();
   });
 

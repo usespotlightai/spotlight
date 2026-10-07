@@ -172,7 +172,7 @@ describe('Runners', () => {
     expect(screen.getByText('+1')).toBeInTheDocument();
   });
 
-  it('says a host refuses an image, and why', () => {
+  it('says a host refuses an image, and why', async () => {
     holding([
       host({
         images: [
@@ -183,7 +183,7 @@ describe('Runners', () => {
             release: null,
             harnesses: [{ id: 'other', version: null }],
             refused:
-              'Its runner reports no release, so it is older than the 20260925-01 this control plane needs',
+              'Runner doesn’t report its release number. Minimum version required: 20260925-01',
           }),
         ],
       }),
@@ -191,12 +191,13 @@ describe('Runners', () => {
 
     renderPage();
 
-    expect(screen.getByText('1 refused')).toHaveAttribute(
-      'title',
-      expect.stringContaining(
-        'Refused: its runner reports no release, so it is older than the 20260925-01 this control plane needs',
+    await userEvent.hover(screen.getByText('1 refused'));
+
+    expect(
+      await screen.findByText(
+        'Runner doesn’t report its release number. Minimum version required: 20260925-01',
       ),
-    );
+    ).toBeInTheDocument();
     expect(screen.queryByText('Other Harness')).not.toBeInTheDocument();
   });
 
@@ -283,7 +284,9 @@ describe('Runners', () => {
 
     renderPage();
 
-    expect(screen.getByText(/A workspace owner or admin/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Only workspace owners and admins/),
+    ).toBeInTheDocument();
     expect(
       screen.queryByRole('link', { name: 'Add the first host' }),
     ).not.toBeInTheDocument();
@@ -348,7 +351,7 @@ describe('Runners', () => {
     );
     expect(
       nested.getByText(
-        'A run for a team you’re not on, so its title is hidden.',
+        'Title hidden. This run belongs to a team you’re not on.',
       ),
     ).toBeInTheDocument();
     expect(nested.queryByRole('link')).not.toBeInTheDocument();
@@ -410,6 +413,6 @@ describe('Runners', () => {
 
     await person.click(screen.getByRole('button', { name: 'Not answering' }));
 
-    expect(screen.getByText('Every host is answering.')).toBeInTheDocument();
+    expect(screen.getByText('All hosts are answering.')).toBeInTheDocument();
   });
 });

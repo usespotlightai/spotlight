@@ -12,7 +12,7 @@ export class InvalidSecretError extends Error {
     const path =
       typeof field === 'string' ? FieldPath.dotted(field) : FieldPath.of(field);
 
-    super(`A secret's ${path.segments.join('.')} ${because}`);
+    super(`Secret ${path.segments.join('.')} ${because}.`);
     this.name = 'InvalidSecretError';
     this.field = path;
   }

@@ -14,17 +14,17 @@ const SEARCHED = /^[a-z0-9][a-z0-9-]{0,62}$/;
 
 export const SEED_NAME = 'seed';
 
-const CANDIDATE_NAME_SAYS = `is named in 1 to ${MOST_LENGTH} characters`;
+const CANDIDATE_NAME_SAYS = `name must be 1 to ${MOST_LENGTH} characters`;
 
 const refusalOf = (raw: string): string | null => {
   if (raw.length === 0 || raw.length > MOST_LENGTH) {
     return CANDIDATE_NAME_SAYS;
   }
   if (raw.trim() !== raw) {
-    return 'is named without spaces before or after';
+    return 'name cannot start or end with a space';
   }
   if (raw.includes(SEPARATOR)) {
-    return `is named without ${SEPARATOR}, since its name ends its address`;
+    return `name cannot contain ${SEPARATOR}`;
   }
 
   return null;
@@ -46,17 +46,17 @@ export class CandidateName {
   static proposed(raw: string): CandidateName {
     if (raw.toLowerCase().startsWith(LIVE_PREFIX.toLowerCase())) {
       throw new InvalidCandidateError(
-        `is named other than ${LIVE_PREFIX}, which names the snapshots Spotlight takes to replay as a baseline`,
+        `name cannot start with reserved prefix ${LIVE_PREFIX}`,
       );
     }
     if (raw.toLowerCase().startsWith(PLANNED_PREFIX.toLowerCase())) {
       throw new InvalidCandidateError(
-        `is named other than ${PLANNED_PREFIX}, which names the changes Spotlight replays to check them`,
+        `name cannot start with reserved prefix ${PLANNED_PREFIX}`,
       );
     }
     if (raw.toLowerCase().startsWith(SANITY_PREFIX.toLowerCase())) {
       throw new InvalidCandidateError(
-        `is named other than ${SANITY_PREFIX}, which names the replays that check a set rewards a stronger model`,
+        `name cannot start with reserved prefix ${SANITY_PREFIX}`,
       );
     }
 
@@ -66,12 +66,12 @@ export class CandidateName {
   static searched(raw: string): CandidateName {
     if (!SEARCHED.test(raw)) {
       throw new InvalidCandidateError(
-        'found by a search is named in lowercase letters, digits and hyphens, starting with a letter or digit, in at most 63 characters',
+        'name must be up to 63 lowercase letters, digits and hyphens, not starting with a hyphen',
       );
     }
     if (raw === SEED_NAME) {
       throw new InvalidCandidateError(
-        `found by a search is named other than ${SEED_NAME}, which names the live config the search started from`,
+        `name cannot be reserved name ${SEED_NAME}`,
       );
     }
 

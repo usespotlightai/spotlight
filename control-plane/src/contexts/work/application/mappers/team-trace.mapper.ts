@@ -1,10 +1,15 @@
-import type { TeamTraceDto } from '@work/application/dto/team-trace.dto';
+import type {
+  TeamTraceDto,
+  TeamTracesDto,
+} from '@work/application/dto/team-trace.dto';
 import type { RunDigest } from '@work/application/ports/run-digest-reader.port';
 import type {
   TeamTraceSummary,
   TraceStation,
 } from '@work/application/ports/team-trace-reader.port';
 import { together } from '@work/application/read-models/run-digest';
+import type { VolumeBucket } from '@work/domain/services/trace-volume';
+import type { TraceRange } from '@work/domain/value-objects/trace-range.vo';
 
 const stationToDto = (station: TraceStation) => ({
   name: station.name.value,
@@ -41,6 +46,24 @@ export const TeamTraceMapper = {
       faults: spent.faults,
       cost: spent.cost?.amount ?? null,
       currency: spent.cost?.currency ?? null,
+    };
+  },
+  toTracesDto(
+    range: TraceRange,
+    volume: readonly VolumeBucket[],
+    traces: readonly TeamTraceDto[],
+  ): TeamTracesDto {
+    return {
+      range: range.name,
+      from: range.from.toISOString(),
+      to: range.to.toISOString(),
+      volume: volume.map((bucket) => ({
+        from: bucket.from.toISOString(),
+        to: bucket.to.toISOString(),
+        count: bucket.count,
+        faults: bucket.faults,
+      })),
+      traces,
     };
   },
 };

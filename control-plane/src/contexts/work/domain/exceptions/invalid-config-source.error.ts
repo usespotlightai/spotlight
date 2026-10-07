@@ -7,7 +7,7 @@ export class InvalidConfigSourceError extends Error {
     readonly field: ConfigSourceField,
     reason: string,
   ) {
-    super(reason);
+    super(`Config source ${field} ${reason}.`);
     this.name = 'InvalidConfigSourceError';
   }
 }

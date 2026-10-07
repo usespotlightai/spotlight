@@ -43,7 +43,7 @@ export class RunWorks {
     const run = await this.runs.findById(RunId.of(runId));
 
     if (!run) {
-      throw new UnknownRunError(`there is no run ${runId}`);
+      throw new UnknownRunError(`Run ${runId} not found.`);
     }
 
     run.assertHeldBy(RunnerId.of(runnerId));
@@ -61,7 +61,7 @@ export class RunWorks {
     const run = await this.runs.findById(attempt.runId);
 
     if (!run) {
-      throw new UnknownRunError(`there is no run ${attempt.runId.value}`);
+      throw new UnknownRunError(`Run ${attempt.runId.value} not found.`);
     }
 
     run.assertStillOn(attempt, RunnerId.of(runnerId));

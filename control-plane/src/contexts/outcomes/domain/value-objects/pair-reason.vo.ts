@@ -27,13 +27,13 @@ export class PairReason {
 
     if (!text || text.length > MOST_SAID) {
       throw new InvalidScoreError(
-        `says why in 1 to ${MOST_SAID} characters`,
+        `must be 1 to ${MOST_SAID} characters`,
         'reason',
       );
     }
     if (cited === 0 || cited > MOST_CITED) {
       throw new InvalidScoreError(
-        `rests on 1 to ${MOST_CITED} hunks of the two changes`,
+        `must cite 1 to ${MOST_CITED} hunks of the two changes`,
         'reason',
       );
     }

@@ -4,9 +4,7 @@ export class SkillInUseError extends Error {
   readonly violation = 'conflict' as const;
 
   constructor(key: string, uses: StationUses) {
-    super(
-      `The ${key} skill is given by ${uses.stations}; take it off those stations first`,
-    );
+    super(`Skill ${key} is in use. Stations using it: ${uses.stations}`);
     this.name = 'SkillInUseError';
   }
 }

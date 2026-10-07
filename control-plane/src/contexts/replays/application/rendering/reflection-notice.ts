@@ -25,15 +25,12 @@ const HEADLINES: Readonly<
   Record<ReflectionOutcome, (search: string) => string>
 > = {
   'went-on': (search) =>
-    `${search} goes on, but found failures outside the config`,
+    `${search} goes on after finding failures outside the config`,
   'no-config-cause': (search) =>
-    `${search} stalled: nothing left the config can fix`,
-  'no-failures': (search) =>
-    `${search} stalled: its best config already passes every task it searches, so there was nothing to look into`,
-  'did-not-run': (search) =>
-    `${search} stalled, and looking into why could not run`,
-  'out-of-budget': (search) =>
-    `${search} ran out of budget: it found what the config could fix, but could not try it`,
+    `${search} ended with nothing the config can fix`,
+  'no-failures': (search) => `${search} ended with every searched task passing`,
+  'did-not-run': (search) => `${search} ended after its reflection failed`,
+  'out-of-budget': (search) => `${search} ran out of budget`,
 };
 
 const tasksCounted = (count: number): string =>
@@ -43,15 +40,15 @@ const HAPPENINGS: Readonly<
   Record<ReflectionOutcome, (looked: number) => string>
 > = {
   'went-on': (looked) =>
-    `Two iterations in a row found nothing better, so its agent looked into the ${tasksCounted(looked)} the best config so far still fails. A change to the config could still fix some, so the search goes on.`,
+    `Two iterations in a row found nothing better. A config change could still fix some of the ${tasksCounted(looked)} still failing.`,
   'no-config-cause': (looked) =>
-    `Two iterations in a row found nothing better, so its agent looked into the ${tasksCounted(looked)} the best config so far still fails, and found none a change to the config could fix. The search ended, keeping what it did not spend.`,
+    `No config change can fix the ${tasksCounted(looked)} still failing. Unspent budget is kept.`,
   'no-failures': () =>
-    'Two iterations in a row found nothing better, and its best config already passes every task it searches, so the search ended.',
+    'Two iterations in a row found nothing better. The best config already passes every searched task.',
   'did-not-run': () =>
-    'Two iterations in a row found nothing better, so its agent set out to look into why, but its run failed before it recorded any cause. The search ended; its page links to that run.',
+    'The reflection run failed before recording any cause. The search page links to that run.',
   'out-of-budget': (looked) =>
-    `Two iterations in a row found nothing better, so its agent looked into the ${tasksCounted(looked)} the best config so far still fails. A change to the config could still fix some, but the search had no budget left to try one, so it ended.`,
+    `A config change could fix some of the ${tasksCounted(looked)} still failing. No budget was left to try one.`,
 };
 
 const clipped = (text: string): string =>
@@ -76,7 +73,7 @@ const keptToMost = (points: readonly string[]): readonly string[] =>
   points.length > MOST_POINTS
     ? [
         ...points.slice(0, MOST_POINTS - 1),
-        `${points.length - MOST_POINTS + 1} more on the search’s page`,
+        `${points.length - MOST_POINTS + 1} more on the search page.`,
       ]
     : points;
 
@@ -99,9 +96,9 @@ export const ReflectionNoticeWording = {
 export const UnreflectedStallWording = {
   of(stationName: string | null): NoticeWords {
     return {
-      headline: `${searchFor(stationName)} stalled, with no budget left to look into why`,
+      headline: `${searchFor(stationName)} ended with no budget left to reflect`,
       points: [
-        'Two iterations in a row found nothing better, and the search had no budget left for its agent to look into why the remaining tasks fail, so it ended. Start a new search with more budget to find out.',
+        'Two iterations in a row found nothing better. Please start a new search with more budget to find out why.',
       ],
     };
   },

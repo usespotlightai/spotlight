@@ -146,25 +146,25 @@ describe('LinePlan', () => {
           completed(),
         ],
       }),
-    ).toThrow(/two are named code-review/);
+    ).toThrow(/code-review repeats/);
   });
 
   it('refuses one that does not open with its backlog', () => {
     expect(() =>
       plan({ stations: [station('code-review'), backlog(), completed()] }),
-    ).toThrow(/open with their backlog/);
+    ).toThrow(/must start with the backlog/);
     expect(() =>
       plan({ stations: [station('code-review'), completed()] }),
-    ).toThrow(/one backlog, but hold 0/);
+    ).toThrow(/exactly one backlog, not 0/);
   });
 
   it('refuses one that does not close with completed', () => {
     expect(() =>
       plan({ stations: [backlog(), completed(), station('code-review')] }),
-    ).toThrow(/close with completed/);
+    ).toThrow(/must end with the completed station/);
     expect(() =>
       plan({ stations: [backlog(), station('code-review')] }),
-    ).toThrow(/one completed, but hold 0/);
+    ).toThrow(/exactly one completed station, not 0/);
   });
 
   it('refuses work passing on from where the line ends', () => {
@@ -178,7 +178,9 @@ describe('LinePlan', () => {
       }),
     );
 
-    expect(refused.message).toMatch(/completed hands on somewhere/);
+    expect(refused.message).toMatch(
+      /cannot pass on from the completed station/,
+    );
     expect(refused.part).toEqual({
       of: 'station',
       station: 'completed',
@@ -199,7 +201,7 @@ describe('LinePlan', () => {
       }),
     );
 
-    expect(refused.message).toMatch(/hand on to themselves/);
+    expect(refused.message).toMatch(/cannot pass to themselves/);
     expect(refused.part).toEqual({
       of: 'station',
       station: 'code-review',
@@ -218,7 +220,7 @@ describe('LinePlan', () => {
       }),
     );
 
-    expect(refused.message).toMatch(/station work is done at/);
+    expect(refused.message).toMatch(/must pass to work stations/);
     expect(refused.part).toEqual({
       of: 'station',
       station: 'backlog',
@@ -307,7 +309,7 @@ describe('LinePlan', () => {
           completed(),
         ],
       }),
-    ).toThrow(/station work is done at/);
+    ).toThrow(/must pass to work stations/);
   });
 
   it('refuses a word taking a task to a station it does not describe', () => {
@@ -323,7 +325,7 @@ describe('LinePlan', () => {
       }),
     );
 
-    expect(refused.message).toMatch(/to a station on the line/);
+    expect(refused.message).toMatch(/to a station on this line/);
     expect(refused.part).toEqual({ of: 'reaction', place: 0, field: 'to' });
   });
 
@@ -340,7 +342,7 @@ describe('LinePlan', () => {
       }),
     );
 
-    expect(refused.message).toMatch(/at a station on the line/);
+    expect(refused.message).toMatch(/at a station on this line/);
     expect(refused.part).toEqual({ of: 'reaction', place: 0, field: 'from' });
   });
 
@@ -392,7 +394,7 @@ describe('LinePlan', () => {
       }),
     );
 
-    expect(refused.message).toMatch(/code-review, which checks its layers/);
+    expect(refused.message).toMatch(/Station code-review checks its layers/);
     expect(refused.message).toMatch(/acme\/web/);
     expect(refused.part).toEqual({
       of: 'repository',

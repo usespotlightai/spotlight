@@ -14,7 +14,7 @@ export class Money {
     const counted = currency.trim();
 
     if (counted.length === 0) {
-      throw new InvalidMoneyError('must say what it is counted in');
+      throw new InvalidMoneyError('must name its currency');
     }
 
     return new Money(amount, counted);

@@ -10,7 +10,6 @@ import {
 } from '@/components/ui/dialog';
 import { useRevokeWorkspaceToken } from '@/hooks/api/useRevokeWorkspaceToken';
 import { useLingering } from '@/hooks/useLingering';
-import { messageOf } from '@/lib/error';
 import type { WorkspaceToken } from '@/lib/token';
 
 const CLOSING_MS = 150;
@@ -39,16 +38,10 @@ export function RevokeTokenDialog({
         <DialogHeader>
           <DialogTitle>Revoke {asked?.name}?</DialogTitle>
           <DialogDescription>
-            Whatever uses this token is refused from this moment. It can’t be
-            undone; create another token to replace it.
+            Anything using this token is refused immediately. This can’t be
+            undone.
           </DialogDescription>
         </DialogHeader>
-
-        {revoke.isError && (
-          <p role="alert" className="text-destructive text-xs">
-            {messageOf(revoke.error, 'Could not revoke the token')}
-          </p>
-        )}
 
         <DialogFooter>
           <DialogClose render={<Button variant="outline" size="sm" />}>

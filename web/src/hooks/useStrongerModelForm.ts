@@ -3,7 +3,6 @@ import { useHarnesses } from '@/hooks/api/useHarnesses';
 import { useStartSanityReplay } from '@/hooks/api/useStartSanityReplay';
 import { useFollowStarted } from '@/hooks/useFollowStarted';
 import { andReset } from '@/lib/and-reset';
-import { messageOf } from '@/lib/error';
 import {
   ceilingFrom,
   type ReplayedStation,
@@ -104,7 +103,6 @@ export function useStrongerModelForm({
     modelProblem: tried || stronger ? problem : null,
     repeatsProblem: problemOnceTried(tried, repeats),
     ceilingProblem: problemOnceTried(tried, ceiling),
-    refused: start.isError ? messageOf(start.error) : null,
     forget,
     submit,
   };

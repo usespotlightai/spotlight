@@ -48,7 +48,7 @@ export function PullRequestsTab({
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
       {truncated && <TruncatedNote said={PULL_REQUESTS_TRUNCATED} />}
 
       <Penetration penetration={penetration} />

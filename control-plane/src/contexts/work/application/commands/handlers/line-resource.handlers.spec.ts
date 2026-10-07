@@ -342,7 +342,7 @@ describe('UpdateLineHandler', () => {
       }).update(DELIVERY),
     ).toEqual({
       outcome: 'in-use',
-      reason: expect.stringContaining('Build (2 standing there)'),
+      reason: expect.stringContaining('Build (2)'),
     });
   });
 

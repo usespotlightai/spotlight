@@ -4,7 +4,7 @@ export class PullRequestHookRefusedError extends Error {
   constructor(reason: string) {
     super(
       [
-        'The pull request was held back by a hook, so none was opened.',
+        'A hook held back the pull request. No pull request was opened.',
         reason.trim(),
       ]
         .filter(Boolean)

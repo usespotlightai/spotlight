@@ -2,7 +2,7 @@ export class InvalidRunPriorityError extends Error {
   readonly violation = 'invalid' as const;
 
   constructor(reason: string) {
-    super(`A run priority ${reason}`);
+    super(`Run priority ${reason}.`);
     this.name = 'InvalidRunPriorityError';
   }
 }

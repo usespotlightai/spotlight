@@ -3,7 +3,7 @@ export class ChangeStackMovedOnError extends Error {
 
   constructor(id: string) {
     super(
-      `This change stack changed since it was read, and cannot be written over (${id})`,
+      `Change stack ${id} changed since you loaded it. Please reload and try again.`,
     );
     this.name = 'ChangeStackMovedOnError';
   }

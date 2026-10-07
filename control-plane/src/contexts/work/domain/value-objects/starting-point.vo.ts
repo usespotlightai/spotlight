@@ -36,14 +36,14 @@ export class StartingPoint {
   ): StartingPoint {
     if (input.checkouts.length > MOST_STARTED_CHECKOUTS) {
       throw new InvalidStartingPointError(
-        `names at most ${MOST_STARTED_CHECKOUTS} checkouts`,
+        `can name at most ${MOST_STARTED_CHECKOUTS} checkouts`,
       );
     }
 
     const paths = input.checkouts.map((each) => each.path);
 
     if (new Set(paths).size !== paths.length) {
-      throw new InvalidStartingPointError('names each checkout once');
+      throw new InvalidStartingPointError('must name each checkout once');
     }
 
     if (!Number.isInteger(input.attempt) || input.attempt < 1) {

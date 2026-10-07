@@ -138,7 +138,7 @@ export class RunnerPool extends EventRecorder {
     if (!given.secret) {
       throw new InvalidRunnerPoolError(
         SECRET_FIELD,
-        'is given when a pool that provisions is defined, to sign its calls with',
+        'is required for a pool that provisions',
       );
     }
 
@@ -198,7 +198,7 @@ export class RunnerPool extends EventRecorder {
       throw new RunnerPoolFixedError(
         this.key.value,
         'key',
-        `keeps its key for its whole life, since it is the pool's address; replace it to key a pool ${definition.key.value}`,
+        `can't change its key. Please replace the pool to key it ${definition.key.value}`,
       );
     }
 
@@ -206,7 +206,7 @@ export class RunnerPool extends EventRecorder {
       throw new RunnerPoolFixedError(
         this.key.value,
         'provision',
-        `${this.mode === 'push' ? 'provisions' : 'is pulled from'} for its whole life; replace it to ${given.mode === 'push' ? 'provision' : 'pull'} instead`,
+        `${this.mode === 'push' ? 'provisions' : 'is pulled from'} for its whole life. Please replace the pool to ${given.mode === 'push' ? 'provision' : 'pull'} instead`,
       );
     }
 
@@ -262,7 +262,7 @@ export class RunnerPool extends EventRecorder {
       if (!given.tokenHash && this.access.rotatesOn(given.tokenVersion)) {
         throw new InvalidRunnerPoolError(
           'token',
-          'is given whenever tokenVersion changes, since that is how it is rotated; Spotlight issues one only when a pool is created without it',
+          'is required whenever tokenVersion changes',
         );
       }
 
@@ -276,7 +276,7 @@ export class RunnerPool extends EventRecorder {
       if (!given.secret && this.access.rotatesOn(given.secretVersion)) {
         throw new InvalidRunnerPoolError(
           SECRET_FIELD,
-          'is given again whenever provision.secretVersion changes, since that is how it is rotated',
+          'is required whenever provision.secretVersion changes',
         );
       }
 

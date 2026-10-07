@@ -9,7 +9,7 @@ export const parseMemoryReach = (raw: string): MemoryReach => {
 
   if (!reach) {
     throw new InvalidMemoryError(
-      `reaches one of ${MEMORY_REACHES.join(', ')}, not ${raw}`,
+      `reach must be one of ${MEMORY_REACHES.join(', ')}, not ${raw}`,
     );
   }
 

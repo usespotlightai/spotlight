@@ -15,7 +15,7 @@ export class CandidateScoring {
   }): CandidateScoring {
     if ((input.judge === null) !== (input.rubricVersion === null)) {
       throw new InvalidCandidateError(
-        'names the version of its judge’s rubric when, and only when, it has one',
+        'rubric version must be set only when the judge has a rubric',
       );
     }
 

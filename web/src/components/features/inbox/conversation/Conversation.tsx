@@ -4,6 +4,7 @@ import { InboxWorking } from '@/components/features/inbox/conversation/InboxWork
 import { PersonSaid } from '@/components/features/inbox/conversation/PersonSaid';
 import { TimeMarker } from '@/components/features/inbox/conversation/TimeMarker';
 import { ComposerFooter } from '@/components/shared/ComposerFooter';
+import { PaneScroller } from '@/components/shared/PaneScroller';
 import type { ApprovalAnswer } from '@/lib/approval';
 import { togglesDisclosure } from '@/lib/disclosure';
 import {
@@ -15,6 +16,7 @@ import {
   workedOn,
 } from '@/lib/inbox';
 import { lastNoteOf } from '@/lib/run-conversation';
+import { useRunSidePanel } from '@/lib/run-side-panel';
 
 interface Turn {
   readonly prompt: Message | null;
@@ -73,7 +75,6 @@ const put = (
 export type Deciding = {
   readonly pending: boolean;
   readonly onDecide: (answer: ApprovalAnswer) => void;
-  readonly failure: string | null;
 };
 
 type ConversationProps = {
@@ -100,6 +101,7 @@ export function Conversation({
   afterRun,
 }: ConversationProps) {
   const marked = marksIn(item);
+  const { aside } = useRunSidePanel();
   const scroller = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
   const following = useRef(true);
@@ -167,107 +169,104 @@ export function Conversation({
   };
 
   return (
-    <>
+    <PaneScroller
+      ref={scroller}
+      onScroll={watched}
+      aside={aside}
+      footer={<ComposerFooter>{footer}</ComposerFooter>}
+    >
       <div
-        ref={scroller}
-        onScroll={watched}
-        className="min-h-0 flex-1 overflow-y-auto"
+        ref={content}
+        className="mx-auto flex w-full max-w-3xl flex-col px-8 py-8"
       >
-        <div
-          ref={content}
-          className="mx-auto flex w-full max-w-3xl flex-col px-8 py-8"
-        >
-          <TimeMarker at={item.createdAt} />
+        <TimeMarker at={item.createdAt} />
 
-          {turnsOf(item).map((turn, at, all) => {
-            const head = turn.prompt ? (
-              <PersonSaid
-                body={turn.prompt.body}
-                attachments={turn.prompt.attachments}
-              />
-            ) : at === 0 ? (
-              opening
-            ) : null;
+        {turnsOf(item).map((turn, at, all) => {
+          const head = turn.prompt ? (
+            <PersonSaid
+              body={turn.prompt.body}
+              attachments={turn.prompt.attachments}
+            />
+          ) : at === 0 ? (
+            opening
+          ) : null;
 
-            if (!head && turn.messages.length === 0) {
-              return null;
-            }
+          if (!head && turn.messages.length === 0) {
+            return null;
+          }
 
-            return (
-              <section
-                // biome-ignore lint/suspicious/noArrayIndexKey: turns are cut in order and never reordered
-                key={at}
-                className="flex flex-col"
-              >
-                {turn.prompt && marked.has(turn.prompt.position) && (
-                  <div className="mt-6 mb-3">
-                    <TimeMarker at={turn.prompt.at} />
-                  </div>
-                )}
+          return (
+            <section
+              // biome-ignore lint/suspicious/noArrayIndexKey: turns are cut in order and never reordered
+              key={at}
+              className="flex flex-col"
+            >
+              {turn.prompt && marked.has(turn.prompt.position) && (
+                <div className="mt-6 mb-3">
+                  <TimeMarker at={turn.prompt.at} />
+                </div>
+              )}
 
-                {head && <div className={HELD_AT_TOP}>{head}</div>}
+              {head && <div className={HELD_AT_TOP}>{head}</div>}
 
-                <ol className="mt-6 flex flex-col gap-6">
-                  {turn.messages.map((note, place) => {
-                    const before = turn.messages[place - 1];
-                    const closesRun =
-                      note.runId &&
-                      lastNoteOf(item.notes, note.runId) === note.position
-                        ? afterRun?.(note.runId)
-                        : null;
+              <ol className="mt-6 flex flex-col gap-6">
+                {turn.messages.map((note, place) => {
+                  const before = turn.messages[place - 1];
+                  const closesRun =
+                    note.runId &&
+                    lastNoteOf(item.notes, note.runId) === note.position
+                      ? afterRun?.(note.runId)
+                      : null;
 
-                    return (
-                      <Fragment key={`${item.id}-${note.position}`}>
-                        {(!before || before.station !== note.station) &&
-                          marked.has(note.position) && (
-                            <li>
-                              <TimeMarker at={note.at} />
-                            </li>
-                          )}
+                  return (
+                    <Fragment key={`${item.id}-${note.position}`}>
+                      {(!before || before.station !== note.station) &&
+                        marked.has(note.position) && (
+                          <li>
+                            <TimeMarker at={note.at} />
+                          </li>
+                        )}
 
-                        <InboxMessage
-                          message={note}
-                          stationCount={item.station.count}
-                          teamId={item.teamId}
-                          about={item.about}
-                          resolved={item.resolved}
-                          deciding={deciding}
-                          worked={workedOn(
-                            worked,
-                            item.notes,
-                            note.runId,
-                            note.at,
-                          )}
-                        />
+                      <InboxMessage
+                        message={note}
+                        stationCount={item.station.count}
+                        teamId={item.teamId}
+                        about={item.about}
+                        resolved={item.resolved}
+                        deciding={deciding}
+                        worked={workedOn(
+                          worked,
+                          item.notes,
+                          note.runId,
+                          note.at,
+                        )}
+                      />
 
-                        {closesRun && <li>{closesRun}</li>}
-                      </Fragment>
-                    );
-                  })}
+                      {closesRun && <li>{closesRun}</li>}
+                    </Fragment>
+                  );
+                })}
 
-                  {at === all.length - 1 &&
-                    (live ? (
-                      <li>{live}</li>
-                    ) : (
-                      item.working && (
-                        <InboxWorking
-                          station={item.station.name}
-                          stationColor={item.station.color}
-                          stationPosition={item.station.position}
-                          stationCount={item.station.count}
-                        />
-                      )
-                    ))}
-                </ol>
-              </section>
-            );
-          })}
+                {at === all.length - 1 &&
+                  (live ? (
+                    <li>{live}</li>
+                  ) : (
+                    item.working && (
+                      <InboxWorking
+                        station={item.station.name}
+                        stationColor={item.station.color}
+                        stationPosition={item.station.position}
+                        stationCount={item.station.count}
+                      />
+                    )
+                  ))}
+              </ol>
+            </section>
+          );
+        })}
 
-          {closing && <div className="mt-3">{closing}</div>}
-        </div>
+        {closing && <div className="mt-3">{closing}</div>}
       </div>
-
-      <ComposerFooter>{footer}</ComposerFooter>
-    </>
+    </PaneScroller>
   );
 }

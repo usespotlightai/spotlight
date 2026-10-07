@@ -1,7 +1,12 @@
 import { ChangeMarkerRow } from '@/components/features/insights/changes/ChangeMarkerRow';
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
+import { NestedTable } from '@/components/shared/nested-table/NestedTable';
 import type { StationNames } from '@/lib/insights';
-import { type ChangeMarker, changeKey } from '@/lib/insights-changes';
+import {
+  CHANGE_HEADINGS,
+  type ChangeMarker,
+  changeKey,
+} from '@/lib/insights-changes';
 
 type ChangeMarkerListProps = {
   slug: string;
@@ -19,17 +24,14 @@ export function ChangeMarkerList({
   return (
     <InsightsCard
       title="Config changes"
-      description="Each time a station started a new config, the latest first. Open one to see how its runs went before and after."
+      description="Every station config change, latest first. Open one to compare runs before and after."
     >
       {markers.length === 0 ? (
         <p className="text-muted-foreground text-sm">
           No station changed its config in this period.
         </p>
       ) : (
-        <ul
-          aria-label="Config changes"
-          className="flex flex-col divide-y-[0.5px] divide-border"
-        >
+        <NestedTable label="Config changes" headings={CHANGE_HEADINGS} trailing>
           {[...markers].reverse().map((marker) => (
             <ChangeMarkerRow
               key={changeKey(marker)}
@@ -39,7 +41,7 @@ export function ChangeMarkerList({
               names={names}
             />
           ))}
-        </ul>
+        </NestedTable>
       )}
     </InsightsCard>
   );

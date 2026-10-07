@@ -24,16 +24,15 @@ export function ReplayCheckThreshold({
           <span className="text-foreground">
             {regressionsShown(replayCheck.mostRegressions)}
           </span>
-          ; each check may spend up to{' '}
+          . Ceiling per check:{' '}
           <span className="text-foreground tabular-nums">
             {spentIn(replayCheck.ceiling, replayCheck.currency)}
-          </span>
-          ; {minGainSentence(replayCheck.minGain)}.
+          </span>{' '}
+          · {minGainSentence(replayCheck.minGain)}
         </span>
       ) : (
         <span className="min-w-0">
-          The line sets no replay_check, so {COMMAND} refuses to check its pull
-          requests.
+          Line sets no replay_check. {COMMAND} won’t check its pull requests.
         </span>
       )}
     </p>

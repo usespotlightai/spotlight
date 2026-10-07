@@ -16,7 +16,7 @@ export class HookVerdict {
   ): HookVerdict {
     return blocks
       ? HookVerdict.refused(
-          `The hook ${hook} no longer reads as it was written (${broken}), and it blocks on failure`,
+          `Hook ${hook} is broken and blocks on failure. Reason: ${broken}`,
         )
       : HookVerdict.allowed();
   }

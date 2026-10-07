@@ -23,7 +23,7 @@ export class ImprovedStation {
   static at(line: Line, station: Station): ImprovedStation {
     if (!station.isWorked || !line.stationAt(station.id)) {
       throw new InvalidChatMessageError(
-        'can only improve a station its line runs an agent at',
+        'can only improve a station that runs an agent',
       );
     }
 

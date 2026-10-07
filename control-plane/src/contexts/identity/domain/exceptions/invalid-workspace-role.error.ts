@@ -5,7 +5,7 @@ export class InvalidWorkspaceRoleError extends Error {
 
   constructor(raw: string) {
     super(
-      `There is no such role as ${raw}. A person is one of: ${WORKSPACE_ROLES.join(', ')}`,
+      `Role ${raw} does not exist. Valid roles: ${WORKSPACE_ROLES.join(', ')}`,
     );
     this.name = 'InvalidWorkspaceRoleError';
   }

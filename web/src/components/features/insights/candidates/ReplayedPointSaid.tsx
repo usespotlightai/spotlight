@@ -1,3 +1,5 @@
+import { ChartTip } from '@/components/shared/chart/ChartTip';
+import type { TipPlacement } from '@/hooks/useCursorTooltip';
 import { spentIn } from '@/lib/inbox';
 import { countShown, shareShown } from '@/lib/insights';
 import type { ReplayedPoint } from '@/lib/insights-candidates';
@@ -5,11 +7,16 @@ import type { ReplayedPoint } from '@/lib/insights-candidates';
 type ReplayedPointSaidProps = {
   point: ReplayedPoint;
   currency: string;
+  placement?: TipPlacement;
 };
 
-export function ReplayedPointSaid({ point, currency }: ReplayedPointSaidProps) {
+export function ReplayedPointSaid({
+  point,
+  currency,
+  placement,
+}: ReplayedPointSaidProps) {
   return (
-    <div className="whitespace-nowrap rounded-md border border-border bg-popover px-2.5 py-1.5 text-xs shadow-overlay">
+    <ChartTip placement={placement}>
       <p className="text-foreground">
         <span className="mr-1.5 text-muted-foreground">Replayed</span>
         {point.label}
@@ -28,6 +35,6 @@ export function ReplayedPointSaid({ point, currency }: ReplayedPointSaidProps) {
           .filter(Boolean)
           .join(' · ')}
       </p>
-    </div>
+    </ChartTip>
   );
 }

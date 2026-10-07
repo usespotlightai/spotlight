@@ -78,7 +78,7 @@ describe('routing', () => {
 
     renderAt('/definitely-not-a-page');
 
-    expect(await screen.findByText('No messages')).toBeInTheDocument();
+    expect(await screen.findByText('Inbox empty')).toBeInTheDocument();
   });
 
   it('opens "/" on the workspace’s inbox', async () => {
@@ -86,7 +86,7 @@ describe('routing', () => {
 
     renderAt('/');
 
-    expect(await screen.findByText('No messages')).toBeInTheDocument();
+    expect(await screen.findByText('Inbox empty')).toBeInTheDocument();
   });
 
   it('opens the settings at the workspace’s general page', async () => {

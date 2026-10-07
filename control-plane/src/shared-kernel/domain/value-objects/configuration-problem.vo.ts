@@ -24,7 +24,7 @@ export class ConfigurationProblem {
     if (reason.length === 0) {
       throw new InvalidIdentifierError(
         'configuration problem',
-        'says what to do about it',
+        'must say what to fix',
       );
     }
 

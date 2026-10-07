@@ -12,7 +12,6 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { useProbeReplaySet } from '@/hooks/api/useProbeReplaySet';
-import { messageOf } from '@/lib/error';
 import { CANCEL } from '@/lib/form-words';
 import {
   ceilingFrom,
@@ -80,8 +79,6 @@ export function ProbeSetDialog({
     );
   };
 
-  const refused = probe.isError ? messageOf(probe.error) : null;
-
   return (
     <Dialog
       open={open}
@@ -105,12 +102,6 @@ export function ProbeSetDialog({
             problem={tried && typeof ceiling === 'string' ? ceiling : null}
             note={PROBE_CEILING_NOTE}
           />
-
-          {refused && (
-            <p role="alert" className="text-destructive text-xs">
-              {refused}
-            </p>
-          )}
 
           <DialogFooter>
             <DialogClose render={<Button variant="outline" size="sm" />}>

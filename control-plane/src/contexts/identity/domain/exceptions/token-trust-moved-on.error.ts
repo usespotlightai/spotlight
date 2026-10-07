@@ -3,7 +3,7 @@ export class TokenTrustMovedOnError extends Error {
 
   constructor(trustId: string) {
     super(
-      `This token trust has been changed since it was read, and cannot be written over (${trustId})`,
+      `Token trust ${trustId} changed since you loaded it. Please reload and try again.`,
     );
     this.name = 'TokenTrustMovedOnError';
   }

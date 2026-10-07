@@ -2,7 +2,9 @@ export class ChatMovedOnError extends Error {
   readonly violation = 'conflict' as const;
 
   constructor(chatId: string) {
-    super(`The chat ${chatId} changed while this was being written`);
+    super(
+      `Chat ${chatId} changed since you loaded it. Please reload and try again.`,
+    );
     this.name = 'ChatMovedOnError';
   }
 }

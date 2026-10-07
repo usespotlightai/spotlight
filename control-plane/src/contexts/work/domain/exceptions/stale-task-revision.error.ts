@@ -3,7 +3,7 @@ export class StaleTaskRevisionError extends Error {
 
   constructor(id: string, expected: number, standing: number) {
     super(
-      `This task has moved since revision ${expected}, and stands at revision ${standing}, so a move based on what it was is refused (${id})`,
+      `Task ${id} moved since revision ${expected}. Please reload and try again. Current revision: ${standing}`,
     );
     this.name = 'StaleTaskRevisionError';
   }

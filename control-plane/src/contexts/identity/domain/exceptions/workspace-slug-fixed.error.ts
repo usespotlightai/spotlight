@@ -7,7 +7,7 @@ export class WorkspaceSlugFixedError extends Error {
     readonly slug: string,
     readonly because: string,
   ) {
-    super(`The ${slug} workspace ${because}`);
+    super(`Workspace ${slug} ${because}.`);
     this.name = 'WorkspaceSlugFixedError';
   }
 }

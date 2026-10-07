@@ -2,9 +2,7 @@ export class HookFiringMovedOnError extends Error {
   readonly violation = 'conflict' as const;
 
   constructor(id: string) {
-    super(
-      `This hook firing has changed since it was read, and cannot be written over (${id})`,
-    );
+    super(`Hook firing ${id} changed since it was loaded. Please try again.`);
     this.name = 'HookFiringMovedOnError';
   }
 }

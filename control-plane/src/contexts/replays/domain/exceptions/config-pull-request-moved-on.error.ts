@@ -3,7 +3,7 @@ export class ConfigPullRequestMovedOnError extends Error {
 
   constructor(pullRequestId: string) {
     super(
-      `The config pull request ${pullRequestId} changed while this was being written`,
+      `Config pull request ${pullRequestId} changed since you loaded it. Please reload and try again.`,
     );
     this.name = 'ConfigPullRequestMovedOnError';
   }

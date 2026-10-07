@@ -2,7 +2,6 @@ import { X } from 'lucide-react';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { Button } from '@/components/ui/button';
 import { useRemoveReplaySetEntry } from '@/hooks/api/useRemoveReplaySetEntry';
-import { messageOf } from '@/lib/error';
 import {
   type ReplayedStation,
   type ReplaySetEntry,
@@ -60,12 +59,6 @@ export function SetRunRow({ at, setId, entry, frozen }: SetRunRowProps) {
           {replayableShown(entry.refusal)}
         </span>
       </p>
-
-      {remove.isError && (
-        <p role="alert" className="text-destructive text-xs">
-          {messageOf(remove.error, 'Could not take the run out of the set')}
-        </p>
-      )}
     </li>
   );
 }

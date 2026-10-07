@@ -31,7 +31,7 @@ const modelProblems = (
     : [
         {
           field: 'model',
-          reason: `is a model the station’s runners offer for its harness: ${listed(offer.models)}`,
+          reason: `must be one the station’s runners offer: ${listed(offer.models)}`,
         },
       ];
 
@@ -52,7 +52,7 @@ const effortProblems = (
     : [
         {
           field: 'effort',
-          reason: `is an effort its harness takes, higher than the live config’s ${live ?? `default, counted as its lowest, ${offer.efforts[0] ?? 'none'}`}: ${listed(higher)}`,
+          reason: `must be above the live effort ${live ?? offer.efforts[0] ?? 'none'}: ${listed(higher)}`,
         },
       ];
 };
@@ -72,8 +72,7 @@ export const strongerProblemsOf = (
     return [
       {
         field: 'model',
-        reason:
-          'names a model or a higher effort other than the live config’s, to check the set rewards it',
+        reason: 'must differ from the live config in model or effort',
       },
     ];
   }
@@ -81,7 +80,7 @@ export const strongerProblemsOf = (
     return [
       {
         field: 'model',
-        reason: 'is replayed on a harness Spotlight knows',
+        reason: 'must run on a known harness',
       },
     ];
   }

@@ -52,14 +52,14 @@ export function ChangesTab({ slug, teamId, period, names }: ChangesTabProps) {
   ) {
     return (
       <NoRunsInPeriod slug={slug} teamId={teamId}>
-        Once stations run tasks, their config changes and how each harness,
-        model and effort did show here.
+        Config changes and results by harness, model and effort show here once
+        stations run tasks.
       </NoRunsInPeriod>
     );
   }
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
       {(changes.data.truncated || setups.data.truncated) && <TruncatedNote />}
 
       <ChangeMarkerList

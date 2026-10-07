@@ -7,17 +7,18 @@ import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { spentIn } from '@/lib/inbox';
 import {
   countShown,
-  type OutputDay,
+  type DayOutput,
   type StationNames,
   stationShown,
 } from '@/lib/insights';
+import { changeKey } from '@/lib/insights-changes';
 import { dayShown } from '@/lib/judge';
 import { stationPath } from '@/lib/station';
 
 type OutputTableProps = {
   slug: string;
   teamId: string;
-  days: readonly OutputDay[];
+  days: readonly DayOutput[];
   currency: string | null;
   names: StationNames;
 };
@@ -29,7 +30,7 @@ export function OutputTable({
   currency,
   names,
 }: OutputTableProps) {
-  const columns: InsightsColumn<OutputDay>[] = [
+  const columns: InsightsColumn<DayOutput>[] = [
     {
       id: 'day',
       header: 'Day',
@@ -53,7 +54,7 @@ export function OutputTable({
       header: 'Spend',
       numeric: true,
       cell: (day) =>
-        day.spend !== null && currency ? spentIn(day.spend, currency) : '–',
+        day.spend && currency ? spentIn(day.spend.amount, currency) : '–',
     },
     {
       id: 'merged',
@@ -63,7 +64,7 @@ export function OutputTable({
     },
     {
       id: 'changes',
-      header: 'New configs',
+      header: 'Config changes',
       cell: (day) =>
         day.changes.length === 0 ? (
           '–'
@@ -71,7 +72,7 @@ export function OutputTable({
           <span className="flex gap-2">
             {day.changes.map((change) => (
               <TrailLink
-                key={`${change.stationId}:${change.fingerprint}`}
+                key={changeKey(change)}
                 to={stationPath(slug, teamId, change.lineId, change.stationId)}
                 className="hover:underline"
               >

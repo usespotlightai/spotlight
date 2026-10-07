@@ -1,4 +1,5 @@
 import type { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
+import type { StretchBound } from '@outcomes/domain/services/config-stretches';
 import type { RunFilter } from '@outcomes/domain/services/run-filter';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -49,7 +50,16 @@ export interface RunRecordRepository {
     by: Date,
   ): Promise<RunRecord | null>;
 
+  lastConfigRunsBefore(
+    teamId: TeamId,
+    bounds: readonly StretchBound[],
+  ): Promise<readonly RunRecord[]>;
+
   lastAtStation(criteria: StationRecords): Promise<readonly RunRecord[]>;
+
+  latestStartedAtStation(
+    criteria: StationRecords,
+  ): Promise<readonly RunRecord[]>;
 
   endedForTeam(window: TeamWindow, most: number): Promise<readonly RunRecord[]>;
 

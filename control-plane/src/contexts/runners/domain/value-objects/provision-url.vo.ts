@@ -16,28 +16,28 @@ export class ProvisionUrl {
     } catch {
       throw new InvalidRunnerPoolError(
         'provision.url',
-        'is an absolute https URL, as in https://provision.example.com/runs',
+        'must be an absolute https URL, such as https://provision.example.com/runs',
       );
     }
 
     if (url.protocol !== 'https:' && url.protocol !== 'http:') {
       throw new InvalidRunnerPoolError(
         'provision.url',
-        'is an http or https URL, and https wherever tokens must not travel in the clear',
+        'must be an http or https URL',
       );
     }
 
     if (url.username || url.password) {
       throw new InvalidRunnerPoolError(
         'provision.url',
-        'carries no credentials; the call is signed with provision.secret instead',
+        'must carry no credentials. Calls are signed with provision.secret',
       );
     }
 
     if (url.hash || given.length > MOST_LENGTH) {
       throw new InvalidRunnerPoolError(
         'provision.url',
-        `is at most ${MOST_LENGTH} characters and has no fragment`,
+        `must be at most ${MOST_LENGTH} characters, with no fragment`,
       );
     }
 

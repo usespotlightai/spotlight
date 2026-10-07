@@ -5,7 +5,10 @@ import {
   touchesOf,
 } from '@outcomes/domain/insights.fake-spec';
 import { endedRecord } from '@outcomes/domain/outcomes.fake-spec';
-import { stationReportsOf } from '@outcomes/domain/services/station-reports';
+import {
+  stationReportsOf,
+  teamReportOf,
+} from '@outcomes/domain/services/station-reports';
 import { InsightsPeriod } from '@outcomes/domain/value-objects/insights-period.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -29,7 +32,16 @@ describe('stationReportsOf', () => {
     );
 
     expect(report?.tally).toMatchObject({ runs: 2, failed: 1 });
-    expect(report?.before).toMatchObject({ runs: 1, failed: 0 });
+    expect(report?.seen).toEqual({
+      accepted: false,
+      sentBack: false,
+      merged: false,
+    });
+    expect(report?.changes.runs).toMatchObject({ by: 1, tone: 'flat' });
+    expect(report?.changes.failed).toMatchObject({
+      fromZero: true,
+      tone: 'bad',
+    });
     expect(report?.trend[1]).toMatchObject({
       day: '2026-09-26',
       tally: { runs: 2 },
@@ -88,5 +100,44 @@ describe('stationReportsOf', () => {
         each.taskFailures.length,
       ]),
     ).toEqual([['line_2', 'station_9', 0, 1]]);
+  });
+});
+
+describe('teamReportOf', () => {
+  it('tallies the whole team per day across its stations', () => {
+    const report = teamReportOf(
+      historyOf({
+        records: [
+          endedRecord('run_1', { endedAt: day('2026-09-26') }),
+          endedRecord('run_2', {
+            stationId: 'station_2',
+            endedAt: day('2026-09-26', 15),
+            ending: 'failed',
+            failure: 'exited',
+          }),
+          endedRecord('run_3', { endedAt: day('2026-09-27') }),
+          endedRecord('run_4', { endedAt: day('2026-09-20') }),
+        ],
+      }),
+      PERIOD,
+    );
+
+    expect(report.tally).toMatchObject({ runs: 3, failed: 1 });
+    expect(report.changes.runs).toMatchObject({ by: 2 });
+    expect(report.trend).toHaveLength(7);
+    expect(
+      report.trend.map((each) => [
+        each.day,
+        each.tally.runs,
+        each.tally.failed,
+      ]),
+    ).toContainEqual(['2026-09-26', 2, 1]);
+    expect(
+      report.trend.map((each) => [
+        each.day,
+        each.tally.runs,
+        each.tally.failed,
+      ]),
+    ).toContainEqual(['2026-09-27', 1, 0]);
   });
 });

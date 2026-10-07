@@ -238,7 +238,7 @@ export class Chat extends EventRecorder {
   handedTo(runId: RunId, at: Date): Chat {
     if (this.running) {
       throw new InvalidChatTransitionError(
-        'is already being worked, so a second run cannot take it up',
+        `Chat ${this.id.value} is already being worked by a run.`,
       );
     }
 
@@ -324,7 +324,7 @@ export class Chat extends EventRecorder {
 
     if (!this.currentRunId) {
       throw new InvalidChatTransitionError(
-        'is not being worked, so there is nothing to stop',
+        `Chat ${this.id.value} is not being worked. There is nothing to stop.`,
       );
     }
 
@@ -347,7 +347,7 @@ export class Chat extends EventRecorder {
   }): Chat {
     if (!this.currentRunId?.equals(input.runId)) {
       throw new InvalidChatTransitionError(
-        'is not being worked by that run, so it cannot propose anything',
+        `Only the run working chat ${this.id.value} can propose tasks.`,
       );
     }
 
@@ -367,7 +367,7 @@ export class Chat extends EventRecorder {
 
     if (!proposal) {
       throw new InvalidChatTransitionError(
-        'proposed nothing there, so there is nothing to settle',
+        `Chat ${this.id.value} has no proposal at that message.`,
       );
     }
 

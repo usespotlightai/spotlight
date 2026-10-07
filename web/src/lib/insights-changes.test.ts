@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import {
   frontierOf,
+  harnessGroupsOf,
   type InsightsChanges,
   markerOf,
   type SetupOutcome,
   setupPoints,
   setupShown,
+  setupWithinShown,
   sizeRuleShown,
 } from '@/lib/insights-changes';
 
@@ -18,6 +20,7 @@ const setup = (over: Partial<SetupOutcome>): SetupOutcome =>
     tally: { runs: 5 },
     costPerRun: 1,
     currency: 'USD',
+    priced: true,
     outcomes: {
       accepted: 0.5,
       sent_back: 0.2,
@@ -52,13 +55,33 @@ describe('setupShown', () => {
   });
 });
 
+describe('harnessGroupsOf and setupWithinShown', () => {
+  it('groups setups by harness in the order they come, naming each within its harness', () => {
+    const groups = harnessGroupsOf([
+      setup({ model: 'sonnet' }),
+      setup({ harness: 'cursor', model: null, profileKey: 'careful' }),
+      setup({ model: 'opus', effort: 'high' }),
+    ]);
+
+    expect(
+      groups.map((group) => [
+        group.harness,
+        group.setups.map(setupWithinShown),
+      ]),
+    ).toEqual([
+      ['claude-code', ['sonnet', 'opus · high effort']],
+      ['cursor', ['Harness default · careful profile']],
+    ]);
+  });
+});
+
 describe('setupPoints', () => {
   it('places each priced setup by cost and outcome, leaving out the rest', () => {
     const points = setupPoints(
       [
         setup({ frontier: ['accepted'] }),
-        setup({ model: 'opus', costPerRun: null }),
-        setup({ model: 'haiku', currency: 'EUR' }),
+        setup({ model: 'opus', costPerRun: null, priced: false }),
+        setup({ model: 'haiku', currency: 'EUR', priced: false }),
         setup({
           model: 'judged',
           outcomes: { ...setup({}).outcomes, accepted: null },
@@ -66,7 +89,6 @@ describe('setupPoints', () => {
       ],
       'accepted',
       HARNESSES,
-      'USD',
     );
 
     expect(points).toEqual([
@@ -115,16 +137,20 @@ describe('sizeRuleShown', () => {
 });
 
 describe('markerOf', () => {
-  it('finds a change by its station and config', () => {
+  it('finds a change by the run it took effect in, though its config returns later', () => {
     const changes = {
-      markers: [{ stationId: 'station_1', fingerprint: 'abc' }],
+      markers: [
+        { stationId: 'station_1', fingerprint: 'b', runId: 'run_2' },
+        { stationId: 'station_1', fingerprint: 'a', runId: 'run_3' },
+        { stationId: 'station_1', fingerprint: 'b', runId: 'run_4' },
+      ],
     } as unknown as InsightsChanges;
 
+    expect(markerOf(changes, { stationId: 'station_1', runId: 'run_4' })).toBe(
+      changes.markers[2],
+    );
     expect(
-      markerOf(changes, { stationId: 'station_1', fingerprint: 'abc' }),
-    ).toBe(changes.markers[0]);
-    expect(
-      markerOf(changes, { stationId: 'station_1', fingerprint: 'def' }),
+      markerOf(changes, { stationId: 'station_1', runId: 'run_5' }),
     ).toBeNull();
   });
 });

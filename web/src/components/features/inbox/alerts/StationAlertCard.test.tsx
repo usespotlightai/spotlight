@@ -70,9 +70,17 @@ const ALERT = {
   },
   value: 0.4,
   baseline: 0.2,
+  change: {
+    unit: 'points',
+    by: 0.2,
+    fromZero: false,
+    direction: 'up',
+    tone: 'bad',
+  },
   runId: 'run_2',
   taskId: 'task_1',
   raisedAt: '2026-09-30T10:00:00.000Z',
+  insightsPeriod: '7d',
   recoveredAt: null,
   currency: 'USD',
   series: [
@@ -126,9 +134,7 @@ describe('StationAlertCard', () => {
     showing();
 
     expect(
-      screen.getByText(
-        'You’re no longer on this team, so you can’t see this alert',
-      ),
+      screen.getByText('Only team members can see this alert'),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: /try again/i }),
@@ -151,7 +157,7 @@ describe('StationAlertCard', () => {
     expect(
       screen.getByRole('heading', {
         level: 2,
-        name: 'An alert went off at Implementation',
+        name: 'Alert raised at Implementation',
       }),
     ).toBeInTheDocument();
     expect(
@@ -164,11 +170,8 @@ describe('StationAlertCard', () => {
     ).toBeInTheDocument();
   });
 
-  it('links to the station, to it on Insights over a period that holds the alert, and to improving it', () => {
-    vi.useFakeTimers({ toFake: ['Date'] });
-    vi.setSystemTime(new Date('2026-10-01T10:00:00.000Z'));
+  it('links to the station, to it on Insights over the period the alert says, and to improving it', () => {
     showing();
-    vi.useRealTimers();
 
     expect(
       screen.getByRole('link', { name: 'Open the station' }),
@@ -177,7 +180,7 @@ describe('StationAlertCard', () => {
       '/w/acme/team/team_1/lines/line_1/stations/station_impl',
     );
     expect(
-      screen.getByRole('link', { name: 'See it on Insights' }),
+      screen.getByRole('link', { name: 'Open in Insights' }),
     ).toHaveAttribute(
       'href',
       '/w/acme/team/team_1/insights?tab=stations&period=7d#station-station_impl',
@@ -201,7 +204,7 @@ describe('StationAlertCard', () => {
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        'The runs behind this alert have been deleted, so there’s no chart to show.',
+        'No chart to show. The runs behind this alert are deleted.',
       ),
     ).toBeInTheDocument();
   });

@@ -36,7 +36,7 @@ import { HostPresenceRequestDto } from '@runners/presentation/http/dto/host-pres
 import { HostStandingResponseDto } from '@runners/presentation/http/dto/host-standing.response.dto';
 
 const REFUSED =
-  'Missing, rotated or unknown pool token, or a workload the trust does not admit';
+  'Pool token is missing, rotated or unknown, or no trust admits this workload.';
 
 @ApiTags('runners')
 @ApiBearerAuth()
@@ -106,8 +106,7 @@ export class HostController {
     if (standing.outcome === 'taken') {
       throw new ConflictException({
         reason: 'host-taken',
-        message:
-          'This host id is serving another pool or trust right now; stop it there, or give this host its own state directory',
+        message: `Host ${hostId} is serving another pool or trust. Please stop it there, or give it its own state directory.`,
       });
     }
 

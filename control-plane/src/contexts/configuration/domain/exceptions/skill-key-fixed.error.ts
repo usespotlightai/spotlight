@@ -7,7 +7,7 @@ export class SkillKeyFixedError extends Error {
     readonly key: string,
     readonly because: string,
   ) {
-    super(`The ${key} skill ${because}`);
+    super(`Skill ${key} ${because}.`);
     this.name = 'SkillKeyFixedError';
   }
 }

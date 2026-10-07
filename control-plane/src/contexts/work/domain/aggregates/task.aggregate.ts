@@ -318,7 +318,7 @@ export class Task extends EventRecorder {
   reactedTo(line: Line, to: StationId, rank: TaskRank, saying: Saying): Task {
     if (this.running) {
       throw new InvalidTaskTransitionError(
-        'is being worked by a run, so a happening cannot move it',
+        `Task ${this.id.value} is being worked by a run. A happening cannot move it.`,
       );
     }
 
@@ -328,19 +328,19 @@ export class Task extends EventRecorder {
   heldBack(line: Line, to: StationId, saying: Saying): Task {
     if (!this.running) {
       throw new InvalidTaskTransitionError(
-        'is not being worked by a run, so there is nothing to hold a move back for',
+        `Task ${this.id.value} is not being worked by a run. There is no move to hold back.`,
       );
     }
 
     if (this.stationId.equals(to)) {
       throw new InvalidTaskTransitionError(
-        'cannot hold back a move to the station it already stands at',
+        `Task ${this.id.value} already stands at that station.`,
       );
     }
 
     if (line.completed.id.equals(to)) {
       throw new InvalidTaskTransitionError(
-        'cannot hold back a move to the end of its line, which interrupts its run instead',
+        `Task ${this.id.value} cannot hold back a move to the end of its line. That move interrupts its run.`,
       );
     }
 
@@ -375,7 +375,7 @@ export class Task extends EventRecorder {
 
     if (!this.heldBackTo?.equals(to)) {
       throw new InvalidTaskTransitionError(
-        'has no move held back to there, so it cannot be moved there for one',
+        `Task ${this.id.value} has no move held back to that station.`,
       );
     }
 
@@ -430,7 +430,7 @@ export class Task extends EventRecorder {
   interrupted(saying: Saying): Task {
     if (!this.running) {
       throw new InvalidTaskTransitionError(
-        'is not being worked by a run, so there is no run to interrupt',
+        `Task ${this.id.value} is not being worked by a run.`,
       );
     }
 
@@ -453,7 +453,7 @@ export class Task extends EventRecorder {
     const from = Task.stationOn(line, this.stationId);
     const into = Task.stationOn(line, to);
 
-    this.refuseStandingStill(into.id, 'moved to');
+    this.refuseStandingStill(into.id);
 
     const takesOwnership =
       handMove !== null && !this.assignee && from.isBacklog && into.isWorked;
@@ -529,7 +529,7 @@ export class Task extends EventRecorder {
   reviews(url: PullRequestUrl, by: { outside: boolean }): Task {
     if (this.pullRequestLink) {
       throw new InvalidTaskTransitionError(
-        'cannot review a pull request once it has one of its own',
+        `Task ${this.id.value} has its own pull request. It cannot review another.`,
       );
     }
 
@@ -618,7 +618,7 @@ export class Task extends EventRecorder {
   heard(saying: Saying, at: StationId | null = null): Task {
     if (at && !this.stationId.equals(at)) {
       throw new InvalidTaskTransitionError(
-        'has moved on from there, so there is nobody left to tell',
+        `Task ${this.id.value} has moved on from that station.`,
       );
     }
 
@@ -670,7 +670,7 @@ export class Task extends EventRecorder {
   settled(saying: Saying): Task {
     if (!this.trail.open) {
       throw new InvalidTaskTransitionError(
-        'has nothing open, so there is nothing left on it to settle',
+        `Task ${this.id.value} has nothing open to settle.`,
       );
     }
 
@@ -690,7 +690,7 @@ export class Task extends EventRecorder {
 
     if (line.refusalToPass(this.stationId, into) !== null) {
       throw new InvalidTaskTransitionError(
-        `cannot be passed from where it stands to ${into.name.value}`,
+        `Task ${this.id.value} cannot pass to station ${into.name.value}.`,
       );
     }
 
@@ -715,7 +715,7 @@ export class Task extends EventRecorder {
 
     if (!line.endsAt(this.stationId)) {
       throw new InvalidTaskTransitionError(
-        'stands where its line does not end, so it cannot be finished there',
+        `Task ${this.id.value} is not at the end of its line. It cannot finish here.`,
       );
     }
 
@@ -741,13 +741,13 @@ export class Task extends EventRecorder {
   handedTo(runId: RunId, line: Line): Task {
     if (this.currentRunId) {
       throw new InvalidTaskTransitionError(
-        'is already being worked, so a second run cannot take it up',
+        `Task ${this.id.value} is already being worked by a run.`,
       );
     }
 
     if (!this.wantsRun(line)) {
       throw new InvalidTaskTransitionError(
-        'is waiting on a person, finished, or stands where nothing runs, so no run can take it up',
+        `Task ${this.id.value} is waiting on a person, finished or at a station where nothing runs.`,
       );
     }
 
@@ -834,7 +834,7 @@ export class Task extends EventRecorder {
 
     if (!conversation) {
       throw new InvalidTaskTransitionError(
-        'was not put to anyone there, so there is nothing to read',
+        `Task ${this.id.value} has nothing put to a person at that note.`,
       );
     }
 
@@ -874,7 +874,7 @@ export class Task extends EventRecorder {
 
     if (!remark) {
       throw new InvalidTaskTransitionError(
-        'was not said anywhere answerable there, so there is nothing to answer',
+        `Task ${this.id.value} has no answerable remark at that note.`,
       );
     }
 
@@ -896,7 +896,7 @@ export class Task extends EventRecorder {
 
     if (!stationId || !this.stationId.equals(stationId)) {
       throw new InvalidTaskTransitionError(
-        'has moved on from there, so there is nothing left to answer for',
+        `Task ${this.id.value} has moved on from that station.`,
       );
     }
 
@@ -961,7 +961,7 @@ export class Task extends EventRecorder {
 
     if (this.awaitingReview && !(overAnApproval && this.owesADecision)) {
       throw new InvalidTaskTransitionError(
-        'is already waiting on a person, so it cannot be put to one again',
+        `Task ${this.id.value} is already waiting on a person.`,
       );
     }
 
@@ -1001,7 +1001,7 @@ export class Task extends EventRecorder {
   ): Task {
     if (this.finished) {
       throw new InvalidTaskTransitionError(
-        'has finished, so no failure on it is put to anyone',
+        `Task ${this.id.value} has finished. Its failures are not put to anyone.`,
       );
     }
 
@@ -1243,7 +1243,7 @@ export class Task extends EventRecorder {
   ): Task {
     if (this.openConversation?.from !== from.value) {
       throw new InvalidTaskTransitionError(
-        'is not waiting on anyone there, so there is nothing to answer',
+        `Task ${this.id.value} is not waiting on anyone at that note.`,
       );
     }
 
@@ -1251,19 +1251,19 @@ export class Task extends EventRecorder {
 
     if (decision && !this.notes[from.value]?.approval) {
       throw new InvalidApprovalAnswerError(
-        'waits on nothing being approved, so there is nothing there to approve',
+        `Task ${this.id.value} has nothing waiting for approval at that note.`,
       );
     }
 
     if (edits && !decision) {
       throw new InvalidApprovalAnswerError(
-        'only takes changes to what it runs alongside a decision to run it',
+        'Edits are accepted only with a decision to run.',
       );
     }
 
     if (decision && !by) {
       throw new InvalidApprovalAnswerError(
-        'can only be approved or dismissed by a person',
+        'Only a person can approve or dismiss a request.',
       );
     }
 
@@ -1341,7 +1341,7 @@ export class Task extends EventRecorder {
 
     if (!holding) {
       throw new InvalidTaskTransitionError(
-        `is not being worked by that run, so it cannot ${doing}`,
+        `Only the run working task ${this.id.value} can ${doing}.`,
       );
     }
   }
@@ -1366,10 +1366,10 @@ export class Task extends EventRecorder {
     }
   }
 
-  private refuseStandingStill(stationId: StationId, doing: string): void {
+  private refuseStandingStill(stationId: StationId): void {
     if (this.stationId.equals(stationId)) {
       throw new InvalidTaskTransitionError(
-        `cannot be ${doing} the station it already stands at`,
+        `Task ${this.id.value} already stands at station ${stationId.value}.`,
       );
     }
   }

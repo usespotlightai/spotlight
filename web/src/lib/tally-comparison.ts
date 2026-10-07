@@ -1,6 +1,11 @@
 import type { MeasureVerdictResponseDto } from '@/lib/api';
 import { amountIn } from '@/lib/inbox';
-import { countShown, type Delta, deltaOf, shareShown } from '@/lib/insights';
+import {
+  changeShown,
+  countShown,
+  type Delta,
+  shareShown,
+} from '@/lib/insights';
 import { alertMeasureLabel } from '@/lib/station-watch';
 
 export type MeasureVerdict = MeasureVerdictResponseDto;
@@ -11,6 +16,8 @@ export type ComparedRow = {
   readonly one: string;
   readonly other: string;
   readonly delta: Delta | null;
+  readonly note?: string;
+  readonly to?: string;
 };
 
 const TONES: Record<MeasureVerdict['verdict'], Delta['tone']> = {
@@ -35,7 +42,7 @@ const verdictShown = (verdict: MeasureVerdict): Delta => {
     return { shown: 'Too few runs', tone: 'flat' };
   }
 
-  const moved = deltaOf(verdict.after, verdict.before, 'neither');
+  const moved = changeShown(verdict.change);
 
   return {
     shown:

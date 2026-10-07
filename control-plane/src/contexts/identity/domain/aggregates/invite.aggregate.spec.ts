@@ -155,7 +155,7 @@ describe('Invite', () => {
         EmailAddress.of('ada@example.com'),
         AFTER_IT_RUNS_OUT,
       ),
-    ).toThrow(/run out/);
+    ).toThrow(/has expired/);
   });
 
   it('cannot be taken up once it has been taken back', () => {

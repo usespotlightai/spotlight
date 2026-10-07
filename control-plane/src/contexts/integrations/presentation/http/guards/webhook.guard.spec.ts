@@ -118,7 +118,9 @@ describe('WebhookGuard', () => {
 
   it('turns away a delivery it could not verify, telling only the log why', async () => {
     const github = source(() => {
-      throw new Error('The workspace holds no secret named GITHUB_SECRET');
+      throw new Error(
+        'Secret GITHUB_SECRET not found. Please define it first.',
+      );
     });
     const { guard, context, logger } = asking(delivered(), [github]);
 
@@ -128,7 +130,7 @@ describe('WebhookGuard', () => {
     expect(logger.warn).toHaveBeenCalledWith(
       {
         source: 'github',
-        error: 'The workspace holds no secret named GITHUB_SECRET',
+        error: 'Secret GITHUB_SECRET not found. Please define it first.',
       },
       'A webhook delivery could not be verified',
     );

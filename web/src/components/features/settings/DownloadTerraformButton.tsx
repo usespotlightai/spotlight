@@ -22,11 +22,7 @@ export function DownloadTerraformButton({
       onClick={() => workspaceId && download.mutate({ workspaceId, slug })}
     >
       <Download aria-hidden className="size-3.5" />
-      {download.isPending
-        ? 'Preparing Terraform…'
-        : download.isError
-          ? 'Could not download. Try again'
-          : 'Download'}
+      {download.isPending ? 'Preparing Terraform…' : 'Download'}
     </Button>
   );
 }

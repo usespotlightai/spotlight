@@ -2,7 +2,7 @@ export class InvalidAgentPromptError extends Error {
   readonly violation = 'invalid' as const;
 
   constructor(reason: string) {
-    super(`An agent prompt ${reason}`);
+    super(`Agent prompt ${reason}.`);
     this.name = 'InvalidAgentPromptError';
   }
 }

@@ -36,7 +36,7 @@ export class Signing {
     if (header.length === 0) {
       throw new InvalidIdentifierError(
         'signing header',
-        'is the header the host puts its signature in',
+        'must name the header that carries the host signature',
       );
     }
 

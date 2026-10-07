@@ -153,7 +153,7 @@ describe('ReactionFor.happened', () => {
     const outcome = reaction(held('station_1'), commented, said);
 
     expect(outcome.kind === 'heldBack' && outcome.body.value).toBe(
-      'Heard while a run held the task. It moves to Code Review when the run ends, unless the run passes it on:\n\nThis retries forever.',
+      'Heard while a run held the task. It moves to Code Review when the run ends, unless the run passes it on.\n\nThis retries forever.',
     );
     expect(outcome.kind === 'heldBack' && outcome.said).toBe(said);
   });
@@ -162,7 +162,7 @@ describe('ReactionFor.happened', () => {
     const outcome = reaction(held('station_1'), commented);
 
     expect(outcome.kind === 'heldBack' && outcome.body.value).toContain(
-      'unless the run passes it on:\n\nThe pull request was commented on.',
+      'unless the run passes it on.\n\nThe pull request was commented on.',
     );
   });
 

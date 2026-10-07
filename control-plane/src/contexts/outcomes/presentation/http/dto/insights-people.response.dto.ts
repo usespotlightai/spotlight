@@ -1,13 +1,15 @@
 import { ApiProperty } from '@nestjs/swagger';
 import type {
   AdoptionDto,
+  HumanLoadChangesDto,
   HumanLoadDto,
   InsightsPeopleDto,
   PersonUseDto,
 } from '@outcomes/application/dto/insights.dto';
 import {
+  ChangeResponseDto,
+  changeResponseOf,
   InsightsPeriodResponseDto,
-  PersonNameResponseDto,
   SpreadResponseDto,
 } from '@outcomes/presentation/http/dto/insights-common.response.dto';
 
@@ -68,6 +70,43 @@ export class HumanLoadResponseDto {
   }
 }
 
+export class HumanLoadChangesResponseDto {
+  @ApiProperty({
+    type: ChangeResponseDto,
+    nullable: true,
+    description: 'Inbox asks per task against the period before',
+  })
+  readonly asksPerTask: ChangeResponseDto | null;
+
+  @ApiProperty({
+    type: ChangeResponseDto,
+    nullable: true,
+    description: 'The median time to answer against the period before',
+  })
+  readonly toAnswer: ChangeResponseDto | null;
+
+  @ApiProperty({
+    type: ChangeResponseDto,
+    nullable: true,
+    description: 'The sent-back rate against the period before, in points',
+  })
+  readonly sentBackRate: ChangeResponseDto | null;
+
+  @ApiProperty({
+    type: ChangeResponseDto,
+    nullable: true,
+    description: 'Refused approvals against the period before',
+  })
+  readonly refused: ChangeResponseDto | null;
+
+  constructor(changes: HumanLoadChangesDto) {
+    this.asksPerTask = changeResponseOf(changes.asksPerTask);
+    this.toAnswer = changeResponseOf(changes.toAnswer);
+    this.sentBackRate = changeResponseOf(changes.sentBackRate);
+    this.refused = changeResponseOf(changes.refused);
+  }
+}
+
 export class PersonUseResponseDto {
   @ApiProperty({ example: 'user_ada' })
   readonly personId: string;
@@ -114,40 +153,30 @@ export class PersonUseResponseDto {
 }
 
 export class AdoptionResponseDto {
-  @ApiProperty({
-    type: String,
-    isArray: true,
-    description: 'People active this period',
-  })
-  readonly active: readonly string[];
+  @ApiProperty({ example: 5, description: 'People active this period' })
+  readonly activeCount: number;
 
   @ApiProperty({
-    type: String,
-    isArray: true,
-    description: 'People active the period before',
+    type: ChangeResponseDto,
+    nullable: true,
+    description: 'Active people against the period before',
   })
-  readonly activeBefore: readonly string[];
+  readonly activeChange: ChangeResponseDto | null;
 
   @ApiProperty({
-    type: String,
-    isArray: true,
+    example: 2,
     description: 'People whose first activity on the team was this period',
   })
-  readonly newAdopters: readonly string[];
+  readonly newAdopterCount: number;
+
+  @ApiProperty({ example: 3, description: 'People active in the last 7 days' })
+  readonly weeklyCount: number;
 
   @ApiProperty({
-    type: String,
-    isArray: true,
-    description: 'People active in the last 7 days',
-  })
-  readonly weekly: readonly string[];
-
-  @ApiProperty({
-    type: String,
-    isArray: true,
+    example: 5,
     description: 'People active in the last 30 days',
   })
-  readonly monthly: readonly string[];
+  readonly monthlyCount: number;
 
   @ApiProperty({
     nullable: true,
@@ -165,11 +194,11 @@ export class AdoptionResponseDto {
   readonly people: readonly PersonUseResponseDto[];
 
   constructor(adoption: AdoptionDto) {
-    this.active = adoption.active;
-    this.activeBefore = adoption.activeBefore;
-    this.newAdopters = adoption.newAdopters;
-    this.weekly = adoption.weekly;
-    this.monthly = adoption.monthly;
+    this.activeCount = adoption.activeCount;
+    this.activeChange = changeResponseOf(adoption.activeChange);
+    this.newAdopterCount = adoption.newAdopterCount;
+    this.weeklyCount = adoption.weeklyCount;
+    this.monthlyCount = adoption.monthlyCount;
     this.stickiness = adoption.stickiness;
     this.people = adoption.people.map((each) => new PersonUseResponseDto(each));
   }
@@ -190,27 +219,19 @@ export class InsightsPeopleResponseDto {
   readonly load: HumanLoadResponseDto;
 
   @ApiProperty({
-    type: HumanLoadResponseDto,
-    description: 'The period before, as long',
+    type: HumanLoadChangesResponseDto,
+    description: 'How the load moved against the period before, as long',
   })
-  readonly loadBefore: HumanLoadResponseDto;
+  readonly loadChanges: HumanLoadChangesResponseDto;
 
   @ApiProperty({ type: AdoptionResponseDto })
   readonly adoption: AdoptionResponseDto;
-
-  @ApiProperty({
-    type: PersonNameResponseDto,
-    isArray: true,
-    description: 'The name of everyone named by id above',
-  })
-  readonly people: readonly PersonNameResponseDto[];
 
   constructor(people: InsightsPeopleDto) {
     this.period = new InsightsPeriodResponseDto(people.period);
     this.truncated = people.truncated;
     this.load = new HumanLoadResponseDto(people.load);
-    this.loadBefore = new HumanLoadResponseDto(people.loadBefore);
+    this.loadChanges = new HumanLoadChangesResponseDto(people.loadChanges);
     this.adoption = new AdoptionResponseDto(people.adoption);
-    this.people = people.people.map((each) => new PersonNameResponseDto(each));
   }
 }

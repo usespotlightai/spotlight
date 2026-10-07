@@ -18,7 +18,6 @@ type ConfirmStopButtonProps = {
   keep: string;
   stop: string;
   pending: boolean;
-  error: string | null;
   onStop: (stopped: () => void) => void;
   onClosed: () => void;
   className?: string;
@@ -30,7 +29,6 @@ export function ConfirmStopButton({
   keep,
   stop,
   pending,
-  error,
   onStop,
   onClosed,
   className,
@@ -60,12 +58,6 @@ export function ConfirmStopButton({
             <DialogTitle>{title}</DialogTitle>
             <DialogDescription>{description}</DialogDescription>
           </DialogHeader>
-
-          {error && (
-            <p role="alert" className="text-destructive text-xs">
-              {error}
-            </p>
-          )}
 
           <DialogFooter>
             <DialogClose render={<Button variant="outline" size="sm" />}>

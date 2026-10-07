@@ -3,7 +3,7 @@ export class StrandedWorkError extends Error {
 
   constructor(stationIds: readonly string[]) {
     super(
-      `Tasks still stand at ${stationIds.join(', ')}, so the line cannot drop them`,
+      `Line cannot drop stations that still hold tasks. Please move those tasks first. Stations: ${stationIds.join(', ')}`,
     );
     this.name = 'StrandedWorkError';
   }

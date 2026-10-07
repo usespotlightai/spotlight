@@ -6,13 +6,11 @@ export function PullRequestsSkeleton() {
     <div
       role="status"
       aria-label="Loading the pull requests"
-      className="flex flex-col gap-4"
+      className="flex flex-col gap-3"
     >
-      <InsightsTilesSkeleton
-        labels={['PRs merged', 'Made by Spotlight', 'Reviewed by Spotlight']}
-      />
-      <InsightsCardSkeleton title="By repository" rows={3} />
-      <InsightsCardSkeleton title="Spotlight against people" rows={5} />
+      <InsightsTilesSkeleton count={3} />
+      <InsightsCardSkeleton rows={3} />
+      <InsightsCardSkeleton rows={5} />
     </div>
   );
 }

@@ -120,7 +120,6 @@ export function InboxMessage({
           viewerId={session?.user.id ?? null}
           pending={deciding?.pending ?? false}
           onDecide={deciding?.onDecide}
-          failure={deciding?.failure ?? null}
         />
       ) : shows ? (
         <SetupSteps

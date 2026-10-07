@@ -234,6 +234,26 @@ describe('replayedCandidatesView', () => {
     expect(candidateNamed('wordy').regressions).toBe(0);
   });
 
+  it('ranks a set’s candidates by their gain against live, those without one last', () => {
+    const gains = onlySet().candidates.map(
+      (each) => each.againstLive?.gain ?? null,
+    );
+    const known = gains.filter((each) => each !== null);
+
+    expect(known.length).toBeGreaterThan(1);
+
+    expect(known).toEqual([...known].sort((one, other) => other - one));
+    expect(gains.slice(known.length).every((each) => each === null)).toBe(true);
+  });
+
+  it('draws the set’s chart in the baseline’s currency and says where each point goes on it', () => {
+    const set = onlySet();
+
+    expect(set.chartCurrency).toBe('USD');
+    expect(set.baseline?.charted).toBe('priced');
+    expect(candidateNamed('Shorter prompt').charted).toBe('priced');
+  });
+
   it('tells how the set stands from its oldest and newest run ends and its last addition', () => {
     expect(
       onlySet({
@@ -381,6 +401,7 @@ describe('replayedCandidatesView', () => {
       interval: page.seed.searchInterval,
       costPerRun: page.seed.costPerRun,
       scored: page.seed.searchScored,
+      charted: 'priced',
     });
     expect(candidateNamed('terse').search?.seed.scored).toBe(
       world.search.split.searched.length,
@@ -403,6 +424,15 @@ describe('replayedCandidatesView', () => {
       costPerRunOnCompared: 3,
       regressions: 2,
       live: { successRate: 1, costPerRun: 2, currency: 'USD' },
+      shown: {
+        basis: 'compared',
+        costBasis: 'compared',
+        successRate: 0.6,
+        liveSuccessRate: 1,
+        runs: 5,
+        costPerRun: 3,
+        liveCostPerRun: 2,
+      },
     });
   });
 

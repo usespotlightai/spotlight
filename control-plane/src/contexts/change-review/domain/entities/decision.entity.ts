@@ -35,7 +35,7 @@ const text = (raw: string, most: number, what: string): string => {
 
   if (!trimmed || trimmed.length > most) {
     throw new InvalidDecisionError(
-      `gives ${what} of at most ${most} characters`,
+      `${what} must be at most ${most} characters`,
     );
   }
 
@@ -59,17 +59,17 @@ export class Decision {
   static of(id: DecisionId, proposed: ProposedDecision): Decision {
     if (!(DECISION_KINDS as readonly string[]).includes(proposed.kind)) {
       throw new InvalidDecisionError(
-        `is one of ${DECISION_KINDS.join(', ')}, not ${proposed.kind}`,
+        `kind must be one of ${DECISION_KINDS.join(', ')}, not ${proposed.kind}`,
       );
     }
 
     const alternatives = proposed.alternatives.map((each) =>
-      text(each, MOST_ALTERNATIVE, 'each alternative'),
+      text(each, MOST_ALTERNATIVE, 'alternative'),
     );
 
     if (alternatives.length > MOST_ALTERNATIVES) {
       throw new InvalidDecisionError(
-        `weighs at most ${MOST_ALTERNATIVES} alternatives`,
+        `can weigh at most ${MOST_ALTERNATIVES} alternatives`,
       );
     }
 
@@ -81,7 +81,7 @@ export class Decision {
 
     if (paths.length === 0 || paths.length > MOST_PATHS) {
       throw new InvalidDecisionError(
-        `names between one and ${MOST_PATHS} of the paths it bears on`,
+        `must name between 1 and ${MOST_PATHS} paths`,
       );
     }
 
@@ -93,15 +93,15 @@ export class Decision {
       steps.some((each) => !Number.isInteger(each) || each < 0)
     ) {
       throw new InvalidDecisionError(
-        `cites between one and ${MOST_STEPS} steps of the run it was made in`,
+        `must cite between 1 and ${MOST_STEPS} steps of its run`,
       );
     }
 
     return new Decision(
       id,
       proposed.kind as DecisionKind,
-      text(proposed.title, MOST_TITLE, 'a title'),
-      text(proposed.why, MOST_WHY, 'its reasons'),
+      text(proposed.title, MOST_TITLE, 'title'),
+      text(proposed.why, MOST_WHY, 'reason'),
       alternatives,
       paths,
       steps,
@@ -151,7 +151,7 @@ export class Decision {
   disputed(dispute: DecisionDispute): Decision {
     if (!this.bearsOn(dispute.path)) {
       throw new InvalidDecisionError(
-        `is disputed only on a file it bears on, not ${dispute.path.value}`,
+        `can only be disputed on a file it covers, not ${dispute.path.value}`,
       );
     }
 

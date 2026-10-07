@@ -7,20 +7,27 @@ describe('ClaimAgreements', () => {
     render(
       <ClaimAgreements
         claims={['Leaves the tests passing']}
+        trust={0.6}
         agreements={[
-          { index: 0, pairs: 12, observed: 0.75, kappa: 0.5 },
-          { index: 1, pairs: 0, observed: null, kappa: null },
+          {
+            index: 0,
+            pairs: 12,
+            observed: 0.75,
+            kappa: 0.5,
+            reading: 'moderate',
+          },
+          { index: 1, pairs: 0, observed: null, kappa: null, reading: null },
         ]}
       />,
     );
 
     const rows = within(
-      screen.getByRole('table', { name: 'Agreement claim by claim' }),
-    ).getAllByRole('row');
+      screen.getByRole('list', { name: 'Agreement by claim' }),
+    ).getAllByRole('listitem');
 
-    expect(rows.slice(1).map((row) => row.textContent)).toEqual([
-      'Leaves the tests passing0.5075%12',
-      'Claim 2––0',
+    expect(rows.map((row) => row.textContent)).toEqual([
+      'Leaves the tests passing0.50Agreed75%Runs12',
+      'Claim 2–Agreed–Runs0',
     ]);
   });
 });

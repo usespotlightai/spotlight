@@ -2,9 +2,7 @@ export class KeptFromReplaysError extends Error {
   readonly violation = 'conflict' as const;
 
   constructor(what: string) {
-    super(
-      `A replay may not ${what}: it leaves nothing behind but its own result`,
-    );
+    super(`A replay cannot ${what}.`);
     this.name = 'KeptFromReplaysError';
   }
 }

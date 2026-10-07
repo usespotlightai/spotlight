@@ -1,16 +1,40 @@
+import { Fragment } from 'react';
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { InsightsLink } from '@/components/features/insights/InsightsLink';
+import { SignalRow } from '@/components/features/insights/SignalRow';
 import { ImproveStationLink } from '@/components/features/stations/ImproveStationLink';
+import { FoldingRows } from '@/components/shared/nested-table/FoldingRows';
+import { NestedGroupRow } from '@/components/shared/nested-table/NestedGroupRow';
+import { NestedTable } from '@/components/shared/nested-table/NestedTable';
+import {
+  OUTER_GUIDE,
+  OUTER_INDENT,
+} from '@/components/shared/nested-table/nested-rows';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
+import { useFolds } from '@/hooks/useFolds';
 import {
   countShown,
   improvingOf,
   type StationNames,
-  signalShown,
   stationShown,
   type WorthImproving,
 } from '@/lib/insights';
+import { SPREAD } from '@/lib/nested-table';
 import { stationPath } from '@/lib/station';
+import { cn } from '@/lib/utils';
+
+const HEADINGS = [
+  { label: 'Signal', indent: 'outer' as const, size: 'minmax(10rem,1fr)' },
+  {
+    label: 'Compared',
+    note: 'The dot is this period, the ring the period before, the line all stations, and the dashed line where a station gets flagged.',
+    size: 'minmax(10rem,2fr)',
+  },
+  { label: 'This period', numeric: true, size: SPREAD },
+  { label: 'Period before', numeric: true, size: SPREAD },
+  { label: 'All stations', numeric: true, size: SPREAD },
+  { label: 'Flagged above', numeric: true, size: SPREAD },
+];
 
 type WorthImprovingListProps = {
   slug: string;
@@ -25,31 +49,53 @@ export function WorthImprovingList({
   stations,
   names,
 }: WorthImprovingListProps) {
+  const folds = useFolds();
+
   return (
     <InsightsCard
       title="Stations worth improving"
-      description="Stations whose runs got worse than the period before, or trail the rest of the team."
+      description="Stations doing worse than the period before, or trailing the rest of the team."
     >
       {stations.length === 0 ? (
         <p className="py-2 text-muted-foreground text-sm">
-          Nothing stands out this period.
+          No station stands out this period.
         </p>
       ) : (
-        <ul
-          aria-label="Stations worth improving"
-          className="flex flex-col divide-y divide-border"
+        <NestedTable
+          label="Stations worth improving"
+          headings={HEADINGS}
+          trailing
         >
           {stations.map((station) => {
             const named = names.get(station.stationId);
+            const name = stationShown(names, station.stationId);
+            const open = folds.isOpen(station.stationId);
 
             return (
-              <li
-                key={station.stationId}
-                data-slot="worth-improving"
-                className="flex flex-wrap items-start gap-2 py-2"
-              >
-                <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-                  <p className="flex flex-wrap items-baseline gap-x-2 text-sm">
+              <Fragment key={station.stationId}>
+                <NestedGroupRow
+                  label={name}
+                  open={open}
+                  depth={0}
+                  onToggle={() => folds.toggle(station.stationId)}
+                  spans="@4xl:col-span-6"
+                  cells={
+                    named ? (
+                      <ImproveStationLink
+                        slug={slug}
+                        teamId={teamId}
+                        improving={improvingOf(named)}
+                        className="h-5 justify-self-start px-2 text-[0.7rem] @4xl:justify-self-end"
+                      />
+                    ) : (
+                      <span aria-hidden />
+                    )
+                  }
+                >
+                  <span
+                    data-slot="worth-improving"
+                    className="flex min-w-0 items-baseline gap-2"
+                  >
                     <TrailLink
                       to={stationPath(
                         slug,
@@ -57,48 +103,45 @@ export function WorthImprovingList({
                         station.lineId,
                         station.stationId,
                       )}
-                      className="font-medium text-foreground hover:underline"
+                      className="truncate font-medium text-foreground hover:underline"
                     >
-                      {stationShown(names, station.stationId)}
+                      {name}
                     </TrailLink>
                     {named && (
-                      <span className="text-muted-foreground text-xs">
+                      <span className="text-muted-foreground">
                         {named.lineName}
                       </span>
                     )}
                     <InsightsLink
                       tab="runs"
                       filter={{ stationId: station.stationId }}
-                      className="text-muted-foreground text-xs"
+                      className="whitespace-nowrap text-muted-foreground hover:text-foreground"
                     >
                       {countShown(station.runs)}{' '}
                       {station.runs === 1 ? 'run' : 'runs'}
                     </InsightsLink>
-                  </p>
-                  <ul className="flex flex-col text-muted-foreground text-xs">
-                    {station.signals.map((reading) => (
-                      <li key={reading.signal}>{signalShown(reading)}</li>
-                    ))}
-                    {station.mixedCurrencies && (
-                      <li>
-                        Its cost was not compared: prices came in more than one
-                        currency
-                      </li>
-                    )}
-                  </ul>
-                </div>
-
-                {named && (
-                  <ImproveStationLink
-                    slug={slug}
-                    teamId={teamId}
-                    improving={improvingOf(named)}
-                  />
-                )}
-              </li>
+                  </span>
+                </NestedGroupRow>
+                <FoldingRows open={open} label={`Signals for ${name}`}>
+                  {station.signals.map((reading) => (
+                    <SignalRow key={reading.signal} reading={reading} />
+                  ))}
+                  {station.mixedCurrencies && (
+                    <li
+                      className={cn(
+                        'relative col-span-full py-2 pr-2 text-muted-foreground text-xs',
+                        OUTER_GUIDE,
+                        OUTER_INDENT,
+                      )}
+                    >
+                      Cost not compared: prices in more than one currency
+                    </li>
+                  )}
+                </FoldingRows>
+              </Fragment>
             );
           })}
-        </ul>
+        </NestedTable>
       )}
     </InsightsCard>
   );

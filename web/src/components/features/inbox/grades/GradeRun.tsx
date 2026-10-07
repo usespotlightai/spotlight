@@ -1,6 +1,5 @@
 import { GraduationCap } from 'lucide-react';
 import { ClaimsGrade } from '@/components/features/inbox/grades/ClaimsGrade';
-import { GradeNotSaved } from '@/components/features/inbox/grades/GradeNotSaved';
 import { GradeRubric } from '@/components/features/inbox/grades/GradeRubric';
 import { GradeRunSkeleton } from '@/components/features/inbox/grades/GradeRunSkeleton';
 import { GradeSaving } from '@/components/features/inbox/grades/GradeSaving';
@@ -31,9 +30,7 @@ export function GradeRun({ slug, teamId, runId }: GradeRunProps) {
   }
 
   if (failed(scores) && notFound(scores.error)) {
-    return (
-      <MembersOnly title="You’re no longer on this team, so you can’t grade this run" />
-    );
+    return <MembersOnly title="Only team members can grade this run" />;
   }
 
   if (failed(scores) || !scores.data) {
@@ -60,13 +57,7 @@ export function GradeRun({ slug, teamId, runId }: GradeRunProps) {
             {gradeHeading(kind, rubricBody !== null)}
           </DecisionTitle>
         }
-        trailing={
-          grade.isError && !grade.isPending ? (
-            <GradeNotSaved />
-          ) : (
-            <GradeSaving pending={grade.isPending} />
-          )
-        }
+        trailing={<GradeSaving pending={grade.isPending} />}
       />
 
       {rubricBody !== null && <GradeRubric rubric={rubricBody} />}

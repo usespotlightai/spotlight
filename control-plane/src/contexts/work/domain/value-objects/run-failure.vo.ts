@@ -25,9 +25,7 @@ export class RunFailure {
 
   static of(code: string): RunFailure {
     if (!isRunFailureCode(code)) {
-      throw new InvalidRunOutcomeError(
-        `failed in a way nobody knows (${code})`,
-      );
+      throw new InvalidRunOutcomeError(`failure code ${code} is unknown`);
     }
 
     return new RunFailure(code);

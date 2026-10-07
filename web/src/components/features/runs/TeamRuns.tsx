@@ -52,8 +52,8 @@ export function TeamRuns({ slug, teamId }: { slug: string; teamId: string }) {
           title="No runs yet"
           action={<CreateTaskLink slug={slug} teamId={teamId} />}
         >
-          A run starts when a station picks up a task. Create a task to put a
-          line to work.
+          A run starts when a station picks up a task. Create a task to start
+          one.
         </EmptyState>
       </Notice>
     );
@@ -70,7 +70,7 @@ export function TeamRuns({ slug, teamId }: { slug: string; teamId: string }) {
       ) : shown.length === 0 ? (
         <Notice>
           <p className="text-muted-foreground text-sm">
-            Nothing is waiting for you.
+            Nothing is waiting for you. Switch to All to see every run.
           </p>
         </Notice>
       ) : (

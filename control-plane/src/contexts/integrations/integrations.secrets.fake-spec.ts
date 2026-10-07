@@ -43,7 +43,7 @@ export const injecting = (bound: Readonly<Record<string, Bound>> = {}) => {
 
         if (!secret) {
           throw Object.assign(
-            new Error(`The workspace holds no secret named ${name}`),
+            new Error(`Secret ${name} not found. Please define it first.`),
             { violation: 'conflict' as const },
           );
         }
@@ -68,7 +68,7 @@ export const injecting = (bound: Readonly<Record<string, Bound>> = {}) => {
   const grant = vi.fn(async (asked: RunGrant) => {
     for (const name of asked.secrets) {
       if (!bound[name]) {
-        throw new Error(`The workspace holds no secret named ${name}`);
+        throw new Error(`Secret ${name} not found. Please define it first.`);
       }
 
       granted.add(`${asked.runId}:${name}`);
@@ -86,7 +86,9 @@ export const injecting = (bound: Readonly<Record<string, Bound>> = {}) => {
 
     if (!secret) {
       throw Object.assign(
-        new Error(`The workspace holds no secret named ${request.secret}`),
+        new Error(
+          `Secret ${request.secret} not found. Please define it first.`,
+        ),
         { violation: 'conflict' as const },
       );
     }

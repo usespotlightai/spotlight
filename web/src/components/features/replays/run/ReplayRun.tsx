@@ -60,7 +60,7 @@ export function ReplayRun({ slug, teamId, runId }: ReplayRunProps) {
     return (
       <PageNotice>
         <p className="text-muted-foreground text-sm">
-          There is no such run for this team.
+          This team has no such run.
         </p>
       </PageNotice>
     );

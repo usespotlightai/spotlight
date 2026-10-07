@@ -15,7 +15,6 @@ import {
 } from '@/components/ui/dialog';
 import { useStartReplay } from '@/hooks/api/useStartReplay';
 import { useStationCandidates } from '@/hooks/api/useStationCandidates';
-import { messageOf } from '@/lib/error';
 import {
   ceilingFrom,
   LIVE,
@@ -98,7 +97,6 @@ export function StartReplayDialog({
   };
 
   const shownProblem = tried ? problem : null;
-  const refused = start.isError ? messageOf(start.error) : null;
 
   return (
     <Dialog
@@ -110,9 +108,9 @@ export function StartReplayDialog({
         <DialogHeader>
           <DialogTitle>Replay {set.name}</DialogTitle>
           <DialogDescription>
-            Each of the set’s {set.entries.length} runs starts again from where
-            it started, under the config you choose. Nothing it does reaches the
-            task, GitHub or anyone’s inbox.
+            Each of the set’s {set.entries.length} runs restarts from its
+            starting point under the chosen config. Nothing reaches the task,
+            GitHub or any inbox.
           </DialogDescription>
         </DialogHeader>
 
@@ -146,9 +144,8 @@ export function StartReplayDialog({
             problem={shownProblem}
             note={
               <>
-                The most this replay may spend, counting its runs and the
-                drafting and judging of their changes. Once it is spent, nothing
-                more starts.{' '}
+                Most this replay may spend: its runs, plus drafting and judging
+                their changes. Nothing more starts once spent.{' '}
                 {baselineNoteShown(
                   candidate !== LIVE,
                   baseline?.repeats ?? null,
@@ -157,12 +154,6 @@ export function StartReplayDialog({
               </>
             }
           />
-
-          {refused && (
-            <p role="alert" className="text-destructive text-xs">
-              {refused}
-            </p>
-          )}
 
           <DialogFooter>
             <DialogClose render={<Button variant="outline" size="sm" />}>

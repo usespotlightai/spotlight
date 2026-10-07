@@ -33,7 +33,7 @@ export function TeamIntegrations() {
   return (
     <SettingsPage
       title="Integrations"
-      description="The hosts this team listens to. Connect the ones that link by authorizing."
+      description="Services this team listens to. Some connect by authorising."
     >
       {unread.length > 0 ? (
         <SettingsSection>
@@ -100,7 +100,9 @@ export function TeamIntegrations() {
                 />
               </div>
             ) : hosts.length === 0 ? (
-              <SettingsEmpty>This team listens to no host yet.</SettingsEmpty>
+              <SettingsEmpty>
+                No integrations configured for this team.
+              </SettingsEmpty>
             ) : (
               <div className={GRID}>
                 {hosts.map((each) => (

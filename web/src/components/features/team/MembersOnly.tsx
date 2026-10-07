@@ -8,7 +8,7 @@ type MembersOnlyProps = {
 export function MembersOnly({ title }: MembersOnlyProps) {
   return (
     <EmptyState icon={Lock} title={title}>
-      Ask someone on the team to add you, or a workspace admin.
+      Please ask a team member or workspace admin to add you.
     </EmptyState>
   );
 }

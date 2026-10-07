@@ -40,7 +40,6 @@ export function RenameReplaySetButton({
         submit="Rename"
         submitting="Renaming…"
         pending={rename.isPending}
-        error={rename.error}
         onClosed={() => rename.reset()}
         onSubmit={(name) =>
           rename.mutate(

@@ -8,7 +8,7 @@ export class PullRequestUrl {
     const candidate = raw.trim();
 
     if (!candidate.startsWith('https://')) {
-      throw new InvalidPullRequestError('is reached over https');
+      throw new InvalidPullRequestError('must use https');
     }
 
     return new PullRequestUrl(candidate);

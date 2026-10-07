@@ -10,7 +10,7 @@ const holderNamed = (holder: string): string => {
 
   if (named.length === 0 || named.length > MOST_HOLDER_LENGTH) {
     throw new InvalidStartingPointHoldError(
-      `is held by someone named in 1 to ${MOST_HOLDER_LENGTH} characters`,
+      `holder name must be 1 to ${MOST_HOLDER_LENGTH} characters`,
     );
   }
 
@@ -56,7 +56,7 @@ export class StartingPointHold {
 
     if (held.length > MOST_HELD_RUNS) {
       throw new InvalidStartingPointHoldError(
-        `holds at most ${MOST_HELD_RUNS} runs`,
+        `can hold at most ${MOST_HELD_RUNS} runs`,
       );
     }
 

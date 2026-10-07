@@ -22,3 +22,18 @@ export interface TeamTraceDto {
   readonly cost: number | null;
   readonly currency: string | null;
 }
+
+interface TraceVolumeBucketDto {
+  readonly from: string;
+  readonly to: string;
+  readonly count: number;
+  readonly faults: number;
+}
+
+export interface TeamTracesDto {
+  readonly range: string;
+  readonly from: string;
+  readonly to: string;
+  readonly volume: readonly TraceVolumeBucketDto[];
+  readonly traces: readonly TeamTraceDto[];
+}

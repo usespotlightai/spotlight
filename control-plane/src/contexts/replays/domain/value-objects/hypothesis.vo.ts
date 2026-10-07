@@ -10,7 +10,7 @@ export class Hypothesis {
 
     if (said.length === 0 || said.length > MOST_LENGTH) {
       throw new InvalidCandidateError(
-        `found by a search says what it expects to improve, and why, in 1 to ${MOST_LENGTH.toLocaleString('en-US')} characters`,
+        `hypothesis must be 1 to ${MOST_LENGTH.toLocaleString('en-US')} characters`,
       );
     }
 

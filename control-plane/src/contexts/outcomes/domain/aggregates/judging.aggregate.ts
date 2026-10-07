@@ -100,10 +100,10 @@ export class Judging extends EventRecorder implements OwesWork<Judging> {
 
   leased(now: Date): Judging {
     if (!this.work) {
-      throw InvalidScoreError.ofJudging('is done, and owes no more work');
+      throw InvalidScoreError.ofJudging('is already done');
     }
     if (!this.work.dueBy(now) || this.work.exhausted) {
-      throw InvalidScoreError.ofJudging('cannot be worked on again yet');
+      throw InvalidScoreError.ofJudging('cannot be retried yet');
     }
 
     return this.with({ work: this.work.leased(now) });
@@ -140,9 +140,7 @@ export class Judging extends EventRecorder implements OwesWork<Judging> {
     }
 
     if (!input.evidence.isFor(this.runId)) {
-      throw InvalidScoreError.ofJudging(
-        'is judged only on the evidence of its own run',
-      );
+      throw InvalidScoreError.ofJudging('must use only its own run’s evidence');
     }
 
     const grounded = groundedVerdict(

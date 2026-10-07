@@ -832,7 +832,7 @@ describe('Line, what it records of its changes', () => {
 
     expect(() =>
       checking.worksIn([WorkedRepository.of(Repository.of('acme/api'))]),
-    ).toThrow(/acme\/api has to say how its checkout is made ready/);
+    ).toThrow(/needs a setup for repository acme\/api/);
     expect(
       checking.worksIn([
         WorkedRepository.of(Repository.of('acme/api'), {
@@ -1027,7 +1027,7 @@ describe('Line, what it records of its changes', () => {
       ).toThrow(LineInUseError);
       expect(() =>
         line.retired(new Map([[working?.id.value ?? '', 2]]), attributedIn()),
-      ).toThrow(`${working?.name.value} (2 standing there)`);
+      ).toThrow(`${working?.name.value} (2)`);
     });
   });
 });

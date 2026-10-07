@@ -15,12 +15,12 @@ export class Mark {
     if (!isDottedName(named)) {
       throw new InvalidIdentifierError(
         'mark',
-        'is its source and its name, as in git.pull-request',
+        'must be a source and a name, as in git.pull-request',
       );
     }
 
     if (held.length === 0) {
-      throw new InvalidIdentifierError('mark', 'is what the world calls it');
+      throw new InvalidIdentifierError('mark', 'must not be empty');
     }
 
     return new Mark(named, held);

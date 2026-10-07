@@ -9,7 +9,11 @@ import type {
   StationCacheUseDto,
 } from '@outcomes/application/dto/insights.dto';
 import { FLOW_NODE_KINDS } from '@outcomes/domain/services/cost-breakdown';
-import { InsightsPeriodResponseDto } from '@outcomes/presentation/http/dto/insights-common.response.dto';
+import {
+  ChangeResponseDto,
+  changeResponseOf,
+  InsightsPeriodResponseDto,
+} from '@outcomes/presentation/http/dto/insights-common.response.dto';
 import { SpendResponseDto } from '@outcomes/presentation/http/dto/station-outcomes.response.dto';
 
 export class CostSliceResponseDto {
@@ -230,26 +234,17 @@ export class InsightsCostResponseDto {
   readonly cost: CostBreakdownResponseDto;
 
   @ApiProperty({
-    type: SpendResponseDto,
+    type: ChangeResponseDto,
     nullable: true,
-    description: 'Spend the period before',
-  })
-  readonly spendBefore: SpendResponseDto | null;
-
-  @ApiProperty({
-    example: false,
     description:
-      'Whether the priced runs the period before came in more than one currency, so nothing was summed',
+      'Spend against the period before, where both periods were priced in one currency',
   })
-  readonly mixedCurrenciesBefore: boolean;
+  readonly spendChange: ChangeResponseDto | null;
 
   constructor(cost: InsightsCostDto) {
     this.period = new InsightsPeriodResponseDto(cost.period);
     this.truncated = cost.truncated;
     this.cost = new CostBreakdownResponseDto(cost.cost);
-    this.spendBefore = cost.spendBefore
-      ? new SpendResponseDto(cost.spendBefore)
-      : null;
-    this.mixedCurrenciesBefore = cost.mixedCurrenciesBefore;
+    this.spendChange = changeResponseOf(cost.spendChange);
   }
 }

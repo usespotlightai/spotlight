@@ -9,13 +9,6 @@ export type CreateWorkspaceInput = {
   teamName: string;
 };
 
-export class WorkspaceSlugTakenError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'WorkspaceSlugTakenError';
-  }
-}
-
 export function useCreateWorkspace() {
   const queryClient = useQueryClient();
 
@@ -30,10 +23,11 @@ export function useCreateWorkspace() {
         return data;
       }
 
-      const message = messageOf(error, 'Could not create the workspace');
-      throw response?.status === 409
-        ? new WorkspaceSlugTakenError(message)
-        : new Error(message);
+      throw new Error(
+        response?.status === 409
+          ? 'Workspace URL already taken. Please go back and choose another.'
+          : messageOf(error, 'Sorry, the workspace couldn’t be created.'),
+      );
     },
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: workspaceKeys.all }),

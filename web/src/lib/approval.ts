@@ -119,7 +119,7 @@ export const askedFor = (approval: Approval): string => {
   const wanted = approval.intent ?? `use ${approval.name}`;
 
   if (approval.edited) {
-    return `Spotlight asked to ${wanted}, and you changed what it runs with.`;
+    return `Spotlight asked to ${wanted}. You edited its inputs.`;
   }
 
   return approval.intent

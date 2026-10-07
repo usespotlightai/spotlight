@@ -69,7 +69,7 @@ export class ReplayRunWork implements RunWork {
     const by = current?.claimedBy;
 
     if (!current || !by) {
-      throw new UnknownRunError(`there is no run ${this.run.id.value} held`);
+      throw new UnknownRunError(`Run ${this.run.id.value} is not held.`);
     }
 
     await this.runs.save(current.askedAPersonBy(by));

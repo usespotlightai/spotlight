@@ -3,7 +3,7 @@ export class InstallationClaimedError extends Error {
 
   constructor(installation: string) {
     super(
-      `GitHub installation ${installation} is already connected to another workspace. Disconnect it there first`,
+      `GitHub installation ${installation} is connected to another workspace. Please disconnect it there first.`,
     );
     this.name = 'InstallationClaimedError';
   }

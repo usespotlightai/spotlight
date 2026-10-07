@@ -214,7 +214,7 @@ describe('ApplyLines', () => {
     );
 
     await expect(applied()).rejects.toThrow(LineInUseError);
-    await expect(applied()).rejects.toThrow(/2 standing there/);
+    await expect(applied()).rejects.toThrow(/\(2\)/);
     expect(save).not.toHaveBeenCalled();
   });
 
@@ -234,7 +234,9 @@ describe('ApplyLines', () => {
 
     save.mockRejectedValueOnce(new StrandedWorkError(['station_2']));
 
-    await expect(applied()).rejects.toThrow(/cannot drop them/);
+    await expect(applied()).rejects.toThrow(
+      /cannot drop stations that still hold tasks/,
+    );
   });
 
   it('opens a line the team does not have from its definition', async () => {
@@ -290,7 +292,7 @@ describe('ApplyLines', () => {
     );
 
     await expect(applied()).rejects.toThrow(LineRoleTakenError);
-    await expect(applied()).rejects.toThrow(/role "review"/);
+    await expect(applied()).rejects.toThrow(/cannot take role review/);
     expect(add).not.toHaveBeenCalled();
   });
 

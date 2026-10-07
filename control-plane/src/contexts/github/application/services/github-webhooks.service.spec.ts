@@ -90,6 +90,7 @@ const hooks = (
     reviewed: vi.fn(async () => {}),
     reviewDismissed: vi.fn(async () => {}),
     commented: vi.fn(async () => {}),
+    threadResolved: vi.fn(async () => {}),
     uninstalled: vi.fn(async () => 0),
   };
 
@@ -331,6 +332,9 @@ describe('GitHubWebhooks', () => {
         branch: 'tidy-router',
         size: { additions: 10, deletions: 2, changedFiles: 1 },
         openedAt: new Date('2026-09-21T08:00:00Z'),
+        draft: false,
+        markedReadyAt: null,
+        markedDraftAt: null,
         state: 'open' as const,
         closedAt: null,
         updatedAt: new Date('2026-09-21T08:30:00Z'),
@@ -372,7 +376,13 @@ describe('GitHubWebhooks', () => {
         { installation: GitHubInstallation.of('42'), workspaceId: WORKSPACE },
         'https://github.com/acme/api/pull/7',
         null,
-        { id: 900, state: 'approved', byBot: false, at: submittedAt },
+        {
+          id: 900,
+          state: 'approved',
+          login: 'ada',
+          byBot: false,
+          at: submittedAt,
+        },
       );
     });
 
@@ -396,7 +406,74 @@ describe('GitHubWebhooks', () => {
         { installation: GitHubInstallation.of('42'), workspaceId: WORKSPACE },
         'https://github.com/acme/api/pull/7',
         null,
-        { id: 300, action: 'deleted', byBot: false },
+        {
+          id: 300,
+          on: 'line',
+          action: 'deleted',
+          login: 'octocat',
+          answers: 200,
+          byBot: false,
+        },
+      );
+    });
+
+    it('records a conversation comment on the pull request it was left on', async () => {
+      const { service, recording } = hooks({
+        installation: '42',
+        heard: [
+          {
+            kind: 'conversation-comment',
+            action: 'created',
+            pullRequest: 'https://github.com/acme/api/pull/7',
+            comment: { id: 400, login: 'coderabbitai[bot]', byBot: true },
+          },
+        ],
+      });
+
+      await service.receive(DELIVERY);
+
+      expect(recording.commented).toHaveBeenCalledWith(
+        { installation: GitHubInstallation.of('42'), workspaceId: WORKSPACE },
+        'https://github.com/acme/api/pull/7',
+        null,
+        {
+          id: 400,
+          on: 'conversation',
+          action: 'created',
+          login: 'coderabbitai[bot]',
+          answers: null,
+          byBot: true,
+        },
+      );
+    });
+
+    it('records a review thread resolved on the pull request it is on', async () => {
+      const thread = {
+        id: 'PRRT_1',
+        opener: 300,
+        login: 'coderabbitai[bot]',
+        byBot: true,
+        resolved: true,
+      };
+      const { service, recording } = hooks({
+        installation: '42',
+        heard: [
+          {
+            kind: 'review-thread',
+            pullRequest: 'https://github.com/acme/api/pull/7',
+            thread,
+            facts: null,
+          },
+        ],
+      });
+
+      await service.receive(DELIVERY);
+
+      expect(recording.threadResolved).toHaveBeenCalledWith(
+        { installation: GitHubInstallation.of('42'), workspaceId: WORKSPACE },
+        'https://github.com/acme/api/pull/7',
+        null,
+        thread,
       );
     });
 
@@ -470,6 +547,9 @@ describe('GitHubWebhooks', () => {
         branch: null,
         size: null,
         openedAt: new Date('2026-09-21T08:00:00Z'),
+        draft: false,
+        markedReadyAt: null,
+        markedDraftAt: null,
         state: 'open' as const,
         closedAt: null,
         updatedAt: new Date('2026-09-21T08:30:00Z'),

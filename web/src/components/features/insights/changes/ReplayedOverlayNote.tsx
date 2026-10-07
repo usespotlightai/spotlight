@@ -1,21 +1,18 @@
 import type { UseQueryResult } from '@tanstack/react-query';
-import { UnchartedNotes } from '@/components/features/insights/candidates/UnchartedNotes';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import {
-  chartedNothing,
   type InsightsCandidates,
-  type ReplayedChart,
+  type ReplayedPoint,
   replayedNote,
 } from '@/lib/insights-candidates';
 import { failed, loading } from '@/lib/query';
 
 type ReplayedOverlayNoteProps = {
   stationId: string | null;
-  chart: ReplayedChart | null;
+  replayed: readonly ReplayedPoint[] | null;
   drawn: boolean;
   scattered: boolean;
   hiddenFor: string | null;
-  priced: boolean;
   candidates: UseQueryResult<InsightsCandidates>;
 };
 
@@ -23,19 +20,14 @@ const NOTE = 'text-muted-foreground text-xs';
 
 export function ReplayedOverlayNote({
   stationId,
-  chart,
+  replayed,
   drawn,
   scattered,
   hiddenFor,
-  priced,
   candidates,
 }: ReplayedOverlayNoteProps) {
   if (!stationId) {
-    return (candidates.data?.stations.length ?? 0) > 0 ? (
-      <p data-slot="replayed-note" className={NOTE}>
-        Pick a station to see its replayed candidates beside its live setups.
-      </p>
-    ) : null;
+    return null;
   }
 
   if (failed(candidates)) {
@@ -49,14 +41,14 @@ export function ReplayedOverlayNote({
     );
   }
 
-  if (loading(candidates) || !chart || chartedNothing(chart)) {
+  if (loading(candidates) || !replayed) {
     return null;
   }
 
   if (hiddenFor) {
     return (
       <p data-slot="replayed-note" className={NOTE}>
-        Replayed points show success, so they’re hidden while the chart shows{' '}
+        Replayed points show success only. They’re hidden while the chart shows{' '}
         {hiddenFor}.
       </p>
     );
@@ -64,18 +56,17 @@ export function ReplayedOverlayNote({
 
   return (
     <>
-      {!scattered && chart.priced.length > 0 && (
+      {!scattered && replayed.length > 0 && (
         <p data-slot="replayed-note" className={NOTE}>
-          This station’s replayed candidates are not drawn, as no live setup
-          here has a priced outcome to set them beside. The table lists them.
+          Replayed candidates aren’t drawn: no live setup has a priced outcome.
+          The table lists them.
         </p>
       )}
       {drawn && (
         <p data-slot="replayed-note" className={NOTE}>
-          {replayedNote(chart.priced)}
+          {replayedNote(replayed)}
         </p>
       )}
-      <UnchartedNotes chart={chart} priced={priced} />
     </>
   );
 }

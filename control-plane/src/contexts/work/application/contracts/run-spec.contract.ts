@@ -86,7 +86,7 @@ const checkoutOf = (raw: unknown): RunCheckout => {
 
   if (diffOf !== undefined && diffOf !== 'commits') {
     throw new InvalidRunSpecError(
-      'diffs a checkout by its commits, or its work',
+      'must diff a checkout by its commits or its worktree',
     );
   }
 

@@ -12,7 +12,11 @@ import {
   JUDGE_WITHHELD_REASONS,
   OUTCOME_MEASURES,
 } from '@outcomes/domain/services/setup-comparison';
-import { InsightsPeriodResponseDto } from '@outcomes/presentation/http/dto/insights-common.response.dto';
+import {
+  ChangeResponseDto,
+  changeResponseOf,
+  InsightsPeriodResponseDto,
+} from '@outcomes/presentation/http/dto/insights-common.response.dto';
 import { MeasureVerdictResponseDto } from '@outcomes/presentation/http/dto/measure-verdict.response.dto';
 import { ConfigChangeResponseDto } from '@outcomes/presentation/http/dto/station-config.response.dto';
 import { JudgeStandingResponseDto } from '@outcomes/presentation/http/dto/station-judge.response.dto';
@@ -62,11 +66,11 @@ export class ChangeMarkerResponseDto {
   readonly fingerprint: string;
 
   @ApiProperty({
-    nullable: true,
-    type: String,
-    description: 'The config the station ran with just before',
+    example: '9b1d…',
+    description:
+      'The config the station’s previous run that ran a config ran with; a change back to an earlier config is a change too',
   })
-  readonly previousFingerprint: string | null;
+  readonly previousFingerprint: string;
 
   @ApiProperty({
     example: '2026-09-30T10:00:00.000Z',
@@ -80,14 +84,14 @@ export class ChangeMarkerResponseDto {
   @ApiProperty({
     type: RunTallyResponseDto,
     description:
-      'The station’s runs with the config before that started since its config before last changed, up to this change',
+      'The station’s runs with the config before, from its config before last changing up to this change, a run that never started placed where it ended; one that failed provisioning counts as a failed run',
   })
   readonly before: RunTallyResponseDto;
 
   @ApiProperty({
     type: RunTallyResponseDto,
     description:
-      'The station’s runs with this config that started from this change up to the next one',
+      'The station’s runs with this config from this change up to the next one, and its runs meant to run this config that never ran it since the change before, even those that ended before this change; one that failed provisioning counts as a failed run',
   })
   readonly after: RunTallyResponseDto;
 
@@ -116,6 +120,14 @@ export class ChangeMarkerResponseDto {
   readonly judgeAfter: JudgeShareResponseDto | null;
 
   @ApiProperty({
+    type: ChangeResponseDto,
+    nullable: true,
+    description:
+      'The judge’s mean score after against before, in points; none where either side went unjudged',
+  })
+  readonly judgeChange: ChangeResponseDto | null;
+
+  @ApiProperty({
     type: ConfigChangeResponseDto,
     isArray: true,
     description: 'How the new config differs from the one before it',
@@ -137,6 +149,7 @@ export class ChangeMarkerResponseDto {
     this.judgeBefore = marker.judgeBefore
       ? new JudgeShareResponseDto(marker.judgeBefore)
       : null;
+    this.judgeChange = changeResponseOf(marker.judgeChange);
     this.judgeAfter = marker.judgeAfter
       ? new JudgeShareResponseDto(marker.judgeAfter)
       : null;
@@ -302,6 +315,12 @@ export class SetupOutcomeResponseDto {
   @ApiProperty({ nullable: true, type: String, example: 'USD' })
   readonly currency: string | null;
 
+  @ApiProperty({
+    description:
+      'Whether it has a cost per run in the currency the comparison is drawn in, so it can go on the chart',
+  })
+  readonly priced: boolean;
+
   @ApiProperty({ type: SetupOutcomesResponseDto })
   readonly outcomes: SetupOutcomesResponseDto;
 
@@ -329,6 +348,7 @@ export class SetupOutcomeResponseDto {
     this.tally = new RunTallyResponseDto(setup.tally);
     this.costPerRun = setup.costPerRun;
     this.currency = setup.currency;
+    this.priced = setup.priced;
     this.outcomes = new SetupOutcomesResponseDto(setup.outcomes);
     this.judge = setup.judge ? new JudgeShareResponseDto(setup.judge) : null;
     this.frontier = [...setup.frontier];

@@ -18,7 +18,7 @@ import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 
 export class SearchTermsRefusedError extends Error {
   constructor(readonly problems: readonly ConfigurationProblem[]) {
-    super('The search is not valid');
+    super('Search is invalid.');
     this.name = 'SearchTermsRefusedError';
   }
 }

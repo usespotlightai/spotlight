@@ -21,7 +21,7 @@ export class StationKey {
     if (!areWords(named)) {
       throw new InvalidIdentifierError(
         'station key',
-        `is lowercase words joined by dashes, at most ${LONGEST_WORDS} characters, as in code-review`,
+        `must be lowercase words joined by dashes, at most ${LONGEST_WORDS} characters, as in code-review`,
       );
     }
 
@@ -30,7 +30,7 @@ export class StationKey {
     if (reserved) {
       throw new InvalidIdentifierError(
         'station key',
-        `cannot be ${named}, which is reserved because a run says ${named} to ${reserved}; pick another key, as in code-review`,
+        `cannot be ${named}. A run says ${named} to ${reserved}`,
       );
     }
 

@@ -1,18 +1,19 @@
-import { DeltaShown } from '@/components/features/insights/DeltaShown';
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { InsightsFailed } from '@/components/features/insights/InsightsFailed';
+import { InsightsTile } from '@/components/features/insights/InsightsTile';
+import { InsightsTiles } from '@/components/features/insights/InsightsTiles';
 import { NoRunsInPeriod } from '@/components/features/insights/NoRunsInPeriod';
-import { StationReportRow } from '@/components/features/insights/StationReportRow';
 import { StationsSkeleton } from '@/components/features/insights/StationsSkeleton';
 import { StationsTable } from '@/components/features/insights/StationsTable';
+import { StationInsights } from '@/components/features/insights/station/StationInsights';
 import { TruncatedNote } from '@/components/features/insights/TruncatedNote';
-import { StationTallyFigures } from '@/components/features/stations/outcomes/StationTallyFigures';
 import { useInsightsStations } from '@/hooks/api/useInsightsStations';
 import { useScrollToHash } from '@/hooks/useScrollToHash';
 import {
-  deltaOf,
   type InsightsPeriod,
   type StationNames,
+  tallyTiles,
+  trendOf,
 } from '@/lib/insights';
 import { failed, loading } from '@/lib/query';
 
@@ -21,9 +22,16 @@ type StationsTabProps = {
   teamId: string;
   period: InsightsPeriod;
   names: StationNames;
+  stationId?: string;
 };
 
-export function StationsTab({ slug, teamId, period, names }: StationsTabProps) {
+export function StationsTab({
+  slug,
+  teamId,
+  period,
+  names,
+  stationId,
+}: StationsTabProps) {
   const stations = useInsightsStations(teamId, period);
   useScrollToHash(Boolean(stations.data));
 
@@ -35,55 +43,61 @@ export function StationsTab({ slug, teamId, period, names }: StationsTabProps) {
     return <InsightsFailed what="The stations" query={stations} />;
   }
 
-  const { team, teamBefore, stations: reports, truncated } = stations.data;
+  const {
+    team,
+    teamSeen,
+    teamCounted,
+    teamChanges,
+    teamTrend,
+    stations: reports,
+    truncated,
+  } = stations.data;
+
+  if (stationId) {
+    return (
+      <StationInsights
+        slug={slug}
+        teamId={teamId}
+        stationId={stationId}
+        report={reports.find((each) => each.stationId === stationId)}
+        names={names}
+      />
+    );
+  }
 
   if (reports.length === 0) {
     return (
       <NoRunsInPeriod slug={slug} teamId={teamId}>
-        Once stations run tasks, how each one’s runs went shows here.
+        Each station’s runs show here once stations run tasks.
       </NoRunsInPeriod>
     );
   }
 
-  const delta = deltaOf(team.runs, teamBefore.runs, 'neither');
-
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
       {truncated && <TruncatedNote />}
 
-      <InsightsCard
-        title="The whole team"
-        actions={delta && <DeltaShown delta={delta} />}
-      >
-        <StationTallyFigures tally={team} />
-      </InsightsCard>
+      <InsightsTiles label="The whole team">
+        {tallyTiles(team, teamSeen, teamChanges, trendOf(teamTrend)).map(
+          (tile) => (
+            <InsightsTile
+              key={tile.id}
+              label={tile.label}
+              value={tile.value}
+              detail={tile.detail}
+              delta={tile.delta}
+              drill={tile.drill}
+              trend={tile.trend}
+            />
+          ),
+        )}
+      </InsightsTiles>
 
       <InsightsCard
         title="By station"
-        description="Counted the same way as on each Station page. The line shows runs per day, failures in red."
-        table={
-          <StationsTable
-            slug={slug}
-            teamId={teamId}
-            stations={reports}
-            names={names}
-          />
-        }
+        description="Same counts as each station’s page. The line shows runs per day, failures in red, beside the change in runs from the previous period."
       >
-        <ul
-          aria-label="Stations"
-          className="flex flex-col divide-y divide-border"
-        >
-          {reports.map((report) => (
-            <StationReportRow
-              key={report.stationId}
-              slug={slug}
-              teamId={teamId}
-              report={report}
-              names={names}
-            />
-          ))}
-        </ul>
+        <StationsTable stations={reports} counted={teamCounted} names={names} />
       </InsightsCard>
     </div>
   );

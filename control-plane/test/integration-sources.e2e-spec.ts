@@ -379,9 +379,7 @@ describe('an integration offering tools from an API description (e2e)', () => {
     );
 
     expect(made.status).toBe(201);
-    expect(made.body.described.problem).toMatch(
-      /not among the hosts this deployment allows/,
-    );
+    expect(made.body.described.problem).toMatch(/not on the allowed list/);
   });
 
   it('offers one tool per GraphQL query and mutation, the mutations needing approval', async () => {

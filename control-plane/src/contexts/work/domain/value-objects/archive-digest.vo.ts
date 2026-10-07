@@ -10,7 +10,7 @@ export class ArchiveDigest {
 
     if (!SHA256_HEX.test(value)) {
       throw new InvalidWorkspaceArchiveError(
-        'must carry its SHA-256, as 64 hexadecimal digits',
+        'digest must be a SHA-256 of 64 hexadecimal digits',
       );
     }
 

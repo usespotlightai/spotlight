@@ -90,7 +90,7 @@ export function TaskTrace() {
               </TrailLink>
             }
           >
-            The trace fills in once a station has worked this task.
+            The trace fills in after a station works this task.
           </EmptyState>
         </PageNotice>
       </TrailContext>

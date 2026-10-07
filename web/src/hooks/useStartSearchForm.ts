@@ -140,7 +140,6 @@ export function useStartSearchForm({
       estimate.isError,
       estimateRefusals.general,
     ),
-    startRefusal: startRefusals.general,
     change,
     chooseSet: andReset(setChosenSet, start.reset),
     chooseObjective: andReset(setChosenObjective, start.reset),

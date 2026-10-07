@@ -36,7 +36,8 @@ interface State {
 
 const KEPT_MS = 7 * 24 * 60 * 60_000;
 
-const GIVEN_UP = 'was given up on, as the hook stopped waiting for it';
+const givenUp = (id: string): string =>
+  `Network call ${id} was given up. The hook stopped waiting for it.`;
 
 export class NetworkCall extends EventRecorder {
   private constructor(
@@ -55,7 +56,7 @@ export class NetworkCall extends EventRecorder {
   }): NetworkCall {
     if (input.lapsesAt.getTime() <= input.now.getTime()) {
       throw new InvalidNetworkCallError(
-        'must leave a host some time to send it before it lapses',
+        'must give a host time to send it before it lapses',
       );
     }
 
@@ -166,7 +167,7 @@ export class NetworkCall extends EventRecorder {
   forgotten(now: Date): NetworkCall {
     if (!this.isForgettableAt(now)) {
       throw new InvalidNetworkCallTransitionError(
-        'is kept for a week after it is settled before it is forgotten',
+        `Network call ${this.state.id.value} is kept for a week after it settles.`,
       );
     }
 
@@ -184,12 +185,12 @@ export class NetworkCall extends EventRecorder {
     const standing = this.stateAt(now);
 
     if (standing === 'given-up') {
-      throw new InvalidNetworkCallTransitionError(GIVEN_UP);
+      throw new InvalidNetworkCallTransitionError(givenUp(this.state.id.value));
     }
 
     if (standing !== 'waiting') {
       throw new InvalidNetworkCallTransitionError(
-        `cannot be claimed once it is ${standing}`,
+        `Network call ${this.state.id.value} is ${standing}. It cannot be claimed.`,
       );
     }
 
@@ -205,22 +206,24 @@ export class NetworkCall extends EventRecorder {
     const standing = this.stateAt(now);
 
     if (standing === 'answered') {
-      throw new InvalidNetworkCallTransitionError('has already been answered');
+      throw new InvalidNetworkCallTransitionError(
+        `Network call ${this.state.id.value} was already answered.`,
+      );
     }
 
     if (standing === 'given-up') {
-      throw new InvalidNetworkCallTransitionError(GIVEN_UP);
+      throw new InvalidNetworkCallTransitionError(givenUp(this.state.id.value));
     }
 
     if (standing === 'lapsed') {
       throw new InvalidNetworkCallTransitionError(
-        'lapsed before it was answered',
+        `Network call ${this.state.id.value} lapsed before it was answered.`,
       );
     }
 
     if (progress.kind !== 'claimed') {
       throw new InvalidNetworkCallTransitionError(
-        'cannot be answered before a host claims it',
+        `Network call ${this.state.id.value} is not claimed by a host yet.`,
       );
     }
 
@@ -247,7 +250,7 @@ export class NetworkCall extends EventRecorder {
 
     if (!this.lapsedAt(now)) {
       throw new InvalidNetworkCallTransitionError(
-        'cannot lapse before its time is up',
+        `Network call ${this.state.id.value} cannot lapse before its time is up.`,
       );
     }
 

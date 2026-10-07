@@ -8,7 +8,7 @@ export class StationFingerprint {
   static of(raw: string): StationFingerprint {
     if (!SHA256_HEX.test(raw)) {
       throw new InvalidCandidateError(
-        'is fingerprinted as a SHA-256, in lowercase hex',
+        'fingerprint must be a lowercase hex SHA-256',
       );
     }
 

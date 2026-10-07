@@ -159,7 +159,7 @@ describe('the Slack webhook runtime', () => {
 
     it('fails one where the workspace holds no such secret', async () => {
       await expect(runtime(null).verifies(delivered(mention))).rejects.toThrow(
-        'The workspace holds no secret named SLACK_SIGNING_SECRET',
+        'Secret SLACK_SIGNING_SECRET not found. Please define it first.',
       );
     });
 

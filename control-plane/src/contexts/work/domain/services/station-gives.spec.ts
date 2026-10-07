@@ -84,7 +84,7 @@ describe('what a station gives', () => {
 
   it('names none of Spotlight’s own skills, which are given wherever they apply', () => {
     expect(() => station({ skills: ['spotlight-handover'] })).toThrow(
-      /Spotlight’s own/,
+      /Spotlight already gives it/,
     );
   });
 
@@ -134,10 +134,10 @@ describe('what a station gives', () => {
       InvalidLinePlanError,
     );
     expect(() => planned({ tools: ['pull-request', 'pull-request'] })).toThrow(
-      /has implementation, which names the tool pull-request twice/,
+      /station implementation names tool pull-request twice/,
     );
     expect(() => planned({ skills: ['spotlight-handover'] })).toThrow(
-      /Spotlight’s own/,
+      /Spotlight already gives it/,
     );
   });
 

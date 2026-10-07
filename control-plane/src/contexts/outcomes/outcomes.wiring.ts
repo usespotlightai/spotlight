@@ -57,6 +57,7 @@ import { ReadInsightsOverviewHandler } from '@outcomes/application/queries/handl
 import { ReadInsightsPeopleHandler } from '@outcomes/application/queries/handlers/read-insights-people.handler';
 import { ReadInsightsPullRequestsHandler } from '@outcomes/application/queries/handlers/read-insights-pull-requests.handler';
 import { ReadInsightsSetupsHandler } from '@outcomes/application/queries/handlers/read-insights-setups.handler';
+import { ReadInsightsShippingHandler } from '@outcomes/application/queries/handlers/read-insights-shipping.handler';
 import { ReadInsightsStationsHandler } from '@outcomes/application/queries/handlers/read-insights-stations.handler';
 import { ReadInsightsToolsHandler } from '@outcomes/application/queries/handlers/read-insights-tools.handler';
 import { ReadRunScoresHandler } from '@outcomes/application/queries/handlers/read-run-scores.handler';
@@ -73,6 +74,7 @@ import { ReadInsightsOverviewQuery } from '@outcomes/application/queries/read-in
 import { ReadInsightsPeopleQuery } from '@outcomes/application/queries/read-insights-people.query';
 import { ReadInsightsPullRequestsQuery } from '@outcomes/application/queries/read-insights-pull-requests.query';
 import { ReadInsightsSetupsQuery } from '@outcomes/application/queries/read-insights-setups.query';
+import { ReadInsightsShippingQuery } from '@outcomes/application/queries/read-insights-shipping.query';
 import { ReadInsightsStationsQuery } from '@outcomes/application/queries/read-insights-stations.query';
 import { ReadInsightsToolsQuery } from '@outcomes/application/queries/read-insights-tools.query';
 import { ReadRunScoresQuery } from '@outcomes/application/queries/read-run-scores.query';
@@ -354,6 +356,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
     DrizzleStationWatchRepository,
     DrizzleRunRecordRepository,
     DrizzleTaskDeliveryRepository,
+    CLOCK,
   ]),
   {
     provide: WatchStations,
@@ -437,6 +440,10 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
     ReadInsightsPullRequestsHandler,
     [TeamPullRequests],
   ),
+  ...bindQueryHandler(ReadInsightsShippingQuery, ReadInsightsShippingHandler, [
+    TeamPullRequests,
+    TeamHistories,
+  ]),
   ...bindQueryHandler(
     ListInsightsPullRequestsQuery,
     ListInsightsPullRequestsHandler,
@@ -646,13 +653,20 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
   },
   {
     provide: NoteRunEnded,
-    inject: [WORK, DrizzleRunRecordRepository, DrizzleForgotten, TRANSACTION],
+    inject: [
+      WORK,
+      DrizzleRunRecordRepository,
+      DrizzleForgotten,
+      TRANSACTION,
+      LOGGER,
+    ],
     useFactory: (
       work: WorkPort,
       records: DrizzleRunRecordRepository,
       forgotten: DrizzleForgotten,
       transaction: TransactionPort,
-    ) => new NoteRunEnded(work, records, forgotten, transaction),
+      logger: LoggerPort,
+    ) => new NoteRunEnded(work, records, forgotten, transaction, logger),
   },
   {
     provide: NoteRunSuperseded,

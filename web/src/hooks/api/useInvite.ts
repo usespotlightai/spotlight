@@ -16,7 +16,7 @@ export function useInvite(token: string | undefined) {
         return null;
       }
       if (!data) {
-        throw new Error('Could not load the invitation');
+        throw new Error('Sorry, the invitation couldn’t be loaded.');
       }
       return data;
     },

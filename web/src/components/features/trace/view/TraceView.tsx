@@ -4,6 +4,7 @@ import { SpanDetail } from '@/components/features/trace/view/SpanDetail';
 import { TraceGrid } from '@/components/features/trace/view/TraceGrid';
 import { TraceRow } from '@/components/features/trace/view/TraceRow';
 import { TraceScale } from '@/components/features/trace/view/TraceScale';
+import { PaneScroller } from '@/components/shared/PaneScroller';
 import { PaneHandle } from '@/components/shell/layout/PaneHandle';
 import { useLingering } from '@/hooks/useLingering';
 import { usePaneWidth } from '@/hooks/usePaneWidth';
@@ -63,65 +64,9 @@ export function TraceView({ trace, teamId }: TraceViewProps) {
   const pick = useCallback((id: string) => setPicked(id), []);
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex min-h-0 flex-1">
-        <div className="flex min-w-0 flex-1 flex-col">
-          <div
-            ref={names.paneRef}
-            className="relative min-h-0 min-w-0 flex-1"
-            style={{ '--names': `${names.width}px` } as CSSProperties}
-          >
-            <div
-              className={cn(
-                'flex h-full flex-col overflow-auto scrollbar-hide',
-                names.resizing && 'select-none',
-              )}
-            >
-              <TraceScale label={(tick) => took(Math.round(whole * tick))} />
-
-              {rows.length === 0 ? (
-                <p className="p-8 text-center text-muted-foreground text-sm">
-                  No matches.
-                </p>
-              ) : (
-                <div className="relative flex-1 px-1.5">
-                  <TraceGrid />
-
-                  <ul ref={listed} className="relative flex flex-col pt-2 pb-6">
-                    {rows.map((row) => (
-                      <TraceRow
-                        key={row.node.id}
-                        node={row.node}
-                        teamId={teamId}
-                        depth={row.depth}
-                        holding={row.children}
-                        trace={trace}
-                        picked={row.node.id === picked}
-                        open={!closed.has(row.node.id)}
-                        onPick={pick}
-                        onToggle={toggle}
-                      />
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-
-            <div
-              className="pointer-events-none absolute inset-y-0 left-0"
-              style={{ width: 'var(--names)' }}
-            >
-              <PaneHandle
-                {...names.handleProps}
-                edge="right"
-                resizing={names.resizing}
-                className="pointer-events-auto"
-              />
-            </div>
-          </div>
-        </div>
-
-        {held && (
+    <PaneScroller
+      aside={
+        held && (
           <SpanDetail
             node={held}
             teamId={teamId}
@@ -129,8 +74,62 @@ export function TraceView({ trace, teamId }: TraceViewProps) {
             duration={LEAVING}
             ref={panel}
           />
-        )}
+        )
+      }
+    >
+      <div
+        ref={names.paneRef}
+        className="relative flex min-w-0 flex-1 flex-col"
+        style={{ '--names': `${names.width}px` } as CSSProperties}
+      >
+        <div
+          className={cn(
+            'flex flex-1 flex-col',
+            names.resizing && 'select-none',
+          )}
+        >
+          <TraceScale label={(tick) => took(Math.round(whole * tick))} />
+
+          {rows.length === 0 ? (
+            <p className="p-8 text-center text-muted-foreground text-sm">
+              No matches.
+            </p>
+          ) : (
+            <div className="relative flex-1 px-1.5">
+              <TraceGrid />
+
+              <ul ref={listed} className="relative flex flex-col pt-2 pb-6">
+                {rows.map((row) => (
+                  <TraceRow
+                    key={row.node.id}
+                    node={row.node}
+                    teamId={teamId}
+                    depth={row.depth}
+                    holding={row.children}
+                    trace={trace}
+                    picked={row.node.id === picked}
+                    open={!closed.has(row.node.id)}
+                    onPick={pick}
+                    onToggle={toggle}
+                  />
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+
+        <div
+          className="pointer-events-none absolute inset-y-0 left-0"
+          style={{ width: 'var(--names)' }}
+        >
+          <PaneHandle
+            {...names.handleProps}
+            edge="right"
+            resizing={names.resizing}
+            className="pointer-events-auto"
+          />
+        </div>
       </div>
-    </div>
+    </PaneScroller>
   );
 }

@@ -14,7 +14,7 @@ export class ConfigurationFile {
     if (!SHAPE.test(named) || named.split('/').includes('..')) {
       throw new InvalidIdentifierError(
         'configuration file',
-        'is a path within the repository',
+        'must be a path in the repository',
       );
     }
 

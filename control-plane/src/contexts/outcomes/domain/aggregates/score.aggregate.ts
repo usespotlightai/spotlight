@@ -65,34 +65,30 @@ const markedClaims = (state: ScoreState): boolean => {
 const checked = (state: ScoreState): ScoreState => {
   if (!state.scale.holds(state.value)) {
     throw new InvalidScoreError(
-      `of ${state.value} is not on its ${state.scale.kind} scale`,
+      `${state.value} is not on the ${state.scale.kind} scale`,
     );
   }
   if (!markedClaims(state)) {
-    throw new InvalidScoreError(
-      'marks each claim met or not, with a reason for each from the judge, when, and only when, it is on a claims scale',
-    );
+    throw new InvalidScoreError('must mark claims only on a claims scale');
   }
   if (state.fingerprint !== null && !FINGERPRINT.test(state.fingerprint)) {
     throw new InvalidScoreError(
-      'names its run’s station config by a 64-character hex fingerprint',
+      'station config fingerprint must be 64 hex characters',
     );
   }
   if (state.rubricVersion !== null && !isRubricVersion(state.rubricVersion)) {
-    throw new InvalidScoreError(
-      'names its rubric by a 64-character hex digest',
-    );
+    throw new InvalidScoreError('rubric digest must be 64 hex characters');
   }
 
   if (state.source === 'judge') {
     if (state.rubricVersion === null || !state.model?.trim()) {
       throw new InvalidScoreError(
-        'from the judge names the rubric and the model it was judged by',
+        'from the judge must name its rubric and model',
       );
     }
     if (state.reasons.length === 0 || state.by !== null) {
       throw new InvalidScoreError(
-        'from the judge gives its reasons, and is given by nobody',
+        'from the judge must give reasons and no grader',
       );
     }
     if (
@@ -100,7 +96,7 @@ const checked = (state: ScoreState): ScoreState => {
       !state.seen.onlyCitedBy(state.reasons.flatMap((each) => each.citations))
     ) {
       throw new InvalidScoreError(
-        `from the judge keeps only what its reasons cite, in at most ${MOST_SEEN_KEPT} characters`,
+        `from the judge must keep at most ${MOST_SEEN_KEPT} characters of cited evidence`,
       );
     }
   } else if (
@@ -110,7 +106,7 @@ const checked = (state: ScoreState): ScoreState => {
     !state.seen.isEmpty
   ) {
     throw new InvalidScoreError(
-      'from a person names who gave it, and neither a model nor reasons',
+      'from a person must name its grader, without model or reasons',
     );
   }
 
@@ -263,7 +259,7 @@ export class Score extends EventRecorder {
     at: Date;
   }): Score {
     if (this.fromJudge) {
-      throw new InvalidScoreError('from the judge is never graded again');
+      throw new InvalidScoreError('from the judge cannot be graded again');
     }
 
     if (

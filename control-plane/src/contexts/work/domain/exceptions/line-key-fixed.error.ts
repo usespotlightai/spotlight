@@ -7,7 +7,7 @@ export class LineKeyFixedError extends Error {
     readonly key: string,
     readonly because: string,
   ) {
-    super(`The ${key} line ${because}`);
+    super(`Key of line ${key} ${because}.`);
     this.name = 'LineKeyFixedError';
   }
 }

@@ -11,11 +11,10 @@ import type { SetupsNarrowed } from '@/hooks/api/useInsightsSetups';
 import type { StationNames } from '@/lib/insights';
 import {
   type InsightsCandidates,
-  stationReplayedChart,
+  stationReplayedPoints,
 } from '@/lib/insights-candidates';
 import {
   type InsightsSetups,
-  judgeWithheldShown,
   lowerIsBetter,
   type OutcomeMeasure,
   outcomeLabel,
@@ -48,23 +47,17 @@ export function SetupComparison({
 }: SetupComparisonProps) {
   const harnesses = useHarnesses().data;
   const judged = setups.setups.some((each) => (each.judge?.judged ?? 0) > 0);
-  const withheld = judgeWithheldShown(setups.judgeWithheld);
-  const points = setupPoints(
-    setups.setups,
-    measure,
-    harnesses,
-    setups.currency,
-  );
-  const chart =
+  const points = setupPoints(setups.setups, measure, harnesses);
+  const stationReplayed =
     narrowed.stationId && candidates.data
-      ? stationReplayedChart(
+      ? stationReplayedPoints(
           candidates.data,
           narrowed.stationId,
           setups.currency,
         )
       : null;
   const hiddenFor = lowerIsBetter(measure) ? outcomeLabel(measure) : null;
-  const replayed = hiddenFor ? [] : (chart?.priced ?? []);
+  const replayed = hiddenFor ? [] : (stationReplayed ?? []);
   const scattered =
     setups.setups.length > 0 && points.length > 0 && Boolean(setups.currency);
   const drawn = scattered && replayed.length > 0;
@@ -81,27 +74,18 @@ export function SetupComparison({
   );
 
   const notes = (chartShown: boolean) => (
-    <>
+    <div
+      data-slot="setup-notes"
+      className="flex flex-wrap items-start gap-x-8 gap-y-1 border-border border-t pt-2 empty:hidden"
+    >
       <ReplayedOverlayNote
         stationId={narrowed.stationId}
-        chart={chart}
+        replayed={stationReplayed}
         drawn={chartShown && drawn}
         scattered={scattered}
         hiddenFor={hiddenFor}
-        priced={setups.currency !== null}
         candidates={candidates}
       />
-
-      <p className="text-muted-foreground text-xs">
-        Task size, by a run’s changes:{' '}
-        {setups.sizes.map(sizeRuleShown).join('; ')}.
-      </p>
-
-      {withheld && (
-        <p data-slot="judge-withheld" className="text-muted-foreground text-xs">
-          {withheld}
-        </p>
-      )}
 
       <JudgeStandings
         slug={slug}
@@ -109,16 +93,16 @@ export function SetupComparison({
         judges={setups.judges}
         names={names}
       />
-    </>
+    </div>
   );
 
   return (
     <InsightsCard
       title="Harness, model, effort and profile"
-      description={`${outcomeLabel(measure)} against cost per run${drawn ? '; replayed points show replay success on past tasks instead' : ''}. The frontier joins the setups no other did as well or better than for less, among those with ${setups.fewestRuns} runs or more.`}
+      description={`${outcomeLabel(measure)} against cost per run.${drawn ? ' Replayed points show replay success on past tasks.' : ''} The frontier joins setups no other matches for less. Minimum runs per setup: ${setups.fewestRuns}. Task size, by a run’s changes: ${setups.sizes.map(sizeRuleShown).join('; ')}.`}
+      actions={filters}
       table={
         <>
-          {filters}
           <SetupTable
             setups={setups.setups}
             measure={measure}
@@ -132,16 +116,13 @@ export function SetupComparison({
         </>
       }
     >
-      {filters}
-
       {setups.setups.length === 0 ? (
         <p className="py-6 text-center text-muted-foreground text-sm">
           No runs match these filters in this period.
         </p>
       ) : !scattered || !setups.currency ? (
         <p className="py-6 text-center text-muted-foreground text-sm">
-          No priced runs to set against their cost. Show the table for the
-          outcomes alone.
+          No priced runs to chart. Show the table for outcomes alone.
         </p>
       ) : (
         <SetupScatter

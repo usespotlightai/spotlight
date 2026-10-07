@@ -198,7 +198,7 @@ export class Diff {
   static readable(text: string): string {
     if (text.length > MOST_DIFF_LENGTH) {
       throw new InvalidDiffError(
-        `is at most ${MOST_DIFF_LENGTH / 1024 / 1024} MiB`,
+        `must be at most ${MOST_DIFF_LENGTH / 1024 / 1024} MiB`,
       );
     }
 
@@ -222,28 +222,28 @@ export class Diff {
 
   static of(files: readonly DiffFile[]): Diff {
     if (files.length === 0) {
-      throw new InvalidDiffError('holds no changes');
+      throw new InvalidDiffError('has no changes');
     }
 
     const ids = new Set<string>();
 
     for (const file of files) {
       if (!file.path.trim()) {
-        throw new InvalidDiffError('names a file it does not say the path of');
+        throw new InvalidDiffError('has a file without a path');
       }
       if (file.hunks.length === 0) {
-        throw new InvalidDiffError(`gives ${file.path} nothing to place`);
+        throw new InvalidDiffError(`has no changes for ${file.path}`);
       }
       for (const hunk of file.hunks) {
         if (ids.has(hunk.id)) {
-          throw new InvalidDiffError(`names ${hunk.id} twice`);
+          throw new InvalidDiffError(`lists ${hunk.id} twice`);
         }
         ids.add(hunk.id);
       }
     }
 
     if (ids.size > MOST_HUNKS) {
-      throw new InvalidDiffError(`holds at most ${MOST_HUNKS} changes`);
+      throw new InvalidDiffError(`must have at most ${MOST_HUNKS} changes`);
     }
 
     return new Diff(files);

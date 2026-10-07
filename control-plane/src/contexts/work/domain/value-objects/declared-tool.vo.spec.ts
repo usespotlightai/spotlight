@@ -40,7 +40,7 @@ describe('DeclaredTool', () => {
   });
 
   it('refuses an input named twice, or named unlike a flag', () => {
-    expect(() => declared([input(), input()])).toThrow(/takes one input twice/);
+    expect(() => declared([input(), input()])).toThrow(/names an input twice/);
     expect(() => declared([input({ name: '$top' })])).toThrow(/underscores/);
     expect(() => declared([input({ name: 'json' })])).toThrow(
       /every input at once/,
@@ -53,7 +53,7 @@ describe('DeclaredTool', () => {
   it('refuses more than one piped input, and one that is not text', () => {
     expect(() =>
       declared([input({ piped: true }), input({ name: 'note', piped: true })]),
-    ).toThrow(/more than one input piped in/);
+    ).toThrow(/can pipe in only one input/);
     expect(() =>
       declared([input({ schema: InputSchema.ofType('number'), piped: true })]),
     ).toThrow(/text/);
@@ -90,7 +90,7 @@ describe('DeclaredTool', () => {
 
     it('refuses a tool needing approval that takes an input of that name', () => {
       expect(() => approving([input({ name: 'intent' })])).toThrow(
-        /keeps for the agent/,
+        /reserved for approvals/,
       );
     });
   });

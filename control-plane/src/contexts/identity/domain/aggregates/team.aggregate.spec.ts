@@ -197,7 +197,7 @@ describe('Team', () => {
     it('disbands only once it holds nothing', () => {
       expect(() =>
         kept().disbanded(Holdings.of(['line delivery', 'skill grafana']), BY),
-      ).toThrow(/still holds line delivery, skill grafana/);
+      ).toThrow(/Still holds: line delivery, skill grafana/);
 
       const disbanded = kept().disbanded(Holdings.none(), BY);
 

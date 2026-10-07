@@ -4,9 +4,7 @@ export class SecretInUseError extends Error {
   readonly violation = 'conflict' as const;
 
   constructor(secretName: string, uses: SecretUses) {
-    super(
-      `The ${secretName} secret is still worn by ${uses.by.join(', ')}; stop those naming it first`,
-    );
+    super(`Secret ${secretName} is in use. Used by: ${uses.by.join(', ')}`);
     this.name = 'SecretInUseError';
   }
 }

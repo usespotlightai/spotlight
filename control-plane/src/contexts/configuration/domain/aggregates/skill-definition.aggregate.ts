@@ -37,7 +37,7 @@ const guardDefinedHere = (read: ReadSkill): void => {
   if (read.skill.isShipped) {
     throw new InvalidSkillError(
       read.skill.key.value,
-      'is one Spotlight ships, and a team defines only its own',
+      'is built in and cannot be defined by a team',
     );
   }
 };
@@ -101,7 +101,7 @@ export class SkillDefinition extends EventRecorder {
     if (!read.skill.key.equals(this.key)) {
       throw new SkillKeyFixedError(
         this.key.value,
-        `keeps its key for its whole life, since stations give it by that key; replace it to define ${read.skill.key.value}`,
+        `cannot be renamed to ${read.skill.key.value}. Please replace it instead`,
       );
     }
 

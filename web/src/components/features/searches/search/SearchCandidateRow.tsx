@@ -40,12 +40,12 @@ export function SearchCandidateRow({
 
       {candidate.seed ? (
         <p className="text-muted-foreground text-xs">
-          The station as it was configured when the search started.
+          Station as configured when the search started.
         </p>
       ) : (
         <ChangedFromLive
           changes={searchChanges(candidate)}
-          same="The same as the live config."
+          same="Same as the live config."
         />
       )}
 

@@ -10,7 +10,7 @@ export class ReplaySetName {
 
     if (named.length === 0 || named.length > MOST_LENGTH) {
       throw new InvalidReplaySetError(
-        `is named in 1 to ${MOST_LENGTH} characters`,
+        `name must be 1 to ${MOST_LENGTH} characters`,
       );
     }
 

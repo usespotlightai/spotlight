@@ -3,7 +3,7 @@ export class ReplaySetBaselineMovedError extends Error {
 
   constructor(setId: string) {
     super(
-      `The baseline of replay set ${setId} changed while the replay was starting; start it again`,
+      `The baseline of replay set ${setId} changed while the replay was starting. Please start it again.`,
     );
     this.name = 'ReplaySetBaselineMovedError';
   }

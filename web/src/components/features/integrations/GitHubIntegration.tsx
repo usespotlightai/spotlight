@@ -30,7 +30,7 @@ export function GitHubIntegration({
 
   const summary = connected
     ? 'Works in this team’s repositories.'
-    : 'Install the App so Spotlight can work in this team’s repositories.';
+    : 'Not installed. Install the App to work in this team’s repositories.';
 
   return (
     <article className="flex flex-col gap-3 rounded-lg border border-border bg-card p-4">
@@ -61,7 +61,7 @@ export function GitHubIntegration({
           ) : (
             !connected && (
               <span className="text-muted-foreground text-xs">
-                GitHub is out of reach
+                GitHub install link unavailable
               </span>
             )
           )}

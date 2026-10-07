@@ -6,7 +6,7 @@ export class InvalidWorkspaceRunnersError extends Error {
     readonly at: number,
     readonly because: string,
   ) {
-    super(`The workspace's runners ${field}[${at}] ${because}`);
+    super(`Workspace runners ${field}[${at}] ${because}.`);
     this.name = 'InvalidWorkspaceRunnersError';
   }
 }

@@ -87,7 +87,7 @@ describe('CatalogGivings', () => {
         id: 'catalog.web-search@1.1.0',
         reason: 'not-entitled',
         because:
-          'catalog.web-search@1.1.0 needs the Team plan, and this workspace is on the Free plan',
+          'catalog.web-search@1.1.0 needs the Team plan. Workspace plan: Free',
       },
     ]);
   });

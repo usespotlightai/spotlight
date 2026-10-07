@@ -314,7 +314,7 @@ describe('HookedTasks', () => {
       expect(moved.awaitingReview).toBe(false);
       expect(moved.notes[1]?.kind).toBe('passed');
       expect(moved.notes[1]?.body.value).toBe(
-        'Moved to Backlog when the run ended, because of an event that arrived while it worked.\n\nFrom the hook core/notify:\n\nThe hook core/notify was stopped: task.moved → the hook core/notify',
+        'Moved to Backlog when the run ended. An event arrived while the run worked.\n\nFrom the hook core/notify:\n\nThe hook core/notify was stopped: task.moved → the hook core/notify',
       );
       expect(moved.notes[1]?.failure).toMatchObject({
         source: 'hook:core/notify',

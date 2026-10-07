@@ -30,13 +30,13 @@ export class EntryMeasures {
     tokens: TokenCounts;
   }): EntryMeasures {
     if (input.ms !== null && !(Number.isFinite(input.ms) && input.ms >= 0)) {
-      throw new InvalidReplayError('run takes no less than no time');
+      throw new InvalidReplayError('run duration cannot be negative');
     }
     if (!Number.isSafeInteger(input.steps) || input.steps < 0) {
-      throw new InvalidReplayError('run takes whole steps, or none');
+      throw new InvalidReplayError('run steps must be a whole number');
     }
     if (input.changedLines !== null && !counted(input.changedLines)) {
-      throw new InvalidReplayError('run changes whole lines, or none');
+      throw new InvalidReplayError('run changed lines must be a whole number');
     }
     if (
       ![
@@ -46,7 +46,7 @@ export class EntryMeasures {
         input.tokens.cacheWrite,
       ].every(counted)
     ) {
-      throw new InvalidReplayError('run counts its tokens in whole numbers');
+      throw new InvalidReplayError('run tokens must be whole numbers');
     }
 
     return new EntryMeasures(

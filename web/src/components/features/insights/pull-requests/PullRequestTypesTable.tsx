@@ -22,7 +22,7 @@ export function PullRequestTypesTable({
     count: number,
   ) =>
     count > 0 ? (
-      <InsightsLink tab="pull-requests" filter={typeFilter(share.type, author)}>
+      <InsightsLink tab="productivity" filter={typeFilter(share.type, author)}>
         {countShown(count)}
       </InsightsLink>
     ) : (

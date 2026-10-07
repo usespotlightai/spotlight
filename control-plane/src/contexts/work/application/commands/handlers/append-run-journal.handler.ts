@@ -21,7 +21,7 @@ export class AppendRunJournalHandler
     try {
       const journalling = await this.runs.findById(RunId.of(command.runId));
       if (!journalling) {
-        throw new UnknownRunError(`there is no run ${command.runId}`);
+        throw new UnknownRunError(`Run ${command.runId} not found.`);
       }
 
       const attempt = journalling.journalFor(RunnerId.of(command.runnerId));

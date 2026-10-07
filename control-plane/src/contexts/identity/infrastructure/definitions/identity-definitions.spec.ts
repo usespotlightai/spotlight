@@ -92,11 +92,11 @@ describe('IdentityDefinitions', () => {
   });
 
   it.each([
-    [['secrets'], /beside one of them/],
-    [['runners'], /beside one of them/],
-    [['trusts'], /beside one of them/],
+    [['secrets'], /need one of them/],
+    [['runners'], /need one of them/],
+    [['trusts'], /need one of them/],
     [['plan', 'plan'], /each scope once/],
-    [[], /beside one of them/],
+    [[], /need one of them/],
   ])('refuses a token whose scopes are %j', (scopes, reason) => {
     const compiled = definitions.workspaceToken({ name: 'ci', scopes });
 

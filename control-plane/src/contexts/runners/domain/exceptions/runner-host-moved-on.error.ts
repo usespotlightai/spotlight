@@ -3,7 +3,7 @@ export class RunnerHostMovedOnError extends Error {
 
   constructor(hostId: string) {
     super(
-      `This host has changed since it was read, and cannot be written over (${hostId})`,
+      `Host ${hostId} changed since you loaded it. Please reload and try again.`,
     );
     this.name = 'RunnerHostMovedOnError';
   }

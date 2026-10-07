@@ -9,7 +9,7 @@ export class DefinedActions {
       if (!areWords(name)) {
         throw new InvalidIntegrationPartError(
           `action ${JSON.stringify(name)}`,
-          'is not named in lowercase words joined by dashes, as in post-message',
+          'must be lowercase words joined by dashes, as in post-message',
         );
       }
     }
@@ -21,7 +21,7 @@ export class DefinedActions {
     if (!this.names.has(name)) {
       throw new InvalidIntegrationPartError(
         by,
-        `names an action "${name}" that is not defined`,
+        `names undefined action ${name}`,
       );
     }
 

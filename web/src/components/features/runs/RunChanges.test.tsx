@@ -2,8 +2,8 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it } from 'vitest';
 import { RunChanges } from '@/components/features/runs/RunChanges';
-import { RunSidePanel } from '@/components/features/runs/RunSidePanel';
 import type { JournalStep, RunJournal } from '@/lib/inbox';
+import { WithRunSidePanel } from '@/test/WithRunSidePanel';
 
 const step = (part: Partial<JournalStep>): JournalStep =>
   ({
@@ -47,7 +47,7 @@ describe('RunChanges', () => {
 
   it('boxes the files changed and opens a diff in the side panel', async () => {
     render(
-      <RunSidePanel>
+      <WithRunSidePanel>
         <RunChanges
           journals={[
             journal([
@@ -58,7 +58,7 @@ describe('RunChanges', () => {
             ]),
           ]}
         />
-      </RunSidePanel>,
+      </WithRunSidePanel>,
     );
 
     expect(screen.getByText(/2 files changed/)).toBeInTheDocument();

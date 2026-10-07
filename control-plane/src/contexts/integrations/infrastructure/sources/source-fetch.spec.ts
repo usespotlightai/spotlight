@@ -106,7 +106,7 @@ describe('SourceFetch', () => {
     );
 
     await expect(astray.fetching.text(GET, wearing())).rejects.toThrow(
-      /not among the hosts/,
+      /not on the allowed list/,
     );
   });
 
@@ -195,7 +195,7 @@ describe('SourceFetch', () => {
 
     await expect(
       fetching.text({ ...GET, url: 'https://elsewhere.example/x' }, wearing()),
-    ).rejects.toThrow(/not among the hosts/);
+    ).rejects.toThrow(/not on the allowed list/);
     expect(fetch).not.toHaveBeenCalled();
   });
 

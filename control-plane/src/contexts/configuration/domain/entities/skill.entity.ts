@@ -52,7 +52,7 @@ export class Skill {
     if (!input.key.isSpotlights) {
       throw new InvalidSkillError(
         input.key.value,
-        'ships with Spotlight, so its name starts spotlight-',
+        'is built in and must start with spotlight-',
       );
     }
 
@@ -67,35 +67,32 @@ export class Skill {
     if (folder && folder.files > folder.limits.files) {
       throw new InvalidSkillError(
         input.key.value,
-        `holds more than ${folder.limits.files} files in its folder, which is more than is given to a run`,
+        `has more than ${folder.limits.files} files in its folder`,
       );
     }
 
     if (folder && folder.characters > folder.limits.characters) {
       throw new InvalidSkillError(
         input.key.value,
-        `holds more than ${folder.limits.characters} characters in its folder, which is more than is given to a run`,
+        `has more than ${folder.limits.characters} characters in its folder`,
       );
     }
 
     if ('named' in input && input.named !== input.key.value) {
       throw new InvalidSkillError(
         input.key.value,
-        `is named ${JSON.stringify(input.named ?? null)} in its frontmatter, and must be named for its folder, ${input.key.value}`,
+        `must be named ${input.key.value} in its frontmatter, not ${JSON.stringify(input.named ?? null)}`,
       );
     }
 
     if (description.length === 0) {
-      throw new InvalidSkillError(
-        input.key.value,
-        'says nothing about when to use it: give it a description',
-      );
+      throw new InvalidSkillError(input.key.value, 'needs a description');
     }
 
     if (instructions.length === 0) {
       throw new InvalidSkillError(
         input.key.value,
-        'has nothing to say: write its instructions below the frontmatter',
+        'needs instructions below its frontmatter',
       );
     }
 

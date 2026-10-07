@@ -17,7 +17,7 @@ export class Tool {
     if (!isToolName(trimmed) && !isCatalogReference(trimmed)) {
       throw new InvalidIdentifierError(
         'tool',
-        'is lower case words joined by dashes, as in pull-request, named for the integration it comes from, as in linear.comment, or a catalog tool’s id, as in catalog.web-search@1.1.0',
+        'must be lowercase words joined by dashes (e.g. pull-request), an integration tool (e.g. linear.comment) or a catalog tool id (e.g. catalog.web-search@1.1.0)',
       );
     }
 

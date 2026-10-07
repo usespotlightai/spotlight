@@ -30,7 +30,6 @@ export function NewReviewComment({ spot, open }: NewReviewCommentProps) {
         placeholder="Leave a comment"
         avatar={<ReviewerAvatar />}
         pending={draft.isPending}
-        failed={draft.isError}
         onCancel={() => reviewing.compose(null)}
         onSubmit={(body) =>
           draft.mutate(

@@ -7,7 +7,7 @@ export class InvalidHarnessProfileError extends Error {
     readonly field: readonly FieldSegment[],
     readonly because: string,
   ) {
-    super(`A harness profile ${because}`);
+    super(`Harness profile ${because}.`);
     this.name = 'InvalidHarnessProfileError';
   }
 }

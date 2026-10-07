@@ -7,8 +7,13 @@ import type {
 import type { TaskDeliveryRepository } from '@outcomes/domain/repositories/task-delivery.repository';
 import type { TaskFailuresRepository } from '@outcomes/domain/repositories/task-failures.repository';
 import type { TaskTouchesRepository } from '@outcomes/domain/repositories/task-touches.repository';
+import type { CarriedConfigs } from '@outcomes/domain/services/config-stretches';
 import type { OutcomesClearance } from '@outcomes/domain/services/outcomes-clearance';
-import type { TeamHistory } from '@outcomes/domain/services/team-history';
+import {
+  latestStarted,
+  stationsOf,
+  type TeamHistory,
+} from '@outcomes/domain/services/team-history';
 import { InsightsPeriod } from '@outcomes/domain/value-objects/insights-period.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo';
@@ -30,6 +35,7 @@ export interface TeamScope {
 
 export interface TeamHistoryInPeriod extends TeamScope {
   readonly history: TeamHistory;
+  readonly runsFrom: Date;
   readonly truncated: boolean;
 }
 
@@ -76,17 +82,34 @@ export class TeamHistories {
     const truncated = [records, deliveries, touches, failures, chats].some(
       (each) => each.length > MOST_RECORDS,
     );
+    const kept = latestStarted(records, MOST_RECORDS, window.from);
 
     return {
       ...scope,
       truncated,
+      runsFrom: kept.runsFrom,
       history: {
-        records: records.length > MOST_RECORDS ? records.slice(1) : records,
+        records: kept.records,
         deliveries: deliveries.slice(0, MOST_RECORDS),
         touches: touches.slice(0, MOST_RECORDS),
         failures: failures.slice(0, MOST_RECORDS),
         chats: chats.slice(0, MOST_RECORDS),
       },
+    };
+  }
+
+  async carriedOn(inPeriod: TeamHistoryInPeriod): Promise<CarriedConfigs> {
+    const from = inPeriod.runsFrom;
+
+    return {
+      from,
+      lastRuns: await this.held.records.lastConfigRunsBefore(
+        inPeriod.clearance.teamId,
+        stationsOf(inPeriod.history.records).map(({ stationId }) => ({
+          stationId,
+          from,
+        })),
+      ),
     };
   }
 }

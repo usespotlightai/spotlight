@@ -56,7 +56,7 @@ const checkoutsAt = (
       refused(
         original,
         'repository-gone',
-        `it checked out ${each.path}, which the line no longer works`,
+        `The line no longer has repository ${each.path}.`,
       );
 
     return {
@@ -106,30 +106,30 @@ export const replayPlanFor = ({
 }): ReplayPlan => {
   const taskId =
     original.taskId ??
-    refused(original, 'not-a-task-run', 'it worked no task of its own');
+    refused(original, 'not-a-task-run', 'It worked no task.');
   const stationId =
     original.stationId ??
-    refused(original, 'not-a-task-run', 'it worked at no station');
+    refused(original, 'not-a-task-run', 'It worked at no station.');
   if (!original.hasEnded) {
-    refused(original, 'still-running', 'it has not ended yet');
+    refused(original, 'still-running', 'It has not ended yet.');
   }
 
   const started =
     original.startedFrom ??
-    refused(original, 'no-starting-point', 'it never said where it started');
-  const task =
-    briefed ??
     refused(
       original,
-      'no-briefing',
-      'the task it was briefed with was never kept',
+      'no-starting-point',
+      'It never reported a starting point.',
     );
+  const task =
+    briefed ??
+    refused(original, 'no-briefing', 'Its task briefing was not kept.');
 
   if (!candidate.stationAt(stationId)) {
     refused(
       original,
       'not-at-the-station',
-      'the candidate line has no station where it worked',
+      `The candidate line has no station ${stationId.value}.`,
     );
   }
 

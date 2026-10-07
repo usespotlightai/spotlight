@@ -53,7 +53,7 @@ export class HostImage {
     if (digest && !digest.isPinned) {
       throw new InvalidHostReportError(
         'images.digest',
-        'names the image by its sha256 digest',
+        'must name the image by its sha256 digest',
       );
     }
 

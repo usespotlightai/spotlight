@@ -3,7 +3,7 @@ export class InvalidStationAddressError extends Error {
 
   constructor(held: string) {
     super(
-      `A station is named by its team, line and station keys, as in core/delivery/build, not ${held}`,
+      `Station address must be team, line and station keys, as in core/delivery/build. Received: ${held}`,
     );
     this.name = 'InvalidStationAddressError';
   }

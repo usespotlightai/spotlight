@@ -1,7 +1,7 @@
 import { PullRequestsNotForgottenError } from '@github/application/errors/pull-requests-not-forgotten.error';
 import {
+  type HeardComment,
   type HeardReview,
-  type HeardReviewComment,
   PullRequest,
   type PullRequestFacts,
 } from '@github/domain/aggregates/pull-request.aggregate';
@@ -10,6 +10,7 @@ import { PullRequestMovedOnError } from '@github/domain/exceptions/pull-request-
 import type { GitHubConnectionRepository } from '@github/domain/repositories/github-connection.repository';
 import type { PullRequestRepository } from '@github/domain/repositories/pull-request.repository';
 import { forgettableBefore } from '@github/domain/services/pull-request-retention';
+import type { HeardThread } from '@github/domain/value-objects/bot-activity.vo';
 import type { GitHubInstallation } from '@github/domain/value-objects/github-installation.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
@@ -85,13 +86,28 @@ export class RecordPullRequests {
     from: HeardFrom,
     pullRequest: string,
     facts: PullRequestFacts | null,
-    comment: HeardReviewComment,
+    comment: HeardComment,
   ): Promise<void> {
     const url = urlOf(pullRequest);
 
     if (url) {
       await this.changing(from, url, facts, (held) =>
         held.commentedOn(comment),
+      );
+    }
+  }
+
+  async threadResolved(
+    from: HeardFrom,
+    pullRequest: string,
+    facts: PullRequestFacts | null,
+    thread: HeardThread,
+  ): Promise<void> {
+    const url = urlOf(pullRequest);
+
+    if (url) {
+      await this.changing(from, url, facts, (held) =>
+        held.threadResolved(thread),
       );
     }
   }

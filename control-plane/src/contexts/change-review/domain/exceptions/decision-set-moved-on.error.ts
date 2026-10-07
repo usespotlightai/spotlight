@@ -3,7 +3,7 @@ export class DecisionSetMovedOnError extends Error {
 
   constructor(id: string) {
     super(
-      `This decision set changed since it was read, and cannot be written over (${id})`,
+      `Decision set ${id} changed since you loaded it. Please reload and try again.`,
     );
     this.name = 'DecisionSetMovedOnError';
   }

@@ -137,7 +137,7 @@ export class Team extends EventRecorder {
     if (!definition.key.equals(this.key)) {
       throw new TeamKeyFixedError(
         this.key.value,
-        `keeps its key for its whole life, since everything it holds is addressed by it; replace it to key a team ${definition.key.value}`,
+        `cannot change its key to ${definition.key.value}`,
       );
     }
 

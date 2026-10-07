@@ -82,7 +82,7 @@ export class DispatchReplay {
       throw new UnreplayableRunError(
         original.value,
         'unknown-run',
-        'there is no such run',
+        'Run not found.',
       );
     }
 
@@ -94,7 +94,7 @@ export class DispatchReplay {
       throw new UnreplayableRunError(
         original.value,
         'cannot-start',
-        'the candidate station runs no harness a runner can start',
+        'The candidate station has no harness a runner can start.',
       );
     }
 
@@ -165,7 +165,7 @@ export class DispatchReplay {
       throw new UnreplayableRunError(
         replayed.id.value,
         'task-gone',
-        'the task it worked was deleted',
+        'Its task was deleted.',
       );
     }
 
@@ -206,7 +206,7 @@ export class DispatchReplay {
           throw new UnreplayableRunError(
             replayed.id.value,
             'attachments-gone',
-            'a file its task was briefed with is no longer kept',
+            'A file from its task briefing is no longer kept.',
           );
         }
         throw error;
@@ -224,7 +224,7 @@ export class DispatchReplay {
       throw new UnreplayableRunError(
         replayed.id.value,
         'archive-gone',
-        `the workspace archive it started from (${plan.archive.value}) is no longer kept`,
+        `Its workspace archive ${plan.archive.value} is no longer kept.`,
       );
     }
   }

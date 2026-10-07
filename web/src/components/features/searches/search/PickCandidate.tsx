@@ -4,7 +4,6 @@ import { PullRequestOpening } from '@/components/features/searches/search/PullRe
 import { RefusedPullRequest } from '@/components/features/searches/search/RefusedPullRequest';
 import { Button } from '@/components/ui/button';
 import { usePickSearchCandidate } from '@/hooks/api/usePickSearchCandidate';
-import { messageOf } from '@/lib/error';
 import { pickRefusal, type SearchCandidate } from '@/lib/search';
 import { ONLY_ON_SEEN_TASKS_PICK } from '@/lib/search-words';
 
@@ -24,9 +23,6 @@ export function PickCandidate({
   const refusal = pickRefusal(candidate);
   const asked = () =>
     pick.mutate({ teamId, searchId, candidateId: candidate.candidateId });
-  const failedToPick = pick.isError
-    ? messageOf(pick.error, 'Could not pick the candidate')
-    : null;
 
   if (candidate.seed) {
     return null;
@@ -69,17 +65,11 @@ export function PickCandidate({
         ) : (
           !opened && (
             <span className="text-muted-foreground">
-              Opens a pull request that changes the station to this config.
+              Opens a pull request changing the station to this config.
             </span>
           )
         )}
       </div>
-
-      {failedToPick && (
-        <p role="alert" className="text-destructive">
-          {failedToPick}
-        </p>
-      )}
     </div>
   );
 }

@@ -55,7 +55,7 @@ describe('Integration', () => {
 
   it('refuses a word belonging to another source', () => {
     expect(() => integration([declared('github.issue.completed')])).toThrow(
-      /must begin with linear\./,
+      /without the linear\. prefix/,
     );
   });
 
@@ -65,7 +65,7 @@ describe('Integration', () => {
         declared('linear.issue.completed'),
         declared('linear.issue.completed', 'Completed again'),
       ]),
-    ).toThrow(/twice/);
+    ).toThrow(/more than once/);
   });
 
   it('posts on the events it binds, and no others', () => {
@@ -89,7 +89,7 @@ describe('Integration', () => {
           Binding.of({ event: 'task.asked', does: 'post', known: KNOWN }),
         ],
       }),
-    ).toThrow(/names an action "post" that is not defined/);
+    ).toThrow(/names undefined action post/);
     expect(() =>
       Integration.of({
         source: LINEAR,
@@ -102,7 +102,7 @@ describe('Integration', () => {
           }),
         ],
       }),
-    ).toThrow(/not defined/);
+    ).toThrow(/names undefined action/);
   });
 
   it('is the same integration as another to the same host', () => {

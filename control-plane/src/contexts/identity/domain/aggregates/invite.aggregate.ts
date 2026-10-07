@@ -21,7 +21,7 @@ export type InviteStatus = 'open' | 'accepted' | 'revoked' | 'expired';
 const CLOSED_BECAUSE: Record<Exclude<InviteStatus, 'open'>, string> = {
   accepted: 'has already been accepted',
   revoked: 'has been revoked',
-  expired: 'has run out. Ask for another',
+  expired: 'has expired. Please ask for a new one',
 };
 
 export class Invite extends EventRecorder {

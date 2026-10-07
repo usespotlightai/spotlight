@@ -32,7 +32,7 @@ export class ProblemResponseDto {
 
   @ApiProperty({
     example:
-      'The integration is at version 4; read it again and send that version as If-Match',
+      'The integration changed since you read it. Please send the current version as If-Match. Current version: 4',
   })
   readonly detail!: string;
 

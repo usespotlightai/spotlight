@@ -2,7 +2,7 @@ export class UnknownReplayCheckError extends Error {
   readonly violation = 'not-found' as const;
 
   constructor(checkId: string) {
-    super(`There is no replay check ${checkId} for this caller`);
+    super(`Replay check ${checkId} not found.`);
     this.name = 'UnknownReplayCheckError';
   }
 }

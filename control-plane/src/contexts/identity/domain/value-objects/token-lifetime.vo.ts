@@ -19,7 +19,7 @@ export class TokenLifetime {
     ) {
       throw new InvalidTokenTrustError(
         'lifetimeMinutes',
-        `is a whole number of minutes from 1 to ${TokenLifetime.LONGEST_MINUTES}, as in ${TokenLifetime.USUAL_MINUTES}`,
+        `must be a whole number of minutes from 1 to ${TokenLifetime.LONGEST_MINUTES}, as in ${TokenLifetime.USUAL_MINUTES}`,
       );
     }
 

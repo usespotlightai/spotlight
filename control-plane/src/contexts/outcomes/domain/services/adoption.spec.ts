@@ -32,16 +32,20 @@ describe('adoptionOf', () => {
   it('counts who was active this period, the one before, this week and this month', () => {
     const adoption = adoptionOf(history, PERIOD, new Map());
 
-    expect(adoption.active).toEqual(['user_ada', 'user_bob', 'user_cy']);
-    expect(adoption.activeBefore).toEqual(['user_dee']);
-    expect(adoption.weekly).toEqual(['user_ada', 'user_bob', 'user_cy']);
-    expect(adoption.monthly).toEqual([
+    expect(adoption.activeCount).toBe(3);
+    expect(adoption.people.map((each) => each.personId)).toEqual([
       'user_ada',
       'user_bob',
       'user_cy',
-      'user_dee',
-      'user_eve',
     ]);
+    expect(adoption.activeChange).toMatchObject({
+      unit: 'percent',
+      by: 2,
+      direction: 'up',
+      tone: 'good',
+    });
+    expect(adoption.weeklyCount).toBe(3);
+    expect(adoption.monthlyCount).toBe(5);
     expect(adoption.stickiness).toBe(0.6);
   });
 
@@ -52,7 +56,10 @@ describe('adoptionOf', () => {
       new Map([['user_cy', day('2026-01-01')]]),
     );
 
-    expect(adoption.newAdopters).toEqual(['user_ada']);
+    expect(adoption.newAdopterCount).toBe(1);
+    expect(
+      adoption.people.filter((each) => each.isNew).map((each) => each.personId),
+    ).toEqual(['user_ada']);
     expect(
       adoption.people.find((each) => each.personId === 'user_bob'),
     ).toMatchObject({

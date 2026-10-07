@@ -422,7 +422,7 @@ describe('runner pools (e2e)', () => {
         expect(refused.body.errors).toEqual([
           expect.objectContaining({
             path: 'token',
-            message: expect.stringContaining('given once, ever'),
+            message: expect.stringContaining('Pool tokens work once only'),
           }),
         ]);
       }
@@ -443,7 +443,7 @@ describe('runner pools (e2e)', () => {
       expect(replaced.body.errors).toEqual([
         expect.objectContaining({
           path: 'token',
-          message: expect.stringContaining('given once, ever'),
+          message: expect.stringContaining('Pool tokens work once only'),
         }),
       ]);
     });
@@ -472,7 +472,7 @@ describe('runner pools (e2e)', () => {
         expect(refused.body.errors).toEqual([
           expect.objectContaining({
             path: 'token',
-            message: expect.stringContaining('another pool’s token'),
+            message: expect.stringContaining('belongs to another pool'),
           }),
         ]);
       }
@@ -494,7 +494,7 @@ describe('runner pools (e2e)', () => {
       expect(answers.find((each) => each.status === 422)?.body.errors).toEqual([
         expect.objectContaining({
           path: 'token',
-          message: expect.stringContaining('another pool’s token'),
+          message: expect.stringContaining('belongs to another pool'),
         }),
       ]);
     });

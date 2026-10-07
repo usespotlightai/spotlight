@@ -35,7 +35,7 @@ export function ChangeStackNotice({ stack, runTo }: ChangeStackNoticeProps) {
         <EmptyState icon={CircleDashed} title="Drafting the change stack">
           Grouping {changes} {changes === 1 ? 'change' : 'changes'} across{' '}
           {stack.files.length} {stack.files.length === 1 ? 'file' : 'files'}{' '}
-          into the order to review them in.
+          into review order.
         </EmptyState>
       </Notice>
     );
@@ -46,7 +46,7 @@ export function ChangeStackNotice({ stack, runTo }: ChangeStackNoticeProps) {
       <Notice>
         <EmptyState
           icon={TriangleAlert}
-          title="The change stack could not be drafted"
+          title="Sorry, the change stack couldn’t be drafted"
           action={back}
         >
           {stack.failure ?? 'Drafting stopped before it finished.'}
@@ -58,7 +58,7 @@ export function ChangeStackNotice({ stack, runTo }: ChangeStackNoticeProps) {
   return (
     <Notice>
       <EmptyState icon={Layers} title="No change stack yet" action={back}>
-        One appears here once a station that asks for changes finishes its work.
+        A stack appears here when a station that asks for changes finishes.
       </EmptyState>
     </Notice>
   );

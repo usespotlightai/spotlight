@@ -25,9 +25,8 @@ export function NoPullRequests({ slug, teamId }: NoPullRequestsProps) {
           </TrailLink>
         }
       >
-        Once the GitHub App is installed on the team’s repositories, every pull
-        request opened or merged there shows here, Spotlight’s, people’s and
-        bots’.
+        Pull requests by Spotlight, people and bots show here. Please install
+        the GitHub App on the team’s repositories.
       </EmptyState>
     </div>
   );

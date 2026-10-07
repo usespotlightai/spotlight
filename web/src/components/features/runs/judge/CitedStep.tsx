@@ -13,7 +13,7 @@ export function CitedStep({ step }: { step: Step }) {
         {step.kind && ` · ${step.tool ?? step.kind}`}
       </span>
       <p className="whitespace-pre-wrap break-words text-foreground text-xs leading-5">
-        {step.text ?? 'This step is no longer in the run’s journal.'}
+        {step.text ?? 'Step is no longer in the run’s journal.'}
       </p>
     </div>
   );

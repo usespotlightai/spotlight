@@ -9,7 +9,7 @@ export class ChatTitle {
     const trimmed = raw.trim();
 
     if (trimmed.length === 0) {
-      throw new InvalidChatMessageError('must say something to be named by');
+      throw new InvalidChatMessageError('must not be empty');
     }
 
     return new ChatTitle(trimmed.slice(0, MAX_LENGTH).trimEnd());

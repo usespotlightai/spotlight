@@ -26,7 +26,7 @@ export class MemoryRetirement {
 
     if (!reason || reason.length > MOST_REASON) {
       throw new InvalidMemoryError(
-        `is retired with a reason of at most ${MOST_REASON} characters`,
+        `retirement reason must be at most ${MOST_REASON} characters`,
       );
     }
 

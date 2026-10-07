@@ -116,7 +116,7 @@ export class ChangeChecks {
   }): ChangeChecks {
     if (!isChecksState(input.state)) {
       throw new InvalidReplayError(
-        `entry’s checks stand as one of ${CHECKS_STATES.join(', ')}, not ${input.state}`,
+        `entry checks must be one of ${CHECKS_STATES.join(', ')}, not ${input.state}`,
       );
     }
 

@@ -25,8 +25,8 @@ export function NoToolsUsed({ slug, teamId }: NoToolsUsedProps) {
           </TrailLink>
         }
       >
-        Once a station gives its runs skills or MCP servers, which ones they
-        read and call, and how the servers behave, shows here.
+        Skill reads and MCP server calls show here once a station gives its runs
+        any.
       </EmptyState>
     </div>
   );

@@ -2,7 +2,8 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { TeamInsights } from '@/components/features/insights/TeamInsights';
+import { ToolsTab } from '@/components/features/insights/tools/ToolsTab';
+import { stationNamesOf } from '@/lib/insights';
 import type { InsightsTools } from '@/lib/insights-tools';
 
 type Held = {
@@ -26,7 +27,20 @@ const answer: { tools: Held } = { tools: held(undefined) };
 vi.mock('@/hooks/api/useInsightsTools', () => ({
   useInsightsTools: () => answer.tools,
 }));
-vi.mock('@/hooks/api/useLines', () => ({ useLines: () => ({ data: [] }) }));
+const lines: { data: unknown[] } = { data: [] };
+
+vi.mock('@/hooks/api/useLines', () => ({ useLines: () => lines }));
+
+const LINES = [
+  {
+    id: 'line_1',
+    key: 'delivery',
+    name: 'Delivery',
+    repositories: [],
+    reactions: [],
+    stations: [{ id: 'station_impl', key: 'implement', name: 'Implement' }],
+  },
+];
 
 const TOOLS = {
   period: { name: '30d' },
@@ -41,8 +55,8 @@ const TOOLS = {
       given: 8,
       used: 5,
       weeks: [
-        { week: '2026-09-21', runs: 6, given: 4, used: 1 },
-        { week: '2026-09-28', runs: 6, given: 4, used: 4 },
+        { week: '2026-09-21', runs: 6, given: 4, used: 1, usedShare: 1 / 6 },
+        { week: '2026-09-28', runs: 6, given: 4, used: 4, usedShare: 4 / 6 },
       ],
       trend: 'spreading',
       stations: [
@@ -62,8 +76,8 @@ const TOOLS = {
       given: 0,
       used: 1,
       weeks: [
-        { week: '2026-09-21', runs: 6, given: 0, used: 0 },
-        { week: '2026-09-28', runs: 6, given: 0, used: 1 },
+        { week: '2026-09-21', runs: 6, given: 0, used: 0, usedShare: 0 },
+        { week: '2026-09-28', runs: 6, given: 0, used: 1, usedShare: 1 / 6 },
       ],
       trend: null,
       stations: [],
@@ -104,7 +118,16 @@ const showing = (search = '?tab=tools') =>
       <Routes>
         <Route
           path="/w/:slug/team/:teamId/insights"
-          element={<TeamInsights slug="acme" teamId="team_1" />}
+          element={
+            <ToolsTab
+              slug="acme"
+              teamId="team_1"
+              period="30d"
+              names={stationNamesOf(
+                LINES as unknown as Parameters<typeof stationNamesOf>[0],
+              )}
+            />
+          }
         />
       </Routes>
     </MemoryRouter>,
@@ -114,18 +137,10 @@ const RUNS = '/w/acme/team/team_1/insights?tab=runs';
 
 beforeEach(() => {
   answer.tools = held(TOOLS);
+  lines.data = LINES;
 });
 
-describe('the Tools tab', () => {
-  it('is a tab of Insights', () => {
-    showing();
-
-    expect(screen.getByRole('link', { name: 'Tools' })).toHaveAttribute(
-      'href',
-      '/w/acme/team/team_1/insights?tab=tools',
-    );
-  });
-
+describe('the skills and tools of the Tools and skills tab', () => {
   it('shows a faithful skeleton while it loads', () => {
     answer.tools = held(undefined);
 
@@ -152,6 +167,21 @@ describe('the Tools tab', () => {
     showing();
 
     expect(screen.getByText('No runs in this period')).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Create a task' })).toHaveAttribute(
+      'href',
+      '/w/acme/team/team_1/lines/line_1',
+    );
+  });
+
+  it('cannot create a task where the team has no line', () => {
+    answer.tools = held({ ...EMPTY, runs: 0 });
+    lines.data = [];
+
+    showing();
+
+    expect(
+      screen.getByRole('button', { name: 'Create a task' }),
+    ).toBeDisabled();
   });
 
   it('leads to the team’s skills where runs used no skill or server', () => {
@@ -164,62 +194,91 @@ describe('the Tools tab', () => {
     ).toHaveAttribute('href', '/w/acme/settings/team/team_1/skills');
   });
 
-  it('shows each skill’s use as its own small chart, marking spreading and saying the rule', () => {
+  const skillRow = (key: string) =>
+    screen
+      .getByText(key, { selector: 'a, span' })
+      .closest('[data-slot="nested-group"]') as HTMLElement;
+
+  it('lists each skill in one table, marking spreading and explaining the rule on its column', () => {
     showing();
 
-    const multiples = screen.getByRole('list', { name: 'Skill use by week' });
-    const migrations = within(multiples)
-      .getByRole('link', { name: 'our-migrations' })
-      .closest('[data-slot="skill-multiple"]') as HTMLElement;
+    const table = screen.getByRole('list', { name: 'Skill use' });
 
     expect(
-      multiples.querySelectorAll('[data-slot="skill-multiple"]'),
-    ).toHaveLength(2);
+      within(table).getAllByRole('button', { name: /^Fold / }),
+    ).toHaveLength(1);
     expect(
-      migrations.querySelector('[data-slot="skill-trend"]'),
+      skillRow('our-migrations').querySelector('[data-slot="skill-trend"]'),
     ).toHaveAttribute('data-trend', 'spreading');
-    expect(
-      screen.getByText(/moved 20 points or more over the last 2 weeks/),
-    ).toBeInTheDocument();
+    expect(skillRow('our-migrations')).toHaveTextContent('Given8Read5Trend');
   });
 
   it('links a defined skill to its page under the team’s skills, and opens the runs behind its numbers', () => {
     showing();
 
-    const multiples = screen.getByRole('list', { name: 'Skill use by week' });
+    const migrations = skillRow('our-migrations');
 
     expect(
-      within(multiples).getByRole('link', { name: 'our-migrations' }),
+      within(migrations).getByRole('link', { name: 'our-migrations' }),
     ).toHaveAttribute(
       'href',
       '/w/acme/settings/team/team_1/skills#skill-our-migrations',
     );
     expect(
-      within(multiples).queryByRole('link', { name: 'borrowed' }),
+      within(skillRow('borrowed')).queryByRole('link', { name: 'borrowed' }),
     ).toBeNull();
-    expect(within(multiples).getByRole('link', { name: '5' })).toHaveAttribute(
+    expect(within(migrations).getByRole('link', { name: '5' })).toHaveAttribute(
       'href',
       `${RUNS}&skillUsed=our-migrations`,
     );
-    expect(within(multiples).getByRole('link', { name: '8' })).toHaveAttribute(
+    expect(within(migrations).getByRole('link', { name: '8' })).toHaveAttribute(
       'href',
       `${RUNS}&skillGiven=our-migrations`,
     );
   });
 
-  it('opens a skill’s runs for a week from its table', async () => {
+  it('names the stations that read a skill, each opening its runs there', () => {
+    showing('?tab=tools&period=7d');
+
+    const stations = screen.getByRole('list', {
+      name: 'Stations using our-migrations',
+    });
+    const station = within(stations).getByRole('link', { name: 'Implement' });
+
+    expect(station).toHaveAttribute(
+      'href',
+      '/w/acme/team/team_1/insights?tab=runs&period=7d&stationId=station_impl&skillUsed=our-migrations',
+    );
+    expect(station.closest('li')).toHaveTextContent('Runs10Given8Read5');
+    expect(
+      screen.queryByRole('list', { name: 'Stations using borrowed' }),
+    ).toBeNull();
+  });
+
+  it('says when only the latest runs were counted', () => {
+    answer.tools = held({ ...TOOLS, truncated: true });
+
     showing();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Show table' }));
-
-    const table = screen.getByRole('table', {
-      name: 'Runs that read each skill, week by week',
-    });
-
-    expect(within(table).getByRole('link', { name: '4' })).toHaveAttribute(
-      'href',
-      `${RUNS}&week=2026-09-28&skillUsed=our-migrations`,
+    expect(screen.getByRole('note')).toHaveTextContent(
+      'Only the latest 20,000 runs',
     );
+  });
+
+  it('leaves out skills, unused skills and refusals where there are none', () => {
+    answer.tools = held({ ...EMPTY, servers: TOOLS.servers });
+
+    showing();
+
+    expect(screen.queryByRole('list', { name: 'Skill use' })).toBeNull();
+    expect(screen.queryByRole('list', { name: 'Unused skills' })).toBeNull();
+    expect(
+      screen.queryByRole('list', { name: 'Refused approvals per tool' }),
+    ).toBeNull();
+    expect(
+      screen.getByRole('list', { name: 'How each MCP server behaved' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('note')).toBeNull();
   });
 
   it('lists defined skills no run read', () => {
@@ -239,10 +298,10 @@ describe('the Tools tab', () => {
   it('shows each MCP server’s runs, calls per run, latency, error rate and failing runs, each opening its runs', () => {
     showing();
 
-    const table = screen.getByRole('table', {
+    const table = screen.getByRole('list', {
       name: 'How each MCP server behaved',
     });
-    const row = within(table).getByText('linear').closest('tr') as HTMLElement;
+    const row = within(table).getByText('linear').closest('li') as HTMLElement;
 
     expect(within(row).getByRole('link', { name: '4' })).toHaveAttribute(
       'href',
@@ -273,7 +332,7 @@ describe('the Tools tab', () => {
   it('counts refused approvals per tool of each server, opening the runs they were refused for', () => {
     showing();
 
-    const table = screen.getByRole('table', {
+    const table = screen.getByRole('list', {
       name: 'Refused approvals per tool',
     });
 

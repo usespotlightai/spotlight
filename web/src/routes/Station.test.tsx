@@ -8,6 +8,9 @@ const line = {
   id: 'line_1',
   key: 'default',
   name: 'Default',
+  reactions: [],
+  source: null,
+  replayCheck: null,
   stations: [
     {
       id: 'station_0',
@@ -17,9 +20,11 @@ const line = {
       kind: 'backlog',
       skills: [],
       alerts: [],
+      judge: null,
     },
     {
       id: 'station_1',
+      key: 'triage',
       name: 'Triage',
       position: 1,
       color: '#93a1b5',
@@ -27,6 +32,7 @@ const line = {
       kind: 'work',
       skills: [],
       alerts: [],
+      judge: null,
     },
     {
       id: 'station_2',
@@ -35,6 +41,8 @@ const line = {
       position: 2,
       color: '#5c66d9',
       harness: 'claude-code',
+      model: 'sonnet',
+      effort: 'high',
       agentPrompt: '## Role\n\n- Sort the queue\n- Ask when unsure',
       kind: 'work',
       skills: ['our-migrations', 'grafana-dashboards'],
@@ -80,6 +88,7 @@ const line = {
       kind: 'completed',
       skills: [],
       alerts: [],
+      judge: null,
     },
   ],
   repositories: ['usespotlightai/spotlight'],
@@ -105,40 +114,63 @@ vi.mock('@/hooks/api/useWorkspace', () => ({
     isPending: false,
   }),
 }));
+
 vi.mock('@/hooks/api/useHarnesses', () => ({
   useHarnesses: () => ({
     data: [
-      { id: 'claude-code', name: 'Claude Code' },
-      { id: 'other', name: 'Other Harness' },
+      {
+        id: 'claude-code',
+        name: 'Claude Code',
+        models: [{ id: 'sonnet', name: 'Sonnet' }],
+        defaultModel: 'sonnet',
+        efforts: ['low', 'high'],
+      },
     ],
   }),
 }));
-vi.mock('@/hooks/api/useRepositories', () => ({
-  useRepositories: () => ({
-    data: [{ fullName: 'usespotlightai/spotlight' }, { fullName: 'acme/web' }],
-  }),
-}));
+
+const outcomes = vi.fn();
+const outcomesFailing = vi.fn();
+const outcomesError = vi.fn();
+const refetchOutcomes = vi.fn();
 
 vi.mock('@/hooks/api/useStationOutcomes', () => ({
   useStationOutcomes: () => ({
-    data: { stationId: 'station_2', groups: [] },
-    isPending: false,
-    errorUpdateCount: 0,
+    data: outcomes(),
+    isPending: outcomes() === undefined,
+    errorUpdateCount: outcomesFailing() ? 1 : 0,
+    error: outcomesError(),
     isFetching: false,
-    refetch: vi.fn(),
+    refetch: refetchOutcomes,
   }),
 }));
 
 const judged = vi.fn();
 const judgeFailing = vi.fn();
-const judgeError = vi.fn();
-const refetchJudge = vi.fn();
+
+vi.mock('@/hooks/api/useStationJudge', () => ({
+  useStationJudge: () => ({
+    data: judged(),
+    isPending: judged() === undefined,
+    errorUpdateCount: judgeFailing() ? 1 : 0,
+    error: null,
+    isFetching: false,
+    refetch: vi.fn(),
+  }),
+}));
+
+const sets = vi.fn();
+const setsFailing = vi.fn();
+const refetchSets = vi.fn();
 
 vi.mock('@/hooks/api/useReplaySets', () => ({
   useReplaySets: () => ({
-    data: [],
-    isPending: false,
-    errorUpdateCount: 0,
+    data: sets(),
+    isPending: sets() === undefined,
+    errorUpdateCount: setsFailing() ? 1 : 0,
+    error: null,
+    isFetching: false,
+    refetch: refetchSets,
   }),
 }));
 
@@ -170,18 +202,64 @@ vi.mock('@/hooks/api/useStationCandidates', () => ({
   }),
 }));
 
-vi.mock('@/hooks/api/useStationJudge', () => ({
-  useStationJudge: () => ({
-    data: judged(),
-    isPending: judged() === undefined,
-    errorUpdateCount: judgeFailing() ? 1 : 0,
-    error: judgeError(),
-    isFetching: false,
-    refetch: refetchJudge,
-  }),
-}));
+const TALLY = {
+  runs: 42,
+  failed: 1,
+  stopped: 0,
+  checksPassed: 30,
+  checksFailed: 2,
+  accepted: 28,
+  sentBack: 3,
+  withdrawn: 0,
+  handedOn: 0,
+  merged: 20,
+  cost: null,
+  medianMs: null,
+  p90Ms: null,
+  unpriced: 0,
+  mixedCurrencies: false,
+};
 
-const TRUSTED = {
+const run = (runId: string, ending: string) => ({
+  runId,
+  taskId: `task_${runId}`,
+  endedAt: new Date().toISOString(),
+  ending,
+  failure: null,
+  round: 1,
+  cost: null,
+  checks: 'passed',
+  next: null,
+  handedOn: null,
+  delivery: null,
+});
+
+const OUTCOMES = {
+  stationId: 'station_2',
+  groups: [
+    {
+      ran: true,
+      firstRunId: 'run_2',
+      fingerprint: 'a'.repeat(64),
+      config: null,
+      changes: [],
+      tally: TALLY,
+      runs: [run('run_3', 'completed'), run('run_2', 'failed')],
+    },
+    {
+      ran: true,
+      firstRunId: 'run_1',
+      fingerprint: 'b'.repeat(64),
+      config: null,
+      changes: [],
+      tally: TALLY,
+      runs: [run('run_1', 'stopped')],
+    },
+  ],
+  inForce: { tally: TALLY },
+};
+
+const STANDING = {
   trusted: true,
   measure: 'kappa',
   agreement: 0.71,
@@ -190,80 +268,8 @@ const TRUSTED = {
   hiddenBecause: null,
 };
 
-const AGREEMENT = {
-  stationId: 'station_2',
-  judge: {
-    rubricVersion: 'c'.repeat(64),
-    kind: 'yes-no',
-    claims: [],
-    passShare: 1,
-    sample: 0.2,
-    trust: 0.6,
-  },
-  standing: TRUSTED,
-  coverage: { runs: 50, both: 24, judgeOnly: 6, peopleOnly: 14, neither: 6 },
-  versions: [
-    {
-      rubricVersion: 'c'.repeat(64),
-      kind: 'yes-no',
-      current: true,
-      judged: 30,
-      agreement: {
-        pairs: 24,
-        observed: 0.875,
-        kappa: 0.71,
-        spearman: null,
-        mae: null,
-        claims: [],
-      },
-      confusion: {
-        labels: ['no', 'yes'],
-        cells: [
-          [6, 2],
-          [1, 15],
-        ],
-      },
-      trend: [
-        {
-          day: '2026-09-29',
-          judged: 4,
-          judge: 0.75,
-          labelled: 3,
-          people: 0.67,
-        },
-      ],
-      firstAt: '2026-09-29T09:00:00.000Z',
-      lastAt: '2026-09-29T09:00:00.000Z',
-    },
-    {
-      rubricVersion: 'd'.repeat(64),
-      kind: 'number',
-      current: false,
-      judged: 12,
-      agreement: {
-        pairs: 9,
-        observed: 0.33,
-        kappa: null,
-        spearman: 0.42,
-        mae: 1.1,
-        claims: [],
-      },
-      confusion: {
-        labels: ['1', '2', '3', '4', '5'],
-        cells: [
-          [1, 0, 0, 0, 0],
-          [0, 1, 1, 0, 0],
-          [0, 1, 0, 1, 0],
-          [0, 0, 1, 1, 1],
-          [0, 0, 0, 1, 0],
-        ],
-      },
-      trend: [],
-      firstAt: '2026-09-20T09:00:00.000Z',
-      lastAt: '2026-09-21T09:00:00.000Z',
-    },
-  ],
-};
+const INSIGHTS = '/w/acme/team/team_1/insights';
+const STATION = '/w/acme/team/team_1/lines/line_1/stations/station_2';
 
 function HandedOver() {
   const { state } = useLocation();
@@ -271,16 +277,16 @@ function HandedOver() {
   return <pre data-slot="handed-over">{JSON.stringify(state?.improving)}</pre>;
 }
 
-const renderAt = (stationId: string) =>
+const renderAt = (stationId: string, tab?: string) =>
   render(
     <MemoryRouter
       initialEntries={[
-        `/w/acme/team/team_1/lines/line_1/stations/${stationId}`,
+        `/w/acme/team/team_1/lines/line_1/stations/${stationId}${tab ? `/${tab}` : ''}`,
       ]}
     >
       <Routes>
         <Route
-          path="/w/:slug/team/:teamId/lines/:lineId/stations/:stationId"
+          path="/w/:slug/team/:teamId/lines/:lineId/stations/:stationId/:tab?"
           element={<Station />}
         />
         <Route path="/w/:slug/team/:teamId/agent" element={<HandedOver />} />
@@ -288,22 +294,36 @@ const renderAt = (stationId: string) =>
     </MemoryRouter>,
   );
 
+const sectionTitled = (title: string) =>
+  screen
+    .getByRole('heading', { name: title })
+    .closest('section') as HTMLElement;
+
+const setting = (label: string) =>
+  screen.getByText(label, { selector: 'dt' }).nextElementSibling;
+
 beforeEach(() => {
   lines.mockReturnValue([line]);
   failing.mockReturnValue(false);
   refetch.mockClear();
-  judged.mockReturnValue(AGREEMENT);
+  outcomes.mockReturnValue(OUTCOMES);
+  outcomesFailing.mockReturnValue(false);
+  outcomesError.mockReturnValue(null);
+  refetchOutcomes.mockClear();
+  judged.mockReturnValue({ standing: STANDING });
   judgeFailing.mockReturnValue(false);
-  judgeError.mockReturnValue(null);
-  refetchJudge.mockClear();
+  sets.mockReturnValue([]);
+  setsFailing.mockReturnValue(false);
+  refetchSets.mockClear();
   localStorage.clear();
 });
 
 describe('Station', () => {
-  it('opens on the station’s own name', () => {
-    renderAt('station_2');
+  it('opens on the station’s own name and what it is for', () => {
+    renderAt('station_1');
 
-    expect(screen.getByRole('heading', { name: 'Spec' })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Triage' })).toBeInTheDocument();
+    expect(screen.getByText('Where new work lands.')).toBeInTheDocument();
   });
 
   it('names the team, the line and the station it is showing', () => {
@@ -314,7 +334,7 @@ describe('Station', () => {
     ).toBeInTheDocument();
   });
 
-  it('walks back to the team and the board from the breadcrumbs', () => {
+  it('walks back to the team and the board from the breadcrumbs, leaving the station unlinked', () => {
     renderAt('station_1');
 
     expect(screen.getByRole('link', { name: /Platform/ })).toHaveAttribute(
@@ -325,168 +345,9 @@ describe('Station', () => {
       'href',
       '/w/acme/team/team_1/lines/line_1',
     );
-  });
-
-  it('leaves the station itself unlinked, being the page in view', () => {
-    renderAt('station_1');
-
     expect(
       screen.queryByRole('link', { name: 'Triage' }),
     ).not.toBeInTheDocument();
-  });
-
-  it('shows what the station is for', () => {
-    renderAt('station_1');
-
-    expect(screen.getByText('Where new work lands.')).toBeInTheDocument();
-  });
-
-  it('offers nothing to change', () => {
-    renderAt('station_2');
-
-    expect(screen.queryByLabelText('Station name')).not.toBeInTheDocument();
-    expect(screen.queryByLabelText('Description')).not.toBeInTheDocument();
-    expect(screen.getByLabelText('Harness')).toBeDisabled();
-    expect(
-      screen.queryByRole('button', { name: /propose/i }),
-    ).not.toBeInTheDocument();
-  });
-
-  it('shows the backlog neither a harness nor a prompt', () => {
-    renderAt('station_0');
-
-    expect(screen.queryByLabelText('Harness')).not.toBeInTheDocument();
-    expect(screen.queryByLabelText('Agent prompt')).not.toBeInTheDocument();
-    expect(screen.getByText(/Nothing runs at a backlog/)).toBeInTheDocument();
-  });
-
-  it('shows what is completed neither a harness nor a prompt', () => {
-    renderAt('station_3');
-
-    expect(screen.queryByLabelText('Harness')).not.toBeInTheDocument();
-    expect(screen.queryByLabelText('Agent prompt')).not.toBeInTheDocument();
-    expect(screen.getByText(/the line is done with them/)).toBeInTheDocument();
-  });
-
-  it('renders the agent prompt rather than showing its markdown', () => {
-    renderAt('station_2');
-
-    expect(screen.getByRole('heading', { name: 'Role' })).toBeInTheDocument();
-    expect(screen.getByText('Sort the queue')).toBeInTheDocument();
-    expect(screen.queryByText(/^## Role/)).not.toBeInTheDocument();
-  });
-
-  it('shows the agent prompt without letting it be written', () => {
-    renderAt('station_2');
-
-    expect(screen.getByLabelText('Agent prompt')).toHaveAttribute(
-      'contenteditable',
-      'false',
-    );
-  });
-
-  it('says so where a station has no prompt', () => {
-    renderAt('station_1');
-
-    expect(screen.getByText('No agent prompt.')).toBeInTheDocument();
-  });
-
-  it('shows the harness the station runs on', () => {
-    renderAt('station_2');
-
-    expect(screen.getByLabelText('Harness')).toHaveTextContent('Claude Code');
-  });
-
-  it('says no agent works the station where no harness is set', () => {
-    renderAt('station_1');
-
-    expect(screen.getByLabelText('Harness')).toHaveTextContent('No agent');
-  });
-
-  it('shows the repositories the line works in', () => {
-    renderAt('station_1');
-
-    expect(screen.getByText('usespotlightai/spotlight')).toBeInTheDocument();
-  });
-
-  it('shows the skills the station gives its runs', () => {
-    renderAt('station_2');
-
-    expect(
-      within(screen.getByRole('list', { name: 'Skills' }))
-        .getAllByRole('listitem')
-        .map((each) => each.textContent),
-    ).toEqual(['our-migrations', 'grafana-dashboards']);
-  });
-
-  it('says so where a station gives no skills', () => {
-    renderAt('station_1');
-
-    expect(screen.getByText('No skills.')).toBeInTheDocument();
-  });
-
-  it('shows how much of the station’s work its judge scores, and how far it must be trusted', () => {
-    renderAt('station_2');
-
-    expect(screen.getByRole('heading', { name: 'Judge' })).toBeInTheDocument();
-    expect(screen.getByText('20% of runs')).toBeInTheDocument();
-    expect(
-      screen.getByText('agreement with people of 0.60 or more'),
-    ).toBeInTheDocument();
-  });
-
-  it('keeps the rubric folded away until asked, then shows it without letting it be written', async () => {
-    const user = userEvent.setup();
-    renderAt('station_2');
-
-    const rubric = screen.getByRole('button', { name: 'Rubric' });
-
-    expect(rubric).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.queryByLabelText('Rubric')).not.toBeInTheDocument();
-
-    await user.click(rubric);
-
-    expect(rubric).toHaveAttribute('aria-expanded', 'true');
-    expect(screen.getByLabelText('Rubric')).toHaveAttribute(
-      'contenteditable',
-      'false',
-    );
-    expect(
-      screen.getByRole('heading', { name: 'A good run' }),
-    ).toBeInTheDocument();
-  });
-
-  it('lists the station’s alerts in the order they were written', () => {
-    renderAt('station_2');
-
-    expect(
-      within(screen.getByRole('list', { name: 'Alerts' }))
-        .getAllByRole('listitem')
-        .map((each) => each.textContent),
-    ).toEqual([
-      'Alerts when the sent-back rate rises 20 points or more over 20 runs',
-      'Alerts when the cost per run goes above 2.00 over 10 runs',
-      'Alerts when the accepted rate falls 10 points or more over 20 runs',
-    ]);
-  });
-
-  it('shows no judge or alerts where none are set', () => {
-    renderAt('station_1');
-
-    expect(
-      screen.queryByRole('heading', { name: 'Judge' }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole('heading', { name: 'Alerts' }),
-    ).not.toBeInTheDocument();
-  });
-
-  it('marks how far along the line the station stands', () => {
-    renderAt('station_1');
-
-    expect(
-      document.querySelector('[data-slot="station-icon"]'),
-    ).toBeInTheDocument();
   });
 
   it('paints its icon the colour the station carries', () => {
@@ -497,7 +358,23 @@ describe('Station', () => {
     ).toHaveAttribute('stroke', '#93a1b5');
   });
 
-  it('holds the shape of the station while the line loads, keeping what never changes', () => {
+  it('names the agent that works the station under its name', () => {
+    renderAt('station_2');
+
+    expect(
+      document.querySelector('[data-slot="station-agent"]'),
+    ).toHaveTextContent('Claude Code · Sonnet · High effort');
+  });
+
+  it('says no agent works the station where no harness is set', () => {
+    renderAt('station_1');
+
+    expect(
+      document.querySelector('[data-slot="station-agent"]'),
+    ).toHaveTextContent('No agent');
+  });
+
+  it('holds the shape of the station while the line loads', () => {
     lines.mockReturnValue(undefined);
 
     renderAt('station_2');
@@ -505,10 +382,24 @@ describe('Station', () => {
     expect(
       screen.getByRole('status', { name: 'Loading the station' }),
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole('heading', { name: 'Agent prompt' }),
-    ).toBeInTheDocument();
     expect(screen.queryByText('Station not found')).not.toBeInTheDocument();
+  });
+
+  it('holds the shape of the tab its address opens while the line loads', () => {
+    lines.mockReturnValue(undefined);
+
+    const { unmount } = renderAt('station_2');
+    const overview = screen.getByRole('status', {
+      name: 'Loading the station',
+    });
+    expect(overview).toHaveTextContent('Latest runs on this config');
+    expect(overview).toHaveTextContent('Recent runs');
+    unmount();
+
+    renderAt('station_2', 'improve');
+    expect(
+      screen.getByRole('status', { name: 'Loading the station' }),
+    ).toHaveTextContent('Pick past runs to replay');
   });
 
   it('says the station could not be loaded, and tries again when asked', async () => {
@@ -522,99 +413,10 @@ describe('Station', () => {
       'The station could not be loaded.',
     );
     expect(screen.queryByRole('status')).not.toBeInTheDocument();
-    expect(screen.queryByText('Station not found')).not.toBeInTheDocument();
 
     await user.click(screen.getByRole('button', { name: 'Try again' }));
 
     expect(refetch).toHaveBeenCalled();
-  });
-
-  it('lists how the station’s runs turned out below what it is told', () => {
-    renderAt('station_2');
-
-    expect(
-      screen.getByRole('heading', { name: 'How its runs turned out' }),
-    ).toBeInTheDocument();
-  });
-
-  it('lists no runs where nothing runs', () => {
-    renderAt('station_0');
-
-    expect(
-      screen.queryByRole('heading', { name: 'How its runs turned out' }),
-    ).not.toBeInTheDocument();
-  });
-
-  it('shows how to propose a candidate with the CLI, at the station’s address, rather than a form', () => {
-    renderAt('station_2');
-
-    expect(
-      screen.getByRole('heading', { name: 'Replays' }),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(
-        'spotlight replay propose --station core/default/spec --name <name> <station.json>',
-      ),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: 'Open a replay set' }),
-    ).toBeInTheDocument();
-  });
-
-  it('offers to search once there is a replay set to search on', () => {
-    renderAt('station_2');
-
-    expect(
-      screen.getByRole('heading', { name: 'Searches' }),
-    ).toBeInTheDocument();
-    expect(screen.getByText('No searches yet')).toBeInTheDocument();
-    expect(
-      screen.getByRole('link', { name: 'Open a replay set first' }),
-    ).toHaveAttribute('href', '#replays');
-    expect(
-      screen.getByText(/does not say where its Terraform lives/),
-    ).toBeInTheDocument();
-  });
-
-  it('offers no replays where nothing runs', () => {
-    renderAt('station_3');
-
-    expect(
-      screen.queryByRole('heading', { name: 'Replays' }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole('heading', { name: 'Searches' }),
-    ).not.toBeInTheDocument();
-  });
-
-  it('hands the station to the agent to improve', async () => {
-    const user = userEvent.setup();
-    renderAt('station_2');
-
-    await user.click(
-      screen.getByRole('link', { name: 'Improve this station' }),
-    );
-
-    expect(
-      JSON.parse(
-        document.querySelector('[data-slot="handed-over"]')?.textContent ?? '',
-      ),
-    ).toEqual({
-      lineId: 'line_1',
-      lineKey: 'default',
-      lineName: 'Default',
-      stationId: 'station_2',
-      stationKey: 'spec',
-      stationName: 'Spec',
-    });
-  });
-
-  it('offers nothing to improve where nothing runs', () => {
-    renderAt('station_3');
-
-    expect(
-      screen.queryByRole('link', { name: 'Improve this station' }),
-    ).not.toBeInTheDocument();
   });
 
   it('says so when there is no station at that address', () => {
@@ -625,112 +427,460 @@ describe('Station', () => {
     ).toBeInTheDocument();
   });
 
-  describe('its judge', () => {
-    it('says the judge is trusted, and how often it agrees with people', () => {
+  it('says so when the station has no tab at that address', () => {
+    renderAt('station_2', 'statistics');
+
+    expect(
+      screen.getByRole('heading', { name: 'Station not found' }),
+    ).toBeInTheDocument();
+  });
+
+  describe('its ends', () => {
+    it('says nothing runs at the backlog, offering no tabs', () => {
+      renderAt('station_0');
+
+      expect(screen.getByText(/Nothing runs at a backlog/)).toBeInTheDocument();
+      expect(
+        screen.queryByRole('navigation', { name: 'Station' }),
+      ).not.toBeInTheDocument();
+      expect(
+        document.querySelector('[data-slot="station-agent"]'),
+      ).not.toBeInTheDocument();
+    });
+
+    it('says nothing runs where tasks are completed, offering nothing to improve', () => {
+      renderAt('station_3', 'improve');
+
+      expect(
+        screen.getByText(/the line is done with them/),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole('link', { name: 'Improve this station' }),
+      ).not.toBeInTheDocument();
+    });
+  });
+
+  describe('its tabs', () => {
+    it('offers Overview, Improve and Config, each at its own address', () => {
+      renderAt('station_2');
+
+      const tabs = within(screen.getByRole('navigation', { name: 'Station' }));
+
+      expect(tabs.getByRole('link', { name: 'Overview' })).toHaveAttribute(
+        'href',
+        STATION,
+      );
+      expect(tabs.getByRole('link', { name: 'Improve' })).toHaveAttribute(
+        'href',
+        `${STATION}/improve`,
+      );
+      expect(tabs.getByRole('link', { name: 'Config' })).toHaveAttribute(
+        'href',
+        `${STATION}/config`,
+      );
+    });
+
+    it('opens on the overview, marking it as the tab in view', () => {
+      renderAt('station_2');
+
+      expect(screen.getByRole('link', { name: 'Overview' })).toHaveAttribute(
+        'aria-current',
+        'page',
+      );
+      expect(
+        screen.getByRole('heading', { name: 'Recent runs' }),
+      ).toBeInTheDocument();
+    });
+
+    it('moves to another tab when it is picked', async () => {
+      const user = userEvent.setup();
+      renderAt('station_2');
+
+      await user.click(screen.getByRole('link', { name: 'Improve' }));
+
+      expect(screen.getByRole('link', { name: 'Improve' })).toHaveAttribute(
+        'aria-current',
+        'page',
+      );
+      expect(
+        screen.getByRole('heading', { name: 'Talk it through with the agent' }),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole('heading', { name: 'Recent runs' }),
+      ).not.toBeInTheDocument();
+    });
+  });
+
+  describe('its overview', () => {
+    it('sums up the latest runs on the config in force, linking to the station in Insights', () => {
+      renderAt('station_2');
+
+      expect(
+        document.querySelector('[data-slot="station-glance"]'),
+      ).toHaveTextContent('Runs42Accepted28Sent back3Failed1');
+      expect(
+        within(sectionTitled('Latest runs on this config')).getByRole('link', {
+          name: 'See in Insights',
+        }),
+      ).toHaveAttribute('href', `${INSIGHTS}?tab=stations&stationId=station_2`);
+    });
+
+    it('sums up nothing where no run has run a config yet', () => {
+      outcomes.mockReturnValue({ ...OUTCOMES, inForce: null });
+
+      renderAt('station_2');
+
+      expect(
+        screen.queryByRole('heading', { name: 'Latest runs on this config' }),
+      ).not.toBeInTheDocument();
+    });
+
+    it('lists the station’s alerts in the order they were written', () => {
+      renderAt('station_2');
+
+      expect(
+        within(screen.getByRole('list', { name: 'Alerts' }))
+          .getAllByRole('listitem')
+          .map((each) => each.textContent),
+      ).toEqual([
+        'Alerts when the sent-back rate rises 20 points or more over 20 runs',
+        'Alerts when the cost per run goes above 2.00 over 10 runs',
+        'Alerts when the accepted rate falls 10 points or more over 20 runs',
+      ]);
+    });
+
+    it('says in a line how far the judge is trusted, linking to its agreement in Insights', () => {
       renderAt('station_2');
 
       expect(
         document.querySelector('[data-slot="judge-standing"]'),
-      ).toHaveTextContent('Trusted: Cohen’s kappa is 0.71 over 24 runs');
+      ).toHaveTextContent('Trusted. Cohen’s kappa: 0.71 over 24 runs');
+      expect(
+        screen.getByRole('link', { name: 'How it agrees with people' }),
+      ).toHaveAttribute(
+        'href',
+        `${INSIGHTS}?tab=stations&stationId=station_2#judge`,
+      );
     });
 
-    it('says why the judge’s scores are hidden when it agrees too seldom', () => {
-      judged.mockReturnValue({
-        ...AGREEMENT,
-        standing: {
-          ...TRUSTED,
-          trusted: false,
-          agreement: 0.38,
-          hiddenBecause: 'below-trust',
-        },
+    it('leaves the judge out where its agreement could not load', () => {
+      judged.mockReturnValue(undefined);
+      judgeFailing.mockReturnValue(true);
+
+      renderAt('station_2');
+
+      expect(
+        screen.queryByRole('heading', { name: 'Judge' }),
+      ).not.toBeInTheDocument();
+    });
+
+    it('shows no judge or alerts where none are set', () => {
+      renderAt('station_1');
+
+      expect(
+        screen.queryByRole('heading', { name: 'Judge' }),
+      ).not.toBeInTheDocument();
+      expect(
+        screen.queryByRole('heading', { name: 'Alerts you when' }),
+      ).not.toBeInTheDocument();
+    });
+
+    it('lists its recent runs newest first, each linking to the run', () => {
+      renderAt('station_2');
+
+      const runs = within(screen.getByRole('list', { name: 'Recent runs' }));
+
+      expect(
+        runs
+          .getAllByRole('link')
+          .map((each) => [each.textContent, each.getAttribute('href')]),
+      ).toEqual([
+        ['Completed', '/w/acme/team/team_1/runs/run_3'],
+        ['Failed', '/w/acme/team/team_1/runs/run_2'],
+        ['Stopped', '/w/acme/team/team_1/runs/run_1'],
+      ]);
+    });
+
+    it('links to all the station’s runs in Insights', () => {
+      renderAt('station_2');
+
+      expect(screen.getByRole('link', { name: 'All runs' })).toHaveAttribute(
+        'href',
+        `${INSIGHTS}?tab=runs&stationId=station_2`,
+      );
+    });
+
+    it('holds the place of its runs while they load', () => {
+      outcomes.mockReturnValue(undefined);
+
+      renderAt('station_2');
+
+      expect(
+        screen.getByRole('status', { name: 'Loading the station’s runs' }),
+      ).toBeInTheDocument();
+    });
+
+    it('says its runs could not be loaded, and tries again when asked', async () => {
+      const user = userEvent.setup();
+      outcomes.mockReturnValue(undefined);
+      outcomesFailing.mockReturnValue(true);
+
+      renderAt('station_2');
+
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'The station’s runs could not be loaded.',
+      );
+
+      await user.click(screen.getByRole('button', { name: 'Try again' }));
+
+      expect(refetchOutcomes).toHaveBeenCalled();
+    });
+
+    it('tells someone off the team that only its members can see its runs', () => {
+      outcomes.mockReturnValue(undefined);
+      outcomesFailing.mockReturnValue(true);
+      outcomesError.mockReturnValue({ statusCode: 404 });
+
+      renderAt('station_2');
+
+      expect(
+        screen.getByText('Only team members can see this station’s runs'),
+      ).toBeInTheDocument();
+    });
+
+    it('says no run has reached the station yet, and offers to create a task', () => {
+      outcomes.mockReturnValue({
+        stationId: 'station_2',
+        groups: [],
+        inForce: null,
       });
 
       renderAt('station_2');
 
+      const runs = sectionTitled('Recent runs');
+
+      expect(within(runs).getByText('No runs yet')).toBeInTheDocument();
       expect(
-        document.querySelector('[data-slot="judge-standing"]'),
-      ).toHaveTextContent(
-        'Hidden: Cohen’s kappa is 0.38, below the 0.60 it needs.',
-      );
-    });
-
-    it('lays out agreement rubric by rubric, the current one first', () => {
-      renderAt('station_2');
-
-      const versions = within(
-        screen.getByRole('list', { name: 'Agreement by rubric' }),
-      ).getAllByRole('listitem');
-      expect(versions).toHaveLength(2);
-      expect(versions[0]).toHaveTextContent('Current');
-      expect(versions[0]).toHaveTextContent('Agreed88%');
-      expect(versions[1]).toHaveTextContent('Spearman’s ρ0.42');
-      expect(versions[1]).toHaveTextContent('Mean error1.10');
-    });
-
-    it('counts runs in a confusion matrix, the judge down and people across', () => {
-      renderAt('station_2');
-
-      const [matrix] = screen.getAllByRole('table');
+        within(runs).getByRole('link', { name: 'Create a task' }),
+      ).toHaveAttribute('href', '/w/acme/team/team_1/lines/line_1');
       expect(
-        within(matrix as HTMLElement)
-          .getAllByRole('cell')
+        screen.queryByRole('link', { name: 'All runs' }),
+      ).not.toBeInTheDocument();
+    });
+  });
+
+  describe('its improve tab', () => {
+    it('lays out the ways to improve the station as numbered steps', () => {
+      renderAt('station_2', 'improve');
+
+      expect(
+        screen
+          .getAllByRole('heading', { level: 3 })
           .map((each) => each.textContent),
-      ).toEqual(['6', '2', '1', '15']);
+      ).toEqual([
+        'Talk it through with the agent',
+        'Pick past runs to replay',
+        'Propose candidates',
+        'Or let a search find one',
+      ]);
     });
 
-    it('counts the runs with both scores and those with only one', () => {
-      renderAt('station_2');
+    it('hands the station to the agent to improve', async () => {
+      const user = userEvent.setup();
+      renderAt('station_2', 'improve');
+
+      await user.click(
+        screen.getByRole('link', { name: 'Improve this station' }),
+      );
 
       expect(
-        document.querySelector('[data-slot="judge-coverage"]'),
-      ).toHaveTextContent('Both scores24Judge only6People only14Neither6');
+        JSON.parse(
+          document.querySelector('[data-slot="handed-over"]')?.textContent ??
+            '',
+        ),
+      ).toEqual({
+        lineId: 'line_1',
+        lineKey: 'default',
+        lineName: 'Default',
+        stationId: 'station_2',
+        stationKey: 'spec',
+        stationName: 'Spec',
+      });
     });
 
-    it('holds the judge’s place while its agreement loads', () => {
-      judged.mockReturnValue(undefined);
+    it('says no replay set is open yet, and offers to open one', () => {
+      renderAt('station_2', 'improve');
 
-      renderAt('station_2');
-
+      expect(screen.getByText('No replay sets yet')).toBeInTheDocument();
       expect(
-        screen.getByRole('status', {
-          name: 'Loading how the judge agrees with people',
-        }),
+        screen.getByRole('button', { name: 'Open a replay set' }),
       ).toBeInTheDocument();
     });
 
-    it('offers to try again when its agreement could not load', async () => {
-      judged.mockReturnValue(undefined);
-      judgeFailing.mockReturnValue(true);
+    it('holds the place of the replay sets while they load', () => {
+      sets.mockReturnValue(undefined);
 
-      renderAt('station_2');
-      await userEvent.click(screen.getByRole('button', { name: 'Try again' }));
-
-      expect(refetchJudge).toHaveBeenCalled();
-    });
-
-    it('tells someone off the team that only its members can see how the judge agrees', () => {
-      judged.mockReturnValue(undefined);
-      judgeFailing.mockReturnValue(true);
-      judgeError.mockReturnValue({ statusCode: 404 });
-
-      renderAt('station_2');
+      renderAt('station_2', 'improve');
 
       expect(
+        screen.getByRole('status', { name: 'Loading the replay sets' }),
+      ).toBeInTheDocument();
+    });
+
+    it('says the replay sets could not be loaded, and tries again when asked', async () => {
+      const user = userEvent.setup();
+      sets.mockReturnValue(undefined);
+      setsFailing.mockReturnValue(true);
+
+      renderAt('station_2', 'improve');
+
+      expect(screen.getByRole('alert')).toHaveTextContent(
+        'The station’s replay sets could not be loaded.',
+      );
+
+      await user.click(screen.getByRole('button', { name: 'Try again' }));
+
+      expect(refetchSets).toHaveBeenCalled();
+    });
+
+    it('shows how to propose a candidate with the CLI, at the station’s address', () => {
+      renderAt('station_2', 'improve');
+
+      expect(screen.getByText('No candidates yet')).toBeInTheDocument();
+      expect(
+        screen.getByText('Propose a candidate with the CLI'),
+      ).toBeInTheDocument();
+      expect(
         screen.getByText(
-          'Only the team’s members can see how the judge agrees with people',
+          'spotlight replay propose --station core/default/spec --name <name> <station.json>',
         ),
       ).toBeInTheDocument();
     });
 
-    it('says no run is judged yet, and offers to create a task', () => {
-      judged.mockReturnValue({ ...AGREEMENT, versions: [] });
+    it('offers to search once there is a replay set to search on', () => {
+      renderAt('station_2', 'improve');
 
-      renderAt('station_2');
-
-      const empty = screen.getByText('No judged runs yet').closest('div')
-        ?.parentElement as HTMLElement;
+      expect(screen.getByText('No searches yet')).toBeInTheDocument();
       expect(
-        within(empty).getByRole('link', { name: 'Create a task' }),
+        screen.getByRole('link', { name: 'Open a replay set first' }),
+      ).toHaveAttribute('href', '#replays');
+    });
+  });
+
+  describe('its config', () => {
+    it('says it is set in Terraform, pointing to Improve to try a change', () => {
+      renderAt('station_2', 'config');
+
+      expect(screen.getByText(/Set in Terraform/)).toBeInTheDocument();
+      expect(
+        within(
+          screen.getByText(/Set in Terraform/).closest('p') as HTMLElement,
+        ).getByRole('link', { name: 'Improve' }),
+      ).toHaveAttribute('href', `${STATION}/improve`);
+    });
+
+    it('shows the harness, model and effort the station runs on', () => {
+      renderAt('station_2', 'config');
+
+      expect(setting('Harness')).toHaveTextContent('Claude Code');
+      expect(setting('Model')).toHaveTextContent('Sonnet');
+      expect(setting('Effort')).toHaveTextContent('High effort');
+    });
+
+    it('says no agent works the station where no harness is set', () => {
+      renderAt('station_1', 'config');
+
+      expect(setting('Harness')).toHaveTextContent('No agent');
+      expect(screen.queryByText('Model')).not.toBeInTheDocument();
+    });
+
+    it('shows the skills the station gives its runs', () => {
+      renderAt('station_2', 'config');
+
+      expect(
+        within(screen.getByRole('list', { name: 'Skills' }))
+          .getAllByRole('listitem')
+          .map((each) => each.textContent),
+      ).toEqual(['our-migrations', 'grafana-dashboards']);
+    });
+
+    it('says so where a station gives no skills', () => {
+      renderAt('station_1', 'config');
+
+      expect(setting('Skills')).toHaveTextContent('None');
+    });
+
+    it('renders the prompt rather than its markdown, without letting it be written', () => {
+      renderAt('station_2', 'config');
+
+      expect(screen.getByLabelText('Agent prompt')).toHaveAttribute(
+        'contenteditable',
+        'false',
+      );
+      expect(screen.getByRole('heading', { name: 'Role' })).toBeInTheDocument();
+      expect(screen.getByText('Sort the queue')).toBeInTheDocument();
+      expect(screen.queryByText(/^## Role/)).not.toBeInTheDocument();
+    });
+
+    it('says so where a station has no prompt', () => {
+      renderAt('station_1', 'config');
+
+      expect(screen.getByText('No prompt.')).toBeInTheDocument();
+    });
+
+    it('shows how much of the station’s work its judge scores, and how far it must be trusted', () => {
+      renderAt('station_2', 'config');
+
+      expect(setting('Judges')).toHaveTextContent('20% of runs');
+      expect(setting('Minimum agreement to trust')).toHaveTextContent('0.60');
+    });
+
+    it('keeps the rubric folded away until asked, then shows it without letting it be written', async () => {
+      const user = userEvent.setup();
+      renderAt('station_2', 'config');
+
+      const rubric = screen.getByRole('button', { name: 'Rubric' });
+
+      expect(rubric).toHaveAttribute('aria-expanded', 'false');
+      expect(screen.queryByLabelText('Rubric')).not.toBeInTheDocument();
+
+      await user.click(rubric);
+
+      expect(rubric).toHaveAttribute('aria-expanded', 'true');
+      expect(screen.getByLabelText('Rubric')).toHaveAttribute(
+        'contenteditable',
+        'false',
+      );
+      expect(
+        screen.getByRole('heading', { name: 'A good run' }),
+      ).toBeInTheDocument();
+    });
+
+    it('says only people score runs where no judge is set', () => {
+      renderAt('station_1', 'config');
+
+      expect(
+        screen.getByText('No judge. Only people score runs here.'),
+      ).toBeInTheDocument();
+    });
+
+    it('shows what the station takes from its line, linking to the line', () => {
+      renderAt('station_2', 'config');
+
+      const fromLine = within(sectionTitled('From the line'));
+
+      expect(fromLine.getByRole('link', { name: 'Default' })).toHaveAttribute(
+        'href',
+        '/w/acme/team/team_1/lines/line_1',
+      );
+      expect(
+        fromLine.getByText('usespotlightai/spotlight'),
+      ).toBeInTheDocument();
+      expect(
+        fromLine.getByText(/Line names no Terraform source/),
+      ).toBeInTheDocument();
+      expect(
+        fromLine.getByText(/Line sets no replay_check/),
       ).toBeInTheDocument();
     });
   });

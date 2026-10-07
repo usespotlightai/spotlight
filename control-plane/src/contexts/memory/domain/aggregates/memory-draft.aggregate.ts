@@ -318,7 +318,7 @@ export class MemoryDraft
     const ids = input.approving.map((each) => each.id.value);
 
     if (ids.length === 0 || new Set(ids).size !== ids.length) {
-      throw new InvalidMemoryError('is approved by naming each memory once');
+      throw new InvalidMemoryError('approval must name each memory once');
     }
 
     const approving = input.approving.map((each) => ({
@@ -331,7 +331,7 @@ export class MemoryDraft
       approving.some(({ proposal }) => proposal.fromOutside)
     ) {
       throw new InvalidMemoryError(
-        'from outside the team is approved one at a time, never with others',
+        'from outside the team must be approved on its own',
       );
     }
 

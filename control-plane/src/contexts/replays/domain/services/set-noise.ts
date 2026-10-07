@@ -2,7 +2,12 @@ import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import { copiesByOriginal } from '@replays/domain/services/replay-results';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
+import { MOST_REPEATS } from '@replays/domain/value-objects/replay-repeats';
 import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
+
+const ROUNDING = 1e-9;
+
+const ONE_COPY = 1;
 
 export interface SetNoise {
   readonly replayId: ReplayId;
@@ -13,6 +18,30 @@ export interface SetNoise {
   readonly flippedTasks: readonly string[];
   readonly measuredAt: Date;
 }
+
+export interface SetNoiseReading extends SetNoise {
+  readonly noisyInOneCopy: boolean;
+}
+
+export const neededRepeatsFor = (spread: number, minGain: number): number =>
+  Math.max(1, Math.ceil((spread / minGain) ** 2 - ROUNDING));
+
+export const suggestedRepeatsFor = (spread: number, minGain: number): number =>
+  Math.min(MOST_REPEATS, neededRepeatsFor(spread, minGain));
+
+export const isNoisyAt = (
+  spread: number,
+  minGain: number,
+  repeats: number,
+): boolean => neededRepeatsFor(spread, minGain) > repeats;
+
+export const noiseReadingOf = (
+  noise: SetNoise,
+  minGain: number,
+): SetNoiseReading => ({
+  ...noise,
+  noisyInOneCopy: isNoisyAt(noise.spread, minGain, ONE_COPY),
+});
 
 export interface ReplayedConfig {
   readonly id: CandidateId;

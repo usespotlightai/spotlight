@@ -13,7 +13,7 @@ export class TokenDescription {
     if (held.length > LONGEST) {
       throw new InvalidWorkspaceTokenError(
         'description',
-        `is at most ${LONGEST} characters`,
+        `must be at most ${LONGEST} characters`,
       );
     }
 

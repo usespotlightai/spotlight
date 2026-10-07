@@ -2,6 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import type {
   ConfigMarkerDto,
   DayOutputDto,
+  HeadlineChangesDto,
   HeadlineDto,
   InsightsOverviewDto,
   StationWorthImprovingDto,
@@ -9,6 +10,8 @@ import type {
 import type { SignalReading } from '@outcomes/domain/services/station-ranking';
 import { STATION_SIGNALS } from '@outcomes/domain/services/station-ranking';
 import {
+  ChangeResponseDto,
+  changeResponseOf,
   InsightsPeriodResponseDto,
   PersonNameResponseDto,
   SpreadResponseDto,
@@ -131,6 +134,109 @@ export class HeadlineResponseDto {
   }
 }
 
+export class HeadlineChangesResponseDto {
+  @ApiProperty({
+    type: ChangeResponseDto,
+    nullable: true,
+    description:
+      'Spend against the period before, where both were in one currency',
+  })
+  readonly spend: ChangeResponseDto | null;
+
+  @ApiProperty({
+    type: ChangeResponseDto,
+    nullable: true,
+    description: 'Pull requests merged against the period before',
+  })
+  readonly mergedPullRequests: ChangeResponseDto | null;
+
+  @ApiProperty({
+    type: ChangeResponseDto,
+    nullable: true,
+    description: 'The merge rate against the period before, in points',
+  })
+  readonly mergeRate: ChangeResponseDto | null;
+
+  @ApiProperty({
+    type: ChangeResponseDto,
+    nullable: true,
+    description:
+      'Cost per merged pull request against the period before, where both were in one currency',
+  })
+  readonly costPerMerge: ChangeResponseDto | null;
+
+  @ApiProperty({
+    type: ChangeResponseDto,
+    nullable: true,
+    description: 'The median task to merge against the period before',
+  })
+  readonly taskToMerge: ChangeResponseDto | null;
+
+  @ApiProperty({
+    type: ChangeResponseDto,
+    nullable: true,
+    description: 'Human touches per task against the period before',
+  })
+  readonly touchesPerTask: ChangeResponseDto | null;
+
+  @ApiProperty({
+    type: ChangeResponseDto,
+    nullable: true,
+    description: 'Active people against the period before',
+  })
+  readonly activePeople: ChangeResponseDto | null;
+
+  constructor(changes: HeadlineChangesDto) {
+    this.spend = changeResponseOf(changes.spend);
+    this.mergedPullRequests = changeResponseOf(changes.mergedPullRequests);
+    this.mergeRate = changeResponseOf(changes.mergeRate);
+    this.costPerMerge = changeResponseOf(changes.costPerMerge);
+    this.taskToMerge = changeResponseOf(changes.taskToMerge);
+    this.touchesPerTask = changeResponseOf(changes.touchesPerTask);
+    this.activePeople = changeResponseOf(changes.activePeople);
+  }
+}
+
+export class ConfigMarkerResponseDto {
+  @ApiProperty({ example: 'b0c7e1f4-1a2b-4c3d-9e8f-7a6b5c4d3e2f' })
+  readonly lineId: string;
+
+  @ApiProperty({ example: 'd41f0a2c-8b7e-4f19-9d3a-6c5e2b1a4f80' })
+  readonly stationId: string;
+
+  @ApiProperty({
+    example: 'a3f9…',
+    description: 'The station config the station changed to',
+  })
+  readonly fingerprint: string;
+
+  @ApiProperty({
+    example: '9b1d…',
+    description:
+      'The config the station’s previous run that ran a config ran with; a change back to an earlier config is a change too',
+  })
+  readonly previousFingerprint: string;
+
+  @ApiProperty({
+    example: '2026-09-21T09:00:00.000Z',
+    description:
+      'When the first run with it started, or ended where it never started',
+  })
+  readonly firstRunAt: string;
+
+  @ApiProperty({ example: '4e1e84a2-0c39-406d-bbbb-559f29e450be' })
+  readonly runId: string;
+
+  constructor(marker: ConfigMarkerDto) {
+    this.lineId = marker.lineId;
+    this.stationId = marker.stationId;
+    this.fingerprint = marker.fingerprint;
+    this.previousFingerprint = marker.previousFingerprint;
+    this.firstRunAt = marker.firstRunAt;
+    this.runId = marker.runId;
+  }
+}
+
 export class DayOutputResponseDto {
   @ApiProperty({ example: '2026-09-30', description: 'A UTC day' })
   readonly day: string;
@@ -163,6 +269,14 @@ export class DayOutputResponseDto {
   @ApiProperty({ type: String, isArray: true })
   readonly mergedTaskIds: readonly string[];
 
+  @ApiProperty({
+    type: ConfigMarkerResponseDto,
+    isArray: true,
+    description:
+      'Each time a station ran with a new config whose first run started that UTC day',
+  })
+  readonly changes: readonly ConfigMarkerResponseDto[];
+
   constructor(day: DayOutputDto) {
     this.day = day.day;
     this.runs = day.runs;
@@ -171,38 +285,7 @@ export class DayOutputResponseDto {
     this.mixedCurrencies = day.mixedCurrencies;
     this.merged = day.merged;
     this.mergedTaskIds = day.mergedTaskIds;
-  }
-}
-
-export class ConfigMarkerResponseDto {
-  @ApiProperty({ example: 'b0c7e1f4-1a2b-4c3d-9e8f-7a6b5c4d3e2f' })
-  readonly lineId: string;
-
-  @ApiProperty({ example: 'd41f0a2c-8b7e-4f19-9d3a-6c5e2b1a4f80' })
-  readonly stationId: string;
-
-  @ApiProperty({
-    example: 'a3f9…',
-    description: 'The station config the station changed to',
-  })
-  readonly fingerprint: string;
-
-  @ApiProperty({
-    example: '2026-09-21T09:00:00.000Z',
-    description:
-      'When the first run with it started, or ended where it never started',
-  })
-  readonly firstRunAt: string;
-
-  @ApiProperty({ example: '4e1e84a2-0c39-406d-bbbb-559f29e450be' })
-  readonly runId: string;
-
-  constructor(marker: ConfigMarkerDto) {
-    this.lineId = marker.lineId;
-    this.stationId = marker.stationId;
-    this.fingerprint = marker.fingerprint;
-    this.firstRunAt = marker.firstRunAt;
-    this.runId = marker.runId;
+    this.changes = day.changes.map((each) => new ConfigMarkerResponseDto(each));
   }
 }
 
@@ -240,6 +323,13 @@ export class SignalReadingResponseDto {
   readonly trails: boolean;
 
   @ApiProperty({
+    example: 0.15,
+    description:
+      'The line it crossed to be flagged: the lower of the period before and the team, each made 25% worse and, for a share, at least 5 points worse',
+  })
+  readonly flaggedAbove: number;
+
+  @ApiProperty({
     nullable: true,
     type: String,
     example: 'USD',
@@ -255,6 +345,7 @@ export class SignalReadingResponseDto {
     this.team = reading.team;
     this.rose = reading.rose;
     this.trails = reading.trails;
+    this.flaggedAbove = reading.flaggedAbove;
     this.currency = reading.currency;
   }
 }
@@ -317,15 +408,16 @@ export class InsightsOverviewResponseDto {
   readonly headline: HeadlineResponseDto;
 
   @ApiProperty({
-    type: HeadlineResponseDto,
-    description: 'The period before, as long',
+    type: HeadlineChangesResponseDto,
+    description: 'How the headline moved against the period before, as long',
   })
-  readonly before: HeadlineResponseDto;
+  readonly changes: HeadlineChangesResponseDto;
 
   @ApiProperty({
     type: DayOutputResponseDto,
     isArray: true,
-    description: 'Spend and merged pull requests per day, oldest first',
+    description:
+      'Spend, merged pull requests and config changes per day, oldest first',
   })
   readonly output: readonly DayOutputResponseDto[];
 
@@ -345,13 +437,6 @@ export class InsightsOverviewResponseDto {
   readonly outputMixedCurrencies: boolean;
 
   @ApiProperty({
-    type: ConfigMarkerResponseDto,
-    isArray: true,
-    description: 'Each time a station ran with a new config this period',
-  })
-  readonly configChanges: readonly ConfigMarkerResponseDto[];
-
-  @ApiProperty({
     type: StationWorthImprovingResponseDto,
     isArray: true,
     description:
@@ -366,13 +451,10 @@ export class InsightsOverviewResponseDto {
     this.period = new InsightsPeriodResponseDto(overview.period);
     this.truncated = overview.truncated;
     this.headline = new HeadlineResponseDto(overview.headline);
-    this.before = new HeadlineResponseDto(overview.before);
+    this.changes = new HeadlineChangesResponseDto(overview.changes);
     this.output = overview.output.map((each) => new DayOutputResponseDto(each));
     this.outputCurrency = overview.outputCurrency;
     this.outputMixedCurrencies = overview.outputMixedCurrencies;
-    this.configChanges = overview.configChanges.map(
-      (each) => new ConfigMarkerResponseDto(each),
-    );
     this.worthImproving = overview.worthImproving.map(
       (each) => new StationWorthImprovingResponseDto(each),
     );

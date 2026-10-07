@@ -44,6 +44,18 @@ export class WeekShareResponseDto {
   readonly touched: number;
 
   @ApiProperty({
+    example: 7,
+    description: 'Of those, the ones Spotlight made or reviewed',
+  })
+  readonly spotlight: number;
+
+  @ApiProperty({
+    example: 2,
+    description: 'Of those, ones people wrote with no Spotlight review task',
+  })
+  readonly people: number;
+
+  @ApiProperty({
     example: 3,
     description: 'Of those, ones bots wrote with no Spotlight review task',
   })
@@ -63,6 +75,8 @@ export class WeekShareResponseDto {
     this.merged = week.merged;
     this.made = week.made;
     this.touched = week.touched;
+    this.spotlight = week.spotlight;
+    this.people = week.people;
     this.bots = week.bots;
     this.share = week.share;
   }

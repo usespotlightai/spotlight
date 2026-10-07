@@ -116,7 +116,7 @@ export class WorkspaceTokenTrust extends EventRecorder {
     if (!terms.key.equals(this.key)) {
       throw new TokenTrustKeyFixedError(
         this.key.value,
-        `keeps its key for its whole life, since it is the trust's address; replace it to key a trust ${terms.key.value}`,
+        `cannot change its key to ${terms.key.value}`,
       );
     }
 

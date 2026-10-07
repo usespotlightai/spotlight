@@ -408,7 +408,7 @@ describe('CompleteRunHandler', () => {
       'runner_1',
       -1,
       true,
-      'Its sandbox ran past the host’s limit',
+      "Sandbox stopped at the host's time limit. Time limit: 2h0m0s",
       null,
       null,
       false,

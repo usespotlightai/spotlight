@@ -41,7 +41,7 @@ export function Replay() {
     return (
       <PageNotice>
         <MembersOnlyOrCouldNotLoad
-          membersOnly="Only the team’s members can see its replays"
+          membersOnly="Only team members can see its replays"
           what="The replay"
           query={replay}
         />
@@ -53,7 +53,7 @@ export function Replay() {
     return (
       <PageNotice title="Replay not found">
         <p className="text-muted-foreground text-sm">
-          There is no replay at that address.
+          No replay at this address. It may have been deleted.
         </p>
       </PageNotice>
     );

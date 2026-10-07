@@ -24,7 +24,7 @@ export class InvalidChangeStackError extends Error {
   readonly violation = 'invalid' as const;
 
   constructor(readonly problems: readonly StackProblem[]) {
-    super(`A change stack ${problems.map((each) => each.message).join('; ')}`);
+    super(`A change stack ${problems.map((each) => each.message).join('; ')}.`);
     this.name = 'InvalidChangeStackError';
   }
 

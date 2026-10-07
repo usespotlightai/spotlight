@@ -16,6 +16,11 @@ import {
   tasksOf,
 } from '@outcomes/domain/services/team-history';
 import {
+  type Change,
+  changeOf,
+  spendChangeOf,
+} from '@outcomes/domain/value-objects/change.vo';
+import {
   type Window,
   within,
 } from '@outcomes/domain/value-objects/insights-period.vo';
@@ -86,3 +91,42 @@ export const headlineOf = (history: TeamHistory, window: Window): Headline => {
     peopleIds: people,
   };
 };
+
+export interface HeadlineChanges {
+  readonly spend: Change | null;
+  readonly mergedPullRequests: Change | null;
+  readonly mergeRate: Change | null;
+  readonly costPerMerge: Change | null;
+  readonly taskToMerge: Change | null;
+  readonly touchesPerTask: Change | null;
+  readonly activePeople: Change | null;
+}
+
+export const headlineChangesOf = (
+  now: Headline,
+  before: Headline,
+): HeadlineChanges => ({
+  spend: spendChangeOf(now.spend, before.spend, 'neither'),
+  mergedPullRequests: changeOf(
+    now.mergedPullRequests,
+    before.mergedPullRequests,
+    { better: 'up', unit: 'percent' },
+  ),
+  mergeRate: changeOf(now.mergeRate, before.mergeRate, {
+    better: 'up',
+    unit: 'points',
+  }),
+  costPerMerge: spendChangeOf(now.costPerMerge, before.costPerMerge, 'down'),
+  taskToMerge: changeOf(now.taskToMerge.p50, before.taskToMerge.p50, {
+    better: 'down',
+    unit: 'percent',
+  }),
+  touchesPerTask: changeOf(now.touchesPerTask, before.touchesPerTask, {
+    better: 'down',
+    unit: 'percent',
+  }),
+  activePeople: changeOf(now.activePeople, before.activePeople, {
+    better: 'up',
+    unit: 'percent',
+  }),
+});

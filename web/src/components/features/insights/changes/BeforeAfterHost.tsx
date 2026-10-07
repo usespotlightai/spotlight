@@ -1,5 +1,6 @@
 import { type ReactNode, useMemo, useState } from 'react';
 import { BeforeAfterPanel } from '@/components/features/insights/changes/BeforeAfterPanel';
+import { PaneScroller } from '@/components/shared/PaneScroller';
 import { useLingering } from '@/hooks/useLingering';
 import { BeforeAfterPanelContext } from '@/lib/before-after-panel';
 import type { InsightsPeriod, StationNames } from '@/lib/insights';
@@ -36,21 +37,23 @@ export function BeforeAfterHost({
 
   return (
     <BeforeAfterPanelContext value={value}>
-      <div className="flex min-h-0 flex-1">
-        <div className="flex min-w-0 flex-1 flex-col">{children}</div>
-
-        {held && (
-          <BeforeAfterPanel
-            slug={slug}
-            teamId={teamId}
-            period={period}
-            change={held}
-            names={names}
-            open={shown !== null}
-            onClose={() => setShown(null)}
-          />
-        )}
-      </div>
+      <PaneScroller
+        aside={
+          held && (
+            <BeforeAfterPanel
+              slug={slug}
+              teamId={teamId}
+              period={period}
+              change={held}
+              names={names}
+              open={shown !== null}
+              onClose={() => setShown(null)}
+            />
+          )
+        }
+      >
+        {children}
+      </PaneScroller>
     </BeforeAfterPanelContext>
   );
 }

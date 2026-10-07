@@ -3,7 +3,7 @@ export class TaskDeliveryMovedOnError extends Error {
 
   constructor(taskId: string) {
     super(
-      `This task's delivery changed since it was read, and cannot be written over (${taskId})`,
+      `Delivery of task ${taskId} changed since you loaded it. Please reload and try again.`,
     );
     this.name = 'TaskDeliveryMovedOnError';
   }

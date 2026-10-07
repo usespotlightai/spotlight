@@ -16,7 +16,7 @@ export class CatalogVersion {
     if (!EXACTLY_VERSION.test(trimmed)) {
       throw new InvalidCatalogEntryError(
         'version',
-        'is three whole numbers joined by dots, as in 1.4.0',
+        'must be three whole numbers joined by dots, such as 1.4.0',
       );
     }
 

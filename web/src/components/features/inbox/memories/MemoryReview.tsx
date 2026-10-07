@@ -23,11 +23,6 @@ export function MemoryReview({
   const about = { slug, teamId, taskId, runId };
   const pending = approve.isPending || reject.isPending;
 
-  const failedFor = (id: string) =>
-    (approve.isError &&
-      approve.variables?.memories.some((each) => each.id === id)) ||
-    (reject.isError && reject.variables?.memoryId === id);
-
   return (
     <ul className="flex flex-col gap-3">
       {memories.map((memory, at) => (
@@ -36,7 +31,6 @@ export function MemoryReview({
           memory={memory}
           position={at + 1}
           pending={pending}
-          failed={failedFor(memory.id)}
           onApprove={(body) =>
             approve.mutate({
               ...about,

@@ -129,7 +129,7 @@ describe('givenAt, for a station that names a harness profile', () => {
 
     expect(given.profile).toBeNull();
     expect(given.refusals.map((each) => each.saying)).toEqual([
-      'harness_profile_unknown: The Implementation station names the reckless harness profile, which its team does not hold',
+      'harness_profile_unknown: Harness profile reckless is not in this team. Station: Implementation',
     ]);
   });
 

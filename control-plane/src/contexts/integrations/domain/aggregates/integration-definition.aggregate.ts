@@ -46,10 +46,7 @@ const guardDescribes = (compiled: Compiled): void => {
   const source = compiled.integration.source.value;
 
   if (!compiled.document.says(SOURCE_FIELD, source)) {
-    throw new InvalidIntegrationError(
-      source,
-      'was compiled from a definition of another host',
-    );
+    throw new InvalidIntegrationError(source, 'was compiled for another host');
   }
 };
 
@@ -163,7 +160,7 @@ export class IntegrationDefinition extends EventRecorder {
     if (!compiled.integration.source.equals(this.source)) {
       throw new IntegrationHostFixedError(
         this.source.value,
-        `is for ${this.source.value} for its whole life; replace it to define ${compiled.integration.source.value}`,
+        `cannot change its host to ${compiled.integration.source.value}`,
       );
     }
 

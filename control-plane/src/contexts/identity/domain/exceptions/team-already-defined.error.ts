@@ -2,7 +2,7 @@ export class TeamAlreadyDefinedError extends Error {
   readonly violation = 'conflict' as const;
 
   constructor(key: string) {
-    super(`The workspace already has a team keyed ${key}`);
+    super(`A team with key ${key} already exists. Please choose another key.`);
     this.name = 'TeamAlreadyDefinedError';
   }
 }

@@ -113,9 +113,32 @@ export class GitHubWebhooks implements GitHubWebhooksPort {
       ]);
       await this.recording.commented(from, heard.pullRequest, heard.facts, {
         id: heard.comment.id,
+        on: 'line',
         action: heard.action,
+        login: heard.comment.login,
+        answers: heard.comment.answers,
         byBot: heard.comment.byBot,
       });
+    }
+
+    if (heard.kind === 'conversation-comment') {
+      await this.recording.commented(from, heard.pullRequest, null, {
+        id: heard.comment.id,
+        on: 'conversation',
+        action: heard.action,
+        login: heard.comment.login,
+        answers: null,
+        byBot: heard.comment.byBot,
+      });
+    }
+
+    if (heard.kind === 'review-thread') {
+      await this.recording.threadResolved(
+        from,
+        heard.pullRequest,
+        heard.facts,
+        heard.thread,
+      );
     }
 
     if (heard.kind === 'pull-request-reviewed') {
@@ -134,6 +157,7 @@ export class GitHubWebhooks implements GitHubWebhooksPort {
         await this.recording.reviewed(from, heard.pullRequest, heard.facts, {
           id: heard.id,
           state: heard.state,
+          login: heard.login,
           byBot: heard.byBot,
           at: heard.submittedAt,
         });

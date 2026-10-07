@@ -17,7 +17,10 @@ import { TEAM_ID } from '@/stories/fixtures/team';
 
 const candidate = (
   over: Partial<SetCandidate> &
-    Pick<SetCandidate, 'candidateId' | 'name' | 'kind' | 'replayId'>,
+    Pick<
+      SetCandidate,
+      'candidateId' | 'name' | 'kind' | 'replayId' | 'charted' | 'shown'
+    >,
 ): SetCandidate => ({
   hypothesis: null,
   fingerprint: 'e'.repeat(64),
@@ -50,7 +53,13 @@ const SEARCH = {
   objective: 'success' as const,
   state: 'finished' as const,
   startedAt: daysAgo(5),
-  seed: { successRate: 0.55, interval: null, costPerRun: 0.6, scored: 18 },
+  seed: {
+    successRate: 0.55,
+    interval: null,
+    costPerRun: 0.6,
+    scored: 18,
+    charted: 'priced' as const,
+  },
 };
 
 const IMPLEMENTATION_SET: CandidatesSet = {
@@ -72,6 +81,7 @@ const IMPLEMENTATION_SET: CandidatesSet = {
       spread: 0.13,
       flippedTasks: ['task_3', 'task_9', 'task_14'],
       measuredAt: daysAgo(4),
+      noisyInOneCopy: true,
     },
     saturation: {
       replayId: 'replay_live_impl_noise',
@@ -107,13 +117,26 @@ const IMPLEMENTATION_SET: CandidatesSet = {
     costPerRun: 0.62,
     currency: 'USD',
     endedAt: daysAgo(6),
+    charted: 'priced',
   },
+  chartCurrency: 'USD',
   candidates: [
     candidate({
       candidateId: 'candidate_opus_skill',
       name: 'opus-with-migrations-skill',
       kind: 'searched',
       replayId: 'replay_opus_skill',
+      charted: 'priced',
+      shown: {
+        basis: 'compared',
+        costBasis: 'compared',
+        successRate: 0.72,
+        interval: { rate: 0.72, low: 0.52, high: 0.9 },
+        liveSuccessRate: 0.56,
+        runs: 18,
+        costPerRun: 0.82,
+        liveCostPerRun: 0.6,
+      },
       tasks: 16,
       runs: 18,
       hypothesis:
@@ -178,6 +201,17 @@ const IMPLEMENTATION_SET: CandidatesSet = {
       name: 'sonnet-terse-prompt',
       kind: 'searched',
       replayId: 'replay_terse',
+      charted: 'priced',
+      shown: {
+        basis: 'compared',
+        costBasis: 'compared',
+        successRate: 0.5,
+        interval: { rate: 0.5, low: 0.3, high: 0.68 },
+        liveSuccessRate: 0.56,
+        runs: 18,
+        costPerRun: null,
+        liveCostPerRun: 0.6,
+      },
       hypothesis: 'A shorter prompt leaves more room for the diff.',
       changes: [
         {
@@ -218,6 +252,17 @@ const IMPLEMENTATION_SET: CandidatesSet = {
       name: 'cursor-careful-profile',
       kind: 'searched',
       replayId: 'replay_cursor',
+      charted: 'unpriced',
+      shown: {
+        basis: 'compared',
+        costBasis: 'compared',
+        successRate: 0.61,
+        interval: { rate: 0.61, low: 0.41, high: 0.79 },
+        liveSuccessRate: 0.56,
+        runs: 18,
+        costPerRun: null,
+        liveCostPerRun: 0.6,
+      },
       changes: [
         {
           part: 'harness',
@@ -248,6 +293,17 @@ const IMPLEMENTATION_SET: CandidatesSet = {
       name: 'sonnet-plan-first',
       kind: 'searched',
       replayId: 'replay_plan_first',
+      charted: 'unfinished',
+      shown: {
+        basis: 'overall',
+        costBasis: 'overall',
+        successRate: 0.4,
+        interval: null,
+        liveSuccessRate: null,
+        runs: 5,
+        costPerRun: 0.3,
+        liveCostPerRun: null,
+      },
       replayState: 'running',
       successRate: 0.4,
       interval: null,
@@ -287,13 +343,69 @@ const REVIEW_SET: CandidatesSet = {
     costPerRun: 0.21,
     currency: 'USD',
     endedAt: daysAgo(9),
+    charted: 'priced',
   },
+  chartCurrency: 'USD',
   candidates: [
+    candidate({
+      candidateId: 'candidate_one_comment',
+      name: 'one-comment-per-problem',
+      kind: 'proposed',
+      replayId: 'replay_one_comment',
+      charted: 'priced',
+      shown: {
+        basis: 'compared',
+        costBasis: 'compared',
+        successRate: 0.75,
+        interval: { rate: 0.75, low: 0.55, high: 0.93 },
+        liveSuccessRate: 0.75,
+        runs: 12,
+        costPerRun: 0.21,
+        liveCostPerRun: 0.21,
+      },
+      fingerprint: 'd'.repeat(64),
+      replayedAt: daysAgo(6),
+      tasks: 12,
+      runs: 12,
+      scored: 12,
+      successRate: 0.75,
+      costPerRun: 0.21,
+      live: {
+        successRate: 0.75,
+        interval: { rate: 0.75, low: 0.55, high: 0.93 },
+        costPerRun: 0.21,
+        currency: 'USD',
+      },
+      successRateOnCompared: 0.75,
+      intervalOnCompared: { rate: 0.75, low: 0.55, high: 0.93 },
+      costPerRunOnCompared: 0.21,
+      regressions: 0,
+      compared: 12,
+      againstLive: {
+        gain: 0,
+        low: -0.08,
+        high: 0.08,
+        verdict: 'within-noise',
+        minGain: 0.05,
+        tasks: 12,
+      },
+    }),
     candidate({
       candidateId: 'candidate_spec_review',
       name: 'review-against-spec',
       kind: 'proposed',
       replayId: 'replay_spec_review',
+      charted: 'priced',
+      shown: {
+        basis: 'compared',
+        costBasis: 'compared',
+        successRate: 0.67,
+        interval: { rate: 0.67, low: 0.47, high: 0.85 },
+        liveSuccessRate: 0.75,
+        runs: 12,
+        costPerRun: 0.24,
+        liveCostPerRun: 0.21,
+      },
       tasks: 12,
       scored: 12,
       changes: [

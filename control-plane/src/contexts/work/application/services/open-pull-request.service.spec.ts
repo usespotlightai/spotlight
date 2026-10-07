@@ -225,7 +225,7 @@ describe('OpenPullRequest', () => {
       repositories: ['acme/api', 'acme/web'],
     });
 
-    await expect(open(task())).rejects.toThrow(/name which one/);
+    await expect(open(task())).rejects.toThrow(/Please name one/);
     expect(opened).toEqual([]);
   });
 
@@ -233,7 +233,7 @@ describe('OpenPullRequest', () => {
     const { open, opened } = opening({ repositories: ['acme/api'] });
 
     await expect(open(task(), asking('web'))).rejects.toThrow(
-      /no repository named "web"/,
+      /no repository named web/,
     );
     expect(opened).toEqual([]);
   });
@@ -394,7 +394,7 @@ describe('OpenPullRequest', () => {
       });
 
       await expect(open(task())).rejects.toThrow(
-        'The pull request was held back by a hook, so none was opened. The hook core/dba-review refused: migrations need a DBA.',
+        'A hook held back the pull request. No pull request was opened. The hook core/dba-review refused: migrations need a DBA.',
       );
       expect(opened).toEqual([]);
       expect(saved).toEqual([]);

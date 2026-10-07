@@ -3,9 +3,12 @@ import { InboxAsked } from '@/components/features/inbox/conversation/InboxAsked'
 import { TimeMarker } from '@/components/features/inbox/conversation/TimeMarker';
 import { RunBriefing } from '@/components/features/runs/RunBriefing';
 import { RunImage } from '@/components/features/runs/RunImage';
+import { ComposerFooter } from '@/components/shared/ComposerFooter';
+import { PaneScroller } from '@/components/shared/PaneScroller';
 import { useStickToBottom } from '@/hooks/useStickToBottom';
 import type { Attachment } from '@/lib/attachment';
 import type { TeamRun } from '@/lib/run';
+import { useRunSidePanel } from '@/lib/run-side-panel';
 
 type RunOpeningProps = {
   run: TeamRun;
@@ -13,6 +16,7 @@ type RunOpeningProps = {
   attachments: readonly Attachment[];
   activity?: ReactNode;
   closing?: ReactNode;
+  footer: ReactNode;
 };
 
 export function RunOpening({
@@ -21,11 +25,17 @@ export function RunOpening({
   attachments,
   activity,
   closing,
+  footer,
 }: RunOpeningProps) {
   const scroller = useStickToBottom<HTMLDivElement>();
+  const { aside } = useRunSidePanel();
 
   return (
-    <div ref={scroller} className="min-h-0 flex-1 overflow-y-auto">
+    <PaneScroller
+      ref={scroller}
+      aside={aside}
+      footer={<ComposerFooter>{footer}</ComposerFooter>}
+    >
       <div className="mx-auto flex w-full max-w-3xl flex-col px-8 py-8">
         <TimeMarker at={run.startedAt} />
         <RunImage image={run.image} />
@@ -47,6 +57,6 @@ export function RunOpening({
 
         {closing && <div className="mt-3">{closing}</div>}
       </div>
-    </div>
+    </PaneScroller>
   );
 }

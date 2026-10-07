@@ -132,6 +132,29 @@ describe('setupsCompared', () => {
     ).toContain('accepted');
   });
 
+  it('prices for the chart only setups costed in the comparison’s currency', () => {
+    const compared = setupsCompared(
+      [
+        ...runs('main', 4, { model: 'sonnet', amount: 1, accepted: 2 }),
+        ...runs('few', 2, { model: 'haiku', amount: 0.1, accepted: 2 }),
+        ...runs('euro', 3, {
+          model: 'opus',
+          amount: 0.1,
+          accepted: 3,
+          currency: 'EUR',
+        }),
+      ],
+      [],
+      new Map(),
+    );
+    const pricedOf = (model: string) =>
+      compared.setups.find((each) => each.model === model)?.priced;
+
+    expect(pricedOf('sonnet')).toBe(true);
+    expect(pricedOf('haiku')).toBe(true);
+    expect(pricedOf('opus')).toBe(false);
+  });
+
   it('averages only the judge scores it is given', () => {
     const compared = setupsCompared(
       runs('judged', 3, { model: 'sonnet', amount: 1, accepted: 0 }),

@@ -62,7 +62,7 @@ export function SidePane({
       <aside
         {...openState}
         style={{
-          width: 'calc(var(--detail-w) - 16px)',
+          width: 'calc(var(--detail-w) - 8px)',
           animationDuration: `${duration}ms`,
         }}
         className={cn(
@@ -79,7 +79,7 @@ export function SidePane({
         {...handleProps}
         edge="left"
         resizing={resizing}
-        className="inset-y-2 left-1"
+        className="inset-y-2"
       />
     </div>
   );

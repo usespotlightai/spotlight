@@ -67,14 +67,14 @@ const guardMatch = (described: Described): void => {
   if (described.match.tools.length > 0 && !described.event.aboutTool) {
     throw new InvalidHookError(
       at('match', 'tools'),
-      `matches tools, but ${described.event.name} is not about a tool; tools match only on tool.using and tool.used`,
+      `only applies to tool.using and tool.used, not ${described.event.name}`,
     );
   }
 
   if (described.match.paths.length > 0 && !described.event.aboutChanges) {
     throw new InvalidHookError(
       at('match', 'paths'),
-      `matches changed paths, but ${described.event.name} changes no files; paths match only on pull-request.opening and pull-request.merged`,
+      `only applies to pull-request.opening and pull-request.merged, not ${described.event.name}`,
     );
   }
 };
@@ -83,7 +83,7 @@ const guardStep = (step: HookStep, index: number): void => {
   if (!STEP_NAME.test(step.name)) {
     throw new InvalidHookError(
       at('steps', index, 'name'),
-      'is lower case words joined by dashes, as in notify',
+      'must be lowercase words joined by dashes, as in notify',
     );
   }
 
@@ -94,17 +94,14 @@ const guardStep = (step: HookStep, index: number): void => {
   ) {
     throw new InvalidHookError(
       at('steps', index, 'request', 'url'),
-      'is not https; only a request made from the team’s own network may be plain http',
+      'must be https unless sent from the team’s network',
     );
   }
 };
 
 const guardSteps = (described: Described): void => {
   if (described.steps.length === 0) {
-    throw new InvalidHookError(
-      at('steps'),
-      'is empty; a hook needs at least one step to call a tool or make a request',
-    );
+    throw new InvalidHookError(at('steps'), 'must not be empty');
   }
 
   const seen = new Set<string>();
@@ -115,7 +112,7 @@ const guardSteps = (described: Described): void => {
     if (seen.has(step.name)) {
       throw new InvalidHookError(
         at('steps', index, 'name'),
-        `repeats ${step.name}; each step has its own name so later steps can read its output`,
+        `repeats the name ${step.name}`,
       );
     }
 
@@ -128,7 +125,7 @@ const guardSteps = (described: Described): void => {
   ) {
     throw new InvalidHookError(
       at('signing'),
-      'is missing; a hook that makes requests signs them, so the endpoint can tell they came from Spotlight',
+      'is required for a hook that makes requests',
     );
   }
 };
@@ -137,7 +134,7 @@ const guardFailure = (described: Described): void => {
   if (described.failure === 'block' && !described.event.isBefore) {
     throw new InvalidHookError(
       at('failure'),
-      `is block, but ${described.event.name} has already happened by the time the hook runs; only a hook before an event can block it`,
+      `cannot be block after ${described.event.name} has happened`,
     );
   }
 
@@ -148,7 +145,7 @@ const guardFailure = (described: Described): void => {
   ) {
     throw new InvalidHookError(
       at('timeoutSeconds'),
-      `is a whole number of seconds from ${SHORTEST_TIMEOUT} to ${LONGEST_TIMEOUT}`,
+      `must be a whole number of seconds from ${SHORTEST_TIMEOUT} to ${LONGEST_TIMEOUT}`,
     );
   }
 };
@@ -259,7 +256,9 @@ export class Hook {
     const hook = this.described.key.value;
 
     if (ended.refusal !== null) {
-      return HookVerdict.refused(`The hook ${hook} refused: ${ended.refusal}`);
+      return HookVerdict.refused(
+        `Hook ${hook} refused. Reason: ${ended.refusal}`,
+      );
     }
 
     if (ended.failedBecause === null) {
@@ -268,7 +267,7 @@ export class Hook {
 
     return this.blocks
       ? HookVerdict.refused(
-          `The hook ${hook} failed at ${step} (${ended.failedBecause}), and it blocks on failure`,
+          `Hook ${hook} failed at step ${step} and blocks on failure. Reason: ${ended.failedBecause}`,
         )
       : HookVerdict.allowed();
   }

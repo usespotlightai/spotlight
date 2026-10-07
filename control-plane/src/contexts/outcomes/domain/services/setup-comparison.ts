@@ -44,6 +44,7 @@ export interface SetupOutcome extends Setup {
   readonly tally: RunTally;
   readonly costPerRun: number | null;
   readonly currency: string | null;
+  readonly priced: boolean;
   readonly outcomes: Readonly<Record<OutcomeMeasure, number | null>>;
   readonly judge: JudgeShare | null;
   readonly frontier: readonly OutcomeMeasure[];
@@ -191,6 +192,7 @@ export const setupsCompared = (
         tally: each.tally,
         costPerRun: each.costPerRun,
         currency: each.currency,
+        priced: each.costPerRun !== null && each.currency === currency,
         outcomes: each.outcomes,
         judge: each.judge,
         frontier: OUTCOME_MEASURES.filter((measure) =>

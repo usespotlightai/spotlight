@@ -3,7 +3,7 @@ export class ReviewCommentMovedOnError extends Error {
 
   constructor(id: string) {
     super(
-      `This review comment changed since it was read, and cannot be written over (${id})`,
+      `Review comment ${id} changed since you loaded it. Please reload and try again.`,
     );
     this.name = 'ReviewCommentMovedOnError';
   }

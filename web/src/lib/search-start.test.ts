@@ -88,7 +88,7 @@ describe('objectiveOf', () => {
   it('suggests an objective only when none was chosen', () => {
     expect(objectiveSuggestionOf('cost', 0.98)).toBeNull();
     expect(objectiveSuggestionOf(null, null)).toBeNull();
-    expect(objectiveSuggestionOf(null, 0.98)).toContain('Chosen for you');
+    expect(objectiveSuggestionOf(null, 0.98)).toContain('Suggested');
   });
 });
 
@@ -97,7 +97,7 @@ describe('estimateRefusalOf', () => {
     expect(estimateRefusalOf(false, 'No.')).toBeNull();
     expect(estimateRefusalOf(true, 'No.')).toBe('No.');
     expect(estimateRefusalOf(true, null)).toBe(
-      'Fix the field marked above to see an estimate.',
+      'Please fix the marked field to see an estimate.',
     );
   });
 });

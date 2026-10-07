@@ -78,18 +78,18 @@ export class RunRecord extends EventRecorder {
       input.end &&
       (!input.taskId || !input.end.place.taskId.equals(input.taskId))
     ) {
-      throw new InvalidOutcomeError('ends on the task it was heard of for');
+      throw new InvalidOutcomeError('must end on its own task');
     }
     if ((input.checks === null) !== (input.checkedAt === null)) {
-      throw new InvalidOutcomeError('says when its change was checked');
+      throw new InvalidOutcomeError('must say when its change was checked');
     }
     if (input.next?.answersApproval) {
       throw new InvalidOutcomeError(
-        'is decided by what a person did next, never by answering an approval',
+        'cannot be decided by answering an approval',
       );
     }
     if (input.tools !== null && input.cost === null) {
-      throw new InvalidOutcomeError('holds the tools it used once digested');
+      throw new InvalidOutcomeError('must hold its tools once digested');
     }
 
     return new RunRecord(
@@ -237,7 +237,7 @@ export class RunRecord extends EventRecorder {
 
   private refuseAnotherTask(taskId: TaskId): void {
     if (this.taskId && !this.taskId.equals(taskId)) {
-      throw new InvalidOutcomeError('ends on the task it was heard of for');
+      throw new InvalidOutcomeError('must end on its own task');
     }
   }
 

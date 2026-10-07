@@ -35,7 +35,7 @@ export class SecretBinding {
     if (!HOST.test(host)) {
       throw new InvalidSecretError(
         'host',
-        'is the one host the secret may be sent to, as in api.linear.app, with no scheme, port or path',
+        'must be one host with no scheme, port or path, as in api.linear.app',
       );
     }
 
@@ -44,7 +44,7 @@ export class SecretBinding {
     if (!PREFIX.test(prefix)) {
       throw new InvalidSecretError(
         'prefix',
-        'is up to 64 printable characters written before the value, as in "Bearer "',
+        'must be at most 64 printable characters, as in "Bearer "',
       );
     }
 

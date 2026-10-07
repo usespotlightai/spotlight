@@ -11,7 +11,7 @@ const named = (raw: string | null, what: string): string | null => {
 
   if (held.length === 0 || held.length > MOST_LENGTH) {
     throw new InvalidSearchError(
-      `names its agent’s ${what} in 1 to ${MOST_LENGTH} characters, or leaves it out`,
+      `agent ${what} must be 1 to ${MOST_LENGTH} characters, or left out`,
     );
   }
 
@@ -33,7 +33,7 @@ export class SearchAgent {
     const harness = named(input.harness, 'harness');
 
     if (harness === null) {
-      throw new InvalidSearchError('names the harness its agent runs on');
+      throw new InvalidSearchError('agent harness is required');
     }
 
     return new SearchAgent(

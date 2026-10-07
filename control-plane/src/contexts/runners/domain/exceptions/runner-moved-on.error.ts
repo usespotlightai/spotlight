@@ -3,7 +3,7 @@ export class RunnerMovedOnError extends Error {
 
   constructor(runnerId: string) {
     super(
-      `This runner has been changed since it was read, and cannot be written over (${runnerId})`,
+      `Runner ${runnerId} changed since you loaded it. Please reload and try again.`,
     );
     this.name = 'RunnerMovedOnError';
   }

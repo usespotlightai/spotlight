@@ -40,7 +40,7 @@ export const FIRST_BUDGET: BudgetInputs = {
 
 export const NO_SET_CHOSEN = 'Choose a replay set.';
 
-const NO_ESTIMATE = 'Fix the field marked above to see an estimate.';
+const NO_ESTIMATE = 'Please fix the marked field to see an estimate.';
 
 export const firstStartable = (sets: readonly ReplaySet[]): string =>
   sets.find((set) => setRefusal(set) === null)?.id ?? '';

@@ -13,7 +13,7 @@ export function SearchNotFound({ at }: SearchNotFoundProps) {
   return (
     <PageNotice title="Search not found">
       <p className="text-muted-foreground text-sm">
-        There is no search at that address. It may belong to another station.
+        No search at this address. It may belong to another station.
       </p>
       {at && (
         <TrailLink

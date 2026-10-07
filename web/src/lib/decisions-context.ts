@@ -3,7 +3,6 @@ import type { TaskDecisions } from '@/lib/decision';
 
 export type Disputing = {
   pending: boolean;
-  failed: boolean;
   dispute: (
     decisionId: string,
     path: string,

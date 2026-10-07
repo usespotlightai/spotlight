@@ -25,7 +25,6 @@ vi.mock('@/hooks/api/useRetireMemory', () => ({
   useRetireMemory: () => ({
     mutate: vi.fn(),
     isPending: false,
-    isError: false,
   }),
 }));
 vi.mock('@/hooks/api/useSession', () => ({
@@ -77,9 +76,10 @@ describe('MemoryDetails', () => {
     memoryState.data = detail();
     showing();
 
-    expect(
-      screen.getByRole('link', { name: 'Open the run it came from' }),
-    ).toHaveAttribute('href', '/w/acme/team/team_1/runs/run_1');
+    expect(screen.getByRole('link', { name: 'Open its run' })).toHaveAttribute(
+      'href',
+      '/w/acme/team/team_1/runs/run_1',
+    );
     expect(screen.getByRole('link', { name: 'Open its task' })).toBeVisible();
   });
 

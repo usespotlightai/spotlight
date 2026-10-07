@@ -10,7 +10,7 @@ export class Happening {
     if (!isDottedName(trimmed)) {
       throw new InvalidIdentifierError(
         'happening',
-        'is its source and its name, as in github.pull_request.merged',
+        'must be a source and a name, as in github.pull_request.merged',
       );
     }
 

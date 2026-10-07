@@ -3,7 +3,7 @@ export class TaskAsideMovedOnError extends Error {
 
   constructor(id: string) {
     super(
-      `This task aside changed since it was read, and cannot be written over (${id})`,
+      `Task aside ${id} changed since you loaded it. Please reload and try again.`,
     );
     this.name = 'TaskAsideMovedOnError';
   }

@@ -18,12 +18,14 @@ export class StartedCheckout {
     const commit = parts.commit.trim();
 
     if (!path) {
-      throw new InvalidStartingPointError('names each checkout by its path');
+      throw new InvalidStartingPointError(
+        'must name each checkout by its path',
+      );
     }
 
     if (!FULL_COMMIT.test(commit)) {
       throw new InvalidStartingPointError(
-        `names the commit ${path} began at by its full SHA, not ${commit || 'nothing'}`,
+        `must name the commit of ${path} by its full SHA, not ${commit || 'nothing'}`,
       );
     }
 

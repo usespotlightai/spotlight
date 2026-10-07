@@ -26,20 +26,20 @@ export class JudgeReason {
 
     if (!text || text.length > MOST_SAID) {
       throw new InvalidScoreError(
-        `says why in 1 to ${MOST_SAID} characters`,
+        `must be 1 to ${MOST_SAID} characters`,
         'reason',
       );
     }
     if (citations.length === 0 || citations.length > MOST_CITED) {
       throw new InvalidScoreError(
-        `rests on 1 to ${MOST_CITED} steps or hunks of its run`,
+        `must cite 1 to ${MOST_CITED} steps or hunks of its run`,
         'reason',
       );
     }
 
     if (claim !== null && (!Number.isInteger(claim) || claim < 0)) {
       throw new InvalidScoreError(
-        'names the claim it is about by its place in the list',
+        'must name its claim by list position',
         'reason',
       );
     }

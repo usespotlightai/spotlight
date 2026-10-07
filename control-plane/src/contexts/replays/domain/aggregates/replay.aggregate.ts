@@ -155,17 +155,15 @@ export class Replay extends EventRecorder {
     set.stillAtItsStation();
 
     if (set.entries.length === 0) {
-      throw new InvalidReplayError('replays at least one run');
+      throw new InvalidReplayError('must replay at least one run');
     }
     if (!input.candidate.isFor(set.station.stationId)) {
       throw new InvalidReplayError(
-        'replays a candidate for the station its set is at',
+        'candidate must be for the replay set’s station',
       );
     }
     if (input.baseline && !input.candidate.isLive) {
-      throw new InvalidReplayError(
-        'is a baseline only when it replays the station’s live config',
-      );
+      throw new InvalidReplayError('can be a baseline only of the live config');
     }
     if (
       wanting &&
@@ -173,26 +171,22 @@ export class Replay extends EventRecorder {
         !wanting.candidate.isLive ||
         !wanting.candidate.isFor(set.station.stationId))
     ) {
-      throw new InvalidReplayError(
-        'wants a baseline of the station’s live config only when it is no baseline itself',
-      );
+      throw new InvalidReplayError('cannot both be a baseline and want one');
     }
     if (among && (input.baseline || wanting)) {
       throw new InvalidReplayError(
-        'replays its whole set when it is or wants a baseline',
+        'must replay the whole set when it is or wants a baseline',
       );
     }
     if (!holdsRepeats(repeats)) {
-      throw new InvalidReplayError(
-        `replays each run from 1 to ${MOST_REPEATS} times`,
-      );
+      throw new InvalidReplayError(`repeats must be from 1 to ${MOST_REPEATS}`);
     }
     if (
       input.candidate.isSanity !== (comparedWith !== null) ||
       comparedWith?.equals(input.id)
     ) {
       throw new InvalidReplayError(
-        'replays a stronger model only beside another replay of the live config it is compared with, and only then',
+        'of a stronger model needs a live config replay to compare with',
       );
     }
     if (
@@ -205,7 +199,7 @@ export class Replay extends EventRecorder {
           !input.pairsWith.equals(wanting.id)))
     ) {
       throw new InvalidReplayError(
-        'is set side by side with another replay, the baseline it wants or the one standing, only when it is neither a baseline nor a probe',
+        'cannot be compared side by side as a baseline or probe',
       );
     }
     if (
@@ -216,7 +210,7 @@ export class Replay extends EventRecorder {
         input.searchId !== undefined)
     ) {
       throw new InvalidReplayError(
-        'probes its set only as the live config, replaying every run more than once, outside any search',
+        'probe must replay the live config, every run more than once, outside a search',
       );
     }
     if (
@@ -229,7 +223,7 @@ export class Replay extends EventRecorder {
         ))
     ) {
       throw new InvalidReplayError(
-        'replays some of its set’s runs, each once, when it replays only some',
+        'of part of a set must replay each chosen run once',
       );
     }
 

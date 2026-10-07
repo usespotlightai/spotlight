@@ -581,7 +581,7 @@ func (h *Host) timedOut(ctx context.Context, handed protocol.Handed, worker Work
 		ExitCode: -1,
 		Failed:   true,
 		TimedOut: true,
-		Message:  fmt.Sprintf("Its sandbox ran past the host's limit of %s and was stopped.", h.opts.RunTimeout),
+		Message:  fmt.Sprintf("Sandbox stopped at the host's time limit. Time limit: %s", h.opts.RunTimeout),
 	}); err != nil {
 		log.Warn("could not say the run ran out of time; its lease will lapse instead", "error", err)
 	}
@@ -607,11 +607,11 @@ func (h *Host) readied(
 	reason := ""
 	switch {
 	case err != nil:
-		reason = fmt.Sprintf("The runner image %s could not be pulled: %v", image, err)
+		reason = fmt.Sprintf("Runner image %s can't be pulled: %v", image, err)
 	case ready.refused != "":
-		reason = fmt.Sprintf("The runner image %s is refused: %s", image, ready.refused)
+		reason = fmt.Sprintf("Runner image %s is refused. %s", image, ready.refused)
 	case handed.Work.Run != nil && handed.Work.Run.Harness != "" && !ready.holds(handed.Work.Run.Harness):
-		reason = fmt.Sprintf("The runner image %s no longer holds %s, which this run needs", ready.digest, handed.Work.Run.Harness)
+		reason = fmt.Sprintf("Runner image %s no longer holds the %s harness", ready.digest, handed.Work.Run.Harness)
 	}
 
 	if ok && (ready.id != before.id || ready.refused != before.refused) {

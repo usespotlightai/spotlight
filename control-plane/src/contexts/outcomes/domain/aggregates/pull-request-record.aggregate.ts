@@ -4,6 +4,19 @@ import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
+export interface BotActivity {
+  readonly login: string;
+  readonly reviews: number;
+  readonly comments: number;
+  readonly threads: number;
+  readonly resolvedThreads: number;
+}
+
+interface DraftSpell {
+  readonly from: Date;
+  readonly to: Date | null;
+}
+
 export interface SeenPullRequest {
   readonly repository: string;
   readonly number: number;
@@ -18,10 +31,16 @@ export interface SeenPullRequest {
   readonly state: DeliveryState;
   readonly closedAt: Date | null;
   readonly updatedAt: Date;
+  readonly readyForReviewAt: Date | null;
+  readonly draftSpells: readonly DraftSpell[];
   readonly firstReviewAt: Date | null;
+  readonly firstUnblockingReviewAt: Date | null;
+  readonly firstApprovedAt: Date | null;
+  readonly humanReviewedAt: readonly Date[];
   readonly reviews: number;
   readonly reviewRounds: number;
   readonly reviewComments: number;
+  readonly botActivity: readonly BotActivity[];
   readonly isRevert: boolean;
   readonly revertedBy: string | null;
   readonly version: number;

@@ -15,7 +15,6 @@ type ComposerProps = {
   initial?: string;
   avatar?: ReactNode;
   pending: boolean;
-  failed?: boolean;
   onSubmit: (body: string) => void;
   onCancel: () => void;
 };
@@ -28,7 +27,6 @@ export function Composer({
   initial = '',
   avatar,
   pending,
-  failed = false,
   onSubmit,
   onCancel,
 }: ComposerProps) {
@@ -76,11 +74,6 @@ export function Composer({
       </div>
 
       <div className="flex items-center justify-end gap-2">
-        {failed && (
-          <p role="alert" className="mr-auto text-destructive text-xs">
-            It could not be saved. Try again.
-          </p>
-        )}
         <Button type="button" variant="ghost" size="xs" onClick={onCancel}>
           Cancel
         </Button>

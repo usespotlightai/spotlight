@@ -247,7 +247,7 @@ describe('workspace tokens, acting in their workspace (e2e)', () => {
     expect(checked.body).toEqual({
       ...FORBIDDEN_PROBLEM,
       title: 'Not allowed to plan',
-      detail: 'Planning needs a person, or a token whose scopes include plan',
+      detail: 'Planning needs a person or a token with the plan scope.',
       permission: 'plan',
     });
   });
@@ -449,7 +449,7 @@ describe('workspace tokens, acting in their workspace (e2e)', () => {
     expect(refused.body.errors).toEqual([
       expect.objectContaining({
         path: 'scopes',
-        message: expect.stringContaining('beside one of them'),
+        message: expect.stringContaining('need one of them'),
       }),
     ]);
   });
@@ -475,7 +475,7 @@ describe('workspace tokens, acting in their workspace (e2e)', () => {
     ).toMatchObject({
       ...FORBIDDEN_PROBLEM,
       detail:
-        'A workspace token acts only inside its own workspace and cannot open one; a person with a Spotlight account creates workspaces',
+        'A workspace token cannot open a workspace. Only a person can create one.',
     });
     expect(
       (
@@ -595,7 +595,7 @@ describe('workspace tokens, acting in their workspace (e2e)', () => {
     expect(refused.status).toBe(403);
     expect(refused.body).toMatchObject({
       ...FORBIDDEN_PROBLEM,
-      detail: expect.stringContaining('a token never administers'),
+      detail: expect.stringContaining('A token can never administer'),
     });
     expect((await as(tokens.configure).get(workspace)).status).toBe(200);
   });

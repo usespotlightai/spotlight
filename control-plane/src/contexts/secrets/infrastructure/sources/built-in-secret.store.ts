@@ -52,7 +52,7 @@ export class BuiltInSecretStore implements SecretSourcePort {
     if (!kept) {
       throw new UnreadableSecretError(
         secret.name.value,
-        'Spotlight holds no value for it',
+        'No value is stored for it.',
       );
     }
 

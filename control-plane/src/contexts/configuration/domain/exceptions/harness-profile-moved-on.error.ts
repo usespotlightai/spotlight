@@ -2,7 +2,9 @@ export class HarnessProfileMovedOnError extends Error {
   readonly violation = 'conflict' as const;
 
   constructor(key: string) {
-    super(`The ${key} harness profile was defined again while this was`);
+    super(
+      `Harness profile ${key} changed since you loaded it. Please reload and try again.`,
+    );
     this.name = 'HarnessProfileMovedOnError';
   }
 }

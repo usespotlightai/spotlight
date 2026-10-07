@@ -80,13 +80,13 @@ export class StationAlert {
     if (!isMeasure(measure)) {
       throw new InvalidStationAlertError(
         'measure',
-        `watches one of ${ALERT_MEASURES.join(', ')}`,
+        `measure must be one of ${ALERT_MEASURES.join(', ')}`,
       );
     }
     if (set.length !== 1) {
       throw new InvalidStationAlertError(
         null,
-        `sets exactly one of ${THRESHOLDS.join(', ')}, to say when it goes off`,
+        `must set exactly one of ${THRESHOLDS.join(', ')}`,
       );
     }
 
@@ -102,7 +102,7 @@ export class StationAlert {
     if (!Number.isInteger(input.over) || input.over < 1) {
       throw new InvalidStationAlertError(
         'over',
-        'compares a whole number of runs, at least 1',
+        'must compare a whole number of runs, at least 1',
       );
     }
 
@@ -135,7 +135,7 @@ export class StationAlert {
     if (earlier.some((each) => each.watchesAsWell(this))) {
       throw new InvalidStationAlertError(
         null,
-        `watches whether ${this.measure} ${SAID[this.threshold]} an amount, which an alert before it at this station already watches`,
+        `on whether ${this.measure} ${SAID[this.threshold]} an amount is already set on this station`,
       );
     }
 

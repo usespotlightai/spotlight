@@ -1,7 +1,6 @@
 import { Repeat } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { CardList } from '@/components/features/replays/CardList';
-import { ReplaysHeading } from '@/components/features/replays/ReplaysHeading';
 import { RowsSkeleton } from '@/components/features/replays/RowsSkeleton';
 import { StateBox } from '@/components/features/replays/StateBox';
 import { OpenReplaySetButton } from '@/components/features/replays/station/OpenReplaySetButton';
@@ -30,7 +29,7 @@ export function ReplaySets({ at }: ReplaySetsProps) {
     body = (
       <StateBox>
         <MembersOnlyOrCouldNotLoad
-          membersOnly="Only the team’s members can see its replays"
+          membersOnly="Only team members can see its replays"
           what="The station’s replay sets"
           query={sets}
         />
@@ -40,8 +39,8 @@ export function ReplaySets({ at }: ReplaySetsProps) {
     body = (
       <StateBox>
         <EmptyState icon={Repeat} title="No replay sets yet" action={open}>
-          A replay set holds a few of the station’s past runs, to replay under a
-          candidate and compare.
+          A replay set holds past runs to replay under a candidate. Open one to
+          start comparing.
         </EmptyState>
       </StateBox>
     );
@@ -57,8 +56,8 @@ export function ReplaySets({ at }: ReplaySetsProps) {
 
   return (
     <div className="flex flex-col gap-2">
-      <ReplaysHeading title="Replay sets" action={shown ? open : undefined} />
       {body}
+      {shown && <div>{open}</div>}
     </div>
   );
 }

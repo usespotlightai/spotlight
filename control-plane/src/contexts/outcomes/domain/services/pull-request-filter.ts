@@ -62,7 +62,7 @@ const single = (asked: AskedValue, what: string): string | null => {
   }
 
   throw new InvalidPullRequestFilterError(
-    `by one ${what} at a time, not ${asked.length}`,
+    `takes one ${what}, not ${asked.length}`,
   );
 };
 
@@ -81,7 +81,7 @@ const oneOf = <T extends string>(
 
   if (!found) {
     throw new InvalidPullRequestFilterError(
-      `by one ${what} of ${values.join(', ')}, not ${asked}`,
+      `${what} must be one of ${values.join(', ')}, not ${asked}`,
     );
   }
 
@@ -102,7 +102,7 @@ const weekOf = (value: AskedValue): Window | null => {
 
   if (!window || Number.isNaN(window.from.getTime())) {
     throw new InvalidPullRequestFilterError(
-      `by a week that starts on a day written YYYY-MM-DD, not ${asked}`,
+      `week must be a day written YYYY-MM-DD, not ${asked}`,
     );
   }
 
@@ -114,7 +114,7 @@ const repositoriesOf = (
 ): readonly string[] | null => {
   if (asked !== null && asked.length > MOST_FILTERED_REPOSITORIES) {
     throw new InvalidPullRequestFilterError(
-      `by at most ${MOST_FILTERED_REPOSITORIES} repositories at once`,
+      `takes at most ${MOST_FILTERED_REPOSITORIES} repositories`,
     );
   }
 

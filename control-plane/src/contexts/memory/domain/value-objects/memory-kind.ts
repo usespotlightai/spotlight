@@ -16,7 +16,7 @@ export const parseMemoryKind = (raw: string): MemoryKind => {
 
   if (!kind) {
     throw new InvalidMemoryError(
-      `is one of ${MEMORY_KINDS.join(', ')}, not ${raw}`,
+      `kind must be one of ${MEMORY_KINDS.join(', ')}, not ${raw}`,
     );
   }
 

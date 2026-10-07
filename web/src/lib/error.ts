@@ -1,6 +1,6 @@
 export function messageOf(
   thrown: unknown,
-  fallback = 'Something went wrong',
+  fallback = 'Sorry, the request failed.',
 ): string {
   if (typeof thrown === 'string') {
     return thrown;
@@ -35,5 +35,3 @@ const answered = (thrown: unknown, status: number): boolean => {
 };
 
 export const notFound = (thrown: unknown): boolean => answered(thrown, 404);
-
-export const conflicted = (thrown: unknown): boolean => answered(thrown, 409);

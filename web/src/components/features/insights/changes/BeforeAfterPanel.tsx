@@ -38,12 +38,12 @@ export function BeforeAfterPanel({
   return (
     <SidePane pane={BEFORE_AFTER_PANE} open={open}>
       <aside
-        aria-label="Before and after the change"
+        aria-label="Impact of the change"
         className="flex min-h-0 flex-1 flex-col"
       >
-        <div className="flex items-center gap-2 border-border border-b-[0.5px] px-4 py-2">
+        <div className="flex items-center gap-2 px-4 py-2">
           <p className="min-w-0 flex-1 truncate font-medium text-foreground text-xs">
-            {stationShown(names, change.stationId)}: before and after
+            {stationShown(names, change.stationId)}: impact
           </p>
           <button
             type="button"

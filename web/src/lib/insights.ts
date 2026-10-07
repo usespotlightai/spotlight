@@ -1,5 +1,6 @@
+import type { BreadcrumbSegment } from '@/components/shell/layout/Breadcrumbs';
 import type {
-  ConfigMarkerResponseDto,
+  ChangeResponseDto,
   CostFlowLinkResponseDto,
   CostFlowNodeResponseDto,
   CostSliceResponseDto,
@@ -7,6 +8,7 @@ import type {
   DayTallyResponseDto,
   FlowResponseDto,
   HarnessResponseDto,
+  HeadlineChangesResponseDto,
   HeadlineResponseDto,
   InsightsCostResponseDto,
   InsightsFlowResponseDto,
@@ -18,12 +20,15 @@ import type {
   LineResponseDto,
   PersonNameResponseDto,
   RunFailureSummaryResponseDto,
+  RunTallyResponseDto,
   SignalReadingResponseDto,
   SpendResponseDto,
   SpreadResponseDto,
   StationFlowResponseDto,
   StationReportResponseDto,
   StationWorthImprovingResponseDto,
+  TallyChangesResponseDto,
+  TallySeenResponseDto,
   TaskFailureSummaryResponseDto,
 } from '@/lib/api';
 import type { ImprovedStation } from '@/lib/chat';
@@ -45,10 +50,10 @@ export type InsightsCost = InsightsCostResponseDto;
 export type InsightsRuns = InsightsRunsResponseDto;
 export type InsightsRun = InsightsRunResponseDto;
 export type Headline = HeadlineResponseDto;
+export type HeadlineChanges = HeadlineChangesResponseDto;
 export type Spend = SpendResponseDto;
 export type Spread = SpreadResponseDto;
 export type DayOutput = DayOutputResponseDto;
-export type ConfigMarker = ConfigMarkerResponseDto;
 export type WorthImproving = StationWorthImprovingResponseDto;
 export type SignalReading = SignalReadingResponseDto;
 export type Flow = FlowResponseDto;
@@ -75,32 +80,16 @@ export const PERIOD_RANGES: readonly Range[] = RANGES.filter((range) =>
 export const asPeriod = (raw: string | null): InsightsPeriod =>
   PERIOD_IDS.find((each) => each === raw) ?? DEFAULT_PERIOD;
 
-const MINUTE_MS = 60_000;
-
-export const periodCovering = (at: string, now: Date): InsightsPeriod => {
-  const ago = (now.getTime() - new Date(at).getTime()) / MINUTE_MS;
-
-  return (
-    (PERIOD_RANGES.find((range) => range.minutes >= ago)?.id as
-      | InsightsPeriod
-      | undefined) ?? '90d'
-  );
-};
-
 export const stationAnchor = (stationId: string): string =>
   `station-${stationId}`;
 
 export const INSIGHTS_TABS = [
   { id: 'overview', label: 'Overview' },
-  { id: 'flow', label: 'Flow' },
-  { id: 'pull-requests', label: 'Pull requests' },
-  { id: 'stations', label: 'Stations' },
-  { id: 'changes', label: 'Changes' },
-  { id: 'candidates', label: 'Candidates' },
-  { id: 'people', label: 'People' },
   { id: 'cost', label: 'Cost' },
-  { id: 'tools', label: 'Tools' },
-  { id: 'memory', label: 'Memory' },
+  { id: 'people', label: 'People' },
+  { id: 'productivity', label: 'Productivity' },
+  { id: 'stations', label: 'Stations' },
+  { id: 'tools', label: 'Tools and skills' },
   { id: 'runs', label: 'Runs' },
   { id: 'traces', label: 'Traces' },
 ] as const;
@@ -166,6 +155,8 @@ const RUN_FILTER_KEYS = [
 
 export type RunFilterKey = (typeof RUN_FILTER_KEYS)[number];
 
+const STATION_FILTER_KEYS = ['stationId'] as const;
+
 export type InsightsFilter = {
   readonly [key in RunFilterKey | PullRequestFilterKey]?: string;
 };
@@ -179,14 +170,16 @@ export type InsightsView = {
   readonly page: number;
 };
 
-const LISTED_TABS: readonly InsightsTab[] = ['runs', 'pull-requests'];
+const LISTED_TABS: readonly InsightsTab[] = ['runs', 'productivity'];
 
 const filterKeysOf = (tab: InsightsTab): readonly (keyof InsightsFilter)[] => {
   switch (tab) {
     case 'runs':
       return RUN_FILTER_KEYS;
-    case 'pull-requests':
+    case 'productivity':
       return PULL_REQUEST_FILTER_KEYS;
+    case 'stations':
+      return STATION_FILTER_KEYS;
     default:
       return [];
   }
@@ -232,8 +225,12 @@ const filterOf = (
   switch (tab) {
     case 'runs':
       return runFilterOf(params);
-    case 'pull-requests':
+    case 'productivity':
       return pullRequestFilterOf(params);
+    case 'stations': {
+      const stationId = params.get('stationId');
+      return stationId ? { stationId } : {};
+    }
     default:
       return {};
   }
@@ -279,9 +276,9 @@ export const insightsPath = (
 export const narrowedBy = (filter: RunFilter): RunFilterKey[] =>
   RUN_FILTER_KEYS.filter((key) => Boolean(filter[key]));
 
-const NOTHING_PRICED = 'Nothing was priced';
+const NOTHING_PRICED = 'No priced runs';
 
-const MIXED_CURRENCIES = 'Prices came in more than one currency';
+const MIXED_CURRENCIES = 'Prices in more than one currency';
 
 export const whyNoSpend = (mixedCurrencies: boolean): string =>
   mixedCurrencies ? MIXED_CURRENCIES : NOTHING_PRICED;
@@ -330,16 +327,22 @@ export const lasted = (ms: number): string => {
 export const lastedOrNone = (ms: number | null): string =>
   ms === null ? '–' : lasted(ms);
 
+export const medianShown = (spread: Spread): string =>
+  spread.p50Ms === null ? '–' : lasted(spread.p50Ms);
+
+export const tailShown = (spread: Spread): string | null =>
+  spread.p50Ms === null ? null : `p90 ${lastedOrNone(spread.p90Ms)}`;
+
 export const spreadShown = (spread: Spread): string =>
   spread.p50Ms === null
     ? '–'
     : `${lasted(spread.p50Ms)} · p90 ${lastedOrNone(spread.p90Ms)}`;
 
-export type Better = 'up' | 'down' | 'neither';
+export type Change = ChangeResponseDto;
 
 export type Delta = {
   readonly shown: string;
-  readonly tone: 'good' | 'bad' | 'flat';
+  readonly tone: Change['tone'];
 };
 
 const PERCENT_CHANGE = new Intl.NumberFormat(undefined, {
@@ -348,29 +351,31 @@ const PERCENT_CHANGE = new Intl.NumberFormat(undefined, {
   signDisplay: 'exceptZero',
 });
 
-export const deltaOf = (
-  now: number | null,
-  before: number | null,
-  better: Better,
-): Delta | null => {
-  if (now === null || before === null) {
-    return null;
-  }
-  if (now === before) {
-    return { shown: 'No change', tone: 'flat' };
-  }
+const POINTS = 100;
 
-  const rose = now > before;
-  const tone =
-    better === 'neither' ? 'flat' : rose === (better === 'up') ? 'good' : 'bad';
+const pointsChanged = (by: number): string => {
+  const points = by * POINTS;
+  const size = Math.abs(points);
+  const shown = size < 1 ? size.toFixed(1) : String(Math.round(size));
 
-  return before === 0
-    ? { shown: 'Up from 0', tone }
-    : { shown: PERCENT_CHANGE.format((now - before) / before), tone };
+  return `${points > 0 ? '+' : '−'}${shown} pts`;
 };
 
-const spendAmount = (spend: Spend | null, like: Spend | null): number | null =>
-  spend && (!like || like.currency === spend.currency) ? spend.amount : null;
+const changedBy = (change: Change): string => {
+  if (change.fromZero || change.by === null) {
+    return 'Up from 0';
+  }
+
+  return change.unit === 'points'
+    ? pointsChanged(change.by)
+    : PERCENT_CHANGE.format(change.by);
+};
+
+export const changeShown = (change: Change | null): Delta | null =>
+  change && {
+    shown: change.direction === 'same' ? 'No change' : changedBy(change),
+    tone: change.tone,
+  };
 
 export type TileDrill =
   | { readonly tab: InsightsTab; readonly filter?: InsightsFilter }
@@ -387,7 +392,7 @@ export type HeadlineTile = {
 
 export const headlineTiles = (
   now: Headline,
-  before: Headline,
+  changes: HeadlineChanges,
 ): HeadlineTile[] => [
   {
     id: 'spend',
@@ -396,11 +401,7 @@ export const headlineTiles = (
     detail: now.spend
       ? `Over ${countShown(now.runs)} ${now.runs === 1 ? 'run' : 'runs'}`
       : whyNoSpend(now.mixedCurrencies),
-    delta: deltaOf(
-      spendAmount(now.spend, before.spend),
-      spendAmount(before.spend, now.spend),
-      'neither',
-    ),
+    delta: changeShown(changes.spend),
     drill: { tab: 'runs' },
   },
   {
@@ -408,25 +409,21 @@ export const headlineTiles = (
     label: 'PRs merged',
     value: countShown(now.mergedPullRequests),
     detail: `${countShown(now.closedPullRequests)} closed unmerged`,
-    delta: deltaOf(now.mergedPullRequests, before.mergedPullRequests, 'up'),
+    delta: changeShown(changes.mergedPullRequests),
     drill: { tab: 'runs', filter: mergedFilter(now.mergedTaskIds) },
   },
   {
     id: 'merge-rate',
     label: 'Merge rate',
     value: shareShown(now.mergeRate),
-    delta: deltaOf(now.mergeRate, before.mergeRate, 'up'),
+    delta: changeShown(changes.mergeRate),
     drill: { tab: 'runs', filter: { delivery: 'merged' } },
   },
   {
     id: 'cost-per-merge',
     label: 'Cost per merged PR',
     value: spendShown(now.costPerMerge),
-    delta: deltaOf(
-      spendAmount(now.costPerMerge, before.costPerMerge),
-      spendAmount(before.costPerMerge, now.costPerMerge),
-      'down',
-    ),
+    delta: changeShown(changes.costPerMerge),
     drill: { tab: 'cost' },
   },
   {
@@ -437,7 +434,7 @@ export const headlineTiles = (
       now.taskToMerge.p90Ms === null
         ? undefined
         : `p90 ${lasted(now.taskToMerge.p90Ms)}`,
-    delta: deltaOf(now.taskToMerge.p50Ms, before.taskToMerge.p50Ms, 'down'),
+    delta: changeShown(changes.taskToMerge),
     drill: { tab: 'runs', filter: mergedFilter(now.mergedTaskIds) },
   },
   {
@@ -445,14 +442,14 @@ export const headlineTiles = (
     label: 'Human touches per task',
     value: perShown(now.touchesPerTask),
     detail: `${countShown(now.touches)} over ${countShown(now.tasks)} ${now.tasks === 1 ? 'task' : 'tasks'}`,
-    delta: deltaOf(now.touchesPerTask, before.touchesPerTask, 'down'),
+    delta: changeShown(changes.touchesPerTask),
     drill: { tab: 'people' },
   },
   {
     id: 'people',
     label: 'Active people',
     value: countShown(now.activePeople),
-    delta: deltaOf(now.activePeople, before.activePeople, 'up'),
+    delta: changeShown(changes.activePeople),
     drill: { tab: 'people' },
   },
 ];
@@ -531,27 +528,7 @@ export const modelShown = (model: string | null): string =>
 const repositoryShown = (repository: string | null): string =>
   repository ?? NO_REPOSITORY;
 
-export type OutputDay = {
-  readonly day: string;
-  readonly runs: number;
-  readonly spend: number | null;
-  readonly merged: number;
-  readonly changes: readonly ConfigMarker[];
-};
-
 export const dayOf = (at: string): string => at.slice(0, 10);
-
-export const outputDays = (
-  output: readonly DayOutput[],
-  changes: readonly ConfigMarker[],
-): OutputDay[] =>
-  output.map((each) => ({
-    day: each.day,
-    runs: each.runs,
-    spend: each.spend?.amount ?? null,
-    merged: each.merged,
-    changes: changes.filter((change) => dayOf(change.firstRunAt) === each.day),
-  }));
 
 const SIGNALS: Record<SignalReading['signal'], string> = {
   'sent-back': 'Sent back',
@@ -561,10 +538,13 @@ const SIGNALS: Record<SignalReading['signal'], string> = {
   cost: 'Cost per run',
 };
 
-const signalLabel = (signal: SignalReading['signal']): string =>
+export const signalLabel = (signal: SignalReading['signal']): string =>
   SIGNALS[signal];
 
-const signalValue = (reading: SignalReading, value: number | null): string => {
+export const signalValue = (
+  reading: SignalReading,
+  value: number | null,
+): string => {
   if (value === null) {
     return '–';
   }
@@ -580,11 +560,65 @@ const signalValue = (reading: SignalReading, value: number | null): string => {
   return shareShown(value);
 };
 
+const SIGNAL_ROOM = 1.1;
+
+const TIDY_STEPS = [1, 2, 2.5, 5, 10];
+
+const SHARES = new Set<SignalReading['signal']>([
+  'sent-back',
+  'checks-failed',
+  'run-failures',
+]);
+
+const tidyAbove = (value: number): number => {
+  const power = 10 ** Math.floor(Math.log10(value));
+  const step = TIDY_STEPS.find((each) => each * power >= value) ?? 10;
+
+  return step * power;
+};
+
+export const signalScale = (reading: SignalReading): number => {
+  const most = Math.max(
+    reading.now,
+    reading.before ?? 0,
+    reading.team ?? 0,
+    reading.flaggedAbove,
+  );
+
+  if (most <= 0) {
+    return 1;
+  }
+
+  const tidy = tidyAbove(most * SIGNAL_ROOM);
+
+  return SHARES.has(reading.signal) ? Math.min(tidy, 1) : tidy;
+};
+
+export const signalPlace = (reading: SignalReading, value: number): number =>
+  value / signalScale(reading);
+
+export const signalTick = (reading: SignalReading, value: number): string => {
+  if (SHARES.has(reading.signal)) {
+    return shareShown(value);
+  }
+
+  const number = value.toLocaleString('en', { maximumFractionDigits: 2 });
+
+  return reading.signal === 'cost' && reading.currency
+    ? value.toLocaleString('en', {
+        style: 'currency',
+        currency: reading.currency,
+        maximumFractionDigits: 2,
+        minimumFractionDigits: 0,
+      })
+    : number;
+};
+
 export const signalShown = (reading: SignalReading): string => {
   const shown = (value: number | null) => signalValue(reading, value);
   const against = [
     ...(reading.before === null ? [] : [`was ${shown(reading.before)}`]),
-    ...(reading.team === null ? [] : [`team ${shown(reading.team)}`]),
+    ...(reading.team === null ? [] : [`all stations ${shown(reading.team)}`]),
   ];
 
   return against.length > 0
@@ -593,10 +627,10 @@ export const signalShown = (reading: SignalReading): string => {
 };
 
 export const taskFailureShown = (failure: TaskFailureSummary): string =>
-  `${failure.source} · ${failure.code} × ${failure.occurrences}`;
+  `${failure.source} · ${failure.code}`;
 
 export const runFailureShown = (failure: RunFailureSummary): string =>
-  `${failure.failure ?? 'No reason given'} × ${failure.runs}`;
+  failure.failure ?? 'No reason given';
 
 export type TrendPoint = {
   readonly day: string;
@@ -851,3 +885,113 @@ export const filterValueShown = (key: RunFilterKey, value: string): string => {
 
 export const cacheShown = (share: number | null): string =>
   share === null ? 'not reported' : shareShown(share);
+
+export type TallyTile = HeadlineTile & { readonly trend?: readonly number[] };
+
+const counted = (
+  id: string,
+  label: string,
+  now: number,
+  seen: boolean,
+  change: Change | null,
+  drill: TileDrill = undefined,
+): TallyTile[] =>
+  seen
+    ? [
+        {
+          id,
+          label,
+          value: countShown(now),
+          delta: changeShown(change),
+          drill,
+        },
+      ]
+    : [];
+
+export const tallyTiles = (
+  now: RunTallyResponseDto,
+  seen: TallySeenResponseDto,
+  changes: TallyChangesResponseDto,
+  trend: readonly TrendPoint[],
+  filter: RunFilter = {},
+): TallyTile[] => [
+  {
+    id: 'runs',
+    label: 'Runs',
+    value: countShown(now.runs),
+    delta: changeShown(changes.runs),
+    drill: { tab: 'runs', filter },
+    trend: trend.map((day) => day.runs),
+  },
+  {
+    id: 'failed',
+    label: 'Failed',
+    value: countShown(now.failed),
+    detail:
+      now.failedShare === null
+        ? undefined
+        : `${shareShown(now.failedShare)} of runs`,
+    delta: changeShown(changes.failed),
+    drill: { tab: 'runs', filter: { ...filter, outcome: 'failed' } },
+    trend: trend.map((day) => day.failed),
+  },
+  ...counted(
+    'accepted',
+    'Accepted',
+    now.accepted,
+    seen.accepted,
+    changes.accepted,
+    { tab: 'runs', filter: { ...filter, outcome: 'accepted' } },
+  ),
+  ...counted(
+    'sent-back',
+    'Sent back',
+    now.sentBack,
+    seen.sentBack,
+    changes.sentBack,
+  ),
+  ...counted('merged', 'Merged', now.merged, seen.merged, changes.merged),
+  {
+    id: 'cost',
+    label: 'Cost',
+    value: spendShown(now.cost),
+    delta: changeShown(changes.cost),
+    drill: { tab: 'cost' },
+  },
+  {
+    id: 'median',
+    label: 'Median run',
+    value: lastedOrNone(now.medianMs),
+    detail: now.p90Ms === null ? undefined : `p90 ${lasted(now.p90Ms)}`,
+    delta: changeShown(changes.median),
+    drill: undefined,
+  },
+];
+
+export const failedAny = (report: StationReport): boolean =>
+  report.taskFailures.length > 0 || report.runFailures.length > 0;
+
+export const insightsCrumbs = (
+  slug: string,
+  teamId: string,
+  view: InsightsView,
+  names: StationNames,
+): BreadcrumbSegment[] => {
+  const tab = INSIGHTS_TABS.find((each) => each.id === view.tab)?.label ?? '';
+  const stationId = view.tab === 'stations' ? view.filter.stationId : undefined;
+
+  return stationId
+    ? [
+        {
+          label: tab,
+          to: insightsPath(slug, teamId, {
+            tab: view.tab,
+            period: view.period,
+            filter: {},
+            page: 1,
+          }),
+        },
+        { label: stationShown(names, stationId) },
+      ]
+    : [{ label: tab }];
+};

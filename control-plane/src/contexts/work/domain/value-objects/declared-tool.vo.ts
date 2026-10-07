@@ -65,24 +65,21 @@ export class DeclaredTool {
     const inputs = input.inputs ?? [];
 
     if (description.length === 0) {
-      throw new InvalidToolError(
-        input.tool.value,
-        'says nothing about when to use it, which is how an agent decides to',
-      );
+      throw new InvalidToolError(input.tool.value, 'must say when to use it');
     }
 
     for (const each of inputs) {
       if (!TOOL_INPUT_NAME.test(each.name)) {
         throw new InvalidToolError(
           input.tool.value,
-          `takes ${JSON.stringify(each.name)}: name an input in letters, digits, dashes and underscores, as in issue or team_id`,
+          `input ${JSON.stringify(each.name)} must be letters, digits, dashes and underscores, as in issue or team_id`,
         );
       }
 
       if (each.name === WHOLE_CALL_INPUT) {
         throw new InvalidToolError(
           input.tool.value,
-          `takes ${WHOLE_CALL_INPUT}, which Spotlight keeps for handing a tool every input at once`,
+          `cannot take input ${WHOLE_CALL_INPUT}. That input is reserved for handing a tool every input at once`,
         );
       }
     }
@@ -90,13 +87,13 @@ export class DeclaredTool {
     const names = inputs.map((each) => each.name);
 
     if (new Set(names).size !== names.length) {
-      throw new InvalidToolError(input.tool.value, 'takes one input twice');
+      throw new InvalidToolError(input.tool.value, 'names an input twice');
     }
 
     if (input.approval && names.includes(APPROVAL_INTENT_INPUT)) {
       throw new InvalidToolError(
         input.tool.value,
-        `needs approval and takes ${APPROVAL_INTENT_INPUT}, which Spotlight keeps for the agent to say what it wants to do`,
+        `needs approval, so it cannot take input ${APPROVAL_INTENT_INPUT}. That input is reserved for approvals`,
       );
     }
 
@@ -105,14 +102,14 @@ export class DeclaredTool {
     if (piped.length > 1) {
       throw new InvalidToolError(
         input.tool.value,
-        'has more than one input piped in, and only one thing can be piped in',
+        'can pipe in only one input',
       );
     }
 
     if (piped.some((each) => !each.schema.takesText)) {
       throw new InvalidToolError(
         input.tool.value,
-        'has an input piped in that is not text, and text is what is piped',
+        'can pipe in only a text input',
       );
     }
 

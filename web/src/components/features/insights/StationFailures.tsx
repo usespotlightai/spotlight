@@ -1,3 +1,4 @@
+import { BarRow } from '@/components/features/insights/BarRow';
 import { InsightsLink } from '@/components/features/insights/InsightsLink';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import {
@@ -6,6 +7,9 @@ import {
   taskFailureShown,
 } from '@/lib/insights';
 import { runPath } from '@/lib/run';
+import { cn } from '@/lib/utils';
+
+const LINK = 'hover:underline';
 
 type StationFailuresProps = {
   slug: string;
@@ -18,66 +22,43 @@ export function StationFailures({
   teamId,
   report,
 }: StationFailuresProps) {
-  if (report.taskFailures.length === 0 && report.runFailures.length === 0) {
-    return null;
-  }
+  const both = report.runFailures.length > 0 && report.taskFailures.length > 0;
+  const failedRuns = Math.max(
+    report.tally.failed,
+    ...report.runFailures.map((failure) => failure.runs),
+    1,
+  );
+  const mostOccurrences = Math.max(
+    ...report.taskFailures.map((failure) => failure.occurrences),
+    1,
+  );
 
   return (
-    <div className="grid gap-2 text-xs sm:grid-cols-2">
-      <div className="flex min-w-0 flex-col gap-0.5">
-        <p className="text-muted-foreground">Task failures</p>
-        {report.taskFailures.length === 0 ? (
-          <p className="text-faint">None</p>
-        ) : (
-          <ul aria-label="Task failures" className="flex flex-col">
-            {report.taskFailures.map((failure) => {
-              const [only] = failure.taskIds;
-              const shown = taskFailureShown(failure);
-
-              return (
-                <li
-                  key={`${failure.source}:${failure.code}`}
-                  className="truncate text-foreground"
-                >
-                  {only && failure.taskIds.length === 1 ? (
-                    <InsightsLink tab="runs" filter={{ taskId: only }}>
-                      {shown}
-                    </InsightsLink>
-                  ) : (
-                    shown
-                  )}
-                  {failure.mostInARow > 1 && (
-                    <span className="text-muted-foreground">
-                      {' '}
-                      · {failure.mostInARow} in a row
-                    </span>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </div>
-
-      <div className="flex min-w-0 flex-col gap-0.5">
-        <p className="text-muted-foreground">Run failures</p>
-        {report.runFailures.length === 0 ? (
-          <p className="text-faint">None</p>
-        ) : (
-          <ul aria-label="Run failures" className="flex flex-col">
+    <div className={cn('grid gap-4', both && 'sm:grid-cols-2')}>
+      {report.runFailures.length > 0 && (
+        <div className="flex min-w-0 flex-col gap-1">
+          {both && (
+            <p className="text-[0.7rem] text-muted-foreground">Run failures</p>
+          )}
+          <ul aria-label="Run failures" className="flex flex-col gap-1.5 pb-2">
             {report.runFailures.map((failure) => {
               const [only] = failure.runIds;
               const shown = runFailureShown(failure);
 
               return (
-                <li
+                <BarRow
                   key={failure.failure ?? 'unsaid'}
-                  className="truncate text-foreground"
+                  share={failure.runs / failedRuns}
+                  values={
+                    <span className="w-10 text-right text-foreground tabular-nums">
+                      {failure.runs}
+                    </span>
+                  }
                 >
                   {only && failure.runIds.length === 1 ? (
                     <TrailLink
                       to={runPath(slug, teamId, only)}
-                      className="hover:underline"
+                      className={LINK}
                     >
                       {shown}
                     </TrailLink>
@@ -92,12 +73,52 @@ export function StationFailures({
                       {shown}
                     </InsightsLink>
                   )}
-                </li>
+                </BarRow>
               );
             })}
           </ul>
-        )}
-      </div>
+        </div>
+      )}
+
+      {report.taskFailures.length > 0 && (
+        <div className="flex min-w-0 flex-col gap-1">
+          {both && (
+            <p className="text-[0.7rem] text-muted-foreground">Task failures</p>
+          )}
+          <ul aria-label="Task failures" className="flex flex-col gap-1.5 pb-2">
+            {report.taskFailures.map((failure) => {
+              const [only] = failure.taskIds;
+              const shown = taskFailureShown(failure);
+
+              return (
+                <BarRow
+                  key={`${failure.source}:${failure.code}`}
+                  share={failure.occurrences / mostOccurrences}
+                  values={
+                    <span className="w-10 text-right text-foreground tabular-nums">
+                      {failure.occurrences}
+                    </span>
+                  }
+                >
+                  {only && failure.taskIds.length === 1 ? (
+                    <InsightsLink tab="runs" filter={{ taskId: only }}>
+                      {shown}
+                    </InsightsLink>
+                  ) : (
+                    shown
+                  )}
+                  {failure.mostInARow > 1 && (
+                    <span className="text-muted-foreground">
+                      {' '}
+                      · {failure.mostInARow} in a row
+                    </span>
+                  )}
+                </BarRow>
+              );
+            })}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

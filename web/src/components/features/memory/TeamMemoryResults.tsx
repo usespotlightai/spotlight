@@ -48,11 +48,11 @@ export function TeamMemoryResults({
       <Notice>
         <EmptyState
           icon={Spool}
-          title="Nothing remembered yet"
+          title="No memories yet"
           action={<WriteMemoryButton teamId={teamId} />}
         >
-          Memories come from runs at stations that keep them, once someone
-          approves them in the inbox. You can also write one yourself.
+          Stations that keep memories propose them after runs. Approve them in
+          the inbox, or write one yourself.
         </EmptyState>
       </Notice>
     );

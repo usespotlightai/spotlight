@@ -13,7 +13,7 @@ export class ChatMessageBody {
 
     if (trimmed.length === 0) {
       throw new InvalidChatMessageError(
-        'must say something, attach a file, share a trace or name a station to improve',
+        'needs text, a file, a trace or a station to improve',
       );
     }
     if (trimmed.length > MAX_LENGTH) {

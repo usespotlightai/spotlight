@@ -15,10 +15,7 @@ export class ApprovalNeeded {
     const said = because.trim();
 
     if (said.length === 0) {
-      throw new InvalidToolError(
-        tool,
-        'needs approval and says nothing about why, which is what a person is shown before they decide',
-      );
+      throw new InvalidToolError(tool, 'needs approval, so it must say why');
     }
 
     return new ApprovalNeeded(said, askedOf);

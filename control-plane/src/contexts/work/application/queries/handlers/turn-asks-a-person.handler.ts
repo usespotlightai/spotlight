@@ -29,7 +29,7 @@ export class TurnAsksAPersonHandler
 
       if (!run?.isHeldBy(runner)) {
         throw new UnknownRunError(
-          `runner ${query.runnerId} holds no run ${query.runId}`,
+          `Runner ${query.runnerId} holds no run ${query.runId}.`,
         );
       }
 

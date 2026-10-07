@@ -5,7 +5,7 @@ export class InvalidTokenTrustError extends Error {
     readonly field: string,
     readonly because: string,
   ) {
-    super(`A workspace token trust's ${field} ${because}`);
+    super(`Token trust ${field} ${because}.`);
     this.name = 'InvalidTokenTrustError';
   }
 }

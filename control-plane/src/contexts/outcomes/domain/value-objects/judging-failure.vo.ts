@@ -32,9 +32,7 @@ export class JudgingFailure {
 
   static of(code: string, at: Date): JudgingFailure {
     if (!isCode(code)) {
-      throw InvalidScoreError.ofJudging(
-        `failed in a way nobody knows (${code})`,
-      );
+      throw InvalidScoreError.ofJudging(`failed with unknown code ${code}`);
     }
 
     return new JudgingFailure(code, at);

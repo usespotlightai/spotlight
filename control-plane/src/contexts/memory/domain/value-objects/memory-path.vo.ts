@@ -17,7 +17,7 @@ export class MemoryPath {
 
     if (!value || value.length > MOST_PATH || parts.includes('..')) {
       throw new InvalidMemoryError(
-        `names a path of at most ${MOST_PATH} characters inside its repository`,
+        `path must be at most ${MOST_PATH} characters`,
       );
     }
 

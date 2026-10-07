@@ -4,10 +4,11 @@ import type {
   MemoryBenchmarkResponseDto,
 } from '@/lib/api';
 import { countShown, shareShown } from '@/lib/insights';
+import { dayShown } from '@/lib/judge';
 
 export type InsightsMemory = InsightsMemoryResponseDto;
 export type FlaggedMemory = FlaggedMemoryResponseDto;
-export type MemoryBenchmark = MemoryBenchmarkResponseDto;
+type MemoryBenchmark = MemoryBenchmarkResponseDto;
 
 export type MemoryTile = {
   readonly id: string;
@@ -18,6 +19,21 @@ export type MemoryTile = {
 
 const runs = (count: number): string =>
   `${countShown(count)} ${count === 1 ? 'run' : 'runs'}`;
+
+const benchmarkTile = (benchmark: MemoryBenchmark | null): MemoryTile =>
+  benchmark
+    ? {
+        id: 'benchmark',
+        label: 'Solved with memories',
+        value: shareShown(benchmark.withMemories),
+        detail: `${shareShown(benchmark.withoutMemories)} without, ${countShown(benchmark.cases)} cases, ${dayShown(benchmark.ranAt.slice(0, 10))}`,
+      }
+    : {
+        id: 'benchmark',
+        label: 'Solved with memories',
+        value: '–',
+        detail: 'No benchmark yet',
+      };
 
 export const memoryTiles = (memory: InsightsMemory): MemoryTile[] => [
   {
@@ -44,6 +60,7 @@ export const memoryTiles = (memory: InsightsMemory): MemoryTile[] => [
     value: countShown(memory.flagged.length),
     detail: 'Retired by people this period',
   },
+  benchmarkTile(memory.benchmark),
 ];
 
 export const usedNoMemory = (memory: InsightsMemory): boolean =>
@@ -51,6 +68,3 @@ export const usedNoMemory = (memory: InsightsMemory): boolean =>
   memory.memoriesBriefed === 0 &&
   memory.memoriesRecalled === 0 &&
   memory.flagged.length === 0;
-
-export const benchmarkShown = (benchmark: MemoryBenchmark): string =>
-  `${shareShown(benchmark.withMemories)} solved with memories, ${shareShown(benchmark.withoutMemories)} without, over ${countShown(benchmark.cases)} cases`;

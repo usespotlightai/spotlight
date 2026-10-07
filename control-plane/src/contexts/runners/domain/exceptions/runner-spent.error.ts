@@ -3,7 +3,7 @@ export class RunnerSpentError extends Error {
 
   constructor(runnerId: string) {
     super(
-      `The runner ${runnerId} has already taken its one piece of work, or ended`,
+      `Runner ${runnerId} has already taken its one piece of work, or ended.`,
     );
     this.name = 'RunnerSpentError';
   }

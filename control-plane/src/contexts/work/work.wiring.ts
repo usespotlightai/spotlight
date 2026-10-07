@@ -1853,6 +1853,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   ...bindQueryHandler(ListTeamTracesQuery, ListTeamTracesHandler, [
     TEAM_TRACE_READER,
     RUN_DIGESTS,
+    CLOCK,
   ]),
 
   ...bindQueryHandler(ReadTaskTraceQuery, ReadTaskTraceHandler, [

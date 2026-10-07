@@ -3,7 +3,7 @@ export class WorkspaceRunnersMovedOnError extends Error {
 
   constructor(id: string) {
     super(
-      `The workspace's runners have been declared again since they were read, and cannot be written over (${id})`,
+      `Workspace runners ${id} changed since you loaded them. Please reload and try again.`,
     );
     this.name = 'WorkspaceRunnersMovedOnError';
   }

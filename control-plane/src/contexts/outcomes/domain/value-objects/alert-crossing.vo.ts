@@ -42,15 +42,15 @@ export class AlertCrossing {
       input.recoveredAt &&
       input.recoveredAt.getTime() < input.raisedAt.getTime()
     ) {
-      throw new InvalidAlertError('recovers only after it was raised');
+      throw new InvalidAlertError('can recover only after it was raised');
     }
     if (input.rule.compares !== (input.reading.baseline !== null)) {
       throw new InvalidAlertError(
-        'compares against the runs before only where it watches a rise or fall',
+        'can compare with earlier runs only when watching a rise or fall',
       );
     }
     if (!Number.isInteger(clearRuns) || clearRuns < 0) {
-      throw new InvalidAlertError('counts a whole number of clear runs');
+      throw new InvalidAlertError('clear runs must be a whole number');
     }
 
     return new AlertCrossing(
@@ -109,7 +109,7 @@ export class AlertCrossing {
   ): AlertCrossing {
     if (!this.cooling) {
       throw new InvalidAlertError(
-        'reopens only while it is settling after a recovery',
+        'can reopen only while settling after a recovery',
       );
     }
 

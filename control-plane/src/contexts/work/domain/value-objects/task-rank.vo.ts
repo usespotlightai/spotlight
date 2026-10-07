@@ -30,7 +30,7 @@ export class TaskRank {
 
     if (!RANK.test(trimmed)) {
       throw new InvalidTaskRankError(
-        `must be digits and lowercase letters, but was "${raw}"`,
+        `must be digits and lowercase letters, not "${raw}"`,
       );
     }
 
@@ -43,7 +43,7 @@ export class TaskRank {
 
     if (high !== '' && low >= high) {
       throw new InvalidTaskRankError(
-        `cannot sit between "${low}" and "${high}", which are out of order`,
+        `cannot sit between "${low}" and "${high}". They are out of order`,
       );
     }
 

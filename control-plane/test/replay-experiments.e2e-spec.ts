@@ -534,7 +534,7 @@ describe('a replay set', () => {
         runId: unanchored.runId,
       })
       .expect(409);
-    expect(refused.body.detail).toContain('never said where it started');
+    expect(refused.body.detail).toContain('never reported a starting point');
     await owner()
       .post(`${teamPath()}/replay-sets/${setId}/entries`, {
         runId: elsewhere.runId,
@@ -1279,6 +1279,7 @@ describe('a replay', () => {
           perRepeat: number[];
           spread: number;
           flippedTasks: string[];
+          noisyInOneCopy: boolean;
         } | null;
       };
     }[];
@@ -1292,6 +1293,7 @@ describe('a replay', () => {
           perRepeat: [0, 0],
           spread: 0,
           flippedTasks: [],
+          noisyInOneCopy: false,
         },
       },
     });

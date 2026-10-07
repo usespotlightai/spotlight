@@ -2,7 +2,7 @@ export class HookDefinitionMovedOnError extends Error {
   readonly violation = 'conflict' as const;
 
   constructor(key: string) {
-    super(`The hook ${key} was defined again while this was`);
+    super(`Hook ${key} changed while saving. Please try again.`);
     this.name = 'HookDefinitionMovedOnError';
   }
 }

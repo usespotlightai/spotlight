@@ -1,10 +1,9 @@
 import type { ReactNode } from 'react';
 import { AgentWorking } from '@/components/features/agent/AgentWorking';
 import { ChatEmpty } from '@/components/features/agent/ChatEmpty';
-import { ChatImproving } from '@/components/features/agent/ChatImproving';
+import { ChatProposal } from '@/components/features/agent/ChatProposal';
 import { ChatSaid } from '@/components/features/agent/ChatSaid';
 import { ChatWork } from '@/components/features/agent/ChatWork';
-import { ProposalLink } from '@/components/features/agent/ProposalLink';
 import { TimeMarker } from '@/components/features/inbox/conversation/TimeMarker';
 import { MarkdownEditor } from '@/components/shared/form/MarkdownEditor';
 import { useStickToBottom } from '@/hooks/useStickToBottom';
@@ -17,10 +16,7 @@ type ChatThreadProps = {
   teamId: string;
   chat: Chat;
   journals: readonly RunJournal[];
-  openAt: number | null;
-  onOpen: (position: number) => void;
   footer: ReactNode;
-  aside?: ReactNode;
 };
 
 export function ChatThread({
@@ -28,10 +24,7 @@ export function ChatThread({
   teamId,
   chat,
   journals,
-  openAt,
-  onOpen,
   footer,
-  aside,
 }: ChatThreadProps) {
   const scroller = useStickToBottom<HTMLDivElement>();
   const moments = momentsOf(chat.messages, journals);
@@ -49,13 +42,6 @@ export function ChatThread({
       <div className="flex min-w-0 flex-1 flex-col">
         <div className="mx-auto flex w-full max-w-3xl flex-1 flex-col px-8 py-8">
           <TimeMarker at={chat.createdAt} />
-          {chat.improving && (
-            <ChatImproving
-              slug={slug}
-              teamId={teamId}
-              improving={chat.improving}
-            />
-          )}
 
           {turns.length === 0 && !chat.working && <ChatEmpty />}
 
@@ -71,7 +57,12 @@ export function ChatThread({
               >
                 {turn.said && (
                   <div className={HELD_AT_TOP}>
-                    <ChatSaid slug={slug} teamId={teamId} message={turn.said} />
+                    <ChatSaid
+                      slug={slug}
+                      teamId={teamId}
+                      message={turn.said}
+                      improving={at === 0 ? chat.improving : null}
+                    />
                   </div>
                 )}
 
@@ -84,14 +75,16 @@ export function ChatThread({
                         className={cn(
                           moment.kind === 'proposed' &&
                             turn.moments[place - 1]?.kind === 'proposed' &&
-                            '-mt-5',
+                            '-mt-3',
                         )}
                       >
                         {moment.kind === 'proposed' && (
-                          <ProposalLink
+                          <ChatProposal
+                            slug={slug}
+                            teamId={teamId}
+                            chatId={chat.id}
+                            position={moment.message.position}
                             proposal={moment.proposal}
-                            active={openAt === moment.message.position}
-                            onOpen={() => onOpen(moment.message.position)}
                           />
                         )}
 
@@ -125,12 +118,6 @@ export function ChatThread({
 
         <div className="sticky bottom-0 z-20">{footer}</div>
       </div>
-
-      {aside && (
-        <div className="sticky top-0 flex h-full shrink-0 self-start">
-          {aside}
-        </div>
-      )}
     </div>
   );
 }

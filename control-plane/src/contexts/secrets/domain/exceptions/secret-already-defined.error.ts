@@ -2,7 +2,9 @@ export class SecretAlreadyDefinedError extends Error {
   readonly violation = 'conflict' as const;
 
   constructor(readonly secretName: string) {
-    super(`The workspace already holds a secret named ${secretName}`);
+    super(
+      `A secret named ${secretName} already exists. Please choose another name.`,
+    );
     this.name = 'SecretAlreadyDefinedError';
   }
 }

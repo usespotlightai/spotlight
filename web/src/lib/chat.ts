@@ -5,6 +5,10 @@ import type {
   ChatSummaryResponseDto,
   ChatTraceResponseDto,
 } from '@/lib/api';
+import {
+  type DecisionStanding,
+  WAITING_FOR_APPROVAL,
+} from '@/lib/decision-standing';
 import type { JournalStep, RunJournal } from '@/lib/inbox';
 import { teamSectionPath } from '@/lib/team';
 
@@ -148,14 +152,32 @@ export const turnsOf = (moments: readonly ChatMoment[]): ChatTurn[] => {
   return cut.filter((turn) => turn.said || turn.moments.length > 0);
 };
 
-export const newlyProposed = (
-  messages: readonly ChatMessage[],
-  since: number,
-): number | null =>
-  messages
-    .slice(since)
-    .reduce<number | null>(
-      (found, message) =>
-        message.proposal?.state === 'open' ? message.position : found,
-      null,
-    );
+const PROPOSAL_STANDINGS: Record<Proposal['state'], DecisionStanding> = {
+  open: 'waiting',
+  accepted: 'approved',
+  created: 'approved',
+  dismissed: 'declined',
+};
+
+export const proposalStandingOf = (proposal: Proposal): DecisionStanding =>
+  PROPOSAL_STANDINGS[proposal.state];
+
+const PROPOSAL_TITLES: Record<Proposal['state'], string> = {
+  open: WAITING_FOR_APPROVAL,
+  accepted: 'Creating the task',
+  created: 'Task created',
+  dismissed: 'Dismissed',
+};
+
+export const proposalTitleOf = (proposal: Proposal): string =>
+  PROPOSAL_TITLES[proposal.state];
+
+export const proposedStationOf = (proposal: Proposal): string | null =>
+  proposal.stationName
+    ? [proposal.lineName, proposal.stationName].filter(Boolean).join(' › ')
+    : null;
+
+export const proposalText = (proposal: Proposal): string =>
+  proposal.description
+    ? `${proposal.title}\n\n${proposal.description}`
+    : proposal.title;

@@ -1,4 +1,6 @@
+import type { KappaReading } from '@outcomes/domain/services/agreement-reading';
 import type {
+  AgreementReadings,
   Coverage,
   TrendPoint,
 } from '@outcomes/domain/services/judge-agreement';
@@ -15,6 +17,7 @@ export interface ClaimAgreementDto {
   readonly pairs: number;
   readonly observed: number | null;
   readonly kappa: number | null;
+  readonly reading: KappaReading | null;
 }
 
 export interface AgreementDto {
@@ -22,8 +25,18 @@ export interface AgreementDto {
   readonly observed: number | null;
   readonly kappa: number | null;
   readonly spearman: number | null;
+  readonly pearson: number | null;
   readonly mae: number | null;
+  readonly rmse: number | null;
+  readonly f1: number | null;
+  readonly readings: AgreementReadings;
   readonly claims: readonly ClaimAgreementDto[];
+}
+
+export interface ScoreCountDto {
+  readonly label: string;
+  readonly judge: number;
+  readonly people: number;
 }
 
 export interface ConfusionDto {
@@ -38,6 +51,7 @@ export interface RubricVersionDto {
   readonly judged: number;
   readonly agreement: AgreementDto;
   readonly confusion: ConfusionDto;
+  readonly distribution: readonly ScoreCountDto[];
   readonly trend: readonly TrendPoint[];
   readonly firstAt: string;
   readonly lastAt: string;
@@ -65,6 +79,13 @@ const CLAIM_LABELS: Readonly<Record<number, string>> = {
   1: 'met',
 };
 
+const labelOf =
+  (report: RubricReport) =>
+  (value: number): string =>
+    report.scale.byClaims
+      ? (CLAIM_LABELS[value] ?? String(value))
+      : report.scale.labelOf(value);
+
 export const rubricVersionOf = (
   report: RubricReport,
   current: string | null,
@@ -79,17 +100,22 @@ export const rubricVersionOf = (
     observed: report.agreement.observed,
     kappa: report.agreement.kappa,
     spearman: report.agreement.spearman,
+    pearson: report.agreement.pearson,
     mae: report.agreement.mae,
+    rmse: report.agreement.rmse,
+    f1: report.agreement.f1,
+    readings: report.agreement.readings,
     claims: report.agreement.claims.map((each) => ({ ...each })),
   },
   confusion: {
-    labels: report.agreement.confusion.values.map((each) =>
-      report.scale.byClaims
-        ? (CLAIM_LABELS[each] ?? String(each))
-        : report.scale.labelOf(each),
-    ),
+    labels: report.agreement.confusion.values.map(labelOf(report)),
     cells: report.agreement.confusion.cells,
   },
+  distribution: report.agreement.distribution.map((each) => ({
+    label: labelOf(report)(each.value),
+    judge: each.judge,
+    people: each.people,
+  })),
   trend: trendShownOf(
     report.trend,
     showsJudgeOf(standing, current, report.rubricVersion),

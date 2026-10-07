@@ -10,7 +10,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { messageOf } from '@/lib/error';
 
 const LONGEST_NAME = 100;
 
@@ -23,7 +22,6 @@ type ReplaySetNameDialogProps = {
   submit: string;
   submitting: string;
   pending: boolean;
-  error: unknown;
   onSubmit: (name: string) => void;
   onClosed: () => void;
 };
@@ -37,12 +35,10 @@ export function ReplaySetNameDialog({
   submit,
   submitting,
   pending,
-  error,
   onSubmit,
   onClosed,
 }: ReplaySetNameDialogProps) {
   const nameId = useId();
-  const errorId = useId();
   const [name, setName] = useState(initial);
   const named = name.trim();
 
@@ -88,18 +84,10 @@ export function ReplaySetNameDialog({
               placeholder="Queue fixes"
               maxLength={LONGEST_NAME}
               disabled={pending}
-              aria-describedby={error ? errorId : undefined}
-              aria-invalid={Boolean(error)}
               value={name}
               onChange={(event) => setName(event.target.value)}
             />
           </div>
-
-          {Boolean(error) && (
-            <p id={errorId} role="alert" className="text-destructive text-xs">
-              {messageOf(error)}
-            </p>
-          )}
 
           <DialogFooter>
             <DialogClose render={<Button variant="outline" size="sm" />}>

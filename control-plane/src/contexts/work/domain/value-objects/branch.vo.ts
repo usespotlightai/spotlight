@@ -14,7 +14,7 @@ export class Branch {
     const named = raw.trim();
 
     if (named.length === 0) {
-      throw new InvalidBranchError('must be named');
+      throw new InvalidBranchError('name must not be empty');
     }
 
     return new Branch(named);

@@ -21,7 +21,7 @@ export function Noted({ note, children }: NotedProps) {
           render={children}
           tabIndex={0}
           aria-describedby={noteId}
-          className="cursor-help rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
+          className="rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
         />
         <TooltipContent>{note}</TooltipContent>
       </Tooltip>

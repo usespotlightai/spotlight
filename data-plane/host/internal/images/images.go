@@ -88,7 +88,7 @@ var (
 
 func RunnerRefusal(release, atLeast string) string {
 	if release == "" {
-		return fmt.Sprintf("its runner reports no release, so it is older than the %s this control plane needs", atLeast)
+		return fmt.Sprintf("Runner doesn't report its release number. Minimum version required: %s", atLeast)
 	}
 
 	have, need := datedRelease.FindStringSubmatch(release), datedRelease.FindStringSubmatch(atLeast)
@@ -97,7 +97,7 @@ func RunnerRefusal(release, atLeast string) string {
 	}
 
 	if have[1] < need[1] || (have[1] == need[1] && number(have[2]) < number(need[2])) {
-		return fmt.Sprintf("its runner is release %s, older than the %s this control plane needs", release, atLeast)
+		return fmt.Sprintf("Runner is on release %s. Minimum version required: %s", release, atLeast)
 	}
 
 	return ""

@@ -3,10 +3,10 @@ export class PoolTokenTakenError extends Error {
 
   readonly field = 'token';
 
-  readonly because = 'is already another pool’s token; give each pool its own';
+  readonly because = 'belongs to another pool. Please give each pool its own';
 
   constructor() {
-    super('A pool token is already another pool’s');
+    super('Pool token belongs to another pool. Please give each pool its own.');
     this.name = 'PoolTokenTakenError';
   }
 }

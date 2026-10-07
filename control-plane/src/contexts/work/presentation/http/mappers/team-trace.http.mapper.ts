@@ -1,10 +1,13 @@
 import type {
   TeamTraceDto,
+  TeamTracesDto,
   TraceStationDto,
 } from '@work/application/dto/team-trace.dto';
 import {
   TeamTraceResponseDto,
+  TeamTracesResponseDto,
   TraceStationResponseDto,
+  TraceVolumeBucketResponseDto,
 } from '@work/presentation/http/dto/team-trace.response.dto';
 
 const stationToResponse = (station: TraceStationDto): TraceStationResponseDto =>
@@ -33,6 +36,23 @@ export const TeamTraceHttpMapper = {
       dto.faults,
       dto.cost,
       dto.currency,
+    );
+  },
+  toTracesResponse(dto: TeamTracesDto): TeamTracesResponseDto {
+    return new TeamTracesResponseDto(
+      dto.range,
+      dto.from,
+      dto.to,
+      dto.volume.map(
+        (bucket) =>
+          new TraceVolumeBucketResponseDto(
+            bucket.from,
+            bucket.to,
+            bucket.count,
+            bucket.faults,
+          ),
+      ),
+      dto.traces.map(TeamTraceHttpMapper.toResponse),
     );
   },
 };

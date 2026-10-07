@@ -1,3 +1,4 @@
+import { BarRow } from '@/components/features/insights/BarRow';
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { InsightsLink } from '@/components/features/insights/InsightsLink';
 import { spentIn } from '@/lib/inbox';
@@ -33,44 +34,37 @@ export function CostSlices({
       ) : (
         <ul
           aria-label={`Spend ${title.toLowerCase()}`}
-          className="flex flex-col gap-1.5"
+          className="flex flex-col gap-1.5 pb-2"
         >
           {slices.map((slice) => {
             const label = named(dimension, slice.key);
             const filter = sliceFilter(dimension, slice.key);
 
             return (
-              <li
+              <BarRow
                 key={slice.key ?? 'none'}
-                data-slot="cost-slice"
-                className="flex flex-col gap-0.5 text-xs"
+                slot="cost-slice"
+                share={most > 0 ? slice.amount / most : 0}
+                values={
+                  <>
+                    <span className="text-muted-foreground tabular-nums">
+                      {countShown(slice.runs)}{' '}
+                      {slice.runs === 1 ? 'run' : 'runs'}
+                    </span>
+                    <span className="w-16 text-right text-foreground tabular-nums">
+                      {spentIn(slice.amount, currency)}
+                    </span>
+                  </>
+                }
               >
-                <div className="flex items-baseline gap-2">
-                  <span className="min-w-0 flex-1 truncate text-foreground">
-                    {filter ? (
-                      <InsightsLink tab="runs" filter={filter}>
-                        {label}
-                      </InsightsLink>
-                    ) : (
-                      label
-                    )}
-                  </span>
-                  <span className="text-muted-foreground tabular-nums">
-                    {countShown(slice.runs)} {slice.runs === 1 ? 'run' : 'runs'}
-                  </span>
-                  <span className="w-16 text-right text-foreground tabular-nums">
-                    {spentIn(slice.amount, currency)}
-                  </span>
-                </div>
-                <span aria-hidden className="h-1 rounded-full bg-muted">
-                  <span
-                    className="block h-full rounded-full bg-primary"
-                    style={{
-                      width: `${most > 0 ? (slice.amount / most) * 100 : 0}%`,
-                    }}
-                  />
-                </span>
-              </li>
+                {filter ? (
+                  <InsightsLink tab="runs" filter={filter}>
+                    {label}
+                  </InsightsLink>
+                ) : (
+                  label
+                )}
+              </BarRow>
             );
           })}
         </ul>

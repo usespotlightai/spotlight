@@ -84,7 +84,7 @@ describe('OfferedTool', () => {
       offering(
         ApprovalNeeded.of({ because: 'It posts publicly.' }, 'linear.comment'),
       ),
-    ).toThrow(/keeps for the agent/);
+    ).toThrow(/cannot take reserved input/);
     expect(offering(null).inputs.map((each) => each.name)).toEqual(['intent']);
   });
 

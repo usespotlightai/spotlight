@@ -16,6 +16,17 @@ const delivery = (over: Partial<Flow['delivery']> = {}): Flow['delivery'] => ({
   openedTaskIds: ['task_1', 'task_2', 'task_3'],
   reviewedTaskIds: ['task_1', 'task_2'],
   mergedTaskIds: ['task_1'],
+  changes: {
+    opened: {
+      unit: 'percent',
+      by: 0.5,
+      fromZero: false,
+      direction: 'up',
+      tone: 'good',
+    },
+    reviewed: null,
+    merged: null,
+  },
   ...over,
 });
 
@@ -25,7 +36,7 @@ const showing = (now: Flow['delivery']) =>
       <Routes>
         <Route
           path="/w/:slug/team/:teamId/insights"
-          element={<DeliveryStages delivery={now} before={delivery()} />}
+          element={<DeliveryStages delivery={now} />}
         />
       </Routes>
     </MemoryRouter>,
@@ -39,6 +50,12 @@ describe('DeliveryStages', () => {
       'href',
       '/w/acme/team/team_1/insights?tab=runs&taskIds=task_1%2Ctask_2',
     );
+  });
+
+  it('marks a count with how it moved against the period before', () => {
+    showing(delivery());
+
+    expect(screen.getByText('+50%')).toBeInTheDocument();
   });
 
   it('opens nothing where no pull request was first reviewed', () => {

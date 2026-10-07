@@ -24,12 +24,12 @@ const listed = (
   checkouts: readonly ReportedCheckout[] | null,
 ): readonly ReportedCheckout[] => {
   if (!checkouts) {
-    throw new InvalidStartingPointError('names its checkouts as a list');
+    throw new InvalidStartingPointError('checkouts must be a list');
   }
 
   if (checkouts.length > MOST_STARTED_CHECKOUTS) {
     throw new InvalidStartingPointError(
-      `names at most ${MOST_STARTED_CHECKOUTS} checkouts`,
+      `can name at most ${MOST_STARTED_CHECKOUTS} checkouts`,
     );
   }
 
@@ -59,14 +59,14 @@ export class RecordStartingPointHandler
 
       if (!Number.isInteger(command.attempt) || command.attempt < 1) {
         throw new InvalidStartingPointError(
-          'names the attempt the run started on',
+          'must name the attempt the run started on',
         );
       }
 
       const run = await this.runs.findById(RunId.of(command.runId));
 
       if (!run) {
-        throw new UnknownRunError(`there is no run ${command.runId}`);
+        throw new UnknownRunError(`Run ${command.runId} not found.`);
       }
 
       const attempt = RunAttempt.of(run.id, command.attempt);

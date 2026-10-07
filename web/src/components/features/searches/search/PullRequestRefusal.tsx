@@ -27,11 +27,10 @@ export function PullRequestRefusal({ reason }: PullRequestRefusalProps) {
           )}
           {reason.wanted !== null && (
             <>
-              ; set it to{' '}
+              . Please set it by hand to{' '}
               <code className="break-all font-mono text-foreground">
                 {wantedShown(reason.wanted)}
-              </code>{' '}
-              by hand
+              </code>
             </>
           )}
         </p>

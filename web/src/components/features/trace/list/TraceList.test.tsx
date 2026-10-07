@@ -11,7 +11,13 @@ const refetch = vi.fn();
 
 vi.mock('@/hooks/api/useTeamTraces', () => ({
   useTeamTraces: () => ({
-    data: traces(),
+    data: traces() && {
+      range: '7d',
+      from: '2026-08-22T12:00:00.000Z',
+      to: '2026-08-29T12:00:00.000Z',
+      volume: [],
+      traces: traces(),
+    },
     isPending: traces() === undefined,
     errorUpdateCount: failing() ? 1 : 0,
     isFetching: false,
@@ -140,7 +146,7 @@ describe('TraceList', () => {
 
     expect(screen.getByText('No traces')).toBeInTheDocument();
     expect(
-      screen.getByText(/Nothing was traced in the past 7 days/),
+      screen.getByText(/No traces in the past 7 days/),
     ).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Create a task' })).toHaveAttribute(
       'href',

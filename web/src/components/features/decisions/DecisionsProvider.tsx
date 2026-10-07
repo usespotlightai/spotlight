@@ -19,7 +19,7 @@ export function DecisionsProvider({
 }: DecisionsProviderProps) {
   const { data: found } = useTaskDecisions(teamId, taskId ?? undefined);
   const disputeDecision = useDisputeDecision();
-  const { isPending, isError, mutateAsync } = disputeDecision;
+  const { isPending, mutateAsync } = disputeDecision;
 
   const deciding = useMemo(
     () =>
@@ -31,13 +31,12 @@ export function DecisionsProvider({
               : null,
             disputing: {
               pending: isPending,
-              failed: isError,
               dispute: (decisionId: string, path: string, reason: string) =>
                 mutateAsync({ teamId, taskId, decisionId, path, reason }),
             },
           }
         : null,
-    [found, slug, teamId, taskId, isPending, isError, mutateAsync],
+    [found, slug, teamId, taskId, isPending, mutateAsync],
   );
 
   return <DecisionsContext value={deciding}>{children}</DecisionsContext>;

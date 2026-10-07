@@ -9,8 +9,9 @@ import {
   totalsOf,
 } from '@replays/domain/services/replay-results';
 import {
+  noiseReadingOf,
   type ReplayedConfig,
-  type SetNoise,
+  type SetNoiseReading,
   setNoiseOf,
 } from '@replays/domain/services/set-noise';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
@@ -86,7 +87,7 @@ interface SanityReading {
 }
 
 export interface SetHealth {
-  readonly noise: SetNoise | null;
+  readonly noise: SetNoiseReading | null;
   readonly saturation: SetSaturation | null;
   readonly judge: JudgeConsistency | null;
   readonly checks: CheckConsistency | null;
@@ -286,8 +287,10 @@ export const setHealthOf = (
         : [];
     })[0] ?? null;
 
+  const noise = setNoiseOf(replays, configs, liveFingerprint);
+
   return {
-    noise: setNoiseOf(replays, configs, liveFingerprint),
+    noise: noise && noiseReadingOf(noise, minGain),
     saturation: saturationOf(live),
     judge: probe && judgeOf(probe),
     checks: probe && checksOf(probe),

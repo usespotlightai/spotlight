@@ -1,17 +1,17 @@
-import {
-  type InsightsColumn,
-  InsightsTable,
-} from '@/components/features/insights/InsightsTable';
+import { Fragment } from 'react';
+import { SetupRow } from '@/components/features/insights/changes/SetupRow';
+import { FoldingRows } from '@/components/shared/nested-table/FoldingRows';
+import { NestedGroupRow } from '@/components/shared/nested-table/NestedGroupRow';
+import { NestedTable } from '@/components/shared/nested-table/NestedTable';
+import { useFolds } from '@/hooks/useFolds';
 import type { HarnessResponseDto } from '@/lib/api';
-import { spentIn } from '@/lib/inbox';
-import { countShown } from '@/lib/insights';
+import { harnessShown } from '@/lib/insights';
 import {
-  OUTCOME_MEASURES,
+  harnessGroupsOf,
   type OutcomeMeasure,
-  outcomeShown,
   type SetupOutcome,
+  setupHeadings,
   setupKey,
-  setupShown,
 } from '@/lib/insights-changes';
 
 type SetupTableProps = {
@@ -27,50 +27,40 @@ export function SetupTable({
   harnesses,
   judged,
 }: SetupTableProps) {
-  const columns: InsightsColumn<SetupOutcome>[] = [
-    {
-      id: 'setup',
-      header: 'Setup',
-      cell: (setup) => (
-        <>
-          {setupShown(setup, harnesses)}
-          {setup.frontier.includes(measure) && (
-            <span className="ml-1.5 text-primary">frontier</span>
-          )}
-        </>
-      ),
-    },
-    {
-      id: 'runs',
-      header: 'Runs',
-      numeric: true,
-      cell: (setup) => countShown(setup.tally.runs),
-    },
-    {
-      id: 'cost',
-      header: 'Cost per run',
-      numeric: true,
-      cell: (setup) =>
-        setup.costPerRun === null || !setup.currency
-          ? '–'
-          : spentIn(setup.costPerRun, setup.currency),
-    },
-    ...OUTCOME_MEASURES.filter((each) => each.id !== 'judge' || judged).map(
-      (each): InsightsColumn<SetupOutcome> => ({
-        id: each.id,
-        header: each.label,
-        numeric: true,
-        cell: (setup) => outcomeShown(setup.outcomes[each.id]),
-      }),
-    ),
-  ];
+  const folds = useFolds();
 
   return (
-    <InsightsTable
+    <NestedTable
       label="Harness, model, effort and profile"
-      columns={columns}
-      rows={setups}
-      rowKey={setupKey}
-    />
+      headings={setupHeadings(judged)}
+    >
+      {harnessGroupsOf(setups).map((group) => {
+        const name = harnessShown(harnesses, group.harness);
+        const open = folds.isOpen(group.harness);
+
+        return (
+          <Fragment key={group.harness}>
+            <NestedGroupRow
+              label={name}
+              open={open}
+              depth={0}
+              onToggle={() => folds.toggle(group.harness)}
+            >
+              <span className="font-medium text-foreground">{name}</span>
+            </NestedGroupRow>
+            <FoldingRows open={open}>
+              {group.setups.map((setup) => (
+                <SetupRow
+                  key={setupKey(setup)}
+                  setup={setup}
+                  measure={measure}
+                  judged={judged}
+                />
+              ))}
+            </FoldingRows>
+          </Fragment>
+        );
+      })}
+    </NestedTable>
   );
 }

@@ -41,25 +41,23 @@ export class RunCost {
     const { tokens, changedLines } = input;
 
     if (input.steps < 0 || input.faults < 0) {
-      throw new InvalidOutcomeError('counts no fewer than no steps or faults');
+      throw new InvalidOutcomeError('steps and faults cannot be negative');
     }
     if (!Number.isSafeInteger(changedLines) || changedLines < 0) {
-      throw new InvalidOutcomeError(
-        'counts its changed lines in whole numbers',
-      );
+      throw new InvalidOutcomeError('changed lines must be a whole number');
     }
     if (input.ms !== null && input.ms < 0) {
-      throw new InvalidOutcomeError('takes no less than no time');
+      throw new InvalidOutcomeError('duration cannot be negative');
     }
     if (input.amount !== null && !(input.amount >= 0)) {
-      throw new InvalidOutcomeError('costs nothing less than nothing');
+      throw new InvalidOutcomeError('cost cannot be negative');
     }
     if (
       ![tokens.input, tokens.output, tokens.cacheRead, tokens.cacheWrite].every(
         counted,
       )
     ) {
-      throw new InvalidOutcomeError('counts its tokens in whole numbers');
+      throw new InvalidOutcomeError('tokens must be whole numbers');
     }
 
     return new RunCost(

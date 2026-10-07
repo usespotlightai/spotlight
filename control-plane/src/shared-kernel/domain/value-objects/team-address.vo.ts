@@ -6,7 +6,7 @@ const SEPARATOR = '/';
 const refused = (): never => {
   throw new InvalidIdentifierError(
     'address',
-    'is the team key and the key of what it holds, as in core/delivery',
+    'must be a team key and a key, such as core/delivery',
   );
 };
 

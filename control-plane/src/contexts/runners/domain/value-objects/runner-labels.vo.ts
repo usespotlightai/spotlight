@@ -21,12 +21,12 @@ export class RunnerLabels {
 
       if (!areWords(label)) {
         throw new InvalidRunnerLabelError(
-          `is lowercase words joined by dashes, at most ${LONGEST_WORDS} characters, as in vpc-internal`,
+          `must be lowercase words joined by dashes, at most ${LONGEST_WORDS} characters, such as vpc-internal`,
         );
       }
 
       if (values.includes(label)) {
-        throw new InvalidRunnerLabelError(`${label} is given only once`);
+        throw new InvalidRunnerLabelError(`${label} is given twice`);
       }
 
       values.push(label);

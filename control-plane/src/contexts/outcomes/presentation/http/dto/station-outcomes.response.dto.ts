@@ -4,10 +4,14 @@ import type {
   RunOutcomeDto,
 } from '@outcomes/application/dto/run-outcome.dto';
 import type {
+  ConfigInForceDto,
   FingerprintGroupDto,
   StationOutcomesDto,
 } from '@outcomes/application/dto/station-outcomes.dto';
-import type { RunTally } from '@outcomes/domain/services/run-tally';
+import type {
+  RunTally,
+  TallyShares,
+} from '@outcomes/domain/services/run-tally';
 import { CHECK_VERDICTS } from '@outcomes/domain/value-objects/check-verdict';
 import { DELIVERY_STATES } from '@outcomes/domain/value-objects/delivery-state';
 import { NEXT_ACTS } from '@outcomes/domain/value-objects/next-act.vo';
@@ -185,6 +189,14 @@ export class RunTallyResponseDto {
   @ApiProperty({ example: 2 })
   readonly failed: number;
 
+  @ApiProperty({
+    nullable: true,
+    type: Number,
+    example: 0.17,
+    description: 'Failed runs as a share of the runs; none where none ran',
+  })
+  readonly failedShare: number | null;
+
   @ApiProperty({ example: 1, description: 'Runs a person stopped' })
   readonly stopped: number;
 
@@ -258,6 +270,7 @@ export class RunTallyResponseDto {
     this.runs = tally.runs;
     this.withdrawn = tally.withdrawn;
     this.failed = tally.failed;
+    this.failedShare = tally.failedShare;
     this.stopped = tally.stopped;
     this.checksPassed = tally.checksPassed;
     this.checksFailed = tally.checksFailed;
@@ -273,15 +286,61 @@ export class RunTallyResponseDto {
   }
 }
 
+export class TallySharesResponseDto {
+  @ApiProperty({
+    nullable: true,
+    type: Number,
+    example: 0.89,
+    description:
+      'Runs whose checks passed as a share of the runs checked; none where none were',
+  })
+  readonly checksPassed: number | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: Number,
+    example: 0.5,
+    description: 'Runs a person accepted as a share of the runs that ran',
+  })
+  readonly accepted: number | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: Number,
+    example: 0.33,
+    description: 'Merged tasks as a share of the runs that ran',
+  })
+  readonly merged: number | null;
+
+  constructor(shares: TallyShares) {
+    this.checksPassed = shares.checksPassed;
+    this.accepted = shares.accepted;
+    this.merged = shares.merged;
+  }
+}
+
 export class FingerprintGroupResponseDto {
+  @ApiProperty({
+    example: 'run_8f2c',
+    description:
+      'The group’s oldest listed run: the run that started its config, or for a group carrying on the config of a run from before the listing, a group with no config, or a group of a config that never ran, its oldest run',
+  })
+  readonly firstRunId: string;
+
   @ApiProperty({
     nullable: true,
     type: String,
     example: 'a3f9…',
     description:
-      'The station config these runs ran with; none for runs from before configs were fingerprinted',
+      'The station config in force when these runs started, or for a group that never ran its config, the config its runs were meant to run; none only for runs from before the station first ran a config',
   })
   readonly fingerprint: string | null;
+
+  @ApiProperty({
+    description:
+      'Whether the group’s config is one the station ran: false for runs meant for a config other than the one in force that never ran it (never started, failed to provision or withdrawn), which are kept apart from the group in force',
+  })
+  readonly ran: boolean;
 
   @ApiProperty({ type: StationConfigResponseDto, nullable: true })
   readonly config: StationConfigResponseDto | null;
@@ -289,22 +348,45 @@ export class FingerprintGroupResponseDto {
   @ApiProperty({
     type: ConfigChangeResponseDto,
     isArray: true,
-    description: 'How the config differs from the one before it',
+    description:
+      'How the config differs from the last one the station ran before the group, listed or not, groups that never ran their config passed over; none where either config is not on record, or for a group carrying on the config in force',
   })
   readonly changes: readonly ConfigChangeResponseDto[];
 
   @ApiProperty({
     type: StationRunOutcomeResponseDto,
     isArray: true,
-    description: 'Its runs, the newest first',
+    description:
+      'Its runs that ended, the latest-started first, so the groups’ runs read in turn are the station’s latest-started runs',
   })
   readonly runs: readonly StationRunOutcomeResponseDto[];
 
   @ApiProperty({ type: RunTallyResponseDto })
   readonly tally: RunTallyResponseDto;
 
+  @ApiProperty({ type: TallySharesResponseDto })
+  readonly shares: TallySharesResponseDto;
+
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    example: '2026-09-28',
+    description: 'The day its earliest-ended run ended; none where none ended',
+  })
+  readonly firstDay: string | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: String,
+    example: '2026-09-30',
+    description: 'The day its latest-ended run ended; none where none ended',
+  })
+  readonly lastDay: string | null;
+
   constructor(group: FingerprintGroupDto) {
+    this.firstRunId = group.firstRunId;
     this.fingerprint = group.fingerprint;
+    this.ran = group.ran;
     this.config = group.config
       ? new StationConfigResponseDto(group.config)
       : null;
@@ -315,6 +397,22 @@ export class FingerprintGroupResponseDto {
       (each) => new StationRunOutcomeResponseDto(each),
     );
     this.tally = new RunTallyResponseDto(group.tally);
+    this.shares = new TallySharesResponseDto(group.shares);
+    this.firstDay = group.firstDay;
+    this.lastDay = group.lastDay;
+  }
+}
+
+export class ConfigInForceResponseDto {
+  @ApiProperty({
+    type: RunTallyResponseDto,
+    description:
+      'One tally over the listed runs of the config the station last ran, as of the listed runs, back to its last change to another config it ran; runs meant for a config that never ran them, between, leave the stretch whole and are not counted',
+  })
+  readonly tally: RunTallyResponseDto;
+
+  constructor(inForce: ConfigInForceDto) {
+    this.tally = new RunTallyResponseDto(inForce.tally);
   }
 }
 
@@ -326,14 +424,25 @@ export class StationOutcomesResponseDto {
     type: FingerprintGroupResponseDto,
     isArray: true,
     description:
-      'The station’s latest runs, in runs of the same config, the newest first',
+      'The station’s latest-started runs in groups, the newest first, in the order the runs started: a new group starts at every run that ran a config other than the station’s run before it that ran one, listed or not; a run meant for another config than the one in force that never ran it (never started, failed to provision or withdrawn) starts or joins a group of that config that never ran, and the group in force starts again after it; a run with no config joins the group in force',
   })
   readonly groups: readonly FingerprintGroupResponseDto[];
+
+  @ApiProperty({
+    type: ConfigInForceResponseDto,
+    nullable: true,
+    description:
+      'The config the station last ran, as of the listed runs, with its tally; there under a config carried on from before the listing even when no listed run ran a config, and none when the station had run no config by the newest listed run',
+  })
+  readonly inForce: ConfigInForceResponseDto | null;
 
   constructor(outcomes: StationOutcomesDto) {
     this.stationId = outcomes.stationId;
     this.groups = outcomes.groups.map(
       (each) => new FingerprintGroupResponseDto(each),
     );
+    this.inForce = outcomes.inForce
+      ? new ConfigInForceResponseDto(outcomes.inForce)
+      : null;
   }
 }

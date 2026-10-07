@@ -1,4 +1,3 @@
-import { ApprovalAwaitsInbox } from '@/components/features/inbox/conversation/approval/ApprovalAwaitsInbox';
 import { ApprovalDecision } from '@/components/features/inbox/conversation/approval/ApprovalDecision';
 import { ApprovalEditControls } from '@/components/features/inbox/conversation/approval/ApprovalEditControls';
 import { ApprovalRefusal } from '@/components/features/inbox/conversation/approval/ApprovalRefusal';
@@ -30,11 +29,7 @@ export function ApprovalControls({
   onDecide,
 }: ApprovalControlsProps) {
   if (!onDecide) {
-    return approval.standing === 'asked' ? (
-      <ApprovalAwaitsInbox />
-    ) : (
-      <ApprovalDecision approval={approval} pending={false} />
-    );
+    return <ApprovalDecision approval={approval} pending={false} />;
   }
 
   if (mode === 'editing') {

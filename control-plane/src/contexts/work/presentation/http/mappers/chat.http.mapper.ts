@@ -56,6 +56,8 @@ export const ChatHttpMapper = {
                   message.proposal.stationId,
                   message.proposal.stationName,
                   message.proposal.stationColor,
+                  message.proposal.stationPosition,
+                  message.proposal.stationCount,
                   message.proposal.title,
                   message.proposal.description,
                   message.proposal.state,

@@ -1,8 +1,10 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes } from 'react-router';
+import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { TeamInsights } from '@/components/features/insights/TeamInsights';
+import { CandidatesTab } from '@/components/features/insights/candidates/CandidatesTab';
+import type { InsightsPeriod } from '@/lib/insights';
+import { stationNamesOf } from '@/lib/insights';
 import { CANDIDATES } from '@/stories/fixtures/insights-candidates';
 
 type Held = {
@@ -49,7 +51,11 @@ const LINES = [
   },
 ];
 
-const answer: { candidates: Held; lines: unknown; asked: unknown[] } = {
+const answer: {
+  candidates: Held;
+  lines: unknown;
+  asked: unknown[];
+} = {
   candidates: held(undefined),
   lines: LINES,
   asked: [],
@@ -68,26 +74,23 @@ vi.mock('@/hooks/api/useLines', () => ({
 
 const STATION = '/w/acme/team/team_1/lines/line_delivery/stations';
 
-const showing = (query = '?tab=candidates') =>
+const showing = (period: InsightsPeriod = '30d') =>
   render(
-    <MemoryRouter initialEntries={[`/w/acme/team/team_1/insights${query}`]}>
-      <Routes>
-        <Route
-          path="/w/:slug/team/:teamId/insights"
-          element={<TeamInsights slug="acme" teamId="team_1" />}
-        />
-      </Routes>
+    <MemoryRouter>
+      <CandidatesTab
+        slug="acme"
+        teamId="team_1"
+        period={period}
+        names={stationNamesOf(
+          (answer.lines ?? []) as Parameters<typeof stationNamesOf>[0],
+        )}
+      />
     </MemoryRouter>,
   );
 
-const card = (name: string) =>
-  screen
-    .getByRole('heading', { name })
-    .closest('[data-slot="insights-card"]') as HTMLElement;
-
 const row = (name: string) =>
   screen
-    .getByText(name, { selector: 'span' })
+    .getByText(name)
     .closest('[data-slot="replayed-candidate"]') as HTMLElement;
 
 beforeEach(() => {
@@ -97,17 +100,9 @@ beforeEach(() => {
 });
 
 describe('the Candidates tab', () => {
-  it('is a tab of Insights after Changes, keeping the period', () => {
-    showing('?tab=candidates&period=7d');
+  it('asks for the candidates replayed in its period', () => {
+    showing('7d');
 
-    const tabs = screen.getAllByRole('link').map((each) => each.textContent);
-    expect(tabs.indexOf('Candidates')).toBe(tabs.indexOf('Changes') + 1);
-    expect(
-      screen.getByRole('link', { name: 'Candidates', current: 'page' }),
-    ).toHaveAttribute(
-      'href',
-      '/w/acme/team/team_1/insights?tab=candidates&period=7d',
-    );
     expect(answer.asked).toContainEqual({ teamId: 'team_1', period: '7d' });
   });
 
@@ -140,9 +135,7 @@ describe('the Candidates tab', () => {
       screen.getByText('No candidates replayed in this period'),
     ).toBeInTheDocument();
     expect(
-      screen.getByText(
-        /runs a station’s past tasks again against a changed config, without applying it/,
-      ),
+      screen.getByText(/Replay a station’s past tasks under a changed config/),
     ).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Open the line' })).toHaveAttribute(
       'href',
@@ -156,137 +149,103 @@ describe('the Candidates tab', () => {
     showing();
 
     expect(screen.getByRole('note')).toHaveTextContent(
-      'Only the latest replays over this period are counted',
+      'Only the latest replays in this period are counted',
     );
   });
 
-  it('gives each station a card, with its replay set’s health and the unpriced listed apart from the chart', () => {
+  it('groups the candidates in one table by station, then replay set, saying how far to trust each set', () => {
     showing();
 
-    const implementation = card('Implementation');
-    expect(card('Code Review')).toBeInTheDocument();
+    const groups = [
+      ...document.querySelectorAll('[data-slot="nested-group"]'),
+    ].map((each) => each.textContent);
+    expect(groups).toEqual([
+      'ImplementationDelivery',
+      expect.stringMatching(/^Migrations and billing24 tasks \(27 runs\)/),
+      'Code ReviewDelivery',
+      expect.stringMatching(/^Reviews sent back12 tasks/),
+    ]);
     expect(
-      within(implementation).getByRole('link', {
-        name: 'Migrations and billing',
-      }),
+      screen.getByRole('link', { name: 'Migrations and billing' }),
     ).toHaveAttribute(
       'href',
       `${STATION}/station_implementation/replay-sets/set_implementation`,
     );
-    expect(
-      within(implementation).getByText('Guards changes'),
-    ).toBeInTheDocument();
-    expect(
-      implementation.querySelector('[data-slot="replay-set-health"]'),
-    ).toHaveTextContent(
-      /24 tasks \(27 runs\) · ended 3–41 days ago · last added 2 days ago/,
-    );
-    const noise = implementation.querySelector(
-      '[data-slot="health-line"][data-key="noise"]',
-    );
-    expect(noise).toHaveTextContent(
-      'Noise: Success moved 13 pts between 3 copies',
-    );
-    expect(noise).toHaveAttribute('data-tone', 'bad');
-    expect(
-      within(
-        within(card('Code Review')).getByRole('list', { name: /^Health of / }),
-      ).getAllByRole('listitem'),
-    ).toHaveLength(5);
-    expect(
-      card('Code Review').querySelector(
-        '[data-slot="health-line"][data-key="judge"]',
-      ),
-    ).toHaveTextContent('Judge agreeing with itself: Not checked');
-    expect(
-      implementation.querySelector('[data-slot="unpriced"]'),
-    ).toHaveTextContent(
-      'Not priced, so not shown: cursor-careful-profile (61%).',
-    );
-    expect(
-      implementation.querySelector('[data-slot="unfinished"]'),
-    ).toHaveTextContent(
-      'Not finished, so not shown: sonnet-plan-first (running).',
+    expect(screen.getAllByLabelText('Checks pull requests')).toHaveLength(1);
+    expect(screen.getAllByLabelText('How far to trust this set')).toHaveLength(
+      2,
     );
   });
 
-  it('lists each candidate behind the chart, with its scores, cost and comparison with live', async () => {
+  it('folds a station or a replay set away and opens it again', async () => {
     showing();
 
     await userEvent.click(
-      within(card('Implementation')).getByRole('button', {
-        name: 'Show table',
-      }),
+      screen.getByRole('button', { name: 'Fold Implementation' }),
     );
+    expect(screen.queryByText('opus-with-migrations-skill')).toBeNull();
+    expect(screen.getByText('review-against-spec')).toBeInTheDocument();
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Unfold Implementation' }),
+    );
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Fold Reviews sent back' }),
+    );
+    expect(screen.getByText('opus-with-migrations-skill')).toBeInTheDocument();
+    expect(screen.queryByText('review-against-spec')).toBeNull();
+  });
+
+  it('charts each replay set in place of its candidates, under the same folding rows', async () => {
+    showing();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Chart' }));
+
+    expect(
+      document.querySelectorAll('[data-slot="candidate-chart"]'),
+    ).toHaveLength(2);
+    expect(
+      document.querySelector('[data-slot="replayed-candidate"]'),
+    ).toBeNull();
+  });
+
+  it('lists each candidate with what changed, its success and cost beside live', () => {
+    showing();
 
     const picked = row('opus-with-migrations-skill');
-    expect(picked).toHaveTextContent('Searched');
-    expect(picked).toHaveTextContent('On the frontier');
-    expect(picked).toHaveTextContent(
-      'Sent-back runs mostly forgot the migration order',
-    );
     expect(
       within(picked).getByRole('list', { name: 'What changed' }),
-    ).toBeInTheDocument();
-    expect(picked).toHaveTextContent('Replayed16 tasks (18 runs)');
-    expect(picked).toHaveTextContent(
-      'Search score72% (50–89%) of 18 runs scored',
-    );
-    expect(picked).toHaveTextContent('Cost per run$0.84');
+    ).toHaveTextContent(/model\s*=\s*"sonnet"\s*->\s*"opus"/);
+    expect(within(picked).getByLabelText('Best value')).toBeInTheDocument();
+    expect(picked).toHaveTextContent('SourceSearch');
+    expect(picked).toHaveTextContent('Candidate72%Live56%');
+    expect(picked).toHaveTextContent('Against liveBetter+16 pts');
+    expect(picked).toHaveTextContent('Cost per run$0.82Live cost$0.60');
+    expect(picked).toHaveTextContent('Runs18');
     expect(
-      picked.querySelector('[data-slot="against-live"]'),
-    ).toHaveTextContent(
-      '72% (52–90%) vs live 56% (36–74%) on the same 18 runs+16 pts(+2 to +30)· Better',
-    );
-    expect(
-      picked.querySelector('[data-slot="cost-against-live"]'),
-    ).toHaveTextContent('cost $0.82 vs live $0.60 a run on the same 18 runs');
-    expect(picked.querySelector('[data-slot="compared"]')).toHaveTextContent(
-      '1 regression over 18 runs compared',
-    );
-    expect(
-      within(picked).getByRole('link', { name: 'Baseline comparison' }),
-    ).toHaveAttribute(
-      'href',
-      `${STATION}/station_implementation/replays/replay_opus_skill`,
-    );
-    expect(
-      within(card('Implementation')).getByText(/Live config, replayed/),
-    ).toBeInTheDocument();
-  });
-
-  it('keeps the held-out score apart from the search score', async () => {
-    showing();
-
-    await userEvent.click(
-      within(card('Implementation')).getByRole('button', {
-        name: 'Show table',
+      within(row('sonnet-plan-first')).queryByRole('list', {
+        name: 'What changed',
       }),
-    );
-
-    const heldOut = row('opus-with-migrations-skill').querySelector(
-      '[data-slot="held-out"]',
-    );
-    expect(heldOut).toHaveTextContent(
-      'Held out67% (33–100%) of 7 held-out runs',
-    );
+    ).toBeNull();
     expect(
-      row('sonnet-terse-prompt').querySelector('[data-slot="held-out"]'),
-    ).toHaveTextContent('Not held out');
+      document.querySelector('[data-slot="replayed-baseline"]'),
+    ).toHaveTextContent('Live54%Cost per run–Live cost$0.62');
   });
 
-  it('leads to the pull request, the search or the replay, whichever shows the change', async () => {
+  it('shows the held-out score in one column for every set', () => {
     showing();
 
-    for (const name of ['Implementation', 'Code Review']) {
-      await userEvent.click(
-        within(card(name)).getByRole('button', { name: 'Show table' }),
-      );
-    }
+    expect(row('opus-with-migrations-skill')).toHaveTextContent('Held out67%');
+    expect(row('sonnet-terse-prompt')).toHaveTextContent('Held out–');
+    expect(row('review-against-spec')).toHaveTextContent('Held out–');
+  });
+
+  it('leads Changes to the pull request, the search or the replay, whichever shows the change', () => {
+    showing();
 
     expect(
       within(row('opus-with-migrations-skill')).getByRole('link', {
-        name: 'Pull request',
+        name: 'Changes',
       }),
     ).toHaveAttribute(
       'href',
@@ -294,7 +253,7 @@ describe('the Candidates tab', () => {
     );
     expect(
       within(row('sonnet-terse-prompt')).getByRole('link', {
-        name: 'Pick on the search',
+        name: 'Changes',
       }),
     ).toHaveAttribute(
       'href',
@@ -302,26 +261,16 @@ describe('the Candidates tab', () => {
     );
 
     const proposed = row('review-against-spec');
-    expect(proposed).toHaveTextContent('Proposed');
-    expect(proposed).toHaveTextContent('Replay success67% of 12 runs scored');
-    expect(proposed.querySelector('[data-slot="held-out"]')).toBeNull();
-    expect(proposed.querySelector('[data-slot="compared"]')).toHaveTextContent(
-      '2 regressions over 12 runs compared',
-    );
+    expect(proposed).toHaveTextContent('SourceProposed');
     expect(
-      within(proposed).getByRole('link', {
-        name: 'Its changes and baseline comparison',
-      }),
+      within(proposed).getByRole('link', { name: 'Changes' }),
     ).toHaveAttribute(
       'href',
       `${STATION}/station_review/replays/replay_spec_review`,
     );
-    expect(
-      within(proposed).queryByRole('link', { name: 'Baseline comparison' }),
-    ).not.toBeInTheDocument();
   });
 
-  it('leaves out the comparison with live where no task was compared', async () => {
+  it('says a candidate was not compared with live where no task was compared', () => {
     const [station] = CANDIDATES.stations;
     answer.candidates = held({
       ...CANDIDATES,
@@ -332,6 +281,7 @@ describe('the Candidates tab', () => {
             ...set,
             candidates: set.candidates.map((each) => ({
               ...each,
+              againstLive: null,
               regressions: 0,
               compared: 0,
             })),
@@ -341,12 +291,9 @@ describe('the Candidates tab', () => {
     });
 
     showing();
-    await userEvent.click(screen.getByRole('button', { name: 'Show table' }));
 
-    const picked = row('opus-with-migrations-skill');
-    expect(picked.querySelector('[data-slot="against-live"]')).toBeNull();
-    expect(picked.querySelector('[data-slot="compared"]')).toHaveTextContent(
-      'No runs compared yet',
+    expect(row('opus-with-migrations-skill')).toHaveTextContent(
+      'Against liveNot compared',
     );
   });
 
@@ -359,5 +306,34 @@ describe('the Candidates tab', () => {
     expect(
       screen.getByRole('link', { name: 'Open the team’s lines' }),
     ).toHaveAttribute('href', '/w/acme/team/team_1');
+  });
+
+  it('expands a candidate whose changes run past the row, and folds it back', async () => {
+    vi.spyOn(HTMLElement.prototype, 'scrollHeight', 'get').mockReturnValue(80);
+    vi.spyOn(HTMLElement.prototype, 'clientHeight', 'get').mockReturnValue(48);
+    showing();
+
+    const name = screen.getByRole('button', {
+      name: 'opus-with-migrations-skill',
+    });
+    expect(name).toHaveAttribute('aria-expanded', 'false');
+
+    await userEvent.click(name);
+    expect(name).toHaveAttribute('aria-expanded', 'true');
+    expect(row('opus-with-migrations-skill')).toHaveAttribute(
+      'data-expanded',
+      'true',
+    );
+
+    await userEvent.click(name);
+    expect(name).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('keeps a candidate that shows all of it from expanding', () => {
+    showing();
+
+    expect(
+      screen.queryByRole('button', { name: 'opus-with-migrations-skill' }),
+    ).toBeNull();
   });
 });

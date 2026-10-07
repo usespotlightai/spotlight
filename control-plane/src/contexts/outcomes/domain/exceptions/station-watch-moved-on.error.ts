@@ -3,7 +3,7 @@ export class StationWatchMovedOnError extends Error {
 
   constructor(stationId: string) {
     super(
-      `This station's alerts changed since they were read, and cannot be written over (${stationId})`,
+      `Alerts of station ${stationId} changed since you loaded them. Please reload and try again.`,
     );
     this.name = 'StationWatchMovedOnError';
   }

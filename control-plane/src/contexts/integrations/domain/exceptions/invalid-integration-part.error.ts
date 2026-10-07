@@ -5,7 +5,7 @@ export class InvalidIntegrationPartError extends Error {
     part: string,
     readonly because: string,
   ) {
-    super(`An integration's ${part} ${because}`);
+    super(`Integration ${part} ${because}.`);
     this.name = 'InvalidIntegrationPartError';
   }
 }

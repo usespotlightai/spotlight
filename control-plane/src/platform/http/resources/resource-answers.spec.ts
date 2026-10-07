@@ -91,7 +91,7 @@ describe('resource answers', () => {
     ).toMatchObject({
       status: 403,
       detail: expect.stringContaining(
-        'acts only inside its own workspace and cannot open one',
+        'A workspace token cannot open a workspace',
       ),
     });
     expect(
@@ -100,7 +100,7 @@ describe('resource answers', () => {
       ),
     ).toMatchObject({
       status: 403,
-      detail: expect.stringContaining('a token never administers'),
+      detail: expect.stringContaining('A token can never administer'),
     });
   });
 

@@ -46,7 +46,7 @@ describe('TaskNoteBody.heldBack', () => {
       ).value,
     ).toBe(
       [
-        'Heard while a run held the task. It moves to Implementation when the run ends, unless the run passes it on:',
+        'Heard while a run held the task. It moves to Implementation when the run ends, unless the run passes it on.',
         '',
         'The checks failed on the pull request.',
       ].join('\n'),

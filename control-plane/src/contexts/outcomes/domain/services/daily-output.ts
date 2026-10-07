@@ -1,7 +1,12 @@
 import type { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
+import {
+  type CarriedConfigs,
+  configChangesAlong,
+} from '@outcomes/domain/services/config-stretches';
 import { spendingOf } from '@outcomes/domain/services/measures';
 import {
   endedWithin,
+  startedWithin,
   type TeamHistory,
 } from '@outcomes/domain/services/team-history';
 import {
@@ -19,6 +24,7 @@ export interface DayOutput {
   readonly mixedCurrencies: boolean;
   readonly merged: number;
   readonly mergedTaskIds: readonly string[];
+  readonly changes: readonly ConfigMarker[];
 }
 
 export interface OutputCurrency {
@@ -30,6 +36,7 @@ export interface ConfigMarker {
   readonly lineId: string;
   readonly stationId: string;
   readonly fingerprint: string;
+  readonly previousFingerprint: string;
   readonly firstRunAt: Date;
   readonly runId: string;
 }
@@ -37,6 +44,7 @@ export interface ConfigMarker {
 export const dailyOutputOf = (
   history: TeamHistory,
   period: InsightsPeriod,
+  markers: readonly ConfigMarker[],
 ): readonly DayOutput[] => {
   const ran = endedWithin(history.records, period.current).filter(
     (each) => each.ran,
@@ -65,6 +73,7 @@ export const dailyOutputOf = (
       mixedCurrencies,
       merged: mergedThatDay.length,
       mergedTaskIds: mergedThatDay.map((each) => each.taskId.value),
+      changes: markers.filter((each) => dayOf(each.firstRunAt) === day),
     };
   });
 };
@@ -84,50 +93,37 @@ export const outputCurrencyOf = (
   };
 };
 
-export const firstRanAt = (record: RunRecord): Date | null =>
-  record.end ? (record.end.startedAt ?? record.end.endedAt) : null;
+export const beganAt = (record: RunRecord): Date | null =>
+  record.end?.beganAt ?? null;
 
 export const configMarkersAlong = (
   records: readonly RunRecord[],
-): readonly ConfigMarker[] => {
-  const seen = new Map<string, Set<string>>();
-  const markers: ConfigMarker[] = [];
-  const byStart = records
-    .flatMap((record) => {
-      const at = firstRanAt(record);
-      return at ? [{ record, at }] : [];
-    })
-    .sort((a, b) => a.at.getTime() - b.at.getTime());
-
-  for (const { record, at } of byStart) {
-    const end = record.end;
-    const fingerprint = end?.fingerprint;
-
-    if (!end || !fingerprint) {
-      continue;
-    }
-
-    const before = seen.get(end.place.stationId) ?? new Set<string>();
-    seen.set(end.place.stationId, new Set([...before, fingerprint]));
-
-    if (before.size > 0 && !before.has(fingerprint)) {
-      markers.push({
-        lineId: end.place.lineId,
-        stationId: end.place.stationId,
-        fingerprint,
-        firstRunAt: at,
-        runId: record.runId.value,
-      });
-    }
-  }
-
-  return markers;
-};
+  before: readonly RunRecord[] = [],
+): readonly ConfigMarker[] =>
+  configChangesAlong(records, before).flatMap(({ run, previous }) =>
+    previous === null
+      ? []
+      : [
+          {
+            lineId: run.lineId,
+            stationId: run.stationId,
+            fingerprint: run.fingerprint,
+            previousFingerprint: previous,
+            firstRunAt: run.beganAt,
+            runId: run.runId.value,
+          },
+        ],
+  );
 
 export const configMarkersOf = (
   history: TeamHistory,
   period: InsightsPeriod,
+  carried: CarriedConfigs,
 ): readonly ConfigMarker[] =>
-  configMarkersAlong(endedWithin(history.records, period.lookback)).filter(
-    (each) => within(period.current, each.firstRunAt),
-  );
+  configMarkersAlong(
+    startedWithin(history.records, {
+      from: carried.from,
+      to: period.lookback.to,
+    }),
+    carried.lastRuns,
+  ).filter((each) => within(period.current, each.firstRunAt));

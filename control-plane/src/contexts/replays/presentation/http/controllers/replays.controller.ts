@@ -120,7 +120,7 @@ export class ReplaysController {
         new StartReplayCommand(
           teamId,
           setId,
-          textAt(body, 'candidate', 'names a candidate, or live'),
+          textAt(body, 'candidate', 'must name a candidate, or live'),
           ceilingIn(body),
           repeatsIn(body),
           false,

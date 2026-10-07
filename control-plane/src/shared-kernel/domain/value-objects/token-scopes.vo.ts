@@ -8,12 +8,12 @@ export class TokenScopes {
     const distinct = new Set(scopes.map((each) => each.value));
 
     if (distinct.size !== scopes.length) {
-      throw new InvalidTokenScopeError('name each scope once');
+      throw new InvalidTokenScopeError('must name each scope once');
     }
 
     if (!scopes.some((each) => each.isLadder)) {
       throw new InvalidTokenScopeError(
-        'include read, plan or configure; secrets, runners and trusts are granted beside one of them',
+        'must include read, plan or configure. Secrets, runners and trusts need one of them',
       );
     }
 

@@ -3,7 +3,7 @@ export class PullRequestRecordMovedOnError extends Error {
 
   constructor(pullRequest: string) {
     super(
-      `This pull request's record changed since it was read, and cannot be written over (${pullRequest})`,
+      `Record of pull request ${pullRequest} changed since you loaded it. Please reload and try again.`,
     );
     this.name = 'PullRequestRecordMovedOnError';
   }

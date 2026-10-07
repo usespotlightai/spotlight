@@ -119,7 +119,7 @@ export class Candidate extends EventRecorder {
       input.search.iteration < 1
     ) {
       throw new InvalidCandidateError(
-        'found by a search names the iteration that found it, from 1 up',
+        'from a search must name its iteration, from 1',
       );
     }
 
@@ -140,7 +140,7 @@ export class Candidate extends EventRecorder {
       [...changed].some((part) => !STRONGER_MODEL_PARTS.includes(part))
     ) {
       throw new InvalidCandidateError(
-        `that checks a set rewards a stronger model changes only the live config’s ${STRONGER_MODEL_PARTS.join(' or ')}`,
+        `for a stronger model may change only the live config’s ${STRONGER_MODEL_PARTS.join(' or ')}`,
       );
     }
 
@@ -177,7 +177,7 @@ export class Candidate extends EventRecorder {
   ): Candidate {
     if (input.block.key !== input.address.stationKey) {
       throw new InvalidCandidateError(
-        `keeps the key of the station it is for, ${input.address.stationKey}`,
+        `must keep station key ${input.address.stationKey}`,
       );
     }
 

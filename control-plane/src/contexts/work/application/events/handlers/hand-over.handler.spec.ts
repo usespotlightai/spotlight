@@ -447,7 +447,7 @@ describe('HandOver', () => {
         expect(saved?.awaitingReview).toBe(false);
         expect(saved?.currentRunId).toEqual(RunId.of('run_2'));
         expect(saved?.notes[2]?.body.value).toMatch(
-          /^Moved to Build when the run ended, because of an event that arrived while it worked\./,
+          /^Moved to Build when the run ended\. An event arrived while the run worked\./,
         );
       },
     );
@@ -487,7 +487,7 @@ describe('HandOver', () => {
     ];
 
     const MOVED =
-      'Moved to Build when the run ended, because of an event that arrived while it worked.';
+      'Moved to Build when the run ended. An event arrived while the run worked.';
 
     it.each(endings)(
       'moves the task where it was held back from when the run %s',

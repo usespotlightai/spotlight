@@ -15,7 +15,7 @@ const bounded = (
   if (!held || held.length > LONGEST || /\s/.test(held)) {
     throw new InvalidTrustedWorkloadError(
       field,
-      `is one word of at most ${LONGEST} characters, as in ${example}`,
+      `must be one word of at most ${LONGEST} characters, such as ${example}`,
     );
   }
 
@@ -35,7 +35,7 @@ export class TrustedWorkload {
     const held = raw.trim();
     const refused = new InvalidTrustedWorkloadError(
       'issuer',
-      'is the https URL the platform signs its tokens as, with no query or fragment, as in https://oidc.eks.eu-west-1.amazonaws.com/id/EXAMPLE',
+      'must be the https URL the platform signs its tokens as, with no query or fragment',
     );
     let url: URL;
 

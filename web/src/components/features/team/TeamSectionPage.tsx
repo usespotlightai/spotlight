@@ -6,18 +6,27 @@ import {
 } from '@/components/shell/layout/Breadcrumbs';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
-import { TEAM_SECTIONS, type TeamSectionId, teamPath } from '@/lib/team';
+import {
+  TEAM_SECTIONS,
+  type TeamSectionId,
+  teamPath,
+  teamSectionPath,
+} from '@/lib/team';
 import { TrailContext, useTrail } from '@/lib/trail';
 
 type TeamSectionPageProps = {
   section: TeamSectionId;
   actions?: ReactNode;
+  bordered?: boolean;
+  crumbs?: readonly BreadcrumbSegment[];
   children: ReactNode;
 };
 
 export function TeamSectionPage({
   section,
   actions,
+  bordered,
+  crumbs = [],
   children,
 }: TeamSectionPageProps) {
   const { slug, teamId } = useParams();
@@ -28,13 +37,24 @@ export function TeamSectionPage({
     ...(team && slug && teamId
       ? [{ label: team.name, avatar: team.name, to: teamPath(slug, teamId) }]
       : []),
-    { label: TEAM_SECTIONS[section].label },
+    {
+      label: TEAM_SECTIONS[section].label,
+      to:
+        crumbs.length > 0 && slug && teamId
+          ? teamSectionPath(slug, teamId, section)
+          : undefined,
+    },
+    ...crumbs,
   ];
-  const { trail, forward } = useTrail(base);
+  const { trail, forward } = useTrail(base, 1 + crumbs.length);
 
   return (
     <TrailContext value={forward}>
-      <PageHeader title={<Breadcrumbs segments={trail} />} actions={actions} />
+      <PageHeader
+        title={<Breadcrumbs segments={trail} />}
+        actions={actions}
+        bordered={bordered}
+      />
 
       {children}
     </TrailContext>

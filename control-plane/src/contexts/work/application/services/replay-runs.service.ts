@@ -17,9 +17,8 @@ import { UnreplayableRunError } from '@work/domain/exceptions/unreplayable-run.e
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import { ReplayRunClaim } from '@work/domain/value-objects/replay-run-claim.vo';
 
-const OVER_BUDGET =
-  'Its replay spent what it was allowed before a runner took it up.';
-const STOPPED = 'Its replay was stopped before a runner took it up.';
+const OVER_BUDGET = 'Replay reached its budget before a runner took the run.';
+const STOPPED = 'Replay stopped before a runner took the run.';
 
 const unreplayable = (
   refusal: ReplayRefusalCode,

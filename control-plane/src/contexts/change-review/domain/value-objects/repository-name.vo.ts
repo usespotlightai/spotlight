@@ -10,13 +10,13 @@ export class RepositoryName {
 
     if (!name || name.length > MOST_LENGTH) {
       throw InvalidChangeStackError.because(
-        `names a repository of at most ${MOST_LENGTH} characters`,
+        `repository name must be at most ${MOST_LENGTH} characters`,
       );
     }
 
     if (name.includes('/') || name.includes('\\') || name.startsWith('.')) {
       throw InvalidChangeStackError.because(
-        `names ${name}, which is not a repository as the workspace holds it`,
+        `repository ${name} is not one the workspace holds`,
       );
     }
 

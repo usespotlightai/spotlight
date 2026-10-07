@@ -3,7 +3,7 @@ export class ReplayCheckRaceError extends Error {
 
   constructor(stationKey: string) {
     super(
-      `Another check of the same change of the station ${stationKey} started at the same moment; send the request again to be answered that check`,
+      `Another check of this change to station ${stationKey} started at the same moment. Please send the request again.`,
     );
     this.name = 'ReplayCheckRaceError';
   }

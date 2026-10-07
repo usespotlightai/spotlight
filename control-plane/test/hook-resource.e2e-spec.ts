@@ -180,7 +180,7 @@ describe('a hook, created through the resource API (e2e)', () => {
       .send({ ...GRAFANA, tools: {} });
 
     expect(withdrawn.status).toBe(409);
-    expect(withdrawn.body.detail).toMatch(/the hook grafana-reads uses/);
+    expect(withdrawn.body.detail).toMatch(/used by the hook grafana-reads/);
   });
 
   it('refuses a request to a host this Spotlight does not call', async () => {

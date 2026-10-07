@@ -240,7 +240,7 @@ describe('Workspace', () => {
     it('refuses an admin handing out a rank they do not hold', () => {
       expect(() =>
         staff().roleChangedTo(MEMBER, WorkspaceRole.owner, ADMIN),
-      ).toThrow(/nobody hands out a rank they do not hold/);
+      ).toThrow(/cannot give a role above your own/);
     });
 
     it('refuses an admin reaching another admin', () => {
@@ -252,19 +252,19 @@ describe('Workspace', () => {
 
       expect(() =>
         two.roleChangedTo(MEMBER, WorkspaceRole.member, ADMIN),
-      ).toThrow(/not below you/);
+      ).toThrow(/people below you/);
     });
 
     it('refuses an admin changing their own', () => {
       expect(() =>
         staff().roleChangedTo(ADMIN, WorkspaceRole.member, ADMIN),
-      ).toThrow(/your own is not yours to change/);
+      ).toThrow(/cannot change your own role/);
     });
 
     it('refuses a plain member setting anybody’s', () => {
       expect(() =>
         staff().roleChangedTo(ADMIN, WorkspaceRole.member, MEMBER),
-      ).toThrow(/only an owner or an admin/);
+      ).toThrow(/Only an owner or an admin/);
     });
 
     it('refuses somebody who is not of the workspace at all', () => {
@@ -274,7 +274,7 @@ describe('Workspace', () => {
           WorkspaceRole.admin,
           UserId.of('stranger'),
         ),
-      ).toThrow(/only an owner or an admin/);
+      ).toThrow(/Only an owner or an admin/);
     });
 
     it('refuses a role for somebody who is not of the workspace', () => {
@@ -284,7 +284,7 @@ describe('Workspace', () => {
           WorkspaceRole.admin,
           OWNER,
         ),
-      ).toThrow(/not of this workspace/);
+      ).toThrow(/not a member of this workspace/);
     });
 
     it('keeps the last owner, who is all that can put anything right', () => {
@@ -410,10 +410,10 @@ describe('Workspace', () => {
     it('closes only once it holds no team, no token, no token trust, no token minted and nothing else', () => {
       expect(() =>
         kept().closed([TeamKey.of('core')], [], [], [], Holdings.none(), BY),
-      ).toThrow(/still holds team core/);
+      ).toThrow(/Still holds: team core/);
       expect(() =>
         kept().closed([], [TokenName.of('ci')], [], [], Holdings.none(), BY),
-      ).toThrow(/still holds token ci/);
+      ).toThrow(/Still holds: token ci/);
       expect(() =>
         kept().closed(
           [],
@@ -423,7 +423,7 @@ describe('Workspace', () => {
           Holdings.none(),
           BY,
         ),
-      ).toThrow(/still holds token trust github-main/);
+      ).toThrow(/Still holds: token trust github-main/);
       expect(() =>
         kept().closed(
           [],
@@ -433,7 +433,7 @@ describe('Workspace', () => {
           Holdings.none(),
           BY,
         ),
-      ).toThrow(/still holds tokens minted through github-main/);
+      ).toThrow(/Still holds: tokens minted through github-main/);
       expect(() =>
         kept().closed(
           [],
@@ -443,7 +443,7 @@ describe('Workspace', () => {
           Holdings.of(['secret LINEAR_API_KEY']),
           BY,
         ),
-      ).toThrow(/still holds secret LINEAR_API_KEY/);
+      ).toThrow(/Still holds: secret LINEAR_API_KEY/);
 
       const closed = kept().closed([], [], [], [], Holdings.none(), BY);
 

@@ -1,8 +1,10 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes } from 'react-router';
+import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { TeamInsights } from '@/components/features/insights/TeamInsights';
+import { BeforeAfterHost } from '@/components/features/insights/changes/BeforeAfterHost';
+import { ChangesTab } from '@/components/features/insights/changes/ChangesTab';
+import { stationNamesOf } from '@/lib/insights';
 import type { InsightsCandidates } from '@/lib/insights-candidates';
 import type { InsightsChanges, InsightsSetups } from '@/lib/insights-changes';
 import { CANDIDATES } from '@/stories/fixtures/insights-candidates';
@@ -168,6 +170,7 @@ const SETUPS = {
       tally: tally(),
       costPerRun: 0.9,
       currency: 'USD',
+      priced: true,
       outcomes: {
         accepted: 0.6,
         sent_back: 0.1,
@@ -187,6 +190,7 @@ const SETUPS = {
       tally: tally({ runs: 30 }),
       costPerRun: 1.2,
       currency: 'USD',
+      priced: true,
       outcomes: {
         accepted: 0.4,
         sent_back: 0.3,
@@ -214,24 +218,50 @@ const REPLAYED = {
   ],
 } as InsightsCandidates;
 
+const filter = async (name: string) => {
+  if (!screen.queryByRole('button', { name })) {
+    await userEvent.click(
+      screen.getByRole('button', { name: /^Filter the setups/ }),
+    );
+  }
+  await userEvent.click(await screen.findByRole('button', { name }));
+};
+
 const narrowingTo = async (station: string) => {
-  await userEvent.click(
-    screen.getByRole('button', { name: 'Station: Every station' }),
-  );
+  await filter('Station: Every station');
   await userEvent.click(
     await screen.findByRole('menuitemradio', { name: station }),
   );
 };
 
+const NAMES = stationNamesOf([
+  {
+    id: 'line_1',
+    key: 'delivery',
+    name: 'Delivery',
+    repositories: [],
+    reactions: [],
+    stations: [
+      {
+        id: 'station_impl',
+        key: 'implementation',
+        name: 'Implementation',
+        kind: 'work',
+        color: '#000',
+        position: 0,
+      },
+    ],
+  },
+] as unknown as Parameters<typeof stationNamesOf>[0]);
+
 const showing = () =>
   render(
-    <MemoryRouter initialEntries={['/w/acme/team/team_1/insights?tab=changes']}>
-      <Routes>
-        <Route
-          path="/w/:slug/team/:teamId/insights"
-          element={<TeamInsights slug="acme" teamId="team_1" />}
-        />
-      </Routes>
+    <MemoryRouter
+      initialEntries={['/w/acme/team/team_1/insights?tab=stations']}
+    >
+      <BeforeAfterHost slug="acme" teamId="team_1" period="30d" names={NAMES}>
+        <ChangesTab slug="acme" teamId="team_1" period="30d" names={NAMES} />
+      </BeforeAfterHost>
     </MemoryRouter>,
   );
 
@@ -243,15 +273,6 @@ beforeEach(() => {
 });
 
 describe('the Changes tab', () => {
-  it('is a tab of Insights', () => {
-    showing();
-
-    expect(screen.getByRole('link', { name: 'Changes' })).toHaveAttribute(
-      'href',
-      '/w/acme/team/team_1/insights?tab=changes',
-    );
-  });
-
   it('shows a faithful skeleton while it loads', () => {
     answer.changes = held(undefined);
 
@@ -281,7 +302,7 @@ describe('the Changes tab', () => {
     expect(screen.getByText('No runs in this period')).toBeInTheDocument();
   });
 
-  it('lists each config change with what changed, and opens its before and after', async () => {
+  it('lists each config change with what changed, and opens its impact', async () => {
     showing();
 
     const changes = screen.getByRole('list', { name: 'Config changes' });
@@ -289,17 +310,16 @@ describe('the Changes tab', () => {
       .getByRole('link', { name: 'Implementation' })
       .closest('[data-slot="change-marker"]') as HTMLElement;
 
-    expect(row).toHaveTextContent('10 runs before · 10 runs after');
+    expect(row).toHaveTextContent('Runs before10');
+    expect(row).toHaveTextContent('Runs after10');
     expect(
       within(row).getByRole('list', { name: 'What changed' }),
     ).toBeInTheDocument();
 
-    await userEvent.click(
-      within(row).getByRole('button', { name: 'Before and after' }),
-    );
+    await userEvent.click(within(row).getByRole('button', { name: 'Impact' }));
 
     const panel = screen.getByRole('complementary', {
-      name: 'Before and after the change',
+      name: 'Impact of the change',
     });
     const table = within(panel).getByRole('table', {
       name: 'Runs before and after the change',
@@ -309,7 +329,14 @@ describe('the Changes tab', () => {
     expect(
       accepted.querySelector('[data-slot="delta"]')?.getAttribute('data-tone'),
     ).toBe('good');
-    expect(within(panel).getByText('75% over 4 judged')).toBeInTheDocument();
+    const judge = within(table).getByRole('row', { name: /Judge score/ });
+    expect(judge).toHaveTextContent(/75%/);
+    expect(
+      within(judge).getByRole('link', { name: 'Judge score' }),
+    ).toHaveAttribute(
+      'href',
+      '/w/acme/team/team_1/insights?tab=stations&stationId=station_impl#judge',
+    );
     expect(
       within(panel).getByRole('link', { name: 'Open the station' }),
     ).toHaveAttribute(
@@ -319,32 +346,25 @@ describe('the Changes tab', () => {
     expect(
       within(panel).getByRole('link', { name: /Improve this station/ }),
     ).toBeInTheDocument();
-    expect(
-      within(panel).getByRole('link', {
-        name: 'How often the judge agrees with people',
-      }),
-    ).toHaveAttribute(
-      'href',
-      '/w/acme/team/team_1/lines/line_1/stations/station_impl#judge',
-    );
   });
 
   it('compares setups in a table, marking the frontier and keeping judge scores to trusted stations', async () => {
     showing();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Show table' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Table' }));
 
-    const table = screen.getByRole('table', {
+    const table = screen.getByRole('list', {
       name: 'Harness, model, effort and profile',
     });
-    const opus = within(table).getByRole('row', {
-      name: /Claude Code · opus · high effort/,
-    });
-
-    expect(opus).toHaveTextContent('frontier');
     expect(
-      within(table).getByRole('columnheader', { name: 'Judge score' }),
+      within(table).getByRole('button', { name: 'Fold Claude Code' }),
     ).toBeInTheDocument();
+    const opus = within(table)
+      .getByText('opus · high effort')
+      .closest('[data-slot="setup-row"]') as HTMLElement;
+
+    expect(within(opus).getByLabelText('Best value')).toBeInTheDocument();
+    expect(opus).toHaveTextContent('Judge score75%');
     const standings = document.querySelector(
       '[data-slot="judge-standings"]',
     ) as HTMLElement;
@@ -352,7 +372,7 @@ describe('the Changes tab', () => {
       within(standings).getByRole('link', { name: 'Implementation' }),
     ).toHaveAttribute(
       'href',
-      '/w/acme/team/team_1/lines/line_1/stations/station_impl#judge',
+      '/w/acme/team/team_1/insights?tab=stations&stationId=station_impl#judge',
     );
     expect(standings).toHaveTextContent('trusted');
     expect(
@@ -360,7 +380,7 @@ describe('the Changes tab', () => {
     ).toBeInTheDocument();
   });
 
-  it('asks for a station before comparing judge scores across setups', async () => {
+  it('leaves judge scores out of the table until a station is picked', async () => {
     answer.setups = held({
       ...SETUPS,
       stationId: null,
@@ -374,11 +394,8 @@ describe('the Changes tab', () => {
     });
 
     showing();
-    await userEvent.click(screen.getByRole('button', { name: 'Show table' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Table' }));
 
-    expect(
-      screen.getAllByText('Pick a station to compare judge scores.')[0],
-    ).toBeInTheDocument();
     expect(
       screen.queryByRole('columnheader', { name: 'Judge score' }),
     ).not.toBeInTheDocument();
@@ -387,9 +404,7 @@ describe('the Changes tab', () => {
   it('narrows the comparison by task size', async () => {
     showing();
 
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Task size: Every size' }),
-    );
+    await filter('Task size: Every size');
     await userEvent.click(
       await screen.findByRole('menuitemradio', { name: 'Large' }),
     );
@@ -397,16 +412,14 @@ describe('the Changes tab', () => {
     expect(answer.asked.at(-1)).toEqual({ stationId: null, size: 'large' });
   });
 
-  it('asks for a station before setting replayed candidates beside the setups', () => {
+  it('draws no replayed candidates until a station is picked', () => {
     showing();
 
     expect(
-      screen.getByText(
-        'Pick a station to see its replayed candidates beside its live setups.',
-      ),
-    ).toBeInTheDocument();
-    expect(
       document.querySelector('[data-slot="replayed-legend"]'),
+    ).not.toBeInTheDocument();
+    expect(
+      document.querySelector('[data-slot="replayed-note"]'),
     ).not.toBeInTheDocument();
   });
 
@@ -417,16 +430,16 @@ describe('the Changes tab', () => {
 
     expect(
       document.querySelector('[data-slot="replayed-legend"]'),
-    ).toHaveTextContent(/Replayed:.*Live config, replayed/);
+    ).toHaveTextContent(/Searched.*Live config, replayed/);
     expect(
       screen.getByText(
-        /Accepted against cost per run; replayed points show replay success on past tasks instead/,
+        /Accepted against cost per run. Replayed points show replay success on past tasks./,
       ),
     ).toBeInTheDocument();
     expect(
       document.querySelector('[data-slot="replayed-note"]'),
     ).toHaveTextContent(
-      /replay success on up to 18 runs of past tasks, scored by each candidate’s own checks and judge — not the live outcome the other points show/,
+      /replay success on up to 18 runs of past tasks, not live outcomes. Scored by each candidate’s own checks and judge/,
     );
   });
 
@@ -434,20 +447,20 @@ describe('the Changes tab', () => {
     showing();
 
     await narrowingTo('Implementation');
-    await userEvent.click(screen.getByRole('button', { name: 'Show table' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Table' }));
 
-    const replayed = screen.getByRole('table', { name: 'Replayed candidates' });
+    const replayed = screen.getByRole('list', { name: 'Replayed configs' });
+    const rowOf = (name: string | RegExp) =>
+      within(replayed)
+        .queryByText(name)
+        ?.closest('[data-slot="replayed-setup-row"]');
+    expect(rowOf('Live config')).toHaveTextContent('SourceLive');
+    expect(rowOf('opus-with-migrations-skill')).toHaveTextContent(
+      '67% of 7 held-out runs',
+    );
+    expect(rowOf('cursor-careful-profile')).toBeFalsy();
     expect(
-      within(replayed).getByRole('row', { name: /Live config, replayed/ }),
-    ).toBeInTheDocument();
-    expect(
-      within(replayed).getByRole('row', { name: /opus-with-migrations-skill/ }),
-    ).toHaveTextContent('67% of 7 held-out runs');
-    expect(
-      within(replayed).queryByRole('row', { name: /cursor-careful-profile/ }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole('table', { name: 'Harness, model, effort and profile' }),
+      screen.getByRole('list', { name: 'Harness, model, effort and profile' }),
     ).toBeInTheDocument();
   });
 
@@ -463,36 +476,21 @@ describe('the Changes tab', () => {
     expect(
       document.querySelector('[data-slot="replayed-note"]'),
     ).not.toBeInTheDocument();
-    expect(
-      document.querySelector('[data-slot="other-currency"]'),
-    ).toHaveTextContent(
-      'Priced in another currency, so not shown: Live config, replayed (the search’s tasks) (55%), opus-with-migrations-skill (72%), sonnet-terse-prompt (50%).',
-    );
   });
 
-  it('says why each replayed candidate it leaves out is left out, and that task size does not narrow them', async () => {
+  it('says task size does not narrow the replayed candidates', async () => {
     showing();
     await narrowingTo('Implementation');
 
-    expect(document.querySelector('[data-slot="unpriced"]')).toHaveTextContent(
-      'Not priced, so not shown: cursor-careful-profile (61%).',
-    );
-    expect(
-      document.querySelector('[data-slot="unfinished"]'),
-    ).toHaveTextContent(
-      'Not finished, so not shown: sonnet-plan-first (running).',
-    );
     expect(
       document.querySelector('[data-slot="replayed-note"]'),
-    ).toHaveTextContent('The task-size filter does not apply to them.');
+    ).toHaveTextContent('The task-size filter doesn’t apply.');
   });
 
   it('hides replayed points while the chart shows an outcome where lower is better', async () => {
     showing();
     await narrowingTo('Implementation');
-    await userEvent.click(
-      screen.getByRole('button', { name: 'Outcome: Accepted' }),
-    );
+    await filter('Outcome: Accepted');
     await userEvent.click(
       await screen.findByRole('menuitemradio', { name: 'Sent back' }),
     );
@@ -503,7 +501,7 @@ describe('the Changes tab', () => {
     expect(
       document.querySelector('[data-slot="replayed-note"]'),
     ).toHaveTextContent(
-      'Replayed points show success, so they’re hidden while the chart shows Sent back.',
+      'Replayed points show success only. They’re hidden while the chart shows Sent back.',
     );
   });
 
@@ -519,18 +517,8 @@ describe('the Changes tab', () => {
     expect(
       document.querySelector('[data-slot="replayed-note"]'),
     ).toHaveTextContent(
-      'This station’s replayed candidates are not drawn, as no live setup here has a priced outcome to set them beside.',
+      'Replayed candidates aren’t drawn: no live setup has a priced outcome.',
     );
-  });
-
-  it('keeps quiet about replayed candidates where the team replayed none', () => {
-    answer.candidates = held({ ...REPLAYED, stations: [] });
-
-    showing();
-
-    expect(
-      screen.queryByText(/Pick a station to see its replayed candidates/),
-    ).not.toBeInTheDocument();
   });
 
   it('keeps the tab whole when the replayed candidates could not be loaded', async () => {
@@ -549,5 +537,81 @@ describe('the Changes tab', () => {
     await userEvent.click(screen.getByRole('button', { name: /try again/i }));
 
     expect(answer.candidates.refetch).toHaveBeenCalled();
+  });
+
+  it('opens the impact of a config the station returned to, not its first adoption', async () => {
+    const [first] = CHANGES.markers;
+    const returned = (runId: string, firstRunAt: string, runs: number) => ({
+      ...first,
+      runId,
+      firstRunAt,
+      before: tally({ runs }),
+      after: tally({ runs }),
+    });
+    answer.changes = held({
+      ...CHANGES,
+      markers: [
+        returned('run_2', '2026-09-20T10:00:00.000Z', 11),
+        {
+          ...returned('run_3', '2026-09-22T10:00:00.000Z', 12),
+          fingerprint: 'a'.repeat(64),
+          previousFingerprint: 'b'.repeat(64),
+        },
+        returned('run_4', '2026-09-24T10:00:00.000Z', 13),
+      ],
+    });
+
+    showing();
+
+    const rows = [
+      ...document.querySelectorAll('[data-slot="change-marker"]'),
+    ] as HTMLElement[];
+    const newest = rows[0] as HTMLElement;
+    await userEvent.click(
+      within(newest).getByRole('button', { name: 'Impact' }),
+    );
+
+    expect(
+      rows.map((row) =>
+        within(row)
+          .getByRole('button', { name: 'Impact' })
+          .getAttribute('aria-pressed'),
+      ),
+    ).toEqual(['true', 'false', 'false']);
+    expect(
+      screen.getByRole('complementary', {
+        name: 'Impact of the change',
+      }),
+    ).toHaveTextContent('Runs1313');
+  });
+
+  it('names the line each config change was on, leading to it', () => {
+    showing();
+
+    const row = within(screen.getByRole('list', { name: 'Config changes' }))
+      .getByRole('link', { name: 'Implementation' })
+      .closest('[data-slot="change-marker"]') as HTMLElement;
+
+    expect(within(row).getByRole('link', { name: 'Delivery' })).toHaveAttribute(
+      'href',
+      '/w/acme/team/team_1/lines/line_1',
+    );
+  });
+
+  it('keeps the setup filters behind one button that counts and clears them', async () => {
+    showing();
+
+    await narrowingTo('Implementation');
+
+    const button = screen.getByRole('button', {
+      name: 'Filter the setups, 1 applied',
+    });
+    expect(button).toHaveTextContent('1');
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Clear filters' }),
+    );
+
+    expect(answer.asked.at(-1)).toEqual({ stationId: null, size: null });
   });
 });

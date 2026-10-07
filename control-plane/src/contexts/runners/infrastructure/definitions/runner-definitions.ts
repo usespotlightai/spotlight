@@ -30,7 +30,7 @@ const once = (all: readonly string[], context: z.RefinementCtx) => {
       context.addIssue({
         code: 'custom',
         path: [at],
-        message: `gives ${each} a second time`,
+        message: `gives ${each} twice`,
       });
     }
   }

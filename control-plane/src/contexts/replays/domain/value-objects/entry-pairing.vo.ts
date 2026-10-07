@@ -25,7 +25,7 @@ const unpairedOf = (why: string): Unpaired => {
 
   if (!known) {
     throw new InvalidReplayError(
-      `side-by-side judging failed in a way nobody knows (${why})`,
+      `side-by-side judging failed with unknown code ${why}`,
     );
   }
 
@@ -46,7 +46,7 @@ const outcomeOfWinner = (winner: string): PairOutcome => {
 
   if (!outcome) {
     throw new InvalidReplayError(
-      `side-by-side verdict names its run, the other or a tie as winner, not ${winner}`,
+      `side-by-side winner must be its run, the other or a tie, not ${winner}`,
     );
   }
 
@@ -90,7 +90,7 @@ export class PairVerdict {
 
     if (!outcomes.every(isOutcome)) {
       throw new InvalidReplayError(
-        `side-by-side verdict is a win, a loss or a tie, not ${outcomes.join(', ')}`,
+        `side-by-side verdict must be a win, loss or tie, not ${outcomes.join(', ')}`,
       );
     }
 
@@ -105,7 +105,7 @@ export class PairVerdict {
         (first.outcome === second.outcome ? first.outcome : 'tie')
     ) {
       throw new InvalidReplayError(
-        'side-by-side verdict reads the two changes both ways round, and is a tie where the two readings disagree',
+        'side-by-side verdict must be a tie when its two readings disagree',
       );
     }
 
@@ -179,7 +179,7 @@ export class EntryPairing {
   }): EntryPairing {
     if (input.verdict !== null && input.unpaired !== null) {
       throw new InvalidReplayError(
-        'entry is either compared side by side or not, never both',
+        'entry cannot be both compared side by side and not',
       );
     }
 

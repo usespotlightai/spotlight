@@ -39,12 +39,12 @@ export const configChangesOf = (
 
 const SWITCHES: readonly ConfigChange['part'][] = ['decisions', 'memories'];
 
-const CHANGED_WITHIN: Partial<Record<ConfigChange['part'], string>> = {
+export const CHANGED_WITHIN: Partial<Record<ConfigChange['part'], string>> = {
   repository: 'setup changed',
   profile: 'settings changed',
 };
 
-const shownValue = (
+export const shownValue = (
   part: ConfigChange['part'],
   value: string | null,
 ): string | null => (value && part === 'image' ? imageShown(value) : value);

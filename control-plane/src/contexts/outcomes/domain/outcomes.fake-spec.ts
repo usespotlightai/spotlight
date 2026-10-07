@@ -10,6 +10,16 @@ import type {
   TeamWindow,
 } from '@outcomes/domain/repositories/run-record.repository';
 import type { TaskDeliveryRepository } from '@outcomes/domain/repositories/task-delivery.repository';
+import {
+  earliestBounds,
+  type StretchBound,
+} from '@outcomes/domain/services/config-stretches';
+import {
+  inEndOrder,
+  inStartOrder,
+  type StartedRun,
+  startOf,
+} from '@outcomes/domain/services/run-order';
 import { RunCost } from '@outcomes/domain/value-objects/run-cost.vo';
 import { RunEnd } from '@outcomes/domain/value-objects/run-end.vo';
 import type { RunEnding } from '@outcomes/domain/value-objects/run-ending';
@@ -22,6 +32,11 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+
+const fromBound = (run: StartedRun, bound: StretchBound): boolean =>
+  run.beganAt.getTime() > bound.from.getTime() ||
+  (run.beganAt.getTime() === bound.from.getTime() &&
+    (bound.fromRun === undefined || run.runId.value >= bound.fromRun.value));
 
 export const WORKSPACE = WorkspaceId.of('ws_1');
 export const TEAM = TeamId.of('team_1');
@@ -117,6 +132,32 @@ export const costedRecord = (
 const endedTime = (record: RunRecord): number =>
   record.end?.endedAt.getTime() ?? 0;
 
+export const lastConfigRunsFrom = (
+  records: readonly RunRecord[],
+  bounds: readonly StretchBound[],
+): readonly RunRecord[] => {
+  const earliest = earliestBounds(bounds);
+  const last = new Map<string, RunRecord>();
+
+  for (const record of [...records].sort((one, other) =>
+    inStartOrder(startOf(one), startOf(other)),
+  )) {
+    const end = record.end;
+    const bound = end ? earliest.get(end.place.stationId) : undefined;
+
+    if (
+      end?.ranItsConfig &&
+      end.fingerprint !== null &&
+      bound &&
+      !fromBound(startOf(record), bound)
+    ) {
+      last.set(end.place.stationId, record);
+    }
+  }
+
+  return [...last.values()];
+};
+
 export class RunRecordsInMemory implements RunRecordRepository {
   readonly held = new Map<string, RunRecord>();
   readonly raised: DomainEvent[] = [];
@@ -180,6 +221,16 @@ export class RunRecordsInMemory implements RunRecordRepository {
     );
   }
 
+  async lastConfigRunsBefore(
+    teamId: TeamId,
+    bounds: readonly StretchBound[],
+  ): Promise<readonly RunRecord[]> {
+    return lastConfigRunsFrom(
+      this.ended().filter((each) => each.end?.place.teamId.equals(teamId)),
+      bounds,
+    );
+  }
+
   async lastAtStation(criteria: StationRecords): Promise<readonly RunRecord[]> {
     return this.ended()
       .filter(
@@ -197,13 +248,30 @@ export class RunRecordsInMemory implements RunRecordRepository {
       .slice(0, criteria.last);
   }
 
+  async latestStartedAtStation(
+    criteria: StationRecords,
+  ): Promise<readonly RunRecord[]> {
+    return this.ended()
+      .filter(
+        (each) =>
+          each.workspaceId.equals(criteria.workspaceId) &&
+          each.end?.place.teamId.equals(criteria.teamId) &&
+          each.end.place.stationId === criteria.stationId &&
+          (criteria.lineId === null ||
+            each.end.place.lineId === criteria.lineId),
+      )
+      .sort((one, other) => inStartOrder(startOf(other), startOf(one)))
+      .slice(0, criteria.last);
+  }
+
   async endedForTeam(
     window: TeamWindow,
     most: number,
   ): Promise<readonly RunRecord[]> {
-    const ended = this.endedIn(window);
-
-    return ended.slice(Math.max(ended.length - most, 0));
+    return [...this.endedIn(window)]
+      .sort((one, other) => inStartOrder(startOf(other), startOf(one)))
+      .slice(0, most)
+      .sort(inEndOrder);
   }
 
   async listedForTeam(listing: RunListing): Promise<RunPage> {

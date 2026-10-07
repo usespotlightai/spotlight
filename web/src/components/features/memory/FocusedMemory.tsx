@@ -44,7 +44,7 @@ export function FocusedMemory({
       <Notice>
         <div className="flex flex-col items-center gap-2">
           <p className="text-muted-foreground text-sm">
-            There is no such memory for this team.
+            Memory not found on this team.
           </p>
           {showAll}
         </div>

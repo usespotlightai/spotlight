@@ -21,13 +21,13 @@ export class RunSetup {
     skills: readonly string[];
   }): RunSetup {
     if (blank(input.harness)) {
-      throw new InvalidOutcomeError('names the harness it ran on');
+      throw new InvalidOutcomeError('must name its harness');
     }
     if (input.repositories.some(blank)) {
-      throw new InvalidOutcomeError('names each repository it worked');
+      throw new InvalidOutcomeError('must name each repository');
     }
     if (input.skills.some(blank)) {
-      throw new InvalidOutcomeError('names each skill it was given');
+      throw new InvalidOutcomeError('must name each skill given');
     }
 
     return new RunSetup(

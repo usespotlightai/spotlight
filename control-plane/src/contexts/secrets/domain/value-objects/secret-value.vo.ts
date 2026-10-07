@@ -17,13 +17,13 @@ export class SecretValue implements Secret {
 
   static of(raw: string, field = 'valueWo'): SecretValue {
     if (raw.length === 0) {
-      throw new InvalidSecretError(field, 'is empty; a secret has a value');
+      throw new InvalidSecretError(field, 'must not be empty');
     }
 
     if (Buffer.byteLength(raw, 'utf8') > MOST_BYTES) {
       throw new InvalidSecretError(
         field,
-        `is longer than ${MOST_BYTES} bytes, which no credential needs`,
+        `must be at most ${MOST_BYTES} bytes`,
       );
     }
 

@@ -22,7 +22,7 @@ export class RunnerTerms {
       const term = each.trim();
 
       if (!term) {
-        throw new InvalidRunnerPlacementError('answer to no empty term');
+        throw new InvalidRunnerPlacementError('cannot have an empty term');
       }
 
       if (!values.includes(term)) {

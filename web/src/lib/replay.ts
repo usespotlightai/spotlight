@@ -31,7 +31,7 @@ import {
   THE_BASELINE,
   THE_SEARCH_START,
 } from '@/lib/replay-words';
-import { stationPath } from '@/lib/station';
+import { stationPath, stationTabPath } from '@/lib/station';
 import { type ConfigChange, configChangesOf } from '@/lib/station-config';
 
 export type ReplaySet = ReplaySetResponseDto;
@@ -83,7 +83,7 @@ export const replayPath = (at: ReplayedStation, replayId: string): string =>
   `${stationPath(at.slug, at.teamId, at.lineId, at.stationId)}/replays/${encodeURIComponent(replayId)}`;
 
 export const replaysAnchorPath = (at: ReplayedStation): string =>
-  `${stationPath(at.slug, at.teamId, at.lineId, at.stationId)}#${REPLAYS_ANCHOR}`;
+  `${stationTabPath(at.slug, at.teamId, at.lineId, at.stationId, 'improve')}#${REPLAYS_ANCHOR}`;
 
 export const underway = (state: ReplayState): boolean =>
   state === 'queued' || state === 'running';
@@ -98,7 +98,7 @@ export const newestFirst = (replays: readonly Replay[]): Replay[] =>
 
 export const startRefusal = (set: ReplaySet): string | null => {
   if (set.stationGone) {
-    return 'Its station is gone from its line.';
+    return 'Station is gone from its line.';
   }
   if (set.entries.length === 0) {
     return 'Add runs to the set first.';
@@ -286,13 +286,13 @@ export const ceilingFrom = (
   const value = Number(amount);
 
   if (amount.trim() === '' || Number.isNaN(value) || value <= 0) {
-    return 'Give a ceiling above nothing.';
+    return 'Please enter a ceiling above 0.';
   }
   if (value > MOST_CEILING) {
-    return `A ceiling is at most ${MOST_CEILING.toLocaleString('en-US')}.`;
+    return `Maximum ceiling: ${MOST_CEILING.toLocaleString('en-US')}`;
   }
   if (!CURRENCY.test(currency)) {
-    return 'Name the currency in three letters, like USD.';
+    return 'Please enter a three-letter currency code, like USD.';
   }
 
   return { amount: value, currency };
@@ -309,7 +309,7 @@ export const countFrom = (
     value >= least &&
     value <= most
     ? value
-    : `Give a whole number from ${least} to ${most}.`;
+    : `Please enter a whole number from ${least} to ${most}.`;
 };
 
 export const repeatsFrom = (text: string): number | string =>

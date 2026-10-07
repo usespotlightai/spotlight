@@ -7,7 +7,6 @@ import { countShown, shareShown } from '@/lib/insights';
 import {
   type InsightsPullRequests,
   mergedPullRequestsFilter,
-  weekBars,
 } from '@/lib/insights-pull-requests';
 
 type PenetrationProps = {
@@ -16,12 +15,12 @@ type PenetrationProps = {
 
 export function Penetration({ penetration }: PenetrationProps) {
   const drill = (filter: Parameters<typeof mergedPullRequestsFilter>[0]) => ({
-    tab: 'pull-requests' as const,
+    tab: 'productivity' as const,
     filter: mergedPullRequestsFilter(filter),
   });
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
       <InsightsTiles label="Merged pull requests">
         <InsightsTile
           label="PRs merged"
@@ -37,7 +36,7 @@ export function Penetration({ penetration }: PenetrationProps) {
         <InsightsTile
           label="Reviewed by Spotlight"
           value={countShown(penetration.touched)}
-          detail="Others’, with a Spotlight review task opened"
+          detail="Others’ with a Spotlight review task"
           drill={drill({ author: 'touched' })}
         />
         <InsightsTile
@@ -49,10 +48,10 @@ export function Penetration({ penetration }: PenetrationProps) {
 
       <InsightsCard
         title="Week by week"
-        description="Pull requests merged each week: made by Spotlight, written by someone else with a Spotlight review task opened on it, written by people alone, and written by bots alone."
+        description="Merged pull requests each week: made by Spotlight, others’ with a Spotlight review task, people alone, bots alone."
         table={<PenetrationTable weeks={penetration.weeks} repository={null} />}
       >
-        <PenetrationChart bars={weekBars(penetration.weeks)} />
+        <PenetrationChart weeks={penetration.weeks} />
       </InsightsCard>
     </div>
   );

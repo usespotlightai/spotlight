@@ -19,7 +19,7 @@ export class DecisionMerge {
 
     if (!SHA.test(commit)) {
       throw new InvalidDecisionError(
-        'stands in a merge named by its full forty character hash',
+        'merge must be a full 40-character commit hash',
       );
     }
 

@@ -3,7 +3,7 @@ export class ReplayCheckUnconfiguredError extends Error {
 
   constructor(lineKey: string) {
     super(
-      `The line ${lineKey} has no replay_check, so no planned change of it is checked; give it a replay_check block with most_regressions, ceiling and currency`,
+      `Line ${lineKey} has no replay_check block. Please add one with most_regressions, ceiling and currency.`,
     );
     this.name = 'ReplayCheckUnconfiguredError';
   }

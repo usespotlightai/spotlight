@@ -5,7 +5,7 @@ describe('HookVerdict', () => {
   it('refuses a before-event when a blocking hook no longer reads as written', () => {
     expect(HookVerdict.onBrokenHook('dba', 'when is gone', true)).toEqual(
       HookVerdict.refused(
-        'The hook dba no longer reads as it was written (when is gone), and it blocks on failure',
+        'Hook dba is broken and blocks on failure. Reason: when is gone',
       ),
     );
   });

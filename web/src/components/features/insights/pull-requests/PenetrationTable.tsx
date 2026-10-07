@@ -20,7 +20,7 @@ export function PenetrationTable({ weeks, repository }: PenetrationTableProps) {
   ) =>
     count > 0 ? (
       <InsightsLink
-        tab="pull-requests"
+        tab="productivity"
         filter={weekFilter(week.week, repository, author)}
       >
         {countShown(count)}

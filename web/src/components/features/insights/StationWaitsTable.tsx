@@ -1,17 +1,19 @@
-import { DeltaShown } from '@/components/features/insights/DeltaShown';
+import { DeltaMark } from '@/components/features/insights/DeltaMark';
 import { InsightsLink } from '@/components/features/insights/InsightsLink';
 import {
   type InsightsColumn,
   InsightsTable,
 } from '@/components/features/insights/InsightsTable';
+import { SpreadShown } from '@/components/features/insights/SpreadShown';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import {
+  changeShown,
   countShown,
-  deltaOf,
+  medianShown,
   type StationFlow,
   type StationNames,
-  spreadShown,
   stationShown,
+  tailShown,
 } from '@/lib/insights';
 import { stationPath } from '@/lib/station';
 
@@ -19,7 +21,6 @@ type StationWaitsTableProps = {
   slug: string;
   teamId: string;
   stations: readonly StationFlow[];
-  before: readonly StationFlow[];
   names: StationNames;
 };
 
@@ -27,12 +28,8 @@ export function StationWaitsTable({
   slug,
   teamId,
   stations,
-  before,
   names,
 }: StationWaitsTableProps) {
-  const tasksBefore = (stationId: string) =>
-    before.find((each) => each.stationId === stationId)?.tasks ?? 0;
-
   const columns: InsightsColumn<StationFlow>[] = [
     {
       id: 'station',
@@ -51,18 +48,14 @@ export function StationWaitsTable({
       header: 'Tasks',
       numeric: true,
       cell: (station) => {
-        const delta = deltaOf(
-          station.tasks,
-          tasksBefore(station.stationId),
-          'neither',
-        );
+        const delta = changeShown(station.tasksChange);
 
         return (
-          <span className="flex flex-col items-end">
+          <span className="inline-flex items-center gap-2">
             <InsightsLink tab="runs" filter={{ stationId: station.stationId }}>
               {countShown(station.tasks)}
             </InsightsLink>
-            {delta && <DeltaShown delta={delta} />}
+            {delta && <DeltaMark delta={delta} />}
           </span>
         );
       },
@@ -77,19 +70,31 @@ export function StationWaitsTable({
       id: 'queued',
       header: 'Queued',
       numeric: true,
-      cell: (station) => spreadShown(station.queued),
+      cell: (station) => (
+        <SpreadShown tail={tailShown(station.queued)}>
+          {medianShown(station.queued)}
+        </SpreadShown>
+      ),
     },
     {
       id: 'running',
       header: 'Running',
       numeric: true,
-      cell: (station) => spreadShown(station.running),
+      cell: (station) => (
+        <SpreadShown tail={tailShown(station.running)}>
+          {medianShown(station.running)}
+        </SpreadShown>
+      ),
     },
     {
       id: 'inbox',
       header: 'In the inbox',
       numeric: true,
-      cell: (station) => spreadShown(station.inbox),
+      cell: (station) => (
+        <SpreadShown tail={tailShown(station.inbox)}>
+          {medianShown(station.inbox)}
+        </SpreadShown>
+      ),
     },
     {
       id: 'asks',

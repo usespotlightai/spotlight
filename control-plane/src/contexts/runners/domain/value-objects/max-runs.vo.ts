@@ -11,7 +11,7 @@ export class MaxRuns {
     if (!Number.isInteger(raw) || raw < 1 || raw > MOST) {
       throw new InvalidRunnerPoolError(
         'maxRuns',
-        `is a whole number from 1 to ${MOST}`,
+        `must be a whole number from 1 to ${MOST}`,
       );
     }
 

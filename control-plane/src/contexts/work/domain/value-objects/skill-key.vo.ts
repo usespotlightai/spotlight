@@ -17,7 +17,7 @@ export class SkillKey {
     if (!areWords(trimmed) && !isCatalogReference(trimmed)) {
       throw new InvalidIdentifierError(
         'skill',
-        `is lower case words joined by dashes, at most ${LONGEST_WORDS} characters, as in spotlight-handover, or a catalog skill’s id, as in catalog.research@1.0.0`,
+        `must be lowercase words joined by dashes, at most ${LONGEST_WORDS} characters (e.g. spotlight-handover), or a catalog skill id (e.g. catalog.research@1.0.0)`,
       );
     }
 

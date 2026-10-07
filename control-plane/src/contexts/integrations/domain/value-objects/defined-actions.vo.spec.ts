@@ -9,6 +9,6 @@ describe('DefinedActions', () => {
   it('refuses one it does not define', () => {
     expect(() =>
       DefinedActions.of(['post']).named('digest', 'schedule'),
-    ).toThrow(/names an action "digest" that is not defined/);
+    ).toThrow(/names undefined action digest/);
   });
 });

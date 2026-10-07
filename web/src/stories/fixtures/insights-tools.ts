@@ -28,6 +28,7 @@ const weeksOf = (
     runs,
     given,
     used,
+    usedShare: runs > 0 ? used / runs : null,
   }));
 
 const skill = (over: Partial<SkillReport> & { key: string }): SkillReport => ({

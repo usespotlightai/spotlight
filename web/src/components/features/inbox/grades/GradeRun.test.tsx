@@ -12,7 +12,6 @@ const scores = vi.fn();
 const scoresFailing = vi.fn();
 const scoresError = vi.fn();
 const mutate = vi.fn();
-const gradeFailing = vi.fn();
 const gradePending = vi.fn();
 
 vi.mock('@/hooks/api/useRunScores', () => ({
@@ -30,7 +29,6 @@ vi.mock('@/hooks/api/useGradeRun', () => ({
   useGradeRun: () => ({
     mutate,
     isPending: gradePending(),
-    isError: gradeFailing(),
   }),
 }));
 
@@ -41,7 +39,6 @@ beforeEach(() => {
   scores.mockReturnValue(runScoresOf('run_1', 'task_1'));
   scoresFailing.mockReturnValue(false);
   scoresError.mockReturnValue(null);
-  gradeFailing.mockReturnValue(false);
   gradePending.mockReturnValue(false);
   mutate.mockClear();
 });
@@ -245,20 +242,6 @@ describe('GradeRun', () => {
     );
   });
 
-  it('says beside the card’s title when a grade could not be saved', () => {
-    gradeFailing.mockReturnValue(true);
-
-    showing();
-
-    const failed = screen.getByRole('alert');
-    expect(failed).toHaveTextContent('Your grade could not be saved.');
-    expect(failed.parentElement).toContainElement(
-      screen.getByRole('heading', {
-        name: 'Does this run meet the rubric?',
-      }),
-    );
-  });
-
   it('holds its place while the run loads', () => {
     scores.mockReturnValue(undefined);
 
@@ -288,9 +271,7 @@ describe('GradeRun', () => {
     showing();
 
     expect(
-      screen.getByText(
-        'You’re no longer on this team, so you can’t grade this run',
-      ),
+      screen.getByText('Only team members can grade this run'),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: 'Yes' }),

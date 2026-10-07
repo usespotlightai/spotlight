@@ -1,4 +1,6 @@
+import type { ChangeDto } from '@outcomes/application/dto/insights.dto';
 import type { AlertMeasure } from '@outcomes/domain/value-objects/alert-rule.vo';
+import type { InsightsPeriodName } from '@outcomes/domain/value-objects/insights-period.vo';
 
 export interface AlertThresholdDto {
   readonly measure: AlertMeasure;
@@ -22,9 +24,11 @@ export interface StationAlertDto {
   readonly threshold: AlertThresholdDto;
   readonly value: number;
   readonly baseline: number | null;
+  readonly change: ChangeDto | null;
   readonly runId: string;
   readonly taskId: string;
   readonly raisedAt: string;
+  readonly insightsPeriod: InsightsPeriodName;
   readonly recoveredAt: string | null;
   readonly currency: string | null;
   readonly series: readonly AlertPointDto[];

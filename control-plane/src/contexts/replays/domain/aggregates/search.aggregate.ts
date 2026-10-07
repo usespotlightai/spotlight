@@ -156,14 +156,16 @@ export class Search extends EventRecorder {
     set.stillAtItsStation();
 
     if (!input.split.covers(set.runs)) {
-      throw new InvalidSearchError('splits exactly the runs of its replay set');
+      throw new InvalidSearchError(
+        'must split exactly the runs of its replay set',
+      );
     }
     if (
       !seed.candidate.isLive ||
       !seed.candidate.isFor(set.station.stationId)
     ) {
       throw new InvalidSearchError(
-        'starts from the live config of the station its replay set is at',
+        'must start from the live config of its replay set’s station',
       );
     }
 
@@ -470,7 +472,7 @@ export class Search extends EventRecorder {
 
     if (!iteration?.reflects || iteration.current !== 'wanted') {
       throw new InvalidSearchError(
-        'looks into failing tasks only in a reflection it has yet to run',
+        'can look into failing tasks only in a pending reflection',
       );
     }
     if (
@@ -483,7 +485,7 @@ export class Search extends EventRecorder {
       )
     ) {
       throw new InvalidSearchError(
-        'looks only into the tasks it searched, never the held-out ones',
+        'can look only into searched tasks, not held-out ones',
       );
     }
 
@@ -492,7 +494,7 @@ export class Search extends EventRecorder {
       !this.proposals.some((each) => each.candidateId.equals(standing))
     ) {
       throw new InvalidSearchError(
-        'looks into the failures of its seed or of a candidate it proposed',
+        'can look only into failures of its seed or its candidates',
       );
     }
 
@@ -617,7 +619,7 @@ export class Search extends EventRecorder {
   ): Search {
     if (this.state.state !== 'holding-out' || this.state.heldOut.length > 0) {
       throw new InvalidSearchError(
-        'holds out its candidates once, after it stopped searching',
+        'can hold out its candidates only once, after searching stops',
       );
     }
 

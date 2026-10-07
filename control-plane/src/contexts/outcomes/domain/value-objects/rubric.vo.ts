@@ -27,7 +27,7 @@ export class Rubric {
 
     if (!isRubricVersion(input.version)) {
       throw InvalidScoreError.ofJudging(
-        'names its rubric by a 64-character hex digest',
+        'rubric digest must be 64 hex characters',
       );
     }
 

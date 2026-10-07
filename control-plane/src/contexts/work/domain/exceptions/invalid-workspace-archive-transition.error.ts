@@ -2,7 +2,7 @@ export class InvalidWorkspaceArchiveTransitionError extends Error {
   readonly violation = 'conflict' as const;
 
   constructor(reason: string) {
-    super(`A workspace archive ${reason}`);
+    super(`Workspace archive ${reason}.`);
     this.name = 'InvalidWorkspaceArchiveTransitionError';
   }
 }

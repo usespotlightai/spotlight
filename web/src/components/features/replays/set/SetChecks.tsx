@@ -56,8 +56,8 @@ export function SetChecks({ teamId, set }: SetChecksProps) {
           }
         >
           {set.guardsChanges
-            ? 'A check appears here each time spotlight replay check replays a pull request’s change of this station on the set.'
-            : 'Once the set guards config changes, spotlight replay check replays pull requests’ changes of this station on it.'}
+            ? 'Checks appear when spotlight replay check replays a pull request’s change on this set.'
+            : 'Set doesn’t guard config changes. Let it guard them to check pull requests here.'}
         </EmptyState>
       </StateBox>
     );

@@ -92,7 +92,7 @@ export class Memory extends EventRecorder {
 
   private static standing(input: Standing): Memory {
     if (input.supersedes?.equals(input.id)) {
-      throw new InvalidMemoryError('never supersedes itself');
+      throw new InvalidMemoryError('cannot supersede itself');
     }
 
     const stood = new Memory({
@@ -207,7 +207,7 @@ export class Memory extends EventRecorder {
 
   supersededBy(successor: MemoryId, at: Date): Memory {
     if (successor.equals(this.state.id)) {
-      throw new InvalidMemoryError('is never superseded by itself');
+      throw new InvalidMemoryError('cannot supersede itself');
     }
 
     return this.retiring(MemoryRetirement.superseded(successor, at));

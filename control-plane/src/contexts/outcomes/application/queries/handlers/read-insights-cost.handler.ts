@@ -5,6 +5,7 @@ import {
 import type { ReadInsightsCostQuery } from '@outcomes/application/queries/read-insights-cost.query';
 import type { TeamHistories } from '@outcomes/application/services/team-histories.service';
 import { costBreakdownOf } from '@outcomes/domain/services/cost-breakdown';
+import { spendChangeOf } from '@outcomes/domain/value-objects/change.vo';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
@@ -20,15 +21,14 @@ export class ReadInsightsCostHandler
         query.principal,
         query.period,
       );
-
+      const cost = costBreakdownOf(history, period.current);
       const before = costBreakdownOf(history, period.previous);
 
       return {
         period: periodOf(period),
         truncated,
-        cost: costBreakdownOf(history, period.current),
-        spendBefore: before.spend,
-        mixedCurrenciesBefore: before.mixedCurrencies,
+        cost,
+        spendChange: spendChangeOf(cost.spend, before.spend, 'neither'),
       };
     } catch (error) {
       rethrowAsFault(error);

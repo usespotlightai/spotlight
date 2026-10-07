@@ -17,8 +17,8 @@ export function NoHostsYet({ slug, adds }: NoHostsYetProps) {
         action={adds && <AddHostLink slug={slug} label="Add the first host" />}
       >
         {adds
-          ? 'A host starts a fresh runner for each run.'
-          : 'A workspace owner or admin can add one.'}
+          ? 'Add a host to start runs. It starts a fresh runner for each one.'
+          : 'Only workspace owners and admins can add hosts.'}
       </EmptyState>
     </Notice>
   );

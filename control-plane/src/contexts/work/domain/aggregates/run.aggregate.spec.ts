@@ -649,7 +649,7 @@ describe('Run', () => {
 
       expect(ended.state).toBe('failed');
       expect(ended.outcome?.message).toBe(
-        `Its hooks could not be asked after 6 tries: ${DOWN}`,
+        `Hooks did not answer after 6 tries. Last error: ${DOWN}`,
       );
       expect(ended.pullEvents()[0]).toBeInstanceOf(RunCompleted);
     });
@@ -1020,7 +1020,7 @@ describe('Run', () => {
       expect(run.outcome?.failed).toBe(true);
       expect(run.outcome).toEqual(RunOutcome.unprovisioned(refused, 5));
       expect(run.outcome?.message).toBe(
-        'No runner was provisioned for it in 5 attempts; the last was refused: the pool said no',
+        'No runner was provisioned after 5 attempts. Last failure: refused: the pool said no',
       );
 
       const completed = run

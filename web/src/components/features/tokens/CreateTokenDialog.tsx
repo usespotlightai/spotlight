@@ -15,9 +15,7 @@ import {
 import {
   type CreatedWorkspaceToken,
   useCreateWorkspaceToken,
-  WorkspaceTokenNameTakenError,
 } from '@/hooks/api/useCreateWorkspaceToken';
-import { messageOf } from '@/lib/error';
 import { sanitizeSlug, slugify } from '@/lib/slug';
 import {
   expiryAfter,
@@ -33,11 +31,6 @@ const LONGEST_NAME = 64;
 const LONGEST_DESCRIPTION = 255;
 
 const LABEL = 'font-medium text-foreground text-xs';
-
-const refusal = (error: unknown): string =>
-  error instanceof WorkspaceTokenNameTakenError
-    ? `A token named ${error.token} already exists. Choose another name.`
-    : messageOf(error);
 
 type CreateTokenDialogProps = {
   open: boolean;
@@ -55,7 +48,6 @@ export function CreateTokenDialog({
   const create = useCreateWorkspaceToken(workspaceId);
   const nameId = useId();
   const descriptionId = useId();
-  const errorId = useId();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
   const [reach, setReach] = useState<TokenReach>('configure');
@@ -119,8 +111,8 @@ export function CreateTokenDialog({
         <DialogHeader>
           <DialogTitle>Create a token</DialogTitle>
           <DialogDescription>
-            A token lets Terraform or a script act in this workspace. Its name,
-            what it may do and when it expires can’t be changed later.
+            Token: lets Terraform or a script act in this workspace. Name,
+            access and expiry are permanent.
           </DialogDescription>
         </DialogHeader>
 
@@ -139,8 +131,6 @@ export function CreateTokenDialog({
               placeholder="terraform"
               maxLength={LONGEST_NAME}
               disabled={busy}
-              aria-describedby={create.isError ? errorId : undefined}
-              aria-invalid={create.isError}
               value={name}
               onChange={(event) => {
                 setName(sanitizeSlug(event.target.value));
@@ -188,16 +178,6 @@ export function CreateTokenDialog({
               className="w-32"
             />
           </div>
-
-          {create.isError && (
-            <p
-              id={errorId}
-              role="alert"
-              className="whitespace-pre-line text-destructive text-xs"
-            >
-              {refusal(create.error)}
-            </p>
-          )}
 
           <DialogFooter>
             <DialogClose render={<Button variant="outline" size="sm" />}>

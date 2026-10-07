@@ -122,7 +122,7 @@ export class S3WorkspaceArchiveStore implements WorkspaceArchiveStorePort {
   private refuseWithoutABucket(): void {
     if (!this.bucket) {
       throw new InvalidWorkspaceArchiveError(
-        'cannot be kept, because this deployment has nowhere to keep one',
+        'storage is not configured on this deployment',
       );
     }
   }

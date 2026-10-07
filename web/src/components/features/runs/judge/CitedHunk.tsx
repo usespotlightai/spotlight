@@ -29,7 +29,7 @@ export function CitedHunk({ hunk }: { hunk: Hunk }) {
         </pre>
       ) : (
         <p className="px-3 py-1.5 text-muted-foreground text-xs">
-          This hunk is no longer in the run’s changes.
+          Hunk is no longer in the run’s changes.
         </p>
       )}
     </div>

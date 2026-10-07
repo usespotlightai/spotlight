@@ -65,8 +65,8 @@ type RefusedStation = {
 } | null;
 
 const NOTHING_RUNS: Readonly<Record<Exclude<StationKind, 'work'>, string>> = {
-  backlog: 'is a backlog, where nothing runs',
-  completed: 'is where the line ends, where nothing runs',
+  backlog: 'is a backlog',
+  completed: 'is the completed station',
 };
 
 const stationRefused = (station: StationPlan): RefusedStation => {
@@ -74,12 +74,12 @@ const stationRefused = (station: StationPlan): RefusedStation => {
     const idle = NOTHING_RUNS[station.kind];
 
     if (station.judge) {
-      return { field: 'judge', reason: `${idle}, so it has no runs to judge` };
+      return { field: 'judge', reason: `${idle} and has no runs to judge` };
     }
     if (station.alerts.length > 0) {
       return {
         field: 'alerts',
-        reason: `${idle}, so it has no runs to alert on`,
+        reason: `${idle} and has no runs to alert on`,
       };
     }
   }
@@ -140,7 +140,7 @@ export class LinePlan {
     if (laid) {
       throw new InvalidLinePlanError(
         input.key.value,
-        `has stations that ${laid.reason}`,
+        `stations ${laid.reason}`,
         laid.part,
       );
     }
@@ -151,7 +151,7 @@ export class LinePlan {
       if (refused) {
         throw new InvalidLinePlanError(
           input.key.value,
-          `has ${station.key.value}, which ${refused.reason}`,
+          `station ${station.key.value} ${refused.reason}`,
           {
             of: 'station',
             station: station.key.value,
@@ -173,7 +173,7 @@ export class LinePlan {
     if (reacting) {
       throw new InvalidLinePlanError(
         input.key.value,
-        `has reactions that ${reacting.reason}`,
+        `reactions ${reacting.reason}`,
         reacting.part,
       );
     }
@@ -185,7 +185,7 @@ export class LinePlan {
     } catch (error) {
       throw new InvalidLinePlanError(
         input.key.value,
-        `has repositories it cannot work: ${error instanceof Error ? error.message : String(error)}`,
+        `has repositories it cannot use. ${error instanceof Error ? error.message.replace(/\.$/, '') : String(error)}`,
         { of: 'line', field: 'repositories' },
       );
     }
@@ -203,7 +203,7 @@ export class LinePlan {
     if (input.reviews && !reviewsOn(input.role ?? null)) {
       throw new InvalidLinePlanError(
         input.key.value,
-        `reviews pull requests, which only a line whose role is ${LineRole.REVIEW.value} does`,
+        `cannot review pull requests. Only a line with role ${LineRole.REVIEW.value} can`,
         { of: 'line', field: 'reviews' },
       );
     }

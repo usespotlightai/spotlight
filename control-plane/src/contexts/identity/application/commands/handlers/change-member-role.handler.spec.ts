@@ -98,7 +98,7 @@ describe('ChangeMemberRoleHandler', () => {
     const { handler, save } = changing();
 
     await expect(handler.execute(change({ role: 'wizard' }))).rejects.toThrow(
-      /no such role as wizard/,
+      /Role wizard does not exist/,
     );
     expect(save).not.toHaveBeenCalled();
   });
@@ -108,7 +108,7 @@ describe('ChangeMemberRoleHandler', () => {
 
     await expect(
       handler.execute(change({ role: 'owner', viewerId: 'user_admin' })),
-    ).rejects.toThrow(/nobody hands out a rank they do not hold/);
+    ).rejects.toThrow(/cannot give a role above your own/);
     expect(save).not.toHaveBeenCalled();
   });
 
@@ -117,7 +117,7 @@ describe('ChangeMemberRoleHandler', () => {
 
     await expect(
       handler.execute(change({ userId: 'user_owner', role: 'admin' })),
-    ).rejects.toThrow(/nobody who owns it/);
+    ).rejects.toThrow(/needs at least one owner/);
     expect(save).not.toHaveBeenCalled();
   });
 

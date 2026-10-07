@@ -60,8 +60,8 @@ export function SubmitReviewButton() {
           </h2>
           <p className="text-muted-foreground text-xs">
             {reviewing.review?.pullRequest
-              ? `${pending} ${pending === 1 ? 'comment' : 'comments'} will post to the pull request.`
-              : `${pending} ${pending === 1 ? 'comment' : 'comments'} will post once the task opens its pull request.`}
+              ? `Posts ${pending} ${pending === 1 ? 'comment' : 'comments'} to the pull request.`
+              : `Posts ${pending} ${pending === 1 ? 'comment' : 'comments'} when the task opens its pull request.`}
           </p>
         </div>
 
@@ -102,11 +102,6 @@ export function SubmitReviewButton() {
         </fieldset>
 
         <div className="flex items-center justify-end gap-2">
-          {submit.isError && (
-            <p role="alert" className="mr-auto text-destructive text-xs">
-              The review could not be submitted.
-            </p>
-          )}
           <Button size="sm" disabled={!ready} onClick={send}>
             Submit review
           </Button>

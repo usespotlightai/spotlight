@@ -26,8 +26,7 @@ export function SearchEstimateSummary({
   if (!asked) {
     body = (
       <p className="text-muted-foreground text-xs">
-        Choose a replay set and a budget to see what the search may run and
-        spend.
+        Choose a replay set and budget to see the estimated runs and spend.
       </p>
     );
   } else if (refusal) {
@@ -103,8 +102,8 @@ export function SearchEstimateSummary({
       {body}
       {asked && estimate && !refusal && (
         <p className="text-muted-foreground text-xs leading-5">
-          An agent run may go a little over what it is given, so the search may
-          end slightly over its ceiling.
+          An agent run may slightly overspend. The search may end a little over
+          its ceiling.
         </p>
       )}
     </section>

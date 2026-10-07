@@ -6,7 +6,12 @@ import {
   replayedAs,
   replayFor,
 } from '@replays/domain/replays.fake-spec';
-import { setNoiseOf } from '@replays/domain/services/set-noise';
+import {
+  isNoisyAt,
+  noiseReadingOf,
+  setNoiseOf,
+  suggestedRepeatsFor,
+} from '@replays/domain/services/set-noise';
 import { describe, expect, it } from 'vitest';
 
 const SET = aSet(4);
@@ -74,5 +79,38 @@ describe('setNoiseOf', () => {
     expect(
       setNoiseOf([running, older], [LIVE], LIVE.fingerprint)?.replayId.value,
     ).toBe('replay_older');
+  });
+});
+
+describe('suggestedRepeatsFor', () => {
+  it('asks for enough copies to bring the noise under the min gain, from 1 to 5', () => {
+    expect(suggestedRepeatsFor(0, 0.05)).toBe(1);
+    expect(suggestedRepeatsFor(0.05, 0.05)).toBe(1);
+    expect(suggestedRepeatsFor(0.1, 0.05)).toBe(4);
+    expect(suggestedRepeatsFor(0.08, 0.05)).toBe(3);
+    expect(suggestedRepeatsFor(0.5, 0.05)).toBe(5);
+  });
+});
+
+describe('isNoisyAt', () => {
+  it('calls noise noisy in one copy when one copy cannot bring it under the min gain', () => {
+    expect(isNoisyAt(0.05, 0.05, 1)).toBe(false);
+    expect(isNoisyAt(0.06, 0.05, 1)).toBe(true);
+    expect(isNoisyAt(0.1, 0.05, 4)).toBe(false);
+    expect(isNoisyAt(0.1, 0.05, 3)).toBe(true);
+  });
+});
+
+describe('noiseReadingOf', () => {
+  it('reads noise against the min gain for a single copy of each run', () => {
+    const replay = liveReplay('replay_noise', 3, [
+      'original_0#1',
+      'original_1#2',
+      'original_2#2',
+    ]);
+    const noise = setNoiseOf([replay], [LIVE], LIVE.fingerprint);
+
+    expect(noise && noiseReadingOf(noise, 0.05).noisyInOneCopy).toBe(true);
+    expect(noise && noiseReadingOf(noise, 0.5).noisyInOneCopy).toBe(false);
   });
 });

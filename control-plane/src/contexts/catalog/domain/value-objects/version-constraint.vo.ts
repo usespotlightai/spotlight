@@ -14,7 +14,7 @@ interface Clause {
   readonly segments: number;
 }
 
-const HOW = 'names the versions you accept, as in ~> 1.2 or >= 1.0, < 2.0';
+const EXAMPLE = 'such as ~> 1.2 or >= 1.0, < 2.0';
 
 const clauseOf = (raw: string): Clause => {
   const found = CLAUSE.exec(raw.trim());
@@ -22,7 +22,7 @@ const clauseOf = (raw: string): Clause => {
   if (!found) {
     throw new InvalidCatalogEntryError(
       'version',
-      `has "${raw.trim()}", which ${HOW}`,
+      `"${raw.trim()}" must be a version constraint, ${EXAMPLE}`,
     );
   }
 
@@ -78,7 +78,7 @@ export class VersionConstraint {
     const trimmed = raw.trim();
 
     if (trimmed === '') {
-      throw new InvalidCatalogEntryError('version', `is required: it ${HOW}`);
+      throw new InvalidCatalogEntryError('version', `is required, ${EXAMPLE}`);
     }
 
     return new VersionConstraint(trimmed, trimmed.split(',').map(clauseOf));

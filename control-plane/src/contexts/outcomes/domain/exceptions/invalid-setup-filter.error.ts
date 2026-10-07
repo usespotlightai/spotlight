@@ -2,7 +2,7 @@ export class InvalidSetupFilterError extends Error {
   readonly violation = 'invalid' as const;
 
   constructor(reason: string) {
-    super(`Setups are compared ${reason}`);
+    super(`Setup filter ${reason}.`);
     this.name = 'InvalidSetupFilterError';
   }
 }

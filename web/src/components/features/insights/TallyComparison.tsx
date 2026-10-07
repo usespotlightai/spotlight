@@ -1,5 +1,11 @@
-import { DeltaShown } from '@/components/features/insights/DeltaShown';
-import { comparedRows, type MeasureVerdict } from '@/lib/tally-comparison';
+import { ComparedLabel } from '@/components/features/insights/ComparedLabel';
+import { DeltaMark } from '@/components/features/insights/DeltaMark';
+import {
+  type ComparedRow,
+  comparedRows,
+  type MeasureVerdict,
+} from '@/lib/tally-comparison';
+import { cn } from '@/lib/utils';
 
 type TallyComparisonProps = {
   label: string;
@@ -7,6 +13,7 @@ type TallyComparisonProps = {
   otherLabel: string;
   runs: { readonly one: number; readonly other: number };
   verdicts: readonly MeasureVerdict[];
+  extra?: readonly ComparedRow[];
 };
 
 export function TallyComparison({
@@ -15,6 +22,7 @@ export function TallyComparison({
   otherLabel,
   runs,
   verdicts,
+  extra = [],
 }: TallyComparisonProps) {
   return (
     <table
@@ -24,38 +32,44 @@ export function TallyComparison({
     >
       <thead>
         <tr className="text-left text-muted-foreground">
-          <th scope="col" className="py-1 font-normal">
+          <th scope="col" className={cn('py-1 font-normal')}>
             <span className="sr-only">Measure</span>
           </th>
-          <th scope="col" className="py-1 text-right font-normal">
+          <th scope="col" className={cn('py-1 text-right font-normal')}>
             {oneLabel}
           </th>
-          <th scope="col" className="py-1 text-right font-normal">
+          <th scope="col" className={cn('py-1 text-right font-normal')}>
             {otherLabel}
           </th>
-          <th scope="col" className="py-1 pl-3 text-right font-normal">
+          <th scope="col" className={cn('py-1 pl-3 text-right font-normal')}>
             Change
           </th>
         </tr>
       </thead>
       <tbody>
-        {comparedRows(runs, verdicts).map((row) => (
-          <tr key={row.id} className="border-border border-t-[0.5px]">
+        {[...comparedRows(runs, verdicts), ...extra].map((row) => (
+          <tr key={row.id} className={cn('border-border border-t-[0.5px]')}>
             <th
               scope="row"
-              className="py-1.5 text-left font-normal text-muted-foreground"
+              className={cn(
+                'py-1.5 text-left font-normal text-muted-foreground',
+              )}
             >
-              {row.label}
+              <ComparedLabel row={row} />
             </th>
-            <td className="py-1.5 text-right text-foreground tabular-nums">
+            <td
+              className={cn('py-1.5 text-right text-foreground tabular-nums')}
+            >
               {row.one}
             </td>
-            <td className="py-1.5 text-right text-foreground tabular-nums">
+            <td
+              className={cn('py-1.5 text-right text-foreground tabular-nums')}
+            >
               {row.other}
             </td>
-            <td data-slot="verdict" className="py-1.5 pl-3 text-right">
+            <td data-slot="verdict" className={cn('py-1.5 pl-3 text-right')}>
               {row.delta ? (
-                <DeltaShown delta={row.delta} against={null} />
+                <DeltaMark delta={row.delta} />
               ) : (
                 <span className="text-muted-foreground">–</span>
               )}

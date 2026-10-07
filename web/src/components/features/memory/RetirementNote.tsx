@@ -21,7 +21,7 @@ export function RetirementNote({ retirement }: RetirementNoteProps) {
   return (
     <figure aria-label="Why it was retired">
       <PersonNote
-        avatar={<PersonAvatar person={by} />}
+        avatar={<PersonAvatar person={by} size="md" />}
         name={by.name}
         about={
           <>

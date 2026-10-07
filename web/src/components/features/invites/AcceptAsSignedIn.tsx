@@ -1,5 +1,4 @@
 import { useNavigate } from 'react-router';
-import { ErrorMessage } from '@/components/shell/auth/ErrorMessage';
 import { Button } from '@/components/ui/button';
 import { useAcceptInvite } from '@/hooks/api/useAcceptInvite';
 
@@ -22,8 +21,8 @@ export function AcceptAsSignedIn({
     <div className="flex flex-col gap-3">
       {asSomeoneElse ? (
         <p role="alert" className="text-center text-muted-foreground text-sm">
-          It was sent to {invitedEmail}, and you are signed in as {signedInAs}.
-          Sign in as them to accept it.
+          Invitation is for {invitedEmail}, not {signedInAs}. Please sign in as{' '}
+          {invitedEmail} to accept.
         </p>
       ) : (
         <Button
@@ -43,8 +42,6 @@ export function AcceptAsSignedIn({
           {accept.isPending ? 'Joining…' : 'Accept invitation'}
         </Button>
       )}
-
-      {accept.isError && <ErrorMessage error={accept.error} />}
     </div>
   );
 }

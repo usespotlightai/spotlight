@@ -14,13 +14,13 @@ export class OutboundPolicy {
     try {
       host = new URL(url).host;
     } catch {
-      throw new OutboundRefusedError(url, 'is not a URL that can be called');
+      throw new OutboundRefusedError(url, 'URL is not valid.');
     }
 
     if (!this.hosts.allow(host)) {
       throw new OutboundRefusedError(
         host.toLowerCase(),
-        'is not among the hosts this deployment allows outbound calls to',
+        'Host is not on the allowed list.',
       );
     }
   }

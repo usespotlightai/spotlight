@@ -23,26 +23,26 @@ export class ReplayCheckPolicy {
     if (!Number.isInteger(mostRegressions) || mostRegressions < 0) {
       throw new InvalidReplayCheckPolicyError(
         'mostRegressions',
-        'is how many tasks a planned change may regress on and still pass, a whole number from 0',
+        'must be a whole number from 0',
       );
     }
     if (!Number.isFinite(ceiling) || ceiling <= 0 || ceiling > MOST_CEILING) {
       throw new InvalidReplayCheckPolicyError(
         'ceiling',
-        `is the most one check’s replay may spend, above 0 and at most ${MOST_CEILING.toLocaleString('en-US')}`,
+        `must be above 0 and at most ${MOST_CEILING.toLocaleString('en-US')}`,
       );
     }
     if (!CURRENCY.test(currency)) {
       throw new InvalidReplayCheckPolicyError(
         'currency',
-        'is the three-letter currency the ceiling is counted in, as in USD',
+        'must be a three-letter currency code, as in USD',
       );
     }
 
     if (!Number.isFinite(minGain) || minGain <= 0 || minGain > 1) {
       throw new InvalidReplayCheckPolicyError(
         'minGain',
-        'is the smallest gain in success, as a share above 0 and at most 1, that counts as more than noise',
+        'must be a share above 0 and at most 1',
       );
     }
 

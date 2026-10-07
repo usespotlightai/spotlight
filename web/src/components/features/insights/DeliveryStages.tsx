@@ -1,9 +1,8 @@
-import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { InsightsTile } from '@/components/features/insights/InsightsTile';
-import { InsightsTiles } from '@/components/features/insights/InsightsTiles';
+import { TileGroup } from '@/components/features/insights/TileGroup';
 import {
+  changeShown,
   countShown,
-  deltaOf,
   type Flow,
   mergedFilter,
   spreadShown,
@@ -12,41 +11,38 @@ import {
 
 type DeliveryStagesProps = {
   delivery: Flow['delivery'];
-  before: Flow['delivery'];
 };
 
-export function DeliveryStages({ delivery, before }: DeliveryStagesProps) {
+export function DeliveryStages({ delivery }: DeliveryStagesProps) {
   const opened = tasksFilter(delivery.openedTaskIds);
   const reviewed = tasksFilter(delivery.reviewedTaskIds);
 
   return (
-    <InsightsCard
+    <TileGroup
       title="Past the last station"
-      description="From a task opening to its pull request, its first review by a person, and its merge. Times are the median and the p90."
+      note="Time from task opened to pull request, first human review and merge. Times: median and p90"
     >
-      <InsightsTiles label="Delivery">
-        <InsightsTile
-          label="PRs opened"
-          value={countShown(delivery.opened)}
-          detail={`Task to PR ${spreadShown(delivery.toPullRequest)}`}
-          delta={deltaOf(delivery.opened, before.opened, 'up')}
-          drill={opened ? { tab: 'runs', filter: opened } : undefined}
-        />
-        <InsightsTile
-          label="First reviews"
-          value={countShown(delivery.reviewed)}
-          detail={`PR to review ${spreadShown(delivery.toFirstReview)}`}
-          delta={deltaOf(delivery.reviewed, before.reviewed, 'up')}
-          drill={reviewed ? { tab: 'runs', filter: reviewed } : undefined}
-        />
-        <InsightsTile
-          label="PRs merged"
-          value={countShown(delivery.merged)}
-          detail={`Review to merge ${spreadShown(delivery.toMerge)}`}
-          delta={deltaOf(delivery.merged, before.merged, 'up')}
-          drill={{ tab: 'runs', filter: mergedFilter(delivery.mergedTaskIds) }}
-        />
-      </InsightsTiles>
-    </InsightsCard>
+      <InsightsTile
+        label="PRs opened"
+        value={countShown(delivery.opened)}
+        detail={`Task to PR ${spreadShown(delivery.toPullRequest)}`}
+        delta={changeShown(delivery.changes.opened)}
+        drill={opened ? { tab: 'runs', filter: opened } : undefined}
+      />
+      <InsightsTile
+        label="First reviews"
+        value={countShown(delivery.reviewed)}
+        detail={`PR to review ${spreadShown(delivery.toFirstReview)}`}
+        delta={changeShown(delivery.changes.reviewed)}
+        drill={reviewed ? { tab: 'runs', filter: reviewed } : undefined}
+      />
+      <InsightsTile
+        label="PRs merged"
+        value={countShown(delivery.merged)}
+        detail={`Review to merge ${spreadShown(delivery.toMerge)}`}
+        delta={changeShown(delivery.changes.merged)}
+        drill={{ tab: 'runs', filter: mergedFilter(delivery.mergedTaskIds) }}
+      />
+    </TileGroup>
   );
 }

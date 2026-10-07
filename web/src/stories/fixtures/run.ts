@@ -258,6 +258,7 @@ const seedPausedRun = (
   client: QueryClient,
   state: 'waiting' | 'parked',
   updatedAt: string,
+  notes: RunConversationResponseDto['notes'] = CONVERSATION.notes,
 ) => {
   seedAround(client, {
     running: true,
@@ -269,6 +270,7 @@ const seedPausedRun = (
   client.setQueryData(runConversationKeys.forRun(RUN_ID), {
     ...CONVERSATION,
     spend: null,
+    notes,
   });
   client.setQueryData(journalKeys.forTask(TASK_ID), JOURNAL);
   seedRunMemories(client, TEAM_ID, RUN_ID);
@@ -276,6 +278,33 @@ const seedPausedRun = (
 
 export const seedWaitingRun = (client: QueryClient) =>
   seedPausedRun(client, 'waiting', minutesAgo(22));
+
+const ASKED_APPROVAL = {
+  ...CONVERSATION.notes[0],
+  form: 'approval',
+  body: '',
+  approval: {
+    kind: 'tool-call',
+    name: 'linear.comment',
+    because: 'It posts publicly on the issue, under the team’s name.',
+    inputs: [
+      { name: 'issue', value: 'ENG-412' },
+      {
+        name: 'body',
+        value:
+          'Drained webhook-retries: 1,201 jobs replayed. Three endpoints are gone for good and have been dropped.',
+      },
+    ],
+    standing: 'asked',
+    edited: null,
+    intent:
+      'post the drain summary on the issue, publicly under the team’s name',
+    askedOf: null,
+  },
+} as const satisfies RunConversationResponseDto['notes'][number];
+
+export const seedApprovalWaitingRun = (client: QueryClient) =>
+  seedPausedRun(client, 'waiting', minutesAgo(22), [ASKED_APPROVAL]);
 
 const ANSWER = {
   position: 1,

@@ -21,7 +21,7 @@ export const HarnessProfileProblems = {
       ConfigurationProblem.of({
         path: profileAt(key),
         at: FieldPath.of([...worn.at]),
-        reason: `names the secret ${worn.secret.value}, which the workspace does not hold; define it before an MCP server wears it`,
+        reason: `uses secret ${worn.secret.value} that the workspace does not hold`,
       }),
     );
   },

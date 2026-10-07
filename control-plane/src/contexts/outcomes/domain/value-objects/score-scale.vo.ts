@@ -32,7 +32,7 @@ export class ScoreScale {
   static of(kind: string): ScoreScale {
     if (!isKind(kind)) {
       throw new InvalidScoreError(
-        `is one of ${SCORE_KINDS.join(', ')}, not ${kind}`,
+        `scale must be one of ${SCORE_KINDS.join(', ')}, not ${kind}`,
       );
     }
 
@@ -72,20 +72,20 @@ export class ScoreScale {
   valueOf(raw: boolean | number): number {
     if (this.kind === 'yes-no') {
       if (typeof raw !== 'boolean') {
-        throw new InvalidScoreError('on a yes or no scale is yes or no');
+        throw new InvalidScoreError('on a yes or no scale must be yes or no');
       }
       return raw ? YES : NO;
     }
 
     if (this.byClaims) {
       throw new InvalidScoreError(
-        'on a claims scale is given claim by claim, each met or not',
+        'on a claims scale must mark each claim met or not',
       );
     }
 
     if (typeof raw !== 'number' || !this.holds(raw)) {
       throw new InvalidScoreError(
-        `on a number scale is a whole number from ${LOWEST} to ${HIGHEST}`,
+        `on a number scale must be a whole number from ${LOWEST} to ${HIGHEST}`,
       );
     }
 
@@ -95,12 +95,12 @@ export class ScoreScale {
   valueOfClaims(marks: readonly boolean[], count: number): number {
     if (!this.byClaims) {
       throw new InvalidScoreError(
-        `on a ${this.kind} scale is one value, not claim by claim`,
+        `on a ${this.kind} scale must be one value, not claim by claim`,
       );
     }
     if (count === 0 || marks.length !== count) {
       throw new InvalidScoreError(
-        `on a claims scale marks each of its ${count} claims met or not`,
+        `on a claims scale must mark all ${count} claims met or not`,
       );
     }
 

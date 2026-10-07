@@ -356,7 +356,7 @@ describe('a secret, set through the resource API (e2e)', () => {
         .from(schema.secretValue)
         .where(eq(schema.secretValue.secretId, made.body.id)),
     ).toEqual([]);
-    await expect(worn()).rejects.toThrow(/holds no secret named/);
+    await expect(worn()).rejects.toThrow(/Secret [A-Z_]* not found/);
   });
 
   it('records no value in the outbox', async () => {

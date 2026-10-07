@@ -110,7 +110,9 @@ describe('StationAlert', () => {
     expect(() => StationAlert.together([first, again])).toThrow(
       InvalidStationAlertError,
     );
-    expect(() => again.alongside([first])).toThrow(/already watches/);
+    expect(() => again.alongside([first])).toThrow(
+      /is already set on this station/,
+    );
     try {
       again.alongside([first]);
     } catch (error) {

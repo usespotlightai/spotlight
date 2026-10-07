@@ -16,7 +16,7 @@ describe('RateWithInterval', () => {
     ).toHaveTextContent('62% (48–75%)');
     expect(
       container.querySelector('[data-slot="rate-interval"]'),
-    ).toHaveAccessibleDescription(/^The likely range/);
+    ).toHaveAccessibleDescription(/^Likely range/);
   });
 
   it('leaves the range out where there is none, and a dash for no rate', () => {

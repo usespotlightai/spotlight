@@ -5,7 +5,7 @@ export class InvalidHostReportError extends Error {
     readonly field: string,
     rule: string,
   ) {
-    super(`A host's ${field} ${rule}`);
+    super(`Host ${field} ${rule}.`);
     this.name = 'InvalidHostReportError';
   }
 }

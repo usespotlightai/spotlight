@@ -45,13 +45,13 @@ const STATES: Record<SearchState, string> = {
 };
 
 const ENDINGS: Record<SearchEnding, string> = {
-  'iterations-spent': 'It ran every iteration it was given',
-  'ceiling-reached': 'It reached its ceiling',
-  stalled: 'It found nothing better twice in a row',
-  stopped: 'A person stopped it',
-  'station-gone': 'Its station is gone from its line',
-  'set-gone': 'Its replay set was deleted',
-  'seed-failed': 'The live config could not be replayed',
+  'iterations-spent': 'Ran every iteration it was given',
+  'ceiling-reached': 'Reached its ceiling',
+  stalled: 'Found nothing better twice in a row',
+  stopped: 'Stopped by a person',
+  'station-gone': 'Station is gone from the line',
+  'set-gone': 'Replay set was deleted',
+  'seed-failed': 'Live config couldn’t be replayed',
 };
 
 const ITERATION_STATES: Record<IterationState, string> = {
@@ -68,20 +68,20 @@ const PULL_REQUEST_STATES: Record<PullRequestState, string> = {
 };
 
 const REASONS: Record<ReasonCode, string> = {
-  'no-source': 'The line does not say which repository holds its Terraform',
+  'no-source': 'Line names no repository for its Terraform',
   'repository-unreachable':
-    'Spotlight’s GitHub App cannot reach the line’s repository',
-  'file-missing': 'The line’s Terraform file is not in its repository',
-  'file-unparsable': 'The line’s Terraform file could not be read',
-  'block-not-found': 'The station’s block was not found in the file',
-  'blocks-ambiguous': 'The station’s block was found more than once',
+    'Spotlight’s GitHub App can’t reach the line’s repository',
+  'file-missing': 'Line’s Terraform file isn’t in its repository',
+  'file-unparsable': 'Line’s Terraform file couldn’t be read',
+  'block-not-found': 'Station’s block isn’t in the file',
+  'blocks-ambiguous': 'Station’s block appears more than once',
   'computed-attribute':
-    'An attribute it would change is computed in Terraform, so it must be set by hand',
-  drifted: 'The file changed since the search began',
+    'Attribute is computed in Terraform. Please set it by hand.',
+  drifted: 'File changed since the search began',
   'edit-failed':
-    'Spotlight’s change to the file would not read back as Terraform, so it must be made by hand',
-  'branch-taken': 'The branch for the pull request is taken already',
-  'file-unwritable': 'The file could not be written in its repository',
+    'Edited file wouldn’t parse as Terraform. Please make the change by hand.',
+  'branch-taken': 'Pull request branch already exists',
+  'file-unwritable': 'File couldn’t be written to its repository',
   'github-refused': 'GitHub refused the change',
 };
 
@@ -93,12 +93,12 @@ const CHECK_VERDICTS: Record<CheckVerdict, string> = {
 };
 
 const UNDECIDED: Record<Undecided, string> = {
-  'replay-gone': 'its replay is gone',
-  stopped: 'its replay was stopped',
-  'over-ceiling': 'its replay reached its ceiling',
-  'baseline-unfinished': 'the live config’s replay did not finish',
-  'no-baseline': 'there was no replay of the live config to compare with',
-  'too-few-scored': 'fewer than half the tasks were scored on both sides',
+  'replay-gone': 'replay is gone',
+  stopped: 'replay was stopped',
+  'over-ceiling': 'replay reached its ceiling',
+  'baseline-unfinished': 'live config’s replay didn’t finish',
+  'no-baseline': 'no live-config replay to compare with',
+  'too-few-scored': 'under half the tasks scored on both sides',
 };
 
 export const searchStateShown = (state: SearchState): string => STATES[state];
@@ -125,23 +125,23 @@ export const verdictShown = (
 export const warningShown = (warning: SearchWarning): string => {
   switch (warning.kind) {
     case 'noise-unmeasured':
-      return 'Nobody has measured how much this set’s success moves by chance, so a small gain may be luck. Use Check this set on the set page, or replay each run more than once.';
+      return 'Set’s noise is unmeasured. A small gain may be luck. Use Check this set, or replay each run more than once.';
     case 'noisy': {
       const fix =
         warning.neededRepeats > warning.suggestedRepeats
-          ? `Even replaying each run ${warning.suggestedRepeats} times, the most allowed, won’t bring it under that, so read small gains with care or raise the line’s smallest real gain.`
-          : `Replaying each run ${warning.suggestedRepeats} times would bring that down.`;
+          ? `Even ${warning.suggestedRepeats} repeats, the maximum, won’t bring it under. Read small gains with care, or raise the line’s min_gain.`
+          : `Replaying each run ${warning.suggestedRepeats} times would bring it under.`;
 
-      return `This set’s success moved ${pointsShown(warning.spread)} between copies of the same runs, more than the ${minGainShown(warning.minGain)} the line counts as real. ${fix}`;
+      return `Success moved ${pointsShown(warning.spread)} between copies of the same runs, above the line’s minimum real gain. ${fix} Minimum real gain: ${minGainShown(warning.minGain)}`;
     }
     case 'saturated':
-      return `The live config already succeeds on ${percentShown(warning.rate)} of this set, so there is little room to succeed more. Aim for the same success for less, or add tasks the live config fails.`;
+      return `Live config already succeeds on ${percentShown(warning.rate)} of this set. Aim for the same success for less, or add tasks the live config fails.`;
     case 'judge-unstable':
-      return `Judging the same change twice, the judge gave the same verdict only ${percentShown(warning.agreement)} of the time over ${warning.compared} ${warning.compared === 1 ? 'change' : 'changes'}, so its verdicts are partly chance. Make the rubric more specific before you search.`;
+      return `Judge gave the same verdict twice on only ${percentShown(warning.agreement)} of ${warning.compared} ${warning.compared === 1 ? 'change' : 'changes'}. Make the rubric more specific before you search.`;
     case 'flaky-checks':
-      return `The check passed once and failed once on ${warning.flaky} of ${warning.rechecked} changes it ran twice, so it may flip a candidate’s result by chance. The set page lists them.`;
+      return `Check flipped on ${warning.flaky} of ${warning.rechecked} changes it ran twice. It may flip a candidate’s result by chance. The set page lists them.`;
     case 'sanity-failed':
-      return `A stronger model did not do clearly better on this set (${gainShown(warning)}, likely ${gainRangeShown(warning)}) and did worse on ${warning.worseTasks} ${warning.worseTasks === 1 ? 'task' : 'tasks'}, so its tasks may be unclear or its scoring off.`;
+      return `A stronger model didn’t do clearly better on this set: ${gainShown(warning)}, likely ${gainRangeShown(warning)}. It did worse on ${warning.worseTasks} ${warning.worseTasks === 1 ? 'task' : 'tasks'}. Tasks may be unclear, or scoring off.`;
   }
 };
 
@@ -159,7 +159,7 @@ const OBJECTIVES: Record<SearchObjective, string> = {
 
 const OBJECTIVE_NOTES: Record<SearchObjective, string> = {
   success: 'Ranks candidates by how often they succeed.',
-  cost: 'Ranks the candidates that succeed as often as the live config, within noise, by what a run costs.',
+  cost: 'Ranks candidates by cost per run. Only those matching the live config’s success, within noise, count.',
 };
 
 const BEST_TERMS: Record<SearchObjective, string> = {
@@ -174,8 +174,8 @@ const NO_BEST: Record<SearchObjective, string> = {
 
 const FRONTIER_NOTES: Record<SearchObjective, string> = {
   success:
-    'How often each candidate succeeded on the searched tasks, against what it spent a run. The frontier joins those no other succeeds as often for less; the live config is always on it.',
-  cost: 'How often each candidate succeeded on the searched tasks, against what it spent a run. This search aims for the same success for less, so the frontier joins only those that succeed as often as the live config, within noise, and that no other matches for less; the live config is always on it.',
+    'Success on the searched tasks against cost per run. Frontier: candidates no other beats for less. The live config is always on it.',
+  cost: 'Success on the searched tasks against cost per run. Frontier: candidates matching the live config’s success, within noise, that no other matches for less. The live config is always on it.',
 };
 
 export const OBJECTIVE_LABEL = 'Aim for';
@@ -189,7 +189,7 @@ export const objectiveNote = (objective: SearchObjective): string =>
   OBJECTIVE_NOTES[objective];
 
 export const objectiveSuggestedShown = (rate: number): string =>
-  `Chosen for you: the live config already succeeds on ${percentShown(rate)} of this set, so there is little room to succeed more.`;
+  `Suggested: the live config already succeeds on ${percentShown(rate)} of this set. Little room for more success.`;
 
 export const bestTermShown = (objective: SearchObjective): string =>
   BEST_TERMS[objective];
@@ -213,9 +213,9 @@ const ONLY_ON_SEEN_TASKS: Record<OnlyOnSeenTasks, string> = {
 
 const ONLY_ON_SEEN_TASKS_NOTES: Record<OnlyOnSeenTasks, string> = {
   marked:
-    'It beat the live config on the tasks the search could see, but not on the held-out tasks it never saw, so the gain may not carry over to new work.',
+    'Beat the live config on searched tasks, not on held-out ones. Gain may not carry over to new work.',
   'too-few-held-out':
-    'It beat the live config on the tasks the search could see, but too few held-out tasks were scored to tell whether the gain carries over to new work.',
+    'Beat the live config on searched tasks. Too few held-out tasks scored to tell if the gain carries over.',
 };
 
 export const onlyOnSeenTasksShown = (mark: OnlyOnSeenTasks): string =>
@@ -225,16 +225,16 @@ export const onlyOnSeenTasksNote = (mark: OnlyOnSeenTasks): string =>
   ONLY_ON_SEEN_TASKS_NOTES[mark];
 
 export const ONLY_ON_SEEN_TASKS_PICK =
-  'Its gain showed only on the tasks the search could see. You can still pick it, but the gain may not carry over to new work.';
+  'Gain showed only on searched tasks. You can still pick it, but it may not carry over to new work.';
 
 export const onlyOnSeenTasksCountShown = (count: number): string =>
-  `${count} ${count === 1 ? 'candidate' : 'candidates'} on the frontier gained only on the tasks the search could see, not on the held-out ones.`;
+  `${count} frontier ${count === 1 ? 'candidate' : 'candidates'} gained only on searched tasks, not held-out ones.`;
 
 export const SEARCH_CEILING_NOTE =
-  'The most the whole search may spend: its replays and its agent’s runs.';
+  'Most the whole search may spend: its replays and its agent’s runs.';
 
 export const whyItStalledShown = (iteration: number): string =>
-  `Why it stalled, looked into in iteration ${iteration}`;
+  `Why it stalled (iteration ${iteration})`;
 
 export const REFLECTION_KIND = 'Looked for why it stalled';
 
@@ -247,15 +247,15 @@ const CAUSE_TITLES: Record<CauseKind, string> = {
 };
 
 const CAUSE_MEANINGS: Record<CauseKind, string> = {
-  task: 'The task is unclear, out of date, or cannot be done as asked, so no config would get it right.',
+  task: 'Task is unclear, out of date, or can’t be done as asked. No config would get it right.',
   judge:
-    'The work may be fine, but the judge scored it wrong, so its rubric asks for the wrong thing.',
+    'Work may be fine, but the judge scored it wrong. Its rubric asks for the wrong thing.',
   check:
-    'The check failed for a reason the change did not cause, such as a broken or flaky test.',
+    'Check failed for a reason the change didn’t cause, such as a broken or flaky test.',
   infra:
-    'The run failed around the work, for example the runner, the network or a missing tool.',
+    'Run failed around the work: the runner, the network or a missing tool.',
   config:
-    'A change to the station’s config, such as its prompt, model or skills, could still fix it.',
+    'A change to the station’s config, such as prompt, model or skills, could still fix it.',
 };
 
 const CAUSE_ACTIONS: Record<CauseKind, string> = {
@@ -263,7 +263,7 @@ const CAUSE_ACTIONS: Record<CauseKind, string> = {
   judge: 'Fix the judge’s rubric.',
   check: 'Fix the check.',
   infra: 'Replay it again. If it keeps failing, fix what the run needs.',
-  config: 'Nothing for you to do: the search keeps trying configs for these.',
+  config: 'Nothing to do. The search keeps trying configs for these.',
 };
 
 export const causeTitleShown = (cause: CauseKind): string =>
@@ -278,7 +278,7 @@ export const causeActionShown = (cause: CauseKind): string =>
 export const UNCAUSED_TITLE = 'No cause recorded';
 
 export const UNCAUSED_NOTE =
-  'Its agent looked into these but recorded no cause for them.';
+  'Search agent looked into these but recorded no cause.';
 
 export const SUGGESTED = 'Suggested:';
 
@@ -294,22 +294,20 @@ export const standingShown = (candidate: {
   `Looked at why ${candidate.seed ? 'the live config' : candidate.name} failed`;
 
 export const reflectionLookedShown = (tasks: number): string =>
-  `After two iterations in a row found nothing better, its agent looked into the ${tasksCounted(tasks)} the best config so far still failed, and sorted them by what caused each failure.`;
+  `Two iterations in a row found nothing better. The search agent sorted the ${tasksCounted(tasks)} the best config still failed by cause.`;
 
 export const REFLECTION_LOOKING =
-  'Two iterations in a row found nothing better, so its agent is looking into why the remaining tasks fail.';
+  'Two iterations in a row found nothing better. The search agent is looking into why the remaining tasks fail.';
 
 const REFLECTION_OUTCOMES: Record<ReflectionOutcome, string> = {
-  'went-on':
-    'The search went on, because a change to the config could still fix some of them.',
+  'went-on': 'Search continued. A config change could still fix some of them.',
   'no-config-cause':
-    'This ended the search: nothing left the config can fix. What it did not spend is kept.',
-  'no-failures':
-    'No searched task failed, so there was nothing to look into, and the search ended.',
+    'Search ended. Nothing left is fixable by config. Unspent budget is kept.',
+  'no-failures': 'Search ended. No searched task failed.',
   'did-not-run':
-    'Its agent’s run failed before it recorded any cause, so the search ended.',
+    'Search ended. The search agent’s run failed before recording any cause.',
   'out-of-budget':
-    'A change to the config could still fix some of them, but the search had no budget left to try one, so it ended.',
+    'Search ended with no budget left. A config change could still fix some of them.',
 };
 
 export const reflectionOutcomeShown = (outcome: ReflectionOutcome): string =>
@@ -319,9 +317,9 @@ export const reflectionIterationShown = (
   tasks: number,
   causes: number,
 ): string =>
-  `It proposed nothing. It looked into ${tasksCounted(tasks)} the best config so far still failed and recorded ${causes} ${causes === 1 ? 'cause' : 'causes'}.`;
+  `Proposed nothing. Looked into ${tasksCounted(tasks)} the best config still failed. Causes recorded: ${causes}`;
 
 export const REFLECTION_ITERATION_PENDING =
-  'It proposes nothing. Its agent is looking into why the remaining tasks fail.';
+  'Proposes nothing. The search agent is looking into why the remaining tasks fail.';
 
 export const SEE_WHY_IT_STALLED = 'See why it stalled';

@@ -137,9 +137,7 @@ describe('approval', () => {
         standing: 'granted',
         edited: [{ name: 'body', value: 'Done.' }],
       }),
-    ).toBe(
-      'Spotlight asked to post the fix on ENG-12, and you changed what it runs with.',
-    );
+    ).toBe('Spotlight asked to post the fix on ENG-12. You edited its inputs.');
     expect(askedFor(COMMENT)).toBe(
       'Spotlight would like to use linear.comment. It posts publicly, under the team’s name.',
     );

@@ -23,7 +23,7 @@ const timeOf = (raw: string | null): Date | null => {
   const at = new Date(raw);
 
   if (Number.isNaN(at.getTime())) {
-    throw refused('gives its times as ISO dates, as in 2026-09-21T09:30:00Z');
+    throw refused('times must be ISO dates, such as 2026-09-21T09:30:00Z');
   }
 
   return at;
@@ -40,14 +40,14 @@ const withinOf = (
   }
 
   if (!repository) {
-    throw refused('names the repository its paths lie in');
+    throw refused('by path must name its repository');
   }
 
   return given.map((each) => {
     const parts = each.split('/').filter((part) => part && part !== '.');
 
     if (parts.length === 0 || parts.includes('..')) {
-      throw refused(`names ${each}, which is not a path in the repository`);
+      throw refused(`path ${each} is not in the repository`);
     }
 
     return [repository.name, ...parts].join('/');

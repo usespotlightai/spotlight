@@ -8,10 +8,15 @@ type Person = {
 
 type PersonAvatarProps = {
   person: Person;
+  size?: 'sm' | 'md';
   className?: string;
 };
 
-export function PersonAvatar({ person, className }: PersonAvatarProps) {
+export function PersonAvatar({
+  person,
+  size = 'sm',
+  className,
+}: PersonAvatarProps) {
   const [initial] = [...person.name.trim()];
 
   return (
@@ -19,6 +24,7 @@ export function PersonAvatar({ person, className }: PersonAvatarProps) {
       size="sm"
       className={cn(
         'shrink-0 after:mix-blend-normal dark:after:mix-blend-normal',
+        size === 'md' && 'data-[size=sm]:size-[26px]',
         className,
       )}
     >

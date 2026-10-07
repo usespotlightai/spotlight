@@ -3,7 +3,7 @@ export class WorkspaceMovedOnError extends Error {
 
   constructor(slug: string) {
     super(
-      `This workspace has been changed since it was read, and cannot be written over (${slug})`,
+      `Workspace ${slug} changed since you loaded it. Please reload and try again.`,
     );
     this.name = 'WorkspaceMovedOnError';
   }

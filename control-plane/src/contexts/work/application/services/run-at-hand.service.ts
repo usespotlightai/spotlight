@@ -21,7 +21,7 @@ export class RunAtHand {
     const run = await this.runs.findById(RunId.of(runId));
 
     if (!run) {
-      throw new UnknownRunError(`there is no run ${runId}`);
+      throw new UnknownRunError(`Run ${runId} not found.`);
     }
 
     run.assertHeldBy(RunnerId.of(runnerId));

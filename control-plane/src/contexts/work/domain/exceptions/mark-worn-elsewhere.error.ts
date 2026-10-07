@@ -2,9 +2,7 @@ export class MarkWornElsewhereError extends Error {
   readonly violation = 'conflict' as const;
 
   constructor(mark: string) {
-    super(
-      `Another task took ${mark} while this one was being written, so it cannot claim it`,
-    );
+    super(`Mark ${mark} was just claimed by another task.`);
     this.name = 'MarkWornElsewhereError';
   }
 }

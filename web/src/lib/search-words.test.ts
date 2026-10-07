@@ -15,9 +15,7 @@ describe('search words', () => {
   });
 
   it('says why a search stopped', () => {
-    expect(endingShown('stalled')).toBe(
-      'It found nothing better twice in a row',
-    );
+    expect(endingShown('stalled')).toBe('Found nothing better twice in a row');
   });
 
   it('says why no pull request was opened', () => {
@@ -29,19 +27,19 @@ describe('search words', () => {
         expression: null,
         wanted: null,
       }),
-    ).toBe('The file changed since the search began');
+    ).toBe('File changed since the search began');
   });
 
   it('says why a check went undecided', () => {
     expect(verdictShown('undecided', 'too-few-scored')).toBe(
-      'Undecided: fewer than half the tasks were scored on both sides',
+      'Undecided: under half the tasks scored on both sides',
     );
     expect(verdictShown('passed')).toBe('Passed');
   });
 
   it('warns plainly when a set’s noise is unmeasured or too loud, naming the repeats that would help', () => {
     expect(warningShown({ kind: 'noise-unmeasured' })).toMatch(
-      /^Nobody has measured how much this set’s success moves by chance/,
+      /^Set’s noise is unmeasured/,
     );
     expect(
       warningShown({
@@ -52,7 +50,7 @@ describe('search words', () => {
         neededRepeats: 5,
       }),
     ).toBe(
-      'This set’s success moved 12 pts between copies of the same runs, more than the +5 pts the line counts as real. Replaying each run 5 times would bring that down.',
+      'Success moved 12 pts between copies of the same runs, above the line’s minimum real gain. Replaying each run 5 times would bring it under. Minimum real gain: +5 pts',
     );
     expect(
       warningShown({
@@ -63,7 +61,7 @@ describe('search words', () => {
         neededRepeats: 36,
       }),
     ).toBe(
-      'This set’s success moved 30 pts between copies of the same runs, more than the +5 pts the line counts as real. Even replaying each run 5 times, the most allowed, won’t bring it under that, so read small gains with care or raise the line’s smallest real gain.',
+      'Success moved 30 pts between copies of the same runs, above the line’s minimum real gain. Even 5 repeats, the maximum, won’t bring it under. Read small gains with care, or raise the line’s min_gain. Minimum real gain: +5 pts',
     );
     expect(repeatsSuggestionShown(3)).toBe('Replay each run 3 times');
   });

@@ -1,4 +1,3 @@
-import { Lightbulb } from 'lucide-react';
 import { PillLink } from '@/components/shared/PillLink';
 import {
   type InboxNotice,
@@ -19,9 +18,8 @@ export function NoticeCard({ slug, notice }: NoticeCardProps) {
       aria-labelledby="notice-headline"
       className="flex flex-col gap-5"
     >
-      <header className="flex flex-col gap-1">
-        <p className="flex items-center gap-1.5 text-muted-foreground text-xs">
-          <Lightbulb aria-hidden className="size-3.5" />
+      <header className="flex flex-col gap-3">
+        <p className="text-center text-muted-foreground text-xs">
           <time dateTime={notice.askedAt}>{openedAt(notice.askedAt)}</time>
         </p>
         <h1

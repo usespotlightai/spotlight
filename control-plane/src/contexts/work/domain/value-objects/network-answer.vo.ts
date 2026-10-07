@@ -26,22 +26,20 @@ export class NetworkAnswer {
       input.status > 599
     ) {
       throw new InvalidNetworkCallError(
-        `is answered with an HTTP status, or 0 when nothing answered, not ${input.status}`,
+        `status must be an HTTP status, or 0 for no answer, not ${input.status}`,
       );
     }
 
     if (!Number.isInteger(input.ms) || input.ms < 0) {
       throw new InvalidNetworkCallError(
-        `is answered in a whole number of milliseconds, not ${input.ms}`,
+        `duration must be a whole number of milliseconds, not ${input.ms}`,
       );
     }
 
     const error = input.error?.trim().slice(0, MOST_ERROR) || null;
 
     if (input.status === 0 && !error) {
-      throw new InvalidNetworkCallError(
-        'that nothing answered says why nothing did',
-      );
+      throw new InvalidNetworkCallError('with no answer must say why');
     }
 
     return new NetworkAnswer(

@@ -166,7 +166,7 @@ export class GitDiffReader implements DiffReaderPort {
 
     if (files.length === 0) {
       throw new InvalidDiffError(
-        'holds no changes; hand it the output of git diff',
+        'has no changes. Please pass the output of git diff',
       );
     }
 
@@ -178,7 +178,7 @@ export class GitDiffReader implements DiffReaderPort {
       const path = file.deleted ? oldPath : (newPath ?? oldPath);
 
       if (!path) {
-        throw new InvalidDiffError('names a file it does not say the path of');
+        throw new InvalidDiffError('has a file without a path');
       }
 
       const status: DiffFileStatus = file.added

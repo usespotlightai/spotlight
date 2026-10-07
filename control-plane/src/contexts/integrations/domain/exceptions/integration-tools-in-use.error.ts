@@ -8,9 +8,9 @@ export class IntegrationToolsInUseError extends Error {
     readonly uses: ToolUses,
   ) {
     super(
-      `The ${source} integration would stop offering ${uses.uses
-        .map((each) => `${each.tool}, which ${each.by} uses`)
-        .join('; ')}; stop using it there first`,
+      `Integration ${source} would stop offering tools in use. Tools in use: ${uses.uses
+        .map((each) => `${each.tool} (used by ${each.by})`)
+        .join(', ')}`,
     );
     this.name = 'IntegrationToolsInUseError';
   }

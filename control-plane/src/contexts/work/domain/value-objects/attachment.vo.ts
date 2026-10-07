@@ -35,10 +35,10 @@ export class Attachment {
     const name = named(input.name);
 
     if (!name) {
-      throw new InvalidAttachmentError('must have a name');
+      throw new InvalidAttachmentError('name must not be empty');
     }
     if (!Number.isInteger(input.size) || input.size < 0) {
-      throw new InvalidAttachmentError('must say how large it is');
+      throw new InvalidAttachmentError('size must be a whole number of bytes');
     }
     if (Attachment.tooLarge(input.size)) {
       throw new InvalidAttachmentError('must be no larger than 25 MB');

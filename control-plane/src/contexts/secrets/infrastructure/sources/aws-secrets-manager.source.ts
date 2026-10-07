@@ -23,7 +23,7 @@ const fieldOf = (
   } catch {
     throw new UnreadableSecretError(
       secret.name.value,
-      `its value in AWS Secrets Manager is not JSON, so it has no ${field} field`,
+      `Its AWS Secrets Manager value is not JSON. Field expected: ${field}`,
     );
   }
 
@@ -35,7 +35,7 @@ const fieldOf = (
   if (typeof read !== 'string' || read.length === 0) {
     throw new UnreadableSecretError(
       secret.name.value,
-      `its value in AWS Secrets Manager holds no text at ${field}`,
+      `Its AWS Secrets Manager value has no text at ${field}.`,
     );
   }
 
@@ -51,7 +51,7 @@ export class AwsSecretsManagerSource implements SecretSourcePort {
     if (!this.client || !secretId) {
       throw new UnreadableSecretError(
         secret.name.value,
-        'this deployment does not read from AWS Secrets Manager',
+        'This deployment does not read from AWS Secrets Manager.',
       );
     }
 
@@ -66,14 +66,14 @@ export class AwsSecretsManagerSource implements SecretSourcePort {
     } catch (error) {
       throw new UnreadableSecretError(
         secret.name.value,
-        `AWS Secrets Manager answered ${(error as { name?: string }).name ?? 'with an error'}`,
+        `AWS Secrets Manager returned ${(error as { name?: string }).name ?? 'an error'}.`,
       );
     }
 
     if (!held) {
       throw new UnreadableSecretError(
         secret.name.value,
-        'AWS Secrets Manager holds no text for it',
+        'AWS Secrets Manager holds no text for it.',
       );
     }
 

@@ -42,7 +42,7 @@ describe('ReplayedPeriod', () => {
       InvalidReplayedPeriodError,
     );
     expect(() => ReplayedPeriod.of('<b>14d</b>', NOW)).toThrow(
-      /^Replayed candidates look back 7d, 30d or 90d$/,
+      /^Period must be 7d, 30d or 90d\.$/,
     );
   });
 });

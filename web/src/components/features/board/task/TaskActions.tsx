@@ -48,8 +48,7 @@ export function TaskActions({ title, onDelete }: TaskActionsProps) {
           </DialogHeader>
 
           <p className="text-muted-foreground text-sm">
-            Everything the stations have noted on it goes too. This cannot be
-            undone.
+            Station notes on this task are deleted too. This can’t be undone.
           </p>
 
           <DialogFooter className="sm:justify-end">

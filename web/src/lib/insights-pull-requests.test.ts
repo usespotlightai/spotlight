@@ -4,7 +4,6 @@ import {
   mergedPullRequestsFilter,
   pullRequestFilterValueShown,
   typeFilter,
-  weekBars,
   weekFilter,
 } from '@/lib/insights-pull-requests';
 
@@ -67,31 +66,5 @@ describe('pullRequestFilterValueShown', () => {
     expect(pullRequestFilterValueShown('repository', 'acme/api,acme/web')).toBe(
       '2 repositories',
     );
-  });
-});
-
-describe('weekBars', () => {
-  it('splits each week’s merges between Spotlight, its reviews, people alone and bots', () => {
-    expect(
-      weekBars([
-        {
-          week: '2026-09-28',
-          merged: 10,
-          made: 4,
-          touched: 2,
-          bots: 1,
-          share: 0.6,
-        },
-      ]),
-    ).toEqual([
-      {
-        week: '2026-09-28',
-        made: 4,
-        touched: 2,
-        people: 3,
-        bots: 1,
-        share: 0.6,
-      },
-    ]);
   });
 });

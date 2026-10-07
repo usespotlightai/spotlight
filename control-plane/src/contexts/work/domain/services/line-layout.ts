@@ -59,14 +59,14 @@ export const stationsRefused = (
   stations: readonly LaidStation[],
 ): LayoutRefusal | null => {
   if (stations.length === 0) {
-    return { reason: 'must number at least one', part: STATIONS };
+    return { reason: 'must include at least one station', part: STATIONS };
   }
 
   const twice = repeatedIn(stations.map((each) => each.key));
 
   if (twice) {
     return {
-      reason: `must each be named once, but two are named ${twice}`,
+      reason: `must have unique keys, but ${twice} repeats`,
       part: STATIONS,
     };
   }
@@ -75,14 +75,13 @@ export const stationsRefused = (
 
   if (backlogs.length !== 1) {
     return {
-      reason: `must hold one backlog, but hold ${backlogs.length}`,
+      reason: `must include exactly one backlog, not ${backlogs.length}`,
       part: STATIONS,
     };
   }
   if (stations[0]?.kind !== 'backlog') {
     return {
-      reason:
-        'must open with their backlog, which is where a task waits to start',
+      reason: 'must start with the backlog',
       part: STATIONS,
     };
   }
@@ -91,13 +90,13 @@ export const stationsRefused = (
 
   if (ends.length !== 1) {
     return {
-      reason: `must hold one completed, but hold ${ends.length}`,
+      reason: `must include exactly one completed station, not ${ends.length}`,
       part: STATIONS,
     };
   }
   if (stations[stations.length - 1]?.kind !== 'completed') {
     return {
-      reason: 'must close with completed, which is where a merged task lands',
+      reason: 'must end with the completed station',
       part: STATIONS,
     };
   }
@@ -109,7 +108,7 @@ export const stationsRefused = (
   for (const station of stations) {
     if (station.kind === 'completed' && station.passesTo.length > 0) {
       return {
-        reason: 'must end where they end, but completed hands on somewhere',
+        reason: 'cannot pass on from the completed station',
         part: handingOn(station),
       };
     }
@@ -117,13 +116,13 @@ export const stationsRefused = (
     for (const to of station.passesTo) {
       if (to === station.key) {
         return {
-          reason: `must not hand on to themselves, but ${station.name} does`,
+          reason: `cannot pass to themselves, but ${station.name} does`,
           part: handingOn(station),
         };
       }
       if (!worked.has(to)) {
         return {
-          reason: `must hand on to a station work is done at, but ${station.name} does not`,
+          reason: `must pass to work stations, but ${station.name} does not`,
           part: handingOn(station),
         };
       }
@@ -148,7 +147,7 @@ export const setupRefused = (
 
   return checking && unready >= 0
     ? {
-        reason: `has ${checking.key.value}, which checks its layers, so ${repositories.entries[unready]?.repository.value} has to say how its checkout is made ready`,
+        reason: `needs a setup for repository ${repositories.entries[unready]?.repository.value}. Station ${checking.key.value} checks its layers`,
         part: { of: 'repository', place: unready, field: 'setup' },
       }
     : null;
@@ -163,13 +162,13 @@ export const reactionsRefused = (
   for (const [at, reaction] of reactions.entries()) {
     if (!stationKeys.has(reaction.to)) {
       return {
-        reason: `must send "${reaction.happening}" to a station on the line`,
+        reason: `must send "${reaction.happening}" to a station on this line`,
         part: reactionAt(at, 'to'),
       };
     }
     if (reaction.from !== null && !stationKeys.has(reaction.from)) {
       return {
-        reason: `must wait for "${reaction.happening}" at a station on the line`,
+        reason: `must wait for "${reaction.happening}" at a station on this line`,
         part: reactionAt(at, 'from'),
       };
     }
@@ -178,7 +177,7 @@ export const reactionsRefused = (
 
     if (claimed.has(standing)) {
       return {
-        reason: `must send a happening to one station, but two wait for "${reaction.happening}"`,
+        reason: `must send each happening to one station, but two wait for "${reaction.happening}"`,
         part: reactionAt(at, null),
       };
     }

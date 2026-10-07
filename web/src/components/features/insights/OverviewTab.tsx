@@ -10,7 +10,6 @@ import { useInsightsOverview } from '@/hooks/api/useInsightsOverview';
 import {
   headlineTiles,
   type InsightsPeriod,
-  outputDays,
   type StationNames,
   whyNoSpend,
 } from '@/lib/insights';
@@ -36,11 +35,10 @@ export function OverviewTab({ slug, teamId, period, names }: OverviewTabProps) {
 
   const {
     headline,
-    before,
+    changes,
     output,
     outputCurrency,
     outputMixedCurrencies,
-    configChanges,
     worthImproving,
     truncated,
   } = overview.data;
@@ -48,18 +46,22 @@ export function OverviewTab({ slug, teamId, period, names }: OverviewTabProps) {
   if (headline.runs === 0 && headline.mergedPullRequests === 0) {
     return (
       <NoRunsInPeriod slug={slug} teamId={teamId}>
-        Once stations run tasks, what they cost and what they deliver shows
-        here.
+        Cost and delivery show here once stations run tasks.
       </NoRunsInPeriod>
     );
   }
 
+  const trends: Record<string, (number | null)[]> = {
+    spend: output.map((day) => day.spend?.amount ?? null),
+    merged: output.map((day) => day.merged),
+  };
+
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
       {truncated && <TruncatedNote />}
 
       <InsightsTiles label="Headline numbers">
-        {headlineTiles(headline, before).map((tile) => (
+        {headlineTiles(headline, changes).map((tile) => (
           <InsightsTile
             key={tile.id}
             label={tile.label}
@@ -67,6 +69,7 @@ export function OverviewTab({ slug, teamId, period, names }: OverviewTabProps) {
             detail={tile.detail}
             delta={tile.delta}
             drill={tile.drill}
+            trend={trends[tile.id]}
           />
         ))}
       </InsightsTiles>
@@ -74,7 +77,7 @@ export function OverviewTab({ slug, teamId, period, names }: OverviewTabProps) {
       <OutputAgainstCost
         slug={slug}
         teamId={teamId}
-        days={outputDays(output, configChanges)}
+        days={output}
         currency={outputCurrency}
         noSpend={whyNoSpend(outputMixedCurrencies)}
         names={names}

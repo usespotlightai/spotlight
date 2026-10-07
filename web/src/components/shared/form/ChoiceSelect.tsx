@@ -20,10 +20,14 @@ type ChoiceSelectProps = {
   placeholder: string;
   onChange: (value: string | null) => void;
   disabled?: boolean;
+  clearable?: boolean;
+  compact?: boolean;
   className?: string;
 };
 
 const NONE = '';
+
+const COMPACT_ITEM = "py-0.5 pr-7 text-xs [&_svg:not([class*='size-'])]:size-3";
 
 export function ChoiceSelect({
   label,
@@ -32,9 +36,12 @@ export function ChoiceSelect({
   placeholder,
   onChange,
   disabled = false,
+  clearable = true,
+  compact = false,
   className,
 }: ChoiceSelectProps) {
   const chosen = choices.find((each) => each.value === value);
+  const item = compact ? COMPACT_ITEM : undefined;
 
   return (
     <DropdownMenu>
@@ -42,7 +49,8 @@ export function ChoiceSelect({
         aria-label={`${label}: ${chosen?.label ?? placeholder}`}
         disabled={disabled}
         className={cn(
-          'flex h-8 min-w-0 items-center gap-2 rounded-full border border-border bg-card px-3 text-left text-xs outline-none transition-colors hover:bg-accent disabled:opacity-50 data-[popup-open]:bg-accent',
+          'flex min-w-0 items-center rounded-full border border-border bg-card text-left outline-none transition-colors hover:bg-accent disabled:opacity-50 data-[popup-open]:bg-accent',
+          compact ? 'h-6 gap-1 px-2 text-[0.7rem]' : 'h-8 gap-2 px-3 text-xs',
           className,
         )}
       >
@@ -56,22 +64,35 @@ export function ChoiceSelect({
         </span>
         <ChevronsUpDown
           aria-hidden
-          className="ml-auto size-3 shrink-0 text-muted-foreground"
+          className={cn(
+            'ml-auto shrink-0 text-muted-foreground',
+            compact ? 'size-2.5' : 'size-3',
+          )}
         />
       </DropdownMenuTrigger>
 
-      <DropdownMenuContent align="start" sideOffset={6} className="min-w-48">
+      <DropdownMenuContent
+        align="start"
+        sideOffset={6}
+        className={compact ? 'w-max min-w-36 max-w-72' : 'min-w-48'}
+      >
         <DropdownMenuRadioGroup
           value={value ?? NONE}
           onValueChange={(next) =>
             onChange(String(next) === NONE ? null : String(next))
           }
         >
-          <DropdownMenuRadioItem value={NONE}>
-            {placeholder}
-          </DropdownMenuRadioItem>
+          {clearable && (
+            <DropdownMenuRadioItem value={NONE} className={item}>
+              {placeholder}
+            </DropdownMenuRadioItem>
+          )}
           {choices.map((choice) => (
-            <DropdownMenuRadioItem key={choice.value} value={choice.value}>
+            <DropdownMenuRadioItem
+              key={choice.value}
+              value={choice.value}
+              className={item}
+            >
               <span className="truncate">{choice.label}</span>
             </DropdownMenuRadioItem>
           ))}

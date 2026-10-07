@@ -86,7 +86,7 @@ describe('EntryPairReadings', () => {
     );
 
     expect(
-      screen.getByText('Not judged side by side: the judge declined.'),
+      screen.getByText('Not judged side by side: judge declined.'),
     ).toBeInTheDocument();
   });
 });

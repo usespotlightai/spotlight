@@ -1,67 +1,90 @@
 import type { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
 import {
+  beganAt,
   type ConfigMarker,
   configMarkersAlong,
-  firstRanAt,
 } from '@outcomes/domain/services/daily-output';
 import { atStation } from '@outcomes/domain/services/team-history';
 
 export interface ChangeSplit {
   readonly marker: ConfigMarker;
-  readonly previousFingerprint: string | null;
+  readonly previousFingerprint: string;
   readonly before: readonly RunRecord[];
   readonly after: readonly RunRecord[];
 }
 
-const startOf = (record: RunRecord): number =>
-  firstRanAt(record)?.getTime() ?? 0;
+interface Place {
+  readonly at: number;
+  readonly runId: string;
+}
+
+const placeOf = (record: RunRecord): Place => ({
+  at: beganAt(record)?.getTime() ?? Number.NEGATIVE_INFINITY,
+  runId: record.runId.value,
+});
+
+const markerPlaceOf = (marker: ConfigMarker): Place => ({
+  at: marker.firstRunAt.getTime(),
+  runId: marker.runId,
+});
+
+const precedes = (one: Place, other: Place): boolean =>
+  one.at < other.at || (one.at === other.at && one.runId < other.runId);
 
 const between = (
   records: readonly RunRecord[],
-  from: number,
-  to: number,
+  from: Place | null,
+  to: Place | null,
 ): readonly RunRecord[] =>
-  records.filter((each) => startOf(each) >= from && startOf(each) < to);
+  records.filter((each) => {
+    const place = placeOf(each);
+
+    return (
+      (from === null || !precedes(place, from)) &&
+      (to === null || precedes(place, to))
+    );
+  });
 
 export const changeSplitsOf = (
   records: readonly RunRecord[],
   shown: (marker: ConfigMarker) => boolean,
+  before: readonly RunRecord[] = [],
 ): readonly ChangeSplit[] => {
-  const ended = records.filter((each) => each.hasEnded);
-  const markers = configMarkersAlong(ended);
+  const markers = configMarkersAlong(records, before);
 
   return markers.flatMap((marker) => {
     if (!shown(marker)) {
       return [];
     }
 
-    const here = [...atStation(ended, marker.stationId)].sort(
-      (a, b) => startOf(a) - startOf(b),
-    );
+    const here = atStation(records, marker.stationId);
     const sameStation = markers.filter(
       (each) => each.stationId === marker.stationId,
     );
     const order = sameStation.indexOf(marker);
     const previous = sameStation[order - 1];
     const next = sameStation[order + 1];
-    const from = previous?.firstRunAt.getTime() ?? Number.NEGATIVE_INFINITY;
-    const changedAt = marker.firstRunAt.getTime();
-    const to = next?.firstRunAt.getTime() ?? Number.POSITIVE_INFINITY;
-    const leading = between(here, from, changedAt);
-    const previousFingerprint =
-      [...leading].reverse().find((each) => each.end?.fingerprint)?.end
-        ?.fingerprint ?? null;
+    const from = previous ? markerPlaceOf(previous) : null;
+    const changedAt = markerPlaceOf(marker);
+    const to = next ? markerPlaceOf(next) : null;
     const ranWith =
-      (fingerprint: string | null) =>
+      (fingerprint: string) =>
       (record: RunRecord): boolean =>
-        fingerprint !== null && record.end?.fingerprint === fingerprint;
+        record.end?.fingerprint === fingerprint;
 
     return [
       {
         marker,
-        previousFingerprint,
-        before: leading.filter(ranWith(previousFingerprint)),
-        after: between(here, changedAt, to).filter(ranWith(marker.fingerprint)),
+        previousFingerprint: marker.previousFingerprint,
+        before: between(here, from, changedAt).filter(
+          ranWith(marker.previousFingerprint),
+        ),
+        after: between(here, from, to).filter(
+          (record) =>
+            ranWith(marker.fingerprint)(record) &&
+            (!record.end?.ranItsConfig ||
+              !precedes(placeOf(record), changedAt)),
+        ),
       },
     ];
   });

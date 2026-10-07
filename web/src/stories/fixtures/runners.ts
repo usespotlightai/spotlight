@@ -121,7 +121,7 @@ const FLEET: Fleet = {
         image('ghcr.io/acme/legacy-runner:2025', [], {
           release: null,
           refused:
-            'its runner reports no release, so it is older than the 20260925-01 this control plane needs',
+            'Runner doesn’t report its release number. Minimum version required: 20260925-01',
         }),
       ],
       firstSeenAt: minutesAgo(40),

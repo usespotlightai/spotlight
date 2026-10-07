@@ -6,10 +6,8 @@ import {
   TriangleAlert,
 } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { Noted } from '@/components/shared/Noted';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import {
-  compactHealthLabelShown,
   HEALTH_REPLAY_LINK,
   type HealthReading,
   type HealthTone,
@@ -32,14 +30,12 @@ const ICONS: Record<HealthTone, LucideIcon> = {
 
 type HealthLineProps = {
   reading: HealthReading;
-  compact?: boolean;
   replayTo?: string | null;
   children?: ReactNode;
 };
 
 export function HealthLine({
   reading,
-  compact = false,
   replayTo = null,
   children,
 }: HealthLineProps) {
@@ -53,22 +49,6 @@ export function HealthLine({
       {reading.said}
     </span>
   );
-
-  if (compact) {
-    return (
-      <li
-        data-slot="health-line"
-        data-key={reading.key}
-        data-tone={reading.tone}
-        className="flex min-w-0 items-center gap-1 text-xs"
-      >
-        <span className="text-muted-foreground">
-          {compactHealthLabelShown(reading.label)}
-        </span>{' '}
-        <Noted note={reading.advice}>{said}</Noted>
-      </li>
-    );
-  }
 
   return (
     <li

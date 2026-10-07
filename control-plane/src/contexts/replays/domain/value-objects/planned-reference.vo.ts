@@ -17,16 +17,14 @@ export class PlannedReference {
 
     if (commit !== null && !COMMIT.test(commit)) {
       throw new InvalidCandidateError(
-        'planned in a change names its commit as a hex sha of 7 to 64 characters',
+        'commit must be a hex sha of 7 to 64 characters',
       );
     }
     if (
       pullRequest !== null &&
       (!Number.isInteger(pullRequest) || pullRequest < 1)
     ) {
-      throw new InvalidCandidateError(
-        'planned in a change names its pull request by its number',
-      );
+      throw new InvalidCandidateError('pull request must be a number');
     }
 
     return new PlannedReference(commit, pullRequest);

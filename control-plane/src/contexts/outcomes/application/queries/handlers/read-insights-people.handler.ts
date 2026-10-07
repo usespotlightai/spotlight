@@ -2,7 +2,6 @@ import {
   adoptionDtoOf,
   humanLoadDtoOf,
   type InsightsPeopleDto,
-  namedOf,
   periodOf,
 } from '@outcomes/application/dto/insights.dto';
 import type { FirstSeenPort } from '@outcomes/application/ports/first-seen.port';
@@ -14,7 +13,10 @@ import {
   adoptionOf,
   peopleActiveIn,
 } from '@outcomes/domain/services/adoption';
-import { humanLoadOf } from '@outcomes/domain/services/human-load';
+import {
+  humanLoadChangesOf,
+  humanLoadOf,
+} from '@outcomes/domain/services/human-load';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
@@ -44,21 +46,18 @@ export class ReadInsightsPeopleHandler
           active,
         ),
       );
-      const ids = [
-        ...adoption.active,
-        ...adoption.activeBefore,
-        ...adoption.weekly,
-        ...adoption.monthly,
-      ];
-      const names = await this.people.namesOf(ids);
+      const names = await this.people.namesOf(active);
+      const load = humanLoadOf(history, period.current);
 
       return {
         period: periodOf(period),
         truncated,
-        load: humanLoadDtoOf(humanLoadOf(history, period.current)),
-        loadBefore: humanLoadDtoOf(humanLoadOf(history, period.previous)),
+        load: humanLoadDtoOf(load),
+        loadChanges: humanLoadChangesOf(
+          load,
+          humanLoadOf(history, period.previous),
+        ),
         adoption: adoptionDtoOf(adoption, names),
-        people: namedOf(ids, names),
       };
     } catch (error) {
       rethrowAsFault(error);

@@ -471,7 +471,12 @@ const withSource = (client: QueryClient) => {
         ? {
             ...line,
             source: { repository: 'acme/config', path: 'lines/default.tf' },
-            replayCheck: { mostRegressions: 0, ceiling: 10, currency: 'USD' },
+            replayCheck: {
+              mostRegressions: 0,
+              ceiling: 10,
+              currency: 'USD',
+              minGain: 0.05,
+            },
           }
         : line,
     ),

@@ -70,12 +70,12 @@ const fieldsOf = (body: unknown): Record<string, unknown> =>
 const nothingToReplay = (keptLive: readonly string[]): never => {
   throw ProblemException.of({
     slug: 'nothing-to-replay',
-    title: 'The planned station runs as the live one does',
+    title: 'Planned station runs the same as the live one',
     status: HttpStatus.CONFLICT,
     detail:
       keptLive.length > 0
-        ? `The plan changes only ${keptLive.join(', ')} of the station, which a check keeps as the live station has them, and nothing that changes how its runs go; there is nothing to replay`
-        : 'The plan changes nothing that changes how the station’s runs go; there is nothing to replay',
+        ? `Nothing to replay. A check keeps the changed fields as live: ${keptLive.join(', ')}`
+        : 'Nothing to replay. The plan changes nothing that affects how the station’s runs go.',
   });
 };
 
@@ -148,11 +148,11 @@ export class ReplayChecksController {
       new StartReplayCheckCommand(
         teamId,
         {
-          lineId: textAt(body, 'lineId', 'names the line the station is on'),
+          lineId: textAt(body, 'lineId', 'must name the station’s line'),
           stationKey: textAt(
             body,
             'stationKey',
-            'names the station the change plans, by its key',
+            'must be the planned station’s key',
           ),
           station: fieldsOf(body).station,
           line: fieldsOf(body).line,

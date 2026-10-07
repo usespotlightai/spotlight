@@ -265,7 +265,7 @@ describe('ReactToHappenings, asked for a review', () => {
     expect(added).toEqual([]);
     expect(logger.warn).toHaveBeenCalledWith(
       expect.objectContaining({
-        reason: expect.stringMatching(/whose head it can check out/),
+        reason: expect.stringMatching(/has no head to check out/),
       }),
       'Left a happening that does not read as one',
     );

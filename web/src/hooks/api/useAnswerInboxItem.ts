@@ -1,5 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { inboxKeys } from '@/hooks/api/useInbox';
+import { runConversationKeys } from '@/hooks/api/useRunConversation';
+import { teamRunKeys } from '@/hooks/api/useTeamRuns';
 import { answerInboxItem } from '@/lib/api';
 import type { ApprovalInput } from '@/lib/approval';
 
@@ -37,8 +39,16 @@ export function useAnswerInboxItem() {
     },
 
     onSuccess: (_answer, { slug }) =>
-      queryClient.invalidateQueries({
-        queryKey: inboxKeys.forWorkspace(slug),
-      }),
+      Promise.all([
+        queryClient.invalidateQueries({
+          queryKey: inboxKeys.forWorkspace(slug),
+        }),
+        queryClient.invalidateQueries({
+          queryKey: runConversationKeys.all,
+        }),
+        queryClient.invalidateQueries({
+          queryKey: teamRunKeys.all,
+        }),
+      ]),
   });
 }

@@ -37,12 +37,12 @@ export class LatencyHistogram {
   static of(counts: readonly number[]): LatencyHistogram {
     if (counts.length !== LATENCY_BUCKETS) {
       throw new InvalidLatencyHistogramError(
-        `counts calls in exactly ${LATENCY_BUCKETS} buckets`,
+        `must have exactly ${LATENCY_BUCKETS} buckets`,
       );
     }
     if (!counts.every(whole)) {
       throw new InvalidLatencyHistogramError(
-        'counts whole calls in each bucket',
+        'must count whole calls in each bucket',
       );
     }
 
@@ -63,7 +63,7 @@ export class LatencyHistogram {
   with(ms: number): LatencyHistogram {
     if (!Number.isFinite(ms) || ms < 0) {
       throw new InvalidLatencyHistogramError(
-        'times a call in milliseconds from zero up',
+        'must time calls in milliseconds from zero',
       );
     }
 
@@ -83,7 +83,7 @@ export class LatencyHistogram {
   percentile(percent: number): number | null {
     if (!Number.isFinite(percent) || percent <= 0 || percent > 100) {
       throw new InvalidLatencyHistogramError(
-        'reads a percentile above 0 and up to 100',
+        'percentile must be above 0 and at most 100',
       );
     }
 

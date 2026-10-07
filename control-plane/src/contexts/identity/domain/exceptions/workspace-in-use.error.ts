@@ -6,8 +6,8 @@ export class WorkspaceInUseError extends Error {
   constructor(slug: string, holdings: Holdings) {
     super(
       holdings.isEmpty
-        ? `The ${slug} workspace still holds something made or revoked in it a moment ago; try again shortly`
-        : `The ${slug} workspace still holds ${holdings.held.join(', ')}; delete those first`,
+        ? `Workspace ${slug} still has recent changes settling. Please try again shortly.`
+        : `Workspace ${slug} is not empty. Still holds: ${holdings.held.join(', ')}`,
     );
     this.name = 'WorkspaceInUseError';
   }

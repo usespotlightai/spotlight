@@ -12,9 +12,10 @@ import type {
   RunStationResponseDto,
   TeamRunResponseDto,
   TeamTraceResponseDto,
+  TeamTracesResponseDto,
   WorkspaceResponseDto,
 } from '@/lib/api';
-import { RANGES, windowOf } from '@/lib/range';
+import { RANGES } from '@/lib/range';
 import { failQuery } from '@/stories/failQuery';
 import { HARNESSES } from '@/stories/fixtures/harnesses';
 
@@ -333,10 +334,51 @@ export const failRuns = (client: QueryClient) => {
   failQuery(client, teamRunKeys.forTeam(TEAM_ID));
 };
 
-const within = (range: string) => {
-  const { from } = windowOf(range);
+const STRETCHES: Record<
+  TeamTracesResponseDto['range'],
+  { minutes: number; bucketMinutes: number }
+> = {
+  '30m': { minutes: 30, bucketMinutes: 2 },
+  '1h': { minutes: HOUR, bucketMinutes: 2 },
+  '6h': { minutes: 6 * HOUR, bucketMinutes: 10 },
+  '1d': { minutes: DAY, bucketMinutes: 10 },
+  '3d': { minutes: 3 * DAY, bucketMinutes: 30 },
+  '7d': { minutes: 7 * DAY, bucketMinutes: HOUR },
+  '14d': { minutes: 14 * DAY, bucketMinutes: 2 * HOUR },
+  '30d': { minutes: 30 * DAY, bucketMinutes: 8 * HOUR },
+  '90d': { minutes: 90 * DAY, bucketMinutes: 2 * DAY },
+};
 
-  return TRACES.filter((each) => Date.parse(each.startedAt) >= from);
+const within = (
+  range: TeamTracesResponseDto['range'],
+  traces: readonly TeamTraceResponseDto[],
+): TeamTracesResponseDto => {
+  const to = Date.now();
+  const { minutes, bucketMinutes } = STRETCHES[range];
+  const from = to - minutes * MINUTE;
+  const width = bucketMinutes * MINUTE;
+  const held = traces.filter((each) => Date.parse(each.startedAt) >= from);
+
+  return {
+    range,
+    from: new Date(from).toISOString(),
+    to: new Date(to).toISOString(),
+    volume: Array.from({ length: minutes / bucketMinutes }, (_, at) => {
+      const start = from + at * width;
+      const inside = held.filter((each) => {
+        const started = Date.parse(each.startedAt);
+        return started >= start && started < start + width;
+      });
+
+      return {
+        from: new Date(start).toISOString(),
+        to: new Date(start + width).toISOString(),
+        count: inside.length,
+        faults: inside.reduce((all, each) => all + each.faults, 0),
+      };
+    }),
+    traces: held,
+  };
 };
 
 export const seedTraces = (client: QueryClient) => {
@@ -345,7 +387,7 @@ export const seedTraces = (client: QueryClient) => {
   for (const range of RANGES) {
     client.setQueryData(
       teamTraceKeys.forTeam(TEAM_ID, range.id),
-      within(range.id),
+      within(range.id, TRACES),
     );
   }
 };
@@ -354,7 +396,10 @@ export const emptyTraces = (client: QueryClient) => {
   seedTeam(client);
 
   for (const range of RANGES) {
-    client.setQueryData(teamTraceKeys.forTeam(TEAM_ID, range.id), []);
+    client.setQueryData(
+      teamTraceKeys.forTeam(TEAM_ID, range.id),
+      within(range.id, []),
+    );
   }
 };
 

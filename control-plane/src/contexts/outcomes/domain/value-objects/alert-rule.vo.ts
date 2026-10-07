@@ -61,12 +61,12 @@ export class AlertRule {
 
     if (!isMeasure(input.measure)) {
       throw new InvalidAlertError(
-        `watches one of ${ALERT_MEASURES.join(', ')}`,
+        `measure must be one of ${ALERT_MEASURES.join(', ')}`,
       );
     }
     if (set.length !== 1) {
       throw new InvalidAlertError(
-        `sets exactly one of ${ALERT_THRESHOLDS.join(', ')}`,
+        `must set exactly one of ${ALERT_THRESHOLDS.join(', ')}`,
       );
     }
 
@@ -74,11 +74,11 @@ export class AlertRule {
     const amount = input[threshold] as number;
 
     if (!Number.isFinite(amount) || amount < 0) {
-      throw new InvalidAlertError('goes off at an amount of 0 or more');
+      throw new InvalidAlertError('amount must be 0 or more');
     }
     if (!Number.isInteger(input.over) || input.over < 1) {
       throw new InvalidAlertError(
-        'compares a whole number of runs, at least 1',
+        'run count must be a whole number of at least 1',
       );
     }
 

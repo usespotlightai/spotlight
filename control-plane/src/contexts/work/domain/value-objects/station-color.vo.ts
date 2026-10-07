@@ -12,7 +12,7 @@ export class StationColor {
 
     if (!HEX.test(normalised)) {
       throw new InvalidStationColorError(
-        `must be a six digit hex like #6d78d5, but was "${raw}"`,
+        `must be a six-digit hex code like #6d78d5, not "${raw}"`,
       );
     }
 

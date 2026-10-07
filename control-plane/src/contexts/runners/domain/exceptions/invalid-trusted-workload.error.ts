@@ -5,7 +5,7 @@ export class InvalidTrustedWorkloadError extends Error {
     readonly field: 'issuer' | 'subject' | 'audience',
     readonly because: string,
   ) {
-    super(`A trusted workload's ${field} ${because}`);
+    super(`Trusted workload ${field} ${because}.`);
     this.name = 'InvalidTrustedWorkloadError';
   }
 }

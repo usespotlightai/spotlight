@@ -5,6 +5,8 @@ import type {
   SetHealthDto,
   StationChangeDto,
 } from '@replays/application/dto/replays.dto';
+import type { ShownAgainstLive } from '@replays/domain/services/against-live';
+import type { ChartedAs } from '@replays/domain/services/replayed-chart';
 import type { ReplayedPeriodName } from '@replays/domain/value-objects/replayed-period.vo';
 
 type ReplayedCandidateKind = 'searched' | 'proposed';
@@ -34,6 +36,7 @@ export interface ReplayedBaselineDto {
   readonly costPerRun: number | null;
   readonly currency: string;
   readonly endedAt: string | null;
+  readonly charted: ChartedAs;
 }
 
 export interface ReplayedHeldOutDto {
@@ -57,6 +60,7 @@ export interface ReplayedSeedDto {
   readonly interval: RateIntervalDto | null;
   readonly costPerRun: number | null;
   readonly scored: number;
+  readonly charted: ChartedAs;
 }
 
 export interface ReplayedSearchDto {
@@ -95,7 +99,11 @@ export interface ReplayedCandidateDto {
   readonly onFrontier: boolean | null;
   readonly search: ReplayedSearchDto | null;
   readonly pullRequest: CandidatePullRequestDto | null;
+  readonly charted: ChartedAs;
+  readonly shown: ReplayedShownDto;
 }
+
+export type ReplayedShownDto = ShownAgainstLive<RateIntervalDto>;
 
 export interface ReplayedSetDto {
   readonly setId: string;
@@ -104,6 +112,7 @@ export interface ReplayedSetDto {
   readonly guardsChanges: boolean;
   readonly health: ReplaySetHealthDto;
   readonly baseline: ReplayedBaselineDto | null;
+  readonly chartCurrency: string | null;
   readonly candidates: readonly ReplayedCandidateDto[];
 }
 

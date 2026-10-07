@@ -157,7 +157,7 @@ describe('compiling an integration', () => {
         'webhook.events.0.raise.happening',
       );
 
-      expect(problem?.reason).toMatch(/must begin with linear\./);
+      expect(problem?.reason).toMatch(/without the linear\. prefix/);
     });
 
     it('refuses an expression that will not parse', () => {
@@ -228,7 +228,7 @@ on:
         (each) => dottedOf(each.field) === 'on.task.moved',
       );
 
-      expect(problem?.reason).toMatch(/is not an event Spotlight raises/);
+      expect(problem?.reason).toMatch(/must be one of/);
     });
   });
 

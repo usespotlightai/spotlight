@@ -3,7 +3,6 @@ import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { WorkspaceSlugTakenError } from '@/hooks/api/useCreateWorkspace';
 import { pollEvery } from '@/hooks/api/useInbox';
 import { CreateWorkspace } from '@/routes/CreateWorkspace';
 
@@ -18,8 +17,6 @@ const createWorkspace = vi.fn();
 const createState = {
   mutate: createWorkspace,
   isPending: false,
-  isError: false,
-  error: null as Error | null,
 };
 vi.mock('@/hooks/api/useCreateWorkspace', async (importOriginal) => ({
   ...(await importOriginal<typeof import('@/hooks/api/useCreateWorkspace')>()),
@@ -53,8 +50,6 @@ const renderPage = () =>
 beforeEach(() => {
   createWorkspace.mockReset();
   createState.isPending = false;
-  createState.isError = false;
-  createState.error = null;
 });
 
 describe('CreateWorkspace', () => {
@@ -77,7 +72,7 @@ describe('CreateWorkspace', () => {
     const user = userEvent.setup();
     renderPage();
 
-    await user.type(screen.getByLabelText('Workspace Name'), 'Acme Inc.');
+    await user.type(screen.getByLabelText('Workspace name'), 'Acme Inc.');
 
     expect(screen.getByLabelText('Workspace URL')).toHaveValue('acme-inc');
   });
@@ -86,7 +81,7 @@ describe('CreateWorkspace', () => {
     const user = userEvent.setup();
     renderPage();
 
-    const name = screen.getByLabelText('Workspace Name');
+    const name = screen.getByLabelText('Workspace name');
     const url = screen.getByLabelText('Workspace URL');
 
     await user.type(name, 'Acme');
@@ -104,7 +99,7 @@ describe('CreateWorkspace', () => {
     const submit = screen.getByRole('button', { name: 'Continue' });
     expect(submit).toBeDisabled();
 
-    await user.type(screen.getByLabelText('Workspace Name'), 'Acme');
+    await user.type(screen.getByLabelText('Workspace name'), 'Acme');
 
     expect(submit).toBeEnabled();
   });
@@ -113,11 +108,11 @@ describe('CreateWorkspace', () => {
     const user = userEvent.setup();
     renderPage();
 
-    await user.type(screen.getByLabelText('Workspace Name'), 'Acme Inc.');
+    await user.type(screen.getByLabelText('Workspace name'), 'Acme Inc.');
     await user.click(screen.getByRole('button', { name: 'Continue' }));
 
-    expect(screen.getByLabelText('Team Name')).toBeInTheDocument();
-    expect(screen.queryByLabelText('Workspace Name')).not.toBeInTheDocument();
+    expect(screen.getByLabelText('Team name')).toBeInTheDocument();
+    expect(screen.queryByLabelText('Workspace name')).not.toBeInTheDocument();
     expect(createWorkspace).not.toHaveBeenCalled();
   });
 
@@ -125,14 +120,14 @@ describe('CreateWorkspace', () => {
     const user = userEvent.setup();
     renderPage();
 
-    await user.type(screen.getByLabelText('Workspace Name'), 'Acme Inc.');
+    await user.type(screen.getByLabelText('Workspace name'), 'Acme Inc.');
     await user.click(screen.getByRole('button', { name: 'Continue' }));
 
     expect(
       screen.getByRole('button', { name: 'Create workspace' }),
     ).toBeDisabled();
 
-    await user.type(screen.getByLabelText('Team Name'), 'Platform');
+    await user.type(screen.getByLabelText('Team name'), 'Platform');
 
     expect(
       screen.getByRole('button', { name: 'Create workspace' }),
@@ -143,11 +138,11 @@ describe('CreateWorkspace', () => {
     const user = userEvent.setup();
     renderPage();
 
-    await user.type(screen.getByLabelText('Workspace Name'), 'Acme Inc.');
+    await user.type(screen.getByLabelText('Workspace name'), 'Acme Inc.');
     await user.click(screen.getByRole('button', { name: 'Continue' }));
     await user.click(screen.getByRole('button', { name: 'Back' }));
 
-    expect(screen.getByLabelText('Workspace Name')).toHaveValue('Acme Inc.');
+    expect(screen.getByLabelText('Workspace name')).toHaveValue('Acme Inc.');
     expect(screen.getByLabelText('Workspace URL')).toHaveValue('acme-inc');
   });
 
@@ -155,9 +150,9 @@ describe('CreateWorkspace', () => {
     const user = userEvent.setup();
     renderPage();
 
-    await user.type(screen.getByLabelText('Workspace Name'), '  Acme Inc.  ');
+    await user.type(screen.getByLabelText('Workspace name'), '  Acme Inc.  ');
     await user.click(screen.getByRole('button', { name: 'Continue' }));
-    await user.type(screen.getByLabelText('Team Name'), '  Platform  ');
+    await user.type(screen.getByLabelText('Team name'), '  Platform  ');
     await user.click(screen.getByRole('button', { name: 'Create workspace' }));
 
     expect(createWorkspace).toHaveBeenCalledWith(
@@ -166,40 +161,14 @@ describe('CreateWorkspace', () => {
     );
   });
 
-  it('says in plain words that the workspace could not be created', () => {
-    createState.isError = true;
-    createState.error = new Error('connect ECONNREFUSED 127.0.0.1:3000');
-
-    renderPage();
-
-    const alert = screen.getByRole('alert');
-    expect(alert).toHaveTextContent(
-      'Something went wrong. Please try again later.',
-    );
-    expect(alert).not.toHaveTextContent('ECONNREFUSED');
-  });
-
-  it('says when the workspace URL is already taken', () => {
-    createState.isError = true;
-    createState.error = new WorkspaceSlugTakenError(
-      'The workspace URL "acme-inc" is already taken',
-    );
-
-    renderPage();
-
-    expect(screen.getByRole('alert')).toHaveTextContent(
-      'That workspace URL is already taken. Go back and choose another.',
-    );
-  });
-
   it('blocks a second submit while one is in flight', async () => {
     const user = userEvent.setup();
     renderPage();
 
-    await user.type(screen.getByLabelText('Workspace Name'), 'Acme Inc.');
+    await user.type(screen.getByLabelText('Workspace name'), 'Acme Inc.');
     await user.click(screen.getByRole('button', { name: 'Continue' }));
     createState.isPending = true;
-    await user.type(screen.getByLabelText('Team Name'), 'Platform');
+    await user.type(screen.getByLabelText('Team name'), 'Platform');
 
     expect(
       screen.getByRole('button', { name: 'Creating workspace…' }),
@@ -210,9 +179,9 @@ describe('CreateWorkspace', () => {
     const user = userEvent.setup();
     renderPage();
 
-    await user.type(screen.getByLabelText('Workspace Name'), 'Acme Inc.');
+    await user.type(screen.getByLabelText('Workspace name'), 'Acme Inc.');
     await user.click(screen.getByRole('button', { name: 'Continue' }));
-    await user.type(screen.getByLabelText('Team Name'), 'Platform');
+    await user.type(screen.getByLabelText('Team name'), 'Platform');
     await user.click(screen.getByRole('button', { name: 'Create workspace' }));
 
     const [, callbacks] = createWorkspace.mock.calls[0];

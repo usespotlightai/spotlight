@@ -33,7 +33,7 @@ export class PermissionRule {
     if (!matched || !isKind(kind) || pattern === '') {
       throw new InvalidHarnessProfileError(
         ['permissions', decision, at],
-        `names what the harness may do as ${PERMISSION_KINDS.join(', ')}, alone or with a pattern, as in execute(npm test *) or read(.env)`,
+        `permission must be one of ${PERMISSION_KINDS.join(', ')}, optionally with a pattern, such as execute(npm test *)`,
       );
     }
 

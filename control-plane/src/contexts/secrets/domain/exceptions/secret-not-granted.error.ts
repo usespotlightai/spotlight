@@ -2,7 +2,7 @@ export class SecretNotGrantedError extends Error {
   readonly violation = 'not-allowed' as const;
 
   constructor(secretName: string, toward: string) {
-    super(`This run was not granted the ${secretName} secret toward ${toward}`);
+    super(`Run has no grant for secret ${secretName}. Host: ${toward}`);
     this.name = 'SecretNotGrantedError';
   }
 }

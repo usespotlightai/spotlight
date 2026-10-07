@@ -7,7 +7,7 @@ import {
 import { cn } from '@/lib/utils';
 
 const SWATCHES: Record<TurnedOut, string> = {
-  accepted: 'bg-chart-5',
+  accepted: 'bg-chart-success',
   'sent-back': 'bg-chart-3',
   asked: 'bg-chart-2',
   failed: 'bg-chart-1',

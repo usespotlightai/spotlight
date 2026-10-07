@@ -13,10 +13,7 @@ const bounded = (field: string, raw: string, most: number): string => {
   const held = raw.trim();
 
   if (!held || held.length > most) {
-    throw new InvalidHostReportError(
-      field,
-      `is between 1 and ${most} characters`,
-    );
+    throw new InvalidHostReportError(field, `must be 1 to ${most} characters`);
   }
 
   return held;
@@ -47,21 +44,21 @@ export class HostReport {
     ) {
       throw new InvalidHostReportError(
         'capacity',
-        `is a whole number from 1 to ${MOST_RUNNING}`,
+        `must be a whole number from 1 to ${MOST_RUNNING}`,
       );
     }
 
     if (new Set(input.running).size > input.capacity) {
       throw new InvalidHostReportError(
         'running',
-        'names no more runners than its capacity',
+        'names more runners than its capacity',
       );
     }
 
     if (input.images.length > MOST_IMAGES) {
       throw new InvalidHostReportError(
         'images',
-        `names no more than ${MOST_IMAGES} images`,
+        `names more than ${MOST_IMAGES} images`,
       );
     }
 
@@ -70,7 +67,7 @@ export class HostReport {
     if (images.filter((each) => each.usual).length > 1) {
       throw new InvalidHostReportError(
         'images',
-        'names one default image at most',
+        'names more than one default image',
       );
     }
 
@@ -79,7 +76,7 @@ export class HostReport {
         images.slice(0, at).some((earlier) => earlier.image.equals(each.image)),
       )
     ) {
-      throw new InvalidHostReportError('images', 'names each image once');
+      throw new InvalidHostReportError('images', 'names an image twice');
     }
 
     return new HostReport(

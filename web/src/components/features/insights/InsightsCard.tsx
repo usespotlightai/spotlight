@@ -1,12 +1,13 @@
-import { ChartNoAxesColumn, Table2 } from 'lucide-react';
 import { type ReactNode, useId, useState } from 'react';
-import { Button } from '@/components/ui/button';
+import { CardTitle } from '@/components/features/insights/CardHeading';
+import { ChartTableSwitch } from '@/components/features/insights/ChartTableSwitch';
 
 type InsightsCardProps = {
   title: string;
   description?: string;
   actions?: ReactNode;
   table?: ReactNode;
+  tableOnly?: boolean;
   children: ReactNode;
 };
 
@@ -15,48 +16,38 @@ export function InsightsCard({
   description,
   actions,
   table,
+  tableOnly = false,
   children,
 }: InsightsCardProps) {
   const titleId = useId();
   const [tabled, setTabled] = useState(false);
+  const tabling = Boolean(table && tabled);
 
   return (
     <section
       aria-labelledby={titleId}
       data-slot="insights-card"
-      className="flex min-w-0 flex-col gap-2 rounded-xl border border-border bg-card p-3"
+      className="flex min-w-0 flex-col overflow-hidden rounded-lg border border-border bg-card"
     >
-      <header className="flex flex-wrap items-start gap-2">
-        <div className="flex min-w-0 flex-1 flex-col gap-0.5">
-          <h2 id={titleId} className="font-medium text-foreground text-sm">
-            {title}
-          </h2>
-          {description && (
-            <p className="text-muted-foreground text-xs">{description}</p>
-          )}
+      <header className="flex min-h-6 flex-wrap items-center gap-2 px-3 pt-3 pb-4">
+        <div className="flex min-w-0 flex-1 items-center">
+          <CardTitle
+            titleId={titleId}
+            title={title}
+            description={description}
+          />
         </div>
-
         {actions}
-
-        {table && (
-          <Button
-            type="button"
-            variant="ghost"
-            size="xs"
-            aria-pressed={tabled}
-            onClick={() => setTabled((was) => !was)}
-          >
-            {tabled ? (
-              <ChartNoAxesColumn aria-hidden />
-            ) : (
-              <Table2 aria-hidden />
-            )}
-            {tabled ? 'Show chart' : 'Show table'}
-          </Button>
-        )}
+        {table && <ChartTableSwitch tabled={tabled} onTabled={setTabled} />}
       </header>
 
-      {table && tabled ? table : children}
+      {tabling || tableOnly ? (
+        <div className="min-w-0 px-3 pb-3">{tabling ? table : children}</div>
+      ) : (
+        <div className="flex min-w-0 flex-1 flex-col gap-2 px-3 pb-3">
+          {children}
+        </div>
+      )}
     </section>
   );
 }

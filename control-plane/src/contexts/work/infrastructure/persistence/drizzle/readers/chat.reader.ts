@@ -13,6 +13,7 @@ import type {
   ChatView,
 } from '@work/application/ports/chat-reader.port';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
+import { stationsPerLine } from '@work/infrastructure/persistence/drizzle/readers/task-trail';
 import {
   chat,
   chatAttachment,
@@ -103,12 +104,18 @@ export class DrizzleChatReader implements ChatReaderPort {
               id: station.id,
               name: station.name,
               color: station.color,
+              position: station.position,
+              lineId: station.lineId,
               lineName: line.name,
             })
             .from(station)
             .innerJoin(line, eq(line.id, station.lineId))
             .where(inArray(station.id, proposedAt))
         : [];
+    const held = await stationsPerLine(
+      this.db,
+      stations.map((each) => each.lineId),
+    );
 
     return {
       ...summaryOf(row),
@@ -147,6 +154,8 @@ export class DrizzleChatReader implements ChatReaderPort {
             stationId: proposal.stationId,
             stationName: placed?.name ?? null,
             stationColor: placed?.color ?? null,
+            stationPosition: placed?.position ?? null,
+            stationCount: placed ? (held.get(placed.lineId) ?? 1) : null,
             title: proposal.title,
             description: proposal.description,
             state: proposal.state,

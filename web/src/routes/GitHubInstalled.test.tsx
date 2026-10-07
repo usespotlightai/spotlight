@@ -78,7 +78,7 @@ describe('GitHubInstalled', () => {
     renderAt('?setup_action=request&installation_id=42&state=acme%3Ateam_1');
 
     expect(connect).toHaveBeenCalledWith('acme', null);
-    expect(screen.getByText('Asked for on your behalf')).toBeInTheDocument();
+    expect(screen.getByText('Approval requested')).toBeInTheDocument();
   });
 
   it('says so when the control-plane refused', () => {
@@ -91,7 +91,9 @@ describe('GitHubInstalled', () => {
     renderAt('?installation_id=42&state=acme%3Ateam_1');
 
     expect(
-      screen.getByRole('heading', { name: 'Something went wrong' }),
+      screen.getByRole('heading', {
+        name: 'Sorry, the GitHub App couldn’t connect',
+      }),
     ).toBeInTheDocument();
     expect(
       screen.getByText(/Please try again in a few minutes/),

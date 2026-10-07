@@ -33,6 +33,13 @@ interface Payload {
     readonly state?: unknown;
     readonly submitted_at?: unknown;
   };
+  readonly thread?: {
+    readonly node_id?: unknown;
+    readonly comments?: readonly {
+      readonly id?: unknown;
+      readonly user?: { readonly login?: unknown; readonly type?: unknown };
+    }[];
+  };
   readonly check_suite?: {
     readonly conclusion?: unknown;
     readonly head_branch?: unknown;
@@ -89,6 +96,11 @@ interface ReviewComment {
 }
 
 const REVIEW_COMMENT_ACTIONS = ['created', 'edited', 'deleted'] as const;
+
+const THREAD_ACTIONS: ReadonlyMap<unknown, boolean> = new Map([
+  ['resolved', true],
+  ['unresolved', false],
+]);
 
 const OPENING_ACTIONS: readonly unknown[] = [
   'opened',
@@ -275,6 +287,15 @@ const factsOf = (payload: Payload): PullRequestFacts | null => {
       branch: text(pull.head?.ref),
       size: sizeOf(pull),
       openedAt,
+      draft: pull.draft === true,
+      markedReadyAt:
+        payload.action === 'ready_for_review'
+          ? writtenAt(pull.updated_at)
+          : null,
+      markedDraftAt:
+        payload.action === 'converted_to_draft'
+          ? writtenAt(pull.updated_at)
+          : null,
       state,
       closedAt:
         state === 'merged'
@@ -334,6 +355,56 @@ const reviewComment = (payload: Payload): Heard[] => {
         login: text(comment.user?.login),
         byBot: comment.user?.type === 'Bot',
         writtenAt: writtenAt(comment.created_at),
+      },
+      facts: factsOf(payload),
+    },
+  ];
+};
+
+const conversationComment = (payload: Payload): Heard[] => {
+  const comment = payload.comment;
+  const action = REVIEW_COMMENT_ACTIONS.find((each) => each === payload.action);
+  const pullRequest = text(payload.issue?.pull_request?.html_url);
+  const id = at(comment?.id);
+
+  if (!comment || !action || !pullRequest || !id) {
+    return [];
+  }
+
+  return [
+    {
+      kind: 'conversation-comment',
+      action,
+      pullRequest,
+      comment: {
+        id,
+        login: text(comment.user?.login),
+        byBot: comment.user?.type === 'Bot',
+      },
+    },
+  ];
+};
+
+const reviewThread = (payload: Payload): Heard[] => {
+  const pullRequest = text(payload.pull_request?.html_url);
+  const resolved = THREAD_ACTIONS.get(payload.action);
+  const id = text(payload.thread?.node_id);
+  const opener = payload.thread?.comments?.[0];
+
+  if (!pullRequest || resolved === undefined || !id) {
+    return [];
+  }
+
+  return [
+    {
+      kind: 'review-thread',
+      pullRequest,
+      thread: {
+        id,
+        opener: at(opener?.id),
+        login: text(opener?.user?.login),
+        byBot: opener?.user?.type === 'Bot',
+        resolved,
       },
       facts: factsOf(payload),
     },
@@ -431,6 +502,8 @@ const heardIn = (event: string | undefined, payload: Payload): Heard[] => {
 
   return [
     ...(event === 'pull_request_review_comment' ? reviewComment(payload) : []),
+    ...(event === 'issue_comment' ? conversationComment(payload) : []),
+    ...(event === 'pull_request_review_thread' ? reviewThread(payload) : []),
     ...(event === 'pull_request' ? pullRequestDescribed(payload) : []),
     ...(event === 'pull_request' ? pullRequestClosed(payload) : []),
     ...(event === 'pull_request_review' ? pullRequestReviewed(payload) : []),

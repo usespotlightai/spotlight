@@ -2,7 +2,7 @@ export class InvalidSpendError extends Error {
   readonly violation = 'invalid' as const;
 
   constructor(reason: string) {
-    super(`What a replay spends ${reason}`);
+    super(`Spend ${reason}.`);
     this.name = 'InvalidSpendError';
   }
 }

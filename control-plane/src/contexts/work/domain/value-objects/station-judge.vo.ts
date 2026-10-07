@@ -55,7 +55,7 @@ const claimsOf = (written: readonly string[]): readonly string[] => {
   if (written.length === 0 || written.length > MOST_CLAIMS) {
     throw new InvalidStationJudgeError(
       'claims',
-      `lists 1 to ${MOST_CLAIMS} claims when it lists any`,
+      `must list 1 to ${MOST_CLAIMS} claims`,
     );
   }
 
@@ -85,10 +85,7 @@ export class StationJudge {
     const passShare = input.passShare ?? ALL_CLAIMS;
 
     if (written === null && listed === null) {
-      throw new InvalidStationJudgeError(
-        'rubric',
-        'or its claims say what a good run is, and at least one of them is given',
-      );
+      throw new InvalidStationJudgeError('rubric', 'or claims must be given');
     }
 
     const rubric = written === null ? null : rubricOf(written, listed === null);
@@ -99,28 +96,25 @@ export class StationJudge {
       input.passShare !== undefined &&
       input.passShare !== null
     ) {
-      throw new InvalidStationJudgeError(
-        'passShare',
-        'is given only beside the claims it counts',
-      );
+      throw new InvalidStationJudgeError('passShare', 'needs claims to count');
     }
 
     if (!isShare(passShare)) {
       throw new InvalidStationJudgeError(
         'passShare',
-        'is the share of claims a run must meet to pass, from 0 to 1',
+        'must be a share from 0 to 1',
       );
     }
     if (!isShare(input.sample)) {
       throw new InvalidStationJudgeError(
         'sample',
-        'is the share of runs judged, from 0 to 1',
+        'must be a share from 0 to 1',
       );
     }
     if (!isShare(input.trust)) {
       throw new InvalidStationJudgeError(
         'trust',
-        'is how often the judge must agree with people, from 0 to 1',
+        'must be a share from 0 to 1',
       );
     }
 

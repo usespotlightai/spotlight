@@ -5,9 +5,11 @@ import { DashboardLayout } from '@/components/shell/layout/DashboardLayout';
 import { PageOutlet } from '@/components/shell/layout/PageOutlet';
 import { SettingsSidebar } from '@/components/shell/layout/SettingsSidebar';
 import { WorkspaceSidebar } from '@/components/shell/layout/WorkspaceSidebar';
+import { buttonVariants } from '@/components/ui/button-variants';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { useLastPlace } from '@/hooks/useLastPlace';
 import { failed, loading } from '@/lib/query';
+import { cn } from '@/lib/utils';
 import { WORKSPACE_URL_PREFIX, workspacePath } from '@/lib/workspace';
 
 export function Workspace() {
@@ -49,12 +51,15 @@ export function Workspace() {
           Workspace not found
         </h1>
         <p className="max-w-sm text-center text-muted-foreground text-sm">
-          There is no workspace at {WORKSPACE_URL_PREFIX}
-          {slug}, or you are not a member of it.
+          No workspace at {WORKSPACE_URL_PREFIX}
+          {slug}, or you’re not a member.
         </p>
         <Link
           to="/workspaces/new"
-          className="font-[450] text-foreground text-sm hover:underline"
+          className={cn(
+            buttonVariants({ variant: 'outline' }),
+            'rounded-full bg-white',
+          )}
         >
           Create a workspace
         </Link>

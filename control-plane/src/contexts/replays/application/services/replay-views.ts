@@ -40,7 +40,7 @@ import {
   totalsOf,
 } from '@replays/domain/services/replay-results';
 import type { SetHealth } from '@replays/domain/services/set-health';
-import type { SetNoise } from '@replays/domain/services/set-noise';
+import type { SetNoiseReading } from '@replays/domain/services/set-noise';
 import { SEED_NAME } from '@replays/domain/value-objects/candidate-name.vo';
 import type { ChangeChecks } from '@replays/domain/value-objects/change-checks.vo';
 import type { EntryJudging } from '@replays/domain/value-objects/entry-judging.vo';
@@ -69,7 +69,7 @@ export const gainView = (gain: GainReading | null): GainReadingDto | null =>
     tasks: gain.tasks,
   };
 
-const noiseView = (noise: SetNoise | null): SetNoiseDto | null =>
+const noiseView = (noise: SetNoiseReading | null): SetNoiseDto | null =>
   noise && {
     replayId: noise.replayId.value,
     fingerprint: noise.fingerprint.value,
@@ -78,6 +78,7 @@ const noiseView = (noise: SetNoise | null): SetNoiseDto | null =>
     spread: noise.spread,
     flippedTasks: [...noise.flippedTasks],
     measuredAt: noise.measuredAt.toISOString(),
+    noisyInOneCopy: noise.noisyInOneCopy,
   };
 
 export const healthView = (health: SetHealth): SetHealthDto => {

@@ -21,9 +21,7 @@ export function AddRunsButton({ at, set, disabled }: AddRunsButtonProps) {
         size="sm"
         className="rounded-full bg-card shadow-none"
         disabled={disabled}
-        title={
-          disabled ? 'The set is frozen while a search of it runs' : undefined
-        }
+        title={disabled ? 'Set is frozen while a search of it runs' : undefined}
         onClick={() => setOpen(true)}
       >
         <Plus aria-hidden />

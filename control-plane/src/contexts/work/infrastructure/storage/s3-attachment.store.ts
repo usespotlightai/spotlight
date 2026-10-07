@@ -173,7 +173,7 @@ export class S3AttachmentStore implements AttachmentStorePort {
     );
 
     if (!read.Body) {
-      throw new InvalidAttachmentError('was kept, but is no longer there');
+      throw new InvalidAttachmentError('is no longer stored');
     }
 
     return {
@@ -251,7 +251,7 @@ export class S3AttachmentStore implements AttachmentStorePort {
   private refuseWithoutABucket(): void {
     if (!this.bucket) {
       throw new InvalidAttachmentError(
-        'cannot be kept, because this deployment has nowhere to keep one',
+        'storage is not configured on this deployment',
       );
     }
   }

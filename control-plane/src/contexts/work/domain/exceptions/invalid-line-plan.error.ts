@@ -8,7 +8,7 @@ export class InvalidLinePlanError extends Error {
     because: string,
     readonly part: LinePart = { of: 'line', field: null },
   ) {
-    super(`The ${line} line ${because}`);
+    super(`Line ${line} ${because}.`);
     this.name = 'InvalidLinePlanError';
   }
 }

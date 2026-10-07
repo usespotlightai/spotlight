@@ -341,9 +341,7 @@ describe('a secret worn by a tool call the control plane makes (e2e)', () => {
   });
 
   it('sends nothing where the workspace holds no such secret', async () => {
-    await expect(comment()).rejects.toThrow(
-      /holds no secret named LINEAR_API_KEY/,
-    );
+    await expect(comment()).rejects.toThrow(/Secret LINEAR_API_KEY not found/);
     expect(fetch).not.toHaveBeenCalled();
   });
 

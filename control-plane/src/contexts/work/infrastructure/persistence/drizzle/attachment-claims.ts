@@ -40,6 +40,6 @@ export const claimAttachments = async (
     .returning({ id: attachmentClaim.id });
 
   if (claimed.length < ids.length) {
-    throw new InvalidAttachmentError('was given to something else already');
+    throw new InvalidAttachmentError('is already attached elsewhere');
   }
 };

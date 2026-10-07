@@ -27,7 +27,9 @@ const defined = (over: {
 describe('Skill', () => {
   it('is named for its folder', () => {
     expect(defined({ named: 'frontend' }).key.value).toBe('frontend');
-    expect(() => defined({ named: 'backend' })).toThrow(/named for its folder/);
+    expect(() => defined({ named: 'backend' })).toThrow(
+      /must be named frontend in its frontmatter/,
+    );
     expect(() => defined({ named: undefined })).toThrow(InvalidSkillError);
   });
 

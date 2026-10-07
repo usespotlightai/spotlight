@@ -3,7 +3,7 @@ export class ChangesGuardedElsewhereError extends Error {
 
   constructor(readonly stationId: string) {
     super(
-      `Another replay set guards the changes of the station ${stationId} already; a station has one such set`,
+      `Another replay set already guards changes of station ${stationId}. A station has only one such set.`,
     );
     this.name = 'ChangesGuardedElsewhereError';
   }

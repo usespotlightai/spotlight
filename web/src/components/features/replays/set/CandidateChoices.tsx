@@ -24,7 +24,7 @@ export function CandidateChoices({
       <CandidateChoice
         value={LIVE}
         name="Live config"
-        detail="The station as it is configured now"
+        detail="Station as configured now"
         checked={value === LIVE}
         disabled={disabled}
         onChange={onChange}
@@ -45,8 +45,8 @@ export function CandidateChoices({
       {loading(candidates) && <SkeletonLine className="w-40 px-2 text-sm" />}
       {failed(candidates) && (
         <p className="px-2 text-muted-foreground text-xs">
-          The station’s candidates could not be loaded; the live config can
-          still be replayed.
+          Sorry, the station’s candidates couldn’t be loaded. The live config
+          can still be replayed.
         </p>
       )}
     </div>

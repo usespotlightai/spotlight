@@ -9,11 +9,10 @@ export function InboxEmpty({ slug }: { slug: string }) {
   return (
     <EmptyState
       icon={InboxIcon}
-      title="No messages"
+      title="Inbox empty"
       action={<CreateTaskLink slug={slug} teamId={workspace?.teams[0]?.id} />}
     >
-      When a station needs an answer from you, it asks here. Create a task to
-      put a line to work.
+      Questions from stations show up here. Create a task to put a line to work.
     </EmptyState>
   );
 }

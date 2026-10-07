@@ -6,10 +6,10 @@ import type { LineReplayCheck } from '@/lib/search';
 import { since } from '@/lib/since';
 
 const UNDELETABLE =
-  'A replay or search of this set is running, so it can’t be deleted until that ends or is stopped.';
+  'A replay or search of this set is running. Delete it once that ends or is stopped.';
 
 const FROZEN =
-  'A search of this set is under way, so its runs stay as they are until the search ends or is stopped.';
+  'A search of this set is underway. Its runs are frozen until the search ends or is stopped.';
 
 type ReplaySetHeaderProps = {
   teamId: string;
@@ -64,9 +64,9 @@ export function ReplaySetHeader({
           role="note"
           className="rounded-lg border border-border bg-card px-3 py-2 text-muted-foreground text-sm"
         >
-          Its station is gone from its line, so it starts no replays, takes no
-          more runs and keeps none of its runs’ workspaces. It can still be
-          renamed, have runs taken out, or be deleted.
+          Station is gone from its line. The set starts no replays, takes no
+          runs and keeps no workspaces. You can still rename it, remove runs or
+          delete it.
         </p>
       )}
 

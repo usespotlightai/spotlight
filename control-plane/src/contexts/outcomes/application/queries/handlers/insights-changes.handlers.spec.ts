@@ -57,6 +57,9 @@ const people: PeoplePort = {
   namesOf: async (ids) => new Map(ids.map((each) => [each, `Name of ${each}`])),
 };
 
+const modelOf = (fingerprint: string): string =>
+  fingerprint === FIRST_CONFIG ? 'sonnet' : 'opus';
+
 const WORK: WorkPort = {
   endedRun: async () => null,
   configsInOrder: async (fingerprints) =>
@@ -65,7 +68,7 @@ const WORK: WorkPort = {
       config: {
         prompt: null,
         harness: 'claude-code',
-        model: fingerprint === FIRST_CONFIG ? 'sonnet' : 'opus',
+        model: modelOf(fingerprint),
         effort: null,
         profile: null,
         image: null,
@@ -76,15 +79,15 @@ const WORK: WorkPort = {
         memories: false,
       },
       changes:
-        at === 0
+        at === 0 || fingerprints[at - 1] === fingerprint
           ? []
           : [
               {
                 part: 'model',
                 name: null,
                 kind: 'changed' as const,
-                was: 'sonnet',
-                now: 'opus',
+                was: modelOf(fingerprints[at - 1] ?? ''),
+                now: modelOf(fingerprint),
               },
             ],
     })),
@@ -106,7 +109,15 @@ const standing = (trusted: boolean): JudgeStandingPort => ({
   }),
 });
 
-const held = async () => {
+const held = async (
+  more: readonly (readonly [
+    string,
+    number,
+    string,
+    'sonnet' | 'opus',
+    'closed' | 'sent-back',
+  ])[] = [],
+) => {
   const records = new RunRecordsInMemory();
   const deliveries = new TaskDeliveriesInMemory();
   const scores = new ScoresInMemory();
@@ -127,6 +138,7 @@ const held = async () => {
     ['run_2', 10, FIRST_CONFIG, 'sonnet', 'closed'],
     ['run_3', 11, SECOND_CONFIG, 'opus', 'closed'],
     ['run_4', 12, SECOND_CONFIG, 'opus', 'closed'],
+    ...more,
   ] as const) {
     await records.add(
       costedRecord(runId, {
@@ -186,6 +198,49 @@ describe('ReadInsightsChangesHandler', () => {
     expect(marker?.judgeBefore).toEqual({ mean: 0, judged: 1 });
     expect(marker?.judgeAfter).toEqual({ mean: 1, judged: 1 });
     expect(asked).toEqual([[FIRST_CONFIG, SECOND_CONFIG]]);
+  });
+
+  it('opens a return to the earlier config as a change of its own, set against the stretch just before it', async () => {
+    const { histories, scores } = await held([
+      ['run_5', 13, FIRST_CONFIG, 'sonnet', 'sent-back'],
+      ['run_6', 14, FIRST_CONFIG, 'sonnet', 'sent-back'],
+      ['run_7', 15, FIRST_CONFIG, 'sonnet', 'closed'],
+    ]);
+    const asked: (readonly string[])[] = [];
+    const handler = new ReadInsightsChangesHandler(
+      histories,
+      new TrustedJudges(standing(true), scores),
+      {
+        ...WORK,
+        configsInOrder: (fingerprints) => {
+          asked.push(fingerprints);
+          return WORK.configsInOrder(fingerprints);
+        },
+      },
+    );
+
+    const changes = await handler.execute(
+      new ReadInsightsChangesQuery('team_1', ADA, '30d'),
+    );
+
+    expect(
+      changes.markers.map((each) => [
+        each.runId,
+        each.previousFingerprint,
+        each.fingerprint,
+        each.before.runs,
+        each.after.runs,
+        each.after.sentBack,
+        each.changes.map((change) => [change.was, change.now]),
+      ]),
+    ).toEqual([
+      ['run_3', FIRST_CONFIG, SECOND_CONFIG, 2, 2, 0, [['sonnet', 'opus']]],
+      ['run_5', SECOND_CONFIG, FIRST_CONFIG, 2, 3, 2, [['opus', 'sonnet']]],
+    ]);
+    expect(changes.markers[1]?.judgeBefore).toEqual({ mean: 1, judged: 1 });
+    expect(asked).toEqual([
+      [FIRST_CONFIG, SECOND_CONFIG, SECOND_CONFIG, FIRST_CONFIG],
+    ]);
   });
 
   it('shows no judge scores where the station’s judge is not trusted', async () => {
@@ -359,6 +414,7 @@ describe('ReadStationAlertHandler', () => {
       watches,
       records,
       deliveries,
+      { now: () => NOW, sleep: async () => {} },
     );
   };
 
@@ -378,6 +434,7 @@ describe('ReadStationAlertHandler', () => {
       over: 2,
     });
     expect(alert.taskId).toBe('task_run_2');
+    expect(alert.insightsPeriod).toBe('7d');
     expect(alert.series.map((each) => [each.runId, each.value])).toEqual([
       ['run_1', null],
       ['run_2', 0.6],

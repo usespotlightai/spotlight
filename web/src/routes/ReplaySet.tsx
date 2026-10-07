@@ -61,7 +61,7 @@ export function ReplaySet() {
     return (
       <PageNotice>
         <MembersOnlyOrCouldNotLoad
-          membersOnly="Only the team’s members can see its replays"
+          membersOnly="Only team members can see its replays"
           what="The replay set"
           query={sets}
         />
@@ -73,7 +73,7 @@ export function ReplaySet() {
     return (
       <PageNotice title="Replay set not found">
         <p className="text-muted-foreground text-sm">
-          There is no replay set at that address. It may have been deleted.
+          No replay set at this address. It may have been deleted.
         </p>
       </PageNotice>
     );

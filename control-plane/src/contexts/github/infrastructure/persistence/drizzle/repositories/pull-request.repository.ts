@@ -36,6 +36,12 @@ const toPullRequest = (row: PullRequestRow): PullRequest =>
           }
         : null,
     openedAt: row.openedAt,
+    draft: row.draft,
+    readyForReviewAt: row.readyForReviewAt,
+    draftSpells: row.draftSpells.map((each) => ({
+      from: new Date(each.from),
+      to: each.to ? new Date(each.to) : null,
+    })),
     state: row.state,
     closedAt: row.closedAt,
     updatedAt: row.updatedAt,
@@ -47,6 +53,8 @@ const toPullRequest = (row: PullRequestRow): PullRequest =>
     dismissedReviews: row.dismissedReviews,
     comments: row.comments,
     deletedComments: row.deletedComments,
+    botComments: row.botComments,
+    threads: row.threads,
     revertedBy: row.revertedBy ? PullRequestUrl.of(row.revertedBy) : null,
     version: row.version,
   });
@@ -62,6 +70,12 @@ const columnsOf = (pullRequest: PullRequest) => ({
   deletions: pullRequest.size?.deletions ?? null,
   changedFiles: pullRequest.size?.changedFiles ?? null,
   openedAt: pullRequest.openedAt,
+  draft: pullRequest.draft,
+  readyForReviewAt: pullRequest.readyForReviewAt,
+  draftSpells: pullRequest.draftSpells.map((each) => ({
+    from: each.from.toISOString(),
+    to: each.to?.toISOString() ?? null,
+  })),
   state: pullRequest.state,
   closedAt: pullRequest.closedAt,
   updatedAt: pullRequest.updatedAt,
@@ -73,6 +87,8 @@ const columnsOf = (pullRequest: PullRequest) => ({
   dismissedReviews: [...pullRequest.dismissedReviews],
   comments: [...pullRequest.comments],
   deletedComments: [...pullRequest.deletedComments],
+  botComments: [...pullRequest.botComments],
+  threads: [...pullRequest.threads],
   revertedBy: pullRequest.revertedBy?.value ?? null,
 });
 

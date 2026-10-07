@@ -1,3 +1,4 @@
+import type { BotActivity } from '@outcomes/domain/aggregates/pull-request-record.aggregate';
 import {
   ALERT_MEASURES,
   ALERT_THRESHOLDS,
@@ -17,7 +18,7 @@ import type {
   SeenHunk,
   SeenStep,
 } from '@outcomes/domain/value-objects/seen-evidence.vo';
-import { sql } from 'drizzle-orm';
+import { type SQL, sql } from 'drizzle-orm';
 import {
   bigint,
   boolean,
@@ -25,6 +26,7 @@ import {
   index,
   integer,
   jsonb,
+  type PgColumn,
   pgEnum,
   pgTable,
   primaryKey,
@@ -109,6 +111,22 @@ export const scoreKind = pgEnum('score_kind', SCORE_KINDS);
 export const judgingFailure = pgEnum('judging_failure', JUDGING_FAILURE_CODES);
 export const pairOrder = pgEnum('pair_order', PAIR_ORDERS);
 
+interface StartedColumns {
+  readonly runId: PgColumn;
+  readonly fingerprint: PgColumn;
+  readonly startedAt: PgColumn;
+  readonly endedAt: PgColumn;
+  readonly ending: PgColumn;
+}
+
+export const startOrderColumns = (table: StartedColumns): SQL[] => [
+  sql`coalesce(${table.startedAt}, ${table.endedAt})`,
+  sql`${table.runId} collate "C"`,
+];
+
+export const ranAConfig = (table: StartedColumns): SQL =>
+  sql`${table.startedAt} is not null and ${table.endedAt} is not null and ${table.fingerprint} is not null and ${table.ending} <> 'withdrawn'`;
+
 export const runRecord = pgTable(
   'run_record',
   {
@@ -160,6 +178,19 @@ export const runRecord = pgTable(
   (table) => [
     index('run_record_team_idx').on(table.teamId, table.endedAt),
     index('run_record_station_idx').on(table.stationId, table.endedAt),
+    index('run_record_team_station_began_idx')
+      .on(
+        table.teamId,
+        table.stationId,
+        ...startOrderColumns(table),
+        table.fingerprint,
+        table.startedAt,
+        table.endedAt,
+      )
+      .where(ranAConfig(table)),
+    index('run_record_team_station_started_idx')
+      .on(table.teamId, table.stationId, ...startOrderColumns(table))
+      .where(sql`${table.endedAt} is not null`),
     index('run_record_task_idx').on(table.taskId, table.endedAt),
     index('run_record_workspace_idx').on(table.workspaceId),
   ],
@@ -294,10 +325,25 @@ export const pullRequestRecord = pgTable(
     state: pullRequestRecordState('state'),
     closedAt: timestamp('closed_at'),
     updatedAt: timestamp('updated_at'),
+    readyForReviewAt: timestamp('ready_for_review_at'),
+    draftSpells: jsonb('draft_spells')
+      .$type<{ from: string; to: string | null }[]>()
+      .notNull()
+      .default([]),
     firstReviewAt: timestamp('first_review_at'),
+    firstUnblockingReviewAt: timestamp('first_unblocking_review_at'),
+    firstApprovedAt: timestamp('first_approved_at'),
+    humanReviewedAt: timestamp('human_reviewed_at')
+      .array()
+      .notNull()
+      .default([]),
     reviews: integer('reviews').notNull().default(0),
     reviewRounds: integer('review_rounds').notNull().default(0),
     reviewComments: integer('review_comments').notNull().default(0),
+    botActivity: jsonb('bot_activity')
+      .$type<BotActivity[]>()
+      .notNull()
+      .default([]),
     isRevert: boolean('is_revert').notNull().default(false),
     revertedBy: text('reverted_by'),
     seenVersion: integer('seen_version'),

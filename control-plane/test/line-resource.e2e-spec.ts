@@ -544,7 +544,7 @@ describe('a line, created through the resource API (e2e)', () => {
       expect(refused.status).toBe(409);
       expect(refused.body).toMatchObject({
         type: 'urn:spotlight:problem:in-use',
-        detail: expect.stringContaining('1 standing there'),
+        detail: expect.stringContaining('(1)'),
       });
     }
   });

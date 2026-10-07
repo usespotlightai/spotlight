@@ -7,7 +7,7 @@ export class TokenTrustKeyFixedError extends Error {
     readonly key: string,
     readonly because: string,
   ) {
-    super(`The ${key} token trust ${because}`);
+    super(`Token trust ${key} ${because}.`);
     this.name = 'TokenTrustKeyFixedError';
   }
 }

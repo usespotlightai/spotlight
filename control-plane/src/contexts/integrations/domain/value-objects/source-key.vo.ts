@@ -29,7 +29,7 @@ export class SourceKey {
     if (!this.raises(happening)) {
       throw new InvalidIntegrationError(
         this.value,
-        `raises ${happening.value}, which must begin with ${this.value}., because that is the source raising it`,
+        `raises ${happening.value} without the ${this.value}. prefix`,
       );
     }
 

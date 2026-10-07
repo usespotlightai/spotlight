@@ -10,7 +10,7 @@ export class AsideAbout {
 
     if (!about || about.length > MOST_ABOUT) {
       throw new InvalidTaskAsideError(
-        `says what it is about in at most ${MOST_ABOUT} characters`,
+        `subject must be 1 to ${MOST_ABOUT} characters`,
       );
     }
 

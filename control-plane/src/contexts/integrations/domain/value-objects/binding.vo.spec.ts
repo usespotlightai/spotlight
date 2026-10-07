@@ -16,6 +16,6 @@ describe('Binding', () => {
   it('refuses an event Spotlight never raises', () => {
     expect(() =>
       Binding.of({ event: 'task.moved', does: 'post', known: ['task.asked'] }),
-    ).toThrow(/is not an event Spotlight raises; expected one of task.asked/);
+    ).toThrow(/must be one of task.asked/);
   });
 });

@@ -3,7 +3,7 @@ export class WorkspaceTokenMovedOnError extends Error {
 
   constructor(tokenId: string) {
     super(
-      `This workspace token has been changed since it was read, and cannot be written over (${tokenId})`,
+      `Workspace token ${tokenId} changed since you loaded it. Please reload and try again.`,
     );
     this.name = 'WorkspaceTokenMovedOnError';
   }

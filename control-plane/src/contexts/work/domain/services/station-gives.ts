@@ -6,16 +6,16 @@ export const skillsRefused = (skills: readonly SkillKey[]): string | null => {
   const own = skills.find((each) => each.isSpotlights);
 
   if (own) {
-    return `names ${own.value}, which is Spotlight’s own and given wherever it applies: take it away`;
+    return `cannot name skill ${own.value}. Spotlight already gives it where it applies`;
   }
 
   const twice = repeatedIn(skills.map((each) => each.unversioned));
 
-  return twice ? `names the skill ${twice} twice: name it once` : null;
+  return twice ? `names skill ${twice} twice` : null;
 };
 
 export const toolsRefused = (tools: readonly Tool[]): string | null => {
   const twice = repeatedIn(tools.map((each) => each.called));
 
-  return twice ? `names the tool ${twice} twice: name it once` : null;
+  return twice ? `names tool ${twice} twice` : null;
 };

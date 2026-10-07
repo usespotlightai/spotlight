@@ -9,10 +9,10 @@ export class Refusal {
 
   static of(input: { tool: string; server: string | null; at: Date }): Refusal {
     if (input.tool.trim().length === 0) {
-      throw new InvalidOutcomeError('names the tool a person refused');
+      throw new InvalidOutcomeError('refusal must name the tool');
     }
     if (input.server !== null && input.server.trim().length === 0) {
-      throw new InvalidOutcomeError('names the server of a refused tool');
+      throw new InvalidOutcomeError('refusal server cannot be blank');
     }
 
     return new Refusal(input.tool.trim(), input.server, input.at);

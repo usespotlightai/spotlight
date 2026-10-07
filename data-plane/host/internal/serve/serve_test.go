@@ -803,7 +803,7 @@ func TestARunWhoseSandboxRanPastItsTimeIsReportedAsTimedOut(t *testing.T) {
 	pool.work <- handed("runner_1")
 	eventually(t, "the run reported timed out", func() bool {
 		done, ok := pool.worker.completion("run-runner_1")
-		return ok && done.Failed && done.TimedOut && !done.Unprepared && strings.Contains(done.Message, "ran past")
+		return ok && done.Failed && done.TimedOut && !done.Unprepared && strings.Contains(done.Message, "time limit")
 	})
 }
 
@@ -1089,7 +1089,7 @@ func TestLooksInsideAgainWhenATagMovesAndFailsARunItsHarnessLeft(t *testing.T) {
 	})
 
 	done, _ := pool.worker.completion("run-runner_1")
-	if !done.Failed || !done.Unprepared || !strings.Contains(done.Message, "no longer holds claude-code") {
+	if !done.Failed || !done.Unprepared || !strings.Contains(done.Message, "no longer holds the claude-code harness") {
 		t.Errorf("completed %+v", done)
 	}
 	if got := len(engine.workSandboxes()); got != 0 {
@@ -1148,7 +1148,7 @@ func TestGivesUpACheckWhenThereIsNoImageAtAll(t *testing.T) {
 	}
 	eventually(t, "the image refused until it can be pulled", func() bool {
 		each, _ := pool.reported("runner:1")
-		return strings.Contains(each.Refused, "could not pull")
+		return strings.Contains(each.Refused, "can't be pulled")
 	})
 }
 
@@ -1231,7 +1231,7 @@ func TestRefusesAnImageWhoseRunnerIsTooOld(t *testing.T) {
 
 	eventually(t, "the refusal reported", func() bool {
 		each, ok := pool.reported("runner:1")
-		return ok && strings.Contains(each.Refused, "older than the "+leastRelease)
+		return ok && strings.Contains(each.Refused, "Minimum version required: "+leastRelease)
 	})
 
 	time.Sleep(100 * time.Millisecond)
@@ -1247,7 +1247,7 @@ func TestAnImageItCannotLookInsideIsRefusedAndTheHostKeepsServing(t *testing.T) 
 
 	eventually(t, "the refusal reported", func() bool {
 		each, ok := pool.reported("runner:1")
-		return ok && strings.Contains(each.Refused, "could not look inside")
+		return ok && strings.Contains(each.Refused, "can't be inspected")
 	})
 
 	engine.set(func(e *fakeEngine) { e.failProbe = false })
@@ -1396,7 +1396,7 @@ func TestJudgesAnImageAgainWhenTheControlPlaneNeedsANewerRunner(t *testing.T) {
 	pool.need("20261001-01")
 	eventually(t, "the image refused as too old", func() bool {
 		each, _ := pool.reported("runner:1")
-		return strings.Contains(each.Refused, "older than the 20261001-01")
+		return strings.Contains(each.Refused, "Minimum version required: 20261001-01")
 	})
 }
 

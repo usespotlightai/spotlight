@@ -29,14 +29,14 @@ export class FailureOccurrence {
   }): FailureOccurrence {
     if (!isSource(input.source)) {
       throw new InvalidOutcomeError(
-        `comes from a run or a named hook, not ${input.source || 'nowhere'}`,
+        `failure source must be a run or a named hook, not ${input.source || 'empty'}`,
       );
     }
     if (blank(input.code)) {
-      throw new InvalidOutcomeError('says what went wrong');
+      throw new InvalidOutcomeError('failure must say what went wrong');
     }
     if (!Number.isInteger(input.occurrences) || input.occurrences < 1) {
-      throw new InvalidOutcomeError('happened at least once');
+      throw new InvalidOutcomeError('failure must have happened at least once');
     }
 
     return new FailureOccurrence(

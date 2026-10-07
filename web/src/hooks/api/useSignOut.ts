@@ -9,7 +9,9 @@ export function useSignOut() {
     mutationFn: async () => {
       const { error } = await authClient.signOut();
       if (error) {
-        throw new Error(error.message ?? 'Sign out failed');
+        throw new Error(
+          error.message ?? 'Sorry, sign-out failed. Please try again.',
+        );
       }
     },
     onSuccess: () => queryClient.clear(),

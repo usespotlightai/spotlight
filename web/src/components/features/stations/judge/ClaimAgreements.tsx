@@ -1,76 +1,57 @@
-import { useId } from 'react';
+import { KappaBar } from '@/components/features/stations/judge/KappaBar';
+import { NestedCell } from '@/components/shared/nested-table/NestedCell';
+import { NestedTable } from '@/components/shared/nested-table/NestedTable';
 import {
-  AGREED_COLUMN,
-  CLAIM_AGREEMENT_LABEL,
-  CLAIM_COLUMN,
+  EDGE_INDENT,
+  ROW_DIVIDER,
+} from '@/components/shared/nested-table/nested-rows';
+import {
+  CLAIM_HEADINGS,
   type ClaimAgreement,
   claimShown,
-  KAPPA_COLUMN,
   percentShown,
-  RUNS_COLUMN,
-  statShown,
 } from '@/lib/judge';
+import { cn } from '@/lib/utils';
 
 type ClaimAgreementsProps = {
   agreements: readonly ClaimAgreement[];
   claims: readonly string[];
+  trust: number | null;
 };
 
-const CELL = 'px-2 py-1 text-right tabular-nums';
-
-export function ClaimAgreements({ agreements, claims }: ClaimAgreementsProps) {
-  const captionId = useId();
-
+export function ClaimAgreements({
+  agreements,
+  claims,
+  trust,
+}: ClaimAgreementsProps) {
   return (
-    <div className="flex flex-col gap-1 text-xs">
-      <p id={captionId} className="text-muted-foreground">
-        {CLAIM_AGREEMENT_LABEL}
-      </p>
-      <table
-        data-slot="claim-agreements"
-        aria-labelledby={captionId}
-        className="w-full border-collapse"
-      >
-        <thead>
-          <tr className="text-muted-foreground">
-            <th scope="col" className="py-1 pr-2 text-left font-normal">
-              {CLAIM_COLUMN}
-            </th>
-            <th scope="col" className={`${CELL} font-normal`}>
-              {KAPPA_COLUMN}
-            </th>
-            <th scope="col" className={`${CELL} font-normal`}>
-              {AGREED_COLUMN}
-            </th>
-            <th scope="col" className={`${CELL} font-normal`}>
-              {RUNS_COLUMN}
-            </th>
-          </tr>
-        </thead>
-        <tbody>
-          {agreements.map((each) => (
-            <tr
-              key={each.index}
-              data-slot="claim-agreement"
-              className="border-border border-t"
-            >
-              <th
-                scope="row"
-                className="py-1 pr-2 text-left font-normal text-foreground"
-              >
-                {claimShown(claims, each.index)}
-              </th>
-              <td className={`${CELL} text-foreground`}>
-                {statShown(each.kappa)}
-              </td>
-              <td className={`${CELL} text-foreground`}>
-                {percentShown(each.observed)}
-              </td>
-              <td className={`${CELL} text-muted-foreground`}>{each.pairs}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+    <NestedTable label="Agreement by claim" headings={CLAIM_HEADINGS}>
+      {agreements.map((each) => (
+        <li
+          key={each.index}
+          data-slot="claim-agreement"
+          className={cn(
+            'col-span-full grid grid-cols-2 items-center gap-x-6 gap-y-2 py-2 pr-2 text-xs @4xl:grid-cols-subgrid',
+            ROW_DIVIDER,
+          )}
+        >
+          <span
+            className={cn(
+              'col-span-full min-w-0 text-foreground @4xl:col-span-1',
+              EDGE_INDENT,
+            )}
+          >
+            {claimShown(claims, each.index)}
+          </span>
+          <span className="col-span-full min-w-0 @4xl:col-span-1">
+            <KappaBar kappa={each.kappa} reading={each.reading} trust={trust} />
+          </span>
+          <NestedCell heading="Agreed">
+            {percentShown(each.observed)}
+          </NestedCell>
+          <NestedCell heading="Runs">{each.pairs}</NestedCell>
+        </li>
+      ))}
+    </NestedTable>
   );
 }

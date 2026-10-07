@@ -26,7 +26,7 @@ export function ApprovalEditControls({
       <ApprovalApproveButton
         approval={approval}
         disabled={pending || blank}
-        title={blank ? 'Fill in every input to approve it' : undefined}
+        title={blank ? 'Fill in every input to approve' : undefined}
         onApprove={onApprove}
       />
     </DecisionControls>

@@ -90,12 +90,6 @@ export function StrongerModelDialog({
             note={STRONGER_CEILING_NOTE}
           />
 
-          {form.refused && (
-            <p role="alert" className="text-destructive text-xs">
-              {form.refused}
-            </p>
-          )}
-
           <DialogFooter>
             <DialogClose render={<Button variant="outline" size="sm" />}>
               {CANCEL}

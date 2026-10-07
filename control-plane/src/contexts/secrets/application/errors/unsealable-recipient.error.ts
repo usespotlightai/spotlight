@@ -3,7 +3,7 @@ export class UnsealableRecipientError extends Error {
 
   constructor() {
     super(
-      'The recipient is not an X25519 public key: 32 bytes, written in base64',
+      'Recipient is not an X25519 public key. Expected: 32 bytes in base64',
     );
     this.name = 'UnsealableRecipientError';
   }

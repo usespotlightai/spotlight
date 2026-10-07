@@ -20,7 +20,7 @@ export function RunFooter({
   if (run.station?.name !== said?.station?.name) {
     return (
       <p className="pb-5 text-center text-muted-foreground text-xs">
-        This moved on. There is nobody left to tell here.
+        Task has moved to another station. Messages here reach no one.
       </p>
     );
   }

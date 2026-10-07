@@ -5,7 +5,7 @@ export class InvalidSkillError extends Error {
     skill: string,
     readonly because: string,
   ) {
-    super(`The ${skill} skill ${because}`);
+    super(`Skill ${skill} ${because}.`);
     this.name = 'InvalidSkillError';
   }
 }

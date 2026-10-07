@@ -16,11 +16,11 @@ export function OverviewSkeleton() {
     <div
       role="status"
       aria-label="Loading the overview"
-      className="flex flex-col gap-4"
+      className="flex flex-col gap-3"
     >
-      <InsightsTilesSkeleton labels={TILES} />
-      <InsightsCardSkeleton title="Output against cost" rows={6} />
-      <InsightsCardSkeleton title="Stations worth improving" rows={3} />
+      <InsightsTilesSkeleton count={TILES.length} />
+      <InsightsCardSkeleton rows={6} />
+      <InsightsCardSkeleton rows={3} />
     </div>
   );
 }

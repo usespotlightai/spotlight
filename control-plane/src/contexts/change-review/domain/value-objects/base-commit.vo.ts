@@ -10,7 +10,7 @@ export class BaseCommit {
 
     if (!SHA.test(trimmed)) {
       throw InvalidChangeStackError.because(
-        'begins at a commit named by its full forty character hash',
+        'base must be a full 40-character commit hash',
       );
     }
 

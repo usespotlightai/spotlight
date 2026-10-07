@@ -59,7 +59,7 @@ export function RetireInPlace({
   return (
     <form ref={form} aria-label="Retire this memory" onSubmit={submit}>
       <PersonNote
-        avatar={<PersonAvatar person={me} />}
+        avatar={<PersonAvatar person={me} size="md" />}
         name={me.name}
         about={<span className="text-muted-foreground">retiring this</span>}
       >
@@ -76,11 +76,6 @@ export function RetireInPlace({
         </SaidCard>
 
         <div className="flex items-center justify-end gap-2 pt-1">
-          {retire.isError && (
-            <p role="alert" className="mr-auto text-destructive text-xs">
-              It could not be retired. Try again.
-            </p>
-          )}
           <PillButton type="button" onClick={onCancel}>
             Cancel
           </PillButton>

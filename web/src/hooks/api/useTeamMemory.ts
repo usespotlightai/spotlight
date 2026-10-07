@@ -14,7 +14,7 @@ export function useTeamMemory(teamId: string, memoryId: string) {
         return null;
       }
       if (!data) {
-        throw new Error('Could not load the memory');
+        throw new Error('Sorry, the memory couldn’t be loaded.');
       }
       return data;
     },

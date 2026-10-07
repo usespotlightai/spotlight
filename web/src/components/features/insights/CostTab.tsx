@@ -12,8 +12,8 @@ import { useInsightsCost } from '@/hooks/api/useInsightsCost';
 import {
   COST_DIMENSIONS,
   cacheShown,
+  changeShown,
   countShown,
-  deltaOf,
   type InsightsPeriod,
   type StationNames,
   sankeyOf,
@@ -43,12 +43,7 @@ export function CostTab({ slug, teamId, period, names }: CostTabProps) {
     return <InsightsFailed what="The cost" query={cost} />;
   }
 
-  const {
-    cost: breakdown,
-    spendBefore,
-    mixedCurrenciesBefore,
-    truncated,
-  } = cost.data;
+  const { cost: breakdown, spendChange, truncated } = cost.data;
   const { spend } = breakdown;
 
   if (
@@ -58,8 +53,8 @@ export function CostTab({ slug, teamId, period, names }: CostTabProps) {
   ) {
     return (
       <NoRunsInPeriod slug={slug} teamId={teamId}>
-        Once stations run tasks, what they cost by harness, model, station and
-        repository shows here.
+        Cost by harness, model, station and repository shows here once stations
+        run tasks.
       </NoRunsInPeriod>
     );
   }
@@ -67,7 +62,7 @@ export function CostTab({ slug, teamId, period, names }: CostTabProps) {
   const named = sliceNamer(names, harnesses);
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-3">
       {truncated && <TruncatedNote />}
 
       <InsightsTiles label="Spend">
@@ -75,20 +70,13 @@ export function CostTab({ slug, teamId, period, names }: CostTabProps) {
           label="Spend"
           value={spendShown(spend)}
           detail={spend ? undefined : whyNoSpend(breakdown.mixedCurrencies)}
-          delta={
-            spend &&
-            spendBefore &&
-            !mixedCurrenciesBefore &&
-            spendBefore.currency === spend.currency
-              ? deltaOf(spend.amount, spendBefore.amount, 'neither')
-              : null
-          }
+          delta={changeShown(spendChange)}
           drill={{ tab: 'runs' }}
         />
         <InsightsTile
           label="Runs with no price"
           value={countShown(breakdown.unpriced)}
-          detail="Their harness reported no cost"
+          detail="Harness reports no cost"
         />
         <InsightsTile
           label="Cache share"
@@ -99,7 +87,7 @@ export function CostTab({ slug, teamId, period, names }: CostTabProps) {
 
       {spend && (
         <>
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-3 md:grid-cols-2">
             {COST_DIMENSIONS.map((dimension) => (
               <CostSlices
                 key={dimension.id}

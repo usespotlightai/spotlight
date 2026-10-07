@@ -26,7 +26,6 @@ type MemoryFormProps = {
   initial: TeamMemory | null;
   lines: readonly LineResponseDto[];
   pending: boolean;
-  failed: boolean;
   onSave: (memory: WriteMemoryRequestDto) => void;
 };
 
@@ -44,7 +43,6 @@ export function MemoryForm({
   initial,
   lines,
   pending,
-  failed,
   onSave,
 }: MemoryFormProps) {
   const [kind, setKind] = useState(() => kindOf(initial?.kind ?? null));
@@ -150,14 +148,7 @@ export function MemoryForm({
             />
           </div>
 
-          <DialogFooter className="items-center sm:justify-between">
-            {failed ? (
-              <p role="alert" className="text-destructive text-xs">
-                It could not be saved. Try again.
-              </p>
-            ) : (
-              <span />
-            )}
+          <DialogFooter>
             <Button type="submit" size="sm" disabled={unsaveable}>
               {submitLabel}
             </Button>

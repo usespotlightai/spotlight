@@ -1,6 +1,7 @@
 import type { InboxWait } from '@outcomes/domain/aggregates/task-touches.aggregate';
 import {
   between,
+  known,
   type Spread,
   spreadOf,
 } from '@outcomes/domain/services/measures';
@@ -14,11 +15,16 @@ import {
   tasksOf,
 } from '@outcomes/domain/services/team-history';
 import {
+  type Change,
+  changeOf,
+} from '@outcomes/domain/value-objects/change.vo';
+import {
+  type InsightsPeriod,
   type Window,
   within,
 } from '@outcomes/domain/value-objects/insights-period.vo';
 
-interface StationFlow extends StationPlace {
+interface StationWithin extends StationPlace {
   readonly tasks: number;
   readonly taskIds: readonly string[];
   readonly runs: number;
@@ -29,7 +35,7 @@ interface StationFlow extends StationPlace {
   readonly unanswered: number;
 }
 
-interface DeliveryFlow {
+interface DeliveryWithin {
   readonly toPullRequest: Spread;
   readonly toFirstReview: Spread;
   readonly toMerge: Spread;
@@ -41,13 +47,30 @@ interface DeliveryFlow {
   readonly mergedTaskIds: readonly string[];
 }
 
+interface FlowWithin {
+  readonly stations: readonly StationWithin[];
+  readonly delivery: DeliveryWithin;
+}
+
+interface StationFlow extends StationWithin {
+  readonly tasksBefore: number;
+  readonly tasksChange: Change | null;
+}
+
+interface DeliveryChanges {
+  readonly opened: Change | null;
+  readonly reviewed: Change | null;
+  readonly merged: Change | null;
+}
+
+interface DeliveryFlow extends DeliveryWithin {
+  readonly changes: DeliveryChanges;
+}
+
 export interface Flow {
   readonly stations: readonly StationFlow[];
   readonly delivery: DeliveryFlow;
 }
-
-const known = (values: readonly (number | null)[]): number[] =>
-  values.flatMap((each) => (each === null ? [] : [each]));
 
 export const inboxWaitsWithin = (
   history: TeamHistory,
@@ -63,7 +86,7 @@ export const inboxWaitsWithin = (
 const answerMs = (wait: InboxWait): number | null =>
   wait.answeredAt ? between(wait.askedAt, wait.answeredAt) : null;
 
-export const flowOf = (history: TeamHistory, window: Window): Flow => {
+const flowWithin = (history: TeamHistory, window: Window): FlowWithin => {
   const ended = endedWithin(history.records, window);
   const waits = inboxWaitsWithin(history, window);
   const openings = openingsOf(history.touches);
@@ -123,6 +146,51 @@ export const flowOf = (history: TeamHistory, window: Window): Flow => {
       openedTaskIds: opened.map((each) => each.taskId.value),
       reviewedTaskIds: reviewed.map((each) => each.taskId.value),
       mergedTaskIds: merged.map((each) => each.taskId.value),
+    },
+  };
+};
+
+const risingIsBetter = { better: 'up', unit: 'percent' } as const;
+
+export const flowOf = (history: TeamHistory, period: InsightsPeriod): Flow => {
+  const now = flowWithin(history, period.current);
+  const before = flowWithin(history, period.previous);
+  const tasksBefore = new Map(
+    before.stations.map((each) => [each.stationId, each.tasks]),
+  );
+
+  return {
+    stations: now.stations.map((station) => {
+      const was = tasksBefore.get(station.stationId) ?? 0;
+
+      return {
+        ...station,
+        tasksBefore: was,
+        tasksChange: changeOf(station.tasks, was, {
+          better: 'neither',
+          unit: 'percent',
+        }),
+      };
+    }),
+    delivery: {
+      ...now.delivery,
+      changes: {
+        opened: changeOf(
+          now.delivery.opened,
+          before.delivery.opened,
+          risingIsBetter,
+        ),
+        reviewed: changeOf(
+          now.delivery.reviewed,
+          before.delivery.reviewed,
+          risingIsBetter,
+        ),
+        merged: changeOf(
+          now.delivery.merged,
+          before.delivery.merged,
+          risingIsBetter,
+        ),
+      },
     },
   };
 };

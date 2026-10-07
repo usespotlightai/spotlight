@@ -156,7 +156,7 @@ describe('HookDefinition', () => {
         allowances: { ...OFFERED, allowsHost: () => false },
         by: BY,
       }),
-    ).toThrow(/audit.example.com, which is not among the hosts/);
+    ).toThrow(/audit.example.com, which is not an allowed outbound host/);
   });
 
   it('refuses OIDC signing where no key signs tokens', () => {
@@ -170,7 +170,7 @@ describe('HookDefinition', () => {
         allowances: OFFERED,
         by: BY,
       }),
-    ).toThrow(/no key to sign them/);
+    ).toThrow(/needs HOOK_SIGNING_KEY/);
   });
 
   it('refuses a tool no integration of the team offers', () => {
@@ -198,7 +198,7 @@ describe('HookDefinition', () => {
         allowances: OFFERED,
         by: BY,
       }),
-    ).toThrow(/is given its secret/);
+    ).toThrow(/required for HMAC signing/);
   });
 
   it('keeps its secret when redefined at the same version', () => {
@@ -241,7 +241,7 @@ describe('HookDefinition', () => {
         OFFERED,
         BY,
       ),
-    ).toThrow(/new version needs its secret/);
+    ).toThrow(/required when secretVersion changes/);
   });
 
   it('forgets its secret when it stops signing with HMAC', () => {
