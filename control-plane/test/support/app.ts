@@ -1,5 +1,5 @@
 import type { Server } from 'node:http';
-import type { INestApplication, OnApplicationShutdown } from '@nestjs/common';
+import type { INestApplication } from '@nestjs/common';
 import { Test, type TestingModuleBuilder } from '@nestjs/testing';
 import { ENV } from '@platform/config/config.constants';
 import { parseEnv } from '@platform/config/env';
@@ -25,14 +25,6 @@ const sessionsFromHeader: SessionReaderPort = {
   },
 };
 
-class DroppedOnShutdown implements OnApplicationShutdown {
-  constructor(private readonly url: string) {}
-
-  onApplicationShutdown(): Promise<void> {
-    return droppedDatabase(this.url);
-  }
-}
-
 export const openApp = async (
   overriding: (module: TestingModuleBuilder) => TestingModuleBuilder = (
     module,
@@ -40,21 +32,19 @@ export const openApp = async (
 ): Promise<INestApplication> => {
   const env = { ...parseEnv(), DATABASE_URL: await clonedDatabase('app') };
   const compiled = await overriding(
-    Test.createTestingModule({
-      imports: [AppModule],
-      providers: [
-        {
-          provide: DroppedOnShutdown,
-          useValue: new DroppedOnShutdown(env.DATABASE_URL),
-        },
-      ],
-    })
+    Test.createTestingModule({ imports: [AppModule] })
       .overrideProvider(SESSION_READER)
       .useValue(sessionsFromHeader)
       .overrideProvider(ENV)
       .useValue(env),
   ).compile();
   const app = configureApp(compiled.createNestApplication());
+  const closed = app.close.bind(app);
+
+  app.close = async () => {
+    await closed();
+    await droppedDatabase(env.DATABASE_URL);
+  };
 
   await app.listen(0, '127.0.0.1');
 
