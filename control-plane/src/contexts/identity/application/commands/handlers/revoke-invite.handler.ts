@@ -1,41 +1,42 @@
 import type { RevokeInviteCommand } from '@identity/application/commands/revoke-invite.command';
-import type { TeamAdministration } from '@identity/application/services/team-administration.service';
-import type { InviteRepository } from '@identity/domain/repositories/invite.repository';
+import type { WorkspaceAdministration } from '@identity/application/services/workspace-administration.service';
+import type { WorkspaceInviteRepository } from '@identity/domain/repositories/workspace-invite.repository';
 import { InviteId } from '@identity/domain/value-objects/invite-id.vo';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
-import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 export class RevokeInviteHandler
   implements CommandHandlerPort<RevokeInviteCommand, boolean>
 {
   constructor(
-    private readonly authorization: TeamAdministration,
-    private readonly invites: InviteRepository,
+    private readonly administration: WorkspaceAdministration,
+    private readonly invites: WorkspaceInviteRepository,
     private readonly clock: ClockPort,
   ) {}
 
   async execute(command: RevokeInviteCommand): Promise<boolean> {
     try {
-      if (
-        !(await this.authorization.administeredBy(
-          command.teamId,
-          command.viewerId,
-        ))
-      ) {
+      const administered = await this.administration.administeredBy(
+        command.slug,
+        command.viewerId,
+      );
+
+      if (!administered) {
         return false;
       }
 
       const invite = await this.invites.find(InviteId.of(command.inviteId));
 
-      if (!invite?.teamId.equals(TeamId.of(command.teamId))) {
+      if (!invite?.workspaceId.equals(administered.workspace.id)) {
         return false;
       }
 
-      const revoked = invite.revoked(this.clock.now());
+      const revoked = invite.revoked(administered.by, this.clock.now());
 
-      await this.invites.save(revoked);
+      if (revoked !== invite) {
+        await this.invites.save(revoked);
+      }
 
       return true;
     } catch (error) {

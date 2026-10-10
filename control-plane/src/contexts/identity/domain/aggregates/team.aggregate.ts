@@ -1,10 +1,14 @@
+import type { Workspace } from '@identity/domain/aggregates/workspace.aggregate';
 import { TeamCreated } from '@identity/domain/events/team-created.event';
 import { TeamDisbanded } from '@identity/domain/events/team-disbanded.event';
 import { TeamMemberJoined } from '@identity/domain/events/team-member-joined.event';
 import { TeamRedefined } from '@identity/domain/events/team-redefined.event';
+import { AlreadyOnTheTeamError } from '@identity/domain/exceptions/already-on-the-team.error';
+import { NotInTheWorkspaceError } from '@identity/domain/exceptions/not-in-the-workspace.error';
 import { TeamInUseError } from '@identity/domain/exceptions/team-in-use.error';
 import { TeamKeyFixedError } from '@identity/domain/exceptions/team-key-fixed.error';
 import { TeamMovedOnError } from '@identity/domain/exceptions/team-moved-on.error';
+import { TeamOutsideWorkspaceError } from '@identity/domain/exceptions/team-outside-workspace.error';
 import type { Holdings } from '@identity/domain/value-objects/holdings.vo';
 import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import type { TeamName } from '@identity/domain/value-objects/team-name.vo';
@@ -106,7 +110,13 @@ export class Team extends EventRecorder {
     return this.members.some((each) => each.equals(userId));
   }
 
-  joinedBy(userId: UserId): Team {
+  joinedBy(userId: UserId, workspace: Workspace): Team {
+    if (!workspace.id.equals(this.workspaceId)) {
+      throw new TeamOutsideWorkspaceError(this.id.value);
+    }
+    if (!workspace.holds(userId)) {
+      throw new NotInTheWorkspaceError();
+    }
     if (this.holds(userId)) {
       return this;
     }
@@ -116,6 +126,14 @@ export class Team extends EventRecorder {
     joined.record(new TeamMemberJoined(this.id, userId));
 
     return joined;
+  }
+
+  memberAdded(userId: UserId, workspace: Workspace): Team {
+    if (this.holds(userId)) {
+      throw new AlreadyOnTheTeamError(this.name.value);
+    }
+
+    return this.joinedBy(userId, workspace);
   }
 
   renamedTo(name: TeamName): Team {

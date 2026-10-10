@@ -2,12 +2,12 @@ import { useParams } from 'react-router';
 import { SettingsPage } from '@/components/features/settings/SettingsPage';
 import { SettingsRow } from '@/components/features/settings/SettingsRow';
 import { SettingsSection } from '@/components/features/settings/SettingsSection';
-import { TeamInvites } from '@/components/features/settings/TeamInvites';
 import { TeamMembers } from '@/components/features/settings/TeamMembers';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { failed } from '@/lib/query';
+import { administers } from '@/lib/role';
 
 export function TeamGeneral() {
   const { slug, teamId } = useParams();
@@ -50,9 +50,12 @@ export function TeamGeneral() {
         </SettingsSection>
       )}
 
-      <TeamMembers slug={slug} teamId={teamId} />
-
-      <TeamInvites teamId={teamId} />
+      <TeamMembers
+        slug={slug}
+        teamId={teamId}
+        admin={workspace.data ? administers(workspace.data.role) : false}
+        teams={workspace.data?.teams ?? []}
+      />
     </SettingsPage>
   );
 }

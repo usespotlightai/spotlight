@@ -25,3 +25,9 @@ export const TOM: TaskPersonResponseDto = {
 };
 
 export const PEOPLE = [SAM, MAYA, PRIYA, TOM];
+
+export const LENA: TaskPersonResponseDto = {
+  id: 'user_5',
+  name: 'Lena Park',
+  image: null,
+};

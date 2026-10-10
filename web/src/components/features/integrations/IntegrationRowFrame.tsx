@@ -37,10 +37,12 @@ export function IntegrationRowFrame({
   children,
 }: IntegrationRowFrameProps) {
   const [open, setOpen] = useState(false);
+  const [traveling, setTraveling] = useState(false);
   const details = useId();
   const head = useRef<HTMLDivElement>(null);
   const body = useRef<HTMLDivElement>(null);
   const moving = useRef<Moving | null>(null);
+  const stopTravel = useRef<(() => void) | null>(null);
 
   const flip = () => {
     const shown = (open ? body : head).current?.querySelector<HTMLElement>(
@@ -63,8 +65,19 @@ export function IntegrationRowFrame({
       `[data-need="${move?.need}"]`,
     );
 
-    if (move && target) {
-      travel(move.from, target);
+    stopTravel.current?.();
+    stopTravel.current =
+      move && target
+        ? travel(
+            move.from,
+            target,
+            body.current?.firstElementChild as HTMLElement | null,
+            () => setTraveling(false),
+          )
+        : null;
+
+    if (stopTravel.current) {
+      setTraveling(true);
     }
   }, [open]);
 
@@ -73,7 +86,8 @@ export function IntegrationRowFrame({
       ref={row}
       data-slot={slot}
       data-open={open || undefined}
-      className="cursor-pointer"
+      data-traveling={traveling || undefined}
+      className="cursor-pointer [&[data-traveling]_[data-need]]:invisible [&[data-traveling]_[data-need]]:transition-none"
     >
       <div
         ref={head}

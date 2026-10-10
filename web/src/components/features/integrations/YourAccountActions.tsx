@@ -1,6 +1,6 @@
 import { Unplug } from 'lucide-react';
-import { AccountActions } from '@/components/features/integrations/AccountActions';
-import { ActionWithAlert } from '@/components/features/integrations/ActionWithAlert';
+import { ActionWithAlert } from '@/components/shared/ActionWithAlert';
+import { RowActions } from '@/components/shared/RowActions';
 import { useDisconnect } from '@/hooks/api/useDisconnect';
 import type { Integration } from '@/lib/integration';
 
@@ -19,7 +19,7 @@ export function YourAccountActions({
     <ActionWithAlert
       alert={disconnect.isError ? 'Could not disconnect. Try again.' : null}
     >
-      <AccountActions
+      <RowActions
         label={`Actions for your ${integration.name} account`}
         disabled={disconnect.isPending}
         actions={[

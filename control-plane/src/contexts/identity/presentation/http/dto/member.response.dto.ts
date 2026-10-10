@@ -1,4 +1,5 @@
 import type { MemberDto } from '@identity/application/dto/member.dto';
+import { TeamReferenceResponseDto } from '@identity/presentation/http/dto/team-reference.response.dto';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class MemberResponseDto {
@@ -26,4 +27,22 @@ export class MemberResponseDto {
     isArray: true,
   })
   readonly mayBeSetTo!: MemberDto['mayBeSetTo'];
+}
+
+export class WorkspaceMemberResponseDto extends MemberResponseDto {
+  @ApiProperty({ example: 'ada@example.com' })
+  readonly email!: string;
+
+  @ApiProperty({
+    description: 'The teams of this workspace they are on.',
+    type: TeamReferenceResponseDto,
+    isArray: true,
+  })
+  readonly teams!: readonly TeamReferenceResponseDto[];
+
+  @ApiProperty({
+    description: 'When they joined the workspace.',
+    example: '2026-09-12T09:00:00.000Z',
+  })
+  readonly joinedAt!: string;
 }

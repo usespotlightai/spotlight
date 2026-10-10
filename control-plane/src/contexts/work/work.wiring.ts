@@ -16,9 +16,9 @@ import {
   type WorkspaceConnectionsPort,
 } from '@github/application/ports/workspace-connections.port';
 import {
-  MEMBER_READER,
-  type MemberReaderPort,
-} from '@identity/application/ports/member-reader.port';
+  MEMBER_DIRECTORY,
+  type MemberDirectoryPort,
+} from '@identity/application/ports/member-directory.port';
 import { PERSON_READER } from '@identity/application/ports/person-reader.port';
 import {
   TEAM_DIRECTORY,
@@ -1039,7 +1039,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       TRANSACTION,
       CLOCK,
       ID_GENERATOR,
-      MEMBER_READER,
+      MEMBER_DIRECTORY,
       ATTACHMENT_STORE,
       HEARD_HAPPENINGS,
       LOGGER,
@@ -1052,7 +1052,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       transaction: TransactionPort,
       clock: ClockPort,
       ids: IdGeneratorPort,
-      members: MemberReaderPort,
+      members: MemberDirectoryPort,
       files: AttachmentStorePort,
       heard: HeardHappeningsPort,
       logger: LoggerPort,

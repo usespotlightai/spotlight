@@ -91,21 +91,19 @@ export const teamMember = pgTable(
   ],
 );
 
-export const teamInvite = pgTable(
-  'team_invite',
+export const workspaceInvite = pgTable(
+  'workspace_invite',
   {
     id: text('id').primaryKey(),
-    teamId: text('team_id')
-      .notNull()
-      .references(() => team.id, { onDelete: 'cascade' }),
     workspaceId: text('workspace_id')
       .notNull()
       .references(() => workspace.id, { onDelete: 'cascade' }),
     email: text('email').notNull(),
+    role: workspaceRole('role').notNull(),
     tokenHash: text('token_hash').notNull().unique(),
-    invitedBy: text('invited_by')
-      .notNull()
-      .references(() => user.id, { onDelete: 'cascade' }),
+    invitedBy: text('invited_by').references(() => user.id, {
+      onDelete: 'set null',
+    }),
     invitedAt: timestamp('invited_at').defaultNow().notNull(),
     expiresAt: timestamp('expires_at').notNull(),
     acceptedAt: timestamp('accepted_at'),
@@ -116,11 +114,38 @@ export const teamInvite = pgTable(
     version: integer('version').notNull().default(1),
   },
   (table) => [
-    uniqueIndex('team_invite_team_email_idx')
-      .on(table.teamId, table.email)
+    uniqueIndex('workspace_invite_workspace_email_idx')
+      .on(table.workspaceId, sql`lower(${table.email})`)
       .where(sql`${table.acceptedAt} is null and ${table.revokedAt} is null`),
-    index('team_invite_team_idx').on(table.teamId, table.email),
-    index('team_invite_workspace_idx').on(table.workspaceId),
+    index('workspace_invite_workspace_idx').on(
+      table.workspaceId,
+      table.invitedAt,
+    ),
+    check('workspace_invite_role', sql`${table.role} <> 'owner'`),
+    check(
+      'workspace_invite_accepted_by',
+      sql`${table.acceptedBy} is null or ${table.acceptedAt} is not null`,
+    ),
+    check(
+      'workspace_invite_closed_once',
+      sql`not (${table.acceptedAt} is not null and ${table.revokedAt} is not null)`,
+    ),
+  ],
+);
+
+export const workspaceInviteTeam = pgTable(
+  'workspace_invite_team',
+  {
+    inviteId: text('invite_id')
+      .notNull()
+      .references(() => workspaceInvite.id, { onDelete: 'cascade' }),
+    teamId: text('team_id')
+      .notNull()
+      .references(() => team.id, { onDelete: 'cascade' }),
+  },
+  (table) => [
+    primaryKey({ columns: [table.inviteId, table.teamId] }),
+    index('workspace_invite_team_team_idx').on(table.teamId),
   ],
 );
 

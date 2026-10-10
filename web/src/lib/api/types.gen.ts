@@ -2347,6 +2347,34 @@ export type WorkspaceResponseDto = {
   role: 'owner' | 'admin' | 'member';
 };
 
+export type TeamReferenceResponseDto = {
+  id: string;
+  name: string;
+};
+
+export type WorkspaceMemberResponseDto = {
+  id: string;
+  name: string;
+  image: string | null;
+  /**
+   * What they are in the workspace this team belongs to.
+   */
+  role: 'owner' | 'admin' | 'member';
+  /**
+   * What the caller may set them to, which is empty where that is not theirs to do. Worked out by the same rule the workspace enforces.
+   */
+  mayBeSetTo: Array<'owner' | 'admin' | 'member'>;
+  email: string;
+  /**
+   * The teams of this workspace they are on.
+   */
+  teams: Array<TeamReferenceResponseDto>;
+  /**
+   * When they joined the workspace.
+   */
+  joinedAt: string;
+};
+
 export type ChangeMemberRoleRequestDto = {
   /**
    * What they are to be in this workspace, which is what they may do in every team of it.
@@ -2410,22 +2438,66 @@ export type MemberResponseDto = {
   mayBeSetTo: Array<'owner' | 'admin' | 'member'>;
 };
 
-export type InviteResponseDto = {
+export type AddTeamMemberRequestDto = {
+  /**
+   * Somebody already in the workspace this team belongs to.
+   */
+  userId: string;
+};
+
+export type InviterResponseDto = {
+  id: string;
+  name: string;
+  image: string | null;
+};
+
+export type WorkspaceInviteResponseDto = {
   id: string;
   email: string;
   /**
-   * Who asked them.
+   * What they will be in the workspace once they accept.
    */
-  invitedBy: string;
+  role: 'admin' | 'member';
+  /**
+   * The teams they join on accepting.
+   */
+  teams: Array<TeamReferenceResponseDto>;
+  /**
+   * Who asked them, or null once their account is deleted.
+   */
+  invitedBy: InviterResponseDto | null;
   invitedAt: string;
   expiresAt: string;
 };
 
-export type InviteToTeamRequestDto = {
+export type InviteToWorkspaceRequestDto = {
   /**
-   * Where the invitation is sent, and who may accept it.
+   * Where each invitation is sent, and who may accept it. One invitation per address.
    */
+  emails: Array<string>;
+  /**
+   * What they will be in the workspace once they accept. Nobody is invited as an owner, nor above the inviter.
+   */
+  role: 'admin' | 'member';
+  /**
+   * The teams of this workspace they join on accepting.
+   */
+  teamIds: Array<string>;
+};
+
+export type InviteOutcomeResponseDto = {
   email: string;
+  /**
+   * What came of the address: a new invitation, an open one sent again with a fresh link, nothing, since they are already in the workspace, or an invitation kept whose email could not be sent, which sending again may still deliver.
+   */
+  outcome: 'invited' | 'sent-again' | 'already-a-member' | 'not-sent';
+};
+
+export type InviteOutcomesResponseDto = {
+  /**
+   * One outcome per address asked, in the order asked.
+   */
+  outcomes: Array<InviteOutcomeResponseDto>;
 };
 
 export type InviteOfferResponseDto = {
@@ -2433,19 +2505,30 @@ export type InviteOfferResponseDto = {
    * The address it was sent to, which is who may accept it.
    */
   email: string;
-  teamName: string;
   workspaceName: string;
-  invitedBy: string;
+  /**
+   * Who asked them, or null once their account is deleted.
+   */
+  invitedBy: string | null;
+  /**
+   * What they will be in the workspace once they accept.
+   */
+  role: 'admin' | 'member';
+  /**
+   * The teams they join on accepting.
+   */
+  teamNames: Array<string>;
   /**
    * Whether it is still worth following.
    */
   standing: 'open' | 'accepted' | 'revoked' | 'expired';
 };
 
-export type JoinedTeamResponseDto = {
+export type JoinedWorkspaceResponseDto = {
+  /**
+   * Where they land.
+   */
   workspaceSlug: string;
-  teamId: string;
-  teamName: string;
 };
 
 export type SecretSourceResponseDto = {
@@ -12681,6 +12764,32 @@ export type GetWorkspaceResponses = {
 
 export type GetWorkspaceResponse = GetWorkspaceResponses[keyof GetWorkspaceResponses];
 
+export type ListWorkspaceMembersData = {
+  body?: never;
+  path: {
+    slug: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/members';
+};
+
+export type ListWorkspaceMembersErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such workspace for this caller
+   */
+  404: unknown;
+};
+
+export type ListWorkspaceMembersResponses = {
+  200: Array<WorkspaceMemberResponseDto>;
+};
+
+export type ListWorkspaceMembersResponse = ListWorkspaceMembersResponses[keyof ListWorkspaceMembersResponses];
+
 export type ChangeMemberRoleData = {
   body: ChangeMemberRoleRequestDto;
   path: {
@@ -12784,70 +12893,146 @@ export type ListMembersResponses = {
 
 export type ListMembersResponse = ListMembersResponses[keyof ListMembersResponses];
 
-export type ListInvitesData = {
+export type AddTeamMemberData = {
+  body: AddTeamMemberRequestDto;
+  path: {
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/members';
+};
+
+export type AddTeamMemberErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team, or not yours to add people to
+   */
+  404: unknown;
+  /**
+   * They are already on the team
+   */
+  409: unknown;
+  /**
+   * They are not in the workspace
+   */
+  422: unknown;
+};
+
+export type AddTeamMemberResponses = {
+  /**
+   * They are on the team now
+   */
+  204: void;
+};
+
+export type AddTeamMemberResponse = AddTeamMemberResponses[keyof AddTeamMemberResponses];
+
+export type ListWorkspaceInvitesData = {
   body?: never;
   path: {
-    teamId: string;
+    slug: string;
   };
   query?: never;
-  url: '/teams/{teamId}/invites';
+  url: '/workspaces/{slug}/invites';
 };
 
-export type ListInvitesErrors = {
+export type ListWorkspaceInvitesErrors = {
   /**
    * No valid session
    */
   401: unknown;
   /**
-   * No such team for this caller
+   * No such workspace, or not yours to invite to
    */
   404: unknown;
 };
 
-export type ListInvitesResponses = {
-  200: Array<InviteResponseDto>;
+export type ListWorkspaceInvitesResponses = {
+  200: Array<WorkspaceInviteResponseDto>;
 };
 
-export type ListInvitesResponse = ListInvitesResponses[keyof ListInvitesResponses];
+export type ListWorkspaceInvitesResponse = ListWorkspaceInvitesResponses[keyof ListWorkspaceInvitesResponses];
 
-export type InviteToTeamData = {
-  body: InviteToTeamRequestDto;
+export type InviteToWorkspaceData = {
+  body: InviteToWorkspaceRequestDto;
   path: {
-    teamId: string;
+    slug: string;
   };
   query?: never;
-  url: '/teams/{teamId}/invites';
+  url: '/workspaces/{slug}/invites';
 };
 
-export type InviteToTeamErrors = {
+export type InviteToWorkspaceErrors = {
   /**
    * No valid session
    */
   401: unknown;
   /**
-   * No such team, or not yours to invite to
+   * Not a role yours to give
+   */
+  403: unknown;
+  /**
+   * No such workspace, or not yours to invite to
    */
   404: unknown;
   /**
-   * They are already on this team
+   * Another invitation was just sent
+   */
+  409: unknown;
+  /**
+   * An address, role or team that does not hold
+   */
+  422: unknown;
+};
+
+export type InviteToWorkspaceResponses = {
+  200: InviteOutcomesResponseDto;
+};
+
+export type InviteToWorkspaceResponse = InviteToWorkspaceResponses[keyof InviteToWorkspaceResponses];
+
+export type ResendInviteData = {
+  body?: never;
+  path: {
+    slug: string;
+    inviteId: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/invites/{inviteId}/resend';
+};
+
+export type ResendInviteErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such invitation for this caller
+   */
+  404: unknown;
+  /**
+   * Already accepted or revoked
    */
   409: unknown;
 };
 
-export type InviteToTeamResponses = {
-  201: InviteResponseDto;
+export type ResendInviteResponses = {
+  200: WorkspaceInviteResponseDto;
 };
 
-export type InviteToTeamResponse = InviteToTeamResponses[keyof InviteToTeamResponses];
+export type ResendInviteResponse = ResendInviteResponses[keyof ResendInviteResponses];
 
 export type RevokeInviteData = {
   body?: never;
   path: {
-    teamId: string;
+    slug: string;
     inviteId: string;
   };
   query?: never;
-  url: '/teams/{teamId}/invites/{inviteId}';
+  url: '/workspaces/{slug}/invites/{inviteId}';
 };
 
 export type RevokeInviteErrors = {
@@ -12859,6 +13044,10 @@ export type RevokeInviteErrors = {
    * No such invitation for this caller
    */
   404: unknown;
+  /**
+   * Already accepted
+   */
+  409: unknown;
 };
 
 export type RevokeInviteResponses = {
@@ -12921,7 +13110,7 @@ export type AcceptInviteErrors = {
 };
 
 export type AcceptInviteResponses = {
-  200: JoinedTeamResponseDto;
+  200: JoinedWorkspaceResponseDto;
 };
 
 export type AcceptInviteResponse = AcceptInviteResponses[keyof AcceptInviteResponses];

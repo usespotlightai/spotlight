@@ -1,4 +1,4 @@
-import type { MemberReaderPort } from '@identity/application/ports/member-reader.port';
+import type { MemberDirectoryPort } from '@identity/application/ports/member-directory.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
@@ -50,10 +50,8 @@ const NOW = new Date('2026-08-31T12:00:00.000Z');
 const clock: ClockPort = { now: () => NOW, sleep: async () => {} };
 const transaction: TransactionPort = { run: async (work) => work() };
 const ids: IdGeneratorPort = { generate: () => 'task_new' };
-const members: MemberReaderPort = {
-  listForTeam: async () => null,
+const members: MemberDirectoryPort = {
   byEmail: async () => null,
-  onTeam: async () => false,
 };
 
 const kept: Attachment[] = [];
@@ -978,7 +976,7 @@ describe('ReactToHappenings', () => {
       transaction,
       clock,
       ids,
-      { listForTeam: async () => null, byEmail, onTeam: async () => false },
+      { byEmail },
       files,
       heardInMemory(),
       logger,
@@ -1056,11 +1054,7 @@ describe('ReactToHappenings', () => {
       transaction,
       clock,
       ids,
-      {
-        listForTeam: async () => null,
-        byEmail: async () => null,
-        onTeam: async () => false,
-      },
+      { byEmail: async () => null },
       files,
       heardInMemory(),
       logger,

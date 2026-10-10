@@ -1,5 +1,5 @@
 import { render } from '@testing-library/react';
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { INSIGHTS_TABS } from '@/lib/insights';
 import { serveMockApi } from '@/mocks/testing';
 import { GROWTH_ID, PLATFORM_ID, SLUG, world } from '@/mocks/world';
@@ -9,23 +9,10 @@ import { setStore } from '@/mocks/world/station-sets';
 import { teamChats } from '@/mocks/world/team-chats';
 import { RUN_CHANGE_STACKS } from '@/mocks/world/work-changes';
 import { MockApplication } from '@/stories/MockApplication';
+import { quietBrowser } from '@/test/signed-in';
 
-vi.mock('@/hooks/api/useSession', () => ({
-  useSession: () => ({
-    data: {
-      user: {
-        id: 'user_1',
-        name: 'Sam Rivera',
-        email: 'sam@example.com',
-        image: null,
-      },
-      session: { id: 'session_1', userId: 'user_1' },
-    },
-    isPending: false,
-    isRefetching: false,
-    error: null,
-    refetch: async () => undefined,
-  }),
+vi.mock('@/hooks/api/useSession', async () => ({
+  useSession: (await import('@/test/signed-in')).signedInSession,
 }));
 
 const EMPTY =
@@ -100,6 +87,7 @@ const teamPages = (teamId: string): string[] => {
 const PAGES = (): string[] => [
   `${workspace}/inbox`,
   `${workspace}/settings/general`,
+  `${workspace}/settings/members`,
   `${workspace}/settings/runners`,
   `${workspace}/settings/tokens`,
   ...teamPages(PLATFORM_ID),
@@ -120,27 +108,9 @@ const settled = async () => {
   }
 };
 
-class QuietStream {
-  onmessage: (() => void) | null = null;
-  close() {}
-}
-
-const quietMedia = () => ({
-  matches: false,
-  addEventListener() {},
-  removeEventListener() {},
-});
-
 describe('every page with data', () => {
   serveMockApi();
-
-  beforeAll(() => {
-    vi.stubGlobal('EventSource', QuietStream);
-    vi.stubGlobal('matchMedia', quietMedia);
-  });
-  afterAll(() => {
-    vi.unstubAllGlobals();
-  });
+  quietBrowser();
 
   it('shows data, never an empty or missing state', async () => {
     const empty: string[] = [];

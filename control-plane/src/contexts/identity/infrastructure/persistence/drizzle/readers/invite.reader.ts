@@ -3,120 +3,135 @@ import type {
   InviteReaderPort,
   InviteSummary,
 } from '@identity/application/ports/invite-reader.port';
-import type { InviteStatus } from '@identity/domain/aggregates/invite.aggregate';
+import type { TeamNamed } from '@identity/application/read-models/team-named';
+import { WorkspaceInvite } from '@identity/domain/aggregates/workspace-invite.aggregate';
+import { invitable } from '@identity/domain/value-objects/invite-terms.vo';
 import { user } from '@identity/infrastructure/persistence/drizzle/schemas/auth.schema';
 import {
   team,
-  teamInvite,
   workspace,
-  workspaceMember,
+  workspaceInvite,
+  workspaceInviteTeam,
 } from '@identity/infrastructure/persistence/drizzle/schemas/workspace.schema';
 import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
-import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
-import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
-import { and, desc, eq, gt, isNull } from 'drizzle-orm';
+import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import { and, asc, desc, eq, gt, inArray, isNull } from 'drizzle-orm';
 
 @Injectable()
 export class DrizzleInviteReader implements InviteReaderPort {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDatabase) {}
 
-  async openForTeam(
-    teamId: TeamId,
-    viewerId: UserId,
-  ): Promise<InviteSummary[] | null> {
-    const [visible] = await this.db
-      .select({ id: team.id })
-      .from(team)
-      .innerJoin(
-        workspaceMember,
-        and(
-          eq(workspaceMember.workspaceId, team.workspaceId),
-          eq(workspaceMember.userId, viewerId.value),
-        ),
-      )
-      .where(eq(team.id, teamId.value))
-      .limit(1);
-
-    if (!visible) {
-      return null;
-    }
-
+  async openInWorkspace(
+    workspaceId: WorkspaceId,
+    now: Date,
+  ): Promise<readonly InviteSummary[]> {
     const rows = await this.db
       .select({
-        id: teamInvite.id,
-        email: teamInvite.email,
-        invitedBy: user.name,
-        invitedAt: teamInvite.invitedAt,
-        expiresAt: teamInvite.expiresAt,
+        id: workspaceInvite.id,
+        email: workspaceInvite.email,
+        role: workspaceInvite.role,
+        inviterId: user.id,
+        inviterName: user.name,
+        inviterImage: user.image,
+        invitedAt: workspaceInvite.invitedAt,
+        expiresAt: workspaceInvite.expiresAt,
       })
-      .from(teamInvite)
-      .innerJoin(user, eq(user.id, teamInvite.invitedBy))
+      .from(workspaceInvite)
+      .leftJoin(user, eq(user.id, workspaceInvite.invitedBy))
       .where(
         and(
-          eq(teamInvite.teamId, teamId.value),
-          isNull(teamInvite.acceptedAt),
-          isNull(teamInvite.revokedAt),
-          gt(teamInvite.expiresAt, new Date()),
+          eq(workspaceInvite.workspaceId, workspaceId.value),
+          isNull(workspaceInvite.acceptedAt),
+          isNull(workspaceInvite.revokedAt),
+          gt(workspaceInvite.expiresAt, now),
         ),
       )
-      .orderBy(desc(teamInvite.invitedAt));
+      .orderBy(desc(workspaceInvite.invitedAt));
+
+    const teams = await this.teamsOf(rows.map((row) => row.id));
 
     return rows.map((row) => ({
       id: row.id,
       email: row.email,
-      invitedBy: row.invitedBy,
+      role: invitable(row.role),
+      teams: teams.get(row.id) ?? [],
+      invitedBy:
+        row.inviterId && row.inviterName
+          ? {
+              id: row.inviterId,
+              name: row.inviterName,
+              image: row.inviterImage,
+            }
+          : null,
       invitedAt: row.invitedAt,
       expiresAt: row.expiresAt,
-      standing: 'open' as const,
     }));
   }
 
-  async withToken(hash: TokenHash): Promise<InviteOffer | null> {
+  async withToken(hash: TokenHash, now: Date): Promise<InviteOffer | null> {
     const [found] = await this.db
       .select({
-        email: teamInvite.email,
-        teamName: team.name,
+        id: workspaceInvite.id,
+        email: workspaceInvite.email,
+        role: workspaceInvite.role,
         workspaceName: workspace.name,
         invitedBy: user.name,
-        acceptedAt: teamInvite.acceptedAt,
-        revokedAt: teamInvite.revokedAt,
-        expiresAt: teamInvite.expiresAt,
+        acceptedAt: workspaceInvite.acceptedAt,
+        revokedAt: workspaceInvite.revokedAt,
+        expiresAt: workspaceInvite.expiresAt,
       })
-      .from(teamInvite)
-      .innerJoin(team, eq(team.id, teamInvite.teamId))
-      .innerJoin(workspace, eq(workspace.id, teamInvite.workspaceId))
-      .innerJoin(user, eq(user.id, teamInvite.invitedBy))
-      .where(eq(teamInvite.tokenHash, hash.value))
+      .from(workspaceInvite)
+      .innerJoin(workspace, eq(workspace.id, workspaceInvite.workspaceId))
+      .leftJoin(user, eq(user.id, workspaceInvite.invitedBy))
+      .where(eq(workspaceInvite.tokenHash, hash.value))
       .limit(1);
 
     if (!found) {
       return null;
     }
 
+    const teams = await this.teamsOf([found.id]);
+
     return {
       email: found.email,
-      teamName: found.teamName,
       workspaceName: found.workspaceName,
       invitedBy: found.invitedBy,
-      standing: standingOf(found),
+      role: invitable(found.role),
+      teamNames: (teams.get(found.id) ?? []).map((each) => each.name),
+      standing: WorkspaceInvite.standingOf(found, now),
     };
   }
+
+  private async teamsOf(
+    inviteIds: readonly string[],
+  ): Promise<ReadonlyMap<string, readonly TeamNamed[]>> {
+    if (inviteIds.length === 0) {
+      return new Map();
+    }
+
+    const rows = await this.db
+      .select({
+        inviteId: workspaceInviteTeam.inviteId,
+        id: team.id,
+        name: team.name,
+      })
+      .from(workspaceInviteTeam)
+      .innerJoin(team, eq(team.id, workspaceInviteTeam.teamId))
+      .where(inArray(workspaceInviteTeam.inviteId, [...inviteIds]))
+      .orderBy(asc(team.name));
+
+    const teams = new Map<string, TeamNamed[]>();
+
+    for (const row of rows) {
+      const held = teams.get(row.inviteId) ?? [];
+
+      held.push({ id: row.id, name: row.name });
+      teams.set(row.inviteId, held);
+    }
+
+    return teams;
+  }
 }
-
-const standingOf = (row: {
-  acceptedAt: Date | null;
-  revokedAt: Date | null;
-  expiresAt: Date;
-}): InviteStatus => {
-  if (row.acceptedAt) {
-    return 'accepted';
-  }
-  if (row.revokedAt) {
-    return 'revoked';
-  }
-
-  return row.expiresAt <= new Date() ? 'expired' : 'open';
-};

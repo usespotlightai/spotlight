@@ -1,5 +1,5 @@
 import { Download } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { SectionButton } from '@/components/shared/SectionButton';
 import { useDownloadTerraform } from '@/hooks/api/useDownloadTerraform';
 
 type DownloadTerraformButtonProps = {
@@ -14,15 +14,12 @@ export function DownloadTerraformButton({
   const download = useDownloadTerraform();
 
   return (
-    <Button
-      variant="outline"
-      size="sm"
-      className="rounded-full border-border bg-card px-3 shadow-none"
+    <SectionButton
       disabled={!workspaceId || download.isPending}
       onClick={() => workspaceId && download.mutate({ workspaceId, slug })}
     >
       <Download aria-hidden className="size-3.5" />
       {download.isPending ? 'Preparing Terraform…' : 'Download'}
-    </Button>
+    </SectionButton>
   );
 }

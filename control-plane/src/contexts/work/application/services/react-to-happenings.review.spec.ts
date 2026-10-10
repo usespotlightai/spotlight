@@ -1,4 +1,4 @@
-import type { MemberReaderPort } from '@identity/application/ports/member-reader.port';
+import type { MemberDirectoryPort } from '@identity/application/ports/member-directory.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
@@ -43,10 +43,8 @@ const NOW = new Date('2026-09-18T12:00:00.000Z');
 const PULL = 'https://github.com/acme/api/pull/7';
 const clock: ClockPort = { now: () => NOW, sleep: async () => {} };
 const transaction: TransactionPort = { run: async (work) => work() };
-const members: MemberReaderPort = {
-  listForTeam: async () => null,
+const members: MemberDirectoryPort = {
   byEmail: async () => null,
-  onTeam: async () => false,
 };
 const files = {
   grant: vi.fn(),

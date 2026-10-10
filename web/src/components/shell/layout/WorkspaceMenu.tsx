@@ -18,18 +18,21 @@ import {
 import { useSession } from '@/hooks/api/useSession';
 import { useSignOut } from '@/hooks/api/useSignOut';
 import { useWorkspaces } from '@/hooks/api/useWorkspaces';
+import { membersPath } from '@/lib/members';
 import { settingsPath } from '@/lib/settings';
 import { workspacePath } from '@/lib/workspace';
 
 type WorkspaceMenuProps = {
   name: string;
   slug: string;
+  admin?: boolean;
   noneAnswering?: boolean;
 };
 
 export function WorkspaceMenu({
   name,
   slug,
+  admin = false,
   noneAnswering = false,
 }: WorkspaceMenuProps) {
   const navigate = useNavigate();
@@ -69,12 +72,14 @@ export function WorkspaceMenu({
           }
         />
 
-        <DropdownMenuItem
-          closeOnClick
-          render={
-            <Link to={settingsPath(slug)}>Invite and manage members</Link>
-          }
-        />
+        {admin && (
+          <DropdownMenuItem
+            closeOnClick
+            render={
+              <Link to={membersPath(slug)}>Invite and manage members</Link>
+            }
+          />
+        )}
 
         <DropdownMenuSeparator />
 
