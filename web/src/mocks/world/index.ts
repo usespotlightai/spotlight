@@ -60,7 +60,7 @@ const MEMBERS: Record<string, MemberResponseDto[]> = {
   ],
 };
 
-export const createWorld = (kind: WorldKind): World => ({
+const createWorld = (kind: WorldKind): World => ({
   kind,
   workspace: WORKSPACE,
   lines: { [PLATFORM_ID]: PLATFORM_LINES, [GROWTH_ID]: GROWTH_LINES },

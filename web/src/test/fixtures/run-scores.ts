@@ -1,7 +1,4 @@
-import type { QueryClient } from '@tanstack/react-query';
-import { runScoreKeys } from '@/hooks/api/useRunScores';
 import type { JudgeStandingResponseDto, RunScoresResponseDto } from '@/lib/api';
-import { failQuery } from '@/test/failQuery';
 
 export const RUBRIC =
   'Pass a run that fixes the reported bug without widening the change. Fail it where tests were skipped or the diff touches unrelated files.';
@@ -121,65 +118,4 @@ export const claimsScoresOf = (
       ],
     },
   };
-};
-
-export const seedRunScores = (
-  client: QueryClient,
-  runId: string,
-  taskId: string,
-  over: Partial<RunScoresResponseDto> = {},
-) => {
-  client.setQueryData(
-    runScoreKeys.forRun(runId),
-    runScoresOf(runId, taskId, over),
-  );
-};
-
-export const seedClaimsRunScores = (
-  client: QueryClient,
-  runId: string,
-  taskId: string,
-) => {
-  client.setQueryData(
-    runScoreKeys.forRun(runId),
-    claimsScoresOf(runId, taskId),
-  );
-};
-
-export const seedNoRunScores = (
-  client: QueryClient,
-  runId: string,
-  taskId: string,
-) => {
-  client.setQueryData(
-    runScoreKeys.forRun(runId),
-    runScoresOf(runId, taskId, {
-      judged: false,
-      judge: null,
-      standing: { ...TRUSTED, trusted: false, hiddenBecause: 'no-judge' },
-    }),
-  );
-};
-
-export const seedHiddenRunScores = (
-  client: QueryClient,
-  runId: string,
-  taskId: string,
-) =>
-  seedRunScores(client, runId, taskId, {
-    judge: null,
-    standing: {
-      ...TRUSTED,
-      trusted: false,
-      agreement: 0.38,
-      hiddenBecause: 'below-trust',
-    },
-  });
-
-export const failRunScores = (
-  client: QueryClient,
-  runId: string,
-  error?: Error,
-) => {
-  failQuery(client, runScoreKeys.forRun(runId), error);
 };

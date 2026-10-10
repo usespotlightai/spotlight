@@ -722,7 +722,7 @@ const usedOf = (story: RunStory): number => {
     : 0;
 };
 
-export const journalOf = (run: TaskRunResponseDto): RunJournalResponseDto => {
+const journalOf = (run: TaskRunResponseDto): RunJournalResponseDto => {
   const story = storyOf(run.id);
   const steps = timedSteps(run, story);
   const ready = new Date(Date.parse(run.startedAt) + PREPARE_MS).toISOString();

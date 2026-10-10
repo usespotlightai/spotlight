@@ -4,6 +4,7 @@ import { type Location, MemoryRouter } from 'react-router';
 import App from '@/App';
 import { Toaster } from '@/components/ui/toast';
 import { failuresToasted } from '@/lib/failure-toasts';
+import { OpenPage } from '@/stories/OpenPage';
 
 type MockApplicationProps = {
   at: string | Partial<Location>;
@@ -22,6 +23,7 @@ export function MockApplication({ at }: MockApplicationProps) {
     <QueryClientProvider client={client}>
       <Toaster>
         <MemoryRouter initialEntries={[at]}>
+          <OpenPage />
           <App />
         </MemoryRouter>
       </Toaster>

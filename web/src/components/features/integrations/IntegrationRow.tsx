@@ -1,19 +1,17 @@
-import { ChevronRight } from 'lucide-react';
-import { type MouseEvent, useId, useState } from 'react';
+import { useId, useRef, useState } from 'react';
 import { IntegrationDetails } from '@/components/features/integrations/IntegrationDetails';
 import { IntegrationLogo } from '@/components/features/integrations/IntegrationLogo';
 import { IntegrationNeed } from '@/components/features/integrations/IntegrationNeed';
 import { IntegrationReadProblem } from '@/components/features/integrations/IntegrationReadProblem';
+import { FoldChevron } from '@/components/shared/FoldChevron';
 import { Unfold } from '@/components/shared/Unfold';
+import { useRowClick } from '@/hooks/useRowClick';
 import {
   type Integration,
   type Joined,
   type MyConnection,
   usedForShown,
 } from '@/lib/integration';
-import { cn } from '@/lib/utils';
-
-const OWN_CLICKS = 'button, a, [role^="menu"], [role="dialog"]';
 
 type IntegrationRowProps = {
   integration: Integration;
@@ -21,7 +19,6 @@ type IntegrationRowProps = {
   admin: boolean;
   mine: MyConnection | null;
   joined: Joined | null;
-  startsOpen?: boolean;
 };
 
 export function IntegrationRow({
@@ -30,21 +27,14 @@ export function IntegrationRow({
   admin,
   mine,
   joined,
-  startsOpen = false,
 }: IntegrationRowProps) {
-  const [open, setOpen] = useState(startsOpen);
+  const [open, setOpen] = useState(false);
   const details = useId();
+  const detailsRegion = useRef<HTMLDivElement>(null);
   const flip = () => setOpen((was) => !was);
-  const onRow = (event: MouseEvent) => {
-    const target = event.target as Element;
-    if (
-      target.closest(OWN_CLICKS) ||
-      target.closest(`#${CSS.escape(details)}`)
-    ) {
-      return;
-    }
-    flip();
-  };
+  const onRow = useRowClick(flip, {
+    ignore: (target) => detailsRegion.current?.contains(target) ?? false,
+  });
 
   return (
     // biome-ignore lint/a11y/useKeyWithClickEvents: the integration's own button is the keyboard path; this widens the click to the whole row
@@ -91,17 +81,11 @@ export function IntegrationRow({
               mine={mine}
             />
           )}
-          <ChevronRight
-            aria-hidden
-            className={cn(
-              'size-4 text-muted-foreground transition-transform duration-200',
-              open && 'rotate-90',
-            )}
-          />
+          <FoldChevron open={open} className="size-4 text-muted-foreground" />
         </div>
       </div>
 
-      <div id={details} className="cursor-auto">
+      <div id={details} ref={detailsRegion} className="cursor-auto">
         <Unfold open={open} appear={false}>
           <IntegrationDetails
             integration={integration}

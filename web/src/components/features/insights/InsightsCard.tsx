@@ -10,6 +10,7 @@ type InsightsCardProps = {
   actions?: ReactNode;
   table?: ReactNode;
   tableOnly?: boolean;
+  level?: 2 | 3;
   className?: string;
   children: ReactNode;
 };
@@ -21,6 +22,7 @@ export function InsightsCard({
   actions,
   table,
   tableOnly = false,
+  level,
   className,
   children,
 }: InsightsCardProps) {
@@ -44,6 +46,7 @@ export function InsightsCard({
             titleId={titleId}
             title={title}
             description={description}
+            level={level}
           />
         </div>
         {actions}

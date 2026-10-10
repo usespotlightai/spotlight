@@ -105,6 +105,3 @@ export const percentileOf = (
 };
 
 export const dayOf = (iso: string): string => iso.slice(0, 10);
-
-export const hoursSince = (iso: string): number =>
-  (Date.now() - Date.parse(iso)) / 3_600_000;

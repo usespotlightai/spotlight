@@ -1,3 +1,4 @@
+import type { UseQueryResult } from '@tanstack/react-query';
 import { MemoryTabs } from '@/components/features/memory/MemoryTabs';
 import { TeamMemoryResults } from '@/components/features/memory/TeamMemoryResults';
 import { useTeamMemories } from '@/hooks/api/useTeamMemories';
@@ -11,7 +12,7 @@ type TeamMemoryListProps = {
   opened: string | null;
   writing: boolean;
   onWritten: () => void;
-  lines: readonly LineResponseDto[];
+  lines: UseQueryResult<LineResponseDto[]>;
 };
 
 export function TeamMemoryList({

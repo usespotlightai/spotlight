@@ -30,10 +30,7 @@ export function AlertSlide({ alert }: { alert: AlertThreshold }) {
       data-slot="alert-slide"
       className="w-44 max-w-[85%] shrink-0"
     >
-      <div
-        aria-hidden
-        className="flex h-full flex-col justify-between gap-2 rounded-md bg-surface p-3"
-      >
+      <div aria-hidden className="flex h-full flex-col justify-between gap-2">
         <span className="flex min-w-0 items-center gap-1.5 text-foreground text-xs">
           <Icon className="size-3.5 shrink-0 text-muted-foreground" />
           <span className="truncate">{face.measure}</span>

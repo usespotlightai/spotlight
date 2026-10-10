@@ -2,7 +2,7 @@ import { MEMORY_COLUMNS } from '@/components/features/memory/columns';
 import { MemoryBodyInput } from '@/components/features/memory/MemoryBodyInput';
 import { MemoryKindSelect } from '@/components/features/memory/MemoryKindSelect';
 import { MemoryPlaceEditor } from '@/components/features/memory/MemoryPlaceEditor';
-import { PillButton } from '@/components/shared/PillButton';
+import { SaveCancelButtons } from '@/components/features/memory/SaveCancelButtons';
 import { useSession } from '@/hooks/api/useSession';
 import { useWriteMemory } from '@/hooks/api/useWriteMemory';
 import { useMemoryDraft } from '@/hooks/useMemoryDraft';
@@ -59,19 +59,13 @@ export function NewMemoryRow({ teamId, lines, onDone }: NewMemoryRowProps) {
         </span>
       </div>
 
-      <div className="flex items-center gap-2 px-3 pt-1 pb-3">
-        <PillButton
-          type="button"
-          variant="default"
-          disabled={unsaveable}
-          onClick={save}
-        >
-          {write.isPending ? 'Saving…' : 'Save'}
-        </PillButton>
-        <PillButton type="button" onClick={onDone}>
-          Cancel
-        </PillButton>
-      </div>
+      <SaveCancelButtons
+        saving={write.isPending}
+        unsaveable={unsaveable}
+        onSave={save}
+        onCancel={onDone}
+        className="px-3 pt-1 pb-3"
+      />
     </li>
   );
 }

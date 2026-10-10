@@ -22,7 +22,7 @@ import {
   startReplay,
   stopSearch,
 } from '@/lib/api';
-import { useMockApi } from '@/mocks/testing';
+import { serveMockApi } from '@/mocks/testing';
 import { DELIVERY_ID, PLATFORM_ID, WORKSPACE } from '@/mocks/world';
 
 const IMPLEMENTATION = {
@@ -34,7 +34,7 @@ const IMPLEMENTATION = {
 const TRIAGE = { ...IMPLEMENTATION, stationId: 'station_triage' };
 
 describe('the mock station', () => {
-  useMockApi();
+  serveMockApi();
 
   it('groups the implementation runs by config version, newest from the tests-first pull request', async () => {
     const { data } = await listStationOutcomes({
@@ -262,7 +262,7 @@ describe('the mock station', () => {
 });
 
 describe('the mock station in an empty workspace', () => {
-  useMockApi('empty');
+  serveMockApi('empty');
 
   it('answers empty', async () => {
     const { data: outcomes } = await listStationOutcomes({

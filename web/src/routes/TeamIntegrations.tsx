@@ -65,7 +65,7 @@ export function TeamIntegrations() {
           </div>
         </SettingsSection>
       ) : (
-        <SettingsSection list="Integrations">
+        <SettingsSection listLabel="Integrations">
           {github.data && (
             <GitHubRow
               slug={slug}

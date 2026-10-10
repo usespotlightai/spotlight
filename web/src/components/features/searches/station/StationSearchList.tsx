@@ -43,7 +43,7 @@ export function StationSearchList({
 
   if (failed(searches)) {
     return (
-      <StateBox>
+      <StateBox flat>
         <MembersOnlyOrCouldNotLoad
           membersOnly="Only team members can see its searches"
           what="The station’s searches"
@@ -55,7 +55,7 @@ export function StationSearchList({
 
   if (listed.length === 0) {
     return (
-      <StateBox>
+      <StateBox flat>
         <EmptyState icon={Sparkles} title="No searches yet" action={start}>
           {sets?.length === 0
             ? 'Searches need a replay set to try configs on.'

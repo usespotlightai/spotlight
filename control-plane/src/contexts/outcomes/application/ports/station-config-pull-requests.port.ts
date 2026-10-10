@@ -6,7 +6,6 @@ export interface StationConfigPullRequest {
   readonly configPullRequestId: string;
   readonly workspaceId: WorkspaceId;
   readonly teamId: TeamId;
-  readonly lineId: string;
   readonly stationId: string;
   readonly fingerprint: string;
   readonly url: PullRequestUrl;

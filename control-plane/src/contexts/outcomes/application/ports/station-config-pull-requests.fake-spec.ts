@@ -13,7 +13,9 @@ export const stationConfigPullRequestsInMemory =
     return {
       held,
       note: async (pullRequest) => {
-        held.set(pullRequest.configPullRequestId, pullRequest);
+        if (!held.has(pullRequest.configPullRequestId)) {
+          held.set(pullRequest.configPullRequestId, pullRequest);
+        }
       },
       newestFor: async (station, fingerprints) => {
         const newest = new Map<string, StationConfigPullRequest>();

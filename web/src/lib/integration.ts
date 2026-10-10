@@ -4,6 +4,7 @@ import type {
   MyConnectionResponseDto,
   PersonConnectionResponseDto,
 } from '@/lib/api';
+import { toolsCounted } from '@/lib/described';
 
 export type Integration = ConfiguredIntegrationResponseDto;
 
@@ -20,7 +21,7 @@ const toolsShown = ({ described }: Integration): string | null => {
     return null;
   }
 
-  return described.tools === 1 ? '1 tool' : `${described.tools} tools`;
+  return toolsCounted(described.tools);
 };
 
 export const usedForShown = (integration: Integration): string => {
@@ -39,7 +40,7 @@ export const teamAccountPurpose = (integration: Integration): string =>
     ? 'Watches and posts for the team.'
     : 'Agents’ tools act as this account.';
 
-export type Connected = {
+type Connected = {
   readonly id: string;
   readonly name: string;
   readonly image: string | null;

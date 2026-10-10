@@ -3,7 +3,7 @@ import type { Location } from 'react-router';
 import { userEvent, within } from 'storybook/test';
 import { MockApplication } from '@/stories/MockApplication';
 
-export type Screen = ReturnType<typeof within>;
+type Screen = ReturnType<typeof within>;
 
 export type Script = (screen: Screen, user: typeof userEvent) => Promise<void>;
 

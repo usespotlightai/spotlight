@@ -4,7 +4,7 @@ const config: StorybookConfig = {
   stories: ['../src/**/*.stories.@(ts|tsx)'],
   framework: '@storybook/react-vite',
   addons: ['msw-storybook-addon'],
-  staticDirs: ['../public'],
+  staticDirs: ['../public', './public'],
   core: {
     disableTelemetry: true,
   },

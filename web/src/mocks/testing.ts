@@ -4,7 +4,7 @@ import { client } from '@/lib/api/client.gen';
 import { handlers } from '@/mocks/handlers';
 import { type PageState, setScenario } from '@/mocks/scenario';
 
-export const useMockApi = (state: PageState = 'data') => {
+export const serveMockApi = (state: PageState = 'data') => {
   const server = setupServer(...handlers);
 
   beforeAll(() => {

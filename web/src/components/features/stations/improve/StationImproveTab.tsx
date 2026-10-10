@@ -1,4 +1,3 @@
-import { FlatLists } from '@/components/features/replays/FlatLists';
 import { OpenReplaySetAction } from '@/components/features/replays/station/OpenReplaySetAction';
 import { ReplaySets } from '@/components/features/replays/station/ReplaySets';
 import { StationSearches } from '@/components/features/searches/station/StationSearches';
@@ -38,7 +37,7 @@ export function StationImproveTab({
   };
 
   return (
-    <FlatLists>
+    <>
       <ImproveSection title="What stands out">
         <WorthImproving
           teamId={teamId}
@@ -49,7 +48,7 @@ export function StationImproveTab({
               teamId={teamId}
               improving={improving}
               label="Review with the agent"
-              className="h-7 gap-1 border-transparent bg-primary px-2.5 text-[0.8rem] text-primary-foreground shadow-none hover:bg-primary/80 hover:text-primary-foreground [&_svg]:size-3.5"
+              variant="default"
             />
           }
           askAbout={(reading) => (
@@ -90,6 +89,6 @@ export function StationImproveTab({
           </ImproveCard>
         </div>
       </ImproveSection>
-    </FlatLists>
+    </>
   );
 }

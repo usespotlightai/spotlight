@@ -1,7 +1,7 @@
 import { buttonVariants } from '@/components/ui/button-variants';
 import { cn } from '@/lib/utils';
 
-export type PillVariant = 'default' | 'outline';
+export type PillVariant = 'default' | 'outline' | 'ghost';
 
 export const pillClass = (variant: PillVariant, className?: string): string =>
   cn(

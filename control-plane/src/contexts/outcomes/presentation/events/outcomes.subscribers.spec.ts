@@ -263,7 +263,7 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
       },
       watches,
     ),
-    proposing: new NoteConfigPullRequestOpened(
+    openingConfigPullRequests: new NoteConfigPullRequestOpened(
       configPullRequests,
       forgotten,
       inTransaction,
@@ -650,11 +650,10 @@ describe('outcomesSubscribers', () => {
       configPullRequestId: id,
       workspaceId: 'ws_1',
       teamId,
-      lineId: 'line_1',
       stationId: 'station_1',
       fingerprint: FIRST_CONFIG,
       url: `https://github.com/acme/platform/pull/${id}`,
-      openedAt: '2026-09-30T09:00:00.000Z',
+      at: '2026-09-30T09:00:00.000Z',
     });
 
     await heard.deliver(

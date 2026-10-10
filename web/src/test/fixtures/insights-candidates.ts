@@ -1,19 +1,9 @@
-import type { QueryClient } from '@tanstack/react-query';
-import { insightsCandidatesKeys } from '@/hooks/api/useInsightsCandidates';
-import { DEFAULT_PERIOD } from '@/lib/insights';
 import type {
   CandidatesSet,
   InsightsCandidates,
   SetCandidate,
 } from '@/lib/insights-candidates';
-import { failQuery } from '@/test/failQuery';
-import {
-  daysAgo,
-  LINE_ID,
-  loadInsights,
-  PERIOD,
-} from '@/test/fixtures/insights';
-import { TEAM_ID } from '@/test/fixtures/team';
+import { daysAgo, LINE_ID, PERIOD } from '@/test/fixtures/insights';
 
 const candidate = (
   over: Partial<SetCandidate> &
@@ -454,26 +444,4 @@ export const CANDIDATES: InsightsCandidates = {
     },
     { lineId: LINE_ID, stationId: 'station_review', sets: [REVIEW_SET] },
   ],
-};
-
-const EMPTY_CANDIDATES: InsightsCandidates = { ...CANDIDATES, stations: [] };
-
-export const CANDIDATES_KEY = insightsCandidatesKeys.forTeam(
-  TEAM_ID,
-  DEFAULT_PERIOD,
-);
-
-export const seedCandidates = (client: QueryClient) => {
-  loadInsights(client);
-  client.setQueryData(CANDIDATES_KEY, CANDIDATES);
-};
-
-export const emptyCandidates = (client: QueryClient) => {
-  loadInsights(client);
-  client.setQueryData(CANDIDATES_KEY, EMPTY_CANDIDATES);
-};
-
-export const failCandidates = (client: QueryClient) => {
-  loadInsights(client);
-  failQuery(client, CANDIDATES_KEY);
 };

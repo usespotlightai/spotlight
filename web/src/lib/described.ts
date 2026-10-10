@@ -9,9 +9,8 @@ const DESCRIPTIONS: Readonly<
   mcp: 'MCP server',
 };
 
-export const describedShown = (
-  kind: ConfiguredDescriptionResponseDto['kind'],
-): string => DESCRIPTIONS[kind];
+export const toolsCounted = (tools: number): string =>
+  tools === 1 ? '1 tool' : `${tools} tools`;
 
 export const readProblemShown = ({
   kind,
@@ -24,4 +23,4 @@ export const toolsReadShown = ({
   tools,
   readAt,
 }: ConfiguredDescriptionResponseDto): string =>
-  `${tools === 1 ? '1 tool' : `${tools} tools`} from its ${DESCRIPTIONS[kind]}, read ${since(readAt)}`;
+  `${toolsCounted(tools)} from its ${DESCRIPTIONS[kind]}, read ${since(readAt)}`;

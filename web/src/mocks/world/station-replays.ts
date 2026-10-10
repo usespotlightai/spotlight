@@ -44,9 +44,7 @@ export type ReplaySpec = {
 };
 
 export const BILLING_SET_ID = 'set_billing_work';
-export const DOCS_SET_ID = 'set_docs';
-
-export const BILLING_RUNS = [
+const BILLING_RUNS = [
   'run_flaky_billing_2',
   'run_invoice_split_1',
   'run_billing_worker_1',
@@ -385,10 +383,7 @@ const WAITING: Omit<
   reasons: [],
 };
 
-export const entryOf = (
-  replay: ReplaySpec,
-  place: number,
-): ReplayEntryResponseDto => {
+const entryOf = (replay: ReplaySpec, place: number): ReplayEntryResponseDto => {
   const originalRunId = replay.runs[place] ?? '';
   const original = runOfStation(originalRunId);
   const mark = replay.marks[place] ?? 'waiting';

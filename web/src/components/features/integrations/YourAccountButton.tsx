@@ -1,4 +1,5 @@
 import { useLocation } from 'react-router';
+import { ActionWithAlert } from '@/components/features/integrations/ActionWithAlert';
 import { PillButton } from '@/components/shared/PillButton';
 import { useConnectIntegration } from '@/hooks/api/useConnectIntegration';
 import type { Integration } from '@/lib/integration';
@@ -16,19 +17,27 @@ export function YourAccountButton({
   const connect = useConnectIntegration(teamId);
 
   return (
-    <PillButton
-      variant="default"
-      aria-label={`Connect your ${integration.name} account`}
-      disabled={connect.isPending}
-      onClick={() =>
-        connect.mutate({
-          source: integration.source,
-          for: 'me',
-          back: pathname,
-        })
-      }
+    <ActionWithAlert
+      alert={connect.isError ? 'Could not connect. Try again.' : null}
     >
-      {connect.isPending ? 'Opening…' : 'Connect your account'}
-    </PillButton>
+      <PillButton
+        variant="default"
+        aria-label={
+          connect.isPending
+            ? undefined
+            : `Connect your account for ${integration.name}`
+        }
+        disabled={connect.isPending}
+        onClick={() =>
+          connect.mutate({
+            source: integration.source,
+            for: 'me',
+            back: pathname,
+          })
+        }
+      >
+        {connect.isPending ? 'Opening…' : 'Connect your account'}
+      </PillButton>
+    </ActionWithAlert>
   );
 }

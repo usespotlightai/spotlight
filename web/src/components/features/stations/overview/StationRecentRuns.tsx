@@ -11,7 +11,11 @@ import { useStationOutcomes } from '@/hooks/api/useStationOutcomes';
 import { DEFAULT_PERIOD, insightsPath } from '@/lib/insights';
 import { failed, loading } from '@/lib/query';
 import { runPath } from '@/lib/run';
-import { RECENT_RUN_HEADINGS, recentRuns } from '@/lib/station-outcomes';
+import {
+  hasRuns,
+  RECENT_RUN_HEADINGS,
+  recentRuns,
+} from '@/lib/station-outcomes';
 
 const SHOWN = 8;
 
@@ -29,7 +33,9 @@ export function StationRecentRuns({
   stationId,
 }: StationRecentRunsProps) {
   const outcomes = useStationOutcomes(teamId, lineId, stationId);
-  const runs = recentRuns(outcomes.data?.groups ?? [], SHOWN);
+  const groups = outcomes.data?.groups ?? [];
+  const runs = recentRuns(groups, SHOWN);
+  const ran = hasRuns(groups);
   const all = insightsPath(slug, teamId, {
     tab: 'runs',
     period: DEFAULT_PERIOD,
@@ -44,8 +50,9 @@ export function StationRecentRuns({
   return (
     <InsightsCard
       tableOnly
+      level={3}
       title="Recent runs"
-      actions={runs.length > 0 && <SectionLink to={all}>All runs</SectionLink>}
+      actions={ran && <SectionLink to={all}>All runs</SectionLink>}
     >
       {failed(outcomes) ? (
         <div className="flex flex-1 items-center justify-center py-10">
@@ -57,13 +64,19 @@ export function StationRecentRuns({
         </div>
       ) : runs.length === 0 ? (
         <div className="flex flex-1 items-center justify-center py-10">
-          <EmptyState
-            icon={Play}
-            title="No runs yet"
-            action={<CreateTaskLink slug={slug} teamId={teamId} />}
-          >
-            Latest runs show here once tasks reach this station.
-          </EmptyState>
+          {ran ? (
+            <EmptyState icon={Play} title="No runs on this config yet">
+              Runs on earlier configs are under All runs.
+            </EmptyState>
+          ) : (
+            <EmptyState
+              icon={Play}
+              title="No runs yet"
+              action={<CreateTaskLink slug={slug} teamId={teamId} />}
+            >
+              Latest runs show here once tasks reach this station.
+            </EmptyState>
+          )}
         </div>
       ) : (
         <NestedTable label="Recent runs" headings={RECENT_RUN_HEADINGS}>

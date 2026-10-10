@@ -142,7 +142,7 @@ const INTEGRATIONS: Record<string, ConfiguredIntegrationResponseDto[]> = {
   ],
 };
 
-export const TOOLS_OF: Record<string, string[]> = {
+const TOOLS_OF: Record<string, string[]> = {
   linear: ['linear.issue', 'linear.comment', 'linear.issue-create'],
   sentry: ['sentry.issue', 'sentry.events'],
 };

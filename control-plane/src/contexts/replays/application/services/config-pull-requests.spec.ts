@@ -48,6 +48,7 @@ import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { Spend } from '@replays/domain/value-objects/spend.vo';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { beforeEach, describe, expect, it } from 'vitest';
 
@@ -250,7 +251,7 @@ describe('picking a search candidate', () => {
         pullRequestId: only().id,
         stationId: AT_HAND.stationId,
         proposing: PROPOSED,
-        url: 'https://github.com/acme/platform/pull/1',
+        url: PullRequestUrl.of('https://github.com/acme/platform/pull/1'),
       }),
     ]);
     expect(configs.commits).toEqual([

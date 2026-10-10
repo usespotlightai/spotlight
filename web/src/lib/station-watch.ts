@@ -39,16 +39,8 @@ const amountOf = (
     ? amountIn(amount, currency)
     : sharePercent(amount);
 
-const changeOf = (
-  alert: AlertThreshold,
-  change: number,
-  currency: string | null,
-): string => {
-  if (alert.measure === 'cost_per_run') {
-    return amountIn(change, currency);
-  }
-
-  const points = Math.round(change * 1000) / 10;
+const pointsSaid = (share: number): string => {
+  const points = Math.round(share * 1000) / 10;
 
   return `${points} ${points === 1 ? 'point' : 'points'}`;
 };
@@ -59,29 +51,6 @@ const overRuns = (over: number): string =>
 const changeOverRuns = (over: number): string =>
   over === 1 ? 'from one run to the next' : `over ${over} runs`;
 
-const thresholdOf = (
-  alert: AlertThreshold,
-  currency: string | null,
-): string => {
-  if (alert.risesBy !== null) {
-    return `rises ${changeOf(alert, alert.risesBy, currency)} or more ${changeOverRuns(alert.over)}`;
-  }
-  if (alert.fallsBy !== null) {
-    return `falls ${changeOf(alert, alert.fallsBy, currency)} or more ${changeOverRuns(alert.over)}`;
-  }
-  if (alert.below !== null) {
-    return `drops below ${amountOf(alert, alert.below, currency)} ${overRuns(alert.over)}`;
-  }
-
-  return `goes above ${amountOf(alert, alert.above ?? 0, currency)} ${overRuns(alert.over)}`;
-};
-
-export const alertPhrase = (
-  alert: AlertThreshold,
-  currency: string | null = null,
-): string =>
-  `Alerts when the ${MEASURES[alert.measure].toLowerCase()} ${thresholdOf(alert, currency)}`;
-
 export type AlertTrigger = 'rises' | 'falls' | 'above' | 'below';
 
 export type AlertFace = {
@@ -91,50 +60,84 @@ export type AlertFace = {
   readonly window: string;
 };
 
-const changeShown = (
+type AlertReading = {
+  readonly trigger: AlertTrigger;
+  readonly amount: number;
+};
+
+const readingOf = (alert: AlertThreshold): AlertReading => {
+  if (alert.risesBy !== null) {
+    return { trigger: 'rises', amount: alert.risesBy };
+  }
+  if (alert.fallsBy !== null) {
+    return { trigger: 'falls', amount: alert.fallsBy };
+  }
+  if (alert.below !== null) {
+    return { trigger: 'below', amount: alert.below };
+  }
+
+  return { trigger: 'above', amount: alert.above ?? 0 };
+};
+
+const isChange = (trigger: AlertTrigger): boolean =>
+  trigger === 'rises' || trigger === 'falls';
+
+const thresholdShown = (
   alert: AlertThreshold,
-  change: number,
+  { trigger, amount }: AlertReading,
   currency: string | null,
-): string =>
-  alert.measure === 'cost_per_run'
-    ? amountIn(change, currency)
-    : pointsShown(change);
+  points: (share: number) => string,
+): string => {
+  if (!isChange(trigger)) {
+    return amountOf(alert, amount, currency);
+  }
+
+  return alert.measure === 'cost_per_run'
+    ? amountIn(amount, currency)
+    : points(amount);
+};
+
+const BOUNDS: Record<AlertTrigger, string> = {
+  rises: '+',
+  falls: '−',
+  below: '< ',
+  above: '> ',
+};
+
+const SAID: Record<AlertTrigger, (threshold: string) => string> = {
+  rises: (threshold) => `rises ${threshold} or more`,
+  falls: (threshold) => `falls ${threshold} or more`,
+  below: (threshold) => `drops below ${threshold}`,
+  above: (threshold) => `goes above ${threshold}`,
+};
 
 export const alertFace = (
   alert: AlertThreshold,
   currency: string | null = null,
 ): AlertFace => {
-  const measure = MEASURES[alert.measure];
-
-  if (alert.risesBy !== null) {
-    return {
-      measure,
-      trigger: 'rises',
-      threshold: `+${changeShown(alert, alert.risesBy, currency)}`,
-      window: changeOverRuns(alert.over),
-    };
-  }
-  if (alert.fallsBy !== null) {
-    return {
-      measure,
-      trigger: 'falls',
-      threshold: `−${changeShown(alert, alert.fallsBy, currency)}`,
-      window: changeOverRuns(alert.over),
-    };
-  }
-  if (alert.below !== null) {
-    return {
-      measure,
-      trigger: 'below',
-      threshold: `< ${amountOf(alert, alert.below, currency)}`,
-      window: overRuns(alert.over),
-    };
-  }
+  const reading = readingOf(alert);
 
   return {
-    measure,
-    trigger: 'above',
-    threshold: `> ${amountOf(alert, alert.above ?? 0, currency)}`,
-    window: overRuns(alert.over),
+    measure: MEASURES[alert.measure],
+    trigger: reading.trigger,
+    threshold: `${BOUNDS[reading.trigger]}${thresholdShown(alert, reading, currency, pointsShown)}`,
+    window: isChange(reading.trigger)
+      ? changeOverRuns(alert.over)
+      : overRuns(alert.over),
   };
+};
+
+export const alertPhrase = (
+  alert: AlertThreshold,
+  currency: string | null = null,
+): string => {
+  const { measure, trigger, window } = alertFace(alert, currency);
+  const threshold = thresholdShown(
+    alert,
+    readingOf(alert),
+    currency,
+    pointsSaid,
+  );
+
+  return `Alerts when the ${measure.toLowerCase()} ${SAID[trigger](threshold)} ${window}`;
 };

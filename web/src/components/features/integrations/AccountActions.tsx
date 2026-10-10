@@ -6,7 +6,7 @@ import {
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 
-export type AccountAction = {
+type AccountAction = {
   readonly label: string;
   readonly icon: LucideIcon;
   readonly onSelect: () => void;

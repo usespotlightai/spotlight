@@ -27,13 +27,14 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { OwedWorkPort } from '@shared-kernel/application/ports/owed-work.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
+import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 const CLAIM_MS = 10 * 60_000;
 
 type Opened =
-  | { readonly url: string; readonly proposing: StationFingerprint }
+  | { readonly url: PullRequestUrl; readonly proposing: StationFingerprint }
   | { readonly reason: ConfigPullRequestReason };
 
 const because = (error: unknown): string =>
@@ -238,11 +239,13 @@ export class OpenConfigPullRequests implements OwedWorkPort {
     );
 
     return {
-      url: await this.configs.opened(pullRequest.workspaceId, repository, {
-        branch: pullRequest.branch,
-        title,
-        body: ConfigPullRequestBody.of(facts),
-      }),
+      url: PullRequestUrl.of(
+        await this.configs.opened(pullRequest.workspaceId, repository, {
+          branch: pullRequest.branch,
+          title,
+          body: ConfigPullRequestBody.of(facts),
+        }),
+      ),
       proposing: candidate.fingerprint,
     };
   }

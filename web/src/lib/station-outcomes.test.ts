@@ -3,6 +3,7 @@ import {
   configVersion,
   countedColumnsOf,
   type FingerprintGroup,
+  hasRuns,
   recentRuns,
   runSpent,
 } from '@/lib/station-outcomes';
@@ -44,6 +45,24 @@ describe('recentRuns', () => {
 
   it('lists nothing before any run carried a config', () => {
     expect(recentRuns([group(null, 'run_1')], 5)).toEqual([]);
+  });
+});
+
+describe('hasRuns', () => {
+  const group = (fingerprint: string | null, ...runIds: string[]) =>
+    ({
+      fingerprint,
+      runs: runIds.map((runId) => ({ runId })),
+    }) as unknown as FingerprintGroup;
+
+  it('counts runs in any group, with or without a config', () => {
+    expect(hasRuns([group(null, 'run_1')])).toBe(true);
+    expect(hasRuns([group('a', 'run_1')])).toBe(true);
+  });
+
+  it('says no runs when every group is empty', () => {
+    expect(hasRuns([])).toBe(false);
+    expect(hasRuns([group('a')])).toBe(false);
   });
 });
 

@@ -1,7 +1,6 @@
-import { ChevronRight } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { FoldChevron } from '@/components/shared/FoldChevron';
 import type { Expansion } from '@/components/shared/nested-table/ExpandingRow';
-import { cn } from '@/lib/utils';
 
 type ExpandToggleProps = {
   expansion: Expansion;
@@ -22,12 +21,7 @@ export function ExpandToggle({ expansion, children }: ExpandToggleProps) {
         aria-hidden
         className="flex size-4 shrink-0 items-center justify-center text-muted-foreground"
       >
-        <ChevronRight
-          className={cn(
-            'size-3 transition-transform duration-200 motion-reduce:transition-none',
-            expansion.expanded && 'rotate-90',
-          )}
-        />
+        <FoldChevron open={expansion.expanded} />
       </span>
       <span className="min-w-0 break-words leading-4 group-data-clamped/row:line-clamp-1">
         {children}

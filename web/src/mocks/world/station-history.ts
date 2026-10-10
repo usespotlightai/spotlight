@@ -36,7 +36,7 @@ export const added = (
   now: null,
 });
 
-export type PastShape =
+type PastShape =
   | 'accepted'
   | 'handed'
   | 'sent-back'

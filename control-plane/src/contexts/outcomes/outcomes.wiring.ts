@@ -948,7 +948,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
       shaping: NoteChangeShaped,
       watching: WatchStations,
       alerting: AlertInbox,
-      proposing: NoteConfigPullRequestOpened,
+      openingConfigPullRequests: NoteConfigPullRequestOpened,
     ) => {
       types.register('outcomes', OUTCOMES_EVENT_TYPES);
       publications.register(OUTCOMES_PUBLICATIONS);
@@ -974,7 +974,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
           shaping,
           watching,
           alerting,
-          proposing,
+          openingConfigPullRequests,
         }),
       );
       return true;

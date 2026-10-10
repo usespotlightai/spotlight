@@ -872,7 +872,6 @@ CREATE TABLE "station_config_pull_request" (
 	"config_pull_request_id" text PRIMARY KEY NOT NULL,
 	"workspace_id" text NOT NULL,
 	"team_id" text NOT NULL,
-	"line_id" text NOT NULL,
 	"station_id" text NOT NULL,
 	"fingerprint" text NOT NULL,
 	"url" text NOT NULL,

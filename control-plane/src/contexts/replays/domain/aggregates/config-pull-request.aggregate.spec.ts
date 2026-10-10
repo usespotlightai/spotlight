@@ -24,6 +24,7 @@ import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { Spend } from '@replays/domain/value-objects/spend.vo';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
+import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -158,7 +159,7 @@ describe('ConfigPullRequest', () => {
     opening.pullEvents();
 
     const opened = opening.opened(
-      'https://github.com/acme/platform/pull/7',
+      PullRequestUrl.of('https://github.com/acme/platform/pull/7'),
       PROPOSED,
       later(5),
     );
@@ -172,10 +173,9 @@ describe('ConfigPullRequest', () => {
       pullRequestId: ConfigPullRequestId.of('pr_1'),
       workspaceId: STATION.workspaceId,
       teamId: STATION.teamId,
-      lineId: STATION.lineId,
       stationId: STATION.stationId,
       proposing: PROPOSED,
-      url: 'https://github.com/acme/platform/pull/7',
+      url: PullRequestUrl.of('https://github.com/acme/platform/pull/7'),
       at: later(5),
     });
   });

@@ -26,7 +26,7 @@ export function MemorySource({ slug, teamId, memoryId }: MemorySourceProps) {
   }
 
   if (failed(query) || !query.data) {
-    return <span>Sorry, its source couldn’t be loaded.</span>;
+    return null;
   }
 
   const memory = query.data;

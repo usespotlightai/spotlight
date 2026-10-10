@@ -1,6 +1,11 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { FOCUS_PARAM, KIND_LABELS, WRITE_PARAM } from '@/lib/memory';
-import { PLATFORM_ID } from '@/mocks/world';
+import {
+  FOCUS_PARAM,
+  KIND_LABELS,
+  memoryListPath,
+  WRITE_PARAM,
+} from '@/lib/memory';
+import { PLATFORM_ID, SLUG } from '@/mocks/world';
 import { MEMORY_SEED } from '@/mocks/world/team-memories';
 import {
   choice,
@@ -21,13 +26,19 @@ const meta = {
   title: 'Team/Memory',
   ...pageStory<MemoryArgs>({
     at: ({ standing, kind, opened, writing }) => {
-      const query = new URLSearchParams();
-      if (standing === 'retired') query.set('standing', 'retired');
-      if (kind !== 'any') query.set('kind', kind);
+      const path = memoryListPath(SLUG, PLATFORM_ID, {
+        standing,
+        kind: kind === 'any' ? null : kind,
+        lineId: null,
+        stationId: null,
+        repository: null,
+        path: null,
+      });
+      const query = new URLSearchParams(path.split('?')[1]);
       if (opened !== 'none') query.set(FOCUS_PARAM, opened);
       if (writing) query.set(WRITE_PARAM, '1');
 
-      return `/w/acme/team/team_platform/memory?${query}`;
+      return `${path.split('?')[0]}?${query}`;
     },
     args: {
       standing: 'stands',

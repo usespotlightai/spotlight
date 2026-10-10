@@ -35,9 +35,15 @@ const ORDINARY: Scenario = {
 
 let current: Scenario = ORDINARY;
 
+let page = '';
+
 export const scenario = (): Scenario => current;
 
-export const pageState = (): PageState => current.state;
+export const openPage = (): string => page;
+
+export const setOpenPage = (pathname: string): void => {
+  page = pathname;
+};
 
 export const setScenario = (next: Partial<Scenario>): void => {
   current = { ...ORDINARY, ...next };

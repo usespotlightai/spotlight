@@ -1,6 +1,12 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes, useLocation } from 'react-router';
+import {
+  MemoryRouter,
+  Route,
+  Routes,
+  useLocation,
+  useNavigate,
+} from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { TeamMemory } from '@/components/features/memory/TeamMemory';
 import type { TeamMemory as Memory, MemoryFilter } from '@/lib/memory';
@@ -21,21 +27,26 @@ vi.mock('@/hooks/api/useTeamMemories', () => ({
     return memoriesState;
   },
 }));
+const linesState = {
+  data: undefined as unknown,
+  isPending: false,
+  isFetching: false,
+  errorUpdateCount: 0,
+  refetch: vi.fn(),
+};
+const LINES = [
+  {
+    id: 'line_delivery',
+    key: 'delivery',
+    name: 'Delivery',
+    stations: [{ id: 'station_build', name: 'Implementation', kind: 'work' }],
+    reactions: [],
+    repositories: ['acme/api'],
+  },
+];
+
 vi.mock('@/hooks/api/useLines', () => ({
-  useLines: () => ({
-    data: [
-      {
-        id: 'line_delivery',
-        key: 'delivery',
-        name: 'Delivery',
-        stations: [
-          { id: 'station_build', name: 'Implementation', kind: 'work' },
-        ],
-        reactions: [],
-        repositories: ['acme/api'],
-      },
-    ],
-  }),
+  useLines: () => linesState,
 }));
 vi.mock('@/components/features/memory/WriteMemoryButton', () => ({
   WriteMemoryButton: () => <button type="button">Write a memory</button>,
@@ -107,7 +118,16 @@ const memory = (over: Partial<Memory> = {}): Memory => ({
 
 function Where() {
   const location = useLocation();
-  return <output aria-label="Where">{location.search}</output>;
+  const navigate = useNavigate();
+
+  return (
+    <>
+      <output aria-label="Where">{location.search}</output>
+      <button type="button" onClick={() => navigate('?memory=memory_2')}>
+        Follow a link to memory_2
+      </button>
+    </>
+  );
 }
 
 const showing = (at = '/w/acme/team/team_1/memory') =>
@@ -132,6 +152,9 @@ beforeEach(() => {
   memoriesState.data = undefined;
   memoriesState.isPending = false;
   memoriesState.errorUpdateCount = 0;
+  linesState.data = LINES;
+  linesState.isPending = false;
+  linesState.errorUpdateCount = 0;
 });
 
 describe('TeamMemory', () => {
@@ -410,5 +433,76 @@ describe('TeamMemory', () => {
     ).toHaveAttribute('aria-expanded', 'true');
     expect(screen.getByText('Details of memory_9')).toBeInTheDocument();
     expect(screen.queryByText('Details of memory_1')).not.toBeInTheDocument();
+  });
+
+  it('starts a folded memory afresh, not in the edit it was left in', async () => {
+    memoriesState.data = [
+      memory(),
+      memory({ id: 'memory_2', body: 'Retry uploads in the request.' }),
+    ];
+    showing();
+    const first = screen.getByRole('button', {
+      name: /Name branches after the ticket/,
+    });
+
+    await userEvent.click(first);
+    await userEvent.click(screen.getByRole('button', { name: 'Edit' }));
+    await userEvent.click(
+      screen.getByRole('button', { name: /Retry uploads in the request/ }),
+    );
+    await userEvent.click(
+      screen.getByRole('button', { name: /Name branches after the ticket/ }),
+    );
+
+    expect(
+      screen.queryByRole('textbox', { name: 'What the team should remember' }),
+    ).not.toBeInTheDocument();
+    expect(
+      within(rowsShown()[0] as HTMLElement).getByRole('button', {
+        name: 'Edit',
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it('opens whichever memory a later link names', async () => {
+    memoriesState.data = [
+      memory(),
+      memory({ id: 'memory_2', body: 'Retry uploads in the request.' }),
+    ];
+    showing('/w/acme/team/team_1/memory?memory=memory_1');
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Follow a link to memory_2' }),
+    );
+
+    expect(
+      screen.getByRole('button', { name: /Retry uploads in the request/ }),
+    ).toHaveAttribute('aria-expanded', 'true');
+    expect(
+      screen.getByRole('button', { name: /Name branches after the ticket/ }),
+    ).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('holds its shape while the lines load', () => {
+    memoriesState.data = [memory({ lineId: 'line_delivery' })];
+    linesState.data = undefined;
+    linesState.isPending = true;
+    showing();
+
+    expect(
+      screen.getByRole('status', { name: 'Loading the team’s memory' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('Line deleted')).not.toBeInTheDocument();
+  });
+
+  it('offers to try again when the lines could not be loaded', async () => {
+    memoriesState.data = [memory()];
+    linesState.data = undefined;
+    linesState.errorUpdateCount = 1;
+    showing();
+
+    await userEvent.click(screen.getByRole('button', { name: /Try again/ }));
+
+    expect(linesState.refetch).toHaveBeenCalled();
   });
 });

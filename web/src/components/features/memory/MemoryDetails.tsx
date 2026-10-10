@@ -1,15 +1,16 @@
 import { useState } from 'react';
 import { RetireReply } from '@/components/features/memory/RetireReply';
+import { SaveCancelButtons } from '@/components/features/memory/SaveCancelButtons';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { PillButton } from '@/components/shared/PillButton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
-import { Button } from '@/components/ui/button';
 import { useTeamMemory } from '@/hooks/api/useTeamMemory';
 import { failed, loading } from '@/lib/query';
 
 type MemoryDetailsProps = {
   teamId: string;
   memoryId: string;
+  open: boolean;
   editing: boolean;
   saving: boolean;
   unsaveable: boolean;
@@ -21,6 +22,7 @@ type MemoryDetailsProps = {
 export function MemoryDetails({
   teamId,
   memoryId,
+  open,
   editing,
   saving,
   unsaveable,
@@ -30,6 +32,10 @@ export function MemoryDetails({
 }: MemoryDetailsProps) {
   const query = useTeamMemory(teamId, memoryId);
   const [retiring, setRetiring] = useState(false);
+
+  if (!open && retiring) {
+    setRetiring(false);
+  }
 
   if (loading(query)) {
     return (
@@ -74,39 +80,24 @@ export function MemoryDetails({
 
       {memory.standing === 'stands' && !retiring && !editing && (
         <div className="flex flex-wrap items-center gap-2">
-          <Button
-            size="xs"
-            variant="outline"
-            className="rounded-full bg-card shadow-none"
-            onClick={onEdit}
-          >
-            Edit
-          </Button>
-          <Button
-            size="xs"
+          <PillButton onClick={onEdit}>Edit</PillButton>
+          <PillButton
             variant="ghost"
-            className="rounded-full text-muted-foreground"
+            className="text-muted-foreground"
             onClick={() => setRetiring(true)}
           >
             Retire
-          </Button>
+          </PillButton>
         </div>
       )}
 
       {editing && (
-        <div className="flex items-center gap-2">
-          <PillButton
-            type="button"
-            variant="default"
-            disabled={unsaveable}
-            onClick={onSave}
-          >
-            {saving ? 'Saving…' : 'Save'}
-          </PillButton>
-          <PillButton type="button" onClick={onCancel}>
-            Cancel
-          </PillButton>
-        </div>
+        <SaveCancelButtons
+          saving={saving}
+          unsaveable={unsaveable}
+          onSave={onSave}
+          onCancel={onCancel}
+        />
       )}
 
       <RetireReply

@@ -1,5 +1,4 @@
-import { TriangleAlert } from 'lucide-react';
-import { Noted } from '@/components/shared/Noted';
+import { NotedWarning } from '@/components/shared/NotedWarning';
 import type { SearchBestResponseDto } from '@/lib/api';
 import {
   noBestShown,
@@ -7,7 +6,6 @@ import {
   onlyOnSeenTasksShown,
   type SearchObjective,
 } from '@/lib/search-words';
-import { cn } from '@/lib/utils';
 
 type SearchBestNameProps = {
   best: SearchBestResponseDto | null;
@@ -29,27 +27,14 @@ export function SearchBestName({ best, objective }: SearchBestNameProps) {
         {best.seed ? 'Live config' : best.name}
       </span>
       {mark && (
-        <Noted
+        <NotedWarning
+          data-slot="only-on-seen-tasks"
+          data-mark={mark}
           note={`${onlyOnSeenTasksShown(mark)}. ${onlyOnSeenTasksNote(mark)}`}
-        >
-          <span
-            data-slot="only-on-seen-tasks"
-            data-mark={mark}
-            role="img"
-            aria-label={onlyOnSeenTasksShown(mark)}
-            className="relative z-10 inline-flex shrink-0"
-          >
-            <TriangleAlert
-              aria-hidden
-              className={cn(
-                'size-3.5',
-                mark === 'marked'
-                  ? 'text-amber-600 dark:text-amber-400'
-                  : 'text-muted-foreground',
-              )}
-            />
-          </span>
-        </Noted>
+          label={onlyOnSeenTasksShown(mark)}
+          tone={mark === 'marked' ? 'warning' : 'muted'}
+          className="relative z-10"
+        />
       )}
     </span>
   );

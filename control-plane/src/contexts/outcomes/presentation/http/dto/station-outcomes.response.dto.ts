@@ -5,8 +5,8 @@ import type {
 } from '@outcomes/application/dto/run-outcome.dto';
 import type {
   ConfigInForceDto,
-  ConfigVersionPullRequestDto,
   FingerprintGroupDto,
+  StationConfigPullRequestDto,
   StationOutcomesDto,
 } from '@outcomes/application/dto/station-outcomes.dto';
 import type {
@@ -320,14 +320,14 @@ export class TallySharesResponseDto {
   }
 }
 
-export class ConfigVersionPullRequestResponseDto {
+export class StationConfigPullRequestResponseDto {
   @ApiProperty({
     example: 'https://github.com/acme/platform/pull/42',
     description: 'The pull request’s page on GitHub',
   })
   readonly url: string;
 
-  constructor(pullRequest: ConfigVersionPullRequestDto) {
+  constructor(pullRequest: StationConfigPullRequestDto) {
     this.url = pullRequest.url;
   }
 }
@@ -367,12 +367,12 @@ export class FingerprintGroupResponseDto {
   readonly changes: readonly ConfigChangeResponseDto[];
 
   @ApiProperty({
-    type: ConfigVersionPullRequestResponseDto,
+    type: StationConfigPullRequestResponseDto,
     nullable: true,
     description:
       'The pull request Spotlight opened that proposes the group’s config, the latest opened where it opened more than one; none where Spotlight opened none, or for a group with no config',
   })
-  readonly pullRequest: ConfigVersionPullRequestResponseDto | null;
+  readonly pullRequest: StationConfigPullRequestResponseDto | null;
 
   @ApiProperty({
     type: StationRunOutcomeResponseDto,
@@ -415,7 +415,7 @@ export class FingerprintGroupResponseDto {
       (each) => new ConfigChangeResponseDto(each),
     );
     this.pullRequest = group.pullRequest
-      ? new ConfigVersionPullRequestResponseDto(group.pullRequest)
+      ? new StationConfigPullRequestResponseDto(group.pullRequest)
       : null;
     this.runs = group.runs.map(
       (each) => new StationRunOutcomeResponseDto(each),

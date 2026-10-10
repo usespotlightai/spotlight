@@ -13,11 +13,10 @@ export const REPLAYS_PUBLICATIONS = [
       configPullRequestId: event.pullRequestId.value,
       workspaceId: event.workspaceId.value,
       teamId: event.teamId.value,
-      lineId: event.lineId,
       stationId: event.stationId,
       fingerprint: event.proposing.value,
-      url: event.url,
-      openedAt: event.at.toISOString(),
+      url: event.url.value,
+      at: event.at.toISOString(),
     }),
   ),
 ] as const;

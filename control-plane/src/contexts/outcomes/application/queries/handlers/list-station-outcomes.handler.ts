@@ -75,7 +75,7 @@ export class ListStationOutcomesHandler
       const configs = configChangesOf(
         await this.work.configsInOrder(fingerprintsAsked([...pairs].reverse())),
       );
-      const proposals = await this.pullRequests.newestFor(
+      const pullRequests = await this.pullRequests.newestFor(
         {
           workspaceId: clearance.workspaceId,
           teamId: clearance.teamId,
@@ -92,8 +92,10 @@ export class ListStationOutcomesHandler
 
       const groups: FingerprintGroupDto[] = newestFirst.map((group, at) => {
         const tally = runTally(group.records, deliveries);
-        const proposal =
-          group.fingerprint !== null ? proposals.get(group.fingerprint) : null;
+        const pullRequest =
+          group.fingerprint !== null
+            ? pullRequests.get(group.fingerprint)
+            : null;
 
         return {
           firstRunId: group.firstRunId.value,
@@ -101,7 +103,7 @@ export class ListStationOutcomesHandler
           ran: group.ran,
           config: configs.configOf(group.fingerprint),
           changes: configs.between(pairs[at]),
-          pullRequest: proposal ? { url: proposal.value } : null,
+          pullRequest: pullRequest ? { url: pullRequest.value } : null,
           runs: group.records.flatMap((each) => {
             const outcome = runOutcomeOf(each, deliveries);
             return outcome ? [outcome] : [];

@@ -16,14 +16,14 @@ import {
   sayToRun,
   stopRun,
 } from '@/lib/api';
-import { useMockApi } from '@/mocks/testing';
+import { serveMockApi } from '@/mocks/testing';
 import { DELIVERY_ID, PLATFORM_ID, SLUG, world } from '@/mocks/world';
 import { runsOfTeam } from '@/mocks/world/insights-history';
 
 const teamId = PLATFORM_ID;
 
 describe('the mock work area', () => {
-  useMockApi();
+  serveMockApi();
 
   it('lists every run of the team with its task, newest first', async () => {
     const { data } = await listTeamRuns({
@@ -221,7 +221,7 @@ describe('the mock work area', () => {
 });
 
 describe('the mock work area in an empty workspace', () => {
-  useMockApi('empty');
+  serveMockApi('empty');
 
   it('answers empty', async () => {
     const { data: runs } = await listTeamRuns({

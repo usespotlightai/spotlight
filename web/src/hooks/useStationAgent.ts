@@ -1,4 +1,5 @@
 import { useHarnesses } from '@/hooks/api/useHarnesses';
+import { capitalized } from '@/lib/agent-choice';
 
 type StationAgent = {
   harness: string | null | undefined;
@@ -11,9 +12,6 @@ export type EffortLevel = {
   readonly at: number;
   readonly levels: readonly string[];
 };
-
-const named = (effort: string): string =>
-  `${effort.charAt(0).toUpperCase()}${effort.slice(1)}`;
 
 export type StationAgentNames = {
   readonly harnessId: string | undefined;
@@ -44,9 +42,9 @@ export function useStationAgent({
     effort:
       efforts.length > 0
         ? {
-            name: effort ? named(effort) : 'Default',
+            name: effort ? capitalized(effort) : 'Default',
             at: effort ? efforts.indexOf(effort) + 1 : 0,
-            levels: efforts.map(named),
+            levels: efforts.map(capitalized),
           }
         : null,
   };

@@ -24,7 +24,7 @@ const TASKS: TaskResponseDto[] = [...PLATFORM_TASKS, ...GROWTH_TASKS];
 export const runsOfTask = (taskId: string): TaskRunResponseDto[] =>
   RUNS[taskId] ?? [];
 
-export const seededRun = (runId: string): TaskRunResponseDto => {
+const seededRun = (runId: string): TaskRunResponseDto => {
   const found = Object.values(RUNS)
     .flat()
     .find((run) => run.id === runId);
@@ -69,11 +69,6 @@ export const stationOfRun = (runId: string): string => {
 };
 
 export const runEnded = (runId: string): string => seededRun(runId).updatedAt;
-
-export const runStarted = (runId: string): string => seededRun(runId).startedAt;
-
-export const minutesInto = (runId: string, minutes: number): string =>
-  new Date(Date.parse(runStarted(runId)) + minutes * MINUTE).toISOString();
 
 export const minutesAfter = (at: string, minutes: number): string =>
   new Date(Date.parse(at) + minutes * MINUTE).toISOString();

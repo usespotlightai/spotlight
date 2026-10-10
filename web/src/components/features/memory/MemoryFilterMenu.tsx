@@ -11,7 +11,9 @@ import {
   memoryPathsOf,
   narrowedBy,
   paramsOf,
+  repositoriesOf,
   unnarrowed,
+  workStationsOf,
 } from '@/lib/memory';
 
 const CONTROL = 'w-32';
@@ -28,9 +30,7 @@ export function MemoryFilterMenu({ teamId }: MemoryFilterMenuProps) {
   const listed = useTeamMemories(teamId, { ...filter, path: null });
   const paths = memoryPathsOf(listed.data ?? [], filter.path);
   const line = lines.find((each) => each.id === filter.lineId);
-  const repositories = [
-    ...new Set((line ? [line] : lines).flatMap((each) => each.repositories)),
-  ];
+  const repositories = repositoriesOf(line, lines);
   const show = (next: MemoryFilter) =>
     setParams(paramsOf(next), { replace: true });
   const change = (part: Partial<MemoryFilter>) => show({ ...filter, ...part });
@@ -39,7 +39,7 @@ export function MemoryFilterMenu({ teamId }: MemoryFilterMenuProps) {
     <FilterMenu
       label="Filter memories"
       compact
-      button="regular"
+      triggerSize="regular"
       applied={narrowedBy(filter)}
       onClear={() => show(unnarrowed(filter))}
     >
@@ -71,9 +71,10 @@ export function MemoryFilterMenu({ teamId }: MemoryFilterMenuProps) {
         <ChoiceSelect
           compact
           label="Station"
-          choices={(line?.stations ?? [])
-            .filter((each) => each.kind === 'work')
-            .map((each) => ({ value: each.id, label: each.name }))}
+          choices={workStationsOf(line).map((each) => ({
+            value: each.id,
+            label: each.name,
+          }))}
           value={filter.stationId}
           placeholder="Every station"
           disabled={!line}

@@ -630,7 +630,7 @@ describe('Station', () => {
 
       const version = within(sectionTitled('Version'));
 
-      expect(version.getByText('version aaaaaaaa')).toBeInTheDocument();
+      expect(version.getByText('Version aaaaaaaa')).toBeInTheDocument();
       expect(version.getByRole('link', { name: 'History' })).toHaveAttribute(
         'href',
         `${INSIGHTS}?tab=stations&stationId=station_2`,
@@ -872,7 +872,7 @@ describe('Station', () => {
       renderAt('station_2', 'improve');
 
       expect(sectionTitled('Worth improving')).toHaveTextContent(
-        'Every signal looks healthy over the last 30 days',
+        'Every signal looks healthy over the past 30 days',
       );
     });
 

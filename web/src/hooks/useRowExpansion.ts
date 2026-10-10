@@ -45,12 +45,78 @@ const measuredAs = <T>(
   return measured;
 };
 
-export function useRowExpansion(startsOpen = false): RowExpansion {
+type Glide = ReturnType<typeof useGlide>;
+
+type RowControl = {
+  readonly open: boolean;
+  readonly onOpenChange: (open: boolean) => void;
+};
+
+const collapse = (
+  element: HTMLLIElement | null,
+  glide: Glide,
+  clamp: () => void,
+) => {
+  if (glide.reverse(clamp)) {
+    return;
+  }
+
+  if (!canGlide(element)) {
+    clamp();
+    return;
+  }
+
+  const open = placedWithCells(element);
+  const spots = partSpots(element);
+  glide.play(
+    [
+      ...glideBetween(open, open, measuredAs(element, true, placedWithCells)),
+      ...shiftBetween(spots, spots, measuredAs(element, true, partSpots)),
+    ],
+    clamp,
+  );
+};
+
+const expand = (
+  element: HTMLLIElement | null,
+  glide: Glide,
+  pending: RefObject<Pending | null>,
+  unclamp: () => void,
+) => {
+  if (glide.reverse()) {
+    return;
+  }
+
+  if (canGlide(element)) {
+    pending.current = {
+      from: placedWithCells(element),
+      spots: partSpots(element),
+    };
+  }
+  unclamp();
+};
+
+export function useRowExpansion(control?: RowControl): RowExpansion {
   const row = useRef<HTMLLIElement>(null);
   const pending = useRef<Pending | null>(null);
-  const [expanded, setExpanded] = useState(startsOpen);
-  const [clamped, setClamped] = useState(!startsOpen);
+  const [own, setOwn] = useState(false);
+  const expanded = control ? control.open : own;
+  const [clamped, setClamped] = useState(!expanded);
+  const shown = useRef(expanded);
   const glide = useGlide();
+
+  useLayoutEffect(() => {
+    if (shown.current === expanded) {
+      return;
+    }
+    shown.current = expanded;
+
+    if (expanded) {
+      expand(row.current, glide, pending, () => setClamped(false));
+    } else {
+      collapse(row.current, glide, () => setClamped(true));
+    }
+  }, [expanded, glide]);
 
   useLayoutEffect(() => {
     const element = row.current;
@@ -68,48 +134,8 @@ export function useRowExpansion(startsOpen = false): RowExpansion {
     }
   }, [clamped, glide]);
 
-  const clamp = () => setClamped(true);
-
-  const collapse = (element: HTMLLIElement | null) => {
-    setExpanded(false);
-
-    if (glide.reverse(clamp)) {
-      return;
-    }
-
-    if (!canGlide(element)) {
-      clamp();
-      return;
-    }
-
-    const open = placedWithCells(element);
-    const spots = partSpots(element);
-    glide.play(
-      [
-        ...glideBetween(open, open, measuredAs(element, true, placedWithCells)),
-        ...shiftBetween(spots, spots, measuredAs(element, true, partSpots)),
-      ],
-      clamp,
-    );
-  };
-
-  const expand = (element: HTMLLIElement | null) => {
-    setExpanded(true);
-
-    if (glide.reverse()) {
-      return;
-    }
-
-    if (canGlide(element)) {
-      pending.current = {
-        from: placedWithCells(element),
-        spots: partSpots(element),
-      };
-    }
-    setClamped(false);
-  };
-
-  const toggle = () => (expanded ? collapse : expand)(row.current);
+  const toggle = () =>
+    control ? control.onOpenChange(!expanded) : setOwn(!expanded);
 
   return { row, expanded, clamped, toggle };
 }

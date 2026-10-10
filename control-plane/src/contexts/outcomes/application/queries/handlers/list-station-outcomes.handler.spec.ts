@@ -517,7 +517,7 @@ describe('listing how a station’s runs turned out', () => {
 
   it('shows the latest pull request Spotlight opened proposing each group’s config at the station, and none where it opened none', async () => {
     const listed = await listing();
-    const proposed = (
+    const opened = (
       id: string,
       fingerprint: string,
       openedAt: Date,
@@ -527,7 +527,6 @@ describe('listing how a station’s runs turned out', () => {
         configPullRequestId: id,
         workspaceId: WORKSPACE,
         teamId: change.teamId ?? TEAM,
-        lineId: 'line_1',
         stationId: change.stationId ?? 'station_1',
         fingerprint,
         url: PullRequestUrl.of(`https://github.com/acme/platform/pull/${id}`),
@@ -547,11 +546,11 @@ describe('listing how a station’s runs turned out', () => {
         endedAt: at(2),
       }),
     );
-    await proposed('7', SECOND_CONFIG, at(1));
-    await proposed('8', SECOND_CONFIG, at(3));
-    await proposed('9', SECOND_CONFIG, at(2));
-    await proposed('10', FIRST_CONFIG, at(1), { stationId: 'station_2' });
-    await proposed('11', FIRST_CONFIG, at(1), { teamId: TeamId.of('team_2') });
+    await opened('7', SECOND_CONFIG, at(1));
+    await opened('8', SECOND_CONFIG, at(3));
+    await opened('9', SECOND_CONFIG, at(2));
+    await opened('10', FIRST_CONFIG, at(1), { stationId: 'station_2' });
+    await opened('11', FIRST_CONFIG, at(1), { teamId: TeamId.of('team_2') });
 
     const outcomes = await listed.list();
 

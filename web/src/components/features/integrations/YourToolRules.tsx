@@ -14,10 +14,6 @@ const named = (source: string, tool: string): string =>
 export function YourToolRules({ teamId, source, tools }: YourToolRulesProps) {
   const setting = useSetToolRule(teamId);
 
-  if (tools.length === 0) {
-    return null;
-  }
-
   return (
     <ul
       aria-label={`What may act as you in ${source}`}

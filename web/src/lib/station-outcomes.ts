@@ -111,28 +111,36 @@ const TALLY_COLUMNS: readonly TallyColumn[] = [
   { label: 'p90', shown: (tally) => tookShown(tally.p90Ms) },
 ];
 
-const columnsNamed = (labels: readonly string[]): TallyColumn[] =>
-  labels.map((label) => {
-    const column = TALLY_COLUMNS.find((each) => each.label === label);
+const columnNamed = (label: string): TallyColumn => {
+  const column = TALLY_COLUMNS.find((each) => each.label === label);
 
-    if (!column) {
-      throw new Error(`No tally column ${label}`);
-    }
+  if (!column) {
+    throw new Error(`No tally column ${label}`);
+  }
 
-    return column;
-  });
+  return column;
+};
 
 export const countedColumnsOf = (counted: TallyCounted): TallyColumn[] =>
   TALLY_COLUMNS.filter((column) => !column.counted || counted[column.counted]);
 
-export const GLANCE_COLUMNS = columnsNamed([
-  'Runs',
-  'Accepted',
-  'Sent back',
-  'Failed',
-  'Cost',
-  'Median',
-]);
+type GlanceVisual = 'share' | 'strip' | 'cost' | 'duration';
+
+export type GlanceColumn = TallyColumn & { readonly visual: GlanceVisual };
+
+const glanced = (label: string, visual: GlanceVisual): GlanceColumn => ({
+  ...columnNamed(label),
+  visual,
+});
+
+export const GLANCE_COLUMNS: readonly GlanceColumn[] = [
+  glanced('Runs', 'strip'),
+  glanced('Accepted', 'share'),
+  glanced('Sent back', 'share'),
+  glanced('Failed', 'share'),
+  glanced('Cost', 'cost'),
+  glanced('Median', 'duration'),
+];
 
 const newestInForce = (
   groups: readonly FingerprintGroup[],
@@ -147,6 +155,9 @@ export const recentRuns = (
   groups: readonly FingerprintGroup[],
   count: number,
 ): StationRunOutcome[] => newestInForce(groups).slice(0, count);
+
+export const hasRuns = (groups: readonly FingerprintGroup[]): boolean =>
+  groups.some((group) => group.runs.length > 0);
 
 export const OUTCOME_HEADINGS: readonly NestedHeading[] = [
   { label: 'Run', indent: 'outer', size: 'minmax(12rem,3fr)' },

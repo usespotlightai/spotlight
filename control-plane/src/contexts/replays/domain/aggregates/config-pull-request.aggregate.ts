@@ -12,6 +12,7 @@ import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
+import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -308,7 +309,7 @@ export class ConfigPullRequest extends EventRecorder {
   }
 
   opened(
-    url: string,
+    url: PullRequestUrl,
     proposing: StationFingerprint,
     at: Date,
   ): ConfigPullRequest {
@@ -316,7 +317,7 @@ export class ConfigPullRequest extends EventRecorder {
 
     const opened = this.with({
       state: 'opened',
-      url,
+      url: url.value,
       dueAt: null,
       updatedAt: at,
     });
@@ -327,7 +328,6 @@ export class ConfigPullRequest extends EventRecorder {
         this.state.id,
         station.workspaceId,
         station.teamId,
-        station.lineId,
         station.stationId,
         proposing,
         url,

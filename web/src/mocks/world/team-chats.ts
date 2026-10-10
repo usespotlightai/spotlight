@@ -97,7 +97,7 @@ export const saidBy = (
   proposal: null,
 });
 
-export const proposalAt = (
+const proposalAt = (
   teamId: string,
   stationId: string,
   over: Pick<ChatProposalResponseDto, 'title' | 'description'> &

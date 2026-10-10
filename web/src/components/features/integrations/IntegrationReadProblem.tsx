@@ -1,5 +1,4 @@
-import { TriangleAlert } from 'lucide-react';
-import { Noted } from '@/components/shared/Noted';
+import { NotedWarning } from '@/components/shared/NotedWarning';
 import type { ConfiguredDescriptionResponseDto } from '@/lib/api';
 import { readProblemShown } from '@/lib/described';
 
@@ -17,15 +16,11 @@ export function IntegrationReadProblem({
   }
 
   return (
-    <Noted note={problem}>
-      <span
-        data-slot="integration-read-problem"
-        role="img"
-        aria-label="Could not be read"
-        className="inline-flex shrink-0"
-      >
-        <TriangleAlert aria-hidden className="size-3.5 text-destructive" />
-      </span>
-    </Noted>
+    <NotedWarning
+      data-slot="integration-read-problem"
+      note={problem}
+      label="Could not be read"
+      tone="destructive"
+    />
   );
 }

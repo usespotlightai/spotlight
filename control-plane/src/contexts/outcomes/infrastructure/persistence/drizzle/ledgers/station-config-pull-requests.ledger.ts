@@ -18,25 +18,19 @@ export class DrizzleStationConfigPullRequests
   constructor(private readonly context: DrizzleContext) {}
 
   async note(pullRequest: StationConfigPullRequest): Promise<void> {
-    const opened = {
-      workspaceId: pullRequest.workspaceId.value,
-      teamId: pullRequest.teamId.value,
-      lineId: pullRequest.lineId,
-      stationId: pullRequest.stationId,
-      fingerprint: pullRequest.fingerprint,
-      url: pullRequest.url.value,
-      openedAt: pullRequest.openedAt,
-    };
-
     await this.context.db
       .insert(stationConfigPullRequest)
       .values({
         configPullRequestId: pullRequest.configPullRequestId,
-        ...opened,
+        workspaceId: pullRequest.workspaceId.value,
+        teamId: pullRequest.teamId.value,
+        stationId: pullRequest.stationId,
+        fingerprint: pullRequest.fingerprint,
+        url: pullRequest.url.value,
+        openedAt: pullRequest.openedAt,
       })
-      .onConflictDoUpdate({
+      .onConflictDoNothing({
         target: stationConfigPullRequest.configPullRequestId,
-        set: opened,
       });
   }
 

@@ -7,7 +7,11 @@ import { SectionLink } from '@/components/shared/SectionLink';
 import { useStationOutcomes } from '@/hooks/api/useStationOutcomes';
 import { failed, loading } from '@/lib/query';
 import { stationInsightsPath } from '@/lib/station';
-import { GLANCE_COLUMNS, runsInForce } from '@/lib/station-outcomes';
+import {
+  GLANCE_COLUMNS,
+  type GlanceColumn,
+  runsInForce,
+} from '@/lib/station-outcomes';
 
 const TITLE = 'Latest runs on this config';
 
@@ -42,29 +46,30 @@ export function StationGlance({
   const runs = runsInForce(outcomes.data?.groups ?? []);
   const costs = runs.map((run) => run.cost?.cost ?? null);
   const durations = runs.map((run) => run.cost?.ms ?? null);
-  const visualOf = (label: string) => {
-    const column = GLANCE_COLUMNS.find((each) => each.label === label);
+  const visualOf = ({ visual, counted }: GlanceColumn) => {
+    if (visual === 'share') {
+      return counted ? (
+        <ShareBar count={tally[counted]} runs={tally.runs} />
+      ) : null;
+    }
+    if (visual === 'strip') {
+      return runs.length > 0 ? <RunStrip runs={runs} /> : null;
+    }
+    if (visual === 'cost') {
+      return trendable(costs) ? (
+        <TileSparkline label="Cost, run by run" values={costs} />
+      ) : null;
+    }
 
-    if (column?.counted) {
-      return <ShareBar count={tally[column.counted]} runs={tally.runs} />;
-    }
-    if (label === 'Runs' && runs.length > 0) {
-      return <RunStrip runs={runs} />;
-    }
-    if (label === 'Cost' && trendable(costs)) {
-      return <TileSparkline label="Cost, run by run" values={costs} />;
-    }
-    if (label === 'Median' && trendable(durations)) {
-      return <TileSparkline label="Duration, run by run" values={durations} />;
-    }
-
-    return null;
+    return trendable(durations) ? (
+      <TileSparkline label="Duration, run by run" values={durations} />
+    ) : null;
   };
 
   return (
     <section className="flex flex-col gap-1.5">
       <div className="flex items-center justify-between gap-2">
-        <h3 className="font-medium text-foreground text-xs">{TITLE}</h3>
+        <h2 className="font-medium text-foreground text-xs">{TITLE}</h2>
         <SectionLink to={stationInsightsPath(slug, teamId, stationId)}>
           See in Insights
         </SectionLink>
@@ -81,7 +86,7 @@ export function StationGlance({
             value={column.shown(tally)}
             detail={column.counted ? `of ${tally.runs} runs` : undefined}
           >
-            {visualOf(column.label)}
+            {visualOf(column)}
           </GlanceTile>
         ))}
       </dl>

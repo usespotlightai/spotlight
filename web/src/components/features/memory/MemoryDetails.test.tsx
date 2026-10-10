@@ -55,12 +55,29 @@ const detail = (over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
+const details = (open: boolean) => (
+  <MemoryRouter>
+    <MemoryDetails
+      teamId="team_1"
+      memoryId="memory_1"
+      open={open}
+      editing={false}
+      saving={false}
+      unsaveable={false}
+      onEdit={vi.fn()}
+      onCancel={vi.fn()}
+      onSave={vi.fn()}
+    />
+  </MemoryRouter>
+);
+
 const showing = () =>
   render(
     <MemoryRouter>
       <MemoryDetails
         teamId="team_1"
         memoryId="memory_1"
+        open
         editing={false}
         saving={false}
         unsaveable={false}
@@ -97,6 +114,21 @@ describe('MemoryDetails', () => {
     expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull();
 
     await userEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Edit' })).toBeVisible(),
+    );
+  });
+
+  it('drops a half-written retirement when its row folds', async () => {
+    memoryState.data = detail();
+    const { rerender } = render(details(true));
+
+    await userEvent.click(screen.getByRole('button', { name: 'Retire' }));
+    expect(screen.queryByRole('button', { name: 'Edit' })).toBeNull();
+
+    rerender(details(false));
+    rerender(details(true));
 
     await waitFor(() =>
       expect(screen.getByRole('button', { name: 'Edit' })).toBeVisible(),

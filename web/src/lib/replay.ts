@@ -33,7 +33,6 @@ import {
   THE_SEARCH_START,
 } from '@/lib/replay-words';
 import { stationPath, stationTabPath } from '@/lib/station';
-import { type ConfigChange, configChangesOf } from '@/lib/station-config';
 
 export type ReplaySet = ReplaySetResponseDto;
 export type ReplaySetEntry = ReplaySetEntryResponseDto;
@@ -261,9 +260,6 @@ export const candidatesInOrder = (
   [...candidates].sort((one, other) =>
     other.createdAt.localeCompare(one.createdAt),
   );
-
-export const changesOf = (candidate: ReplayCandidate): ConfigChange[] =>
-  configChangesOf(candidate.changedFrom.changes);
 
 export const stationAddress = (
   teamKey: string,

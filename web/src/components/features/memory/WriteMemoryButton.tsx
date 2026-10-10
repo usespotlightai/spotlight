@@ -1,16 +1,13 @@
 import { Plus } from 'lucide-react';
 import { useSearchParams } from 'react-router';
-import { Button } from '@/components/ui/button';
+import { PillButton } from '@/components/shared/PillButton';
 import { WRITE_PARAM } from '@/lib/memory';
 
 export function WriteMemoryButton() {
   const [, setParams] = useSearchParams();
 
   return (
-    <Button
-      size="sm"
-      variant="outline"
-      className="rounded-full bg-card shadow-none"
+    <PillButton
       onClick={() =>
         setParams(
           (was) => {
@@ -22,8 +19,8 @@ export function WriteMemoryButton() {
         )
       }
     >
-      <Plus aria-hidden className="size-3.5" />
+      <Plus aria-hidden className="size-3" />
       Write a memory
-    </Button>
+    </PillButton>
   );
 }

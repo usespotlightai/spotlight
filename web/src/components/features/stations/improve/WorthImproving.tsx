@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { SignalRow } from '@/components/features/insights/SignalRow';
 import { ImproveCardSkeleton } from '@/components/features/stations/improve/ImproveCardSkeleton';
+import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { NestedTable } from '@/components/shared/nested-table/NestedTable';
 import { useInsightsOverview } from '@/hooks/api/useInsightsOverview';
@@ -12,8 +13,11 @@ import {
   signalHeadings,
 } from '@/lib/insights';
 import { failed, loading } from '@/lib/query';
+import { rangeOf } from '@/lib/range';
 
 const HEADINGS = signalHeadings('edge');
+
+const span = rangeOf(DEFAULT_PERIOD).label.toLowerCase();
 
 type WorthImprovingProps = {
   teamId: string;
@@ -47,12 +51,15 @@ export function WorthImproving({
     <InsightsCard
       tableOnly
       title="Worth improving"
-      description="What got worse over the last 30 days, or trails the rest of the team. The team’s agent reads this, the config and recent runs, and suggests what to change."
+      description={`What got worse over the ${span}, or trails the rest of the team. The team’s agent reads this, the config and recent runs, and suggests what to change.`}
     >
       {failed(overview) ? (
-        <p className="pb-1 text-muted-foreground text-sm">
-          The station’s signals could not be loaded.
-        </p>
+        <CouldNotLoad
+          what="The station’s signals"
+          retrying={overview.isFetching}
+          onRetry={() => void overview.refetch()}
+          className="pt-2 pb-10"
+        />
       ) : flagged && flagged.signals.length > 0 ? (
         <NestedTable
           label="Signals worth improving"
@@ -73,7 +80,7 @@ export function WorthImproving({
         <div className="flex justify-center pt-2 pb-10">
           <EmptyState
             icon={CircleCheck}
-            title="Every signal looks healthy over the last 30 days"
+            title={`Every signal looks healthy over the ${span}`}
             action={action}
             className="max-w-md"
           >

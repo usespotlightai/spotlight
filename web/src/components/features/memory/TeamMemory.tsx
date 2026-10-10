@@ -10,7 +10,7 @@ type TeamMemoryProps = {
 
 export function TeamMemory({ slug, teamId }: TeamMemoryProps) {
   const [params, setParams] = useSearchParams();
-  const lines = useLines(teamId).data ?? [];
+  const lines = useLines(teamId);
 
   return (
     <TeamMemoryList

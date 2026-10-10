@@ -1,15 +1,4 @@
-import type { QueryClient } from '@tanstack/react-query';
-import { changeStackKeys } from '@/hooks/api/useRunChangeStacks';
-import { reviewKeys } from '@/hooks/api/useRunReview';
-import { taskDecisionKeys } from '@/hooks/api/useTaskDecisions';
-import type {
-  ChangeStackResponseDto,
-  CodeReviewResponseDto,
-  RunChangeStacksResponseDto,
-} from '@/lib/api';
-import type { TaskDecisions } from '@/lib/decision';
-import { failQuery } from '@/test/failQuery';
-import { RUN_ID, seedRun, TASK_ID } from '@/test/fixtures/run';
+import type { ChangeStackResponseDto, CodeReviewResponseDto } from '@/lib/api';
 
 const minutesAgo = (minutes: number): string =>
   new Date(Date.now() - minutes * 60_000).toISOString();
@@ -218,63 +207,6 @@ export const INVITATIONS: ChangeStackResponseDto = {
   ],
 };
 
-const seedStacks = (
-  client: QueryClient,
-  stacks: RunChangeStacksResponseDto,
-) => {
-  seedRun(client);
-  client.setQueryData(changeStackKeys.forRun(RUN_ID), stacks);
-};
-
-const DECISIONS: TaskDecisions = {
-  runId: RUN_ID,
-  drafting: false,
-  standing: 'proposed',
-  merge: null,
-  decisions: [
-    {
-      id: 'decision_expiry',
-      kind: 'limitation',
-      title: 'Invitations expire after seven days, with no way to extend one',
-      why: 'The ticket asks for expiry but says nothing on renewal, so an expired invitation is sent again rather than extended.',
-      alternatives: [],
-      paths: ['control-plane/src/schemas/invitation.schema.ts'],
-      steps: [14],
-      disputes: [],
-    },
-    {
-      id: 'decision_email',
-      kind: 'trade-off',
-      title: 'Invitation emails are sent in the request, not from a queue',
-      why: 'A queue would need a worker the service does not run yet, and one email is quick enough to wait for.',
-      alternatives: ['Send from a queue'],
-      paths: [
-        'control-plane/src/invitations/invitation.controller.ts',
-        'control-plane/src/mail/invitation.mail.ts',
-      ],
-      steps: [6, 9],
-      disputes: [
-        {
-          id: 'dispute_1',
-          path: 'control-plane/src/invitations/invitation.controller.ts',
-          by: 'user_maya',
-          byName: 'Maya Chen',
-          reason: 'The mail worker ships next week, so a queue is close.',
-          at: '2026-09-21T10:00:00.000Z',
-        },
-      ],
-    },
-  ],
-};
-
-export const seedChangeStack = (client: QueryClient) =>
-  seedStacks(client, { stacks: [INVITATIONS] });
-
-export const decidedChangeStack = (client: QueryClient) => {
-  seedChangeStack(client);
-  client.setQueryData(taskDecisionKeys.forTask(TASK_ID), DECISIONS);
-};
-
 const GENERATED_LINES = 20_000;
 
 export const LARGE_FILE: ChangeStackResponseDto = {
@@ -327,28 +259,6 @@ export const LARGE_FILE: ChangeStackResponseDto = {
         }
       : cohort,
   ),
-};
-
-export const largeFileChangeStack = (client: QueryClient) =>
-  seedStacks(client, { stacks: [LARGE_FILE] });
-
-export const draftingChangeStack = (client: QueryClient) =>
-  seedStacks(client, {
-    stacks: [
-      {
-        ...INVITATIONS,
-        state: 'drafting',
-        cohorts: [],
-      },
-    ],
-  });
-
-export const emptyChangeStack = (client: QueryClient) =>
-  seedStacks(client, { stacks: [] });
-
-export const failChangeStack = (client: QueryClient) => {
-  seedRun(client);
-  failQuery(client, changeStackKeys.forRun(RUN_ID));
 };
 
 export const REVIEW: CodeReviewResponseDto = {
@@ -432,9 +342,4 @@ export const REVIEW: CodeReviewResponseDto = {
       editedAt: null,
     },
   ],
-};
-
-export const reviewedChangeStack = (client: QueryClient) => {
-  seedChangeStack(client);
-  client.setQueryData(reviewKeys.forRun(RUN_ID), REVIEW);
 };

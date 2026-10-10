@@ -47,7 +47,7 @@ export function VersionInstrument({
         </InstrumentValue>
       ) : version ? (
         <>
-          <InstrumentValue detail={`version ${version.fingerprint}`}>
+          <InstrumentValue detail={`Version ${version.fingerprint}`}>
             {version.since ? `Since ${version.since}` : 'In force'}
           </InstrumentValue>
 

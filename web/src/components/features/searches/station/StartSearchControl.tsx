@@ -4,9 +4,10 @@ import type { ReplayedStation } from '@/lib/replay';
 
 export function StartSearchControl({ at }: { at: ReplayedStation }) {
   const { searches, sets, held, refusal } = useSearchStart(at);
-  const noSets = (searches.data ?? []).length === 0 && sets.data?.length === 0;
+  const nothingToSearch =
+    (searches.data ?? []).length === 0 && sets.data?.length === 0;
 
-  if (noSets) {
+  if (nothingToSearch) {
     return null;
   }
 

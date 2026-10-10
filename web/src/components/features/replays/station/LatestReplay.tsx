@@ -49,7 +49,7 @@ export function LatestReplay({ teamId, setId, className }: LatestReplayProps) {
           render={
             <button
               type="button"
-              className="relative z-10 truncate text-foreground tabular-nums outline-none"
+              className="relative z-10 truncate rounded-sm text-foreground tabular-nums outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
             />
           }
         >

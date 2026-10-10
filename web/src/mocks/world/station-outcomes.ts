@@ -36,10 +36,7 @@ export type StationVersion = {
 const DEFAULT_LAST = 50;
 const MOST_LAST = 200;
 
-export const lineOf = (
-  teamId: string,
-  lineId: string,
-): LineResponseDto | undefined =>
+const lineOf = (teamId: string, lineId: string): LineResponseDto | undefined =>
   world().lines[teamId]?.find((each) => each.id === lineId);
 
 export const stationOf = (
@@ -67,7 +64,7 @@ const costOf = (run: HistoryRun): RunCostResponseDto => {
   };
 };
 
-export const outcomeOf = (run: HistoryRun): StationRunOutcomeResponseDto => ({
+const outcomeOf = (run: HistoryRun): StationRunOutcomeResponseDto => ({
   runId: run.runId,
   taskId: run.taskId,
   endedAt: run.endedAt ?? new Date(run.at).toISOString(),
@@ -81,7 +78,7 @@ export const outcomeOf = (run: HistoryRun): StationRunOutcomeResponseDto => ({
   delivery: run.delivery,
 });
 
-export const historyAt = (
+const historyAt = (
   teamId: string,
   lineId: string,
   stationId: string,
@@ -135,7 +132,7 @@ export const stationRuns = (
   };
 };
 
-export const tallyOf = (
+const tallyOf = (
   runs: readonly StationRunOutcomeResponseDto[],
 ): RunTallyResponseDto => {
   const count = (holds: (run: StationRunOutcomeResponseDto) => boolean) =>

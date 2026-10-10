@@ -35,7 +35,7 @@ import { runStationOf } from '@/mocks/world/stations';
 import { addedIn, removedIn } from '@/mocks/world/work-changes';
 import type { NoteScript, RunStory } from '@/mocks/world/work-stories';
 
-export { changeStacksOf, storyOf };
+export { changeStacksOf };
 
 const SECOND = 1_000;
 const MINUTE = 60 * SECOND;
@@ -51,11 +51,10 @@ type Placed = {
   readonly station: StationResponseDto;
 };
 
-export const tasksOf = (teamId: string): TaskResponseDto[] =>
+const tasksOf = (teamId: string): TaskResponseDto[] =>
   world().tasks[teamId] ?? [];
 
-export const runsOf = (taskId: string): TaskRunResponseDto[] =>
-  runsOfAnyTask(taskId);
+const runsOf = (taskId: string): TaskRunResponseDto[] => runsOfAnyTask(taskId);
 
 export const findTask = (teamId: string, taskId: string) =>
   tasksOf(teamId).find((each) => each.id === taskId);

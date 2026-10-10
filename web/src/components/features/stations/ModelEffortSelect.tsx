@@ -71,7 +71,6 @@ export function ModelEffortSelect({
       <ModelEffortMenu
         models={models}
         model={model}
-        modelName={modelName}
         onModel={onModel}
         efforts={efforts}
         effort={effort}

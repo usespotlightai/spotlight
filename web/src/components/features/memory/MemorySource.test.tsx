@@ -84,4 +84,13 @@ describe('MemorySource', () => {
       screen.getByRole('status', { name: 'Loading its source' }),
     ).toBeInTheDocument();
   });
+
+  it('leaves a failed load for the details to report', () => {
+    memoryState.data = undefined;
+    memoryState.isPending = false;
+    memoryState.errorUpdateCount = 1;
+    const { container } = showing();
+
+    expect(container).toBeEmptyDOMElement();
+  });
 });

@@ -3,6 +3,7 @@ import { ConfigPullRequestOpened } from '@replays/domain/events/config-pull-requ
 import { ConfigPullRequestId } from '@replays/domain/value-objects/config-pull-request-id.vo';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -20,10 +21,9 @@ describe('REPLAYS_PUBLICATIONS', () => {
           ConfigPullRequestId.of('pr_1'),
           WorkspaceId.of('ws_1'),
           TeamId.of('team_1'),
-          'line_1',
           'station_1',
           StationFingerprint.of('e'.repeat(64)),
-          'https://github.com/acme/platform/pull/7',
+          PullRequestUrl.of('https://github.com/acme/platform/pull/7'),
           new Date('2026-10-07T09:00:00.000Z'),
         ),
       ),
@@ -33,11 +33,10 @@ describe('REPLAYS_PUBLICATIONS', () => {
         configPullRequestId: 'pr_1',
         workspaceId: 'ws_1',
         teamId: 'team_1',
-        lineId: 'line_1',
         stationId: 'station_1',
         fingerprint: 'e'.repeat(64),
         url: 'https://github.com/acme/platform/pull/7',
-        openedAt: '2026-10-07T09:00:00.000Z',
+        at: '2026-10-07T09:00:00.000Z',
       },
     ]);
   });

@@ -46,6 +46,7 @@ import { DrizzleTaskChangeShapeRepository } from '@outcomes/infrastructure/persi
 import { DrizzleTaskDeliveryRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/task-delivery.repository';
 import { DrizzleTaskFailuresRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/task-failures.repository';
 import { DrizzleTaskTouchesRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/task-touches.repository';
+import { stationConfigPullRequest } from '@outcomes/infrastructure/persistence/drizzle/schemas/outcomes.schema';
 import { outcomesSubscribers } from '@outcomes/presentation/events/outcomes.subscribers';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { CHANGE_CHECKED } from '@shared-kernel/application/integration-events/change-checked.integration-event';
@@ -58,6 +59,7 @@ import { RUN_ENDED } from '@shared-kernel/application/integration-events/run-end
 import { TASK_ACTED_ON } from '@shared-kernel/application/integration-events/task-acted-on.integration-event';
 import { TASK_DELETED } from '@shared-kernel/application/integration-events/task-deleted.integration-event';
 import { TEAM_DISBANDED } from '@shared-kernel/application/integration-events/team-disbanded.integration-event';
+import { WORKSPACE_CLOSED } from '@shared-kernel/application/integration-events/workspace-closed.integration-event';
 import type { DomainEventDispatcher } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import type { DomainEventSubscriber } from '@shared-kernel/application/ports/domain-event-subscriber.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
@@ -66,6 +68,7 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
 
@@ -164,6 +167,7 @@ let listing: ListStationOutcomesHandler;
 let context: DrizzleContext;
 let forgotten: DrizzleForgotten;
 let chats: DrizzleChatRecordRepository;
+let configPullRequests: DrizzleStationConfigPullRequests;
 
 const deliver = async (name: string, event: Record<string, unknown>) => {
   const subscriber = subscribers.find((each) => each.name === name);
@@ -219,6 +223,45 @@ const list = (viewer = 'user_ada') =>
     new ListStationOutcomesQuery('team_1', 'line_1', 'station_1', viewer, null),
   );
 
+const listAt = (workspaceId: string, teamId: string) =>
+  new ListStationOutcomesHandler(
+    new OutcomesAccess({
+      namesOf: async () => new Map(),
+      clearedOnTeam: async (_teamId, principal) => ({
+        workspaceId: WorkspaceId.of(workspaceId),
+        by: principal.userId,
+      }),
+    }),
+    records,
+    deliveries,
+    configPullRequests,
+    work,
+  ).execute(
+    new ListStationOutcomesQuery(
+      teamId,
+      'line_1',
+      'station_1',
+      'user_ada',
+      null,
+    ),
+  );
+
+const configPullRequestOpened = (
+  workspaceId: string,
+  teamId: string,
+  id: string,
+) =>
+  deliver('outcomes.record-opened-config-pull-request', {
+    kind: CONFIG_PULL_REQUEST_OPENED,
+    configPullRequestId: id,
+    workspaceId,
+    teamId,
+    stationId: 'station_1',
+    fingerprint: OPUS,
+    url: `https://github.com/acme/platform/pull/${id}`,
+    at: at(17).toISOString(),
+  });
+
 beforeAll(async () => {
   held = await openDatabase('station_outcomes');
   context = new DrizzleContext(held.db);
@@ -236,7 +279,7 @@ beforeAll(async () => {
   const shapes = new DrizzleTaskChangeShapeRepository(context);
   const watches = new DrizzleStationWatchRepository(context, quiet);
   const reviews = new DrizzlePendingReviews(context);
-  const configPullRequests = new DrizzleStationConfigPullRequests(context);
+  configPullRequests = new DrizzleStationConfigPullRequests(context);
   forgotten = new DrizzleForgotten(context);
   subscribers = outcomesSubscribers({
     ending: new NoteRunEnded(work, records, forgotten, context, QUIET),
@@ -332,7 +375,7 @@ beforeAll(async () => {
       },
       watches,
     ),
-    proposing: new NoteConfigPullRequestOpened(
+    openingConfigPullRequests: new NoteConfigPullRequestOpened(
       configPullRequests,
       forgotten,
       context,
@@ -579,19 +622,25 @@ describe('how a station’s runs turned out', () => {
         configPullRequestId: id,
         workspaceId: WORKSPACE,
         teamId: 'team_1',
-        lineId: 'line_1',
         stationId,
         fingerprint,
         url: `https://github.com/acme/platform/pull/${id}`,
-        openedAt: at(hour).toISOString(),
+        at: at(hour).toISOString(),
       });
 
     await opened('41', OPUS, 7);
     await opened('42', OPUS, 9);
     await opened('43', SONNET, 9, 'station_2');
-    await opened('41', OPUS, 8);
+    await opened('41', OPUS, 7);
 
     const outcomes = await list();
+
+    expect(
+      await held.db
+        .select({ openedAt: stationConfigPullRequest.openedAt })
+        .from(stationConfigPullRequest)
+        .where(eq(stationConfigPullRequest.configPullRequestId, '41')),
+    ).toEqual([{ openedAt: at(7) }]);
 
     expect(
       outcomes.groups.map((group) => [group.firstRunId, group.pullRequest]),
@@ -774,6 +823,52 @@ describe('how a station’s runs turned out', () => {
     });
 
     expect(await chats.of('chat_gone')).toBeNull();
+  });
+
+  it('keeps no config pull request of a disbanded team heard of late', async () => {
+    endedRun('run_disbanded', {
+      teamId: 'team_disbanded',
+      taskId: 'task_disbanded',
+      fingerprint: OPUS,
+      startedAt: at(16),
+      endedAt: at(17),
+    });
+    await runEnded('run_disbanded');
+
+    await deliver('outcomes.forget-config-pull-requests-of-disbanded-team', {
+      kind: TEAM_DISBANDED,
+      workspaceId: WORKSPACE,
+      teamId: 'team_disbanded',
+      key: 'disbanded',
+    });
+    await configPullRequestOpened(WORKSPACE, 'team_disbanded', '51');
+
+    const outcomes = await listAt(WORKSPACE, 'team_disbanded');
+
+    expect(outcomes.groups.map((group) => group.pullRequest)).toEqual([null]);
+  });
+
+  it('keeps no config pull request of a closed workspace heard of late', async () => {
+    endedRun('run_closed', {
+      workspaceId: 'ws_closed',
+      teamId: 'team_closed',
+      taskId: 'task_closed',
+      fingerprint: OPUS,
+      startedAt: at(16),
+      endedAt: at(17),
+    });
+    await runEnded('run_closed', { workspaceId: 'ws_closed' });
+
+    await deliver('outcomes.forget-config-pull-requests-of-closed-workspace', {
+      kind: WORKSPACE_CLOSED,
+      workspaceId: 'ws_closed',
+      slug: 'closed',
+    });
+    await configPullRequestOpened('ws_closed', 'team_closed', '52');
+
+    const outcomes = await listAt('ws_closed', 'team_closed');
+
+    expect(outcomes.groups.map((group) => group.pullRequest)).toEqual([null]);
   });
 });
 

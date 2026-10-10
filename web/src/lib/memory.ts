@@ -272,7 +272,7 @@ export const memoryPathsOf = (
     ]),
   ].sort();
 
-export type PlaceKind = 'team' | 'line' | 'station' | 'repository' | 'path';
+type PlaceKind = 'team' | 'line' | 'station' | 'repository' | 'path';
 
 export type PlaceNode = {
   readonly kind: PlaceKind;
@@ -330,3 +330,13 @@ export const placeTreeOf = (
     children: repository,
   };
 };
+
+export const workStationsOf = (line: LineResponseDto | undefined) =>
+  (line?.stations ?? []).filter((each) => each.kind === 'work');
+
+export const repositoriesOf = (
+  line: LineResponseDto | undefined,
+  lines: readonly LineResponseDto[],
+): string[] => [
+  ...new Set((line ? [line] : lines).flatMap((each) => each.repositories)),
+];

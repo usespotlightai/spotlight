@@ -9,7 +9,7 @@ import type {
   TallyShares,
 } from '@outcomes/domain/services/run-tally';
 
-export interface ConfigVersionPullRequestDto {
+export interface StationConfigPullRequestDto {
   readonly url: string;
 }
 
@@ -19,7 +19,7 @@ export interface FingerprintGroupDto extends DaySpan {
   readonly ran: boolean;
   readonly config: StationConfigView | null;
   readonly changes: readonly ConfigPart[];
-  readonly pullRequest: ConfigVersionPullRequestDto | null;
+  readonly pullRequest: StationConfigPullRequestDto | null;
   readonly runs: readonly RunOutcomeDto[];
   readonly tally: RunTally;
   readonly shares: TallyShares;

@@ -1,15 +1,8 @@
 import { delay, HttpResponse, http } from 'msw';
-import { scenario } from '@/mocks/scenario';
+import { openPage, scenario } from '@/mocks/scenario';
+import { readByShellOnly } from '@/mocks/shell';
 
 type Resolver = Parameters<typeof http.get>[1];
-
-const SHELL = new Set([
-  '/workspaces',
-  '/workspaces/:slug',
-  '/workspaces/:slug/runners',
-  '/workspaces/:slug/runner-activity',
-  '/teams/:teamId/lines',
-]);
 
 export const problem = (status: number, detail: string) =>
   HttpResponse.json(
@@ -22,7 +15,7 @@ const gated =
   async (info) => {
     const { state, scope } = scenario();
 
-    if (SHELL.has(path) && scope === 'page') {
+    if (scope === 'page' && readByShellOnly(path, openPage())) {
       return resolver(info);
     }
     if (state === 'loading') {

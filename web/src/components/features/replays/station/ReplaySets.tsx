@@ -32,7 +32,7 @@ export function ReplaySets({ at }: ReplaySetsProps) {
     );
   } else if (failed(sets)) {
     body = (
-      <StateBox>
+      <StateBox flat>
         <MembersOnlyOrCouldNotLoad
           membersOnly="Only team members can see its replays"
           what="The station’s replay sets"
@@ -42,7 +42,7 @@ export function ReplaySets({ at }: ReplaySetsProps) {
     );
   } else if (listed.length === 0) {
     body = (
-      <StateBox>
+      <StateBox flat>
         <EmptyState icon={Repeat} title="No replay sets yet" action={open}>
           A replay set holds past runs to replay under a candidate. Create one
           to start comparing.

@@ -1,5 +1,5 @@
 {
-  "id": "c0c03f3a-86f2-414f-9ac7-c2854228a42f",
+  "id": "812cc0f0-088c-4848-b631-199a98675788",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -7125,12 +7125,6 @@
         },
         "team_id": {
           "name": "team_id",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "line_id": {
-          "name": "line_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true

@@ -9,7 +9,7 @@ export const COST_ALERT_OVER = 10;
 export const COST_ALERT_ABOVE = 2;
 const SERIES_POINTS = 18;
 
-export type AlertPoint = {
+type AlertPoint = {
   readonly run: HistoryRun;
   readonly value: number | null;
 };

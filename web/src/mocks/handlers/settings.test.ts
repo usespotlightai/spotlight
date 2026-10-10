@@ -21,7 +21,7 @@ import {
   readOnboarding,
   readTeam,
 } from '@/lib/api';
-import { useMockApi } from '@/mocks/testing';
+import { serveMockApi } from '@/mocks/testing';
 import { GROWTH_ID, PLATFORM_ID, SLUG } from '@/mocks/world';
 import { WORKSPACE_ID } from '@/mocks/world/settings';
 
@@ -35,7 +35,7 @@ const workspace = {
 } as const;
 
 describe('the mock settings', () => {
-  useMockApi();
+  serveMockApi();
 
   it('answers the harnesses every station picks from', async () => {
     const { data } = await listHarnesses(slug);
@@ -219,7 +219,7 @@ describe('the mock settings', () => {
 });
 
 describe('the mock settings of a fresh workspace', () => {
-  useMockApi('empty');
+  serveMockApi('empty');
 
   it('answers nothing set up yet', async () => {
     const { data: github } = await readGitHub(slug);

@@ -20,7 +20,7 @@ type TeamMemoryResultsProps = {
   opened: string | null;
   writing: boolean;
   onWritten: () => void;
-  lines: readonly LineResponseDto[];
+  lines: UseQueryResult<LineResponseDto[]>;
   memories: UseQueryResult<TeamMemory[]>;
 };
 
@@ -35,7 +35,14 @@ export function TeamMemoryResults({
   memories,
 }: TeamMemoryResultsProps) {
   const held = memories.data ?? [];
+  const known = lines.data ?? [];
   const [openId, setOpenId] = useState(opened);
+  const [followed, setFollowed] = useState(opened);
+
+  if (opened !== followed) {
+    setFollowed(opened);
+    setOpenId(opened);
+  }
 
   const rows = held.map((memory) => (
     <TeamMemoryRow
@@ -43,35 +50,40 @@ export function TeamMemoryResults({
       slug={slug}
       teamId={teamId}
       memory={memory}
-      lines={lines}
-      startsOpen={memory.id === opened}
+      lines={known}
       open={memory.id === openId}
-      onOpen={(open) =>
+      onOpenChange={(open) =>
         setOpenId((was) => (open ? memory.id : was === memory.id ? null : was))
       }
     />
   ));
 
-  if (failed(memories)) {
+  if (failed(memories) || failed(lines)) {
     return (
       <Notice>
         <CouldNotLoad
           what="The team’s memory"
-          retrying={memories.isFetching}
-          onRetry={() => void memories.refetch()}
+          retrying={memories.isFetching || lines.isFetching}
+          onRetry={() => {
+            for (const query of [memories, lines]) {
+              if (failed(query)) {
+                void query.refetch();
+              }
+            }
+          }}
         />
       </Notice>
     );
   }
 
-  if (loading(memories)) {
+  if (loading(memories) || loading(lines)) {
     return <TeamMemorySkeleton />;
   }
 
   if (writing) {
     return (
       <TeamMemoryTable>
-        <NewMemoryRow teamId={teamId} lines={lines} onDone={onWritten} />
+        <NewMemoryRow teamId={teamId} lines={known} onDone={onWritten} />
         {rows}
       </TeamMemoryTable>
     );

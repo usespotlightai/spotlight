@@ -12,6 +12,8 @@ const members = vi.fn();
 const role = vi.fn();
 const connect = vi.fn();
 const disconnect = vi.fn();
+const connectFailed = vi.fn();
+const disconnectFailed = vi.fn();
 
 const failing = vi.fn();
 const refetch = vi.fn();
@@ -45,11 +47,19 @@ vi.mock('@/hooks/api/useWorkspace', () => ({
 }));
 
 vi.mock('@/hooks/api/useConnectIntegration', () => ({
-  useConnectIntegration: () => ({ mutate: connect, isPending: false }),
+  useConnectIntegration: () => ({
+    mutate: connect,
+    isPending: false,
+    isError: connectFailed(),
+  }),
 }));
 
 vi.mock('@/hooks/api/useDisconnect', () => ({
-  useDisconnect: () => ({ mutate: disconnect, isPending: false }),
+  useDisconnect: () => ({
+    mutate: disconnect,
+    isPending: false,
+    isError: disconnectFailed(),
+  }),
 }));
 
 vi.mock('@/hooks/api/useSetToolRule', () => ({
@@ -137,6 +147,8 @@ beforeEach(() => {
   refetch.mockClear();
   connect.mockClear();
   disconnect.mockClear();
+  connectFailed.mockReturnValue(false);
+  disconnectFailed.mockReturnValue(false);
   github.mockReturnValue(ready());
   configuration.mockReturnValue(read());
   connections.mockReturnValue(joined());
@@ -231,7 +243,7 @@ describe('TeamIntegrations', () => {
 
     await userEvent.click(
       head('Grafana').getByRole('button', {
-        name: 'Connect the team’s Grafana account',
+        name: 'Connect team account for Grafana',
       }),
     );
 
@@ -257,7 +269,7 @@ describe('TeamIntegrations', () => {
 
     expect(screen.getByText('Waiting for an admin')).toBeInTheDocument();
     expect(
-      head('Grafana').queryByRole('button', { name: /Connect the team/ }),
+      head('Grafana').queryByRole('button', { name: /Connect team account/ }),
     ).not.toBeInTheDocument();
   });
 
@@ -337,7 +349,7 @@ describe('TeamIntegrations', () => {
 
     await userEvent.click(
       head('Linear').getByRole('button', {
-        name: 'Connect your Linear account',
+        name: 'Connect your account for Linear',
       }),
     );
 
@@ -449,5 +461,69 @@ describe('TeamIntegrations', () => {
 
     expect(people).toHaveTextContent('Sam Rivera');
     expect(people).toHaveTextContent('Not connected: Maya Chen');
+  });
+
+  it('says when the team account could not be connected', () => {
+    connectFailed.mockReturnValue(true);
+    configuration.mockReturnValue(
+      read([
+        integration({
+          standing: 'unlinked',
+          name: 'Grafana',
+          source: 'grafana',
+        }),
+      ]),
+    );
+    showing();
+
+    expect(head('Grafana').getByRole('alert')).toHaveTextContent(
+      'Could not connect. Try again.',
+    );
+  });
+
+  it('says when a person’s own account could not be connected', () => {
+    connectFailed.mockReturnValue(true);
+    configuration.mockReturnValue(read([personal()]));
+    showing();
+
+    expect(head('Linear').getByRole('alert')).toHaveTextContent(
+      'Could not connect. Try again.',
+    );
+  });
+
+  it('says when a person’s own account could not be disconnected', async () => {
+    disconnectFailed.mockReturnValue(true);
+    configuration.mockReturnValue(read([personal()]));
+    connections.mockReturnValue(
+      joined({
+        mine: [
+          {
+            source: 'linear',
+            handle: '@sam',
+            connectedAt: new Date().toISOString(),
+            tools: [],
+          },
+        ],
+      }),
+    );
+    showing();
+
+    const yours = fact(await opening('Linear'), 'Your account');
+
+    expect(within(yours).getByRole('alert')).toHaveTextContent(
+      'Could not disconnect. Try again.',
+    );
+  });
+
+  it('says when the team account could not be changed', async () => {
+    connectFailed.mockReturnValue(true);
+    configuration.mockReturnValue(read([personal()]));
+    showing();
+
+    const team = fact(await opening('Linear'), 'Team account');
+
+    expect(within(team).getByRole('alert')).toHaveTextContent(
+      'Could not connect. Try again.',
+    );
   });
 });

@@ -33450,7 +33450,7 @@
           "body"
         ]
       },
-      "ConfigVersionPullRequestResponseDto": {
+      "StationConfigPullRequestResponseDto": {
         "type": "object",
         "properties": {
           "url": {
@@ -33800,7 +33800,7 @@
             "type": "object",
             "allOf": [
               {
-                "$ref": "#/components/schemas/ConfigVersionPullRequestResponseDto"
+                "$ref": "#/components/schemas/StationConfigPullRequestResponseDto"
               }
             ]
           },

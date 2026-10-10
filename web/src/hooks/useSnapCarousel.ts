@@ -1,6 +1,7 @@
 import {
   type PointerEvent,
   useCallback,
+  useEffect,
   useLayoutEffect,
   useRef,
   useState,
@@ -46,8 +47,8 @@ type Drag = {
 export function useSnapCarousel(count: number) {
   const track = useRef<HTMLUListElement>(null);
   const drag = useRef<Drag | null>(null);
+  const quiet = useRef<number | undefined>(undefined);
   const [stops, setStops] = useState<readonly number[]>([0]);
-  const stopsNow = useRef<readonly number[]>([0]);
   const [at, setAt] = useState(0);
   const [dragging, setDragging] = useState(false);
 
@@ -60,7 +61,6 @@ export function useSnapCarousel(count: number) {
 
     const measure = () => {
       const next = stopsOf(element);
-      stopsNow.current = next;
       setStops(next);
       setAt(nearestStop(next, element.scrollLeft));
     };
@@ -68,41 +68,36 @@ export function useSnapCarousel(count: number) {
     const observer = new ResizeObserver(measure);
     observer.observe(element);
 
-    let quiet: number | undefined;
-    const settle = () => {
-      window.clearTimeout(quiet);
-      if (drag.current) {
-        return;
-      }
-      const target =
-        stopsNow.current[nearestStop(stopsNow.current, element.scrollLeft)] ??
-        0;
-      if (Math.abs(target - element.scrollLeft) > 1) {
-        element.scrollTo?.({
-          left: target,
-          behavior: prefersLessMotion() ? 'auto' : 'smooth',
-        });
-      }
-    };
-    const onScrolled = () => {
-      window.clearTimeout(quiet);
-      quiet = window.setTimeout(settle, QUIET);
-    };
-    element.addEventListener('scroll', onScrolled, { passive: true });
-
-    return () => {
-      observer.disconnect();
-      element.removeEventListener('scroll', onScrolled);
-      window.clearTimeout(quiet);
-    };
+    return () => observer.disconnect();
   }, [count]);
+
+  useEffect(() => () => window.clearTimeout(quiet.current), []);
+
+  const settle = useCallback(() => {
+    const element = track.current;
+    if (!element || drag.current) {
+      return;
+    }
+    const target = stops[nearestStop(stops, element.scrollLeft)] ?? 0;
+    if (Math.abs(target - element.scrollLeft) > 1) {
+      element.scrollTo?.({
+        left: target,
+        behavior: prefersLessMotion() ? 'auto' : 'smooth',
+      });
+    }
+  }, [stops]);
 
   const onScroll = useCallback(() => {
     const element = track.current;
-    if (element && !drag.current) {
+    if (!element) {
+      return;
+    }
+    window.clearTimeout(quiet.current);
+    quiet.current = window.setTimeout(settle, QUIET);
+    if (!drag.current) {
       setAt(nearestStop(stops, element.scrollLeft));
     }
-  }, [stops]);
+  }, [settle, stops]);
 
   const go = useCallback(
     (to: number) => {

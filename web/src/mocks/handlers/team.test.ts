@@ -14,7 +14,7 @@ import {
   startChat,
   writeMemory,
 } from '@/lib/api';
-import { useMockApi } from '@/mocks/testing';
+import { serveMockApi } from '@/mocks/testing';
 import { DELIVERY_ID, GROWTH_ID, PLATFORM_ID } from '@/mocks/world';
 
 const team = { teamId: PLATFORM_ID };
@@ -29,7 +29,7 @@ const memoryIds = async (query: Record<string, string> = {}) => {
 };
 
 describe('the mock team memories', () => {
-  useMockApi();
+  serveMockApi();
 
   it('lists what each team remembers, standing by default', async () => {
     const { data: growth } = await listTeamMemories({
@@ -147,7 +147,7 @@ describe('the mock team memories', () => {
 });
 
 describe('the mock agent chats', () => {
-  useMockApi();
+  serveMockApi();
 
   it('lists the chats and opens one with its journal', async () => {
     const { data: chats } = await listChats({ path: team, throwOnError: true });
@@ -212,7 +212,7 @@ describe('the mock agent chats', () => {
 });
 
 describe('the mock team area in an empty workspace', () => {
-  useMockApi('empty');
+  serveMockApi('empty');
 
   it('answers empty', async () => {
     const { data: memories } = await listTeamMemories({

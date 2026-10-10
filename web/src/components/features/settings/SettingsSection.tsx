@@ -4,7 +4,7 @@ type SettingsSectionProps = {
   title?: string;
   count?: number;
   action?: ReactNode;
-  list?: string;
+  listLabel?: string;
   children: ReactNode;
 };
 
@@ -12,10 +12,10 @@ export function SettingsSection({
   title,
   count,
   action,
-  list,
+  listLabel,
   children,
 }: SettingsSectionProps) {
-  const Body = list ? 'ul' : 'div';
+  const Body = listLabel ? 'ul' : 'div';
 
   return (
     <section className="flex flex-col gap-3">
@@ -35,7 +35,7 @@ export function SettingsSection({
       )}
 
       <Body
-        aria-label={list}
+        aria-label={listLabel}
         className="divide-y-[0.5px] divide-border overflow-hidden rounded-xl border-[0.5px] border-border bg-card"
       >
         {children}

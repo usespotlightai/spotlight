@@ -4256,7 +4256,7 @@ export type MemoryFileResponseDto = {
   body: string;
 };
 
-export type ConfigVersionPullRequestResponseDto = {
+export type StationConfigPullRequestResponseDto = {
   /**
    * The pull request’s page on GitHub
    */
@@ -4407,7 +4407,7 @@ export type FingerprintGroupResponseDto = {
   /**
    * The pull request Spotlight opened that proposes the group’s config, the latest opened where it opened more than one; none where Spotlight opened none, or for a group with no config
    */
-  pullRequest: ConfigVersionPullRequestResponseDto | null;
+  pullRequest: StationConfigPullRequestResponseDto | null;
   /**
    * Its runs that ended, the latest-started first, so the groups’ runs read in turn are the station’s latest-started runs
    */

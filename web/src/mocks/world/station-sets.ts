@@ -51,7 +51,7 @@ const outcomeOf = (run: StationRunOutcomeResponseDto): Outcome => {
   return 'other';
 };
 
-export const implementationRuns = (): StationRunFound[] =>
+const implementationRuns = (): StationRunFound[] =>
   stationRuns(PLATFORM_ID, DELIVERY_ID, IMPLEMENTATION_ID).runs.map(
     ({ title, outcome }) => ({
       runId: outcome.runId,
@@ -203,9 +203,7 @@ const compositionOf = (
   };
 };
 
-export const entryOfSet = (
-  entrySpec: SetEntrySpec,
-): ReplaySetEntryResponseDto => {
+const entryOfSet = (entrySpec: SetEntrySpec): ReplaySetEntryResponseDto => {
   const run = runOfStation(entrySpec.runId);
 
   return {

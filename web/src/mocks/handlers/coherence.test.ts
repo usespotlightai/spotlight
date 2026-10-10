@@ -17,7 +17,7 @@ import {
   readTaskJournal,
   readTaskTrace,
 } from '@/lib/api';
-import { useMockApi } from '@/mocks/testing';
+import { serveMockApi } from '@/mocks/testing';
 import { DELIVERY_ID, PLATFORM_ID, SLUG } from '@/mocks/world';
 import { ALERT_ID } from '@/mocks/world/inbox';
 import { FINGERPRINTS } from '@/mocks/world/station-history';
@@ -44,7 +44,7 @@ const newSideHolds = (patch: string, line: number): boolean => {
 };
 
 describe('one run history across the mock', () => {
-  useMockApi();
+  serveMockApi();
 
   it('counts the same Implementation runs on the station page as Insights does over 30 days', async () => {
     const { data: insights } = await readInsightsStations({
@@ -192,7 +192,7 @@ describe('one run history across the mock', () => {
 });
 
 describe('the Postgres upgrade reads the same everywhere', () => {
-  useMockApi();
+  serveMockApi();
 
   it('anchors every review comment to a line in the run’s change stack', async () => {
     const path = { teamId, runId: 'run_postgres_2' };
@@ -254,7 +254,7 @@ describe('the Postgres upgrade reads the same everywhere', () => {
 });
 
 describe('the task journal and the run conversations tell one story', () => {
-  useMockApi();
+  serveMockApi();
 
   it('shows the retry drain the same in the inbox, the journal and the run', async () => {
     const { data: inbox } = await listInbox({

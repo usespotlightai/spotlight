@@ -146,7 +146,7 @@ export interface OutcomesReactions {
   readonly shaping: NoteChangeShaped;
   readonly watching: WatchStations;
   readonly alerting: AlertInbox;
-  readonly proposing: NoteConfigPullRequestOpened;
+  readonly openingConfigPullRequests: NoteConfigPullRequestOpened;
 }
 
 const dateOf = (at: string | null): Date | null => (at ? new Date(at) : null);
@@ -405,15 +405,14 @@ export const outcomesSubscribers = (
     'outcomes.record-opened-config-pull-request',
     [CONFIG_PULL_REQUEST_OPENED],
     (event) =>
-      reactions.proposing.opened({
+      reactions.openingConfigPullRequests.opened({
         configPullRequestId: event.configPullRequestId,
         workspaceId: WorkspaceId.of(event.workspaceId),
         teamId: TeamId.of(event.teamId),
-        lineId: event.lineId,
         stationId: event.stationId,
         fingerprint: event.fingerprint,
         url: PullRequestUrl.of(event.url),
-        openedAt: new Date(event.openedAt),
+        openedAt: new Date(event.at),
       }),
   ),
   subscribing<TeamDisbandedIntegrationEvent>(

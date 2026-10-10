@@ -18,6 +18,7 @@ import {
   type Script,
   ScriptedApplication,
 } from '@/stories/ScriptedApplication';
+import { resumed } from '@/stories/visit';
 
 export type PageArgs = {
   readonly state: PageState;
@@ -134,11 +135,14 @@ export const pageStory = <Extra extends object = object>({
     });
     signIn(account);
 
+    const start = typeof at === 'function' ? at(all) : at;
+    const where = resumed(start);
+
     return (
       <ScriptedApplication
         key={JSON.stringify(all)}
-        at={typeof at === 'function' ? at(all) : at}
-        script={script?.(all)}
+        at={where}
+        script={where === start ? script?.(all) : undefined}
       />
     );
   },

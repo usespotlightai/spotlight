@@ -1,6 +1,12 @@
 import { useState } from 'react';
 import type { LineResponseDto, WriteMemoryRequestDto } from '@/lib/api';
-import { kindOf, type MemoryKind, type TeamMemory } from '@/lib/memory';
+import {
+  kindOf,
+  type MemoryKind,
+  repositoriesOf,
+  type TeamMemory,
+  workStationsOf,
+} from '@/lib/memory';
 
 type Draftable = Pick<
   TeamMemory,
@@ -46,10 +52,8 @@ export function useMemoryDraft(
     paths,
     setPaths,
     line,
-    stations: (line?.stations ?? []).filter((each) => each.kind === 'work'),
-    repositories: [
-      ...new Set((line ? [line] : lines).flatMap((each) => each.repositories)),
-    ],
+    stations: workStationsOf(line),
+    repositories: repositoriesOf(line, lines),
     empty: !body.trim(),
     reset: (from: Draftable) => {
       setKind(kindOf(from.kind));

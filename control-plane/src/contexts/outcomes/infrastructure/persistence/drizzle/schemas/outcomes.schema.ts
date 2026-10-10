@@ -238,7 +238,6 @@ export const stationConfigPullRequest = pgTable(
     configPullRequestId: text('config_pull_request_id').primaryKey(),
     workspaceId: text('workspace_id').notNull(),
     teamId: text('team_id').notNull(),
-    lineId: text('line_id').notNull(),
     stationId: text('station_id').notNull(),
     fingerprint: text('fingerprint').notNull(),
     url: text('url').notNull(),

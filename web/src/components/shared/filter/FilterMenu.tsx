@@ -42,7 +42,7 @@ type FilterMenuProps = {
   applied: number;
   onClear: () => void;
   compact?: boolean;
-  button?: Size;
+  triggerSize?: Size;
   children: ReactNode;
 };
 
@@ -51,11 +51,11 @@ export function FilterMenu({
   applied,
   onClear,
   compact = false,
-  button,
+  triggerSize,
   children,
 }: FilterMenuProps) {
   const look = LOOKS[compact ? 'compact' : 'regular'];
-  const trigger = LOOKS[button ?? (compact ? 'compact' : 'regular')];
+  const trigger = LOOKS[triggerSize ?? (compact ? 'compact' : 'regular')];
   const filled = applied > 0;
 
   return (

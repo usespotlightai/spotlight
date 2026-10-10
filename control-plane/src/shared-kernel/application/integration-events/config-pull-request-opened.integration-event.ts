@@ -6,9 +6,8 @@ export type ConfigPullRequestOpenedIntegrationEvent = {
   readonly configPullRequestId: string;
   readonly workspaceId: string;
   readonly teamId: string;
-  readonly lineId: string;
   readonly stationId: string;
   readonly fingerprint: string;
   readonly url: string;
-  readonly openedAt: string;
+  readonly at: string;
 };

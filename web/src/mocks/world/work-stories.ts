@@ -66,7 +66,7 @@ export const said = (text: string, weight = 1): StepScript => ({
   weight,
 });
 
-export const planned = (text: string, weight = 1): StepScript => ({
+const planned = (text: string, weight = 1): StepScript => ({
   kind: 'planned',
   text,
   weight,
@@ -114,7 +114,7 @@ export const answered = (
   minutesAfterEnd: number,
 ): NoteScript => ({ kind: 'answered', body, author, minutesAfterEnd });
 
-export const approvalAsked = (
+const approvalAsked = (
   approval: InboxApprovalResponseDto,
   minutesIn: number,
 ): NoteScript =>
@@ -124,7 +124,7 @@ export const approvalAsked = (
     approval,
   });
 
-export const decided = (
+const decided = (
   author: TaskPersonResponseDto,
   body: string,
   minutesIn: number,
@@ -145,7 +145,7 @@ export const failedWith = (body: string): NoteScript => ({
 
 export const PULL_431 = 'https://github.com/acme/api/pull/431';
 export const PULL_412 = 'https://github.com/acme/api/pull/412';
-export const PULL_88 = 'https://github.com/acme/web/pull/88';
+const PULL_88 = 'https://github.com/acme/web/pull/88';
 
 export const PAID_AT_MIGRATION =
   'migrations/0042_invoice_paid_at_precision.sql';
@@ -915,13 +915,6 @@ export const RUN_STORIES: Record<string, RunStory> = {
     ],
     output: 'Opened acme/web#88: referral link in the invite email.',
   },
-};
-
-export const PEOPLE_BY_ID: Record<string, TaskPersonResponseDto> = {
-  [SAM.id]: SAM,
-  [MAYA.id]: MAYA,
-  [PRIYA.id]: PRIYA,
-  [TOM.id]: TOM,
 };
 
 export const stepIndexOf = (runId: string, text: string): number =>

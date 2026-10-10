@@ -14,7 +14,7 @@ import {
   readInsightsStations,
   readInsightsTools,
 } from '@/lib/api';
-import { useMockApi } from '@/mocks/testing';
+import { serveMockApi } from '@/mocks/testing';
 import { PLATFORM_ID } from '@/mocks/world';
 import { FINGERPRINTS } from '@/mocks/world/station-history';
 
@@ -23,7 +23,7 @@ const team = { teamId: PLATFORM_ID };
 const IMPLEMENTATION = 'station_implementation';
 
 describe('the mock insights', () => {
-  useMockApi();
+  serveMockApi();
 
   it('flags only Implementation as worth improving, for its sent-back rate and cost', async () => {
     const { data } = await readInsightsOverview({
@@ -237,7 +237,7 @@ describe('the mock insights', () => {
 });
 
 describe('the mock insights of a fresh workspace', () => {
-  useMockApi('empty');
+  serveMockApi('empty');
 
   it('answers every tab empty', async () => {
     const query = { period: '30d' as const };

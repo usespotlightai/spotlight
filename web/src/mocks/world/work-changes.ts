@@ -58,7 +58,7 @@ const diffed = (before: readonly string[], after: readonly string[]) => {
 const counted = (lines: readonly string[], dropped: '+' | '-'): number =>
   lines.filter((line) => !line.startsWith(dropped)).length;
 
-export const hunk = (
+const hunk = (
   id: string,
   oldStart: number,
   newStart: number,
@@ -105,10 +105,7 @@ export const file = (
   hunks,
 });
 
-export const changeIn = (
-  runId: string,
-  path: string,
-): StepChangeResponseDto => {
+const changeIn = (runId: string, path: string): StepChangeResponseDto => {
   const found = RUN_STORIES[runId]?.steps.find(
     (step) => step.change?.path === path,
   )?.change;

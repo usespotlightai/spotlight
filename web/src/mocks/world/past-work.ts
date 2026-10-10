@@ -92,7 +92,7 @@ const stateOf = (run: HistoryRun): TaskRunResponseDto['state'] =>
 const exitCodeOf = (run: HistoryRun): number | null =>
   run.ending === 'completed' ? 0 : run.ending === 'failed' ? 1 : null;
 
-export const shownRunOf = (run: HistoryRun): TaskRunResponseDto => ({
+const shownRunOf = (run: HistoryRun): TaskRunResponseDto => ({
   id: run.runId,
   state: stateOf(run),
   attempt: roundOf(run.runId),

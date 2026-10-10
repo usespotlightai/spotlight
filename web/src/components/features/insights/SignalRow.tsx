@@ -3,10 +3,12 @@ import { SignalDumbbell } from '@/components/features/insights/SignalDumbbell';
 import { NestedCell } from '@/components/shared/nested-table/NestedCell';
 import {
   EDGE_INDENT,
+  LEAD_CELL,
   OUTER_DIVIDER,
   OUTER_GUIDE,
   OUTER_INDENT,
   ROW_DIVIDER,
+  TABLE_ROW,
 } from '@/components/shared/nested-table/nested-rows';
 import {
   type SignalReading,
@@ -39,17 +41,18 @@ export function SignalRow({ reading, nested = true, action }: SignalRowProps) {
       {...pictured}
       data-slot="signal-reading"
       className={cn(
-        'relative col-span-full grid grid-cols-2 items-center gap-x-6 gap-y-2 py-2 pr-2 text-xs @4xl:grid-cols-subgrid @lg:group-data-compact/nested:grid-cols-subgrid',
+        TABLE_ROW,
         nested ? [OUTER_GUIDE, OUTER_DIVIDER] : ROW_DIVIDER,
       )}
     >
       <span
         className={cn(
-          'col-span-full min-w-0 truncate text-foreground @4xl:col-span-1 @lg:group-data-compact/nested:col-span-1',
+          LEAD_CELL,
+          'text-foreground',
           nested ? OUTER_INDENT : EDGE_INDENT,
         )}
       >
-        {signalLabel(reading.signal)}
+        <span className="truncate">{signalLabel(reading.signal)}</span>
       </span>
 
       <div

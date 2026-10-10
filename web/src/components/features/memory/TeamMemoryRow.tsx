@@ -1,4 +1,4 @@
-import { type MouseEvent, useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { MEMORY_COLUMNS } from '@/components/features/memory/columns';
 import { MemoryBodyInput } from '@/components/features/memory/MemoryBodyInput';
 import { MemoryDetails } from '@/components/features/memory/MemoryDetails';
@@ -10,22 +10,19 @@ import { MemorySource } from '@/components/features/memory/MemorySource';
 import { RetirementNote } from '@/components/features/memory/RetirementNote';
 import { useEditMemory } from '@/hooks/api/useEditMemory';
 import { useMemoryDraft } from '@/hooks/useMemoryDraft';
+import { useRowClick } from '@/hooks/useRowClick';
 import { useRowExpansion } from '@/hooks/useRowExpansion';
 import type { LineResponseDto } from '@/lib/api';
 import { placeTreeOf, SOURCE_SHOWN, type TeamMemory } from '@/lib/memory';
 import { cn } from '@/lib/utils';
-
-const OWN_CLICKS =
-  'button, a, input, textarea, select, [role^="menu"], [role="dialog"], form';
 
 type TeamMemoryRowProps = {
   slug: string;
   teamId: string;
   memory: TeamMemory;
   lines: readonly LineResponseDto[];
-  startsOpen?: boolean;
   open: boolean;
-  onOpen: (open: boolean) => void;
+  onOpenChange: (open: boolean) => void;
 };
 
 export function TeamMemoryRow({
@@ -33,17 +30,28 @@ export function TeamMemoryRow({
   teamId,
   memory,
   lines,
-  startsOpen = false,
   open,
-  onOpen,
+  onOpenChange,
 }: TeamMemoryRowProps) {
-  const { row, expanded, clamped, toggle } = useRowExpansion(startsOpen);
-  const [seen, setSeen] = useState(startsOpen);
+  const { row, expanded, clamped, toggle } = useRowExpansion({
+    open,
+    onOpenChange,
+  });
+  const [seen, setSeen] = useState(open);
   const [editing, setEditing] = useState(false);
   const draft = useMemoryDraft(memory, lines);
   const edit = useEditMemory();
   const changing = editing && expanded;
   const unsaveable = draft.empty || edit.isPending;
+  const toggledHere = useRef(false);
+
+  if (open && !seen) {
+    setSeen(true);
+  }
+
+  if (!open && editing) {
+    setEditing(false);
+  }
 
   const startEditing = () => {
     draft.reset(memory);
@@ -61,33 +69,18 @@ export function TeamMemoryRow({
   };
 
   const flip = () => {
-    setSeen(true);
-    onOpen(!expanded);
+    toggledHere.current = true;
     toggle();
   };
 
-  useEffect(() => {
-    if (!open && expanded) {
-      toggle();
-    }
-  }, [open, expanded, toggle]);
-
-  const onRowClick = (event: MouseEvent<HTMLLIElement>) => {
-    if (
-      changing ||
-      (event.target as Element).closest(OWN_CLICKS) ||
-      window.getSelection()?.toString()
-    ) {
-      return;
-    }
-    flip();
-  };
+  const onRowClick = useRowClick(flip, { ignore: () => changing });
 
   useEffect(() => {
-    if (startsOpen) {
+    if (open && !toggledHere.current) {
       row.current?.scrollIntoView?.({ block: 'nearest' });
     }
-  }, [startsOpen, row]);
+    toggledHere.current = false;
+  }, [open, row]);
 
   return (
     // biome-ignore lint/a11y/useKeyWithClickEvents: the memory's own button is the keyboard path; this widens the click to the whole row
@@ -169,6 +162,7 @@ export function TeamMemoryRow({
           <MemoryDetails
             teamId={teamId}
             memoryId={memory.id}
+            open={open}
             editing={changing}
             saving={edit.isPending}
             unsaveable={unsaveable}

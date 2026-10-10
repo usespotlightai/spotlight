@@ -22,7 +22,7 @@ import {
   settleInboxNotice,
   submitReview,
 } from '@/lib/api';
-import { useMockApi } from '@/mocks/testing';
+import { serveMockApi } from '@/mocks/testing';
 import { GROWTH_ID, PLATFORM_ID, SLUG } from '@/mocks/world';
 import {
   ALERT_ASIDE_ID,
@@ -69,7 +69,7 @@ const scoresAbout = async (asideId: string) => {
 };
 
 describe('the mock inbox', () => {
-  useMockApi();
+  serveMockApi();
 
   it('holds open and settled work across both teams', async () => {
     const entries = await inbox();
@@ -388,7 +388,7 @@ const statusOf = async (call: Promise<{ response?: Response }>) =>
   (await call).response?.status;
 
 describe('the mock inbox in an empty workspace', () => {
-  useMockApi('empty');
+  serveMockApi('empty');
 
   it('holds only the open setup of the new team', async () => {
     const { data: journal } = await readTaskJournal({
