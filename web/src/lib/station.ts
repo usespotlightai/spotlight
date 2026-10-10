@@ -14,7 +14,6 @@ export const stationShare = (place: number, count: number): number =>
 export const STATION_TABS = [
   { id: 'overview', label: 'Overview' },
   { id: 'improve', label: 'Improve' },
-  { id: 'config', label: 'Config' },
 ] as const;
 
 export type StationTab = (typeof STATION_TABS)[number]['id'];

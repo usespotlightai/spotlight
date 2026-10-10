@@ -603,6 +603,7 @@ export const snapshotsFor = (
 
 export class InMemoryConfigPullRequests implements ConfigPullRequestRepository {
   readonly kept = new Map<string, ConfigPullRequest>();
+  readonly events: DomainEvent[] = [];
 
   async find(id: { value: string }) {
     return this.kept.get(id.value) ?? null;
@@ -650,7 +651,7 @@ export class InMemoryConfigPullRequests implements ConfigPullRequestRepository {
       return kept;
     }
 
-    added.pullEvents();
+    this.events.push(...added.pullEvents());
     this.kept.set(added.id.value, added);
 
     return added;
@@ -663,7 +664,7 @@ export class InMemoryConfigPullRequests implements ConfigPullRequestRepository {
       throw new ConfigPullRequestMovedOnError(saved.id.value);
     }
 
-    saved.pullEvents();
+    this.events.push(...saved.pullEvents());
 
     if (saved.isAbandoned) {
       this.kept.delete(saved.id.value);

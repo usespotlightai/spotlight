@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { listStationOutcomes } from '@/lib/api';
 import type { StationOutcomes } from '@/lib/station-outcomes';
 
-export const stationOutcomeKeys = {
+const stationOutcomeKeys = {
   forStation: (stationId?: string) =>
     ['station-outcomes', stationId ?? null] as const,
 };

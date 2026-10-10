@@ -5,7 +5,7 @@ import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { RunChangeStacks } from '@/lib/change-stack';
 import { RunChangeStack } from '@/routes/RunChangeStack';
-import { INVITATIONS, LARGE_FILE } from '@/stories/fixtures/change-stack';
+import { INVITATIONS, LARGE_FILE } from '@/test/fixtures/change-stack';
 
 const stacks = vi.fn();
 const stacksFailing = vi.fn();

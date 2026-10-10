@@ -9,7 +9,7 @@ import type {
   RunNext,
 } from '@/lib/insights';
 
-export const insightsRunKeys = {
+const insightsRunKeys = {
   forTeam: (
     teamId: string | undefined,
     period: InsightsPeriod,

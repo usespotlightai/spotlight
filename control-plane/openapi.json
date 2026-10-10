@@ -33450,6 +33450,19 @@
           "body"
         ]
       },
+      "StationConfigPullRequestResponseDto": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "example": "https://github.com/acme/platform/pull/42",
+            "description": "The pull request’s page on GitHub"
+          }
+        },
+        "required": [
+          "url"
+        ]
+      },
       "NextActResponseDto": {
         "type": "object",
         "properties": {
@@ -33781,6 +33794,16 @@
               "$ref": "#/components/schemas/ConfigChangeResponseDto"
             }
           },
+          "pullRequest": {
+            "nullable": true,
+            "description": "The pull request Spotlight opened that proposes the group’s config, the latest opened where it opened more than one; none where Spotlight opened none, or for a group with no config",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/StationConfigPullRequestResponseDto"
+              }
+            ]
+          },
           "runs": {
             "description": "Its runs that ended, the latest-started first, so the groups’ runs read in turn are the station’s latest-started runs",
             "type": "array",
@@ -33813,6 +33836,7 @@
           "ran",
           "config",
           "changes",
+          "pullRequest",
           "runs",
           "tally",
           "shares",

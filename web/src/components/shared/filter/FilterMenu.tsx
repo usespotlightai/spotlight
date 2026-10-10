@@ -35,11 +35,14 @@ const LOOKS = {
   },
 } as const;
 
+type Size = keyof typeof LOOKS;
+
 type FilterMenuProps = {
   label: string;
   applied: number;
   onClear: () => void;
   compact?: boolean;
+  triggerSize?: Size;
   children: ReactNode;
 };
 
@@ -48,9 +51,11 @@ export function FilterMenu({
   applied,
   onClear,
   compact = false,
+  triggerSize,
   children,
 }: FilterMenuProps) {
   const look = LOOKS[compact ? 'compact' : 'regular'];
+  const trigger = LOOKS[triggerSize ?? (compact ? 'compact' : 'regular')];
   const filled = applied > 0;
 
   return (
@@ -58,12 +63,12 @@ export function FilterMenu({
       <PopoverTrigger
         aria-label={filled ? `${label}, ${applied} applied` : label}
         className={cn(
-          filled ? look.filled : look.empty,
-          'bg-card shadow-none data-[popup-open]:bg-muted',
-          look.trigger,
+          filled ? trigger.filled : trigger.empty,
+          'bg-card shadow-none transition-colors data-[popup-open]:bg-muted',
+          trigger.trigger,
         )}
       >
-        <ListFilter aria-hidden className={look.icon} />
+        <ListFilter aria-hidden className={trigger.icon} />
         {filled && <span className="tabular-nums">{applied}</span>}
       </PopoverTrigger>
 

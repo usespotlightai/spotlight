@@ -338,7 +338,7 @@ describe('Search', () => {
     expect(
       screen.getByText('Ran every iteration it was given.'),
     ).toBeInTheDocument();
-    expect(screen.getByText('$12.00 of $20.00')).toBeInTheDocument();
+    expect(screen.getByText('$12.00 / $20.00')).toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: 'Stop' }),
     ).not.toBeInTheDocument();

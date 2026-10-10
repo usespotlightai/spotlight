@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { RunJudgeScore } from '@/components/features/runs/judge/RunJudgeScore';
 import { StepAnchorsContext } from '@/lib/step-anchors';
-import { claimsScoresOf, runScoresOf } from '@/stories/fixtures/run-scores';
+import { claimsScoresOf, runScoresOf } from '@/test/fixtures/run-scores';
 
 const scores = vi.fn();
 const scoresFailing = vi.fn();

@@ -3,6 +3,7 @@ import type {
   FingerprintGroupDto,
   StationOutcomesDto,
 } from '@outcomes/application/dto/station-outcomes.dto';
+import type { StationConfigPullRequestsPort } from '@outcomes/application/ports/station-config-pull-requests.port';
 import type { WorkPort } from '@outcomes/application/ports/work.port';
 import type { ListStationOutcomesQuery } from '@outcomes/application/queries/list-station-outcomes.query';
 import {
@@ -36,6 +37,7 @@ export class ListStationOutcomesHandler
     private readonly access: OutcomesAccess,
     private readonly records: RunRecordRepository,
     private readonly deliveries: TaskDeliveryRepository,
+    private readonly pullRequests: StationConfigPullRequestsPort,
     private readonly work: WorkPort,
   ) {}
 
@@ -73,9 +75,27 @@ export class ListStationOutcomesHandler
       const configs = configChangesOf(
         await this.work.configsInOrder(fingerprintsAsked([...pairs].reverse())),
       );
+      const pullRequests = await this.pullRequests.newestFor(
+        {
+          workspaceId: clearance.workspaceId,
+          teamId: clearance.teamId,
+          stationId: query.stationId,
+        },
+        [
+          ...new Set(
+            newestFirst.flatMap((group) =>
+              group.fingerprint ? [group.fingerprint] : [],
+            ),
+          ),
+        ],
+      );
 
       const groups: FingerprintGroupDto[] = newestFirst.map((group, at) => {
         const tally = runTally(group.records, deliveries);
+        const pullRequest =
+          group.fingerprint !== null
+            ? pullRequests.get(group.fingerprint)
+            : null;
 
         return {
           firstRunId: group.firstRunId.value,
@@ -83,6 +103,7 @@ export class ListStationOutcomesHandler
           ran: group.ran,
           config: configs.configOf(group.fingerprint),
           changes: configs.between(pairs[at]),
+          pullRequest: pullRequest ? { url: pullRequest.value } : null,
           runs: group.records.flatMap((each) => {
             const outcome = runOutcomeOf(each, deliveries);
             return outcome ? [outcome] : [];

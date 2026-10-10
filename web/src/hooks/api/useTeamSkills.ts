@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { listTeamSkills } from '@/lib/api';
 
-export const teamSkillKeys = {
+const teamSkillKeys = {
   forTeam: (teamId?: string) => ['team-skills', teamId ?? null] as const,
 };
 

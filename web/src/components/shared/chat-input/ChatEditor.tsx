@@ -3,7 +3,12 @@ import { ContentEditable } from '@lexical/react/LexicalContentEditable';
 import { LexicalErrorBoundary } from '@lexical/react/LexicalErrorBoundary';
 import { HistoryPlugin } from '@lexical/react/LexicalHistoryPlugin';
 import { PlainTextPlugin } from '@lexical/react/LexicalPlainTextPlugin';
-import { $createParagraphNode, $getRoot, type LexicalEditor } from 'lexical';
+import {
+  $createParagraphNode,
+  $createTextNode,
+  $getRoot,
+  type LexicalEditor,
+} from 'lexical';
 import { type RefObject, useState } from 'react';
 import { EditorHandle } from '@/components/shared/chat-input/EditorHandle';
 import {
@@ -19,6 +24,7 @@ type ChatEditorProps = {
   label: string;
   placeholder: string;
   initialReferences: readonly Reference[];
+  initialText?: string;
   handle: RefObject<LexicalEditor | null>;
   editable: boolean;
   disabled: boolean;
@@ -30,6 +36,7 @@ export function ChatEditor({
   label,
   placeholder,
   initialReferences,
+  initialText = '',
   handle,
   editable,
   disabled,
@@ -43,10 +50,13 @@ export function ChatEditor({
       throw error;
     },
     editorState:
-      initialReferences.length > 0
+      initialReferences.length > 0 || initialText
         ? () => {
             const paragraph = $createParagraphNode();
             paragraph.append(...$spacedReferences(initialReferences));
+            if (initialText) {
+              paragraph.append($createTextNode(initialText));
+            }
             $getRoot().append(paragraph);
           }
         : undefined,

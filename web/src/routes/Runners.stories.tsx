@@ -1,70 +1,13 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { Route } from 'react-router';
 import { runnersPath } from '@/lib/runner';
-import { Runners } from '@/routes/Runners';
-import {
-  emptyRunners,
-  emptyRunnersForMember,
-  failRunners,
-  SLUG,
-  seedPushRunners,
-  seedRunners,
-} from '@/stories/fixtures/runners';
-import { StoryPage } from '@/stories/StoryPage';
-
-const routes = <Route path="/w/:slug/settings/runners" element={<Runners />} />;
+import { SLUG } from '@/mocks/world';
+import { type PageArgs, pageStory } from '@/stories/application';
 
 const meta = {
   title: 'Settings/Workspace/Runners',
-} satisfies Meta;
+  ...pageStory({ at: runnersPath(SLUG) }),
+} satisfies Meta<PageArgs>;
 
 export default meta;
 
-type Story = StoryObj<typeof meta>;
-
-export const Loading: Story = {
-  render: () => <StoryPage at={runnersPath(SLUG)}>{routes}</StoryPage>,
-};
-
-export const Empty: Story = {
-  render: () => (
-    <StoryPage at={runnersPath(SLUG)} seed={emptyRunners}>
-      {routes}
-    </StoryPage>
-  ),
-};
-
-export const EmptyForMember: Story = {
-  name: 'Empty, as a member',
-  render: () => (
-    <StoryPage at={runnersPath(SLUG)} seed={emptyRunnersForMember}>
-      {routes}
-    </StoryPage>
-  ),
-};
-
-export const Failed: Story = {
-  name: 'Error',
-  render: () => (
-    <StoryPage at={runnersPath(SLUG)} seed={failRunners}>
-      {routes}
-    </StoryPage>
-  ),
-};
-
-export const WithData: Story = {
-  render: () => (
-    <StoryPage at={runnersPath(SLUG)} seed={seedRunners}>
-      {routes}
-    </StoryPage>
-  ),
-};
-
-export const PushPools: Story = {
-  name: 'Push pools',
-  render: () => (
-    <StoryPage at={runnersPath(SLUG)} seed={seedPushRunners}>
-      {routes}
-    </StoryPage>
-  ),
-};
+export const Runners: StoryObj<typeof meta> = {};

@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CandidatesTab } from '@/components/features/insights/candidates/CandidatesTab';
 import type { InsightsPeriod } from '@/lib/insights';
 import { stationNamesOf } from '@/lib/insights';
-import { CANDIDATES } from '@/stories/fixtures/insights-candidates';
+import { CANDIDATES } from '@/test/fixtures/insights-candidates';
 
 type Held = {
   data: unknown;

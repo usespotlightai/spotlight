@@ -1,15 +1,18 @@
-import { SearchStatePill } from '@/components/features/searches/SearchStatePill';
-import { BestCandidate } from '@/components/features/searches/station/BestCandidate';
+import { SearchBestName } from '@/components/features/searches/station/SearchBestName';
+import { SearchBestScore } from '@/components/features/searches/station/SearchBestScore';
+import { NestedCell } from '@/components/shared/nested-table/NestedCell';
+import {
+  EDGE_INDENT,
+  LEAD_CELL,
+  ROW_DIVIDER,
+  TABLE_ROW,
+} from '@/components/shared/nested-table/nested-rows';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { type ReplayedStation, spendOfCeiling } from '@/lib/replay';
-import {
-  iterationsShown,
-  type Search,
-  searchLabel,
-  searchPath,
-} from '@/lib/search';
-import { endingShown } from '@/lib/search-words';
+import { ongoing, type Search, searchLabel, searchPath } from '@/lib/search';
+import { endingShown, searchStateShown } from '@/lib/search-words';
 import { since } from '@/lib/since';
+import { cn } from '@/lib/utils';
 
 type SearchRowProps = {
   at: ReplayedStation;
@@ -20,33 +23,41 @@ type SearchRowProps = {
 
 export function SearchRow({ at, search, number, setName }: SearchRowProps) {
   return (
-    <li
-      data-slot="search"
-      className="relative flex flex-col gap-1 rounded-md px-2 py-2 text-sm transition-colors hover:bg-accent"
-    >
-      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+    <li data-slot="search" className={cn(TABLE_ROW, ROW_DIVIDER)}>
+      <span className={cn(LEAD_CELL, EDGE_INDENT)}>
         <TrailLink
           to={searchPath(at, search.id)}
-          className="min-w-0 truncate font-medium text-foreground outline-none after:absolute after:inset-0 after:rounded-md focus-visible:underline"
+          className="truncate font-medium text-foreground outline-none after:absolute after:inset-0 focus-visible:underline"
         >
           {searchLabel(number)}
         </TrailLink>
-        <SearchStatePill state={search.state} ending={search.ending} />
-        <span className="text-muted-foreground text-xs">
-          {setName ? `on ${setName} · ` : ''}started {since(search.startedAt)}
+      </span>
+      <NestedCell heading="State" numeric={false}>
+        <span
+          title={search.ending ? endingShown(search.ending) : undefined}
+          className={
+            ongoing(search.state) ? 'text-foreground' : 'text-muted-foreground'
+          }
+        >
+          {searchStateShown(search.state)}
         </span>
-        <BestCandidate
-          best={search.best}
-          objective={search.objective}
-          className="sm:ml-auto"
-        />
-      </div>
-
-      <p className="flex flex-wrap gap-x-1.5 text-muted-foreground text-xs tabular-nums">
-        <span>{iterationsShown(search)}</span>
-        <span>· {spendOfCeiling(search.spent, search.budget.ceiling)}</span>
-        {search.ending && <span>· {endingShown(search.ending)}</span>}
-      </p>
+      </NestedCell>
+      <NestedCell heading="Replay set" numeric={false}>
+        {setName ?? '–'}
+      </NestedCell>
+      <NestedCell heading="Best" numeric={false}>
+        <SearchBestName best={search.best} objective={search.objective} />
+      </NestedCell>
+      <NestedCell heading="Success">
+        <SearchBestScore best={search.best} />
+      </NestedCell>
+      <NestedCell heading="Iterations">
+        {search.iterationsRun} / {search.budget.iterations}
+      </NestedCell>
+      <NestedCell heading="Spent">
+        {spendOfCeiling(search.spent, search.budget.ceiling)}
+      </NestedCell>
+      <NestedCell heading="Started">{since(search.startedAt)}</NestedCell>
     </li>
   );
 }

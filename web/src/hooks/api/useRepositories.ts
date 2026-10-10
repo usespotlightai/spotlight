@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { listRepositories } from '@/lib/api';
 
-export const repositoryKeys = {
+const repositoryKeys = {
   forWorkspace: (slug?: string) => ['repositories', slug ?? null] as const,
 };
 

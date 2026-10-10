@@ -2,7 +2,7 @@ import { useInfiniteQuery } from '@tanstack/react-query';
 import { listReplaySetChecks } from '@/lib/api';
 import { CHECKS_PAGE, type ReplayCheckSummary } from '@/lib/search';
 
-export const replayCheckKeys = {
+const replayCheckKeys = {
   forSet: (setId?: string) => ['replay-checks', 'set', setId ?? null] as const,
 };
 

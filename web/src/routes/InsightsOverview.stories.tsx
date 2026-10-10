@@ -1,68 +1,39 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { Route } from 'react-router';
-import { Insights } from '@/routes/Insights';
 import {
-  emptyOverview,
-  failOverview,
-  insightsAt,
-  loadInsights,
-  refuseOverview,
-  seedOverview,
-} from '@/stories/fixtures/insights';
-import { StoryPage } from '@/stories/StoryPage';
+  DEFAULT_PERIOD,
+  type InsightsPeriod,
+  insightsPath,
+  PERIOD_RANGES,
+} from '@/lib/insights';
+import { PLATFORM_ID, SLUG } from '@/mocks/world';
+import { choice, type PageArgs, pageStory } from '@/stories/application';
 
-const routes = (
-  <Route path="/w/:slug/team/:teamId/insights" element={<Insights />} />
-);
-
-const at = insightsAt('overview');
+type OverviewArgs = {
+  readonly period: InsightsPeriod;
+};
 
 const meta = {
   title: 'Team/Insights/Overview',
-} satisfies Meta;
+  ...pageStory<OverviewArgs>({
+    at: ({ period }) =>
+      insightsPath(SLUG, PLATFORM_ID, {
+        tab: 'overview',
+        period,
+        filter: {},
+        page: 1,
+      }),
+    args: { period: DEFAULT_PERIOD },
+    argTypes: {
+      period: choice(
+        'Period',
+        Object.fromEntries(
+          PERIOD_RANGES.map(({ id, label }) => [id, label]),
+        ) as Record<InsightsPeriod, string>,
+      ),
+    },
+  }),
+} satisfies Meta<PageArgs & OverviewArgs>;
 
 export default meta;
 
-type Story = StoryObj<typeof meta>;
-
-export const Loading: Story = {
-  render: () => (
-    <StoryPage at={at} seed={loadInsights}>
-      {routes}
-    </StoryPage>
-  ),
-};
-
-export const Empty: Story = {
-  render: () => (
-    <StoryPage at={at} seed={emptyOverview}>
-      {routes}
-    </StoryPage>
-  ),
-};
-
-export const Failed: Story = {
-  name: 'Error',
-  render: () => (
-    <StoryPage at={at} seed={failOverview}>
-      {routes}
-    </StoryPage>
-  ),
-};
-
-export const WithData: Story = {
-  render: () => (
-    <StoryPage at={at} seed={seedOverview}>
-      {routes}
-    </StoryPage>
-  ),
-};
-
-export const MembersOnly: Story = {
-  name: 'Members only',
-  render: () => (
-    <StoryPage at={at} seed={refuseOverview}>
-      {routes}
-    </StoryPage>
-  ),
-};
+export const Overview: StoryObj<typeof meta> = {};

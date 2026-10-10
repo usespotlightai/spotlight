@@ -20,6 +20,7 @@ import type {
 } from '@/lib/api';
 import { spentIn, took } from '@/lib/inbox';
 import { claimsMetShown, percentShown } from '@/lib/judge';
+import { type NestedHeading, SPREAD } from '@/lib/nested-table';
 import {
   AGAINST_LIVE,
   AN_EARLIER_BASELINE,
@@ -32,7 +33,6 @@ import {
   THE_SEARCH_START,
 } from '@/lib/replay-words';
 import { stationPath, stationTabPath } from '@/lib/station';
-import { type ConfigChange, configChangesOf } from '@/lib/station-config';
 
 export type ReplaySet = ReplaySetResponseDto;
 export type ReplaySetEntry = ReplaySetEntryResponseDto;
@@ -62,8 +62,6 @@ export type ReplayedStation = {
 export const LIVE = 'live';
 
 export const REPLAYS_ANCHOR = 'replays';
-
-export const PROPOSE_ANCHOR = 'propose-candidate';
 
 const MOST_CEILING = 1_000;
 
@@ -134,7 +132,7 @@ export const scoredShown = (totals: Replay['totals']): string =>
   `${totals.scored} scored · ${totals.unscored} unscored`;
 
 export const spendOfCeiling = (spent: Spend, ceiling: Spend): string =>
-  `${spentIn(spent.amount, spent.currency)} of ${spentIn(ceiling.amount, ceiling.currency)}`;
+  `${spentIn(spent.amount, spent.currency)} / ${spentIn(ceiling.amount, ceiling.currency)}`;
 
 export const overCeiling = (spent: Spend, ceiling: Spend): Spend | null =>
   spent.currency === ceiling.currency && spent.amount > ceiling.amount
@@ -263,17 +261,11 @@ export const candidatesInOrder = (
     other.createdAt.localeCompare(one.createdAt),
   );
 
-export const changesOf = (candidate: ReplayCandidate): ConfigChange[] =>
-  configChangesOf(candidate.changedFrom.changes);
-
 export const stationAddress = (
   teamKey: string,
   lineKey: string,
   stationKey: string,
 ): string => `${teamKey}/${lineKey}/${stationKey}`;
-
-export const proposeCommand = (address: string): string =>
-  `spotlight replay propose --station ${address} --name <name> <station.json>`;
 
 const CURRENCY = /^[A-Z]{3}$/;
 
@@ -420,3 +412,9 @@ export const strongerProblem = (
 
   return null;
 };
+
+export const REPLAY_SET_HEADINGS: readonly NestedHeading[] = [
+  { label: 'Set', indent: 'edge', size: 'minmax(10rem,2fr)' },
+  { label: 'Runs', numeric: true, size: SPREAD },
+  { label: 'Latest replay', size: 'minmax(12rem,3fr)' },
+];

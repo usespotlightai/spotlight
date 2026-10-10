@@ -1,22 +1,27 @@
-import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
-import { Step } from '@/components/shared/steps/Step';
-import { Steps } from '@/components/shared/steps/Steps';
-
-const STEPS = [
-  'Talk it through with the agent',
-  'Pick past runs to replay',
-  'Propose candidates',
-  'Or let a search find one',
-] as const;
+import { ImproveCardSkeleton } from '@/components/features/stations/improve/ImproveCardSkeleton';
+import { ImproveSection } from '@/components/features/stations/improve/ImproveSection';
 
 export function StationImproveSkeleton() {
   return (
-    <Steps>
-      {STEPS.map((title) => (
-        <Step key={title} title={title}>
-          <SkeletonLine className="w-2/3" />
-        </Step>
-      ))}
-    </Steps>
+    <>
+      <ImproveSection title="What stands out">
+        <ImproveCardSkeleton
+          label="Loading the station’s signals"
+          rows={2}
+          rowHeight={40}
+        />
+      </ImproveSection>
+
+      <ImproveSection title="Try a change">
+        <div className="grid gap-3 lg:grid-cols-2">
+          <ImproveCardSkeleton
+            label="Loading the replay sets"
+            rows={2}
+            footer
+          />
+          <ImproveCardSkeleton label="Loading the searches" rows={2} footer />
+        </div>
+      </ImproveSection>
+    </>
   );
 }

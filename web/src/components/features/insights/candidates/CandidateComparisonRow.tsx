@@ -28,7 +28,7 @@ import {
   type SetCandidate,
 } from '@/lib/insights-candidates';
 import { percentShown } from '@/lib/judge';
-import { pillClass } from '@/lib/pill';
+import { COMPACT_PILL, pillClass } from '@/lib/pill';
 import type { ReplayedStation } from '@/lib/replay';
 import type { GainVerdictCode } from '@/lib/replay-words';
 import { costPerRunShown } from '@/lib/search';
@@ -79,7 +79,7 @@ export function CandidateComparisonRow({
                 candidate.replayState !== 'finished' && (
                   <ReplayStatePill
                     state={candidate.replayState}
-                    className="shrink-0 gap-1 py-0 pr-1.5 pl-1.5 text-[0.7rem]"
+                    className={cn(COMPACT_PILL, 'shrink-0')}
                   />
                 )}
             </div>

@@ -1,17 +1,21 @@
 import type { Preview } from '@storybook/react-vite';
 import { onlineManager } from '@tanstack/react-query';
+import { mswLoader } from 'msw-storybook-addon/csf3';
 import { sb } from 'storybook/test';
 import '../src/index.css';
+import { startMockApi } from '../src/stories/mockApi';
 
 sb.mock(import('../src/hooks/api/useSession.ts'));
 sb.mock(import('../src/hooks/api/useCreateWorkspaceToken.ts'), { spy: true });
 
 const preview: Preview = {
+  loaders: [mswLoader(startMockApi)],
   parameters: {
     layout: 'fullscreen',
     options: {
       storySort: {
         order: [
+          'Application',
           'Auth',
           ['Log in', 'Accept invite'],
           'Workspace',
@@ -22,15 +26,7 @@ const preview: Preview = {
             'GitHub installed',
           ],
           'Inbox',
-          [
-            'Items',
-            'Approvals',
-            'Setup steps',
-            'Proposed memories',
-            'Grade a run',
-            'Alerts',
-            'Notices',
-          ],
+          ['Items', 'Notices'],
           'Team',
           [
             'Landing',
@@ -62,7 +58,6 @@ const preview: Preview = {
               ['Skills and tools', 'Memory'],
               'Runs',
               'Traces',
-              'Impact',
             ],
           ],
           'Settings',
@@ -70,7 +65,7 @@ const preview: Preview = {
             'Workspace',
             ['General', 'Runners', 'Tokens'],
             'Team',
-            ['General', 'Integrations', 'Connections', 'Skills'],
+            ['General', 'Integrations', 'Skills'],
           ],
         ],
       },

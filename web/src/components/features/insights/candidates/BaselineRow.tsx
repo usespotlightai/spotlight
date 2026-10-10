@@ -26,7 +26,7 @@ export function BaselineRow({ at, baseline, heldOut }: BaselineRowProps) {
     <li
       data-slot="replayed-baseline"
       className={cn(
-        'relative col-span-full grid grid-cols-2 items-center gap-x-6 gap-y-2 py-2.5 pr-2 @4xl:h-16 @4xl:grid-cols-subgrid @4xl:py-0',
+        'relative col-span-full grid grid-cols-2 items-center gap-x-6 gap-y-2 py-1 pr-2 @4xl:h-8 @4xl:grid-cols-subgrid',
         OUTER_GUIDE,
         INNER_GUIDE,
         INNER_DIVIDER,

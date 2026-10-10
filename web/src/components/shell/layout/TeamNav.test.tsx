@@ -79,16 +79,25 @@ describe('TeamNav', () => {
     expect(panels()[1]?.querySelector('ul')).not.toHaveAttribute('inert');
   });
 
-  it('lists a team’s lines under a label, always in view', () => {
+  it('lists a team’s lines under a label that folds them away, and remembers it', async () => {
     renderNav();
 
     expect(lineGroups()).toHaveLength(teams.length);
     expect(
       within(linesOf(0)).getByRole('link', { name: 'Default' }),
     ).toHaveAttribute('href', '/w/acme-inc/team/team_1/lines/line_1');
-    expect(
-      screen.queryByRole('button', { name: /Lines/ }),
-    ).not.toBeInTheDocument();
+
+    const [toggle] = screen.getAllByRole('button', { name: 'Lines' });
+    expect(toggle).toHaveAttribute('aria-expanded', 'true');
+
+    await userEvent.click(toggle as HTMLElement);
+
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    expect(lineGroups()[0]).not.toHaveAttribute('data-open');
+    expect(lineGroups()[1]).toHaveAttribute('data-open');
+    expect(localStorage.getItem('spotlight.collapsed-lines')).toContain(
+      'team_1',
+    );
   });
 
   it('shows no lines, and nothing in their place, while a team’s lines load', () => {

@@ -15,6 +15,7 @@ type NewChatComposerProps = {
   teamId: string;
   traces: readonly SharedTrace[];
   defaultImproving: ImprovedStation | null;
+  defaultAsk?: string | null;
   onStarted: (chatId: string) => void;
 };
 
@@ -23,6 +24,7 @@ export function NewChatComposer({
   teamId,
   traces: handed,
   defaultImproving,
+  defaultAsk,
   onStarted,
 }: NewChatComposerProps) {
   const { data: harnesses } = useHarnesses();
@@ -53,6 +55,7 @@ export function NewChatComposer({
       placeholder="What do you want to plan?"
       pending={start.isPending || !harness}
       initialReferences={references}
+      initialText={defaultAsk ?? undefined}
       settings={
         <AgentPicker
           harness={harness}

@@ -4,6 +4,7 @@ import type {
   ReflectedTaskResponseDto,
   ReplayCheckSummaryResponseDto,
   SearchAgentRequestDto,
+  SearchBestResponseDto,
   SearchBudgetRequestDto,
   SearchCandidateResponseDto,
   SearchCauseResponseDto,
@@ -16,6 +17,7 @@ import type {
 import { messageOf } from '@/lib/error';
 import { spentIn } from '@/lib/inbox';
 import { lasted } from '@/lib/insights';
+import { type NestedHeading, SPREAD } from '@/lib/nested-table';
 import {
   type CountBounds,
   ceilingFrom,
@@ -162,7 +164,7 @@ export const startRefusal = (
     return 'A search of this station is underway.';
   }
   if (sets.length === 0) {
-    return 'Open a replay set first.';
+    return 'Create a replay set first.';
   }
 
   return sets.some((set) => setRefusal(set) === null)
@@ -477,3 +479,28 @@ export const appPathOf = (url: string): string => {
 
   return `${parsed.pathname}${parsed.search}${parsed.hash}`;
 };
+
+export type BestScore = {
+  readonly rate: number | null;
+  readonly interval: SearchBestResponseDto['searchInterval'];
+  readonly heldOut: boolean;
+};
+
+export const bestScoreOf = (best: SearchBestResponseDto): BestScore => {
+  const heldOut = best.heldOutScore !== null;
+
+  return heldOut
+    ? { rate: best.heldOutScore, interval: best.heldOutInterval, heldOut }
+    : { rate: best.searchScore, interval: best.searchInterval, heldOut };
+};
+
+export const SEARCH_HEADINGS: readonly NestedHeading[] = [
+  { label: 'Search', indent: 'edge', size: SPREAD },
+  { label: 'State', size: SPREAD },
+  { label: 'Replay set', size: SPREAD },
+  { label: 'Best', size: 'minmax(8rem,2fr)' },
+  { label: 'Success', numeric: true, size: SPREAD },
+  { label: 'Iterations', numeric: true, size: SPREAD },
+  { label: 'Spent', numeric: true, size: SPREAD },
+  { label: 'Started', numeric: true, size: SPREAD },
+];

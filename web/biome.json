@@ -11,6 +11,7 @@
       "**",
       "!assets",
       "!public",
+      "!.storybook/public",
       "!dist",
       "!src/lib/api",
       "!src/components/ui",

@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { readTaskChangeStack } from '@/lib/api';
 
-export const taskChangeStackKeys = {
+const taskChangeStackKeys = {
   forTask: (taskId?: string) =>
     ['change-stacks', 'task', taskId ?? null] as const,
 };

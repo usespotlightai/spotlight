@@ -1,4 +1,11 @@
 import { LatestReplay } from '@/components/features/replays/station/LatestReplay';
+import { NestedCell } from '@/components/shared/nested-table/NestedCell';
+import {
+  EDGE_INDENT,
+  LEAD_CELL,
+  ROW_DIVIDER,
+  TABLE_ROW,
+} from '@/components/shared/nested-table/nested-rows';
 import { Pill } from '@/components/shared/Pill';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import {
@@ -6,6 +13,7 @@ import {
   type ReplaySet,
   replaySetPath,
 } from '@/lib/replay';
+import { cn } from '@/lib/utils';
 
 type ReplaySetRowProps = {
   at: ReplayedStation;
@@ -13,27 +21,21 @@ type ReplaySetRowProps = {
 };
 
 export function ReplaySetRow({ at, set }: ReplaySetRowProps) {
-  const runs = set.entries.length;
-
   return (
-    <li
-      data-slot="replay-set"
-      className="relative flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md px-2 py-2 text-sm transition-colors hover:bg-accent"
-    >
-      <TrailLink
-        to={replaySetPath(at, set.id)}
-        className="min-w-0 truncate font-medium text-foreground outline-none after:absolute after:inset-0 after:rounded-md focus-visible:underline"
-      >
-        {set.name}
-      </TrailLink>
-
-      <span className="text-muted-foreground text-xs tabular-nums">
-        {runs === 1 ? '1 run' : `${runs} runs`}
+    <li data-slot="replay-set" className={cn(TABLE_ROW, ROW_DIVIDER)}>
+      <span className={cn(LEAD_CELL, EDGE_INDENT)}>
+        <TrailLink
+          to={replaySetPath(at, set.id)}
+          className="truncate font-medium text-foreground outline-none after:absolute after:inset-0 focus-visible:underline"
+        >
+          {set.name}
+        </TrailLink>
+        {set.stationGone && <Pill>Station gone</Pill>}
       </span>
-
-      {set.stationGone && <Pill>Station gone</Pill>}
-
-      <LatestReplay teamId={at.teamId} setId={set.id} className="sm:ml-auto" />
+      <NestedCell heading="Runs">{set.entries.length}</NestedCell>
+      <NestedCell heading="Latest replay" numeric={false}>
+        <LatestReplay teamId={at.teamId} setId={set.id} />
+      </NestedCell>
     </li>
   );
 }

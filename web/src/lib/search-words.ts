@@ -12,6 +12,7 @@ import { percentShown } from '@/lib/judge';
 import {
   gainRangeShown,
   gainShown,
+  intervalShown,
   minGainShown,
   pointsShown,
 } from '@/lib/replay-words';
@@ -202,6 +203,17 @@ export const noBestShown = (objective: SearchObjective): string =>
 
 export const frontierNote = (objective: SearchObjective): string =>
   FRONTIER_NOTES[objective];
+
+export const bestScoreNote = (
+  heldOut: boolean,
+  interval: { low: number; high: number } | null,
+): string =>
+  [
+    `Scored on ${heldOut ? 'held-out' : 'searched'} tasks.`,
+    interval && `Likely ${intervalShown(interval)}.`,
+  ]
+    .filter(Boolean)
+    .join(' ');
 
 export const bestOnShown = (heldOut: boolean): string =>
   heldOut ? 'held out' : 'searched';

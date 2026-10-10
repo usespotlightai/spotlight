@@ -1,5 +1,6 @@
 import { forgottenInMemory } from '@outcomes/application/ports/forgotten.fake-spec';
 import { pendingReviewsInMemory } from '@outcomes/application/ports/pending-reviews.fake-spec';
+import { stationConfigPullRequestsInMemory } from '@outcomes/application/ports/station-config-pull-requests.fake-spec';
 import type { EndedRun } from '@outcomes/application/ports/work.port';
 import { AlertInbox } from '@outcomes/application/services/alert-inbox.service';
 import { AskForJudging } from '@outcomes/application/services/ask-for-judging.service';
@@ -8,6 +9,7 @@ import { GradeAsides } from '@outcomes/application/services/grade-asides.service
 import { NoteChangeChecked } from '@outcomes/application/services/note-change-checked.service';
 import { NoteChangeShaped } from '@outcomes/application/services/note-change-shaped.service';
 import { NoteChatStarted } from '@outcomes/application/services/note-chat-started.service';
+import { NoteConfigPullRequestOpened } from '@outcomes/application/services/note-config-pull-request-opened.service';
 import { NotePersonAct } from '@outcomes/application/services/note-person-act.service';
 import { NotePullRequestClosed } from '@outcomes/application/services/note-pull-request-closed.service';
 import { NotePullRequestOpened } from '@outcomes/application/services/note-pull-request-opened.service';
@@ -58,6 +60,7 @@ import { outcomesSubscribers } from '@outcomes/presentation/events/outcomes.subs
 import { CHANGE_CHECKED } from '@shared-kernel/application/integration-events/change-checked.integration-event';
 import { CHANGE_STACK_SHAPED } from '@shared-kernel/application/integration-events/change-stack-shaped.integration-event';
 import { CHAT_STARTED } from '@shared-kernel/application/integration-events/chat-started.integration-event';
+import { CONFIG_PULL_REQUEST_OPENED } from '@shared-kernel/application/integration-events/config-pull-request-opened.integration-event';
 import { LINE_REDEFINED } from '@shared-kernel/application/integration-events/line-redefined.integration-event';
 import { PULL_REQUEST_CLOSED } from '@shared-kernel/application/integration-events/pull-request-closed.integration-event';
 import { PULL_REQUEST_FORGOTTEN } from '@shared-kernel/application/integration-events/pull-request-forgotten.integration-event';
@@ -128,6 +131,7 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
   const pullRequests = new PullRequestRecordsInMemory();
   const shapes = new TaskChangeShapesInMemory();
   const reviews = pendingReviewsInMemory();
+  const configPullRequests = stationConfigPullRequestsInMemory();
   const forgotten = forgottenInMemory();
   const asked: string[] = [];
   let next = 0;
@@ -170,6 +174,7 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
         shapes,
         watches,
         reviews,
+        configPullRequests,
         forgotten,
       },
       inTransaction,
@@ -258,6 +263,11 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
       },
       watches,
     ),
+    openingConfigPullRequests: new NoteConfigPullRequestOpened(
+      configPullRequests,
+      forgotten,
+      inTransaction,
+    ),
   });
 
   const deliver = async (name: string, event: Record<string, unknown>) => {
@@ -282,6 +292,7 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
     shapes,
     watches,
     reviews,
+    configPullRequests,
     asked,
     alerted,
     alertsNow: (next: readonly AlertRule[] | null) => {
@@ -630,6 +641,58 @@ describe('outcomesSubscribers', () => {
     await heard.deliver('outcomes.record-started-chat', started);
 
     expect(heard.chats.held.size).toBe(1);
+  });
+
+  it('keeps the config pull requests Spotlight opened, each once, until their team is disbanded and after none heard late', async () => {
+    const heard = subscribed();
+    const opened = (id: string, teamId = 'team_1') => ({
+      kind: CONFIG_PULL_REQUEST_OPENED,
+      configPullRequestId: id,
+      workspaceId: 'ws_1',
+      teamId,
+      stationId: 'station_1',
+      fingerprint: FIRST_CONFIG,
+      url: `https://github.com/acme/platform/pull/${id}`,
+      at: '2026-09-30T09:00:00.000Z',
+    });
+
+    await heard.deliver(
+      'outcomes.record-opened-config-pull-request',
+      opened('1'),
+    );
+    await heard.deliver(
+      'outcomes.record-opened-config-pull-request',
+      opened('1'),
+    );
+    await heard.deliver(
+      'outcomes.record-opened-config-pull-request',
+      opened('2', 'team_2'),
+    );
+
+    expect([...heard.configPullRequests.held.keys()]).toEqual(['1', '2']);
+
+    await heard.deliver(
+      'outcomes.forget-config-pull-requests-of-disbanded-team',
+      {
+        kind: TEAM_DISBANDED,
+        workspaceId: 'ws_1',
+        teamId: 'team_1',
+        key: 'core',
+      },
+    );
+    await heard.deliver(
+      'outcomes.record-opened-config-pull-request',
+      opened('3'),
+    );
+
+    expect([...heard.configPullRequests.held.keys()]).toEqual(['2']);
+
+    await heard.deliver(
+      'outcomes.forget-config-pull-requests-of-closed-workspace',
+      { kind: WORKSPACE_CLOSED, workspaceId: 'ws_1', slug: 'acme' },
+    );
+
+    expect(heard.configPullRequests.held.size).toBe(0);
   });
 
   it('forgets a deleted task’s touches and failures, and a closed workspace’s chats', async () => {

@@ -16,25 +16,14 @@ import {
   countShown,
   improvingOf,
   type StationNames,
+  signalHeadings,
   stationShown,
   type WorthImproving,
 } from '@/lib/insights';
-import { SPREAD } from '@/lib/nested-table';
 import { stationPath } from '@/lib/station';
 import { cn } from '@/lib/utils';
 
-const HEADINGS = [
-  { label: 'Signal', indent: 'outer' as const, size: 'minmax(10rem,1fr)' },
-  {
-    label: 'Compared',
-    note: 'The dot is this period, the ring the period before, the line all stations, and the dashed line where a station gets flagged.',
-    size: 'minmax(10rem,2fr)',
-  },
-  { label: 'This period', numeric: true, size: SPREAD },
-  { label: 'Period before', numeric: true, size: SPREAD },
-  { label: 'All stations', numeric: true, size: SPREAD },
-  { label: 'Flagged above', numeric: true, size: SPREAD },
-];
+const HEADINGS = signalHeadings('outer');
 
 type WorthImprovingListProps = {
   slug: string;

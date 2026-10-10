@@ -9,7 +9,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { TraceView } from '@/components/features/trace/view/TraceView';
 import type { JournalStepResponseDto, TraceNodeResponseDto } from '@/lib/api';
 import type { Trace } from '@/lib/trace';
-import { runScoresOf } from '@/stories/fixtures/run-scores';
+import { runScoresOf } from '@/test/fixtures/run-scores';
 
 const scores = vi.fn();
 

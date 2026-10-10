@@ -19,7 +19,6 @@ import {
   meanCostOf,
   meanMsOf,
   msDeltaShown,
-  proposeCommand,
   repeatsFrom,
   replayPath,
   replaySetPath,
@@ -277,9 +276,9 @@ describe('replays', () => {
     ).toBe('2 of 3 claims met');
   });
 
-  it('fills the station address into the propose command', () => {
-    expect(proposeCommand(stationAddress('core', 'delivery', 'build'))).toBe(
-      'spotlight replay propose --station core/delivery/build --name <name> <station.json>',
+  it('addresses a station by its team, line and station keys', () => {
+    expect(stationAddress('core', 'delivery', 'build')).toBe(
+      'core/delivery/build',
     );
   });
 

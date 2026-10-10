@@ -27,7 +27,9 @@ export function OnlyOnSeenTasksBadge({
         {mark === 'marked' ? (
           <Pill
             lead={<TriangleAlert aria-hidden className="size-3" />}
-            className="border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300"
+            className={cn(
+              'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300',
+            )}
           >
             {onlyOnSeenTasksShown(mark)}
           </Pill>

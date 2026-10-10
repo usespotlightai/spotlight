@@ -1,8 +1,12 @@
 import { Package } from 'lucide-react';
-import { useId } from 'react';
+import { Disclosure } from '@/components/shell/layout/Disclosure';
+import { DisclosureRow } from '@/components/shell/layout/DisclosureRow';
 import { SidebarLink } from '@/components/shell/layout/SidebarLink';
+import { useCollapsed } from '@/hooks/useCollapsed';
 import type { LineResponseDto } from '@/lib/api';
 import { linePath } from '@/lib/team';
+
+const LINES_STORAGE_KEY = 'spotlight.collapsed-lines';
 
 type TeamLinesProps = {
   slug: string;
@@ -17,23 +21,20 @@ export function TeamLines({
   lines,
   shownLineId,
 }: TeamLinesProps) {
-  const labelId = useId();
+  const { isExpanded, toggle } = useCollapsed(LINES_STORAGE_KEY);
+  const open = isExpanded(teamId);
 
   return (
     <li>
-      <p
-        id={labelId}
-        className="flex h-7 items-center gap-2 pr-2 pl-8 text-muted-foreground text-sm"
-      >
-        <Package className="size-3.5 shrink-0" aria-hidden />
-        Lines
-      </p>
+      <DisclosureRow
+        label="Lines"
+        icon={Package}
+        open={open}
+        onToggle={() => toggle(teamId)}
+        className="pl-8"
+      />
 
-      <ul
-        data-slot="lines"
-        aria-labelledby={labelId}
-        className="flex flex-col gap-0.5 pt-0.5"
-      >
+      <Disclosure open={open} slot="lines" label="Lines">
         {lines?.map((line) => (
           <li key={line.id}>
             <SidebarLink
@@ -45,7 +46,7 @@ export function TeamLines({
             </SidebarLink>
           </li>
         ))}
-      </ul>
+      </Disclosure>
     </li>
   );
 }

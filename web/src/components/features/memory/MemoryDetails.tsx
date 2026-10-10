@@ -1,37 +1,41 @@
 import { useState } from 'react';
-import { MemoryForm } from '@/components/features/memory/MemoryForm';
-import { MemoryGrounds } from '@/components/features/memory/MemoryGrounds';
 import { RetireReply } from '@/components/features/memory/RetireReply';
+import { SaveCancelButtons } from '@/components/features/memory/SaveCancelButtons';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
+import { PillButton } from '@/components/shared/PillButton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
-import { TrailLink } from '@/components/shell/layout/TrailLink';
-import { Button } from '@/components/ui/button';
-import { useEditMemory } from '@/hooks/api/useEditMemory';
 import { useTeamMemory } from '@/hooks/api/useTeamMemory';
-import type { LineResponseDto } from '@/lib/api';
 import { failed, loading } from '@/lib/query';
-import { runPath } from '@/lib/run';
-import { taskPath } from '@/lib/task';
 
 type MemoryDetailsProps = {
-  slug: string;
   teamId: string;
   memoryId: string;
-  lines: readonly LineResponseDto[];
+  open: boolean;
+  editing: boolean;
+  saving: boolean;
+  unsaveable: boolean;
+  onEdit: () => void;
+  onCancel: () => void;
+  onSave: () => void;
 };
 
-const LINK = 'text-foreground text-xs underline-offset-4 hover:underline';
-
 export function MemoryDetails({
-  slug,
   teamId,
   memoryId,
-  lines,
+  open,
+  editing,
+  saving,
+  unsaveable,
+  onEdit,
+  onCancel,
+  onSave,
 }: MemoryDetailsProps) {
   const query = useTeamMemory(teamId, memoryId);
-  const edit = useEditMemory();
-  const [editing, setEditing] = useState(false);
   const [retiring, setRetiring] = useState(false);
+
+  if (!open && retiring) {
+    setRetiring(false);
+  }
 
   if (loading(query)) {
     return (
@@ -58,26 +62,10 @@ export function MemoryDetails({
   }
 
   const memory = query.data;
-  const { grounds, retirement } = memory;
+  const { retirement } = memory;
 
   return (
-    <div className="flex flex-col gap-3">
-      <MemoryGrounds grounds={memory} />
-
-      {grounds && (
-        <p className="flex gap-3">
-          <TrailLink to={runPath(slug, teamId, grounds.runId)} className={LINK}>
-            Open its run
-          </TrailLink>
-          <TrailLink
-            to={taskPath(slug, teamId, grounds.taskId)}
-            className={LINK}
-          >
-            Open its task
-          </TrailLink>
-        </p>
-      )}
-
+    <div className="flex flex-col gap-4 pt-1">
       {memory.superseded && (
         <p className="text-muted-foreground text-xs leading-5">
           Replaces: {memory.superseded.body}
@@ -90,39 +78,25 @@ export function MemoryDetails({
         </p>
       )}
 
-      {memory.standing === 'stands' && !retiring && (
-        <div className="flex items-center gap-2">
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => {
-              edit.reset();
-              setEditing(true);
-            }}
+      {memory.standing === 'stands' && !retiring && !editing && (
+        <div className="flex flex-wrap items-center gap-2">
+          <PillButton onClick={onEdit}>Edit</PillButton>
+          <PillButton
+            variant="ghost"
+            className="text-muted-foreground"
+            onClick={() => setRetiring(true)}
           >
-            Edit
-          </Button>
-          <Button size="sm" variant="ghost" onClick={() => setRetiring(true)}>
             Retire
-          </Button>
+          </PillButton>
         </div>
       )}
 
       {editing && (
-        <MemoryForm
-          open={editing}
-          onOpenChange={setEditing}
-          title="Correct this memory"
-          submitLabel="Replace it"
-          initial={memory}
-          lines={lines}
-          pending={edit.isPending}
-          onSave={(written) =>
-            edit.mutate(
-              { teamId, memoryId, memory: written },
-              { onSuccess: () => setEditing(false) },
-            )
-          }
+        <SaveCancelButtons
+          saving={saving}
+          unsaveable={unsaveable}
+          onSave={onSave}
+          onCancel={onCancel}
         />
       )}
 

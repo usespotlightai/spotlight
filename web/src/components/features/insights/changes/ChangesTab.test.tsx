@@ -7,7 +7,7 @@ import { ChangesTab } from '@/components/features/insights/changes/ChangesTab';
 import { stationNamesOf } from '@/lib/insights';
 import type { InsightsCandidates } from '@/lib/insights-candidates';
 import type { InsightsChanges, InsightsSetups } from '@/lib/insights-changes';
-import { CANDIDATES } from '@/stories/fixtures/insights-candidates';
+import { CANDIDATES } from '@/test/fixtures/insights-candidates';
 
 type Held = {
   data: unknown;
@@ -344,7 +344,7 @@ describe('the Changes tab', () => {
       '/w/acme/team/team_1/lines/line_1/stations/station_impl',
     );
     expect(
-      within(panel).getByRole('link', { name: /Improve this station/ }),
+      within(panel).getByRole('link', { name: 'Improve' }),
     ).toBeInTheDocument();
   });
 

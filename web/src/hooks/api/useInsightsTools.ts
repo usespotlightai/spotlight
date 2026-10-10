@@ -3,7 +3,7 @@ import { readInsightsTools } from '@/lib/api';
 import type { InsightsPeriod } from '@/lib/insights';
 import type { InsightsTools } from '@/lib/insights-tools';
 
-export const insightsToolsKeys = {
+const insightsToolsKeys = {
   forTeam: (teamId: string | undefined, period: InsightsPeriod) =>
     ['insights', 'tools', teamId ?? null, period] as const,
 };

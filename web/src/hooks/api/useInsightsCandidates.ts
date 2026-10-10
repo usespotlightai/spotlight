@@ -3,7 +3,7 @@ import { readReplayedCandidates } from '@/lib/api';
 import type { InsightsPeriod } from '@/lib/insights';
 import type { InsightsCandidates } from '@/lib/insights-candidates';
 
-export const insightsCandidatesKeys = {
+const insightsCandidatesKeys = {
   forTeam: (teamId: string | undefined, period: InsightsPeriod) =>
     ['insights', 'candidates', teamId ?? null, period] as const,
 };

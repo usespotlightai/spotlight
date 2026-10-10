@@ -7,9 +7,12 @@ type JudgeClaimsProps = {
 
 export function JudgeClaims({ claims, passShare }: JudgeClaimsProps) {
   return (
-    <section data-slot="judge-claims" className="flex flex-col gap-1.5">
-      <h3 className="text-muted-foreground text-sm">{CLAIMS_LABEL}</h3>
-      <ol className="flex list-decimal flex-col gap-1 pl-5 text-foreground text-sm leading-6 marker:text-muted-foreground">
+    <section
+      data-slot="judge-claims"
+      className="flex flex-col gap-1.5 border-border border-t pt-2 text-xs leading-5"
+    >
+      <h3 className="text-muted-foreground">{CLAIMS_LABEL}</h3>
+      <ol className="flex list-decimal flex-col gap-0.5 pl-4 text-foreground marker:text-muted-foreground">
         {claims.map((claim, at) => (
           <li
             // biome-ignore lint/suspicious/noArrayIndexKey: a claim is named by its place in the judge's list
@@ -20,7 +23,7 @@ export function JudgeClaims({ claims, passShare }: JudgeClaimsProps) {
           </li>
         ))}
       </ol>
-      <p data-slot="pass-share" className="text-muted-foreground text-xs">
+      <p data-slot="pass-share" className="text-muted-foreground">
         {passShareShown(passShare)}
       </p>
     </section>

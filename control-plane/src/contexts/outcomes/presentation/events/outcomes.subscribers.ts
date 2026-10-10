@@ -5,6 +5,7 @@ import type { GradeAsides } from '@outcomes/application/services/grade-asides.se
 import type { NoteChangeChecked } from '@outcomes/application/services/note-change-checked.service';
 import type { NoteChangeShaped } from '@outcomes/application/services/note-change-shaped.service';
 import type { NoteChatStarted } from '@outcomes/application/services/note-chat-started.service';
+import type { NoteConfigPullRequestOpened } from '@outcomes/application/services/note-config-pull-request-opened.service';
 import type { NotePersonAct } from '@outcomes/application/services/note-person-act.service';
 import type { NotePullRequestClosed } from '@outcomes/application/services/note-pull-request-closed.service';
 import type { NotePullRequestOpened } from '@outcomes/application/services/note-pull-request-opened.service';
@@ -38,6 +39,10 @@ import {
   CHAT_STARTED,
   type ChatStartedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/chat-started.integration-event';
+import {
+  CONFIG_PULL_REQUEST_OPENED,
+  type ConfigPullRequestOpenedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/config-pull-request-opened.integration-event';
 import {
   LINE_REDEFINED,
   type LineRedefinedIntegrationEvent,
@@ -141,6 +146,7 @@ export interface OutcomesReactions {
   readonly shaping: NoteChangeShaped;
   readonly watching: WatchStations;
   readonly alerting: AlertInbox;
+  readonly openingConfigPullRequests: NoteConfigPullRequestOpened;
 }
 
 const dateOf = (at: string | null): Date | null => (at ? new Date(at) : null);
@@ -394,6 +400,37 @@ export const outcomesSubscribers = (
             },
           })
         : Promise.resolve(),
+  ),
+  subscribing<ConfigPullRequestOpenedIntegrationEvent>(
+    'outcomes.record-opened-config-pull-request',
+    [CONFIG_PULL_REQUEST_OPENED],
+    (event) =>
+      reactions.openingConfigPullRequests.opened({
+        configPullRequestId: event.configPullRequestId,
+        workspaceId: WorkspaceId.of(event.workspaceId),
+        teamId: TeamId.of(event.teamId),
+        stationId: event.stationId,
+        fingerprint: event.fingerprint,
+        url: PullRequestUrl.of(event.url),
+        openedAt: new Date(event.at),
+      }),
+  ),
+  subscribing<TeamDisbandedIntegrationEvent>(
+    'outcomes.forget-config-pull-requests-of-disbanded-team',
+    [TEAM_DISBANDED],
+    (event) =>
+      reactions.forgetting.configPullRequestsOfTeam(
+        WorkspaceId.of(event.workspaceId),
+        TeamId.of(event.teamId),
+      ),
+  ),
+  subscribing<WorkspaceClosedIntegrationEvent>(
+    'outcomes.forget-config-pull-requests-of-closed-workspace',
+    [WORKSPACE_CLOSED],
+    (event) =>
+      reactions.forgetting.configPullRequestsOfWorkspace(
+        WorkspaceId.of(event.workspaceId),
+      ),
   ),
   subscribing<TaskDeletedIntegrationEvent>(
     'outcomes.forget-pull-requests-of-deleted-task',

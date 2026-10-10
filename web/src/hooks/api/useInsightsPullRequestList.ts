@@ -10,7 +10,7 @@ import type {
   RoundBucket,
 } from '@/lib/insights-pull-requests';
 
-export const insightsPullRequestListKeys = {
+const insightsPullRequestListKeys = {
   forTeam: (
     teamId: string | undefined,
     period: InsightsPeriod,

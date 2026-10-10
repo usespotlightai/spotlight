@@ -6,9 +6,10 @@ import { NestedGroupRow } from '@/components/shared/nested-table/NestedGroupRow'
 import { Pill } from '@/components/shared/Pill';
 import type { Folds } from '@/hooks/useFolds';
 import { useBeforeAfterPanel } from '@/lib/before-after-panel';
-import { pillClass } from '@/lib/pill';
+import { COMPACT_PILL, pillClass } from '@/lib/pill';
 import { runPath } from '@/lib/run';
 import { type FingerprintGroup, groupSummary } from '@/lib/station-outcomes';
+import { cn } from '@/lib/utils';
 
 type OutcomeGroupProps = {
   slug: string;
@@ -99,7 +100,7 @@ export function OutcomeGroup({
           {!group.ran && (
             <Noted note="No run started on this config. Its runs failed before starting or were withdrawn.">
               <span className="inline-flex shrink-0">
-                <Pill className="py-0 pr-1.5 pl-1.5 text-[0.7rem] text-foreground">
+                <Pill className={cn(COMPACT_PILL, 'text-foreground')}>
                   Never started
                 </Pill>
               </span>

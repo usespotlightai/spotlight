@@ -8,6 +8,7 @@ type NestedTableProps = {
   headings: readonly NestedHeading[];
   trailing?: boolean;
   headed?: boolean;
+  compact?: boolean;
   children: ReactNode;
 };
 
@@ -16,14 +17,18 @@ export function NestedTable({
   headings,
   trailing = false,
   headed = true,
+  compact = false,
   children,
 }: NestedTableProps) {
   const columns = useColumnWidths(headings.length);
 
   return (
-    <div className="@container overflow-x-auto">
+    <div
+      data-compact={compact || undefined}
+      className="group/nested @container overflow-x-auto"
+    >
       <div
-        className="grid gap-x-6 @4xl:min-w-min @4xl:grid-cols-[var(--nested-columns)]"
+        className="grid gap-x-6 @4xl:min-w-min @4xl:grid-cols-[var(--nested-columns)] @lg:group-data-compact/nested:min-w-min @lg:group-data-compact/nested:grid-cols-[var(--nested-columns)]"
         style={
           {
             '--nested-columns': columnTemplate(

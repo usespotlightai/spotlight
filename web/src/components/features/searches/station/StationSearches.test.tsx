@@ -195,9 +195,14 @@ describe('StationSearches', () => {
       '/w/acme/team/team_1/lines/line_1/stations/station_1/searches/search_1',
     );
     expect(screen.getByText('Searching')).toBeInTheDocument();
-    expect(screen.getByText('2 of 3 iterations')).toBeInTheDocument();
-    expect(screen.getByText('· $4.50 of $20.00')).toBeInTheDocument();
+    expect(document.querySelector('[data-slot="search"]')).toHaveTextContent(
+      '2 / 3',
+    );
+    expect(screen.getByText('$4.50 / $20.00')).toBeInTheDocument();
     expect(screen.getByText('tests-first')).toBeInTheDocument();
+    expect(screen.getByText('80%')).toHaveAccessibleDescription(
+      /^Scored on searched tasks\./,
+    );
     expect(
       screen.getByRole('button', { name: 'Start a search' }),
     ).toBeDisabled();
@@ -220,9 +225,11 @@ describe('StationSearches', () => {
 
     renderSearches();
 
-    expect(screen.getByText('Only on seen tasks')).toBeInTheDocument();
     expect(
-      screen.getByText('Too few held-out tasks to tell'),
-    ).toBeInTheDocument();
+      screen.getByRole('img', { name: 'Only on seen tasks' }),
+    ).toHaveAttribute('data-mark', 'marked');
+    expect(
+      screen.getByRole('img', { name: 'Too few held-out tasks to tell' }),
+    ).toHaveAttribute('data-mark', 'too-few-held-out');
   });
 });

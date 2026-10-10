@@ -4256,6 +4256,13 @@ export type MemoryFileResponseDto = {
   body: string;
 };
 
+export type StationConfigPullRequestResponseDto = {
+  /**
+   * The pull request’s page on GitHub
+   */
+  url: string;
+};
+
 export type NextActResponseDto = {
   act: 'started' | 'parked' | 'closed' | 'answered' | 'sent-back';
   at: string;
@@ -4397,6 +4404,10 @@ export type FingerprintGroupResponseDto = {
    * How the config differs from the last one the station ran before the group, listed or not, groups that never ran their config passed over; none where either config is not on record, or for a group carrying on the config in force
    */
   changes: Array<ConfigChangeResponseDto>;
+  /**
+   * The pull request Spotlight opened that proposes the group’s config, the latest opened where it opened more than one; none where Spotlight opened none, or for a group with no config
+   */
+  pullRequest: StationConfigPullRequestResponseDto | null;
   /**
    * Its runs that ended, the latest-started first, so the groups’ runs read in turn are the station’s latest-started runs
    */

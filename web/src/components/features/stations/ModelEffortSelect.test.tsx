@@ -65,7 +65,7 @@ describe('ModelEffortSelect', () => {
 
     await user.click(trigger());
     await user.click(await screen.findByRole('menuitem', { name: /Effort/ }));
-    fireEvent.click(await screen.findByRole('menuitemradio', { name: 'high' }));
+    fireEvent.click(await screen.findByRole('menuitemradio', { name: 'High' }));
 
     expect(onEffort).toHaveBeenCalledWith('high');
   });

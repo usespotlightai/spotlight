@@ -344,7 +344,7 @@ describe('SetHealth', () => {
 
     await user.click(screen.getByRole('button', { name: 'Model and effort' }));
     await user.click(await screen.findByRole('menuitem', { name: /Effort/ }));
-    fireEvent.click(await screen.findByRole('menuitemradio', { name: 'low' }));
+    fireEvent.click(await screen.findByRole('menuitemradio', { name: 'Low' }));
 
     expect(screen.getByRole('alert')).toHaveTextContent(
       'Effort isn’t higher than the live config’s.',

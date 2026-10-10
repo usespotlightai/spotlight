@@ -18,11 +18,12 @@ import {
 export function useChatMessage(
   slug: string,
   initialReferences: readonly Reference[],
+  initialText = '',
 ) {
   const draft = useAttachments(slug);
   const editor = useRef<LexicalEditor | null>(null);
   const [written, setWritten] = useState<Written>(() => ({
-    text: '',
+    text: initialText,
     references: initialReferences,
   }));
 
