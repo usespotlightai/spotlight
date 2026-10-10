@@ -5,6 +5,8 @@ import { WorkspaceOpened } from '@identity/domain/events/workspace-opened.event'
 import { WorkspaceRedefined } from '@identity/domain/events/workspace-redefined.event';
 import { LastOwnerError } from '@identity/domain/exceptions/last-owner.error';
 import { NotYoursToGiveError } from '@identity/domain/exceptions/not-yours-to-give.error';
+import { NotYoursToInviteError } from '@identity/domain/exceptions/not-yours-to-invite.error';
+import { TeamOutsideWorkspaceError } from '@identity/domain/exceptions/team-outside-workspace.error';
 import { WorkspaceInUseError } from '@identity/domain/exceptions/workspace-in-use.error';
 import { WorkspaceMovedOnError } from '@identity/domain/exceptions/workspace-moved-on.error';
 import { WorkspaceSlugFixedError } from '@identity/domain/exceptions/workspace-slug-fixed.error';
@@ -15,6 +17,7 @@ import {
 } from '@identity/domain/services/role-giving';
 import { Clearance } from '@identity/domain/value-objects/clearance.vo';
 import { Holdings } from '@identity/domain/value-objects/holdings.vo';
+import { InviteTerms } from '@identity/domain/value-objects/invite-terms.vo';
 import type { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import type { TeamName } from '@identity/domain/value-objects/team-name.vo';
 import type { TokenName } from '@identity/domain/value-objects/token-name.vo';
@@ -37,6 +40,11 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 export interface WorkspaceMember {
   readonly userId: UserId;
   readonly role: WorkspaceRole;
+}
+
+interface TeamOfWorkspace {
+  readonly id: TeamId;
+  readonly workspaceId: WorkspaceId;
 }
 
 export class Workspace extends EventRecorder {
@@ -275,6 +283,29 @@ export class Workspace extends EventRecorder {
     joined.record(new WorkspaceMemberJoined(this.id, userId, role));
 
     return joined;
+  }
+
+  inviteTerms(input: {
+    role: WorkspaceRole;
+    teams: readonly TeamId[];
+    among: readonly TeamOfWorkspace[];
+  }): InviteTerms {
+    if (input.role.isOwner) {
+      throw new NotYoursToInviteError();
+    }
+
+    const outside = input.teams.find(
+      (teamId) =>
+        !input.among.some(
+          (team) => team.id.equals(teamId) && team.workspaceId.equals(this.id),
+        ),
+    );
+
+    if (outside) {
+      throw new TeamOutsideWorkspaceError(outside.value);
+    }
+
+    return InviteTerms.of(input.role, input.teams);
   }
 
   private with(over: {

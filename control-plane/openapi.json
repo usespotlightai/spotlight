@@ -7359,6 +7359,47 @@
         ]
       }
     },
+    "/workspaces/{slug}/members": {
+      "get": {
+        "operationId": "listWorkspaceMembers",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "acme-inc",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/WorkspaceMemberResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such workspace for this caller"
+          }
+        },
+        "summary": "List everyone in the workspace, with their role, their teams, and what may be set",
+        "tags": [
+          "workspaces"
+        ]
+      }
+    },
     "/workspaces/{slug}/members/{userId}": {
       "patch": {
         "description": "Roles are given downwards: an owner may set anyone’s, an admin only those of people they outrank, and nobody may hand out a rank they do not hold. The last owner keeps the workspace.",
@@ -7515,18 +7556,62 @@
         "tags": [
           "teams"
         ]
-      }
-    },
-    "/teams/{teamId}/invites": {
-      "get": {
-        "operationId": "listInvites",
+      },
+      "post": {
+        "operationId": "addTeamMember",
         "parameters": [
           {
             "name": "teamId",
             "required": true,
             "in": "path",
             "schema": {
-              "example": "team_1",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddTeamMemberRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "They are on the team now"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such team, or not yours to add people to"
+          },
+          "409": {
+            "description": "They are already on the team"
+          },
+          "422": {
+            "description": "They are not in the workspace"
+          }
+        },
+        "summary": "Put somebody already in the workspace on this team",
+        "tags": [
+          "teams"
+        ]
+      }
+    },
+    "/workspaces/{slug}/invites": {
+      "get": {
+        "operationId": "listWorkspaceInvites",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "acme",
               "type": "string"
             }
           }
@@ -7539,7 +7624,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/InviteResponseDto"
+                    "$ref": "#/components/schemas/WorkspaceInviteResponseDto"
                   }
                 }
               }
@@ -7549,23 +7634,24 @@
             "description": "No valid session"
           },
           "404": {
-            "description": "No such team for this caller"
+            "description": "No such workspace, or not yours to invite to"
           }
         },
-        "summary": "List the invitations this team is still waiting on",
+        "summary": "List the invitations this workspace is still waiting on",
         "tags": [
           "invites"
         ]
       },
       "post": {
-        "operationId": "inviteToTeam",
+        "description": "One invitation per address. An address with an open or run-out invitation is sent it again with a fresh link, and an address already in the workspace is reported and sent nothing.",
+        "operationId": "inviteToWorkspace",
         "parameters": [
           {
-            "name": "teamId",
+            "name": "slug",
             "required": true,
             "in": "path",
             "schema": {
-              "example": "team_1",
+              "example": "acme",
               "type": "string"
             }
           }
@@ -7575,18 +7661,73 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/InviteToTeamRequestDto"
+                "$ref": "#/components/schemas/InviteToWorkspaceRequestDto"
               }
             }
           }
         },
         "responses": {
-          "201": {
+          "200": {
             "description": "",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/InviteResponseDto"
+                  "$ref": "#/components/schemas/InviteOutcomesResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "403": {
+            "description": "Not a role yours to give"
+          },
+          "404": {
+            "description": "No such workspace, or not yours to invite to"
+          },
+          "409": {
+            "description": "Another invitation was just sent"
+          },
+          "422": {
+            "description": "An address, role or team that does not hold"
+          }
+        },
+        "summary": "Invite people to this workspace by email, with a role and teams",
+        "tags": [
+          "invites"
+        ]
+      }
+    },
+    "/workspaces/{slug}/invites/{inviteId}/resend": {
+      "post": {
+        "operationId": "resendInvite",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "acme",
+              "type": "string"
+            }
+          },
+          {
+            "name": "inviteId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceInviteResponseDto"
                 }
               }
             }
@@ -7595,28 +7736,28 @@
             "description": "No valid session"
           },
           "404": {
-            "description": "No such team, or not yours to invite to"
+            "description": "No such invitation for this caller"
           },
           "409": {
-            "description": "They are already on this team"
+            "description": "Already accepted or revoked"
           }
         },
-        "summary": "Invite somebody onto this team by email",
+        "summary": "Send an invitation again, with a fresh link and two more weeks",
         "tags": [
           "invites"
         ]
       }
     },
-    "/teams/{teamId}/invites/{inviteId}": {
+    "/workspaces/{slug}/invites/{inviteId}": {
       "delete": {
         "operationId": "revokeInvite",
         "parameters": [
           {
-            "name": "teamId",
+            "name": "slug",
             "required": true,
             "in": "path",
             "schema": {
-              "example": "team_1",
+              "example": "acme",
               "type": "string"
             }
           },
@@ -7638,6 +7779,9 @@
           },
           "404": {
             "description": "No such invitation for this caller"
+          },
+          "409": {
+            "description": "Already accepted"
           }
         },
         "summary": "Take an invitation back, so its link stops working",
@@ -7699,7 +7843,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/JoinedTeamResponseDto"
+                  "$ref": "#/components/schemas/JoinedWorkspaceResponseDto"
                 }
               }
             }
@@ -7717,7 +7861,7 @@
             "description": "Already accepted, revoked or run out"
           }
         },
-        "summary": "Take up an invitation, joining the team it was sent for",
+        "summary": "Take up an invitation, joining the workspace and the teams it was sent for",
         "tags": [
           "invites"
         ]
@@ -28749,6 +28893,92 @@
           "role"
         ]
       },
+      "TeamReferenceResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "team_1"
+          },
+          "name": {
+            "type": "string",
+            "example": "Platform"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
+      },
+      "WorkspaceMemberResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13"
+          },
+          "name": {
+            "type": "string",
+            "example": "Ada Lovelace"
+          },
+          "image": {
+            "type": "string",
+            "nullable": true
+          },
+          "role": {
+            "type": "string",
+            "description": "What they are in the workspace this team belongs to.",
+            "example": "member",
+            "enum": [
+              "owner",
+              "admin",
+              "member"
+            ]
+          },
+          "mayBeSetTo": {
+            "type": "array",
+            "description": "What the caller may set them to, which is empty where that is not theirs to do. Worked out by the same rule the workspace enforces.",
+            "example": [
+              "admin",
+              "member"
+            ],
+            "items": {
+              "type": "string",
+              "enum": [
+                "owner",
+                "admin",
+                "member"
+              ]
+            }
+          },
+          "email": {
+            "type": "string",
+            "example": "ada@example.com"
+          },
+          "teams": {
+            "description": "The teams of this workspace they are on.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TeamReferenceResponseDto"
+            }
+          },
+          "joinedAt": {
+            "type": "string",
+            "description": "When they joined the workspace.",
+            "example": "2026-09-12T09:00:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "image",
+          "role",
+          "mayBeSetTo",
+          "email",
+          "teams",
+          "joinedAt"
+        ]
+      },
       "ChangeMemberRoleRequestDto": {
         "type": "object",
         "properties": {
@@ -28935,7 +29165,42 @@
           "mayBeSetTo"
         ]
       },
-      "InviteResponseDto": {
+      "AddTeamMemberRequestDto": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "description": "Somebody already in the workspace this team belongs to.",
+            "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13"
+          }
+        },
+        "required": [
+          "userId"
+        ]
+      },
+      "InviterResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13"
+          },
+          "name": {
+            "type": "string",
+            "example": "Leon Liang"
+          },
+          "image": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "image"
+        ]
+      },
+      "WorkspaceInviteResponseDto": {
         "type": "object",
         "properties": {
           "id": {
@@ -28946,10 +29211,31 @@
             "type": "string",
             "example": "ada@example.com"
           },
-          "invitedBy": {
+          "role": {
             "type": "string",
-            "description": "Who asked them.",
-            "example": "Leon Liang"
+            "description": "What they will be in the workspace once they accept.",
+            "enum": [
+              "admin",
+              "member"
+            ],
+            "example": "member"
+          },
+          "teams": {
+            "description": "The teams they join on accepting.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TeamReferenceResponseDto"
+            }
+          },
+          "invitedBy": {
+            "description": "Who asked them, or null once their account is deleted.",
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/InviterResponseDto"
+              }
+            ]
           },
           "invitedAt": {
             "type": "string",
@@ -28963,22 +29249,92 @@
         "required": [
           "id",
           "email",
+          "role",
+          "teams",
           "invitedBy",
           "invitedAt",
           "expiresAt"
         ]
       },
-      "InviteToTeamRequestDto": {
+      "InviteToWorkspaceRequestDto": {
+        "type": "object",
+        "properties": {
+          "emails": {
+            "description": "Where each invitation is sent, and who may accept it. One invitation per address.",
+            "example": [
+              "ada@example.com",
+              "grace@example.com"
+            ],
+            "minItems": 1,
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "role": {
+            "type": "string",
+            "description": "What they will be in the workspace once they accept. Nobody is invited as an owner, nor above the inviter.",
+            "enum": [
+              "admin",
+              "member"
+            ],
+            "example": "member"
+          },
+          "teamIds": {
+            "description": "The teams of this workspace they join on accepting.",
+            "example": [
+              "team_1"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "emails",
+          "role",
+          "teamIds"
+        ]
+      },
+      "InviteOutcomeResponseDto": {
         "type": "object",
         "properties": {
           "email": {
             "type": "string",
-            "description": "Where the invitation is sent, and who may accept it.",
             "example": "ada@example.com"
+          },
+          "outcome": {
+            "type": "string",
+            "description": "What came of the address: a new invitation, an open one sent again with a fresh link, nothing, since they are already in the workspace, or an invitation kept whose email could not be sent, which sending again may still deliver.",
+            "enum": [
+              "invited",
+              "sent-again",
+              "already-a-member",
+              "not-sent"
+            ],
+            "example": "invited"
           }
         },
         "required": [
-          "email"
+          "email",
+          "outcome"
+        ]
+      },
+      "InviteOutcomesResponseDto": {
+        "type": "object",
+        "properties": {
+          "outcomes": {
+            "description": "One outcome per address asked, in the order asked.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InviteOutcomeResponseDto"
+            }
+          }
+        },
+        "required": [
+          "outcomes"
         ]
       },
       "InviteOfferResponseDto": {
@@ -28989,17 +29345,34 @@
             "description": "The address it was sent to, which is who may accept it.",
             "example": "ada@example.com"
           },
-          "teamName": {
-            "type": "string",
-            "example": "Platform"
-          },
           "workspaceName": {
             "type": "string",
             "example": "Acme"
           },
           "invitedBy": {
             "type": "string",
+            "description": "Who asked them, or null once their account is deleted.",
+            "nullable": true,
             "example": "Leon Liang"
+          },
+          "role": {
+            "type": "string",
+            "description": "What they will be in the workspace once they accept.",
+            "enum": [
+              "admin",
+              "member"
+            ],
+            "example": "member"
+          },
+          "teamNames": {
+            "description": "The teams they join on accepting.",
+            "example": [
+              "Platform"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
           "standing": {
             "type": "string",
@@ -29015,32 +29388,24 @@
         },
         "required": [
           "email",
-          "teamName",
           "workspaceName",
           "invitedBy",
+          "role",
+          "teamNames",
           "standing"
         ]
       },
-      "JoinedTeamResponseDto": {
+      "JoinedWorkspaceResponseDto": {
         "type": "object",
         "properties": {
           "workspaceSlug": {
             "type": "string",
+            "description": "Where they land.",
             "example": "acme"
-          },
-          "teamId": {
-            "type": "string",
-            "example": "team_1"
-          },
-          "teamName": {
-            "type": "string",
-            "example": "Platform"
           }
         },
         "required": [
-          "workspaceSlug",
-          "teamId",
-          "teamName"
+          "workspaceSlug"
         ]
       },
       "SecretSourceResponseDto": {

@@ -1,16 +1,13 @@
-import type { AcceptInviteCommand } from '@identity/application/commands/accept-invite.command';
+import { AcceptInviteCommand } from '@identity/application/commands/accept-invite.command';
 import { AcceptInviteHandler } from '@identity/application/commands/handlers/accept-invite.handler';
-import { Invite } from '@identity/domain/aggregates/invite.aggregate';
-import { Team } from '@identity/domain/aggregates/team.aggregate';
 import { Workspace } from '@identity/domain/aggregates/workspace.aggregate';
+import { WorkspaceInvite } from '@identity/domain/aggregates/workspace-invite.aggregate';
 import { InviteMovedOnError } from '@identity/domain/exceptions/invite-moved-on.error';
-import type { InviteRepository } from '@identity/domain/repositories/invite.repository';
-import type { TeamRepository } from '@identity/domain/repositories/team.repository';
 import type { WorkspaceRepository } from '@identity/domain/repositories/workspace.repository';
+import type { WorkspaceInviteRepository } from '@identity/domain/repositories/workspace-invite.repository';
 import { EmailAddress } from '@identity/domain/value-objects/email-address.vo';
 import { InviteId } from '@identity/domain/value-objects/invite-id.vo';
-import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
-import { TeamName } from '@identity/domain/value-objects/team-name.vo';
+import { InviteTerms } from '@identity/domain/value-objects/invite-terms.vo';
 import { WorkspaceName } from '@identity/domain/value-objects/workspace-name.vo';
 import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
 import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
@@ -33,42 +30,40 @@ const workspace = Workspace.rehydrate({
   version: 0,
 });
 
-const team = Team.rehydrate({
-  id: TeamId.of('team_1'),
-  workspaceId: WorkspaceId.of('ws_1'),
-  key: TeamKey.of('platform'),
-  name: TeamName.of('Platform'),
-  members: [UserId.of('user_leon')],
-  version: 0,
-});
-
 const standing = (over: { sentAt?: Date; revoked?: boolean } = {}) => {
-  const offered = Invite.offer({
+  const offered = WorkspaceInvite.offer({
     id: InviteId.of('invite_1'),
-    workspaceId: team.workspaceId,
-    teamId: team.id,
-    email: EmailAddress.of('ada@example.com'),
+    workspaceId: workspace.id,
+    email: EmailAddress.of('Ada@Example.com'),
+    terms: InviteTerms.of(WorkspaceRole.admin, [
+      TeamId.of('team_1'),
+      TeamId.of('team_2'),
+    ]),
     tokenHash: TokenHash.of('a'.repeat(64)),
     invitedBy: UserId.of('user_leon'),
     now: over.sentAt ?? new Date('2026-09-12T09:00:00.000Z'),
   });
 
-  const invite = over.revoked ? offered.revoked(NOW) : offered;
+  const invite = over.revoked
+    ? offered.revoked(UserId.of('user_leon'), NOW)
+    : offered;
 
   invite.pullEvents();
 
   return invite;
 };
 
-const accepting = (invite: Invite | null = standing()) => {
+const accepting = (invite: WorkspaceInvite | null = standing()) => {
   const dispatched: DomainEvent[] = [];
-  const save = vi.fn(async (saved: Invite) => {
+  const save = vi.fn(async (saved: WorkspaceInvite) => {
     dispatched.push(...saved.pullEvents());
   });
 
   const handler = new AcceptInviteHandler(
-    { withToken: async () => invite, save } as unknown as InviteRepository,
-    { find: async () => team } as unknown as TeamRepository,
+    {
+      withToken: async () => invite,
+      save,
+    } as unknown as WorkspaceInviteRepository,
     { find: async () => workspace } as unknown as WorkspaceRepository,
     { hash: () => 'a'.repeat(64) } as unknown as TokenMintPort,
     { now: () => NOW } as ClockPort,
@@ -78,20 +73,14 @@ const accepting = (invite: Invite | null = standing()) => {
 };
 
 const accept = (email = 'ada@example.com') =>
-  ({
-    token: 'tok',
-    viewerId: 'user_ada',
-    viewerEmail: email,
-  }) as AcceptInviteCommand;
+  new AcceptInviteCommand('tok', 'user_ada', email);
 
 describe('AcceptInviteHandler', () => {
-  it('says where they land', async () => {
+  it('says which workspace they land in', async () => {
     const { handler } = accepting();
 
     await expect(handler.execute(accept())).resolves.toEqual({
       workspaceSlug: 'acme',
-      teamId: 'team_1',
-      teamName: 'Platform',
     });
   });
 
@@ -106,12 +95,20 @@ describe('AcceptInviteHandler', () => {
     });
   });
 
-  it('says the invite was accepted, for the workspace and the team to take them in', async () => {
+  it('says the invite was accepted, with the role and teams for the workspace and teams to take them in', async () => {
     const { handler, dispatched } = accepting();
 
-    await handler.execute(accept());
+    await handler.execute(accept('ADA@example.com'));
 
-    expect(dispatched.map((each) => each.kind)).toEqual(['invite.accepted']);
+    expect(dispatched).toMatchObject([
+      {
+        kind: 'workspace-invite.accepted',
+        terms: {
+          role: WorkspaceRole.admin,
+          teams: [{ value: 'team_1' }, { value: 'team_2' }],
+        },
+      },
+    ]);
   });
 
   it('is nothing to a link that stands for no invite', async () => {
@@ -121,12 +118,15 @@ describe('AcceptInviteHandler', () => {
     expect(save).not.toHaveBeenCalled();
   });
 
-  it('refuses somebody signed in as anybody but the person invited', async () => {
+  it('refuses somebody signed in as anybody but the person invited, naming who to sign in as', async () => {
     const { handler, save } = accepting();
 
-    await expect(handler.execute(accept('grace@example.com'))).rejects.toThrow(
-      /sent to ada@example.com/,
-    );
+    await expect(
+      handler.execute(accept('grace@example.com')),
+    ).rejects.toMatchObject({
+      kind: 'not-allowed',
+      message: expect.stringMatching(/sign in as ada@example.com/),
+    });
     expect(save).not.toHaveBeenCalled();
   });
 

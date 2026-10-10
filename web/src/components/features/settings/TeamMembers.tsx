@@ -1,22 +1,25 @@
 import { useState } from 'react';
-import { InviteMemberDialog } from '@/components/features/settings/InviteMemberDialog';
+import { InviteDialog } from '@/components/features/members/InviteDialog';
+import { AddTeamMember } from '@/components/features/settings/AddTeamMember';
 import { SettingsSection } from '@/components/features/settings/SettingsSection';
 import { TeamMemberRow } from '@/components/features/settings/TeamMemberRow';
 import { TeamMemberRowSkeleton } from '@/components/features/settings/TeamMemberRowSkeleton';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
-import { Button } from '@/components/ui/button';
 import { useChangeMemberRole } from '@/hooks/api/useChangeMemberRole';
 import { useMembers } from '@/hooks/api/useMembers';
 import { failed, loading } from '@/lib/query';
+import type { Team } from '@/lib/team';
 
 type TeamMembersProps = {
   slug: string | undefined;
   teamId: string | undefined;
+  admin: boolean;
+  teams: readonly Team[];
 };
 
-export function TeamMembers({ slug, teamId }: TeamMembersProps) {
+export function TeamMembers({ slug, teamId, admin, teams }: TeamMembersProps) {
   const members = useMembers(teamId);
-  const changeRole = useChangeMemberRole(slug, teamId);
+  const changeRole = useChangeMemberRole(slug);
   const [inviting, setInviting] = useState(false);
 
   const on = members.data ?? [];
@@ -27,15 +30,13 @@ export function TeamMembers({ slug, teamId }: TeamMembersProps) {
         title="Members"
         count={members.data?.length}
         action={
-          <Button
-            variant="outline"
-            size="sm"
-            className="rounded-full border-border bg-card px-3 shadow-none"
-            onClick={() => setInviting(true)}
-            disabled={!teamId}
-          >
-            Add a member
-          </Button>
+          admin && (
+            <AddTeamMember
+              slug={slug}
+              teamId={teamId}
+              onInvite={() => setInviting(true)}
+            />
+          )
         }
       >
         {loading(members) && (
@@ -55,7 +56,9 @@ export function TeamMembers({ slug, teamId }: TeamMembersProps) {
 
         {members.data?.length === 0 && (
           <p className="px-4 py-4 text-muted-foreground text-sm">
-            No members yet. Add one to get started.
+            {admin
+              ? 'No members yet. Add one to get started.'
+              : 'No members yet. Please ask an admin to add people.'}
           </p>
         )}
 
@@ -72,11 +75,15 @@ export function TeamMembers({ slug, teamId }: TeamMembersProps) {
         ))}
       </SettingsSection>
 
-      <InviteMemberDialog
-        open={inviting}
-        onOpenChange={setInviting}
-        teamId={teamId}
-      />
+      {admin && (
+        <InviteDialog
+          open={inviting}
+          onOpenChange={setInviting}
+          slug={slug}
+          teams={teams}
+          teamIds={teamId ? [teamId] : []}
+        />
+      )}
     </>
   );
 }

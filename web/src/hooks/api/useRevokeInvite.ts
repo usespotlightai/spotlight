@@ -1,19 +1,20 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { inviteKeys } from '@/hooks/api/useInvites';
+import { inviteKeys } from '@/hooks/api/useWorkspaceInvites';
 import { revokeInvite } from '@/lib/api';
 
-export function useRevokeInvite(teamId: string | undefined) {
+export function useRevokeInvite(slug: string | undefined) {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: async (inviteId: string) => {
       await revokeInvite({
-        path: { teamId: teamId as string, inviteId },
+        path: { slug: slug as string, inviteId },
         throwOnError: true,
       });
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: inviteKeys.forTeam(teamId) });
-    },
+    onSuccess: () =>
+      queryClient.invalidateQueries({
+        queryKey: inviteKeys.forWorkspace(slug),
+      }),
   });
 }

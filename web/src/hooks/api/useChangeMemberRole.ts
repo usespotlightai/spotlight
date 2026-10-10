@@ -1,13 +1,11 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { memberKeys } from '@/hooks/api/useMembers';
+import { workspaceMemberKeys } from '@/hooks/api/useWorkspaceMembers';
 import { workspaceKeys } from '@/hooks/api/useWorkspaces';
 import { changeMemberRole } from '@/lib/api';
 import type { Role } from '@/lib/role';
 
-export function useChangeMemberRole(
-  slug: string | undefined,
-  teamId: string | undefined,
-) {
+export function useChangeMemberRole(slug: string | undefined) {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -19,7 +17,10 @@ export function useChangeMemberRole(
       });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: memberKeys.forTeam(teamId) });
+      queryClient.invalidateQueries({ queryKey: memberKeys.all });
+      queryClient.invalidateQueries({
+        queryKey: workspaceMemberKeys.forWorkspace(slug),
+      });
       queryClient.invalidateQueries({ queryKey: workspaceKeys.detail(slug) });
     },
   });

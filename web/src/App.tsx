@@ -151,6 +151,11 @@ const Tokens = lazyPage(
   (module) => module.Tokens,
 );
 
+const WorkspaceMembers = lazyPage(
+  () => import('./routes/WorkspaceMembers.tsx'),
+  (module) => module.WorkspaceMembers,
+);
+
 const WorkspaceGeneral = lazyPage(
   () => import('./routes/WorkspaceGeneral.tsx'),
   (module) => module.WorkspaceGeneral,
@@ -215,6 +220,7 @@ export default function App() {
             <Route path="settings">
               <Route index element={<Navigate to="general" replace />} />
               <Route path="general" element={<WorkspaceGeneral />} />
+              <Route path="members" element={<WorkspaceMembers />} />
               <Route path="runners" element={<Runners />} />
               <Route path="runners/new" element={<AddHost />} />
               <Route path="tokens" element={<Tokens />} />

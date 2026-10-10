@@ -30,24 +30,25 @@ vi.mock('@/hooks/api/useWorkspaces', () => ({
   }),
 }));
 
-const renderMenu = (noneAnswering = false) =>
+const renderMenu = (noneAnswering = false, admin = true) =>
   render(
     <QueryClientProvider client={new QueryClient()}>
       <MemoryRouter>
         <WorkspaceMenu
           name="Acme Inc."
           slug="acme-inc"
+          admin={admin}
           noneAnswering={noneAnswering}
         />
       </MemoryRouter>
     </QueryClientProvider>,
   );
 
-const open = async () => {
+const open = async (admin = true) => {
   const user = userEvent.setup({
     pointerEventsCheck: PointerEventsCheckLevel.Never,
   });
-  renderMenu();
+  renderMenu(false, admin);
   await user.click(screen.getByRole('button', { name: /Acme Inc\./ }));
   await screen.findByRole('menu');
   return user;
@@ -118,12 +119,20 @@ describe('WorkspaceMenu', () => {
     );
   });
 
-  it('leads to the settings to invite and manage members', async () => {
+  it('leads an admin to the workspace’s members', async () => {
     await open();
 
     expect(
       screen.getByRole('menuitem', { name: 'Invite and manage members' }),
-    ).toHaveAttribute('href', '/w/acme-inc/settings');
+    ).toHaveAttribute('href', '/w/acme-inc/settings/members');
+  });
+
+  it('offers no member management to somebody who is not an admin', async () => {
+    await open(false);
+
+    expect(
+      screen.queryByRole('menuitem', { name: 'Invite and manage members' }),
+    ).not.toBeInTheDocument();
   });
 
   it('flags the menu and its settings when no host is answering', async () => {

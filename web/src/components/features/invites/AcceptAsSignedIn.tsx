@@ -1,6 +1,8 @@
 import { useNavigate } from 'react-router';
 import { Button } from '@/components/ui/button';
 import { useAcceptInvite } from '@/hooks/api/useAcceptInvite';
+import { inboxPath } from '@/lib/inbox';
+import { sameAddress } from '@/lib/members';
 
 type AcceptAsSignedInProps = {
   token: string | undefined;
@@ -15,7 +17,8 @@ export function AcceptAsSignedIn({
 }: AcceptAsSignedInProps) {
   const navigate = useNavigate();
   const accept = useAcceptInvite(token);
-  const asSomeoneElse = signedInAs !== undefined && signedInAs !== invitedEmail;
+  const asSomeoneElse =
+    signedInAs !== undefined && !sameAddress(signedInAs, invitedEmail);
 
   return (
     <div className="flex flex-col gap-3">
@@ -33,9 +36,7 @@ export function AcceptAsSignedIn({
             accept.mutate(undefined, {
               onSuccess: (joined) =>
                 joined &&
-                navigate(`/w/${joined.workspaceSlug}/team/${joined.teamId}`, {
-                  replace: true,
-                }),
+                navigate(inboxPath(joined.workspaceSlug), { replace: true }),
             })
           }
         >

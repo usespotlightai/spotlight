@@ -1,4 +1,4 @@
-import { MEMBER_READER } from '@identity/application/ports/member-reader.port';
+import { MEMBER_DIRECTORY } from '@identity/application/ports/member-directory.port';
 import { PERSON_READER } from '@identity/application/ports/person-reader.port';
 import { TEAM_DIRECTORY } from '@identity/application/ports/team-directory.port';
 import { TEAM_HOLDINGS } from '@identity/application/ports/team-holdings.port';
@@ -26,7 +26,7 @@ import { WORKSPACE_TOKEN_IDENTITY } from '@shared-kernel/application/ports/works
     WORKSPACE_HOLDINGS,
     WORKSPACE_READER,
     PERSON_READER,
-    MEMBER_READER,
+    MEMBER_DIRECTORY,
     WORKSPACE_TOKEN_IDENTITY,
     TOKEN_TRUST_CONFIGURATION,
     AuthenticationModule,

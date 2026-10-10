@@ -1,13 +1,11 @@
 import { HttpResponse, type RequestHandler } from 'msw';
 import type {
-  ChangeMemberRoleRequestDto,
   ConfiguredIntegrationResponseDto,
   ConnectGitHubRequestDto,
   ConnectIntegrationRequestDto,
   CreateRunnerPoolData,
   CreateWorkspaceRequestDto,
   CreateWorkspaceTokenData,
-  InviteToTeamRequestDto,
   OnboardingResponseDto,
   SetToolRuleRequestDto,
 } from '@/lib/api';
@@ -78,79 +76,6 @@ const onboarding = (): OnboardingResponseDto => ({
 
 const handleOf = (source: string) =>
   source === 'sentry' ? 'sam.rivera@acme.dev' : '@sam';
-
-const inviteHandlers = [
-  api.get('/invites/:token', ({ params }) => {
-    const found = settingsWorld().offers.find(
-      (each) => each.token === params.token,
-    );
-    if (!found) {
-      return notFound();
-    }
-
-    const { token: _token, teamId: _teamId, ...offer } = found;
-    return json(offer);
-  }),
-
-  api.post('/invites/:token/accept', ({ params }) => {
-    const found = settingsWorld().offers.find(
-      (each) => each.token === params.token,
-    );
-    if (!found) {
-      return notFound();
-    }
-    if (found.standing !== 'open') {
-      return problem(410, `Sorry, this invitation is ${found.standing}.`);
-    }
-
-    found.standing = 'accepted';
-    return json({
-      workspaceSlug: world().workspace.slug,
-      teamId: found.teamId,
-      teamName: found.teamName,
-    });
-  }),
-
-  api.get('/teams/:teamId/invites', ({ params }) =>
-    json(settingsWorld().invites[String(params.teamId)] ?? []),
-  ),
-
-  api.post('/teams/:teamId/invites', async ({ params, request }) => {
-    const teamId = String(params.teamId);
-    if (!isTeam(teamId)) {
-      return notFound();
-    }
-
-    const { email } = (await request.json()) as InviteToTeamRequestDto;
-    const store = settingsWorld().invites;
-    const invites = store[teamId] ?? [];
-    if (invites.some((each) => each.email === email)) {
-      return problem(409, `Sorry, ${email} is already invited.`);
-    }
-
-    const invite = {
-      id: `invite_${crypto.randomUUID().slice(0, 8)}`,
-      email,
-      invitedBy: SIGNED_IN.name,
-      invitedAt: daysAgo(0),
-      expiresAt: daysAgo(-7),
-    };
-    store[teamId] = [invite, ...invites];
-    return json(invite, 201);
-  }),
-
-  api.delete('/teams/:teamId/invites/:inviteId', ({ params }) => {
-    const store = settingsWorld().invites;
-    const teamId = String(params.teamId);
-    const invites = store[teamId] ?? [];
-    if (!invites.some((each) => each.id === params.inviteId)) {
-      return notFound();
-    }
-
-    store[teamId] = invites.filter((each) => each.id !== params.inviteId);
-    return noContent();
-  }),
-];
 
 const resourceHandlers = [
   api.get('/resources/teams/:id', ({ params }) => {
@@ -418,33 +343,6 @@ const workspaceHandlers = [
     ofWorkspace(params.slug) ? json(HARNESSES) : notFound(),
   ),
 
-  api.patch(
-    '/workspaces/:slug/members/:userId',
-    async ({ params, request }) => {
-      if (!ofWorkspace(params.slug)) {
-        return notFound();
-      }
-
-      const { role } = (await request.json()) as ChangeMemberRoleRequestDto;
-      const member = Object.values(world().members)
-        .flat()
-        .find((each) => each.id === params.userId);
-      if (!member) {
-        return notFound();
-      }
-      if (role !== member.role && !member.mayBeSetTo.includes(role)) {
-        return problem(403, `Sorry, ${member.name} can’t be made ${role}.`);
-      }
-      for (const each of Object.values(world().members).flat()) {
-        if (each.id === params.userId) {
-          each.role = role;
-        }
-      }
-
-      return noContent();
-    },
-  ),
-
   api.get('/workspaces/:slug/repositories', ({ params }) => {
     if (!ofWorkspace(params.slug)) {
       return notFound();
@@ -474,7 +372,6 @@ const workspaceHandlers = [
 ];
 
 export const settingsHandlers: RequestHandler[] = [
-  ...inviteHandlers,
   ...resourceHandlers,
   ...teamHandlers,
   ...workspaceHandlers,

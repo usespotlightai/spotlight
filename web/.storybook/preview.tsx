@@ -63,7 +63,7 @@ const preview: Preview = {
           'Settings',
           [
             'Workspace',
-            ['General', 'Runners', 'Tokens'],
+            ['General', 'Members', 'Runners', 'Tokens'],
             'Team',
             ['General', 'Integrations', 'Skills'],
           ],

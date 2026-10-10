@@ -1,12 +1,19 @@
 import { Team } from '@identity/domain/aggregates/team.aggregate';
+import { Workspace } from '@identity/domain/aggregates/workspace.aggregate';
 import { TeamCreated } from '@identity/domain/events/team-created.event';
 import { TeamDisbanded } from '@identity/domain/events/team-disbanded.event';
 import { TeamRedefined } from '@identity/domain/events/team-redefined.event';
+import { AlreadyOnTheTeamError } from '@identity/domain/exceptions/already-on-the-team.error';
+import { NotInTheWorkspaceError } from '@identity/domain/exceptions/not-in-the-workspace.error';
 import { TeamKeyFixedError } from '@identity/domain/exceptions/team-key-fixed.error';
 import { TeamMovedOnError } from '@identity/domain/exceptions/team-moved-on.error';
+import { TeamOutsideWorkspaceError } from '@identity/domain/exceptions/team-outside-workspace.error';
 import { Holdings } from '@identity/domain/value-objects/holdings.vo';
 import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import { TeamName } from '@identity/domain/value-objects/team-name.vo';
+import { WorkspaceName } from '@identity/domain/value-objects/workspace-name.vo';
+import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
+import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
@@ -18,6 +25,20 @@ import { describe, expect, it } from 'vitest';
 const WORKSPACE = WorkspaceId.of('ws_1');
 const OWNER = UserId.of('user_1');
 const BY = attributedIn(WORKSPACE);
+const SECOND = UserId.of('user_2');
+
+const acme = (id = WORKSPACE) =>
+  Workspace.rehydrate({
+    id,
+    name: WorkspaceName.of('Acme'),
+    slug: WorkspaceSlug.of('acme'),
+    members: [
+      { userId: OWNER, role: WorkspaceRole.owner },
+      { userId: SECOND, role: WorkspaceRole.member },
+    ],
+    version: 0,
+  });
+
 const CORE = { resource: 'team' as const, id: 'team_1', key: 'core' };
 
 const open = (name = 'Platform') => {
@@ -82,15 +103,31 @@ describe('Team', () => {
   });
 
   it('takes somebody on once, and says so', () => {
-    const joined = open()
-      .joinedBy(UserId.of('user_2'))
-      .joinedBy(UserId.of('user_2'));
+    const joined = open().joinedBy(SECOND, acme()).joinedBy(SECOND, acme());
 
-    expect(joined.members).toEqual([OWNER, UserId.of('user_2')]);
+    expect(joined.members).toEqual([OWNER, SECOND]);
     expect(joined.pullEvents().map((each) => each.kind)).toEqual([
       'team.created',
       'team.member-joined',
     ]);
+  });
+
+  it('takes on only somebody already in its workspace', () => {
+    expect(() => open().joinedBy(UserId.of('stranger'), acme())).toThrow(
+      NotInTheWorkspaceError,
+    );
+    expect(() => open().joinedBy(SECOND, acme(WorkspaceId.of('ws_2')))).toThrow(
+      TeamOutsideWorkspaceError,
+    );
+  });
+
+  it('refuses to add somebody already on it', () => {
+    const joined = open().memberAdded(SECOND, acme());
+
+    expect(joined.holds(SECOND)).toBe(true);
+    expect(() => joined.memberAdded(SECOND, acme())).toThrow(
+      AlreadyOnTheTeamError,
+    );
   });
 
   it('keeps the version it was read at, for the repository to check', () => {
@@ -104,7 +141,7 @@ describe('Team', () => {
     });
 
     expect(read.renamedTo(TeamName.of('Core')).version).toBe(4);
-    expect(read.joinedBy(UserId.of('user_2')).version).toBe(4);
+    expect(read.joinedBy(SECOND, acme()).version).toBe(4);
   });
 
   it('refuses to read back a team nobody is on', () => {

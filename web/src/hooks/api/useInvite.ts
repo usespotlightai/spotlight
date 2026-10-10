@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { inviteKeys } from '@/hooks/api/useInvites';
+import { inviteKeys } from '@/hooks/api/useWorkspaceInvites';
 import { readInvite } from '@/lib/api';
 
 export function useInvite(token: string | undefined) {

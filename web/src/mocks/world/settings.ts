@@ -2,8 +2,6 @@ import type {
   ConfiguredIntegrationResponseDto,
   ConnectionToolRuleResponseDto,
   HarnessResponseDto,
-  InviteOfferResponseDto,
-  InviteResponseDto,
   MyConnectionResponseDto,
   PersonConnectionResponseDto,
   RunnerPoolResourceResponseDto,
@@ -234,55 +232,6 @@ const SKILLS: Record<string, TeamSkillResponseDto[]> = {
   ],
 };
 
-export type InviteOffer = InviteOfferResponseDto & {
-  token: string;
-  teamId: string;
-};
-
-const invite = (
-  id: string,
-  email: string,
-  invitedDaysAgo: number,
-): InviteResponseDto => ({
-  id,
-  email,
-  invitedBy: SAM.name,
-  invitedAt: daysAgo(invitedDaysAgo),
-  expiresAt: daysFromNow(7 - invitedDaysAgo),
-});
-
-const INVITES: Record<string, InviteResponseDto[]> = {
-  [PLATFORM_ID]: [
-    invite('invite_jordan', 'jordan.lee@acme.dev', 1),
-    invite('invite_alex', 'alex.morgan@acme.dev', 4),
-  ],
-  [GROWTH_ID]: [invite('invite_noor', 'noor.haddad@acme.dev', 2)],
-};
-
-const offer = (
-  token: string,
-  teamId: string,
-  email: string,
-  standing: InviteOffer['standing'],
-): InviteOffer => ({
-  token,
-  teamId,
-  email,
-  teamName: WORKSPACE.teams.find((team) => team.id === teamId)?.name ?? '',
-  workspaceName: WORKSPACE.name,
-  invitedBy: SAM.name,
-  standing,
-});
-
-const OFFERS: InviteOffer[] = [
-  offer('invite_sam', PLATFORM_ID, 'sam@example.com', 'open'),
-  offer('invite_platform', PLATFORM_ID, 'jordan.lee@acme.dev', 'open'),
-  offer('invite_growth', GROWTH_ID, 'noor.haddad@acme.dev', 'open'),
-  offer('invite_accepted', PLATFORM_ID, 'tom.becker@acme.dev', 'accepted'),
-  offer('invite_revoked', PLATFORM_ID, 'kim.ortiz@acme.dev', 'revoked'),
-  offer('invite_expired', GROWTH_ID, 'ravi.shah@acme.dev', 'expired'),
-];
-
 export const workspaceToken = (
   name: string,
   over: Partial<WorkspaceTokenResourceResponseDto> = {},
@@ -369,8 +318,6 @@ export type SettingsWorld = {
   integrations: Record<string, ConfiguredIntegrationResponseDto[]>;
   connections: Record<string, TeamConnections>;
   skills: Record<string, TeamSkillResponseDto[]>;
-  invites: Record<string, InviteResponseDto[]>;
-  offers: InviteOffer[];
   tokens: WorkspaceTokenResourceResponseDto[];
   pools: RunnerPoolResourceResponseDto[];
   fleet: Fleet;
@@ -389,8 +336,6 @@ export const settingsWorld = perWorld(
             [GROWTH_ID]: structuredClone(NOBODY),
           },
           skills: { [PLATFORM_ID]: [], [GROWTH_ID]: [] },
-          invites: { [PLATFORM_ID]: [], [GROWTH_ID]: [] },
-          offers: [],
           tokens: [],
           pools: [],
           fleet: structuredClone(NO_FLEET),
@@ -400,8 +345,6 @@ export const settingsWorld = perWorld(
           integrations: structuredClone(INTEGRATIONS),
           connections: structuredClone(CONNECTIONS),
           skills: structuredClone(SKILLS),
-          invites: structuredClone(INVITES),
-          offers: structuredClone(OFFERS),
           tokens: structuredClone(TOKENS),
           pools: structuredClone(RUNNER_POOLS),
           fleet: structuredClone(FLEET),

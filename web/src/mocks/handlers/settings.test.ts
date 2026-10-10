@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-  acceptInvite,
   createRunnerPool,
   createWorkspaceToken,
   deleteWorkspaceToken,
@@ -8,7 +7,6 @@ import {
   exportWorkspace,
   listConnections,
   listHarnesses,
-  listInvites,
   listRepositories,
   listRunnerActivity,
   listRunnerPools,
@@ -17,12 +15,11 @@ import {
   listWorkspaceTokens,
   readConfiguration,
   readGitHub,
-  readInvite,
   readOnboarding,
   readTeam,
 } from '@/lib/api';
 import { serveMockApi } from '@/mocks/testing';
-import { GROWTH_ID, PLATFORM_ID, SLUG } from '@/mocks/world';
+import { PLATFORM_ID, SLUG } from '@/mocks/world';
 import { WORKSPACE_ID } from '@/mocks/world/settings';
 
 const slug = { path: { slug: SLUG }, throwOnError: true } as const;
@@ -193,29 +190,6 @@ describe('the mock settings', () => {
 
     expect(data.steps.map((each) => each.done)).toEqual([true, true]);
   });
-
-  it('answers invites and accepts an open one', async () => {
-    const { data: invites } = await listInvites({
-      path: { teamId: GROWTH_ID },
-      throwOnError: true,
-    });
-    const { data: offer } = await readInvite({
-      path: { token: 'invite_platform' },
-      throwOnError: true,
-    });
-    const { data: joined } = await acceptInvite({
-      path: { token: 'invite_platform' },
-      throwOnError: true,
-    });
-
-    expect(invites.map((each) => each.email)).toEqual(['noor.haddad@acme.dev']);
-    expect(offer).toMatchObject({ teamName: 'Platform', standing: 'open' });
-    expect(joined).toEqual({
-      workspaceSlug: SLUG,
-      teamId: PLATFORM_ID,
-      teamName: 'Platform',
-    });
-  });
 });
 
 describe('the mock settings of a fresh workspace', () => {
@@ -227,19 +201,13 @@ describe('the mock settings of a fresh workspace', () => {
     const { data: tokens } = await listWorkspaceTokens(workspace);
     const { data: configuration } = await readConfiguration(platform);
     const { data: skills } = await listTeamSkills(platform);
-    const { data: invites } = await listInvites(platform);
     const { data: onboarding } = await readOnboarding(platform);
-    const { response } = await readInvite({
-      path: { token: 'invite_platform' },
-    });
 
     expect(github.connected).toBe(false);
     expect(fleet).toEqual({ hosts: [], runners: [] });
     expect(tokens.items).toEqual([]);
     expect(configuration.integrations).toEqual([]);
     expect(skills.skills).toEqual([]);
-    expect(invites).toEqual([]);
     expect(onboarding.steps.map((each) => each.done)).toEqual([false, false]);
-    expect(response?.status).toBe(404);
   });
 });

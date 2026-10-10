@@ -168,22 +168,29 @@ describe('Workspace', () => {
     );
   });
 
-  it('offers the tokens to an owner or admin of the workspace', () => {
+  it('offers the members and tokens to an owner or admin of the workspace', () => {
     loaded({ ...acme, role: 'admin' });
 
     renderAt('acme-inc', '/settings/general');
 
+    expect(screen.getByRole('link', { name: 'Members' })).toHaveAttribute(
+      'href',
+      '/w/acme-inc/settings/members',
+    );
     expect(screen.getByRole('link', { name: 'Tokens' })).toHaveAttribute(
       'href',
       '/w/acme-inc/settings/tokens',
     );
   });
 
-  it('offers a member no tokens', () => {
+  it('offers a member neither the members nor the tokens', () => {
     loaded({ ...acme, role: 'member' });
 
     renderAt('acme-inc', '/settings/general');
 
+    expect(
+      screen.queryByRole('link', { name: 'Members' }),
+    ).not.toBeInTheDocument();
     expect(
       screen.queryByRole('link', { name: 'Tokens' }),
     ).not.toBeInTheDocument();

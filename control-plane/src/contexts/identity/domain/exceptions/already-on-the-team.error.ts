@@ -1,8 +1,8 @@
 export class AlreadyOnTheTeamError extends Error {
   readonly violation = 'conflict' as const;
 
-  constructor(email: string) {
-    super(`This team already includes ${email}.`);
+  constructor(team: string) {
+    super(`${team} already includes this person.`);
     this.name = 'AlreadyOnTheTeamError';
   }
 }
