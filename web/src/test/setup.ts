@@ -9,6 +9,8 @@ Element.prototype.setPointerCapture = () => undefined;
 Element.prototype.releasePointerCapture = () => undefined;
 Element.prototype.scrollIntoView = () => undefined;
 Element.prototype.scrollTo = () => undefined;
+Range.prototype.getBoundingClientRect = () => new DOMRect();
+Range.prototype.getClientRects = () => [] as unknown as DOMRectList;
 
 class NoResizeObserver implements ResizeObserver {
   observe() {}
