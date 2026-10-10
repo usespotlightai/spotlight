@@ -1,8 +1,38 @@
-import { canGlide, GLIDE } from '@/lib/glide';
+import { canGlide } from '@/lib/glide';
 
-export const travel = (from: DOMRect, to: HTMLElement): void => {
+export const TRAVEL: KeyframeAnimationOptions = {
+  duration: 200,
+  easing: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+  fill: 'forwards',
+};
+
+const settledBy = (settles: HTMLElement | null): Promise<void> =>
+  new Promise((resolve) => {
+    if (!settles) {
+      resolve();
+      return;
+    }
+    const done = () => {
+      settles.removeEventListener('transitionend', onEnd);
+      resolve();
+    };
+    const onEnd = (event: TransitionEvent) => {
+      if (event.target === settles) {
+        done();
+      }
+    };
+    settles.addEventListener('transitionend', onEnd);
+    setTimeout(done, Number(TRAVEL.duration) + 100);
+  });
+
+export const travel = (
+  from: DOMRect,
+  to: HTMLElement,
+  settles: HTMLElement | null,
+  landed: () => void,
+): (() => void) | null => {
   if (!canGlide(to)) {
-    return;
+    return null;
   }
 
   const end = to.getBoundingClientRect();
@@ -10,7 +40,7 @@ export const travel = (from: DOMRect, to: HTMLElement): void => {
   const dy = from.top - end.top;
 
   if (dx === 0 && dy === 0) {
-    return;
+    return null;
   }
 
   const ghost = to.cloneNode(true) as HTMLElement;
@@ -27,16 +57,30 @@ export const travel = (from: DOMRect, to: HTMLElement): void => {
     zIndex: '50',
   });
   document.body.append(ghost);
-  to.style.visibility = 'hidden';
 
   const moving = ghost.animate(
     [{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }],
-    GLIDE,
+    TRAVEL,
   );
-  const landed = () => {
-    ghost.remove();
-    to.style.visibility = '';
+  const unfolded = settledBy(settles);
+  let done = false;
+  const land = (fade: () => void) => {
+    if (!done) {
+      done = true;
+      landed();
+      fade();
+    }
   };
-  moving.onfinish = landed;
-  moving.oncancel = landed;
+  const afterPaint = () =>
+    requestAnimationFrame(() => requestAnimationFrame(() => ghost.remove()));
+
+  moving.oncancel = () => land(() => ghost.remove());
+  moving.onfinish = () => {
+    void unfolded.then(() => land(afterPaint));
+  };
+
+  return () => {
+    land(() => ghost.remove());
+    moving.cancel();
+  };
 };
