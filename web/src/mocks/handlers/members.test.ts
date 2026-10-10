@@ -174,6 +174,69 @@ describe('the mock members', () => {
     expect(response?.status).toBe(404);
   });
 
+  it('answers a stale invite row as the server does once the invite was accepted', async () => {
+    await acceptInvite({
+      path: { token: 'invite_platform' },
+      throwOnError: true,
+    });
+    const at = { path: { slug: SLUG, inviteId: 'invite_jordan' } };
+    const resent = await resendInvite(at);
+    const revoked = await revokeInvite(at);
+
+    expect(resent.response?.status).toBe(409);
+    expect(resent.error).toMatchObject({
+      detail: 'This invite has already been accepted.',
+    });
+    expect(revoked.response?.status).toBe(409);
+    expect((await invites()).map((each) => each.id)).not.toContain(
+      'invite_jordan',
+    );
+  });
+
+  it('answers a revoked invite sent again with a conflict, and revoking it again with nothing', async () => {
+    const at = { path: { slug: SLUG, inviteId: 'invite_jordan' } };
+    await revokeInvite({ ...at, throwOnError: true });
+
+    expect((await resendInvite(at)).error).toMatchObject({
+      detail: 'This invite has been revoked.',
+    });
+    expect((await revokeInvite(at)).response?.status).toBe(204);
+  });
+
+  it('hides inviting, resending and revoking from a member, as the server does', async () => {
+    setScenario({ account: 'member' });
+    const at = { path: { slug: SLUG, inviteId: 'invite_jordan' } };
+    const invited = await inviteToWorkspace({
+      path: { slug: SLUG },
+      body: { emails: ['ada@acme.dev'], role: 'member', teamIds: [] },
+    });
+
+    expect(invited.response?.status).toBe(404);
+    expect((await resendInvite(at)).response?.status).toBe(404);
+    expect((await revokeInvite(at)).response?.status).toBe(404);
+  });
+
+  it('refuses a member changing a role, and adding someone already on the team', async () => {
+    const added = await addTeamMember({
+      path: { teamId: PLATFORM_ID },
+      body: { userId: 'user_1' },
+    });
+    setScenario({ account: 'member' });
+    const changed = await changeMemberRole({
+      path: { slug: SLUG, userId: 'user_2' },
+      body: { role: 'admin' },
+    });
+
+    expect(added.error).toMatchObject({
+      status: 409,
+      detail: 'Platform already includes this person.',
+    });
+    expect(changed.error).toMatchObject({
+      status: 403,
+      detail: 'Only an owner or an admin can set roles.',
+    });
+  });
+
   it('refuses an invite for an address that is not one', async () => {
     const { response } = await inviteToWorkspace({
       path: { slug: SLUG },

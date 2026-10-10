@@ -3,6 +3,7 @@ import { SettingsRow } from '@/components/features/settings/SettingsRow';
 import { ActionWithAlert } from '@/components/shared/ActionWithAlert';
 import { PersonAvatar } from '@/components/shared/avatar/PersonAvatar';
 import { useChangeMemberRole } from '@/hooks/api/useChangeMemberRole';
+import { messageOf } from '@/lib/error';
 import { teamsTold, type WorkspaceMember } from '@/lib/members';
 import { nameOfRole } from '@/lib/role';
 
@@ -25,7 +26,12 @@ export function MemberRow({ slug, member }: MemberRowProps) {
       >
         <ActionWithAlert
           alert={
-            changeRole.isError ? 'Sorry, the role couldn’t be changed.' : null
+            changeRole.isError
+              ? messageOf(
+                  changeRole.error,
+                  'Sorry, the role couldn’t be changed.',
+                )
+              : null
           }
         >
           <span className="text-muted-foreground text-sm">

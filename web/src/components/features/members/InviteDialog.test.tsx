@@ -92,9 +92,9 @@ describe('InviteDialog', () => {
     await typed(dialog, 'ada@example.com, grace, alan@');
     await send(dialog);
 
-    expect(within(dialog).getByRole('alert')).toHaveTextContent(
-      'Not an email address: grace, alan@',
-    );
+    expect(
+      within(dialog).getByText('Not an email address: grace, alan@'),
+    ).toBeInTheDocument();
     expect(invite).not.toHaveBeenCalled();
   });
 
@@ -103,13 +103,15 @@ describe('InviteDialog', () => {
 
     const field = await typed(dialog, 'ada@');
 
-    expect(within(dialog).queryByRole('alert')).not.toBeInTheDocument();
+    expect(
+      within(dialog).queryByText(/Not an email address/),
+    ).not.toBeInTheDocument();
 
     field.blur();
 
-    expect(await within(dialog).findByRole('alert')).toHaveTextContent(
-      'Not an email address: ada@',
-    );
+    expect(
+      await within(dialog).findByText('Not an email address: ada@'),
+    ).toBeInTheDocument();
   });
 
   it('sends nothing while no address is typed', () => {
@@ -182,7 +184,9 @@ describe('InviteDialog', () => {
     });
 
     expect(
-      within(dialog).getByRole('heading', { name: 'Invites sent' }),
+      within(dialog).getByRole('heading', {
+        name: '1 invited · 1 sent again · 1 already in the workspace · 1 not sent',
+      }),
     ).toBeInTheDocument();
     expect(
       within(said)
@@ -192,7 +196,7 @@ describe('InviteDialog', () => {
       'ada@example.comInvited',
       'grace@example.comSent again',
       'sam@example.comAlready a member',
-      'alan@example.comNot sent — please try again',
+      'alan@example.comNot sent. Please resend it from Pending invites.',
     ]);
   });
 
@@ -214,6 +218,9 @@ describe('InviteDialog', () => {
     ).toBeDisabled();
     expect(
       within(dialog).getByRole('textbox', { name: 'Email addresses' }),
+    ).toBeDisabled();
+    expect(
+      within(dialog).getByRole('button', { name: 'Cancel' }),
     ).toBeDisabled();
   });
 });

@@ -31,6 +31,7 @@ const mutation = (mutate: (...args: unknown[]) => void, standing: string) => ({
   isPending: standing === 'pending',
   isError: standing === 'failed',
   isSuccess: standing === 'done',
+  error: standing === 'failed' ? new Error('') : null,
   variables: undefined,
 });
 
@@ -219,7 +220,7 @@ describe('WorkspaceMembers', () => {
 
     expect(
       within(invitesList()).getByText(
-        'Platform · Invited by Someone who has left · Expires in 6 days',
+        'Platform · Invited by someone who has left · Expires in 6 days',
       ),
     ).toBeInTheDocument();
   });

@@ -46,8 +46,9 @@ export function MembersList({ slug, members, show, action }: MembersListProps) {
 
       {members.data && shown?.length === 0 && (
         <li className="px-4 py-4 text-muted-foreground text-sm">
-          No {named?.toLowerCase()} match. Please clear the filter to see
-          everyone.
+          {show !== null && named
+            ? `No ${named.toLowerCase()} match. Please clear the filter to see everyone.`
+            : 'No members yet.'}
         </li>
       )}
 

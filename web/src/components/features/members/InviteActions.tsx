@@ -1,33 +1,53 @@
 import { Send, Undo2 } from 'lucide-react';
+import { useEffect } from 'react';
 import { ActionWithAlert } from '@/components/shared/ActionWithAlert';
 import { RowActions } from '@/components/shared/RowActions';
 import { useResendInvite } from '@/hooks/api/useResendInvite';
 import { useRevokeInvite } from '@/hooks/api/useRevokeInvite';
+import { messageOf } from '@/lib/error';
 import type { WorkspaceInvite } from '@/lib/members';
+
+const SENT_AGAIN_SHOWN_MS = 4000;
+
+const alertOf = (
+  resendFailure: Error | null,
+  revokeFailure: Error | null,
+): string | null => {
+  if (revokeFailure) {
+    return messageOf(revokeFailure, 'Sorry, the invite couldn’t be revoked.');
+  }
+  if (resendFailure) {
+    return messageOf(
+      resendFailure,
+      'Sorry, the invite couldn’t be sent again.',
+    );
+  }
+
+  return null;
+};
 
 type InviteActionsProps = {
   slug: string;
   invite: WorkspaceInvite;
 };
 
-const alertOf = (resendFailed: boolean, revokeFailed: boolean) => {
-  if (revokeFailed) {
-    return 'Sorry, the invite couldn’t be revoked.';
-  }
-  if (resendFailed) {
-    return 'Sorry, the invite couldn’t be sent again.';
-  }
-
-  return null;
-};
-
 export function InviteActions({ slug, invite }: InviteActionsProps) {
   const resend = useResendInvite(slug);
   const revoke = useRevokeInvite(slug);
+  const { isSuccess: sentAgain, reset: forgetSentAgain } = resend;
+
+  useEffect(() => {
+    if (!sentAgain) {
+      return;
+    }
+
+    const timer = setTimeout(forgetSentAgain, SENT_AGAIN_SHOWN_MS);
+    return () => clearTimeout(timer);
+  }, [sentAgain, forgetSentAgain]);
 
   return (
-    <ActionWithAlert alert={alertOf(resend.isError, revoke.isError)}>
-      {resend.isSuccess && (
+    <ActionWithAlert alert={alertOf(resend.error, revoke.error)}>
+      {sentAgain && (
         <span role="status" className="text-muted-foreground text-xs">
           Sent again
         </span>

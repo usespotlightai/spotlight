@@ -36,9 +36,16 @@ export const rolesOffered = (
   return ROLE_ORDER.filter((each) => offered.has(each));
 };
 
-const ADDRESS = /^[^\s@,;]+@[^\s@,;]+\.[^\s@,;]+$/;
+const ADDRESS = /^[^\s@]+@[^\s@.]+(\.[^\s@.]+)+$/;
 
-export type ParsedEmails = {
+const LONGEST_ADDRESS = 254;
+
+export const MOST_INVITED_AT_ONCE = 50;
+
+export const isEmailAddress = (text: string): boolean =>
+  text.length <= LONGEST_ADDRESS && ADDRESS.test(text);
+
+type ParsedEmails = {
   readonly valid: string[];
   readonly invalid: string[];
 };
@@ -57,7 +64,7 @@ export const parseEmails = (text: string): ParsedEmails => {
     }
 
     seen.add(key);
-    (ADDRESS.test(address) ? valid : invalid).push(address);
+    (isEmailAddress(address) ? valid : invalid).push(address);
   }
 
   return { valid, invalid };
@@ -67,14 +74,30 @@ export const OUTCOME_LABELS: Record<InviteOutcome['outcome'], string> = {
   invited: 'Invited',
   'sent-again': 'Sent again',
   'already-a-member': 'Already a member',
-  'not-sent': 'Not sent — please try again',
+  'not-sent': 'Not sent. Please resend it from Pending invites.',
 };
+
+const OUTCOME_COUNTS: readonly [InviteOutcome['outcome'], string][] = [
+  ['invited', 'invited'],
+  ['sent-again', 'sent again'],
+  ['already-a-member', 'already in the workspace'],
+  ['not-sent', 'not sent'],
+];
+
+export const outcomesTold = (outcomes: readonly InviteOutcome[]): string =>
+  OUTCOME_COUNTS.flatMap(([outcome, told]) => {
+    const count = outcomes.filter((each) => each.outcome === outcome).length;
+    return count > 0 ? [`${count} ${told}`] : [];
+  }).join(' · ') || 'Invites';
 
 export const teamsTold = (teams: readonly TeamReferenceResponseDto[]) =>
   teams.length === 0 ? 'No team' : teams.map((each) => each.name).join(', ');
 
 export const inviterNamed = (name: string | null | undefined): string =>
   name ?? 'Someone who has left';
+
+export const invitedByTold = (name: string | null | undefined): string =>
+  `Invited by ${name ?? 'someone who has left'}`;
 
 export const sameAddress = (one: string, other: string): boolean =>
   one.trim().toLowerCase() === other.trim().toLowerCase();

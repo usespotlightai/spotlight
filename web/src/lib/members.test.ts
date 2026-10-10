@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import {
   expiryOfInvite,
+  invitedByTold,
   inviterNamed,
   joiningAs,
   membersShown,
+  outcomesTold,
   parseEmails,
   rolesOffered,
   sameAddress,
@@ -31,9 +33,21 @@ describe('parseEmails', () => {
   });
 
   it('tells addresses from what is not one', () => {
-    expect(parseEmails('ada@x.io grace alan@ @x.io b@c')).toEqual({
+    expect(
+      parseEmails('ada@x.io grace alan@ @x.io b@c a@b..io a@.b.io'),
+    ).toEqual({
       valid: ['ada@x.io'],
-      invalid: ['grace', 'alan@', '@x.io', 'b@c'],
+      invalid: ['grace', 'alan@', '@x.io', 'b@c', 'a@b..io', 'a@.b.io'],
+    });
+  });
+
+  it('refuses an address longer than 254 characters, as the server does', () => {
+    const longest = `${'a'.repeat(245)}@acme.dev`;
+    const tooLong = `${'a'.repeat(246)}@acme.dev`;
+
+    expect(parseEmails(`${longest} ${tooLong}`)).toEqual({
+      valid: [longest],
+      invalid: [tooLong],
     });
   });
 
@@ -110,5 +124,29 @@ describe('inviterNamed', () => {
   it('names the inviter, or someone who has left once their account is gone', () => {
     expect(inviterNamed('Sam Rivera')).toBe('Sam Rivera');
     expect(inviterNamed(null)).toBe('Someone who has left');
+  });
+
+  it('says who invited inside a sentence in lowercase once their account is gone', () => {
+    expect(invitedByTold('Sam Rivera')).toBe('Invited by Sam Rivera');
+    expect(invitedByTold(null)).toBe('Invited by someone who has left');
+  });
+});
+
+describe('outcomesTold', () => {
+  it('counts what happened to the addresses, leaving out what did not happen', () => {
+    expect(
+      outcomesTold([
+        { email: 'a@x.io', outcome: 'invited' },
+        { email: 'b@x.io', outcome: 'invited' },
+        { email: 'c@x.io', outcome: 'already-a-member' },
+      ]),
+    ).toBe('2 invited · 1 already in the workspace');
+    expect(
+      outcomesTold([
+        { email: 'a@x.io', outcome: 'sent-again' },
+        { email: 'b@x.io', outcome: 'not-sent' },
+      ]),
+    ).toBe('1 sent again · 1 not sent');
+    expect(outcomesTold([])).toBe('Invites');
   });
 });

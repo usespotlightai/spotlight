@@ -9,17 +9,20 @@ export function useInviteToWorkspace(slug: string | undefined) {
 
   return useMutation({
     mutationFn: async (terms: InviteToWorkspaceRequestDto) => {
-      const { data, error } = await inviteToWorkspace({
+      const { data, error, response } = await inviteToWorkspace({
         path: { slug: slug as string },
         body: terms,
       });
 
-      if (!data) {
-        throw new Error(
-          messageOf(error, 'Sorry, the invites couldn’t be sent.'),
-        );
+      if (data) {
+        return data.outcomes;
       }
-      return data.outcomes;
+
+      throw new Error(
+        response?.status === 404
+          ? 'Sorry, you can no longer invite people to this workspace.'
+          : messageOf(error, 'Sorry, the invites couldn’t be sent.'),
+      );
     },
     onSettled: () => {
       queryClient.invalidateQueries({

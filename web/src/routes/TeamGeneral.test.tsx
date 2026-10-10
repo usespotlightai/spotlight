@@ -339,13 +339,13 @@ describe('TeamGeneral', () => {
     await openAdd();
 
     expect(
-      screen.getByRole('menuitem', { name: 'Grace Hopper' }),
+      screen.getByRole('menuitem', { name: /^Grace Hopper/ }),
     ).toBeInTheDocument();
     expect(
-      screen.getByRole('menuitem', { name: 'Lena Park' }),
+      screen.getByRole('menuitem', { name: /^Lena Park/ }),
     ).toBeInTheDocument();
     expect(
-      screen.queryByRole('menuitem', { name: 'Ada Lovelace' }),
+      screen.queryByRole('menuitem', { name: /^Ada Lovelace/ }),
     ).not.toBeInTheDocument();
   });
 
@@ -353,7 +353,7 @@ describe('TeamGeneral', () => {
     showing();
 
     await openAdd();
-    await userEvent.click(screen.getByRole('menuitem', { name: 'Lena Park' }));
+    await userEvent.click(screen.getByRole('menuitem', { name: /^Lena Park/ }));
 
     expect(add).toHaveBeenCalledWith('user_4');
   });

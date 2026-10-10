@@ -5,18 +5,26 @@ import { MembersFilterMenu } from '@/components/features/members/MembersFilterMe
 import { MembersList } from '@/components/features/members/MembersList';
 import { PendingInvites } from '@/components/features/members/PendingInvites';
 import { SettingsPage } from '@/components/features/settings/SettingsPage';
-import { Button } from '@/components/ui/button';
+import { SettingsSection } from '@/components/features/settings/SettingsSection';
+import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
+import { SectionButton } from '@/components/shared/SectionButton';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { useWorkspaceInvites } from '@/hooks/api/useWorkspaceInvites';
 import { useWorkspaceMembers } from '@/hooks/api/useWorkspaceMembers';
 import { showOf, showsInvites } from '@/lib/members';
+import { failed } from '@/lib/query';
 import { administers } from '@/lib/role';
 import { workspacePath } from '@/lib/workspace';
+
+const TITLE = 'Members';
+
+const DESCRIPTION = 'Everyone in this workspace, their role and their teams.';
 
 export function WorkspaceMembers() {
   const { slug } = useParams();
   const [params] = useSearchParams();
-  const { data: workspace } = useWorkspace(slug);
+  const found = useWorkspace(slug);
+  const workspace = found.data;
   const admin = workspace ? administers(workspace.role) : false;
   const members = useWorkspaceMembers(admin ? slug : undefined);
   const invites = useWorkspaceInvites(admin ? slug : undefined);
@@ -31,27 +39,33 @@ export function WorkspaceMembers() {
     return <Navigate to={workspacePath(slug)} replace />;
   }
 
+  if (failed(found)) {
+    return (
+      <SettingsPage title={TITLE} description={DESCRIPTION}>
+        <SettingsSection>
+          <CouldNotLoad
+            what="The workspace’s members"
+            retrying={found.isFetching}
+            onRetry={() => void found.refetch()}
+            className="items-start px-4 py-3"
+          />
+        </SettingsSection>
+      </SettingsPage>
+    );
+  }
+
   const actions = (
     <span className="flex items-center gap-2">
       <MembersFilterMenu />
-      <Button
-        variant="outline"
-        size="sm"
-        className="rounded-full border-border bg-card px-3 shadow-none"
-        onClick={() => setInviting(true)}
-        disabled={!admin}
-      >
+      <SectionButton onClick={() => setInviting(true)} disabled={!admin}>
         Invite people
-      </Button>
+      </SectionButton>
     </span>
   );
 
   return (
     <>
-      <SettingsPage
-        title="Members"
-        description="Everyone in this workspace, their role and their teams. Only owners and admins can invite people and change roles."
-      >
+      <SettingsPage title={TITLE} description={DESCRIPTION}>
         {show !== 'invited' && (
           <MembersList
             slug={slug}

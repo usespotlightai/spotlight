@@ -7,13 +7,18 @@ import type {
   WorkspaceInviteResponseDto,
   WorkspaceMemberResponseDto,
 } from '@/lib/api';
-import { sameAddress } from '@/lib/members';
+import {
+  isEmailAddress,
+  MOST_INVITED_AT_ONCE,
+  sameAddress,
+} from '@/lib/members';
 import type { Role } from '@/lib/role';
 import { daysAgo } from '@/mocks/clock';
 import { api, json, noContent, notFound, problem } from '@/mocks/http';
 import { scenario } from '@/mocks/scenario';
 import { world } from '@/mocks/world';
 import {
+  type ClosedInvite,
   INVITE_DAYS,
   membersWorld,
   type WorkspacePerson,
@@ -26,20 +31,72 @@ const ofWorkspace = (slug: unknown) => slug === world().workspace.slug;
 
 const administers = () => scenario().account !== 'member';
 
-const refused = () =>
-  problem(403, 'Sorry, only owners and admins can manage members.');
+const CLOSED_BECAUSE: Record<ClosedInvite | 'expired', string> = {
+  accepted: 'This invite has already been accepted.',
+  revoked: 'This invite has been revoked.',
+  expired: 'This invite has expired. Please ask for a new one.',
+};
 
-const ADDRESS = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const closedInvite = (inviteId: unknown) =>
+  membersWorld().closed[String(inviteId)];
+
+const pendingInvite = (inviteId: unknown) =>
+  membersWorld().invites.find((each) => each.id === inviteId);
+
+const teamNamed = (teamId: string) =>
+  world().workspace.teams.find((team) => team.id === teamId)?.name ?? teamId;
+
+const RANK: Record<Role, number> = { member: 0, admin: 1, owner: 2 };
+
+const LAST_OWNER =
+  'The workspace needs at least one owner. Please make someone else an owner first.';
+
+const myRole = (): Role =>
+  administers()
+    ? (membersWorld().people.find((each) => each.id === SIGNED_IN.id)?.role ??
+      'owner')
+    : 'member';
+
+const lastOwner = (person: WorkspacePerson) =>
+  person.role === 'owner' &&
+  membersWorld().people.filter((each) => each.role === 'owner').length === 1;
+
+type Refusal = readonly [status: number, detail: string];
+
+const refusalToGive = (person: WorkspacePerson, role: Role): Refusal | null => {
+  const mine = myRole();
+
+  if (RANK[mine] < RANK.admin) {
+    return [403, 'Only an owner or an admin can set roles.'];
+  }
+  if (person.role === role) {
+    return null;
+  }
+  if (!(mine === 'owner' || RANK[mine] > RANK[person.role])) {
+    return person.id === SIGNED_IN.id
+      ? [403, 'You cannot change your own role.']
+      : [403, 'You can only set roles for people below you.'];
+  }
+  if (RANK[mine] < RANK[role]) {
+    return [403, 'You cannot give a role above your own.'];
+  }
+  if (lastOwner(person) && role !== 'owner') {
+    return [409, LAST_OWNER];
+  }
+
+  return null;
+};
 
 const teamsOf = (personId: string) =>
   world().workspace.teams.filter((team) =>
     (world().members[team.id] ?? []).some((each) => each.id === personId),
   );
 
-const mayBeSetToOf = (person: WorkspacePerson): Role[] =>
-  !administers() || person.id === SIGNED_IN.id
-    ? []
-    : ROLES.filter((each) => each !== person.role);
+const mayBeSetToOf = (person: WorkspacePerson): Role[] => {
+  const givable = ROLES.filter((each) => !refusalToGive(person, each));
+
+  return givable.length > 1 ? givable : [];
+};
 
 const memberOf = (person: WorkspacePerson): WorkspaceMemberResponseDto => ({
   ...person,
@@ -115,21 +172,39 @@ const inviteHandlers = [
       return notFound();
     }
     if (!administers()) {
-      return refused();
+      return notFound();
     }
 
     const terms = (await request.json()) as InviteToWorkspaceRequestDto;
-    const strangers = terms.teamIds.filter(
+    const stranger = terms.teamIds.find(
       (teamId) => !world().workspace.teams.some((team) => team.id === teamId),
     );
-    if (terms.emails.length === 0 || terms.emails.length > 50) {
-      return problem(422, 'Sorry, invite between 1 and 50 addresses at once.');
+    const notAnAddress = terms.emails.find(
+      (each) => !isEmailAddress(each.trim().toLowerCase()),
+    );
+    if (
+      terms.emails.length === 0 ||
+      terms.emails.length > MOST_INVITED_AT_ONCE
+    ) {
+      return problem(
+        422,
+        `Please give between 1 and ${MOST_INVITED_AT_ONCE} email addresses. Received: ${terms.emails.length}`,
+      );
     }
-    if (terms.emails.some((each) => !ADDRESS.test(each))) {
-      return problem(422, 'Sorry, every address must be an email address.');
+    if ((terms.role as Role) === 'owner') {
+      return problem(
+        403,
+        'Nobody can be invited as an owner. Please invite them as an admin, then make them an owner.',
+      );
     }
-    if (strangers.length > 0) {
-      return problem(422, 'Sorry, those teams are not in this workspace.');
+    if (notAnAddress !== undefined) {
+      return problem(
+        422,
+        `Email address is not valid. Received: ${notAnAddress.trim()}`,
+      );
+    }
+    if (stranger) {
+      return problem(422, `Sorry, team ${stranger} is not in this workspace.`);
     }
 
     return json({
@@ -141,10 +216,17 @@ const inviteHandlers = [
   }),
 
   api.post('/workspaces/:slug/invites/:inviteId/resend', ({ params }) => {
-    const invite = membersWorld().invites.find(
-      (each) => each.id === params.inviteId,
-    );
-    if (!ofWorkspace(params.slug) || !invite || !administers()) {
+    if (!ofWorkspace(params.slug) || !administers()) {
+      return notFound();
+    }
+
+    const closed = closedInvite(params.inviteId);
+    if (closed) {
+      return problem(409, CLOSED_BECAUSE[closed]);
+    }
+
+    const invite = pendingInvite(params.inviteId);
+    if (!invite) {
       return notFound();
     }
 
@@ -153,15 +235,24 @@ const inviteHandlers = [
   }),
 
   api.delete('/workspaces/:slug/invites/:inviteId', ({ params }) => {
+    if (!ofWorkspace(params.slug) || !administers()) {
+      return notFound();
+    }
+
     const store = membersWorld();
-    if (
-      !ofWorkspace(params.slug) ||
-      !store.invites.some((each) => each.id === params.inviteId)
-    ) {
+    const closed = closedInvite(params.inviteId);
+    if (closed === 'accepted') {
+      return problem(409, CLOSED_BECAUSE.accepted);
+    }
+    if (closed === 'revoked') {
+      return noContent();
+    }
+    if (!pendingInvite(params.inviteId)) {
       return notFound();
     }
 
     store.invites = store.invites.filter((each) => each.id !== params.inviteId);
+    store.closed[String(params.inviteId)] = 'revoked';
     return noContent();
   }),
 
@@ -185,10 +276,18 @@ const inviteHandlers = [
       return notFound();
     }
     if (found.standing !== 'open') {
-      return problem(409, `Sorry, this invitation is ${found.standing}.`);
+      return problem(409, CLOSED_BECAUSE[found.standing]);
     }
 
+    const store = membersWorld();
+    const pending = store.invites.find((each) =>
+      sameAddress(each.email, found.email),
+    );
     found.standing = 'accepted';
+    if (pending) {
+      store.invites = store.invites.filter((each) => each !== pending);
+      store.closed[pending.id] = 'accepted';
+    }
     return json({ workspaceSlug: world().workspace.slug });
   }),
 ];
@@ -205,16 +304,21 @@ const memberHandlers = [
   api.patch(
     '/workspaces/:slug/members/:userId',
     async ({ params, request }) => {
-      const person = membersWorld().people.find(
-        (each) => each.id === params.userId,
-      );
-      if (!ofWorkspace(params.slug) || !person) {
+      if (!ofWorkspace(params.slug)) {
         return notFound();
       }
 
+      const person = membersWorld().people.find(
+        (each) => each.id === params.userId,
+      );
+      if (!person) {
+        return problem(403, 'This person is not a member of this workspace.');
+      }
+
       const { role } = (await request.json()) as ChangeMemberRoleRequestDto;
-      if (role !== person.role && !mayBeSetToOf(person).includes(role)) {
-        return problem(403, `Sorry, ${person.name} can’t be made ${role}.`);
+      const refusal = refusalToGive(person, role);
+      if (refusal) {
+        return problem(...refusal);
       }
 
       person.role = role;
@@ -237,10 +341,13 @@ const memberHandlers = [
       return notFound();
     }
     if (!person) {
-      return problem(422, 'Sorry, they are not in this workspace.');
+      return problem(
+        422,
+        'Sorry, this person is not a member of this workspace. Please invite them first.',
+      );
     }
     if (team.some((each) => each.id === userId)) {
-      return problem(409, `Sorry, ${person.name} is already on this team.`);
+      return problem(409, `${teamNamed(teamId)} already includes this person.`);
     }
 
     team.push({

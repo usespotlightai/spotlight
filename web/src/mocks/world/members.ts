@@ -173,9 +173,12 @@ const OFFERS: InviteOffer[] = [
   ),
 ];
 
+export type ClosedInvite = 'accepted' | 'revoked';
+
 export type MembersWorld = {
   people: WorkspacePerson[];
   invites: WorkspaceInviteResponseDto[];
+  closed: Record<string, ClosedInvite>;
   offers: InviteOffer[];
 };
 
@@ -183,6 +186,7 @@ export const membersWorld = perWorld(
   (kind): MembersWorld => ({
     people: structuredClone(PEOPLE),
     invites: kind === 'empty' ? [] : structuredClone(INVITES),
+    closed: {},
     offers: kind === 'empty' ? [] : structuredClone(OFFERS),
   }),
 );

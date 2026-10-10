@@ -10,11 +10,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { useInviteToWorkspace } from '@/hooks/api/useInviteToWorkspace';
+import type { InviteToWorkspaceRequestDto } from '@/lib/api';
 import {
   INVITE_ROLES,
-  type InviteOutcome,
   type InviteRole,
+  MOST_INVITED_AT_ONCE,
   parseEmails,
   USUAL_INVITE_ROLE,
 } from '@/lib/members';
@@ -25,34 +25,39 @@ const LABEL = 'font-medium text-foreground text-xs';
 const CONTROL = 'w-44';
 
 type InviteFormProps = {
-  slug: string | undefined;
   teams: readonly Team[];
   teamIds: readonly string[];
-  onSent: (outcomes: InviteOutcome[]) => void;
+  sending: boolean;
+  failure: string | null;
+  onSend: (terms: InviteToWorkspaceRequestDto) => void;
+  onEdit: () => void;
 };
 
-export function InviteForm({ slug, teams, teamIds, onSent }: InviteFormProps) {
-  const invite = useInviteToWorkspace(slug);
+export function InviteForm({
+  teams,
+  teamIds,
+  sending,
+  failure,
+  onSend,
+  onEdit,
+}: InviteFormProps) {
   const [emails, setEmails] = useState('');
   const [checked, setChecked] = useState(false);
   const [role, setRole] = useState<InviteRole>(USUAL_INVITE_ROLE);
   const [chosen, setChosen] = useState<string[]>([...teamIds]);
 
   const parsed = parseEmails(emails);
-  const busy = invite.isPending;
+  const tooMany = parsed.valid.length > MOST_INVITED_AT_ONCE;
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
     setChecked(true);
 
-    if (busy || !slug || parsed.valid.length === 0 || parsed.invalid.length) {
+    if (parsed.valid.length === 0 || parsed.invalid.length > 0 || tooMany) {
       return;
     }
 
-    invite.mutate(
-      { emails: parsed.valid, role, teamIds: chosen },
-      { onSuccess: onSent },
-    );
+    onSend({ emails: parsed.valid, role, teamIds: chosen });
   };
 
   return (
@@ -70,11 +75,11 @@ export function InviteForm({ slug, teams, teamIds, onSent }: InviteFormProps) {
           value={emails}
           onChange={(next) => {
             setEmails(next);
-            invite.isError && invite.reset();
+            onEdit();
           }}
           onBlur={() => setChecked(emails.trim().length > 0)}
           invalid={checked ? parsed.invalid : []}
-          disabled={busy}
+          disabled={sending}
         />
 
         <div className="flex items-center justify-between gap-3">
@@ -86,7 +91,7 @@ export function InviteForm({ slug, teams, teamIds, onSent }: InviteFormProps) {
             placeholder="Member"
             clearable={false}
             onChange={(next) => next && setRole(next as InviteRole)}
-            disabled={busy}
+            disabled={sending}
             className={CONTROL}
           />
         </div>
@@ -97,27 +102,37 @@ export function InviteForm({ slug, teams, teamIds, onSent }: InviteFormProps) {
             teams={teams}
             value={chosen}
             onChange={setChosen}
-            disabled={busy}
+            disabled={sending}
             className={CONTROL}
           />
         </div>
 
-        {invite.isError && (
+        {tooMany && (
           <p role="alert" className="text-destructive text-xs">
-            {invite.error.message}
+            Sorry, {parsed.valid.length} addresses. Please invite at most{' '}
+            {MOST_INVITED_AT_ONCE} at once.
+          </p>
+        )}
+
+        {failure && (
+          <p role="alert" className="text-destructive text-xs">
+            {failure}
           </p>
         )}
 
         <DialogFooter>
-          <DialogClose render={<Button variant="outline" size="sm" />}>
+          <DialogClose
+            disabled={sending}
+            render={<Button variant="outline" size="sm" />}
+          >
             Cancel
           </DialogClose>
           <Button
             type="submit"
             size="sm"
-            disabled={busy || parsed.valid.length === 0}
+            disabled={sending || tooMany || parsed.valid.length === 0}
           >
-            {busy ? 'Sending…' : 'Send invites'}
+            {sending ? 'Sending…' : 'Send invites'}
           </Button>
         </DialogFooter>
       </form>

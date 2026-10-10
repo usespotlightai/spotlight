@@ -1,4 +1,5 @@
 import { useId } from 'react';
+import { cn } from '@/lib/utils';
 
 type InviteEmailsFieldProps = {
   value: string;
@@ -40,15 +41,18 @@ export function InviteEmailsField({
         className="min-h-20 w-full resize-y rounded-md border-[0.5px] border-border bg-background px-2.5 py-1.5 text-foreground text-sm outline-none placeholder:text-muted-foreground focus-visible:border-input aria-invalid:border-destructive"
       />
 
-      {invalid.length > 0 ? (
-        <p id={hintId} role="alert" className="text-destructive text-xs">
-          Not an email address: {invalid.join(', ')}
-        </p>
-      ) : (
-        <p id={hintId} className="text-muted-foreground text-xs">
-          Separate addresses with commas or new lines.
-        </p>
-      )}
+      <p
+        id={hintId}
+        aria-live="polite"
+        className={cn(
+          'text-xs',
+          invalid.length > 0 ? 'text-destructive' : 'text-muted-foreground',
+        )}
+      >
+        {invalid.length > 0
+          ? `Not an email address: ${invalid.join(', ')}`
+          : 'Separate addresses with commas or new lines.'}
+      </p>
     </div>
   );
 }
