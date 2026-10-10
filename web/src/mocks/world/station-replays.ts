@@ -9,6 +9,7 @@ import type {
 } from '@/lib/api';
 import { hoursAgo } from '@/mocks/clock';
 import { perWorld } from '@/mocks/world';
+import { profileOf } from '@/mocks/world/insights-profiles';
 import { FINGERPRINTS } from '@/mocks/world/station-history';
 import {
   gainOf,
@@ -18,7 +19,13 @@ import {
   rounded,
   spread,
 } from '@/mocks/world/station-measures';
-import { runOfStation } from '@/mocks/world/station-sets';
+import {
+  LIVE_CANDIDATES,
+  REPLAY_SEEDS,
+  type ReplaySeed,
+  type SetPart,
+} from '@/mocks/world/station-seeds';
+import { runOfStation, setSpec } from '@/mocks/world/station-sets';
 
 export type Mark = 'S' | 'F' | 'running' | 'waiting' | 'not-run';
 
@@ -311,8 +318,70 @@ const SEEDED: readonly ReplaySpec[] = [
   }),
 ];
 
+export const liveCandidateOf = (stationId: string): CandidateResponseDto =>
+  LIVE_CANDIDATES[stationId] ?? CANDIDATES.live4;
+
+const SEARCHED_SHARE = 0.7;
+
+export const runsOfSet = (setId: string, part: SetPart): string[] => {
+  const runs = setSpec(setId)?.entries.map((each) => each.runId) ?? [];
+  const cut = Math.ceil(runs.length * SEARCHED_SHARE);
+
+  if (part === 'searched') {
+    return runs.slice(0, cut);
+  }
+
+  return part === 'held-out' ? runs.slice(cut) : runs;
+};
+
+const MARKS: Record<string, Mark> = {
+  S: 'S',
+  F: 'F',
+  r: 'running',
+  w: 'waiting',
+  n: 'not-run',
+};
+
+const marksOf = (pattern: string, count: number): Mark[] =>
+  Array.from(
+    { length: count },
+    (_, place) => MARKS[pattern[place % pattern.length] ?? 'w'] ?? 'waiting',
+  );
+
+const replayOfSeed = (seed: ReplaySeed): ReplaySpec => {
+  const runs = runsOfSet(seed.setId, seed.part);
+  const marks = marksOf(seed.marks, runs.length);
+  const state: ReplaySpec['state'] =
+    seed.endedHoursAgo === null
+      ? 'running'
+      : marks.includes('not-run')
+        ? 'stopped'
+        : 'finished';
+
+  return makeReplay({
+    id: seed.id,
+    setId: seed.setId,
+    candidate: seed.candidate,
+    agent: seed.agent,
+    startedAsBaseline: seed.candidate.kind === 'live' && seed.part === 'all',
+    isBaseline: seed.baseline ?? false,
+    state,
+    startedHoursAgo: seed.startedHoursAgo,
+    endedHoursAgo: seed.endedHoursAgo,
+    runs,
+    marks,
+    comparedWith: seed.comparedWith ?? null,
+    paired: Boolean(seed.comparedWith),
+    search: seed.search ?? null,
+    costFactor: seed.costFactor,
+    listed: seed.listed ?? false,
+  });
+};
+
 export const replayStore = perWorld((kind): ReplaySpec[] =>
-  kind === 'empty' ? [] : structuredClone([...SEEDED]),
+  kind === 'empty'
+    ? []
+    : [...structuredClone([...SEEDED]), ...REPLAY_SEEDS.map(replayOfSeed)],
 );
 
 export const replaySpec = (replayId: string): ReplaySpec | undefined =>
@@ -383,9 +452,15 @@ const WAITING: Omit<
   reasons: [],
 };
 
+export const checksOfSet = (setId: string): boolean => {
+  const set = setSpec(setId);
+  return set ? (profileOf(set.stationId)?.checks ?? true) : true;
+};
+
 const entryOf = (replay: ReplaySpec, place: number): ReplayEntryResponseDto => {
   const originalRunId = replay.runs[place] ?? '';
   const original = runOfStation(originalRunId);
+  const checked = checksOfSet(replay.setId);
   const mark = replay.marks[place] ?? 'waiting';
   const head = {
     position: place,
@@ -440,9 +515,11 @@ const entryOf = (replay: ReplaySpec, place: number): ReplayEntryResponseDto => {
     outputTokens: Math.round(amount * 18_500),
     cacheReadTokens: Math.round(amount * 1_050_000),
     cacheWriteTokens: Math.round(amount * 52_000),
-    checks: passed
-      ? { state: 'passed', failedAt: [], why: null }
-      : { state: 'failed', failedAt: ['npm test'], why: null },
+    checks: checked
+      ? passed
+        ? { state: 'passed', failedAt: [], why: null }
+        : { state: 'failed', failedAt: ['npm test'], why: null }
+      : null,
     judge: passed ? judged(4, true) : judged(2, false),
     draftingSpent: spentOf(0.02),
     judgingSpent: spentOf(0.03),
@@ -459,11 +536,20 @@ const entryOf = (replay: ReplaySpec, place: number): ReplayEntryResponseDto => {
           },
         ]
       : [
-          { code: 'check-failed', detail: 'npm test', steps: [], hunks: [] },
+          ...(checked
+            ? [
+                {
+                  code: 'check-failed' as const,
+                  detail: 'npm test',
+                  steps: [],
+                  hunks: [],
+                },
+              ]
+            : []),
           {
             code: 'judge-failed',
             detail: note?.fail ?? '',
-            steps: [3],
+            steps: [checked ? 3 : 1],
             hunks: [],
           },
         ],
@@ -574,7 +660,7 @@ export const replayOf = (replay: ReplaySpec): ReplayResponseDto => {
     startedAsBaseline: replay.startedAsBaseline,
     isBaseline: replay.isBaseline,
     judges: true,
-    checks: true,
+    checks: checksOfSet(replay.setId),
     state: replay.state,
     ceiling: replay.ceiling,
     repeats: 1,

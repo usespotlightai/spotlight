@@ -1,5 +1,6 @@
 import { Binoculars } from 'lucide-react';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
+import { useTaskRuns } from '@/hooks/api/useTaskRuns';
 import { taskTracePath } from '@/lib/task';
 
 type TaskTraceLinkProps = {
@@ -9,6 +10,12 @@ type TaskTraceLinkProps = {
 };
 
 export function TaskTraceLink({ slug, teamId, taskId }: TaskTraceLinkProps) {
+  const runs = useTaskRuns(teamId, taskId);
+
+  if (!runs.data?.length) {
+    return null;
+  }
+
   return (
     <TrailLink
       to={taskTracePath(slug, teamId, taskId)}

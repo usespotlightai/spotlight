@@ -9,11 +9,10 @@ import type {
   StationChangeResponseDto,
 } from '@/lib/api';
 import { hoursAgo } from '@/mocks/clock';
-import { DELIVERY_ID, perWorld } from '@/mocks/world';
+import { perWorld } from '@/mocks/world';
 import {
   added,
   changed,
-  IMPLEMENTATION_ID,
   TESTS_FIRST_PULL_REQUEST,
 } from '@/mocks/world/station-history';
 import { intervalOf, rateOf, rounded } from '@/mocks/world/station-measures';
@@ -25,10 +24,12 @@ import {
   type ReplaySpec,
   replayOf,
   replaySpec,
+  runsOfSet,
   SEARCHED_RUNS,
   scoredMarks,
 } from '@/mocks/world/station-replays';
-import { runOfStation } from '@/mocks/world/station-sets';
+import { SEARCH_SEEDS, type SearchSeed } from '@/mocks/world/station-seeds';
+import { runOfStation, setSpec } from '@/mocks/world/station-sets';
 
 export type SearchCandidateSpec = {
   readonly candidate: CandidateResponseDto;
@@ -250,8 +251,16 @@ const SEEDED: readonly SearchSpec[] = [
   },
 ];
 
+const searchOfSeed = (seed: SearchSeed): SearchSpec => ({
+  ...structuredClone(seed),
+  searched: runsOfSet(seed.setId, 'searched'),
+  heldOut: runsOfSet(seed.setId, 'held-out'),
+});
+
 export const searchStore = perWorld((kind): SearchSpec[] =>
-  kind === 'empty' ? [] : structuredClone([...SEEDED]),
+  kind === 'empty'
+    ? []
+    : [...structuredClone([...SEEDED]), ...SEARCH_SEEDS.map(searchOfSeed)],
 );
 
 export const searchSpec = (searchId: string): SearchSpec | undefined =>
@@ -336,10 +345,12 @@ export const searchSummaryOf = (search: SearchSpec): SearchResponseDto => {
     0,
   );
 
+  const set = setSpec(search.setId);
+
   return {
     id: search.id,
-    lineId: DELIVERY_ID,
-    stationId: IMPLEMENTATION_ID,
+    lineId: set?.lineId ?? '',
+    stationId: set?.stationId ?? '',
     setId: search.setId,
     state: search.state,
     ending: search.ending,

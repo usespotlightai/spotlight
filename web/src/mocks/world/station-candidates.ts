@@ -6,8 +6,6 @@ import type {
   ReplayedSetResponseDto,
 } from '@/lib/api';
 import { daysAgo, hoursAgo } from '@/mocks/clock';
-import { DELIVERY_ID, PLATFORM_ID } from '@/mocks/world';
-import { changed, IMPLEMENTATION_ID } from '@/mocks/world/station-history';
 import {
   gainOf,
   intervalOf,
@@ -29,10 +27,12 @@ import {
   searchCandidateOf,
   searchStore,
 } from '@/mocks/world/station-searches';
+import { PROPOSED_CHANGES } from '@/mocks/world/station-seeds';
 import {
   runOfStation,
   type SetSpec,
   setStore,
+  teamOfLine,
 } from '@/mocks/world/station-sets';
 
 type Period = ReplayedPeriodResponseDto['name'];
@@ -227,7 +227,7 @@ const sourcesOf = (set: SetSpec, since: number): CandidateSource[] => {
       spec: {
         candidate: replay.candidate,
         hypothesis: null,
-        changes: [changed('prompt'), changed('effort', 'high', 'medium')],
+        changes: [...(PROPOSED_CHANGES[replay.candidate.id] ?? [])],
         replayId: replay.id,
         heldOutReplayId: null,
         onFrontier: false,
@@ -303,20 +303,32 @@ export const replayedCandidates = (
   period: Period,
 ): ReplayedCandidatesResponseDto => {
   const days = PERIOD_DAYS[period] ?? 30;
-  const sets =
-    teamId === PLATFORM_ID
-      ? setStore().flatMap((set) => {
-          const shown = replayedSet(set, days * 24);
-          return shown ? [shown] : [];
-        })
-      : [];
+  const shown = setStore()
+    .filter((set) => teamOfLine(set.lineId) === teamId)
+    .flatMap((set) => {
+      const replayed = replayedSet(set, days * 24);
+      return replayed ? [{ set, replayed }] : [];
+    });
+  const places = [
+    ...new Map(
+      shown.map(({ set }) => [
+        `${set.lineId}/${set.stationId}`,
+        { lineId: set.lineId, stationId: set.stationId },
+      ]),
+    ).values(),
+  ];
 
   return {
     period: { name: period, from: daysAgo(days), to: hoursAgo(0) },
     truncated: false,
-    stations:
-      sets.length === 0
-        ? []
-        : [{ lineId: DELIVERY_ID, stationId: IMPLEMENTATION_ID, sets }],
+    stations: places.map((place) => ({
+      ...place,
+      sets: shown
+        .filter(
+          ({ set }) =>
+            set.lineId === place.lineId && set.stationId === place.stationId,
+        )
+        .map(({ replayed }) => replayed),
+    })),
   };
 };

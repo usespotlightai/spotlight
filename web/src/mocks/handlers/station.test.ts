@@ -106,7 +106,16 @@ describe('the mock station', () => {
       ['set_billing_work', 7],
       ['set_docs', 2],
     ]);
-    expect(onTeam).toHaveLength(2);
+    expect(onTeam.map((set) => set.id)).toEqual(
+      expect.arrayContaining([
+        'set_billing_work',
+        'set_docs',
+        'set_triage_billing',
+        'set_review_money',
+        'set_incident_data',
+      ]),
+    );
+    expect(onTeam.map((set) => set.id)).not.toContain('set_experiment_pricing');
   });
 
   it('lists the replays of a set, one of them running', async () => {

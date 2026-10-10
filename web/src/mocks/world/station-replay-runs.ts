@@ -5,15 +5,15 @@ import type {
   ReplayRunResponseDto,
 } from '@/lib/api';
 import { hoursAgo } from '@/mocks/clock';
-import { DELIVERY_ID, PLATFORM_ID, world } from '@/mocks/world';
-import { IMPLEMENTATION_ID } from '@/mocks/world/station-history';
+import { world } from '@/mocks/world';
 import {
+  checksOfSet,
   entriesOf,
   entryTiming,
   type ReplaySpec,
   replayStore,
 } from '@/mocks/world/station-replays';
-import { runOfStation, setSpec } from '@/mocks/world/station-sets';
+import { placeOfSet, runOfStation, setSpec } from '@/mocks/world/station-sets';
 import { runStationOf } from '@/mocks/world/stations';
 
 type Found = {
@@ -53,18 +53,46 @@ const step = (
   };
 };
 
-const TEST_FAILED = [
-  ' FAIL  services/billing/billing.test.ts',
-  'AssertionError: expected 2 to equal 1',
-  '',
-  ' Test Files  1 failed | 23 passed (24)',
-  '      Tests  1 failed | 211 passed (212)',
-].join('\n');
+const testFailed = (path: string) =>
+  [
+    ` FAIL  ${path.replace(/\.ts$/, '.test.ts')}`,
+    'AssertionError: expected 2 to equal 1',
+    '',
+    ' Test Files  1 failed | 23 passed (24)',
+    '      Tests  1 failed | 211 passed (212)',
+  ].join('\n');
+
+const testCommandOf = (path: string): string => {
+  const folder = path.split('/').slice(-2, -1)[0];
+  return folder ? `npm test -- ${folder}` : 'npm test';
+};
 
 const TEST_PASSED = [
   ' Test Files  24 passed (24)',
   '      Tests  212 passed (212)',
 ].join('\n');
+
+const readingStepsOf = (
+  title: string,
+  path: string,
+  summary: string,
+  startedHoursAgo: number,
+): JournalStepResponseDto[] => [
+  step({
+    kind: 'thought',
+    text: `Read the task “${title}” and what the earlier stations left on it.`,
+    at: startedHoursAgo - 0.01,
+  }),
+  step({
+    kind: 'tool',
+    tool: 'read',
+    status: 'completed',
+    text: path,
+    ms: 300,
+    at: startedHoursAgo - 0.02,
+  }),
+  step({ kind: 'said', text: summary, ms: 500, at: startedHoursAgo - 0.05 }),
+];
 
 const stepsOf = (
   title: string,
@@ -90,7 +118,7 @@ const stepsOf = (
     kind: 'tool',
     tool: 'execute',
     status: 'completed',
-    text: 'npm test -- billing',
+    text: testCommandOf(path),
     detail: TEST_PASSED,
     ms: 38_000,
     at: startedHoursAgo - 0.03,
@@ -108,7 +136,7 @@ const stepsOf = (
     tool: 'execute',
     status: passed ? 'completed' : 'failed',
     text: 'npm test',
-    detail: passed ? TEST_PASSED : TEST_FAILED,
+    detail: passed ? TEST_PASSED : testFailed(path),
     ms: 41_000,
     at: startedHoursAgo - 0.09,
   }),
@@ -128,13 +156,18 @@ export const replayRun = (runId: string): ReplayRunResponseDto | null => {
   const { startedHoursAgo } = entryTiming(replay, entry.position);
   const settled = entry.phase === 'settled';
   const endedHoursAgo = startedHoursAgo - (entry.ms ?? 0) / 3_600_000;
+  const place = placeOfSet(replay.setId);
   const stations =
-    world().lines[PLATFORM_ID]?.find((line) => line.id === DELIVERY_ID)
-      ?.stations ?? [];
+    world().lines[place?.teamId ?? '']?.find(
+      (line) => line.id === place?.lineId,
+    )?.stations ?? [];
+  const station = stations.find((each) => each.id === place?.stationId);
   const passed = entry.succeeded === true;
   const summary =
     (passed ? original?.note.pass : original?.note.fail) ??
     'Still working on it.';
+  const path = original?.note.path ?? 'src/index.ts';
+  const harness = station?.harness ?? 'claude-code';
 
   return {
     id: runId,
@@ -143,25 +176,29 @@ export const replayRun = (runId: string): ReplayRunResponseDto | null => {
     exitCode: settled ? 0 : null,
     startedAt: hoursAgo(startedHoursAgo),
     updatedAt: hoursAgo(settled ? endedHoursAgo : 0),
-    harness: 'claude-code',
+    harness,
     image: null,
-    station: runStationOf(stations, IMPLEMENTATION_ID),
+    station: runStationOf(stations, place?.stationId ?? ''),
     review: null,
     original: { runId: entry.originalRunId, taskId: entry.taskId, title },
     briefing: [
-      '## Implementation',
+      `## ${station?.name ?? 'Station'}`,
       '',
-      `${title ?? 'The task'}. Implement the spec on the task.`,
+      `${title ?? 'The task'}. ${station?.description ?? ''}`.trim(),
       '',
-      '- Keep the change small',
-      '- Ask when the spec is unclear',
-    ].join('\n'),
+      station?.agentPrompt ?? '',
+    ]
+      .join('\n')
+      .trim(),
     agent: {
-      harness: 'claude-code',
+      harness,
       model: replay.agent.model,
       effort: replay.agent.effort,
     },
-    repositories: ['acme/api'],
+    repositories:
+      original && original.repositories.length > 0
+        ? [...original.repositories]
+        : ['acme/api'],
     spend: entry.cost
       ? {
           cost: entry.cost.amount,
@@ -187,13 +224,20 @@ export const replayRun = (runId: string): ReplayRunResponseDto | null => {
               endedAt: hoursAgo(endedHoursAgo),
             },
             spent: { used: 52_000, size: 200_000, cost: null, currency: null },
-            steps: stepsOf(
-              title ?? 'the task',
-              original?.note.path ?? 'src/index.ts',
-              summary,
-              passed,
-              startedHoursAgo,
-            ),
+            steps: checksOfSet(replay.setId)
+              ? stepsOf(
+                  title ?? 'the task',
+                  path,
+                  summary,
+                  passed,
+                  startedHoursAgo,
+                )
+              : readingStepsOf(
+                  title ?? 'the task',
+                  path,
+                  summary,
+                  startedHoursAgo,
+                ),
           },
         ]
       : [],
@@ -213,8 +257,8 @@ export const replayOfRun = (runId: string): ReplayOfRunResponseDto | null => {
     replayId: replay.id,
     setId: replay.setId,
     setName: setSpec(replay.setId)?.name ?? null,
-    lineId: DELIVERY_ID,
-    stationId: IMPLEMENTATION_ID,
+    lineId: setSpec(replay.setId)?.lineId ?? '',
+    stationId: setSpec(replay.setId)?.stationId ?? '',
     candidate: replay.candidate,
     startedAsBaseline: replay.startedAsBaseline,
     isBaseline: replay.isBaseline,

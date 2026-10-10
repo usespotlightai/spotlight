@@ -15,12 +15,8 @@ import type {
   StartSearchRequestDto,
 } from '@/lib/api';
 import { api, json, noContent, notFound, problem } from '@/mocks/http';
-import { PLATFORM_ID } from '@/mocks/world';
 import { replayedCandidates } from '@/mocks/world/station-candidates';
-import {
-  CONFIG_REPOSITORY,
-  STATION_ADDRESS,
-} from '@/mocks/world/station-history';
+import { CONFIG_REPOSITORY } from '@/mocks/world/station-history';
 import { stationJudge } from '@/mocks/world/station-judge';
 import { rounded } from '@/mocks/world/station-measures';
 import { stationOf, stationOutcomes } from '@/mocks/world/station-outcomes';
@@ -29,6 +25,7 @@ import {
   baselineOfSet,
   CANDIDATES,
   listedReplays,
+  liveCandidateOf,
   type Mark,
   makeReplay,
   type ReplaySpec,
@@ -47,13 +44,17 @@ import {
 import {
   checksFor,
   NO_HEALTH,
+  placeOfSet,
   replayableRuns,
   replaySetOf,
   resourceCandidates,
   runOfStation,
+  type SetSpec,
   setSpec,
   setStore,
   suggestionsFor,
+  teamOfLine,
+  teamOfSet,
 } from '@/mocks/world/station-sets';
 
 const STATION = '/teams/:teamId/lines/:lineId/stations/:stationId';
@@ -93,12 +94,41 @@ const startingMarks = (count: number): Mark[] =>
     place < 4 ? 'running' : 'waiting',
   );
 
-const candidateFor = (asked: string): CandidateResponseDto | undefined => {
+const setOn = (params: Params): SetSpec | undefined => {
+  const set = setSpec(param(params, 'setId'));
+
+  return set && teamOfLine(set.lineId) === param(params, 'teamId')
+    ? set
+    : undefined;
+};
+
+const replayOn = (params: Params): ReplaySpec | undefined => {
+  const replay = replaySpec(param(params, 'replayId'));
+
+  return replay && teamOfSet(replay.setId) === param(params, 'teamId')
+    ? replay
+    : undefined;
+};
+
+const searchOn = (params: Params): SearchSpec | undefined => {
+  const search = searchSpec(param(params, 'searchId'));
+
+  return search && teamOfSet(search.setId) === param(params, 'teamId')
+    ? search
+    : undefined;
+};
+
+const candidateFor = (
+  set: SetSpec,
+  asked: string,
+): CandidateResponseDto | undefined => {
   if (asked === 'live') {
-    return CANDIDATES.live4;
+    return liveCandidateOf(set.stationId);
   }
 
-  const found = resourceCandidates().find((each) => each.id === asked);
+  const found = resourceCandidates().find(
+    (each) => each.id === asked && each.stationId === set.stationId,
+  );
 
   return found
     ? {
@@ -176,7 +206,7 @@ export const stationHandlers: RequestHandler[] = [
     const { teamId, lineId, stationId } = placeOf(params);
 
     return json(
-      teamId === PLATFORM_ID
+      teamOfLine(lineId) === teamId
         ? setStore()
             .filter(
               (set) => set.lineId === lineId && set.stationId === stationId,
@@ -208,20 +238,27 @@ export const stationHandlers: RequestHandler[] = [
   }),
 
   api.get(`${STATION}/replayable-runs`, ({ params }) => {
-    const { teamId, stationId } = placeOf(params);
+    const { teamId, lineId, stationId } = placeOf(params);
 
-    return json(teamId === PLATFORM_ID ? replayableRuns(stationId) : []);
+    return json(
+      teamOfLine(lineId) === teamId
+        ? replayableRuns(teamId, lineId, stationId)
+        : [],
+    );
   }),
 
   api.get(`${STATION}/searches`, ({ params }) => {
-    const { teamId, stationId } = placeOf(params);
+    const { teamId, lineId, stationId } = placeOf(params);
 
     return json(
-      teamId === PLATFORM_ID
+      teamOfLine(lineId) === teamId
         ? searchStore()
-            .filter((search) => searchSummaryOf(search).stationId === stationId)
-            .sort((one, other) => one.startedHoursAgo - other.startedHoursAgo)
             .map(searchSummaryOf)
+            .filter(
+              (search) =>
+                search.lineId === lineId && search.stationId === stationId,
+            )
+            .sort((one, other) => other.startedAt.localeCompare(one.startedAt))
         : [],
     );
   }),
@@ -274,12 +311,17 @@ export const stationHandlers: RequestHandler[] = [
   }),
 
   api.post(`${STATION}/searches`, async ({ params, request }) => {
-    const { stationId } = placeOf(params);
+    const { teamId, lineId, stationId } = placeOf(params);
     const { setId, budget, agent, objective } =
       (await request.json()) as StartSearchRequestDto;
     const set = setSpec(setId);
 
-    if (!set || set.stationId !== stationId) {
+    if (
+      !set ||
+      set.stationId !== stationId ||
+      set.lineId !== lineId ||
+      teamOfLine(lineId) !== teamId
+    ) {
       return notFound();
     }
 
@@ -289,7 +331,8 @@ export const stationHandlers: RequestHandler[] = [
     const id = uniqueId('search_started', (taken) =>
       Boolean(searchSpec(taken)),
     );
-    const seedReplay = startOn(setId, CANDIDATES.live4, {
+    const live = liveCandidateOf(set.stationId);
+    const seedReplay = startOn(setId, live, {
       id: `replay_${id}_seed`,
       runs: searched,
       marks: startingMarks(searched.length),
@@ -320,7 +363,7 @@ export const stationHandlers: RequestHandler[] = [
       endedHoursAgo: null,
       iterations: [],
       seed: {
-        candidate: CANDIDATES.live4,
+        candidate: live,
         seed: true,
         iteration: null,
         hypothesis: null,
@@ -333,7 +376,7 @@ export const stationHandlers: RequestHandler[] = [
       },
       candidates: [],
       bestId: null,
-      frontier: [CANDIDATES.live4.id],
+      frontier: [live.id],
       searched,
       heldOut: runs.slice(cut),
     };
@@ -366,14 +409,14 @@ export const stationHandlers: RequestHandler[] = [
 
   api.get('/teams/:teamId/replay-sets', ({ params }) =>
     json(
-      param(params, 'teamId') === PLATFORM_ID
-        ? setStore().map(replaySetOf)
-        : [],
+      setStore()
+        .filter((set) => teamOfLine(set.lineId) === param(params, 'teamId'))
+        .map(replaySetOf),
     ),
   ),
 
   api.patch(SET, async ({ params, request }) => {
-    const set = setSpec(param(params, 'setId'));
+    const set = setOn(params);
     const { name } = (await request.json()) as RenameReplaySetRequestDto;
 
     if (!set) {
@@ -387,7 +430,7 @@ export const stationHandlers: RequestHandler[] = [
   api.delete(SET, ({ params }) => {
     const setId = param(params, 'setId');
     const sets = setStore();
-    const at = sets.findIndex((each) => each.id === setId);
+    const at = sets.findIndex((each) => each.id === setOn(params)?.id);
 
     if (at < 0) {
       return notFound();
@@ -404,13 +447,13 @@ export const stationHandlers: RequestHandler[] = [
   }),
 
   api.post(`${SET}/entries`, async ({ params, request }) => {
-    const set = setSpec(param(params, 'setId'));
+    const set = setOn(params);
     const { runId } = (await request.json()) as { runId: string };
 
     if (!set) {
       return notFound();
     }
-    if (!runOfStation(runId)) {
+    if (runOfStation(runId)?.stationId !== set.stationId) {
       return problem(422, 'Sorry, that run did not end at this station.');
     }
     if (!set.entries.some((each) => each.runId === runId)) {
@@ -420,7 +463,7 @@ export const stationHandlers: RequestHandler[] = [
   }),
 
   api.delete(`${SET}/entries/:runId`, ({ params }) => {
-    const set = setSpec(param(params, 'setId'));
+    const set = setOn(params);
     const runId = param(params, 'runId');
 
     if (!set) {
@@ -432,7 +475,7 @@ export const stationHandlers: RequestHandler[] = [
   }),
 
   api.post(`${SET}/guards-changes`, ({ params }) => {
-    const set = setSpec(param(params, 'setId'));
+    const set = setOn(params);
 
     if (!set) {
       return notFound();
@@ -443,7 +486,7 @@ export const stationHandlers: RequestHandler[] = [
   }),
 
   api.delete(`${SET}/guards-changes`, ({ params }) => {
-    const set = setSpec(param(params, 'setId'));
+    const set = setOn(params);
 
     if (!set) {
       return notFound();
@@ -456,14 +499,14 @@ export const stationHandlers: RequestHandler[] = [
   api.post(`${SET}/probes`, async ({ params, request }) => {
     const setId = param(params, 'setId');
     const { ceiling } = (await request.json()) as ProbeReplaySetRequestDto;
-    const set = setSpec(setId);
+    const set = setOn(params);
 
     if (!set) {
       return notFound();
     }
 
     const runs = set.entries.slice(0, 2).map((each) => each.runId);
-    const replay = startOn(setId, CANDIDATES.live4, {
+    const replay = startOn(setId, liveCandidateOf(set.stationId), {
       id: uniqueId('replay_probe', (id) => Boolean(replaySpec(id))),
       runs,
       marks: startingMarks(runs.length),
@@ -477,26 +520,32 @@ export const stationHandlers: RequestHandler[] = [
 
   api.get(`${SET}/replay-checks`, ({ params, request }) => {
     const query = new URL(request.url).searchParams;
+    const set = setOn(params);
 
     return json(
-      checksFor(
-        param(params, 'setId'),
-        Number(query.get('limit') ?? 20),
-        query.get('before') ?? undefined,
-      ),
+      set
+        ? checksFor(
+            set.id,
+            Number(query.get('limit') ?? 20),
+            query.get('before') ?? undefined,
+          )
+        : [],
     );
   }),
 
-  api.get(`${SET}/replays`, ({ params }) =>
-    json(listedReplays(param(params, 'setId'))),
-  ),
+  api.get(`${SET}/replays`, ({ params }) => {
+    const set = setOn(params);
+
+    return json(set ? listedReplays(set.id) : []);
+  }),
 
   api.post(`${SET}/replays`, async ({ params, request }) => {
     const setId = param(params, 'setId');
     const body = (await request.json()) as StartReplayRequestDto;
-    const candidate = candidateFor(body.candidate);
+    const set = setOn(params);
+    const candidate = set ? candidateFor(set, body.candidate) : undefined;
 
-    if (!setSpec(setId) || !candidate) {
+    if (!candidate) {
       return notFound();
     }
 
@@ -508,8 +557,9 @@ export const stationHandlers: RequestHandler[] = [
   api.post(`${SET}/sanity-replays`, async ({ params, request }) => {
     const setId = param(params, 'setId');
     const body = (await request.json()) as StartSanityReplayRequestDto;
+    const set = setOn(params);
 
-    if (!setSpec(setId)) {
+    if (!set) {
       return notFound();
     }
 
@@ -522,7 +572,7 @@ export const stationHandlers: RequestHandler[] = [
       name: `${model}, ${effort} effort`,
       kind: 'sanity',
       fingerprint: CANDIDATES.opus.fingerprint,
-      station: { key: 'implementation' },
+      station: liveCandidateOf(set.stationId).station,
       createdAt: new Date().toISOString(),
     };
     const replay = startOn(setId, candidate, {
@@ -542,7 +592,7 @@ export const stationHandlers: RequestHandler[] = [
   }),
 
   api.get(`${SET}/suggestions`, ({ params }) => {
-    const set = setSpec(param(params, 'setId'));
+    const set = setOn(params);
 
     return set ? json(suggestionsFor(set)) : notFound();
   }),
@@ -559,13 +609,13 @@ export const stationHandlers: RequestHandler[] = [
   }),
 
   api.get('/teams/:teamId/replays/:replayId', ({ params }) => {
-    const replay = replaySpec(param(params, 'replayId'));
+    const replay = replayOn(params);
 
     return replay ? json(replayDetailOf(replay)) : notFound();
   }),
 
   api.post('/teams/:teamId/replays/:replayId/stop', ({ params }) => {
-    const replay = replaySpec(param(params, 'replayId'));
+    const replay = replayOn(params);
 
     if (!replay) {
       return notFound();
@@ -580,31 +630,39 @@ export const stationHandlers: RequestHandler[] = [
   }),
 
   api.get('/teams/:teamId/replay-runs/:runId', ({ params }) => {
+    const replay = replayOfRun(param(params, 'runId'));
     const run = replayRun(param(params, 'runId'));
 
-    return run ? json(run) : notFound();
+    return run && replay && teamOfSet(replay.setId) === param(params, 'teamId')
+      ? json(run)
+      : notFound();
   }),
 
   api.get('/teams/:teamId/replay-runs/:runId/replay', ({ params }) => {
     const replay = replayOfRun(param(params, 'runId'));
 
-    return replay ? json(replay) : notFound();
+    return replay && teamOfSet(replay.setId) === param(params, 'teamId')
+      ? json(replay)
+      : notFound();
   }),
 
   api.get('/teams/:teamId/search-runs/:runId', ({ params }) => {
     const run = searchRun(param(params, 'runId'));
+    const search = run ? searchSpec(run.searchId) : undefined;
 
-    return run ? json(run) : notFound();
+    return run && search && teamOfSet(search.setId) === param(params, 'teamId')
+      ? json(run)
+      : notFound();
   }),
 
   api.get('/teams/:teamId/searches/:searchId', ({ params }) => {
-    const search = searchSpec(param(params, 'searchId'));
+    const search = searchOn(params);
 
     return search ? json(searchDetailOf(search)) : notFound();
   }),
 
   api.post('/teams/:teamId/searches/:searchId/stop', ({ params }) => {
-    const search = searchSpec(param(params, 'searchId'));
+    const search = searchOn(params);
 
     if (!search) {
       return notFound();
@@ -620,7 +678,7 @@ export const stationHandlers: RequestHandler[] = [
     '/teams/:teamId/searches/:searchId/candidates/:candidateId/pick',
     ({ params }) => {
       const teamId = param(params, 'teamId');
-      const search = searchSpec(param(params, 'searchId'));
+      const search = searchOn(params);
       const candidateId = param(params, 'candidateId');
       const picked = search?.candidates.find(
         (each) => each.candidate.id === candidateId,
@@ -648,6 +706,7 @@ export const stationHandlers: RequestHandler[] = [
 
       const pullRequest = picked.pullRequest;
       const now = new Date().toISOString();
+      const place = placeOfSet(search.setId);
 
       return json<ConfigPullRequestResponseDto>(
         {
@@ -659,11 +718,11 @@ export const stationHandlers: RequestHandler[] = [
           searchId: search.id,
           candidateId,
           candidateName: picked.candidate.name,
-          lineId: searchSummaryOf(search).lineId,
-          stationId: searchSummaryOf(search).stationId,
-          stationKey: STATION_ADDRESS.split('/').at(-1) ?? 'implementation',
+          lineId: place?.lineId ?? '',
+          stationId: place?.stationId ?? '',
+          stationKey: place?.stationKey ?? '',
           repository: CONFIG_REPOSITORY,
-          path: 'lines/delivery.tf',
+          path: `lines/${place?.lineKey ?? ''}.tf`,
           branch: `spotlight/${search.id.replaceAll('_', '-')}/${slugOf(picked.candidate.name).replaceAll('_', '-')}`,
           attempts: 1,
           createdAt: now,

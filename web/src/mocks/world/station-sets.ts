@@ -10,7 +10,9 @@ import type {
   SuggestedRunResponseDto,
 } from '@/lib/api';
 import { hoursAgo } from '@/mocks/clock';
-import { DELIVERY_ID, PLATFORM_ID, perWorld, SLUG } from '@/mocks/world';
+import { DELIVERY_ID, PLATFORM_ID, perWorld, SLUG, world } from '@/mocks/world';
+import { history } from '@/mocks/world/insights-history';
+import { historyRunOf } from '@/mocks/world/past-work';
 import {
   added,
   changed,
@@ -20,6 +22,7 @@ import {
 } from '@/mocks/world/station-history';
 import { intervalOf, MIN_GAIN, rounded } from '@/mocks/world/station-measures';
 import { stationRuns } from '@/mocks/world/station-outcomes';
+import { SET_PICKS, type SetPick } from '@/mocks/world/station-seeds';
 import { taskNote } from '@/mocks/world/station-tasks';
 
 type Outcome = ReplaySetEntryResponseDto['outcome'];
@@ -32,6 +35,21 @@ export type StationRunFound = {
   readonly state: string;
   readonly outcome: Outcome;
   readonly note: ReturnType<typeof taskNote>;
+  readonly teamId: string;
+  readonly lineId: string;
+  readonly stationId: string;
+  readonly repositories: readonly string[];
+};
+
+export type StationPlace = {
+  readonly teamId: string;
+  readonly teamKey: string;
+  readonly lineId: string;
+  readonly lineKey: string;
+  readonly lineName: string;
+  readonly stationId: string;
+  readonly stationKey: string;
+  readonly stationName: string;
 };
 
 const outcomeOf = (run: StationRunOutcomeResponseDto): Outcome => {
@@ -51,8 +69,54 @@ const outcomeOf = (run: StationRunOutcomeResponseDto): Outcome => {
   return 'other';
 };
 
-const implementationRuns = (): StationRunFound[] =>
-  stationRuns(PLATFORM_ID, DELIVERY_ID, IMPLEMENTATION_ID).runs.map(
+export const teamOfLine = (lineId: string): string | undefined =>
+  Object.entries(world().lines).find(([, lines]) =>
+    lines.some((line) => line.id === lineId),
+  )?.[0];
+
+export const placeOf = (
+  lineId: string,
+  stationId: string,
+): StationPlace | undefined => {
+  const teamId = teamOfLine(lineId);
+  const line = world().lines[teamId ?? '']?.find((each) => each.id === lineId);
+  const station = line?.stations.find((each) => each.id === stationId);
+  const team = world().workspace.teams.find((each) => each.id === teamId);
+
+  return teamId && line && station && team
+    ? {
+        teamId,
+        teamKey: team.name.toLowerCase(),
+        lineId,
+        lineKey: line.key,
+        lineName: line.name,
+        stationId,
+        stationKey: station.key,
+        stationName: station.name,
+      }
+    : undefined;
+};
+
+export const addressOf = (place: StationPlace): string =>
+  `${place.teamKey}/${place.lineKey}/${place.stationKey}`;
+
+const found = new WeakMap<object, Map<string, StationRunFound[]>>();
+
+export const runsAt = (
+  teamId: string,
+  lineId: string,
+  stationId: string,
+): StationRunFound[] => {
+  const source = history();
+  const known = found.get(source) ?? new Map<string, StationRunFound[]>();
+  const key = `${teamId}/${lineId}/${stationId}`;
+  const cached = known.get(key);
+
+  if (cached) {
+    return cached;
+  }
+
+  const made = stationRuns(teamId, lineId, stationId).runs.map(
     ({ title, outcome }) => ({
       runId: outcome.runId,
       taskId: outcome.taskId,
@@ -60,12 +124,31 @@ const implementationRuns = (): StationRunFound[] =>
       endedAt: outcome.endedAt,
       state: outcome.ending,
       outcome: outcomeOf(outcome),
-      note: taskNote(outcome.taskId),
+      note: taskNote(outcome.taskId, stationId),
+      teamId,
+      lineId,
+      stationId,
+      repositories: historyRunOf(outcome.runId)?.repositories ?? [],
     }),
   );
+  known.set(key, made);
+  found.set(source, known);
 
-export const runOfStation = (runId: string): StationRunFound | undefined =>
-  implementationRuns().find((each) => each.runId === runId);
+  return made;
+};
+
+export const runOfStation = (runId: string): StationRunFound | undefined => {
+  const run = historyRunOf(runId);
+
+  return run
+    ? runsAt(run.teamId, run.lineId, run.stationId).find(
+        (each) => each.runId === runId,
+      )
+    : undefined;
+};
+
+const hoursSince = (at: string): number =>
+  (Date.now() - Date.parse(at)) / 3_600_000;
 
 type SetEntrySpec = {
   readonly runId: string;
@@ -129,7 +212,7 @@ const SEEDED_SETS: readonly SetSpec[] = [
     guardsChanges: true,
     entries: [
       entry('run_flaky_billing_2', 108),
-      entry('run_invoice_split_1', 139, 'slack'),
+      entry('run_invoice_split_1', 118, 'slack'),
       entry('run_billing_worker_1', 139),
       entry('run_pricing_cache_1', 139),
       entry('run_refunds_1', 139, 'slack'),
@@ -153,12 +236,75 @@ const SEEDED_SETS: readonly SetSpec[] = [
   },
 ];
 
+const KEPT_FOR_SETS_HOURS = 600;
+
+const TELLING: readonly Outcome[] = ['sent-back', 'failed'];
+
+const matchingFirst = (
+  runs: readonly StationRunFound[],
+  matching: RegExp,
+): StationRunFound[] => {
+  const telling = (run: StationRunFound) => TELLING.includes(run.outcome);
+  const matched = runs.filter((run) => matching.test(run.title));
+  const ordered = [
+    ...matched.filter(telling),
+    ...matched,
+    ...runs.filter((run) => !matching.test(run.title)),
+  ];
+
+  return ordered.filter(
+    (run, place) =>
+      ordered.findIndex((each) => each.taskId === run.taskId) === place,
+  );
+};
+
+const runsOfPick = (pick: SetPick): StationRunFound[] =>
+  runsAt(teamOfLine(pick.lineId) ?? '', pick.lineId, pick.stationId);
+
+const setOfPick = (pick: SetPick): SetSpec => {
+  const older = runsOfPick(pick).filter((run) => {
+    const ago = hoursSince(run.endedAt);
+    return ago > pick.createdHoursAgo + 2 && ago < KEPT_FOR_SETS_HOURS;
+  });
+
+  return {
+    id: pick.id,
+    name: pick.name,
+    lineId: pick.lineId,
+    stationId: pick.stationId,
+    createdHoursAgo: pick.createdHoursAgo,
+    guardsChanges: pick.guardsChanges,
+    entries: matchingFirst(older, pick.matching)
+      .slice(0, pick.count)
+      .map((run, place) =>
+        entry(
+          run.runId,
+          pick.createdHoursAgo - place * 0.01,
+          pick.origins[place % pick.origins.length],
+        ),
+      ),
+    health: pick.health,
+  };
+};
+
 export const setStore = perWorld((kind): SetSpec[] =>
-  kind === 'empty' ? [] : structuredClone([...SEEDED_SETS]),
+  kind === 'empty'
+    ? []
+    : [...structuredClone([...SEEDED_SETS]), ...SET_PICKS.map(setOfPick)],
 );
 
 export const setSpec = (setId: string): SetSpec | undefined =>
   setStore().find((each) => each.id === setId);
+
+export const teamOfSet = (setId: string): string | undefined => {
+  const set = setSpec(setId);
+  return set ? teamOfLine(set.lineId) : undefined;
+};
+
+export const placeOfSet = (setId: string): StationPlace | undefined => {
+  const set = setSpec(setId);
+  return set ? placeOf(set.lineId, set.stationId) : undefined;
+};
 
 const OUTCOMES: readonly Outcome[] = [
   'accepted',
@@ -241,26 +387,25 @@ export const replaySetOf = (spec: SetSpec): ReplaySetResponseDto => {
 const ARCHIVE_KEPT_HOURS = 700;
 
 export const replayableRuns = (
+  teamId: string,
+  lineId: string,
   stationId: string,
 ): ReplayableRunResponseDto[] =>
-  stationId === IMPLEMENTATION_ID
-    ? implementationRuns().map((run) => {
-        const gone =
-          Date.now() - Date.parse(run.endedAt) > ARCHIVE_KEPT_HOURS * 3_600_000;
+  runsAt(teamId, lineId, stationId).map((run) => {
+    const gone = hoursSince(run.endedAt) > ARCHIVE_KEPT_HOURS;
 
-        return {
-          runId: run.runId,
-          taskId: run.taskId,
-          title: run.title,
-          state: run.state,
-          endedAt: run.endedAt,
-          refusal: gone ? 'archive-gone' : null,
-          reason: gone
-            ? 'the workspace archive it started from is no longer kept'
-            : null,
-        };
-      })
-    : [];
+    return {
+      runId: run.runId,
+      taskId: run.taskId,
+      title: run.title,
+      state: run.state,
+      endedAt: run.endedAt,
+      refusal: gone ? 'archive-gone' : null,
+      reason: gone
+        ? 'the workspace archive it started from is no longer kept'
+        : null,
+    };
+  });
 
 const SUGGESTED: Record<string, readonly string[]> = {
   set_billing_work: [
@@ -270,8 +415,27 @@ const SUGGESTED: Record<string, readonly string[]> = {
   ],
 };
 
+const SUGGESTED_PER_SET = 3;
+
+const suggestedRuns = (spec: SetSpec): readonly string[] => {
+  const pick = SET_PICKS.find((each) => each.id === spec.id);
+
+  if (!pick) {
+    return SUGGESTED[spec.id] ?? [];
+  }
+
+  const newer = runsOfPick(pick).filter(
+    (run) =>
+      hoursSince(run.endedAt) < pick.createdHoursAgo && run.state !== 'stopped',
+  );
+
+  return matchingFirst(newer, pick.matching)
+    .slice(0, SUGGESTED_PER_SET)
+    .map((run) => run.runId);
+};
+
 export const suggestionsFor = (spec: SetSpec): SuggestedRunResponseDto[] =>
-  (SUGGESTED[spec.id] ?? [])
+  suggestedRuns(spec)
     .filter((runId) => !spec.entries.some((each) => each.runId === runId))
     .flatMap((runId) => {
       const run = runOfStation(runId);
@@ -292,69 +456,136 @@ export const suggestionsFor = (spec: SetSpec): SuggestedRunResponseDto[] =>
         : [];
     });
 
-const replayUrl = (replayId: string): string =>
-  `/w/${SLUG}/team/${PLATFORM_ID}/lines/${DELIVERY_ID}/stations/${IMPLEMENTATION_ID}/replays/${replayId}`;
+const replayUrl = (place: StationPlace, replayId: string): string =>
+  `/w/${SLUG}/team/${place.teamId}/lines/${place.lineId}/stations/${place.stationId}/replays/${replayId}`;
 
-const check = (
-  over: Partial<ReplayCheckSummaryResponseDto> &
-    Pick<ReplayCheckSummaryResponseDto, 'id' | 'verdict' | 'reference'> & {
-      hoursAgo: number;
-    },
-): ReplayCheckSummaryResponseDto => {
-  const { hoursAgo: at, ...rest } = over;
-
-  return {
-    stationId: IMPLEMENTATION_ID,
-    stationKey: 'implementation',
-    undecidedBecause: null,
-    regressions: 0,
-    attempt: 1,
-    createdAt: hoursAgo(at),
-    replayUrl: null,
-    ...rest,
+type CheckSeed = Partial<
+  Omit<ReplayCheckSummaryResponseDto, 'replayUrl' | 'createdAt'>
+> &
+  Pick<ReplayCheckSummaryResponseDto, 'id' | 'verdict' | 'reference'> & {
+    readonly hoursAgo: number;
+    readonly replayId?: string;
   };
-};
 
-const CHECKS: Record<string, readonly ReplayCheckSummaryResponseDto[]> = {
+const CHECKS: Record<string, readonly CheckSeed[]> = {
   set_billing_work: [
-    check({
+    {
       id: 'check_shorter_prompt',
       verdict: 'running',
       reference: { commit: '9f1c2ab7d3e4', pullRequest: 61 },
       hoursAgo: 0.3,
-    }),
-    check({
+    },
+    {
       id: 'check_tests_first',
       verdict: 'passed',
       reference: { commit: '41d0e9c2b6aa', pullRequest: 58 },
       hoursAgo: 88,
-      replayUrl: replayUrl('replay_tf_tests_first'),
-    }),
-    check({
+      replayId: 'replay_tf_tests_first',
+    },
+    {
       id: 'check_haiku',
       verdict: 'failed',
       regressions: 2,
       reference: { commit: 'c07a55e1f9b2', pullRequest: 55 },
       hoursAgo: 102,
-      replayUrl: replayUrl('replay_sl_haiku'),
-    }),
-    check({
+      replayId: 'replay_sl_haiku',
+    },
+    {
       id: 'check_effort_bump',
       verdict: 'undecided',
       undecidedBecause: 'over-ceiling',
       attempt: 2,
       reference: { commit: '7ad3e90b14c2', pullRequest: null },
       hoursAgo: 130,
-    }),
+    },
+  ],
+  set_triage_billing: [
+    {
+      id: 'check_triage_sonnet',
+      verdict: 'passed',
+      reference: { commit: 'a41c7e9d02b5', pullRequest: null },
+      hoursAgo: 29.7,
+      replayId: 'replay_triage_sonnet',
+    },
+  ],
+  set_review_money: [
+    {
+      id: 'check_review_risk_checklist',
+      verdict: 'passed',
+      reference: { commit: '3be81f0c5d27', pullRequest: null },
+      hoursAgo: 39.6,
+      replayId: 'replay_review_risk_checklist',
+    },
+  ],
+  set_spec_api: [
+    {
+      id: 'check_spec_sonnet',
+      verdict: 'undecided',
+      undecidedBecause: 'too-few-scored',
+      reference: { commit: 'e94a07d1c3b8', pullRequest: null },
+      hoursAgo: 72,
+    },
+  ],
+  set_incident_data: [
+    {
+      id: 'check_investigate_opus',
+      verdict: 'failed',
+      regressions: 1,
+      reference: { commit: '0d6b3f8a91ce', pullRequest: null },
+      hoursAgo: 46.6,
+      replayId: 'replay_sin_opus',
+    },
+  ],
+  set_incident_customer: [
+    {
+      id: 'check_mitigate_runbook',
+      verdict: 'running',
+      reference: { commit: '7e2a90c4b1d3', pullRequest: null },
+      hoursAgo: 0.5,
+    },
+  ],
+  set_experiment_variants: [
+    {
+      id: 'check_build_medium_effort',
+      verdict: 'passed',
+      reference: { commit: 'b59d1e7f3a06', pullRequest: null },
+      hoursAgo: 29.2,
+      replayId: 'replay_sbu_medium_effort',
+    },
+  ],
+  set_experiment_pricing: [
+    {
+      id: 'check_design_metric_first',
+      verdict: 'running',
+      reference: { commit: '58c2d9e0a71f', pullRequest: 66 },
+      hoursAgo: 0.2,
+    },
   ],
 };
+
+const checkOf = (
+  place: StationPlace,
+  { hoursAgo: at, replayId, ...rest }: CheckSeed,
+): ReplayCheckSummaryResponseDto => ({
+  stationId: place.stationId,
+  stationKey: place.stationKey,
+  undecidedBecause: null,
+  regressions: 0,
+  attempt: 1,
+  createdAt: hoursAgo(at),
+  replayUrl: replayId ? replayUrl(place, replayId) : null,
+  ...rest,
+});
 
 export const checksFor = (
   setId: string,
   limit: number,
   before: string | undefined,
 ): ReplayCheckSummaryResponseDto[] => {
-  const all = setSpec(setId) ? (CHECKS[setId] ?? []) : [];
+  const place = placeOfSet(setId);
+  const all = place
+    ? (CHECKS[setId] ?? []).map((each) => checkOf(place, each))
+    : [];
   const from = before ? all.findIndex((each) => each.id === before) + 1 : 0;
 
   return all.slice(from, from + limit);

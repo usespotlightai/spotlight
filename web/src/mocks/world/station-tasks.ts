@@ -58,7 +58,48 @@ const FALLBACK: TaskNote = {
   path: 'src/index.ts',
 };
 
-export const taskNote = (taskId: string): TaskNote => NOTES[taskId] ?? FALLBACK;
+const STATION_NOTES: Record<string, TaskNote> = {
+  station_triage: {
+    pass: 'Reproduced the report and named the failing path, with the request that triggers it.',
+    fail: 'Could not reproduce the report and guessed at a cause instead of saying so.',
+    path: 'services/api/errors.ts',
+  },
+  station_spec: {
+    pass: 'Wrote a spec that lists what changes, what stays and how to test it.',
+    fail: 'Left out what stays the same, so the spec reads as a rewrite.',
+    path: 'docs/specs/README.md',
+  },
+  station_review: {
+    pass: 'Flagged the one change that would break in production, on the line it is about.',
+    fail: 'Approved the pull request without noticing the change it makes to a shared table.',
+    path: 'services/api/src/index.ts',
+  },
+  station_investigate: {
+    pass: 'Found the cause in the logs and quoted the lines it relies on.',
+    fail: 'Blamed the last deploy without a log line to back it.',
+    path: 'runbooks/alerts.md',
+  },
+  station_mitigate: {
+    pass: 'Proposed the smallest change that stops the errors, with a way to roll it back.',
+    fail: 'Proposed rewriting the retry logic when a config change would stop the errors.',
+    path: 'infra/config/production.yaml',
+  },
+  station_design: {
+    pass: 'Named the one change, the metric with today’s reading and a stop rule.',
+    fail: 'Tested two changes at once, so the result could not say which one worked.',
+    path: 'experiments/README.md',
+  },
+  station_build: {
+    pass: 'Built the variant behind its flag and left the control untouched.',
+    fail: 'Built the variant outside its flag, so every visitor would see it.',
+    path: 'src/experiments/flags.ts',
+  },
+};
+
+export const taskNote = (taskId: string, stationId?: string): TaskNote =>
+  NOTES[taskId] ??
+  (stationId ? STATION_NOTES[stationId] : undefined) ??
+  FALLBACK;
 
 export const knownTaskNote = (taskId: string): TaskNote | undefined =>
   NOTES[taskId];
