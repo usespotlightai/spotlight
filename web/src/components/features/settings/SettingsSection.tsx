@@ -4,6 +4,7 @@ type SettingsSectionProps = {
   title?: string;
   count?: number;
   action?: ReactNode;
+  list?: string;
   children: ReactNode;
 };
 
@@ -11,8 +12,11 @@ export function SettingsSection({
   title,
   count,
   action,
+  list,
   children,
 }: SettingsSectionProps) {
+  const Body = list ? 'ul' : 'div';
+
   return (
     <section className="flex flex-col gap-3">
       {(title || count !== undefined || action) && (
@@ -30,9 +34,12 @@ export function SettingsSection({
         </div>
       )}
 
-      <div className="divide-y-[0.5px] divide-border overflow-hidden rounded-xl border-[0.5px] border-border bg-card">
+      <Body
+        aria-label={list}
+        className="divide-y-[0.5px] divide-border overflow-hidden rounded-xl border-[0.5px] border-border bg-card"
+      >
         {children}
-      </div>
+      </Body>
     </section>
   );
 }

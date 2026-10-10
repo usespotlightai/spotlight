@@ -1,38 +1,40 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { Route } from 'react-router';
-import { CreateWorkspace } from '@/routes/CreateWorkspace';
-import { failMutations } from '@/stories/failMutations';
-import { StoryShell } from '@/stories/StoryShell';
+import { type PageArgs, pageStory, toggle } from '@/stories/application';
 
-const AT = '/workspaces/new';
-
-const routes = <Route path={AT} element={<CreateWorkspace />} />;
+type CreateWorkspaceArgs = {
+  readonly creating: boolean;
+};
 
 const meta = {
   title: 'Workspace/Create workspace',
-} satisfies Meta;
+  ...pageStory<CreateWorkspaceArgs>({
+    at: '/workspaces/new',
+    args: { account: 'no-workspace', creating: false },
+    argTypes: {
+      creating: toggle('Create the workspace'),
+    },
+    script: ({ creating }) =>
+      creating
+        ? async (screen, user) => {
+            await user.type(
+              await screen.findByPlaceholderText('Workspace name'),
+              'Acme',
+            );
+            await user.click(screen.getByRole('button', { name: 'Continue' }));
+            await user.type(
+              await screen.findByPlaceholderText('Product'),
+              'Platform',
+            );
+            await user.click(
+              await screen.findByRole('button', { name: 'Create workspace' }),
+            );
+          }
+        : undefined,
+  }),
+} satisfies Meta<PageArgs & CreateWorkspaceArgs>;
 
 export default meta;
 
-type Story = StoryObj<typeof meta>;
-
-export const Default: Story = {
-  render: () => <StoryShell at={AT}>{routes}</StoryShell>,
-};
-
-export const Failed: Story = {
-  name: 'Error',
-  render: () => (
-    <StoryShell at={AT} seed={failMutations}>
-      {routes}
-    </StoryShell>
-  ),
-  play: async ({ canvas, userEvent }) => {
-    await userEvent.type(canvas.getByPlaceholderText('Workspace name'), 'Acme');
-    await userEvent.click(canvas.getByRole('button', { name: 'Continue' }));
-    await userEvent.type(canvas.getByPlaceholderText('Product'), 'Platform');
-    await userEvent.click(
-      canvas.getByRole('button', { name: 'Create workspace' }),
-    );
-  },
+export const CreateWorkspace: StoryObj<typeof meta> = {
+  name: 'Create workspace',
 };

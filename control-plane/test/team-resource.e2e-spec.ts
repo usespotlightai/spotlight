@@ -307,6 +307,7 @@ describe('a team, created through the resource API (e2e)', () => {
       'integrations.forget-connections-of-disbanded-team',
       'outcomes.forget-alerts-of-disbanded-team',
       'outcomes.forget-chats-of-disbanded-team',
+      'outcomes.forget-config-pull-requests-of-disbanded-team',
       'outcomes.forget-deliveries-of-disbanded-team',
       'outcomes.forget-failures-of-disbanded-team',
       'outcomes.forget-judgings-and-scores-of-disbanded-team',

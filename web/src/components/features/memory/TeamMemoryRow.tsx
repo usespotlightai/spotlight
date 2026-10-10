@@ -24,6 +24,8 @@ type TeamMemoryRowProps = {
   memory: TeamMemory;
   lines: readonly LineResponseDto[];
   startsOpen?: boolean;
+  open: boolean;
+  onOpen: (open: boolean) => void;
 };
 
 export function TeamMemoryRow({
@@ -32,6 +34,8 @@ export function TeamMemoryRow({
   memory,
   lines,
   startsOpen = false,
+  open,
+  onOpen,
 }: TeamMemoryRowProps) {
   const { row, expanded, clamped, toggle } = useRowExpansion(startsOpen);
   const [seen, setSeen] = useState(startsOpen);
@@ -58,8 +62,15 @@ export function TeamMemoryRow({
 
   const flip = () => {
     setSeen(true);
+    onOpen(!expanded);
     toggle();
   };
+
+  useEffect(() => {
+    if (!open && expanded) {
+      toggle();
+    }
+  }, [open, expanded, toggle]);
 
   const onRowClick = (event: MouseEvent<HTMLLIElement>) => {
     if (

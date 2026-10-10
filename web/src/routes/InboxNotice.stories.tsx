@@ -1,54 +1,27 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import type { QueryClient } from '@tanstack/react-query';
-import { Route } from 'react-router';
 import { noticePath } from '@/lib/inbox';
-import { InboxNotice } from '@/routes/InboxNotice';
-import {
-  emptyInbox,
-  failInbox,
-  NOTICE_ID,
-  SLUG,
-  seedInbox,
-  seedSettledNotice,
-} from '@/stories/fixtures/inbox';
-import { StoryPage } from '@/stories/StoryPage';
+import { SLUG } from '@/mocks/world';
+import { FINISHED_NOTICE_ID, STALLED_NOTICE_ID } from '@/mocks/world/inbox';
+import { choice, type PageArgs, pageStory } from '@/stories/application';
 
-function Showing({ seed }: { seed?: (client: QueryClient) => void }) {
-  return (
-    <StoryPage at={noticePath(SLUG, NOTICE_ID)} seed={seed}>
-      <Route
-        path="/w/:slug/inbox/notices/:noticeId"
-        element={<InboxNotice />}
-      />
-    </StoryPage>
-  );
-}
+type NoticeArgs = {
+  readonly notice: string;
+};
 
 const meta = {
   title: 'Inbox/Notices',
-} satisfies Meta;
+  ...pageStory<NoticeArgs>({
+    at: ({ notice }) => noticePath(SLUG, notice),
+    args: { notice: STALLED_NOTICE_ID },
+    argTypes: {
+      notice: choice('Notice', {
+        [STALLED_NOTICE_ID]: 'Unread',
+        [FINISHED_NOTICE_ID]: 'Read',
+      }),
+    },
+  }),
+} satisfies Meta<PageArgs & NoticeArgs>;
 
 export default meta;
 
-type Story = StoryObj<typeof meta>;
-
-export const Loading: Story = {
-  render: () => <Showing />,
-};
-
-export const Failed: Story = {
-  name: 'Error',
-  render: () => <Showing seed={failInbox} />,
-};
-
-export const WithData: Story = {
-  render: () => <Showing seed={seedInbox} />,
-};
-
-export const Read: Story = {
-  render: () => <Showing seed={seedSettledNotice} />,
-};
-
-export const Gone: Story = {
-  render: () => <Showing seed={emptyInbox} />,
-};
+export const Notices: StoryObj<typeof meta> = {};

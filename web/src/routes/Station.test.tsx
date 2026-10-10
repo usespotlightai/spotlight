@@ -872,7 +872,7 @@ describe('Station', () => {
       renderAt('station_2', 'improve');
 
       expect(sectionTitled('Worth improving')).toHaveTextContent(
-        'Every signal looks healthy over the last 30 days.',
+        'Every signal looks healthy over the last 30 days',
       );
     });
 
@@ -940,13 +940,16 @@ describe('Station', () => {
       expect(refetchSets).toHaveBeenCalled();
     });
 
-    it('offers to search once there is a replay set to search on', () => {
+    it('says a search needs a replay set, leaving the one way to create it to the replay sets', () => {
       renderAt('station_2', 'improve');
 
       expect(screen.getByText('No searches yet')).toBeInTheDocument();
       expect(
-        screen.getByRole('link', { name: 'Create a replay set first' }),
-      ).toHaveAttribute('href', '#replays');
+        screen.getByText('Searches need a replay set to try configs on.'),
+      ).toBeInTheDocument();
+      expect(
+        screen.getAllByRole('button', { name: /Create a replay set/ }),
+      ).toHaveLength(1);
     });
   });
 

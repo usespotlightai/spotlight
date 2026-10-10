@@ -287,6 +287,31 @@ describe('TeamMemory', () => {
     ).toBeInTheDocument();
   });
 
+  it('keeps one memory open at a time', async () => {
+    memoriesState.data = [
+      memory(),
+      memory({ id: 'memory_2', body: 'Retry uploads in the request.' }),
+    ];
+    showing();
+    const first = screen.getByRole('button', {
+      name: /Name branches after the ticket/,
+    });
+    const second = screen.getByRole('button', {
+      name: /Retry uploads in the request/,
+    });
+
+    await userEvent.click(first);
+    await userEvent.click(second);
+
+    expect(second).toHaveAttribute('aria-expanded', 'true');
+    expect(first).toHaveAttribute('aria-expanded', 'false');
+
+    await userEvent.click(second);
+
+    expect(second).toHaveAttribute('aria-expanded', 'false');
+    expect(first).toHaveAttribute('aria-expanded', 'false');
+  });
+
   it('writes a new memory in a row at the top, even when there are none', async () => {
     memoriesState.data = [];
     showing('/w/acme/team/team_1/memory?write=1');

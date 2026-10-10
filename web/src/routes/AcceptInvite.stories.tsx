@@ -1,70 +1,27 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { Route } from 'react-router';
-import { mocked } from 'storybook/test';
-import { useSession } from '@/hooks/api/useSession';
-import { AcceptInvite } from '@/routes/AcceptInvite';
-import {
-  failInvite,
-  missingInvite,
-  seedInvite,
-  TOKEN,
-} from '@/stories/fixtures/invite';
-import { StoryShell } from '@/stories/StoryShell';
+import { choice, type PageArgs, pageStory } from '@/stories/application';
 
-const AT = `/invites/${TOKEN}`;
-
-const routes = <Route path="/invites/:token" element={<AcceptInvite />} />;
-
-const signedOut = () => {
-  mocked(useSession).mockReturnValue({
-    data: null,
-    isPending: false,
-    isRefetching: false,
-    error: null,
-    refetch: async () => undefined,
-  } as never);
-
-  return () => mocked(useSession).mockRestore();
+type InviteArgs = {
+  readonly invite: string;
 };
 
 const meta = {
   title: 'Auth/Accept invite',
-} satisfies Meta;
+  ...pageStory<InviteArgs>({
+    at: ({ invite }) => `/invites/${invite}`,
+    args: { invite: 'invite_sam' },
+    argTypes: {
+      invite: choice('Invite', {
+        invite_sam: 'For you',
+        invite_platform: 'For another account',
+        invite_unknown: 'Not found',
+        invite_accepted: 'Already accepted',
+        invite_expired: 'Expired',
+      }),
+    },
+  }),
+} satisfies Meta<PageArgs & InviteArgs>;
 
 export default meta;
 
-type Story = StoryObj<typeof meta>;
-
-export const NotFound: Story = {
-  render: () => (
-    <StoryShell at={AT} seed={missingInvite}>
-      {routes}
-    </StoryShell>
-  ),
-};
-
-export const Failed: Story = {
-  name: 'Error',
-  render: () => (
-    <StoryShell at={AT} seed={failInvite}>
-      {routes}
-    </StoryShell>
-  ),
-};
-
-export const WithData: Story = {
-  render: () => (
-    <StoryShell at={AT} seed={seedInvite}>
-      {routes}
-    </StoryShell>
-  ),
-};
-
-export const SignedOut: Story = {
-  beforeEach: signedOut,
-  render: () => (
-    <StoryShell at={AT} seed={seedInvite}>
-      {routes}
-    </StoryShell>
-  ),
-};
+export const AcceptInvite: StoryObj<typeof meta> = { name: 'Accept invite' };

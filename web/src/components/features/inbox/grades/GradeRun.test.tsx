@@ -6,7 +6,7 @@ import {
   claimsScoresOf,
   RUBRIC,
   runScoresOf,
-} from '@/stories/fixtures/run-scores';
+} from '@/test/fixtures/run-scores';
 
 const scores = vi.fn();
 const scoresFailing = vi.fn();

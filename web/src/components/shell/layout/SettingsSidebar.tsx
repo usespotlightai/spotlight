@@ -1,7 +1,6 @@
 import {
   ChevronLeft,
   KeyRound,
-  Link2,
   type LucideIcon,
   Server,
   Settings2,
@@ -26,7 +25,6 @@ import { tokensPath } from '@/lib/token';
 const TEAM_SETTINGS_ICONS: Record<TeamSettingsPageId, LucideIcon> = {
   general: Settings2,
   integrations: Webhook,
-  connections: Link2,
   skills: SquareMousePointer,
 };
 

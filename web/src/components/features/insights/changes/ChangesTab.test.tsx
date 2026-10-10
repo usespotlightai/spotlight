@@ -7,7 +7,7 @@ import { ChangesTab } from '@/components/features/insights/changes/ChangesTab';
 import { stationNamesOf } from '@/lib/insights';
 import type { InsightsCandidates } from '@/lib/insights-candidates';
 import type { InsightsChanges, InsightsSetups } from '@/lib/insights-changes';
-import { CANDIDATES } from '@/stories/fixtures/insights-candidates';
+import { CANDIDATES } from '@/test/fixtures/insights-candidates';
 
 type Held = {
   data: unknown;

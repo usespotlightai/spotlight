@@ -1,66 +1,26 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { Route } from 'react-router';
-import { chatPath } from '@/lib/chat';
-import { AgentChat } from '@/routes/AgentChat';
-import {
-  CHAT_ID,
-  emptyChat,
-  failChat,
-  SLUG,
-  seedChat,
-  seedImprovingChat,
-  TEAM_ID,
-} from '@/stories/fixtures/chat';
-import { StoryPage } from '@/stories/StoryPage';
+import { choice, type PageArgs, pageStory } from '@/stories/application';
 
-const routes = (
-  <Route path="/w/:slug/team/:teamId/agent/:chatId" element={<AgentChat />} />
-);
+const chats = '/w/acme/team/team_platform/agent';
 
-const at = chatPath(SLUG, TEAM_ID, CHAT_ID);
+type ChatArgs = {
+  readonly chat: string;
+};
 
 const meta = {
   title: 'Team/Agent/Chat',
-} satisfies Meta;
+  ...pageStory<ChatArgs>({
+    at: ({ chat }) => `${chats}/${chat}`,
+    args: { chat: 'chat_retries' },
+    argTypes: {
+      chat: choice('Chat', {
+        chat_retries: 'Planning tasks',
+        chat_small_prs: 'Improving a station',
+      }),
+    },
+  }),
+} satisfies Meta<PageArgs & ChatArgs>;
 
 export default meta;
 
-type Story = StoryObj<typeof meta>;
-
-export const Loading: Story = {
-  render: () => <StoryPage at={at}>{routes}</StoryPage>,
-};
-
-export const Empty: Story = {
-  render: () => (
-    <StoryPage at={at} seed={emptyChat}>
-      {routes}
-    </StoryPage>
-  ),
-};
-
-export const Failed: Story = {
-  name: 'Error',
-  render: () => (
-    <StoryPage at={at} seed={failChat}>
-      {routes}
-    </StoryPage>
-  ),
-};
-
-export const WithData: Story = {
-  render: () => (
-    <StoryPage at={at} seed={seedChat}>
-      {routes}
-    </StoryPage>
-  ),
-};
-
-export const ImprovingAStation: Story = {
-  name: 'Improving a station',
-  render: () => (
-    <StoryPage at={at} seed={seedImprovingChat}>
-      {routes}
-    </StoryPage>
-  ),
-};
+export const Chat: StoryObj<typeof meta> = {};

@@ -1,0 +1,481 @@
+import { HttpResponse, type RequestHandler } from 'msw';
+import type {
+  ChangeMemberRoleRequestDto,
+  ConfiguredIntegrationResponseDto,
+  ConnectGitHubRequestDto,
+  ConnectIntegrationRequestDto,
+  CreateRunnerPoolData,
+  CreateWorkspaceRequestDto,
+  CreateWorkspaceTokenData,
+  InviteToTeamRequestDto,
+  OnboardingResponseDto,
+  SetToolRuleRequestDto,
+} from '@/lib/api';
+import { daysAgo } from '@/mocks/clock';
+import { api, json, noContent, notFound, problem } from '@/mocks/http';
+import { world } from '@/mocks/world';
+import {
+  HARNESSES,
+  INSTALL_URL,
+  REPOSITORIES,
+  SIGNED_IN,
+  settingsWorld,
+  TERRAFORM,
+  type TeamConnections,
+  toolRules,
+  WORKSPACE_ID,
+  workspaceToken,
+} from '@/mocks/world/settings';
+import { newRunnerPool } from '@/mocks/world/settings-runners';
+
+const SECRET = 'q3Vd0n8yXbT2c4kPzR7mW1sLhA9eJ5gUfN6oYiC0xEw';
+
+const created = <T>(body: T, header: string) =>
+  HttpResponse.json(body as never, {
+    status: 201,
+    headers: { [header]: SECRET },
+  });
+
+const ofWorkspace = (slug: unknown) => slug === world().workspace.slug;
+
+const ofWorkspaceId = (id: unknown) => id === WORKSPACE_ID;
+
+const isTeam = (teamId: string) =>
+  world().workspace.teams.some((team) => team.id === teamId);
+
+const teamName = (teamId: string) =>
+  world().workspace.teams.find((team) => team.id === teamId)?.name ?? '';
+
+const connectionsOf = (teamId: string): TeamConnections => {
+  const store = settingsWorld().connections;
+  store[teamId] ??= { mine: [], people: [] };
+  return store[teamId];
+};
+
+const configured = (teamId: string): ConfiguredIntegrationResponseDto[] =>
+  settingsWorld().integrations[teamId] ?? [];
+
+const onboarding = (): OnboardingResponseDto => ({
+  steps: [
+    {
+      key: 'github',
+      title: 'Install the GitHub App',
+      description:
+        'So Spotlight can read your repositories and open pull requests.',
+      done: settingsWorld().gitHubConnected,
+    },
+    {
+      key: 'harness',
+      title: 'Connect a host',
+      description:
+        'A runner with an agent harness installed, such as Claude Code.',
+      done: settingsWorld().fleet.runners.some(
+        (runner) => runner.harnesses.length > 0,
+      ),
+    },
+  ],
+});
+
+const handleOf = (source: string) =>
+  source === 'sentry' ? 'sam.rivera@acme.dev' : '@sam';
+
+const inviteHandlers = [
+  api.get('/invites/:token', ({ params }) => {
+    const found = settingsWorld().offers.find(
+      (each) => each.token === params.token,
+    );
+    if (!found) {
+      return notFound();
+    }
+
+    const { token: _token, teamId: _teamId, ...offer } = found;
+    return json(offer);
+  }),
+
+  api.post('/invites/:token/accept', ({ params }) => {
+    const found = settingsWorld().offers.find(
+      (each) => each.token === params.token,
+    );
+    if (!found) {
+      return notFound();
+    }
+    if (found.standing !== 'open') {
+      return problem(410, `Sorry, this invitation is ${found.standing}.`);
+    }
+
+    found.standing = 'accepted';
+    return json({
+      workspaceSlug: world().workspace.slug,
+      teamId: found.teamId,
+      teamName: found.teamName,
+    });
+  }),
+
+  api.get('/teams/:teamId/invites', ({ params }) =>
+    json(settingsWorld().invites[String(params.teamId)] ?? []),
+  ),
+
+  api.post('/teams/:teamId/invites', async ({ params, request }) => {
+    const teamId = String(params.teamId);
+    if (!isTeam(teamId)) {
+      return notFound();
+    }
+
+    const { email } = (await request.json()) as InviteToTeamRequestDto;
+    const store = settingsWorld().invites;
+    const invites = store[teamId] ?? [];
+    if (invites.some((each) => each.email === email)) {
+      return problem(409, `Sorry, ${email} is already invited.`);
+    }
+
+    const invite = {
+      id: `invite_${crypto.randomUUID().slice(0, 8)}`,
+      email,
+      invitedBy: SIGNED_IN.name,
+      invitedAt: daysAgo(0),
+      expiresAt: daysAgo(-7),
+    };
+    store[teamId] = [invite, ...invites];
+    return json(invite, 201);
+  }),
+
+  api.delete('/teams/:teamId/invites/:inviteId', ({ params }) => {
+    const store = settingsWorld().invites;
+    const teamId = String(params.teamId);
+    const invites = store[teamId] ?? [];
+    if (!invites.some((each) => each.id === params.inviteId)) {
+      return notFound();
+    }
+
+    store[teamId] = invites.filter((each) => each.id !== params.inviteId);
+    return noContent();
+  }),
+];
+
+const resourceHandlers = [
+  api.get('/resources/teams/:id', ({ params }) => {
+    const teamId = String(params.id);
+    if (!isTeam(teamId)) {
+      return notFound();
+    }
+
+    const key = teamName(teamId).toLowerCase();
+    return json({
+      id: teamId,
+      version: 1,
+      address: key,
+      warnings: [],
+      workspaceId: WORKSPACE_ID,
+      key,
+      name: teamName(teamId),
+    });
+  }),
+
+  api.post('/resources/workspaces', async ({ request }) => {
+    const { name, slug } = (await request.json()) as {
+      name: string;
+      slug: string;
+    };
+    if (ofWorkspace(slug)) {
+      return problem(409, `Sorry, the address ${slug} is taken.`);
+    }
+
+    return json(
+      {
+        id: `workspace_${slug}`,
+        version: 1,
+        address: slug,
+        warnings: [],
+        name,
+        slug,
+      },
+      201,
+    );
+  }),
+
+  api.get('/resources/workspaces/:id/export', ({ params }) =>
+    ofWorkspaceId(params.id) ? json({ files: TERRAFORM }) : notFound(),
+  ),
+
+  api.get('/resources/workspaces/:workspaceId/runner-pools', ({ params }) =>
+    ofWorkspaceId(params.workspaceId)
+      ? json({ items: settingsWorld().pools })
+      : notFound(),
+  ),
+
+  api.post(
+    '/resources/workspaces/:workspaceId/runner-pools',
+    async ({ params, request }) => {
+      if (!ofWorkspaceId(params.workspaceId)) {
+        return notFound();
+      }
+
+      const { key } = (await request.json()) as CreateRunnerPoolData['body'];
+      const pools = settingsWorld().pools;
+      if (pools.some((each) => each.key === key)) {
+        return problem(409, `Sorry, pool ${key} already exists.`);
+      }
+
+      const pool = newRunnerPool(key);
+      pools.push(pool);
+      return created(pool, 'Spotlight-Pool-Token');
+    },
+  ),
+
+  api.get('/resources/workspaces/:workspaceId/tokens', ({ params }) =>
+    ofWorkspaceId(params.workspaceId)
+      ? json({ items: settingsWorld().tokens })
+      : notFound(),
+  ),
+
+  api.post(
+    '/resources/workspaces/:workspaceId/tokens',
+    async ({ params, request }) => {
+      if (!ofWorkspaceId(params.workspaceId)) {
+        return notFound();
+      }
+
+      const terms = (await request.json()) as CreateWorkspaceTokenData['body'];
+      const tokens = settingsWorld().tokens;
+      if (tokens.some((each) => each.name === terms.name)) {
+        return problem(409, `Sorry, token ${terms.name} already exists.`);
+      }
+
+      const token = workspaceToken(terms.name, {
+        description: terms.description ?? '',
+        scopes: terms.scopes,
+        expiresAt: terms.expiresAt ?? null,
+      });
+      tokens.unshift(token);
+      return created(token, 'Spotlight-Workspace-Token');
+    },
+  ),
+
+  api.delete('/resources/tokens/:id', ({ params }) => {
+    const store = settingsWorld();
+    if (!store.tokens.some((each) => each.id === params.id)) {
+      return notFound();
+    }
+
+    store.tokens = store.tokens.filter((each) => each.id !== params.id);
+    return noContent();
+  }),
+];
+
+const teamHandlers = [
+  api.get('/teams/:teamId/configuration', ({ params }) =>
+    isTeam(String(params.teamId))
+      ? json({ integrations: configured(String(params.teamId)) })
+      : notFound(),
+  ),
+
+  api.get('/teams/:teamId/configuration/onboarding', ({ params }) =>
+    isTeam(String(params.teamId)) ? json(onboarding()) : notFound(),
+  ),
+
+  api.get('/teams/:teamId/connections', ({ params }) =>
+    isTeam(String(params.teamId))
+      ? json(connectionsOf(String(params.teamId)))
+      : notFound(),
+  ),
+
+  api.post(
+    '/teams/:teamId/integrations/:source/connect',
+    async ({ params, request }) => {
+      const teamId = String(params.teamId);
+      const source = String(params.source);
+      const integration = settingsWorld().integrations[teamId]?.find(
+        (each) => each.source === source,
+      );
+      if (!integration) {
+        return notFound();
+      }
+
+      const body = (await request
+        .json()
+        .catch(() => ({}))) as ConnectIntegrationRequestDto;
+      const connections = connectionsOf(teamId);
+      if (body.for === 'me') {
+        const handle = handleOf(source);
+        connections.mine = [
+          ...connections.mine.filter((each) => each.source !== source),
+          { source, handle, connectedAt: daysAgo(0), tools: toolRules(source) },
+        ];
+        connections.people = [
+          ...connections.people.filter(
+            (each) => each.source !== source || each.personId !== SIGNED_IN.id,
+          ),
+          {
+            source,
+            handle,
+            connectedAt: daysAgo(0),
+            personId: SIGNED_IN.id,
+            name: SIGNED_IN.name,
+          },
+        ];
+      } else {
+        integration.standing = 'linked';
+        integration.handle = 'Acme';
+      }
+
+      return json({ url: globalThis.location.href });
+    },
+  ),
+
+  api.delete(
+    '/teams/:teamId/integrations/:source/connections/mine',
+    ({ params }) => {
+      const connections = connectionsOf(String(params.teamId));
+      const source = String(params.source);
+      if (!connections.mine.some((each) => each.source === source)) {
+        return notFound();
+      }
+
+      connections.mine = connections.mine.filter(
+        (each) => each.source !== source,
+      );
+      connections.people = connections.people.filter(
+        (each) => each.source !== source || each.personId !== SIGNED_IN.id,
+      );
+      return noContent();
+    },
+  ),
+
+  api.put(
+    '/teams/:teamId/integrations/:source/connections/mine/tools/:tool',
+    async ({ params, request }) => {
+      const mine = connectionsOf(String(params.teamId)).mine.find(
+        (each) => each.source === params.source,
+      );
+      if (!mine) {
+        return notFound();
+      }
+
+      const { rule } = (await request.json()) as SetToolRuleRequestDto;
+      const tool = String(params.tool);
+      mine.tools = [
+        ...mine.tools.filter((each) => each.tool !== tool),
+        { tool, rule },
+      ];
+      return noContent();
+    },
+  ),
+
+  api.get('/teams/:teamId/skills', ({ params }) =>
+    isTeam(String(params.teamId))
+      ? json({ skills: settingsWorld().skills[String(params.teamId)] ?? [] })
+      : notFound(),
+  ),
+];
+
+const workspaceHandlers = [
+  api.post('/workspaces', async ({ request }) => {
+    const {
+      name,
+      slug,
+      teamName: firstTeam,
+    } = (await request.json()) as CreateWorkspaceRequestDto;
+    if (ofWorkspace(slug)) {
+      return problem(409, `Sorry, the address ${slug} is taken.`);
+    }
+
+    return json(
+      {
+        id: `workspace_${slug}`,
+        name,
+        slug,
+        teams: [{ id: `team_${slug}`, name: firstTeam }],
+      },
+      201,
+    );
+  }),
+
+  api.get('/workspaces/:slug/github', ({ params }) =>
+    ofWorkspace(params.slug)
+      ? json({
+          connected: settingsWorld().gitHubConnected,
+          installUrl: INSTALL_URL,
+        })
+      : notFound(),
+  ),
+
+  api.post('/workspaces/:slug/github', async ({ params, request }) => {
+    if (!ofWorkspace(params.slug)) {
+      return notFound();
+    }
+
+    const { installationId } =
+      (await request.json()) as ConnectGitHubRequestDto;
+    if (!installationId) {
+      return problem(400, 'Sorry, that installation is missing its id.');
+    }
+
+    settingsWorld().gitHubConnected = true;
+    return noContent();
+  }),
+
+  api.get('/workspaces/:slug/harnesses', ({ params }) =>
+    ofWorkspace(params.slug) ? json(HARNESSES) : notFound(),
+  ),
+
+  api.patch(
+    '/workspaces/:slug/members/:userId',
+    async ({ params, request }) => {
+      if (!ofWorkspace(params.slug)) {
+        return notFound();
+      }
+
+      const { role } = (await request.json()) as ChangeMemberRoleRequestDto;
+      const member = Object.values(world().members)
+        .flat()
+        .find((each) => each.id === params.userId);
+      if (!member) {
+        return notFound();
+      }
+      if (role !== member.role && !member.mayBeSetTo.includes(role)) {
+        return problem(403, `Sorry, ${member.name} can’t be made ${role}.`);
+      }
+      for (const each of Object.values(world().members).flat()) {
+        if (each.id === params.userId) {
+          each.role = role;
+        }
+      }
+
+      return noContent();
+    },
+  ),
+
+  api.get('/workspaces/:slug/repositories', ({ params }) => {
+    if (!ofWorkspace(params.slug)) {
+      return notFound();
+    }
+
+    return json(
+      settingsWorld().gitHubConnected
+        ? REPOSITORIES.map((fullName) => ({ fullName }))
+        : [],
+    );
+  }),
+
+  api.get('/workspaces/:slug/runners', ({ params }) => {
+    if (!ofWorkspace(params.slug)) {
+      return notFound();
+    }
+
+    const { hosts, runners } = settingsWorld().fleet;
+    return json({ hosts, runners });
+  }),
+
+  api.get('/workspaces/:slug/runner-activity', ({ params }) =>
+    ofWorkspace(params.slug)
+      ? json(settingsWorld().fleet.activity)
+      : notFound(),
+  ),
+];
+
+export const settingsHandlers: RequestHandler[] = [
+  ...inviteHandlers,
+  ...resourceHandlers,
+  ...teamHandlers,
+  ...workspaceHandlers,
+];

@@ -57,7 +57,9 @@ export function StationSearchList({
     return (
       <StateBox>
         <EmptyState icon={Sparkles} title="No searches yet" action={start}>
-          An agent tries configs on a replay set to find a better, cheaper one.
+          {sets?.length === 0
+            ? 'Searches need a replay set to try configs on.'
+            : 'An agent tries configs on a replay set to find a better, cheaper one.'}
         </EmptyState>
       </StateBox>
     );

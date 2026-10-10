@@ -1,70 +1,52 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import type { QueryClient } from '@tanstack/react-query';
-import { Route } from 'react-router';
-import { Insights } from '@/routes/Insights';
+import { insightsPath } from '@/lib/insights';
 import {
-  insightsAt,
-  loadInsights,
-  seedFlow,
-} from '@/stories/fixtures/insights';
-import {
-  emptyPullRequests,
-  failPullRequests,
-  seedPullRequests,
-} from '@/stories/fixtures/insights-pull-requests';
-import { seedShipping } from '@/stories/fixtures/insights-shipping';
-import { StoryPage } from '@/stories/StoryPage';
+  authorShown,
+  PULL_REQUEST_AUTHORS,
+  PULL_REQUEST_STATES,
+  type PullRequestAuthor,
+  type PullRequestState,
+  stateShown,
+} from '@/lib/insights-pull-requests';
+import { PLATFORM_ID, SLUG } from '@/mocks/world';
+import { choice, type PageArgs, pageStory } from '@/stories/application';
 
-const routes = (
-  <Route path="/w/:slug/team/:teamId/insights" element={<Insights />} />
-);
-
-const at = insightsAt('productivity');
-
-const alongside =
-  (seed: (client: QueryClient) => void) => (client: QueryClient) => {
-    seedFlow(client);
-    seedShipping(client);
-    seed(client);
-  };
+type PullRequestsArgs = {
+  readonly author: PullRequestAuthor | 'anyone';
+  readonly status: PullRequestState | 'any';
+};
 
 const meta = {
   title: 'Team/Insights/Productivity/Pull requests',
-} satisfies Meta;
+  ...pageStory<PullRequestsArgs>({
+    at: ({ author, status }) =>
+      insightsPath(SLUG, PLATFORM_ID, {
+        tab: 'productivity',
+        period: '30d',
+        filter: {
+          ...(author === 'anyone' ? {} : { author }),
+          ...(status === 'any' ? {} : { state: status }),
+        },
+        page: 1,
+      }),
+    args: { author: 'anyone', status: 'any' },
+    argTypes: {
+      author: choice('Written by', {
+        anyone: 'Anyone',
+        ...Object.fromEntries(
+          PULL_REQUEST_AUTHORS.map((author) => [author, authorShown(author)]),
+        ),
+      }),
+      status: choice('Pull request state', {
+        any: 'Any state',
+        ...Object.fromEntries(
+          PULL_REQUEST_STATES.map((state) => [state, stateShown(state)]),
+        ),
+      }),
+    },
+  }),
+} satisfies Meta<PageArgs & PullRequestsArgs>;
 
 export default meta;
 
-type Story = StoryObj<typeof meta>;
-
-export const Loading: Story = {
-  render: () => (
-    <StoryPage at={at} seed={alongside(loadInsights)}>
-      {routes}
-    </StoryPage>
-  ),
-};
-
-export const Empty: Story = {
-  render: () => (
-    <StoryPage at={at} seed={alongside(emptyPullRequests)}>
-      {routes}
-    </StoryPage>
-  ),
-};
-
-export const Failed: Story = {
-  name: 'Error',
-  render: () => (
-    <StoryPage at={at} seed={alongside(failPullRequests)}>
-      {routes}
-    </StoryPage>
-  ),
-};
-
-export const WithData: Story = {
-  render: () => (
-    <StoryPage at={at} seed={alongside(seedPullRequests)}>
-      {routes}
-    </StoryPage>
-  ),
-};
+export const PullRequests: StoryObj<typeof meta> = { name: 'Pull requests' };

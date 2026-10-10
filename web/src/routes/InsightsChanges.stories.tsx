@@ -1,70 +1,56 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import type { QueryClient } from '@tanstack/react-query';
-import { Route } from 'react-router';
-import { Insights } from '@/routes/Insights';
-import {
-  insightsAt,
-  loadInsights,
-  seedStations,
-} from '@/stories/fixtures/insights';
-import { seedCandidates } from '@/stories/fixtures/insights-candidates';
-import {
-  emptyChanges,
-  failChanges,
-  seedChanges,
-} from '@/stories/fixtures/insights-changes';
-import { StoryPage } from '@/stories/StoryPage';
+import { insightsPath } from '@/lib/insights';
+import { PLATFORM_ID, SLUG } from '@/mocks/world';
+import { choice, type PageArgs, pageStory } from '@/stories/application';
 
-const routes = (
-  <Route path="/w/:slug/team/:teamId/insights" element={<Insights />} />
-);
+type ChangesArgs = {
+  readonly impact: 'closed' | 'open' | 'outside';
+};
 
-const at = insightsAt('stations');
-
-const alongside =
-  (seed: (client: QueryClient) => void) => (client: QueryClient) => {
-    seedStations(client);
-    seedCandidates(client);
-    seed(client);
-  };
+const LOADED = { timeout: 5_000 };
 
 const meta = {
   title: 'Team/Insights/Stations/Config changes',
-} satisfies Meta;
+  ...pageStory<ChangesArgs>({
+    at: insightsPath(SLUG, PLATFORM_ID, {
+      tab: 'stations',
+      period: '30d',
+      filter: {},
+      page: 1,
+    }),
+    args: { impact: 'closed' },
+    argTypes: {
+      impact: choice('Impact', {
+        closed: 'Closed',
+        open: 'Open',
+        outside: 'Open, outside the period',
+      }),
+    },
+    script: ({ impact }) =>
+      impact === 'closed'
+        ? undefined
+        : async (screen, user) => {
+            await user.click(
+              (
+                await screen.findAllByRole('button', { name: 'Impact' }, LOADED)
+              )[0],
+            );
+            if (impact === 'outside') {
+              await user.click(
+                screen.getByRole('button', { name: 'Time range' }),
+              );
+              (
+                await screen.findByRole(
+                  'menuitemradio',
+                  { name: /Past 7 days/ },
+                  LOADED,
+                )
+              ).click();
+            }
+          },
+  }),
+} satisfies Meta<PageArgs & ChangesArgs>;
 
 export default meta;
 
-type Story = StoryObj<typeof meta>;
-
-export const Loading: Story = {
-  render: () => (
-    <StoryPage at={at} seed={alongside(loadInsights)}>
-      {routes}
-    </StoryPage>
-  ),
-};
-
-export const Empty: Story = {
-  render: () => (
-    <StoryPage at={at} seed={alongside(emptyChanges)}>
-      {routes}
-    </StoryPage>
-  ),
-};
-
-export const Failed: Story = {
-  name: 'Error',
-  render: () => (
-    <StoryPage at={at} seed={alongside(failChanges)}>
-      {routes}
-    </StoryPage>
-  ),
-};
-
-export const WithData: Story = {
-  render: () => (
-    <StoryPage at={at} seed={alongside(seedChanges)}>
-      {routes}
-    </StoryPage>
-  ),
-};
+export const ConfigChanges: StoryObj<typeof meta> = { name: 'Config changes' };

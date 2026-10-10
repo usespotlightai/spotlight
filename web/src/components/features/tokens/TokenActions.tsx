@@ -21,7 +21,11 @@ export function TokenActions({ name, onRevoke }: TokenActionsProps) {
         <MoreHorizontal aria-hidden className="size-4" />
       </DropdownMenuTrigger>
 
-      <DropdownMenuContent align="end" sideOffset={6} className="min-w-44">
+      <DropdownMenuContent
+        align="end"
+        sideOffset={6}
+        className="w-auto min-w-0"
+      >
         <DropdownMenuItem onClick={onRevoke}>
           <Trash2 aria-hidden />
           Revoke token

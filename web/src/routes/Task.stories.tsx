@@ -1,79 +1,25 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { Route } from 'react-router';
-import { taskPath } from '@/lib/task';
-import { Task } from '@/routes/Task';
-import {
-  failTask,
-  MISSING_TASK_ID,
-  SLUG,
-  seedBoard,
-  seedCompletedTask,
-  seedWaitingTask,
-  seedWorkspace,
-  TASK_ID,
-  TEAM_ID,
-} from '@/stories/fixtures/board';
-import { StoryPage } from '@/stories/StoryPage';
+import { choice, type PageArgs, pageStory } from '@/stories/application';
 
-const routes = (
-  <Route path="/w/:slug/team/:teamId/tasks/:taskId" element={<Task />} />
-);
+type TaskArgs = {
+  readonly task: 'task_retries' | 'task_postgres' | 'task_search';
+};
 
 const meta = {
   title: 'Team/Lines/Task',
-} satisfies Meta;
+  ...pageStory<TaskArgs>({
+    at: ({ task }) => `/w/acme/team/team_platform/tasks/${task}`,
+    args: { task: 'task_retries' },
+    argTypes: {
+      task: choice('Task', {
+        task_retries: 'Working',
+        task_postgres: 'Waiting for you',
+        task_search: 'Completed',
+      }),
+    },
+  }),
+} satisfies Meta<PageArgs & TaskArgs>;
 
 export default meta;
 
-type Story = StoryObj<typeof meta>;
-
-export const Loading: Story = {
-  render: () => (
-    <StoryPage at={taskPath(SLUG, TEAM_ID, TASK_ID)} seed={seedWorkspace}>
-      {routes}
-    </StoryPage>
-  ),
-};
-
-export const Empty: Story = {
-  name: 'Not found',
-  render: () => (
-    <StoryPage at={taskPath(SLUG, TEAM_ID, MISSING_TASK_ID)} seed={seedBoard}>
-      {routes}
-    </StoryPage>
-  ),
-};
-
-export const Failed: Story = {
-  name: 'Error',
-  render: () => (
-    <StoryPage at={taskPath(SLUG, TEAM_ID, TASK_ID)} seed={failTask}>
-      {routes}
-    </StoryPage>
-  ),
-};
-
-export const WithData: Story = {
-  render: () => (
-    <StoryPage at={taskPath(SLUG, TEAM_ID, TASK_ID)} seed={seedBoard}>
-      {routes}
-    </StoryPage>
-  ),
-};
-
-export const WaitingForYou: Story = {
-  name: 'Waiting for you',
-  render: () => (
-    <StoryPage at={taskPath(SLUG, TEAM_ID, TASK_ID)} seed={seedWaitingTask}>
-      {routes}
-    </StoryPage>
-  ),
-};
-
-export const Completed: Story = {
-  render: () => (
-    <StoryPage at={taskPath(SLUG, TEAM_ID, TASK_ID)} seed={seedCompletedTask}>
-      {routes}
-    </StoryPage>
-  ),
-};
+export const Task: StoryObj<typeof meta> = {};

@@ -1,7 +1,9 @@
+import { CircleCheck } from 'lucide-react';
 import type { ReactNode } from 'react';
 import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { SignalRow } from '@/components/features/insights/SignalRow';
 import { ImproveCardSkeleton } from '@/components/features/stations/improve/ImproveCardSkeleton';
+import { EmptyState } from '@/components/shared/EmptyState';
 import { NestedTable } from '@/components/shared/nested-table/NestedTable';
 import { useInsightsOverview } from '@/hooks/api/useInsightsOverview';
 import {
@@ -68,16 +70,15 @@ export function WorthImproving({
           ))}
         </NestedTable>
       ) : (
-        <div className="flex flex-col items-center justify-center gap-3 pt-2 pb-10 text-center">
-          <div className="flex flex-col gap-1">
-            <p className="font-medium text-foreground text-sm">
-              Every signal looks healthy over the last 30 days.
-            </p>
-            <p className="text-muted-foreground text-sm">
-              There’s always room to improve. Talk it through with the agent.
-            </p>
-          </div>
-          {action}
+        <div className="flex justify-center pt-2 pb-10">
+          <EmptyState
+            icon={CircleCheck}
+            title="Every signal looks healthy over the last 30 days"
+            action={action}
+            className="max-w-md"
+          >
+            There’s always room to improve. Talk it through with the agent.
+          </EmptyState>
         </div>
       )}
     </InsightsCard>
