@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { readStationAlert } from '@/lib/api';
 import type { StationAlertCrossing } from '@/lib/station-alert';
 
-export const stationAlertKeys = {
+const stationAlertKeys = {
   of: (teamId: string | undefined, alertId: string | undefined) =>
     ['station-alert', teamId ?? null, alertId ?? null] as const,
 };

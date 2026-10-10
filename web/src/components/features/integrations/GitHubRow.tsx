@@ -1,7 +1,12 @@
 import { useLocation } from 'react-router';
+import { GitHubAppLink } from '@/components/features/integrations/GitHubAppLink';
+import { GitHubDetails } from '@/components/features/integrations/GitHubDetails';
+import { IntegrationRowFrame } from '@/components/features/integrations/IntegrationRowFrame';
 import GithubMark from '@/components/shared/icons/GithubMark';
-import { installUrlFor } from '@/lib/github';
-import { pillClass } from '@/lib/pill';
+import { NotedWarning } from '@/components/shared/NotedWarning';
+import { useLines } from '@/hooks/api/useLines';
+import { useRepositories } from '@/hooks/api/useRepositories';
+import { installUrlFor, reposShown, unreachedOf } from '@/lib/github';
 
 type GitHubRowProps = {
   slug: string;
@@ -17,7 +22,15 @@ export function GitHubRow({
   connected,
 }: GitHubRowProps) {
   const here = useLocation();
-  const onGitHub = installUrl
+  const repositories = useRepositories(connected ? slug : undefined);
+  const lines = useLines(teamId);
+  const reached = (repositories.data ?? []).map((each) => each.fullName);
+  const used = [
+    ...new Set((lines.data ?? []).flatMap((line) => line.repositories)),
+  ].sort();
+  const unreached =
+    connected && repositories.data ? unreachedOf(used, reached) : new Set();
+  const href = installUrl
     ? installUrlFor(installUrl, {
         slug,
         teamId,
@@ -26,36 +39,38 @@ export function GitHubRow({
     : null;
 
   return (
-    <li
-      data-slot="github"
-      className="flex min-h-12 items-center justify-between gap-4 px-4 py-2"
-    >
-      <div className="flex min-w-0 items-center gap-3">
+    <IntegrationRowFrame
+      slot="github"
+      logo={
         <GithubMark className="size-5 shrink-0 text-foreground" aria-hidden />
-        <div className="flex min-w-0 flex-col gap-0.5">
-          <span className="font-medium text-foreground text-sm">GitHub</span>
-          <span className="text-muted-foreground text-xs">
-            {connected
-              ? 'Works in this team’s repositories'
-              : 'Not installed on this team’s repositories'}
-          </span>
-        </div>
-      </div>
-
-      {onGitHub ? (
-        <a
-          href={onGitHub}
-          className={pillClass(connected ? 'outline' : 'default', 'mr-7')}
-        >
-          {connected ? 'Manage on GitHub' : 'Install on GitHub'}
-        </a>
-      ) : (
-        !connected && (
-          <span className="mr-7 text-muted-foreground text-xs">
-            Install link unavailable
-          </span>
+      }
+      name="GitHub"
+      mark={
+        unreached.size > 0 && (
+          <NotedWarning
+            tone="destructive"
+            label="Repositories not reached"
+            note={`The App can’t reach ${[...unreached].join(', ')}.`}
+          />
         )
-      )}
-    </li>
+      }
+      summary={
+        !connected
+          ? 'Not installed on this team’s repositories'
+          : repositories.data
+            ? `Reaches ${reposShown(reached.length)}`
+            : 'Works in this team’s repositories'
+      }
+      need={
+        !connected && href && <GitHubAppLink href={href} installed={false} />
+      }
+    >
+      <GitHubDetails
+        installed={connected}
+        href={href}
+        reached={reached}
+        used={used}
+      />
+    </IntegrationRowFrame>
   );
 }

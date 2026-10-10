@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { listTaskRuns } from '@/lib/api';
 
-export const taskRunKeys = {
+const taskRunKeys = {
   forTask: (taskId?: string) => ['runs', 'task', taskId ?? null] as const,
 };
 

@@ -11,6 +11,7 @@ type InstalledArgs = {
 const meta = {
   title: 'Workspace/GitHub installed',
   ...pageStory<InstalledArgs>({
+    states: ['data', 'loading', 'error'],
     at: ({ requested }) =>
       requested ? `${INSTALLED}&setup_action=request` : INSTALLED,
     args: { requested: false },

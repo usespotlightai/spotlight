@@ -19,6 +19,7 @@ export function TeamAccountButton({
       alert={connect.isError ? 'Could not connect. Try again.' : null}
     >
       <PillButton
+        data-need="team"
         variant="default"
         aria-label={
           connect.isPending

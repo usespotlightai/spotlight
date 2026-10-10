@@ -21,6 +21,7 @@ export function YourAccountButton({
       alert={connect.isError ? 'Could not connect. Try again.' : null}
     >
       <PillButton
+        data-need="you"
         variant="default"
         aria-label={
           connect.isPending

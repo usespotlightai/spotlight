@@ -8,6 +8,7 @@ type CreateWorkspaceArgs = {
 const meta = {
   title: 'Workspace/Create workspace',
   ...pageStory<CreateWorkspaceArgs>({
+    states: ['data'],
     at: '/workspaces/new',
     args: { account: 'no-workspace', creating: false },
     argTypes: {

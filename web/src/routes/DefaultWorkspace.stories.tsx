@@ -3,7 +3,11 @@ import { type PageArgs, pageStory } from '@/stories/application';
 
 const meta = {
   title: 'Workspace/Default workspace',
-  ...pageStory({ at: '/', scope: 'app' }),
+  ...pageStory({
+    states: ['data', 'error'],
+    at: '/',
+    scope: 'app',
+  }),
 } satisfies Meta<PageArgs>;
 
 export default meta;

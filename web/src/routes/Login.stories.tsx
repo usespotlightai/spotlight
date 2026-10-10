@@ -8,6 +8,7 @@ type LoginArgs = {
 const meta = {
   title: 'Auth/Log in',
   ...pageStory<LoginArgs>({
+    states: ['data'],
     at: '/login',
     args: { account: 'signed-out', continuing: false },
     argTypes: {

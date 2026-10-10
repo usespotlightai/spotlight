@@ -5,7 +5,10 @@ import { type PageArgs, pageStory } from '@/stories/application';
 
 const meta = {
   title: 'Settings/Team/General',
-  ...pageStory({ at: teamSettingsPath(SLUG, PLATFORM_ID, 'general') }),
+  ...pageStory({
+    states: ['data', 'loading', 'error'],
+    at: teamSettingsPath(SLUG, PLATFORM_ID, 'general'),
+  }),
 } satisfies Meta<PageArgs>;
 
 export default meta;

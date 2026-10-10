@@ -8,7 +8,7 @@ export type SetupsNarrowed = {
   readonly size: RunSize | null;
 };
 
-export const insightsSetupsKeys = {
+const insightsSetupsKeys = {
   forTeam: (
     teamId: string | undefined,
     period: InsightsPeriod,

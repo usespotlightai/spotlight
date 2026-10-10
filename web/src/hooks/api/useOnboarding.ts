@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { readOnboarding } from '@/lib/api';
 
-export const onboardingKeys = {
+const onboardingKeys = {
   forTeam: (teamId?: string) => ['onboarding', teamId ?? null] as const,
 };
 

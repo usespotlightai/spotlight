@@ -18,6 +18,7 @@ type RunArgs = {
 const meta = {
   title: 'Team/Runs/Run',
   ...pageStory<RunArgs>({
+    states: ['data', 'loading', 'error'],
     at: ({ run }) => `/w/acme/team/team_platform/runs/${run}`,
     args: { run: 'run_retries_2', remembered: false },
     argTypes: {

@@ -34,6 +34,7 @@ type PageStory<Extra> = {
   readonly args?: Partial<PageArgs> & Extra;
   readonly argTypes?: Partial<ArgTypes<Extra>>;
   readonly script?: (args: PageArgs & Extra) => Script | undefined;
+  readonly states?: readonly PageState[];
 };
 
 const SIGNED_OUT = {
@@ -52,20 +53,23 @@ const signIn = (account: Account) => {
   }
 };
 
+const STATE_LABELS: Record<PageState, string> = {
+  data: 'With data',
+  empty: 'Empty',
+  loading: 'Loading',
+  error: 'Error',
+};
+
+const stateControl = (states: readonly PageState[]) =>
+  states.length > 1
+    ? {
+        name: 'State',
+        options: states,
+        control: { type: 'inline-radio' as const, labels: STATE_LABELS },
+      }
+    : { table: { disable: true } };
+
 const PAGE_ARG_TYPES: Partial<ArgTypes<PageArgs>> = {
-  state: {
-    name: 'State',
-    options: PAGE_STATES,
-    control: {
-      type: 'inline-radio',
-      labels: {
-        data: 'With data',
-        empty: 'Empty',
-        loading: 'Loading',
-        error: 'Error',
-      },
-    },
-  },
   account: {
     name: 'Signed in as',
     options: ACCOUNTS,
@@ -109,6 +113,7 @@ export const pageStory = <Extra extends object = object>({
   args,
   argTypes,
   script,
+  states = PAGE_STATES,
 }: PageStory<Extra>) => ({
   args: {
     state: 'data',
@@ -116,9 +121,11 @@ export const pageStory = <Extra extends object = object>({
     actions: 'succeed',
     ...args,
   } as PageArgs & Extra,
-  argTypes: { ...PAGE_ARG_TYPES, ...argTypes } as Partial<
-    ArgTypes<PageArgs & Extra>
-  >,
+  argTypes: {
+    ...PAGE_ARG_TYPES,
+    state: stateControl(states),
+    ...argTypes,
+  } as Partial<ArgTypes<PageArgs & Extra>>,
   parameters: { msw: handlers },
   beforeEach: () => {
     onlineManager.setOnline(true);

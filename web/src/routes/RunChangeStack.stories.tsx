@@ -14,6 +14,7 @@ const OPENED_QUERY: Record<ChangeStackArgs['opened'], string> = {
 const meta = {
   title: 'Team/Runs/Change stack',
   ...pageStory<ChangeStackArgs>({
+    states: ['data', 'loading', 'error'],
     at: ({ opened }) =>
       `/w/acme/team/team_platform/runs/run_postgres_2/changes${OPENED_QUERY[opened]}`,
     args: { opened: 'none' },

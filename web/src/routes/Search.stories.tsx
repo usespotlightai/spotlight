@@ -8,6 +8,7 @@ type SearchArgs = {
 const meta = {
   title: 'Team/Lines/Search',
   ...pageStory<SearchArgs>({
+    states: ['data', 'loading', 'error'],
     at: ({ search }) =>
       `/w/acme/team/team_platform/lines/line_delivery/stations/station_implementation/searches/${search}`,
     args: { search: 'search_tests_first' },

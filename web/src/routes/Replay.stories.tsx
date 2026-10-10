@@ -14,6 +14,7 @@ type ReplayArgs = {
 const meta = {
   title: 'Team/Lines/Replay',
   ...pageStory<ReplayArgs>({
+    states: ['data', 'loading', 'error'],
     at: ({ replay }) =>
       `/w/acme/team/team_platform/lines/line_delivery/stations/station_implementation/replays/${replay}`,
     args: { replay: 'replay_shorter_prompt', opened: false },

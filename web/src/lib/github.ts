@@ -30,3 +30,15 @@ export const installUrlFor = (base: string, whence: Whence): string => {
 
   return url.toString();
 };
+
+export const reposShown = (count: number): string =>
+  count === 1 ? '1 repository' : `${count} repositories`;
+
+export const unreachedOf = (
+  used: readonly string[],
+  reached: readonly string[],
+): Set<string> => {
+  const reachable = new Set(reached);
+
+  return new Set(used.filter((each) => !reachable.has(each)));
+};

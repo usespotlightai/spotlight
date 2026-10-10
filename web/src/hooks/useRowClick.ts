@@ -1,4 +1,4 @@
-import type { MouseEvent } from 'react';
+import { type RefObject, useEffect, useLayoutEffect, useRef } from 'react';
 
 const OWN_CLICKS =
   'button, a, input, textarea, select, [role^="menu"], [role="dialog"], form';
@@ -8,19 +8,38 @@ type RowClickOptions = {
 };
 
 export function useRowClick(
+  row: RefObject<HTMLElement | null>,
   toggle: () => void,
   { ignore }: RowClickOptions = {},
-): (event: MouseEvent<HTMLElement>) => void {
-  return (event) => {
-    const target = event.target as Element;
+): void {
+  const latest = useRef({ toggle, ignore });
 
-    if (
-      target.closest(OWN_CLICKS) ||
-      ignore?.(target) ||
-      window.getSelection()?.toString()
-    ) {
+  useLayoutEffect(() => {
+    latest.current = { toggle, ignore };
+  });
+
+  useEffect(() => {
+    const element = row.current;
+
+    if (!element) {
       return;
     }
-    toggle();
-  };
+
+    const onClick = (event: MouseEvent) => {
+      const target = event.target as Element;
+
+      if (
+        target.closest(OWN_CLICKS) ||
+        latest.current.ignore?.(target) ||
+        window.getSelection()?.toString()
+      ) {
+        return;
+      }
+      latest.current.toggle();
+    };
+
+    element.addEventListener('click', onClick);
+
+    return () => element.removeEventListener('click', onClick);
+  }, [row]);
 }

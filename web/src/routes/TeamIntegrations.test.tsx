@@ -42,6 +42,17 @@ vi.mock('@/hooks/api/useMembers', () => ({
   useMembers: () => query(members()),
 }));
 
+const repositories = vi.fn();
+const lines = vi.fn();
+
+vi.mock('@/hooks/api/useRepositories', () => ({
+  useRepositories: () => query(repositories()),
+}));
+
+vi.mock('@/hooks/api/useLines', () => ({
+  useLines: () => query(lines()),
+}));
+
 vi.mock('@/hooks/api/useWorkspace', () => ({
   useWorkspace: () => ({ data: { id: 'ws_1', role: role() } }),
 }));
@@ -154,6 +165,11 @@ beforeEach(() => {
   connections.mockReturnValue(joined());
   members.mockReturnValue(undefined);
   role.mockReturnValue('owner');
+  repositories.mockReturnValue([
+    { fullName: 'acme/api' },
+    { fullName: 'acme/web' },
+  ]);
+  lines.mockReturnValue([{ id: 'line_1', repositories: ['acme/api'] }]);
 });
 
 describe('TeamIntegrations', () => {
@@ -184,9 +200,9 @@ describe('TeamIntegrations', () => {
     configuration.mockReturnValue(read([integration(), personal()]));
     showing();
 
-    const names = within(screen.getByRole('list', { name: 'Integrations' }))
-      .getAllByRole('listitem')
-      .map((each) => each.textContent);
+    const names = [
+      ...screen.getByRole('list', { name: 'Integrations' }).children,
+    ].map((each) => each.textContent);
 
     expect(names[0]).toContain('GitHub');
     expect(names[1]).toContain('PagerDuty');
@@ -198,19 +214,45 @@ describe('TeamIntegrations', () => {
     showing();
 
     expect(
-      screen.getByRole('link', { name: 'Install on GitHub' }),
+      head('GitHub').getByRole('link', { name: 'Install on GitHub' }),
     ).toHaveAttribute('href', INSTALL);
     expect(
       screen.getByText('Not installed on this team’s repositories'),
     ).toBeInTheDocument();
   });
 
-  it('lets the App be managed once it is installed', () => {
+  it('says which repositories the App reaches, and keeps managing it in the opened row', async () => {
+    showing();
+
+    expect(screen.getByText('Reaches 2 repositories')).toBeInTheDocument();
+    expect(
+      head('GitHub').queryByRole('link', { name: 'Manage on GitHub' }),
+    ).not.toBeInTheDocument();
+
+    const opened = await opening('GitHub');
+
+    expect(fact(opened, 'Reaches')).toHaveTextContent('acme/api, acme/web');
+    expect(fact(opened, 'Lines use')).toHaveTextContent('acme/api');
+    expect(
+      within(opened).getByRole('link', { name: 'Manage on GitHub' }),
+    ).toHaveAttribute('href', INSTALL);
+  });
+
+  it('marks a repository the team’s lines use that the App cannot reach', async () => {
+    lines.mockReturnValue([
+      { id: 'line_1', repositories: ['acme/api', 'acme/infra'] },
+    ]);
     showing();
 
     expect(
-      screen.getByRole('link', { name: 'Manage on GitHub' }),
-    ).toHaveAttribute('href', INSTALL);
+      head('GitHub').getByRole('img', { name: 'Repositories not reached' }),
+    ).toHaveAccessibleDescription('The App can’t reach acme/infra.');
+
+    const used = fact(await opening('GitHub'), 'Lines use');
+
+    expect(
+      within(used).getByRole('img', { name: 'Not reached' }),
+    ).toBeInTheDocument();
   });
 
   it('says an integration that only receives events needs no account', async () => {

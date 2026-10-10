@@ -8,6 +8,7 @@ type TaskArgs = {
 const meta = {
   title: 'Team/Lines/Task',
   ...pageStory<TaskArgs>({
+    states: ['data', 'loading', 'error'],
     at: ({ task }) => `/w/acme/team/team_platform/tasks/${task}`,
     args: { task: 'task_retries' },
     argTypes: {

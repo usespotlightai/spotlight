@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { readTeam } from '@/lib/api';
 
-export const teamResourceKeys = {
+const teamResourceKeys = {
   detail: (teamId?: string) => ['team-resource', teamId ?? null] as const,
 };
 

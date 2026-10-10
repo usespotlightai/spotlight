@@ -10,6 +10,7 @@ type ChatArgs = {
 const meta = {
   title: 'Team/Agent/Chat',
   ...pageStory<ChatArgs>({
+    states: ['data', 'loading', 'error'],
     at: ({ chat }) => `${chats}/${chat}`,
     args: { chat: 'chat_retries' },
     argTypes: {

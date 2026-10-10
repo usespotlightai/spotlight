@@ -11,6 +11,7 @@ type NoticeArgs = {
 const meta = {
   title: 'Inbox/Notices',
   ...pageStory<NoticeArgs>({
+    states: ['data', 'loading', 'error'],
     at: ({ notice }) => noticePath(SLUG, notice),
     args: { notice: STALLED_NOTICE_ID },
     argTypes: {

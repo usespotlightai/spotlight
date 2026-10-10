@@ -5,7 +5,10 @@ import { type PageArgs, pageStory } from '@/stories/application';
 
 const meta = {
   title: 'Settings/Workspace/General',
-  ...pageStory({ at: workspaceGeneralPath(SLUG) }),
+  ...pageStory({
+    states: ['data', 'loading', 'error'],
+    at: workspaceGeneralPath(SLUG),
+  }),
 } satisfies Meta<PageArgs>;
 
 export default meta;

@@ -8,6 +8,7 @@ type ReplaySetArgs = {
 const meta = {
   title: 'Team/Lines/Replay set',
   ...pageStory<ReplaySetArgs>({
+    states: ['data', 'loading', 'error'],
     at: ({ set }) =>
       `/w/acme/team/team_platform/lines/line_delivery/stations/station_implementation/replay-sets/${set}`,
     args: { set: 'set_billing_work' },

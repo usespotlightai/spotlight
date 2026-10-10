@@ -74,7 +74,7 @@ export const teamOfLine = (lineId: string): string | undefined =>
     lines.some((line) => line.id === lineId),
   )?.[0];
 
-export const placeOf = (
+const placeOf = (
   lineId: string,
   stationId: string,
 ): StationPlace | undefined => {
@@ -97,12 +97,9 @@ export const placeOf = (
     : undefined;
 };
 
-export const addressOf = (place: StationPlace): string =>
-  `${place.teamKey}/${place.lineKey}/${place.stationKey}`;
-
 const found = new WeakMap<object, Map<string, StationRunFound[]>>();
 
-export const runsAt = (
+const runsAt = (
   teamId: string,
   lineId: string,
   stationId: string,

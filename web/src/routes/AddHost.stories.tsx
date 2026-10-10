@@ -10,6 +10,7 @@ type AddHostArgs = {
 const meta = {
   title: 'Settings/Workspace/Runners/Add a host',
   ...pageStory<AddHostArgs>({
+    states: ['data', 'loading'],
     at: addHostPath(SLUG),
     args: { created: false },
     argTypes: { created: toggle('Pool created') },

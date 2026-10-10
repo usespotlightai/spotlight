@@ -63,6 +63,8 @@ export const REPOSITORIES = [
   'acme/worker',
   'acme/web',
   'acme/infra',
+  'acme/docs',
+  'acme/mobile',
 ];
 
 const integration = (

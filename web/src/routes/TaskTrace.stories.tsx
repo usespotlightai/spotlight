@@ -8,6 +8,7 @@ type TaskTraceArgs = {
 const meta = {
   title: 'Team/Lines/Task trace',
   ...pageStory<TaskTraceArgs>({
+    states: ['data', 'loading', 'error'],
     at: ({ task }) => `/w/acme/team/team_platform/tasks/${task}/trace`,
     args: { task: 'task_retries' },
     argTypes: {

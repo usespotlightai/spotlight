@@ -5,7 +5,11 @@ import { type PageArgs, pageStory } from '@/stories/application';
 
 const meta = {
   title: 'Team/Landing',
-  ...pageStory({ at: teamPath(SLUG, PLATFORM_ID), scope: 'app' }),
+  ...pageStory({
+    states: ['data', 'error'],
+    at: teamPath(SLUG, PLATFORM_ID),
+    scope: 'app',
+  }),
 } satisfies Meta<PageArgs>;
 
 export default meta;

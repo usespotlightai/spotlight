@@ -8,6 +8,7 @@ type InviteArgs = {
 const meta = {
   title: 'Auth/Accept invite',
   ...pageStory<InviteArgs>({
+    states: ['data', 'error'],
     at: ({ invite }) => `/invites/${invite}`,
     args: { invite: 'invite_sam' },
     argTypes: {

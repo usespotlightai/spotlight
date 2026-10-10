@@ -3,7 +3,7 @@ import { readInsightsMemory } from '@/lib/api';
 import type { InsightsPeriod } from '@/lib/insights';
 import type { InsightsMemory } from '@/lib/insights-memory';
 
-export const insightsMemoryKeys = {
+const insightsMemoryKeys = {
   forTeam: (teamId: string | undefined, period: InsightsPeriod) =>
     ['insights', 'memory', teamId ?? null, period] as const,
 };

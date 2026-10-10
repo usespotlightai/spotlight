@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { listReplayCandidates } from '@/lib/api';
 import type { ReplayCandidate } from '@/lib/replay';
 
-export const replayCandidateKeys = {
+const replayCandidateKeys = {
   forStation: (address?: string) =>
     ['replay-candidates', address ?? null] as const,
 };
