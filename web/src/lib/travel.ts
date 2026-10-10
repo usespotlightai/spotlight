@@ -1,6 +1,6 @@
 import { canGlide } from '@/lib/glide';
 
-export const TRAVEL: KeyframeAnimationOptions = {
+const TRAVEL: KeyframeAnimationOptions = {
   duration: 200,
   easing: 'cubic-bezier(0.25, 0.46, 0.45, 0.94)',
   fill: 'forwards',
