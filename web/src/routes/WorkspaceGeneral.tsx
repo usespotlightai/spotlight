@@ -1,5 +1,4 @@
 import { useParams } from 'react-router';
-import { DownloadTerraformButton } from '@/components/features/settings/DownloadTerraformButton';
 import { SettingsPage } from '@/components/features/settings/SettingsPage';
 import { SettingsRow } from '@/components/features/settings/SettingsRow';
 import { SettingsSection } from '@/components/features/settings/SettingsSection';
@@ -54,18 +53,6 @@ export function WorkspaceGeneral() {
           </SettingsRow>
         </SettingsSection>
       )}
-
-      <SettingsSection title="Terraform">
-        <SettingsRow
-          label="Download as Terraform"
-          description="Workspace configuration as a Terraform module. Manage it from code."
-        >
-          <DownloadTerraformButton
-            workspaceId={workspace.data?.id}
-            slug={slug}
-          />
-        </SettingsRow>
-      </SettingsSection>
     </SettingsPage>
   );
 }

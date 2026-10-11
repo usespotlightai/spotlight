@@ -96,6 +96,10 @@ func run() error {
 	wearing := wear.From(ctx, redeemed, handed.Held, wear.Limits{Hosts: allowed, Reads: handed.Reads}, key, readerInNetwork(ctx), log)
 	defer wearing.Forget()
 
+	if err := wearing.TowardControlPlane(redeemed.SpotlightAPI, controlPlane, redeemed.RunID, key); err != nil {
+		log.Warn("could not hold the run's Spotlight token", "error", err)
+	}
+
 	issuer, err := authority.New(time.Now(), wearing.Hosts())
 	if err != nil {
 		return err

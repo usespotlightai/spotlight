@@ -43,6 +43,7 @@ const MERGED: Heard = {
     activity: 'merged',
     branch: 'spotlight/task_1',
     pullRequest: 'https://github.com/acme/api/pull/7',
+    label: null,
     about: null,
     remark: null,
     byBot: false,

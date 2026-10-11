@@ -65,6 +65,7 @@ const taskOn = (line: Line) =>
 
 const REQUEST: ReviewRequest = {
   asking: 'opened',
+  label: null,
   pullRequest: PULL,
   author: 'octocat',
   outside: false,

@@ -1,17 +1,20 @@
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import type { WorkspaceSetup } from '@work/application/services/workspace-setup.service';
+import type { SetupStanding } from '@work/application/services/setup-standing.service';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import { InvalidTaskTransitionError } from '@work/domain/exceptions/invalid-task-transition.error';
 import { TaskMovedOnError } from '@work/domain/exceptions/task-moved-on.error';
+import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { settling } from '@work/domain/services/setup-list';
 
 export class SettleSetup {
   constructor(
     private readonly tasks: TaskRepository,
-    private readonly setup: WorkspaceSetup,
+    private readonly lines: LineRepository,
+    private readonly setup: SetupStanding,
     private readonly clock: ClockPort,
     private readonly logger: LoggerPort,
   ) {}
@@ -20,6 +23,14 @@ export class SettleSetup {
     await this.looking(workspaceId.value, async () =>
       this.each(await this.tasks.settingUpIn(workspaceId)),
     );
+  }
+
+  async forTeam(teamId: TeamId): Promise<void> {
+    await this.looking(teamId.value, async () => {
+      const standing = await this.tasks.settingUpFor(teamId);
+
+      await this.each(standing ? [standing] : []);
+    });
   }
 
   async wherever(): Promise<void> {
@@ -49,11 +60,15 @@ export class SettleSetup {
     const at = { taskId: task.id.value, workspaceId: task.workspaceId.value };
 
     try {
-      const saying = settling(
-        task.notes,
-        await this.setup.stateOf(task.workspaceId),
-        this.clock.now(),
-      );
+      const line = await this.lines.holding(task.stationId);
+
+      if (!line) {
+        this.logger.warn(at, 'found no line holding a team’s setup list');
+        return;
+      }
+
+      const { state } = await this.setup.of(task.workspaceId, line.teamId);
+      const saying = settling(task.notes, state, this.clock.now());
 
       if (saying) {
         await this.tasks.save(task.settled(saying));

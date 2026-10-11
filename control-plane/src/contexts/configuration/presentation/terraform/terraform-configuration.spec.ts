@@ -547,6 +547,7 @@ describe('workspaceTerraform', () => {
         '  reviews {',
         '    start   = "opened"',
         '    mention = "@spotlight"',
+        '    label   = "spotlight"',
         '',
         '    skip {',
         '      spotlight = true',

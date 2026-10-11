@@ -11,6 +11,10 @@ export type ReviewStart = (typeof REVIEW_STARTS)[number];
 
 const DEFAULT_MENTION = '@spotlight';
 
+const DEFAULT_LABEL = 'spotlight';
+
+const LONGEST_LABEL = 50;
+
 const MENTION = /^@[A-Za-z0-9][A-Za-z0-9_-]*(\[bot\])?$/;
 
 export const reviewsOn = (role: LineRole | null): boolean =>
@@ -31,12 +35,14 @@ export class ReviewPolicy {
   private constructor(
     readonly start: ReviewStart,
     readonly mention: string,
+    readonly label: string,
     readonly skip: ReviewSkips,
   ) {}
 
   static of(input: {
     start?: string;
     mention?: string;
+    label?: string;
     skip?: Partial<ReviewSkips>;
   }): ReviewPolicy {
     const start = input.start ?? 'mentioned';
@@ -55,11 +61,19 @@ export class ReviewPolicy {
       );
     }
 
+    const label = (input.label ?? DEFAULT_LABEL).trim();
+
+    if (label.length === 0 || label.length > LONGEST_LABEL) {
+      throw new InvalidReviewPolicyError(
+        `label must be 1 to ${LONGEST_LABEL} characters, as in ${DEFAULT_LABEL}`,
+      );
+    }
+
     const authors = (input.skip?.authors ?? [])
       .map((each) => each.trim().toLowerCase())
       .filter(Boolean);
 
-    return new ReviewPolicy(start as ReviewStart, mention, {
+    return new ReviewPolicy(start as ReviewStart, mention, label, {
       spotlight: input.skip?.spotlight ?? true,
       drafts: input.skip?.drafts ?? true,
       authors: [...new Set(authors)].sort(),
@@ -67,7 +81,7 @@ export class ReviewPolicy {
   }
 
   asks(asking: ReviewAsking): boolean {
-    return asking === 'mentioned' || this.start === 'opened';
+    return asking !== 'opened' || this.start === 'opened';
   }
 
   mentionedIn(text: string): boolean {
@@ -85,6 +99,13 @@ export class ReviewPolicy {
     if (
       asked.asking === 'mentioned' &&
       !this.mentionedIn(asked.said?.body ?? '')
+    ) {
+      return false;
+    }
+
+    if (
+      asked.asking === 'labelled' &&
+      asked.label?.toLowerCase() !== this.label.toLowerCase()
     ) {
       return false;
     }
@@ -107,6 +128,7 @@ export class ReviewPolicy {
       this.kind === other.kind &&
       this.start === other.start &&
       this.mention === other.mention &&
+      this.label === other.label &&
       this.skip.spotlight === other.skip.spotlight &&
       this.skip.drafts === other.skip.drafts &&
       this.skip.authors.length === other.skip.authors.length &&

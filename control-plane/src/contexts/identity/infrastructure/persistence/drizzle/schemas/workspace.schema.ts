@@ -165,20 +165,35 @@ export const workspaceToken = pgTable(
     expiresAt: timestamp('expires_at'),
     mintedThrough: text('minted_through'),
     mintedUnder: integer('minted_under'),
+    mintedForRun: text('minted_for_run'),
+    mintedForAttempt: integer('minted_for_attempt'),
     version: integer('version').default(0).notNull(),
   },
   (table) => [
     uniqueIndex('workspace_token_workspace_name_idx')
       .on(table.workspaceId, table.name)
-      .where(sql`${table.mintedThrough} is null`),
+      .where(
+        sql`${table.mintedThrough} is null and ${table.mintedForRun} is null`,
+      ),
+    index('workspace_token_minted_for_run_idx').on(table.mintedForRun),
     index('workspace_token_minted_through_idx').on(table.mintedThrough),
     check(
       'workspace_token_minted_under',
       sql`(${table.mintedThrough} is null) = (${table.mintedUnder} is null)`,
     ),
+    check(
+      'workspace_token_minted_for_attempt',
+      sql`(${table.mintedForRun} is null) = (${table.mintedForAttempt} is null)`,
+    ),
+    check(
+      'workspace_token_minted_once',
+      sql`${table.mintedThrough} is null or ${table.mintedForRun} is null`,
+    ),
     index('workspace_token_minted_expiry_idx')
       .on(table.expiresAt)
-      .where(sql`${table.mintedThrough} is not null`),
+      .where(
+        sql`${table.mintedThrough} is not null or ${table.mintedForRun} is not null`,
+      ),
   ],
 );
 

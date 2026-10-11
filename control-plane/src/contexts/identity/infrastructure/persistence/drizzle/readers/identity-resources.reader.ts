@@ -62,7 +62,10 @@ const KEPT_TRUST = {
   definedBy: workspaceTokenTrust.definedBy,
 };
 
-const issuedByHand = isNull(workspaceToken.mintedThrough);
+const issuedByHand = and(
+  isNull(workspaceToken.mintedThrough),
+  isNull(workspaceToken.mintedForRun),
+);
 
 type Row<Kept> = Omit<Kept, 'id' | 'workspaceId'> & {
   readonly id: string;

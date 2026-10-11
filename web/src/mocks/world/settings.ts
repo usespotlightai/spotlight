@@ -6,7 +6,6 @@ import type {
   PersonConnectionResponseDto,
   RunnerPoolResourceResponseDto,
   TeamSkillResponseDto,
-  TerraformFileResponseDto,
   WorkspaceTokenResourceResponseDto,
 } from '@/lib/api';
 import { daysAgo, hoursAgo } from '@/mocks/clock';
@@ -268,49 +267,6 @@ const TOKENS: WorkspaceTokenResourceResponseDto[] = [
     issuedAt: daysAgo(40),
     expiresAt: null,
   }),
-];
-
-export const TERRAFORM: TerraformFileResponseDto[] = [
-  {
-    path: 'main.tf',
-    content: `terraform {
-  required_providers {
-    spotlight = {
-      source = "usespotlightai/spotlight"
-    }
-  }
-}
-
-resource "spotlight_workspace" "acme" {
-  name = "Acme"
-  slug = "acme"
-}
-`,
-  },
-  {
-    path: 'teams.tf',
-    content: `resource "spotlight_team" "platform" {
-  workspace_id = spotlight_workspace.acme.id
-  key          = "platform"
-  name         = "Platform"
-}
-
-resource "spotlight_team" "growth" {
-  workspace_id = spotlight_workspace.acme.id
-  key          = "growth"
-  name         = "Growth"
-}
-`,
-  },
-  {
-    path: 'runners.tf',
-    content: `resource "spotlight_runner_pool" "build_farm" {
-  workspace_id = spotlight_workspace.acme.id
-  key          = "build-farm"
-  max_runs     = 6
-}
-`,
-  },
 ];
 
 export type SettingsWorld = {

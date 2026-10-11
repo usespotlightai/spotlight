@@ -217,6 +217,7 @@ describe('runner pools (e2e)', () => {
       .delete(schema.githubConnection)
       .where(eq(schema.githubConnection.workspaceId, held));
     await forgetRunnersOf(db, held);
+    await db.delete(schema.chat).where(eq(schema.chat.workspaceId, held));
     await unseat();
   });
 
@@ -592,7 +593,7 @@ describe('runner pools (e2e)', () => {
         .expect(401);
     });
 
-    it('settles the Setup list once a host reports in through it, in a workspace already connected to GitHub', async () => {
+    it('settles the Setup list once a host reports in through it, in a workspace connected to GitHub and set up as code', async () => {
       const { list } = await listSetUp(
         db,
         new DrizzleTaskRepository(new DrizzleContext(db), {
@@ -604,6 +605,19 @@ describe('runner pools (e2e)', () => {
         workspaceId: held,
         installationId: String(randomInt(1, 2 ** 31)),
         version: 1,
+      });
+      await db.insert(schema.chat).values({
+        id: randomUUID(),
+        workspaceId: held,
+        teamId: held,
+        startedById: owner,
+        title: 'Set up our configuration.',
+        harness: 'claude-code',
+        setup: {
+          repository: 'acme/infra',
+          folder: 'spotlight',
+          pullRequest: 'https://github.com/acme/infra/pull/12',
+        },
       });
       const settledNotes = () =>
         db

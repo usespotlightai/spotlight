@@ -25,6 +25,7 @@ import { Holdings } from '@identity/domain/value-objects/holdings.vo';
 import { InviteId } from '@identity/domain/value-objects/invite-id.vo';
 import { InviteTerms } from '@identity/domain/value-objects/invite-terms.vo';
 import { MintedTokenDetail } from '@identity/domain/value-objects/minted-token-detail.vo';
+import { RunTokenDetail } from '@identity/domain/value-objects/run-token-detail.vo';
 import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import { TeamName } from '@identity/domain/value-objects/team-name.vo';
 import { TokenDescription } from '@identity/domain/value-objects/token-description.vo';
@@ -44,6 +45,7 @@ export const IDENTITY_EVENT_TYPES = [
   InviteId,
   InviteTerms,
   MintedTokenDetail,
+  RunTokenDetail,
   Holdings,
   TeamKey,
   TeamName,

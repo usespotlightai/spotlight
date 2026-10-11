@@ -1,16 +1,21 @@
 import { Check, ChevronDown } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import { Link, useParams } from 'react-router';
+import { ConfigHomeForm } from '@/components/features/onboarding/ConfigHomeForm';
 import { InstallGitHubLink } from '@/components/features/onboarding/InstallGitHubLink';
 import {
   SetupAbout,
   type SetupAboutProps,
 } from '@/components/features/onboarding/SetupAbout';
 import { SetupStepsSkeleton } from '@/components/features/onboarding/SetupStepsSkeleton';
+import {
+  SETUP_CONTROL,
+  setupLinkClass,
+} from '@/components/features/onboarding/setup-control';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
-import { buttonVariants } from '@/components/ui/button-variants';
 import { useOnboarding } from '@/hooks/api/useOnboarding';
 import type { SetupStepResponseDto } from '@/lib/api/types.gen';
+import { chatPath } from '@/lib/chat';
 import { failed, loading } from '@/lib/query';
 import { runnersPath } from '@/lib/runner';
 import { cn } from '@/lib/utils';
@@ -21,8 +26,6 @@ type SetupStepsProps = {
   about: SetupAboutProps | undefined;
   resolved: boolean;
 };
-
-const CONTROL = 'rounded-full px-3.5 shadow-none';
 
 type StepProps = {
   step: SetupStepResponseDto;
@@ -149,22 +152,64 @@ export function SetupSteps({ teamId, body, about, resolved }: SetupStepsProps) {
     );
   }
 
-  const goAndDoIt = (step: SetupStepResponseDto): ReactNode => {
-    if (step.key === 'github') {
+  const configuring = (): ReactNode => {
+    const chat = onboarding.setupChat;
+
+    if (chat?.pullRequest) {
       return (
-        <InstallGitHubLink slug={slug} teamId={teamId} className={CONTROL} />
+        <a
+          href={chat.pullRequest}
+          target="_blank"
+          rel="noreferrer"
+          className={setupLinkClass}
+        >
+          Open pull request
+        </a>
       );
     }
 
+    if (chat?.id) {
+      return (
+        <Link to={chatPath(slug, teamId, chat.id)} className={setupLinkClass}>
+          Open setup chat
+        </Link>
+      );
+    }
+
+    if (chat) {
+      return (
+        <p className="text-muted-foreground text-sm leading-6">
+          Being set up by {chat.startedBy || 'a former member'}.
+        </p>
+      );
+    }
+
+    return onboarding.canSetUp ? (
+      <ConfigHomeForm slug={slug} teamId={teamId} />
+    ) : (
+      <p className="text-muted-foreground text-sm leading-6">
+        Requires the GitHub App and a host. Push pools can’t run a setup chat.
+      </p>
+    );
+  };
+
+  const goAndDoIt = (step: SetupStepResponseDto): ReactNode => {
+    if (step.key === 'github') {
+      return (
+        <InstallGitHubLink
+          slug={slug}
+          teamId={teamId}
+          className={SETUP_CONTROL}
+        />
+      );
+    }
+
+    if (step.key === 'configuration') {
+      return configuring();
+    }
+
     return (
-      <Link
-        to={runnersPath(slug)}
-        className={cn(
-          buttonVariants({ variant: 'outline', size: 'sm' }),
-          CONTROL,
-          'bg-card',
-        )}
-      >
+      <Link to={runnersPath(slug)} className={setupLinkClass}>
         Go to runners
       </Link>
     );
@@ -182,7 +227,7 @@ export function SetupSteps({ teamId, body, about, resolved }: SetupStepsProps) {
             key={step.key}
             step={step}
             action={goAndDoIt(step)}
-            disabled={resolved}
+            disabled={resolved && step.key !== 'configuration'}
           />
         ))}
       </ul>

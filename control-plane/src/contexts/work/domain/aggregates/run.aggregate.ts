@@ -434,7 +434,7 @@ export class Run extends EventRecorder {
   reservedFor(runner: RunnerId, pool: PoolId, now: Date): Run {
     if (this.wearsSecrets) {
       throw new InvalidRunTransitionError(
-        `Run ${this.id.value} uses secrets. Only a host sandbox can run it, not a pool runner.`,
+        `Run ${this.id.value} carries secrets or a Spotlight token. Only a host sandbox, which has egress, can run it, not a pool runner.`,
       );
     }
 
@@ -1187,7 +1187,7 @@ export class Run extends EventRecorder {
   }
 
   get wearsSecrets(): boolean {
-    return this.spec.wears.length > 0;
+    return this.spec.wears.length > 0 || this.spec.wearsSpotlightApi;
   }
 
   isHeldBy(runner: RunnerId): boolean {
@@ -1196,6 +1196,10 @@ export class Run extends EventRecorder {
 
   secretsWornFor(runner: RunnerId): readonly SecretName[] {
     return this.isHeldBy(runner) ? this.spec.wears : [];
+  }
+
+  reachesSpotlightApiFor(runner: RunnerId): boolean {
+    return this.isHeldBy(runner) && this.spec.wearsSpotlightApi;
   }
 
   wasGiven(tool: Tool): boolean {

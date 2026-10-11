@@ -8,6 +8,7 @@ import { describe, expect, it } from 'vitest';
 
 const asked = (over: Partial<ReviewAsked> = {}): ReviewAsked => ({
   asking: 'opened',
+  label: null,
   pullRequest: PullRequestUrl.of('https://github.com/acme/api/pull/7'),
   author: 'octocat',
   outside: false,
@@ -21,17 +22,53 @@ const asked = (over: Partial<ReviewAsked> = {}): ReviewAsked => ({
 const mentioned = (body: string, over: Partial<ReviewAsked> = {}) =>
   asked({ asking: 'mentioned', said: Said.of({ body }), ...over });
 
+const labelled = (label: string, over: Partial<ReviewAsked> = {}) =>
+  asked({ asking: 'labelled', label, ...over });
+
 describe('ReviewPolicy', () => {
   it('waits to be mentioned, and skips Spotlight’s own pull requests and drafts, unless told otherwise', () => {
     const policy = ReviewPolicy.of({});
 
     expect(policy.start).toBe('mentioned');
     expect(policy.mention).toBe('@spotlight');
+    expect(policy.label).toBe('spotlight');
     expect(policy.skip).toEqual({
       spotlight: true,
       drafts: true,
       authors: [],
     });
+  });
+
+  it('reviews a pull request labelled with its label, whatever it starts on', () => {
+    expect(ReviewPolicy.of({}).takes(labelled('Spotlight'))).toBe(true);
+    expect(
+      ReviewPolicy.of({ start: 'opened' }).takes(labelled('spotlight')),
+    ).toBe(true);
+    expect(ReviewPolicy.of({}).takes(labelled('bug'))).toBe(false);
+    expect(
+      ReviewPolicy.of({ label: 'ai-review' }).takes(labelled('ai-review')),
+    ).toBe(true);
+  });
+
+  it('reviews a labelled draft, since a label is asked for by hand', () => {
+    expect(
+      ReviewPolicy.of({}).takes(labelled('spotlight', { draft: true })),
+    ).toBe(true);
+  });
+
+  it('refuses an empty label or one longer than GitHub allows', () => {
+    expect(() => ReviewPolicy.of({ label: ' ' })).toThrow(
+      InvalidReviewPolicyError,
+    );
+    expect(() => ReviewPolicy.of({ label: 'x'.repeat(51) })).toThrow(
+      InvalidReviewPolicyError,
+    );
+  });
+
+  it('tells policies with different labels apart', () => {
+    expect(
+      ReviewPolicy.of({}).equals(ReviewPolicy.of({ label: 'ai-review' })),
+    ).toBe(false);
   });
 
   it('reviews a pull request as it opens only when it starts on opening', () => {

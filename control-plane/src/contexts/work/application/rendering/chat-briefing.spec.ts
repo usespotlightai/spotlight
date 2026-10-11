@@ -14,6 +14,7 @@ import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Station } from '@work/domain/entities/station.entity';
 import { ChatHandedToRun } from '@work/domain/events/chat-handed-to-run.event';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
+import { ConfigHome } from '@work/domain/value-objects/config-home.vo';
 import { ImprovedStation } from '@work/domain/value-objects/improved-station.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
@@ -235,5 +236,46 @@ describe('ChatBriefing', () => {
     expect(brief(started())).not.toContain(
       'The rest of what the team remembers',
     );
+  });
+
+  describe('a setup chat', () => {
+    const setup = Chat.start({
+      workspaceId: WorkspaceId.of('ws_1'),
+      teamId: TeamId.of('team_1'),
+      startedBy: LEON,
+      harness: HarnessId.of('claude-code'),
+      body: ChatMessageBody.given('Set up our configuration.'),
+      setup: ConfigHome.of({ repository: 'acme/infra', folder: 'spotlight' }),
+      now: NOW,
+      newId: () => 'chat_1',
+    });
+
+    it('asks for a pull request with the team’s Terraform, never an apply', () => {
+      const briefing = brief(setup);
+
+      expect(briefing).toContain('Spotlight configuration as code');
+      expect(briefing).toContain('Never run `terraform apply`');
+      expect(briefing).not.toContain(
+        'You are not here to make the change yourself',
+      );
+    });
+
+    it('names where the configuration goes, as checked out', () => {
+      const briefing = brief(setup);
+
+      expect(briefing).toContain('`acme/infra`, under `spotlight/`');
+      expect(briefing).toContain('`infra/spotlight/`');
+      expect(briefing).toContain('spotlight setup-pull-request');
+      expect(briefing).toContain(
+        '"$SPOTLIGHT_URL/api/resources/workspaces/ws_1/export"',
+      );
+      expect(briefing).toContain('terraform plan');
+    });
+
+    it('checks out the configuration’s repository', () => {
+      expect(setup.repositories.map((each) => each.value)).toEqual([
+        'acme/infra',
+      ]);
+    });
   });
 });

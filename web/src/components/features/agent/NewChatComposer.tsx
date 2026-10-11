@@ -5,10 +5,12 @@ import { ChatInput } from '@/components/shared/chat-input/ChatInput';
 import { useHarnesses } from '@/hooks/api/useHarnesses';
 import { useStartChat } from '@/hooks/api/useStartChat';
 import { useRemembered } from '@/hooks/useRemembered';
-import type { ImprovedStation, SharedTrace } from '@/lib/chat';
+import {
+  CHAT_HARNESS_KEY,
+  type ImprovedStation,
+  type SharedTrace,
+} from '@/lib/chat';
 import { stationReference, traceReference } from '@/lib/chat-input';
-
-const HARNESS_KEY = 'spotlight.chat-harness';
 
 type NewChatComposerProps = {
   slug: string;
@@ -28,7 +30,7 @@ export function NewChatComposer({
   onStarted,
 }: NewChatComposerProps) {
   const { data: harnesses } = useHarnesses();
-  const [held, remember] = useRemembered(HARNESS_KEY, '');
+  const [held, remember] = useRemembered(CHAT_HARNESS_KEY, '');
   const [model, setModel] = useState('');
   const [effort, setEffort] = useState('');
   const [repositories, setRepositories] = useState<string[]>([]);

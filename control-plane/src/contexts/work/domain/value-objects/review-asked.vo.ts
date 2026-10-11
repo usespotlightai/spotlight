@@ -5,7 +5,7 @@ import type { Branch } from '@work/domain/value-objects/branch.vo';
 import { PullRequestLink } from '@work/domain/value-objects/pull-request-link.vo';
 import type { Said } from '@work/domain/value-objects/said.vo';
 
-const REVIEW_ASKINGS = ['opened', 'mentioned'] as const;
+const REVIEW_ASKINGS = ['opened', 'mentioned', 'labelled'] as const;
 
 export type ReviewAsking = (typeof REVIEW_ASKINGS)[number];
 
@@ -14,7 +14,7 @@ export const reviewAsking = (raw: string): ReviewAsking => {
 
   if (!asking) {
     throw new InvalidReviewRequestError(
-      'must come from an opened pull request or a mention',
+      'must come from an opened pull request, a mention or a label',
     );
   }
 
@@ -23,6 +23,7 @@ export const reviewAsking = (raw: string): ReviewAsking => {
 
 export interface ReviewRequest {
   readonly asking: ReviewAsking;
+  readonly label: string | null;
   readonly pullRequest: PullRequestUrl;
   readonly author: string | null;
   readonly outside: boolean;

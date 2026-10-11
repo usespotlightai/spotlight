@@ -16,6 +16,14 @@ const takenOver = () =>
     setTimeout(resolve, 3000);
   });
 
+const reactivatedWhenShown = () => {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      navigator.serviceWorker?.controller?.postMessage('MOCK_ACTIVATE');
+    }
+  });
+};
+
 const reloadedOnce = (): boolean => {
   try {
     if (sessionStorage.getItem(RELOADED)) {
@@ -58,6 +66,7 @@ export const startMockApi = async () => {
   try {
     sessionStorage.removeItem(RELOADED);
   } catch {}
+  reactivatedWhenShown();
 
   return worker;
 };

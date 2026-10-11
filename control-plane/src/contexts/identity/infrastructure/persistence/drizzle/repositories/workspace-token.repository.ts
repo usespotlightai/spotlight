@@ -17,13 +17,14 @@ import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { TokenScopes } from '@shared-kernel/domain/value-objects/token-scopes.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { WorkspaceTokenId } from '@shared-kernel/domain/value-objects/workspace-token-id.vo';
 import { WorkspaceTokenTrustId } from '@shared-kernel/domain/value-objects/workspace-token-trust-id.vo';
-import { and, eq, isNotNull, lte, type SQL } from 'drizzle-orm';
+import { and, eq, isNotNull, lte, or, type SQL } from 'drizzle-orm';
 
 type Row = typeof workspaceToken.$inferSelect;
 
@@ -43,6 +44,8 @@ const rehydrated = (row: Row): WorkspaceToken =>
         ? null
         : WorkspaceTokenTrustId.of(row.mintedThrough),
     mintedUnder: row.mintedUnder,
+    mintedForRun: row.mintedForRun === null ? null : RunId.of(row.mintedForRun),
+    mintedForAttempt: row.mintedForAttempt,
     version: row.version,
   });
 
@@ -71,6 +74,8 @@ export class DrizzleWorkspaceTokenRepository
           expiresAt: added.expiresAt,
           mintedThrough: added.mintedThrough?.value ?? null,
           mintedUnder: added.mintedUnder,
+          mintedForRun: added.mintedForRun?.value ?? null,
+          mintedForAttempt: added.mintedForAttempt,
         });
       } catch (error) {
         if (codeOf(error) === UNIQUE_VIOLATION) {
@@ -135,6 +140,27 @@ export class DrizzleWorkspaceTokenRepository
     return rows.map(rehydrated);
   }
 
+  async mintedForRun(
+    workspaceId: WorkspaceId,
+    runId: RunId,
+    attempt: number | null,
+  ): Promise<readonly WorkspaceToken[]> {
+    const rows = await this.context.db
+      .select()
+      .from(workspaceToken)
+      .where(
+        and(
+          eq(workspaceToken.workspaceId, workspaceId.value),
+          eq(workspaceToken.mintedForRun, runId.value),
+          attempt === null
+            ? undefined
+            : eq(workspaceToken.mintedForAttempt, attempt),
+        ),
+      );
+
+    return rows.map(rehydrated);
+  }
+
   async mintedAndExpiredBy(
     now: Date,
     limit: number,
@@ -144,7 +170,10 @@ export class DrizzleWorkspaceTokenRepository
       .from(workspaceToken)
       .where(
         and(
-          isNotNull(workspaceToken.mintedThrough),
+          or(
+            isNotNull(workspaceToken.mintedThrough),
+            isNotNull(workspaceToken.mintedForRun),
+          ),
           lte(workspaceToken.expiresAt, now),
         ),
       )

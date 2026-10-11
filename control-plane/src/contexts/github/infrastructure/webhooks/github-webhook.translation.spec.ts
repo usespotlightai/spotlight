@@ -41,6 +41,7 @@ describe('GitHubWebhookTranslation', () => {
         activity: 'merged',
         branch: 'spotlight/task_1',
         pullRequest: 'https://github.com/acme/api/pull/7',
+        label: null,
         about: null,
         remark: null,
         byBot: false,
@@ -56,6 +57,37 @@ describe('GitHubWebhookTranslation', () => {
           }),
         ).toMatchObject({ activity: 'opened' });
       }
+    });
+
+    it('reads a pull request labelled, with the label it was given', () => {
+      expect(
+        activity('pull_request', {
+          action: 'labeled',
+          label: { name: ' spotlight ' },
+          pull_request: pull({ merged: false }),
+        }),
+      ).toMatchObject({ activity: 'labelled', label: 'spotlight' });
+    });
+
+    it('counts a label a bot added, since Spotlight adds none', () => {
+      expect(
+        activity('pull_request', {
+          action: 'labeled',
+          label: { name: 'spotlight' },
+          sender: { type: 'Bot' },
+          pull_request: pull({ merged: false }),
+        }),
+      ).toMatchObject({ activity: 'labelled', byBot: false });
+    });
+
+    it('carries no label on activity other than labelling', () => {
+      expect(
+        activity('pull_request', {
+          action: 'opened',
+          label: { name: 'spotlight' },
+          pull_request: pull({ merged: false }),
+        }),
+      ).toMatchObject({ activity: 'opened', label: null });
     });
 
     it('says nothing of a pull request edited or pushed to', () => {

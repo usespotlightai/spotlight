@@ -15,7 +15,13 @@ export function MockApplication({ at }: MockApplicationProps) {
     () =>
       new QueryClient({
         mutationCache: failuresToasted(),
-        defaultOptions: { queries: { staleTime: 30_000, retry: false } },
+        defaultOptions: {
+          queries: {
+            staleTime: 30_000,
+            retry: false,
+            refetchOnWindowFocus: false,
+          },
+        },
       }),
   );
 

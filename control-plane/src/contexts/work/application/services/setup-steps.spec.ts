@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 const nothing: SetupState = {
   connectedToGitHub: false,
   hasHarness: false,
+  configured: false,
 };
 
 describe('listed', () => {

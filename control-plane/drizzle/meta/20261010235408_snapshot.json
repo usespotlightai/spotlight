@@ -1,5 +1,5 @@
 {
-  "id": "23ef01b4-8bb3-4de8-85c2-51053dd65260",
+  "id": "58bce177-707e-4eca-8131-a20f6dad9aa5",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -3155,6 +3155,18 @@
           "primaryKey": false,
           "notNull": false
         },
+        "minted_for_run": {
+          "name": "minted_for_run",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "minted_for_attempt": {
+          "name": "minted_for_attempt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false
+        },
         "version": {
           "name": "version",
           "type": "integer",
@@ -3181,7 +3193,22 @@
             }
           ],
           "isUnique": true,
-          "where": "\"workspace_token\".\"minted_through\" is null",
+          "where": "\"workspace_token\".\"minted_through\" is null and \"workspace_token\".\"minted_for_run\" is null",
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "workspace_token_minted_for_run_idx": {
+          "name": "workspace_token_minted_for_run_idx",
+          "columns": [
+            {
+              "expression": "minted_for_run",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -3212,7 +3239,7 @@
             }
           ],
           "isUnique": false,
-          "where": "\"workspace_token\".\"minted_through\" is not null",
+          "where": "\"workspace_token\".\"minted_through\" is not null or \"workspace_token\".\"minted_for_run\" is not null",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -3248,6 +3275,14 @@
         "workspace_token_minted_under": {
           "name": "workspace_token_minted_under",
           "value": "(\"workspace_token\".\"minted_through\" is null) = (\"workspace_token\".\"minted_under\" is null)"
+        },
+        "workspace_token_minted_for_attempt": {
+          "name": "workspace_token_minted_for_attempt",
+          "value": "(\"workspace_token\".\"minted_for_run\" is null) = (\"workspace_token\".\"minted_for_attempt\" is null)"
+        },
+        "workspace_token_minted_once": {
+          "name": "workspace_token_minted_once",
+          "value": "\"workspace_token\".\"minted_through\" is null or \"workspace_token\".\"minted_for_run\" is null"
         }
       },
       "isRLSEnabled": false
@@ -10820,6 +10855,12 @@
         },
         "improving": {
           "name": "improving",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "setup": {
+          "name": "setup",
           "type": "jsonb",
           "primaryKey": false,
           "notNull": false

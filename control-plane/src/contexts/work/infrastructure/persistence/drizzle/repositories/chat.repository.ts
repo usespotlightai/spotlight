@@ -6,6 +6,7 @@ import {
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
+import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -22,6 +23,7 @@ import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import { ChatTitle } from '@work/domain/value-objects/chat-title.vo';
+import { ConfigHome } from '@work/domain/value-objects/config-home.vo';
 import { Effort } from '@work/domain/value-objects/effort.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import { ImprovedStation } from '@work/domain/value-objects/improved-station.vo';
@@ -38,6 +40,7 @@ import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { TraceReference } from '@work/domain/value-objects/trace-reference.vo';
 import { claimAttachments } from '@work/infrastructure/persistence/drizzle/attachment-claims';
 import {
+  type ChatSetupRow,
   chat,
   chatAttachment,
   chatMessage,
@@ -113,6 +116,15 @@ const toMessage = (
   });
 };
 
+const setupRow = (setup: ConfigHome | null): ChatSetupRow | null =>
+  setup
+    ? {
+        repository: setup.repository.value,
+        folder: setup.folder,
+        pullRequest: setup.pullRequest?.value ?? null,
+      }
+    : null;
+
 const toChat = (
   row: Row,
   messages: readonly MessageRow[],
@@ -137,6 +149,15 @@ const toChat = (
           stationId: StationId.of(row.improving.stationId),
           stationKey: StationKey.of(row.improving.stationKey),
           stationName: StationName.of(row.improving.stationName),
+        })
+      : null,
+    setup: row.setup
+      ? ConfigHome.rehydrate({
+          repository: Repository.of(row.setup.repository),
+          folder: row.setup.folder,
+          pullRequest: row.setup.pullRequest
+            ? PullRequestUrl.of(row.setup.pullRequest)
+            : null,
         })
       : null,
     messages: messages.map((each) => toMessage(each, attachments)),
@@ -183,6 +204,7 @@ export class DrizzleChatRepository implements ChatRepository {
             stationName: added.improving.stationName.value,
           }
         : null,
+      setup: setupRow(added.setup),
       currentRunId: added.currentRunId?.value ?? null,
       sessionId: added.sessionId?.value ?? null,
       runnerId: added.runnerId?.value ?? null,
@@ -204,6 +226,7 @@ export class DrizzleChatRepository implements ChatRepository {
       .update(chat)
       .set({
         version: saved.version + 1,
+        setup: setupRow(saved.setup),
         model: saved.model?.value ?? null,
         effort: saved.effort?.value ?? null,
         currentRunId: saved.currentRunId?.value ?? null,

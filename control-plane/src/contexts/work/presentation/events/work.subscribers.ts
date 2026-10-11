@@ -1,3 +1,4 @@
+import type { RunTokensPort } from '@identity/application/ports/run-tokens.port';
 import type {
   RunGrantsPort,
   RunHoldDto,
@@ -64,6 +65,7 @@ import type { RunParked } from '@work/domain/events/run-parked.event';
 import type { RunPaused } from '@work/domain/events/run-paused.event';
 import type { RunReservationDropped } from '@work/domain/events/run-reservation-dropped.event';
 import type { RunWithdrawn } from '@work/domain/events/run-withdrawn.event';
+import type { SetupPullRequestOpened } from '@work/domain/events/setup-pull-request-opened.event';
 import type { TaskAnswered } from '@work/domain/events/task-answered.event';
 import type { TaskAsked } from '@work/domain/events/task-asked.event';
 import type { TaskHandedToRun } from '@work/domain/events/task-handed-to-run.event';
@@ -117,6 +119,7 @@ export const workSubscribers = (reactions: {
   setup: SettleSetup;
   abandoning: AbandonTeamLines;
   runGrants: RunGrantsPort;
+  runTokens: RunTokensPort;
   runners: RunnerHolds;
   toolUsedHooks: ToolUsedHooks;
   notices: Notices;
@@ -127,10 +130,30 @@ export const workSubscribers = (reactions: {
     ['run.completed', 'run.abandoned', 'run.withdrawn'],
     (event) => reactions.runGrants.endedFor(holdOf(event)),
   ),
+  subscribing<RunCompleted | RunAbandoned | RunWithdrawn>(
+    'work.revoke-tokens-of-ended-run',
+    ['run.completed', 'run.abandoned', 'run.withdrawn'],
+    (event) =>
+      reactions.runTokens.revokeFor(
+        event.workspaceId.value,
+        event.runId.value,
+        null,
+      ),
+  ),
   subscribing<RunLapsed | RunParked>(
     'work.lose-secret-hold-of-ended-attempt',
     ['run.lapsed', 'run.parked'],
     (event) => reactions.runGrants.holdLost(holdOf(event)),
+  ),
+  subscribing<RunLapsed | RunParked>(
+    'work.revoke-tokens-of-ended-attempt',
+    ['run.lapsed', 'run.parked'],
+    (event) =>
+      reactions.runTokens.revokeFor(
+        event.workspaceId.value,
+        event.runId.value,
+        event.attempt,
+      ),
   ),
   subscribing<RunCompleted | RunAbandoned | RunWithdrawn>(
     'work.end-runner-of-ended-run',
@@ -211,6 +234,11 @@ export const workSubscribers = (reactions: {
     'work.settle-on-connection',
     [WORKSPACE_CONNECTED],
     (event) => reactions.setup.forWorkspace(WorkspaceId.of(event.workspaceId)),
+  ),
+  subscribing<SetupPullRequestOpened>(
+    'work.settle-on-setup-pull-request',
+    ['chat.setup-pull-request-opened'],
+    (event) => reactions.setup.forTeam(event.teamId),
   ),
   subscribing<ProposalAccepted>(
     'work.create-task-from-proposal',

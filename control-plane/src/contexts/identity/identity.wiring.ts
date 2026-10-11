@@ -63,6 +63,7 @@ import {
   PERSON_READER,
   type PersonReaderPort,
 } from '@identity/application/ports/person-reader.port';
+import { RUN_TOKENS } from '@identity/application/ports/run-tokens.port';
 import { TEAM_DIRECTORY } from '@identity/application/ports/team-directory.port';
 import { TEAM_HOLDINGS } from '@identity/application/ports/team-holdings.port';
 import { TOKEN_TRUST_CONFIGURATION } from '@identity/application/ports/token-trust-configuration.port';
@@ -120,6 +121,7 @@ import { HoldingsRegistry } from '@identity/application/services/holdings-regist
 import { InviteMemberships } from '@identity/application/services/invite-memberships.service';
 import { InviteSending } from '@identity/application/services/invite-sending.service';
 import { MintedTokens } from '@identity/application/services/minted-tokens.service';
+import { RunTokens } from '@identity/application/services/run-tokens.service';
 import { TeamAdministration } from '@identity/application/services/team-administration.service';
 import { TeamDirectory } from '@identity/application/services/team-directory.service';
 import { TokenBearers } from '@identity/application/services/token-bearers.service';
@@ -173,7 +175,10 @@ import {
   CLOCK,
   type ClockPort,
 } from '@shared-kernel/application/ports/clock.port';
-import { ID_GENERATOR } from '@shared-kernel/application/ports/id-generator.port';
+import {
+  ID_GENERATOR,
+  type IdGeneratorPort,
+} from '@shared-kernel/application/ports/id-generator.port';
 import { IDEMPOTENT_CREATES } from '@shared-kernel/application/ports/idempotent-creates.port';
 import {
   LOGGER,
@@ -271,6 +276,23 @@ const services: Provider[] = [
       clock: ClockPort,
       transaction: TransactionPort,
     ) => new MintedTokens(tokens, clock, transaction),
+  },
+  {
+    provide: RUN_TOKENS,
+    inject: [
+      DrizzleWorkspaceTokenRepository,
+      TOKEN_MINT,
+      ID_GENERATOR,
+      CLOCK,
+      TRANSACTION,
+    ],
+    useFactory: (
+      tokens: DrizzleWorkspaceTokenRepository,
+      mint: TokenMintPort,
+      ids: IdGeneratorPort,
+      clock: ClockPort,
+      transaction: TransactionPort,
+    ) => new RunTokens(tokens, mint, ids, clock, transaction),
   },
   {
     provide: ExpiredTokensWorker,

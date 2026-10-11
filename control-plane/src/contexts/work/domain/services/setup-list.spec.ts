@@ -19,11 +19,13 @@ import { describe, expect, it } from 'vitest';
 const done: SetupState = {
   connectedToGitHub: true,
   hasHarness: true,
+  configured: true,
 };
 
 const nothing: SetupState = {
   connectedToGitHub: false,
   hasHarness: false,
+  configured: false,
 };
 
 const NOW = new Date('2026-01-02T03:04:05.000Z');

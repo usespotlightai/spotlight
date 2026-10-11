@@ -103,6 +103,18 @@ export class WithheldSecretResponseDto {
   }
 }
 
+export class SpotlightApiResponseDto {
+  @ApiProperty({
+    description:
+      'A read and plan token for this run alone, sealed to the recipient; egress wears it toward the control plane as a bearer token',
+  })
+  readonly sealed: string;
+
+  constructor(sealed: string) {
+    this.sealed = sealed;
+  }
+}
+
 export class EgressRedemptionResponseDto {
   @ApiProperty({
     type: String,
@@ -130,15 +142,25 @@ export class EgressRedemptionResponseDto {
   })
   readonly withheld: readonly WithheldSecretResponseDto[];
 
+  @ApiProperty({
+    type: SpotlightApiResponseDto,
+    nullable: true,
+    description:
+      'Where the run reaches Spotlight’s own API, the token it reaches it with',
+  })
+  readonly spotlightApi: SpotlightApiResponseDto | null;
+
   constructor(
     runId: string | null,
     reaches: readonly string[],
     secrets: readonly RedeemedSecretResponseDto[],
     withheld: readonly WithheldSecretResponseDto[],
+    spotlightApi: SpotlightApiResponseDto | null,
   ) {
     this.runId = runId;
     this.reaches = reaches;
     this.secrets = secrets;
     this.withheld = withheld;
+    this.spotlightApi = spotlightApi;
   }
 }

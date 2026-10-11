@@ -27,6 +27,10 @@ vi.mock('@/hooks/api/useGitHub', () => ({
   useGitHub: () => githubState,
 }));
 
+vi.mock('@/components/features/onboarding/ConfigHomeForm', () => ({
+  ConfigHomeForm: () => <p>Choose the config home</p>,
+}));
+
 const STEPS = [
   {
     key: 'github',
@@ -38,6 +42,11 @@ const STEPS = [
     title: 'Connect a host',
     description: 'A runner with an agent harness installed.',
   },
+  {
+    key: 'configuration',
+    title: 'Set up configuration as code',
+    description: 'A repository and folder for the team’s Terraform.',
+  },
 ];
 
 const onboarding = (
@@ -45,6 +54,8 @@ const onboarding = (
   done: string[] = [],
 ) => ({
   steps: STEPS.map((step) => ({ ...step, done: done.includes(step.key) })),
+  canSetUp: done.includes('github') && done.includes('harness'),
+  setupChat: null,
   ...over,
 });
 
@@ -218,5 +229,88 @@ describe('SetupSteps', () => {
 
     const install = screen.getByRole('link', { name: 'Install on GitHub' });
     expect(install.closest('[inert]')).toBeNull();
+  });
+
+  it('asks where the configuration lives once GitHub and a host are ready', () => {
+    onboardingState.data = onboarding({}, ['github', 'harness']);
+    showing();
+
+    expect(screen.getByText('Choose the config home')).toBeInTheDocument();
+  });
+
+  it('says what setting up configuration waits on', () => {
+    onboardingState.data = onboarding({}, ['github']);
+    showing();
+
+    expect(screen.queryByText('Choose the config home')).toBeNull();
+    expect(
+      screen.getByText(/Requires the GitHub App and a host\./),
+    ).toBeInTheDocument();
+  });
+
+  it('waits on a host where only a push pool runs', () => {
+    onboardingState.data = onboarding({ canSetUp: false }, [
+      'github',
+      'harness',
+    ]);
+    showing();
+
+    expect(screen.queryByText('Choose the config home')).toBeNull();
+    expect(
+      screen.getByText(/Push pools can’t run a setup chat\./),
+    ).toBeInTheDocument();
+  });
+
+  it('names who is setting the team up in a chat only they can open', () => {
+    onboardingState.data = onboarding(
+      { setupChat: { id: null, pullRequest: null, startedBy: 'Grace' } },
+      ['github', 'harness'],
+    );
+    showing();
+
+    expect(screen.getByText('Being set up by Grace.')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Open setup chat' })).toBeNull();
+    expect(screen.queryByText('Choose the config home')).toBeNull();
+  });
+
+  it('leads back to the setup chat while it works', () => {
+    onboardingState.data = onboarding(
+      {
+        setupChat: { id: 'chat_setup', pullRequest: null, startedBy: 'Sam' },
+      },
+      ['github', 'harness'],
+    );
+    showing();
+
+    expect(
+      screen.getByRole('link', { name: 'Open setup chat' }),
+    ).toHaveAttribute('href', '/w/acme/team/team_1/agent/chat_setup');
+  });
+
+  it('leads to the pull request once the setup chat opened it', async () => {
+    onboardingState.data = onboarding(
+      {
+        setupChat: {
+          id: 'chat_setup',
+          pullRequest: 'https://github.com/acme/infra/pull/12',
+          startedBy: 'Sam',
+        },
+      },
+      ['github', 'harness', 'configuration'],
+    );
+    showing(true);
+
+    await userEvent.click(
+      screen.getByRole('button', { name: /Set up configuration as code/ }),
+    );
+
+    expect(
+      screen.getByRole('link', { name: 'Open pull request' }),
+    ).toHaveAttribute('href', 'https://github.com/acme/infra/pull/12');
+    expect(
+      screen
+        .getByRole('link', { name: 'Open pull request' })
+        .closest('[inert]'),
+    ).toBeNull();
   });
 });

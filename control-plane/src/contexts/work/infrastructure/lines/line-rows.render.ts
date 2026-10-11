@@ -197,6 +197,7 @@ export const renderLineRows = (
           reviews: {
             start: rows.line.reviews.start as 'opened' | 'mentioned',
             mention: rows.line.reviews.mention,
+            label: rows.line.reviews.label,
             skip: {
               spotlight: rows.line.reviews.skip.spotlight,
               drafts: rows.line.reviews.skip.drafts,

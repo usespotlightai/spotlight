@@ -10,15 +10,17 @@ import { Voice } from '@work/domain/value-objects/voice.vo';
 export interface SetupState {
   readonly connectedToGitHub: boolean;
   readonly hasHarness: boolean;
+  readonly configured: boolean;
 }
 
-export const SETUP_STEPS = ['github', 'harness'] as const;
+export const SETUP_STEPS = ['github', 'harness', 'configuration'] as const;
 
 export type SetupStepKey = (typeof SETUP_STEPS)[number];
 
 export const TAKEN: Record<SetupStepKey, (state: SetupState) => boolean> = {
   github: (state) => state.connectedToGitHub,
   harness: (state) => state.hasHarness,
+  configuration: (state) => state.configured,
 };
 
 const setUp = (state: SetupState): boolean =>

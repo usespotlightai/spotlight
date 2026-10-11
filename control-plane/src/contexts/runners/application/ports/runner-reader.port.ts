@@ -53,6 +53,8 @@ export interface RunnerReaderPort {
 
   readyToRun(workspaceId: WorkspaceId): Promise<boolean>;
 
+  hostsSandboxes(workspaceId: WorkspaceId): Promise<boolean>;
+
   advertisedModels(
     workspaceId: WorkspaceId,
   ): Promise<ReadonlyMap<string, readonly string[]>>;
