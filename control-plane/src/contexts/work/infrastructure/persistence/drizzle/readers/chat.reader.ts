@@ -51,16 +51,29 @@ export class DrizzleChatReader implements ChatReaderPort {
 
   async setupOf(teamId: TeamId): Promise<SetupChatView | null> {
     const rows = await this.db
-      .select({ id: chat.id, setup: chat.setup })
+      .select({
+        id: chat.id,
+        setup: chat.setup,
+        startedById: chat.startedById,
+      })
       .from(chat)
       .where(and(eq(chat.teamId, teamId.value), isNotNull(chat.setup)))
       .orderBy(desc(chat.createdAt));
     const opened = rows.find((each) => each.setup?.pullRequest);
     const latest = opened ?? rows[0];
 
-    return latest
-      ? { id: latest.id, pullRequest: latest.setup?.pullRequest ?? null }
-      : null;
+    if (!latest) {
+      return null;
+    }
+
+    const starter = await this.people.find(UserId.of(latest.startedById));
+
+    return {
+      id: latest.id,
+      pullRequest: latest.setup?.pullRequest ?? null,
+      startedById: latest.startedById,
+      startedBy: starter?.name ?? '',
+    };
   }
 
   async startedBy(teamId: TeamId, userId: UserId): Promise<ChatSummary[]> {

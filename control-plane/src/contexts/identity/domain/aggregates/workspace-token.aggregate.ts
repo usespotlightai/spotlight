@@ -20,6 +20,7 @@ import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configu
 import { TokenPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
+import { TokenScope } from '@shared-kernel/domain/value-objects/token-scope.vo';
 import type { TokenScopes } from '@shared-kernel/domain/value-objects/token-scopes.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -49,6 +50,8 @@ interface Kept extends TokenTerms {
 interface State extends Kept {
   readonly revoked: boolean;
 }
+
+const RUN_TOKEN_LONGEST_MS = 60 * 60 * 1_000;
 
 const FIXED = 'cannot change after the token is issued';
 
@@ -195,6 +198,20 @@ export class WorkspaceToken extends EventRecorder {
         'expiresAt',
         'must be in the future',
       );
+    }
+
+    if (
+      input.expiresAt.getTime() - input.now.getTime() >
+      RUN_TOKEN_LONGEST_MS
+    ) {
+      throw new InvalidWorkspaceTokenError(
+        'expiresAt',
+        'must be at most an hour after it is minted',
+      );
+    }
+
+    if (input.scopes.all.some((each) => !TokenScope.plan.grants(each))) {
+      throw new InvalidWorkspaceTokenError('scopes', 'must be plan or read');
     }
 
     const minted = new WorkspaceToken({
@@ -402,7 +419,7 @@ export class WorkspaceToken extends EventRecorder {
     return this.state.mintedForAttempt;
   }
 
-  standsWithout(trust: WorkspaceTokenTrust | null): boolean {
+  standsUnder(trust: WorkspaceTokenTrust | null): boolean {
     return this.mintedThrough === null || trust?.stillGrants(this) === true;
   }
 

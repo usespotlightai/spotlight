@@ -227,6 +227,12 @@ export class Chat extends EventRecorder {
     );
   }
 
+  pushableNamed(name: string): Repository | null {
+    const named = this.repositoryNamed(name);
+
+    return named && this.setup?.repository.equals(named) ? named : null;
+  }
+
   said(input: {
     by: UserId;
     body: ChatMessageBody;

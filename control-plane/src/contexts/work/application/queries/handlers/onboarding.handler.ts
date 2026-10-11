@@ -6,7 +6,6 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { OnboardingDto } from '@work/application/dto/onboarding.dto';
 import type { OnboardingQuery } from '@work/application/queries/onboarding.query';
-import type { SetupConnections } from '@work/application/services/setup-connections.service';
 import type { SetupStanding } from '@work/application/services/setup-standing.service';
 import { shownFor } from '@work/application/services/setup-steps';
 
@@ -16,7 +15,6 @@ export class OnboardingHandler
   constructor(
     private readonly workspaces: WorkspaceReaderPort,
     private readonly setup: SetupStanding,
-    private readonly connections: SetupConnections,
   ) {}
 
   async execute(query: OnboardingQuery): Promise<OnboardingDto | null> {
@@ -30,16 +28,21 @@ export class OnboardingHandler
         return null;
       }
 
-      const teamId = TeamId.of(query.teamId);
-      const [setup, connections] = await Promise.all([
-        this.setup.of(WorkspaceId.of(team.workspaceId), teamId),
-        this.connections.of(teamId),
-      ]);
+      const setup = await this.setup.of(
+        WorkspaceId.of(team.workspaceId),
+        TeamId.of(query.teamId),
+      );
+
+      const { chat } = setup;
 
       return {
         steps: shownFor(setup.state),
-        setupChat: setup.chat,
-        connections,
+        canSetUp: setup.state.connectedToGitHub && setup.hostsSandboxes,
+        setupChat: chat && {
+          id: chat.startedById === query.viewerId ? chat.id : null,
+          pullRequest: chat.pullRequest,
+          startedBy: chat.startedBy,
+        },
       };
     } catch (error) {
       rethrowAsFault(error);

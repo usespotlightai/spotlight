@@ -243,15 +243,8 @@ interface DescribedIR {
   readonly approvals: ReadonlyMap<string, ApprovalOverride>;
 }
 
-interface OnboardingIR {
-  readonly tryIt: string;
-  readonly heard: string | null;
-  readonly link: { readonly label: string; readonly url: string } | null;
-}
-
 export interface ReadableIntegration {
   readonly path: string;
-  readonly onboarding: OnboardingIR | null;
   readonly integration: Integration;
   readonly described: DescribedIR | null;
   readonly webhook: WebhookIR | null;
@@ -1200,13 +1193,6 @@ export const compileIntegration = (
       ok: true,
       readable: {
         path,
-        onboarding: file.onboarding
-          ? {
-              tryIt: file.onboarding.try,
-              heard: file.onboarding.heard ?? null,
-              link: file.onboarding.link ?? null,
-            }
-          : null,
         integration,
         described: describedIR,
         webhook,

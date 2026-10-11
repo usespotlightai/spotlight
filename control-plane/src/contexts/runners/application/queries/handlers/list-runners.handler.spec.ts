@@ -82,6 +82,7 @@ const listing = (
       inWorkspace,
       hostsIn,
       readyToRun: vi.fn(),
+      hostsSandboxes: vi.fn(),
       advertisedModels: vi.fn(),
     } as RunnerReaderPort,
     clock(),

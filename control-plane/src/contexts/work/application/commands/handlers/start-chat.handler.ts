@@ -1,4 +1,5 @@
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
+import type { RunnerReaderPort } from '@runners/application/ports/runner-reader.port';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
@@ -18,6 +19,7 @@ import type { FilesAtHand } from '@work/application/services/files-at-hand.servi
 import type { TracesAtHand } from '@work/application/services/traces-at-hand.service';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
 import { ConfigHomeUnreachableError } from '@work/domain/exceptions/config-home-unreachable.error';
+import { SetupNeedsAHostError } from '@work/domain/exceptions/setup-needs-a-host.error';
 import { UnknownHarnessError } from '@work/domain/exceptions/unknown-harness.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
@@ -40,6 +42,7 @@ export class StartChatHandler
     private readonly dispatch: ChatDispatching,
     private readonly launch: HarnessLaunchPort,
     private readonly repositories: ReachableRepositoriesPort,
+    private readonly runners: RunnerReaderPort,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
     private readonly transaction: TransactionPort,
@@ -72,6 +75,10 @@ export class StartChatHandler
         !(await this.repositories.reaches(workspaceId, setup.repository))
       ) {
         throw new ConfigHomeUnreachableError(setup.repository.value);
+      }
+
+      if (setup && !(await this.runners.hostsSandboxes(workspaceId))) {
+        throw new SetupNeedsAHostError();
       }
 
       const started = await this.transaction.run(async () => {

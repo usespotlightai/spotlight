@@ -16,12 +16,9 @@ import type {
   LineReaderPort,
   LineReplayCheckSummary,
   LineSourceSummary,
-  ReviewInvitation,
   StationSummary,
 } from '@work/application/ports/line-reader.port';
 import type { StationKind } from '@work/domain/entities/station.entity';
-import { LineRole } from '@work/domain/value-objects/line-role.vo';
-import { ReviewPolicy } from '@work/domain/value-objects/review-policy.vo';
 import {
   type ConfigSourceRow,
   line,
@@ -33,7 +30,7 @@ import {
   station,
   stationSkill,
 } from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
-import { and, asc, eq } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 
 const STATION_COLUMNS = {
   stationId: station.id,
@@ -102,36 +99,6 @@ export class DrizzleLineReader implements LineReaderPort {
     @Inject(WORKSPACE_ACCESS) private readonly access: WorkspaceAccessPort,
     @Inject(TEAM_DIRECTORY) private readonly teams: TeamDirectoryPort,
   ) {}
-
-  async reviewInvitationOf(teamId: TeamId): Promise<ReviewInvitation | null> {
-    const [reviewing] = await this.db
-      .select({
-        reviews: line.reviews,
-        repository: lineRepository.repository,
-      })
-      .from(line)
-      .leftJoin(lineRepository, eq(lineRepository.lineId, line.id))
-      .where(
-        and(
-          eq(line.teamId, teamId.value),
-          eq(line.role, LineRole.REVIEW.value),
-        ),
-      )
-      .orderBy(asc(lineRepository.repository))
-      .limit(1);
-
-    if (!reviewing?.reviews) {
-      return null;
-    }
-
-    const policy = ReviewPolicy.of(reviewing.reviews);
-
-    return {
-      label: policy.label,
-      mention: policy.mention,
-      repository: reviewing.repository,
-    };
-  }
 
   async listForTeamMember(
     teamId: TeamId,

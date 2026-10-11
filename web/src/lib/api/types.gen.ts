@@ -2131,39 +2131,17 @@ export type SetupStepResponseDto = {
 
 export type SetupChatResponseDto = {
   /**
-   * The team’s setup chat
+   * The team’s setup chat, when the caller started it. Chats are seen only by whoever started them
    */
-  id: string;
+  id: string | null;
   /**
    * The pull request it opened with the configuration
    */
   pullRequest: string | null;
-};
-
-export type SetupConnectionLinkResponseDto = {
-  label: string;
-  url: string;
-};
-
-export type SetupConnectionResponseDto = {
   /**
-   * The integration a task can be opened from
+   * Who started it, empty when they have left the workspace
    */
-  source: string;
-  name: string;
-  /**
-   * What to do there to open a first task
-   */
-  tryIt: string;
-  /**
-   * What a first task from this source means
-   */
-  heard: string;
-  link: SetupConnectionLinkResponseDto | null;
-  /**
-   * When this source first opened a task for the team
-   */
-  firstOpenedAt: string | null;
+  startedBy: string;
 };
 
 export type OnboardingResponseDto = {
@@ -2172,13 +2150,13 @@ export type OnboardingResponseDto = {
    */
   steps: Array<SetupStepResponseDto>;
   /**
+   * Whether a setup chat can start: the GitHub App is installed and a host runs sandboxes
+   */
+  canSetUp: boolean;
+  /**
    * The chat setting up the team’s configuration as code, the one with a pull request first
    */
   setupChat: SetupChatResponseDto | null;
-  /**
-   * Each source that can open a task, and when it first did, GitHub first
-   */
-  connections: Array<SetupConnectionResponseDto>;
 };
 
 export type WorkspaceResourceResponseDto = {
@@ -11171,7 +11149,7 @@ export type StartChatData = {
 
 export type StartChatErrors = {
   /**
-   * A model or effort that is not text
+   * A model or effort that is not text, or a setup without a repository and a folder
    */
   400: unknown;
   /**
@@ -11183,7 +11161,7 @@ export type StartChatErrors = {
    */
   404: unknown;
   /**
-   * An unknown harness, model, effort or repository
+   * An unknown harness, model, effort or repository, or a setup the GitHub App cannot reach or no host can run
    */
   422: unknown;
 };

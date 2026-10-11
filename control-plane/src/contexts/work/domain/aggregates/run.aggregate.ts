@@ -434,7 +434,7 @@ export class Run extends EventRecorder {
   reservedFor(runner: RunnerId, pool: PoolId, now: Date): Run {
     if (this.wearsSecrets) {
       throw new InvalidRunTransitionError(
-        `Run ${this.id.value} uses secrets. Only a host sandbox can run it, not a pool runner.`,
+        `Run ${this.id.value} carries secrets or a Spotlight token. Only a host sandbox, which has egress, can run it, not a pool runner.`,
       );
     }
 

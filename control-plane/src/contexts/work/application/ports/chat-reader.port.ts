@@ -85,6 +85,8 @@ export interface ChatView extends ChatSummary {
 export interface SetupChatView {
   readonly id: string;
   readonly pullRequest: string | null;
+  readonly startedById: string;
+  readonly startedBy: string;
 }
 
 export interface ChatReaderPort {

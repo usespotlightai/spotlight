@@ -269,10 +269,7 @@ import {
   type LineCompilerPort,
 } from '@work/application/ports/line-compiler.port';
 import { LINE_IMAGES } from '@work/application/ports/line-images.port';
-import {
-  LINE_READER,
-  type LineReaderPort,
-} from '@work/application/ports/line-reader.port';
+import { LINE_READER } from '@work/application/ports/line-reader.port';
 import {
   LINE_RENDERING,
   type LineRenderingPort,
@@ -369,10 +366,7 @@ import {
   TASK_PLACEMENTS,
   type TaskPlacementsPort,
 } from '@work/application/ports/task-placements.port';
-import {
-  TASK_READER,
-  type TaskReaderPort,
-} from '@work/application/ports/task-reader.port';
+import { TASK_READER } from '@work/application/ports/task-reader.port';
 import {
   TEAM_INTEGRATIONS,
   type TeamIntegrationsPort,
@@ -527,7 +521,6 @@ import { RunWorks } from '@work/application/services/run-works.service';
 import { RunnerHolds } from '@work/application/services/runner-holds.service';
 import { SearchRuns } from '@work/application/services/search-runs.service';
 import { SettleSetup } from '@work/application/services/settle-setup.service';
-import { SetupConnections } from '@work/application/services/setup-connections.service';
 import { SetupPullRequestToolUse } from '@work/application/services/setup-pull-request.tool-use';
 import { SetupStanding } from '@work/application/services/setup-standing.service';
 import { StationCatalog } from '@work/application/services/station-catalog.service';
@@ -1006,16 +999,6 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     inject: [REPOSITORY_CATALOG],
     useFactory: (catalog: RepositoryCatalogPort) =>
       new GitHubReachableRepositories(catalog),
-  },
-
-  {
-    provide: SetupConnections,
-    inject: [LINE_READER, TEAM_INTEGRATIONS, TASK_READER],
-    useFactory: (
-      lines: LineReaderPort,
-      integrations: TeamIntegrationsPort,
-      tasks: TaskReaderPort,
-    ) => new SetupConnections(lines, integrations, tasks),
   },
 
   {
@@ -2012,7 +1995,6 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   ...bindQueryHandler(OnboardingQuery, OnboardingHandler, [
     WORKSPACE_READER,
     SetupStanding,
-    SetupConnections,
   ]),
 
   ...bindCommandHandler(ReadInboxAsideCommand, ReadInboxAsideHandler, [
@@ -2144,6 +2126,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     CHAT_DISPATCH,
     HARNESS_LAUNCH,
     REACHABLE_REPOSITORIES,
+    RUNNER_READER,
     ID_GENERATOR,
     CLOCK,
     TRANSACTION,

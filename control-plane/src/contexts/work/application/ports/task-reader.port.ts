@@ -36,6 +36,4 @@ export interface TaskReaderPort {
     teamId: TeamId,
     userId: UserId,
   ): Promise<TaskSummary[] | null>;
-
-  firstOpenedFrom(teamId: TeamId): Promise<ReadonlyMap<string, Date>>;
 }

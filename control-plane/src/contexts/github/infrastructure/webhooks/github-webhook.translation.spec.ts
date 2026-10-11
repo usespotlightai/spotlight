@@ -69,6 +69,17 @@ describe('GitHubWebhookTranslation', () => {
       ).toMatchObject({ activity: 'labelled', label: 'spotlight' });
     });
 
+    it('counts a label a bot added, since Spotlight adds none', () => {
+      expect(
+        activity('pull_request', {
+          action: 'labeled',
+          label: { name: 'spotlight' },
+          sender: { type: 'Bot' },
+          pull_request: pull({ merged: false }),
+        }),
+      ).toMatchObject({ activity: 'labelled', byBot: false });
+    });
+
     it('carries no label on activity other than labelling', () => {
       expect(
         activity('pull_request', {

@@ -5,6 +5,7 @@ import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request
 import type { ChatToolContext } from '@work/application/ports/integration-tools.port';
 import type { BuiltInToolUse } from '@work/application/services/built-in-tools.service';
 import type { Chat } from '@work/domain/aggregates/chat.aggregate';
+import { InvalidToolInputError } from '@work/domain/exceptions/invalid-tool-input.error';
 import { UnknownChatError } from '@work/domain/exceptions/unknown-chat.error';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import { SETUP_PULL_REQUEST } from '@work/domain/services/built-in-tools';
@@ -37,11 +38,17 @@ export class SetupPullRequestToolUse
 
     const branch = Branch.of(inputs.text('branch') ?? '');
     const setup = chat.mayOpenSetupFrom(runId, branch);
+    const title = (inputs.text('title') ?? '').trim();
+
+    if (!title) {
+      throw new InvalidToolInputError(this.tool.value, 'needs a title');
+    }
+
     const opened = await this.pullRequests.open({
       workspaceId,
       repository: setup.repository,
       branch: branch.value,
-      title: (inputs.text('title') ?? '').trim(),
+      title,
       body: inputs.text('body') ?? '',
     });
 

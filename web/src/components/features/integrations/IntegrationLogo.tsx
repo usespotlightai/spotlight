@@ -1,6 +1,5 @@
 import { Webhook } from 'lucide-react';
 import { siGrafana, siLinear, siPagerduty, siSentry } from 'simple-icons';
-import { GithubMark } from '@/components/shared/icons';
 import { cn } from '@/lib/utils';
 
 interface Logo {
@@ -23,16 +22,6 @@ export function IntegrationLogo({
   source: string;
   className?: string;
 }) {
-  if (source === 'github') {
-    return (
-      <GithubMark
-        role="img"
-        aria-label="GitHub"
-        className={cn('size-5 shrink-0 text-foreground', className)}
-      />
-    );
-  }
-
   if (source === 'slack') {
     return <SlackMark className={cn('size-5 shrink-0', className)} />;
   }

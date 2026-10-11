@@ -18,8 +18,6 @@ import {
   REPOSITORIES,
   SIGNED_IN,
   settingsWorld,
-  setupConnections,
-  TERRAFORM,
   type TeamConnections,
   toolRules,
   WORKSPACE_ID,
@@ -57,7 +55,15 @@ const configured = (teamId: string): ConfiguredIntegrationResponseDto[] =>
 
 const setupChatOf = (teamId: string): OnboardingResponseDto['setupChat'] => {
   const chats = (teamChats()[teamId] ?? []).flatMap(({ chat }) =>
-    chat.setup ? [{ id: chat.id, pullRequest: chat.setup.pullRequest }] : [],
+    chat.setup
+      ? [
+          {
+            id: chat.id,
+            pullRequest: chat.setup.pullRequest,
+            startedBy: SIGNED_IN.name,
+          },
+        ]
+      : [],
   );
 
   return chats.find((each) => each.pullRequest) ?? chats[0] ?? null;
@@ -89,8 +95,9 @@ const onboarding = (teamId: string): OnboardingResponseDto => ({
       done: Boolean(setupChatOf(teamId)?.pullRequest),
     },
   ],
+  canSetUp:
+    settingsWorld().gitHubConnected && settingsWorld().fleet.hosts.length > 0,
   setupChat: setupChatOf(teamId),
-  connections: setupConnections(teamId),
 });
 
 const handleOf = (source: string) =>
@@ -136,10 +143,6 @@ const resourceHandlers = [
       201,
     );
   }),
-
-  api.get('/resources/workspaces/:id/export', ({ params }) =>
-    ofWorkspaceId(params.id) ? json({ files: TERRAFORM }) : notFound(),
-  ),
 
   api.get('/resources/workspaces/:workspaceId/runner-pools', ({ params }) =>
     ofWorkspaceId(params.workspaceId)

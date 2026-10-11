@@ -54,8 +54,8 @@ const onboarding = (
   done: string[] = [],
 ) => ({
   steps: STEPS.map((step) => ({ ...step, done: done.includes(step.key) })),
+  canSetUp: done.includes('github') && done.includes('harness'),
   setupChat: null,
-  connections: [],
   ...over,
 });
 
@@ -231,80 +231,6 @@ describe('SetupSteps', () => {
     expect(install.closest('[inert]')).toBeNull();
   });
 
-  it('lists each source that opens a task, ticked once it first did', () => {
-    onboardingState.data = onboarding({
-      connections: [
-        {
-          source: 'github',
-          name: 'GitHub',
-          tryIt: 'Add the spotlight label to a pull request.',
-          heard: 'Review asked for',
-          link: {
-            label: 'Open pull requests',
-            url: 'https://github.com/acme/api/pulls',
-          },
-          firstOpenedAt: null,
-        },
-        {
-          source: 'slack',
-          name: 'Slack',
-          tryIt: 'Mention @spotlight in any channel.',
-          heard: 'Message received',
-          link: { label: 'Open Slack', url: 'https://app.slack.com' },
-          firstOpenedAt: new Date(Date.now() - 120_000).toISOString(),
-        },
-      ],
-    });
-    showing();
-
-    expect(
-      screen.getByRole('heading', { name: 'Test your connections' }),
-    ).toBeInTheDocument();
-    expect(screen.getByText('Waiting')).toBeInTheDocument();
-    expect(screen.getByText('Message received 2m ago')).toBeInTheDocument();
-    expect(
-      screen.getByRole('link', { name: 'Open pull requests' }),
-    ).toHaveAttribute('href', 'https://github.com/acme/api/pulls');
-    expect(screen.queryByRole('link', { name: 'Open Slack' })).toBeNull();
-  });
-
-  it('leaves the connections usable once the item is resolved', () => {
-    onboardingState.data = onboarding(
-      {
-        connections: [
-          {
-            source: 'github',
-            name: 'GitHub',
-            tryIt: 'Add the spotlight label to a pull request.',
-            heard: 'Review asked for',
-            link: {
-              label: 'Open pull requests',
-              url: 'https://github.com/acme/api/pulls',
-            },
-            firstOpenedAt: null,
-          },
-        ],
-      },
-      ['github', 'harness'],
-    );
-    showing(true);
-
-    expect(
-      screen
-        .getByRole('link', { name: 'Open pull requests' })
-        .closest('[inert]'),
-    ).toBeNull();
-  });
-
-  it('shows no connections where no source opens a task', () => {
-    onboardingState.data = onboarding();
-    showing();
-
-    expect(
-      screen.queryByRole('heading', { name: 'Test your connections' }),
-    ).toBeNull();
-  });
-
   it('asks where the configuration lives once GitHub and a host are ready', () => {
     onboardingState.data = onboarding({}, ['github', 'harness']);
     showing();
@@ -318,13 +244,40 @@ describe('SetupSteps', () => {
 
     expect(screen.queryByText('Choose the config home')).toBeNull();
     expect(
-      screen.getByText('Requires the GitHub App and a host.'),
+      screen.getByText(/Requires the GitHub App and a host\./),
     ).toBeInTheDocument();
+  });
+
+  it('waits on a host where only a push pool runs', () => {
+    onboardingState.data = onboarding({ canSetUp: false }, [
+      'github',
+      'harness',
+    ]);
+    showing();
+
+    expect(screen.queryByText('Choose the config home')).toBeNull();
+    expect(
+      screen.getByText(/Push pools can’t run a setup chat\./),
+    ).toBeInTheDocument();
+  });
+
+  it('names who is setting the team up in a chat only they can open', () => {
+    onboardingState.data = onboarding(
+      { setupChat: { id: null, pullRequest: null, startedBy: 'Grace' } },
+      ['github', 'harness'],
+    );
+    showing();
+
+    expect(screen.getByText('Being set up by Grace.')).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Open setup chat' })).toBeNull();
+    expect(screen.queryByText('Choose the config home')).toBeNull();
   });
 
   it('leads back to the setup chat while it works', () => {
     onboardingState.data = onboarding(
-      { setupChat: { id: 'chat_setup', pullRequest: null } },
+      {
+        setupChat: { id: 'chat_setup', pullRequest: null, startedBy: 'Sam' },
+      },
       ['github', 'harness'],
     );
     showing();
@@ -340,6 +293,7 @@ describe('SetupSteps', () => {
         setupChat: {
           id: 'chat_setup',
           pullRequest: 'https://github.com/acme/infra/pull/12',
+          startedBy: 'Sam',
         },
       },
       ['github', 'harness', 'configuration'],

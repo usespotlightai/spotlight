@@ -2,7 +2,6 @@ import { Check, ChevronDown } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
 import { Link, useParams } from 'react-router';
 import { ConfigHomeForm } from '@/components/features/onboarding/ConfigHomeForm';
-import { ConnectionRows } from '@/components/features/onboarding/ConnectionRows';
 import { InstallGitHubLink } from '@/components/features/onboarding/InstallGitHubLink';
 import {
   SetupAbout,
@@ -169,7 +168,7 @@ export function SetupSteps({ teamId, body, about, resolved }: SetupStepsProps) {
       );
     }
 
-    if (chat) {
+    if (chat?.id) {
       return (
         <Link to={chatPath(slug, teamId, chat.id)} className={setupLinkClass}>
           Open setup chat
@@ -177,15 +176,19 @@ export function SetupSteps({ teamId, body, about, resolved }: SetupStepsProps) {
       );
     }
 
-    const ready = onboarding.steps
-      .filter((each) => each.key !== 'configuration')
-      .every((each) => each.done);
+    if (chat) {
+      return (
+        <p className="text-muted-foreground text-sm leading-6">
+          Being set up by {chat.startedBy || 'a former member'}.
+        </p>
+      );
+    }
 
-    return ready ? (
+    return onboarding.canSetUp ? (
       <ConfigHomeForm slug={slug} teamId={teamId} />
     ) : (
       <p className="text-muted-foreground text-sm leading-6">
-        Requires the GitHub App and a host.
+        Requires the GitHub App and a host. Push pools can’t run a setup chat.
       </p>
     );
   };
@@ -228,10 +231,6 @@ export function SetupSteps({ teamId, body, about, resolved }: SetupStepsProps) {
           />
         ))}
       </ul>
-
-      {onboarding.connections.length > 0 && (
-        <ConnectionRows connections={onboarding.connections} />
-      )}
     </div>
   );
 }

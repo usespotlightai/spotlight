@@ -53,7 +53,6 @@ const board: LineDetail = {
 
 const reader = (result: LineDetail[] | null): LineReaderPort => ({
   listForTeamMember: vi.fn().mockResolvedValue(result),
-  reviewInvitationOf: vi.fn(),
 });
 
 const handle = (lines: LineReaderPort, teamId = 'team_1') =>

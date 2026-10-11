@@ -55,6 +55,10 @@ export class DrizzleRunnerReader implements RunnerReaderPort {
       return true;
     }
 
+    return this.hostsSandboxes(workspaceId);
+  }
+
+  async hostsSandboxes(workspaceId: WorkspaceId): Promise<boolean> {
     const hosts = await this.db
       .select({
         name: runnerHost.name,

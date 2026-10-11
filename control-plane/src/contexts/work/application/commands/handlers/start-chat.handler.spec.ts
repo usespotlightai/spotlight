@@ -1,24 +1,29 @@
-import { NoGitHubInstallationError } from '@github/application/errors/no-github-installation.error';
-import type { RepositoryCatalogPort } from '@github/application/ports/repository-catalog.port';
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
+import type { RunnerReaderPort } from '@runners/application/ports/runner-reader.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { StartChatCommand } from '@work/application/commands/chat.commands';
 import { StartChatHandler } from '@work/application/commands/handlers/start-chat.handler';
 import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.port';
+import type { ReachableRepositoriesPort } from '@work/application/ports/reachable-repositories.port';
 import type { ChatDispatching } from '@work/application/services/chat-dispatch';
 import type { FilesAtHand } from '@work/application/services/files-at-hand.service';
 import type { TracesAtHand } from '@work/application/services/traces-at-hand.service';
 import type { Chat } from '@work/domain/aggregates/chat.aggregate';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
-import { GitHubReachableRepositories } from '@work/infrastructure/github/github-reachable-repositories';
 import { describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-10-11T09:00:00.000Z');
 
-const starting = (listed: () => Promise<{ fullName: string }[]>) => {
+const starting = ({
+  reached = ['acme/infra'],
+  hosted = true,
+}: {
+  reached?: readonly string[];
+  hosted?: boolean;
+} = {}) => {
   const added: Chat[] = [];
   const handler = new StartChatHandler(
     {
@@ -46,9 +51,14 @@ const starting = (listed: () => Promise<{ fullName: string }[]>) => {
     {
       catalogue: () => [{ id: 'claude-code' }],
     } as unknown as HarnessLaunchPort,
-    new GitHubReachableRepositories({
-      list: vi.fn(listed),
-    } as unknown as RepositoryCatalogPort),
+    {
+      reaches: vi.fn(async (_, repository) =>
+        reached.includes(repository.value),
+      ),
+    } satisfies ReachableRepositoriesPort,
+    {
+      hostsSandboxes: vi.fn(async () => hosted),
+    } as unknown as RunnerReaderPort,
     { generate: () => 'chat_1' } as IdGeneratorPort,
     { now: () => NOW } as ClockPort,
     { run: (work: () => Promise<unknown>) => work() } as TransactionPort,
@@ -74,9 +84,7 @@ const settingUp = (repository: string) =>
 
 describe('StartChatHandler', () => {
   it('starts a setup chat in a repository the GitHub App reaches', async () => {
-    const { handler, added } = starting(async () => [
-      { fullName: 'acme/infra' },
-    ]);
+    const { handler, added } = starting();
 
     await expect(handler.execute(settingUp('acme/infra'))).resolves.toBe(
       'chat_1',
@@ -85,9 +93,7 @@ describe('StartChatHandler', () => {
   });
 
   it('refuses a setup chat in a repository the GitHub App does not reach', async () => {
-    const { handler, added } = starting(async () => [
-      { fullName: 'acme/infra' },
-    ]);
+    const { handler, added } = starting();
 
     await expect(handler.execute(settingUp('acme/example'))).rejects.toThrow(
       "The GitHub App can't reach acme/example.",
@@ -95,13 +101,12 @@ describe('StartChatHandler', () => {
     expect(added).toEqual([]);
   });
 
-  it('refuses a setup chat where the workspace has no GitHub App', async () => {
-    const { handler } = starting(async () => {
-      throw new NoGitHubInstallationError();
-    });
+  it('refuses a setup chat where no host runs sandboxes', async () => {
+    const { handler, added } = starting({ hosted: false });
 
     await expect(handler.execute(settingUp('acme/infra'))).rejects.toThrow(
-      "The GitHub App can't reach acme/infra.",
+      'A setup chat runs only on a host',
     );
+    expect(added).toEqual([]);
   });
 });

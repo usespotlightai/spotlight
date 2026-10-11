@@ -16,6 +16,7 @@ const TEAM = TeamId.of('team_1');
 type Given = {
   connected?: boolean;
   harness?: boolean;
+  hosted?: boolean;
   chat?: SetupChatView | null;
 };
 
@@ -26,6 +27,7 @@ const read = (given: Given = {}) => {
 
   const runners = {
     readyToRun: vi.fn().mockResolvedValue(given.harness ?? false),
+    hostsSandboxes: vi.fn().mockResolvedValue(given.hosted ?? false),
   } as unknown as RunnerReaderPort;
 
   const chats = {
@@ -43,6 +45,7 @@ describe('SetupStanding', () => {
         hasHarness: false,
         configured: false,
       },
+      hostsSandboxes: false,
       chat: null,
     });
   });
@@ -61,8 +64,22 @@ describe('SetupStanding', () => {
     ).resolves.toMatchObject({ state: { hasHarness: false } });
   });
 
+  it('tells a host that runs sandboxes from a push pool alone', async () => {
+    await expect(read({ harness: true, hosted: false })).resolves.toMatchObject(
+      {
+        state: { hasHarness: true },
+        hostsSandboxes: false,
+      },
+    );
+  });
+
   it('is not configured while the setup chat has opened no pull request', async () => {
-    const chat = { id: 'chat_1', pullRequest: null };
+    const chat = {
+      id: 'chat_1',
+      pullRequest: null,
+      startedById: 'user_1',
+      startedBy: 'Ada',
+    };
 
     await expect(read({ chat })).resolves.toMatchObject({
       state: { configured: false },
@@ -76,6 +93,8 @@ describe('SetupStanding', () => {
         chat: {
           id: 'chat_1',
           pullRequest: 'https://github.com/acme/infra/pull/12',
+          startedById: 'user_1',
+          startedBy: 'Ada',
         },
       }),
     ).resolves.toMatchObject({ state: { configured: true } });

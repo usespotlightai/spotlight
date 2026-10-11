@@ -4,7 +4,6 @@ import {
   createWorkspaceToken,
   deleteWorkspaceToken,
   disconnectMine,
-  exportWorkspace,
   listConnections,
   listHarnesses,
   listRepositories,
@@ -125,18 +124,13 @@ describe('the mock settings', () => {
     ]);
   });
 
-  it('answers the team resource and the workspace export', async () => {
+  it('answers the team resource', async () => {
     const { data: team } = await readTeam({
       path: { id: PLATFORM_ID },
       throwOnError: true,
     });
-    const { data: exported } = await exportWorkspace({
-      path: { id: WORKSPACE_ID },
-      throwOnError: true,
-    });
 
     expect(team).toMatchObject({ key: 'platform', name: 'Platform' });
-    expect(exported.files.map((each) => each.path)).toContain('teams.tf');
   });
 
   it('answers the team’s integrations, connections and skills', async () => {

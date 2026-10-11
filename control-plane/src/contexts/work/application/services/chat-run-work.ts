@@ -1,5 +1,6 @@
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
+import type { GitService } from '@work/application/ports/git-gateway.port';
 import type { ConnectionWantedDto } from '@work/application/ports/integration-tool-calls.port';
 import type { ChatToolContext } from '@work/application/ports/integration-tools.port';
 import type {
@@ -39,8 +40,13 @@ export class ChatRunWork implements RunWork {
     );
   }
 
-  async repositoryNamed(name: string): Promise<Repository | null> {
-    return this.chat.repositoryNamed(name);
+  async repositoryNamed(
+    name: string,
+    service: GitService,
+  ): Promise<Repository | null> {
+    return service === 'git-receive-pack'
+      ? this.chat.pushableNamed(name)
+      : this.chat.repositoryNamed(name);
   }
 
   async clearFor(declared: DeclaredTool): Promise<Cleared> {

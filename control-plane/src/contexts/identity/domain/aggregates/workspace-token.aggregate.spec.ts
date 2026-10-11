@@ -160,12 +160,14 @@ describe('WorkspaceToken', () => {
   });
 
   describe('minted for a run', () => {
-    const forRun = (expiresAt = LATER) =>
+    const HOUR_LATER = new Date(NOW.getTime() + 60 * 60 * 1_000);
+
+    const forRun = (expiresAt = HOUR_LATER, scopes = ['plan']) =>
       WorkspaceToken.forRun({
         id: ID,
         workspaceId: WORKSPACE,
         name: TokenName.of('run-token-1'),
-        scopes: TokenScopes.named(['plan']),
+        scopes: TokenScopes.named(scopes),
         hash: TokenHash.of('a'.repeat(64)),
         issuedBy: UserId.of('user_1'),
         runId: RunId.of('run_1'),
@@ -191,7 +193,7 @@ describe('WorkspaceToken', () => {
         run: 'run_1',
         attempt: 1,
         scopes: ['plan'],
-        expiresAt: LATER.toISOString(),
+        expiresAt: HOUR_LATER.toISOString(),
       });
     });
 
@@ -199,10 +201,26 @@ describe('WorkspaceToken', () => {
       expect(() => forRun(NOW)).toThrow(InvalidWorkspaceTokenError);
     });
 
+    it('lasts at most an hour', () => {
+      expect(() =>
+        forRun(new Date(NOW.getTime() + 60 * 60 * 1_000 + 1)),
+      ).toThrow(InvalidWorkspaceTokenError);
+    });
+
+    it('may plan, never configure or read secrets', () => {
+      expect(() => forRun(HOUR_LATER, ['configure'])).toThrow(
+        InvalidWorkspaceTokenError,
+      );
+      expect(() => forRun(HOUR_LATER, ['plan', 'secrets'])).toThrow(
+        InvalidWorkspaceTokenError,
+      );
+      expect(forRun(HOUR_LATER, ['read']).isMinted).toBe(true);
+    });
+
     it('lapses once it ends', () => {
       const token = forRun();
 
-      expect(token.admitsAt(new Date(LATER.getTime() + 1))).toBe(false);
+      expect(token.admitsAt(new Date(HOUR_LATER.getTime() + 1))).toBe(false);
     });
   });
 });

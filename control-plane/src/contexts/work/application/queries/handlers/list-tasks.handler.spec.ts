@@ -48,7 +48,6 @@ const asDto = (summary: TaskSummary) => ({
 
 const reader = (result: TaskSummary[] | null): TaskReaderPort => ({
   listForTeamMember: vi.fn().mockResolvedValue(result),
-  firstOpenedFrom: vi.fn(),
 });
 
 const handle = (tasks: TaskReaderPort) =>

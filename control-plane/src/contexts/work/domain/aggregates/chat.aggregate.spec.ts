@@ -560,6 +560,15 @@ describe('Chat', () => {
 
     const BRANCH = Branch.of('spotlight-configuration');
 
+    it('reads every repository it checked out, and pushes only to the configuration’s', () => {
+      const chat = settingUp();
+
+      expect(chat.repositoryNamed('api')?.value).toBe('acme/api');
+      expect(chat.pushableNamed('api')).toBeNull();
+      expect(chat.pushableNamed('infra')?.value).toBe('acme/infra');
+      expect(started().pushableNamed('api')).toBeNull();
+    });
+
     it('refuses a branch named like a task’s, before anything is opened', () => {
       expect(() =>
         settingUp().mayOpenSetupFrom(

@@ -3,6 +3,7 @@ import {
   RUN_TOKENS,
   type RunTokensPort,
 } from '@identity/application/ports/run-tokens.port';
+import { DrizzleWorkspaceTokenRepository } from '@identity/infrastructure/persistence/drizzle/repositories/workspace-token.repository';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
@@ -16,14 +17,6 @@ import {
   CHAT_READER,
   type ChatReaderPort,
 } from '@work/application/ports/chat-reader.port';
-import {
-  LINE_READER,
-  type LineReaderPort,
-} from '@work/application/ports/line-reader.port';
-import {
-  TASK_READER,
-  type TaskReaderPort,
-} from '@work/application/ports/task-reader.port';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
 import { Branch } from '@work/domain/value-objects/branch.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
@@ -39,7 +32,7 @@ import {
   expect,
   it,
 } from 'vitest';
-import { openApp, served } from './support/app';
+import { openApp, served, TEST_USER_HEADER } from './support/app';
 import * as schema from './support/schema';
 import { seatTeam } from './support/team';
 
@@ -52,6 +45,7 @@ describe('setting a team up as code (e2e)', () => {
   let db: DrizzleDatabase;
   let held: string;
   let owner: string;
+  let member: string;
   let unseat: () => Promise<void>;
 
   const chats = () => app.get(DrizzleChatRepository);
@@ -69,6 +63,12 @@ describe('setting a team up as code (e2e)', () => {
       now: NOW,
       newId: () => randomUUID(),
     }).handedTo(RunId.of(runId), NOW);
+
+  const starting = (setup: unknown) =>
+    served(app)
+      .post(`/api/teams/${held}/chats`)
+      .set(TEST_USER_HEADER, owner)
+      .send({ harness: 'claude-code', body: 'Set us up.', setup });
 
   const exported = (token: string) =>
     served(app)
@@ -88,6 +88,7 @@ describe('setting a team up as code (e2e)', () => {
     held = `setup-${randomUUID().slice(0, 8)}`;
     const seat = await seatTeam(db, held);
     owner = seat.owner;
+    member = seat.member;
     unseat = seat.unseat;
   });
 
@@ -107,6 +108,8 @@ describe('setting a team up as code (e2e)', () => {
     await expect(reader().setupOf(TeamId.of(held))).resolves.toEqual({
       id: chat.id.value,
       pullRequest: null,
+      startedById: owner,
+      startedBy: 'Ada',
     });
 
     const found = await chats().find(chat.id);
@@ -122,79 +125,14 @@ describe('setting a team up as code (e2e)', () => {
       ),
     );
 
-    await expect(reader().setupOf(TeamId.of(held))).resolves.toEqual({
+    await expect(reader().setupOf(TeamId.of(held))).resolves.toMatchObject({
       id: chat.id.value,
       pullRequest: PULL_REQUEST,
     });
   });
 
-  it('words the review invitation with the policy’s defaults for a line kept before they existed', async () => {
-    await db.insert(schema.line).values({
-      id: randomUUID(),
-      workspaceId: held,
-      teamId: held,
-      key: 'review',
-      name: 'Review',
-      role: 'review',
-      reviews: {
-        start: 'mentioned',
-        mention: '@spotlight',
-        skip: { spotlight: true, drafts: true, authors: [] },
-      } as never,
-    });
-
-    await expect(
-      app.get<LineReaderPort>(LINE_READER).reviewInvitationOf(TeamId.of(held)),
-    ).resolves.toEqual({
-      label: 'spotlight',
-      mention: '@spotlight',
-      repository: null,
-    });
-  });
-
   it('answers no setup chat for a team that started none', async () => {
     await expect(reader().setupOf(TeamId.of(held))).resolves.toBeNull();
-  });
-
-  it('says when each source first opened a task for the team, leaving out people', async () => {
-    const lineId = randomUUID();
-    const stationId = randomUUID();
-    await db.insert(schema.line).values({
-      id: lineId,
-      workspaceId: held,
-      teamId: held,
-      key: 'delivery',
-      name: 'Delivery',
-    });
-    await db.insert(schema.station).values({
-      id: stationId,
-      lineId,
-      key: 'backlog',
-      name: 'Backlog',
-      position: 0,
-      kind: 'backlog',
-    });
-    const first = new Date('2026-10-10T08:00:00.000Z');
-    const later = new Date('2026-10-10T09:00:00.000Z');
-    await db.insert(schema.task).values(
-      [
-        { openedFrom: 'slack', createdAt: later },
-        { openedFrom: 'slack', createdAt: first },
-        { openedFrom: 'person', createdAt: first },
-      ].map((each) => ({
-        id: randomUUID(),
-        workspaceId: held,
-        stationId,
-        title: 'Retry uploads',
-        ...each,
-      })),
-    );
-
-    const opened = await app
-      .get<TaskReaderPort>(TASK_READER)
-      .firstOpenedFrom(TeamId.of(held));
-
-    expect([...opened.entries()]).toEqual([['slack', first]]);
   });
 
   it('lets a token minted for a run read the workspace until the run ends', async () => {
@@ -237,5 +175,63 @@ describe('setting a team up as code (e2e)', () => {
 
     expect((await exported(first.token)).status).toBe(401);
     expect((await exported(second.token)).status).toBe(200);
+  });
+
+  it('prunes a run token once it has expired', async () => {
+    const expiresAt = new Date(Date.now() + 60 * 1_000);
+    const minted = await runTokens().mintFor({
+      workspaceId: held,
+      runId: randomUUID(),
+      attempt: 1,
+      issuedBy: owner,
+      scopes: ['plan'],
+      expiresAt,
+    });
+    const expired = async (by: Date) =>
+      (
+        await app
+          .get(DrizzleWorkspaceTokenRepository)
+          .mintedAndExpiredBy(by, 10_000)
+      ).map((each) => each.id.value);
+
+    expect(await expired(new Date(expiresAt.getTime() - 1))).not.toContain(
+      minted.id,
+    );
+    expect(await expired(expiresAt)).toContain(minted.id);
+  });
+
+  it('refuses a setup that names no repository and folder', async () => {
+    await starting({ repository: 'acme/infra' }).expect(400);
+    await starting('acme/infra').expect(400);
+  });
+
+  it('refuses a setup in a repository the GitHub App cannot reach', async () => {
+    const refused = await starting({
+      repository: 'acme/infra',
+      folder: 'spotlight',
+    }).expect(422);
+
+    expect(JSON.stringify(refused.body)).toContain("can't reach acme/infra");
+    await expect(reader().setupOf(TeamId.of(held))).resolves.toBeNull();
+  });
+
+  it('says who started the setup chat, and links it only for them', async () => {
+    const chat = settingUp(randomUUID());
+    await chats().add(chat);
+    const seenBy = async (viewer: string) =>
+      (
+        await served(app)
+          .get(`/api/teams/${held}/configuration/onboarding`)
+          .set(TEST_USER_HEADER, viewer)
+          .expect(200)
+      ).body;
+
+    await expect(seenBy(owner)).resolves.toMatchObject({
+      canSetUp: false,
+      setupChat: { id: chat.id.value, pullRequest: null, startedBy: 'Ada' },
+    });
+    await expect(seenBy(member)).resolves.toMatchObject({
+      setupChat: { id: null, startedBy: 'Ada' },
+    });
   });
 });

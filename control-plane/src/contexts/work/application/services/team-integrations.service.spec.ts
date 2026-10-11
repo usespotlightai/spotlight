@@ -18,7 +18,7 @@ const LINEAR: ToolDeclaration = {
 describe('TeamIntegrations', () => {
   it('offers what the line’s team’s integrations offer, in Work’s own terms', async () => {
     const offered = vi.fn(async () => [LINEAR]);
-    const service = new TeamIntegrations({ offered, opening: vi.fn() });
+    const service = new TeamIntegrations({ offered });
 
     const tools = await service.offered({ teamId: TEAM } as Line, [
       Tool.of('linear.comment'),
@@ -35,7 +35,6 @@ describe('TeamIntegrations', () => {
     const learnedOutput = { type: 'string' };
     const service = new TeamIntegrations({
       offered: vi.fn(async () => [{ ...LINEAR, learnedOutput }]),
-      opening: vi.fn(),
     });
 
     const [tool] = await service.offered({ teamId: TEAM } as Line, [
@@ -47,7 +46,7 @@ describe('TeamIntegrations', () => {
 
   it('asks nothing of the integrations when no tool given comes from one', async () => {
     const offered = vi.fn(async () => [LINEAR]);
-    const service = new TeamIntegrations({ offered, opening: vi.fn() });
+    const service = new TeamIntegrations({ offered });
 
     expect(
       await service.offered({ teamId: TEAM } as Line, [

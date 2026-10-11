@@ -51,6 +51,7 @@ import { RunJournalResponseDto } from '@work/presentation/http/dto/run-journal.r
 import { ChatHttpMapper } from '@work/presentation/http/mappers/chat.http.mapper';
 import { givenChoice } from '@work/presentation/http/mappers/given-choice';
 import { givenIds } from '@work/presentation/http/mappers/given-ids';
+import { givenSetup } from '@work/presentation/http/mappers/given-setup';
 import { RunJournalHttpMapper } from '@work/presentation/http/mappers/run-journal.http.mapper';
 
 @ApiTags('chats')
@@ -97,10 +98,14 @@ export class ChatController {
     summary: 'Start planning with the team’s agent',
   })
   @ApiCreatedResponse({ type: ChatResponseDto })
-  @ApiBadRequestResponse({ description: 'A model or effort that is not text' })
+  @ApiBadRequestResponse({
+    description:
+      'A model or effort that is not text, or a setup without a repository and a folder',
+  })
   @ApiNotFoundResponse({ description: 'No such team for this caller' })
   @ApiUnprocessableEntityResponse({
-    description: 'An unknown harness, model, effort or repository',
+    description:
+      'An unknown harness, model, effort or repository, or a setup the GitHub App cannot reach or no host can run',
   })
   async start(
     @Param('teamId') teamId: string,
@@ -124,11 +129,7 @@ export class ChatController {
         typeof body.improving === 'string' && body.improving.trim()
           ? body.improving.trim()
           : null,
-        body.setup &&
-          typeof body.setup.repository === 'string' &&
-          typeof body.setup.folder === 'string'
-          ? { repository: body.setup.repository, folder: body.setup.folder }
-          : null,
+        givenSetup(body.setup),
       ),
     );
 

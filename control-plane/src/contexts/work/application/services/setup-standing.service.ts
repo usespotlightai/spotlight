@@ -10,6 +10,7 @@ import type { SetupState } from '@work/domain/services/setup-list';
 
 export interface TeamSetup {
   readonly state: SetupState;
+  readonly hostsSandboxes: boolean;
   readonly chat: SetupChatView | null;
 }
 
@@ -21,11 +22,13 @@ export class SetupStanding {
   ) {}
 
   async of(workspaceId: WorkspaceId, teamId: TeamId): Promise<TeamSetup> {
-    const [connectedToGitHub, hasHarness, chat] = await Promise.all([
-      this.connections.isConnected(workspaceId),
-      this.runners.readyToRun(workspaceId),
-      this.chats.setupOf(teamId),
-    ]);
+    const [connectedToGitHub, hasHarness, hostsSandboxes, chat] =
+      await Promise.all([
+        this.connections.isConnected(workspaceId),
+        this.runners.readyToRun(workspaceId),
+        this.runners.hostsSandboxes(workspaceId),
+        this.chats.setupOf(teamId),
+      ]);
 
     return {
       state: {
@@ -33,6 +36,7 @@ export class SetupStanding {
         hasHarness,
         configured: chat?.pullRequest != null,
       },
+      hostsSandboxes,
       chat,
     };
   }

@@ -162,6 +162,11 @@ const described = (pull: Described | undefined): PullRequestAbout | null => {
     : null;
 };
 
+const ASKED_BY_ANYONE: readonly PullRequestActivityKind[] = [
+  'opened',
+  'labelled',
+];
+
 const byBot = (payload: Payload): boolean =>
   payload.sender?.type === 'Bot' ||
   payload.comment?.user?.type === 'Bot' ||
@@ -232,7 +237,7 @@ const pullRequestActivity = (
         : null,
     about: described(payload.pull_request) ?? described(payload.issue),
     remark: remarked(payload.comment) ?? remarked(payload.review),
-    byBot: activity !== 'opened' && byBot(payload),
+    byBot: !ASKED_BY_ANYONE.includes(activity) && byBot(payload),
   };
 
   return [{ kind: 'pull-request-activity', activity: read }];
