@@ -329,6 +329,23 @@ const connectionSchema = z.object({
   manual: z.object({ secrets: z.array(secretRef).default([]) }).optional(),
 });
 
+const onboardingSchema = z.object({
+  try: z.string().min(1).max(200),
+  heard: z.string().min(1).max(60).optional(),
+  link: z
+    .object({
+      label: z.string().min(1).max(40),
+      url: z
+        .string()
+        .url()
+        .refine(
+          (url) => url.startsWith('https://'),
+          'is an https address, as in https://app.slack.com',
+        ),
+    })
+    .optional(),
+});
+
 export const ON_EVENTS = BINDABLE_TASK_EVENTS;
 
 export const integrationSchema = z
@@ -354,6 +371,7 @@ export const integrationSchema = z
     openapi: openapiSchema.optional(),
     graphql: graphqlSchema.optional(),
     mcp: mcpSchema.optional(),
+    onboarding: onboardingSchema.optional(),
     actions: z.record(key('post-message'), actionSchema).default({}),
     tools: z.record(key('comment'), toolSchema).default({}),
     on: z

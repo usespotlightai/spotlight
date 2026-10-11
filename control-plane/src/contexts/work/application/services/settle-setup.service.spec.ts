@@ -5,11 +5,12 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { SettleSetup } from '@work/application/services/settle-setup.service';
+import type { SetupStanding } from '@work/application/services/setup-standing.service';
 import { listed } from '@work/application/services/setup-steps';
-import type { WorkspaceSetup } from '@work/application/services/workspace-setup.service';
 import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { Station } from '@work/domain/entities/station.entity';
+import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import type { SetupState } from '@work/domain/services/setup-list';
 import { welcomeTask } from '@work/domain/services/welcome-task';
@@ -78,6 +79,7 @@ const list = (): Task =>
 const done: SetupState = {
   connectedToGitHub: true,
   hasHarness: true,
+  configured: true,
 };
 
 const settling = (given: { task?: Task; state?: SetupState } = {}) => {
@@ -88,11 +90,16 @@ const settling = (given: { task?: Task; state?: SetupState } = {}) => {
     save,
     settingUpIn: vi.fn(async () => [task]),
     settingUp: vi.fn(async () => [task]),
+    settingUpFor: vi.fn(async () => task),
   } as unknown as TaskRepository;
 
   const setup = {
-    stateOf: vi.fn(async () => given.state ?? done),
-  } as unknown as WorkspaceSetup;
+    of: vi.fn(async () => ({ state: given.state ?? done, chat: null })),
+  } as unknown as SetupStanding;
+
+  const lines = {
+    holding: vi.fn(async () => DELIVERY),
+  } as unknown as LineRepository;
 
   const logger = { warn: vi.fn(), error: vi.fn() } as unknown as LoggerPort;
 
@@ -103,6 +110,7 @@ const settling = (given: { task?: Task; state?: SetupState } = {}) => {
     setup,
     service: new SettleSetup(
       tasks,
+      lines,
       setup,
       { now: () => NOW } as ClockPort,
       logger,
@@ -192,7 +200,7 @@ describe('SettleSetup', () => {
 
     await service.wherever();
 
-    expect(setup.stateOf).toHaveBeenCalledWith(WORKSPACE);
+    expect(setup.of).toHaveBeenCalledWith(WORKSPACE, TEAM);
   });
 
   it('goes through the lists of one workspace alone', async () => {
@@ -223,5 +231,15 @@ describe('SettleSetup', () => {
 
     await expect(service.forWorkspace(WORKSPACE)).resolves.toBeUndefined();
     expect(logger.warn).toHaveBeenCalled();
+  });
+
+  it('settles only the list of the team it is asked about', async () => {
+    const { service, tasks, save } = settling();
+
+    await service.forTeam(TEAM);
+
+    expect(tasks.settingUpFor).toHaveBeenCalledWith(TEAM);
+    expect(tasks.settingUpIn).not.toHaveBeenCalled();
+    expect(save).toHaveBeenCalledTimes(1);
   });
 });

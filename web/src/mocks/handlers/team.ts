@@ -471,8 +471,14 @@ const chatHandlers = [
         harness: asked.harness,
         model: asked.model ?? null,
         effort: asked.effort ?? null,
-        repositories: asked.repositories ?? [],
+        repositories: [
+          ...new Set([
+            ...(asked.setup ? [asked.setup.repository] : []),
+            ...(asked.repositories ?? []),
+          ]),
+        ],
         improving,
+        setup: asked.setup ? { ...asked.setup, pullRequest: null } : null,
         createdAt: at,
         updatedAt: at,
         working: false,

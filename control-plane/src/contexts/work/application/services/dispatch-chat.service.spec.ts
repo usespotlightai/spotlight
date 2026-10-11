@@ -20,7 +20,9 @@ import { Station } from '@work/domain/entities/station.entity';
 import { ChatHandedToRun } from '@work/domain/events/chat-handed-to-run.event';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
+import { SETUP_PULL_REQUEST } from '@work/domain/services/built-in-tools';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
+import { ConfigHome } from '@work/domain/value-objects/config-home.vo';
 import { HarnessCommand } from '@work/domain/value-objects/harness-command.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
@@ -59,7 +61,7 @@ const line = (key: string, repositories: Repository[], runners: string[]) =>
     stations: [ends(key, 'backlog', 0), ends(key, 'completed', 1)],
   });
 
-const chatIn = (repositories: Repository[]) =>
+const chatIn = (repositories: Repository[], setup: ConfigHome | null = null) =>
   Chat.start({
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),
@@ -67,6 +69,7 @@ const chatIn = (repositories: Repository[]) =>
     harness: HarnessId.of('claude-code'),
     repositories,
     body: ChatMessageBody.of('Plan the retries.'),
+    setup,
     now: NOW,
     newId: () => 'chat_1',
   });
@@ -144,6 +147,25 @@ const handedTo = (chat: Chat, runId: RunId) => {
 };
 
 describe('DispatchChat', () => {
+  it('lets a setup chat’s run reach Spotlight’s API and open its pull request', async () => {
+    const run = await enqueued(
+      chatIn(
+        [API],
+        ConfigHome.of({ repository: 'acme/infra', folder: 'spotlight' }),
+      ),
+    );
+
+    expect(run.spec.wearsSpotlightApi).toBe(true);
+    expect(run.spec.gives(SETUP_PULL_REQUEST)).toBe(true);
+  });
+
+  it('gives any other chat’s run neither', async () => {
+    const run = await enqueued(chatIn([API]));
+
+    expect(run.spec.wearsSpotlightApi).toBe(false);
+    expect(run.spec.gives(SETUP_PULL_REQUEST)).toBe(false);
+  });
+
   it('places a chat run where the lines working in its repositories run', async () => {
     const run = await enqueued(chatIn([API]));
 

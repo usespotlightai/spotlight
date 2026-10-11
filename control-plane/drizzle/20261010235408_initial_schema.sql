@@ -389,9 +389,13 @@ CREATE TABLE "workspace_token" (
 	"expires_at" timestamp,
 	"minted_through" text,
 	"minted_under" integer,
+	"minted_for_run" text,
+	"minted_for_attempt" integer,
 	"version" integer DEFAULT 0 NOT NULL,
 	CONSTRAINT "workspace_token_token_hash_unique" UNIQUE("token_hash"),
-	CONSTRAINT "workspace_token_minted_under" CHECK (("workspace_token"."minted_through" is null) = ("workspace_token"."minted_under" is null))
+	CONSTRAINT "workspace_token_minted_under" CHECK (("workspace_token"."minted_through" is null) = ("workspace_token"."minted_under" is null)),
+	CONSTRAINT "workspace_token_minted_for_attempt" CHECK (("workspace_token"."minted_for_run" is null) = ("workspace_token"."minted_for_attempt" is null)),
+	CONSTRAINT "workspace_token_minted_once" CHECK ("workspace_token"."minted_through" is null or "workspace_token"."minted_for_run" is null)
 );
 --> statement-breakpoint
 CREATE TABLE "workspace_token_trust" (
@@ -1320,6 +1324,7 @@ CREATE TABLE "chat" (
 	"effort" text,
 	"repositories" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"improving" jsonb,
+	"setup" jsonb,
 	"current_run_id" text,
 	"session_id" text,
 	"runner_id" text,
@@ -1753,9 +1758,10 @@ CREATE UNIQUE INDEX "workspace_invite_workspace_email_idx" ON "workspace_invite"
 CREATE INDEX "workspace_invite_workspace_idx" ON "workspace_invite" USING btree ("workspace_id","invited_at");--> statement-breakpoint
 CREATE INDEX "workspace_invite_team_team_idx" ON "workspace_invite_team" USING btree ("team_id");--> statement-breakpoint
 CREATE INDEX "workspace_member_user_idx" ON "workspace_member" USING btree ("user_id");--> statement-breakpoint
-CREATE UNIQUE INDEX "workspace_token_workspace_name_idx" ON "workspace_token" USING btree ("workspace_id","name") WHERE "workspace_token"."minted_through" is null;--> statement-breakpoint
+CREATE UNIQUE INDEX "workspace_token_workspace_name_idx" ON "workspace_token" USING btree ("workspace_id","name") WHERE "workspace_token"."minted_through" is null and "workspace_token"."minted_for_run" is null;--> statement-breakpoint
+CREATE INDEX "workspace_token_minted_for_run_idx" ON "workspace_token" USING btree ("minted_for_run");--> statement-breakpoint
 CREATE INDEX "workspace_token_minted_through_idx" ON "workspace_token" USING btree ("minted_through");--> statement-breakpoint
-CREATE INDEX "workspace_token_minted_expiry_idx" ON "workspace_token" USING btree ("expires_at") WHERE "workspace_token"."minted_through" is not null;--> statement-breakpoint
+CREATE INDEX "workspace_token_minted_expiry_idx" ON "workspace_token" USING btree ("expires_at") WHERE "workspace_token"."minted_through" is not null or "workspace_token"."minted_for_run" is not null;--> statement-breakpoint
 CREATE UNIQUE INDEX "workspace_token_trust_workspace_key_idx" ON "workspace_token_trust" USING btree ("workspace_id","key");--> statement-breakpoint
 CREATE INDEX "inbound_delivery_state_idx" ON "inbound_delivery" USING btree ("state","due_at");--> statement-breakpoint
 CREATE INDEX "hook_callback_expires_idx" ON "hook_callback" USING btree ("expires_at");--> statement-breakpoint

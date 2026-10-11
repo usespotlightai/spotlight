@@ -22,6 +22,7 @@ import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 
 interface Payload {
   readonly action?: unknown;
+  readonly label?: { readonly name?: unknown };
   readonly installation?: { readonly id?: unknown };
   readonly pull_request?: Pull;
   readonly issue?: Described & {
@@ -174,6 +175,10 @@ const activityOf = (
     return 'opened';
   }
 
+  if (event === 'pull_request' && payload.action === 'labeled') {
+    return 'labelled';
+  }
+
   if (event === 'pull_request' && payload.action === 'closed') {
     return payload.pull_request?.merged === true ? 'merged' : 'closed-unmerged';
   }
@@ -221,6 +226,10 @@ const pullRequestActivity = (
       text(payload.pull_request?.html_url) ??
       text(payload.issue?.pull_request?.html_url) ??
       text(payload.check_suite?.pull_requests?.[0]?.html_url),
+    label:
+      activity === 'labelled'
+        ? (text(payload.label?.name)?.trim() ?? null)
+        : null,
     about: described(payload.pull_request) ?? described(payload.issue),
     remark: remarked(payload.comment) ?? remarked(payload.review),
     byBot: activity !== 'opened' && byBot(payload),

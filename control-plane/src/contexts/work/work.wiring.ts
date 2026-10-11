@@ -8,6 +8,10 @@ import {
 } from '@github/application/ports/pull-request.port';
 import { REMARKS } from '@github/application/ports/remarks.port';
 import {
+  REPOSITORY_CATALOG,
+  type RepositoryCatalogPort,
+} from '@github/application/ports/repository-catalog.port';
+import {
   REPOSITORY_GIT,
   type RepositoryGitPort,
 } from '@github/application/ports/repository-git.port';
@@ -20,6 +24,10 @@ import {
   type MemberDirectoryPort,
 } from '@identity/application/ports/member-directory.port';
 import { PERSON_READER } from '@identity/application/ports/person-reader.port';
+import {
+  RUN_TOKENS,
+  type RunTokensPort,
+} from '@identity/application/ports/run-tokens.port';
 import {
   TEAM_DIRECTORY,
   type TeamDirectoryPort,
@@ -202,7 +210,10 @@ import {
   type BuiltInSkillsPort,
   SHIPPED_SKILL_KEYS,
 } from '@work/application/ports/built-in-skills.port';
-import { CHAT_READER } from '@work/application/ports/chat-reader.port';
+import {
+  CHAT_READER,
+  type ChatReaderPort,
+} from '@work/application/ports/chat-reader.port';
 import {
   CHECK_ACCESS,
   type CheckAccessPort,
@@ -258,7 +269,10 @@ import {
   type LineCompilerPort,
 } from '@work/application/ports/line-compiler.port';
 import { LINE_IMAGES } from '@work/application/ports/line-images.port';
-import { LINE_READER } from '@work/application/ports/line-reader.port';
+import {
+  LINE_READER,
+  type LineReaderPort,
+} from '@work/application/ports/line-reader.port';
 import {
   LINE_RENDERING,
   type LineRenderingPort,
@@ -280,6 +294,7 @@ import {
   type PullRequestReviewingPort,
 } from '@work/application/ports/pull-request-reviewing.port';
 import { QUEUED_PLACEMENTS } from '@work/application/ports/queued-placements.port';
+import { REACHABLE_REPOSITORIES } from '@work/application/ports/reachable-repositories.port';
 import { REPLAY_CANDIDATES } from '@work/application/ports/replay-candidates.port';
 import { REPLAY_DISPATCH } from '@work/application/ports/replay-dispatch.port';
 import {
@@ -354,7 +369,10 @@ import {
   TASK_PLACEMENTS,
   type TaskPlacementsPort,
 } from '@work/application/ports/task-placements.port';
-import { TASK_READER } from '@work/application/ports/task-reader.port';
+import {
+  TASK_READER,
+  type TaskReaderPort,
+} from '@work/application/ports/task-reader.port';
 import {
   TEAM_INTEGRATIONS,
   type TeamIntegrationsPort,
@@ -509,6 +527,9 @@ import { RunWorks } from '@work/application/services/run-works.service';
 import { RunnerHolds } from '@work/application/services/runner-holds.service';
 import { SearchRuns } from '@work/application/services/search-runs.service';
 import { SettleSetup } from '@work/application/services/settle-setup.service';
+import { SetupConnections } from '@work/application/services/setup-connections.service';
+import { SetupPullRequestToolUse } from '@work/application/services/setup-pull-request.tool-use';
+import { SetupStanding } from '@work/application/services/setup-standing.service';
 import { StationCatalog } from '@work/application/services/station-catalog.service';
 import { StationOrdering } from '@work/application/services/station-ordering';
 import { StationRuns } from '@work/application/services/station-runs.service';
@@ -525,10 +546,11 @@ import { ToolUsedHooks } from '@work/application/services/tool-used-hooks.servic
 import { TouchedFiles } from '@work/application/services/touched-files';
 import { TracesAtHand } from '@work/application/services/traces-at-hand.service';
 import { WorkLookup } from '@work/application/services/work-lookup.service';
-import { WorkspaceSetup } from '@work/application/services/workspace-setup.service';
 import { WORK_EVENT_TYPES } from '@work/domain/event-types';
+import type { LineRepository } from '@work/domain/repositories/line.repository';
 import { BUILT_IN_SKILL_KEYS } from '@work/domain/services/built-in-skills';
 import { AcpHarnessToolNames } from '@work/infrastructure/acp/harness-tools';
+import { GitHubReachableRepositories } from '@work/infrastructure/github/github-reachable-repositories';
 import {
   BuiltInHarnesses,
   DEFAULT_HARNESS,
@@ -970,12 +992,30 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   { provide: LINE_COMPILER, useClass: LineCompiler },
 
   {
-    provide: WorkspaceSetup,
-    inject: [WORKSPACE_CONNECTIONS, RUNNER_READER],
+    provide: SetupStanding,
+    inject: [WORKSPACE_CONNECTIONS, RUNNER_READER, CHAT_READER],
     useFactory: (
       connections: WorkspaceConnectionsPort,
       runners: RunnerReaderPort,
-    ) => new WorkspaceSetup(connections, runners),
+      chats: ChatReaderPort,
+    ) => new SetupStanding(connections, runners, chats),
+  },
+
+  {
+    provide: REACHABLE_REPOSITORIES,
+    inject: [REPOSITORY_CATALOG],
+    useFactory: (catalog: RepositoryCatalogPort) =>
+      new GitHubReachableRepositories(catalog),
+  },
+
+  {
+    provide: SetupConnections,
+    inject: [LINE_READER, TEAM_INTEGRATIONS, TASK_READER],
+    useFactory: (
+      lines: LineReaderPort,
+      integrations: TeamIntegrationsPort,
+      tasks: TaskReaderPort,
+    ) => new SetupConnections(lines, integrations, tasks),
   },
 
   {
@@ -1074,13 +1114,20 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   {
     provide: SettleSetup,
-    inject: [DrizzleTaskRepository, WorkspaceSetup, CLOCK, LOGGER],
+    inject: [
+      DrizzleTaskRepository,
+      DrizzleLineRepository,
+      SetupStanding,
+      CLOCK,
+      LOGGER,
+    ],
     useFactory: (
       tasks: DrizzleTaskRepository,
-      setup: WorkspaceSetup,
+      lines: LineRepository,
+      setup: SetupStanding,
       clock: ClockPort,
       logger: LoggerPort,
-    ) => new SettleSetup(tasks, setup, clock, logger),
+    ) => new SettleSetup(tasks, lines, setup, clock, logger),
   },
 
   {
@@ -1555,6 +1602,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       RUN_TOOLS,
       RUN_SPENDS,
       Notices,
+      RUN_TOKENS,
     ],
     useFactory: (
       types: EventTypes,
@@ -1585,6 +1633,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       tools: RunToolsReaderPort,
       spends: RunSpendReaderPort,
       notices: Notices,
+      runTokens: RunTokensPort,
     ) => {
       types.register('work', WORK_EVENT_TYPES);
       publications.register(WORK_PUBLICATIONS);
@@ -1617,6 +1666,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
           setup,
           abandoning: new AbandonTeamLines(lines, tallies, transaction, logger),
           runGrants,
+          runTokens,
           runners: ending,
           toolUsedHooks,
           notices,
@@ -1961,7 +2011,8 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   ...bindQueryHandler(OnboardingQuery, OnboardingHandler, [
     WORKSPACE_READER,
-    WorkspaceSetup,
+    SetupStanding,
+    SetupConnections,
   ]),
 
   ...bindCommandHandler(ReadInboxAsideCommand, ReadInboxAsideHandler, [
@@ -2019,6 +2070,8 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       DrizzleLineRepository,
       CLOCK,
       PULL_REQUEST_REVIEWING,
+      PULL_REQUESTS,
+      TRANSACTION,
     ],
     useFactory: (
       opening: OpenPullRequest,
@@ -2026,9 +2079,12 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       lines: DrizzleLineRepository,
       clock: ClockPort,
       reviewing: PullRequestReviewingPort,
+      pullRequests: PullRequestPort,
+      transaction: TransactionPort,
     ): readonly BuiltInToolUse[] => [
       new PullRequestToolUse(opening),
       new ProposeTaskToolUse(chats, lines, clock),
+      new SetupPullRequestToolUse(chats, pullRequests, transaction, clock),
       new ReviewCommentToolUse(reviewing),
       new ReviewToolUse(reviewing),
     ],
@@ -2087,6 +2143,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     DrizzleLineRepository,
     CHAT_DISPATCH,
     HARNESS_LAUNCH,
+    REACHABLE_REPOSITORIES,
     ID_GENERATOR,
     CLOCK,
     TRANSACTION,
@@ -2208,6 +2265,8 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     RUN_REDEMPTIONS,
     RUN_GRANTS,
     SANDBOX_REACH,
+    DrizzleChatRepository,
+    RUN_TOKENS,
     CLOCK,
   ]),
 

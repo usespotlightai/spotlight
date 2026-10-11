@@ -12,15 +12,18 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { StartChatCommand } from '@work/application/commands/chat.commands';
 import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.port';
+import type { ReachableRepositoriesPort } from '@work/application/ports/reachable-repositories.port';
 import type { ChatDispatching } from '@work/application/services/chat-dispatch';
 import type { FilesAtHand } from '@work/application/services/files-at-hand.service';
 import type { TracesAtHand } from '@work/application/services/traces-at-hand.service';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
+import { ConfigHomeUnreachableError } from '@work/domain/exceptions/config-home-unreachable.error';
 import { UnknownHarnessError } from '@work/domain/exceptions/unknown-harness.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
+import { ConfigHome } from '@work/domain/value-objects/config-home.vo';
 import { Effort } from '@work/domain/value-objects/effort.vo';
 import { ImprovedStation } from '@work/domain/value-objects/improved-station.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
@@ -36,6 +39,7 @@ export class StartChatHandler
     private readonly lines: LineRepository,
     private readonly dispatch: ChatDispatching,
     private readonly launch: HarnessLaunchPort,
+    private readonly repositories: ReachableRepositoriesPort,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
     private readonly transaction: TransactionPort,
@@ -61,6 +65,14 @@ export class StartChatHandler
 
       const workspaceId = WorkspaceId.of(member.workspaceId);
       const teamId = TeamId.of(member.teamId);
+      const setup = command.setup ? ConfigHome.of(command.setup) : null;
+
+      if (
+        setup &&
+        !(await this.repositories.reaches(workspaceId, setup.repository))
+      ) {
+        throw new ConfigHomeUnreachableError(setup.repository.value);
+      }
 
       const started = await this.transaction.run(async () => {
         const attachments = await this.files.handedOver(
@@ -89,6 +101,7 @@ export class StartChatHandler
           attachments,
           traces,
           improving,
+          setup,
           now: this.clock.now(),
           newId: () => this.ids.generate(),
         });

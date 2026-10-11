@@ -1,5 +1,6 @@
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
+import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -15,11 +16,15 @@ import { ProposalDismissed } from '@work/domain/events/proposal-dismissed.event'
 import { TaskProposed } from '@work/domain/events/task-proposed.event';
 import { InvalidChatMessageError } from '@work/domain/exceptions/invalid-chat-message.error';
 import { InvalidChatTransitionError } from '@work/domain/exceptions/invalid-chat-transition.error';
+import { InvalidSetupBranchError } from '@work/domain/exceptions/invalid-setup-branch.error';
+import { NotASetupChatError } from '@work/domain/exceptions/not-a-setup-chat.error';
 import { NotTheChatStarterError } from '@work/domain/exceptions/not-the-chat-starter.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
 import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
+import { Branch } from '@work/domain/value-objects/branch.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
+import { ConfigHome } from '@work/domain/value-objects/config-home.vo';
 import { Effort } from '@work/domain/value-objects/effort.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import { ImprovedStation } from '@work/domain/value-objects/improved-station.vo';
@@ -535,5 +540,106 @@ describe('Chat', () => {
     expect(() => proposing().proposalAt(MessagePosition.of(0))).toThrow(
       InvalidChatTransitionError,
     );
+  });
+
+  describe('setting up configuration', () => {
+    const settingUp = () =>
+      Chat.start({
+        workspaceId: WorkspaceId.of('ws_1'),
+        teamId: TeamId.of('team_1'),
+        startedBy: LEON,
+        harness: HarnessId.of('claude-code'),
+        repositories: [Repository.of('acme/api')],
+        body: ChatMessageBody.given('Set up our configuration.'),
+        setup: ConfigHome.of({ repository: 'acme/infra', folder: 'spotlight' }),
+        now: NOW,
+        newId: () => 'chat_1',
+      }).handedTo(RunId.of('run_1'), NOW);
+
+    const URL = PullRequestUrl.of('https://github.com/acme/infra/pull/12');
+
+    const BRANCH = Branch.of('spotlight-configuration');
+
+    it('refuses a branch named like a task’s, before anything is opened', () => {
+      expect(() =>
+        settingUp().mayOpenSetupFrom(
+          RunId.of('run_1'),
+          Branch.of('spotlight/configuration'),
+        ),
+      ).toThrow(InvalidSetupBranchError);
+    });
+
+    it('lets the run working it open the setup pull request, in its repository', () => {
+      expect(
+        settingUp().mayOpenSetupFrom(RunId.of('run_1'), BRANCH).repository
+          .value,
+      ).toBe('acme/infra');
+      expect(() =>
+        settingUp().mayOpenSetupFrom(RunId.of('run_2'), BRANCH),
+      ).toThrow(InvalidChatTransitionError);
+    });
+
+    it('checks out the configuration’s repository first', () => {
+      expect(settingUp().repositories.map((each) => each.value)).toEqual([
+        'acme/infra',
+        'acme/api',
+      ]);
+    });
+
+    it('keeps the pull request its run opened', () => {
+      const opened = settingUp().setupOpened(
+        RunId.of('run_1'),
+        BRANCH,
+        URL,
+        LATER,
+      );
+
+      expect(opened.setup?.pullRequest?.equals(URL)).toBe(true);
+    });
+
+    it('refuses a pull request in another repository', () => {
+      expect(() =>
+        settingUp().setupOpened(
+          RunId.of('run_1'),
+          BRANCH,
+          PullRequestUrl.of('https://github.com/acme/api/pull/3'),
+          LATER,
+        ),
+      ).toThrow(InvalidChatTransitionError);
+    });
+
+    it('refuses a run that no longer works the chat', () => {
+      expect(() =>
+        settingUp().setupOpened(RunId.of('run_2'), BRANCH, URL, LATER),
+      ).toThrow(InvalidChatTransitionError);
+    });
+
+    it('refuses a chat that sets nothing up', () => {
+      expect(() =>
+        started()
+          .handedTo(RunId.of('run_1'), NOW)
+          .setupOpened(RunId.of('run_1'), BRANCH, URL, LATER),
+      ).toThrow(NotASetupChatError);
+    });
+
+    it('keeps the first pull request, opening no second', () => {
+      const once = settingUp().setupOpened(
+        RunId.of('run_1'),
+        BRANCH,
+        URL,
+        LATER,
+      );
+      once.pullEvents();
+
+      const again = once.setupOpened(
+        RunId.of('run_1'),
+        BRANCH,
+        PullRequestUrl.of('https://github.com/acme/infra/pull/13'),
+        LATER,
+      );
+
+      expect(again.setup?.pullRequest?.equals(URL)).toBe(true);
+      expect(again.pullEvents()).toEqual([]);
+    });
   });
 });

@@ -25,6 +25,7 @@ import {
   EgressRedemptionResponseDto,
   ReadInNetworkResponseDto,
   RedeemedSecretResponseDto,
+  SpotlightApiResponseDto,
   WithheldSecretResponseDto,
 } from '@work/presentation/http/dto/egress.response.dto';
 
@@ -89,6 +90,9 @@ export class EgressController {
       redeemed.withheld.map(
         (each) => new WithheldSecretResponseDto(each.secret, each.reason),
       ),
+      redeemed.spotlightApi
+        ? new SpotlightApiResponseDto(redeemed.spotlightApi.sealed)
+        : null,
     );
   }
 }

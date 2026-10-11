@@ -124,6 +124,11 @@ export class ChatController {
         typeof body.improving === 'string' && body.improving.trim()
           ? body.improving.trim()
           : null,
+        body.setup &&
+          typeof body.setup.repository === 'string' &&
+          typeof body.setup.folder === 'string'
+          ? { repository: body.setup.repository, folder: body.setup.folder }
+          : null,
       ),
     );
 

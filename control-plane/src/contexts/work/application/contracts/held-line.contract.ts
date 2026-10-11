@@ -62,6 +62,7 @@ type HeldLineReviewSkips = {
 export type HeldLineReviews = {
   readonly start?: 'opened' | 'mentioned';
   readonly mention?: string;
+  readonly label?: string;
   readonly skip: HeldLineReviewSkips;
 };
 

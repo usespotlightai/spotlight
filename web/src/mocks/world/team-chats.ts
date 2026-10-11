@@ -148,6 +148,7 @@ const chatOf = (
   effort: null,
   repositories: [],
   improving: null,
+  setup: null,
   updatedAt: over.createdAt,
   working: false,
   runId: null,
@@ -425,8 +426,48 @@ const onboardingChat = (): ChatRecord => {
   };
 };
 
+const SETUP_PULL_REQUEST = 'https://github.com/acme/infra/pull/12';
+
+const setupChat = (): ChatRecord => {
+  const asked = hoursAgo(4300);
+  const answer = chatTurn('run_chat_setup_1', asked, [
+    { kind: 'tool', tool: 'read', text: 'api/.github/workflows/ci.yml' },
+    { kind: 'tool', tool: 'bash', text: 'spotlight linear.labels' },
+    {
+      kind: 'said',
+      text: 'The API runs `npm test` and `npm run lint` in CI, and Linear issues are triaged with the `bug`, `feature` and `chore` labels. I adapted the triage prompt to those labels and gave Implementation the CI commands as its check.\n\nThe pull request is open: https://github.com/acme/infra/pull/12',
+    },
+  ]);
+
+  return {
+    chat: chatOf({
+      id: 'chat_setup',
+      title:
+        'Set up our configuration as code in acme/infra, under spotlight/.',
+      repositories: ['acme/infra', 'acme/api'],
+      setup: {
+        repository: 'acme/infra',
+        folder: 'spotlight',
+        pullRequest: SETUP_PULL_REQUEST,
+      },
+      createdAt: asked,
+      updatedAt: turnEndsAt(answer),
+      messages: [
+        saidBy(
+          SAM,
+          0,
+          'Set up our configuration as code in acme/infra, under spotlight/.',
+          asked,
+        ),
+      ],
+    }),
+    journals: [answer],
+  };
+};
+
 const seededChats = (): Record<string, ChatRecord[]> => ({
   [PLATFORM_ID]: [
+    setupChat(),
     retriesChat(),
     implementationChat(),
     rateLimitsChat(),

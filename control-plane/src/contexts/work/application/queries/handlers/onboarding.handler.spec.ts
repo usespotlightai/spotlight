@@ -1,7 +1,8 @@
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import { OnboardingHandler } from '@work/application/queries/handlers/onboarding.handler';
 import { OnboardingQuery } from '@work/application/queries/onboarding.query';
-import type { WorkspaceSetup } from '@work/application/services/workspace-setup.service';
+import type { SetupConnections } from '@work/application/services/setup-connections.service';
+import type { SetupStanding } from '@work/application/services/setup-standing.service';
 import { SETUP_STEPS, type SetupState } from '@work/domain/services/setup-list';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -13,6 +14,7 @@ type Given = {
 const nothing: SetupState = {
   connectedToGitHub: false,
   hasHarness: false,
+  configured: false,
 };
 
 const handler = (given: Given = {}) => {
@@ -30,10 +32,17 @@ const handler = (given: Given = {}) => {
   } as unknown as WorkspaceReaderPort;
 
   const setup = {
-    stateOf: vi.fn().mockResolvedValue({ ...nothing, ...given.state }),
-  } as unknown as WorkspaceSetup;
+    of: vi.fn().mockResolvedValue({
+      state: { ...nothing, ...given.state },
+      chat: null,
+    }),
+  } as unknown as SetupStanding;
 
-  return new OnboardingHandler(workspaces, setup);
+  const connections = {
+    of: vi.fn().mockResolvedValue([]),
+  } as unknown as SetupConnections;
+
+  return new OnboardingHandler(workspaces, setup, connections);
 };
 
 const read = (given: Given = {}) =>

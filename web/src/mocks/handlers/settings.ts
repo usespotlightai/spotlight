@@ -18,6 +18,7 @@ import {
   REPOSITORIES,
   SIGNED_IN,
   settingsWorld,
+  setupConnections,
   TERRAFORM,
   type TeamConnections,
   toolRules,
@@ -25,6 +26,7 @@ import {
   workspaceToken,
 } from '@/mocks/world/settings';
 import { newRunnerPool } from '@/mocks/world/settings-runners';
+import { teamChats } from '@/mocks/world/team-chats';
 
 const SECRET = 'q3Vd0n8yXbT2c4kPzR7mW1sLhA9eJ5gUfN6oYiC0xEw';
 
@@ -53,7 +55,15 @@ const connectionsOf = (teamId: string): TeamConnections => {
 const configured = (teamId: string): ConfiguredIntegrationResponseDto[] =>
   settingsWorld().integrations[teamId] ?? [];
 
-const onboarding = (): OnboardingResponseDto => ({
+const setupChatOf = (teamId: string): OnboardingResponseDto['setupChat'] => {
+  const chats = (teamChats()[teamId] ?? []).flatMap(({ chat }) =>
+    chat.setup ? [{ id: chat.id, pullRequest: chat.setup.pullRequest }] : [],
+  );
+
+  return chats.find((each) => each.pullRequest) ?? chats[0] ?? null;
+};
+
+const onboarding = (teamId: string): OnboardingResponseDto => ({
   steps: [
     {
       key: 'github',
@@ -71,7 +81,16 @@ const onboarding = (): OnboardingResponseDto => ({
         (runner) => runner.harnesses.length > 0,
       ),
     },
+    {
+      key: 'configuration',
+      title: 'Set up configuration as code',
+      description:
+        'Pick a repository and folder for the team’s Terraform. The agent learns how the team works from its code and tools, then opens a pull request there.',
+      done: Boolean(setupChatOf(teamId)?.pullRequest),
+    },
   ],
+  setupChat: setupChatOf(teamId),
+  connections: setupConnections(teamId),
 });
 
 const handleOf = (source: string) =>
@@ -195,7 +214,9 @@ const teamHandlers = [
   ),
 
   api.get('/teams/:teamId/configuration/onboarding', ({ params }) =>
-    isTeam(String(params.teamId)) ? json(onboarding()) : notFound(),
+    isTeam(String(params.teamId))
+      ? json(onboarding(String(params.teamId)))
+      : notFound(),
   ),
 
   api.get('/teams/:teamId/connections', ({ params }) =>

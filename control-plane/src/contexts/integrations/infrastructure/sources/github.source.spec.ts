@@ -15,6 +15,7 @@ const MERGED: PullRequestActivity = {
   activity: 'merged',
   branch: 'spotlight/task_1',
   pullRequest: 'https://github.com/acme/api/pull/7',
+  label: null,
   about: null,
   remark: null,
   byBot: false,
@@ -24,6 +25,7 @@ const OPENED: PullRequestActivity = {
   activity: 'opened',
   branch: 'fix-uploads',
   pullRequest: 'https://github.com/acme/api/pull/7',
+  label: null,
   about: {
     title: 'Retry uploads',
     body: 'They give up too soon.',
@@ -176,6 +178,7 @@ describe('GitHubSource', () => {
         ],
         review: {
           asking: 'opened',
+          label: null,
           pullRequest: 'https://github.com/acme/api/pull/7',
           author: 'octocat',
           outside: true,
@@ -184,6 +187,35 @@ describe('GitHubSource', () => {
         },
       },
     });
+  });
+
+  it('asks for a review of a pull request labelled, with the label it was given', async () => {
+    const asked = await readOne({
+      ...OPENED,
+      activity: 'labelled',
+      label: 'spotlight',
+    });
+
+    expect(asked).toMatchObject({
+      happening: 'github.pull_request.labelled',
+      concerns: {
+        marks: [
+          { kind: REVIEW_MARK, value: 'https://github.com/acme/api/pull/7' },
+        ],
+      },
+      opens: {
+        onto: 'review',
+        review: { asking: 'labelled', label: 'spotlight' },
+      },
+    });
+  });
+
+  it('hears nothing of a label GitHub did not name', async () => {
+    expect(
+      await sourceOver([
+        { ...OPENED, activity: 'labelled', label: null },
+      ]).source.read(DELIVERED),
+    ).toEqual([]);
   });
 
   it('reads a comment naming somebody as a comment and as a mention', async () => {

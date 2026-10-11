@@ -1,3 +1,4 @@
+import type { WorkspaceTokenTrust } from '@identity/domain/aggregates/workspace-token-trust.aggregate';
 import { WorkspaceTokenIssued } from '@identity/domain/events/workspace-token-issued.event';
 import { WorkspaceTokenLapsed } from '@identity/domain/events/workspace-token-lapsed.event';
 import { WorkspaceTokenRedescribed } from '@identity/domain/events/workspace-token-redescribed.event';
@@ -7,6 +8,7 @@ import { MintedTokenFixedError } from '@identity/domain/exceptions/minted-token-
 import { WorkspaceTokenMovedOnError } from '@identity/domain/exceptions/workspace-token-moved-on.error';
 import { WorkspaceTokenTermsFixedError } from '@identity/domain/exceptions/workspace-token-terms-fixed.error';
 import { MintedTokenDetail } from '@identity/domain/value-objects/minted-token-detail.vo';
+import { RunTokenDetail } from '@identity/domain/value-objects/run-token-detail.vo';
 import { TokenDescription } from '@identity/domain/value-objects/token-description.vo';
 import type { TokenName } from '@identity/domain/value-objects/token-name.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
@@ -16,6 +18,7 @@ import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo'
 import type { Client } from '@shared-kernel/domain/value-objects/client.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import { TokenPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
+import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import type { TokenScopes } from '@shared-kernel/domain/value-objects/token-scopes.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -38,6 +41,8 @@ interface Kept extends TokenTerms {
   readonly issuedAt: Date;
   readonly mintedThrough: WorkspaceTokenTrustId | null;
   readonly mintedUnder: number | null;
+  readonly mintedForRun: RunId | null;
+  readonly mintedForAttempt: number | null;
   readonly version: number;
 }
 
@@ -58,7 +63,12 @@ export class WorkspaceToken extends EventRecorder {
   static issue(
     input: Omit<
       Kept,
-      'version' | 'issuedAt' | 'mintedThrough' | 'mintedUnder'
+      | 'version'
+      | 'issuedAt'
+      | 'mintedThrough'
+      | 'mintedUnder'
+      | 'mintedForRun'
+      | 'mintedForAttempt'
     > & {
       now: Date;
       by: Attribution;
@@ -83,6 +93,8 @@ export class WorkspaceToken extends EventRecorder {
       issuedAt: input.now,
       mintedThrough: null,
       mintedUnder: null,
+      mintedForRun: null,
+      mintedForAttempt: null,
       version: 0,
       revoked: false,
     });
@@ -100,7 +112,15 @@ export class WorkspaceToken extends EventRecorder {
   }
 
   static minted(
-    input: Omit<Kept, 'version' | 'issuedAt' | 'description' | 'expiresAt'> & {
+    input: Omit<
+      Kept,
+      | 'version'
+      | 'issuedAt'
+      | 'description'
+      | 'expiresAt'
+      | 'mintedForRun'
+      | 'mintedForAttempt'
+    > & {
       mintedThrough: WorkspaceTokenTrustId;
       mintedUnder: number;
       expiresAt: Date;
@@ -121,6 +141,8 @@ export class WorkspaceToken extends EventRecorder {
       issuedAt: input.now,
       mintedThrough: input.mintedThrough,
       mintedUnder: input.mintedUnder,
+      mintedForRun: null,
+      mintedForAttempt: null,
       version: 0,
       revoked: false,
     });
@@ -149,7 +171,79 @@ export class WorkspaceToken extends EventRecorder {
     return minted;
   }
 
+  static forRun(input: {
+    id: WorkspaceTokenId;
+    workspaceId: WorkspaceId;
+    name: TokenName;
+    scopes: TokenScopes;
+    hash: TokenHash;
+    issuedBy: UserId;
+    runId: RunId;
+    attempt: number;
+    expiresAt: Date;
+    now: Date;
+  }): WorkspaceToken {
+    if (!Number.isInteger(input.attempt) || input.attempt < 1) {
+      throw new InvalidWorkspaceTokenError(
+        'attempt',
+        'must be a run attempt, counted from 1',
+      );
+    }
+
+    if (input.expiresAt.getTime() <= input.now.getTime()) {
+      throw new InvalidWorkspaceTokenError(
+        'expiresAt',
+        'must be in the future',
+      );
+    }
+
+    const minted = new WorkspaceToken({
+      id: input.id,
+      workspaceId: input.workspaceId,
+      name: input.name,
+      description: TokenDescription.of(''),
+      scopes: input.scopes,
+      expiresAt: input.expiresAt,
+      hash: input.hash,
+      issuedBy: input.issuedBy,
+      issuedAt: input.now,
+      mintedThrough: null,
+      mintedUnder: null,
+      mintedForRun: input.runId,
+      mintedForAttempt: input.attempt,
+      version: 0,
+      revoked: false,
+    });
+
+    minted.record(
+      new WorkspaceTokenIssued(
+        minted.id,
+        minted.workspaceId,
+        minted.name,
+        ConfigurationChange.created(
+          minted.whatChanged,
+          Attribution.spotlight(minted.workspaceId),
+          RunTokenDetail.of({
+            runId: input.runId,
+            attempt: input.attempt,
+            scopes: input.scopes.all.map((each) => each.value),
+            expiresAt: input.expiresAt,
+          }),
+        ),
+      ),
+    );
+
+    return minted;
+  }
+
   static rehydrate(input: Kept): WorkspaceToken {
+    if ((input.mintedForRun === null) !== (input.mintedForAttempt === null)) {
+      throw new InconsistentStateError(
+        'workspace token',
+        'names the attempt it was minted for when, and only when, it was minted for a run',
+      );
+    }
+
     return new WorkspaceToken({ ...input, revoked: false });
   }
 
@@ -300,8 +394,22 @@ export class WorkspaceToken extends EventRecorder {
     return this.state.mintedUnder;
   }
 
+  get mintedForRun(): RunId | null {
+    return this.state.mintedForRun;
+  }
+
+  get mintedForAttempt(): number | null {
+    return this.state.mintedForAttempt;
+  }
+
+  standsWithout(trust: WorkspaceTokenTrust | null): boolean {
+    return this.mintedThrough === null || trust?.stillGrants(this) === true;
+  }
+
   get isMinted(): boolean {
-    return this.state.mintedThrough !== null;
+    return (
+      this.state.mintedThrough !== null || this.state.mintedForRun !== null
+    );
   }
 
   get version(): number {

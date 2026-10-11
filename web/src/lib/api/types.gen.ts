@@ -1059,6 +1059,13 @@ export type WithheldSecretResponseDto = {
   reason: string;
 };
 
+export type SpotlightApiResponseDto = {
+  /**
+   * A read and plan token for this run alone, sealed to the recipient; egress wears it toward the control plane as a bearer token
+   */
+  sealed: string;
+};
+
 export type EgressRedemptionResponseDto = {
   /**
    * The run the sealed values are bound to; null when the sandbox checks a change stack and wears nothing
@@ -1073,6 +1080,10 @@ export type EgressRedemptionResponseDto = {
    * Secrets the run wears that egress will not get, and why
    */
   withheld: Array<WithheldSecretResponseDto>;
+  /**
+   * Where the run reaches Spotlight’s own API, the token it reaches it with
+   */
+  spotlightApi: SpotlightApiResponseDto | null;
 };
 
 export type HeldRunResponseDto = {
@@ -1929,6 +1940,15 @@ export type ChatImprovingResponseDto = {
   stationName: string;
 };
 
+export type ChatSetupResponseDto = {
+  repository: string;
+  folder: string;
+  /**
+   * The pull request the chat opened with the configuration
+   */
+  pullRequest: string | null;
+};
+
 export type ChatSummaryResponseDto = {
   id: string;
   title: string;
@@ -1940,12 +1960,27 @@ export type ChatSummaryResponseDto = {
    * The station the chat is about improving, if any
    */
   improving: ChatImprovingResponseDto | null;
+  /**
+   * Where the chat sets up the team’s configuration as code, for a setup chat
+   */
+  setup: ChatSetupResponseDto | null;
   createdAt: string;
   updatedAt: string;
   /**
    * The agent is answering now
    */
   working: boolean;
+};
+
+export type ChatSetupRequestDto = {
+  /**
+   * The repository the team’s configuration lives in
+   */
+  repository: string;
+  /**
+   * The folder in it, from the repository root
+   */
+  folder: string;
 };
 
 export type StartChatRequestDto = {
@@ -1981,6 +2016,10 @@ export type StartChatRequestDto = {
    * A station the chat is about improving, by its id; the agent is briefed to study its recent runs
    */
   improving?: string;
+  /**
+   * Makes this the team’s setup chat: the agent surveys the team’s tools and opens a pull request with its configuration as code there
+   */
+  setup?: ChatSetupRequestDto;
 };
 
 export type ChatTraceResponseDto = {
@@ -2040,6 +2079,10 @@ export type ChatResponseDto = {
    * The station the chat is about improving, if any
    */
   improving: ChatImprovingResponseDto | null;
+  /**
+   * Where the chat sets up the team’s configuration as code, for a setup chat
+   */
+  setup: ChatSetupResponseDto | null;
   createdAt: string;
   updatedAt: string;
   /**
@@ -2080,10 +2123,47 @@ export type SetupStepResponseDto = {
   /**
    * Which step this is
    */
-  key: 'github' | 'harness';
+  key: 'github' | 'harness' | 'configuration';
   title: string;
   description: string;
   done: boolean;
+};
+
+export type SetupChatResponseDto = {
+  /**
+   * The team’s setup chat
+   */
+  id: string;
+  /**
+   * The pull request it opened with the configuration
+   */
+  pullRequest: string | null;
+};
+
+export type SetupConnectionLinkResponseDto = {
+  label: string;
+  url: string;
+};
+
+export type SetupConnectionResponseDto = {
+  /**
+   * The integration a task can be opened from
+   */
+  source: string;
+  name: string;
+  /**
+   * What to do there to open a first task
+   */
+  tryIt: string;
+  /**
+   * What a first task from this source means
+   */
+  heard: string;
+  link: SetupConnectionLinkResponseDto | null;
+  /**
+   * When this source first opened a task for the team
+   */
+  firstOpenedAt: string | null;
 };
 
 export type OnboardingResponseDto = {
@@ -2091,6 +2171,14 @@ export type OnboardingResponseDto = {
    * The list itself, in the order it is worked through
    */
   steps: Array<SetupStepResponseDto>;
+  /**
+   * The chat setting up the team’s configuration as code, the one with a pull request first
+   */
+  setupChat: SetupChatResponseDto | null;
+  /**
+   * Each source that can open a task, and when it first did, GitHub first
+   */
+  connections: Array<SetupConnectionResponseDto>;
 };
 
 export type WorkspaceResourceResponseDto = {

@@ -5,6 +5,7 @@ import type {
   MyConnectionResponseDto,
   PersonConnectionResponseDto,
   RunnerPoolResourceResponseDto,
+  SetupConnectionResponseDto,
   TeamSkillResponseDto,
   TerraformFileResponseDto,
   WorkspaceTokenResourceResponseDto,
@@ -313,8 +314,63 @@ resource "spotlight_team" "growth" {
   },
 ];
 
+const OPENING: Record<
+  string,
+  Pick<SetupConnectionResponseDto, 'tryIt' | 'heard' | 'link'>
+> = {
+  slack: {
+    tryIt: 'Mention @spotlight in any channel.',
+    heard: 'Message received',
+    link: null,
+  },
+  linear: {
+    tryIt: 'Assign an issue to Spotlight. Triage starts on it.',
+    heard: 'Issue assigned',
+    link: null,
+  },
+};
+
+const FIRST_OPENED: Record<string, Record<string, string>> = {
+  [PLATFORM_ID]: {
+    slack: hoursAgo(2 / 60),
+    linear: hoursAgo(0.1 / 60),
+  },
+  [GROWTH_ID]: {},
+};
+
+export const setupConnections = (
+  teamId: string,
+): SetupConnectionResponseDto[] => {
+  const opened = settingsWorld().firstOpened[teamId] ?? {};
+  const integrations = (settingsWorld().integrations[teamId] ?? []).filter(
+    (each) => OPENING[each.source],
+  );
+
+  return [
+    {
+      source: 'github',
+      name: 'GitHub',
+      tryIt:
+        'Add the spotlight label to a pull request, or mention @spotlight on one.',
+      heard: 'Review asked for',
+      link: {
+        label: 'Open pull requests',
+        url: 'https://github.com/acme/api/pulls',
+      },
+      firstOpenedAt: opened.github ?? null,
+    },
+    ...integrations.map((each) => ({
+      source: each.source,
+      name: each.name,
+      ...OPENING[each.source],
+      firstOpenedAt: opened[each.source] ?? null,
+    })),
+  ];
+};
+
 export type SettingsWorld = {
   gitHubConnected: boolean;
+  firstOpened: Record<string, Record<string, string>>;
   integrations: Record<string, ConfiguredIntegrationResponseDto[]>;
   connections: Record<string, TeamConnections>;
   skills: Record<string, TeamSkillResponseDto[]>;
@@ -330,6 +386,7 @@ export const settingsWorld = perWorld(
     kind === 'empty'
       ? {
           gitHubConnected: false,
+          firstOpened: { [PLATFORM_ID]: {}, [GROWTH_ID]: {} },
           integrations: { [PLATFORM_ID]: [], [GROWTH_ID]: [] },
           connections: {
             [PLATFORM_ID]: structuredClone(NOBODY),
@@ -342,6 +399,7 @@ export const settingsWorld = perWorld(
         }
       : {
           gitHubConnected: true,
+          firstOpened: structuredClone(FIRST_OPENED),
           integrations: structuredClone(INTEGRATIONS),
           connections: structuredClone(CONNECTIONS),
           skills: structuredClone(SKILLS),

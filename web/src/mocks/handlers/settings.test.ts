@@ -188,7 +188,7 @@ describe('the mock settings', () => {
   it('answers setup done for a set-up workspace', async () => {
     const { data } = await readOnboarding(platform);
 
-    expect(data.steps.map((each) => each.done)).toEqual([true, true]);
+    expect(data.steps.map((each) => each.done)).toEqual([true, true, true]);
   });
 });
 
@@ -208,6 +208,10 @@ describe('the mock settings of a fresh workspace', () => {
     expect(tokens.items).toEqual([]);
     expect(configuration.integrations).toEqual([]);
     expect(skills.skills).toEqual([]);
-    expect(onboarding.steps.map((each) => each.done)).toEqual([false, false]);
+    expect(onboarding.steps.map((each) => each.done)).toEqual([
+      false,
+      false,
+      false,
+    ]);
   });
 });

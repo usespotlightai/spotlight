@@ -11,4 +11,5 @@ export type EgressRedemptionDto =
       readonly reaches: readonly string[];
       readonly secrets: readonly RedeemedSecret[];
       readonly withheld: readonly WithheldSecret[];
+      readonly spotlightApi: { readonly sealed: string } | null;
     };

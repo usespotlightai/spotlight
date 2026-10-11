@@ -433,6 +433,7 @@ const line = (
       [
         ...present('start', policy.start),
         ...present('mention', policy.mention),
+        ...present('label', policy.label),
         block(
           'skip',
           [],

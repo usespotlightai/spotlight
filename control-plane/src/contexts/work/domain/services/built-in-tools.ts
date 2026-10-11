@@ -7,7 +7,7 @@ import { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
 import type { SkillKey } from '@work/domain/value-objects/skill-key.vo';
 import { Tool } from '@work/domain/value-objects/tool.vo';
 
-export type ToolWorksOn = 'task' | 'chat';
+type ToolWorksOn = 'task' | 'chat';
 
 export interface BuiltInTool {
   readonly worksOn: ToolWorksOn;
@@ -18,6 +18,8 @@ export interface BuiltInTool {
 export const PULL_REQUEST = Tool.of('pull-request');
 
 export const PROPOSE_TASK = Tool.of('propose-task');
+
+export const SETUP_PULL_REQUEST = Tool.of('setup-pull-request');
 
 export const REVIEW_COMMENT = Tool.of('review-comment');
 
@@ -182,10 +184,52 @@ export const BUILT_IN_TOOLS: readonly BuiltInTool[] = [
       ],
     }),
   },
+  {
+    worksOn: 'chat',
+    skill: null,
+    declared: DeclaredTool.of({
+      tool: SETUP_PULL_REQUEST,
+      description:
+        'Open the pull request with the team’s configuration, from a branch pushed to the configuration’s repository.',
+      inputs: [
+        {
+          name: 'branch',
+          schema: InputSchema.ofType('string'),
+          description: 'The branch pushed, as in spotlight-configuration',
+          required: true,
+          defaulted: false,
+          piped: false,
+        },
+        {
+          name: 'title',
+          schema: InputSchema.ofType('string'),
+          description: 'What it does',
+          required: true,
+          defaulted: false,
+          piped: false,
+        },
+        {
+          name: 'body',
+          schema: InputSchema.ofType('string'),
+          description: 'The decisions and the plan, as Markdown',
+          required: false,
+          defaulted: false,
+          piped: true,
+        },
+      ],
+    }),
+  },
 ];
+
+export const builtInToolsForChat = (
+  settingUp: boolean,
+): readonly BuiltInTool[] =>
+  builtInToolsFor('chat').filter(
+    (each) => settingUp || !each.declared.tool.equals(SETUP_PULL_REQUEST),
+  );
 
 export const builtInTool = (tool: Tool): BuiltInTool | null =>
   BUILT_IN_TOOLS.find((each) => each.declared.tool.equals(tool)) ?? null;
 
-export const builtInToolsFor = (worksOn: ToolWorksOn): readonly BuiltInTool[] =>
+const builtInToolsFor = (worksOn: ToolWorksOn): readonly BuiltInTool[] =>
   BUILT_IN_TOOLS.filter((each) => each.worksOn === worksOn);

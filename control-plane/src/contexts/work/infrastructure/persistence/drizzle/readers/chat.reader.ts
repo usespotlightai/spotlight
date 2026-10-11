@@ -11,6 +11,7 @@ import type {
   ChatReaderPort,
   ChatSummary,
   ChatView,
+  SetupChatView,
 } from '@work/application/ports/chat-reader.port';
 import type { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { stationsPerLine } from '@work/infrastructure/persistence/drizzle/readers/task-trail';
@@ -23,7 +24,7 @@ import {
   line,
   station,
 } from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
-import { and, asc, desc, eq, inArray } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNotNull } from 'drizzle-orm';
 
 type Row = typeof chat.$inferSelect;
 
@@ -35,6 +36,7 @@ const summaryOf = (row: Row): ChatSummary => ({
   effort: row.effort,
   repositories: row.repositories,
   improving: row.improving ?? null,
+  setup: row.setup ?? null,
   createdAt: row.createdAt.toISOString(),
   updatedAt: row.updatedAt.toISOString(),
   working: row.currentRunId !== null,
@@ -46,6 +48,20 @@ export class DrizzleChatReader implements ChatReaderPort {
     @Inject(DRIZZLE) private readonly db: DrizzleDatabase,
     @Inject(PERSON_READER) private readonly people: PersonReaderPort,
   ) {}
+
+  async setupOf(teamId: TeamId): Promise<SetupChatView | null> {
+    const rows = await this.db
+      .select({ id: chat.id, setup: chat.setup })
+      .from(chat)
+      .where(and(eq(chat.teamId, teamId.value), isNotNull(chat.setup)))
+      .orderBy(desc(chat.createdAt));
+    const opened = rows.find((each) => each.setup?.pullRequest);
+    const latest = opened ?? rows[0];
+
+    return latest
+      ? { id: latest.id, pullRequest: latest.setup?.pullRequest ?? null }
+      : null;
+  }
 
   async startedBy(teamId: TeamId, userId: UserId): Promise<ChatSummary[]> {
     const rows = await this.db

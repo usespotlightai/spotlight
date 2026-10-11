@@ -92,6 +92,7 @@ const reviewsSchema = z.object({
     })
     .optional(),
   mention: z.string().optional(),
+  label: z.string().optional(),
   skip: z
     .object({
       spotlight: z.boolean().optional(),

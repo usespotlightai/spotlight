@@ -34,6 +34,7 @@ const chat: ChatSummary = {
   updatedAt: new Date().toISOString(),
   working: false,
   improving: null,
+  setup: null,
 };
 
 const showing = () =>

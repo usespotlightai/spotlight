@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"maps"
 	"os"
 	"path/filepath"
 	"slices"
@@ -277,7 +278,7 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 	harness, err := acp.Start(ctx, acp.Options{
 		Executable: run.Spec.Command.Executable,
 		Args:       run.Spec.Command.Args,
-		Env:        granted(run.Spec.Command.Env, channel, state, telemetry.URL),
+		Env:        granted(run.Spec.Command.Env, channel, state, telemetry.URL, reachingAPI(run.Spec, opts.ControlPlane)),
 		Root:       cwd,
 		RunAs:      opts.AgentUser,
 		Answer:     answering(run, opts.Journal, journal, &putToPerson, log),
@@ -878,8 +879,21 @@ const StateVar = "SPOTLIGHT_STATE_DIR"
 
 const TelemetryVar = "SPOTLIGHT_TELEMETRY_URL"
 
+const (
+	APIURLVar   = "SPOTLIGHT_URL"
+	APITokenVar = "SPOTLIGHT_API_TOKEN"
+)
+
+func reachingAPI(spec protocol.Spec, controlPlane string) map[string]string {
+	if !spec.SpotlightAPI || controlPlane == "" {
+		return nil
+	}
+
+	return map[string]string{APIURLVar: controlPlane, APITokenVar: protocol.SpotlightAPIStandIn}
+}
+
 func granted(
-	env map[string]string, channel *declare.Server, state, telemetry string,
+	env map[string]string, channel *declare.Server, state, telemetry string, api map[string]string,
 ) map[string]string {
 	places := map[string]string{StateVar: state, TelemetryVar: telemetry}
 
@@ -888,6 +902,7 @@ func granted(
 		granted[key] = os.Expand(value, func(name string) string { return places[name] })
 	}
 
+	maps.Copy(granted, api)
 	granted[protocol.HandoverURLVar] = channel.URL()
 	granted[protocol.HandoverTokenVar] = channel.Token()
 	granted[StateVar] = state

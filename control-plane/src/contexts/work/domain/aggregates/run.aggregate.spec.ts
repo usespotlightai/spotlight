@@ -498,6 +498,31 @@ describe('Run', () => {
       ).toBe(false);
     });
 
+    it('is never reserved for a pool runner when it reaches Spotlight’s API, since only egress wears its token', () => {
+      const reaching = Run.enqueue({
+        id: RunId.of('run_1'),
+        workspaceId: WorkspaceId.of('ws_1'),
+        harness: HarnessId.of('dev'),
+        spec: RunSpec.of({
+          command: { executable: 'sh', args: [] },
+          briefing: 'set up',
+          handover: { options: [], noteLimit: 4_000 },
+          continuity: { key: 'chat:chat_1' },
+          spotlightApi: true,
+        }),
+      });
+
+      expect(reaching.provisionableAt(noon)).toBe(false);
+      expect(
+        reaching.claim(runner(), noon).reachesSpotlightApiFor(runner()),
+      ).toBe(true);
+      expect(
+        reaching
+          .claim(runner(), noon)
+          .reachesSpotlightApiFor(runner('runner_2')),
+      ).toBe(false);
+    });
+
     it('wears nothing its spec does not name', () => {
       expect(claimed().secretsWornFor(runner())).toEqual([]);
     });

@@ -20,6 +20,10 @@ const WORDING: Record<SetupStepKey, Wording> = {
     title: 'Connect a host',
     says: 'Connect a computer that runs agents with a harness such as Claude Code, from the Runners page. Spotlight’s built-in lines start working as soon as it reports in.',
   },
+  configuration: {
+    title: 'Set up configuration as code',
+    says: 'Pick a repository and folder for the team’s Terraform. The agent learns how the team works from its code and tools, then opens a pull request there.',
+  },
 };
 
 export const listed = (): string =>

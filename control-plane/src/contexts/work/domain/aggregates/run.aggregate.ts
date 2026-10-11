@@ -1187,7 +1187,7 @@ export class Run extends EventRecorder {
   }
 
   get wearsSecrets(): boolean {
-    return this.spec.wears.length > 0;
+    return this.spec.wears.length > 0 || this.spec.wearsSpotlightApi;
   }
 
   isHeldBy(runner: RunnerId): boolean {
@@ -1196,6 +1196,10 @@ export class Run extends EventRecorder {
 
   secretsWornFor(runner: RunnerId): readonly SecretName[] {
     return this.isHeldBy(runner) ? this.spec.wears : [];
+  }
+
+  reachesSpotlightApiFor(runner: RunnerId): boolean {
+    return this.isHeldBy(runner) && this.spec.wearsSpotlightApi;
   }
 
   wasGiven(tool: Tool): boolean {

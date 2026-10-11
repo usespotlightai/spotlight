@@ -39,11 +39,20 @@ type EgressRedeem struct {
 }
 
 type EgressRedemption struct {
-	RunID    string           `json:"runId,omitempty"`
-	Reaches  []string         `json:"reaches"`
-	Secrets  []RedeemedSecret `json:"secrets"`
-	Withheld []WithheldSecret `json:"withheld"`
+	RunID        string           `json:"runId,omitempty"`
+	Reaches      []string         `json:"reaches"`
+	Secrets      []RedeemedSecret `json:"secrets"`
+	Withheld     []WithheldSecret `json:"withheld"`
+	SpotlightAPI *SpotlightAPI    `json:"spotlightApi,omitempty"`
 }
+
+type SpotlightAPI struct {
+	Sealed string `json:"sealed"`
+}
+
+const SpotlightAPISecret = "spotlight-api"
+
+const SpotlightAPIStandIn = StandInPrefix + SpotlightAPISecret
 
 type RedeemedSecret struct {
 	Secret        string         `json:"secret"`

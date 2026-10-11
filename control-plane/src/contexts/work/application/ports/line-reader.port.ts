@@ -65,6 +65,12 @@ export interface LineDetail {
   readonly replayCheck: LineReplayCheckSummary | null;
 }
 
+export interface ReviewInvitation {
+  readonly label: string;
+  readonly mention: string;
+  readonly repository: string | null;
+}
+
 export const LINE_READER = Symbol('LINE_READER');
 
 export interface LineReaderPort {
@@ -72,4 +78,6 @@ export interface LineReaderPort {
     teamId: TeamId,
     userId: UserId,
   ): Promise<LineDetail[] | null>;
+
+  reviewInvitationOf(teamId: TeamId): Promise<ReviewInvitation | null>;
 }

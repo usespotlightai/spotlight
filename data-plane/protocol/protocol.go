@@ -65,6 +65,7 @@ type Spec struct {
 	StartingPoint bool           `json:"startingPoint,omitempty"`
 	HarnessSetup  HarnessSetup   `json:"harnessSetup,omitzero"`
 	SettingFiles  []string       `json:"settingFiles,omitempty"`
+	SpotlightAPI  bool           `json:"spotlightApi,omitempty"`
 	Replay        *Replay        `json:"replay,omitempty"`
 	Search        *SearchSpec    `json:"search,omitempty"`
 }

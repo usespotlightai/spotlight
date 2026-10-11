@@ -29,6 +29,7 @@ type Allowed interface {
 type Wearing interface {
 	Wears(host string) bool
 	Onto(host string, r *http.Request)
+	OntoPlain(host, port string, r *http.Request)
 	Unwear(host string, response *http.Response)
 }
 
@@ -227,11 +228,23 @@ func (p *Proxy) forward(w http.ResponseWriter, r *http.Request) {
 			out.Out.Host = out.In.URL.Host
 			out.Out.Header.Del("Proxy-Authorization")
 			out.Out.Header.Del("Proxy-Connection")
+			p.wearing.OntoPlain(host, portOf(out.In.URL), out.Out)
+		},
+		ModifyResponse: func(response *http.Response) error {
+			p.wearing.Unwear(host, response)
+			return nil
 		},
 		Transport:     p.transport,
 		FlushInterval: -1,
 		ErrorHandler:  p.failed,
 	}).ServeHTTP(w, r)
+}
+
+func portOf(target *url.URL) string {
+	if port := target.Port(); port != "" {
+		return port
+	}
+	return "80"
 }
 
 func (p *Proxy) failed(w http.ResponseWriter, r *http.Request, err error) {

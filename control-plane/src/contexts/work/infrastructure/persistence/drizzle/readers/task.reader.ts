@@ -20,6 +20,7 @@ import type {
   TaskReaderPort,
   TaskSummary,
 } from '@work/application/ports/task-reader.port';
+import { TaskOrigin } from '@work/domain/value-objects/task-origin.vo';
 import {
   attachmentsFor,
   attachmentsOf,
@@ -33,7 +34,7 @@ import {
   task,
   taskNote,
 } from '@work/infrastructure/persistence/drizzle/schemas/task.schema';
-import { and, desc, eq, inArray, isNull } from 'drizzle-orm';
+import { and, desc, eq, inArray, isNull, min, ne } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
 const setupNote = alias(taskNote, 'setup_note');
@@ -46,6 +47,25 @@ export class DrizzleTaskReader implements TaskReaderPort {
     @Inject(TEAM_DIRECTORY) private readonly teams: TeamDirectoryPort,
     @Inject(PERSON_READER) private readonly people: PersonReaderPort,
   ) {}
+
+  async firstOpenedFrom(teamId: TeamId): Promise<ReadonlyMap<string, Date>> {
+    const rows = await this.db
+      .select({ source: task.openedFrom, at: min(task.createdAt) })
+      .from(task)
+      .innerJoin(station, eq(station.id, task.stationId))
+      .innerJoin(line, eq(line.id, station.lineId))
+      .where(
+        and(
+          eq(line.teamId, teamId.value),
+          ne(task.openedFrom, TaskOrigin.person().value),
+        ),
+      )
+      .groupBy(task.openedFrom);
+
+    return new Map(
+      rows.flatMap((row) => (row.at ? [[row.source, row.at] as const] : [])),
+    );
+  }
 
   async listForTeamMember(
     teamId: TeamId,

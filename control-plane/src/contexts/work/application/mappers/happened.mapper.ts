@@ -37,6 +37,7 @@ const reviewOf = (
 
   return reviewRequested({
     asking: reviewAsking(word.asking),
+    label: word.label?.trim() || null,
     pullRequest: PullRequestUrl.of(word.pullRequest),
     author: word.author?.trim() || null,
     outside: word.outside !== false,

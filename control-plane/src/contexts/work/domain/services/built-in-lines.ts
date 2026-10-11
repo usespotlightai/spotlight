@@ -299,6 +299,10 @@ export const BUILT_IN_LINES: readonly LineOpening[] = [
         to: StationKey.of('code-review'),
       },
       {
+        happening: Happening.of('github.pull_request.labelled'),
+        to: StationKey.of('code-review'),
+      },
+      {
         happening: Happening.of('github.pull_request.merged'),
         to: StationKey.of('completed'),
       },

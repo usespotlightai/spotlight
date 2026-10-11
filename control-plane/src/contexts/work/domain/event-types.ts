@@ -22,6 +22,7 @@ import { RunStopRequested } from '@work/domain/events/run-stop-requested.event';
 import { RunSuperseded } from '@work/domain/events/run-superseded.event';
 import { RunWithdrawn } from '@work/domain/events/run-withdrawn.event';
 import { SearchDigested } from '@work/domain/events/search-digested.event';
+import { SetupPullRequestOpened } from '@work/domain/events/setup-pull-request-opened.event';
 import { StationHarnessChanged } from '@work/domain/events/station-harness-changed.event';
 import { StationRenamed } from '@work/domain/events/station-renamed.event';
 import { TaskActedOn } from '@work/domain/events/task-acted-on.event';
@@ -61,6 +62,7 @@ import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import { ChatTitle } from '@work/domain/value-objects/chat-title.vo';
 import { Concerns } from '@work/domain/value-objects/concerns.vo';
+import { ConfigHome } from '@work/domain/value-objects/config-home.vo';
 import { ConfigSource } from '@work/domain/value-objects/config-source.vo';
 import { ConnectionAsk } from '@work/domain/value-objects/connection-ask.vo';
 import { Continuity } from '@work/domain/value-objects/continuity.vo';
@@ -201,6 +203,7 @@ export const WORK_EVENT_TYPES = [
   PullRequestLink,
   RepositorySetup,
   ReplayCheckPolicy,
+  ConfigHome,
   ConfigSource,
   ReviewPolicy,
   Mark,
@@ -275,6 +278,7 @@ export const WORK_EVENT_TYPES = [
   LineRedefined,
   LineRetired,
   ProposalAccepted,
+  SetupPullRequestOpened,
   ProposalDismissed,
   PullRequestOpened,
   PullRequestReviewTaken,

@@ -92,6 +92,8 @@ export type ChatMoment =
       readonly steps: readonly JournalStep[];
     };
 
+export const CHAT_HARNESS_KEY = 'spotlight.chat-harness';
+
 export const chatPath = (
   slug: string,
   teamId: string,

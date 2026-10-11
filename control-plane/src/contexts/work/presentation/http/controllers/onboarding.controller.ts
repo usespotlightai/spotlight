@@ -14,6 +14,8 @@ import type { OnboardingDto } from '@work/application/dto/onboarding.dto';
 import { OnboardingQuery } from '@work/application/queries/onboarding.query';
 import {
   OnboardingResponseDto,
+  SetupChatResponseDto,
+  SetupConnectionResponseDto,
   SetupStepResponseDto,
 } from '@work/presentation/http/dto/onboarding.response.dto';
 
@@ -54,6 +56,13 @@ export class OnboardingController {
             each.done,
           ),
       ),
+      read.setupChat
+        ? new SetupChatResponseDto(
+            read.setupChat.id,
+            read.setupChat.pullRequest,
+          )
+        : null,
+      read.connections.map((each) => new SetupConnectionResponseDto(each)),
     );
   }
 }

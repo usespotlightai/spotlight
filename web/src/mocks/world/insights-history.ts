@@ -17,7 +17,6 @@ import {
   DAY_MS,
   HOUR_MS,
   MINUTE_MS,
-  midnight,
 } from '@/mocks/world/insights-measures';
 import {
   DELIVERY_TITLES,
@@ -607,7 +606,7 @@ const syntheticHistory = (cutoff: number): History => {
   const draw = seeded(20_261_008);
   const runs: HistoryRun[] = [];
   const tasks: HistoryTask[] = [];
-  const today = midnight(cutoff);
+  const today = cutoff;
   let runCount = 0;
   const ids = () => {
     runCount += 1;

@@ -45,6 +45,7 @@ type worn struct {
 	prefix   string
 	standIns []string
 	held     bool
+	plainOn  string
 }
 
 func (w *worn) inPlaceOf(header http.Header) bool {
@@ -185,6 +186,70 @@ func valueOf(
 	default:
 		return "", fmt.Errorf("the control plane sent neither a sealed value nor where to read one")
 	}
+}
+
+func (w *Wearing) TowardControlPlane(api *protocol.SpotlightAPI, controlPlane *url.URL, runID string, opener Opener) error {
+	if api == nil {
+		return nil
+	}
+
+	host := reach.Normal(controlPlane.Hostname())
+	const prefix, header = "Bearer ", "Authorization"
+
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	slot := (&worn{carrier: protocol.CarriedInHeader, name: header}).slot()
+	for _, each := range w.toward[host] {
+		if each.held {
+			return fmt.Errorf("the host holds a key of its own for %s", host)
+		}
+		if each.slot() == slot {
+			return fmt.Errorf("another secret is already worn in %s toward %s", slot, host)
+		}
+	}
+
+	value, err := opener.Open(api.Sealed, runID, protocol.SpotlightAPISecret)
+	if err != nil {
+		return err
+	}
+
+	w.toward[host] = append(w.toward[host], &worn{
+		secret:   protocol.SpotlightAPISecret,
+		carrier:  protocol.CarriedInHeader,
+		name:     header,
+		value:    []byte(prefix + value),
+		bare:     []byte(value),
+		prefix:   prefix,
+		standIns: []string{protocol.SpotlightAPIStandIn, prefix + protocol.SpotlightAPIStandIn},
+		plainOn:  plainPort(controlPlane),
+	})
+	w.log.Info("holds the run's Spotlight token", "host", host)
+
+	return nil
+}
+
+func plainPort(controlPlane *url.URL) string {
+	if controlPlane.Scheme != "http" {
+		return ""
+	}
+	if port := controlPlane.Port(); port != "" {
+		return port
+	}
+	return "80"
+}
+
+func (w *Wearing) OntoPlain(host, port string, r *http.Request) {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	var plain []*worn
+	for _, each := range w.toward[reach.Normal(host)] {
+		if each.plainOn != "" && each.plainOn == port {
+			plain = append(plain, each)
+		}
+	}
+	w.ontoHeader(host, plain, r.Header)
 }
 
 func (w *Wearing) Hosts() []string {

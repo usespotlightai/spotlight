@@ -13,6 +13,12 @@ interface ChatImprovingView {
   readonly stationName: string;
 }
 
+interface ChatSetupView {
+  readonly repository: string;
+  readonly folder: string;
+  readonly pullRequest: string | null;
+}
+
 export interface ChatSummary {
   readonly id: string;
   readonly title: string;
@@ -21,6 +27,7 @@ export interface ChatSummary {
   readonly effort: string | null;
   readonly repositories: readonly string[];
   readonly improving: ChatImprovingView | null;
+  readonly setup: ChatSetupView | null;
   readonly createdAt: string;
   readonly updatedAt: string;
   readonly working: boolean;
@@ -75,6 +82,11 @@ export interface ChatView extends ChatSummary {
   readonly messages: readonly ChatMessageView[];
 }
 
+export interface SetupChatView {
+  readonly id: string;
+  readonly pullRequest: string | null;
+}
+
 export interface ChatReaderPort {
   startedBy(teamId: TeamId, userId: UserId): Promise<ChatSummary[]>;
 
@@ -83,4 +95,6 @@ export interface ChatReaderPort {
     chatId: ChatId,
     viewerId: UserId,
   ): Promise<ChatView | null>;
+
+  setupOf(teamId: TeamId): Promise<SetupChatView | null>;
 }
