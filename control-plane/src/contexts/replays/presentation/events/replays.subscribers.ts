@@ -20,6 +20,7 @@ import type { NoteReplayPaired } from '@replays/application/services/note-replay
 import type { NoteSearchProgress } from '@replays/application/services/note-search-progress.service';
 import type { NoticeSearchReflections } from '@replays/application/services/notice-search-reflections.service';
 import type { PairReplayEntries } from '@replays/application/services/pair-replay-entries.service';
+import type { StartOracleReplay } from '@replays/application/services/start-oracle-replay.service';
 import type { StartWantedBaseline } from '@replays/application/services/start-wanted-baseline.service';
 import type { CandidateAbandonmentDue } from '@replays/domain/events/candidate-abandonment-due.event';
 import type { ConfigPullRequestAbandonmentDue } from '@replays/domain/events/config-pull-request-abandonment-due.event';
@@ -127,6 +128,7 @@ export interface ReplaysReactions {
   readonly abandoning: AbandonReplays;
   readonly redefining: NoteLineRedefined;
   readonly baselines: StartWantedBaseline;
+  readonly oracles: StartOracleReplay;
   readonly searching: NoteSearchProgress;
   readonly iterating: DispatchSearchIteration;
   readonly holdingOut: HoldOutSearch;
@@ -389,6 +391,11 @@ export const replaysSubscribers = (
     'replays.note-sets-of-redefined-line',
     [LINE_REDEFINED],
     (event) => reactions.redefining.redefined(event.lineId),
+  ),
+  subscribing<ReplayEnded>(
+    'replays.start-oracle-after-baseline',
+    ['replays.replay-ended'],
+    (event) => reactions.oracles.baselineEnded(event),
   ),
   subscribing<ReplayEnded>(
     'replays.note-search-replay-ended',

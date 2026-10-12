@@ -26,7 +26,7 @@ const healthOf = (part: Partial<SetHealth> = {}): SetHealth => ({
   saturation: null,
   judge: null,
   checks: null,
-  sanity: null,
+  oracle: null,
   ...part,
 });
 
@@ -71,7 +71,7 @@ describe('searchWarningsOf', () => {
     ]);
   });
 
-  it('warns of a saturated set, an unstable judge, flaky checks and a set that does not reward a stronger model', () => {
+  it('warns of a saturated set, an unstable judge, flaky checks and a set the answer leaves no room in', () => {
     expect(
       searchWarningsOf(
         healthOf({
@@ -104,15 +104,16 @@ describe('searchWarningsOf', () => {
               },
             ],
           },
-          sanity: {
-            replayId: ReplayId.of('replay_stronger'),
-            candidateId: CandidateId.of('candidate_stronger'),
-            model: 'opus',
-            effort: null,
+          oracle: {
+            replayId: ReplayId.of('replay_oracle'),
+            candidateId: CandidateId.of('candidate_oracle'),
             repeats: 1,
             state: 'finished',
             againstReplayId: PROBE,
             againstState: 'finished',
+            answered: 8,
+            live: 0.9,
+            withAnswer: 0.8,
             gain: {
               gain: -0.1,
               low: -0.3,
@@ -121,8 +122,7 @@ describe('searchWarningsOf', () => {
               minGain: 0.05,
               tasks: 10,
             },
-            rewardsStrongerModel: false,
-            worse: [],
+            roomToImprove: false,
           },
         }),
         0.05,
@@ -133,11 +133,11 @@ describe('searchWarningsOf', () => {
       { kind: 'judge-unstable', agreement: 0.7, compared: 10 },
       { kind: 'flaky-checks', flaky: 1, rechecked: 10 },
       {
-        kind: 'sanity-failed',
+        kind: 'no-headroom',
         gain: -0.1,
         low: -0.3,
         high: 0.1,
-        worseTasks: 0,
+        answered: 8,
       },
     ]);
   });

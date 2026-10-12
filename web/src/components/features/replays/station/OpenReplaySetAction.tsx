@@ -1,4 +1,5 @@
 import { OpenReplaySetButton } from '@/components/features/replays/station/OpenReplaySetButton';
+import { PanelActions } from '@/components/shared/PanelActions';
 import { useReplaySets } from '@/hooks/api/useReplaySets';
 import type { ReplayedStation } from '@/lib/replay';
 
@@ -10,8 +11,8 @@ export function OpenReplaySetAction({ at }: { at: ReplayedStation }) {
   }
 
   return (
-    <div className="mt-auto flex justify-start pt-3">
+    <PanelActions>
       <OpenReplaySetButton at={at} />
-    </div>
+    </PanelActions>
   );
 }

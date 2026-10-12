@@ -246,17 +246,17 @@ class FlakyChecksWarningResponseDto {
   }
 }
 
-class SanityFailedWarningResponseDto {
+class NoHeadroomWarningResponseDto {
   @ApiProperty({
-    enum: ['sanity-failed'],
+    enum: ['no-headroom'],
     description:
-      'A stronger model or higher effort did not do clearly better on the set, so its tasks may be unclear or its scoring off',
+      'Handed each run’s answer, the live config did not do clearly better, so the set leaves little room for a better config to show',
   })
-  readonly kind = 'sanity-failed' as const;
+  readonly kind = 'no-headroom' as const;
 
   @ApiProperty({
-    example: -0.02,
-    description: 'The stronger config’s gain in success over the live one',
+    example: 0.02,
+    description: 'The gain in success the answer brought',
   })
   readonly gain: number;
 
@@ -267,16 +267,16 @@ class SanityFailedWarningResponseDto {
   readonly high: number;
 
   @ApiProperty({
-    example: 2,
-    description: 'How many tasks the stronger config did worse on',
+    example: 6,
+    description: 'How many runs were handed an answer',
   })
-  readonly worseTasks: number;
+  readonly answered: number;
 
-  constructor(warning: Extract<SearchWarningDto, { kind: 'sanity-failed' }>) {
+  constructor(warning: Extract<SearchWarningDto, { kind: 'no-headroom' }>) {
     this.gain = warning.gain;
     this.low = warning.low;
     this.high = warning.high;
-    this.worseTasks = warning.worseTasks;
+    this.answered = warning.answered;
   }
 }
 
@@ -286,7 +286,7 @@ type SearchWarningResponseDto =
   | SaturatedWarningResponseDto
   | JudgeUnstableWarningResponseDto
   | FlakyChecksWarningResponseDto
-  | SanityFailedWarningResponseDto;
+  | NoHeadroomWarningResponseDto;
 
 const warningResponse = (
   warning: SearchWarningDto,
@@ -300,8 +300,8 @@ const warningResponse = (
       return new JudgeUnstableWarningResponseDto(warning);
     case 'flaky-checks':
       return new FlakyChecksWarningResponseDto(warning);
-    case 'sanity-failed':
-      return new SanityFailedWarningResponseDto(warning);
+    case 'no-headroom':
+      return new NoHeadroomWarningResponseDto(warning);
     default:
       return new NoiseUnmeasuredWarningResponseDto();
   }
@@ -316,7 +316,7 @@ const WARNINGS_SCHEMA: ApiPropertyOptions = {
       { $ref: getSchemaPath(SaturatedWarningResponseDto) },
       { $ref: getSchemaPath(JudgeUnstableWarningResponseDto) },
       { $ref: getSchemaPath(FlakyChecksWarningResponseDto) },
-      { $ref: getSchemaPath(SanityFailedWarningResponseDto) },
+      { $ref: getSchemaPath(NoHeadroomWarningResponseDto) },
     ],
     discriminator: {
       propertyName: 'kind',
@@ -326,7 +326,7 @@ const WARNINGS_SCHEMA: ApiPropertyOptions = {
         saturated: getSchemaPath(SaturatedWarningResponseDto),
         'judge-unstable': getSchemaPath(JudgeUnstableWarningResponseDto),
         'flaky-checks': getSchemaPath(FlakyChecksWarningResponseDto),
-        'sanity-failed': getSchemaPath(SanityFailedWarningResponseDto),
+        'no-headroom': getSchemaPath(NoHeadroomWarningResponseDto),
       },
     },
   },
@@ -338,7 +338,7 @@ const WARNING_MODELS = [
   SaturatedWarningResponseDto,
   JudgeUnstableWarningResponseDto,
   FlakyChecksWarningResponseDto,
-  SanityFailedWarningResponseDto,
+  NoHeadroomWarningResponseDto,
 ];
 
 const OBJECTIVE_SAYS =

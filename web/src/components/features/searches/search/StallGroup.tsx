@@ -22,7 +22,7 @@ export function StallGroup({
       data-slot="cause-group"
       data-cause={kind}
       aria-labelledby={headingId}
-      className="flex flex-col gap-2 rounded-xl border border-border bg-card p-3"
+      className="flex flex-col gap-2 border-border border-t pt-3"
     >
       <div className="flex flex-col gap-0.5">
         <h3 id={headingId} className="font-medium text-foreground text-sm">

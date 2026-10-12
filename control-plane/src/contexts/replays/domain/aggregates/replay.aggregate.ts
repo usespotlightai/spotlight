@@ -51,7 +51,7 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 export interface ReplayedCandidate {
   readonly id: CandidateId;
   readonly isLive: boolean;
-  readonly isSanity: boolean;
+  readonly isOracle: boolean;
   readonly judges: boolean;
   readonly checksChanges: boolean;
   readonly rubricVersion: string | null;
@@ -182,11 +182,11 @@ export class Replay extends EventRecorder {
       throw new InvalidReplayError(`repeats must be from 1 to ${MOST_REPEATS}`);
     }
     if (
-      input.candidate.isSanity !== (comparedWith !== null) ||
+      input.candidate.isOracle !== (comparedWith !== null) ||
       comparedWith?.equals(input.id)
     ) {
       throw new InvalidReplayError(
-        'of a stronger model needs a live config replay to compare with',
+        'handed the answer needs a live config replay to compare with',
       );
     }
     if (

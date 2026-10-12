@@ -1,13 +1,12 @@
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
+import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
 import type { RateInterval } from '@replays/domain/services/bootstrap';
 import {
+  FEWEST_PAIRED_TASKS,
   type GainReading,
   gainBetween,
 } from '@replays/domain/services/gain-reading';
-import {
-  taskSuccessesOf,
-  totalsOf,
-} from '@replays/domain/services/replay-results';
+import { totalsOf } from '@replays/domain/services/replay-results';
 import {
   noiseReadingOf,
   type ReplayedConfig,
@@ -18,7 +17,6 @@ import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo'
 import type { ChecksState } from '@replays/domain/value-objects/change-checks.vo';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import type { ReplayState } from '@replays/domain/value-objects/replay-state';
-import type { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -28,9 +26,8 @@ export const SATURATED_ABOVE = 0.95;
 export const JUDGE_UNSTABLE_BELOW = 0.8;
 
 export interface HealthConfig extends ReplayedConfig {
-  readonly isSanity: boolean;
+  readonly isOracle: boolean;
   readonly basedOn: StationFingerprint;
-  readonly block: StationBlock;
 }
 
 interface SetSaturation {
@@ -65,25 +62,18 @@ interface CheckConsistency {
   readonly flaky: readonly FlakyCheck[];
 }
 
-interface WorseTask {
-  readonly taskId: TaskId;
-  readonly original: RunId;
-  readonly live: number;
-  readonly stronger: number;
-}
-
-interface SanityReading {
+interface OracleReading {
   readonly replayId: ReplayId;
   readonly candidateId: CandidateId;
-  readonly model: string | null;
-  readonly effort: string | null;
   readonly repeats: number;
   readonly state: ReplayState;
   readonly againstReplayId: ReplayId | null;
   readonly againstState: ReplayState | 'gone' | null;
+  readonly answered: number;
+  readonly live: number | null;
+  readonly withAnswer: number | null;
   readonly gain: GainReading | null;
-  readonly rewardsStrongerModel: boolean | null;
-  readonly worse: readonly WorseTask[];
+  readonly roomToImprove: boolean | null;
 }
 
 export interface SetHealth {
@@ -91,7 +81,7 @@ export interface SetHealth {
   readonly saturation: SetSaturation | null;
   readonly judge: JudgeConsistency | null;
   readonly checks: CheckConsistency | null;
-  readonly sanity: SanityReading | null;
+  readonly oracle: OracleReading | null;
 }
 
 export const UNREAD_HEALTH: SetHealth = {
@@ -99,7 +89,7 @@ export const UNREAD_HEALTH: SetHealth = {
   saturation: null,
   judge: null,
   checks: null,
-  sanity: null,
+  oracle: null,
 };
 
 const newestFirst = (one: Replay, other: Replay): number =>
@@ -111,11 +101,6 @@ const configOf = (
   configs: readonly HealthConfig[],
 ): HealthConfig | null =>
   configs.find((each) => each.id.equals(replay.candidateId)) ?? null;
-
-const textOf = (held: unknown): string | null =>
-  typeof held === 'string' ? held : null;
-
-const STANDING: readonly ReplayState[] = ['queued', 'running', 'finished'];
 
 const isWholeLive = (
   replay: Replay,
@@ -132,20 +117,25 @@ const isWholeLive = (
   );
 };
 
-export const comparableLiveOf = (
+const PROBE_STANDING: readonly ReplayState[] = [
+  'queued',
+  'running',
+  'finished',
+];
+
+export const checksSet = (
+  set: ReplaySet,
   replays: readonly Replay[],
   configs: readonly ReplayedConfig[],
   liveFingerprint: StationFingerprint,
-  repeats: number,
-): Replay | null =>
-  [...replays]
-    .sort(newestFirst)
-    .find(
-      (each) =>
-        STANDING.includes(each.current) &&
-        each.repeats >= repeats &&
-        isWholeLive(each, configs, liveFingerprint),
-    ) ?? null;
+): boolean =>
+  set.entries.length >= FEWEST_PAIRED_TASKS &&
+  !replays.some(
+    (each) =>
+      each.probe &&
+      PROBE_STANDING.includes(each.current) &&
+      isWholeLive(each, configs, liveFingerprint),
+  );
 
 const saturationOf = (live: readonly Replay[]): SetSaturation | null => {
   for (const replay of live) {
@@ -213,55 +203,39 @@ const checksOf = (probe: Replay): CheckConsistency | null => {
   };
 };
 
-const worseTasksOf = (stronger: Replay, live: Replay): readonly WorseTask[] => {
-  const theirs = taskSuccessesOf(live);
-
-  return [...taskSuccessesOf(stronger)].flatMap(([original, success]) => {
-    const against = theirs.get(original);
-    const entry = stronger.entries.find(
-      (each) => each.original.value === original,
-    );
-
-    return against !== undefined && success < against && entry
-      ? [
-          {
-            taskId: entry.taskId,
-            original: entry.original,
-            live: against,
-            stronger: success,
-          },
-        ]
-      : [];
-  });
-};
-
-const sanityOf = (
-  sanity: Replay,
+const oracleOf = (
+  oracle: Replay,
   config: HealthConfig,
   replays: readonly Replay[],
   minGain: number,
-): SanityReading => {
-  const against = sanity.comparedWith
-    ? (replays.find((each) => sanity.comparedWith?.equals(each.id)) ?? null)
+): OracleReading => {
+  const against = oracle.comparedWith
+    ? (replays.find((each) => oracle.comparedWith?.equals(each.id)) ?? null)
     : null;
   const compared =
-    against?.current === 'finished' && sanity.current === 'finished'
+    against?.current === 'finished' && oracle.current === 'finished'
       ? against
       : null;
-  const gain = compared && gainBetween(sanity, compared, minGain);
+  const answered = oracle.among ?? null;
+  const gain = compared && gainBetween(oracle, compared, minGain, answered);
 
   return {
-    replayId: sanity.id,
+    replayId: oracle.id,
     candidateId: config.id,
-    model: textOf(config.block.value.model),
-    effort: textOf(config.block.value.effort),
-    repeats: sanity.repeats,
-    state: sanity.current,
-    againstReplayId: sanity.comparedWith,
-    againstState: sanity.comparedWith ? (against?.current ?? 'gone') : null,
+    repeats: oracle.repeats,
+    state: oracle.current,
+    againstReplayId: oracle.comparedWith,
+    againstState: oracle.comparedWith ? (against?.current ?? 'gone') : null,
+    answered:
+      answered?.length ??
+      new Set(oracle.entries.map((each) => each.original.value)).size,
+    live: compared ? totalsOf(compared, answered).successRate : null,
+    withAnswer: compared ? totalsOf(oracle, answered).successRate : null,
     gain,
-    rewardsStrongerModel: gain ? gain.verdict === 'better' : null,
-    worse: compared ? worseTasksOf(sanity, compared) : [],
+    roomToImprove:
+      gain && gain.tasks >= FEWEST_PAIRED_TASKS
+        ? gain.verdict === 'better'
+        : null,
   };
 };
 
@@ -278,11 +252,11 @@ export const setHealthOf = (
       isWholeLive(each, configs, liveFingerprint),
   );
   const probe = live.find((each) => each.probe) ?? null;
-  const sanity =
+  const oracle =
     newest.flatMap((each) => {
       const config = configOf(each, configs);
 
-      return config?.isSanity && config.basedOn.equals(liveFingerprint)
+      return config?.isOracle && config.basedOn.equals(liveFingerprint)
         ? [{ replay: each, config }]
         : [];
     })[0] ?? null;
@@ -294,6 +268,6 @@ export const setHealthOf = (
     saturation: saturationOf(live),
     judge: probe && judgeOf(probe),
     checks: probe && checksOf(probe),
-    sanity: sanity && sanityOf(sanity.replay, sanity.config, replays, minGain),
+    oracle: oracle && oracleOf(oracle.replay, oracle.config, replays, minGain),
   };
 };

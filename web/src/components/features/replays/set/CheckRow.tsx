@@ -1,10 +1,15 @@
-import { Pill } from '@/components/shared/Pill';
+import { NestedCell } from '@/components/shared/nested-table/NestedCell';
+import {
+  EDGE_INDENT,
+  LEAD_CELL,
+  ROW_DIVIDER,
+  TABLE_ROW,
+} from '@/components/shared/nested-table/nested-rows';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import {
   appPathOf,
   type ReplayCheckSummary,
   referenceShown,
-  regressionsShown,
 } from '@/lib/search';
 import { verdictShown } from '@/lib/search-words';
 import { since } from '@/lib/since';
@@ -12,7 +17,7 @@ import { cn } from '@/lib/utils';
 
 const INK: Record<ReplayCheckSummary['verdict'], string> = {
   running: 'text-foreground',
-  passed: 'text-primary',
+  passed: 'text-emerald-600 dark:text-emerald-400',
   failed: 'text-destructive',
   undecided: 'text-muted-foreground',
 };
@@ -22,39 +27,39 @@ type CheckRowProps = {
 };
 
 export function CheckRow({ check }: CheckRowProps) {
-  const reference = referenceShown(check.reference);
+  const reference = referenceShown(check.reference) ?? 'A planned change';
 
   return (
-    <li
-      data-slot="replay-check"
-      className="flex flex-col gap-1 rounded-md px-2 py-2 text-sm"
-    >
-      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-        <span className="min-w-0 truncate font-medium text-foreground">
-          {reference ?? 'A planned change'}
-        </span>
-        <Pill className={cn(INK[check.verdict])}>
-          {verdictShown(check.verdict, check.undecidedBecause)}
-        </Pill>
-        <span className="text-muted-foreground text-xs sm:ml-auto">
-          {since(check.createdAt)}
-        </span>
-      </div>
-      <p className="flex flex-wrap gap-x-1.5 text-muted-foreground text-xs tabular-nums">
-        <span>{regressionsShown(check.regressions)}</span>
-        {check.attempt > 1 && <span>· attempt {check.attempt}</span>}
-        {check.replayUrl && (
-          <span>
-            ·{' '}
-            <TrailLink
-              to={appPathOf(check.replayUrl)}
-              className="text-foreground underline-offset-2 hover:underline"
-            >
-              Its replay
-            </TrailLink>
+    <li data-slot="replay-check" className={cn(TABLE_ROW, ROW_DIVIDER)}>
+      <span className={cn(LEAD_CELL, EDGE_INDENT)}>
+        {check.replayUrl ? (
+          <TrailLink
+            to={appPathOf(check.replayUrl)}
+            className="truncate font-medium text-foreground outline-none after:absolute after:inset-0 focus-visible:underline"
+          >
+            {reference}
+          </TrailLink>
+        ) : (
+          <span className="truncate font-medium text-foreground">
+            {reference}
           </span>
         )}
-      </p>
+        {check.attempt > 1 && (
+          <span className="shrink-0 text-muted-foreground">
+            attempt {check.attempt}
+          </span>
+        )}
+      </span>
+      <NestedCell heading="Verdict" numeric={false}>
+        <span
+          title={verdictShown(check.verdict, check.undecidedBecause)}
+          className={cn('block truncate', INK[check.verdict])}
+        >
+          {verdictShown(check.verdict, check.undecidedBecause)}
+        </span>
+      </NestedCell>
+      <NestedCell heading="Regressions">{check.regressions}</NestedCell>
+      <NestedCell heading="When">{since(check.createdAt)}</NestedCell>
     </li>
   );
 }

@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import type { EntryReasonResponseDto } from '@/lib/api';
 import {
   balanceWarningShown,
+  baselineNoteShown,
+  checksSetOf,
   checksShown,
   copiesSucceededShown,
   endedSpanShown,
@@ -10,6 +12,7 @@ import {
   gainRangeShown,
   gainShown,
   healthReadingsOf,
+  healthReplayOf,
   intervalShown,
   minGainShown,
   originShown,
@@ -22,10 +25,9 @@ import {
   replayableShown,
   runStateShown,
   type SetHealth,
-  sanityRetryable,
+  spendNoteShown,
   stateNote,
   stateShown,
-  strongerConfigShown,
   turnedOutShown,
   uncomparedShown,
   unpricedCallsShown,
@@ -42,7 +44,7 @@ const NEVER_READ: SetHealth = {
   saturation: null,
   judge: null,
   checks: null,
-  sanity: null,
+  oracle: null,
 };
 
 describe('replay words', () => {
@@ -161,9 +163,10 @@ describe('replay words', () => {
       ['Room to improve', 'Not measured', 'unknown'],
       ['Judge agreeing with itself', 'Not checked', 'unknown'],
       ['Flaky checks', 'Not checked', 'unknown'],
-      ['Stronger model', 'Not tried', 'unknown'],
     ]);
-    expect(readings[2]?.advice).toMatch(/^Check this set to judge each change/);
+    expect(readings[2]?.advice).toMatch(
+      /^Measured by the first baseline of the live config: it judges each change twice/,
+    );
   });
 
   it('takes whether the noise is too wide from the server', () => {
@@ -230,18 +233,25 @@ describe('replay words', () => {
             },
           ],
         },
-        sanity: {
-          replayId: 's',
+        oracle: {
+          replayId: 'o',
           candidateId: 'c',
-          model: 'opus',
-          effort: 'high',
           repeats: 1,
           state: 'finished',
           againstReplayId: 'r',
           againstState: 'finished',
-          gain: null,
-          rewardsStrongerModel: false,
-          worse: [],
+          answered: 6,
+          live: 0.95,
+          withAnswer: 0.97,
+          gain: {
+            gain: 0.02,
+            low: -0.05,
+            high: 0.08,
+            verdict: 'within-noise',
+            minGain: 0.05,
+            tasks: 6,
+          },
+          roomToImprove: false,
         },
       },
       0.05,
@@ -249,70 +259,59 @@ describe('replay words', () => {
 
     expect(readings.map((each) => [each.said, each.tone])).toEqual([
       ['Success moved 20 pts between 3 copies', 'bad'],
-      ['Almost none: the live config succeeds on 97%', 'bad'],
+      ['Little: +2 pts with the answer', 'bad'],
       ['Same verdict on 70% of 10 changes', 'bad'],
       ['1 of 12 changes flipped', 'bad'],
-      ['opus, high effort didn’t do clearly better', 'bad'],
     ]);
     expect(readings[0]?.advice).toBe(
       'One copy can’t tell a real gain from chance. Search with more repeats per run, or raise the line’s min_gain. Minimum real gain: +5 pts',
     );
     expect(readings[1]?.advice).toMatch(
-      /Search for the same success at less cost/,
+      /^Live config: 95% on 6 runs\. With the answer: 97%\. Even the answer barely helps\./,
     );
     expect(readings[2]?.advice).toMatch(/2 second judgings still to come\.$/);
   });
 
-  it('says plainly when the live replay a stronger model was compared with never finished', () => {
-    const sanity = {
-      replayId: 's',
+  it('reads the room a set leaves from the live config handed each run’s answer', () => {
+    const oracle: NonNullable<SetHealth['oracle']> = {
+      replayId: 'o',
       candidateId: 'c',
-      model: 'opus',
-      effort: null,
       repeats: 1,
-      state: 'finished' as const,
+      state: 'finished',
       againstReplayId: 'r',
-      gain: null,
-      rewardsStrongerModel: null,
-      worse: [],
+      againstState: 'finished',
+      answered: 5,
+      live: 0.6,
+      withAnswer: 0.8,
+      gain: {
+        gain: 0.2,
+        low: 0.04,
+        high: 0.4,
+        verdict: 'better',
+        minGain: 0.05,
+        tasks: 5,
+      },
+      roomToImprove: true,
     };
-    const readingOf = (
-      againstState: NonNullable<SetHealth['sanity']>['againstState'],
-    ) =>
+    const roomOf = (read: Partial<NonNullable<SetHealth['oracle']>>) =>
       healthReadingsOf(
-        { ...NEVER_READ, sanity: { ...sanity, againstState } },
+        { ...NEVER_READ, oracle: { ...oracle, ...read } },
         0.05,
-      )[4];
+      )[1];
 
-    expect(readingOf('stopped')?.said).toBe('Could not be compared');
-    expect(readingOf('stopped')?.advice).toBe(
-      'Live replay to compare with was stopped. Try the stronger model again.',
+    expect(roomOf({})?.said).toBe('Up to +20 pts with the answer');
+    expect(roomOf({})?.tone).toBe('good');
+    expect(roomOf({})?.advice).toMatch(
+      /^Live config: 60% on 5 runs\. With the answer: 80%\./,
     );
-    expect(readingOf('over-budget')?.advice).toMatch(/ran over its ceiling/);
-    expect(readingOf('gone')?.advice).toMatch(
-      /^Live replay to compare with is gone/,
+    expect(roomOf({ state: 'running' })?.said).toBe(
+      'Measuring with the answer',
     );
-    expect(readingOf('running')?.said).toBe('Nothing to compare with yet');
-    expect(readingOf('running')?.tone).toBe('pending');
-    expect(sanityRetryable({ state: 'finished', againstState: 'gone' })).toBe(
-      true,
+    expect(roomOf({ state: 'stopped' })?.said).toBe(
+      'Couldn’t measure with the answer',
     );
-    expect(sanityRetryable({ state: 'stopped', againstState: null })).toBe(
-      true,
-    );
-    expect(
-      sanityRetryable({ state: 'finished', againstState: 'running' }),
-    ).toBe(false);
-  });
-
-  it('names a stronger config by what it changed', () => {
-    expect(strongerConfigShown({ model: 'opus', effort: null })).toBe('opus');
-    expect(strongerConfigShown({ model: null, effort: 'high' })).toBe(
-      'high effort',
-    );
-    expect(strongerConfigShown({ model: null, effort: null })).toBe(
-      'A stronger config',
-    );
+    expect(roomOf({ againstState: 'gone' })?.tone).toBe('unknown');
+    expect(healthReplayOf({ ...NEVER_READ, oracle }, 'saturation')).toBe('o');
   });
 
   it('names how a run turned out and where its task came from', () => {
@@ -356,5 +355,60 @@ describe('replay words', () => {
         newest: at,
       }),
     ).toBe('Ended between 3h ago and 30m ago · Median: 2h ago');
+  });
+
+  it('says when the first baseline also checks the set, and only for a set of 5 or more runs', () => {
+    expect(baselineNoteShown(false, null, 1, true)).toBe(
+      'Set has no baseline yet. This replay of the live config becomes it. First baseline checks the set: each run 3 times, ceiling ×3. Each change judged and checked twice.',
+    );
+    expect(baselineNoteShown(false, null, 1)).not.toMatch(/checks the set/);
+    expect(
+      checksSetOf({ entries: [1, 2, 3, 4, 5], health: { noise: null } }),
+    ).toBe(true);
+    expect(checksSetOf({ entries: [1, 2], health: { noise: null } })).toBe(
+      false,
+    );
+    expect(
+      checksSetOf({ entries: [1, 2, 3, 4, 5], health: { noise: {} } }),
+    ).toBe(false);
+  });
+});
+
+describe('spendNoteShown', () => {
+  const parts = {
+    runs: '$2.75',
+    drafting: '$0.12',
+    judging: '$0.18',
+    pairing: null,
+    elsewhere: [],
+    unpricedRuns: 0,
+    unpricedCalls: 0,
+    over: false,
+  };
+
+  it('says what the spend went on, and nothing more when everything was priced in the ceiling’s currency', () => {
+    expect(spendNoteShown(parts)).toBe(
+      'Runs $2.75 · Drafting $0.12 · Judging $0.18.',
+    );
+  });
+
+  it('counts side-by-side judging against the ceiling, not toward cost per run', () => {
+    expect(spendNoteShown({ ...parts, pairing: '$0.24' })).toBe(
+      'Runs $2.75 · Drafting $0.12 · Judging $0.18 · Side by side $0.24. Side-by-side judging counts against the ceiling. It doesn’t count toward cost per run.',
+    );
+  });
+
+  it('names spend in other currencies, what nobody priced, and why runs went over the ceiling', () => {
+    expect(
+      spendNoteShown({
+        ...parts,
+        elsewhere: ['€1.00'],
+        unpricedRuns: 2,
+        unpricedCalls: 1,
+        over: true,
+      }),
+    ).toBe(
+      'Runs $2.75 · Drafting $0.12 · Judging $0.18. Runs underway at the ceiling still finish. A replay may end slightly over it. Also spent €1.00. Spent in another currency. Not counted against the ceiling. Not priced: 2 runs · 1 model call.',
+    );
   });
 });

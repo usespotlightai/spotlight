@@ -1,6 +1,6 @@
 import { Trash2 } from 'lucide-react';
-import { useState } from 'react';
 import { useNavigate } from 'react-router';
+import { DialogButton } from '@/components/shared/DialogButton';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -27,59 +27,51 @@ export function DeleteReplaySetButton({
   refusedBecause,
   deletedTo,
 }: DeleteReplaySetButtonProps) {
-  const [open, setOpen] = useState(false);
   const deleting = useDeleteReplaySet();
   const navigate = useNavigate();
 
   return (
-    <>
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        className="rounded-full bg-card shadow-none"
-        disabled={refusedBecause !== null}
-        title={refusedBecause ?? undefined}
-        onClick={() => setOpen(true)}
-      >
-        <Trash2 aria-hidden />
-        Delete
-      </Button>
+    <DialogButton
+      label="Delete"
+      icon={Trash2}
+      variant="outline"
+      refusedBecause={refusedBecause}
+      dialog={(open, onOpenChange) => (
+        <Dialog
+          open={open}
+          onOpenChange={onOpenChange}
+          onOpenChangeComplete={(settled) => !settled && deleting.reset()}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete {set.name}?</DialogTitle>
+              <DialogDescription>
+                Deletes its replays and results. Its runs’ starting workspaces
+                are no longer kept. This can’t be undone.
+              </DialogDescription>
+            </DialogHeader>
 
-      <Dialog
-        open={open}
-        onOpenChange={setOpen}
-        onOpenChangeComplete={(settled) => !settled && deleting.reset()}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete {set.name}?</DialogTitle>
-            <DialogDescription>
-              Deletes its replays and results. Its runs’ starting workspaces are
-              no longer kept. This can’t be undone.
-            </DialogDescription>
-          </DialogHeader>
-
-          <DialogFooter>
-            <DialogClose render={<Button variant="outline" size="sm" />}>
-              Keep it
-            </DialogClose>
-            <Button
-              variant="destructive"
-              size="sm"
-              disabled={deleting.isPending}
-              onClick={() =>
-                deleting.mutate(
-                  { teamId, setId: set.id },
-                  { onSuccess: () => navigate(deletedTo) },
-                )
-              }
-            >
-              {deleting.isPending ? 'Deleting…' : 'Delete set'}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-    </>
+            <DialogFooter>
+              <DialogClose render={<Button variant="outline" size="sm" />}>
+                Keep it
+              </DialogClose>
+              <Button
+                variant="destructive"
+                size="sm"
+                disabled={deleting.isPending}
+                onClick={() =>
+                  deleting.mutate(
+                    { teamId, setId: set.id },
+                    { onSuccess: () => navigate(deletedTo) },
+                  )
+                }
+              >
+                {deleting.isPending ? 'Deleting…' : 'Delete set'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+      )}
+    />
   );
 }

@@ -238,7 +238,6 @@ import {
   HARNESS_LAUNCH,
   type HarnessLaunchPort,
 } from '@work/application/ports/harness-launch.port';
-import { HARNESS_OFFERS } from '@work/application/ports/harness-offers.port';
 import { HARNESS_PROFILE_REVIEW } from '@work/application/ports/harness-profile-review.port';
 import { HARNESS_TOOL_NAMES } from '@work/application/ports/harness-tool-names.port';
 import {
@@ -312,7 +311,10 @@ import {
   type RunDigestWriterPort,
 } from '@work/application/ports/run-digest-writer.port';
 import { RUN_EVENT_READER } from '@work/application/ports/run-event-reader.port';
-import { RUN_EVIDENCE } from '@work/application/ports/run-evidence.port';
+import {
+  RUN_EVIDENCE,
+  type RunEvidencePort,
+} from '@work/application/ports/run-evidence.port';
 import type { RunJournalPort } from '@work/application/ports/run-journal.port';
 import { RUN_JOURNAL } from '@work/application/ports/run-journal.port';
 import {
@@ -487,7 +489,6 @@ import { DispatchSearch } from '@work/application/services/dispatch-search.servi
 import { DispatchTask } from '@work/application/services/dispatch-task.service';
 import { FilesAtHand } from '@work/application/services/files-at-hand.service';
 import { ForgetHeardHappenings } from '@work/application/services/forget-heard-happenings.service';
-import { HarnessOffers } from '@work/application/services/harness-offers.service';
 import { HoldStartingPoints } from '@work/application/services/hold-starting-points.service';
 import { HookTraces } from '@work/application/services/hook-traces.service';
 import { HookedTasks } from '@work/application/services/hooked-tasks.service';
@@ -508,6 +509,7 @@ import { PullRequestToolUse } from '@work/application/services/pull-request.tool
 import { RaiseTask } from '@work/application/services/raise-task';
 import { ReactToHappenings } from '@work/application/services/react-to-happenings.service';
 import { RemoveReleasedArchives } from '@work/application/services/remove-released-archives.service';
+import { ReplayAnswers } from '@work/application/services/replay-answers.service';
 import { ReplayCandidates } from '@work/application/services/replay-candidates.service';
 import { ReplayRuns } from '@work/application/services/replay-runs.service';
 import { ReplayableRuns } from '@work/application/services/replayable-runs.service';
@@ -1319,6 +1321,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       MEMORIES_BRIEFED_BEFORE,
       ATTACHMENT_STORE,
       CONTENT_DIGEST,
+      ReplayAnswers,
     ],
     useFactory: (
       runs: DrizzleRunRepository,
@@ -1336,6 +1339,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       memories: MemoriesBriefedBeforePort,
       files: AttachmentStorePort,
       digest: ContentDigestPort,
+      answers: ReplayAnswers,
     ) =>
       new DispatchReplay(
         runs,
@@ -1353,6 +1357,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
         memories,
         files,
         digest,
+        answers,
       ),
   },
 
@@ -1412,13 +1417,6 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     ) => new ReplayCandidates(candidates, rendering, digest),
   },
 
-  {
-    provide: HARNESS_OFFERS,
-    inject: [HARNESS_LAUNCH, RUNNER_READER],
-    useFactory: (launch: HarnessLaunchPort, runners: RunnerReaderPort) =>
-      new HarnessOffers(launch, runners),
-  },
-
   { provide: LINE_RENDERING, useClass: RowsLineRendering },
 
   {
@@ -1464,6 +1462,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       REPLAY_RUN_CLAIMS,
       CandidateLines,
       DispatchReplay,
+      ReplayAnswers,
       TRANSACTION,
       CLOCK,
     ],
@@ -1472,9 +1471,26 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       claims: ReplayRunClaimsPort,
       candidates: CandidateLines,
       dispatch: DispatchReplay,
+      answers: ReplayAnswers,
       transaction: TransactionPort,
       clock: ClockPort,
-    ) => new ReplayRuns(runs, claims, candidates, dispatch, transaction, clock),
+    ) =>
+      new ReplayRuns(
+        runs,
+        claims,
+        candidates,
+        dispatch,
+        answers,
+        transaction,
+        clock,
+      ),
+  },
+
+  {
+    provide: ReplayAnswers,
+    inject: [DrizzleTaskRepository, RUN_EVIDENCE],
+    useFactory: (tasks: DrizzleTaskRepository, evidence: RunEvidencePort) =>
+      new ReplayAnswers(tasks, evidence),
   },
 
   { provide: REPLAY_RUN_CLAIMS, useClass: DrizzleReplayRunClaims },

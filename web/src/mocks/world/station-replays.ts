@@ -94,6 +94,13 @@ export const CANDIDATES = {
     FINGERPRINTS.tests,
     66,
   ),
+  oracle4: candidate(
+    'candidate_oracle_4',
+    'With the answer, 2026-10-09',
+    'oracle',
+    FINGERPRINTS.tests,
+    48.8,
+  ),
   shorter: candidate(
     'candidate_shorter_prompt',
     'Shorter prompt',
@@ -188,6 +195,17 @@ const SEEDED: readonly ReplaySpec[] = [
     runs: BILLING_RUNS,
     marks: ['S', 'S', 'S', 'F', 'S', 'F', 'S'],
     costFactor: 1.1,
+    listed: true,
+  }),
+  makeReplay({
+    id: 'replay_oracle_4',
+    candidate: CANDIDATES.oracle4,
+    startedHoursAgo: 48.7,
+    endedHoursAgo: 47.6,
+    runs: SEARCHED_RUNS,
+    marks: ['S', 'S', 'S', 'S', 'S'],
+    comparedWith: 'replay_live_4',
+    paired: true,
     listed: true,
   }),
   makeReplay({

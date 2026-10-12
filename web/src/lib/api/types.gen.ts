@@ -6913,7 +6913,7 @@ export type ReplayCandidateResourceResponseDto = {
   /**
    * proposed by a person or a token; or live, a snapshot of the station’s config Spotlight takes to replay as a baseline, which only goes with its replays
    */
-  kind: 'live' | 'proposed' | 'searched' | 'planned' | 'sanity';
+  kind: 'live' | 'proposed' | 'searched' | 'planned' | 'oracle';
   /**
    * The station block it replays the station under, in the shape the line resource holds a station in
    */
@@ -7083,43 +7083,42 @@ export type GainReadingResponseDto = {
   tasks: number;
 };
 
-export type WorseTaskResponseDto = {
-  taskId: string;
-  originalRunId: string;
+export type OracleReadingResponseDto = {
   /**
-   * The live config’s success on the task
-   */
-  live: number;
-  /**
-   * The stronger config’s success on the task
-   */
-  stronger: number;
-};
-
-export type SanityReadingResponseDto = {
-  /**
-   * The newest replay of the live config with a stronger model
+   * The newest replay of the live config handed each run’s answer: the change people accepted, or what they said when they sent it back
    */
   replayId: string;
   candidateId: string;
-  model: string | null;
-  effort: string | null;
   repeats: number;
   state: 'queued' | 'running' | 'finished' | 'stopped' | 'over-budget';
   /**
-   * The replay of the live config, run at least as often, it is compared with, chosen when it started
+   * The replay of the live config it is compared with: the one whose finishing started it
    */
   againstReplayId: string | null;
   /**
-   * How the replay it is compared with stands: finished once they can be compared; stopped, over-budget or gone means they never will be, so start another
+   * How the replay it is compared with stands: finished once they can be compared; stopped, over-budget or gone means they never will be
    */
   againstState: 'queued' | 'running' | 'finished' | 'stopped' | 'over-budget' | 'gone' | null;
+  /**
+   * Runs it replayed: those the live replay replayed whose original was accepted with a change, or sent back with something a person said. Others have no answer to hand over
+   */
+  answered: number;
+  /**
+   * The live config’s success on those runs; null until compared
+   */
+  live: number | null;
+  /**
+   * Success on those runs with the answer; null until compared
+   */
+  withAnswer: number | null;
+  /**
+   * The gain the answer brings over the live config: the most a better harness could gain on these runs
+   */
   gain: GainReadingResponseDto | null;
   /**
-   * The stronger config did clearly better; false means the set does not reward a stronger model, so its tasks may be unclear or its scoring off; null until compared
+   * The answer did clearly better; false means the set leaves no room a better config could show, so a search on it would find little; null until compared, or when fewer than 5 runs had an answer
    */
-  rewardsStrongerModel: boolean | null;
-  worse: Array<WorseTaskResponseDto>;
+  roomToImprove: boolean | null;
 };
 
 export type SetHealthResponseDto = {
@@ -7140,9 +7139,9 @@ export type SetHealthResponseDto = {
    */
   checks: CheckConsistencyResponseDto | null;
   /**
-   * Whether a stronger model or higher effort does better on the set; null until one was replayed
+   * How much better the live config does when handed each run’s answer. Started by Spotlight after each replay of the whole set under the live config; null until one started
    */
-  sanity: SanityReadingResponseDto | null;
+  oracle: OracleReadingResponseDto | null;
 };
 
 export type OutcomeCountResponseDto = {
@@ -7234,7 +7233,7 @@ export type ReplaySetResponseDto = {
    */
   guardsChanges: boolean;
   /**
-   * Whether the set can tell candidates apart, read for the live config as it is now: its noise, how much of it the live config passes already, whether its judge and check give the same answer twice, and whether it rewards a stronger model
+   * Whether the set can tell candidates apart, read for the live config as it is now: its noise, how much of it the live config passes already, whether its judge and check give the same answer twice, and how much better the live config does when handed each run’s answer
    */
   health: SetHealthResponseDto;
   /**
@@ -7300,7 +7299,7 @@ export type AddReplaySetEntryRequestDto = {
 export type CandidateResponseDto = {
   id: string;
   name: string;
-  kind: 'live' | 'proposed' | 'searched' | 'planned' | 'sanity';
+  kind: 'live' | 'proposed' | 'searched' | 'planned' | 'oracle';
   /**
    * The StationConfig fingerprint, as runs record it
    */
@@ -7709,44 +7708,6 @@ export type ReplayStartedResponseDto = {
   baseline: StartedBaselineResponseDto | null;
 };
 
-export type ProbeReplaySetRequestDto = {
-  ceiling: StartReplayCeilingRequestDto;
-};
-
-export type StartSanityReplayRequestDto = {
-  /**
-   * The stronger model to replay the set under, one its harness offers; the live config’s when left out
-   */
-  model?: string;
-  /**
-   * The higher effort to replay the set at; the live config’s when left out. Name a model, an effort, or both
-   */
-  effort?: string;
-  ceiling: StartReplayCeilingRequestDto;
-  /**
-   * How many times to replay each run, 1 when left out
-   */
-  repeats?: number;
-};
-
-export type SanityComparisonResponseDto = {
-  id: string;
-  ceiling: SpendResponseDto;
-};
-
-export type SanityReplayStartedResponseDto = {
-  id: string;
-  /**
-   * The stronger config it replays: the live one, but stronger
-   */
-  candidateId: string;
-  ceiling: SpendResponseDto;
-  /**
-   * A replay of the live config, run as often, started beside it to compare with when the set had none, under a ceiling of its own equal to the one asked for
-   */
-  comparison: SanityComparisonResponseDto | null;
-};
-
 export type ReplaySearchResponseDto = {
   /**
    * The search the replay belongs to
@@ -8087,21 +8048,21 @@ export type FlakyChecksWarningResponseDto = {
   rechecked: number;
 };
 
-export type SanityFailedWarningResponseDto = {
+export type NoHeadroomWarningResponseDto = {
   /**
-   * A stronger model or higher effort did not do clearly better on the set, so its tasks may be unclear or its scoring off
+   * Handed each run’s answer, the live config did not do clearly better, so the set leaves little room for a better config to show
    */
-  kind: 'sanity-failed';
+  kind: 'no-headroom';
   /**
-   * The stronger config’s gain in success over the live one
+   * The gain in success the answer brought
    */
   gain: number;
   low: number;
   high: number;
   /**
-   * How many tasks the stronger config did worse on
+   * How many runs were handed an answer
    */
-  worseTasks: number;
+  answered: number;
 };
 
 export type SearchRunsEstimateResponseDto = {
@@ -8176,7 +8137,7 @@ export type SearchEstimateResponseDto = {
   /**
    * What would make its results hard to trust; a search may start all the same
    */
-  warnings: Array<NoiseUnmeasuredWarningResponseDto | NoisyWarningResponseDto | SaturatedWarningResponseDto | JudgeUnstableWarningResponseDto | FlakyChecksWarningResponseDto | SanityFailedWarningResponseDto>;
+  warnings: Array<NoiseUnmeasuredWarningResponseDto | NoisyWarningResponseDto | SaturatedWarningResponseDto | JudgeUnstableWarningResponseDto | FlakyChecksWarningResponseDto | NoHeadroomWarningResponseDto>;
 };
 
 export type SearchAgentRequestDto = {
@@ -8214,7 +8175,7 @@ export type SearchStartedResponseDto = {
   /**
    * What makes its results hard to trust; the search starts all the same
    */
-  warnings: Array<NoiseUnmeasuredWarningResponseDto | NoisyWarningResponseDto | SaturatedWarningResponseDto | JudgeUnstableWarningResponseDto | FlakyChecksWarningResponseDto | SanityFailedWarningResponseDto>;
+  warnings: Array<NoiseUnmeasuredWarningResponseDto | NoisyWarningResponseDto | SaturatedWarningResponseDto | JudgeUnstableWarningResponseDto | FlakyChecksWarningResponseDto | NoHeadroomWarningResponseDto>;
 };
 
 export type SearchSplitEntryResponseDto = {
@@ -8812,9 +8773,9 @@ export type ReplaySetHealthResponseDto = {
    */
   checks: CheckConsistencyResponseDto | null;
   /**
-   * Whether a stronger model or higher effort does better on the set; null until one was replayed
+   * How much better the live config does when handed each run’s answer. Started by Spotlight after each replay of the whole set under the live config; null until one started
    */
-  sanity: SanityReadingResponseDto | null;
+  oracle: OracleReadingResponseDto | null;
   /**
    * How many distinct tasks its runs worked; fewer than its runs when a task was worked more than once
    */
@@ -19196,108 +19157,6 @@ export type StartReplayResponses = {
 };
 
 export type StartReplayResponse = StartReplayResponses[keyof StartReplayResponses];
-
-export type ProbeReplaySetData = {
-  body: ProbeReplaySetRequestDto;
-  headers?: {
-    /**
-     * The API version the client was written against; every response names the version it was answered in
-     */
-    'Spotlight-Api-Version'?: '2026-09-23';
-    /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
-     */
-    'Spotlight-Client'?: string;
-  };
-  path: {
-    teamId: string;
-    setId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/replay-sets/{setId}/probes';
-};
-
-export type ProbeReplaySetErrors = {
-  /**
-   * Malformed, or asking for an API version this server does not serve
-   */
-  400: ProblemResponseDto;
-  /**
-   * No valid credentials
-   */
-  401: ProblemResponseDto;
-  /**
-   * A caller who may read the team but not plan
-   */
-  403: ProblemResponseDto;
-  /**
-   * No such team, set, candidate or replay for this caller
-   */
-  404: ProblemResponseDto;
-  /**
-   * A ceiling of nothing or more than it takes, or a set with no runs
-   */
-  422: ProblemResponseDto;
-};
-
-export type ProbeReplaySetError = ProbeReplaySetErrors[keyof ProbeReplaySetErrors];
-
-export type ProbeReplaySetResponses = {
-  201: ReplayStartedResponseDto;
-};
-
-export type ProbeReplaySetResponse = ProbeReplaySetResponses[keyof ProbeReplaySetResponses];
-
-export type StartSanityReplayData = {
-  body: StartSanityReplayRequestDto;
-  headers?: {
-    /**
-     * The API version the client was written against; every response names the version it was answered in
-     */
-    'Spotlight-Api-Version'?: '2026-09-23';
-    /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
-     */
-    'Spotlight-Client'?: string;
-  };
-  path: {
-    teamId: string;
-    setId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/replay-sets/{setId}/sanity-replays';
-};
-
-export type StartSanityReplayErrors = {
-  /**
-   * Malformed, or asking for an API version this server does not serve
-   */
-  400: ProblemResponseDto;
-  /**
-   * No valid credentials
-   */
-  401: ProblemResponseDto;
-  /**
-   * A caller who may read the team but not plan
-   */
-  403: ProblemResponseDto;
-  /**
-   * No such team, set, candidate or replay for this caller
-   */
-  404: ProblemResponseDto;
-  /**
-   * Neither a model nor an effort other than the live config’s, one its harness does not offer, a ceiling of nothing, or a set with no runs
-   */
-  422: ProblemResponseDto;
-};
-
-export type StartSanityReplayError = StartSanityReplayErrors[keyof StartSanityReplayErrors];
-
-export type StartSanityReplayResponses = {
-  201: SanityReplayStartedResponseDto;
-};
-
-export type StartSanityReplayResponse = StartSanityReplayResponses[keyof StartSanityReplayResponses];
 
 export type ReadReplayData = {
   body?: never;

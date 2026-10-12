@@ -1,16 +1,12 @@
-import {
-  CircleCheck,
-  CircleSlash,
-  type LucideIcon,
-  RotateCwFadingClock,
-} from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { TerminalSpinner } from '@/components/shared/TerminalSpinner';
 import type { DecisionStanding } from '@/lib/decision-standing';
 
-const STANDING_ICONS: Record<DecisionStanding, LucideIcon> = {
-  waiting: RotateCwFadingClock,
-  approved: CircleCheck,
-  declined: CircleSlash,
+const SETTLED: Record<DecisionStanding, 'filled' | 'faded' | null> = {
+  waiting: null,
+  approved: 'filled',
+  declined: 'faded',
 };
 
 type DecisionTitleProps = {
@@ -26,11 +22,15 @@ export function DecisionTitle({
   children,
   ...marked
 }: DecisionTitleProps) {
-  const Icon = marked.standing ? STANDING_ICONS[marked.standing] : marked.icon;
+  const Icon = marked.icon;
 
   return (
     <Heading className="flex min-w-0 items-center gap-2 font-medium text-foreground text-sm">
-      <Icon aria-hidden className="size-4 shrink-0" />
+      {marked.standing ? (
+        <TerminalSpinner settled={SETTLED[marked.standing]} />
+      ) : (
+        Icon && <Icon aria-hidden className="size-4 shrink-0" />
+      )}
       <span className="truncate">{children}</span>
     </Heading>
   );

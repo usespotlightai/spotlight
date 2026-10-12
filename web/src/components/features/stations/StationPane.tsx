@@ -1,9 +1,14 @@
 import type { ReactNode } from 'react';
 import { PaneScroller } from '@/components/shared/PaneScroller';
 
-export function StationPane({ children }: { children: ReactNode }) {
+type StationPaneProps = {
+  aside?: ReactNode;
+  children: ReactNode;
+};
+
+export function StationPane({ aside, children }: StationPaneProps) {
   return (
-    <PaneScroller>
+    <PaneScroller aside={aside}>
       <main className="flex w-full flex-col gap-3 px-3 pt-3 pb-6">
         {children}
       </main>

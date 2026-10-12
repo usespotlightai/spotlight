@@ -6,7 +6,7 @@ const LIVE_PREFIX = 'Live config';
 
 const PLANNED_PREFIX = 'Planned change';
 
-const SANITY_PREFIX = 'Stronger model';
+const ORACLE_PREFIX = 'With the answer';
 
 const SEPARATOR = '/';
 
@@ -54,9 +54,9 @@ export class CandidateName {
         `name cannot start with reserved prefix ${PLANNED_PREFIX}`,
       );
     }
-    if (raw.toLowerCase().startsWith(SANITY_PREFIX.toLowerCase())) {
+    if (raw.toLowerCase().startsWith(ORACLE_PREFIX.toLowerCase())) {
       throw new InvalidCandidateError(
-        `name cannot start with reserved prefix ${SANITY_PREFIX}`,
+        `name cannot start with reserved prefix ${ORACLE_PREFIX}`,
       );
     }
 
@@ -84,9 +84,9 @@ export class CandidateName {
     );
   }
 
-  static sanity(at: Date): CandidateName {
+  static oracle(at: Date): CandidateName {
     return new CandidateName(
-      `${SANITY_PREFIX}, ${at.toISOString().slice(0, 10)}`,
+      `${ORACLE_PREFIX}, ${at.toISOString().slice(0, 10)}`,
     );
   }
 

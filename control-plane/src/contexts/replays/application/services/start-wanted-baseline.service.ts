@@ -4,6 +4,8 @@ import type { CandidateRepository } from '@replays/domain/repositories/candidate
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
 import { needsBaseline } from '@replays/domain/services/baseline';
+import { baselineTermsOf } from '@replays/domain/services/baseline-terms';
+import { checksSet } from '@replays/domain/services/set-health';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
@@ -44,14 +46,29 @@ export class StartWantedBaseline {
         return;
       }
 
+      const setReplays = await this.replays.ofSet(set.id);
+      const terms = baselineTermsOf(
+        checksSet(
+          set,
+          setReplays,
+          await this.candidates.findMany(
+            setReplays.map((each) => each.candidateId),
+          ),
+          candidate.fingerprint,
+        ),
+        event.repeats,
+        event.ceiling,
+      );
+
       await this.replays.add(
         Replay.started({
           id: event.baselineId,
           set,
           candidate,
           baseline: true,
-          ceiling: event.ceiling,
-          repeats: event.repeats,
+          ceiling: terms.ceiling,
+          repeats: terms.repeats,
+          probe: terms.probe,
           ...(event.unpricedRate ? { unpricedRate: event.unpricedRate } : {}),
           at: this.clock.now(),
           by: Attribution.spotlight(set.workspaceId),

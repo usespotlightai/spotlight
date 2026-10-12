@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import {
@@ -65,6 +66,10 @@ vi.mock('@/hooks/api/useReplaySets', () => ({
             },
           ]),
   }),
+}));
+
+vi.mock('@/hooks/api/useStation', () => ({
+  useStation: () => ({ line: undefined, station: undefined }),
 }));
 
 vi.mock('@/hooks/useStationTrail', () => ({
@@ -277,6 +282,29 @@ const renderSearch = () =>
     </MemoryRouter>,
   );
 
+const tile = (label: string) =>
+  screen
+    .getAllByText(label)
+    .map((each) => each.closest('[data-slot="insights-tile"]'))
+    .find(Boolean) as HTMLElement;
+
+const tileNote = (label: string) =>
+  tile(label).querySelector('dt [aria-describedby]') as HTMLElement;
+
+const candidateRow = (name: string) =>
+  screen
+    .getByRole('button', { name: `Details of ${name}` })
+    .closest('li') as HTMLElement;
+
+const openCandidate = async (name: string) => {
+  await userEvent.click(
+    screen.getByRole('button', { name: `Details of ${name}` }),
+  );
+  return document.querySelector(
+    '[data-slot="candidate-detail"]',
+  ) as HTMLElement;
+};
+
 describe('Search', () => {
   beforeEach(() => {
     detail.mockReturnValue(undefined);
@@ -326,7 +354,17 @@ describe('Search', () => {
     expect(screen.getByText('Search not found')).toBeInTheDocument();
   });
 
-  it('shows the search’s state, budget, spend and why it ended', () => {
+  it('marks a search that ended unusually, saying why on hover', () => {
+    detail.mockReturnValue({ ...DETAIL, state: 'stopped', ending: 'stalled' });
+
+    renderSearch();
+
+    expect(
+      screen.getByText('Stalled').closest('[aria-describedby]'),
+    ).toHaveAccessibleDescription('Found nothing better twice in a row.');
+  });
+
+  it('shows the search’s spend and when it ran, with no mark when it ran its course', () => {
     detail.mockReturnValue(DETAIL);
 
     renderSearch();
@@ -334,11 +372,13 @@ describe('Search', () => {
     expect(
       screen.getByRole('heading', { level: 1, name: 'Search 2' }),
     ).toBeInTheDocument();
-    expect(screen.getByText('Finished')).toBeInTheDocument();
+    expect(screen.queryByText('Finished')).not.toBeInTheDocument();
     expect(
-      screen.getByText('Ran every iteration it was given.'),
-    ).toBeInTheDocument();
-    expect(screen.getByText('$12.00 / $20.00')).toBeInTheDocument();
+      screen
+        .getByRole('link', { name: 'Billing work' })
+        .parentElement?.querySelector('[aria-describedby]'),
+    ).toHaveAccessibleDescription(/^Started .*, ended /);
+    expect(tile('Spent')).toHaveTextContent('$12.00of $20.00');
     expect(
       screen.queryByRole('button', { name: 'Stop' }),
     ).not.toBeInTheDocument();
@@ -352,10 +392,9 @@ describe('Search', () => {
 
     renderSearch();
 
-    expect(
-      document.querySelector('[data-slot="search-objective"]'),
-    ).toHaveTextContent('More success');
-    expect(screen.getByText('Best')).toBeInTheDocument();
+    expect(tileNote('Best')).toHaveAccessibleDescription(
+      /^Aims for more success\./,
+    );
   });
 
   it('says a search aims for the same success for less, naming its cheapest and how its frontier is drawn', () => {
@@ -363,13 +402,12 @@ describe('Search', () => {
 
     renderSearch();
 
-    expect(
-      document.querySelector('[data-slot="search-objective"]'),
-    ).toHaveTextContent('The same success for less');
-    expect(screen.getByText('Cheapest')).toBeInTheDocument();
-    expect(
-      screen.getByText('No candidate holds its success yet'),
-    ).toBeInTheDocument();
+    expect(tileNote('Cheapest')).toHaveAccessibleDescription(
+      /^Aims for the same success for less\./,
+    );
+    expect(tile('Cheapest')).toHaveTextContent(
+      'No candidate holds its success yet',
+    );
     expect(
       screen.getByText(
         /candidates matching the live config’s success, within noise/,
@@ -382,12 +420,10 @@ describe('Search', () => {
 
     renderSearch();
 
-    expect(
-      within(screen.getByRole('list', { name: 'Held-out tasks' })).getByRole(
-        'link',
-        { name: 'Retry refunds on timeout' },
-      ),
-    ).toHaveAttribute('href', '/w/acme/team/team_1/runs/run_held');
+    expect(tile('Tasks')).toHaveTextContent('5searched · 2 held out');
+    expect(tileNote('Tasks')).toHaveAccessibleDescription(
+      /Held out: Retry refunds on timeout\.$/,
+    );
   });
 
   it('puts a table behind the frontier chart', () => {
@@ -422,7 +458,7 @@ describe('Search', () => {
     ]);
   });
 
-  it('marks a candidate that gained only on the tasks the search could see, and counts them on the frontier', () => {
+  it('marks a candidate that gained only on the tasks the search could see, and counts them on the frontier', async () => {
     detail.mockReturnValue(DETAIL);
 
     renderSearch();
@@ -433,14 +469,22 @@ describe('Search', () => {
       ),
     ).toBeInTheDocument();
 
-    const first = screen.getByRole('list', {
-      name: 'Candidates of iteration 1',
-    });
-    expect(within(first).getByText('Only on seen tasks')).toBeInTheDocument();
-    expect(within(first).getByRole('note')).toHaveTextContent(
+    expect(
+      within(candidateRow('tests-first')).getByRole('img', {
+        name: 'Only on seen tasks',
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(candidateRow('Live config')).queryByRole('img', {
+        name: 'Only on seen tasks',
+      }),
+    ).toBeNull();
+
+    const opened = await openCandidate('tests-first');
+    expect(within(opened).getByRole('note')).toHaveTextContent(
       'Gain showed only on searched tasks.',
     );
-    expect(within(first).getByRole('button', { name: 'Pick' })).toBeEnabled();
+    expect(within(opened).getByRole('button', { name: 'Pick' })).toBeEnabled();
 
     fireEvent.click(screen.getByRole('button', { name: 'Table' }));
 
@@ -479,14 +523,14 @@ describe('Search', () => {
 
     renderSearch();
 
-    const best = document.querySelector('[data-slot="best-candidate"]');
-    expect(best).toHaveTextContent('tests-first');
+    const best = tile('Best');
+    expect(best).toHaveTextContent('tests-first100% held out');
     expect(
-      best?.querySelector('[data-slot="only-on-seen-tasks"]'),
-    ).toHaveTextContent('Only on seen tasks');
+      within(best).getByRole('img', { name: 'Only on seen tasks' }),
+    ).toBeInTheDocument();
   });
 
-  it('says plainly when too few held-out tasks were scored to tell, without marking or counting it', () => {
+  it('says plainly when too few held-out tasks were scored to tell, without marking or counting it', async () => {
     const [tests] = DETAIL.candidates;
     detail.mockReturnValue({
       ...DETAIL,
@@ -498,14 +542,16 @@ describe('Search', () => {
 
     renderSearch();
 
-    const first = screen.getByRole('list', {
-      name: 'Candidates of iteration 1',
-    });
+    const row = candidateRow('tests-first');
     expect(
-      within(first).getByText('Too few held-out tasks to tell'),
+      within(row).getByRole('img', { name: 'Too few held-out tasks to tell' }),
     ).toBeInTheDocument();
-    expect(within(first).queryByText('Only on seen tasks')).toBeNull();
-    expect(within(first).queryByRole('note')).toBeNull();
+    expect(
+      within(row).queryByRole('img', { name: 'Only on seen tasks' }),
+    ).toBeNull();
+    expect(
+      within(await openCandidate('tests-first')).queryByRole('note'),
+    ).toBeNull();
     expect(
       screen.queryByText(/frontier candidates? gained only on searched tasks/),
     ).toBeNull();
@@ -516,40 +562,55 @@ describe('Search', () => {
 
     renderSearch();
 
-    expect(
-      screen.getByText(/· Minimum real gain: \+5 pts/),
-    ).toBeInTheDocument();
+    expect(tile('Live config')).toHaveTextContent('60%of 5 runs scored');
+    expect(tileNote('Live config')).toHaveAccessibleDescription(
+      'Minimum real gain: +5 pts.',
+    );
   });
 
-  it('groups candidates by iteration, with their changes, scores, replays and a pick', () => {
+  it('groups candidates by iteration, opening each for its reasoning, replays and a pick', async () => {
     detail.mockReturnValue({ ...DETAIL, state: 'searching', ending: null });
 
     renderSearch();
 
     expect(screen.getByRole('button', { name: 'Stop' })).toBeInTheDocument();
 
-    const first = screen.getByRole('list', {
-      name: 'Candidates of iteration 1',
-    });
+    const rows = within(
+      screen.getByRole('list', { name: 'Candidates by iteration' }),
+    ).getAllByRole('listitem');
+    expect(rows.map((each) => each.textContent?.split(' ')[0])).toEqual([
+      'Started',
+      'Live',
+      'Iteration',
+      expect.stringContaining('tests-first'),
+      'Iteration',
+      'Search',
+    ]);
     expect(
-      within(first).getByText('Reading the tests first should help.'),
+      within(candidateRow('tests-first')).getByRole('img', {
+        name: 'On the frontier',
+      }),
     ).toBeInTheDocument();
-    expect(within(first).getByText('On the frontier')).toBeInTheDocument();
-    expect(
-      within(first).getByRole('link', { name: 'Held-out replay' }),
-    ).toHaveAttribute(
-      'href',
-      '/w/acme/team/team_1/lines/line_1/stations/station_1/replays/replay_tests_held',
-    );
-    expect(within(first).getByRole('button', { name: 'Pick' })).toBeEnabled();
-
     expect(
       screen.getByText('Search agent proposed nothing replayable.'),
     ).toBeInTheDocument();
 
-    const seed = screen.getByRole('list', { name: 'Where it started' });
+    const opened = await openCandidate('tests-first');
     expect(
-      within(seed).queryByRole('button', { name: 'Pick' }),
+      within(opened).getByText('Reading the tests first should help.'),
+    ).toBeInTheDocument();
+    expect(
+      within(opened).getByRole('link', { name: 'Held-out replay' }),
+    ).toHaveAttribute(
+      'href',
+      '/w/acme/team/team_1/lines/line_1/stations/station_1/replays/replay_tests_held',
+    );
+    expect(within(opened).getByRole('button', { name: 'Pick' })).toBeEnabled();
+
+    expect(
+      within(await openCandidate('Live config')).queryByRole('button', {
+        name: 'Pick',
+      }),
     ).not.toBeInTheDocument();
   });
 
@@ -575,9 +636,11 @@ describe('Search', () => {
 
   describe('when a search stalled and looked for why', () => {
     const whyAt = (container: HTMLElement, iteration: number) =>
-      container.querySelector(
-        `[data-slot="why-it-stalled"][data-iteration="${iteration}"]`,
-      ) as HTMLElement;
+      container
+        .querySelector(
+          `[data-slot="why-it-stalled"][data-iteration="${iteration}"]`,
+        )
+        ?.closest('[data-slot="insights-card"]') as HTMLElement;
 
     it('groups what it found by cause, says what to do, and links each to its failed replay run', () => {
       detail.mockReturnValue({
@@ -703,18 +766,20 @@ describe('Search', () => {
       const reflected = container.querySelector(
         '[data-slot="iteration"][data-kind="reflect"]',
       ) as HTMLElement;
+      const note = reflected.nextElementSibling as HTMLElement;
       expect(
         within(reflected).getByText(`· ${REFLECTION_KIND}`),
       ).toBeInTheDocument();
       expect(
-        within(reflected).getByText(reflectionIterationShown(3, 2)),
-      ).toBeInTheDocument();
-      expect(
-        within(reflected).getByRole('link', { name: SEE_WHY_IT_STALLED }),
-      ).toHaveAttribute('href', `#${whyItStalledAnchor(3)}`);
-      expect(
         within(reflected).queryByText(/proposals? taken/),
       ).not.toBeInTheDocument();
+      expect(note).toHaveAttribute('data-slot', 'iteration-note');
+      expect(
+        within(note).getByText(reflectionIterationShown(3, 2)),
+      ).toBeInTheDocument();
+      expect(
+        within(note).getByRole('link', { name: SEE_WHY_IT_STALLED }),
+      ).toHaveAttribute('href', `#${whyItStalledAnchor(3)}`);
     });
 
     it('shows every reflection, newest first, each iteration linking to its own', () => {
@@ -746,7 +811,7 @@ describe('Search', () => {
 
       const links = [
         ...container.querySelectorAll(
-          '[data-slot="iteration"][data-kind="reflect"] a[href^="#"]',
+          '[data-slot="iteration-note"] a[href^="#"]',
         ),
       ].map((each) => each.getAttribute('href'));
       expect(links).toEqual([

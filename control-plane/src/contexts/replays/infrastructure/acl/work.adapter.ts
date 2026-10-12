@@ -1,9 +1,9 @@
 import type {
   AgentRefusal,
   ExaminedCandidate,
-  HarnessOffer,
   HeldSearchRun,
   LiveConfig,
+  OracleAnswerAsked,
   PickableRun,
   ReplayRunOrder,
   ReplayRunQueued,
@@ -17,6 +17,7 @@ import type {
   UnclaimedWithdrawal,
   WorkPort,
 } from '@replays/application/ports/work.port';
+import type { OracleAnswer } from '@replays/domain/services/oracle-answer';
 import { CandidateScoring } from '@replays/domain/value-objects/candidate-scoring.vo';
 import { JudgeCriteria } from '@replays/domain/value-objects/judge-criteria.vo';
 import type { PlannedLine } from '@replays/domain/value-objects/planned-line.vo';
@@ -32,13 +33,15 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import type { HarnessOffersPort } from '@work/application/ports/harness-offers.port';
 import type {
   ReplayCandidatesPort,
   ReplayStation,
   CandidateScoring as ScoredBy,
 } from '@work/application/ports/replay-candidates.port';
-import type { ReplayDispatchPort } from '@work/application/ports/replay-dispatch.port';
+import type {
+  ReplayAnswer,
+  ReplayDispatchPort,
+} from '@work/application/ports/replay-dispatch.port';
 import type {
   Replayability,
   ReplayableRunsPort,
@@ -78,6 +81,11 @@ const scoringOf = (scoring: ScoredBy): CandidateScoring =>
     rubricVersion: scoring.rubricVersion,
   });
 
+const ANSWERS: Record<OracleAnswer, ReplayAnswer> = {
+  accepted: 'accepted',
+  'sent-back': 'sent-back',
+};
+
 export class Work implements WorkPort {
   constructor(
     private readonly runs: ReplayableRunsPort,
@@ -86,15 +94,7 @@ export class Work implements WorkPort {
     private readonly holds: StartingPointHoldsPort,
     private readonly searching: SearchDispatchPort,
     private readonly searchRuns: SearchRunsPort,
-    private readonly offers: HarnessOffersPort,
   ) {}
-
-  harnessOffer(
-    workspaceId: WorkspaceId,
-    harness: string,
-  ): Promise<HarnessOffer | null> {
-    return this.offers.offerOf(workspaceId.value, harness);
-  }
 
   async station(
     lineId: string,
@@ -213,6 +213,19 @@ export class Work implements WorkPort {
       : null;
   }
 
+  async answerable(
+    asked: readonly OracleAnswerAsked[],
+  ): Promise<readonly RunId[]> {
+    const answered = await this.dispatching.answerable(
+      asked.map((each) => ({
+        original: each.run.value,
+        answer: ANSWERS[each.answer],
+      })),
+    );
+
+    return answered.map((each) => RunId.of(each));
+  }
+
   async dispatch(order: ReplayRunOrder): Promise<ReplayRunQueued> {
     const dispatched = await this.dispatching.enqueue({
       id: order.run.value,
@@ -222,6 +235,7 @@ export class Work implements WorkPort {
       stationId: order.stationId,
       station: order.block.value,
       ...(order.line ? { repositories: order.line.repositories } : {}),
+      answer: order.answer && ANSWERS[order.answer],
     });
 
     return dispatched.outcome === 'queued'

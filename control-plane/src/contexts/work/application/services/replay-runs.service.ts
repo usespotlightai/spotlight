@@ -4,6 +4,7 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { ReplayRefusalCode } from '@work/application/contracts/replay-refusal.contract';
 import type {
+  AnswerAsked,
   ReplayDispatched,
   ReplayDispatchPort,
   ReplayForgone,
@@ -12,6 +13,7 @@ import type {
 import type { ReplayRunClaimsPort } from '@work/application/ports/replay-run-claims.port';
 import type { CandidateLines } from '@work/application/services/candidate-lines.service';
 import type { DispatchReplay } from '@work/application/services/dispatch-replay.service';
+import type { ReplayAnswers } from '@work/application/services/replay-answers.service';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
 import { UnreplayableRunError } from '@work/domain/exceptions/unreplayable-run.error';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
@@ -31,6 +33,7 @@ export class ReplayRuns implements ReplayDispatchPort {
     private readonly claims: ReplayRunClaimsPort,
     private readonly candidates: CandidateLines,
     private readonly dispatch: DispatchReplay,
+    private readonly answers: ReplayAnswers,
     private readonly transaction: TransactionPort,
     private readonly clock: ClockPort,
   ) {}
@@ -64,6 +67,20 @@ export class ReplayRuns implements ReplayDispatchPort {
 
       return dispatched;
     });
+  }
+
+  async answerable(asked: readonly AnswerAsked[]): Promise<readonly string[]> {
+    const answered: string[] = [];
+
+    for (const each of asked) {
+      const original = await this.runs.findById(RunId.of(each.original));
+
+      if (original && (await this.answers.briefFor(original, each.answer))) {
+        answered.push(each.original);
+      }
+    }
+
+    return answered;
   }
 
   withdraw(runIds: readonly string[]): Promise<void> {
@@ -138,7 +155,12 @@ export class ReplayRuns implements ReplayDispatchPort {
     }
 
     try {
-      await this.dispatch.enqueue({ original, candidate: built.line, id });
+      await this.dispatch.enqueue({
+        original,
+        candidate: built.line,
+        id,
+        answer: order.answer ?? null,
+      });
     } catch (error) {
       if (error instanceof UnreplayableRunError) {
         return unreplayable(error.refusal, error.message);

@@ -1,3 +1,4 @@
+import { IterationNote } from '@/components/features/searches/search/IterationNote';
 import type { SearchIterationResponseDto } from '@/lib/api';
 
 type NothingProposedProps = {
@@ -6,10 +7,10 @@ type NothingProposedProps = {
 
 export function NothingProposed({ iteration }: NothingProposedProps) {
   return (
-    <p className="rounded-xl border border-border px-3 py-2 text-muted-foreground text-xs">
+    <IterationNote>
       {iteration?.state === 'wanted' || iteration?.state === 'running'
         ? 'Nothing proposed yet.'
         : 'Search agent proposed nothing replayable.'}
-    </p>
+    </IterationNote>
   );
 }

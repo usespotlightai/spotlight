@@ -479,11 +479,14 @@ export class DrizzleReplayRepository implements ReplayRepository {
       .where(
         and(
           inArray(replay.setId, [...new Set(setIds.map((each) => each.value))]),
-          isNull(replay.among),
           isNull(replay.searchId),
           or(
-            and(eq(replayCandidate.kind, 'live'), eq(replay.state, 'finished')),
-            eq(replayCandidate.kind, 'sanity'),
+            and(
+              eq(replayCandidate.kind, 'live'),
+              eq(replay.state, 'finished'),
+              isNull(replay.among),
+            ),
+            eq(replayCandidate.kind, 'oracle'),
           ),
         ),
       )

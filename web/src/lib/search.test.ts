@@ -9,6 +9,7 @@ import {
   iterationTitle,
   pickRefusal,
   refusalsOf,
+  replayCheckNote,
   type Search,
   type SearchCandidate,
   type SearchDetail,
@@ -38,7 +39,7 @@ const setOf = (tasks: number, over: Partial<ReplaySet> = {}): ReplaySet => ({
     saturation: null,
     judge: null,
     checks: null,
-    sanity: null,
+    oracle: null,
   },
   minGain: 0.05,
   composition: {
@@ -229,7 +230,7 @@ describe('search', () => {
     expect(heldOutShown(candidate({ seed: true }))).toBe('–');
   });
 
-  it('plots priced scores, and keeps the unpriced apart', () => {
+  it('plots finished priced scores, and keeps the unpriced apart', () => {
     const detail = {
       seed: candidate({ candidateId: 'seed', seed: true, onFrontier: true }),
       candidates: [
@@ -239,12 +240,12 @@ describe('search', () => {
       ],
     } as SearchDetail;
 
-    const { priced, unpriced, unfinished } = frontierPoints(detail);
+    const { priced, unpriced } = frontierPoints(detail);
 
     expect(priced.map((each) => each.id)).toEqual(['seed']);
     expect(priced[0]?.name).toBe('Live config');
     expect(unpriced.map((each) => each.candidateId)).toEqual(['a']);
-    expect(unfinished.map((each) => each.candidateId)).toEqual(['c']);
+    expect(priced.map((each) => each.id)).not.toContain('c');
   });
 
   it('groups candidates by iteration, keeping iterations that proposed nothing', () => {
@@ -272,5 +273,22 @@ describe('iterationTitle', () => {
   it('names an iteration by its search, or by search alone where its number is unknown', () => {
     expect(iterationTitle(3, 2)).toBe('Iteration 3 of Search 2');
     expect(iterationTitle(1, null)).toBe('Iteration 1 of Search');
+  });
+
+  it('explains guarding, with the line’s threshold or that it sets none', () => {
+    expect(
+      replayCheckNote({
+        mostRegressions: 2,
+        ceiling: 10,
+        currency: 'USD',
+        minGain: 0.05,
+      }),
+    ).toMatch(
+      /Fails past 2 regressions\. Ceiling per check: \$10\.00 · Minimum real gain: \+5 pts$/,
+    );
+    expect(replayCheckNote(null)).toMatch(/Line sets no replay_check\./);
+    expect(replayCheckNote(undefined)).toMatch(
+      /^spotlight replay check replays a pull request’s change/,
+    );
   });
 });

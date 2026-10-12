@@ -43,22 +43,24 @@ export function OutcomeBar({ outcomes }: OutcomeBarProps) {
         aria-label={TURNED_OUT_LABEL}
         className="flex flex-wrap gap-x-3 gap-y-1 text-xs"
       >
-        {outcomes.map((each) => (
-          <li
-            key={each.outcome}
-            data-slot="outcome-count"
-            className="flex items-center gap-1.5 text-muted-foreground"
-          >
-            <span
-              aria-hidden
-              className={cn('size-2 rounded-sm', SWATCHES[each.outcome])}
-            />
-            <span className="text-foreground">
-              {turnedOutShown(each.outcome)}
-            </span>
-            <span className="tabular-nums">{each.count}</span>
-          </li>
-        ))}
+        {outcomes
+          .filter((each) => each.count > 0)
+          .map((each) => (
+            <li
+              key={each.outcome}
+              data-slot="outcome-count"
+              className="flex items-center gap-1.5 text-muted-foreground"
+            >
+              <span
+                aria-hidden
+                className={cn('size-2 rounded-sm', SWATCHES[each.outcome])}
+              />
+              <span className="text-foreground">
+                {turnedOutShown(each.outcome)}
+              </span>
+              <span className="tabular-nums">{each.count}</span>
+            </li>
+          ))}
       </ul>
     </div>
   );

@@ -1,11 +1,9 @@
 import { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import {
-  AT,
   aSet,
   BY,
   candidateOf,
-  DIGESTS,
   endOf,
   FINGERPRINT,
   LIVE_FINGERPRINT,
@@ -15,8 +13,6 @@ import {
   RUBRIC,
   replayedAs,
   runIds,
-  STATION,
-  UNSCORED,
 } from '@replays/domain/replays.fake-spec';
 import { setHealthOf } from '@replays/domain/services/set-health';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
@@ -25,9 +21,6 @@ import { JudgeVerdict } from '@replays/domain/value-objects/judge-verdict.vo';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { Spend } from '@replays/domain/value-objects/spend.vo';
-import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
-import { StationChanges } from '@replays/domain/value-objects/station-changes.vo';
-import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -111,6 +104,7 @@ const plainly = (
   id: string,
   candidate: Candidate,
   failing: readonly string[],
+  among: readonly RunId[] | null = null,
 ) =>
   replayedAs(
     started(
@@ -118,31 +112,16 @@ const plainly = (
       candidate,
       1,
       false,
-      null,
-      candidate.isSanity ? 'replay_live' : null,
+      among,
+      candidate.isOracle ? 'replay_live' : null,
     ),
     (original) => (failing.includes(original) ? 'failed' : 'completed'),
   );
 
-const strongerOf = (model: string) =>
-  Candidate.sanity({
-    id: CandidateId.of('candidate_stronger'),
-    station: STATION,
-    address: AT,
-    block: StationBlock.of({
-      key: 'build',
-      name: 'Build',
-      kind: 'work',
-      model,
-    }),
-    fingerprint: StationFingerprint.of('c'.repeat(64)),
-    digests: DIGESTS,
-    scoring: UNSCORED,
-    changedFrom: StationChanges.of(FINGERPRINT, [
-      { part: 'model', name: null, kind: 'changed', was: 'sonnet', now: model },
-    ]),
-    at: NOW,
-  });
+const ORACLE = Candidate.oracleOf(PLAIN, {
+  id: CandidateId.of('candidate_oracle'),
+  at: NOW,
+});
 
 describe('setHealthOf', () => {
   it('reads a set as saturated when its newest finished live replay passes more than 95% of it', () => {
@@ -187,7 +166,7 @@ describe('setHealthOf', () => {
       saturation: null,
       judge: null,
       checks: null,
-      sanity: null,
+      oracle: null,
     });
   });
 
@@ -257,8 +236,7 @@ describe('setHealthOf', () => {
     expect(health.checks).toBeNull();
   });
 
-  it('says a set rewards a stronger model when the stronger replay is clearly better than the live one', () => {
-    const stronger = strongerOf('opus');
+  it('says a set has room to improve when the answer does clearly better than the live config', () => {
     const health = setHealthOf(
       [
         plainly('replay_live', PLAIN, [
@@ -266,55 +244,67 @@ describe('setHealthOf', () => {
           'original_1',
           'original_2',
         ]),
-        plainly('replay_stronger', stronger, []),
+        plainly('replay_oracle', ORACLE, []),
       ],
-      [PLAIN, stronger],
+      [PLAIN, ORACLE],
       FINGERPRINT,
       MIN_GAIN,
     );
 
-    expect(health.sanity).toMatchObject({
-      model: 'opus',
-      effort: null,
+    expect(health.oracle).toMatchObject({
       repeats: 1,
       state: 'finished',
-      rewardsStrongerModel: true,
-      worse: [],
+      answered: 6,
+      live: 0.5,
+      withAnswer: 1,
+      roomToImprove: true,
     });
-    expect(health.sanity?.againstReplayId?.value).toBe('replay_live');
-    expect(health.sanity?.gain?.verdict).toBe('better');
+    expect(health.oracle?.againstReplayId?.value).toBe('replay_live');
+    expect(health.oracle?.gain?.verdict).toBe('better');
   });
 
-  it('says a set does not reward a stronger model when it does no better, and names the tasks it did worse on', () => {
-    const stronger = strongerOf('opus');
-    const sanity = setHealthOf(
+  it('compares only the runs handed an answer, and says when the answer leaves no room', () => {
+    const answered = SET.entries.slice(0, 5).map((each) => each.runId);
+    const oracle = setHealthOf(
       [
-        plainly('replay_live', PLAIN, ['original_0']),
-        plainly('replay_stronger', stronger, ['original_3', 'original_4']),
+        plainly('replay_live', PLAIN, ['original_5']),
+        plainly('replay_oracle', ORACLE, [], answered),
       ],
-      [PLAIN, stronger],
+      [PLAIN, ORACLE],
       FINGERPRINT,
       MIN_GAIN,
-    ).sanity;
+    ).oracle;
 
-    expect(sanity?.rewardsStrongerModel).toBe(false);
-    expect(
-      sanity?.worse.map((each) => [
-        each.taskId.value,
-        each.live,
-        each.stronger,
-      ]),
-    ).toEqual([
-      ['task_3', 1, 0],
-      ['task_4', 1, 0],
-    ]);
+    expect(oracle).toMatchObject({
+      answered: 5,
+      live: 1,
+      withAnswer: 1,
+      roomToImprove: false,
+    });
+    expect(oracle?.gain?.tasks).toBe(5);
   });
 
-  it('holds back its verdict on a stronger model until its replay finishes, and reads only one based on the live config as it is now', () => {
-    const stronger = strongerOf('opus');
+  it('cannot tell the room from fewer than five runs handed an answer', () => {
+    const answered = SET.entries.slice(0, 3).map((each) => each.runId);
+    const oracle = setHealthOf(
+      [
+        plainly('replay_live', PLAIN, ['original_0', 'original_1']),
+        plainly('replay_oracle', ORACLE, [], answered),
+      ],
+      [PLAIN, ORACLE],
+      FINGERPRINT,
+      MIN_GAIN,
+    ).oracle;
+
+    expect(oracle?.answered).toBe(3);
+    expect(oracle?.gain?.tasks).toBe(3);
+    expect(oracle?.roomToImprove).toBeNull();
+  });
+
+  it('holds back its reading until its replay finishes, and reads only one of the live config as it is now', () => {
     const underway = started(
-      'replay_stronger',
-      stronger,
+      'replay_oracle',
+      ORACLE,
       1,
       false,
       null,
@@ -324,47 +314,48 @@ describe('setHealthOf', () => {
     expect(
       setHealthOf(
         [plainly('replay_live', PLAIN, []), underway],
-        [PLAIN, stronger],
+        [PLAIN, ORACLE],
         FINGERPRINT,
         MIN_GAIN,
-      ).sanity,
+      ).oracle,
     ).toMatchObject({
       state: 'running',
+      live: null,
+      withAnswer: null,
       gain: null,
-      rewardsStrongerModel: null,
+      roomToImprove: null,
     });
     expect(
       setHealthOf(
-        [plainly('replay_stronger', stronger, [])],
-        [stronger],
+        [plainly('replay_oracle', ORACLE, [])],
+        [ORACLE],
         LIVE_FINGERPRINT,
         MIN_GAIN,
-      ).sanity,
+      ).oracle,
     ).toBeNull();
   });
 
-  it('says the replay a stronger model was compared with stopped, rather than waiting on it for ever', () => {
-    const stronger = strongerOf('opus');
+  it('says the replay it was compared with stopped, rather than waiting on it for ever', () => {
     const stoppedLive = started('replay_live', PLAIN, 1).stopped(later(1), BY);
-    const sanity = setHealthOf(
-      [stoppedLive, plainly('replay_stronger', stronger, [])],
-      [PLAIN, stronger],
+    const oracle = setHealthOf(
+      [stoppedLive, plainly('replay_oracle', ORACLE, [])],
+      [PLAIN, ORACLE],
       FINGERPRINT,
       MIN_GAIN,
-    ).sanity;
+    ).oracle;
 
-    expect(sanity).toMatchObject({
+    expect(oracle).toMatchObject({
       againstState: 'stopped',
       gain: null,
-      rewardsStrongerModel: null,
+      roomToImprove: null,
     });
     expect(
       setHealthOf(
-        [plainly('replay_stronger', stronger, [])],
-        [stronger],
+        [plainly('replay_oracle', ORACLE, [])],
+        [ORACLE],
         FINGERPRINT,
         MIN_GAIN,
-      ).sanity?.againstState,
+      ).oracle?.againstState,
     ).toBe('gone');
   });
 });

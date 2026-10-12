@@ -1,12 +1,38 @@
 import { History } from 'lucide-react';
-import { CardList } from '@/components/features/replays/CardList';
-import { ReplaysHeading } from '@/components/features/replays/ReplaysHeading';
+import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { StateBox } from '@/components/features/replays/StateBox';
 import { AddRunsButton } from '@/components/features/replays/set/AddRunsButton';
-import { SetCompositionBox } from '@/components/features/replays/set/SetCompositionBox';
+import { OutcomeBar } from '@/components/features/replays/set/OutcomeBar';
 import { SetRunRow } from '@/components/features/replays/set/SetRunRow';
 import { EmptyState } from '@/components/shared/EmptyState';
-import type { ReplayedStation, ReplaySet } from '@/lib/replay';
+import { NotedWarning } from '@/components/shared/NotedWarning';
+import { NestedTable } from '@/components/shared/nested-table/NestedTable';
+import { PanelActions } from '@/components/shared/PanelActions';
+import {
+  type ReplayedStation,
+  type ReplaySet,
+  SET_RUN_HEADINGS,
+  type SetComposition,
+} from '@/lib/replay';
+import {
+  balanceWarningShown,
+  endedSpanShown,
+  ORIGINS_LABEL,
+  originShown,
+} from '@/lib/replay-words';
+
+const RUNS_NOTE = 'Past runs of the station. Each replay reruns all of them.';
+
+const compositionNote = (composition: SetComposition): string =>
+  [
+    RUNS_NOTE,
+    endedSpanShown(composition),
+    `${ORIGINS_LABEL}: ${composition.origins
+      .map((each) => `${originShown(each.origin)} ${each.count}`)
+      .join(' · ')}`,
+  ]
+    .filter(Boolean)
+    .join(' ');
 
 type SetRunsProps = {
   at: ReplayedStation;
@@ -18,27 +44,43 @@ export function SetRuns({ at, set, frozen }: SetRunsProps) {
   const add = set.stationGone ? undefined : (
     <AddRunsButton at={at} set={set} disabled={frozen} />
   );
+  const { composition } = set;
 
   return (
-    <section aria-labelledby="set-runs" className="flex flex-col gap-2">
-      <ReplaysHeading
-        title="Runs"
-        id="set-runs"
-        level="h2"
-        action={set.entries.length > 0 ? add : undefined}
-      />
-
+    <InsightsCard
+      tableOnly
+      title="Runs"
+      description={
+        set.entries.length > 0 ? compositionNote(composition) : RUNS_NOTE
+      }
+      actions={
+        composition.balanceWarning && (
+          <NotedWarning
+            tone="warning"
+            label="Unbalanced set"
+            note={balanceWarningShown(composition.balanceWarning)}
+          />
+        )
+      }
+    >
       {set.entries.length === 0 ? (
-        <StateBox>
+        <StateBox flat>
           <EmptyState icon={History} title="No runs in this set" action={add}>
-            Add past runs of the station to replay. A run is replayable if its
-            starting point was kept.
+            Add past runs of the station. A run is replayable if its starting
+            point was kept.
           </EmptyState>
         </StateBox>
       ) : (
-        <>
-          <SetCompositionBox composition={set.composition} />
-          <CardList label="Runs in the set">
+        <div className="flex flex-col gap-3">
+          <div data-slot="set-composition">
+            <OutcomeBar outcomes={composition.outcomes} />
+          </div>
+          <NestedTable
+            label="Runs in the set"
+            headings={SET_RUN_HEADINGS}
+            trailing
+            compact
+          >
             {set.entries.map((entry) => (
               <SetRunRow
                 key={entry.runId}
@@ -48,9 +90,10 @@ export function SetRuns({ at, set, frozen }: SetRunsProps) {
                 frozen={frozen}
               />
             ))}
-          </CardList>
-        </>
+          </NestedTable>
+        </div>
       )}
-    </section>
+      {set.entries.length > 0 && add && <PanelActions>{add}</PanelActions>}
+    </InsightsCard>
   );
 }

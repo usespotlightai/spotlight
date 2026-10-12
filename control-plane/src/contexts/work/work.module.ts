@@ -9,7 +9,6 @@ import { SHIPPED_SKILL_KEYS } from '@work/application/ports/built-in-skills.port
 import { CHECK_ENDINGS } from '@work/application/ports/check-endings.port';
 import { GIVEN_AT_STATIONS } from '@work/application/ports/given-at-stations.port';
 import { HAPPENING_REACTIONS } from '@work/application/ports/happening-reactions.port';
-import { HARNESS_OFFERS } from '@work/application/ports/harness-offers.port';
 import { HARNESS_PROFILE_REVIEW } from '@work/application/ports/harness-profile-review.port';
 import { HOOK_TRACES } from '@work/application/ports/hook-traces.port';
 import { HOOKED_TASKS } from '@work/application/ports/hooked-tasks.port';
@@ -58,7 +57,6 @@ import { WORK_CONTROLLERS, WORK_PROVIDERS } from '@work/work.wiring';
     RUN_EVIDENCE,
     REPLAYABLE_RUNS,
     REPLAY_CANDIDATES,
-    HARNESS_OFFERS,
     REPLAY_DISPATCH,
     SEARCH_DISPATCH,
     SEARCH_RUNS,

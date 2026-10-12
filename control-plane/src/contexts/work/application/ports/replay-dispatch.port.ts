@@ -2,6 +2,8 @@ import type { ReplayRefusalCode } from '@work/application/contracts/replay-refus
 
 export const REPLAY_DISPATCH = Symbol('REPLAY_DISPATCH');
 
+export type ReplayAnswer = 'accepted' | 'sent-back';
+
 export interface ReplayOrder {
   readonly id: string;
   readonly original: string;
@@ -10,6 +12,7 @@ export interface ReplayOrder {
   readonly stationId: string;
   readonly station: unknown;
   readonly repositories?: unknown;
+  readonly answer?: ReplayAnswer | null;
 }
 
 export type ReplayDispatched =
@@ -24,8 +27,15 @@ export type ReplayForgone =
   | { readonly outcome: 'never-queued' }
   | { readonly outcome: 'queued'; readonly fingerprint: string | null };
 
+export interface AnswerAsked {
+  readonly original: string;
+  readonly answer: ReplayAnswer;
+}
+
 export interface ReplayDispatchPort {
   enqueue(order: ReplayOrder): Promise<ReplayDispatched>;
+
+  answerable(asked: readonly AnswerAsked[]): Promise<readonly string[]>;
 
   withdraw(runIds: readonly string[]): Promise<void>;
 

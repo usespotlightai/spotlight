@@ -20,6 +20,8 @@ import {
   InMemoryReplays,
   TRANSACTION,
 } from '@replays/application/services/replays.fake-spec';
+import { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
+import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import { ReplayAbandonmentDue } from '@replays/domain/events/replay-abandonment-due.event';
 import type { ReplayJudgingWanted } from '@replays/domain/events/replay-judging-wanted.event';
 import { ReplayRecheckUnavailable } from '@replays/domain/events/replay-recheck-unavailable.event';
@@ -57,6 +59,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 let memory: InMemoryReplays;
 let work: FakeWork;
+let turnouts: FakeOutcomes;
 
 const LOGGER = {
   debug: () => {},
@@ -71,6 +74,7 @@ const dispatching = () =>
     memory.candidateRepository,
     memory.searchRepository,
     work,
+    turnouts,
     IDS,
     CLOCK,
     TRANSACTION,
@@ -80,6 +84,7 @@ const dispatching = () =>
 beforeEach(async () => {
   memory = new InMemoryReplays();
   work = new FakeWork();
+  turnouts = new FakeOutcomes();
   await memory.candidateRepository.add(candidateOf('proposed'));
 });
 
@@ -98,11 +103,45 @@ describe('DispatchReplayRuns', () => {
       'original_1',
     ]);
     expect(work.dispatched[0]?.block.key).toBe('build');
+    expect(work.dispatched.every((each) => each.answer === null)).toBe(true);
     expect(memory.replays.get('replay_a')?.unconfirmed).toEqual([]);
     expect(memory.replays.get('replay_b')?.current).toBe('queued');
 
     await dispatching().workDue();
     expect(work.dispatched).toHaveLength(REPLAY_RUNS_AT_ONCE);
+  });
+
+  it('hands each run of a replay handed the answer what people decided on its original', async () => {
+    const oracle = Candidate.oracleOf(candidateOf('live'), {
+      id: CandidateId.of('candidate_oracle'),
+      at: NOW,
+    });
+    const replay = Replay.started({
+      id: ReplayId.of('replay_oracle'),
+      set: aSet(3),
+      candidate: oracle,
+      baseline: false,
+      ceiling: Spend.ceiling(10, 'USD'),
+      at: NOW,
+      by: BY,
+      comparedWith: ReplayId.of('replay_live'),
+    });
+
+    replay.pullEvents();
+    await memory.candidateRepository.add(oracle);
+    await memory.replayRepository.add(replay);
+    turnouts.accepted.add('original_0');
+    turnouts.sentBack.add('original_1');
+
+    await dispatching().workDue();
+    await dispatching().workDue();
+
+    expect(
+      work.dispatched.map((each) => [each.original.value, each.answer]),
+    ).toEqual([
+      ['original_0', 'accepted'],
+      ['original_1', 'sent-back'],
+    ]);
   });
 
   it('settles an entry Work refuses to queue, and moves on to the next', async () => {

@@ -6,6 +6,7 @@ import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
+import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { HarnessProfileShape } from '@work/application/contracts/harness-profile.contract';
 import {
@@ -15,8 +16,10 @@ import {
 import type { AttachmentStorePort } from '@work/application/ports/attachment-store.port';
 import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.port';
 import type { NamedMemory } from '@work/application/ports/memories-briefed-before.port';
+import type { RunEvidencePort } from '@work/application/ports/run-evidence.port';
 import type { BriefedPlace } from '@work/application/ports/team-memories.port';
 import { DispatchReplay } from '@work/application/services/dispatch-replay.service';
+import { ReplayAnswers } from '@work/application/services/replay-answers.service';
 import { candidateOf } from '@work/application/services/replay-candidates.fake-spec';
 import { StationCatalog } from '@work/application/services/station-catalog.service';
 import type { StationSkills } from '@work/application/services/station-skills.service';
@@ -24,6 +27,7 @@ import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import { WorkspaceArchive } from '@work/domain/aggregates/workspace-archive.aggregate';
 import { Station } from '@work/domain/entities/station.entity';
+import { TaskNote } from '@work/domain/entities/task-note.entity';
 import { InvalidAttachmentError } from '@work/domain/exceptions/invalid-attachment.error';
 import { UnreplayableRunError } from '@work/domain/exceptions/unreplayable-run.error';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
@@ -43,6 +47,7 @@ import { HarnessName } from '@work/domain/value-objects/harness-name.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
 import { LineName } from '@work/domain/value-objects/line-name.vo';
+import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import { ProfileKey } from '@work/domain/value-objects/profile-key.vo';
 import { RepositorySetup } from '@work/domain/value-objects/repository-setup.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
@@ -55,8 +60,10 @@ import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
+import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { Tool } from '@work/domain/value-objects/tool.vo';
+import { Voice } from '@work/domain/value-objects/voice.vo';
 import { WorkedRepository } from '@work/domain/value-objects/worked-repository.vo';
 import { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
 import { Sha256ContentDigest } from '@work/infrastructure/hashing/sha256-content-digest';
@@ -266,6 +273,7 @@ const sealed = (workspace = 'ws_1') =>
 
 let gone: string[] = [];
 let taskGone = false;
+let taskNotes: TaskNote[] = [];
 let held: Run | null = null;
 let kept: WorkspaceArchive | null = null;
 let queued: Run[] = [];
@@ -285,7 +293,7 @@ const dispatching = () =>
     } as unknown as RunRepository,
     { find: async () => kept } as unknown as WorkspaceArchiveRepository,
     {
-      find: async () => (taskGone ? null : {}),
+      find: async () => (taskGone ? null : { notes: taskNotes }),
     } as unknown as TaskRepository,
     { of: async () => BRIEFED },
     { generate: () => 'run_2' },
@@ -348,6 +356,29 @@ const dispatching = () =>
       },
     } as unknown as AttachmentStorePort,
     new Sha256ContentDigest(),
+    new ReplayAnswers(
+      {
+        find: async () => (taskGone ? null : { notes: taskNotes }),
+      } as unknown as TaskRepository,
+      {
+        of: async () => ({
+          runId: ORIGINAL.value,
+          taskId: 'task_1',
+          title: 'Drain the queue',
+          description: null,
+          steps: [],
+          hunks: [
+            {
+              id: 'h1',
+              path: 'api/queue.ts',
+              index: 0,
+              header: '@@ -1 +1 @@',
+              lines: ['-drain()', '+drain(oldestFirst)'],
+            },
+          ],
+        }),
+      } as unknown as RunEvidencePort,
+    ),
   );
 
 const written = (run?: Run): RunSpecShape => {
@@ -379,6 +410,7 @@ describe('DispatchReplay', () => {
     askedAgain = [];
     gone = [];
     taskGone = false;
+    taskNotes = [];
   });
 
   it('queues a replay of the run under the candidate, starting where the run started', async () => {
@@ -419,6 +451,52 @@ describe('DispatchReplay', () => {
     expect(spec.briefing).toContain('## Drain the queue');
     expect(spec.briefing).toContain('Restarts are rare');
     expect(run.hasEnded).toBe(false);
+  });
+
+  it('hands a replay of the answer the change people accepted, and nothing to any other replay', async () => {
+    await dispatching().enqueue({
+      original: ORIGINAL,
+      candidate: LINE,
+      answer: 'accepted',
+    });
+    await dispatching().enqueue({
+      original: ORIGINAL,
+      candidate: LINE,
+      id: RunId.of('run_3'),
+    });
+
+    expect(written(queued[0]).briefing).toContain('## The answer');
+    expect(written(queued[0]).briefing).toContain('+drain(oldestFirst)');
+    expect(written(queued[1]).briefing).not.toContain('## The answer');
+  });
+
+  it('hands a replay of the answer what people said when they sent the run back', async () => {
+    taskNotes = [
+      TaskNote.of({
+        position: NotePosition.of(0),
+        station: StationName.of('Build'),
+        body: TaskNoteBody.of('Done.'),
+        at: NOW,
+        voice: Voice.station(ORIGINAL),
+        kind: 'passed',
+      }),
+      TaskNote.of({
+        position: NotePosition.of(1),
+        station: StationName.of('Build'),
+        body: TaskNoteBody.of('Drain oldest first.'),
+        at: NOW,
+        voice: Voice.person(UserId.of('user_maya')),
+        kind: 'said',
+      }),
+    ];
+
+    await dispatching().enqueue({
+      original: ORIGINAL,
+      candidate: LINE,
+      answer: 'sent-back',
+    });
+
+    expect(written(queued[0]).briefing).toContain('> Drain oldest first.');
   });
 
   it('refuses no replay for a catalog tool its plan withholds, as a replay is given no tools', async () => {
