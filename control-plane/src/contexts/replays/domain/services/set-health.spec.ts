@@ -61,7 +61,7 @@ const started = (
   repeats: number,
   probe = false,
   among: readonly RunId[] | null = null,
-  comparedWith: string | null = null,
+  against: Replay | null = null,
 ) => {
   const replay = Replay.started({
     id: ReplayId.of(id),
@@ -73,8 +73,20 @@ const started = (
     by: BY,
     repeats,
     probe,
-    ...(among ? { among } : {}),
-    ...(comparedWith ? { comparedWith: ReplayId.of(comparedWith) } : {}),
+    ...(against
+      ? {
+          oracle: {
+            answers: (among ?? SET.runs).map((run) => ({
+              run,
+              answer: 'accepted' as const,
+            })),
+            against,
+            live: PLAIN,
+          },
+        }
+      : among
+        ? { among }
+        : {}),
   });
 
   replay.pullEvents();
@@ -113,10 +125,12 @@ const plainly = (
       1,
       false,
       among,
-      candidate.isOracle ? 'replay_live' : null,
+      candidate.isOracle ? finishedLive() : null,
     ),
     (original) => (failing.includes(original) ? 'failed' : 'completed'),
   );
+
+const finishedLive = (): Replay => plainly('replay_live', PLAIN, []);
 
 const ORACLE = Candidate.oracleOf(PLAIN, {
   id: CandidateId.of('candidate_oracle'),
@@ -308,7 +322,7 @@ describe('setHealthOf', () => {
       1,
       false,
       null,
-      'replay_live',
+      finishedLive(),
     );
 
     expect(

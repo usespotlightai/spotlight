@@ -70,17 +70,17 @@ export class ReplayRuns implements ReplayDispatchPort {
   }
 
   async answerable(asked: readonly AnswerAsked[]): Promise<readonly string[]> {
-    const answered: string[] = [];
+    const answered = await Promise.all(
+      asked.map(async (each) => {
+        const original = await this.runs.findById(RunId.of(each.original));
 
-    for (const each of asked) {
-      const original = await this.runs.findById(RunId.of(each.original));
+        return original && (await this.answers.has(original, each.answer))
+          ? each.original
+          : null;
+      }),
+    );
 
-      if (original && (await this.answers.briefFor(original, each.answer))) {
-        answered.push(each.original);
-      }
-    }
-
-    return answered;
+    return answered.filter((each): each is string => each !== null);
   }
 
   withdraw(runIds: readonly string[]): Promise<void> {

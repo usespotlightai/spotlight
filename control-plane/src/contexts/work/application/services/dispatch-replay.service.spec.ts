@@ -499,6 +499,21 @@ describe('DispatchReplay', () => {
     expect(written(queued[0]).briefing).toContain('> Drain oldest first.');
   });
 
+  it('refuses a replay of the answer whose answer is no longer there, queueing nothing', async () => {
+    taskNotes = [];
+
+    expect(
+      await refusalOf(
+        dispatching().enqueue({
+          original: ORIGINAL,
+          candidate: LINE,
+          answer: 'sent-back',
+        }),
+      ),
+    ).toBe('answer-gone');
+    expect(queued).toEqual([]);
+  });
+
   it('refuses no replay for a catalog tool its plan withholds, as a replay is given no tools', async () => {
     await dispatching().enqueue({ original: ORIGINAL, candidate: LINE });
 

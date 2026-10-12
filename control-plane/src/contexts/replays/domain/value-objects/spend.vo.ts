@@ -1,6 +1,6 @@
 import { InvalidSpendError } from '@replays/domain/exceptions/invalid-spend.error';
 
-const MOST_CEILING = 1_000;
+export const MOST_CEILING = 1_000;
 
 const countedIn = (currency: string): string => {
   const counted = currency.trim().toUpperCase();

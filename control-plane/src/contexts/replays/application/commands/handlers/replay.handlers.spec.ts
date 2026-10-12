@@ -25,6 +25,7 @@ import {
   runIds,
 } from '@replays/domain/replays.fake-spec';
 import { PROBE_REPEATS } from '@replays/domain/value-objects/replay-repeats';
+import { Spend } from '@replays/domain/value-objects/spend.vo';
 import { UseCaseFault } from '@shared-kernel/application/errors/use-case.fault';
 import { beforeEach, describe, expect, it } from 'vitest';
 
@@ -180,6 +181,41 @@ describe('StartReplayHandler', () => {
     expect(baseline?.probe).toBe(true);
     expect(baseline?.repeats).toBe(PROBE_REPEATS);
     expect(baseline?.ceiling.amount).toBe(15);
+  });
+
+  it('starts the wanted baseline on the terms the candidate was told, not on terms worked out again', async () => {
+    memory.sets.set('set_1', aSet(5));
+    const started = await start('candidate_proposed');
+    const wanted = memory.events
+      .splice(0)
+      .find((each) => each instanceof ReplayBaselineWanted);
+
+    if (
+      !(wanted instanceof ReplayBaselineWanted) ||
+      started.outcome !== 'started'
+    ) {
+      throw new Error('no baseline was asked for');
+    }
+
+    await baselines().wanted(
+      new ReplayBaselineWanted(
+        wanted.replayId,
+        wanted.workspaceId,
+        wanted.setId,
+        wanted.baselineId,
+        wanted.candidateId,
+        Spend.ceiling(4, 'USD'),
+        null,
+        1,
+        1,
+        false,
+      ),
+    );
+
+    const baseline = memory.replays.get(wanted.baselineId.value);
+    expect(baseline?.probe).toBe(false);
+    expect(baseline?.repeats).toBe(1);
+    expect(baseline?.ceiling.amount).toBe(4);
   });
 
   it('checks no set of fewer than five runs', async () => {

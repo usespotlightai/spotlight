@@ -73,8 +73,7 @@ const replayRuns = () =>
       },
     } as unknown as DispatchReplay,
     {
-      briefFor: async (_original: Run, answer: string) =>
-        answer === 'accepted' ? '## The answer' : null,
+      has: async (_original: Run, answer: string) => answer === 'accepted',
     } as unknown as ReplayAnswers,
     { run: (work) => work() },
     { now: () => new Date(), sleep: async () => {} },

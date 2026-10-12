@@ -108,24 +108,25 @@ export class StartReplayHandler
           }
 
           const asBaseline = needed && !asked;
-          const wanting =
-            needed && asked && live
-              ? { id: baselineId, candidate: live }
-              : null;
           const baselineTerms =
-            live &&
-            baselineTermsOf(
-              checksSet(
-                set,
-                setReplays,
-                await this.candidates.findMany(
-                  setReplays.map((each) => each.candidateId),
-                ),
-                live.fingerprint,
-              ),
-              command.repeats,
-              ceiling,
-            );
+            needed && live
+              ? baselineTermsOf(
+                  checksSet(
+                    set,
+                    setReplays,
+                    await this.candidates.findMany(
+                      setReplays.map((each) => each.candidateId),
+                    ),
+                    live.fingerprint,
+                  ),
+                  command.repeats,
+                  ceiling,
+                )
+              : null;
+          const wanting =
+            asked && live && baselineTerms
+              ? { id: baselineId, candidate: live, ...baselineTerms }
+              : null;
           const terms =
             asBaseline && baselineTerms
               ? baselineTerms

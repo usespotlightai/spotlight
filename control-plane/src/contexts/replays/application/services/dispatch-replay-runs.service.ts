@@ -1,13 +1,8 @@
-import type { OutcomesPort } from '@replays/application/ports/outcomes.port';
 import type { WorkPort } from '@replays/application/ports/work.port';
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { SearchRepository } from '@replays/domain/repositories/search.repository';
-import {
-  type OracleAnswer,
-  oracleAnswerOf,
-} from '@replays/domain/services/oracle-answer';
 import { dispatchedInTurn } from '@replays/domain/services/replay-dispatch';
 import type { ReplayEntry } from '@replays/domain/value-objects/replay-entry.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -26,7 +21,6 @@ export class DispatchReplayRuns implements OwedWorkPort {
     private readonly candidates: CandidateRepository,
     private readonly searches: SearchRepository,
     private readonly work: WorkPort,
-    private readonly outcomes: OutcomesPort,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
     private readonly transaction: TransactionPort,
@@ -104,7 +98,7 @@ export class DispatchReplayRuns implements OwedWorkPort {
       stationId: replay.station.stationId,
       block: candidate.block,
       line: candidate.line,
-      answer: candidate.isOracle ? await this.answerTo(entry) : null,
+      answer: replay.answerTo(entry.original),
     });
 
     const held = await this.changed(replay, (fresh, now) =>
@@ -116,12 +110,6 @@ export class DispatchReplayRuns implements OwedWorkPort {
     if (queued.queued && held && !held.isDispatching) {
       await this.work.forgo(run, false);
     }
-  }
-
-  private async answerTo(entry: ReplayEntry): Promise<OracleAnswer | null> {
-    const turned = await this.outcomes.turnedOut([entry.original]);
-
-    return oracleAnswerOf(turned.get(entry.original.value));
   }
 
   private async forgo(

@@ -990,6 +990,7 @@ CREATE TABLE "replay" (
 	"ceiling_currency" text NOT NULL,
 	"unpriced_rate" double precision,
 	"among" jsonb,
+	"answers" jsonb,
 	"repeats" integer NOT NULL,
 	"probe" boolean DEFAULT false NOT NULL,
 	"compared_with" text,

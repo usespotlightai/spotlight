@@ -127,6 +127,14 @@ export class DispatchReplay {
       tools: [],
     });
     const answered = answer && (await this.answers.briefFor(replayed, answer));
+
+    if (answer && !answered) {
+      throw new UnreplayableRunError(
+        original.value,
+        'answer-gone',
+        'The change people accepted or what they said is no longer there.',
+      );
+    }
     const briefing = answered ? `${briefed}\n\n${answered}` : briefed;
 
     const queued = Run.enqueue({

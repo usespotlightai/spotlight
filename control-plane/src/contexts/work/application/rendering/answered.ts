@@ -34,8 +34,16 @@ const wholeHunks = (hunks: readonly EvidencedHunk[]): string => {
 };
 
 export const Answered = {
+  acceptedGiven(hunks: readonly EvidencedHunk[]): boolean {
+    return hunks.length > 0;
+  },
+
+  sentBackGiven(feedback: readonly string[]): boolean {
+    return feedback.length > 0;
+  },
+
   accepted(hunks: readonly EvidencedHunk[]): string | null {
-    if (hunks.length === 0) {
+    if (!Answered.acceptedGiven(hunks)) {
       return null;
     }
 
@@ -47,7 +55,7 @@ export const Answered = {
   },
 
   sentBack(feedback: readonly string[]): string | null {
-    if (feedback.length === 0) {
+    if (!Answered.sentBackGiven(feedback)) {
       return null;
     }
 

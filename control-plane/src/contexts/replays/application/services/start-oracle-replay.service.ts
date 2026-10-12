@@ -7,7 +7,10 @@ import type { ReplayEnded } from '@replays/domain/events/replay-ended.event';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
-import { oracleAnswerOf } from '@replays/domain/services/oracle-answer';
+import {
+  type OracleAnswered,
+  oracleAnswerOf,
+} from '@replays/domain/services/oracle-answer';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import type { ReplayState } from '@replays/domain/value-objects/replay-state';
@@ -49,12 +52,7 @@ export class StartOracleReplay {
       return;
     }
 
-    const current = await this.work.live(
-      baseline.station.lineId,
-      baseline.station.stationId,
-    );
-
-    if (!current?.fingerprint.equals(live.fingerprint)) {
+    if (!(await this.stillLive(baseline, live.fingerprint))) {
       return;
     }
 
@@ -72,13 +70,18 @@ export class StartOracleReplay {
 
     await this.transaction.run(async () => {
       const locked = await this.sets.locked(set.id);
-      const among = locked ? answered.filter((run) => locked.holds(run)) : [];
+      const against = await this.replays.find(baseline.id);
+      const answers = locked
+        ? answered.filter((each) => locked.holds(each.run))
+        : [];
 
       if (
         !locked ||
+        !against ||
         locked.isAtGoneStation ||
-        among.length === 0 ||
-        (await this.hasOracle(locked, live.fingerprint))
+        answers.length === 0 ||
+        (await this.hasOracle(locked, live.fingerprint)) ||
+        !(await this.stillLive(baseline, live.fingerprint))
       ) {
         return;
       }
@@ -92,8 +95,7 @@ export class StartOracleReplay {
           baseline: false,
           ceiling: baseline.ceiling,
           repeats: baseline.repeats,
-          among,
-          comparedWith: baseline.id,
+          oracle: { answers, against, live },
           ...(baseline.unpricedRate
             ? { unpricedRate: baseline.unpricedRate }
             : {}),
@@ -104,21 +106,35 @@ export class StartOracleReplay {
     });
   }
 
+  private async stillLive(
+    baseline: Replay,
+    fingerprint: StationFingerprint,
+  ): Promise<boolean> {
+    const current = await this.work.live(
+      baseline.station.lineId,
+      baseline.station.stationId,
+    );
+
+    return current?.fingerprint.equals(fingerprint) ?? false;
+  }
+
   private async answeredIn(
     set: ReplaySet,
     replayed: readonly RunId[],
-  ): Promise<readonly RunId[]> {
+  ): Promise<readonly OracleAnswered[]> {
     const runs = set.entries
       .map((each) => each.runId)
       .filter((run) => replayed.some((each) => each.equals(run)));
     const turned = await this.outcomes.turnedOut(runs);
+    const asked = runs.flatMap((run) => {
+      const answer = oracleAnswerOf(turned.get(run.value));
 
-    return this.work.answerable(
-      runs.flatMap((run) => {
-        const answer = oracleAnswerOf(turned.get(run.value));
+      return answer ? [{ run, answer }] : [];
+    });
+    const answerable = await this.work.answerable(asked);
 
-        return answer ? [{ run, answer }] : [];
-      }),
+    return asked.filter((each) =>
+      answerable.some((run) => run.equals(each.run)),
     );
   }
 

@@ -13,8 +13,8 @@ import {
   aSet,
   BY,
   candidateOf,
+  concludedAll,
   LIVE_FINGERPRINT,
-  replayedAs,
 } from '@replays/domain/replays.fake-spec';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -40,15 +40,14 @@ const oracles = () =>
 const finishedLive = async (
   input: { among?: readonly RunId[]; repeats?: number } = {},
 ) => {
-  const replay = replayedAs(
+  const replay = concludedAll(
     aReplay({
       id: 'replay_live',
       count: 4,
       candidate: LIVE,
-      ceiling: 7,
+      ceiling: 10,
       ...input,
     }),
-    () => 'completed',
   );
 
   replay.pullEvents();
@@ -88,9 +87,28 @@ describe('StartOracleReplay', () => {
       'original_2',
     ]);
     expect(oracle?.comparedWith?.value).toBe('replay_live');
+    expect(oracle?.answerTo(RunId.of('original_0'))).toBe('accepted');
+    expect(oracle?.answerTo(RunId.of('original_2'))).toBe('sent-back');
     expect(oracle?.pairsWith).toBeNull();
     expect(oracle?.repeats).toBe(2);
-    expect(oracle?.ceiling.amount).toBe(7);
+    expect(oracle?.ceiling.amount).toBe(10);
+  });
+
+  it('starts nothing when the live config moves on while it is starting', async () => {
+    turnouts.accepted.add('original_0');
+    const live = work.live;
+    let asked = 0;
+    work.live = async () => {
+      asked += 1;
+      return asked === 1
+        ? live()
+        : { ...(await live()), fingerprint: LIVE_FINGERPRINT };
+    };
+
+    await oracles().baselineEnded(await finishedLive());
+
+    expect(asked).toBe(2);
+    expect(oracleReplays()).toEqual([]);
   });
 
   it('leaves out runs Work has no answer for, and runs the live replay did not replay', async () => {

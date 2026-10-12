@@ -11,6 +11,20 @@ export class ReplayAnswers {
     private readonly evidence: RunEvidencePort,
   ) {}
 
+  async has(original: Run, answer: ReplayAnswer): Promise<boolean> {
+    if (answer === 'accepted') {
+      const evidenced = await this.evidence.of(original.id.value);
+
+      return Answered.acceptedGiven(evidenced?.hunks ?? []);
+    }
+
+    const task = original.taskId && (await this.tasks.find(original.taskId));
+
+    return Boolean(
+      task && Answered.sentBackGiven(feedbackAfter(task.notes, original.id)),
+    );
+  }
+
   async briefFor(original: Run, answer: ReplayAnswer): Promise<string | null> {
     if (answer === 'accepted') {
       const evidenced = await this.evidence.of(original.id.value);

@@ -17,6 +17,10 @@ import { ReplayStopped } from '@replays/domain/events/replay-stopped.event';
 import { InvalidReplayError } from '@replays/domain/exceptions/invalid-replay.error';
 import { ReplayEndedError } from '@replays/domain/exceptions/replay-ended.error';
 import type { Scoring } from '@replays/domain/services/entry-result';
+import type {
+  OracleAnswer,
+  OracleAnswered,
+} from '@replays/domain/services/oracle-answer';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import type { ChangeChecks } from '@replays/domain/value-objects/change-checks.vo';
 import type { EntryMeasures } from '@replays/domain/value-objects/entry-measures.vo';
@@ -56,6 +60,7 @@ export interface ReplayedCandidate {
   readonly checksChanges: boolean;
   readonly rubricVersion: string | null;
   readonly scoringDigest: string;
+  readonly basedOn: StationFingerprint;
   isFor(stationId: string): boolean;
 }
 
@@ -72,6 +77,7 @@ interface State {
   readonly ceiling: Spend;
   readonly unpricedRate: Spend | null;
   readonly among: readonly RunId[] | null;
+  readonly answers: readonly OracleAnswered[] | null;
   readonly repeats: number;
   readonly probe: boolean;
   readonly comparedWith: ReplayId | null;
@@ -117,6 +123,15 @@ const copiesOf = (
 export interface WantedBaseline {
   readonly id: ReplayId;
   readonly candidate: ReplayedCandidate;
+  readonly ceiling: Spend;
+  readonly repeats: number;
+  readonly probe: boolean;
+}
+
+export interface OracleTerms {
+  readonly answers: readonly OracleAnswered[];
+  readonly against: Replay;
+  readonly live: ReplayedCandidate;
 }
 
 export class Replay extends EventRecorder {
@@ -139,17 +154,19 @@ export class Replay extends EventRecorder {
     among?: readonly RunId[];
     repeats?: number;
     probe?: boolean;
-    comparedWith?: ReplayId;
+    oracle?: OracleTerms;
     pairsWith?: ReplayId | null;
     searchId?: SearchId;
     unpricedRate?: Spend;
   }): Replay {
     const { set } = input;
     const wanting = input.wanting ?? null;
-    const among = input.among ?? null;
+    const oracle = input.oracle ?? null;
+    const answers = oracle ? [...oracle.answers] : null;
+    const among = answers?.map((each) => each.run) ?? input.among ?? null;
     const repeats = input.repeats ?? 1;
     const probe = input.probe ?? false;
-    const comparedWith = input.comparedWith ?? null;
+    const comparedWith = oracle?.against.id ?? null;
     const pairsWith = wanting ? wanting.id : (input.pairsWith ?? null);
 
     set.stillAtItsStation();
@@ -169,9 +186,13 @@ export class Replay extends EventRecorder {
       wanting &&
       (input.baseline ||
         !wanting.candidate.isLive ||
-        !wanting.candidate.isFor(set.station.stationId))
+        !wanting.candidate.isFor(set.station.stationId) ||
+        !holdsRepeats(wanting.repeats) ||
+        (wanting.probe && wanting.repeats < 2))
     ) {
-      throw new InvalidReplayError('cannot both be a baseline and want one');
+      throw new InvalidReplayError(
+        'cannot both be a baseline and want one, and wants one only of the live config on terms a baseline may have',
+      );
     }
     if (among && (input.baseline || wanting)) {
       throw new InvalidReplayError(
@@ -182,11 +203,24 @@ export class Replay extends EventRecorder {
       throw new InvalidReplayError(`repeats must be from 1 to ${MOST_REPEATS}`);
     }
     if (
-      input.candidate.isOracle !== (comparedWith !== null) ||
-      comparedWith?.equals(input.id)
+      input.candidate.isOracle !== (oracle !== null) ||
+      (oracle &&
+        (input.among !== undefined ||
+          input.baseline ||
+          wanting ||
+          probe ||
+          input.pairsWith ||
+          input.searchId !== undefined ||
+          !Replay.comparesOracles(oracle, {
+            set,
+            id: input.id,
+            candidate: input.candidate,
+            ceiling: input.ceiling,
+            repeats,
+          })))
     ) {
       throw new InvalidReplayError(
-        'handed the answer needs a live config replay to compare with',
+        'handed the answer must replay some runs of the set against a finished whole-set replay of it, outside a search, never side by side',
       );
     }
     if (
@@ -240,6 +274,7 @@ export class Replay extends EventRecorder {
       ceiling: input.ceiling,
       unpricedRate: input.unpricedRate ?? null,
       among: among && [...among],
+      answers,
       repeats,
       probe,
       comparedWith,
@@ -285,14 +320,43 @@ export class Replay extends EventRecorder {
           set.id,
           wanting.id,
           wanting.candidate.id,
-          input.ceiling,
+          wanting.ceiling,
           input.unpricedRate ?? null,
           repeats,
+          wanting.repeats,
+          wanting.probe,
         ),
       );
     }
 
     return started;
+  }
+
+  private static comparesOracles(
+    { against, live }: OracleTerms,
+    oracle: {
+      set: ReplaySet;
+      id: ReplayId;
+      candidate: ReplayedCandidate;
+      ceiling: Spend;
+      repeats: number;
+    },
+  ): boolean {
+    const { set, id, candidate } = oracle;
+
+    return (
+      live.isLive &&
+      against.candidateId.equals(live.id) &&
+      live.basedOn.equals(candidate.basedOn) &&
+      against.scoringDigest === candidate.scoringDigest &&
+      against.repeats === oracle.repeats &&
+      against.ceiling.equals(oracle.ceiling) &&
+      against.setId.equals(set.id) &&
+      !against.id.equals(id) &&
+      against.among === null &&
+      against.searchId === null &&
+      against.current === 'finished'
+    );
   }
 
   static rehydrate(state: State): Replay {
@@ -523,6 +587,21 @@ export class Replay extends EventRecorder {
 
   get probe(): boolean {
     return this.state.probe;
+  }
+
+  get isOracle(): boolean {
+    return this.state.answers !== null;
+  }
+
+  answerTo(original: RunId): OracleAnswer | null {
+    return (
+      this.state.answers?.find((each) => each.run.equals(original))?.answer ??
+      null
+    );
+  }
+
+  get answers(): readonly OracleAnswered[] | null {
+    return this.state.answers;
   }
 
   get comparedWith(): ReplayId | null {

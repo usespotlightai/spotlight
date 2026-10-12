@@ -23,6 +23,8 @@ import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 
 export const SATURATED_ABOVE = 0.95;
 
+export const FEWEST_CHECKED_RUNS = 5;
+
 export const JUDGE_UNSTABLE_BELOW = 0.8;
 
 export interface HealthConfig extends ReplayedConfig {
@@ -129,7 +131,7 @@ export const checksSet = (
   configs: readonly ReplayedConfig[],
   liveFingerprint: StationFingerprint,
 ): boolean =>
-  set.entries.length >= FEWEST_PAIRED_TASKS &&
+  set.entries.length >= FEWEST_CHECKED_RUNS &&
   !replays.some(
     (each) =>
       each.probe &&

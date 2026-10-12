@@ -43,6 +43,7 @@ const REFUSALS: Record<ReplayRefusal, string> = {
   'no-briefing': 'Task briefing wasn’t kept',
   'archive-gone': 'Starting workspace is no longer kept',
   'attachments-gone': 'Briefing files are gone',
+  'answer-gone': 'Its answer is gone',
   'repository-gone': 'Repository has left the line',
   'not-at-the-station': 'Run wasn’t at this station',
   'candidate-unfit': 'Candidate can’t run it',

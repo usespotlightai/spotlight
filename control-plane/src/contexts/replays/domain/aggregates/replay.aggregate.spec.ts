@@ -1,3 +1,4 @@
+import { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
 import { ReplayBaselineWanted } from '@replays/domain/events/replay-baseline-wanted.event';
@@ -19,6 +20,7 @@ import {
   aSet,
   BY,
   candidateOf,
+  concludedAll,
   endOf,
   FINGERPRINT,
   later,
@@ -29,11 +31,13 @@ import {
   STATION,
   settledAs,
 } from '@replays/domain/replays.fake-spec';
+import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { ChangeChecks } from '@replays/domain/value-objects/change-checks.vo';
 import { JudgeVerdict } from '@replays/domain/value-objects/judge-verdict.vo';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { MOST_QUEUE_ATTEMPTS } from '@replays/domain/value-objects/replay-entry.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
+import { MOST_REPEATS } from '@replays/domain/value-objects/replay-repeats';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import { ReplaySetName } from '@replays/domain/value-objects/replay-set-name.vo';
 import { ReplayStartDetail } from '@replays/domain/value-objects/replay-start-detail.vo';
@@ -231,7 +235,7 @@ describe('Replay', () => {
   });
 
   describe('wanting a baseline', () => {
-    it('says it wants one under a reserved id, against the live config, with its own ceiling', () => {
+    it('says it wants one under a reserved id, against the live config, with the terms decided for it', () => {
       const replay = Replay.started({
         id: ReplayId.of('replay_1'),
         set: aSet(1),
@@ -243,6 +247,9 @@ describe('Replay', () => {
         wanting: {
           id: ReplayId.of('replay_2'),
           candidate: candidateOf('live'),
+          ceiling: Spend.ceiling(9, 'USD'),
+          repeats: 3,
+          probe: true,
         },
       });
 
@@ -269,9 +276,11 @@ describe('Replay', () => {
           replay.setId,
           ReplayId.of('replay_2'),
           candidateOf('live').id,
-          Spend.ceiling(3, 'USD'),
+          Spend.ceiling(9, 'USD'),
           null,
           1,
+          3,
+          true,
         ),
       ]);
     });
@@ -290,11 +299,148 @@ describe('Replay', () => {
             ceiling: Spend.ceiling(3, 'USD'),
             at: NOW,
             by: BY,
-            wanting: { id: ReplayId.of('replay_2'), candidate: wanted },
+            wanting: {
+              id: ReplayId.of('replay_2'),
+              candidate: wanted,
+              ceiling: Spend.ceiling(3, 'USD'),
+              repeats: 1,
+              probe: false,
+            },
           }),
         ).toThrow(InvalidReplayError);
       }
     });
+  });
+
+  describe('handed the answer', () => {
+    const oracle = () =>
+      Candidate.oracleOf(candidateOf('live'), {
+        id: CandidateId.of('candidate_oracle'),
+        at: NOW,
+      });
+    const finishedLive = (
+      over: { among?: readonly RunId[]; searchId?: SearchId } = {},
+    ) =>
+      concludedAll(
+        aReplay({
+          id: 'replay_live',
+          candidate: candidateOf('live'),
+          baseline: !over.among && !over.searchId,
+          ...over,
+        }),
+      );
+    const answers = [
+      { run: RunId.of('original_0'), answer: 'accepted' as const },
+      { run: RunId.of('original_2'), answer: 'sent-back' as const },
+    ];
+    const handed = (
+      against: Replay,
+      more: Partial<Parameters<typeof Replay.started>[0]> = {},
+    ) =>
+      Replay.started({
+        id: ReplayId.of('replay_oracle'),
+        set: aSet(3),
+        candidate: oracle(),
+        baseline: false,
+        ceiling: Spend.ceiling(10, 'USD'),
+        at: NOW,
+        by: BY,
+        oracle: { answers, against, live: candidateOf('live') },
+        ...more,
+      });
+
+    it('replays only the answered runs, keeps each answer and compares with the finished whole-set replay', () => {
+      const replay = handed(finishedLive());
+
+      expect(replay.isOracle).toBe(true);
+      expect(replay.among?.map((each) => each.value)).toEqual([
+        'original_0',
+        'original_2',
+      ]);
+      expect(replay.comparedWith?.value).toBe('replay_live');
+      expect(replay.answerTo(RunId.of('original_0'))).toBe('accepted');
+      expect(replay.answerTo(RunId.of('original_2'))).toBe('sent-back');
+      expect(replay.answerTo(RunId.of('original_1'))).toBeNull();
+    });
+
+    it('is refused against a replay that is unfinished, partial or part of a search', () => {
+      for (const against of [
+        aReplay({ id: 'replay_live', candidate: candidateOf('live') }),
+        finishedLive({ among: [RunId.of('original_0')] }),
+        finishedLive({ searchId: SEARCH }),
+      ]) {
+        expect(() => handed(against)).toThrow(InvalidReplayError);
+      }
+    });
+
+    it('is refused against a replay it cannot be read beside: another config, other repeats or another ceiling', () => {
+      const against = finishedLive();
+
+      for (const more of [
+        { repeats: 2 },
+        { ceiling: Spend.ceiling(20, 'USD') },
+        {
+          oracle: {
+            answers,
+            against,
+            live: candidateOf('live', 'candidate_other'),
+          },
+        },
+        {
+          oracle: {
+            answers,
+            against: concludedAll(
+              aReplay({
+                id: 'replay_proposed',
+                candidate: candidateOf('proposed'),
+              }),
+            ),
+            live: candidateOf('live'),
+          },
+        },
+      ]) {
+        expect(() => handed(against, more)).toThrow(InvalidReplayError);
+      }
+    });
+
+    it('is refused side by side, in a search, beside chosen runs, or without the answer', () => {
+      const against = finishedLive();
+
+      for (const more of [
+        { pairsWith: ReplayId.of('replay_live') },
+        { searchId: SEARCH },
+        { among: [RunId.of('original_0')] },
+        { oracle: undefined },
+        { candidate: candidateOf('live') },
+      ]) {
+        expect(() => handed(against, more)).toThrow(InvalidReplayError);
+      }
+    });
+  });
+
+  it('wants no baseline on terms a baseline may not have', () => {
+    for (const terms of [
+      { repeats: 1, probe: true },
+      { repeats: MOST_REPEATS + 1, probe: false },
+    ]) {
+      expect(() =>
+        Replay.started({
+          id: ReplayId.of('replay_1'),
+          set: aSet(1),
+          candidate: candidateOf('proposed'),
+          baseline: false,
+          ceiling: Spend.ceiling(3, 'USD'),
+          at: NOW,
+          by: BY,
+          wanting: {
+            id: ReplayId.of('replay_2'),
+            candidate: candidateOf('live'),
+            ceiling: Spend.ceiling(3, 'USD'),
+            ...terms,
+          },
+        }),
+      ).toThrow(InvalidReplayError);
+    }
   });
 
   describe('abandoning', () => {
@@ -846,6 +992,9 @@ describe('Replay', () => {
           wanting: {
             id: ReplayId.of('replay_baseline'),
             candidate: candidateOf('live'),
+            ceiling: Spend.ceiling(10, 'USD'),
+            repeats: 1,
+            probe: false,
           },
           among: [RunId.of('original_0')],
         }),
