@@ -13,6 +13,7 @@
   <a href="https://github.com/usespotlightai/spotlight/releases"><strong>Changelog</strong></a> ·
   <a href="https://docs.usespotlight.ai/docs/reference/roadmap"><strong>Roadmap</strong></a>
 </div>
+<br/>
 
 Spotlight turns your team's process into a line of stations, each run by its own agent. Tasks move from station to station, people step in where a decision is theirs, and every change to how the line works is measured against the runs it affects.
 
