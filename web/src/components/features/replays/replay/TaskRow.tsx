@@ -1,5 +1,6 @@
 import { EntrySide } from '@/components/features/replays/replay/EntrySide';
-import { Noted } from '@/components/shared/Noted';
+import { TaskJudgeCell } from '@/components/features/replays/replay/TaskJudgeCell';
+import { TaskSpendCells } from '@/components/features/replays/replay/TaskSpendCells';
 import { NotedWarning } from '@/components/shared/NotedWarning';
 import { NestedCell } from '@/components/shared/nested-table/NestedCell';
 import {
@@ -8,29 +9,13 @@ import {
   ROW_DIVIDER,
   TABLE_ROW,
 } from '@/components/shared/nested-table/nested-rows';
-import { lastedOrNone, spendShown } from '@/lib/insights';
 import {
-  costDeltaShown,
   type EntryComparison,
-  judgeScoreShown,
-  meanCostOf,
-  meanMsOf,
-  msDeltaShown,
-  type ReplayEntry,
-  scoreDeltaShown,
   type TaskColumns,
   titleShown,
 } from '@/lib/replay';
-import {
-  capitalised,
-  pairShown,
-  REGRESSED_NOTE,
-  uncomparedShown,
-} from '@/lib/replay-words';
+import { capitalised, pairShown, REGRESSED_NOTE } from '@/lib/replay-words';
 import { cn } from '@/lib/utils';
-
-const judgesShown = (copies: readonly ReplayEntry[]): string =>
-  copies.map((each) => judgeScoreShown(each.judge)).join(' · ');
 
 type TaskRowProps = {
   row: EntryComparison;
@@ -89,21 +74,11 @@ export function TaskRow({
         </NestedCell>
       )}
       {judged && (
-        <NestedCell heading="Judge">
-          {compared ? (
-            <Noted
-              note={`This replay ${judgesShown(row.candidate)} · ${capitalised(counterpart)} ${judgesShown(row.baseline)}`}
-            >
-              <span className="relative z-10">
-                {row.scoreUncompared
-                  ? uncomparedShown(row.scoreUncompared)
-                  : scoreDeltaShown(row.scoreDelta)}
-              </span>
-            </Noted>
-          ) : (
-            judgesShown(row.candidate)
-          )}
-        </NestedCell>
+        <TaskJudgeCell
+          row={row}
+          compared={compared}
+          counterpart={counterpart}
+        />
       )}
       {paired && (
         <NestedCell heading="Closer" numeric={false}>
@@ -112,16 +87,7 @@ export function TaskRow({
           </span>
         </NestedCell>
       )}
-      <NestedCell heading={compared ? 'Cost change' : 'Cost'}>
-        {compared
-          ? costDeltaShown(row.costDelta, currency)
-          : spendShown(meanCostOf(row.candidate))}
-      </NestedCell>
-      <NestedCell heading={compared ? 'Time change' : 'Time'}>
-        {compared
-          ? msDeltaShown(row.msDelta)
-          : lastedOrNone(meanMsOf(row.candidate))}
-      </NestedCell>
+      <TaskSpendCells row={row} compared={compared} currency={currency} />
     </li>
   );
 }

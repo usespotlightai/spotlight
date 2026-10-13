@@ -403,3 +403,13 @@ const ENDING_MARKS: Record<SearchEnding, string | null> = {
 
 export const endingMarkShown = (ending: SearchEnding | null): string | null =>
   ending ? ENDING_MARKS[ending] : null;
+
+export const NO_VALUE = '–';
+
+export const likelyShown = (
+  interval: { readonly low: number; readonly high: number } | null,
+): string | null =>
+  interval ? `Likely range: ${intervalShown(interval)}.` : null;
+
+export const sentencesShown = (...parts: readonly (string | null)[]): string =>
+  parts.filter(Boolean).join(' ');
