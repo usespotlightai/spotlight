@@ -43,7 +43,11 @@ export const startMockApi = async () => {
   try {
     await worker.start({
       quiet: true,
-      onUnhandledRequest: ({ url }) => {
+      onUnhandledFrame: ({ frame }) => {
+        if (frame.protocol !== 'http') {
+          return;
+        }
+        const { url } = (frame.data as { request: Request }).request;
         if (new URL(url).pathname.startsWith('/api/')) {
           console.error(`The mock API has no answer for ${url}.`);
         }

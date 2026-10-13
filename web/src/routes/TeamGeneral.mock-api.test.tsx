@@ -23,9 +23,9 @@ const opened = async () => {
   await screen.findByText('Maya Chen', undefined, WAIT);
 };
 
-const pick = async (name: RegExp) => {
+const offered = async (name: RegExp) => {
   await userEvent.click(screen.getByRole('button', { name: 'Add a member' }));
-  await userEvent.click(await screen.findByRole('menuitem', { name }, WAIT));
+  return screen.findByRole('menuitem', { name }, WAIT);
 };
 
 describe('TeamGeneral on the mock API', () => {
@@ -34,13 +34,7 @@ describe('TeamGeneral on the mock API', () => {
 
   it('offers each workspace member with their address, and lists the one added', async () => {
     await opened();
-
-    await userEvent.click(screen.getByRole('button', { name: 'Add a member' }));
-    const lena = await screen.findByRole(
-      'menuitem',
-      { name: /^Lena Park/ },
-      WAIT,
-    );
+    const lena = await offered(/^Lena Park/);
 
     expect(within(lena).getByText('lena.park@acme.dev')).toBeInTheDocument();
 
@@ -60,22 +54,23 @@ describe('TeamGeneral on the mock API', () => {
 
   it('says why someone added meanwhile could not be added, in the server’s words', async () => {
     await opened();
+    const lena = await offered(/^Lena Park/);
     await addTeamMember({
       path: { teamId: PLATFORM_ID },
       body: { userId: LENA },
       throwOnError: true,
     });
 
-    await pick(/^Lena Park/);
+    await userEvent.click(lena);
 
-    const said = await screen.findAllByText(
-      'Platform already includes this person.',
-      undefined,
+    await waitFor(
+      () =>
+        expect(
+          screen
+            .getAllByText('Platform already includes this person.')
+            .some((each) => each.getAttribute('role') === 'alert'),
+        ).toBe(true),
       WAIT,
-    );
-
-    expect(said.some((each) => each.getAttribute('role') === 'alert')).toBe(
-      true,
     );
     expect(
       await screen.findByText('Lena Park', undefined, WAIT),

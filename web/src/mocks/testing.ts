@@ -9,7 +9,7 @@ export const serveMockApi = (state: PageState = 'data') => {
 
   beforeAll(() => {
     client.setConfig({ baseUrl: `${window.location.origin}/api` });
-    server.listen({ onUnhandledRequest: 'error' });
+    server.listen({ onUnhandledFrame: 'error' });
   });
   beforeEach(() => setScenario({ state }));
   afterEach(() => server.resetHandlers());
