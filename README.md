@@ -15,6 +15,14 @@
 </div>
 <br/>
 
+<p align="center">
+  <a href="LICENSE"><img alt="License: Apache 2.0" src="https://img.shields.io/badge/license-Apache%202.0-blue"></a>
+  <a href="https://github.com/usespotlightai/spotlight/actions/workflows/release.yml"><img alt="Release build" src="https://github.com/usespotlightai/spotlight/actions/workflows/release.yml/badge.svg"></a>
+  <a href="https://docs.usespotlight.ai"><img alt="Docs" src="https://img.shields.io/badge/docs-docs.usespotlight.ai-black"></a>
+  <a href="https://github.com/usespotlightai/terraform-provider-spotlight"><img alt="Terraform provider" src="https://img.shields.io/badge/terraform-provider-7B42BC?logo=terraform&logoColor=white"></a>
+  <a href="https://github.com/usespotlightai/spotlight/discussions"><img alt="GitHub Discussions" src="https://img.shields.io/badge/github-discussions-181717?logo=github"></a>
+</p>
+
 Spotlight turns your team's process into a line of stations, each run by its own agent. Tasks move from station to station, people step in where a decision is theirs, and every change to how the line works is measured against the runs it affects.
 
 ## Core Features
