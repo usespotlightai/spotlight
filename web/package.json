@@ -63,7 +63,7 @@
     "@vitejs/plugin-react": "^6.1.2",
     "jsdom": "^30.1.2",
     "knip": "^6.41.0",
-    "msw": "^2.15.0",
+    "msw": "^3.0.3",
     "msw-storybook-addon": "^3.0.3",
     "react-doctor": "0.9.17",
     "storybook": "10.6.1",
