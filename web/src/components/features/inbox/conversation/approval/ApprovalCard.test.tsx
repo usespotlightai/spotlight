@@ -85,10 +85,14 @@ describe('ApprovalCard', () => {
       />,
     );
 
-    expect(screen.getByText('Only Alice can approve this')).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: 'Approve linear.comment' }),
-    ).toBeDisabled();
+    const approve = screen.getByRole('button', {
+      name: 'Approve linear.comment',
+    });
+    expect(approve).toBeDisabled();
+    expect(approve).toHaveAccessibleDescription('Only Alice can approve this');
+    expect(screen.getByText('Only Alice can approve this')).toHaveClass(
+      'sr-only',
+    );
     expect(
       screen.queryByRole('button', { name: 'Edit linear.comment' }),
     ).not.toBeInTheDocument();

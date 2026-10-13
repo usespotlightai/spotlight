@@ -21,7 +21,7 @@ const SET: ReplaySet = {
     saturation: null,
     judge: null,
     checks: null,
-    sanity: null,
+    oracle: null,
   },
   minGain: 0.05,
   composition: {
@@ -47,9 +47,7 @@ describe('GuardsChangesToggle', () => {
   });
 
   it('turns guarding on for the set', () => {
-    render(
-      <GuardsChangesToggle teamId="team_1" set={SET} replayCheck={null} />,
-    );
+    render(<GuardsChangesToggle teamId="team_1" set={SET} />);
 
     const toggle = screen.getByRole('switch', {
       name: 'Guards config changes',
@@ -70,26 +68,11 @@ describe('GuardsChangesToggle', () => {
       <GuardsChangesToggle
         teamId="team_1"
         set={{ ...SET, guardsChanges: true }}
-        replayCheck={{
-          mostRegressions: 2,
-          ceiling: 10,
-          currency: 'USD',
-          minGain: 0.05,
-        }}
       />,
     );
 
     expect(
       screen.getByRole('switch', { name: 'Guards config changes' }),
     ).toBeChecked();
-    expect(screen.getByText('2 regressions')).toBeInTheDocument();
-  });
-
-  it('says the line sets no threshold to check against', () => {
-    render(
-      <GuardsChangesToggle teamId="team_1" set={SET} replayCheck={null} />,
-    );
-
-    expect(screen.getByText(/Line sets no replay_check/)).toBeInTheDocument();
   });
 });

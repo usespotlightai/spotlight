@@ -85,20 +85,6 @@ export function FrontierChart({ points, currency }: FrontierChartProps) {
 
   return (
     <figure data-slot="frontier-chart" className="flex flex-col gap-1">
-      <figcaption className="flex flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground text-xs">
-        <span className="flex items-center gap-1">
-          <span aria-hidden className="size-2 rounded-full bg-chart-primary" />
-          On the frontier
-        </span>
-        <span className="flex items-center gap-1">
-          <span aria-hidden className="size-2 rounded-full bg-chart-1" />
-          Other candidates
-        </span>
-        <span className="flex items-center gap-1">
-          <span aria-hidden className="size-2 rotate-45 bg-foreground" />
-          Live config
-        </span>
-      </figcaption>
       <div
         {...hover.area}
         className="[&_*:focus:not(:focus-visible)]:outline-none"
@@ -157,6 +143,20 @@ export function FrontierChart({ points, currency }: FrontierChartProps) {
           </ResponsiveContainer>
         </div>
       </div>
+      <figcaption className="flex flex-wrap items-center gap-3 pl-10 text-[0.7rem] text-muted-foreground">
+        <span className="flex items-center gap-1">
+          <span aria-hidden className="size-2 rounded-full bg-chart-primary" />
+          On the frontier
+        </span>
+        <span className="flex items-center gap-1">
+          <span aria-hidden className="size-2 rounded-full bg-chart-1" />
+          Other candidates
+        </span>
+        <span className="flex items-center gap-1">
+          <span aria-hidden className="size-2 rotate-45 bg-foreground" />
+          Live config
+        </span>
+      </figcaption>
     </figure>
   );
 }

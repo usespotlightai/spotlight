@@ -1,43 +1,67 @@
 import { FlaskConical } from 'lucide-react';
-import { CardList } from '@/components/features/replays/CardList';
-import { ReplaysHeading } from '@/components/features/replays/ReplaysHeading';
+import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { StateBox } from '@/components/features/replays/StateBox';
+import { CandidateTableRow } from '@/components/features/searches/search/CandidateTableRow';
 import { IterationGroup } from '@/components/features/searches/search/IterationGroup';
-import { SearchCandidateRow } from '@/components/features/searches/search/SearchCandidateRow';
+import { IterationRow } from '@/components/features/searches/search/IterationRow';
 import { EmptyState } from '@/components/shared/EmptyState';
+import { NestedTable } from '@/components/shared/nested-table/NestedTable';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { buttonVariants } from '@/components/ui/button-variants';
 import { type ReplayedStation, replayPath } from '@/lib/replay';
-import { byIteration, type SearchDetail } from '@/lib/search';
+import {
+  byIteration,
+  SEARCH_CANDIDATE_HEADINGS,
+  type SearchCandidate,
+  type SearchDetail,
+} from '@/lib/search';
+import { CANDIDATES_NOTE } from '@/lib/search-words';
 import { cn } from '@/lib/utils';
 
 type SearchCandidatesProps = {
   at: ReplayedStation;
   search: SearchDetail;
+  picked: string | null;
+  onPick: (candidateId: string) => void;
 };
 
-export function SearchCandidates({ at, search }: SearchCandidatesProps) {
+export function SearchCandidates({
+  at,
+  search,
+  picked,
+  onPick,
+}: SearchCandidatesProps) {
   const groups = byIteration(search);
   const currency = search.budget.ceiling.currency;
+  const row = (candidate: SearchCandidate) => (
+    <CandidateTableRow
+      key={candidate.candidateId}
+      candidate={candidate}
+      currency={currency}
+      picked={picked === candidate.candidateId}
+      onPick={() => onPick(candidate.candidateId)}
+    />
+  );
 
   return (
-    <section aria-labelledby="candidates" className="flex flex-col gap-3">
-      <ReplaysHeading title="Candidates" id="candidates" level="h2" />
+    <InsightsCard tableOnly title="Candidates" description={CANDIDATES_NOTE}>
+      <NestedTable
+        label="Candidates by iteration"
+        headings={SEARCH_CANDIDATE_HEADINGS}
+        compact
+      >
+        <IterationRow at={at} title="Started from" iteration={null} />
+        {row(search.seed)}
 
-      <div className="flex flex-col gap-1.5">
-        <p className="font-medium text-foreground text-xs">Started from</p>
-        <CardList label="Where it started">
-          <SearchCandidateRow
-            at={at}
-            searchId={search.id}
-            candidate={search.seed}
-            currency={currency}
-          />
-        </CardList>
-      </div>
+        {groups.map((group) => (
+          <IterationGroup key={group.number} at={at} group={group}>
+            {group.candidates.map(row)}
+          </IterationGroup>
+        ))}
+      </NestedTable>
 
-      {groups.length === 0 ? (
-        <StateBox>
+      {groups.length === 0 && (
+        <StateBox flat>
           <EmptyState
             icon={FlaskConical}
             title="No candidates yet"
@@ -57,17 +81,7 @@ export function SearchCandidates({ at, search }: SearchCandidatesProps) {
                 : 'Search agent proposed no candidates.'}
           </EmptyState>
         </StateBox>
-      ) : (
-        groups.map((group) => (
-          <IterationGroup
-            key={group.number}
-            at={at}
-            searchId={search.id}
-            group={group}
-            currency={currency}
-          />
-        ))
       )}
-    </section>
+    </InsightsCard>
   );
 }

@@ -10,6 +10,10 @@ const failing = vi.fn(() => false);
 const more = vi.fn(() => false);
 const fetchNextPage = vi.fn();
 
+vi.mock('@/hooks/api/useGuardChanges', () => ({
+  useGuardChanges: () => ({ mutate: vi.fn(), isPending: false }),
+}));
+
 vi.mock('@/hooks/api/useReplaySetChecks', () => ({
   useReplaySetChecks: () => ({
     data: pages() ? { pages: pages() } : undefined,
@@ -36,7 +40,7 @@ const SET: ReplaySet = {
     saturation: null,
     judge: null,
     checks: null,
-    sanity: null,
+    oracle: null,
   },
   minGain: 0.05,
   composition: {
@@ -82,7 +86,7 @@ describe('SetChecks', () => {
   it('holds the checks’ place while they load', () => {
     render(
       <MemoryRouter>
-        <SetChecks teamId="team_1" set={SET} />
+        <SetChecks teamId="team_1" set={SET} replayCheck={null} />
       </MemoryRouter>,
     );
 
@@ -91,19 +95,22 @@ describe('SetChecks', () => {
     ).toBeInTheDocument();
   });
 
-  it('offers to guard config changes when there are no checks yet', () => {
+  it('says the set guards nothing yet, beside the switch that lets it', () => {
     pages.mockReturnValue([[]]);
 
     render(
       <MemoryRouter>
-        <SetChecks teamId="team_1" set={SET} />
+        <SetChecks teamId="team_1" set={SET} replayCheck={null} />
       </MemoryRouter>,
     );
 
     expect(screen.getByText('No checks yet')).toBeInTheDocument();
     expect(
-      screen.getByRole('link', { name: 'Let it guard config changes' }),
-    ).toHaveAttribute('href', '#guards-changes');
+      screen.getByText('Set doesn’t guard config changes.'),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole('switch', { name: 'Guards config changes' }),
+    ).not.toBeChecked();
   });
 
   it('says it could not load the checks, with a retry', () => {
@@ -111,7 +118,7 @@ describe('SetChecks', () => {
 
     render(
       <MemoryRouter>
-        <SetChecks teamId="team_1" set={SET} />
+        <SetChecks teamId="team_1" set={SET} replayCheck={null} />
       </MemoryRouter>,
     );
 
@@ -120,7 +127,7 @@ describe('SetChecks', () => {
     ).toBeInTheDocument();
   });
 
-  it('lists each check with its pull request, verdict, regressions and replay, and pages back', () => {
+  it('lists each check with its change, verdict, regressions and attempt, opening its replay, and pages back', () => {
     pages.mockReturnValue([
       [
         check({}),
@@ -139,22 +146,23 @@ describe('SetChecks', () => {
 
     render(
       <MemoryRouter>
-        <SetChecks teamId="team_1" set={SET} />
+        <SetChecks teamId="team_1" set={SET} replayCheck={null} />
       </MemoryRouter>,
     );
 
-    expect(screen.getByText('Pull request #42')).toBeInTheDocument();
+    expect(
+      screen.getByRole('link', { name: 'Pull request #42' }),
+    ).toHaveAttribute(
+      'href',
+      '/w/acme/team/team_1/lines/line_1/stations/station_1/replays/r1',
+    );
     expect(screen.getByText('Passed')).toBeInTheDocument();
     expect(screen.getByText('Commit abcdef1')).toBeInTheDocument();
     expect(
       screen.getByText('Undecided: replay reached its ceiling'),
     ).toBeInTheDocument();
-    expect(screen.getByText('2 regressions')).toBeInTheDocument();
-    expect(screen.getByText('· attempt 2')).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Its replay' })).toHaveAttribute(
-      'href',
-      '/w/acme/team/team_1/lines/line_1/stations/station_1/replays/r1',
-    );
+    expect(screen.getByText('2')).toBeInTheDocument();
+    expect(screen.getByText('attempt 2')).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Show older checks' }));
 

@@ -3,6 +3,7 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import type { ReplayRunClaimsPort } from '@work/application/ports/replay-run-claims.port';
 import type { CandidateLines } from '@work/application/services/candidate-lines.service';
 import type { DispatchReplay } from '@work/application/services/dispatch-replay.service';
+import type { ReplayAnswers } from '@work/application/services/replay-answers.service';
 import { ReplayRuns } from '@work/application/services/replay-runs.service';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
@@ -71,6 +72,9 @@ const replayRuns = () =>
         return id;
       },
     } as unknown as DispatchReplay,
+    {
+      has: async (_original: Run, answer: string) => answer === 'accepted',
+    } as unknown as ReplayAnswers,
     { run: (work) => work() },
     { now: () => new Date(), sleep: async () => {} },
   );
@@ -92,6 +96,18 @@ beforeEach(() => {
 });
 
 describe('ReplayRuns', () => {
+  it('says which runs have an answer to hand a replay', async () => {
+    held.set(ORIGINAL, aRun({ id: ORIGINAL }));
+
+    await expect(
+      replayRuns().answerable([
+        { original: ORIGINAL, answer: 'accepted' },
+        { original: ORIGINAL, answer: 'sent-back' },
+        { original: 'run_unknown', answer: 'accepted' },
+      ]),
+    ).resolves.toEqual([ORIGINAL]);
+  });
+
   it('queues a replay run once, answering the fingerprint it was queued under', async () => {
     expect(await replayRuns().enqueue(order())).toEqual({
       outcome: 'queued',

@@ -60,7 +60,7 @@ const setOf = (tasks: number): ReplaySet => ({
     saturation: null,
     judge: null,
     checks: null,
-    sanity: null,
+    oracle: null,
   },
   minGain: 0.05,
   composition: {
@@ -203,12 +203,14 @@ describe('StationSearches', () => {
     expect(screen.getByText('80%')).toHaveAccessibleDescription(
       /^Scored on searched tasks\./,
     );
-    expect(
-      screen.getByRole('button', { name: 'Start a search' }),
-    ).toBeDisabled();
+    const start = screen.getByRole('button', { name: 'Start a search' });
+    expect(start).toBeDisabled();
+    expect(start).toHaveAccessibleDescription(
+      'A search of this station is underway.',
+    );
     expect(
       screen.getByText('A search of this station is underway.'),
-    ).toBeInTheDocument();
+    ).toHaveClass('sr-only');
   });
 
   it('marks a search whose best candidate gained only on the tasks it could see, or says too few held-out tasks were scored to tell', () => {

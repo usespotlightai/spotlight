@@ -7,6 +7,7 @@ import { PageNotice } from '@/components/shared/PageNotice';
 import { useTeamReplaySets } from '@/hooks/api/useReplaySets';
 import { useSearch } from '@/hooks/api/useSearch';
 import { useSearches } from '@/hooks/api/useSearches';
+import { useStation } from '@/hooks/api/useStation';
 import { useScrollToHash } from '@/hooks/useScrollToHash';
 import { useStationTrail } from '@/hooks/useStationTrail';
 import { notFound } from '@/lib/error';
@@ -22,6 +23,7 @@ export function Search() {
   const search = useSearch(teamId, searchId);
   const searches = useSearches(teamId, lineId, stationId);
   const sets = useTeamReplaySets(teamId);
+  const { line, station } = useStation(teamId, lineId, stationId);
 
   const at = replayedStationOf({ slug, teamId, lineId, stationId });
   const found =
@@ -59,6 +61,8 @@ export function Search() {
   return (
     <SearchPage
       at={at}
+      line={line}
+      station={station}
       search={found}
       number={number}
       set={set}

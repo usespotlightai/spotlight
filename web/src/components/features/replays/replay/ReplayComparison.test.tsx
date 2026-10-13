@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/react';
-import { MemoryRouter } from 'react-router';
-import { describe, expect, it } from 'vitest';
+import userEvent from '@testing-library/user-event';
+import { describe, expect, it, vi } from 'vitest';
 import { ReplayComparison } from '@/components/features/replays/replay/ReplayComparison';
 import type { EntryComparison, ReplayDetail, ReplayEntry } from '@/lib/replay';
 
@@ -38,6 +38,20 @@ const entry = (over: Partial<ReplayEntry> = {}): ReplayEntry => ({
   ...over,
 });
 
+const JUDGED = {
+  state: 'judged',
+  scale: 'number',
+  score: 0.8,
+  passed: true,
+  marks: null,
+  passShare: null,
+  referenced: null,
+  model: null,
+  unjudged: null,
+  claims: [],
+  reason: null,
+} as unknown as NonNullable<ReplayEntry['judge']>;
+
 const compared = (
   title: string,
   over: Partial<EntryComparison> = {},
@@ -66,32 +80,33 @@ const detail = (comparison: EntryComparison[]): ReplayDetail =>
     comparison,
   }) as unknown as ReplayDetail;
 
-const renderComparison = (comparison: EntryComparison[]) =>
+const renderComparison = (
+  comparison: EntryComparison[],
+  picked: string | null = null,
+  onPick: (id: string) => void = () => {},
+) =>
   render(
-    <MemoryRouter>
-      <ReplayComparison
-        slug="acme"
-        teamId="team_1"
-        replay={detail(comparison)}
-        picked={null}
-        onPick={() => {}}
-      />
-    </MemoryRouter>,
+    <ReplayComparison
+      replay={detail(comparison)}
+      picked={picked}
+      onPick={onPick}
+    />,
   );
 
-const taskTitles = () =>
-  screen
-    .getAllByRole('row')
-    .slice(1)
-    .map((row) => within(row).getAllByRole('cell')[0]?.textContent);
+const tasks = () =>
+  within(
+    screen.getByRole('list', { name: 'Each task, regressions first' }),
+  ).getAllByRole('listitem');
+
+const sides = (row: HTMLElement) =>
+  [...row.querySelectorAll('[data-slot="entry-side"]')] as HTMLElement[];
 
 describe('ReplayComparison', () => {
-  it('lists the tasks that regressed first, saying so', () => {
+  it('lists the tasks that regressed first, marking them, and keeps the reasons for a hover', () => {
     renderComparison([
       compared('Steady'),
       compared('Worse', {
         regressed: true,
-        pair: null,
         candidate: [
           entry({
             result: 'failed',
@@ -109,25 +124,41 @@ describe('ReplayComparison', () => {
       }),
     ]);
 
-    expect(taskTitles()).toEqual(['WorseRegressed', 'Steady']);
-    expect(screen.getByText('Checks failed: npm test')).toBeInTheDocument();
+    const [worse, steady] = tasks();
+    expect(
+      within(worse as HTMLElement).getByRole('button', {
+        name: 'Details of Worse',
+      }),
+    ).toBeInTheDocument();
+    expect(
+      within(worse as HTMLElement).getByLabelText('Regressed'),
+    ).toBeInTheDocument();
+    expect(
+      within(steady as HTMLElement).queryByLabelText('Regressed'),
+    ).not.toBeInTheDocument();
+
+    const [failed] = sides(worse as HTMLElement);
+    expect(failed).toHaveTextContent('Failed');
+    expect(failed).toHaveAccessibleDescription('Checks failed: npm test');
   });
 
-  it('leads to the original run and to both replay runs', () => {
-    renderComparison([compared('Steady')]);
-
-    expect(screen.getByRole('link', { name: 'Steady' })).toHaveAttribute(
-      'href',
-      '/w/acme/team/team_1/runs/run_Steady',
+  it('opens a task’s details when its row is picked, and shows which is open', async () => {
+    const onPick = vi.fn();
+    renderComparison(
+      [compared('Steady'), compared('Other')],
+      'run_Other',
+      onPick,
     );
+
+    await userEvent.click(
+      screen.getByRole('button', { name: 'Details of Steady' }),
+    );
+
+    expect(onPick).toHaveBeenCalledWith('run_Steady');
     expect(
-      screen
-        .getAllByRole('link', { name: 'Run' })
-        .map((each) => each.getAttribute('href')),
-    ).toEqual([
-      '/w/acme/team/team_1/runs/run_Steady_candidate',
-      '/w/acme/team/team_1/runs/run_Steady_baseline',
-    ]);
+      screen.getByRole('button', { name: 'Details of Other' }),
+    ).toHaveAttribute('aria-pressed', 'true');
+    expect(screen.queryByRole('link')).not.toBeInTheDocument();
   });
 
   it('says which change the blind judge found closer to the accepted one, task by task', () => {
@@ -139,44 +170,30 @@ describe('ReplayComparison', () => {
     ]);
 
     expect(
-      screen.getByRole('columnheader', {
-        name: 'Closer to the accepted change',
-      }),
-    ).toBeInTheDocument();
-    expect(
       [...document.querySelectorAll('[data-slot="pair"]')].map(
         (each) => each.textContent,
       ),
     ).toEqual(['This one', 'The baseline', 'Neither', '–']);
   });
 
-  it('shows the side-by-side column even where no baseline rows were compared', () => {
-    renderComparison([compared('Alone', { baseline: [], pair: 'loss' })]);
-
-    expect(
-      screen.getByRole('columnheader', {
-        name: 'Closer to the accepted change',
-      }),
-    ).toBeInTheDocument();
-  });
-
   it('leaves out the side-by-side column where no task was compared so', () => {
     renderComparison([compared('Steady')]);
 
-    expect(
-      screen.queryByRole('columnheader', {
-        name: 'Closer to the accepted change',
-      }),
-    ).not.toBeInTheDocument();
+    expect(document.querySelector('[data-slot="pair"]')).toBeNull();
   });
 
   it('says why two judge scores could not be compared', () => {
-    renderComparison([compared('Steady', { scoreUncompared: 'other-rubric' })]);
+    renderComparison([
+      compared('Steady', {
+        scoreUncompared: 'other-rubric',
+        candidate: [entry({ judge: JUDGED })],
+      }),
+    ]);
 
     expect(screen.getByText('Judged by different rubrics')).toBeInTheDocument();
   });
 
-  it('shows every copy of a task replayed more than once, and how many succeeded', () => {
+  it('tells how many copies of a task succeeded, each copy on hover', () => {
     renderComparison([
       compared('Twice', {
         candidate: [
@@ -198,25 +215,11 @@ describe('ReplayComparison', () => {
       }),
     ]);
 
-    const [, row] = screen.getAllByRole('row');
-    const copies = row?.querySelector('[data-slot="entry-copies"]');
-
-    expect(copies).toHaveTextContent('1 of 2 copies succeeded');
-    expect(
-      [...(copies?.querySelectorAll('[data-slot="entry-copy"]') ?? [])].map(
-        (each) => each.textContent,
-      ),
-    ).toEqual(['Copy 1SucceededRun', 'Copy 2FailedRun', 'Copy 3PendingRun']);
-    expect(
-      within(row as HTMLElement)
-        .getAllByRole('link', { name: 'Run' })
-        .map((each) => each.getAttribute('href')),
-    ).toEqual([
-      '/w/acme/team/team_1/runs/run_copy_1',
-      '/w/acme/team/team_1/runs/run_copy_2',
-      '/w/acme/team/team_1/runs/run_copy_3',
-      '/w/acme/team/team_1/runs/run_Twice_baseline',
-    ]);
+    const [copies] = sides(tasks()[0] as HTMLElement);
+    expect(copies).toHaveTextContent('1 of 2 succeeded');
+    expect(copies).toHaveAccessibleDescription(
+      'Copy 1: Succeeded · Copy 2: Failed · Copy 3: Pending',
+    );
   });
 
   it('averages the cost of a task’s copies where nothing was compared', () => {
@@ -234,15 +237,11 @@ describe('ReplayComparison', () => {
     expect(screen.getByText('$1.00')).toBeInTheDocument();
   });
 
-  it('shows each task’s own cost, and no baseline column, where nothing was compared', () => {
+  it('shows each task’s own result and cost, and no baseline, where nothing was compared', () => {
     renderComparison([compared('Alone', { baseline: [], costDelta: null })]);
 
-    expect(
-      screen.queryByRole('columnheader', { name: 'Baseline' }),
-    ).not.toBeInTheDocument();
-    expect(
-      screen.getByRole('columnheader', { name: 'Cost' }),
-    ).toBeInTheDocument();
+    expect(sides(tasks()[0] as HTMLElement)).toHaveLength(1);
+    expect(screen.queryByText('Not replayed')).not.toBeInTheDocument();
     expect(screen.getByText('$0.50')).toBeInTheDocument();
   });
 });

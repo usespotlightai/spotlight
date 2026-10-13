@@ -20,6 +20,8 @@ import {
   InMemoryReplays,
   TRANSACTION,
 } from '@replays/application/services/replays.fake-spec';
+import { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
+import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import { ReplayAbandonmentDue } from '@replays/domain/events/replay-abandonment-due.event';
 import type { ReplayJudgingWanted } from '@replays/domain/events/replay-judging-wanted.event';
 import { ReplayRecheckUnavailable } from '@replays/domain/events/replay-recheck-unavailable.event';
@@ -35,8 +37,10 @@ import {
   aSet,
   BY,
   candidateOf,
+  concludedAll,
   endOf,
   FINGERPRINT,
+  LIVE_FINGERPRINT,
   later,
   measuresOf,
   NOW,
@@ -83,6 +87,35 @@ beforeEach(async () => {
   await memory.candidateRepository.add(candidateOf('proposed'));
 });
 
+const handedTheAnswer = (oracle: Candidate) => {
+  const replay = Replay.started({
+    id: ReplayId.of('replay_oracle'),
+    set: aSet(3),
+    candidate: oracle,
+    baseline: false,
+    ceiling: Spend.ceiling(10, 'USD'),
+    at: NOW,
+    by: BY,
+    oracle: {
+      answers: [
+        { run: RunId.of('original_0'), answer: 'accepted' },
+        { run: RunId.of('original_1'), answer: 'sent-back' },
+      ],
+      live: candidateOf('live'),
+      against: concludedAll(
+        aReplay({
+          id: 'replay_live',
+          candidate: candidateOf('live'),
+          baseline: true,
+        }),
+      ),
+    },
+  });
+
+  replay.pullEvents();
+  return replay;
+};
+
 describe('DispatchReplayRuns', () => {
   it('queues as many of a team’s replay runs as it allows at once, under each replay’s candidate', async () => {
     await memory.replayRepository.add(aReplay({ id: 'replay_a', count: 3 }));
@@ -98,11 +131,33 @@ describe('DispatchReplayRuns', () => {
       'original_1',
     ]);
     expect(work.dispatched[0]?.block.key).toBe('build');
+    expect(work.dispatched.every((each) => each.answer === null)).toBe(true);
     expect(memory.replays.get('replay_a')?.unconfirmed).toEqual([]);
     expect(memory.replays.get('replay_b')?.current).toBe('queued');
 
     await dispatching().workDue();
     expect(work.dispatched).toHaveLength(REPLAY_RUNS_AT_ONCE);
+  });
+
+  it('hands each run of a replay handed the answer the answer kept for its original when it started', async () => {
+    const oracle = Candidate.oracleOf(candidateOf('live'), {
+      id: CandidateId.of('candidate_oracle'),
+      at: NOW,
+    });
+    const replay = handedTheAnswer(oracle);
+
+    await memory.candidateRepository.add(oracle);
+    await memory.replayRepository.add(replay);
+
+    await dispatching().workDue();
+    await dispatching().workDue();
+
+    expect(
+      work.dispatched.map((each) => [each.original.value, each.answer]),
+    ).toEqual([
+      ['original_0', 'accepted'],
+      ['original_1', 'sent-back'],
+    ]);
   });
 
   it('settles an entry Work refuses to queue, and moves on to the next', async () => {
@@ -228,17 +283,44 @@ describe('DispatchReplayRuns without the candidate', () => {
   });
 });
 
+const redefiningLines = () =>
+  new NoteLineRedefined(
+    memory.setRepository,
+    memory.replayRepository,
+    memory.candidateRepository,
+    work,
+    TRANSACTION,
+    CLOCK,
+  );
+
 describe('NoteLineRedefined', () => {
+  it('stops a replay handed the answer once the live config it replays is no longer live', async () => {
+    const set = aSet(3);
+    const oracle = Candidate.oracleOf(candidateOf('live'), {
+      id: CandidateId.of('candidate_oracle'),
+      at: NOW,
+    });
+    await memory.setRepository.add(set);
+    await memory.candidateRepository.add(oracle);
+    await memory.replayRepository.add(handedTheAnswer(oracle));
+
+    await redefiningLines().check(set.id);
+    expect(memory.replays.get('replay_oracle')?.stoppedAt).toBeNull();
+
+    const live = work.live;
+    work.live = async () => ({
+      ...(await live()),
+      fingerprint: LIVE_FINGERPRINT,
+    });
+    await redefiningLines().check(set.id);
+    expect(memory.replays.get('replay_oracle')?.stoppedAt).toEqual(NOW);
+  });
+
   it('asks for each set of the line to be checked, then notes one whose station Work no longer has', async () => {
     const set = aSet(1);
     await memory.setRepository.add(set);
     memory.events.length = 0;
-    const redefining = new NoteLineRedefined(
-      memory.setRepository,
-      work,
-      TRANSACTION,
-      CLOCK,
-    );
+    const redefining = redefiningLines();
 
     expect(await redefining.redefined('line_1')).toEqual([
       new ReplaySetStationCheckDue(set.id, set.workspaceId),

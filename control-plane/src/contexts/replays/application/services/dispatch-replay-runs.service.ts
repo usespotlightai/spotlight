@@ -98,6 +98,7 @@ export class DispatchReplayRuns implements OwedWorkPort {
       stationId: replay.station.stationId,
       block: candidate.block,
       line: candidate.line,
+      answer: replay.answerTo(entry.original),
     });
 
     const held = await this.changed(replay, (fresh, now) =>

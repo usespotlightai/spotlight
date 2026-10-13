@@ -1,4 +1,3 @@
-import { GraduationCap } from 'lucide-react';
 import { ClaimsGrade } from '@/components/features/inbox/grades/ClaimsGrade';
 import { GradeRubric } from '@/components/features/inbox/grades/GradeRubric';
 import { GradeRunSkeleton } from '@/components/features/inbox/grades/GradeRunSkeleton';
@@ -53,7 +52,7 @@ export function GradeRun({ slug, teamId, runId }: GradeRunProps) {
     <DecisionCard data-slot="grade-run" aria-label="Grade this run">
       <DecisionHeader
         title={
-          <DecisionTitle icon={GraduationCap}>
+          <DecisionTitle standing={mine ? 'approved' : 'waiting'}>
             {gradeHeading(kind, rubricBody !== null)}
           </DecisionTitle>
         }

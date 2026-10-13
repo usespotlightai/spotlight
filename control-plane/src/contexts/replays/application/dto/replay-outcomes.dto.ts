@@ -36,20 +36,6 @@ export type ReplayStarted = Planned<{
   } | null;
 }>;
 
-export type SanityReplayStarted = Planned<
-  | {
-      readonly outcome: 'started';
-      readonly id: string;
-      readonly candidateId: string;
-      readonly ceiling: StartedSpend;
-      readonly comparison: {
-        readonly id: string;
-        readonly ceiling: StartedSpend;
-      } | null;
-    }
-  | SearchRefused
->;
-
 export type ReplayStoppedOutcome = Planned<{ readonly outcome: 'stopped' }>;
 
 export interface SearchRefused {

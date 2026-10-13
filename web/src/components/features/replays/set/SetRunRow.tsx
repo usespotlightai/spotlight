@@ -1,4 +1,13 @@
 import { X } from 'lucide-react';
+import { NotedWarning } from '@/components/shared/NotedWarning';
+import { NestedCell } from '@/components/shared/nested-table/NestedCell';
+import {
+  EDGE_INDENT,
+  LEAD_CELL,
+  ROW_DIVIDER,
+  TABLE_ROW,
+} from '@/components/shared/nested-table/nested-rows';
+import { RefusalTooltip } from '@/components/shared/RefusalTooltip';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { Button } from '@/components/ui/button';
 import { useRemoveReplaySetEntry } from '@/hooks/api/useRemoveReplaySetEntry';
@@ -7,7 +16,11 @@ import {
   type ReplaySetEntry,
   titleShown,
 } from '@/lib/replay';
-import { replayableShown, runStateShown } from '@/lib/replay-words';
+import {
+  RUNS_HELD_BY_SEARCH,
+  replayableShown,
+  runStateShown,
+} from '@/lib/replay-words';
 import { runPath } from '@/lib/run';
 import { since } from '@/lib/since';
 import { cn } from '@/lib/utils';
@@ -24,41 +37,49 @@ export function SetRunRow({ at, setId, entry, frozen }: SetRunRowProps) {
   const title = titleShown(entry.title);
 
   return (
-    <li
-      data-slot="set-run"
-      className="flex flex-col gap-0.5 rounded-md px-2 py-2 text-sm"
-    >
-      <div className="flex min-w-0 items-center gap-2">
+    <li data-slot="set-run" className={cn(TABLE_ROW, ROW_DIVIDER, 'group/run')}>
+      <span className={cn(LEAD_CELL, EDGE_INDENT)}>
         <TrailLink
           to={runPath(at.slug, at.teamId, entry.runId)}
-          className="min-w-0 truncate text-foreground underline-offset-2 hover:underline"
+          className="truncate font-medium text-foreground outline-none after:absolute after:inset-0 focus-visible:underline"
         >
           {title}
         </TrailLink>
-
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          className="ml-auto shrink-0"
-          aria-label={`Take ${title} out of the set`}
-          disabled={remove.isPending || frozen}
-          onClick={() =>
-            remove.mutate({ teamId: at.teamId, setId, runId: entry.runId })
-          }
-        >
-          <X aria-hidden />
-        </Button>
-      </div>
-
-      <p className="flex flex-wrap items-center gap-x-1.5 text-muted-foreground text-xs">
-        <span>{entry.state ? runStateShown(entry.state) : 'Unknown run'}</span>
-        {entry.endedAt && <span>· ended {since(entry.endedAt)}</span>}
-        <span>·</span>
-        <span className={cn(entry.refusal && 'text-destructive')}>
-          {replayableShown(entry.refusal)}
-        </span>
-      </p>
+        {entry.refusal && (
+          <NotedWarning
+            tone="destructive"
+            label={replayableShown(entry.refusal)}
+            note={replayableShown(entry.refusal)}
+            className="relative z-10"
+          />
+        )}
+      </span>
+      <NestedCell heading="State" numeric={false}>
+        {entry.state ? runStateShown(entry.state) : 'Unknown run'}
+      </NestedCell>
+      <NestedCell heading="Ended">
+        {entry.endedAt ? since(entry.endedAt) : '–'}
+      </NestedCell>
+      <span className="relative z-10 flex h-4 items-center justify-end">
+        <RefusalTooltip reason={frozen ? RUNS_HELD_BY_SEARCH : null}>
+          {(describedBy) => (
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-xs"
+              className="opacity-0 focus-visible:opacity-100 group-hover/run:opacity-100"
+              aria-label={`Take ${title} out of the set`}
+              aria-describedby={describedBy}
+              disabled={remove.isPending || frozen}
+              onClick={() =>
+                remove.mutate({ teamId: at.teamId, setId, runId: entry.runId })
+              }
+            >
+              <X aria-hidden />
+            </Button>
+          )}
+        </RefusalTooltip>
+      </span>
     </li>
   );
 }

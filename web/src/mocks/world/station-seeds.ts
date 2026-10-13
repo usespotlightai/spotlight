@@ -69,7 +69,7 @@ const health = (
   },
   judge: null,
   checks: null,
-  sanity: null,
+  oracle: null,
   ...over,
 });
 

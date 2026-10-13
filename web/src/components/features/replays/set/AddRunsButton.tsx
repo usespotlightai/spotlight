@@ -1,8 +1,8 @@
 import { Plus } from 'lucide-react';
-import { useState } from 'react';
 import { AddRunsDialog } from '@/components/features/replays/set/AddRunsDialog';
-import { Button } from '@/components/ui/button';
+import { DialogButton } from '@/components/shared/DialogButton';
 import type { ReplayedStation, ReplaySet } from '@/lib/replay';
+import { RUNS_HELD_BY_SEARCH } from '@/lib/replay-words';
 
 type AddRunsButtonProps = {
   at: ReplayedStation;
@@ -11,24 +11,20 @@ type AddRunsButtonProps = {
 };
 
 export function AddRunsButton({ at, set, disabled }: AddRunsButtonProps) {
-  const [open, setOpen] = useState(false);
-
   return (
-    <>
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        className="rounded-full bg-card shadow-none"
-        disabled={disabled}
-        title={disabled ? 'Set is frozen while a search of it runs' : undefined}
-        onClick={() => setOpen(true)}
-      >
-        <Plus aria-hidden />
-        Add runs
-      </Button>
-
-      <AddRunsDialog at={at} set={set} open={open} onOpenChange={setOpen} />
-    </>
+    <DialogButton
+      label="Add runs"
+      icon={Plus}
+      variant="outline"
+      refusedBecause={disabled ? RUNS_HELD_BY_SEARCH : null}
+      dialog={(open, onOpenChange) => (
+        <AddRunsDialog
+          at={at}
+          set={set}
+          open={open}
+          onOpenChange={onOpenChange}
+        />
+      )}
+    />
   );
 }

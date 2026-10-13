@@ -20,11 +20,6 @@ export function ApprovalDecision({
 }: ApprovalDecisionProps) {
   return (
     <DecisionControls>
-      {onlyFor && (
-        <p className="mr-auto text-muted-foreground text-xs">
-          Only {onlyFor} can approve this
-        </p>
-      )}
       <DecisionPill
         disabled={pending || !onDismiss}
         onClick={onDismiss}
@@ -35,7 +30,7 @@ export function ApprovalDecision({
       <ApprovalApproveButton
         approval={approval}
         disabled={pending || !onApprove}
-        title={onlyFor ? `Only ${onlyFor} can approve this` : undefined}
+        refusedBecause={onlyFor ? `Only ${onlyFor} can approve this` : null}
         onApprove={onApprove}
       />
     </DecisionControls>

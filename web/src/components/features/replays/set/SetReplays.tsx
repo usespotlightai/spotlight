@@ -1,14 +1,15 @@
 import type { UseQueryResult } from '@tanstack/react-query';
 import { Play } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { CardList } from '@/components/features/replays/CardList';
-import { ReplaysHeading } from '@/components/features/replays/ReplaysHeading';
-import { RowsSkeleton } from '@/components/features/replays/RowsSkeleton';
+import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { StateBox } from '@/components/features/replays/StateBox';
 import { ReplayRow } from '@/components/features/replays/set/ReplayRow';
 import { StartReplayButton } from '@/components/features/replays/set/StartReplayButton';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { EmptyState } from '@/components/shared/EmptyState';
+import { NestedTable } from '@/components/shared/nested-table/NestedTable';
+import { NestedTableSkeleton } from '@/components/shared/nested-table/NestedTableSkeleton';
+import { PanelActions } from '@/components/shared/PanelActions';
 import { failed, loading } from '@/lib/query';
 import {
   baselineIn,
@@ -16,8 +17,12 @@ import {
   type Replay,
   type ReplayedStation,
   type ReplaySet,
+  SET_REPLAY_HEADINGS,
   startRefusal,
 } from '@/lib/replay';
+
+const REPLAYS_NOTE =
+  'Each replay reruns the set under one config. Gain: success against the baseline, the latest live-config replay.';
 
 type SetReplaysProps = {
   at: ReplayedStation;
@@ -40,10 +45,16 @@ export function SetReplays({ at, set, replays }: SetReplaysProps) {
   let body: ReactNode;
 
   if (loading(replays)) {
-    body = <RowsSkeleton label="Loading the replays" />;
+    body = (
+      <NestedTableSkeleton
+        label="Loading the replays"
+        headings={SET_REPLAY_HEADINGS}
+        compact
+      />
+    );
   } else if (failed(replays)) {
     body = (
-      <StateBox>
+      <StateBox flat>
         <CouldNotLoad
           what="The set’s replays"
           retrying={replays.isFetching}
@@ -53,16 +64,15 @@ export function SetReplays({ at, set, replays }: SetReplaysProps) {
     );
   } else if (listed.length === 0) {
     body = (
-      <StateBox>
+      <StateBox flat>
         <EmptyState icon={Play} title="Not replayed yet" action={start}>
-          Replay the set under a candidate. Replay it under the live config for
-          a baseline.
+          Replay the live config first. It becomes the baseline.
         </EmptyState>
       </StateBox>
     );
   } else {
     body = (
-      <CardList label="Replays">
+      <NestedTable label="Replays" headings={SET_REPLAY_HEADINGS} compact>
         {listed.map((replay) => (
           <ReplayRow
             key={replay.id}
@@ -71,19 +81,14 @@ export function SetReplays({ at, set, replays }: SetReplaysProps) {
             baseline={baseline}
           />
         ))}
-      </CardList>
+      </NestedTable>
     );
   }
 
   return (
-    <section aria-labelledby="set-replays" className="flex flex-col gap-2">
-      <ReplaysHeading
-        title="Replays"
-        id="set-replays"
-        level="h2"
-        action={listed.length > 0 ? start : undefined}
-      />
+    <InsightsCard tableOnly title="Replays" description={REPLAYS_NOTE}>
       {body}
-    </section>
+      {listed.length > 0 && <PanelActions>{start}</PanelActions>}
+    </InsightsCard>
   );
 }

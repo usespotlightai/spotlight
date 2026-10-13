@@ -94,7 +94,7 @@ const IMPLEMENTATION_SET: CandidatesSet = {
       pending: 0,
       flaky: [],
     },
-    sanity: null,
+    oracle: null,
     minGain: 0.05,
   },
   baseline: {
@@ -320,7 +320,7 @@ const REVIEW_SET: CandidatesSet = {
     saturation: null,
     judge: null,
     checks: null,
-    sanity: null,
+    oracle: null,
     minGain: 0.05,
   },
   baseline: {

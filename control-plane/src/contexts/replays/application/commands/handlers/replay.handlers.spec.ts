@@ -1,8 +1,6 @@
 import { StartReplayHandler } from '@replays/application/commands/handlers/start-replay.handler';
-import { StartSanityReplayHandler } from '@replays/application/commands/handlers/start-sanity-replay.handler';
 import { StopReplayHandler } from '@replays/application/commands/handlers/stop-replay.handler';
 import { StartReplayCommand } from '@replays/application/commands/start-replay.command';
-import { StartSanityReplayCommand } from '@replays/application/commands/start-sanity-replay.command';
 import { StopReplayCommand } from '@replays/application/commands/stop-replay.command';
 import {
   ACTOR,
@@ -11,7 +9,6 @@ import {
   FakeWork,
   IDS,
   InMemoryReplays,
-  peopleWho,
   snapshotsFor,
   stationsFor,
   TRANSACTION,
@@ -25,14 +22,11 @@ import {
   aReplay,
   aSet,
   candidateOf,
-  LIVE_FINGERPRINT,
   runIds,
 } from '@replays/domain/replays.fake-spec';
 import { PROBE_REPEATS } from '@replays/domain/value-objects/replay-repeats';
-import { StationChanges } from '@replays/domain/value-objects/station-changes.vo';
+import { Spend } from '@replays/domain/value-objects/spend.vo';
 import { UseCaseFault } from '@shared-kernel/application/errors/use-case.fault';
-import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
-import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import { beforeEach, describe, expect, it } from 'vitest';
 
 let memory: InMemoryReplays;
@@ -71,7 +65,7 @@ const wantedBaselines = async () => {
   }
 };
 
-const start = (candidate: string, mayPlan = true, repeats = 1, probe = false) =>
+const start = (candidate: string, mayPlan = true, repeats = 1) =>
   starting(mayPlan).execute(
     new StartReplayCommand(
       'team_1',
@@ -79,7 +73,6 @@ const start = (candidate: string, mayPlan = true, repeats = 1, probe = false) =>
       candidate,
       CEILING,
       repeats,
-      probe,
       ACTOR,
     ),
   );
@@ -122,6 +115,7 @@ describe('StartReplayHandler', () => {
 
     const baseline = memory.replays.get(started.baseline.id);
     expect(baseline?.baseline).toBe(true);
+    expect(baseline?.probe).toBe(false);
     expect(baseline?.ceiling.amount).toBe(5);
     expect(memory.candidates.get(baseline?.candidateId.value ?? '')?.kind).toBe(
       'live',
@@ -155,27 +149,97 @@ describe('StartReplayHandler', () => {
     );
   });
 
-  it('probes the set as the live config, flagged, replaying each run three times', async () => {
-    const started = await start('live', true, PROBE_REPEATS, true);
+  it('checks the set with the first baseline of the live config, replaying each run three times with its ceiling raised in step', async () => {
+    memory.sets.set('set_1', aSet(5));
+    const started = await start('live');
 
     if (started.outcome !== 'started') {
-      throw new Error('the probe did not start');
+      throw new Error('the baseline did not start');
     }
 
     const probe = memory.replays.get(started.id);
 
+    expect(probe?.baseline).toBe(true);
     expect(probe?.probe).toBe(true);
-    expect(probe?.repeats).toBe(3);
-    expect(memory.candidates.get(probe?.candidateId.value ?? '')?.kind).toBe(
-      'live',
-    );
+    expect(probe?.repeats).toBe(PROBE_REPEATS);
+    expect(started.ceiling).toEqual({ amount: 15, currency: 'USD' });
   });
 
-  it('refuses to probe the set with anything but the live config', async () => {
-    await expect(
-      start('candidate_proposed', true, PROBE_REPEATS, true),
-    ).rejects.toBeInstanceOf(UseCaseFault);
-    expect([...memory.replays.values()].some((each) => each.probe)).toBe(false);
+  it('checks the set with the baseline a candidate wants, telling the raised ceiling', async () => {
+    memory.sets.set('set_1', aSet(5));
+    const started = await start('candidate_proposed');
+
+    if (started.outcome !== 'started' || !started.baseline) {
+      throw new Error('no baseline was asked for');
+    }
+
+    expect(started.baseline.ceiling).toEqual({ amount: 15, currency: 'USD' });
+
+    await wantedBaselines();
+
+    const baseline = memory.replays.get(started.baseline.id);
+    expect(baseline?.probe).toBe(true);
+    expect(baseline?.repeats).toBe(PROBE_REPEATS);
+    expect(baseline?.ceiling.amount).toBe(15);
+  });
+
+  it('starts the wanted baseline on the terms the candidate was told, not on terms worked out again', async () => {
+    memory.sets.set('set_1', aSet(5));
+    const started = await start('candidate_proposed');
+    const wanted = memory.events
+      .splice(0)
+      .find((each) => each instanceof ReplayBaselineWanted);
+
+    if (
+      !(wanted instanceof ReplayBaselineWanted) ||
+      started.outcome !== 'started'
+    ) {
+      throw new Error('no baseline was asked for');
+    }
+
+    await baselines().wanted(
+      new ReplayBaselineWanted(
+        wanted.replayId,
+        wanted.workspaceId,
+        wanted.setId,
+        wanted.baselineId,
+        wanted.candidateId,
+        Spend.ceiling(4, 'USD'),
+        null,
+        1,
+        1,
+        false,
+      ),
+    );
+
+    const baseline = memory.replays.get(wanted.baselineId.value);
+    expect(baseline?.probe).toBe(false);
+    expect(baseline?.repeats).toBe(1);
+    expect(baseline?.ceiling.amount).toBe(4);
+  });
+
+  it('checks no set of fewer than five runs', async () => {
+    const started = await start('live');
+
+    expect(
+      started.outcome === 'started' && memory.replays.get(started.id)?.probe,
+    ).toBe(false);
+  });
+
+  it('replays the live config plainly once a check of it stands', async () => {
+    memory.sets.set('set_1', aSet(5));
+    await start('live');
+    const again = await start('live');
+
+    if (again.outcome !== 'started') {
+      throw new Error('the replay did not start');
+    }
+
+    const plain = memory.replays.get(again.id);
+
+    expect(plain?.probe).toBe(false);
+    expect(plain?.repeats).toBe(1);
+    expect(again.ceiling).toEqual(CEILING);
   });
 
   it('starts no baseline once another covers the set by the time the wish is heard', async () => {
@@ -304,7 +368,6 @@ describe('StartReplayHandler', () => {
           'live',
           { amount: 0, currency: 'USD' },
           1,
-          false,
           ACTOR,
         ),
       ),
@@ -337,137 +400,5 @@ describe('StopReplayHandler', () => {
       ReplayEnded,
       ReplayStopAsked,
     ]);
-  });
-});
-
-describe('StartSanityReplayHandler', () => {
-  const sanity = (mayPlan = true) =>
-    new StartSanityReplayHandler(
-      accessFor(memory, work, mayPlan),
-      peopleWho(mayPlan),
-      work,
-      snapshotsFor(memory, work, mayPlan),
-      memory.candidateRepository,
-      memory.setRepository,
-      memory.replayRepository,
-      IDS,
-      CLOCK,
-      TRANSACTION,
-      stationsFor(memory, work),
-    );
-
-  const strongerAs = (
-    model: string | null,
-    effort: string | null,
-    mayPlan = true,
-    repeats = 1,
-  ) =>
-    sanity(mayPlan).execute(
-      new StartSanityReplayCommand(
-        'team_1',
-        'set_1',
-        model,
-        effort,
-        CEILING,
-        repeats,
-        ACTOR,
-      ),
-    );
-
-  beforeEach(() => {
-    const examine = work.examine;
-
-    work.examine = async (line, station, block) => {
-      const examined = await examine(line, station, block);
-      const asked = block as { model?: string };
-
-      return examined.ok
-        ? {
-            ...examined,
-            changedFrom: StationChanges.of(LIVE_FINGERPRINT, [
-              {
-                part: 'model',
-                name: null,
-                kind: 'changed',
-                was: null,
-                now: asked.model ?? null,
-              },
-            ]),
-          }
-        : examined;
-    };
-  });
-
-  it('replays the live config with the model asked for, beside a replay of the live config to compare with', async () => {
-    const started = await strongerAs('opus', null);
-
-    if (started.outcome !== 'started') {
-      throw new Error('no stronger replay started');
-    }
-
-    const replay = memory.replays.get(started.id);
-    const stronger = memory.candidates.get(started.candidateId);
-    const comparison = memory.replays.get(started.comparison?.id ?? '');
-
-    expect(stronger?.kind).toBe('sanity');
-    expect(stronger?.block.value.model).toBe('opus');
-    expect(replay?.candidateId.value).toBe(started.candidateId);
-    expect(replay?.baseline).toBe(false);
-    expect(
-      memory.candidates.get(comparison?.candidateId.value ?? '')?.kind,
-    ).toBe('live');
-    expect(comparison?.baseline).toBe(true);
-    expect(comparison?.repeats).toBe(1);
-    expect(replay?.comparedWith?.value).toBe(started.comparison?.id);
-    expect(started.ceiling).toEqual(CEILING);
-  });
-
-  it('starts no second live replay when one of the live config as it is now, run as often, stands', async () => {
-    const first = await strongerAs('opus', null);
-    const second = await strongerAs('opus', null);
-
-    expect(first.outcome === 'started' && first.comparison).not.toBeNull();
-    expect(second.outcome === 'started' && second.comparison).toBeNull();
-    expect(
-      second.outcome === 'started' &&
-        memory.replays.get(second.id)?.comparedWith?.value,
-    ).toBe(first.outcome === 'started' ? first.comparison?.id : null);
-  });
-
-  it('refuses a stronger config that names nothing new, a model nobody offers or a lower effort, and a caller who may not plan', async () => {
-    const unchanged = await strongerAs(null, null);
-    const unknown = await strongerAs('gpt-unknown', 'turbo');
-
-    expect(
-      unchanged.outcome === 'invalid' &&
-        unchanged.problems.map((each) => each.field.rendered),
-    ).toEqual(['model']);
-    expect(
-      unknown.outcome === 'invalid' &&
-        unknown.problems.map((each) => each.field.rendered),
-    ).toEqual(['model', 'effort']);
-    expect(await strongerAs('opus', null, false)).toEqual({
-      outcome: 'forbidden',
-      act: 'plan',
-    });
-    expect(memory.replays.size).toBe(0);
-  });
-
-  it('answers the problems the station finds in the stronger config, as with any candidate', async () => {
-    work.examine = async () => ({
-      ok: false,
-      problems: [
-        ConfigurationProblem.of({
-          path: '',
-          at: FieldPath.of(['model']),
-          reason: 'is one of the models its harness offers',
-        }),
-      ],
-    });
-
-    const refused = await strongerAs('gpt-unknown', null);
-
-    expect(refused.outcome).toBe('invalid');
-    expect(memory.candidates.size).toBe(1);
   });
 });

@@ -169,7 +169,7 @@ export const NO_HEALTH: SetHealthResponseDto = {
   saturation: null,
   judge: null,
   checks: null,
-  sanity: null,
+  oracle: null,
 };
 
 const BILLING_HEALTH: SetHealthResponseDto = {
@@ -190,7 +190,26 @@ const BILLING_HEALTH: SetHealthResponseDto = {
     unstable: false,
   },
   checks: { replayId: 'replay_live_4', rechecked: 7, pending: 0, flaky: [] },
-  sanity: null,
+  oracle: {
+    replayId: 'replay_oracle_4',
+    candidateId: 'candidate_oracle_4',
+    repeats: 1,
+    state: 'finished',
+    againstReplayId: 'replay_live_4',
+    againstState: 'finished',
+    answered: 5,
+    live: 0.8,
+    withAnswer: 1,
+    gain: {
+      gain: 0.2,
+      low: 0.04,
+      high: 0.4,
+      verdict: 'better',
+      minGain: 0.05,
+      tasks: 5,
+    },
+    roomToImprove: true,
+  },
 };
 
 const entry = (

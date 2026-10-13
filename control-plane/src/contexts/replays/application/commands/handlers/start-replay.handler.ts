@@ -16,7 +16,9 @@ import {
   needsBaseline,
   standingBaselineFor,
 } from '@replays/domain/services/baseline';
+import { baselineTermsOf } from '@replays/domain/services/baseline-terms';
 import type { ReplaysClearance } from '@replays/domain/services/replays-clearance';
+import { checksSet } from '@replays/domain/services/set-health';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { Spend } from '@replays/domain/value-objects/spend.vo';
@@ -81,79 +83,110 @@ export class StartReplayHandler
       const id = ReplayId.of(this.ids.generate());
       const baselineId = ReplayId.of(this.ids.generate());
 
-      const { asBaseline, wanted } = await this.keepingLive(
-        live,
-        asked === null,
-        () =>
-          this.transaction.run(async () => {
-            const set = await this.sets.locked(seen.id);
+      const started = await this.keepingLive(live, asked === null, () =>
+        this.transaction.run(async () => {
+          const set = await this.sets.locked(seen.id);
 
-            if (!set) {
-              throw new UnknownReplaySetError(command.setId);
-            }
+          if (!set) {
+            throw new UnknownReplaySetError(command.setId);
+          }
 
-            const setReplays = await this.replays.ofSet(set.id);
-            const needed = needsBaseline(
+          const setReplays = await this.replays.ofSet(set.id);
+          const needed = needsBaseline(
+            set,
+            setReplays,
+            liveScoring,
+            command.repeats,
+          );
+
+          if (needed && asked && !live) {
+            throw new ReplaySetBaselineMovedError(set.id.value);
+          }
+
+          if (asked && !(await this.candidates.lockedForUse(asked.id))) {
+            throw new UnknownCandidateError(asked.id.value);
+          }
+
+          const asBaseline = needed && !asked;
+          const baselineTerms =
+            needed && live
+              ? baselineTermsOf(
+                  checksSet(
+                    set,
+                    setReplays,
+                    await this.candidates.findMany(
+                      setReplays.map((each) => each.candidateId),
+                    ),
+                    live.fingerprint,
+                  ),
+                  command.repeats,
+                  ceiling,
+                )
+              : null;
+          const wanting =
+            asked && live && baselineTerms
+              ? { id: baselineId, candidate: live, ...baselineTerms }
+              : null;
+          const terms =
+            asBaseline && baselineTerms
+              ? baselineTerms
+              : { probe: false, repeats: command.repeats, ceiling };
+
+          await this.replays.add(
+            Replay.started({
+              id,
               set,
-              setReplays,
-              liveScoring,
-              command.repeats,
-            );
+              candidate,
+              baseline: asBaseline,
+              ceiling: terms.ceiling,
+              repeats: terms.repeats,
+              probe: terms.probe,
+              pairsWith: asBaseline
+                ? null
+                : (wanting?.id ??
+                  standingBaselineFor(
+                    set,
+                    setReplays,
+                    liveScoring,
+                    command.repeats,
+                  )?.id ??
+                  null),
+              at: this.clock.now(),
+              by: Attribution.of(command.actor, set.workspaceId),
+              wanting,
+            }),
+          );
 
-            if (needed && asked && !live) {
-              throw new ReplaySetBaselineMovedError(set.id.value);
-            }
-
-            if (asked && !(await this.candidates.lockedForUse(asked.id))) {
-              throw new UnknownCandidateError(asked.id.value);
-            }
-
-            const asBaseline = needed && !asked;
-            const wanting =
-              needed && asked && live
-                ? { id: baselineId, candidate: live }
-                : null;
-
-            await this.replays.add(
-              Replay.started({
-                id,
-                set,
-                candidate,
-                baseline: asBaseline,
-                ceiling,
-                repeats: command.repeats,
-                probe: command.probe,
-                pairsWith:
-                  asBaseline || command.probe
-                    ? null
-                    : (wanting?.id ??
-                      standingBaselineFor(
-                        set,
-                        setReplays,
-                        liveScoring,
-                        command.repeats,
-                      )?.id ??
-                      null),
-                at: this.clock.now(),
-                by: Attribution.of(command.actor, set.workspaceId),
-                wanting,
-              }),
-            );
-
-            return { asBaseline, wanted: wanting !== null };
-          }),
+          return {
+            asBaseline,
+            wanted: wanting !== null,
+            ceiling: terms.ceiling,
+            baselineCeiling: baselineTerms?.ceiling ?? ceiling,
+          };
+        }),
       );
 
-      const spend = { amount: ceiling.amount, currency: ceiling.currency };
+      const spend = {
+        amount: started.ceiling.amount,
+        currency: started.ceiling.currency,
+      };
+      const baselineSpend = {
+        amount: started.baselineCeiling.amount,
+        currency: started.baselineCeiling.currency,
+      };
 
       return {
         outcome: 'started',
         id: id.value,
         ceiling: spend,
-        baseline: asBaseline
+        baseline: started.asBaseline
           ? { id: id.value, ceiling: spend, status: 'started' }
-          : wanted
-            ? { id: baselineId.value, ceiling: spend, status: 'starting' }
+          : started.wanted
+            ? {
+                id: baselineId.value,
+                ceiling: baselineSpend,
+                status: 'starting',
+              }
             : null,
       };
     } catch (error) {

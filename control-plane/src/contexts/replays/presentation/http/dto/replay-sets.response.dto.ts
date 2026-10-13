@@ -229,7 +229,7 @@ export class ReplaySetResponseDto {
   @ApiProperty({
     type: SetHealthResponseDto,
     description:
-      'Whether the set can tell candidates apart, read for the live config as it is now: its noise, how much of it the live config passes already, whether its judge and check give the same answer twice, and whether it rewards a stronger model',
+      'Whether the set can tell candidates apart, read for the live config as it is now: its noise, how much of it the live config passes already, whether its judge and check give the same answer twice, and how much better the live config does when handed each run’s answer',
   })
   readonly health: SetHealthResponseDto;
 

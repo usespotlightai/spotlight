@@ -1,6 +1,5 @@
-<svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <rect width="48" height="48" rx="8" fill="#292929"/>
-    <circle cx="24" cy="24" r="8.1" fill="#ffffff"/>
-    <path d="M12.81 23.61A11.2 11.2 0 0 1 23.61 12.81" stroke="#ffffff" stroke-width="2.3" stroke-linecap="round"/>
-    <path d="M35.19 24.39A11.2 11.2 0 0 1 24.39 35.19" stroke="#ffffff" stroke-width="2.3" stroke-linecap="round"/>
+<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+    <style>path { fill: #292929 } @media (prefers-color-scheme: dark) { path { fill: #ffffff } }</style>
+    <path d="M0 0H24V24Z"/>
+    <path d="M0 0V24H9.6Z"/>
 </svg>

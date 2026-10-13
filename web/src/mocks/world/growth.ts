@@ -33,7 +33,7 @@ const STATIONS: StationResponseDto[] = [
     effort: 'medium',
     judge: {
       rubric:
-        '## A good experiment design\n\n- Names the one change it tests\n- Names the metric and what it reads today\n- Sets a stop rule',
+        '## A good experiment design\n\nJudge the design as written, not the result the experiment would get. A claim the design leaves to later is not met.',
       claims: [
         'Names the one change it tests',
         'Names the metric and what it reads today',

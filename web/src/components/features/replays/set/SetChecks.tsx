@@ -1,36 +1,43 @@
 import { ShieldCheck } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { CardList } from '@/components/features/replays/CardList';
-import { ReplaysHeading } from '@/components/features/replays/ReplaysHeading';
-import { RowsSkeleton } from '@/components/features/replays/RowsSkeleton';
+import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { StateBox } from '@/components/features/replays/StateBox';
 import { CheckRow } from '@/components/features/replays/set/CheckRow';
-import { GUARDS_ANCHOR } from '@/components/features/replays/set/GuardsChangesToggle';
+import { GuardsChangesToggle } from '@/components/features/replays/set/GuardsChangesToggle';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { EmptyState } from '@/components/shared/EmptyState';
+import { NestedTable } from '@/components/shared/nested-table/NestedTable';
+import { NestedTableSkeleton } from '@/components/shared/nested-table/NestedTableSkeleton';
+import { PanelActions } from '@/components/shared/PanelActions';
 import { Button } from '@/components/ui/button';
-import { buttonVariants } from '@/components/ui/button-variants';
 import { useReplaySetChecks } from '@/hooks/api/useReplaySetChecks';
 import { failed, loading } from '@/lib/query';
-import type { ReplaySet } from '@/lib/replay';
-import { cn } from '@/lib/utils';
+import { type ReplaySet, SET_CHECK_HEADINGS } from '@/lib/replay';
+import { type LineReplayCheck, replayCheckNote } from '@/lib/search';
 
 type SetChecksProps = {
   teamId: string;
   set: ReplaySet;
+  replayCheck: LineReplayCheck | null | undefined;
 };
 
-export function SetChecks({ teamId, set }: SetChecksProps) {
+export function SetChecks({ teamId, set, replayCheck }: SetChecksProps) {
   const checks = useReplaySetChecks(teamId, set.id);
   const listed = checks.data?.pages.flat() ?? [];
 
   let body: ReactNode;
 
   if (loading(checks)) {
-    body = <RowsSkeleton label="Loading the checks" />;
+    body = (
+      <NestedTableSkeleton
+        label="Loading the checks"
+        headings={SET_CHECK_HEADINGS}
+        compact
+      />
+    );
   } else if (failed(checks)) {
     body = (
-      <StateBox>
+      <StateBox flat>
         <CouldNotLoad
           what="The set’s checks"
           retrying={checks.isFetching}
@@ -40,35 +47,22 @@ export function SetChecks({ teamId, set }: SetChecksProps) {
     );
   } else if (listed.length === 0) {
     body = (
-      <StateBox>
-        <EmptyState
-          icon={ShieldCheck}
-          title="No checks yet"
-          action={
-            set.guardsChanges ? undefined : (
-              <a
-                href={`#${GUARDS_ANCHOR}`}
-                className={cn(buttonVariants({ size: 'sm' }), 'rounded-full')}
-              >
-                Let it guard config changes
-              </a>
-            )
-          }
-        >
+      <StateBox flat>
+        <EmptyState icon={ShieldCheck} title="No checks yet">
           {set.guardsChanges
-            ? 'Checks appear when spotlight replay check replays a pull request’s change on this set.'
-            : 'Set doesn’t guard config changes. Let it guard them to check pull requests here.'}
+            ? 'Pull requests that change this station are checked here.'
+            : 'Set doesn’t guard config changes.'}
         </EmptyState>
       </StateBox>
     );
   } else {
     body = (
-      <>
-        <CardList label="Checks">
+      <div className="flex flex-col gap-2">
+        <NestedTable label="Checks" headings={SET_CHECK_HEADINGS} compact>
           {listed.map((check) => (
             <CheckRow key={check.id} check={check} />
           ))}
-        </CardList>
+        </NestedTable>
         {checks.hasNextPage && (
           <Button
             type="button"
@@ -81,14 +75,20 @@ export function SetChecks({ teamId, set }: SetChecksProps) {
             {checks.isFetchingNextPage ? 'Loading…' : 'Show older checks'}
           </Button>
         )}
-      </>
+      </div>
     );
   }
 
   return (
-    <section aria-labelledby="set-checks" className="flex flex-col gap-2">
-      <ReplaysHeading title="Checks" id="set-checks" level="h2" />
+    <InsightsCard
+      tableOnly
+      title="Checks"
+      description={replayCheckNote(replayCheck)}
+    >
       {body}
-    </section>
+      <PanelActions>
+        <GuardsChangesToggle teamId={teamId} set={set} />
+      </PanelActions>
+    </InsightsCard>
   );
 }

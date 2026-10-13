@@ -24,11 +24,9 @@ import { type NestedHeading, SPREAD } from '@/lib/nested-table';
 import {
   AGAINST_LIVE,
   AN_EARLIER_BASELINE,
-  EFFORT_NOT_HIGHER,
-  MODEL_NOT_OFFERED,
-  NO_HARNESS,
+  CLOSER_TO_ACCEPTED,
+  capitalised,
   type ReplayState,
-  SAME_AS_LIVE,
   THE_BASELINE,
   THE_SEARCH_START,
 } from '@/lib/replay-words';
@@ -128,9 +126,6 @@ export const baselineTotalsFor = (
 ): Replay['totals'] | null =>
   baseline && baseline.id !== replay.id ? baseline.totals : null;
 
-export const scoredShown = (totals: Replay['totals']): string =>
-  `${totals.scored} scored · ${totals.unscored} unscored`;
-
 export const spendOfCeiling = (spent: Spend, ceiling: Spend): string =>
   `${spentIn(spent.amount, spent.currency)} / ${spentIn(ceiling.amount, ceiling.currency)}`;
 
@@ -222,7 +217,7 @@ export const counterpartShown = (
   switch (candidate?.kind) {
     case 'searched':
       return THE_SEARCH_START;
-    case 'sanity':
+    case 'oracle':
       return AGAINST_LIVE;
     default:
       return AN_EARLIER_BASELINE;
@@ -352,69 +347,97 @@ export const taskTitleIn = (set: ReplaySet, taskId: string): string =>
 export const flippedTitles = (set: ReplaySet, noise: SetNoise): string[] =>
   noise.flippedTasks.map((taskId) => taskTitleIn(set, taskId));
 
-export type StationLive = {
-  readonly harness: string | null;
-  readonly model: string | null;
-  readonly effort: string | null;
-};
-
-export const strongerRefusal = (
-  set: ReplaySet,
-  live: StationLive | null,
-): string | null => startRefusal(set) ?? (live?.harness ? null : NO_HARNESS);
-
-export const strongerAsked = (
-  live: StationLive,
-  model: string,
-  effort: string,
-): { model?: string; effort?: string } | null => {
-  const asked = {
-    ...(model && model !== live.model ? { model } : {}),
-    ...(effort && effort !== live.effort ? { effort } : {}),
-  };
-
-  return Object.keys(asked).length > 0 ? asked : null;
-};
-
-export type HarnessOffer = {
-  readonly models: readonly string[];
-  readonly efforts: readonly string[];
-};
-
-export const higherEffortsThan = (
-  effort: string | null,
-  offer: HarnessOffer,
-): string[] =>
-  offer.efforts.slice(
-    (effort === null ? 0 : offer.efforts.indexOf(effort)) + 1,
-  );
-
-export const strongerProblem = (
-  live: StationLive,
-  model: string,
-  effort: string,
-  offer: HarnessOffer,
-): string | null => {
-  const asked = strongerAsked(live, model, effort);
-
-  if (!asked) {
-    return SAME_AS_LIVE;
-  }
-  if (asked.model && !offer.models.includes(asked.model)) {
-    return MODEL_NOT_OFFERED;
-  }
-  if (
-    asked.effort &&
-    !higherEffortsThan(live.effort, offer).includes(asked.effort)
-  ) {
-    return EFFORT_NOT_HIGHER;
-  }
-
-  return null;
-};
-
 export const REPLAY_SET_HEADINGS: readonly NestedHeading[] = [
   { label: 'Set', indent: 'edge', size: 'minmax(10rem,2fr)' },
   { label: 'Runs', numeric: true, size: SPREAD },
   { label: 'Latest replay', size: 'minmax(12rem,3fr)' },
 ];
+
+export const SET_REPLAY_HEADINGS: readonly NestedHeading[] = [
+  { label: 'Config', indent: 'edge', size: 'minmax(10rem,2fr)' },
+  { label: 'State', size: SPREAD },
+  { label: 'Success', numeric: true, size: SPREAD },
+  { label: 'Gain', numeric: true, size: SPREAD },
+  { label: 'Spent', numeric: true, size: SPREAD },
+  { label: 'Started', numeric: true, size: SPREAD },
+];
+
+export const SET_HEALTH_HEADINGS: readonly NestedHeading[] = [
+  { label: 'Reading', indent: 'edge', size: 'minmax(10rem,1fr)' },
+  { label: 'Result', size: 'minmax(12rem,3fr)' },
+];
+
+export const SET_RUN_HEADINGS: readonly NestedHeading[] = [
+  { label: 'Run', indent: 'edge', size: 'minmax(10rem,3fr)' },
+  { label: 'State', size: SPREAD },
+  { label: 'Ended', numeric: true, size: SPREAD },
+];
+
+export const SET_CHECK_HEADINGS: readonly NestedHeading[] = [
+  { label: 'Change', indent: 'edge', size: 'minmax(7rem,2fr)' },
+  { label: 'Verdict', size: 'minmax(6rem,2fr)' },
+  { label: 'Regressions', numeric: true, size: SPREAD },
+  { label: 'When', numeric: true, size: SPREAD },
+];
+
+export type TaskColumns = {
+  readonly compared: boolean;
+  readonly judged: boolean;
+  readonly paired: boolean;
+  readonly counterpart: string;
+};
+
+export const taskColumnsOf = (replay: ReplayDetail): TaskColumns => ({
+  compared: replay.comparison.some((each) => each.baseline.length > 0),
+  judged: replay.comparison.some((each) =>
+    [...each.candidate, ...each.baseline].some((entry) => entry.judge),
+  ),
+  paired: replay.comparison.some((each) => each.pair !== null),
+  counterpart: replay.comparedWithReplayId
+    ? counterpartShown(
+        replay.comparedWithReplayId,
+        replay.candidate,
+        replay.baselineReplayId,
+      )
+    : THE_BASELINE,
+});
+
+export const taskHeadingsOf = (
+  columns: TaskColumns,
+): readonly NestedHeading[] => [
+  { label: 'Task', indent: 'edge', size: 'minmax(10rem,3fr)' },
+  {
+    label: columns.compared ? 'This replay' : 'Result',
+    size: SPREAD,
+  },
+  ...(columns.compared
+    ? [{ label: capitalised(columns.counterpart), size: SPREAD }]
+    : []),
+  ...(columns.judged ? [{ label: 'Judge', numeric: true, size: SPREAD }] : []),
+  ...(columns.paired
+    ? [
+        {
+          label: 'Closer',
+          note: `${CLOSER_TO_ACCEPTED}, as a blind judge saw it`,
+          size: SPREAD,
+        },
+      ]
+    : []),
+  {
+    label: columns.compared ? 'Cost change' : 'Cost',
+    numeric: true,
+    size: SPREAD,
+  },
+  {
+    label: columns.compared ? 'Time change' : 'Time',
+    numeric: true,
+    size: SPREAD,
+  },
+];
+
+export const RESULT_INK: Record<ReplayEntry['result'], string> = {
+  pending: 'text-muted-foreground',
+  succeeded: 'text-emerald-600 dark:text-emerald-400',
+  failed: 'text-destructive',
+  unscored: 'text-muted-foreground',
+};

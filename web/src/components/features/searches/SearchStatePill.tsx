@@ -1,44 +1,23 @@
+import { Noted } from '@/components/shared/Noted';
 import { Pill } from '@/components/shared/Pill';
-import { ongoing } from '@/lib/search';
 import {
+  endingMarkShown,
   endingShown,
   type SearchEnding,
-  type SearchState,
-  searchStateShown,
 } from '@/lib/search-words';
-import { cn } from '@/lib/utils';
 
-type SearchStatePillProps = {
-  state: SearchState;
-  ending: SearchEnding | null;
-  className?: string;
-};
+export function SearchStatePill({ ending }: { ending: SearchEnding | null }) {
+  const mark = endingMarkShown(ending);
 
-export function SearchStatePill({
-  state,
-  ending,
-  className,
-}: SearchStatePillProps) {
-  const moving = ongoing(state);
+  if (!ending || !mark) {
+    return null;
+  }
 
   return (
-    <Pill
-      className={cn(
-        moving ? 'text-foreground' : 'text-muted-foreground',
-        className,
-      )}
-      lead={
-        moving ? (
-          <span
-            aria-hidden
-            className="size-1.5 animate-pulse rounded-full bg-current"
-          />
-        ) : undefined
-      }
-    >
-      <span title={ending ? endingShown(ending) : undefined}>
-        {searchStateShown(state)}
+    <Noted note={`${endingShown(ending)}.`}>
+      <span className="flex">
+        <Pill>{mark}</Pill>
       </span>
-    </Pill>
+    </Noted>
   );
 }

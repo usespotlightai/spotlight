@@ -25,7 +25,11 @@ import {
   replayPath,
   USUAL_CURRENCY,
 } from '@/lib/replay';
-import { baselineNoteShown, REPEATS_HINT } from '@/lib/replay-words';
+import {
+  baselineNoteShown,
+  checksSetOf,
+  REPEATS_HINT,
+} from '@/lib/replay-words';
 import { useForwardTrail } from '@/lib/trail';
 
 const LABEL = 'font-medium text-foreground text-xs';
@@ -150,6 +154,7 @@ export function StartReplayDialog({
                   candidate !== LIVE,
                   baseline?.repeats ?? null,
                   typeof repeats === 'number' ? repeats : null,
+                  checksSetOf(set),
                 )}
               </>
             }

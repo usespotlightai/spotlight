@@ -1,4 +1,4 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty } from '@nestjs/swagger';
 import type {
   CandidateDto,
   CheckConsistencyDto,
@@ -17,6 +17,7 @@ import type {
   GainReadingDto,
   JudgeConsistencyDto,
   ModelSpentDto,
+  OracleReadingDto,
   PairTallyDto,
   RateIntervalDto,
   ReplayDetailDto,
@@ -25,12 +26,10 @@ import type {
   ReplayOfRunDto,
   ReplaySearchDto,
   ReplayTotalsDto,
-  SanityReadingDto,
   SetHealthDto,
   SetNoiseDto,
   SetSaturationDto,
   SpendDto,
-  WorseTaskDto,
 } from '@replays/application/dto/replays.dto';
 import { GAIN_VERDICTS } from '@replays/domain/services/gain-reading';
 import { SCORES_UNCOMPARED } from '@replays/domain/services/replay-results';
@@ -322,41 +321,15 @@ export class CheckConsistencyResponseDto {
   }
 }
 
-export class WorseTaskResponseDto {
-  @ApiProperty()
-  readonly taskId: string;
-
-  @ApiProperty()
-  readonly originalRunId: string;
-
-  @ApiProperty({ description: 'The live config’s success on the task' })
-  readonly live: number;
-
-  @ApiProperty({ description: 'The stronger config’s success on the task' })
-  readonly stronger: number;
-
-  constructor(worse: WorseTaskDto) {
-    this.taskId = worse.taskId;
-    this.originalRunId = worse.originalRunId;
-    this.live = worse.live;
-    this.stronger = worse.stronger;
-  }
-}
-
-export class SanityReadingResponseDto {
+export class OracleReadingResponseDto {
   @ApiProperty({
-    description: 'The newest replay of the live config with a stronger model',
+    description:
+      'The newest replay of the live config handed each run’s answer: the change people accepted, or what they said when they sent it back',
   })
   readonly replayId: string;
 
   @ApiProperty()
   readonly candidateId: string;
-
-  @ApiProperty({ nullable: true, type: String })
-  readonly model: string | null;
-
-  @ApiProperty({ nullable: true, type: String })
-  readonly effort: string | null;
 
   @ApiProperty()
   readonly repeats: number;
@@ -368,7 +341,7 @@ export class SanityReadingResponseDto {
     nullable: true,
     type: String,
     description:
-      'The replay of the live config, run at least as often, it is compared with, chosen when it started',
+      'The replay of the live config it is compared with: the one whose finishing started it',
   })
   readonly againstReplayId: string | null;
 
@@ -377,36 +350,58 @@ export class SanityReadingResponseDto {
     enum: [...REPLAY_STATES, 'gone', null],
     type: String,
     description:
-      'How the replay it is compared with stands: finished once they can be compared; stopped, over-budget or gone means they never will be, so start another',
+      'How the replay it is compared with stands: finished once they can be compared; stopped, over-budget or gone means they never will be',
   })
   readonly againstState: string | null;
 
-  @ApiProperty({ nullable: true, type: GainReadingResponseDto })
+  @ApiProperty({
+    description:
+      'Runs it replayed: those the live replay replayed whose original was accepted with a change, or sent back with something a person said. Others have no answer to hand over',
+  })
+  readonly answered: number;
+
+  @ApiProperty({
+    nullable: true,
+    type: Number,
+    description: 'The live config’s success on those runs; null until compared',
+  })
+  readonly live: number | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: Number,
+    description: 'Success on those runs with the answer; null until compared',
+  })
+  readonly withAnswer: number | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: GainReadingResponseDto,
+    description:
+      'The gain the answer brings over the live config: the most a better harness could gain on these runs',
+  })
   readonly gain: GainReadingResponseDto | null;
 
   @ApiProperty({
     nullable: true,
     type: Boolean,
     description:
-      'The stronger config did clearly better; false means the set does not reward a stronger model, so its tasks may be unclear or its scoring off; null until compared',
+      'The answer did clearly better; false means the set leaves no room a better config could show, so a search on it would find little; null until compared, or when fewer than 5 runs had an answer',
   })
-  readonly rewardsStrongerModel: boolean | null;
+  readonly roomToImprove: boolean | null;
 
-  @ApiProperty({ type: WorseTaskResponseDto, isArray: true })
-  readonly worse: WorseTaskResponseDto[];
-
-  constructor(sanity: SanityReadingDto) {
-    this.replayId = sanity.replayId;
-    this.candidateId = sanity.candidateId;
-    this.model = sanity.model;
-    this.effort = sanity.effort;
-    this.repeats = sanity.repeats;
-    this.state = sanity.state;
-    this.againstReplayId = sanity.againstReplayId;
-    this.againstState = sanity.againstState;
-    this.gain = gainResponse(sanity.gain);
-    this.rewardsStrongerModel = sanity.rewardsStrongerModel;
-    this.worse = sanity.worse.map((each) => new WorseTaskResponseDto(each));
+  constructor(oracle: OracleReadingDto) {
+    this.replayId = oracle.replayId;
+    this.candidateId = oracle.candidateId;
+    this.repeats = oracle.repeats;
+    this.state = oracle.state;
+    this.againstReplayId = oracle.againstReplayId;
+    this.againstState = oracle.againstState;
+    this.answered = oracle.answered;
+    this.live = oracle.live;
+    this.withAnswer = oracle.withAnswer;
+    this.gain = gainResponse(oracle.gain);
+    this.roomToImprove = oracle.roomToImprove;
   }
 }
 
@@ -445,11 +440,11 @@ export class SetHealthResponseDto {
 
   @ApiProperty({
     nullable: true,
-    type: SanityReadingResponseDto,
+    type: OracleReadingResponseDto,
     description:
-      'Whether a stronger model or higher effort does better on the set; null until one was replayed',
+      'How much better the live config does when handed each run’s answer. Started by Spotlight after each replay of the whole set under the live config; null until one started',
   })
-  readonly sanity: SanityReadingResponseDto | null;
+  readonly oracle: OracleReadingResponseDto | null;
 
   constructor(health: SetHealthDto) {
     this.noise = health.noise ? new SetNoiseResponseDto(health.noise) : null;
@@ -462,8 +457,8 @@ export class SetHealthResponseDto {
     this.checks = health.checks
       ? new CheckConsistencyResponseDto(health.checks)
       : null;
-    this.sanity = health.sanity
-      ? new SanityReadingResponseDto(health.sanity)
+    this.oracle = health.oracle
+      ? new OracleReadingResponseDto(health.oracle)
       : null;
   }
 }
@@ -1565,89 +1560,6 @@ export class StartReplayRequestDto {
       'How many times to replay each run, 1 when left out; more copies measure the set’s noise and narrow the intervals',
   })
   readonly repeats?: number;
-}
-
-export class ProbeReplaySetRequestDto {
-  @ApiProperty({ type: StartReplayCeilingRequestDto })
-  readonly ceiling!: StartReplayCeilingRequestDto;
-}
-
-export class StartSanityReplayRequestDto {
-  @ApiPropertyOptional({
-    example: 'opus',
-    description:
-      'The stronger model to replay the set under, one its harness offers; the live config’s when left out',
-  })
-  readonly model?: string;
-
-  @ApiPropertyOptional({
-    example: 'high',
-    description:
-      'The higher effort to replay the set at; the live config’s when left out. Name a model, an effort, or both',
-  })
-  readonly effort?: string;
-
-  @ApiProperty({ type: StartReplayCeilingRequestDto })
-  readonly ceiling!: StartReplayCeilingRequestDto;
-
-  @ApiPropertyOptional({
-    example: 1,
-    minimum: 1,
-    maximum: MOST_REPEATS,
-    description: 'How many times to replay each run, 1 when left out',
-  })
-  readonly repeats?: number;
-}
-
-export class SanityComparisonResponseDto {
-  @ApiProperty()
-  readonly id: string;
-
-  @ApiProperty({ type: SpendResponseDto })
-  readonly ceiling: SpendResponseDto;
-
-  constructor(comparison: { readonly id: string; readonly ceiling: SpendDto }) {
-    this.id = comparison.id;
-    this.ceiling = new SpendResponseDto(comparison.ceiling);
-  }
-}
-
-export class SanityReplayStartedResponseDto {
-  @ApiProperty()
-  readonly id: string;
-
-  @ApiProperty({
-    description: 'The stronger config it replays: the live one, but stronger',
-  })
-  readonly candidateId: string;
-
-  @ApiProperty({ type: SpendResponseDto })
-  readonly ceiling: SpendResponseDto;
-
-  @ApiProperty({
-    nullable: true,
-    type: SanityComparisonResponseDto,
-    description:
-      'A replay of the live config, run as often, started beside it to compare with when the set had none, under a ceiling of its own equal to the one asked for',
-  })
-  readonly comparison: SanityComparisonResponseDto | null;
-
-  constructor(started: {
-    readonly id: string;
-    readonly candidateId: string;
-    readonly ceiling: SpendDto;
-    readonly comparison: {
-      readonly id: string;
-      readonly ceiling: SpendDto;
-    } | null;
-  }) {
-    this.id = started.id;
-    this.candidateId = started.candidateId;
-    this.ceiling = new SpendResponseDto(started.ceiling);
-    this.comparison = started.comparison
-      ? new SanityComparisonResponseDto(started.comparison)
-      : null;
-  }
 }
 
 export class StartedBaselineResponseDto {

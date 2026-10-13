@@ -63,7 +63,6 @@ import { RemoveReplaySetEntryHandler } from '@replays/application/commands/handl
 import { RenameReplaySetHandler } from '@replays/application/commands/handlers/rename-replay-set.handler';
 import { StartReplayHandler } from '@replays/application/commands/handlers/start-replay.handler';
 import { StartReplayCheckHandler } from '@replays/application/commands/handlers/start-replay-check.handler';
-import { StartSanityReplayHandler } from '@replays/application/commands/handlers/start-sanity-replay.handler';
 import { StartSearchHandler } from '@replays/application/commands/handlers/start-search.handler';
 import { StopReplayHandler } from '@replays/application/commands/handlers/stop-replay.handler';
 import { StopSearchHandler } from '@replays/application/commands/handlers/stop-search.handler';
@@ -77,7 +76,6 @@ import { RemoveReplaySetEntryCommand } from '@replays/application/commands/remov
 import { RenameReplaySetCommand } from '@replays/application/commands/rename-replay-set.command';
 import { StartReplayCommand } from '@replays/application/commands/start-replay.command';
 import { StartReplayCheckCommand } from '@replays/application/commands/start-replay-check.command';
-import { StartSanityReplayCommand } from '@replays/application/commands/start-sanity-replay.command';
 import { StartSearchCommand } from '@replays/application/commands/start-search.command';
 import { StopReplayCommand } from '@replays/application/commands/stop-replay.command';
 import { StopSearchCommand } from '@replays/application/commands/stop-search.command';
@@ -178,6 +176,7 @@ import { SearchSights } from '@replays/application/services/search-sights.servic
 import { SearchSummaries } from '@replays/application/services/search-summaries.service';
 import { SetHealths } from '@replays/application/services/set-healths.service';
 import { SetStations } from '@replays/application/services/set-stations.service';
+import { StartOracleReplay } from '@replays/application/services/start-oracle-replay.service';
 import { StartWantedBaseline } from '@replays/application/services/start-wanted-baseline.service';
 import { REPLAYS_EVENT_TYPES } from '@replays/domain/event-types';
 import { ChangeReview } from '@replays/infrastructure/acl/change-review.adapter';
@@ -222,10 +221,6 @@ import {
   TRANSACTION,
   type TransactionPort,
 } from '@shared-kernel/application/ports/transaction.port';
-import {
-  HARNESS_OFFERS,
-  type HarnessOffersPort,
-} from '@work/application/ports/harness-offers.port';
 import {
   NOTICES,
   type NoticesPort,
@@ -332,7 +327,6 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       STARTING_POINT_HOLDS,
       SEARCH_DISPATCH,
       SEARCH_RUNS,
-      HARNESS_OFFERS,
     ],
     useFactory: (
       runs: ReplayableRunsPort,
@@ -341,17 +335,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       holds: StartingPointHoldsPort,
       searching: SearchDispatchPort,
       searchRuns: SearchRunsPort,
-      offers: HarnessOffersPort,
-    ) =>
-      new Work(
-        runs,
-        candidates,
-        dispatching,
-        holds,
-        searching,
-        searchRuns,
-        offers,
-      ),
+    ) => new Work(runs, candidates, dispatching, holds, searching, searchRuns),
   },
   {
     provide: CHANGE_REVIEW,
@@ -459,19 +443,6 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
   ]),
   ...bindCommandHandler(StartReplayCommand, StartReplayHandler, [
     ReplaysAccess,
-    LiveSnapshots,
-    DrizzleCandidateRepository,
-    DrizzleReplaySetRepository,
-    DrizzleReplayRepository,
-    ID_GENERATOR,
-    CLOCK,
-    TRANSACTION,
-    SetStations,
-  ]),
-  ...bindCommandHandler(StartSanityReplayCommand, StartSanityReplayHandler, [
-    ReplaysAccess,
-    PEOPLE,
-    WORK,
     LiveSnapshots,
     DrizzleCandidateRepository,
     DrizzleReplaySetRepository,
@@ -1132,6 +1103,39 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
     ) => new StartWantedBaseline(sets, replays, candidates, clock, transaction),
   },
   {
+    provide: StartOracleReplay,
+    inject: [
+      DrizzleReplaySetRepository,
+      DrizzleReplayRepository,
+      DrizzleCandidateRepository,
+      WORK,
+      OUTCOMES,
+      ID_GENERATOR,
+      CLOCK,
+      TRANSACTION,
+    ],
+    useFactory: (
+      sets: DrizzleReplaySetRepository,
+      replays: DrizzleReplayRepository,
+      candidates: DrizzleCandidateRepository,
+      work: WorkPort,
+      outcomes: OutcomesPort,
+      ids: IdGeneratorPort,
+      clock: ClockPort,
+      transaction: TransactionPort,
+    ) =>
+      new StartOracleReplay(
+        sets,
+        replays,
+        candidates,
+        work,
+        outcomes,
+        ids,
+        clock,
+        transaction,
+      ),
+  },
+  {
     provide: LiveSnapshots,
     inject: [
       PEOPLE,
@@ -1173,13 +1177,30 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
   },
   {
     provide: NoteLineRedefined,
-    inject: [DrizzleReplaySetRepository, WORK, TRANSACTION, CLOCK],
+    inject: [
+      DrizzleReplaySetRepository,
+      DrizzleReplayRepository,
+      DrizzleCandidateRepository,
+      WORK,
+      TRANSACTION,
+      CLOCK,
+    ],
     useFactory: (
       sets: DrizzleReplaySetRepository,
+      replays: DrizzleReplayRepository,
+      candidates: DrizzleCandidateRepository,
       work: WorkPort,
       transaction: TransactionPort,
       clock: ClockPort,
-    ) => new NoteLineRedefined(sets, work, transaction, clock),
+    ) =>
+      new NoteLineRedefined(
+        sets,
+        replays,
+        candidates,
+        work,
+        transaction,
+        clock,
+      ),
   },
   {
     provide: REPLAYS_EVENTS,
@@ -1202,6 +1223,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       AbandonReplays,
       NoteLineRedefined,
       StartWantedBaseline,
+      StartOracleReplay,
       NoteSearchProgress,
       DispatchSearchIteration,
       HoldOutSearch,
@@ -1230,6 +1252,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       abandoning: AbandonReplays,
       redefining: NoteLineRedefined,
       baselines: StartWantedBaseline,
+      oracles: StartOracleReplay,
       searching: NoteSearchProgress,
       iterating: DispatchSearchIteration,
       holdingOut: HoldOutSearch,
@@ -1258,6 +1281,7 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
           abandoning,
           redefining,
           baselines,
+          oracles,
           searching,
           iterating,
           holdingOut,

@@ -1,14 +1,7 @@
 import { TrailLink } from '@/components/shell/layout/TrailLink';
-import type { ReplayEntry } from '@/lib/replay';
+import { RESULT_INK, type ReplayEntry } from '@/lib/replay';
 import { reasonShown, resultShown } from '@/lib/replay-words';
 import { cn } from '@/lib/utils';
-
-const INK: Record<ReplayEntry['result'], string> = {
-  pending: 'text-muted-foreground',
-  succeeded: 'text-emerald-600 dark:text-emerald-400',
-  failed: 'text-destructive',
-  unscored: 'text-muted-foreground',
-};
 
 type EntryResultProps = {
   entry: ReplayEntry;
@@ -26,7 +19,7 @@ export function EntryResult({
   return (
     <span data-slot="entry-result" className="flex min-w-0 flex-col">
       <span className="flex items-center gap-1.5">
-        <span className={cn('font-medium', INK[entry.result])}>
+        <span className={cn('font-medium', RESULT_INK[entry.result])}>
           {resultShown(entry.result)}
         </span>
         {runTo && (

@@ -1,5 +1,6 @@
 import { StartSearchControl } from '@/components/features/searches/station/StartSearchControl';
 import { StationSearchList } from '@/components/features/searches/station/StationSearchList';
+import { PanelActions } from '@/components/shared/PanelActions';
 import { useSearchStart } from '@/hooks/useSearchStart';
 import type { ReplayedStation } from '@/lib/replay';
 
@@ -15,9 +16,7 @@ export function StationSearches({ at }: { at: ReplayedStation }) {
         sets={sets.data}
         start={start}
       />
-      {(searches.data ?? []).length > 0 && (
-        <div className="mt-auto flex justify-start pt-3">{start}</div>
-      )}
+      {(searches.data ?? []).length > 0 && <PanelActions>{start}</PanelActions>}
     </>
   );
 }

@@ -1,6 +1,6 @@
 import { InvalidSpendError } from '@replays/domain/exceptions/invalid-spend.error';
 
-const MOST_CEILING = 1_000;
+export const MOST_CEILING = 1_000;
 
 const countedIn = (currency: string): string => {
   const counted = currency.trim().toUpperCase();
@@ -69,6 +69,14 @@ export class Spend {
     }
 
     return new Spend(Math.floor((this.micros * parts) / of), this.currency);
+  }
+
+  scaledCeiling(parts: number, of: number): Spend {
+    const scaled = this.scaled(parts, of);
+
+    return scaled.amount > MOST_CEILING
+      ? Spend.ceiling(MOST_CEILING, this.currency)
+      : scaled;
   }
 
   isWithin(ceiling: Spend): boolean {

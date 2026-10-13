@@ -82,6 +82,12 @@ export function EntryDetail({
         <h2 className="min-w-0 flex-1 truncate font-medium text-foreground text-sm">
           {titleShown(row.title)}
         </h2>
+        <TrailLink
+          to={runPath(slug, teamId, row.originalRunId)}
+          className={LINK}
+        >
+          Original run
+        </TrailLink>
         <button
           type="button"
           onClick={onClose}

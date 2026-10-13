@@ -14,7 +14,7 @@ type ImproveCardSkeletonProps = {
 export function ImproveCardSkeleton({
   label,
   rows,
-  rowHeight = 33,
+  rowHeight = 41,
   footer = false,
 }: ImproveCardSkeletonProps) {
   return (

@@ -22,11 +22,7 @@ export function ReviewCommentState({
       : TOLD[comment.state];
 
   const className = cn(
-    'shrink-0 rounded-full border-[0.5px] px-1.5 py-px text-[10px] leading-4',
-    comment.state === 'draft' &&
-      'border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-300',
-    comment.state === 'sending' && 'border-border text-muted-foreground',
-    comment.state === 'posted' && 'border-border text-muted-foreground',
+    'flex shrink-0 items-center rounded-full border border-border bg-card px-1.5 py-0 font-medium text-muted-foreground text-xs',
     comment.state === 'failed' &&
       'border-destructive/40 bg-destructive/10 text-destructive',
   );
@@ -39,11 +35,11 @@ export function ReviewCommentState({
         rel="noreferrer"
         className={cn(
           className,
-          'flex items-center gap-1 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/70',
+          'gap-1 outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/70',
         )}
       >
         {told}
-        <ExternalLink className="size-2.5" aria-hidden />
+        <ExternalLink className="size-3" aria-hidden />
       </a>
     );
   }

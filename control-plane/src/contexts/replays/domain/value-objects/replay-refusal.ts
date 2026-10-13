@@ -7,6 +7,7 @@ export const REPLAY_REFUSALS = [
   'no-briefing',
   'archive-gone',
   'attachments-gone',
+  'answer-gone',
   'repository-gone',
   'not-at-the-station',
   'candidate-unfit',

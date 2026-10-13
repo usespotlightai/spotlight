@@ -4,14 +4,11 @@ import type {
   ConfigPullRequestResponseDto,
   EstimateSearchRequestDto,
   OpenReplaySetRequestDto,
-  ProbeReplaySetRequestDto,
   RenameReplaySetRequestDto,
   ReplayStartedResponseDto,
-  SanityReplayStartedResponseDto,
   SearchEstimateResponseDto,
   SearchStartedResponseDto,
   StartReplayRequestDto,
-  StartSanityReplayRequestDto,
   StartSearchRequestDto,
 } from '@/lib/api';
 import { api, json, noContent, notFound, problem } from '@/mocks/http';
@@ -23,7 +20,6 @@ import { stationOf, stationOutcomes } from '@/mocks/world/station-outcomes';
 import { replayOfRun, replayRun } from '@/mocks/world/station-replay-runs';
 import {
   baselineOfSet,
-  CANDIDATES,
   listedReplays,
   liveCandidateOf,
   type Mark,
@@ -496,28 +492,6 @@ export const stationHandlers: RequestHandler[] = [
     return noContent();
   }),
 
-  api.post(`${SET}/probes`, async ({ params, request }) => {
-    const setId = param(params, 'setId');
-    const { ceiling } = (await request.json()) as ProbeReplaySetRequestDto;
-    const set = setOn(params);
-
-    if (!set) {
-      return notFound();
-    }
-
-    const runs = set.entries.slice(0, 2).map((each) => each.runId);
-    const replay = startOn(setId, liveCandidateOf(set.stationId), {
-      id: uniqueId('replay_probe', (id) => Boolean(replaySpec(id))),
-      runs,
-      marks: startingMarks(runs.length),
-      probe: true,
-      startedAsBaseline: false,
-      ceiling,
-    });
-
-    return json<ReplayStartedResponseDto>(started(replay), 201);
-  }),
-
   api.get(`${SET}/replay-checks`, ({ params, request }) => {
     const query = new URL(request.url).searchParams;
     const set = setOn(params);
@@ -552,43 +526,6 @@ export const stationHandlers: RequestHandler[] = [
     const replay = startOn(setId, candidate, { ceiling: body.ceiling });
 
     return json<ReplayStartedResponseDto>(started(replay), 201);
-  }),
-
-  api.post(`${SET}/sanity-replays`, async ({ params, request }) => {
-    const setId = param(params, 'setId');
-    const body = (await request.json()) as StartSanityReplayRequestDto;
-    const set = setOn(params);
-
-    if (!set) {
-      return notFound();
-    }
-
-    const model = body.model ?? 'opus';
-    const effort = body.effort ?? 'max';
-    const candidate: CandidateResponseDto = {
-      id: uniqueId(`candidate_sanity_${slugOf(model)}`, (id) =>
-        replayStore().some((each) => each.candidate.id === id),
-      ),
-      name: `${model}, ${effort} effort`,
-      kind: 'sanity',
-      fingerprint: CANDIDATES.opus.fingerprint,
-      station: liveCandidateOf(set.stationId).station,
-      createdAt: new Date().toISOString(),
-    };
-    const replay = startOn(setId, candidate, {
-      agent: { model, effort },
-      ceiling: body.ceiling,
-    });
-
-    return json<SanityReplayStartedResponseDto>(
-      {
-        id: replay.id,
-        candidateId: candidate.id,
-        ceiling: replay.ceiling,
-        comparison: null,
-      },
-      201,
-    );
   }),
 
   api.get(`${SET}/suggestions`, ({ params }) => {

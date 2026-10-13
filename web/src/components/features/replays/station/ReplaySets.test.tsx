@@ -56,7 +56,7 @@ const SET: ReplaySet = {
     saturation: null,
     judge: null,
     checks: null,
-    sanity: null,
+    oracle: null,
   },
   minGain: 0.05,
   composition: {

@@ -456,7 +456,8 @@ describe('StartReplayCheckHandler', () => {
       candidate: {
         id: old.id,
         isLive: true,
-        isSanity: false,
+        isOracle: false,
+        basedOn: old.basedOn,
         judges: false,
         checksChanges: true,
         rubricVersion: null,
