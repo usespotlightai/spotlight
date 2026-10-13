@@ -74,5 +74,9 @@ attached to this repository's release for the tag.
 
 ## Running Spotlight
 
-How hosts, runners, egress, runner images and harness profiles work, and how
-to configure a control plane you run yourself, is in the Spotlight docs.
+How to run Spotlight yourself is in the docs ([usespotlightai/docs](https://github.com/usespotlightai/docs)):
+
+- **Self-hosted Spotlight settings** (`reference/self-hosted-settings`): the control plane's environment variables, the S3 bucket and mail.
+- **Host settings**, **Egress** and **Inside a sandbox** (`reference/hosts/`): hosts, runners and how a sandbox reaches the outside.
+- **Run a line in your own image** (`hosts/run-a-line-in-your-own-image`): runner images.
+- **Harness profile** (`reference/terraform/harness-profile`): what a team's agents may do.
