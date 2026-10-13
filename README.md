@@ -1,4 +1,4 @@
-![Spotlight: Agents write the code. Build a software factory you actually own.](.github/assets/og.png)
+![Spotlight: The agents are rented. But the factory is yours to build.](.github/assets/og.png)
 
 <div align="center">
   <h3>
