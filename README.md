@@ -2,10 +2,16 @@
 
 <div align="center">
   <h3>
-    <a href="https://usespotlight.ai"><strong>Website</strong></a> ·
-    <a href="https://app.usespotlight.ai"><strong>Sign in</strong></a> ·
-    <a href="CONTRIBUTING.md"><strong>Contributing</strong></a>
+    <a href="https://app.usespotlight.ai"><strong>Spotlight Cloud</strong></a> ·
+    <a href="https://docs.usespotlight.ai"><strong>Docs</strong></a> ·
+    <a href="https://docs.usespotlight.ai/docs/getting-started/start-guide"><strong>Getting Started</strong></a>
   </h3>
+</div>
+<div align="center">
+  <a href="https://github.com/usespotlightai/spotlight/issues/new?labels=bug"><strong>Report Bug</strong></a> ·
+  <a href="https://github.com/usespotlightai/spotlight/discussions/new?category=ideas"><strong>Feature Request</strong></a> ·
+  <a href="https://github.com/usespotlightai/spotlight/releases"><strong>Changelog</strong></a> ·
+  <a href="https://docs.usespotlight.ai/docs/reference/roadmap"><strong>Roadmap</strong></a>
 </div>
 
 Spotlight turns your team's process into a line of stations, each run by its own agent. Tasks move from station to station, people step in where a decision is theirs, and every change to how the line works is measured against the runs it affects.
