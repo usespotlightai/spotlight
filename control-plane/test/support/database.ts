@@ -4,7 +4,12 @@ import { join } from 'node:path';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Client, Pool } from 'pg';
-import { databaseNamed, E2E_DATABASE, E2E_TEMPLATE } from './e2e-database-url';
+import {
+  databaseNamed,
+  E2E_DATABASE,
+  E2E_POOLER,
+  E2E_TEMPLATE,
+} from './e2e-database-url';
 
 export interface TestDatabase {
   readonly db: DrizzleDatabase;
@@ -45,7 +50,7 @@ export const clonedDatabase = async (about: string): Promise<string> => {
 
   await asAdmin(`CREATE DATABASE "${database}" TEMPLATE "${E2E_TEMPLATE}"`);
 
-  return databaseNamed(process.env.DATABASE_URL ?? '', database);
+  return databaseNamed(E2E_POOLER ?? process.env.DATABASE_URL ?? '', database);
 };
 
 export const droppedDatabase = (url: string): Promise<void> =>

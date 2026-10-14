@@ -4,10 +4,13 @@ import { ConfigModule } from '@platform/config/config.module';
 import {
   createDatabase,
   createPool,
+  createReadPool,
 } from '@platform/persistence/drizzle/drizzle.client';
 import {
   DRIZZLE,
   PG_POOL,
+  READ_DRIZZLE,
+  READ_PG_POOL,
 } from '@platform/persistence/drizzle/drizzle.constants';
 import type { Pool } from 'pg';
 
@@ -16,14 +19,29 @@ import type { Pool } from 'pg';
   providers: [
     { provide: PG_POOL, useFactory: createPool, inject: [ENV] },
     { provide: DRIZZLE, useFactory: createDatabase, inject: [PG_POOL] },
+    {
+      provide: READ_PG_POOL,
+      useFactory: createReadPool,
+      inject: [ENV, PG_POOL],
+    },
+    {
+      provide: READ_DRIZZLE,
+      useFactory: createDatabase,
+      inject: [READ_PG_POOL],
+    },
   ],
-  exports: [DRIZZLE, PG_POOL],
+  exports: [DRIZZLE, PG_POOL, READ_DRIZZLE],
 })
 export class DrizzleModule implements OnApplicationShutdown {
-  constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
+  constructor(
+    @Inject(PG_POOL) private readonly pool: Pool,
+    @Inject(READ_PG_POOL) private readonly readPool: Pool,
+  ) {}
 
   // On shutdown, not destroy: destroy hooks run while requests are still served.
   async onApplicationShutdown(): Promise<void> {
-    await this.pool.end();
+    await Promise.all(
+      [...new Set([this.pool, this.readPool])].map((each) => each.end()),
+    );
   }
 }

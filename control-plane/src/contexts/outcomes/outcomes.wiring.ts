@@ -28,6 +28,7 @@ import {
   GRADES,
   type GradesPort,
 } from '@outcomes/application/ports/grades.port';
+import { INSIGHTS_READER } from '@outcomes/application/ports/insights-reader.port';
 import { JUDGE, type JudgePort } from '@outcomes/application/ports/judge.port';
 import {
   JUDGE_STANDING,
@@ -45,6 +46,10 @@ import {
   type PeoplePort,
 } from '@outcomes/application/ports/people.port';
 import { RUN_ACCEPTANCE } from '@outcomes/application/ports/run-acceptance.port';
+import {
+  RUN_FACTS,
+  type RunFactsPort,
+} from '@outcomes/application/ports/run-facts.port';
 import { WORK, type WorkPort } from '@outcomes/application/ports/work.port';
 import { ListInsightsPullRequestsHandler } from '@outcomes/application/queries/handlers/list-insights-pull-requests.handler';
 import { ListInsightsRunsHandler } from '@outcomes/application/queries/handlers/list-insights-runs.handler';
@@ -84,6 +89,7 @@ import { AlertInbox } from '@outcomes/application/services/alert-inbox.service';
 import { AskChangeJudging } from '@outcomes/application/services/ask-change-judging.service';
 import { AskForJudging } from '@outcomes/application/services/ask-for-judging.service';
 import { AskPairJudging } from '@outcomes/application/services/ask-pair-judging.service';
+import { CheckRunFacts } from '@outcomes/application/services/check-run-facts.service';
 import { DropExpiredTombstones } from '@outcomes/application/services/drop-expired-tombstones.service';
 import { ForgetOutcomes } from '@outcomes/application/services/forget-outcomes.service';
 import { GradeAsides } from '@outcomes/application/services/grade-asides.service';
@@ -128,7 +134,9 @@ import { OpenRouterPairJudge } from '@outcomes/infrastructure/judging/openrouter
 import { DrizzleForgotten } from '@outcomes/infrastructure/persistence/drizzle/ledgers/forgotten.ledger';
 import { DrizzlePendingReviews } from '@outcomes/infrastructure/persistence/drizzle/ledgers/pending-reviews.ledger';
 import { DrizzleStationConfigPullRequests } from '@outcomes/infrastructure/persistence/drizzle/ledgers/station-config-pull-requests.ledger';
+import { DrizzleRunFactProjection } from '@outcomes/infrastructure/persistence/drizzle/projections/run-fact.projection';
 import { DrizzleFirstSeen } from '@outcomes/infrastructure/persistence/drizzle/readers/first-seen.reader';
+import { DrizzleInsightsReader } from '@outcomes/infrastructure/persistence/drizzle/readers/insights.reader';
 import { DrizzleChangeJudgingRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/change-judging.repository';
 import { DrizzleChatRecordRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/chat-record.repository';
 import { DrizzleJudgingRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/judging.repository';
@@ -246,6 +254,8 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
     useFactory: (env: Env) =>
       new OpenRouterPairJudge(env.OPENROUTER_API_KEY, env.JUDGE_MODEL),
   },
+  DrizzleRunFactProjection,
+  { provide: RUN_FACTS, useExisting: DrizzleRunFactProjection },
   DrizzleRunRecordRepository,
   DrizzlePairJudgingRepository,
   DrizzleTaskDeliveryRepository,
@@ -263,6 +273,8 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
   DrizzlePendingReviews,
   DrizzleStationConfigPullRequests,
   { provide: FIRST_SEEN, useExisting: DrizzleFirstSeen },
+  DrizzleInsightsReader,
+  { provide: INSIGHTS_READER, useExisting: DrizzleInsightsReader },
   {
     provide: StationJudgeReports,
     inject: [
@@ -408,6 +420,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
   ]),
   ...bindQueryHandler(ReadInsightsStationsQuery, ReadInsightsStationsHandler, [
     TeamHistories,
+    INSIGHTS_READER,
   ]),
   ...bindQueryHandler(ReadInsightsPeopleQuery, ReadInsightsPeopleHandler, [
     TeamHistories,
@@ -619,12 +632,19 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
       new DropExpiredTombstones(forgotten, clock),
   },
   {
+    provide: CheckRunFacts,
+    inject: [RUN_FACTS, CLOCK, LOGGER],
+    useFactory: (facts: RunFactsPort, clock: ClockPort, logger: LoggerPort) =>
+      new CheckRunFacts(facts, clock, logger),
+  },
+  {
     provide: OwedWorkWorker,
     inject: [
       WorkJudgings,
       WorkChangeJudgings,
       WorkPairJudgings,
       DropExpiredTombstones,
+      CheckRunFacts,
       LOGGER,
     ],
     useFactory: (
@@ -632,8 +652,10 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
       changes: WorkChangeJudgings,
       pairs: WorkPairJudgings,
       tombstones: DropExpiredTombstones,
+      facts: CheckRunFacts,
       logger: LoggerPort,
-    ) => new OwedWorkWorker([judgings, changes, pairs, tombstones], logger),
+    ) =>
+      new OwedWorkWorker([judgings, changes, pairs, tombstones, facts], logger),
   },
   {
     provide: RecordJudgeScore,

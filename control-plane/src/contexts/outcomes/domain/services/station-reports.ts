@@ -2,17 +2,22 @@ import type { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate
 import type { TaskDelivery } from '@outcomes/domain/aggregates/task-delivery.aggregate';
 import {
   failuresWithin,
+  type LocatedFailure,
+  mostRunsFirst,
   type RunFailureSummary,
   runFailureSummaries,
   type TaskFailureSummary,
   taskFailureSummaries,
 } from '@outcomes/domain/services/failure-summaries';
 import {
+  NO_RUNS,
   type RunTally,
   runTally,
   type TallyChanges,
+  type TallyCounts,
   type TallySeen,
   tallyChangesOf,
+  tallyOf,
   tallySeenOf,
 } from '@outcomes/domain/services/run-tally';
 import {
@@ -45,14 +50,100 @@ export interface StationReport extends StationPlace, TallyReport {
   readonly runFailures: readonly RunFailureSummary[];
 }
 
-const tallyReportOf = (
+export interface WindowCounts {
+  readonly current: TallyCounts;
+  readonly previous: TallyCounts;
+  readonly byDay: ReadonlyMap<string, TallyCounts>;
+}
+
+export interface StationCounts extends StationPlace, WindowCounts {
+  readonly runFailures: readonly RunFailureSummary[];
+}
+
+export interface FailingTask extends LocatedFailure {
+  readonly lineId: string | null;
+}
+
+export interface TeamCounts {
+  readonly team: WindowCounts;
+  readonly stations: readonly StationCounts[];
+  readonly failing: readonly FailingTask[];
+}
+
+const countsOf = (
+  records: readonly RunRecord[],
+  deliveries: readonly TaskDelivery[],
+): TallyCounts => {
+  const { failedShare, ...counts } = runTally(records, deliveries);
+
+  return counts;
+};
+
+const windowCountsOf = (
   current: readonly RunRecord[],
   previous: readonly RunRecord[],
-  days: readonly string[],
   deliveries: readonly TaskDelivery[],
+): WindowCounts => {
+  const byDay = new Map<string, RunRecord[]>();
+
+  for (const record of current) {
+    if (record.end) {
+      const day = dayOf(record.end.endedAt);
+      byDay.set(day, [...(byDay.get(day) ?? []), record]);
+    }
+  }
+
+  return {
+    current: countsOf(current, deliveries),
+    previous: countsOf(previous, deliveries),
+    byDay: new Map(
+      [...byDay].map(([day, records]) => [day, countsOf(records, deliveries)]),
+    ),
+  };
+};
+
+export const teamCountsOf = (
+  history: TeamHistory,
+  period: InsightsPeriod,
+): TeamCounts => {
+  const current = endedWithin(history.records, period.current);
+  const previous = endedWithin(history.records, period.previous);
+  const openings = openingsOf(history.touches);
+
+  return {
+    team: windowCountsOf(current, previous, history.deliveries),
+    stations: stationsOf(current).map((place) => {
+      const here = atStation(current, place.stationId);
+
+      return {
+        ...place,
+        ...windowCountsOf(
+          here,
+          atStation(previous, place.stationId),
+          history.deliveries,
+        ),
+        runFailures: runFailureSummaries(here),
+      };
+    }),
+    failing: failuresWithin(history.failures, period.current).map((each) => ({
+      ...each,
+      lineId: openings.get(each.taskId)?.opening?.lineId ?? null,
+    })),
+  };
+};
+
+const NO_STATION_COUNTS: WindowCounts = {
+  current: NO_RUNS,
+  previous: NO_RUNS,
+  byDay: new Map(),
+};
+
+const reportFrom = (
+  counts: WindowCounts,
+  days: readonly string[],
 ): TallyReport => {
-  const tally = runTally(current, deliveries);
-  const before = runTally(previous, deliveries);
+  const tally = tallyOf(counts.current);
+  const before = tallyOf(counts.previous);
 
   return {
     tally,
@@ -60,62 +151,46 @@ const tallyReportOf = (
     seen: tallySeenOf(tally, before),
     trend: days.map((day) => ({
       day,
-      tally: runTally(
-        current.filter((each) => each.end && dayOf(each.end.endedAt) === day),
-        deliveries,
-      ),
+      tally: tallyOf(counts.byDay.get(day) ?? NO_RUNS),
     })),
   };
 };
 
-export const teamReportOf = (
-  history: TeamHistory,
+export const teamReportFrom = (
+  counts: TeamCounts,
   period: InsightsPeriod,
-): TallyReport =>
-  tallyReportOf(
-    endedWithin(history.records, period.current),
-    endedWithin(history.records, period.previous),
-    period.days,
-    history.deliveries,
-  );
+): TallyReport => reportFrom(counts.team, period.days);
 
-export const stationReportsOf = (
-  history: TeamHistory,
+export const stationReportsFrom = (
+  counts: TeamCounts,
   period: InsightsPeriod,
 ): readonly StationReport[] => {
-  const current = endedWithin(history.records, period.current);
-  const previous = endedWithin(history.records, period.previous);
-  const failing = failuresWithin(history.failures, period.current);
-  const places = new Map(
-    stationsOf(current).map((each) => [each.stationId, each]),
+  const places = new Map<string, StationCounts>(
+    counts.stations.map((each) => [each.stationId, each]),
   );
 
-  const openings = openingsOf(history.touches);
-
-  for (const each of failing) {
+  for (const each of counts.failing) {
     const stationId = each.occurrence.stationId;
-    const lineId = openings.get(each.taskId)?.opening?.lineId;
 
-    if (!places.has(stationId) && lineId) {
-      places.set(stationId, { lineId, stationId });
+    if (!places.has(stationId) && each.lineId) {
+      places.set(stationId, {
+        lineId: each.lineId,
+        stationId,
+        ...NO_STATION_COUNTS,
+        runFailures: [],
+      });
     }
   }
 
-  return [...places.values()].map((place) => {
-    const here = atStation(current, place.stationId);
-
-    return {
-      ...place,
-      ...tallyReportOf(
-        here,
-        atStation(previous, place.stationId),
-        period.days,
-        history.deliveries,
+  return [...places.values()].map((station) => ({
+    lineId: station.lineId,
+    stationId: station.stationId,
+    ...reportFrom(station, period.days),
+    taskFailures: taskFailureSummaries(
+      counts.failing.filter(
+        (each) => each.occurrence.stationId === station.stationId,
       ),
-      taskFailures: taskFailureSummaries(
-        failing.filter((each) => each.occurrence.stationId === place.stationId),
-      ),
-      runFailures: runFailureSummaries(here),
-    };
-  });
+    ),
+    runFailures: mostRunsFirst(station.runFailures),
+  }));
 };

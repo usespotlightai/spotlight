@@ -6,6 +6,7 @@ import type { TaskTouchesRepository } from '@outcomes/domain/repositories/task-t
 import { InboxAsk } from '@outcomes/domain/value-objects/inbox-ask.vo';
 import { PersonTouch } from '@outcomes/domain/value-objects/person-touch.vo';
 import { TaskOpening } from '@outcomes/domain/value-objects/task-opening.vo';
+import { DrizzleRunFactProjection } from '@outcomes/infrastructure/persistence/drizzle/projections/run-fact.projection';
 import {
   runRecord,
   taskTouches,
@@ -80,40 +81,57 @@ const columnsOf = (touches: TaskTouches) => ({
 
 @Injectable()
 export class DrizzleTaskTouchesRepository implements TaskTouchesRepository {
-  constructor(private readonly context: DrizzleContext) {}
+  constructor(
+    private readonly context: DrizzleContext,
+    private readonly facts: DrizzleRunFactProjection,
+  ) {}
 
   async add(added: TaskTouches): Promise<void> {
-    const written = await this.context.db
-      .insert(taskTouches)
-      .values({
-        taskId: added.taskId.value,
-        workspaceId: added.workspaceId.value,
-        version: added.version,
-        ...columnsOf(added),
-      })
-      .onConflictDoNothing({ target: taskTouches.taskId })
-      .returning({ taskId: taskTouches.taskId });
+    await this.context.run(async () => {
+      const written = await this.context.db
+        .insert(taskTouches)
+        .values({
+          taskId: added.taskId.value,
+          workspaceId: added.workspaceId.value,
+          version: added.version,
+          ...columnsOf(added),
+        })
+        .onConflictDoNothing({ target: taskTouches.taskId })
+        .returning({ taskId: taskTouches.taskId });
 
-    if (written.length === 0) {
-      throw new TaskTouchesMovedOnError(added.taskId.value);
-    }
+      if (written.length === 0) {
+        throw new TaskTouchesMovedOnError(added.taskId.value);
+      }
+
+      await this.facts.refresh({
+        kind: 'tasks',
+        taskIds: [added.taskId.value],
+      });
+    });
   }
 
   async save(saved: TaskTouches): Promise<void> {
-    const written = await this.context.db
-      .update(taskTouches)
-      .set({ version: saved.version + 1, ...columnsOf(saved) })
-      .where(
-        and(
-          eq(taskTouches.taskId, saved.taskId.value),
-          eq(taskTouches.version, saved.version),
-        ),
-      )
-      .returning({ taskId: taskTouches.taskId });
+    await this.context.run(async () => {
+      const written = await this.context.db
+        .update(taskTouches)
+        .set({ version: saved.version + 1, ...columnsOf(saved) })
+        .where(
+          and(
+            eq(taskTouches.taskId, saved.taskId.value),
+            eq(taskTouches.version, saved.version),
+          ),
+        )
+        .returning({ taskId: taskTouches.taskId });
 
-    if (written.length === 0) {
-      throw new TaskTouchesMovedOnError(saved.taskId.value);
-    }
+      if (written.length === 0) {
+        throw new TaskTouchesMovedOnError(saved.taskId.value);
+      }
+
+      await this.facts.refresh({
+        kind: 'tasks',
+        taskIds: [saved.taskId.value],
+      });
+    });
   }
 
   async of(taskId: TaskId): Promise<TaskTouches | null> {
@@ -184,25 +202,45 @@ export class DrizzleTaskTouchesRepository implements TaskTouchesRepository {
   }
 
   async removeForTask(taskId: TaskId): Promise<void> {
-    await this.context.db
-      .delete(taskTouches)
-      .where(eq(taskTouches.taskId, taskId.value));
+    await this.context.run(async () => {
+      await this.context.db
+        .delete(taskTouches)
+        .where(eq(taskTouches.taskId, taskId.value));
+
+      await this.facts.refresh({ kind: 'tasks', taskIds: [taskId.value] });
+    });
   }
 
   async removeForTeam(workspaceId: WorkspaceId, teamId: TeamId): Promise<void> {
-    await this.context.db
-      .delete(taskTouches)
-      .where(
-        and(
-          eq(taskTouches.workspaceId, workspaceId.value),
-          eq(taskTouches.teamId, teamId.value),
-        ),
-      );
+    await this.context.run(async () => {
+      const removed = await this.context.db
+        .delete(taskTouches)
+        .where(
+          and(
+            eq(taskTouches.workspaceId, workspaceId.value),
+            eq(taskTouches.teamId, teamId.value),
+          ),
+        )
+        .returning({ taskId: taskTouches.taskId });
+
+      await this.facts.forgetOpenings({
+        kind: 'tasks',
+        workspaceId: workspaceId.value,
+        taskIds: removed.map((each) => each.taskId),
+      });
+    });
   }
 
   async removeForWorkspace(workspaceId: WorkspaceId): Promise<void> {
-    await this.context.db
-      .delete(taskTouches)
-      .where(eq(taskTouches.workspaceId, workspaceId.value));
+    await this.context.run(async () => {
+      await this.context.db
+        .delete(taskTouches)
+        .where(eq(taskTouches.workspaceId, workspaceId.value));
+
+      await this.facts.forgetOpenings({
+        kind: 'workspace',
+        workspaceId: workspaceId.value,
+      });
+    });
   }
 }

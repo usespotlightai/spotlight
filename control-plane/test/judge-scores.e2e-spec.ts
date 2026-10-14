@@ -16,6 +16,7 @@ import { RunSetup } from '@outcomes/domain/value-objects/run-setup.vo';
 import { ScoreId } from '@outcomes/domain/value-objects/score-id.vo';
 import { ScoreScale } from '@outcomes/domain/value-objects/score-scale.vo';
 import { SeenEvidence } from '@outcomes/domain/value-objects/seen-evidence.vo';
+import { DrizzleRunFactProjection } from '@outcomes/infrastructure/persistence/drizzle/projections/run-fact.projection';
 import { DrizzleJudgingRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/judging.repository';
 import { DrizzleRunRecordRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/run-record.repository';
 import { DrizzleScoreRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/score.repository';
@@ -142,7 +143,11 @@ beforeAll(async () => {
   } as unknown as DomainEventDispatcher;
   judgings = new DrizzleJudgingRepository(context, dispatcher);
   scores = new DrizzleScoreRepository(context, dispatcher);
-  records = new DrizzleRunRecordRepository(context, dispatcher);
+  records = new DrizzleRunRecordRepository(
+    context,
+    new DrizzleRunFactProjection(context),
+    dispatcher,
+  );
   reports = new StationJudgeReports(
     {
       holds: async () => true,
@@ -172,7 +177,11 @@ beforeAll(async () => {
     },
     scores,
     records,
-    new DrizzleTaskDeliveryRepository(context, dispatcher),
+    new DrizzleTaskDeliveryRepository(
+      context,
+      new DrizzleRunFactProjection(context),
+      dispatcher,
+    ),
   );
 }, 60_000);
 

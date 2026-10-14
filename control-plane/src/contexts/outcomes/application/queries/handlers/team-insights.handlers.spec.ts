@@ -1,3 +1,4 @@
+import { insightsReaderInMemory } from '@outcomes/application/ports/insights-reader.fake-spec';
 import type { PeoplePort } from '@outcomes/application/ports/people.port';
 import type { WorkPort } from '@outcomes/application/ports/work.port';
 import { ListInsightsRunsHandler } from '@outcomes/application/queries/handlers/list-insights-runs.handler';
@@ -120,7 +121,15 @@ const insights = async () => {
   await touches.add(touchesOf('task_2', { openedBy: 'user_bob' }));
   await chats.add(chatOf('chat_1', 'user_cy', day('2026-09-30')));
 
-  return { histories, people, cleared, records, touches, deliveries };
+  const reader = insightsReaderInMemory({
+    records,
+    deliveries,
+    touches,
+    failures,
+    chats,
+  });
+
+  return { histories, reader, people, cleared, records, touches, deliveries };
 };
 
 describe('the team’s insights', () => {
@@ -175,9 +184,12 @@ describe('the team’s insights', () => {
   });
 
   it('tallies each station the way the Station page does', async () => {
-    const { histories } = await insights();
+    const { histories, reader } = await insights();
 
-    const stations = await new ReadInsightsStationsHandler(histories).execute(
+    const stations = await new ReadInsightsStationsHandler(
+      histories,
+      reader,
+    ).execute(
       new ReadInsightsStationsQuery(
         'team_1',
         PersonPrincipal.of(UserId.of('user_ada')),

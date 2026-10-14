@@ -34,6 +34,7 @@ import type { StretchBound } from '@outcomes/domain/services/config-stretches';
 import { DrizzleForgotten } from '@outcomes/infrastructure/persistence/drizzle/ledgers/forgotten.ledger';
 import { DrizzlePendingReviews } from '@outcomes/infrastructure/persistence/drizzle/ledgers/pending-reviews.ledger';
 import { DrizzleStationConfigPullRequests } from '@outcomes/infrastructure/persistence/drizzle/ledgers/station-config-pull-requests.ledger';
+import { DrizzleRunFactProjection } from '@outcomes/infrastructure/persistence/drizzle/projections/run-fact.projection';
 import { DrizzleChangeJudgingRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/change-judging.repository';
 import { DrizzleChatRecordRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/chat-record.repository';
 import { DrizzleJudgingRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/judging.repository';
@@ -268,11 +269,22 @@ beforeAll(async () => {
   const quiet = {
     dispatch: async () => {},
   } as unknown as DomainEventDispatcher;
-  records = new DrizzleRunRecordRepository(context, quiet);
-  deliveries = new DrizzleTaskDeliveryRepository(context, quiet);
+  records = new DrizzleRunRecordRepository(
+    context,
+    new DrizzleRunFactProjection(context),
+    quiet,
+  );
+  deliveries = new DrizzleTaskDeliveryRepository(
+    context,
+    new DrizzleRunFactProjection(context),
+    quiet,
+  );
   const judgings = new DrizzleJudgingRepository(context, quiet);
   const scores = new DrizzleScoreRepository(context, quiet);
-  const touches = new DrizzleTaskTouchesRepository(context);
+  const touches = new DrizzleTaskTouchesRepository(
+    context,
+    new DrizzleRunFactProjection(context),
+  );
   const failures = new DrizzleTaskFailuresRepository(context);
   chats = new DrizzleChatRecordRepository(context);
   const pullRequests = new DrizzlePullRequestRecordRepository(context);
@@ -932,9 +944,13 @@ describe('the config runs a station’s runs make', () => {
   };
 
   beforeAll(async () => {
-    stretches = new DrizzleRunRecordRepository(context, {
-      dispatch: async () => {},
-    } as unknown as DomainEventDispatcher);
+    stretches = new DrizzleRunRecordRepository(
+      context,
+      new DrizzleRunFactProjection(context),
+      {
+        dispatch: async () => {},
+      } as unknown as DomainEventDispatcher,
+    );
 
     await ranAt('station_aba', [
       planned('aba_1', SONNET, 1),

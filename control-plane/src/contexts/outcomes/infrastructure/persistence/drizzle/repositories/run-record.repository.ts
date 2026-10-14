@@ -30,6 +30,7 @@ import { RunEnd } from '@outcomes/domain/value-objects/run-end.vo';
 import { RunPlace } from '@outcomes/domain/value-objects/run-place.vo';
 import { RunSetup } from '@outcomes/domain/value-objects/run-setup.vo';
 import { RunTools } from '@outcomes/domain/value-objects/run-tools.vo';
+import { DrizzleRunFactProjection } from '@outcomes/infrastructure/persistence/drizzle/projections/run-fact.projection';
 import {
   ranAConfig,
   runRecord,
@@ -437,46 +438,55 @@ const atStation = (criteria: StationRecords): SQL | undefined =>
 export class DrizzleRunRecordRepository implements RunRecordRepository {
   constructor(
     private readonly context: DrizzleContext,
+    private readonly facts: DrizzleRunFactProjection,
     @Inject(DOMAIN_EVENT_DISPATCHER)
     private readonly events: DomainEventDispatcher,
   ) {}
 
   async add(added: RunRecord): Promise<void> {
-    const written = await this.context.db
-      .insert(runRecord)
-      .values({
-        runId: added.runId.value,
-        workspaceId: added.workspaceId.value,
-        version: added.version,
-        ...columnsOf(added),
-      })
-      .onConflictDoNothing({ target: runRecord.runId })
-      .returning({ runId: runRecord.runId });
+    await this.context.run(async () => {
+      const written = await this.context.db
+        .insert(runRecord)
+        .values({
+          runId: added.runId.value,
+          workspaceId: added.workspaceId.value,
+          version: added.version,
+          ...columnsOf(added),
+        })
+        .onConflictDoNothing({ target: runRecord.runId })
+        .returning({ runId: runRecord.runId });
 
-    if (written.length === 0) {
-      throw new RunRecordMovedOnError(added.runId.value);
-    }
+      if (written.length === 0) {
+        throw new RunRecordMovedOnError(added.runId.value);
+      }
 
-    await this.events.dispatch(added.pullEvents());
+      await this.facts.refresh({ kind: 'runs', runIds: [added.runId.value] });
+
+      await this.events.dispatch(added.pullEvents());
+    });
   }
 
   async save(saved: RunRecord): Promise<void> {
-    const written = await this.context.db
-      .update(runRecord)
-      .set({ version: saved.version + 1, ...columnsOf(saved) })
-      .where(
-        and(
-          eq(runRecord.runId, saved.runId.value),
-          eq(runRecord.version, saved.version),
-        ),
-      )
-      .returning({ runId: runRecord.runId });
+    await this.context.run(async () => {
+      const written = await this.context.db
+        .update(runRecord)
+        .set({ version: saved.version + 1, ...columnsOf(saved) })
+        .where(
+          and(
+            eq(runRecord.runId, saved.runId.value),
+            eq(runRecord.version, saved.version),
+          ),
+        )
+        .returning({ runId: runRecord.runId });
 
-    if (written.length === 0) {
-      throw new RunRecordMovedOnError(saved.runId.value);
-    }
+      if (written.length === 0) {
+        throw new RunRecordMovedOnError(saved.runId.value);
+      }
 
-    await this.events.dispatch(saved.pullEvents());
+      await this.facts.refresh({ kind: 'runs', runIds: [saved.runId.value] });
+
+      await this.events.dispatch(saved.pullEvents());
+    });
   }
 
   async of(runId: RunId): Promise<RunRecord | null> {
@@ -711,25 +721,44 @@ export class DrizzleRunRecordRepository implements RunRecordRepository {
   }
 
   async removeForTask(taskId: TaskId): Promise<void> {
-    await this.context.db
-      .delete(runRecord)
-      .where(eq(runRecord.taskId, taskId.value));
+    await this.context.run(async () => {
+      await this.context.db
+        .delete(runRecord)
+        .where(eq(runRecord.taskId, taskId.value));
+
+      await this.facts.refresh({ kind: 'tasks', taskIds: [taskId.value] });
+    });
   }
 
   async removeForTeam(workspaceId: WorkspaceId, teamId: TeamId): Promise<void> {
-    await this.context.db
-      .delete(runRecord)
-      .where(
-        and(
-          eq(runRecord.workspaceId, workspaceId.value),
-          eq(runRecord.teamId, teamId.value),
-        ),
-      );
+    await this.context.run(async () => {
+      await this.context.db
+        .delete(runRecord)
+        .where(
+          and(
+            eq(runRecord.workspaceId, workspaceId.value),
+            eq(runRecord.teamId, teamId.value),
+          ),
+        );
+
+      await this.facts.forgetRuns({
+        kind: 'team',
+        workspaceId: workspaceId.value,
+        teamId: teamId.value,
+      });
+    });
   }
 
   async removeForWorkspace(workspaceId: WorkspaceId): Promise<void> {
-    await this.context.db
-      .delete(runRecord)
-      .where(eq(runRecord.workspaceId, workspaceId.value));
+    await this.context.run(async () => {
+      await this.context.db
+        .delete(runRecord)
+        .where(eq(runRecord.workspaceId, workspaceId.value));
+
+      await this.facts.forgetRuns({
+        kind: 'workspace',
+        workspaceId: workspaceId.value,
+      });
+    });
   }
 }

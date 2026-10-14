@@ -6,6 +6,8 @@ export const E2E_SERVER =
   process.env.DATABASE_URL ??
   'postgres://postgres:postgres@localhost:5432/postgres';
 
+export const E2E_POOLER = process.env.SPOTLIGHT_E2E_POOLER_URL ?? null;
+
 export const E2E_TEMPLATE = `${E2E_DATABASE}_template`;
 
 export const isE2eDatabase = (database: string): boolean =>

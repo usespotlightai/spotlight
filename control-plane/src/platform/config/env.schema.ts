@@ -22,6 +22,12 @@ export const envSchema = databaseSchema
       .enum(['development', 'test', 'production'])
       .default('development'),
     PORT: z.coerce.number().int().positive().default(3000),
+    DATABASE_READ_URL: z.url({ protocol: /^postgres(ql)?$/ }).optional(),
+    DATABASE_READ_TIMEOUT_MS: z.coerce
+      .number()
+      .int()
+      .positive()
+      .default(15_000),
     BETTER_AUTH_SECRET: z.string().min(32),
     BETTER_AUTH_URL: z.url(),
     GITHUB_CLIENT_ID: z.string().min(1),
