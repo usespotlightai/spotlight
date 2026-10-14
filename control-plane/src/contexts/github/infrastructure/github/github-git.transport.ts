@@ -65,7 +65,7 @@ export class GitHubGitTransport implements RepositoryGitPort {
           `${credential.username}:${credential.password}`,
         ).toString('base64')}`,
       },
-      // Streamed: packfiles can be huge, and Node needs duplex: 'half' to stream.
+      // Stream the body because packfiles can be very large. Node must have duplex: 'half' to stream.
       ...(call.body
         ? {
             body: Readable.toWeb(

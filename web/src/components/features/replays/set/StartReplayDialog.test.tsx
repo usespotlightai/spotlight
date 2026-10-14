@@ -87,7 +87,7 @@ describe('StartReplayDialog', () => {
     renderDialog(null);
 
     expect(
-      screen.getByText(/This replay of the live config becomes it/),
+      screen.getByText(/This replay of the live config becomes the baseline/),
     ).toBeInTheDocument();
     expect(screen.queryByText(/twice this ceiling/)).toBeNull();
 
@@ -96,7 +96,7 @@ describe('StartReplayDialog', () => {
     );
 
     expect(
-      screen.getByText(/Most both may spend: twice this ceiling/),
+      screen.getByText(/both replays can spend up to twice this ceiling/),
     ).toBeInTheDocument();
   });
 
@@ -109,7 +109,7 @@ describe('StartReplayDialog', () => {
 
     expect(
       screen.getByText(
-        /Set’s baseline replays each run once, fewer than this replay\. This replay of the live config becomes the new baseline/,
+        /The set’s baseline replays each run once\. This replay repeats each run more often\. This replay of the live config becomes the new baseline/,
       ),
     ).toBeInTheDocument();
 
@@ -118,7 +118,9 @@ describe('StartReplayDialog', () => {
     );
 
     expect(
-      screen.getByText(/A new baseline replaying each run 3 times also starts/),
+      screen.getByText(
+        /A new baseline that replays each run 3 times also starts/,
+      ),
     ).toBeInTheDocument();
   });
 

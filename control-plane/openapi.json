@@ -7245,7 +7245,7 @@
             }
           },
           "401": {
-            "description": "No such trust, a token its issuer did not sign for its audience, a workload it does not admit, or a closed workspace"
+            "description": "Spotlight refused the exchange. Possible causes: an unknown trust, a token its issuer did not sign for the trust’s audience, a workload the trust does not admit, or a closed workspace"
           }
         },
         "summary": "Exchange the OIDC token a CI platform issued a workload for a short-lived workspace token, through a workspace token trust that admits it",
@@ -16482,7 +16482,7 @@
             }
           },
           "401": {
-            "description": "Missing, expired or unknown callback token; each hook request carries a fresh one in spotlight-callback-token"
+            "description": "The callback token is missing, expired or unknown. Each hook request carries a fresh token in spotlight-callback-token."
           }
         },
         "security": [
@@ -16525,7 +16525,7 @@
             "description": "The note is on the task"
           },
           "401": {
-            "description": "Missing, expired or unknown callback token; each hook request carries a fresh one in spotlight-callback-token"
+            "description": "The callback token is missing, expired or unknown. Each hook request carries a fresh token in spotlight-callback-token."
           }
         },
         "security": [
@@ -43390,7 +43390,7 @@
           },
           "message": {
             "type": "string",
-            "example": "`prompt` is computed in Terraform (`local.build_prompt`); change it by hand"
+            "example": "Terraform computes `prompt` from `local.build_prompt`. Please change it by hand."
           },
           "attribute": {
             "type": "string",

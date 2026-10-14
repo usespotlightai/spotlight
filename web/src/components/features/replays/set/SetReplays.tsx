@@ -22,7 +22,7 @@ import {
 } from '@/lib/replay';
 
 const REPLAYS_NOTE =
-  'Each replay reruns the set under one config. Gain: success against the baseline, the latest live-config replay.';
+  'Each replay reruns the set under one config. The baseline is the latest replay of the live config. Gain: success compared with the baseline';
 
 type SetReplaysProps = {
   at: ReplayedStation;

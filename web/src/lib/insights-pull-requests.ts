@@ -239,3 +239,9 @@ export const PULL_REQUESTS_LIST_ID = 'pull-request-list';
 
 export const PULL_REQUESTS_TRUNCATED =
   'Only the newest 20,000 pull requests in this period are counted.';
+
+export const SPOTLIGHT_COMPARED_WITH_PEOPLE =
+  'Compares Spotlight’s pull requests with pull requests by people alone, in repositories where Spotlight merged.';
+
+export const PULL_REQUEST_TYPE_SOURCE =
+  'The type comes from the change stack. Without one, it comes from the title and branch.';

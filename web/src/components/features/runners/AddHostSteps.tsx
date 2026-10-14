@@ -47,7 +47,7 @@ export function AddHostSteps({ slug, workspaceId }: AddHostStepsProps) {
     <Steps>
       <Step
         title="Create a pool"
-        description="Pool: hosts that share one token. Name is permanent."
+        description="Pool: hosts that share one token. The name is permanent."
         open={shown === 1}
         onOpen={created ? pick(1) : undefined}
       >
@@ -72,7 +72,7 @@ export function AddHostSteps({ slug, workspaceId }: AddHostStepsProps) {
             ? `Add the machine to the ${created.key} pool`
             : 'Add the machine to the pool'
         }
-        description="Run this on the machine, with Docker or another container runtime running. The pool token in it is shown only once."
+        description="Run this command on the machine while Docker or another container runtime is running. Spotlight shows the pool token in it only once."
         open={shown === 2}
         onOpen={created ? pick(2) : undefined}
       >
@@ -88,7 +88,7 @@ export function AddHostSteps({ slug, workspaceId }: AddHostStepsProps) {
 
       <Step
         title="Wait for the host to connect"
-        description="The agent image download takes a few minutes. The host appears here once connected."
+        description="The agent image download takes a few minutes. The host appears here when it connects."
         open={shown === 3}
         onOpen={created ? pick(3) : undefined}
       >

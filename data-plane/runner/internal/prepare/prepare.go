@@ -83,7 +83,7 @@ func (o Options) checkout(ctx context.Context, checkout protocol.Checkout, out *
 		}
 	case o.Mirrors != "" && exists(filepath.Join(o.Mirrors, checkout.Path+".git")):
 		out.say("cloning %s from the host's mirror", checkout.Path)
-		// Dissociated: the workspace is archived and restored on hosts that hold no such mirror.
+		// Use --dissociate because the workspace is archived and then restored on hosts that do not have this mirror.
 		if err := o.clone(ctx, checkout, "--reference-if-able", filepath.Join(o.Mirrors, checkout.Path+".git"), "--dissociate"); err != nil {
 			return err
 		}

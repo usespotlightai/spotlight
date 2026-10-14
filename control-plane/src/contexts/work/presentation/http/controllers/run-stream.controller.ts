@@ -84,7 +84,7 @@ export class RunStreamController {
         }
       };
 
-      // Subscribe before reading the backlog so no event falls between the two.
+      // Subscribe before you read the backlog, so that no event is lost between the two.
       const detach = this.stream.subscribe(runId, (event) => {
         if (replaying) {
           buffered.push(event);

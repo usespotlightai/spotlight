@@ -102,7 +102,7 @@ const weekOf = (value: AskedValue): Window | null => {
 
   if (!window || Number.isNaN(window.from.getTime())) {
     throw new InvalidPullRequestFilterError(
-      `week must be a day written YYYY-MM-DD, not ${asked}`,
+      `week must be a date in the form YYYY-MM-DD, not ${asked}`,
     );
   }
 

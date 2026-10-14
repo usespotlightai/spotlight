@@ -48,7 +48,7 @@ const writeOnlyVersion = z
   .nullish();
 
 const PULL_ONLY =
-  'is only for a pool that is pulled from; a pool that provisions is called instead, and has no token';
+  'is only for a pool that is pulled from. A pool that provisions has no token. Spotlight calls it instead';
 
 const poolSchema = z
   .object({

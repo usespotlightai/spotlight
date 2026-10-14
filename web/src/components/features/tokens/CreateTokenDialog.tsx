@@ -111,7 +111,7 @@ export function CreateTokenDialog({
         <DialogHeader>
           <DialogTitle>Create a token</DialogTitle>
           <DialogDescription>
-            Token: lets Terraform or a script act in this workspace. Name,
+            A token lets Terraform or a script act in this workspace. Its name,
             access and expiry are permanent.
           </DialogDescription>
         </DialogHeader>

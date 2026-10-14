@@ -33,7 +33,7 @@ export const envSchema = databaseSchema
     SECRETS_KMS_KEY_ID: z.string().min(1).optional(),
     SECRETS_AWS_SECRETS_MANAGER: z.stringbool().default(false),
     SPOTLIGHT_PUBLIC_URL: z.url().optional(),
-    // Empty allows none: where Spotlight may call is the deployment's to decide.
+    // An empty value permits no hosts. The deployment decides which hosts Spotlight can call.
     OUTBOUND_ALLOWED_HOSTS: z.string().default(''),
     HOOK_SIGNING_KEY: z.string().min(1).optional(),
     OAUTH_CLIENTS: z.string().default('{}'),

@@ -118,7 +118,7 @@ func TestRefusesAHostTheAllowListLeavesOut(t *testing.T) {
 	sender := New(listed(t, "grafana.example.com"))
 
 	answer := sender.Send(context.Background(), protocol.HostCall{URL: "https://audit.acme.internal/"})
-	if answer.Status != 0 || answer.Error != "the host's allow-list does not admit audit.acme.internal" {
+	if answer.Status != 0 || answer.Error != "The host's allow-list doesn't admit audit.acme.internal." {
 		t.Errorf("answered %+v", answer)
 	}
 }
@@ -127,7 +127,7 @@ func TestNeverConnectsToItselfEvenForAHostTheListNames(t *testing.T) {
 	sender := New(listed(t, "127.0.0.1"))
 
 	answer := sender.Send(context.Background(), protocol.HostCall{URL: "http://127.0.0.1:9/"})
-	if answer.Status != 0 || answer.Error != "egress never opens a connection to 127.0.0.1" {
+	if answer.Status != 0 || answer.Error != "Egress never opens a connection to 127.0.0.1." {
 		t.Errorf("answered %+v", answer)
 	}
 }
@@ -144,7 +144,7 @@ func TestSaysItTimedOut(t *testing.T) {
 	toward(t, sender, server)
 
 	answer := sender.Send(context.Background(), protocol.HostCall{URL: "https://audit.example.com/", TimeoutMs: 100})
-	if answer.Status != 0 || answer.Error != "timed out after 100ms" || answer.Ms < 100 {
+	if answer.Status != 0 || answer.Error != "The call timed out. Time limit: 100ms" || answer.Ms < 100 {
 		t.Errorf("answered %+v", answer)
 	}
 }
@@ -163,7 +163,7 @@ func TestSaysTheConnectionWasRefused(t *testing.T) {
 	}
 
 	answer := sender.Send(context.Background(), protocol.HostCall{URL: "https://audit.example.com/"})
-	if answer.Status != 0 || answer.Error != "connection refused" {
+	if answer.Status != 0 || answer.Error != "The server refused the connection." {
 		t.Errorf("answered %+v", answer)
 	}
 }
@@ -177,7 +177,7 @@ func TestSaysAnUntrustedCertificateIsNotTrusted(t *testing.T) {
 	sender.transport.TLSClientConfig = &tls.Config{RootCAs: x509.NewCertPool()}
 
 	answer := sender.Send(context.Background(), protocol.HostCall{URL: "https://audit.example.com/"})
-	if answer.Status != 0 || !strings.HasPrefix(answer.Error, "the certificate is not trusted") {
+	if answer.Status != 0 || !strings.HasPrefix(answer.Error, "The server's certificate isn't trusted.") {
 		t.Errorf("answered %+v", answer)
 	}
 }

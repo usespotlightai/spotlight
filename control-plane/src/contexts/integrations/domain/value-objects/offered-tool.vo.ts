@@ -67,7 +67,7 @@ export class OfferedTool {
 
       if (each.name === WHOLE_CALL_INPUT) {
         throw refuse(
-          `cannot take reserved input ${WHOLE_CALL_INPUT}, which hands a tool every input at once`,
+          `cannot take reserved input ${WHOLE_CALL_INPUT}. That input hands a tool every input at once`,
         );
       }
     }

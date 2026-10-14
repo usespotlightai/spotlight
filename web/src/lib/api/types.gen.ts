@@ -12706,7 +12706,7 @@ export type ExchangeWorkloadTokenData = {
 
 export type ExchangeWorkloadTokenErrors = {
   /**
-   * No such trust, a token its issuer did not sign for its audience, a workload it does not admit, or a closed workspace
+   * Spotlight refused the exchange. Possible causes: an unknown trust, a token its issuer did not sign for the trust’s audience, a workload the trust does not admit, or a closed workspace
    */
   401: unknown;
 };
@@ -17013,7 +17013,7 @@ export type ReadHookTaskData = {
 
 export type ReadHookTaskErrors = {
   /**
-   * Missing, expired or unknown callback token; each hook request carries a fresh one in spotlight-callback-token
+   * The callback token is missing, expired or unknown. Each hook request carries a fresh token in spotlight-callback-token.
    */
   401: unknown;
 };
@@ -17039,7 +17039,7 @@ export type NoteOnHookTaskData = {
 
 export type NoteOnHookTaskErrors = {
   /**
-   * Missing, expired or unknown callback token; each hook request carries a fresh one in spotlight-callback-token
+   * The callback token is missing, expired or unknown. Each hook request carries a fresh token in spotlight-callback-token.
    */
   401: unknown;
 };

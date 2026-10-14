@@ -49,7 +49,7 @@ export class ChangeStackController {
     >(new ListRunChangeStacksQuery(teamId, runId, user.id));
 
     if (!found) {
-      throw new NotFoundException();
+      throw new NotFoundException(`Run ${runId} not found.`);
     }
 
     return ChangeStackHttpMapper.toResponse(found);

@@ -24,7 +24,7 @@ export class DraftRunChangeStackHandler
         !(await this.work.wasWorkedBy(runId, RunnerId.of(command.runnerId)))
       ) {
         throw new UnknownChangeStackError(
-          `Run ${command.runId} was not worked by this runner.`,
+          `This runner didn’t work run ${command.runId}.`,
         );
       }
 

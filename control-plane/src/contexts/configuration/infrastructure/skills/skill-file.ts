@@ -26,7 +26,7 @@ const toolsIn = (key: SkillKey, raw: unknown): ToolName[] => {
   if (!Array.isArray(raw)) {
     throw new InvalidSkillError(
       key.value,
-      'tools must be a list, such as [grafana.search]',
+      'tools must be a list, as in [grafana.search]',
     );
   }
 
@@ -36,7 +36,7 @@ const toolsIn = (key: SkillKey, raw: unknown): ToolName[] => {
     } catch {
       throw new InvalidSkillError(
         key.value,
-        `tool ${JSON.stringify(each)} must be named integration.tool, such as grafana.search`,
+        `tool ${JSON.stringify(each)} must be named integration.tool, as in grafana.search`,
       );
     }
   });
@@ -50,7 +50,7 @@ const secretsIn = (key: SkillKey, raw: unknown): SkillSecret[] => {
   if (typeof raw !== 'object' || Array.isArray(raw)) {
     throw new InvalidSkillError(
       key.value,
-      'secrets must map each name to its purpose, such as GRAFANA_TOKEN: A read-only token',
+      'secrets must map each name to its purpose, as in GRAFANA_TOKEN: A read-only token',
     );
   }
 
@@ -63,7 +63,7 @@ const secretsIn = (key: SkillKey, raw: unknown): SkillSecret[] => {
     } catch {
       throw new InvalidSkillError(
         key.value,
-        `secret ${JSON.stringify(name)} must use capitals, digits and underscores, such as GRAFANA_TOKEN`,
+        `secret ${JSON.stringify(name)} must use capitals, digits and underscores, as in GRAFANA_TOKEN`,
       );
     }
   });

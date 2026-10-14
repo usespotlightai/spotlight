@@ -227,7 +227,7 @@ export class Runners implements RunnersPort {
     if (!carriesRunTokens(access.url, this.settings.insecureAllowed)) {
       return {
         outcome: 'not-allowed',
-        detail: 'provision URL must be https to carry one-run tokens',
+        detail: 'Provision URL must be https. Its calls carry a one-run token.',
       };
     }
 
@@ -239,7 +239,7 @@ export class Runners implements RunnersPort {
       if (error instanceof ProvisionSecretUnopenableError) {
         return {
           outcome: 'unusable',
-          detail: 'provision secret doesn’t open with this deployment’s keys',
+          detail: 'Provision secret doesn’t open with this deployment’s keys.',
         };
       }
 

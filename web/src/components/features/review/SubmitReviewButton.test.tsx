@@ -50,7 +50,7 @@ describe('SubmitReviewButton', () => {
       screen.getByRole('button', { name: /Finish review/ }),
     );
     expect(
-      screen.getByText('Posts 1 comment to the pull request.'),
+      screen.getByText('Spotlight posts 1 comment to the pull request.'),
     ).toBeInTheDocument();
 
     await userEvent.type(
@@ -83,7 +83,9 @@ describe('SubmitReviewButton', () => {
     );
 
     expect(
-      screen.getByText('Posts 1 comment when the task opens its pull request.'),
+      screen.getByText(
+        'When the task opens its pull request, Spotlight posts 1 comment.',
+      ),
     ).toBeInTheDocument();
   });
 

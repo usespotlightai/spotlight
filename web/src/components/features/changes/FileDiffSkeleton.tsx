@@ -16,7 +16,7 @@ export function FileDiffSkeleton({ lines }: { lines: number }) {
     >
       {Array.from({ length: shown }, (_, at) => (
         <SkeletonLine
-          // biome-ignore lint/suspicious/noArrayIndexKey: placeholder lines have nothing to name them but their place
+          // biome-ignore lint/suspicious/noArrayIndexKey: only its position identifies a placeholder line
           key={at}
           className={WIDTHS[at % WIDTHS.length]}
         />
