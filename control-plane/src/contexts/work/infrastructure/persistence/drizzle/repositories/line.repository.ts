@@ -454,11 +454,9 @@ export class DrizzleLineRepository implements LineRepository {
       .where(eq(station.lineId, id.value))
       .orderBy(station.position);
 
-    const [ways, reactions, repositories] = await Promise.all([
-      this.waysOf(stations),
-      this.reactionsOf(id.value),
-      this.repositoriesOf(id.value),
-    ]);
+    const ways = await this.waysOf(stations);
+    const reactions = await this.reactionsOf(id.value);
+    const repositories = await this.repositoriesOf(id.value);
 
     return toLine(found, stations, ways, reactions, repositories);
   }

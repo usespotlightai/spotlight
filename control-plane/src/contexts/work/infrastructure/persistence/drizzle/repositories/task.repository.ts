@@ -375,11 +375,9 @@ export class DrizzleTaskRepository implements TaskRepository {
 
   private async whole(rows: readonly Row[]): Promise<Task[]> {
     const ids = rows.map((each) => each.id);
-    const [notes, attachments, marks] = await Promise.all([
-      this.notesFor(ids),
-      this.attachmentsFor(ids),
-      this.marksFor(ids),
-    ]);
+    const notes = await this.notesFor(ids);
+    const attachments = await this.attachmentsFor(ids);
+    const marks = await this.marksFor(ids);
 
     return rows.map((each) =>
       toTask(

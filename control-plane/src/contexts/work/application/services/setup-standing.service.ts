@@ -22,13 +22,10 @@ export class SetupStanding {
   ) {}
 
   async of(workspaceId: WorkspaceId, teamId: TeamId): Promise<TeamSetup> {
-    const [connectedToGitHub, hasHarness, hostsSandboxes, chat] =
-      await Promise.all([
-        this.connections.isConnected(workspaceId),
-        this.runners.readyToRun(workspaceId),
-        this.runners.hostsSandboxes(workspaceId),
-        this.chats.setupOf(teamId),
-      ]);
+    const connectedToGitHub = await this.connections.isConnected(workspaceId);
+    const hasHarness = await this.runners.readyToRun(workspaceId);
+    const hostsSandboxes = await this.runners.hostsSandboxes(workspaceId);
+    const chat = await this.chats.setupOf(teamId);
 
     return {
       state: {

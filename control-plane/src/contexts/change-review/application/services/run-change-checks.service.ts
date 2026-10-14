@@ -77,10 +77,8 @@ export class RunChangeChecks implements RunChangeChecksPort {
     rechecks: boolean,
   ): Promise<readonly CheckedChange[]> {
     const run = RunId.of(runId);
-    const [stacks, checks] = await Promise.all([
-      this.stacks.ofRun(run),
-      this.checks.ofRun(run),
-    ]);
+    const stacks = await this.stacks.ofRun(run);
+    const checks = await this.checks.ofRun(run);
     const now = this.clock.now();
     const rechecked = (stack: ChangeStack): boolean =>
       checks.some((each) => recheckable(each) && each.stackId.equals(stack.id));

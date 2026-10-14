@@ -24,10 +24,8 @@ export class AbandonReplays {
     teamId: TeamId,
     workspaceId: WorkspaceId,
   ): Promise<readonly DomainEvent[]> {
-    const [sets, candidates] = await Promise.all([
-      this.sets.ofTeam(teamId),
-      this.candidates.ofTeam(teamId),
-    ]);
+    const sets = await this.sets.ofTeam(teamId);
+    const candidates = await this.candidates.ofTeam(teamId);
 
     return [
       ...sets.map((each) => new ReplaySetAbandonmentDue(each.id, workspaceId)),

@@ -71,6 +71,7 @@ export default defineConfig({
           isolate: false,
           env: E2E_ENV,
           globalSetup: ['test/support/e2e-database.ts'],
+          setupFiles: ['test/support/one-query-per-client.ts'],
           testTimeout: 30_000,
           hookTimeout: 30_000,
         },

@@ -23,11 +23,9 @@ export class CheckReadings {
   ) {}
 
   async of(check: ReplayCheck): Promise<CheckRead> {
-    const [replay, ofSet, set] = await Promise.all([
-      this.replays.find(check.replayId),
-      this.replays.ofSet(check.setId),
-      this.sets.find(check.setId),
-    ]);
+    const replay = await this.replays.find(check.replayId);
+    const ofSet = await this.replays.ofSet(check.setId);
+    const set = await this.sets.find(check.setId);
     const baseline = replay
       ? baselineFor(
           ofSet,

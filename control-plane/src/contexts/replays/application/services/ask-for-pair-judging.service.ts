@@ -16,10 +16,8 @@ export class AskForPairJudging {
   async wanted(
     event: ReplayPairJudgingWanted,
   ): Promise<readonly DomainEvent[]> {
-    const [replay, candidate] = await Promise.all([
-      this.replays.find(event.replayId),
-      this.candidates.find(event.candidateId),
-    ]);
+    const replay = await this.replays.find(event.replayId);
+    const candidate = await this.candidates.find(event.candidateId);
     const judge = candidate?.judge ?? null;
     const asked =
       replay && judge

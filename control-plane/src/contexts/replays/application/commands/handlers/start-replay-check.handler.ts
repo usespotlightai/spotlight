@@ -183,11 +183,9 @@ export class StartReplayCheckHandler
   }
 
   private async guarded(station: StationAtHand): Promise<Guarded> {
-    const [live, teamKey, atStation] = await Promise.all([
-      this.work.live(station.lineId, station.stationId),
-      this.people.teamKey(station.teamId),
-      this.sets.atStation(station.stationId),
-    ]);
+    const live = await this.work.live(station.lineId, station.stationId);
+    const teamKey = await this.people.teamKey(station.teamId);
+    const atStation = await this.sets.atStation(station.stationId);
     const address = teamKey
       ? StationAddress.of(teamKey, station.lineKey, station.key)
       : null;
