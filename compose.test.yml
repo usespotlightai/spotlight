@@ -1,0 +1,24 @@
+services:
+  control-plane:
+    environment:
+      SPOTLIGHT_E2E_DATABASE_URL: ${SPOTLIGHT_E2E_DATABASE_URL:-postgres://postgres:postgres@e2e-db:5432/postgres}
+    depends_on:
+      e2e-db:
+        condition: service_healthy
+
+  e2e-db:
+    restart: unless-stopped
+    build:
+      context: .
+      dockerfile: .docker/postgres/Dockerfile
+    command: postgres -c fsync=off -c synchronous_commit=off -c full_page_writes=off
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    tmpfs:
+      - /var/lib/postgresql
