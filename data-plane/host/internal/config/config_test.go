@@ -30,7 +30,7 @@ func isolated(t *testing.T) string {
 		"SPOTLIGHT_SANDBOX_ENV", "SPOTLIGHT_SANDBOX_NETWORK", "SPOTLIGHT_SANDBOX_HOSTS", "SPOTLIGHT_STATE",
 		"SPOTLIGHT_HOST_NAME", "DOCKER_HOST", "SPOTLIGHT_SANDBOX_PASS",
 		"SPOTLIGHT_EGRESS_IMAGE", "SPOTLIGHT_EGRESS_ALLOW", "SPOTLIGHT_EGRESS_ENV", "SPOTLIGHT_EGRESS_PASS",
-		"SPOTLIGHT_EGRESS_TRUST", "SPOTLIGHT_EGRESS_READS",
+		"SPOTLIGHT_EGRESS_TRUST", "SPOTLIGHT_EGRESS_READS", "SENTRY_DSN", "SENTRY_ENVIRONMENT",
 	} {
 		t.Setenv(name, "")
 	}
@@ -202,6 +202,47 @@ func TestKeepsOneHostIDForItsLife(t *testing.T) {
 	again, err := config.HostID(state)
 	if err != nil || again != first {
 		t.Errorf("host id changed from %q to %q (%v)", first, again, err)
+	}
+}
+
+func TestPassesSentryToSandboxesAndEgressOnlyWhenTheHostReports(t *testing.T) {
+	isolated(t)
+	t.Setenv("SPOTLIGHT_URL", "https://spotlight.test")
+	t.Setenv("SPOTLIGHT_TOKEN", "pool-token")
+
+	cfg, err := config.Load("dev")
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if len(cfg.SandboxEnv) != 0 || len(cfg.Egress.Env) != 0 {
+		t.Fatalf("passed variables to a host that does not report: %v, %v", cfg.SandboxEnv, cfg.Egress.Env)
+	}
+
+	t.Setenv("SENTRY_DSN", "https://key@sentry.test/1")
+	t.Setenv("SENTRY_ENVIRONMENT", "staging")
+
+	cfg, err = config.Load("dev")
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	want := []string{"SPOTLIGHT_SENTRY_DSN=https://key@sentry.test/1", "SPOTLIGHT_SENTRY_ENVIRONMENT=staging"}
+	if !slices.Equal(cfg.SandboxEnv, want) {
+		t.Errorf("sandbox env %v", cfg.SandboxEnv)
+	}
+	if !slices.Equal(cfg.Egress.Env, want) {
+		t.Errorf("egress env %v", cfg.Egress.Env)
+	}
+	if len(cfg.Egress.Allow) != 0 {
+		t.Errorf("an egress that admits any host was narrowed to %v", cfg.Egress.Allow)
+	}
+
+	t.Setenv("SPOTLIGHT_EGRESS_ALLOW", "api.anthropic.com")
+	cfg, err = config.Load("dev")
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if !slices.Equal(cfg.Egress.Allow, []string{"api.anthropic.com", "sentry.test"}) {
+		t.Errorf("egress admits %v, not the Sentry host too", cfg.Egress.Allow)
 	}
 }
 

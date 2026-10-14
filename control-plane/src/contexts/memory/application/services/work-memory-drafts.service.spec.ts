@@ -199,6 +199,7 @@ const working = (input: {
     { now: () => NOW, sleep: async () => undefined },
     { run: <T>(work: () => Promise<T>) => work() },
     QUIET,
+    { report: () => undefined },
   );
 
   const turn = async () => {

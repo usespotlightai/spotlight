@@ -1,8 +1,8 @@
-import * as Sentry from '@sentry/nestjs';
+import { sentryOptions } from '@platform/errors/sentry-options';
+import { init } from '@sentry/nestjs';
 
-Sentry.init({
-  dsn: process.env.SENTRY_DSN,
-  environment: process.env.SENTRY_ENVIRONMENT ?? process.env.NODE_ENV,
-  release: process.env.SPOTLIGHT_RELEASE,
-  tracesSampleRate: 1.0,
-});
+const options = sentryOptions(process.env);
+
+if (options) {
+  init(options);
+}

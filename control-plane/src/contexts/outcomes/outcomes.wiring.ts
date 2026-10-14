@@ -159,6 +159,10 @@ import {
   type ClockPort,
 } from '@shared-kernel/application/ports/clock.port';
 import {
+  ERROR_REPORTS,
+  type ErrorReportsPort,
+} from '@shared-kernel/application/ports/error-reports.port';
+import {
   ID_GENERATOR,
   type IdGeneratorPort,
 } from '@shared-kernel/application/ports/id-generator.port';
@@ -521,6 +525,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
       CLOCK,
       TRANSACTION,
       LOGGER,
+      ERROR_REPORTS,
     ],
     useFactory: (
       judgings: DrizzleJudgingRepository,
@@ -529,8 +534,17 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
       clock: ClockPort,
       transaction: TransactionPort,
       logger: LoggerPort,
+      reports: ErrorReportsPort,
     ) =>
-      new WorkJudgings(judgings, evidence, judge, clock, transaction, logger),
+      new WorkJudgings(
+        judgings,
+        evidence,
+        judge,
+        clock,
+        transaction,
+        logger,
+        reports,
+      ),
   },
   {
     provide: CHANGE_JUDGING,
@@ -561,6 +575,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
       CLOCK,
       TRANSACTION,
       LOGGER,
+      ERROR_REPORTS,
     ],
     useFactory: (
       judgings: DrizzlePairJudgingRepository,
@@ -569,6 +584,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
       clock: ClockPort,
       transaction: TransactionPort,
       logger: LoggerPort,
+      reports: ErrorReportsPort,
     ) =>
       new WorkPairJudgings(
         judgings,
@@ -577,6 +593,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
         clock,
         transaction,
         logger,
+        reports,
       ),
   },
   {
@@ -594,6 +611,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
       CLOCK,
       TRANSACTION,
       LOGGER,
+      ERROR_REPORTS,
     ],
     useFactory: (
       judgings: DrizzleChangeJudgingRepository,
@@ -602,6 +620,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
       clock: ClockPort,
       transaction: TransactionPort,
       logger: LoggerPort,
+      reports: ErrorReportsPort,
     ) =>
       new WorkChangeJudgings(
         judgings,
@@ -610,6 +629,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
         clock,
         transaction,
         logger,
+        reports,
       ),
   },
   {

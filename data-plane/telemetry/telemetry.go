@@ -1,10 +1,8 @@
 package telemetry
 
 import (
-	"context"
-	"errors"
-	"log/slog"
 	"os"
+	"regexp"
 	"time"
 
 	"github.com/getsentry/sentry-go"
@@ -13,6 +11,19 @@ import (
 const (
 	flushTimeout  = 2 * time.Second
 	maxErrorDepth = 10
+	module        = "usespotlight.ai/data-plane/telemetry"
+)
+
+// Passed maps each variable of the host to the variable it is passed as.
+// The SPOTLIGHT_ prefix keeps it from the agent and from customer code.
+var Passed = map[string]string{
+	"SENTRY_DSN":         "SPOTLIGHT_SENTRY_DSN",
+	"SENTRY_ENVIRONMENT": "SPOTLIGHT_SENTRY_ENVIRONMENT",
+}
+
+var (
+	credentials = regexp.MustCompile(`://[^/\s@]+@`)
+	queries     = regexp.MustCompile(`(https?://[^\s?#]+)[?#][^\s]*`)
 )
 
 type Session struct {
@@ -20,13 +31,17 @@ type Session struct {
 }
 
 func Start(role, version string) Session {
-	if os.Getenv("SENTRY_DSN") == "" {
+	dsn, environment := settings(role)
+	if dsn == "" {
 		return Session{}
 	}
 
 	err := sentry.Init(sentry.ClientOptions{
-		Release:          version,
-		AttachStacktrace: true,
+		Dsn:            dsn,
+		Environment:    environment,
+		Release:        version,
+		SendDefaultPII: false,
+		BeforeSend:     scrubbed,
 	})
 	if err != nil {
 		return Session{}
@@ -54,75 +69,58 @@ func (s Session) Stop() {
 	sentry.Flush(flushTimeout)
 }
 
-func Handler(next slog.Handler) slog.Handler {
-	return issues{next}
-}
-
-type issues struct {
-	slog.Handler
-}
-
-func (h issues) Handle(ctx context.Context, record slog.Record) error {
-	if record.Level >= slog.LevelError {
-		report(record)
+func settings(role string) (dsn, environment string) {
+	if role == "host" {
+		return os.Getenv("SENTRY_DSN"), os.Getenv("SENTRY_ENVIRONMENT")
 	}
-
-	return h.Handler.Handle(ctx, record)
+	return os.Getenv(Passed["SENTRY_DSN"]), os.Getenv(Passed["SENTRY_ENVIRONMENT"])
 }
 
-func (h issues) WithAttrs(attrs []slog.Attr) slog.Handler {
-	return issues{h.Handler.WithAttrs(attrs)}
+func scrubbed(event *sentry.Event, _ *sentry.EventHint) *sentry.Event {
+	event.Message = scrub(event.Message)
+	for i := range event.Exception {
+		event.Exception[i].Value = scrub(event.Exception[i].Value)
+	}
+	return event
 }
 
-func (h issues) WithGroup(name string) slog.Handler {
-	return issues{h.Handler.WithGroup(name)}
+func scrub(text string) string {
+	return queries.ReplaceAllString(credentials.ReplaceAllString(text, "://"), "$1")
 }
 
-func report(record slog.Record) {
+type Tags map[string]string
+
+func Report(err error, tags Tags) {
 	hub := sentry.CurrentHub()
-	if hub.Client() == nil {
+	if err == nil || !hub.Client().IsEnabled() {
 		return
 	}
 
 	event := sentry.NewEvent()
 	event.Level = sentry.LevelError
-	event.Message = record.Message
-	attrs := map[string]any{}
-
-	var cause error
-	record.Attrs(func(attr slog.Attr) bool {
-		if err, ok := attr.Value.Any().(error); ok && cause == nil {
-			cause = err
-		}
-		attrs[attr.Key] = attr.Value.String()
-		return true
-	})
-
-	if cause == nil {
-		cause = errors.New(record.Message)
-	}
-
-	event.SetException(cause, maxErrorDepth)
+	event.SetException(err, maxErrorDepth)
 	for _, exception := range event.Exception {
-		trimLogging(exception.Stacktrace)
+		trimOwn(exception.Stacktrace)
 	}
-	event.Contexts["log"] = attrs
 
-	hub.CaptureEvent(event)
+	hub.WithScope(func(scope *sentry.Scope) {
+		for key, value := range tags {
+			if value != "" {
+				scope.SetTag(key, value)
+			}
+		}
+		hub.CaptureEvent(event)
+	})
 }
 
-func trimLogging(stack *sentry.Stacktrace) {
+func trimOwn(stack *sentry.Stacktrace) {
 	if stack == nil {
 		return
 	}
 
 	frames := stack.Frames
-	for len(frames) > 0 && logging(frames[len(frames)-1].Module) {
+	for len(frames) > 0 && frames[len(frames)-1].Module == module {
 		frames = frames[:len(frames)-1]
 	}
 	stack.Frames = frames
-}
-
-func logging(module string) bool {
-	return module == "log/slog" || module == "usespotlight.ai/data-plane/telemetry"
 }

@@ -1,5 +1,3 @@
-import './instrument';
-
 import { reactErrorHandler } from '@sentry/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { StrictMode } from 'react';
@@ -7,6 +5,10 @@ import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router';
 import { Toaster } from '@/components/ui/toast';
 import { client } from '@/lib/api/client.gen';
+import {
+  startErrorReporting,
+  withServerFaultReported,
+} from '@/lib/error-reporting';
 import { failuresToasted } from '@/lib/failure-toasts';
 import { withSentRequest } from '@/lib/request-failure';
 import App from './App.tsx';
@@ -18,6 +20,7 @@ if (!root) {
 }
 
 client.interceptors.error.use(withSentRequest);
+client.interceptors.error.use(withServerFaultReported);
 
 const queryClient = new QueryClient({
   mutationCache: failuresToasted(),
@@ -26,18 +29,25 @@ const queryClient = new QueryClient({
   },
 });
 
-createRoot(root, {
-  onUncaughtError: reactErrorHandler(),
-  onCaughtError: reactErrorHandler(),
-  onRecoverableError: reactErrorHandler(),
-}).render(
-  <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <Toaster>
-        <BrowserRouter>
-          <App />
-        </BrowserRouter>
-      </Toaster>
-    </QueryClientProvider>
-  </StrictMode>,
-);
+const render = () =>
+  createRoot(root, {
+    onUncaughtError: reactErrorHandler(),
+    onRecoverableError: reactErrorHandler(),
+  }).render(
+    <StrictMode>
+      <QueryClientProvider client={queryClient}>
+        <Toaster>
+          <BrowserRouter>
+            <App />
+          </BrowserRouter>
+        </Toaster>
+      </QueryClientProvider>
+    </StrictMode>,
+  );
+
+const REPORTING_WAIT_MS = 1000;
+
+Promise.race([
+  startErrorReporting().catch(() => undefined),
+  new Promise((settled) => setTimeout(settled, REPORTING_WAIT_MS)),
+]).finally(render);

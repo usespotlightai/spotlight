@@ -7,6 +7,7 @@ import type { JudgingRepository } from '@outcomes/domain/repositories/judging.re
 import { JudgeEvidence } from '@outcomes/domain/services/judge-evidence';
 import { JudgingFailure } from '@outcomes/domain/value-objects/judging-failure.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import type { ErrorReportsPort } from '@shared-kernel/application/ports/error-reports.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { OwedWorkPort } from '@shared-kernel/application/ports/owed-work.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
@@ -27,6 +28,7 @@ export class WorkJudgings implements OwedWorkPort {
     private readonly clock: ClockPort,
     transaction: TransactionPort,
     logger: LoggerPort,
+    reports: ErrorReportsPort,
   ) {
     this.#pool = new OwedWorkPool<Judging, RunId>(
       {
@@ -36,8 +38,11 @@ export class WorkJudgings implements OwedWorkPort {
         find: (runId) => this.judgings.of(runId),
         save: (judging) => this.judgings.save(judging),
         keyOf: (judging) => judging.runId,
-        about: (judging) => ({
+        ids: (judging) => ({
+          workspaceId: judging.workspaceId.value,
           runId: judging.runId.value,
+        }),
+        about: (judging) => ({
           attempts: judging.work?.attempts,
         }),
         worked: (judging) => this.judged(judging),
@@ -46,6 +51,7 @@ export class WorkJudgings implements OwedWorkPort {
       transaction,
       clock,
       logger,
+      reports,
     );
   }
 

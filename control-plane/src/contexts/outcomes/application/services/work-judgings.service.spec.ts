@@ -72,6 +72,7 @@ const working = async (
     { now: () => NOW, sleep: async () => {} },
     inTransaction,
     logger,
+    { report: () => undefined },
   );
 
   await work.workDue();

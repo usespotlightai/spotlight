@@ -39,6 +39,7 @@ func Main(args []string, version string) int {
 
 	if err := run(args, version); err != nil {
 		slog.Error("runner stopped", "error", err)
+		telemetry.Report(err, nil)
 		return 1
 	}
 
@@ -58,7 +59,7 @@ func report(asked, version string, out io.Writer) error {
 }
 
 func run(args []string, version string) error {
-	log := slog.New(telemetry.Handler(slog.NewJSONHandler(os.Stdout, nil)))
+	log := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	slog.SetDefault(log)
 
 	ctx, stop := signal.NotifyContext(

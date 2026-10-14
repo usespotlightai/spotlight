@@ -97,6 +97,10 @@ import {
   type ClockPort,
 } from '@shared-kernel/application/ports/clock.port';
 import {
+  ERROR_REPORTS,
+  type ErrorReportsPort,
+} from '@shared-kernel/application/ports/error-reports.port';
+import {
   ID_GENERATOR,
   type IdGeneratorPort,
 } from '@shared-kernel/application/ports/id-generator.port';
@@ -364,6 +368,7 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
       CLOCK,
       TRANSACTION,
       LOGGER,
+      ERROR_REPORTS,
     ],
     useFactory: (
       drafts: DrizzleMemoryDraftRepository,
@@ -375,6 +380,7 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
       clock: ClockPort,
       transaction: TransactionPort,
       logger: LoggerPort,
+      reports: ErrorReportsPort,
     ) =>
       new WorkMemoryDrafts(
         drafts,
@@ -386,6 +392,7 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
         clock,
         transaction,
         logger,
+        reports,
       ),
   },
   {

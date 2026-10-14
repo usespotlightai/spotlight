@@ -6,7 +6,10 @@ import {
   Inject,
 } from '@nestjs/common';
 import { BaseExceptionFilter, HttpAdapterHost } from '@nestjs/core';
-import { captureException } from '@sentry/nestjs';
+import {
+  ERROR_REPORTS,
+  type ErrorReportsPort,
+} from '@shared-kernel/application/ports/error-reports.port';
 import {
   LOGGER,
   type LoggerPort,
@@ -22,13 +25,14 @@ export class ServerFaultFilter extends BaseExceptionFilter {
   constructor(
     adapterHost: HttpAdapterHost,
     @Inject(LOGGER) private readonly logger: LoggerPort,
+    @Inject(ERROR_REPORTS) private readonly reports: ErrorReportsPort,
   ) {
     super(adapterHost.httpAdapter);
   }
 
   override catch(exception: HttpException, host: ArgumentsHost): void {
     if (exception.getStatus() >= HttpStatus.INTERNAL_SERVER_ERROR) {
-      captureException(exception);
+      this.reports.report(exception, { source: 'http' });
       const request = host.switchToHttp().getRequest<LoggableRequest>();
 
       this.logger.error(

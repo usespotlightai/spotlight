@@ -144,6 +144,7 @@ const working = (
     new ReorderChangeStack(drafter, clock, QUIET),
     clock,
     QUIET,
+    { report: () => undefined },
   );
 
   const turn = async (at: Date) => {

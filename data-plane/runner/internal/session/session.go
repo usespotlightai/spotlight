@@ -25,6 +25,7 @@ import (
 	"usespotlight.ai/data-plane/runner/internal/prepare"
 	"usespotlight.ai/data-plane/runner/internal/stackcheck"
 	"usespotlight.ai/data-plane/runner/internal/workspace"
+	"usespotlight.ai/data-plane/telemetry"
 )
 
 type Journal interface {
@@ -690,6 +691,7 @@ func failed(
 		log.Warn("could not mark the run failed", "error", err)
 	}
 
+	telemetry.Report(cause, telemetry.Tags{"run": runID})
 	saying := failureOf(cause, beforeHandover)
 
 	journal.append(protocol.Event{

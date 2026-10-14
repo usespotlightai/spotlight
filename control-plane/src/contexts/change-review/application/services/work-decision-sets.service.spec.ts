@@ -82,6 +82,7 @@ const working = (
     { run: <T>(work: () => Promise<T>) => work() },
     { now: () => now, sleep: async () => undefined },
     QUIET,
+    { report: () => undefined },
   );
 
   const turn = async (at: Date = now) => {
@@ -168,6 +169,7 @@ describe('drafting the decisions a run made', () => {
       { run: <T>(work: () => Promise<T>) => work() },
       { now: () => NOW, sleep: async () => undefined },
       { ...QUIET, error },
+      { report: () => undefined },
     );
 
     await service.workDue();

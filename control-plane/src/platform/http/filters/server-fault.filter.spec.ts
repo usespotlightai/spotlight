@@ -18,6 +18,7 @@ function setup() {
   } as unknown as HttpAdapterHost;
 
   const logger = { error: vi.fn() } as unknown as LoggerPort;
+  const reports = { report: vi.fn() };
 
   const host = {
     switchToHttp: () => ({ getRequest: () => REQUEST }),
@@ -25,9 +26,10 @@ function setup() {
   } as unknown as ArgumentsHost;
 
   return {
-    filter: new ServerFaultFilter(adapterHost, logger),
+    filter: new ServerFaultFilter(adapterHost, logger, reports),
     host,
     reply,
+    reported: reports.report,
     error: logger.error as unknown as ReturnType<typeof vi.fn>,
   };
 }
@@ -35,8 +37,8 @@ function setup() {
 describe('ServerFaultFilter', () => {
   beforeEach(() => vi.clearAllMocks());
 
-  it('logs 5xx HttpExceptions, which Nest otherwise drops silently', () => {
-    const { filter, host, reply, error } = setup();
+  it('logs and reports 5xx HttpExceptions, which Nest otherwise drops silently', () => {
+    const { filter, host, reply, error, reported } = setup();
     const exception = new ServiceUnavailableException('db unreachable');
 
     filter.catch(exception, host);
@@ -47,6 +49,9 @@ describe('ServerFaultFilter', () => {
     expect(payload).toMatchObject({ method: 'GET', url: '/api/boom' });
     expect(payload.err).toBe(exception);
     expect(payload.err.stack).toContain('ServiceUnavailableException');
+    expect(reported).toHaveBeenCalledExactlyOnceWith(exception, {
+      source: 'http',
+    });
 
     expect(reply).toHaveBeenCalledWith(
       expect.anything(),
@@ -56,11 +61,12 @@ describe('ServerFaultFilter', () => {
   });
 
   it('leaves 4xx to the request-completed line', () => {
-    const { filter, host, reply, error } = setup();
+    const { filter, host, reply, error, reported } = setup();
 
     filter.catch(new BadRequestException('nope'), host);
 
     expect(error).not.toHaveBeenCalled();
+    expect(reported).not.toHaveBeenCalled();
     expect(reply).toHaveBeenCalledWith(
       expect.anything(),
       expect.anything(),

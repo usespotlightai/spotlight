@@ -19,6 +19,7 @@ import {
   SPOTLIGHT_WRITES,
 } from '@github/application/ports/pull-request-reviews.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import type { ErrorReportsPort } from '@shared-kernel/application/ports/error-reports.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 
 export const MOST_ATTEMPTS = 6;
@@ -57,6 +58,7 @@ export class SyncReviews implements ReviewSyncWorkPort {
     private readonly github: PullRequestReviewsPort,
     private readonly clock: ClockPort,
     private readonly logger: LoggerPort,
+    private readonly reports: ErrorReportsPort,
   ) {}
 
   async syncDue(): Promise<void> {
@@ -124,6 +126,11 @@ export class SyncReviews implements ReviewSyncWorkPort {
     ) {
       await this.abandon(sync);
       await this.outbox.failed(sync.id, failure);
+      this.reports.report(error, {
+        source: 'Syncing reviews with GitHub',
+        workspaceId: sync.workspaceId.value,
+        taskId: sync.taskId.value,
+      });
       return;
     }
 

@@ -23,6 +23,28 @@
         ]
       }
     },
+    "/error-reporting": {
+      "get": {
+        "operationId": "getErrorReporting",
+        "parameters": [],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorReportingResponseDto"
+                }
+              }
+            }
+          }
+        },
+        "summary": "Where the web app reports its errors, if anywhere",
+        "tags": [
+          "error-reporting"
+        ]
+      }
+    },
     "/teams/{teamId}/lines": {
       "get": {
         "operationId": "listTeamLines",
@@ -22715,6 +22737,31 @@
         },
         "required": [
           "status"
+        ]
+      },
+      "ErrorReportingResponseDto": {
+        "type": "object",
+        "properties": {
+          "dsn": {
+            "type": "string",
+            "nullable": true,
+            "description": "The Sentry DSN of the web app. Null when errors are not reported."
+          },
+          "environment": {
+            "type": "string",
+            "nullable": true,
+            "example": "production"
+          },
+          "release": {
+            "type": "string",
+            "nullable": true,
+            "example": "v1.4.0"
+          }
+        },
+        "required": [
+          "dsn",
+          "environment",
+          "release"
         ]
       },
       "StationJudgeResponseDto": {

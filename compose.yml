@@ -29,6 +29,8 @@ x-control-plane-env: &control-plane-env
   MEMORIES_MODEL: ${MEMORIES_MODEL:-google/gemini-3.8-flash}
   JUDGE_MODEL: ${JUDGE_MODEL:-google/gemini-3.8-flash}
   SENTRY_DSN: ${SENTRY_CONTROL_PLANE_DSN:-}
+  SENTRY_WEB_DSN: ${SENTRY_WEB_DSN:-}
+  SENTRY_ENVIRONMENT: development
 
 services:
   traefik:
@@ -125,8 +127,6 @@ services:
       context: .
       dockerfile: .docker/web/Dockerfile
       target: development
-    environment:
-      VITE_SENTRY_DSN: ${SENTRY_WEB_DSN:-}
     healthcheck:
       test: [ "CMD-SHELL", "wget -qO- http://127.0.0.1:5173/ > /dev/null 2>&1 || exit 1" ]
       interval: 10s

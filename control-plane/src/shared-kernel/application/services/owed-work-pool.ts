@@ -1,7 +1,13 @@
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import type {
+  ErrorAbout,
+  ErrorReportsPort,
+} from '@shared-kernel/application/ports/error-reports.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import type { OwesWork } from '@shared-kernel/domain/owes-work';
+
+type WorkIds = Omit<ErrorAbout, 'source'>;
 
 export interface OwedWorkSource<Owing extends OwesWork<Owing>, Key> {
   readonly name: string;
@@ -10,6 +16,7 @@ export interface OwedWorkSource<Owing extends OwesWork<Owing>, Key> {
   find(key: Key): Promise<Owing | null>;
   save(owing: Owing): Promise<void>;
   keyOf(owing: Owing): Key;
+  ids(owing: Owing): WorkIds;
   about(owing: Owing): Record<string, unknown>;
   worked(owing: Owing): Promise<Owing>;
   stale(error: unknown): boolean;
@@ -23,6 +30,7 @@ export class OwedWorkPool<Owing extends OwesWork<Owing>, Key> {
     private readonly transaction: TransactionPort,
     private readonly clock: ClockPort,
     private readonly logger: LoggerPort,
+    private readonly reports: ErrorReportsPort,
   ) {}
 
   async workDue(): Promise<void> {
@@ -33,7 +41,16 @@ export class OwedWorkPool<Owing extends OwesWork<Owing>, Key> {
         return;
       }
 
-      const working: Promise<void> = this.workOn(claimed).finally(() =>
+      if (claimed.gaveUp) {
+        this.reports.report(
+          new Error(
+            `${this.source.name}: gave up on work that kept being interrupted`,
+          ),
+          this.aboutError(claimed.gaveUp),
+        );
+      }
+
+      const working: Promise<void> = this.workOn(claimed.key).finally(() =>
         this.#working.delete(working),
       );
       this.#working.add(working);
@@ -44,7 +61,7 @@ export class OwedWorkPool<Owing extends OwesWork<Owing>, Key> {
     await Promise.all([...this.#working]);
   }
 
-  private claim(): Promise<Key | null> {
+  private claim(): Promise<{ key: Key; gaveUp: Owing | null } | null> {
     return this.transaction.run(async () => {
       const now = this.clock.now();
       const due = await this.source.due(now);
@@ -55,15 +72,15 @@ export class OwedWorkPool<Owing extends OwesWork<Owing>, Key> {
 
       if (due.workExhausted) {
         this.logger.warn(
-          this.source.about(due),
+          this.described(due),
           `${this.source.name}: giving up on work that kept being interrupted`,
         );
         await this.source.save(due.gaveUp(now));
-        return this.source.keyOf(due);
+        return { key: this.source.keyOf(due), gaveUp: due };
       }
 
       await this.source.save(due.leased(now));
-      return this.source.keyOf(due);
+      return { key: this.source.keyOf(due), gaveUp: null };
     });
   }
 
@@ -90,7 +107,7 @@ export class OwedWorkPool<Owing extends OwesWork<Owing>, Key> {
       await this.source.save(await this.source.worked(owing));
     } catch (error) {
       this.logger.error(
-        { ...this.source.about(owing), err: error },
+        { ...this.described(owing), err: error },
         this.source.name,
       );
 
@@ -98,14 +115,28 @@ export class OwedWorkPool<Owing extends OwesWork<Owing>, Key> {
         return;
       }
 
+      const later = owing.triedAgainLater(this.clock.now());
+
       await this.source
-        .save(owing.triedAgainLater(this.clock.now()))
+        .save(later)
         .catch((settling: unknown) =>
           this.logger.error(
-            { ...this.source.about(owing), err: settling },
+            { ...this.described(owing), err: settling },
             `${this.source.name}: putting work back for later`,
           ),
         );
+
+      if (!later.owesWork) {
+        this.reports.report(error, this.aboutError(owing));
+      }
     }
+  }
+
+  private described(owing: Owing): Record<string, unknown> {
+    return { ...this.source.ids(owing), ...this.source.about(owing) };
+  }
+
+  private aboutError(owing: Owing): ErrorAbout {
+    return { source: this.source.name, ...this.source.ids(owing) };
   }
 }

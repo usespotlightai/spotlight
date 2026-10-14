@@ -121,6 +121,7 @@ const syncing = (over: {
     ...over.github,
   };
 
+  const reports = { report: vi.fn() };
   const service = new SyncReviews(
     outbox,
     {
@@ -155,9 +156,10 @@ const syncing = (over: {
     github,
     { now: () => NOW, sleep: async () => {} },
     { debug: vi.fn(), info: vi.fn(), warn: vi.fn(), error: vi.fn() },
+    reports,
   );
 
-  return { service, settled, github, comments, reviews };
+  return { service, settled, github, comments, reviews, reports };
 };
 
 const submitted = () => {
@@ -329,6 +331,7 @@ describe('SyncReviews', () => {
     });
     await early.service.syncDue();
 
+    expect(early.reports.report).not.toHaveBeenCalled();
     expect(early.settled).toEqual([
       {
         how: 'later',
@@ -359,6 +362,10 @@ describe('SyncReviews', () => {
     expect(last.reviews.get('review_1')?.state).toBe('failed');
     expect(last.reviews.get('review_1')?.pullEvents()).toContainEqual(
       expect.objectContaining({ kind: 'review.comment-not-posted' }),
+    );
+    expect(last.reports.report).toHaveBeenCalledExactlyOnceWith(
+      expect.any(UpstreamRefusedError),
+      expect.objectContaining({ source: 'Syncing reviews with GitHub' }),
     );
   });
 

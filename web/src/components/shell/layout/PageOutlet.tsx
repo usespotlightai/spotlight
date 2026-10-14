@@ -1,10 +1,13 @@
 import { Suspense } from 'react';
 import { Outlet } from 'react-router';
+import { PageErrorBoundary } from '@/components/shell/layout/PageErrorBoundary';
 
 export function PageOutlet() {
   return (
-    <Suspense fallback={null}>
-      <Outlet />
-    </Suspense>
+    <PageErrorBoundary>
+      <Suspense fallback={null}>
+        <Outlet />
+      </Suspense>
+    </PageErrorBoundary>
   );
 }

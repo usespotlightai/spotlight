@@ -11,6 +11,7 @@ import { PairEvidence } from '@outcomes/domain/services/pair-evidence';
 import { JudgingFailure } from '@outcomes/domain/value-objects/judging-failure.vo';
 import type { PairOrder } from '@outcomes/domain/value-objects/pair-order';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import type { ErrorReportsPort } from '@shared-kernel/application/ports/error-reports.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { OwedWorkPort } from '@shared-kernel/application/ports/owed-work.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
@@ -36,6 +37,7 @@ export class WorkPairJudgings implements OwedWorkPort {
     private readonly clock: ClockPort,
     transaction: TransactionPort,
     logger: LoggerPort,
+    reports: ErrorReportsPort,
   ) {
     this.#pool = new OwedWorkPool<PairJudging, PairKey>(
       {
@@ -48,8 +50,12 @@ export class WorkPairJudgings implements OwedWorkPort {
           runId: judging.runId,
           against: judging.against,
         }),
-        about: (judging) => ({
+        ids: (judging) => ({
+          workspaceId: judging.workspaceId.value,
+          teamId: judging.teamId.value,
           runId: judging.runId.value,
+        }),
+        about: (judging) => ({
           against: judging.against.value,
           attempts: judging.work?.attempts,
         }),
@@ -59,6 +65,7 @@ export class WorkPairJudgings implements OwedWorkPort {
       transaction,
       clock,
       logger,
+      reports,
     );
   }
 

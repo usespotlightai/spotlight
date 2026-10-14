@@ -8,6 +8,15 @@ export type HealthResponseDto = {
   status: 'ok';
 };
 
+export type ErrorReportingResponseDto = {
+  /**
+   * The Sentry DSN of the web app. Null when errors are not reported.
+   */
+  dsn: string | null;
+  environment: string | null;
+  release: string | null;
+};
+
 export type StationJudgeResponseDto = {
   /**
    * What a good run looks like, in Markdown. Null when the judge goes by its claims alone
@@ -9137,6 +9146,19 @@ export type GetHealthResponses = {
 };
 
 export type GetHealthResponse = GetHealthResponses[keyof GetHealthResponses];
+
+export type GetErrorReportingData = {
+  body?: never;
+  path?: never;
+  query?: never;
+  url: '/error-reporting';
+};
+
+export type GetErrorReportingResponses = {
+  200: ErrorReportingResponseDto;
+};
+
+export type GetErrorReportingResponse = GetErrorReportingResponses[keyof GetErrorReportingResponses];
 
 export type ListTeamLinesData = {
   body?: never;

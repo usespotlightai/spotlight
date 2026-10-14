@@ -20,6 +20,7 @@ import { MemoryDraftingFailure } from '@memory/domain/value-objects/memory-draft
 import type { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import type { MemoryKind } from '@memory/domain/value-objects/memory-kind';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import type { ErrorReportsPort } from '@shared-kernel/application/ports/error-reports.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { OwedWorkPort } from '@shared-kernel/application/ports/owed-work.port';
@@ -54,6 +55,7 @@ export class WorkMemoryDrafts implements OwedWorkPort {
     private readonly clock: ClockPort,
     transaction: TransactionPort,
     logger: LoggerPort,
+    reports: ErrorReportsPort,
   ) {
     this.#pool = new OwedWorkPool<MemoryDraft, TaskId>(
       {
@@ -63,9 +65,12 @@ export class WorkMemoryDrafts implements OwedWorkPort {
         find: (taskId) => this.drafts.forTask(taskId),
         save: (draft) => this.drafts.save(draft),
         keyOf: (draft) => draft.taskId,
-        about: (draft) => ({
+        ids: (draft) => ({
+          workspaceId: draft.workspaceId.value,
           taskId: draft.taskId.value,
           runId: draft.drafting?.runId.value,
+        }),
+        about: (draft) => ({
           attempts: draft.drafting?.work.attempts,
         }),
         worked: (draft) => this.drafted(draft),
@@ -74,6 +79,7 @@ export class WorkMemoryDrafts implements OwedWorkPort {
       transaction,
       clock,
       logger,
+      reports,
     );
   }
 

@@ -6,6 +6,7 @@ import type { ChangeStackRepository } from '@change-review/domain/repositories/c
 import type { StackCheckRepository } from '@change-review/domain/repositories/stack-check.repository';
 import type { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import type { ErrorReportsPort } from '@shared-kernel/application/ports/error-reports.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { OwedWorkPort } from '@shared-kernel/application/ports/owed-work.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
@@ -26,6 +27,7 @@ export class WorkChangeStacks implements OwedWorkPort {
     private readonly reordering: ReorderChangeStack,
     clock: ClockPort,
     logger: LoggerPort,
+    reports: ErrorReportsPort,
   ) {
     this.#pool = new OwedWorkPool<ChangeStack, ChangeStackId>(
       {
@@ -35,9 +37,13 @@ export class WorkChangeStacks implements OwedWorkPort {
         find: (id) => this.stacks.find(id),
         save: (stack) => this.stacks.save(stack),
         keyOf: (stack) => stack.id,
+        ids: (stack) => ({
+          workspaceId: stack.workspaceId.value,
+          taskId: stack.taskId?.value,
+          runId: stack.runId.value,
+        }),
         about: (stack) => ({
           changeStackId: stack.id.value,
-          runId: stack.runId.value,
           state: stack.state,
           attempts: stack.work.attempts,
         }),
@@ -47,6 +53,7 @@ export class WorkChangeStacks implements OwedWorkPort {
       transaction,
       clock,
       logger,
+      reports,
     );
   }
 
