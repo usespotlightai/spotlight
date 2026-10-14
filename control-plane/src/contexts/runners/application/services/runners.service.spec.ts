@@ -382,13 +382,13 @@ describe('Runners', () => {
 
     it('lets the runner go and says why when provision fails', async () => {
       const { service, saved } = running(aPushPool(), {
-        answer: { outcome: 'refused', detail: 'answered 500' },
+        answer: { outcome: 'refused', detail: 'Provision URL answered 500.' },
       });
 
       await expect(service.provision(request, STARTED_AT)).resolves.toEqual({
         outcome: 'failed',
         kind: 'refused',
-        detail: 'answered 500',
+        detail: 'Provision URL answered 500.',
       });
       expect(saved[0]?.isDiscarded).toBe(true);
     });
@@ -396,14 +396,14 @@ describe('Runners', () => {
     it('still says why provision failed when letting the runner go fails, and logs it', async () => {
       const lost = new Error('the database is down');
       const { service, logged } = running(aPushPool(), {
-        answer: { outcome: 'refused', detail: 'answered 500' },
+        answer: { outcome: 'refused', detail: 'Provision URL answered 500.' },
         unsaved: lost,
       });
 
       await expect(service.provision(request, STARTED_AT)).resolves.toEqual({
         outcome: 'failed',
         kind: 'refused',
-        detail: 'answered 500',
+        detail: 'Provision URL answered 500.',
       });
       expect(logged).toEqual([{ err: lost, runner: 'pooled_1' }]);
     });
@@ -424,7 +424,7 @@ describe('Runners', () => {
       await expect(service.provision(request, STARTED_AT)).resolves.toEqual({
         outcome: 'failed',
         kind: 'unusable',
-        detail: 'provision secret doesn’t open with this deployment’s keys',
+        detail: 'Provision secret doesn’t open with this deployment’s keys.',
       });
       expect(called).toEqual([]);
       expect(saved[0]?.isDiscarded).toBe(true);

@@ -139,7 +139,7 @@ describe('generatedTools', () => {
     expect(tools).toEqual([]);
     expect(passedOver).toEqual([
       expect.stringMatching(
-        /^passes over add-pet, which needs approval and takes intent/,
+        /^passes over add-pet\. It needs approval and takes intent/,
       ),
     ]);
     expect(

@@ -165,7 +165,7 @@ export class GitHubPullRequestReviews implements PullRequestReviewsPort {
       let response = await posting(true);
       let inline = true;
 
-      // GitHub lets nobody approve or request changes on a pull request they opened, the app included.
+      // GitHub does not let a user approve or request changes on their own pull request. This is also true for the app.
       if (
         response.status === UNPROCESSABLE &&
         verdict !== 'comment' &&

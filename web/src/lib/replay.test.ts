@@ -235,10 +235,10 @@ describe('replays', () => {
 
     expect(startRefusal(set({}))).toBeNull();
     expect(startRefusal(set({ entries: [] }))).toBe(
-      'Add runs to the set first.',
+      'Please add runs to the set first.',
     );
     expect(startRefusal(set({ stationGone: true }))).toBe(
-      'Station is gone from its line.',
+      'The station is gone from its line.',
     );
   });
 

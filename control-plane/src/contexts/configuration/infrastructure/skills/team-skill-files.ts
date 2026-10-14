@@ -47,7 +47,7 @@ const readFolder = (
   } catch (error) {
     if (error instanceof InvalidIdentifierError) {
       return refused(
-        `is defined in a folder named ${JSON.stringify(name)}: name the folder in lowercase words joined by dashes, as in our-migrations`,
+        `is defined in a folder named ${JSON.stringify(name)}. Please name the folder in lowercase words joined by dashes, as in our-migrations`,
       );
     }
     if (error instanceof InvalidSkillError) {

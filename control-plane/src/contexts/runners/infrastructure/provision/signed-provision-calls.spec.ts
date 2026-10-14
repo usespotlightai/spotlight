@@ -136,7 +136,7 @@ describe('SignedProvisionCalls', () => {
 
     await expect(provision.call(calling())).resolves.toEqual({
       outcome: 'refused',
-      detail: 'answered 503: no capacity',
+      detail: 'Provision URL answered 503. Response: no capacity',
     });
   });
 

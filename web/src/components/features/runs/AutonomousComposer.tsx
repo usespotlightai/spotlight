@@ -3,6 +3,7 @@ import { FixedRepositories } from '@/components/features/stations/FixedRepositor
 import { ComposerFooter } from '@/components/shared/ComposerFooter';
 import { ChatInput } from '@/components/shared/chat-input/ChatInput';
 import type { RunAgentResponseDto } from '@/lib/api';
+import { RUNS_AUTONOMOUSLY } from '@/lib/run';
 
 type AutonomousComposerProps = {
   slug: string;
@@ -20,7 +21,7 @@ export function AutonomousComposer({
       <ChatInput
         slug={slug}
         label="Message the agent"
-        placeholder="Agent runs autonomously. It can’t receive messages."
+        placeholder={RUNS_AUTONOMOUSLY}
         disabled
         settings={<FixedAgent agent={agent} />}
         below={

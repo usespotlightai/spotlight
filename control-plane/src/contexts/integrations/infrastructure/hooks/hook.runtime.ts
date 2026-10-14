@@ -359,7 +359,7 @@ export class CompiledHookRuntime implements HookRuntimePort {
       if (refused || !reachable) {
         throw new StepRefused(
           refused?.code ?? 'not-allowed',
-          refused?.reason ?? `names ${step.tool}, which nothing offers`,
+          refused?.reason ?? `names ${step.tool}, which no integration offers`,
         );
       }
 
@@ -379,7 +379,7 @@ export class CompiledHookRuntime implements HookRuntimePort {
       if (reachable.integration.holding.byRequester) {
         throw new StepRefused(
           'not-allowed',
-          `names ${step.tool}, which acts as the person who started a task, and a hook acts as nobody`,
+          `names ${step.tool}, which acts as the person who started a task. A hook acts as nobody`,
         );
       }
 

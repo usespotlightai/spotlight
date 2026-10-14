@@ -45,8 +45,8 @@ export function CandidateChoices({
       {loading(candidates) && <SkeletonLine className="w-40 px-2 text-sm" />}
       {failed(candidates) && (
         <p className="px-2 text-muted-foreground text-xs">
-          Sorry, the station’s candidates couldn’t be loaded. The live config
-          can still be replayed.
+          Sorry, the station’s candidates couldn’t be loaded. You can still
+          replay the live config.
         </p>
       )}
     </div>

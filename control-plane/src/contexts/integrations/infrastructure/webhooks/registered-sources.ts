@@ -6,7 +6,7 @@ const marked = (candidate: unknown): boolean =>
   typeof candidate === 'function' &&
   Reflect.getMetadata(WEBHOOK_SOURCE, candidate) === true;
 
-// Checks metatype too: factory-built providers are registered under the factory.
+// Also checks metatype, because Nest registers factory-built providers under the factory.
 export const markedSources = (
   discovery: DiscoveryService,
 ): readonly WebhookSourcePort[] =>

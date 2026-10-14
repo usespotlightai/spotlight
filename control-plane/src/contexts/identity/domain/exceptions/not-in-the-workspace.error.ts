@@ -3,7 +3,7 @@ export class NotInTheWorkspaceError extends Error {
 
   constructor() {
     super(
-      'Sorry, this person is not a member of this workspace. Please invite them first.',
+      'This person is not a member of this workspace. Please invite them first.',
     );
     this.name = 'NotInTheWorkspaceError';
   }

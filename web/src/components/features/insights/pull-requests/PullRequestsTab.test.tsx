@@ -280,7 +280,7 @@ describe('the pull requests of the Productivity tab', () => {
     );
 
     const against = screen.getByRole('table', {
-      name: 'Spotlight’s pull requests against people’s',
+      name: 'Spotlight’s pull requests compared with people’s',
     });
 
     expect(

@@ -55,7 +55,7 @@ export function Replay() {
     return (
       <PageNotice title="Replay not found">
         <p className="text-muted-foreground text-sm">
-          No replay at this address. It may have been deleted.
+          This team has no replay at that address. Someone may have deleted it.
         </p>
       </PageNotice>
     );

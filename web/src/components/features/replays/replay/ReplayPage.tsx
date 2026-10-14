@@ -117,8 +117,8 @@ export function ReplayPage({
                   </TrailLink>
                 }
               >
-                Set had no runs when this replay started. Add runs to the set,
-                then replay it again.
+                The set had no runs when this replay started. Please add runs to
+                the set, then replay it again.
               </EmptyState>
             </StateBox>
           ) : (

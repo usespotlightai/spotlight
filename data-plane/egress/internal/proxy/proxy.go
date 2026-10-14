@@ -72,7 +72,7 @@ func New(allowed Allowed, wearing Wearing, certificates Certificates, credential
 func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if !p.admitted(r) {
 		w.Header().Set("Proxy-Authenticate", `Basic realm="spotlight egress"`)
-		http.Error(w, "egress answers only the sandbox it was started for", http.StatusProxyAuthRequired)
+		http.Error(w, "Egress answers only the sandbox it was started for.", http.StatusProxyAuthRequired)
 		return
 	}
 
@@ -82,7 +82,7 @@ func (p *Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case r.URL.IsAbs():
 		p.forward(w, r)
 	default:
-		http.Error(w, "egress is a proxy: ask it for an absolute URL, or CONNECT to a host", http.StatusBadRequest)
+		http.Error(w, "Egress is a proxy. Please ask it for an absolute URL, or CONNECT to a host.", http.StatusBadRequest)
 	}
 }
 
@@ -124,13 +124,13 @@ func (p *Proxy) connect(w http.ResponseWriter, r *http.Request) {
 
 func (p *Proxy) refuse(w http.ResponseWriter, r *http.Request, host string) {
 	p.log.Warn("refused a request to a host the sandbox may not reach", "host", host, "method", r.Method)
-	http.Error(w, fmt.Sprintf("egress does not let this sandbox reach %s", host), http.StatusForbidden)
+	http.Error(w, fmt.Sprintf("Egress doesn't let this sandbox reach %s.", host), http.StatusForbidden)
 }
 
 func (p *Proxy) tunnel(w http.ResponseWriter, r *http.Request, host, target string) {
 	upstream, err := p.dial(guard.Naming(r.Context(), p.allowed.Names(host)), "tcp", target)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("egress could not reach %s: %v", target, err), http.StatusBadGateway)
+		http.Error(w, fmt.Sprintf("Egress couldn't reach %s. Error: %v", target, err), http.StatusBadGateway)
 		return
 	}
 	defer upstream.Close()
@@ -159,7 +159,7 @@ func (p *Proxy) tunnel(w http.ResponseWriter, r *http.Request, host, target stri
 func (p *Proxy) intercept(w http.ResponseWriter, r *http.Request, host, target string) {
 	certificate, err := p.certificates.For(host)
 	if err != nil {
-		http.Error(w, fmt.Sprintf("egress could not stand in for %s: %v", host, err), http.StatusBadGateway)
+		http.Error(w, fmt.Sprintf("Egress couldn't stand in for %s. Error: %v", host, err), http.StatusBadGateway)
 		return
 	}
 
@@ -257,7 +257,7 @@ func (p *Proxy) failed(w http.ResponseWriter, r *http.Request, err error) {
 	}
 
 	p.log.Warn("could not pass a request on", "host", r.URL.Hostname(), "error", err)
-	http.Error(w, fmt.Sprintf("egress could not reach %s", r.URL.Host), http.StatusBadGateway)
+	http.Error(w, fmt.Sprintf("Egress couldn't reach %s.", r.URL.Host), http.StatusBadGateway)
 }
 
 func hijack(w http.ResponseWriter) (net.Conn, *bufio.Reader, error) {

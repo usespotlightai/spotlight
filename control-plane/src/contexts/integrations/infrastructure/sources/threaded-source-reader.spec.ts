@@ -92,7 +92,7 @@ describe('ThreadedSourceReader', () => {
     ).toEqual({
       kind: 'unread',
       problem:
-        'is a Swagger 2 description, which Spotlight does not read; convert it to OpenAPI 3',
+        'is a Swagger 2 description. Spotlight reads only OpenAPI 3. Please convert it to OpenAPI 3',
     });
   }, 30_000);
 

@@ -60,8 +60,8 @@ export function SubmitReviewButton() {
           </h2>
           <p className="text-muted-foreground text-xs">
             {reviewing.review?.pullRequest
-              ? `Posts ${pending} ${pending === 1 ? 'comment' : 'comments'} to the pull request.`
-              : `Posts ${pending} ${pending === 1 ? 'comment' : 'comments'} when the task opens its pull request.`}
+              ? `Spotlight posts ${pending} ${pending === 1 ? 'comment' : 'comments'} to the pull request.`
+              : `When the task opens its pull request, Spotlight posts ${pending} ${pending === 1 ? 'comment' : 'comments'}.`}
           </p>
         </div>
 

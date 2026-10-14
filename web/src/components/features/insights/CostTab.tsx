@@ -81,7 +81,7 @@ export function CostTab({ slug, teamId, period, names }: CostTabProps) {
         <InsightsTile
           label="Cache share"
           value={cacheShown(breakdown.cache.cacheShare)}
-          detail="Of input tokens, read from cache"
+          detail="Share of input tokens read from cache"
         />
       </InsightsTiles>
 

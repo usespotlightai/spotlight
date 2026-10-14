@@ -27,6 +27,7 @@ import {
   CLOSER_TO_ACCEPTED,
   capitalised,
   type ReplayState,
+  STATION_GONE_FROM_LINE,
   THE_BASELINE,
   THE_SEARCH_START,
 } from '@/lib/replay-words';
@@ -94,10 +95,10 @@ export const newestFirst = (replays: readonly Replay[]): Replay[] =>
 
 export const startRefusal = (set: ReplaySet): string | null => {
   if (set.stationGone) {
-    return 'Station is gone from its line.';
+    return STATION_GONE_FROM_LINE;
   }
   if (set.entries.length === 0) {
-    return 'Add runs to the set first.';
+    return 'Please add runs to the set first.';
   }
 
   return null;

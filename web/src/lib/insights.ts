@@ -1003,7 +1003,7 @@ export const signalHeadings = (
   { label: 'Signal', indent, size: 'minmax(10rem,1fr)' },
   {
     label: 'Compared',
-    note: 'The dot is this period, the ring the period before, the line all stations, and the dashed line where a station gets flagged.',
+    note: 'The dot shows this period and the ring shows the previous period. The line shows all stations. The dashed line shows where a station gets flagged.',
     size: 'minmax(10rem,2fr)',
   },
   { label: 'This period', numeric: true, size: SPREAD },

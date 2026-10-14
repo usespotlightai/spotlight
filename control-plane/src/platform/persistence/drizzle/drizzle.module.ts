@@ -22,7 +22,7 @@ import type { Pool } from 'pg';
 export class DrizzleModule implements OnApplicationShutdown {
   constructor(@Inject(PG_POOL) private readonly pool: Pool) {}
 
-  // On shutdown, not destroy: destroy hooks run while requests are still served.
+  // Close the pool on shutdown, not on destroy. Destroy hooks run when the app still serves requests.
   async onApplicationShutdown(): Promise<void> {
     await this.pool.end();
   }

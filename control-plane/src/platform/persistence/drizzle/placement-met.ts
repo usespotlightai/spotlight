@@ -24,7 +24,7 @@ const imageServed = (image: SQLWrapper, terms: RunnerTerms): SQL => {
     : sql`${image} = ${running.image.value}`;
 };
 
-// RunnerPlacement.admits, said in SQL so a claim stays one statement.
+// This is RunnerPlacement.admits in SQL, so that a claim stays one statement.
 export const placementMet = (
   clauses: SQLWrapper,
   image: SQLWrapper,

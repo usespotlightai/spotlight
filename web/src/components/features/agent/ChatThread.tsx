@@ -51,7 +51,7 @@ export function ChatThread({
 
             return (
               <section
-                // biome-ignore lint/suspicious/noArrayIndexKey: turns are cut in order and never reordered
+                // biome-ignore lint/suspicious/noArrayIndexKey: the turns come in order and their order does not change
                 key={at}
                 className={cn('flex flex-col', at > 0 && 'mt-6')}
               >
@@ -70,7 +70,7 @@ export function ChatThread({
                   <ol className="mt-6 flex flex-col gap-6">
                     {turn.moments.map((moment, place) => (
                       <li
-                        // biome-ignore lint/suspicious/noArrayIndexKey: moments only ever grow at the end, so where one sits is what names it
+                        // biome-ignore lint/suspicious/noArrayIndexKey: the position of a moment identifies it, because new moments go only at the end
                         key={place}
                         className={cn(
                           moment.kind === 'proposed' &&

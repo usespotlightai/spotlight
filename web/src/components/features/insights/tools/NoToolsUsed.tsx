@@ -26,7 +26,7 @@ export function NoToolsUsed({ slug, teamId }: NoToolsUsedProps) {
         }
       >
         Skill reads and MCP server calls show here once a station gives its runs
-        any.
+        skills or MCP servers.
       </EmptyState>
     </div>
   );

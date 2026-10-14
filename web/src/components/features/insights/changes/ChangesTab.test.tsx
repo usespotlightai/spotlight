@@ -439,7 +439,7 @@ describe('the Changes tab', () => {
     expect(
       document.querySelector('[data-slot="replayed-note"]'),
     ).toHaveTextContent(
-      /replay success on up to 18 runs of past tasks, not live outcomes. Scored by each candidate’s own checks and judge/,
+      /replay success on up to 18 runs of past tasks, not live outcomes. Each candidate’s own checks and judge score it/,
     );
   });
 
@@ -517,7 +517,7 @@ describe('the Changes tab', () => {
     expect(
       document.querySelector('[data-slot="replayed-note"]'),
     ).toHaveTextContent(
-      'Replayed candidates aren’t drawn: no live setup has a priced outcome.',
+      'Replayed candidates aren’t drawn. No live setup has a priced outcome.',
     );
   });
 

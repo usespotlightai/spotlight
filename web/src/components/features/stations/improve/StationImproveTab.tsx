@@ -68,7 +68,7 @@ export function StationImproveTab({
           <ImproveCard
             id={REPLAYS_ANCHOR}
             title="Replay sets"
-            description="A few past runs to replay under a candidate. Results compare with the original runs."
+            description="A few past runs to replay under a candidate. Spotlight compares the results with the original runs."
             loading={loading(sets)}
             loadingLabel="Loading the replay sets"
             footer
