@@ -9,6 +9,7 @@ import (
 	"usespotlight.ai/data-plane/host"
 	"usespotlight.ai/data-plane/replay"
 	"usespotlight.ai/data-plane/runner"
+	"usespotlight.ai/data-plane/telemetry"
 )
 
 var version = "dev"
@@ -23,26 +24,42 @@ const usage = `usage:
   spotlight version`
 
 func main() {
-	args := os.Args[1:]
+	os.Exit(run(os.Args[1:]))
+}
+
+func run(args []string) int {
 	if len(args) == 0 {
 		fmt.Fprintln(os.Stderr, usage)
-		os.Exit(1)
+		return 1
 	}
+
+	defer telemetry.Start(roleOf(args[0]), version).Stop()
 
 	switch args[0] {
 	case "host":
-		os.Exit(host.Main(args[1:], version))
+		return host.Main(args[1:], version)
 	case "runner":
-		os.Exit(runner.Main(args[1:], version))
+		return runner.Main(args[1:], version)
 	case "egress":
-		os.Exit(egress.Main(args[1:], version))
+		return egress.Main(args[1:], version)
 	case "replay":
-		os.Exit(replay.Main(args[1:], version))
+		return replay.Main(args[1:], version)
 	case "version":
 		fmt.Println(version)
 	case "help", "-h", "--help":
 		fmt.Println(usage)
 	default:
-		os.Exit(agent.Main(args))
+		return agent.Main(args)
+	}
+
+	return 0
+}
+
+func roleOf(command string) string {
+	switch command {
+	case "host", "runner", "egress", "replay":
+		return command
+	default:
+		return "agent"
 	}
 }

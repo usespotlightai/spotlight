@@ -19,6 +19,7 @@ import (
 	"usespotlight.ai/data-plane/runner/internal/session"
 	"usespotlight.ai/data-plane/runner/internal/stackcheck"
 	"usespotlight.ai/data-plane/runner/internal/trust"
+	"usespotlight.ai/data-plane/telemetry"
 )
 
 const Usage = `  spotlight runner            do the one run or check this sandbox was started for`
@@ -57,7 +58,7 @@ func report(asked, version string, out io.Writer) error {
 }
 
 func run(args []string, version string) error {
-	log := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	log := slog.New(telemetry.Handler(slog.NewJSONHandler(os.Stdout, nil)))
 	slog.SetDefault(log)
 
 	ctx, stop := signal.NotifyContext(

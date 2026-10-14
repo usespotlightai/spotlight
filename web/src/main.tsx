@@ -1,3 +1,6 @@
+import './instrument';
+
+import { reactErrorHandler } from '@sentry/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
@@ -23,7 +26,11 @@ const queryClient = new QueryClient({
   },
 });
 
-createRoot(root).render(
+createRoot(root, {
+  onUncaughtError: reactErrorHandler(),
+  onCaughtError: reactErrorHandler(),
+  onRecoverableError: reactErrorHandler(),
+}).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <Toaster>

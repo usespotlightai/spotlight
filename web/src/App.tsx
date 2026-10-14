@@ -1,3 +1,4 @@
+import { withSentryReactRouterV7Routing } from '@sentry/react';
 import { Suspense } from 'react';
 import { Navigate, Route, Routes } from 'react-router';
 import { RequireAuth } from './components/shell/auth/RequireAuth.tsx';
@@ -166,10 +167,12 @@ const WorkspaceIndex = lazyPage(
   (module) => module.WorkspaceIndex,
 );
 
+const SentryRoutes = withSentryReactRouterV7Routing(Routes);
+
 export default function App() {
   return (
     <Suspense fallback={null}>
-      <Routes>
+      <SentryRoutes>
         <Route element={<RequireGuest />}>
           <Route path="/login" element={<Login />} />
         </Route>
@@ -235,7 +238,7 @@ export default function App() {
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
+      </SentryRoutes>
     </Suspense>
   );
 }

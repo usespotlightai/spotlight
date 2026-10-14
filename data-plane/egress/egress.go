@@ -26,6 +26,7 @@ import (
 	"usespotlight.ai/data-plane/egress/internal/wear"
 	"usespotlight.ai/data-plane/protocol"
 	"usespotlight.ai/data-plane/reach"
+	"usespotlight.ai/data-plane/telemetry"
 )
 
 const Usage = `  spotlight egress            the one way out of a sandbox, wearing its run's secrets toward their hosts`
@@ -56,7 +57,7 @@ func Main(args []string, _ string) int {
 }
 
 func run() error {
-	log := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	log := slog.New(telemetry.Handler(slog.NewJSONHandler(os.Stdout, nil)))
 	slog.SetDefault(log)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)

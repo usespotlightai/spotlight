@@ -16,6 +16,7 @@ import (
 	"usespotlight.ai/data-plane/host/internal/registry"
 	"usespotlight.ai/data-plane/host/internal/sandbox/docker"
 	"usespotlight.ai/data-plane/host/internal/serve"
+	"usespotlight.ai/data-plane/telemetry"
 )
 
 const Usage = `  spotlight host              serve a pull pool or runner trust, a fresh sandbox for every run
@@ -45,7 +46,7 @@ func Main(args []string, version string) int {
 }
 
 func run(version string) error {
-	log := slog.New(slog.NewJSONHandler(os.Stdout, nil))
+	log := slog.New(telemetry.Handler(slog.NewJSONHandler(os.Stdout, nil)))
 	slog.SetDefault(log)
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)

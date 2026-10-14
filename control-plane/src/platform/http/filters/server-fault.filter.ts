@@ -6,6 +6,7 @@ import {
   Inject,
 } from '@nestjs/common';
 import { BaseExceptionFilter, HttpAdapterHost } from '@nestjs/core';
+import { captureException } from '@sentry/nestjs';
 import {
   LOGGER,
   type LoggerPort,
@@ -27,6 +28,7 @@ export class ServerFaultFilter extends BaseExceptionFilter {
 
   override catch(exception: HttpException, host: ArgumentsHost): void {
     if (exception.getStatus() >= HttpStatus.INTERNAL_SERVER_ERROR) {
+      captureException(exception);
       const request = host.switchToHttp().getRequest<LoggableRequest>();
 
       this.logger.error(

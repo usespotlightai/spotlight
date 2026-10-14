@@ -20,6 +20,7 @@ import {
   entityTagOf,
   PROBLEM_CONTENT_TYPE,
 } from '@platform/http/resources/resource-headers';
+import { captureException } from '@sentry/nestjs';
 import { UseCaseFault } from '@shared-kernel/application/errors/use-case.fault';
 import {
   LOGGER,
@@ -62,6 +63,7 @@ export class ProblemFilter implements ExceptionFilter {
     const problem = problemOf(exception);
 
     if (problem.status >= HttpStatus.INTERNAL_SERVER_ERROR) {
+      captureException(exception);
       const request = http.getRequest<LoggableRequest>();
 
       this.logger.error(
