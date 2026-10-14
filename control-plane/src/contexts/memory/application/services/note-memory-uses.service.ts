@@ -28,10 +28,12 @@ export class NoteMemoryUses {
   }
 
   async runEnded(runId: RunId): Promise<void> {
-    const [site, referenced] = await Promise.all([
-      this.work.siteOfRun(runId),
-      this.work.referencedUnder(runId, MEMORY_FOLDER, MEMORY_FILE),
-    ]);
+    const site = await this.work.siteOfRun(runId);
+    const referenced = await this.work.referencedUnder(
+      runId,
+      MEMORY_FOLDER,
+      MEMORY_FILE,
+    );
     const handles = handlesRead(referenced ?? []);
 
     if (!site || handles.length === 0) {

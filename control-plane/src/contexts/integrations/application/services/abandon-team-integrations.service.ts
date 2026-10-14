@@ -34,10 +34,8 @@ export class AbandonTeamIntegrations {
     teamId: TeamId,
     workspaceId: WorkspaceId,
   ): Promise<readonly DomainEvent[]> {
-    const [hooks, integrations] = await Promise.all([
-      this.hooks.ofTeam(teamId),
-      this.definitions.ofTeam(teamId),
-    ]);
+    const hooks = await this.hooks.ofTeam(teamId);
+    const integrations = await this.definitions.ofTeam(teamId);
 
     return [
       ...hooks.map((hook) => new HookAbandonmentDue(hook.id, workspaceId)),

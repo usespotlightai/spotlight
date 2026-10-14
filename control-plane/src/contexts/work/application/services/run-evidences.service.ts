@@ -110,10 +110,8 @@ export class RunEvidences implements RunEvidencePort {
 
   private async askedOf(run: Run): Promise<AskedOfRun | null> {
     if (run.replayOf) {
-      const [original, briefed] = await Promise.all([
-        this.runs.findById(run.replayOf),
-        this.briefed.of(run.replayOf),
-      ]);
+      const original = await this.runs.findById(run.replayOf);
+      const briefed = await this.briefed.of(run.replayOf);
 
       return original?.taskId && briefed
         ? {

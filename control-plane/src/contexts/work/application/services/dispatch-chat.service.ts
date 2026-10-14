@@ -155,10 +155,8 @@ export class DispatchChat implements ChatDispatching {
     memories: readonly BriefedMemory[],
     memoryFolder: MemoryFolder | null,
   ): Promise<string> {
-    const [team, lines] = await Promise.all([
-      this.teams.find(chat.teamId),
-      this.lines.ofTeam(chat.teamId),
-    ]);
+    const team = await this.teams.find(chat.teamId);
+    const lines = await this.lines.ofTeam(chat.teamId);
 
     return ChatBriefing.brief({
       chat,

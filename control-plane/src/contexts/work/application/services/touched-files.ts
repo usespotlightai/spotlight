@@ -27,10 +27,8 @@ export class TouchedFiles {
 
   async onTask(task: Task, line: Line): Promise<readonly TouchedFile[]> {
     const repositories = repositoriesWorkedOn(task, line);
-    const [earlier, pulled] = await Promise.all([
-      this.earlierRuns(task, repositories),
-      this.pullRequestFiles(task),
-    ]);
+    const earlier = await this.earlierRuns(task, repositories);
+    const pulled = await this.pullRequestFiles(task);
 
     return distinctFiles([...earlier, ...pulled]);
   }

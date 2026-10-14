@@ -9,14 +9,11 @@ export const namedDisputes = async (
   const who = [
     ...new Set(decisions.flatMap((each) => each.disputes.map((d) => d.by))),
   ];
-  const names = new Map(
-    await Promise.all(
-      who.map(
-        async (by) =>
-          [by, (await people.find(UserId.of(by)))?.name ?? null] as const,
-      ),
-    ),
-  );
+  const names = new Map<string, string | null>();
+
+  for (const by of who) {
+    names.set(by, (await people.find(UserId.of(by)))?.name ?? null);
+  }
 
   return decisions.map((each) => ({
     ...each,

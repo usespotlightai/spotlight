@@ -98,15 +98,16 @@ export class DrizzleLineResources implements LineResourcesPort {
     const onStation = (row: { readonly stationId: string }) =>
       lineOfStation.get(row.stationId);
 
-    const [routes, tools, skills, reactions, repositories] = await Promise.all([
+    const routes =
       stationIds.length > 0
-        ? db
+        ? await db
             .select()
             .from(stationRoute)
             .where(inArray(stationRoute.stationId, stationIds))
-        : [],
+        : [];
+    const tools =
       stationIds.length > 0
-        ? db
+        ? await db
             .select({
               stationId: stationTool.stationId,
               name: stationTool.tool,
@@ -114,9 +115,10 @@ export class DrizzleLineResources implements LineResourcesPort {
             .from(stationTool)
             .where(inArray(stationTool.stationId, stationIds))
             .orderBy(asc(stationTool.position))
-        : [],
+        : [];
+    const skills =
       stationIds.length > 0
-        ? db
+        ? await db
             .select({
               stationId: stationSkill.stationId,
               name: stationSkill.skill,
@@ -124,21 +126,20 @@ export class DrizzleLineResources implements LineResourcesPort {
             .from(stationSkill)
             .where(inArray(stationSkill.stationId, stationIds))
             .orderBy(asc(stationSkill.position))
-        : [],
-      db
-        .select()
-        .from(lineReaction)
-        .where(inArray(lineReaction.lineId, lineIds)),
-      db
-        .select({
-          lineId: lineRepository.lineId,
-          repository: lineRepository.repository,
-          image: lineRepository.image,
-          setup: lineRepository.setup,
-        })
-        .from(lineRepository)
-        .where(inArray(lineRepository.lineId, lineIds)),
-    ]);
+        : [];
+    const reactions = await db
+      .select()
+      .from(lineReaction)
+      .where(inArray(lineReaction.lineId, lineIds));
+    const repositories = await db
+      .select({
+        lineId: lineRepository.lineId,
+        repository: lineRepository.repository,
+        image: lineRepository.image,
+        setup: lineRepository.setup,
+      })
+      .from(lineRepository)
+      .where(inArray(lineRepository.lineId, lineIds));
 
     const stationsOf = byLine(stations, (each) => each.lineId);
     const routesOf = byLine(routes, onStation);

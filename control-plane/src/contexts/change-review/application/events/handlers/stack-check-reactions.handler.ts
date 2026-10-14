@@ -42,10 +42,8 @@ export class StackCheckReactions {
   }
 
   async onReordered(stackId: ChangeStackId): Promise<void> {
-    const [stack, check] = await Promise.all([
-      this.stacks.find(stackId),
-      this.checks.find(stackId, false),
-    ]);
+    const stack = await this.stacks.find(stackId);
+    const check = await this.checks.find(stackId, false);
 
     if (stack && check?.reordering) {
       await this.checks.save(

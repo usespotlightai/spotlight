@@ -66,12 +66,14 @@ export class PairReplayEntries {
       }
     }
 
-    const accepted = await Promise.all(
-      wanting.map(async (original) =>
-        (await this.outcomes.acceptedAfter(original)) ? [original.value] : [],
-      ),
-    );
+    const accepted = new Set<string>();
 
-    return new Set(accepted.flat());
+    for (const original of wanting) {
+      if (await this.outcomes.acceptedAfter(original)) {
+        accepted.add(original.value);
+      }
+    }
+
+    return accepted;
   }
 }

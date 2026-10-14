@@ -168,9 +168,11 @@ export class IntegrationReader {
     definitions: readonly DefinedIntegration[],
     tools: readonly string[],
   ): Promise<readonly ToolDeclaration[]> {
-    const offerings = await Promise.all(
-      tools.map((tool) => this.offering(definitions, tool)),
-    );
+    const offerings = [];
+
+    for (const tool of tools) {
+      offerings.push(await this.offering(definitions, tool));
+    }
 
     return offerings.flatMap((each) =>
       each

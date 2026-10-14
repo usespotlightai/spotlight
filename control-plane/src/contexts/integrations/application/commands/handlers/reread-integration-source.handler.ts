@@ -20,10 +20,11 @@ export class RereadIntegrationSourceHandler
 
   async execute(command: RereadIntegrationSourceCommand): Promise<void> {
     const teamId = TeamId.of(command.teamId);
-    const [standing, team] = await Promise.all([
-      this.definitions.of(teamId, SourceKey.of(command.source)),
-      this.teams.find(teamId),
-    ]);
+    const standing = await this.definitions.of(
+      teamId,
+      SourceKey.of(command.source),
+    );
+    const team = await this.teams.find(teamId);
 
     if (!standing?.reading || !team) {
       return;

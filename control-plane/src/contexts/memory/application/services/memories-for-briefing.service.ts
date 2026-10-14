@@ -71,10 +71,10 @@ export class MemoriesForBriefing
     asOf: Date,
   ): Promise<BriefingSelection> {
     const site = siteOf(place);
-    const [kept, applying] = await Promise.all([
-      this.memories.findAll(chosen.briefed.map((each) => MemoryId.of(each.id))),
-      this.inReach.at(site, asOf),
-    ]);
+    const kept = await this.memories.findAll(
+      chosen.briefed.map((each) => MemoryId.of(each.id)),
+    );
+    const applying = await this.inReach.at(site, asOf);
     const held = new Map(
       kept
         .filter((each) => each.isTeams(place.teamId))
@@ -105,13 +105,11 @@ export class MemoriesForBriefing
     const site = siteOf(place);
     const applying = await this.inReach.at(site);
     const ids = applying.map((each) => each.id);
-    const [touched, ranks, recalled] = await Promise.all([
-      applying.some((each) => each.scope.paths.length > 0)
-        ? place.touched()
-        : ([] as readonly TouchedFile[]),
-      this.relevance.rank(ids, place.about),
-      this.uses.runsUsing(ids, 'recalled'),
-    ]);
+    const touched = applying.some((each) => each.scope.paths.length > 0)
+      ? await place.touched()
+      : ([] as readonly TouchedFile[]);
+    const ranks = await this.relevance.rank(ids, place.about);
+    const recalled = await this.uses.runsUsing(ids, 'recalled');
 
     const chosen = selectForBriefing(
       applying.map((memory) => ({

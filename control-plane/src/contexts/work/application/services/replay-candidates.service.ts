@@ -137,10 +137,11 @@ export class ReplayCandidates implements ReplayCandidatesPort {
       return built;
     }
 
-    const [config, live] = await Promise.all([
-      this.candidates.configOf(built.line, built.station),
-      this.candidates.configOf(standing.line, standing.station),
-    ]);
+    const config = await this.candidates.configOf(built.line, built.station);
+    const live = await this.candidates.configOf(
+      standing.line,
+      standing.station,
+    );
     const normalised = this.rendering
       .heldOf(built.line)
       .stations.find((each) => each.key === built.station.key.value);

@@ -254,17 +254,15 @@ export class DrizzleChatRepository implements ChatRepository {
       return null;
     }
 
-    const [messages, attachments] = await Promise.all([
-      this.context.db
-        .select()
-        .from(chatMessage)
-        .where(eq(chatMessage.chatId, found.id))
-        .orderBy(asc(chatMessage.position)),
-      this.context.db
-        .select()
-        .from(chatAttachment)
-        .where(eq(chatAttachment.chatId, found.id)),
-    ]);
+    const messages = await this.context.db
+      .select()
+      .from(chatMessage)
+      .where(eq(chatMessage.chatId, found.id))
+      .orderBy(asc(chatMessage.position));
+    const attachments = await this.context.db
+      .select()
+      .from(chatAttachment)
+      .where(eq(chatAttachment.chatId, found.id));
 
     return toChat(found, messages, attachments);
   }
