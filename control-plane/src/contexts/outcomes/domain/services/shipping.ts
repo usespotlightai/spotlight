@@ -4,6 +4,7 @@ import {
   type ByPercentile,
   between,
   byPercentile,
+  byText,
   known,
   type Percentile,
   type Percentiles,
@@ -573,9 +574,6 @@ const jammedOf = (stages: readonly Stage<Timed>[]): readonly FlowStage[] => {
     },
   }));
 };
-
-const byText = (one: string, other: string): number =>
-  one < other ? -1 : one > other ? 1 : 0;
 
 export const shippedTaskIdsOf = (
   pullRequests: readonly TeamPullRequest[],

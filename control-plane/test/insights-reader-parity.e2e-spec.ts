@@ -14,6 +14,10 @@ import {
 import { flowCountsOf, flowFrom } from '@outcomes/domain/services/flow';
 import { overviewCountsOf } from '@outcomes/domain/services/overview-counts';
 import { peopleCountsOf } from '@outcomes/domain/services/people-counts';
+import {
+  weekOf,
+  weekWindowOf,
+} from '@outcomes/domain/services/pull-request-insights';
 import { pipelineCountsOf } from '@outcomes/domain/services/shipping';
 import {
   stationReportsFrom,
@@ -21,6 +25,7 @@ import {
   teamReportFrom,
 } from '@outcomes/domain/services/station-reports';
 import { openingsOf } from '@outcomes/domain/services/team-history';
+import { toolCountsOf } from '@outcomes/domain/services/tool-insights';
 import { FailureOccurrence } from '@outcomes/domain/value-objects/failure-occurrence.vo';
 import { HandedOn } from '@outcomes/domain/value-objects/handed-on.vo';
 import { InboxAsk } from '@outcomes/domain/value-objects/inbox-ask.vo';
@@ -30,12 +35,16 @@ import {
 } from '@outcomes/domain/value-objects/insights-period.vo';
 import { NEXT_ACTS, NextAct } from '@outcomes/domain/value-objects/next-act.vo';
 import { PersonTouch } from '@outcomes/domain/value-objects/person-touch.vo';
+import { Refusal } from '@outcomes/domain/value-objects/refusal.vo';
 import { RunCost } from '@outcomes/domain/value-objects/run-cost.vo';
 import { RunEnd } from '@outcomes/domain/value-objects/run-end.vo';
 import type { RunEnding } from '@outcomes/domain/value-objects/run-ending';
 import { RunPlace } from '@outcomes/domain/value-objects/run-place.vo';
 import { RunSetup } from '@outcomes/domain/value-objects/run-setup.vo';
-import { RunTools } from '@outcomes/domain/value-objects/run-tools.vo';
+import {
+  RunTools,
+  type ServerCalls,
+} from '@outcomes/domain/value-objects/run-tools.vo';
 import { TaskOpening } from '@outcomes/domain/value-objects/task-opening.vo';
 import { DrizzleRunFactProjection } from '@outcomes/infrastructure/persistence/drizzle/projections/run-fact.projection';
 import { DrizzleInsightsReader } from '@outcomes/infrastructure/persistence/drizzle/readers/insights.reader';
@@ -48,6 +57,7 @@ import type { Env } from '@platform/config/env.schema';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { DrizzleReading } from '@platform/persistence/drizzle/drizzle.reading';
 import type { DomainEventDispatcher } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { LatencyHistogram } from '@shared-kernel/domain/value-objects/latency-histogram.vo';
 import { PersonPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -131,10 +141,60 @@ const seeded = (seed: number) => {
   };
 };
 
-const random = seeded(187);
+const SEED = 187;
+const random = seeded(SEED);
 const pick = <T>(from: readonly T[]): T =>
   from[Math.floor(random() * from.length)] as T;
 const chance = (share: number): boolean => random() < share;
+const toolRandom = seeded(SEED * 7 + 1);
+const toolPick = <T>(from: readonly T[]): T =>
+  from[Math.floor(toolRandom() * from.length)] as T;
+const toolChance = (share: number): boolean => toolRandom() < share;
+const upTo = (most: number): number => Math.floor(toolRandom() * (most + 1));
+
+const SKILLS = [[], ['grafana'], ['grafana', 'release-notes'], ['deploy']];
+const READ = ['grafana', 'release-notes', 'deploy', 'Search'];
+const SERVERS = ['linear', 'github', 'sentry'];
+
+const callsTo = (server: string): ServerCalls => {
+  const calls = 1 + upTo(3);
+  const unfinished = toolChance(0.2) ? 1 : 0;
+  const failed = Math.min(calls, unfinished + upTo(1));
+
+  return {
+    server,
+    calls,
+    failed,
+    latency: LatencyHistogram.timing(
+      Array.from({ length: calls - unfinished }, () =>
+        Math.floor(toolRandom() * 3_000),
+      ),
+    ),
+    lastCallFailed: failed > 0 && toolChance(0.6),
+  };
+};
+
+const toolsOfRun = (): RunTools =>
+  RunTools.of({
+    servers: SERVERS.filter(() => toolChance(0.35)).map(callsTo),
+    skillsRead: READ.filter(() => toolChance(0.25)),
+  });
+
+const refusedIn = (record: RunRecord, endedAt: Date): RunRecord => {
+  let refused = record;
+
+  for (let each = upTo(2); each > 0; each -= 1) {
+    refused = refused.refused(
+      Refusal.of({
+        tool: toolPick(['create_issue', 'merge', 'Deploy']),
+        server: toolPick(['linear', 'github', null]),
+        at: new Date(endedAt.getTime() - each * 60_000),
+      }),
+    );
+  }
+
+  return refused;
+};
 const ago = (ms: number): Date => new Date(NOW.getTime() - ms);
 
 const inPlaceOrder = (
@@ -211,7 +271,7 @@ beforeAll(async () => {
             effort: null,
             profileKey: null,
             repositories: pick(REPOSITORIES),
-            skills: [],
+            skills: toolPick(SKILLS),
           }),
           queuedAt: startedAt ? new Date(startedAt.getTime() - HOUR) : null,
           startedAt,
@@ -249,7 +309,7 @@ beforeAll(async () => {
               cacheWrite: chance(0.5) ? Math.floor(random() * 5_000) : null,
             },
           }),
-          RunTools.NONE,
+          toolsOfRun(),
         );
       }
       if (chance(0.5)) {
@@ -276,6 +336,8 @@ beforeAll(async () => {
           new Date(endedAt.getTime() + 3 * HOUR),
         );
       }
+
+      record = refusedIn(record, endedAt);
 
       await records.add(record);
 
@@ -921,6 +983,273 @@ describe('the pipeline of the tasks a team shipped', () => {
         [],
       ),
     ).toEqual({ openings: [], stations: [], passages: [] });
+  });
+});
+
+describe('the tools a team’s runs used', () => {
+  it.each(INSIGHTS_PERIODS)(
+    'counts the same tools as the domain over %s',
+    async (name) => {
+      const { history, period, truncated } = await histories.of(
+        TEAM.value,
+        PersonPrincipal.of(VIEWER),
+        name,
+      );
+      const counts = await reader.toolCounts({
+        workspaceId: WORKSPACE,
+        teamId: TEAM,
+        period,
+      });
+
+      expect(truncated).toBe(false);
+      expect(counts).toEqual(toolCountsOf(history, period.current));
+    },
+  );
+
+  it('covers what makes tool counts hard to get right', async () => {
+    const { period } = await histories.scope(
+      TEAM.value,
+      PersonPrincipal.of(VIEWER),
+      '90d',
+    );
+    const { skills, servers, refusals } = await reader.toolCounts({
+      workspaceId: WORKSPACE,
+      teamId: TEAM,
+      period,
+    });
+    const timed = (latency: readonly number[]) =>
+      latency.reduce((sum, each) => sum + each, 0);
+
+    expect(skills.some((each) => each.given === 0 && each.used > 0)).toBe(true);
+    expect(skills.some((each) => each.given > 0 && each.used === 0)).toBe(true);
+    expect(servers.length).toBe(3);
+    expect(servers.some((each) => timed(each.latency) < each.calls)).toBe(true);
+    expect(servers.every((each) => each.failingRuns > 0)).toBe(true);
+    expect(servers.some((each) => each.refused > 0)).toBe(true);
+    expect(refusals.some((each) => each.server === null)).toBe(true);
+  });
+});
+
+describe('how the tool counts fall into weeks and leave out what did not run', () => {
+  const TOOLS = TeamId.of('team_tools');
+  const period = InsightsPeriod.of('7d', NOW);
+  const monday = weekWindowOf(weekOf(NOW)).from;
+  const before = weekOf(new Date(monday.getTime() - 1));
+  const served = (
+    server: string,
+    calls: number,
+    timed: readonly number[],
+  ): ServerCalls => ({
+    server,
+    calls,
+    failed: calls - timed.length,
+    latency: LatencyHistogram.timing(timed),
+    lastCallFailed: calls > timed.length,
+  });
+
+  beforeAll(async () => {
+    const context = new DrizzleContext(held.db);
+    const quiet = {
+      dispatch: async () => {},
+    } as unknown as DomainEventDispatcher;
+    const records = new DrizzleRunRecordRepository(
+      context,
+      new DrizzleRunFactProjection(context),
+      quiet,
+    );
+    const ended = (
+      runId: string,
+      stationId: string,
+      endedAt: Date,
+      ending: RunEnding,
+      skills: readonly string[],
+      tools: RunTools,
+    ) =>
+      RunRecord.heardOf(RunId.of(runId), WORKSPACE)
+        .ended(
+          RunEnd.of({
+            place: RunPlace.of({
+              teamId: TOOLS,
+              lineId: 'line_tools',
+              stationId,
+              taskId: TaskId.of(`task_${runId}`),
+            }),
+            fingerprint: 'a'.repeat(64),
+            setup: RunSetup.of({
+              harness: 'claude-code',
+              model: 'sonnet',
+              effort: null,
+              profileKey: null,
+              repositories: [],
+              skills: [...skills],
+            }),
+            queuedAt: null,
+            startedAt: new Date(endedAt.getTime() - HOUR),
+            endedAt,
+            ending,
+            failure: null,
+            round: 1,
+            asked: false,
+          }),
+        )
+        .digested(
+          RunCost.of({
+            ms: 1_000,
+            steps: 1,
+            faults: 0,
+            changedLines: 1,
+            used: null,
+            size: null,
+            amount: null,
+            currency: null,
+            tokens: { input: 1, output: 1, cacheRead: null, cacheWrite: null },
+          }),
+          tools,
+        );
+
+    await context.run(async () => {
+      await records.add(
+        ended(
+          'tools_monday',
+          'tool_a',
+          monday,
+          'failed',
+          ['grafana'],
+          RunTools.of({
+            servers: [served('linear', 2, [100]), served('sentry', 1, [50])],
+            skillsRead: ['grafana'],
+          }),
+        ),
+      );
+      await records.add(
+        ended(
+          'tools_sunday',
+          'tool_b',
+          new Date(monday.getTime() - 1),
+          'failed',
+          [],
+          RunTools.of({
+            servers: [served('linear', 1, [])],
+            skillsRead: ['Search'],
+          }),
+        )
+          .supersededByItsTask(monday)
+          .refused(
+            Refusal.of({
+              tool: 'merge',
+              server: 'linear',
+              at: new Date(monday.getTime() - HOUR),
+            }),
+          )
+          .refused(
+            Refusal.of({
+              tool: 'merge',
+              server: 'linear',
+              at: new Date(monday.getTime() - 2 * HOUR),
+            }),
+          )
+          .refused(
+            Refusal.of({
+              tool: 'merge',
+              server: null,
+              at: new Date(monday.getTime() - HOUR),
+            }),
+          )
+          .refused(
+            Refusal.of({
+              tool: 'search',
+              server: 'sentry',
+              at: new Date(monday.getTime() - HOUR),
+            }),
+          ),
+      );
+      await records.add(
+        ended(
+          'tools_withdrawn',
+          'tool_c',
+          monday,
+          'withdrawn',
+          ['grafana'],
+          RunTools.of({
+            servers: [served('linear', 1, [50])],
+            skillsRead: ['grafana'],
+          }),
+        ).refused(Refusal.of({ tool: 'merge', server: 'linear', at: monday })),
+      );
+    });
+  });
+
+  it('puts a run that ends at midnight on Monday in the new week, counts a failing call only on a run that still failed, and counts a refusal at a server the run did not call', async () => {
+    const counts = await reader.toolCounts({
+      workspaceId: WORKSPACE,
+      teamId: TOOLS,
+      period,
+    });
+    const { history } = await histories.of(
+      TOOLS.value,
+      PersonPrincipal.of(VIEWER),
+      '7d',
+    );
+    const week = weekOf(monday);
+    const bucketOf100 = LatencyHistogram.timing([100]).counts;
+
+    expect(counts).toEqual({
+      runs: [
+        { stationId: null, week: null, runs: 2 },
+        { stationId: null, week: before, runs: 1 },
+        { stationId: null, week, runs: 1 },
+        { stationId: 'tool_a', week: null, runs: 1 },
+        { stationId: 'tool_a', week, runs: 1 },
+        { stationId: 'tool_b', week: null, runs: 1 },
+        { stationId: 'tool_b', week: before, runs: 1 },
+      ],
+      stations: [
+        { lineId: 'line_tools', stationId: 'tool_b' },
+        { lineId: 'line_tools', stationId: 'tool_a' },
+      ],
+      skills: [
+        { key: 'Search', stationId: null, week: null, given: 0, used: 1 },
+        { key: 'Search', stationId: null, week: before, given: 0, used: 1 },
+        { key: 'Search', stationId: 'tool_b', week: null, given: 0, used: 1 },
+        {
+          key: 'Search',
+          stationId: 'tool_b',
+          week: before,
+          given: 0,
+          used: 1,
+        },
+        { key: 'grafana', stationId: null, week: null, given: 1, used: 1 },
+        { key: 'grafana', stationId: null, week, given: 1, used: 1 },
+        { key: 'grafana', stationId: 'tool_a', week: null, given: 1, used: 1 },
+        { key: 'grafana', stationId: 'tool_a', week, given: 1, used: 1 },
+      ],
+      servers: [
+        {
+          server: 'linear',
+          runs: 2,
+          calls: 3,
+          failedCalls: 2,
+          latency: bucketOf100,
+          failingRuns: 1,
+          refused: 1,
+        },
+        {
+          server: 'sentry',
+          runs: 1,
+          calls: 1,
+          failedCalls: 0,
+          latency: LatencyHistogram.timing([50]).counts,
+          failingRuns: 0,
+          refused: 1,
+        },
+      ],
+      refusals: [
+        { tool: 'merge', server: null, refused: 1 },
+        { tool: 'merge', server: 'linear', refused: 1 },
+        { tool: 'search', server: 'sentry', refused: 1 },
+      ],
+    });
+    expect(counts).toEqual(toolCountsOf(history, period.current));
   });
 });
 

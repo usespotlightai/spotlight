@@ -269,7 +269,7 @@ describe('the team’s insights', () => {
   });
 
   it('reads which skills and servers the period’s runs used from what each run was digested with', async () => {
-    const { histories, records } = await insights();
+    const { histories, reader, records } = await insights();
     const asked: string[] = [];
     const work: WorkPort = {
       endedRun: async () => null,
@@ -301,9 +301,11 @@ describe('the team’s insights', () => {
       }),
     );
 
-    const tools = await new ReadInsightsToolsHandler(histories, work).execute(
-      new ReadInsightsToolsQuery('team_1', READ_TOKEN, '7d'),
-    );
+    const tools = await new ReadInsightsToolsHandler(
+      histories,
+      reader,
+      work,
+    ).execute(new ReadInsightsToolsQuery('team_1', READ_TOKEN, '7d'));
 
     expect(asked).toEqual(['team_1']);
     expect(tools.runs).toBe(4);
@@ -323,11 +325,11 @@ describe('the team’s insights', () => {
   });
 
   it('finds no tools for someone not on the team', async () => {
-    const { histories } = await insights();
+    const { histories, reader } = await insights();
     const work = { teamSkillKeys: async () => [] } as unknown as WorkPort;
 
     await expect(
-      new ReadInsightsToolsHandler(histories, work).execute(
+      new ReadInsightsToolsHandler(histories, reader, work).execute(
         new ReadInsightsToolsQuery('team_1', STRANGER, '7d'),
       ),
     ).rejects.toMatchObject({ kind: 'not-found' });

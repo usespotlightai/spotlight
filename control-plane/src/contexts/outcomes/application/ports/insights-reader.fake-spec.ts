@@ -14,6 +14,7 @@ import {
   stationsOf,
   type TeamHistory,
 } from '@outcomes/domain/services/team-history';
+import { toolCountsOf } from '@outcomes/domain/services/tool-insights';
 
 const ALL = Number.MAX_SAFE_INTEGER;
 
@@ -91,4 +92,6 @@ export const insightsReaderInMemory = (
       await openingsFor(held, history),
     );
   },
+  toolCounts: async (team) =>
+    toolCountsOf(await historyOf(held, team), team.period.current),
 });

@@ -111,3 +111,6 @@ export const spendingOf = (spends: readonly (Spend | null)[]): Spending => {
 
 export const between = (from: Date, to: Date): number =>
   to.getTime() - from.getTime();
+
+export const byText = (one: string, other: string): number =>
+  one < other ? -1 : one > other ? 1 : 0;

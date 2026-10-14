@@ -4,6 +4,7 @@ import type { OverviewCounts } from '@outcomes/domain/services/overview-counts';
 import type { PeopleCounts } from '@outcomes/domain/services/people-counts';
 import type { PipelineCounts } from '@outcomes/domain/services/shipping';
 import type { TeamCounts } from '@outcomes/domain/services/station-reports';
+import type { ToolCounts } from '@outcomes/domain/services/tool-insights';
 import type { InsightsPeriod } from '@outcomes/domain/value-objects/insights-period.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -26,4 +27,5 @@ export interface InsightsReaderPort {
     team: TeamInPeriod,
     taskIds: readonly string[],
   ): Promise<PipelineCounts>;
+  toolCounts(team: TeamInPeriod): Promise<ToolCounts>;
 }
