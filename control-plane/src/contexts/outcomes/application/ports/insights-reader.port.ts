@@ -2,6 +2,7 @@ import type { CostCountsInPeriod } from '@outcomes/domain/services/cost-breakdow
 import type { FlowCounts } from '@outcomes/domain/services/flow';
 import type { OverviewCounts } from '@outcomes/domain/services/overview-counts';
 import type { PeopleCounts } from '@outcomes/domain/services/people-counts';
+import type { PipelineCounts } from '@outcomes/domain/services/shipping';
 import type { TeamCounts } from '@outcomes/domain/services/station-reports';
 import type { InsightsPeriod } from '@outcomes/domain/value-objects/insights-period.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -21,4 +22,8 @@ export interface InsightsReaderPort {
   costCounts(team: TeamInPeriod): Promise<CostCountsInPeriod>;
   flowCounts(team: TeamInPeriod): Promise<FlowCounts>;
   peopleCounts(team: TeamInPeriod): Promise<PeopleCounts>;
+  pipelineCounts(
+    team: TeamInPeriod,
+    taskIds: readonly string[],
+  ): Promise<PipelineCounts>;
 }

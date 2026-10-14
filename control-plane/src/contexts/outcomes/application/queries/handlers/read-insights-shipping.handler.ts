@@ -3,10 +3,13 @@ import {
   type InsightsShippingDto,
   shippingDtoOf,
 } from '@outcomes/application/dto/insights-shipping.dto';
+import type { InsightsReaderPort } from '@outcomes/application/ports/insights-reader.port';
 import type { ReadInsightsShippingQuery } from '@outcomes/application/queries/read-insights-shipping.query';
-import type { TeamHistories } from '@outcomes/application/services/team-histories.service';
 import type { TeamPullRequests } from '@outcomes/application/services/team-pull-requests.service';
-import { shippingOf } from '@outcomes/domain/services/shipping';
+import {
+  shippedTaskIdsOf,
+  shippingOf,
+} from '@outcomes/domain/services/shipping';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
@@ -15,7 +18,7 @@ export class ReadInsightsShippingHandler
 {
   constructor(
     private readonly pullRequests: TeamPullRequests,
-    private readonly histories: TeamHistories,
+    private readonly reader: InsightsReaderPort,
   ) {}
 
   async execute(
@@ -28,16 +31,19 @@ export class ReadInsightsShippingHandler
         query.period,
         'previous',
       );
-      const { history, truncated } = await this.histories.of(
-        query.teamId,
-        query.principal,
-        query.period,
+      const counts = await this.reader.pipelineCounts(
+        {
+          workspaceId: made.clearance.workspaceId,
+          teamId: made.clearance.teamId,
+          period: made.period,
+        },
+        shippedTaskIdsOf(made.pullRequests, made.period),
       );
 
       return {
         period: periodOf(made.period),
-        truncated: made.truncated || truncated,
-        ...shippingDtoOf(shippingOf(made.pullRequests, history, made.period)),
+        truncated: made.truncated,
+        ...shippingDtoOf(shippingOf(made.pullRequests, counts, made.period)),
       };
     } catch (error) {
       rethrowAsFault(error);

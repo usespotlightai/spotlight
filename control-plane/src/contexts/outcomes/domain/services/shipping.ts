@@ -1,5 +1,4 @@
 import type { BotActivity } from '@outcomes/domain/aggregates/pull-request-record.aggregate';
-import type { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
 import { inboxWaitsWithin } from '@outcomes/domain/services/flow';
 import {
   type ByPercentile,
@@ -155,6 +154,25 @@ export type FlowStage = Stage<StageTimes>;
 const FLOW_LAYOUTS = ['stations', 'stages'] as const;
 
 export type FlowLayout = (typeof FLOW_LAYOUTS)[number];
+
+interface PipelineOpening {
+  readonly taskId: string;
+  readonly openedAt: Date;
+}
+
+interface PipelinePassage {
+  readonly taskId: string;
+  readonly stationId: string;
+  readonly queued: number;
+  readonly running: number;
+  readonly inbox: number;
+}
+
+export interface PipelineCounts {
+  readonly openings: readonly PipelineOpening[];
+  readonly stations: readonly StationPlace[];
+  readonly passages: readonly PipelinePassage[];
+}
 
 interface PipelineFlow {
   readonly merged: number;
@@ -556,30 +574,102 @@ const jammedOf = (stages: readonly Stage<Timed>[]): readonly FlowStage[] => {
   }));
 };
 
-const pipelineOf = (
-  merged: readonly TeamPullRequest[],
-  history: TeamHistory,
-  reach: Window,
-): PipelineFlow => {
-  const openings = openingsOf(history.touches);
-  const openedAt = (each: TeamPullRequest): Date | null =>
-    openings.get(each.taskId ?? '')?.opening?.at ?? null;
-  const made = merged.filter((each) => {
-    const opened = openedAt(each);
+const byText = (one: string, other: string): number =>
+  one < other ? -1 : one > other ? 1 : 0;
 
-    return (
-      each.by === 'spotlight' &&
-      opened !== null &&
-      opened.getTime() >= reach.from.getTime()
-    );
+export const shippedTaskIdsOf = (
+  pullRequests: readonly TeamPullRequest[],
+  period: InsightsPeriod,
+): readonly string[] =>
+  [
+    ...new Set(
+      mergedWithin(pullRequests, period.current).flatMap((each) =>
+        each.by === 'spotlight' && each.taskId !== null ? [each.taskId] : [],
+      ),
+    ),
+  ].sort(byText);
+
+export const pipelineCountsOf = (
+  history: TeamHistory,
+  taskIds: readonly string[],
+  period: InsightsPeriod,
+): PipelineCounts => {
+  const reach = period.lookback;
+  const touched = openingsOf(history.touches);
+  const openings = [...new Set(taskIds)].sort(byText).flatMap((taskId) => {
+    const openedAt = touched.get(taskId)?.opening?.at ?? null;
+
+    return openedAt !== null && openedAt.getTime() >= reach.from.getTime()
+      ? [{ taskId, openedAt }]
+      : [];
   });
-  const tasks = new Set(made.map((each) => each.taskId));
+  const tasks = new Set(openings.map((each) => each.taskId));
   const runs = history.records.filter(
     (each) => each.taskId && tasks.has(each.taskId.value) && each.end,
   );
   const waits = inboxWaitsWithin(history, reach);
-  const runsOf = (taskId: string | null): readonly RunRecord[] =>
-    runs.filter((each) => each.taskId?.value === taskId);
+  const stations = stationsOf(runs);
+  const stationIds = stations.map((each) => each.stationId).sort(byText);
+
+  return {
+    openings,
+    stations,
+    passages: openings.flatMap(({ taskId }) =>
+      stationIds.flatMap((stationId) => {
+        const here = runs.filter(
+          (run) =>
+            run.taskId?.value === taskId &&
+            run.end?.place.stationId === stationId,
+        );
+
+        return here.length > 0
+          ? [
+              {
+                taskId,
+                stationId,
+                queued: sumOf(
+                  known(here.map((run) => run.end?.queuedMs ?? null)),
+                ),
+                running: sumOf(
+                  known(here.map((run) => run.end?.runningMs ?? null)),
+                ),
+                inbox: sumOf(
+                  known(
+                    waits
+                      .filter(
+                        (wait) =>
+                          wait.taskId === taskId &&
+                          wait.stationId === stationId,
+                      )
+                      .map((wait) => lasted(wait.askedAt, wait.answeredAt)),
+                  ),
+                ),
+              },
+            ]
+          : [];
+      }),
+    ),
+  };
+};
+
+const pipelineOf = (
+  merged: readonly TeamPullRequest[],
+  counts: PipelineCounts,
+): PipelineFlow => {
+  const openings = new Map(
+    counts.openings.map((each) => [each.taskId, each.openedAt]),
+  );
+  const openedAt = (each: TeamPullRequest): Date | null =>
+    openings.get(each.taskId ?? '') ?? null;
+  const passages = new Map(
+    counts.passages.map((each) => [
+      JSON.stringify([each.taskId, each.stationId]),
+      each,
+    ]),
+  );
+  const made = merged.filter(
+    (each) => each.by === 'spotlight' && openedAt(each) !== null,
+  );
   const step = (
     each: TeamPullRequest,
     from: Date | null,
@@ -598,45 +688,29 @@ const pipelineOf = (
     'coding',
     made.map((each) => step(each, openedAt(each), each.seen.openedAt)),
   );
-  const stations = stationsOf(runs).map(
+  const stations = counts.stations.map(
     (place): Stage<Timed> => ({
       kind: 'station',
       place,
       times: byTypeOf(
         made.flatMap((each) => {
-          const here = runsOf(each.taskId).filter(
-            (run) => run.end?.place.stationId === place.stationId,
+          const passage = passages.get(
+            JSON.stringify([each.taskId, place.stationId]),
           );
 
-          if (here.length === 0) {
-            return [];
-          }
-
-          const queued = sumOf(
-            known(here.map((run) => run.end?.queuedMs ?? null)),
-          );
-          const running = sumOf(
-            known(here.map((run) => run.end?.runningMs ?? null)),
-          );
-          const inbox = sumOf(
-            known(
-              waits
-                .filter(
-                  (wait) =>
-                    wait.taskId === each.taskId &&
-                    wait.stationId === place.stationId,
-                )
-                .map((wait) => lasted(wait.askedAt, wait.answeredAt)),
-            ),
-          );
-
-          return [
-            {
-              type: each.type,
-              total: queued + running + inbox,
-              parts: { queued, running, inbox },
-            },
-          ];
+          return passage
+            ? [
+                {
+                  type: each.type,
+                  total: passage.queued + passage.running + passage.inbox,
+                  parts: {
+                    queued: passage.queued,
+                    running: passage.running,
+                    inbox: passage.inbox,
+                  },
+                },
+              ]
+            : [];
         }),
         true,
       ),
@@ -688,7 +762,7 @@ const pipelineOf = (
 
 export const shippingOf = (
   pullRequests: readonly TeamPullRequest[],
-  history: TeamHistory,
+  counts: PipelineCounts,
   period: InsightsPeriod,
 ): Shipping => {
   const repositories = comparedRepositoriesOf(pullRequests, period.current);
@@ -710,8 +784,7 @@ export const shippingOf = (
   const reviewDays = reviewDaysOf(reviewed, period.days);
   const pipeline = pipelineOf(
     mergedWithin(pullRequests, period.current),
-    history,
-    period.lookback,
+    counts,
   );
 
   return {

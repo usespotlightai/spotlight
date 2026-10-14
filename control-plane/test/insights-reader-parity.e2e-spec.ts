@@ -14,6 +14,7 @@ import {
 import { flowCountsOf, flowFrom } from '@outcomes/domain/services/flow';
 import { overviewCountsOf } from '@outcomes/domain/services/overview-counts';
 import { peopleCountsOf } from '@outcomes/domain/services/people-counts';
+import { pipelineCountsOf } from '@outcomes/domain/services/shipping';
 import {
   stationReportsFrom,
   teamCountsOf,
@@ -76,6 +77,15 @@ const NOW = new Date('2026-10-14T15:00:00.000Z');
 const HOUR = 60 * 60_000;
 const DAY = 24 * HOUR;
 const RUNS = 600;
+
+const CANDIDATES = [
+  ...Array.from({ length: RUNS / 2 }, (_, index) => `task_${index}`),
+  'task_both_windows',
+  'task_0',
+  'task_run_tie_a',
+  'task_stale',
+  'task_nowhere',
+];
 
 const STATIONS = [
   { lineId: 'line_a', stationId: 'plan' },
@@ -850,6 +860,70 @@ describe('the insights reader against the team history', () => {
   });
 });
 
+describe('the pipeline of the tasks a team shipped', () => {
+  it.each(INSIGHTS_PERIODS)(
+    'counts the same pipeline as the domain over %s',
+    async (name) => {
+      const { history, period, truncated } = await histories.of(
+        TEAM.value,
+        PersonPrincipal.of(VIEWER),
+        name,
+      );
+      const counts = await reader.pipelineCounts(
+        { workspaceId: WORKSPACE, teamId: TEAM, period },
+        CANDIDATES,
+      );
+
+      expect(truncated).toBe(false);
+      expect(counts).toEqual(pipelineCountsOf(history, CANDIDATES, period));
+    },
+  );
+
+  it('covers what makes a pipeline hard to get right', async () => {
+    const { history, period } = await histories.of(
+      TEAM.value,
+      PersonPrincipal.of(VIEWER),
+      '90d',
+    );
+    const { openings, stations, passages } = await reader.pipelineCounts(
+      { workspaceId: WORKSPACE, teamId: TEAM, period },
+      CANDIDATES,
+    );
+    const opened = new Set(openings.map((each) => each.taskId));
+    const touched = openingsOf(history.touches);
+
+    expect(openings.length).toBeGreaterThan(10);
+    expect(stations.length).toBeGreaterThan(2);
+    expect(passages.some((each) => each.queued > 0)).toBe(true);
+    expect(passages.some((each) => each.inbox > 0)).toBe(true);
+    expect(
+      CANDIDATES.some(
+        (taskId) => touched.get(taskId)?.opening && !opened.has(taskId),
+      ),
+    ).toBe(true);
+    expect(
+      openings.some(
+        (each) => !touched.get(each.taskId)?.opening?.teamId.equals(TEAM),
+      ),
+    ).toBe(true);
+  });
+
+  it('reads nothing for no tasks', async () => {
+    const { period } = await histories.scope(
+      TEAM.value,
+      PersonPrincipal.of(VIEWER),
+      '90d',
+    );
+
+    expect(
+      await reader.pipelineCounts(
+        { workspaceId: WORKSPACE, teamId: TEAM, period },
+        [],
+      ),
+    ).toEqual({ openings: [], stations: [], passages: [] });
+  });
+});
+
 describe('how the inbox pairs answers with asks', () => {
   const WAITS = TeamId.of('team_waits');
   const period = InsightsPeriod.of('7d', NOW);
@@ -1047,5 +1121,202 @@ describe('how the inbox pairs answers with asks', () => {
         a.stationId.localeCompare(b.stationId),
       ),
     );
+  });
+});
+
+describe('how the pipeline sums a task’s time at each station', () => {
+  const PIPED = TeamId.of('team_piped');
+  const period = InsightsPeriod.of('7d', NOW);
+  const opened = ago(3 * DAY);
+  const at = (hours: number) => new Date(opened.getTime() + hours * HOUR);
+  const TASKS = [
+    'task_piped',
+    'task_long_ago',
+    'task_unopened',
+    'task_next_door',
+    'task_nowhere',
+  ];
+
+  beforeAll(async () => {
+    const context = new DrizzleContext(held.db);
+    const quiet = {
+      dispatch: async () => {},
+    } as unknown as DomainEventDispatcher;
+    const facts = new DrizzleRunFactProjection(context);
+    const records = new DrizzleRunRecordRepository(context, facts, quiet);
+    const touching = new DrizzleTaskTouchesRepository(context, facts);
+    const ran = (
+      runId: string,
+      taskId: string,
+      teamId: TeamId,
+      stationId: string,
+      lineId: string,
+      times: {
+        readonly queuedAt: Date | null;
+        readonly startedAt: Date | null;
+        readonly endedAt: Date;
+      },
+      ending: RunEnding = 'completed',
+    ) =>
+      records.add(
+        RunRecord.heardOf(RunId.of(runId), WORKSPACE).ended(
+          RunEnd.of({
+            place: RunPlace.of({
+              teamId,
+              lineId,
+              stationId,
+              taskId: TaskId.of(taskId),
+            }),
+            fingerprint: 'a'.repeat(64),
+            setup: RunSetup.of({
+              harness: 'claude-code',
+              model: 'sonnet',
+              effort: null,
+              profileKey: null,
+              repositories: [],
+              skills: [],
+            }),
+            ...times,
+            ending,
+            failure: null,
+            round: 1,
+            asked: false,
+          }),
+        ),
+      );
+    const openedOn = (taskId: string, teamId: TeamId, openedAt: Date) =>
+      TaskTouches.heardOf(TaskId.of(taskId), WORKSPACE).opened(
+        TaskOpening.of({
+          teamId,
+          lineId: 'line_piped',
+          stationId: 'draft',
+          by: VIEWER,
+          at: openedAt,
+        }),
+      );
+
+    await context.run(async () => {
+      await ran('run_piped_b', 'task_piped', PIPED, 'draft', 'line_piped', {
+        queuedAt: null,
+        startedAt: at(4),
+        endedAt: at(5),
+      });
+      await ran('run_piped_a', 'task_piped', PIPED, 'draft', 'line_piped', {
+        queuedAt: at(1),
+        startedAt: at(1.5),
+        endedAt: at(3),
+      });
+      await ran(
+        'run_piped_c',
+        'task_piped',
+        PIPED,
+        'check',
+        'line_piped',
+        { queuedAt: at(2), startedAt: null, endedAt: at(3.5) },
+        'withdrawn',
+      );
+      await ran('run_piped_d', 'task_piped', PIPED, 'draft', 'line_moved', {
+        queuedAt: null,
+        startedAt: at(5.5),
+        endedAt: at(6),
+      });
+      await ran('run_long_ago', 'task_long_ago', PIPED, 'late', 'line_piped', {
+        queuedAt: null,
+        startedAt: at(1),
+        endedAt: at(2),
+      });
+      await ran('run_unopened', 'task_unopened', PIPED, 'late', 'line_piped', {
+        queuedAt: null,
+        startedAt: at(1),
+        endedAt: at(2),
+      });
+      await ran(
+        'run_next_door',
+        'task_next_door',
+        NEXT_DOOR,
+        'late',
+        'line_piped',
+        {
+          queuedAt: null,
+          startedAt: at(1),
+          endedAt: at(2),
+        },
+      );
+      await touching.add(
+        openedOn('task_piped', PIPED, opened)
+          .asked(InboxAsk.of('draft', at(3)))
+          .asked(InboxAsk.of('check', at(5)))
+          .asked(InboxAsk.of('draft', at(6)))
+          .asked(InboxAsk.of('review', at(8)))
+          .actedOn(
+            PersonTouch.of({
+              act: 'answered',
+              by: VIEWER,
+              stationId: 'draft',
+              at: at(3.5),
+            }),
+          )
+          .actedOn(
+            PersonTouch.of({
+              act: 'answered',
+              by: VIEWER,
+              stationId: 'check',
+              at: at(5.25),
+            }),
+          )
+          .actedOn(
+            PersonTouch.of({
+              act: 'answered',
+              by: VIEWER,
+              stationId: 'review',
+              at: at(9),
+            }),
+          ),
+      );
+      await touching.add(openedOn('task_long_ago', PIPED, ago(60 * DAY)));
+      await touching.add(
+        TaskTouches.heardOf(TaskId.of('task_unopened'), WORKSPACE).asked(
+          InboxAsk.of('late', at(2)),
+        ),
+      );
+      await touching.add(openedOn('task_next_door', NEXT_DOOR, opened));
+    });
+  });
+
+  it('adds up every run and every answered ask of a task opened in reach', async () => {
+    const counts = await reader.pipelineCounts(
+      { workspaceId: WORKSPACE, teamId: PIPED, period },
+      TASKS,
+    );
+    const { history } = await histories.of(
+      PIPED.value,
+      PersonPrincipal.of(VIEWER),
+      '7d',
+    );
+
+    expect(counts).toEqual({
+      openings: [{ taskId: 'task_piped', openedAt: opened }],
+      stations: [
+        { lineId: 'line_piped', stationId: 'draft' },
+        { lineId: 'line_piped', stationId: 'check' },
+      ],
+      passages: [
+        {
+          taskId: 'task_piped',
+          stationId: 'check',
+          queued: 0,
+          running: 0,
+          inbox: 0.25 * HOUR,
+        },
+        {
+          taskId: 'task_piped',
+          stationId: 'draft',
+          queued: 0.5 * HOUR,
+          running: 3 * HOUR,
+          inbox: 0.5 * HOUR,
+        },
+      ],
+    });
+    expect(counts).toEqual(pipelineCountsOf(history, TASKS, period));
   });
 });

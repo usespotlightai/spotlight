@@ -47,17 +47,42 @@ export const isCurrent = sql.raw('"run_fact"."is_current"');
 
 export const day = sql.raw('"run_fact"."day"');
 
-export const factsInPeriod = (team: TeamInPeriod): SQL => {
+export const periodFacts = (team: TeamInPeriod): SQL => {
   const { current, previous } = team.period;
 
-  return sql`(
+  return sql`
     select
       ${runFact}.*,
       ${runFact.endedAt} >= ${iso(current.from)}::timestamp as is_current,
       to_char(${runFact.endedAt}, 'YYYY-MM-DD') as day
     from ${runFact}
-    where ${onTeam(team)} and ${endedIn(previous.from, current.to)}
-  ) as ${runFact}`;
+    where ${onTeam(team)} and ${endedIn(previous.from, current.to)}`;
+};
+
+export const factsInPeriod = (team: TeamInPeriod): SQL =>
+  sql`(${periodFacts(team)}) as ${runFact}`;
+
+export interface StationRow extends Record<string, unknown> {
+  readonly part: boolean;
+  readonly station_id: string;
+  readonly line_id: string;
+}
+
+export const stationsInEndOrder = (facts: SQL, part?: SQL): SQL => {
+  const parted = part ? sql`${part}, ` : sql``;
+
+  return sql`
+    select part, station_id, line_id from (
+      select distinct on (${parted}${runFact.stationId})
+        ${part ?? sql`true`} as part,
+        ${runFact.stationId} as station_id,
+        ${runFact.lineId} as line_id,
+        ${runFact.endedAt} as ended_at,
+        ${runFact.runId} as run_id
+      from (${facts}) as ${runFact}
+      order by ${parted}${runFact.stationId}, ${inEndOrder}
+    ) as first
+    order by ${part ? sql`part, ` : sql``}ended_at, run_id collate "C"`;
 };
 
 export const spendColumns = sql`

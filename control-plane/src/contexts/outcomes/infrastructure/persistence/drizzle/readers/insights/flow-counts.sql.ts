@@ -16,8 +16,11 @@ import {
   isCurrent,
   iso,
   msOf,
+  periodFacts,
   ran,
+  type StationRow,
   spreadOver,
+  stationsInEndOrder,
 } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/run-fact.sql';
 import { ofTeamDeliveries } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/team-scope.sql';
 import {
@@ -27,12 +30,6 @@ import {
 } from '@outcomes/infrastructure/persistence/drizzle/schemas/outcomes.schema';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { type SQL, sql } from 'drizzle-orm';
-
-interface StationRow extends Record<string, unknown> {
-  readonly is_current: boolean;
-  readonly station_id: string;
-  readonly line_id: string;
-}
 
 interface RunsRow extends Record<string, unknown> {
   readonly is_current: boolean;
@@ -64,19 +61,9 @@ const stationsIn = async (
   db: DrizzleDatabase,
   team: TeamInPeriod,
 ): Promise<readonly StationRow[]> => {
-  const result = await db.execute<StationRow>(sql`
-    select is_current, station_id, line_id from (
-      select distinct on (${isCurrent}, ${runFact.stationId})
-        ${isCurrent} as is_current,
-        ${runFact.stationId} as station_id,
-        ${runFact.lineId} as line_id,
-        ${runFact.endedAt} as ended_at,
-        ${runFact.runId} as run_id
-      from ${factsInPeriod(team)}
-      order by ${isCurrent}, ${runFact.stationId}, ${inEndOrder}
-    ) as first
-    order by is_current, ended_at, run_id collate "C"
-  `);
+  const result = await db.execute<StationRow>(
+    stationsInEndOrder(periodFacts(team), isCurrent),
+  );
 
   return result.rows;
 };
@@ -184,7 +171,7 @@ const windowOf = (
   inbox: readonly InboxRow[],
 ): FlowWindowCounts => ({
   stations: stations
-    .filter((each) => each.is_current === current)
+    .filter((each) => each.part === current)
     .map((station): StationRunCounts => {
       const here = runs.find(
         (each) =>

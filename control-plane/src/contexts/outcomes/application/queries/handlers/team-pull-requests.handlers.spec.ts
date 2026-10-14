@@ -1,3 +1,4 @@
+import { insightsReaderInMemory } from '@outcomes/application/ports/insights-reader.fake-spec';
 import type { PeoplePort } from '@outcomes/application/ports/people.port';
 import { ListInsightsPullRequestsHandler } from '@outcomes/application/queries/handlers/list-insights-pull-requests.handler';
 import { ReadInsightsPullRequestsHandler } from '@outcomes/application/queries/handlers/read-insights-pull-requests.handler';
@@ -86,17 +87,18 @@ const team = async () => {
         : null,
     namesOf: async () => new Map(),
   };
-  const histories = new TeamHistories(
-    new OutcomesAccess(people),
-    {
-      records,
-      deliveries: new TaskDeliveriesInMemory(),
-      touches,
-      failures: new TaskFailuresInMemory(),
-      chats: new ChatRecordsInMemory(),
-    },
-    { now: () => NOW, sleep: async () => {} },
-  );
+  const held = {
+    records,
+    deliveries: new TaskDeliveriesInMemory(),
+    touches,
+    failures: new TaskFailuresInMemory(),
+    chats: new ChatRecordsInMemory(),
+  };
+  const histories = new TeamHistories(new OutcomesAccess(people), held, {
+    now: () => NOW,
+    sleep: async () => {},
+  });
+  const reader = insightsReaderInMemory(held);
   const service = new TeamPullRequests(
     histories,
     {
@@ -156,7 +158,7 @@ const team = async () => {
     }),
   );
 
-  return { service, histories, pullRequests, touches };
+  return { service, reader, pullRequests, touches };
 };
 
 describe('the team’s pull requests', () => {
@@ -336,7 +338,7 @@ describe('the team’s pull requests', () => {
 
 describe('what the agents ship', () => {
   it('reaches back into the previous period for the rolling days and the comparison, keeping the period’s numbers to the period', async () => {
-    const { service, histories, pullRequests, touches } = await team();
+    const { service, reader, pullRequests, touches } = await team();
     await touches.add(
       touchesOf('task_1', { openedAt: new Date('2026-09-28T09:00:00.000Z') }),
     );
@@ -348,7 +350,7 @@ describe('what the agents ship', () => {
 
     const shipping = await new ReadInsightsShippingHandler(
       service,
-      histories,
+      reader,
     ).execute(new ReadInsightsShippingQuery(TEAM.value, READ_TOKEN, '7d'));
     const [first] = shipping.mergeDays;
 
@@ -386,10 +388,10 @@ describe('what the agents ship', () => {
   });
 
   it('refuses a person off the team', async () => {
-    const { service, histories } = await team();
+    const { service, reader } = await team();
 
     await expect(
-      new ReadInsightsShippingHandler(service, histories).execute(
+      new ReadInsightsShippingHandler(service, reader).execute(
         new ReadInsightsShippingQuery(TEAM.value, STRANGER, '7d'),
       ),
     ).rejects.toBeInstanceOf(UseCaseFault);

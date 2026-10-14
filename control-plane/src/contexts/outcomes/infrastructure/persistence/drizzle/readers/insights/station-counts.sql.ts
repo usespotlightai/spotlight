@@ -22,9 +22,11 @@ import {
   p90Over,
   ran,
   type SpendRow,
+  type StationRow,
   sentBack,
   spendColumns,
   spendOf,
+  stationsInEndOrder,
 } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/run-fact.sql';
 import {
   runFact,
@@ -53,11 +55,6 @@ interface TallyRow extends SpendRow, Record<string, unknown> {
   readonly merged: number;
   readonly median_ms: number | null;
   readonly p90_ms: number | null;
-}
-
-interface StationRow extends Record<string, unknown> {
-  readonly station_id: string;
-  readonly line_id: string;
 }
 
 interface RunFailureRow extends Record<string, unknown> {
@@ -160,19 +157,13 @@ const stationsIn = async (
   team: TeamInPeriod,
 ): Promise<readonly StationRow[]> => {
   const { current } = team.period;
-  const result = await db.execute<StationRow>(sql`
-      select station_id, line_id from (
-        select distinct on (${runFact.stationId})
-          ${runFact.stationId} as station_id,
-          ${runFact.lineId} as line_id,
-          ${runFact.endedAt} as ended_at,
-          ${runFact.runId} as run_id
-        from ${runFact}
-        where ${onTeam(team)} and ${endedIn(current.from, current.to)}
-        order by ${runFact.stationId}, ${inEndOrder}
-      ) as first
-      order by ended_at, run_id collate "C"
-    `);
+  const result = await db.execute<StationRow>(
+    stationsInEndOrder(
+      sql`
+        select ${runFact}.* from ${runFact}
+        where ${onTeam(team)} and ${endedIn(current.from, current.to)}`,
+    ),
+  );
 
   return result.rows;
 };
