@@ -3,8 +3,10 @@ import type {
   InsightsReaderPort,
   TeamInPeriod,
 } from '@outcomes/application/ports/insights-reader.port';
+import type { CostCountsInPeriod } from '@outcomes/domain/services/cost-breakdown';
 import type { OverviewCounts } from '@outcomes/domain/services/overview-counts';
 import type { TeamCounts } from '@outcomes/domain/services/station-reports';
+import { costCountsIn } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/cost-counts.sql';
 import { overviewCountsIn } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/overview-counts.sql';
 import { stationCountsIn } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/station-counts.sql';
 import { DrizzleReading } from '@platform/persistence/drizzle/drizzle.reading';
@@ -19,5 +21,9 @@ export class DrizzleInsightsReader implements InsightsReaderPort {
 
   overviewCounts(team: TeamInPeriod): Promise<OverviewCounts> {
     return this.reading.read((db) => overviewCountsIn(db, team));
+  }
+
+  costCounts(team: TeamInPeriod): Promise<CostCountsInPeriod> {
+    return this.reading.read((db) => costCountsIn(db, team));
   }
 }

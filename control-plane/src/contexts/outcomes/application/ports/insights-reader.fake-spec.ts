@@ -3,6 +3,7 @@ import type {
   TeamInPeriod,
 } from '@outcomes/application/ports/insights-reader.port';
 import type { TeamHistoryHeld } from '@outcomes/application/services/team-histories.service';
+import { costCountsOf } from '@outcomes/domain/services/cost-breakdown';
 import { overviewCountsOf } from '@outcomes/domain/services/overview-counts';
 import { teamCountsOf } from '@outcomes/domain/services/station-reports';
 import {
@@ -49,6 +50,14 @@ export const insightsReaderInMemory = (
       },
       team.period,
     );
+  },
+  costCounts: async (team) => {
+    const history = await historyOf(held, team);
+
+    return {
+      current: costCountsOf(history, team.period.current),
+      spendBefore: costCountsOf(history, team.period.previous).spend,
+    };
   },
   overviewCounts: async (team) => {
     const history = await historyOf(held, team);

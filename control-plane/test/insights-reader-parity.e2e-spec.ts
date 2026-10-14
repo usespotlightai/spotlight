@@ -5,6 +5,12 @@ import { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
 import { TaskDelivery } from '@outcomes/domain/aggregates/task-delivery.aggregate';
 import { TaskFailures } from '@outcomes/domain/aggregates/task-failures.aggregate';
 import { TaskTouches } from '@outcomes/domain/aggregates/task-touches.aggregate';
+import {
+  type CostCounts,
+  type CostPlace,
+  costBreakdownFrom,
+  costCountsOf,
+} from '@outcomes/domain/services/cost-breakdown';
 import { overviewCountsOf } from '@outcomes/domain/services/overview-counts';
 import {
   stationReportsFrom,
@@ -76,6 +82,14 @@ const PEOPLE = ['user_ada', 'user_bob', 'user_cy', 'user_dee', 'user_eve'];
 
 const FAR = 'user_far';
 
+const REPOSITORIES = [
+  [],
+  ['acme/api'],
+  ['acme/api'],
+  ['acme/api', 'acme/web'],
+  ['acme/web', 'acme/api', 'acme/docs'],
+];
+
 const CHATS = 40;
 
 const ELSEWHERE_ONLY = { lineId: 'line_c', stationId: 'elsewhere_only' };
@@ -104,6 +118,20 @@ const pick = <T>(from: readonly T[]): T =>
   from[Math.floor(random() * from.length)] as T;
 const chance = (share: number): boolean => random() < share;
 const ago = (ms: number): Date => new Date(NOW.getTime() - ms);
+
+const inPlaceOrder = (
+  a: { readonly first: CostPlace },
+  b: { readonly first: CostPlace },
+): number => a.first.run - b.first.run || a.first.offset - b.first.offset;
+
+const ordered = (counts: CostCounts): CostCounts => ({
+  ...counts,
+  shares: [...counts.shares].sort(
+    (a, b) => a.part.localeCompare(b.part) || inPlaceOrder(a, b),
+  ),
+  links: [...counts.links].sort(inPlaceOrder),
+  cacheByStation: [...counts.cacheByStation].sort((a, b) => a.first - b.first),
+});
 
 let held: TestDatabase;
 let histories: TeamHistories;
@@ -164,7 +192,7 @@ beforeAll(async () => {
             model: pick(['opus', 'sonnet', null]),
             effort: null,
             profileKey: null,
-            repositories: ['acme/api'],
+            repositories: pick(REPOSITORIES),
             skills: [],
           }),
           queuedAt: startedAt ? new Date(startedAt.getTime() - HOUR) : null,
@@ -188,12 +216,19 @@ beforeAll(async () => {
             size: null,
             amount: chance(0.85) ? Math.round(random() * 1000) / 100 : null,
             currency:
-              station.stationId === 'ship' && chance(0.3) ? 'EUR' : 'USD',
+              station.stationId === 'ship' &&
+              endedAt.getTime() < ago(60 * DAY).getTime() &&
+              chance(0.3)
+                ? 'EUR'
+                : 'USD',
             tokens: {
-              input: 100,
+              input: chance(0.9) ? Math.floor(random() * 10_000) : null,
               output: 10,
-              cacheRead: null,
-              cacheWrite: null,
+              cacheRead:
+                station.stationId !== 'review' && chance(0.7)
+                  ? Math.floor(random() * 50_000)
+                  : null,
+              cacheWrite: chance(0.5) ? Math.floor(random() * 5_000) : null,
             },
           }),
           RunTools.NONE,
@@ -317,6 +352,62 @@ beforeAll(async () => {
         }),
       );
     }
+
+    const tied = ago(2 * DAY);
+
+    for (const [runId, endedAt, beganHoursBefore, station, model, currency] of [
+      ['run_tie_a', tied, 1, STATIONS[0], 'haiku', 'USD'],
+      ['run_tie_b', tied, 3, STATIONS[1], 'gpt', 'USD'],
+      ['run_euro', ago(75 * DAY), 1, STATIONS[3], 'sonnet', 'EUR'],
+    ] as const) {
+      await records.add(
+        RunRecord.heardOf(RunId.of(runId), WORKSPACE)
+          .ended(
+            RunEnd.of({
+              place: RunPlace.of({
+                teamId: TEAM,
+                ...station,
+                taskId: TaskId.of(`task_${runId}`),
+              }),
+              fingerprint: 'a'.repeat(64),
+              setup: RunSetup.of({
+                harness: 'claude-code',
+                model,
+                effort: null,
+                profileKey: null,
+                repositories: [`acme/${runId}`],
+                skills: [],
+              }),
+              queuedAt: null,
+              startedAt: new Date(endedAt.getTime() - beganHoursBefore * HOUR),
+              endedAt,
+              ending: 'completed',
+              failure: null,
+              round: 1,
+              asked: false,
+            }),
+          )
+          .digested(
+            RunCost.of({
+              ms: 1_000,
+              steps: 1,
+              faults: 0,
+              changedLines: 1,
+              used: null,
+              size: null,
+              amount: 0.5,
+              currency,
+              tokens: {
+                input: 1,
+                output: 1,
+                cacheRead: 1,
+                cacheWrite: null,
+              },
+            }),
+            RunTools.NONE,
+          ),
+      );
+    }
   });
 }, 120_000);
 
@@ -436,5 +527,85 @@ describe('the insights reader against the team history', () => {
     expect(counts.previous.runs).toBeGreaterThan(0);
     expect(counts.spending.size).toBeGreaterThan(10);
     expect(counts.failingBefore.length).toBeGreaterThan(0);
+  });
+  it.each(INSIGHTS_PERIODS)(
+    'counts the same cost as the domain over %s',
+    async (name) => {
+      const { history, period, truncated } = await histories.of(
+        TEAM.value,
+        PersonPrincipal.of(VIEWER),
+        name,
+      );
+      const counts = await reader.costCounts({
+        workspaceId: WORKSPACE,
+        teamId: TEAM,
+        period,
+      });
+
+      expect(truncated).toBe(false);
+      expect({ ...counts, current: ordered(counts.current) }).toEqual({
+        current: ordered(costCountsOf(history, period.current)),
+        spendBefore: costCountsOf(history, period.previous).spend,
+      });
+    },
+  );
+
+  it('breaks the cost of a period priced in one currency down', async () => {
+    const { period } = await histories.scope(
+      TEAM.value,
+      PersonPrincipal.of(VIEWER),
+      '30d',
+    );
+    const { current } = await reader.costCounts({
+      workspaceId: WORKSPACE,
+      teamId: TEAM,
+      period,
+    });
+    const breakdown = costBreakdownFrom(current);
+
+    expect(current.spend?.currency).toBe('USD');
+    expect(breakdown.nodes.length).toBeGreaterThan(3);
+    expect(breakdown.links.length).toBeGreaterThan(3);
+    expect(breakdown.byRepository.length).toBeGreaterThan(1);
+  });
+
+  it('covers what makes a cost breakdown hard to get right', async () => {
+    const { period } = await histories.scope(
+      TEAM.value,
+      PersonPrincipal.of(VIEWER),
+      '90d',
+    );
+    const { current } = await reader.costCounts({
+      workspaceId: WORKSPACE,
+      teamId: TEAM,
+      period,
+    });
+    const repositories = current.shares.filter(
+      (each) => each.part === 'repository',
+    );
+
+    expect(repositories.map((each) => each.key).sort()).toEqual([
+      'acme/api',
+      'acme/docs',
+      'acme/run_euro',
+      'acme/run_tie_a',
+      'acme/run_tie_b',
+      'acme/web',
+      null,
+    ]);
+    expect(current.links.some((each) => each.target.key === null)).toBe(true);
+    expect(current.cache?.cacheWrite).not.toBeNull();
+    expect(current.cacheByStation.some((each) => each.cache === null)).toBe(
+      true,
+    );
+    expect(current.mixedCurrencies).toBe(true);
+    expect(current.spend).toBeNull();
+
+    const tiedAt = (model: string) =>
+      current.shares.find((each) => each.part === 'model' && each.key === model)
+        ?.first.run ?? Number.NaN;
+
+    expect(tiedAt('gpt')).toBe(tiedAt('haiku') + 1);
+    expect(current.shares.some((each) => each.key === null)).toBe(true);
   });
 });

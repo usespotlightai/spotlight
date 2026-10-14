@@ -11,7 +11,7 @@ export const inEndOrder = sql`${runFact.endedAt}, ${runFact.runId} collate "C"`;
 
 export const ran = sql`${runFact.ran}`;
 
-const priced = sql`${ran} and ${runFact.cost} is not null and coalesce(${runFact.currency}, '') <> ''`;
+export const priced = sql`${ran} and ${runFact.cost} is not null and coalesce(${runFact.currency}, '') <> ''`;
 
 export const counted = (when: SQL): SQL =>
   sql`count(*) filter (where ${when})::int`;

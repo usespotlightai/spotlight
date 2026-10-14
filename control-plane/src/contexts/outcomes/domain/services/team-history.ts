@@ -3,7 +3,11 @@ import type { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate
 import type { TaskDelivery } from '@outcomes/domain/aggregates/task-delivery.aggregate';
 import type { TaskFailures } from '@outcomes/domain/aggregates/task-failures.aggregate';
 import type { TaskTouches } from '@outcomes/domain/aggregates/task-touches.aggregate';
-import { inStartOrder, startOf } from '@outcomes/domain/services/run-order';
+import {
+  inEndOrder,
+  inStartOrder,
+  startOf,
+} from '@outcomes/domain/services/run-order';
 import {
   type Window,
   within,
@@ -22,16 +26,13 @@ export interface StationPlace {
   readonly stationId: string;
 }
 
-const endedAt = (record: RunRecord): number =>
-  record.end?.endedAt.getTime() ?? 0;
-
 export const endedWithin = (
   records: readonly RunRecord[],
   window: Window,
 ): readonly RunRecord[] =>
   records
     .filter((each) => within(window, each.end?.endedAt ?? null))
-    .sort((a, b) => endedAt(a) - endedAt(b));
+    .sort(inEndOrder);
 
 export interface StartedHistory {
   readonly records: readonly RunRecord[];
@@ -80,7 +81,7 @@ export const stationsOf = (
 ): readonly StationPlace[] => {
   const seen = new Map<string, StationPlace>();
 
-  for (const record of [...records].sort((a, b) => endedAt(a) - endedAt(b))) {
+  for (const record of [...records].sort(inEndOrder)) {
     const place = record.end?.place;
 
     if (place && !seen.has(place.stationId)) {
