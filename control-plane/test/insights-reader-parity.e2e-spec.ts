@@ -13,6 +13,7 @@ import {
 } from '@outcomes/domain/services/cost-breakdown';
 import { flowCountsOf, flowFrom } from '@outcomes/domain/services/flow';
 import { overviewCountsOf } from '@outcomes/domain/services/overview-counts';
+import { peopleCountsOf } from '@outcomes/domain/services/people-counts';
 import {
   stationReportsFrom,
   teamCountsOf,
@@ -86,6 +87,8 @@ const STATIONS = [
 const PEOPLE = ['user_ada', 'user_bob', 'user_cy', 'user_dee', 'user_eve'];
 
 const FAR = 'user_far';
+
+const GUS = 'user_gus';
 
 const REPOSITORIES = [
   [],
@@ -282,7 +285,7 @@ beforeAll(async () => {
         for (let acted = Math.floor(random() * 4); acted > 0; acted -= 1) {
           touched = touched.actedOn(
             PersonTouch.of({
-              act: pick(NEXT_ACTS),
+              act: pick([...NEXT_ACTS, 'approved', 'refused'] as const),
               by: person(),
               stationId: station.stationId,
               at: ago(Math.floor(random() * 200 * DAY)),
@@ -431,6 +434,47 @@ beforeAll(async () => {
           ),
       );
     }
+
+    await touches.add(
+      TaskTouches.heardOf(TaskId.of('task_both_windows'), WORKSPACE)
+        .opened(
+          TaskOpening.of({
+            teamId: TEAM,
+            ...STATIONS[2],
+            by: UserId.of('user_bob'),
+            at: ago(21 * DAY),
+          }),
+        )
+        .asked(InboxAsk.of(STATIONS[2].stationId, ago(9 * DAY)))
+        .asked(InboxAsk.of(STATIONS[2].stationId, ago(2 * DAY)))
+        .asked(InboxAsk.of(STATIONS[2].stationId, ago(12 * HOUR)))
+        .actedOn(
+          PersonTouch.of({
+            act: 'started',
+            by: UserId.of('user_bob'),
+            stationId: STATIONS[2].stationId,
+            at: ago(20 * DAY),
+          }),
+        )
+        .actedOn(
+          PersonTouch.of({
+            act: 'refused',
+            by: UserId.of('user_bob'),
+            stationId: STATIONS[2].stationId,
+            at: ago(DAY),
+          }),
+        ),
+    );
+
+    await chats.add(
+      ChatRecord.started({
+        chatId: 'chat_gus',
+        workspaceId: WORKSPACE,
+        teamId: TEAM,
+        startedBy: UserId.of(GUS),
+        startedAt: ago(9 * DAY),
+      }),
+    );
 
     const stalePull = PullRequestUrl.of(
       'https://github.com/acme/api/pull/stale',
@@ -741,6 +785,69 @@ describe('the insights reader against the team history', () => {
     ).toBe(true);
     expect(deliveries.some((each) => each.taskOpenedAt !== null)).toBe(true);
   });
+
+  it.each(INSIGHTS_PERIODS)(
+    'counts the same people as the domain over %s',
+    async (name) => {
+      const { history, period, truncated } = await histories.of(
+        TEAM.value,
+        PersonPrincipal.of(VIEWER),
+        name,
+      );
+      const counts = await reader.peopleCounts({
+        workspaceId: WORKSPACE,
+        teamId: TEAM,
+        period,
+      });
+
+      expect(truncated).toBe(false);
+      expect(counts).toEqual(peopleCountsOf(history, period));
+    },
+  );
+
+  it('covers what makes people counts hard to get right', async () => {
+    const { period } = await histories.scope(
+      TEAM.value,
+      PersonPrincipal.of(VIEWER),
+      '90d',
+    );
+    const { load, adoption } = await reader.peopleCounts({
+      workspaceId: WORKSPACE,
+      teamId: TEAM,
+      period,
+    });
+
+    expect(load.current.refused).toBeGreaterThan(1);
+    expect(load.current.refusedTaskIds.length).toBeGreaterThan(1);
+    expect(load.current.askedTaskIds.length).toBeGreaterThan(1);
+    expect(load.current.unanswered).toBeGreaterThan(0);
+    expect(load.current.sentBack).toBeGreaterThan(0);
+    expect(adoption.people.map((each) => each.personId)).toContain(FAR);
+    expect(adoption.people.some((each) => each.chats > 0)).toBe(true);
+    expect(adoption.people.some((each) => each.opened > 0)).toBe(true);
+  });
+
+  it('counts someone active only the period before in it and in the month, not now', async () => {
+    const { period } = await histories.scope(
+      TEAM.value,
+      PersonPrincipal.of(VIEWER),
+      '7d',
+    );
+    const { load, adoption } = await reader.peopleCounts({
+      workspaceId: WORKSPACE,
+      teamId: TEAM,
+      period,
+    });
+    const askedBefore = new Set(load.previous.askedTaskIds);
+    const bob = adoption.people.find((each) => each.personId === 'user_bob');
+
+    expect(load.current.askedTaskIds).toContain('task_both_windows');
+    expect(askedBefore.has('task_both_windows')).toBe(true);
+    expect(adoption.people.map((each) => each.personId)).not.toContain(GUS);
+    expect(adoption.monthly).toBeGreaterThan(adoption.weekly);
+    expect(adoption.before).toBeGreaterThan(0);
+    expect(bob?.firstAt.getTime()).toBeLessThan(period.current.from.getTime());
+  });
 });
 
 describe('how the inbox pairs answers with asks', () => {
@@ -887,6 +994,38 @@ describe('how the inbox pairs answers with asks', () => {
         running: { p50: HOUR, p90: HOUR, count: 1 },
       },
     ]);
+    const people = await reader.peopleCounts({
+      workspaceId: WORKSPACE,
+      teamId: WAITS,
+      period,
+    });
+
+    expect(people.load.current).toEqual({
+      asks: 4,
+      unanswered: 2,
+      toAnswer: { p50: 0, p90: 0, count: 2 },
+      askedTaskIds: ['task_waits'],
+      tasks: 1,
+      runs: 1,
+      sentBack: 0,
+      refused: 0,
+      refusedTaskIds: [],
+    });
+    expect(people.adoption).toEqual({
+      people: [
+        {
+          personId: VIEWER.value,
+          opened: 1,
+          acts: 2,
+          chats: 0,
+          lastActiveAt: askedAgain,
+          firstAt: new Date(asked.getTime() - DAY),
+        },
+      ],
+      before: 0,
+      weekly: 1,
+      monthly: 1,
+    });
     expect(
       flowFrom(counts, period).stations.map((each) => [
         each.stationId,

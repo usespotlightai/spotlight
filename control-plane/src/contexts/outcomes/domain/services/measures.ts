@@ -36,6 +36,8 @@ export const percentileOf = (
   return ordered[Math.min(Math.max(rank, 1), ordered.length) - 1] ?? null;
 };
 
+export const NO_SPREAD: Spread = { p50: null, p90: null, count: 0 };
+
 export const spreadOf = (values: readonly number[]): Spread => ({
   p50: medianOf(values),
   p90: percentileOf(values, 90),

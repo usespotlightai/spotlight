@@ -3,15 +3,23 @@ import { endedRecord } from '@outcomes/domain/outcomes.fake-spec';
 import {
   type HumanLoad,
   humanLoadChangesOf,
-  humanLoadOf,
+  humanLoadCountsOf,
+  humanLoadFrom,
 } from '@outcomes/domain/services/human-load';
-import { InsightsPeriod } from '@outcomes/domain/value-objects/insights-period.vo';
+import type { TeamHistory } from '@outcomes/domain/services/team-history';
+import {
+  InsightsPeriod,
+  type Window,
+} from '@outcomes/domain/value-objects/insights-period.vo';
 import { NextAct } from '@outcomes/domain/value-objects/next-act.vo';
 import { describe, expect, it } from 'vitest';
 
 const PERIOD = InsightsPeriod.of('7d', new Date('2026-10-01T15:00:00.000Z'));
 
-describe('humanLoadOf', () => {
+const humanLoadOf = (history: TeamHistory, window: Window) =>
+  humanLoadFrom(humanLoadCountsOf(history, window));
+
+describe('humanLoadFrom the counts of humanLoadCountsOf', () => {
   it('counts what the work asked of people and how quickly they answered', () => {
     const load = humanLoadOf(
       historyOf({

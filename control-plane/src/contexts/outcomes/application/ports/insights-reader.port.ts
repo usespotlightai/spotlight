@@ -1,6 +1,7 @@
 import type { CostCountsInPeriod } from '@outcomes/domain/services/cost-breakdown';
 import type { FlowCounts } from '@outcomes/domain/services/flow';
 import type { OverviewCounts } from '@outcomes/domain/services/overview-counts';
+import type { PeopleCounts } from '@outcomes/domain/services/people-counts';
 import type { TeamCounts } from '@outcomes/domain/services/station-reports';
 import type { InsightsPeriod } from '@outcomes/domain/value-objects/insights-period.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -19,4 +20,5 @@ export interface InsightsReaderPort {
   overviewCounts(team: TeamInPeriod): Promise<OverviewCounts>;
   costCounts(team: TeamInPeriod): Promise<CostCountsInPeriod>;
   flowCounts(team: TeamInPeriod): Promise<FlowCounts>;
+  peopleCounts(team: TeamInPeriod): Promise<PeopleCounts>;
 }

@@ -22,6 +22,7 @@ import {
   p90Over,
   ran,
   type SpendRow,
+  sentBack,
   spendColumns,
   spendOf,
 } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/run-fact.sql';
@@ -135,7 +136,7 @@ const talliesIn = async (
         ${counted(sql`${ran} and ${runFact.checks} = 'passed'`)} as checks_passed,
         ${counted(sql`${ran} and ${runFact.checks} = 'failed'`)} as checks_failed,
         ${counted(sql`${ran} and ${runFact.nextAct} = 'closed'`)} as accepted,
-        ${counted(sql`${ran} and ${runFact.nextAct} = 'sent-back'`)} as sent_back,
+        ${counted(sentBack)} as sent_back,
         ${counted(sql`${ran} and ${runFact.handedOnTo} is not null`)} as handed_on,
         count(distinct ${runFact.taskId}) filter (where ${ran} and ${runFact.deliveryState} = 'merged')::int as merged,
         ${spendColumns},

@@ -6,10 +6,12 @@ import type {
 import type { CostCountsInPeriod } from '@outcomes/domain/services/cost-breakdown';
 import type { FlowCounts } from '@outcomes/domain/services/flow';
 import type { OverviewCounts } from '@outcomes/domain/services/overview-counts';
+import type { PeopleCounts } from '@outcomes/domain/services/people-counts';
 import type { TeamCounts } from '@outcomes/domain/services/station-reports';
 import { costCountsIn } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/cost-counts.sql';
 import { flowCountsIn } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/flow-counts.sql';
 import { overviewCountsIn } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/overview-counts.sql';
+import { peopleCountsIn } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/people-counts.sql';
 import { stationCountsIn } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/station-counts.sql';
 import { DrizzleReading } from '@platform/persistence/drizzle/drizzle.reading';
 
@@ -31,5 +33,9 @@ export class DrizzleInsightsReader implements InsightsReaderPort {
 
   flowCounts(team: TeamInPeriod): Promise<FlowCounts> {
     return this.reading.read((db) => flowCountsIn(db, team));
+  }
+
+  peopleCounts(team: TeamInPeriod): Promise<PeopleCounts> {
+    return this.reading.read((db) => peopleCountsIn(db, team));
   }
 }

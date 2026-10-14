@@ -246,10 +246,11 @@ describe('the team’s insights', () => {
   });
 
   it('calls someone new only if nothing they did on the team came before the period', async () => {
-    const { histories, people } = await insights();
+    const { histories, reader, people } = await insights();
 
     const read = await new ReadInsightsPeopleHandler(
       histories,
+      reader,
       {
         onTeam: async () => new Map([['user_ada', day('2026-01-01')]]),
       },

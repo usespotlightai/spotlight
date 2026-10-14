@@ -1,4 +1,5 @@
 import type { TeamInPeriod } from '@outcomes/application/ports/insights-reader.port';
+import type { Window } from '@outcomes/domain/value-objects/insights-period.vo';
 import type { Spend } from '@outcomes/domain/value-objects/run-cost.vo';
 import { runFact } from '@outcomes/infrastructure/persistence/drizzle/schemas/outcomes.schema';
 import { type SQL, sql } from 'drizzle-orm';
@@ -12,6 +13,14 @@ export const inEndOrder = sql`${runFact.endedAt}, ${runFact.runId} collate "C"`;
 export const ran = sql`${runFact.ran}`;
 
 export const priced = sql`${ran} and ${runFact.cost} is not null and coalesce(${runFact.currency}, '') <> ''`;
+
+export const sentBack = sql`${ran} and ${runFact.nextAct} = 'sent-back'`;
+
+export const atWithin = (at: SQL, window: Window): SQL =>
+  sql`(${at} >= ${asUtc(window.from)} and ${at} < ${asUtc(window.to)})`;
+
+export const inTouchOrder = (taskId: SQL, touchedAt: SQL): SQL =>
+  sql`array_agg(${taskId} order by ${touchedAt} desc, ${taskId} desc)`;
 
 export const counted = (when: SQL): SQL =>
   sql`count(*) filter (where ${when})::int`;
@@ -68,3 +77,9 @@ export const spendOf = (row: SpendRow): Spend | null =>
   row.currencies === 1 && row.amount !== null && row.currency !== null
     ? { amount: row.amount, currency: row.currency }
     : null;
+
+export const spreadOver = (ms: SQL, when: SQL): SQL => sql`json_build_object(
+  'p50', ${medianOver(ms, when)},
+  'p90', ${p90Over(ms, when)},
+  'count', count(${ms}) filter (where ${when})
+)`;

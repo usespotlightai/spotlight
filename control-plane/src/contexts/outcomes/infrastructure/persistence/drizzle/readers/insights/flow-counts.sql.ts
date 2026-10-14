@@ -6,7 +6,8 @@ import type {
   StationInboxCounts,
   StationRunCounts,
 } from '@outcomes/domain/services/flow';
-import type { Spread } from '@outcomes/domain/services/measures';
+import { NO_SPREAD, type Spread } from '@outcomes/domain/services/measures';
+import { inboxWaits } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/inbox.sql';
 import {
   asUtc,
   dateOf,
@@ -14,15 +15,11 @@ import {
   inEndOrder,
   isCurrent,
   iso,
-  medianOver,
   msOf,
-  p90Over,
   ran,
+  spreadOver,
 } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/run-fact.sql';
-import {
-  ofTeamDeliveries,
-  ofTeamTouches,
-} from '@outcomes/infrastructure/persistence/drizzle/readers/insights/team-scope.sql';
+import { ofTeamDeliveries } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/team-scope.sql';
 import {
   runFact,
   taskDelivery,
@@ -62,12 +59,6 @@ interface DeliveryRow extends Record<string, unknown> {
   readonly merged: boolean;
   readonly task_opened_ms: number | null;
 }
-
-const spreadOver = (ms: SQL, when: SQL): SQL => sql`json_build_object(
-  'p50', ${medianOver(ms, when)},
-  'p90', ${p90Over(ms, when)},
-  'count', count(${ms}) filter (where ${when})
-)`;
 
 const stationsIn = async (
   db: DrizzleDatabase,
@@ -135,43 +126,15 @@ const inboxIn = async (
   team: TeamInPeriod,
 ): Promise<readonly InboxRow[]> => {
   const { current, previous } = team.period;
-  const askedAt = sql`(ask.value->>'at')::timestamptz`;
   const answerMs = msOf(sql`waits.answered_at - waits.asked_at`);
   const result = await db.execute<InboxRow>(sql`
-    with asks as (
-      select
-        ask.value->>'stationId' as station_id,
-        ${askedAt} as asked_at,
-        lead(${askedAt}) over (
-          partition by ${taskTouches.taskId}
-          order by ${askedAt}, ask.position
-        ) as next_at,
-        ${taskTouches.acts} as acts
-      from ${taskTouches}
-      cross join lateral jsonb_array_elements(${taskTouches.asks})
-        with ordinality as ask(value, position)
-      where ${ofTeamTouches(team)}
-    ), waits as (
-      select
-        asks.station_id,
-        asks.asked_at,
-        (
-          select min((act.value->>'at')::timestamptz)
-          from jsonb_array_elements(asks.acts) as act(value)
-          where (act.value->>'at')::timestamptz >= asks.asked_at
-            and (asks.next_at is null or (act.value->>'at')::timestamptz < asks.next_at)
-        ) as answered_at
-      from asks
-      where asks.asked_at >= ${asUtc(previous.from)}
-        and asks.asked_at < ${asUtc(current.to)}
-    )
     select
       waits.asked_at >= ${asUtc(current.from)} as is_current,
       waits.station_id,
       count(*)::int as asks,
       count(*) filter (where waits.answered_at is null)::int as unanswered,
       ${spreadOver(answerMs, sql`waits.answered_at is not null`)} as inbox
-    from waits
+    from ${inboxWaits(team, previous.from, current.to)}
     group by 1, 2
   `);
 
@@ -213,8 +176,6 @@ const deliveriesIn = async (
     taskOpenedAt: dateOf(row.task_opened_ms),
   }));
 };
-
-const NO_SPREAD: Spread = { p50: null, p90: null, count: 0 };
 
 const windowOf = (
   current: boolean,

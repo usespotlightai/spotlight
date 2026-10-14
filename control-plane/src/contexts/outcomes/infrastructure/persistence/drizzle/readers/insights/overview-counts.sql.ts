@@ -11,6 +11,7 @@ import type { OverviewCounts } from '@outcomes/domain/services/overview-counts';
 import type { TallyCounts } from '@outcomes/domain/services/run-tally';
 import {
   asUtc,
+  atWithin,
   dateOf,
   factsInPeriod,
   isCurrent,
@@ -25,10 +26,9 @@ import {
 } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/station-counts.sql';
 import {
   ofTeamDeliveries,
-  ofTeamTouches,
+  teamActivity,
 } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/team-scope.sql';
 import {
-  chatRecord,
   runFact,
   taskDelivery,
   taskTouches,
@@ -114,31 +114,11 @@ const peopleIn = async (
   db: DrizzleDatabase,
   team: TeamInPeriod,
 ): Promise<readonly PersonRow[]> => {
-  const { current, previous, lookback } = team.period;
+  const { current, previous } = team.period;
   const result = await db.execute<PersonRow>(sql`
-    with touched as (
-      select ${taskTouches.openedBy} as opened_by, ${taskTouches.openedAt} as opened_at, ${taskTouches.acts} as acts
-      from ${taskTouches}
-      where ${ofTeamTouches(team)}
-    ), activity as (
-      select opened_by as person, opened_at at time zone 'UTC' as at
-      from touched
-      where opened_by is not null and opened_at is not null
-      union all
-      select act.value->>'by', (act.value->>'at')::timestamptz
-      from touched
-      cross join lateral jsonb_array_elements(touched.acts) as act(value)
-      union all
-      select ${chatRecord.startedBy}, ${chatRecord.startedAt} at time zone 'UTC'
-      from ${chatRecord}
-      where ${chatRecord.workspaceId} = ${team.workspaceId.value}
-        and ${chatRecord.teamId} = ${team.teamId.value}
-        and ${chatRecord.startedAt} >= ${iso(lookback.from)}::timestamp
-        and ${chatRecord.startedAt} < ${iso(lookback.to)}::timestamp
-    )
-    select distinct person, at >= ${asUtc(current.from)} as is_current
-    from activity
-    where at >= ${asUtc(previous.from)} and at < ${asUtc(current.to)}
+    select distinct activity.person, activity.at >= ${asUtc(current.from)} as is_current
+    from ${teamActivity(team)}
+    where ${atWithin(sql`activity.at`, { from: previous.from, to: current.to })}
   `);
 
   return result.rows;

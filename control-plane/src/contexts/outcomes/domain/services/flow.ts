@@ -5,6 +5,7 @@ import type {
 import {
   between,
   known,
+  NO_SPREAD,
   type Spread,
   spreadOf,
 } from '@outcomes/domain/services/measures';
@@ -186,8 +187,6 @@ export const flowCountsOf = (
         touchedWithin(each, period.previous),
     ),
 });
-
-const NO_SPREAD: Spread = spreadOf([]);
 
 const flowWithin = (
   counts: FlowWindowCounts,

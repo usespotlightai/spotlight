@@ -6,6 +6,7 @@ import type { TeamHistoryHeld } from '@outcomes/application/services/team-histor
 import { costCountsOf } from '@outcomes/domain/services/cost-breakdown';
 import { flowCountsOf } from '@outcomes/domain/services/flow';
 import { overviewCountsOf } from '@outcomes/domain/services/overview-counts';
+import { peopleCountsOf } from '@outcomes/domain/services/people-counts';
 import { teamCountsOf } from '@outcomes/domain/services/station-reports';
 import {
   openingsOf,
@@ -65,6 +66,8 @@ export const insightsReaderInMemory = (
 
     return flowCountsOf(history, team.period, await openingsFor(held, history));
   },
+  peopleCounts: async (team) =>
+    peopleCountsOf(await historyOf(held, team), team.period),
   overviewCounts: async (team) => {
     const history = await historyOf(held, team);
     const from = team.period.lookback.from;
