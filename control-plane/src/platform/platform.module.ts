@@ -24,7 +24,7 @@ import { DrizzleModule } from '@platform/persistence/drizzle/drizzle.module';
 import { SystemClock } from '@platform/time/system-clock';
 import { TokenMint } from '@platform/tokens/token-mint.service';
 import { JoseWorkloadTokens } from '@platform/workload/jose-workload-tokens';
-import { SentryGlobalFilter, SentryModule } from '@sentry/nestjs/setup';
+import { SentryGlobalFilter } from '@sentry/nestjs/setup';
 import { CAUSATION } from '@shared-kernel/application/ports/causation.port';
 import { CLOCK } from '@shared-kernel/application/ports/clock.port';
 import { DOMAIN_EVENT_DISPATCHER } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
@@ -43,13 +43,7 @@ import { SHARED_KERNEL_EVENT_TYPES } from '@shared-kernel/domain/event-types';
 
 @Global()
 @Module({
-  imports: [
-    SentryModule.forRoot(),
-    ConfigModule,
-    LoggingModule,
-    DrizzleModule,
-    CqrsModule,
-  ],
+  imports: [ConfigModule, LoggingModule, DrizzleModule, CqrsModule],
   controllers: [HealthController],
   providers: [
     {
