@@ -48,7 +48,7 @@
     "graphql": "^17.0.2",
     "jose": "^6.2.12",
     "nestjs-pino": "^5.3.1",
-    "nodemailer": "^10.0.16",
+    "nodemailer": "^10.1.0",
     "pg": "^8.23.1",
     "pino": "^10.4.0",
     "pino-http": "^11.0.0",
@@ -56,14 +56,14 @@
     "rxjs": "^7.8.1",
     "smol-toml": "^1.9.1",
     "yaml": "^2.9.1",
-    "zod": "^4.4.3"
+    "zod": "^4.6.6"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",
     "@nestjs/cli": "^12.0.8",
     "@nestjs/schematics": "^12.0.6",
     "@nestjs/testing": "^12.1.2",
-    "@swc/core": "^1.16.13",
+    "@swc/core": "^1.16.18",
     "@types/express": "^5.0.6",
     "@types/node": "^26.6.5",
     "@types/nodemailer": "^8.0.2",
