@@ -259,6 +259,12 @@ export const runFact = pgTable(
       table.endedAt,
     ),
     index('run_fact_ended_idx').on(table.endedAt),
+    index('run_fact_station_began_idx').on(
+      table.workspaceId,
+      table.teamId,
+      table.stationId,
+      table.beganAt,
+    ),
     index('run_fact_task_idx').on(table.taskId),
   ],
 );

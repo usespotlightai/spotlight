@@ -1,18 +1,8 @@
-import type { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
-import { failuresWithin } from '@outcomes/domain/services/failure-summaries';
+import type { LocatedFailure } from '@outcomes/domain/services/failure-summaries';
 import { rateOf } from '@outcomes/domain/services/measures';
-import { type RunTally, runTally } from '@outcomes/domain/services/run-tally';
-import {
-  atStation,
-  endedWithin,
-  type StationPlace,
-  stationsOf,
-  type TeamHistory,
-} from '@outcomes/domain/services/team-history';
-import type {
-  InsightsPeriod,
-  Window,
-} from '@outcomes/domain/value-objects/insights-period.vo';
+import type { TallyCounts } from '@outcomes/domain/services/run-tally';
+import type { TeamCounts } from '@outcomes/domain/services/station-reports';
+import type { StationPlace } from '@outcomes/domain/services/team-history';
 
 export const STATION_SIGNALS = [
   'sent-back',
@@ -54,7 +44,7 @@ interface Rates {
   readonly cost: number | null;
 }
 
-const ratesOf = (tally: RunTally, taskFailures: number): Rates => ({
+const ratesOf = (tally: TallyCounts, taskFailures: number): Rates => ({
   'sent-back': rateOf(tally.sentBack, tally.runs),
   'checks-failed': rateOf(
     tally.checksFailed,
@@ -96,44 +86,44 @@ const comparable = (
     ? tallied.rates
     : { ...tallied.rates, cost: null };
 
-export const stationsWorthImproving = (
-  history: TeamHistory,
-  period: InsightsPeriod,
+export const stationsWorthImprovingFrom = (
+  counts: TeamCounts,
+  failingBefore: readonly LocatedFailure[],
 ): readonly StationWorthImproving[] => {
-  const current = endedWithin(history.records, period.current);
-  const previous = endedWithin(history.records, period.previous);
   const tallied = (
-    records: readonly RunRecord[],
-    window: Window,
+    tally: TallyCounts,
+    failing: readonly LocatedFailure[],
     stationId: string | null,
-  ) => {
-    const tally = runTally(records, history.deliveries);
+  ) => ({
+    rates: ratesOf(
+      tally,
+      failing.filter(
+        (each) => stationId === null || each.occurrence.stationId === stationId,
+      ).length,
+    ),
+    currency: tally.cost?.currency ?? null,
+    mixedCurrencies: tally.mixedCurrencies,
+  });
+  const teamTally = tallied(counts.team.current, counts.failing, null);
 
-    return {
-      rates: ratesOf(
-        tally,
-        failuresWithin(history.failures, window, stationId).length,
-      ),
-      currency: tally.cost?.currency ?? null,
-      mixedCurrencies: tally.mixedCurrencies,
-    };
-  };
-  const teamTally = tallied(current, period.current, null);
-
-  return stationsOf(current)
-    .flatMap((place) => {
-      const here = atStation(current, place.stationId);
-      const runs = here.filter((each) => each.ran).length;
+  return counts.stations
+    .flatMap((station) => {
+      const place = { lineId: station.lineId, stationId: station.stationId };
+      const runs = station.current.runs;
 
       if (runs < FEWEST_RUNS) {
         return [];
       }
 
-      const tallyNow = tallied(here, period.current, place.stationId);
+      const tallyNow = tallied(
+        station.current,
+        counts.failing,
+        station.stationId,
+      );
       const tallyBefore = tallied(
-        atStation(previous, place.stationId),
-        period.previous,
-        place.stationId,
+        station.previous,
+        failingBefore,
+        station.stationId,
       );
       const now = tallyNow.rates;
       const before = comparable(tallyBefore, tallyNow.currency);

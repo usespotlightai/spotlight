@@ -1,27 +1,73 @@
-import type { InsightsReaderPort } from '@outcomes/application/ports/insights-reader.port';
+import type {
+  InsightsReaderPort,
+  TeamInPeriod,
+} from '@outcomes/application/ports/insights-reader.port';
 import type { TeamHistoryHeld } from '@outcomes/application/services/team-histories.service';
+import { overviewCountsOf } from '@outcomes/domain/services/overview-counts';
 import { teamCountsOf } from '@outcomes/domain/services/station-reports';
+import {
+  openingsOf,
+  stationsOf,
+  type TeamHistory,
+} from '@outcomes/domain/services/team-history';
 
 const ALL = Number.MAX_SAFE_INTEGER;
+
+const historyOf = async (
+  held: TeamHistoryHeld,
+  { workspaceId, teamId, period }: TeamInPeriod,
+): Promise<TeamHistory> => {
+  const window = { workspaceId, teamId, ...period.lookback };
+
+  return {
+    records: await held.records.endedForTeam(window, ALL),
+    deliveries: await held.deliveries.ofTeamBetween(window, ALL),
+    touches: await held.touches.ofTeamBetween(window, ALL),
+    failures: await held.failures.ofTeamBetween(window, ALL),
+    chats: await held.chats.ofTeamBetween(window, ALL),
+  };
+};
+
+const openingsFor = async (held: TeamHistoryHeld, history: TeamHistory) =>
+  openingsOf(
+    await held.touches.forTasks([
+      ...history.failures.map((each) => each.taskId),
+      ...history.deliveries.map((each) => each.taskId),
+    ]),
+  );
 
 export const insightsReaderInMemory = (
   held: TeamHistoryHeld,
 ): InsightsReaderPort => ({
-  stationCounts: async ({ workspaceId, teamId, period }) => {
-    const window = { workspaceId, teamId, ...period.lookback };
-    const failures = await held.failures.ofTeamBetween(window, ALL);
+  stationCounts: async (team) => {
+    const history = await historyOf(held, team);
 
     return teamCountsOf(
       {
-        records: await held.records.endedForTeam(window, ALL),
-        deliveries: await held.deliveries.ofTeamBetween(window, ALL),
-        touches: await held.touches.forTasks(
-          failures.map((each) => each.taskId),
-        ),
-        failures,
-        chats: [],
+        ...history,
+        touches: [...(await openingsFor(held, history)).values()],
       },
-      period,
+      team.period,
+    );
+  },
+  overviewCounts: async (team) => {
+    const history = await historyOf(held, team);
+    const from = team.period.lookback.from;
+
+    return overviewCountsOf(
+      history,
+      team.period,
+      {
+        from,
+        lastRuns: await held.records.lastConfigRunsBefore(
+          team.teamId,
+          stationsOf(history.records).map(({ stationId }) => ({
+            stationId,
+            from,
+          })),
+        ),
+      },
+      await openingsFor(held, history),
     );
   },
 });

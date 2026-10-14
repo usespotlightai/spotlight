@@ -134,10 +134,11 @@ const insights = async () => {
 
 describe('the team’s insights', () => {
   it('answers a workspace token that may read the workspace', async () => {
-    const { histories, people, cleared } = await insights();
+    const { histories, reader, people, cleared } = await insights();
 
     const overview = await new ReadInsightsOverviewHandler(
       histories,
+      reader,
       people,
     ).execute(new ReadInsightsOverviewQuery('team_1', READ_TOKEN, '7d'));
 
@@ -164,20 +165,20 @@ describe('the team’s insights', () => {
   });
 
   it('finds no team for someone not on it', async () => {
-    const { histories, people } = await insights();
+    const { histories, reader, people } = await insights();
 
     await expect(
-      new ReadInsightsOverviewHandler(histories, people).execute(
+      new ReadInsightsOverviewHandler(histories, reader, people).execute(
         new ReadInsightsOverviewQuery('team_1', STRANGER, '7d'),
       ),
     ).rejects.toMatchObject({ kind: 'not-found' });
   });
 
   it('refuses a period it does not look back over', async () => {
-    const { histories, people } = await insights();
+    const { histories, reader, people } = await insights();
 
     await expect(
-      new ReadInsightsOverviewHandler(histories, people).execute(
+      new ReadInsightsOverviewHandler(histories, reader, people).execute(
         new ReadInsightsOverviewQuery('team_1', READ_TOKEN, '14d'),
       ),
     ).rejects.toMatchObject({ kind: 'invalid-input' });

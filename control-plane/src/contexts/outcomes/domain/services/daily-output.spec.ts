@@ -11,15 +11,34 @@ import {
   SECOND_CONFIG,
 } from '@outcomes/domain/outcomes.fake-spec';
 import {
+  type ConfigMarker,
   configMarkersAlong,
   configMarkersOf,
-  dailyOutputOf,
+  dailyOutputFrom,
+  daySpendingOf,
   outputCurrencyOf,
 } from '@outcomes/domain/services/daily-output';
+import { resolvedDeliveriesOf } from '@outcomes/domain/services/headline';
+import {
+  openingsOf,
+  type TeamHistory,
+} from '@outcomes/domain/services/team-history';
 import { InsightsPeriod } from '@outcomes/domain/value-objects/insights-period.vo';
 import { describe, expect, it } from 'vitest';
 
 const PERIOD = InsightsPeriod.of('7d', new Date('2026-10-01T15:00:00.000Z'));
+
+const dailyOutputOf = (
+  history: TeamHistory,
+  period: InsightsPeriod,
+  markers: readonly ConfigMarker[],
+) =>
+  dailyOutputFrom(
+    daySpendingOf(history, period),
+    resolvedDeliveriesOf(history, openingsOf(history.touches)),
+    period,
+    markers,
+  );
 
 const carriedOn = (lastRuns: readonly RunRecord[] = []) => ({
   from: PERIOD.lookback.from,

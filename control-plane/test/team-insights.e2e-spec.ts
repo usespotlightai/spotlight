@@ -453,6 +453,31 @@ describe('the team’s insights (e2e)', () => {
     ]);
   });
 
+  it('lays the run and its merge out by day, against an empty period before', async () => {
+    const answer = await asOwner(insights('overview'));
+    const output: {
+      runs: number;
+      spend: unknown;
+      mergedTaskIds: string[];
+    }[] = answer.body.output;
+
+    expect(output).toHaveLength(7);
+    expect(output.filter((each) => each.runs > 0)).toEqual([
+      expect.objectContaining({
+        runs: 1,
+        spend: { amount: 1.25, currency: 'USD' },
+        unpriced: 0,
+      }),
+    ]);
+    expect(output.flatMap((each) => each.mergedTaskIds)).toEqual([TASK.value]);
+    expect(answer.body.outputCurrency).toBe('USD');
+    expect(answer.body.outputMixedCurrencies).toBe(false);
+    expect(answer.body.changes.mergedPullRequests).toMatchObject({
+      fromZero: true,
+    });
+    expect(answer.body.changes.activePeople).toMatchObject({ fromZero: true });
+  });
+
   it('answers a workspace token with the read scope', async () => {
     const token = await issued(team, ['read']);
 

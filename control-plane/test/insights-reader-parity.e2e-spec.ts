@@ -1,18 +1,22 @@
 import { OutcomesAccess } from '@outcomes/application/services/outcomes-access.service';
 import { TeamHistories } from '@outcomes/application/services/team-histories.service';
+import { ChatRecord } from '@outcomes/domain/aggregates/chat-record.aggregate';
 import { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
 import { TaskDelivery } from '@outcomes/domain/aggregates/task-delivery.aggregate';
 import { TaskFailures } from '@outcomes/domain/aggregates/task-failures.aggregate';
 import { TaskTouches } from '@outcomes/domain/aggregates/task-touches.aggregate';
+import { overviewCountsOf } from '@outcomes/domain/services/overview-counts';
 import {
   stationReportsFrom,
   teamCountsOf,
   teamReportFrom,
 } from '@outcomes/domain/services/station-reports';
+import { openingsOf } from '@outcomes/domain/services/team-history';
 import { FailureOccurrence } from '@outcomes/domain/value-objects/failure-occurrence.vo';
 import { HandedOn } from '@outcomes/domain/value-objects/handed-on.vo';
 import { INSIGHTS_PERIODS } from '@outcomes/domain/value-objects/insights-period.vo';
-import { NextAct } from '@outcomes/domain/value-objects/next-act.vo';
+import { NEXT_ACTS, NextAct } from '@outcomes/domain/value-objects/next-act.vo';
+import { PersonTouch } from '@outcomes/domain/value-objects/person-touch.vo';
 import { RunCost } from '@outcomes/domain/value-objects/run-cost.vo';
 import { RunEnd } from '@outcomes/domain/value-objects/run-end.vo';
 import type { RunEnding } from '@outcomes/domain/value-objects/run-ending';
@@ -45,9 +49,15 @@ const WORKSPACE = WorkspaceId.of('workspace_parity');
 const TEAM = TeamId.of('team_parity');
 const VIEWER = UserId.of('user_ada');
 
+const NEXT_DOOR = TeamId.of('team_next_door');
+
 const HOMES = [
   { workspaceId: WORKSPACE, teamId: TEAM },
-  { workspaceId: WORKSPACE, teamId: TeamId.of('team_next_door') },
+  { workspaceId: WORKSPACE, teamId: NEXT_DOOR },
+  {
+    workspaceId: WorkspaceId.of('workspace_elsewhere'),
+    teamId: TeamId.of('team_elsewhere'),
+  },
   { workspaceId: WorkspaceId.of('workspace_elsewhere'), teamId: TEAM },
 ] as const;
 const NOW = new Date('2026-10-14T15:00:00.000Z');
@@ -61,6 +71,12 @@ const STATIONS = [
   { lineId: 'line_b', stationId: 'review' },
   { lineId: 'line_b', stationId: 'ship' },
 ] as const;
+
+const PEOPLE = ['user_ada', 'user_bob', 'user_cy', 'user_dee', 'user_eve'];
+
+const FAR = 'user_far';
+
+const CHATS = 40;
 
 const ELSEWHERE_ONLY = { lineId: 'line_c', stationId: 'elsewhere_only' };
 
@@ -128,7 +144,9 @@ beforeAll(async () => {
       }
 
       const station =
-        home !== HOMES[0] && chance(0.5) ? ELSEWHERE_ONLY : pick(STATIONS);
+        home === HOMES[3] || (home !== HOMES[0] && chance(0.5))
+          ? ELSEWHERE_ONLY
+          : pick(STATIONS);
       const taskId = TaskId.of(`task_${Math.floor(index / 2)}`);
       const endedAt = ago(Math.floor(random() * 200 * DAY));
       const startedAt = chance(0.9)
@@ -209,17 +227,30 @@ beforeAll(async () => {
       await records.add(record);
 
       if (index % 2 === 0) {
-        await touches.add(
-          TaskTouches.heardOf(taskId, home.workspaceId).opened(
-            TaskOpening.of({
-              teamId: home.teamId,
-              lineId: station.lineId,
-              stationId: station.stationId,
-              by: VIEWER,
-              at: new Date(endedAt.getTime() - DAY),
-            }),
-          ),
+        const far = chance(0.15);
+        const person = () => UserId.of(far ? FAR : pick(PEOPLE));
+        let touched = TaskTouches.heardOf(taskId, home.workspaceId).opened(
+          TaskOpening.of({
+            teamId: far ? NEXT_DOOR : home.teamId,
+            lineId: station.lineId,
+            stationId: station.stationId,
+            by: chance(0.9) ? person() : null,
+            at: new Date(endedAt.getTime() - (chance(0.1) ? 150 * DAY : DAY)),
+          }),
         );
+
+        for (let acted = Math.floor(random() * 4); acted > 0; acted -= 1) {
+          touched = touched.actedOn(
+            PersonTouch.of({
+              act: pick(NEXT_ACTS),
+              by: person(),
+              stationId: station.stationId,
+              at: ago(Math.floor(random() * 200 * DAY)),
+            }),
+          );
+        }
+
+        await touches.add(touched);
 
         if (chance(0.5)) {
           const pullRequest = PullRequestUrl.of(
@@ -228,7 +259,7 @@ beforeAll(async () => {
           const opened = TaskDelivery.opened({
             taskId,
             workspaceId: home.workspaceId,
-            teamId: home.teamId,
+            teamId: far ? NEXT_DOOR : home.teamId,
             pullRequest,
             at: new Date(endedAt.getTime() - HOUR),
           });
@@ -271,6 +302,20 @@ beforeAll(async () => {
           await failures.add(failed);
         }
       }
+    }
+
+    for (let index = 0; index < CHATS; index += 1) {
+      const where = pick(HOMES);
+
+      await chats.add(
+        ChatRecord.started({
+          chatId: `chat_${index}`,
+          workspaceId: where.workspaceId,
+          teamId: where.teamId,
+          startedBy: UserId.of(pick(PEOPLE)),
+          startedAt: ago(Math.floor(random() * 200 * DAY)),
+        }),
+      );
     }
   });
 }, 120_000);
@@ -338,5 +383,58 @@ describe('the insights reader against the team history', () => {
     expect(stations.some((each) => each.tally.withdrawn > 0)).toBe(true);
     expect(stations.some((each) => each.taskFailures.length > 1)).toBe(true);
     expect(stations.some((each) => each.runFailures.length > 1)).toBe(true);
+  });
+  it.each(INSIGHTS_PERIODS)(
+    'counts the same overview as the domain over %s',
+    async (name) => {
+      const held = await histories.of(
+        TEAM.value,
+        PersonPrincipal.of(VIEWER),
+        name,
+      );
+      const { history, period, truncated } = held;
+      const counts = await reader.overviewCounts({
+        workspaceId: WORKSPACE,
+        teamId: TEAM,
+        period,
+      });
+      const expected = overviewCountsOf(
+        history,
+        period,
+        await histories.carriedOn(held),
+        openingsOf(
+          await touches.forTasks([
+            ...history.failures.map((each) => each.taskId),
+            ...history.deliveries.map((each) => each.taskId),
+          ]),
+        ),
+      );
+
+      expect(truncated).toBe(false);
+      expect(counts).toEqual(expected);
+    },
+  );
+
+  it('covers what makes an overview hard to get right', async () => {
+    const { period } = await histories.scope(
+      TEAM.value,
+      PersonPrincipal.of(VIEWER),
+      '90d',
+    );
+    const counts = await reader.overviewCounts({
+      workspaceId: WORKSPACE,
+      teamId: TEAM,
+      period,
+    });
+    const merged = counts.resolved.filter((each) => each.merged);
+
+    expect(counts.markers.length).toBeGreaterThan(1);
+    expect(merged.some((each) => each.taskOpenedAt !== null)).toBe(true);
+    expect(counts.resolved.some((each) => !each.merged)).toBe(true);
+    expect(counts.current.people).toContain(FAR);
+    expect(counts.current.touches).toBeGreaterThan(0);
+    expect(counts.previous.runs).toBeGreaterThan(0);
+    expect(counts.spending.size).toBeGreaterThan(10);
+    expect(counts.failingBefore.length).toBeGreaterThan(0);
   });
 });

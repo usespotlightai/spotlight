@@ -1,3 +1,4 @@
+import type { OverviewCounts } from '@outcomes/domain/services/overview-counts';
 import type { TeamCounts } from '@outcomes/domain/services/station-reports';
 import type { InsightsPeriod } from '@outcomes/domain/value-objects/insights-period.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -13,4 +14,5 @@ export interface TeamInPeriod {
 
 export interface InsightsReaderPort {
   stationCounts(team: TeamInPeriod): Promise<TeamCounts>;
+  overviewCounts(team: TeamInPeriod): Promise<OverviewCounts>;
 }
