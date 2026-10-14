@@ -1,4 +1,7 @@
-import type { SymbolKind } from '@change-review/domain/services/symbol-index';
+import type {
+  IndexedReference,
+  SymbolKind,
+} from '@change-review/domain/services/symbol-index';
 import type { Node } from '@vscode/tree-sitter-wasm';
 
 export interface GrammarImport {
@@ -10,6 +13,12 @@ export interface GrammarImport {
 export interface GrammarRoute {
   readonly method: string;
   readonly path: string;
+  readonly absolute?: boolean;
+}
+
+export interface EmbeddedScript {
+  readonly script: string;
+  readonly references: readonly IndexedReference[];
 }
 
 type Scope = 'file' | 'directory' | 'language';
@@ -21,12 +30,16 @@ export interface Grammar {
   readonly scope: Scope;
   readonly definitions: Readonly<Record<string, SymbolKind>>;
   readonly namesOf?: (node: Node) => readonly Node[];
+  readonly nameOf?: (definition: Node, name: Node) => string;
   readonly hosts: ReadonlySet<string>;
   readonly bodies: ReadonlySet<string>;
   readonly identifiers: ReadonlySet<string>;
+  readonly opaque?: ReadonlySet<string>;
   readonly members: Readonly<Record<string, readonly [string, string]>>;
   readonly strings: ReadonlySet<string>;
+  readonly interpolations?: RegExp;
   readonly calls: Readonly<Record<string, readonly [string, string]>>;
+  readonly referencesOf?: (node: Node) => readonly IndexedReference[] | null;
   readonly importsOf: (node: Node) => readonly GrammarImport[] | null;
   readonly resolve: (
     specifier: string,
@@ -39,6 +52,7 @@ export interface Grammar {
   readonly prefixOf?: (host: Node) => string | null;
   readonly routeOf?: (node: Node) => GrammarRoute | null;
   readonly components?: boolean;
+  readonly embedded?: (text: string) => EmbeddedScript;
 }
 
 export const named = (node: Node | null): Node[] =>
@@ -53,7 +67,7 @@ export const fields = (node: Node, name: string): Node[] =>
     .filter((child): child is Node => child !== null);
 
 export const unquoted = (text: string): string =>
-  text.replace(/^[a-zA-Z]{0,2}(['"`]{1,3})/, '').replace(/(['"`]{1,3})$/, '');
+  text.replace(/^[a-zA-Z$@]{0,3}(['"`]{1,3})/, '').replace(/(['"`]{1,3})$/, '');
 
 const _withoutExtension = (path: string): string =>
   path.replace(/\.[^./]+$/, '');
@@ -82,6 +96,25 @@ export const endingIn = (
   paths.filter((path) =>
     endings.some((ending) => path === ending || path.endsWith(`/${ending}`)),
   );
+
+export const firstEndingIn = (
+  paths: readonly string[],
+  candidates: readonly string[],
+): string[] => {
+  for (const candidate of candidates) {
+    const found = endingIn(paths, [candidate]);
+    if (found.length > 0) {
+      return found;
+    }
+  }
+
+  return [];
+};
+
+export const suffixes = (parts: readonly string[], least: number): string[] =>
+  parts
+    .map((_, at) => parts.slice(at).join('/'))
+    .filter((_, at) => at === 0 || parts.length - at >= least);
 
 export const HTTP_VERBS = new Set([
   'get',

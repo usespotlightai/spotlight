@@ -1,4 +1,6 @@
+import type { IndexedReference } from '@change-review/domain/services/symbol-index';
 import {
+  type EmbeddedScript,
   endingIn,
   field,
   type Grammar,
@@ -22,6 +24,60 @@ const NEST_VERBS = new Set([
   'Head',
   'Options',
 ]);
+
+const SCRIPT = /(<script\b[^>]*>)([\s\S]*?)<\/script>/g;
+
+const blanked = (text: string): string => text.replace(/[^\n]/g, ' ');
+
+const COMPONENT_TAG = /<([A-Z]\w*|[a-z]\w*(?:-\w+)+)/g;
+
+const pascalCase = (tag: string): string =>
+  tag
+    .split('-')
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join('');
+
+const lineCounter = (text: string): ((at: number) => number) => {
+  let line = 1;
+  let counted = 0;
+
+  return (at) => {
+    for (; counted < at; counted += 1) {
+      if (text[counted] === '\n') {
+        line += 1;
+      }
+    }
+    return line;
+  };
+};
+
+const embeddedScript = (text: string): EmbeddedScript => {
+  const lineAt = lineCounter(text);
+  const references: IndexedReference[] = [];
+  const tagsBetween = (from: number, to: number) => {
+    for (const tag of text.slice(from, to).matchAll(COMPONENT_TAG)) {
+      references.push({
+        name: pascalCase(tag[1] ?? ''),
+        line: lineAt(from + tag.index),
+        through: null,
+      });
+    }
+  };
+  let script = '';
+  let at = 0;
+
+  for (const match of text.matchAll(SCRIPT)) {
+    const start = match.index + (match[1]?.length ?? 0);
+    const body = match[2] ?? '';
+
+    tagsBetween(at, match.index);
+    script += blanked(text.slice(at, start)) + body;
+    at = start + body.length;
+  }
+  tagsBetween(at, text.length);
+
+  return { script: script + blanked(text.slice(at)), references };
+};
 
 const stringIn = (node: Node | null): string | null => {
   const argument = node?.namedChildren.find(
@@ -216,7 +272,7 @@ const javascript = (
   name: string,
   wasm: string,
   extensions: RegExp,
-  components: boolean,
+  { components, embedded = false }: { components: boolean; embedded?: boolean },
 ): Grammar => ({
   name,
   wasm,
@@ -265,15 +321,23 @@ const javascript = (
   prefixOf,
   routeOf,
   components,
+  ...(embedded ? { embedded: embeddedScript } : {}),
 });
 
 export const TYPESCRIPT_GRAMMARS: readonly Grammar[] = [
-  javascript('typescript', 'tree-sitter-typescript.wasm', /\.[cm]?ts$/, false),
-  javascript('tsx', 'tree-sitter-tsx.wasm', /\.tsx$/, true),
-  javascript(
-    'javascript',
-    'tree-sitter-javascript.wasm',
-    /\.([cm]?js|jsx)$/,
-    true,
-  ),
+  javascript('typescript', 'tree-sitter-typescript.wasm', /\.[cm]?ts$/, {
+    components: false,
+  }),
+  javascript('tsx', 'tree-sitter-tsx.wasm', /\.tsx$/, { components: true }),
+  javascript('javascript', 'tree-sitter-javascript.wasm', /\.([cm]?js|jsx)$/, {
+    components: true,
+  }),
+  javascript('vue', 'tree-sitter-typescript.wasm', /\.vue$/, {
+    components: true,
+    embedded: true,
+  }),
+  javascript('svelte', 'tree-sitter-typescript.wasm', /\.svelte$/, {
+    components: true,
+    embedded: true,
+  }),
 ];
