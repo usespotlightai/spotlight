@@ -1,6 +1,6 @@
 import {
-  endingIn,
   field,
+  firstEndingIn,
   type Grammar,
   type GrammarRoute,
   unquoted,
@@ -81,11 +81,11 @@ export const JAVA_GRAMMAR: Grammar = {
   },
   resolve: (specifier, _from, paths) => {
     const parts = specifier.split('.');
-    const found = endingIn(paths, [`${parts.join('/')}.java`]);
 
-    return found.length > 0
-      ? found
-      : endingIn(paths, [`${parts.slice(0, -1).join('/')}.java`]);
+    return firstEndingIn(paths, [
+      `${parts.join('/')}.java`,
+      `${parts.slice(0, -1).join('/')}.java`,
+    ]);
   },
   project: () => false,
   exportedAs: (_definition, name) => [name],

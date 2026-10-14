@@ -71,7 +71,11 @@ export class HclSyntaxError extends Error {
 
 const RUNTIME = join(require.resolve('@vscode/tree-sitter-wasm'), '..');
 
-const GRAMMAR = join(__dirname, 'grammar', 'tree-sitter-hcl.wasm');
+export const HCL_GRAMMAR_WASM = join(
+  __dirname,
+  'grammar',
+  'tree-sitter-hcl.wasm',
+);
 
 let loading: Promise<Language> | null = null;
 
@@ -79,7 +83,7 @@ const language = (): Promise<Language> => {
   loading ??= (async () => {
     await Parser.init({ locateFile: (file: string) => join(RUNTIME, file) });
 
-    return Language.load(GRAMMAR);
+    return Language.load(HCL_GRAMMAR_WASM);
   })().catch((error: unknown) => {
     loading = null;
     throw error;
