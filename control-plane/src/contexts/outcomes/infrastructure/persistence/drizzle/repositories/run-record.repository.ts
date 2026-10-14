@@ -27,6 +27,7 @@ import {
 import { Refusal } from '@outcomes/domain/value-objects/refusal.vo';
 import { RunCost } from '@outcomes/domain/value-objects/run-cost.vo';
 import { RunEnd } from '@outcomes/domain/value-objects/run-end.vo';
+import { RunMemories } from '@outcomes/domain/value-objects/run-memories.vo';
 import { RunPlace } from '@outcomes/domain/value-objects/run-place.vo';
 import { RunSetup } from '@outcomes/domain/value-objects/run-setup.vo';
 import { RunTools } from '@outcomes/domain/value-objects/run-tools.vo';
@@ -304,6 +305,12 @@ const refusalsOf = (row: RecordRow): readonly Refusal[] =>
     Refusal.of({ tool: each.tool, server: each.server, at: new Date(each.at) }),
   );
 
+const memoriesOf = (row: RecordRow): RunMemories =>
+  RunMemories.of({
+    briefed: row.memories.briefed,
+    recalled: row.memories.recalled,
+  });
+
 const handedOnOf = (row: RecordRow): HandedOn | null => {
   if ((row.handedOnTo === null) !== (row.handedOnAt === null)) {
     throw new InconsistentStateError(
@@ -332,6 +339,7 @@ const toRecord = (row: RecordRow): RunRecord =>
     handedOn: handedOnOf(row),
     tools: toolsOf(row),
     refusals: refusalsOf(row),
+    memories: memoriesOf(row),
     version: row.version,
   });
 
@@ -384,6 +392,10 @@ const columnsOf = (record: RunRecord) => {
       server: each.server,
       at: each.at.toISOString(),
     })),
+    memories: {
+      briefed: [...record.memories.briefed],
+      recalled: [...record.memories.recalled],
+    },
   };
 };
 

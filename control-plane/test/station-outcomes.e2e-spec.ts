@@ -21,6 +21,7 @@ import { NotePullRequestReviewed } from '@outcomes/application/services/note-pul
 import { NoteRunDigested } from '@outcomes/application/services/note-run-digested.service';
 import { NoteRunEnded } from '@outcomes/application/services/note-run-ended.service';
 import { NoteRunHandedOn } from '@outcomes/application/services/note-run-handed-on.service';
+import { NoteRunMemories } from '@outcomes/application/services/note-run-memories.service';
 import { NoteRunSuperseded } from '@outcomes/application/services/note-run-superseded.service';
 import { NoteTaskFailed } from '@outcomes/application/services/note-task-failed.service';
 import { NoteTaskTouch } from '@outcomes/application/services/note-task-touch.service';
@@ -360,6 +361,7 @@ beforeAll(async () => {
       settle: async () => {},
     }),
     digesting: new NoteRunDigested(work, records, forgotten, context),
+    remembering: new NoteRunMemories(work, records, forgotten, context),
     handingOn: new NoteRunHandedOn(records, forgotten, context),
     reviewing: new NotePullRequestReviewed(
       deliveries,

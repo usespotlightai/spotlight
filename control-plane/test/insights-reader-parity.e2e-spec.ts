@@ -12,6 +12,7 @@ import {
   costCountsOf,
 } from '@outcomes/domain/services/cost-breakdown';
 import { flowCountsOf, flowFrom } from '@outcomes/domain/services/flow';
+import { memoryCountsOf } from '@outcomes/domain/services/memory-comparison';
 import { overviewCountsOf } from '@outcomes/domain/services/overview-counts';
 import { peopleCountsOf } from '@outcomes/domain/services/people-counts';
 import {
@@ -39,6 +40,7 @@ import { Refusal } from '@outcomes/domain/value-objects/refusal.vo';
 import { RunCost } from '@outcomes/domain/value-objects/run-cost.vo';
 import { RunEnd } from '@outcomes/domain/value-objects/run-end.vo';
 import type { RunEnding } from '@outcomes/domain/value-objects/run-ending';
+import { MEMORY_WAYS } from '@outcomes/domain/value-objects/run-memories.vo';
 import { RunPlace } from '@outcomes/domain/value-objects/run-place.vo';
 import { RunSetup } from '@outcomes/domain/value-objects/run-setup.vo';
 import {
@@ -179,6 +181,21 @@ const toolsOfRun = (): RunTools =>
     servers: SERVERS.filter(() => toolChance(0.35)).map(callsTo),
     skillsRead: READ.filter(() => toolChance(0.25)),
   });
+
+const memoryRandom = seeded(SEED * 13 + 5);
+const MEMORIES = ['mem_a', 'mem_b', 'mem_c', 'mem_d'];
+
+const rememberedIn = (record: RunRecord): RunRecord =>
+  MEMORY_WAYS.reduce(
+    (held, way) =>
+      memoryRandom() < 0.35
+        ? held.usedMemories(
+            way,
+            MEMORIES.filter(() => memoryRandom() < 0.4),
+          )
+        : held,
+    record,
+  );
 
 const refusedIn = (record: RunRecord, endedAt: Date): RunRecord => {
   let refused = record;
@@ -337,7 +354,7 @@ beforeAll(async () => {
         );
       }
 
-      record = refusedIn(record, endedAt);
+      record = rememberedIn(refusedIn(record, endedAt));
 
       await records.add(record);
 
@@ -1250,6 +1267,164 @@ describe('how the tool counts fall into weeks and leave out what did not run', (
       ],
     });
     expect(counts).toEqual(toolCountsOf(history, period.current));
+  });
+});
+
+describe('the memories a team’s runs used', () => {
+  it.each(INSIGHTS_PERIODS)(
+    'counts the same memory use as the domain over %s',
+    async (name) => {
+      const { history, period, truncated } = await histories.of(
+        TEAM.value,
+        PersonPrincipal.of(VIEWER),
+        name,
+      );
+      const counts = await reader.memoryCounts({
+        workspaceId: WORKSPACE,
+        teamId: TEAM,
+        period,
+      });
+
+      expect(truncated).toBe(false);
+      expect(counts).toEqual(memoryCountsOf(history, period.current));
+    },
+  );
+
+  it('covers what makes memory use hard to get right', async () => {
+    const { period } = await histories.scope(
+      TEAM.value,
+      PersonPrincipal.of(VIEWER),
+      '90d',
+    );
+    const counts = await reader.memoryCounts({
+      workspaceId: WORKSPACE,
+      teamId: TEAM,
+      period,
+    });
+    const groups = [counts.withMemories, counts.withoutMemories];
+
+    expect(groups.every((each) => each.tally.runs > 10)).toBe(true);
+    expect(
+      groups.some((each) => each.settled.finished > each.settled.finishedTasks),
+    ).toBe(true);
+    expect(groups.every((each) => each.settled.acted > 0)).toBe(true);
+    expect(
+      groups.every((each) => each.settled.digested < each.tally.runs),
+    ).toBe(true);
+    expect(counts.runsBriefed).toBeLessThan(counts.withMemories.tally.runs);
+    expect(counts.runsRecalled).toBeLessThan(counts.withMemories.tally.runs);
+    expect(counts.memoriesBriefed).toBe(4);
+  });
+});
+
+describe('how the memory counts leave out what did not run', () => {
+  const REMEMBERING = TeamId.of('team_remembering');
+  const period = InsightsPeriod.of('7d', NOW);
+
+  beforeAll(async () => {
+    const context = new DrizzleContext(held.db);
+    const quiet = {
+      dispatch: async () => {},
+    } as unknown as DomainEventDispatcher;
+    const facts = new DrizzleRunFactProjection(context);
+    const records = new DrizzleRunRecordRepository(context, facts, quiet);
+    const deliveries = new DrizzleTaskDeliveryRepository(context, facts, quiet);
+    const ended = (runId: string, ending: RunEnding, hoursAgo: number) =>
+      RunRecord.heardOf(RunId.of(runId), WORKSPACE).ended(
+        RunEnd.of({
+          place: RunPlace.of({
+            teamId: REMEMBERING,
+            lineId: 'line_remembering',
+            stationId: 'remember',
+            taskId: TaskId.of(`task_${runId}`),
+          }),
+          fingerprint: 'a'.repeat(64),
+          setup: RunSetup.of({
+            harness: 'claude-code',
+            model: 'sonnet',
+            effort: null,
+            profileKey: null,
+            repositories: [],
+            skills: [],
+          }),
+          queuedAt: null,
+          startedAt: ago(hoursAgo * HOUR + HOUR),
+          endedAt: ago(hoursAgo * HOUR),
+          ending,
+          failure: null,
+          round: 1,
+          asked: false,
+        }),
+      );
+    const delivered = (runId: string, state: 'merged' | 'open') => {
+      const pullRequest = PullRequestUrl.of(
+        `https://github.com/acme/remember/pull/${runId.length}${state.length}`,
+      );
+      const opened = TaskDelivery.opened({
+        taskId: TaskId.of(`task_${runId}`),
+        workspaceId: WORKSPACE,
+        teamId: REMEMBERING,
+        pullRequest,
+        at: ago(3 * HOUR),
+      });
+
+      return state === 'open'
+        ? opened
+        : opened.closed({ pullRequest, merged: true, at: ago(HOUR) });
+    };
+
+    await context.run(async () => {
+      await records.add(
+        ended('remembered', 'completed', 2)
+          .actedOn(NextAct.of('closed', ago(HOUR)))
+          .usedMemories('briefed', ['mem_one']),
+      );
+      await records.add(
+        ended('withdrawn_remembering', 'withdrawn', 2).usedMemories('briefed', [
+          'mem_withdrawn',
+        ]),
+      );
+      await records.add(
+        ended('recalling', 'failed', 3).usedMemories('recalled', ['mem_one']),
+      );
+      await records.add(ended('forgetful', 'completed', 4));
+      await records.add(
+        ended('long_ago', 'completed', 24 * 30).usedMemories('briefed', [
+          'mem_old',
+        ]),
+      );
+      await deliveries.add(delivered('remembered', 'merged'));
+      await deliveries.add(delivered('forgetful', 'open'));
+    });
+  });
+
+  it('counts the memories of a withdrawn run but not the run, and settles merges only on finished deliveries', async () => {
+    const counts = await reader.memoryCounts({
+      workspaceId: WORKSPACE,
+      teamId: REMEMBERING,
+      period,
+    });
+    const { history } = await histories.of(
+      REMEMBERING.value,
+      PersonPrincipal.of(VIEWER),
+      '7d',
+    );
+
+    expect(counts).toMatchObject({
+      runsBriefed: 1,
+      runsRecalled: 1,
+      memoriesBriefed: 2,
+      memoriesRecalled: 1,
+      withMemories: {
+        tally: { runs: 2, withdrawn: 0, failed: 1, accepted: 1, merged: 1 },
+        settled: { acted: 1, finished: 1, finishedTasks: 1, digested: 0 },
+      },
+      withoutMemories: {
+        tally: { runs: 1, merged: 0 },
+        settled: { acted: 0, finished: 0, finishedTasks: 0, digested: 0 },
+      },
+    });
+    expect(counts).toEqual(memoryCountsOf(history, period.current));
   });
 });
 

@@ -1,4 +1,5 @@
 import type { TeamInPeriod } from '@outcomes/application/ports/insights-reader.port';
+import type { TallyCounts } from '@outcomes/domain/services/run-tally';
 import type { Window } from '@outcomes/domain/value-objects/insights-period.vo';
 import type { Spend } from '@outcomes/domain/value-objects/run-cost.vo';
 import { runFact } from '@outcomes/infrastructure/persistence/drizzle/schemas/outcomes.schema';
@@ -37,10 +38,10 @@ export const msOf = (column: SQL): SQL =>
 export const dateOf = (ms: number | null): Date | null =>
   ms === null ? null : new Date(ms);
 
-export const medianOver = (ms: SQL, when: SQL): SQL =>
+const medianOver = (ms: SQL, when: SQL): SQL =>
   sql`round((percentile_cont(0.5) within group (order by ${ms}) filter (where ${when}))::numeric)::float8`;
 
-export const p90Over = (ms: SQL, when: SQL): SQL =>
+const p90Over = (ms: SQL, when: SQL): SQL =>
   sql`(percentile_disc(0.9) within group (order by ${ms}) filter (where ${when}))::float8`;
 
 export const isCurrent = sql.raw('"run_fact"."is_current"');
@@ -108,3 +109,53 @@ export const spreadOver = (ms: SQL, when: SQL): SQL => sql`json_build_object(
   'p90', ${p90Over(ms, when)},
   'count', count(${ms}) filter (where ${when})
 )`;
+
+const timed = sql`${ran} and ${runFact.ms} is not null`;
+
+export const tallyColumns = sql`
+  ${counted(ran)} as runs,
+  ${counted(sql`not ${ran}`)} as withdrawn,
+  ${counted(sql`${ran} and ${runFact.supersededAt} is null and ${runFact.ending} = 'failed'`)} as failed,
+  ${counted(sql`${ran} and ${runFact.supersededAt} is null and ${runFact.ending} = 'stopped'`)} as stopped,
+  ${counted(sql`${ran} and ${runFact.checks} = 'passed'`)} as checks_passed,
+  ${counted(sql`${ran} and ${runFact.checks} = 'failed'`)} as checks_failed,
+  ${counted(sql`${ran} and ${runFact.nextAct} = 'closed'`)} as accepted,
+  ${counted(sentBack)} as sent_back,
+  ${counted(sql`${ran} and ${runFact.handedOnTo} is not null`)} as handed_on,
+  count(distinct ${runFact.taskId}) filter (where ${ran} and ${runFact.deliveryState} = 'merged')::int as merged,
+  ${spendColumns},
+  ${medianOver(sql`${runFact.ms}`, timed)} as median_ms,
+  ${p90Over(sql`${runFact.ms}`, timed)} as p90_ms`;
+
+export interface TallyColumns extends SpendRow {
+  readonly runs: number;
+  readonly withdrawn: number;
+  readonly failed: number;
+  readonly stopped: number;
+  readonly checks_passed: number;
+  readonly checks_failed: number;
+  readonly accepted: number;
+  readonly sent_back: number;
+  readonly handed_on: number;
+  readonly merged: number;
+  readonly median_ms: number | null;
+  readonly p90_ms: number | null;
+}
+
+export const tallyCountsOf = (row: TallyColumns): TallyCounts => ({
+  runs: row.runs,
+  withdrawn: row.withdrawn,
+  failed: row.failed,
+  stopped: row.stopped,
+  checksPassed: row.checks_passed,
+  checksFailed: row.checks_failed,
+  accepted: row.accepted,
+  sentBack: row.sent_back,
+  handedOn: row.handed_on,
+  merged: row.merged,
+  cost: spendOf(row),
+  unpriced: row.unpriced,
+  mixedCurrencies: row.currencies > 1,
+  medianMs: row.median_ms,
+  p90Ms: row.p90_ms,
+});

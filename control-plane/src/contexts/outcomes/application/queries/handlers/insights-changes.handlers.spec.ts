@@ -1,3 +1,4 @@
+import { insightsReaderInMemory } from '@outcomes/application/ports/insights-reader.fake-spec';
 import type { JudgeStandingPort } from '@outcomes/application/ports/judge-standing.port';
 import type { MemoryUsePort } from '@outcomes/application/ports/memory-use.port';
 import type { PeoplePort } from '@outcomes/application/ports/people.port';
@@ -132,6 +133,13 @@ const held = async (
     },
     { now: () => NOW, sleep: async () => {} },
   );
+  const reader = insightsReaderInMemory({
+    records,
+    deliveries,
+    touches: new TaskTouchesInMemory(records),
+    failures: new TaskFailuresInMemory(),
+    chats: new ChatRecordsInMemory(),
+  });
 
   for (const [runId, hour, fingerprint, model, act] of [
     ['run_1', 9, FIRST_CONFIG, 'sonnet', 'sent-back'],
@@ -155,7 +163,7 @@ const held = async (
   await scores.add(judgeScore('run_1', ScoreScale.yesNo(), 0));
   await scores.add(judgeScore('run_3', ScoreScale.yesNo(), 1));
 
-  return { records, deliveries, scores, histories };
+  return { records, deliveries, scores, histories, reader };
 };
 
 describe('ReadInsightsChangesHandler', () => {
@@ -329,15 +337,13 @@ describe('ReadInsightsSetupsHandler', () => {
 
 describe('ReadInsightsMemoryHandler', () => {
   it('sets runs with memories against runs without, and names who flagged one wrong', async () => {
-    const { histories } = await held();
+    const { histories, reader, records } = await held();
     const asked: unknown[] = [];
     const memory: MemoryUsePort = {
-      between: async (window, runIds) => {
-        asked.push(window.teamId.value, ...runIds);
+      between: async (window) => {
+        asked.push(window.teamId.value);
         return {
           standing: 5,
-          memoriesBriefed: 3,
-          memoriesRecalled: 1,
           flagged: [
             {
               memoryId: 'mem_1',
@@ -348,15 +354,23 @@ describe('ReadInsightsMemoryHandler', () => {
               at: day('2026-09-29'),
             },
           ],
-          runs: [
-            { runId: 'run_2', briefed: 2, recalled: 0 },
-            { runId: 'run_3', briefed: 0, recalled: 1 },
-          ],
         };
       },
     };
+    for (const [runId, way, memories] of [
+      ['run_2', 'briefed', ['mem_1', 'mem_2']],
+      ['run_3', 'recalled', ['mem_2']],
+      ['run_4', 'briefed', []],
+    ] as const) {
+      const record = await records.of(RunId.of(runId));
+
+      if (record) {
+        await records.save(record.usedMemories(way, memories));
+      }
+    }
     const handler = new ReadInsightsMemoryHandler(
       histories,
+      reader,
       memory,
       { latestFor: async () => null },
       people,
@@ -366,9 +380,12 @@ describe('ReadInsightsMemoryHandler', () => {
       new ReadInsightsMemoryQuery('team_1', ADA, '30d'),
     );
 
-    expect(asked[0]).toBe('team_1');
-    expect(asked).toEqual(expect.arrayContaining(['run_2', 'run_3']));
+    expect(asked).toEqual(['team_1']);
     expect(read.standing).toBe(5);
+    expect(read.memoriesBriefed).toBe(2);
+    expect(read.memoriesRecalled).toBe(1);
+    expect(read.runsBriefed).toBe(1);
+    expect(read.runsRecalled).toBe(1);
     expect(read.withMemories.runs).toBe(2);
     expect(read.withMemories.accepted).toBe(2);
     expect(read.withoutMemories.runs).toBe(2);

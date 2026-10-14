@@ -5,6 +5,7 @@ import type {
 import type { TeamHistoryHeld } from '@outcomes/application/services/team-histories.service';
 import { costCountsOf } from '@outcomes/domain/services/cost-breakdown';
 import { flowCountsOf } from '@outcomes/domain/services/flow';
+import { memoryCountsOf } from '@outcomes/domain/services/memory-comparison';
 import { overviewCountsOf } from '@outcomes/domain/services/overview-counts';
 import { peopleCountsOf } from '@outcomes/domain/services/people-counts';
 import { pipelineCountsOf } from '@outcomes/domain/services/shipping';
@@ -94,4 +95,6 @@ export const insightsReaderInMemory = (
   },
   toolCounts: async (team) =>
     toolCountsOf(await historyOf(held, team), team.period.current),
+  memoryCounts: async (team) =>
+    memoryCountsOf(await historyOf(held, team), team.period.current),
 });

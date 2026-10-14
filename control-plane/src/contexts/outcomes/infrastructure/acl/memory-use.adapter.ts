@@ -8,24 +8,17 @@ import type { TeamWindow } from '@outcomes/domain/repositories/run-record.reposi
 export class MemoryUse implements MemoryUsePort {
   constructor(private readonly memory: TeamMemoryUsePort) {}
 
-  async between(
-    window: TeamWindow,
-    runIds: readonly string[],
-  ): Promise<TeamMemoryUseView> {
+  async between(window: TeamWindow): Promise<TeamMemoryUseView> {
     const use = await this.memory.between({
       workspaceId: window.workspaceId.value,
       teamId: window.teamId.value,
       from: window.from,
       to: window.to,
-      runIds,
     });
 
     return {
       standing: use.standing,
-      memoriesBriefed: use.memoriesBriefed,
-      memoriesRecalled: use.memoriesRecalled,
       flagged: use.flagged.map((each) => ({ ...each })),
-      runs: use.runs.map((each) => ({ ...each })),
     };
   }
 }

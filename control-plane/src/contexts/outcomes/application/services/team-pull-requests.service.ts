@@ -71,7 +71,7 @@ export class TeamPullRequests {
     const spends = new Map<string, (Spend | null)[]>();
 
     for (const run of await this.held.runs.ofTasks(owners)) {
-      if (run.taskId) {
+      if (run.taskId && run.hasEnded) {
         spends.set(run.taskId.value, [
           ...(spends.get(run.taskId.value) ?? []),
           run.cost?.spend ?? null,

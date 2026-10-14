@@ -105,6 +105,7 @@ import { NotePullRequestReviewed } from '@outcomes/application/services/note-pul
 import { NoteRunDigested } from '@outcomes/application/services/note-run-digested.service';
 import { NoteRunEnded } from '@outcomes/application/services/note-run-ended.service';
 import { NoteRunHandedOn } from '@outcomes/application/services/note-run-handed-on.service';
+import { NoteRunMemories } from '@outcomes/application/services/note-run-memories.service';
 import { NoteRunSuperseded } from '@outcomes/application/services/note-run-superseded.service';
 import { NoteTaskFailed } from '@outcomes/application/services/note-task-failed.service';
 import { NoteTaskTouch } from '@outcomes/application/services/note-task-touch.service';
@@ -362,6 +363,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
   ]),
   ...bindQueryHandler(ReadInsightsMemoryQuery, ReadInsightsMemoryHandler, [
     TeamHistories,
+    INSIGHTS_READER,
     MEMORY_USE,
     MEMORY_BENCHMARK,
     PEOPLE,
@@ -772,6 +774,16 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
     ) => new NoteRunDigested(work, records, forgotten, transaction),
   },
   {
+    provide: NoteRunMemories,
+    inject: [WORK, DrizzleRunRecordRepository, DrizzleForgotten, TRANSACTION],
+    useFactory: (
+      work: WorkPort,
+      records: DrizzleRunRecordRepository,
+      forgotten: DrizzleForgotten,
+      transaction: TransactionPort,
+    ) => new NoteRunMemories(work, records, forgotten, transaction),
+  },
+  {
     provide: NoteRunHandedOn,
     inject: [DrizzleRunRecordRepository, DrizzleForgotten, TRANSACTION],
     useFactory: (
@@ -940,6 +952,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
       RecordJudgeScore,
       GradeAsides,
       NoteRunDigested,
+      NoteRunMemories,
       NoteRunHandedOn,
       NotePullRequestReviewed,
       NoteTaskFailed,
@@ -966,6 +979,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
       scoring: RecordJudgeScore,
       grading: GradeAsides,
       digesting: NoteRunDigested,
+      remembering: NoteRunMemories,
       handingOn: NoteRunHandedOn,
       reviewing: NotePullRequestReviewed,
       failing: NoteTaskFailed,
@@ -992,6 +1006,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
           scoring,
           grading,
           digesting,
+          remembering,
           handingOn,
           reviewing,
           failing,

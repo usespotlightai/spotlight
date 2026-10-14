@@ -229,6 +229,34 @@ describe('run facts', () => {
     });
   });
 
+  it('keeps the memories a run was briefed with before it ended in its fact, and those it recalled after', async () => {
+    const runId = RunId.of('run_briefed');
+    await records.add(
+      RunRecord.heardOf(runId, WORKSPACE, TaskId.of('task_b')).usedMemories(
+        'briefed',
+        ['mem_1'],
+      ),
+    );
+
+    expect(await factOf('run_briefed')).toBeNull();
+
+    const briefed = (await records.of(runId)) as RunRecord;
+    await records.save(
+      briefed.ended(ended('run_briefed', 'task_b').end as RunEnd),
+    );
+
+    expect(await factOf('run_briefed')).toMatchObject({
+      memories: { briefed: ['mem_1'], recalled: [] },
+    });
+
+    const finished = (await records.of(runId)) as RunRecord;
+    await records.save(finished.usedMemories('recalled', ['mem_2']));
+
+    expect(await factOf('run_briefed')).toMatchObject({
+      memories: { briefed: ['mem_1'], recalled: ['mem_2'] },
+    });
+  });
+
   it('takes who opened the task and how it was delivered from their own records', async () => {
     await records.add(ended('run_1', 'task_1'));
     await records.add(ended('run_2', 'task_1'));

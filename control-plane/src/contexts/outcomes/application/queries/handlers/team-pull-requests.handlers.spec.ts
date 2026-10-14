@@ -10,6 +10,7 @@ import { OutcomesAccess } from '@outcomes/application/services/outcomes-access.s
 import { TeamHistories } from '@outcomes/application/services/team-histories.service';
 import { TeamPullRequests } from '@outcomes/application/services/team-pull-requests.service';
 import { PullRequestRecord } from '@outcomes/domain/aggregates/pull-request-record.aggregate';
+import { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
 import { TaskChangeShape } from '@outcomes/domain/aggregates/task-change-shape.aggregate';
 import {
   ChatRecordsInMemory,
@@ -36,6 +37,7 @@ import {
   TokenPrincipal,
 } from '@shared-kernel/domain/value-objects/principal.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { TokenScopes } from '@shared-kernel/domain/value-objects/token-scopes.vo';
@@ -145,6 +147,13 @@ const team = async () => {
   );
   await records.add(costedRecord('run_1', { taskId: 'task_1', amount: 1.25 }));
   await records.add(costedRecord('run_2', { taskId: 'task_1', amount: 0.75 }));
+  await records.add(
+    RunRecord.heardOf(
+      RunId.of('run_still_working'),
+      WORKSPACE,
+      TaskId.of('task_1'),
+    ).usedMemories('briefed', ['mem_1']),
+  );
   await shapes.add(
     TaskChangeShape.shaped({
       taskId: TaskId.of('task_1'),

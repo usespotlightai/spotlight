@@ -1,5 +1,6 @@
 import type { CostCountsInPeriod } from '@outcomes/domain/services/cost-breakdown';
 import type { FlowCounts } from '@outcomes/domain/services/flow';
+import type { MemoryCounts } from '@outcomes/domain/services/memory-comparison';
 import type { OverviewCounts } from '@outcomes/domain/services/overview-counts';
 import type { PeopleCounts } from '@outcomes/domain/services/people-counts';
 import type { PipelineCounts } from '@outcomes/domain/services/shipping';
@@ -28,4 +29,5 @@ export interface InsightsReaderPort {
     taskIds: readonly string[],
   ): Promise<PipelineCounts>;
   toolCounts(team: TeamInPeriod): Promise<ToolCounts>;
+  memoryCounts(team: TeamInPeriod): Promise<MemoryCounts>;
 }

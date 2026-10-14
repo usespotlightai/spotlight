@@ -23,6 +23,7 @@ import { RememberCommand } from '@memory/application/commands/remember.command';
 import { RetireMemoryCommand } from '@memory/application/commands/retire-memory.command';
 import { WriteMemoryCommand } from '@memory/application/commands/write-memory.command';
 import { MemoryReactions } from '@memory/application/events/handlers/memory-reactions.handler';
+import { MEMORY_PUBLICATIONS } from '@memory/application/integration-events/memory.publications';
 import {
   MEMORY_DRAFTER,
   type MemoryDrafterPort,
@@ -63,6 +64,7 @@ import { MemoriesInReach } from '@memory/application/services/memories-in-reach.
 import { MemoryAccess } from '@memory/application/services/memory-access.service';
 import { MemoryReviews } from '@memory/application/services/memory-reviews.service';
 import { NoteMemoryUses } from '@memory/application/services/note-memory-uses.service';
+import { RecordMemoryUses } from '@memory/application/services/record-memory-uses.service';
 import { RunnerMemoryAtHand } from '@memory/application/services/runner-memory-at-hand.service';
 import { TeamMemoryAtHand } from '@memory/application/services/team-memory-at-hand.service';
 import { TeamMemoryViews } from '@memory/application/services/team-memory-views.service';
@@ -89,6 +91,7 @@ import { ENV } from '@platform/config/config.constants';
 import type { Env } from '@platform/config/env.schema';
 import { bindCommandHandler } from '@platform/cqrs/bind-command-handler';
 import { bindQueryHandler } from '@platform/cqrs/bind-query-handler';
+import { EventPublications } from '@platform/events/event-publications';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import { EventTypes } from '@platform/events/event-types';
 import { OwedWorkWorker } from '@platform/workers/owed-work.worker';
@@ -96,6 +99,10 @@ import {
   CLOCK,
   type ClockPort,
 } from '@shared-kernel/application/ports/clock.port';
+import {
+  DOMAIN_EVENT_DISPATCHER,
+  type DomainEventDispatcher,
+} from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import {
   ID_GENERATOR,
   type IdGeneratorPort,
@@ -229,14 +236,23 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
     ) => new TeamMemoryViews(memories, work, people, uses),
   },
   {
-    provide: NoteMemoryUses,
-    inject: [MEMORY_USES, WORK, DrizzleMemoryRepository, CLOCK],
+    provide: RecordMemoryUses,
+    inject: [MEMORY_USES, DOMAIN_EVENT_DISPATCHER, TRANSACTION, CLOCK],
     useFactory: (
       uses: MemoryUsesPort,
+      events: DomainEventDispatcher,
+      transaction: TransactionPort,
+      clock: ClockPort,
+    ) => new RecordMemoryUses(uses, events, transaction, clock),
+  },
+  {
+    provide: NoteMemoryUses,
+    inject: [RecordMemoryUses, WORK, DrizzleMemoryRepository],
+    useFactory: (
+      recording: RecordMemoryUses,
       work: WorkPort,
       memories: DrizzleMemoryRepository,
-      clock: ClockPort,
-    ) => new NoteMemoryUses(uses, work, memories, clock),
+    ) => new NoteMemoryUses(recording, work, memories),
   },
   ...bindQueryHandler(ReadMemoryFilesQuery, ReadMemoryFilesHandler, [
     RunnerMemoryAtHand,
@@ -296,9 +312,9 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
   ]),
   {
     provide: RunnerMemoryAtHand,
-    inject: [WORK, MEMORY_USES, CLOCK],
-    useFactory: (work: WorkPort, uses: MemoryUsesPort, clock: ClockPort) =>
-      new RunnerMemoryAtHand(work, uses, clock),
+    inject: [WORK, RecordMemoryUses],
+    useFactory: (work: WorkPort, recording: RecordMemoryUses) =>
+      new RunnerMemoryAtHand(work, recording),
   },
   ...bindCommandHandler(RecallMemoriesCommand, RecallMemoriesHandler, [
     RunnerMemoryAtHand,
@@ -398,6 +414,7 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
     provide: MEMORY_EVENTS,
     inject: [
       EventTypes,
+      EventPublications,
       EventSubscribers,
       AskForMemories,
       ForgetMemoryDraft,
@@ -406,6 +423,7 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
     ],
     useFactory: (
       types: EventTypes,
+      publications: EventPublications,
       subscribers: EventSubscribers,
       asking: AskForMemories,
       forgetting: ForgetMemoryDraft,
@@ -413,6 +431,7 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
       noting: NoteMemoryUses,
     ) => {
       types.register('memory', MEMORY_EVENT_TYPES);
+      publications.register(MEMORY_PUBLICATIONS);
       subscribers.register(
         memorySubscribers(asking, forgetting, reactions, noting),
       );

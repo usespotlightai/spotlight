@@ -1,15 +1,30 @@
 import type { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
 import type { TaskDelivery } from '@outcomes/domain/aggregates/task-delivery.aggregate';
 import {
-  changeVerdictOf,
+  type GroupCounts,
   type MeasureVerdict,
+  verdictsFrom,
 } from '@outcomes/domain/services/change-verdict';
-import { type RunTally, runTally } from '@outcomes/domain/services/run-tally';
+import {
+  type RunTally,
+  runTally,
+  tallyOf,
+} from '@outcomes/domain/services/run-tally';
+import { settledFor } from '@outcomes/domain/services/station-measures';
+import {
+  endedWithin,
+  type TeamHistory,
+  tasksOf,
+} from '@outcomes/domain/services/team-history';
+import type { Window } from '@outcomes/domain/value-objects/insights-period.vo';
 
-export interface MemoryUseOfRun {
-  readonly runId: string;
-  readonly briefed: number;
-  readonly recalled: number;
+export interface MemoryCounts {
+  readonly withMemories: GroupCounts;
+  readonly withoutMemories: GroupCounts;
+  readonly runsBriefed: number;
+  readonly runsRecalled: number;
+  readonly memoriesBriefed: number;
+  readonly memoriesRecalled: number;
 }
 
 export interface MemoryComparison {
@@ -18,34 +33,63 @@ export interface MemoryComparison {
   readonly verdicts: readonly MeasureVerdict[];
   readonly runsBriefed: number;
   readonly runsRecalled: number;
+  readonly memoriesBriefed: number;
+  readonly memoriesRecalled: number;
 }
 
-export const memoryComparisonOf = (
+const groupCountsOf = (
   records: readonly RunRecord[],
-  uses: readonly MemoryUseOfRun[],
   deliveries: readonly TaskDelivery[],
-): MemoryComparison => {
-  const ran = records.filter((each) => each.ran);
-  const held = new Set(ran.map((each) => each.runId.value));
-  const using = new Map(
-    uses
-      .filter((each) => held.has(each.runId))
-      .map((each) => [each.runId, each]),
-  );
-  const used = (record: RunRecord): boolean => {
-    const use = using.get(record.runId.value);
-    return use !== undefined && use.briefed + use.recalled > 0;
-  };
-
-  const withMemories = ran.filter(used);
-  const withoutMemories = ran.filter((each) => !used(each));
+): GroupCounts => {
+  const { failedShare: _, ...tally } = runTally(records, deliveries);
+  const finished = records.filter(settledFor('merged_rate', deliveries));
 
   return {
-    withMemories: runTally(withMemories, deliveries),
-    withoutMemories: runTally(withoutMemories, deliveries),
-    verdicts: changeVerdictOf(withoutMemories, withMemories, deliveries),
-    runsBriefed: [...using.values()].filter((each) => each.briefed > 0).length,
-    runsRecalled: [...using.values()].filter((each) => each.recalled > 0)
-      .length,
+    tally,
+    settled: {
+      acted: records.filter((each) => each.next !== null).length,
+      finished: finished.length,
+      finishedTasks: tasksOf(finished).length,
+      digested: records.filter((each) => each.cost !== null).length,
+    },
   };
 };
+
+const distinct = (memories: readonly (readonly string[])[]): number =>
+  new Set(memories.flat()).size;
+
+export const memoryCountsOf = (
+  history: TeamHistory,
+  window: Window,
+): MemoryCounts => {
+  const ended = endedWithin(history.records, window);
+  const ran = ended.filter((each) => each.ran);
+
+  return {
+    withMemories: groupCountsOf(
+      ran.filter((each) => each.memories.used),
+      history.deliveries,
+    ),
+    withoutMemories: groupCountsOf(
+      ran.filter((each) => !each.memories.used),
+      history.deliveries,
+    ),
+    runsBriefed: ran.filter((each) => each.memories.briefed.length > 0).length,
+    runsRecalled: ran.filter((each) => each.memories.recalled.length > 0)
+      .length,
+    memoriesBriefed: distinct(ended.map((each) => each.memories.briefed)),
+    memoriesRecalled: distinct(ended.map((each) => each.memories.recalled)),
+  };
+};
+
+export const memoryComparisonFrom = (
+  counts: MemoryCounts,
+): MemoryComparison => ({
+  withMemories: tallyOf(counts.withMemories.tally),
+  withoutMemories: tallyOf(counts.withoutMemories.tally),
+  verdicts: verdictsFrom(counts.withoutMemories, counts.withMemories),
+  runsBriefed: counts.runsBriefed,
+  runsRecalled: counts.runsRecalled,
+  memoriesBriefed: counts.memoriesBriefed,
+  memoriesRecalled: counts.memoriesRecalled,
+});
