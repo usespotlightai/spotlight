@@ -418,6 +418,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
   ]),
   ...bindQueryHandler(ReadInsightsFlowQuery, ReadInsightsFlowHandler, [
     TeamHistories,
+    INSIGHTS_READER,
   ]),
   ...bindQueryHandler(ReadInsightsStationsQuery, ReadInsightsStationsHandler, [
     TeamHistories,

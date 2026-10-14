@@ -11,10 +11,11 @@ import type { OverviewCounts } from '@outcomes/domain/services/overview-counts';
 import type { TallyCounts } from '@outcomes/domain/services/run-tally';
 import {
   asUtc,
-  endedIn,
+  dateOf,
   factsInPeriod,
   isCurrent,
   iso,
+  msOf,
   onTeam,
   ran,
 } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/run-fact.sql';
@@ -22,6 +23,10 @@ import {
   failingIn,
   stationCountsIn,
 } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/station-counts.sql';
+import {
+  ofTeamDeliveries,
+  ofTeamTouches,
+} from '@outcomes/infrastructure/persistence/drizzle/readers/insights/team-scope.sql';
 import {
   chatRecord,
   runFact,
@@ -62,12 +67,6 @@ interface MarkerRow extends Record<string, unknown> {
   readonly began_ms: number;
   readonly run_id: string;
 }
-
-const msOf = (column: SQL): SQL =>
-  sql`(extract(epoch from ${column}) * 1000)::float8`;
-
-const endedInLookback = (team: TeamInPeriod): SQL =>
-  sql`select ${runFact.taskId} from ${runFact} where ${onTeam(team)} and ${endedIn(team.period.lookback.from, team.period.lookback.to)}`;
 
 const tasksIn = async (
   db: DrizzleDatabase,
@@ -120,15 +119,7 @@ const peopleIn = async (
     with touched as (
       select ${taskTouches.openedBy} as opened_by, ${taskTouches.openedAt} as opened_at, ${taskTouches.acts} as acts
       from ${taskTouches}
-      where ${taskTouches.workspaceId} = ${team.workspaceId.value}
-        and (
-          (
-            ${taskTouches.teamId} = ${team.teamId.value}
-            and ${taskTouches.touchedAt} >= ${iso(lookback.from)}::timestamp
-            and ${taskTouches.openedAt} < ${iso(lookback.to)}::timestamp
-          )
-          or ${taskTouches.taskId} in (${endedInLookback(team)})
-        )
+      where ${ofTeamTouches(team)}
     ), activity as (
       select opened_by as person, opened_at at time zone 'UTC' as at
       from touched
@@ -166,14 +157,10 @@ const resolvedIn = async (
       ${msOf(sql`${taskTouches.openedAt}`)} as task_opened_ms
     from ${taskDelivery}
     left join ${taskTouches} on ${taskTouches.taskId} = ${taskDelivery.taskId}
-    where ${taskDelivery.workspaceId} = ${team.workspaceId.value}
+    where ${ofTeamDeliveries(team)}
       and ${taskDelivery.state} <> 'open'
       and ${taskDelivery.closedAt} >= ${iso(previous.from)}::timestamp
       and ${taskDelivery.closedAt} < ${iso(current.to)}::timestamp
-      and (
-        ${taskDelivery.teamId} = ${team.teamId.value}
-        or ${taskDelivery.taskId} in (${endedInLookback(team)})
-      )
     order by ${taskDelivery.openedAt} desc, ${taskDelivery.taskId} desc
   `);
 
@@ -181,8 +168,7 @@ const resolvedIn = async (
     taskId: row.task_id,
     merged: row.merged,
     closedAt: new Date(row.closed_ms),
-    taskOpenedAt:
-      row.task_opened_ms === null ? null : new Date(row.task_opened_ms),
+    taskOpenedAt: dateOf(row.task_opened_ms),
   }));
 };
 

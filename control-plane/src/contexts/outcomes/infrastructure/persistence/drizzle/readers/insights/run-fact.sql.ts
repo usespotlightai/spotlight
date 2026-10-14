@@ -22,6 +22,18 @@ export const onTeam = ({ workspaceId, teamId }: TeamInPeriod): SQL =>
 export const endedIn = (from: Date, to: Date): SQL =>
   sql`${runFact.endedAt} >= ${iso(from)}::timestamp and ${runFact.endedAt} < ${iso(to)}::timestamp`;
 
+export const msOf = (column: SQL): SQL =>
+  sql`(extract(epoch from ${column}) * 1000)::float8`;
+
+export const dateOf = (ms: number | null): Date | null =>
+  ms === null ? null : new Date(ms);
+
+export const medianOver = (ms: SQL, when: SQL): SQL =>
+  sql`round((percentile_cont(0.5) within group (order by ${ms}) filter (where ${when}))::numeric)::float8`;
+
+export const p90Over = (ms: SQL, when: SQL): SQL =>
+  sql`(percentile_disc(0.9) within group (order by ${ms}) filter (where ${when}))::float8`;
+
 export const isCurrent = sql.raw('"run_fact"."is_current"');
 
 export const day = sql.raw('"run_fact"."day"');

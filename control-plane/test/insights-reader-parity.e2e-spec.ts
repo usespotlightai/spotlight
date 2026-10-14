@@ -11,6 +11,7 @@ import {
   costBreakdownFrom,
   costCountsOf,
 } from '@outcomes/domain/services/cost-breakdown';
+import { flowCountsOf, flowFrom } from '@outcomes/domain/services/flow';
 import { overviewCountsOf } from '@outcomes/domain/services/overview-counts';
 import {
   stationReportsFrom,
@@ -20,7 +21,11 @@ import {
 import { openingsOf } from '@outcomes/domain/services/team-history';
 import { FailureOccurrence } from '@outcomes/domain/value-objects/failure-occurrence.vo';
 import { HandedOn } from '@outcomes/domain/value-objects/handed-on.vo';
-import { INSIGHTS_PERIODS } from '@outcomes/domain/value-objects/insights-period.vo';
+import { InboxAsk } from '@outcomes/domain/value-objects/inbox-ask.vo';
+import {
+  INSIGHTS_PERIODS,
+  InsightsPeriod,
+} from '@outcomes/domain/value-objects/insights-period.vo';
 import { NEXT_ACTS, NextAct } from '@outcomes/domain/value-objects/next-act.vo';
 import { PersonTouch } from '@outcomes/domain/value-objects/person-touch.vo';
 import { RunCost } from '@outcomes/domain/value-objects/run-cost.vo';
@@ -285,19 +290,37 @@ beforeAll(async () => {
           );
         }
 
+        for (let asked = Math.floor(random() * 3); asked > 0; asked -= 1) {
+          touched = touched.asked(
+            InboxAsk.of(
+              pick([station.stationId, pick(STATIONS).stationId]),
+              ago(Math.floor(random() * 200 * DAY)),
+            ),
+          );
+        }
+
         await touches.add(touched);
 
         if (chance(0.5)) {
           const pullRequest = PullRequestUrl.of(
             `https://github.com/acme/api/pull/${index}`,
           );
-          const opened = TaskDelivery.opened({
+          const fresh = TaskDelivery.opened({
             taskId,
             workspaceId: home.workspaceId,
             teamId: far ? NEXT_DOOR : home.teamId,
             pullRequest,
             at: new Date(endedAt.getTime() - HOUR),
           });
+          const opened = chance(0.6)
+            ? fresh.reviewed({
+                pullRequest,
+                byBot: false,
+                at: new Date(
+                  endedAt.getTime() + Math.floor(random() * 20) * HOUR,
+                ),
+              })
+            : fresh;
 
           await deliveries.add(
             chance(0.6)
@@ -408,6 +431,47 @@ beforeAll(async () => {
           ),
       );
     }
+
+    const stalePull = PullRequestUrl.of(
+      'https://github.com/acme/api/pull/stale',
+    );
+
+    await records.add(
+      RunRecord.heardOf(RunId.of('run_stale'), WORKSPACE).ended(
+        RunEnd.of({
+          place: RunPlace.of({
+            teamId: TEAM,
+            ...STATIONS[0],
+            taskId: TaskId.of('task_stale'),
+          }),
+          fingerprint: 'a'.repeat(64),
+          setup: RunSetup.of({
+            harness: 'claude-code',
+            model: 'sonnet',
+            effort: null,
+            profileKey: null,
+            repositories: ['acme/api'],
+            skills: [],
+          }),
+          queuedAt: null,
+          startedAt: ago(300 * DAY + HOUR),
+          endedAt: ago(300 * DAY),
+          ending: 'completed',
+          failure: null,
+          round: 1,
+          asked: false,
+        }),
+      ),
+    );
+    await deliveries.add(
+      TaskDelivery.opened({
+        taskId: TaskId.of('task_stale'),
+        workspaceId: WORKSPACE,
+        teamId: TEAM,
+        pullRequest: stalePull,
+        at: ago(300 * DAY),
+      }).reviewed({ pullRequest: stalePull, byBot: false, at: ago(DAY) }),
+    );
   });
 }, 120_000);
 
@@ -607,5 +671,242 @@ describe('the insights reader against the team history', () => {
 
     expect(tiedAt('gpt')).toBe(tiedAt('haiku') + 1);
     expect(current.shares.some((each) => each.key === null)).toBe(true);
+  });
+
+  it.each(INSIGHTS_PERIODS)(
+    'counts the same flow as the domain over %s',
+    async (name) => {
+      const { history, period, truncated } = await histories.of(
+        TEAM.value,
+        PersonPrincipal.of(VIEWER),
+        name,
+      );
+      const counts = await reader.flowCounts({
+        workspaceId: WORKSPACE,
+        teamId: TEAM,
+        period,
+      });
+      const expected = flowCountsOf(
+        history,
+        period,
+        openingsOf(
+          await touches.forTasks(history.deliveries.map((each) => each.taskId)),
+        ),
+      );
+      const byStation = <T extends { readonly stationId: string }>(
+        items: readonly T[],
+      ) => [...items].sort((a, b) => a.stationId.localeCompare(b.stationId));
+
+      expect(truncated).toBe(false);
+      expect({
+        ...counts,
+        current: { ...counts.current, inbox: byStation(counts.current.inbox) },
+        previous: {
+          ...counts.previous,
+          inbox: byStation(counts.previous.inbox),
+        },
+      }).toEqual({
+        ...expected,
+        current: {
+          ...expected.current,
+          inbox: byStation(expected.current.inbox),
+        },
+        previous: {
+          ...expected.previous,
+          inbox: byStation(expected.previous.inbox),
+        },
+      });
+    },
+  );
+
+  it('covers what makes a flow hard to get right', async () => {
+    const { period } = await histories.scope(
+      TEAM.value,
+      PersonPrincipal.of(VIEWER),
+      '90d',
+    );
+    const { current, deliveries } = await reader.flowCounts({
+      workspaceId: WORKSPACE,
+      teamId: TEAM,
+      period,
+    });
+
+    expect(current.stations.some((each) => each.queued.count > 0)).toBe(true);
+    expect(current.stations.some((each) => each.running.count > 1)).toBe(true);
+    expect(current.inbox.some((each) => each.unanswered > 0)).toBe(true);
+    expect(current.inbox.some((each) => each.inbox.count > 0)).toBe(true);
+    expect(deliveries.some((each) => each.firstReviewAt !== null)).toBe(true);
+    expect(
+      deliveries.some((each) => each.closedAt === null && !each.merged),
+    ).toBe(true);
+    expect(deliveries.some((each) => each.taskOpenedAt !== null)).toBe(true);
+  });
+});
+
+describe('how the inbox pairs answers with asks', () => {
+  const WAITS = TeamId.of('team_waits');
+  const period = InsightsPeriod.of('7d', NOW);
+  const asked = new Date(period.current.from.getTime() + 2 * DAY);
+  const askedAgain = new Date(asked.getTime() + DAY);
+  const none = { p50: null, p90: null, count: 0 };
+
+  beforeAll(async () => {
+    const context = new DrizzleContext(held.db);
+    const quiet = {
+      dispatch: async () => {},
+    } as unknown as DomainEventDispatcher;
+    const facts = new DrizzleRunFactProjection(context);
+    const records = new DrizzleRunRecordRepository(context, facts, quiet);
+    const ended = (
+      runId: string,
+      place: { readonly lineId: string; readonly stationId: string },
+      endedAt: Date,
+      ending: RunEnding,
+    ) =>
+      RunRecord.heardOf(RunId.of(runId), WORKSPACE).ended(
+        RunEnd.of({
+          place: RunPlace.of({
+            teamId: WAITS,
+            ...place,
+            taskId: TaskId.of(`task_${runId}`),
+          }),
+          fingerprint: 'a'.repeat(64),
+          setup: RunSetup.of({
+            harness: 'claude-code',
+            model: 'sonnet',
+            effort: null,
+            profileKey: null,
+            repositories: [],
+            skills: [],
+          }),
+          queuedAt: null,
+          startedAt: new Date(endedAt.getTime() - HOUR),
+          endedAt,
+          ending,
+          failure: null,
+          round: 1,
+          asked: false,
+        }),
+      );
+
+    await records.add(
+      ended(
+        'idle',
+        { lineId: 'line_c', stationId: 'idle' },
+        asked,
+        'withdrawn',
+      ),
+    );
+    await records.add(
+      ended(
+        'waits',
+        STATIONS[0],
+        new Date(askedAgain.getTime() + HOUR),
+        'completed',
+      ),
+    );
+    await new DrizzleTaskTouchesRepository(context, facts).add(
+      TaskTouches.heardOf(TaskId.of('task_waits'), WORKSPACE)
+        .opened(
+          TaskOpening.of({
+            teamId: WAITS,
+            ...STATIONS[0],
+            by: VIEWER,
+            at: new Date(asked.getTime() - DAY),
+          }),
+        )
+        .asked(InboxAsk.of('review', asked))
+        .asked(InboxAsk.of('build', asked))
+        .asked(InboxAsk.of('plan', askedAgain))
+        .asked(InboxAsk.of('ship', period.current.from))
+        .actedOn(
+          PersonTouch.of({
+            act: 'answered',
+            by: VIEWER,
+            stationId: 'build',
+            at: asked,
+          }),
+        )
+        .actedOn(
+          PersonTouch.of({
+            act: 'answered',
+            by: VIEWER,
+            stationId: 'plan',
+            at: askedAgain,
+          }),
+        ),
+    );
+  });
+
+  it('leaves an ask unanswered when another follows at the same instant, and takes an answer at the very moment of the ask', async () => {
+    const counts = await reader.flowCounts({
+      workspaceId: WORKSPACE,
+      teamId: WAITS,
+      period,
+    });
+    const { history } = await histories.of(
+      WAITS.value,
+      PersonPrincipal.of(VIEWER),
+      '7d',
+    );
+
+    expect(
+      [...counts.current.inbox].sort((a, b) =>
+        a.stationId.localeCompare(b.stationId),
+      ),
+    ).toEqual([
+      {
+        stationId: 'build',
+        asks: 1,
+        unanswered: 0,
+        inbox: { p50: 0, p90: 0, count: 1 },
+      },
+      {
+        stationId: 'plan',
+        asks: 1,
+        unanswered: 0,
+        inbox: { p50: 0, p90: 0, count: 1 },
+      },
+      { stationId: 'review', asks: 1, unanswered: 1, inbox: none },
+      { stationId: 'ship', asks: 1, unanswered: 1, inbox: none },
+    ]);
+    expect(counts.current.stations).toEqual([
+      {
+        lineId: 'line_c',
+        stationId: 'idle',
+        taskIds: [],
+        runs: 0,
+        queued: none,
+        running: none,
+      },
+      {
+        ...STATIONS[0],
+        taskIds: ['task_waits'],
+        runs: 1,
+        queued: none,
+        running: { p50: HOUR, p90: HOUR, count: 1 },
+      },
+    ]);
+    expect(
+      flowFrom(counts, period).stations.map((each) => [
+        each.stationId,
+        each.asks,
+      ]),
+    ).toEqual([
+      ['idle', 0],
+      ['plan', 1],
+    ]);
+    const expected = flowCountsOf(history, period, new Map()).current;
+
+    expect(counts.current.stations).toEqual(expected.stations);
+    expect(
+      [...counts.current.inbox].sort((a, b) =>
+        a.stationId.localeCompare(b.stationId),
+      ),
+    ).toEqual(
+      [...expected.inbox].sort((a, b) =>
+        a.stationId.localeCompare(b.stationId),
+      ),
+    );
   });
 });

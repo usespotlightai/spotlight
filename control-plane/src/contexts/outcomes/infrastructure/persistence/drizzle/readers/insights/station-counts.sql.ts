@@ -17,7 +17,9 @@ import {
   inEndOrder,
   isCurrent,
   iso,
+  medianOver,
   onTeam,
+  p90Over,
   ran,
   type SpendRow,
   spendColumns,
@@ -137,8 +139,8 @@ const talliesIn = async (
         ${counted(sql`${ran} and ${runFact.handedOnTo} is not null`)} as handed_on,
         count(distinct ${runFact.taskId}) filter (where ${ran} and ${runFact.deliveryState} = 'merged')::int as merged,
         ${spendColumns},
-        round((percentile_cont(0.5) within group (order by ${runFact.ms}) filter (where ${timed}))::numeric)::int as median_ms,
-        (percentile_disc(0.9) within group (order by ${runFact.ms}) filter (where ${timed}))::int as p90_ms
+        ${medianOver(sql`${runFact.ms}`, timed)} as median_ms,
+        ${p90Over(sql`${runFact.ms}`, timed)} as p90_ms
       from ${factsInPeriod(team)}
       group by grouping sets (
         (${isCurrent}),
