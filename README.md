@@ -1,4 +1,4 @@
-![Spotlight: The agents are rented. But the factory is yours to build.](.github/assets/og.png)
+![Spotlight: The models are rented. But the factory is yours to build.](.github/assets/og.png)
 
 <div align="center">
   <h3>
