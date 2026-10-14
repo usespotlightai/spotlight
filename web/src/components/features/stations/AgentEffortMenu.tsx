@@ -37,11 +37,15 @@ export function AgentEffortMenu({
             value={effort || DEFAULT_CHOICE}
             onValueChange={(next) => onEffort?.(chosen(next))}
           >
-            <DropdownMenuRadioItem value={DEFAULT_CHOICE}>
+            <DropdownMenuRadioItem closeOnClick={false} value={DEFAULT_CHOICE}>
               Default
             </DropdownMenuRadioItem>
             {efforts.map((each) => (
-              <DropdownMenuRadioItem key={each} value={each}>
+              <DropdownMenuRadioItem
+                closeOnClick={false}
+                key={each}
+                value={each}
+              >
                 {capitalized(each)}
               </DropdownMenuRadioItem>
             ))}

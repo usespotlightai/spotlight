@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ReplaySets } from '@/components/features/replays/station/ReplaySets';
@@ -55,7 +56,7 @@ const SET: ReplaySet = {
     saturation: null,
     judge: null,
     checks: null,
-    sanity: null,
+    oracle: null,
   },
   minGain: 0.05,
   composition: {
@@ -134,11 +135,11 @@ describe('ReplaySets', () => {
 
     expect(screen.getByText('No replay sets yet')).toBeInTheDocument();
     expect(
-      screen.getByRole('button', { name: 'Open a replay set' }),
+      screen.getByRole('button', { name: 'Create a replay set' }),
     ).toBeInTheDocument();
   });
 
-  it('shows each set’s size, a gone station and its latest replay against the baseline', () => {
+  it('shows each set’s size, a gone station and its latest replay against the baseline', async () => {
     sets.mockReturnValue([
       {
         ...SET,
@@ -176,9 +177,16 @@ describe('ReplaySets', () => {
       'href',
       '/w/acme/team/team_1/lines/line_1/stations/station_1/replay-sets/set_1',
     );
-    expect(screen.getByText('1 run')).toBeInTheDocument();
+    expect(
+      document.querySelector('[data-slot="replay-set"]'),
+    ).toHaveTextContent('Queue fixesStation goneRuns1');
     expect(screen.getByText('Station gone')).toBeInTheDocument();
-    expect(screen.getByText('Latest: Shorter prompt')).toBeInTheDocument();
+    const rate = screen.getByRole('button', { name: '75% succeeded' });
+    expect(screen.queryByText('Shorter prompt')).not.toBeInTheDocument();
+
+    await userEvent.hover(rate);
+
+    expect(await screen.findByText('Shorter prompt')).toBeInTheDocument();
     const success = document.querySelector(
       '[data-slot="success-against-baseline"]',
     );

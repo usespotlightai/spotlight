@@ -30,6 +30,7 @@ type ChatInputProps = Sending & {
   running?: boolean;
   onStop?: () => void;
   initialReferences?: readonly Reference[];
+  initialText?: string;
   settings: ReactNode;
   below?: ReactNode;
 };
@@ -55,12 +56,13 @@ export function ChatInput({
   running = false,
   onStop,
   initialReferences = NO_REFERENCES,
+  initialText,
   settings,
   below,
   onSend,
   disabled = false,
 }: ChatInputProps) {
-  const message = useChatMessage(slug, initialReferences);
+  const message = useChatMessage(slug, initialReferences, initialText);
   const lifted = message.images.length > 0;
   const fit = useOneLineFit(message.written, lifted);
 
@@ -109,6 +111,7 @@ export function ChatInput({
                 label={label}
                 placeholder={placeholder}
                 initialReferences={initialReferences}
+                initialText={initialText}
                 handle={message.editor}
                 editable={!pending && !disabled}
                 disabled={disabled}

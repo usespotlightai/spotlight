@@ -11,6 +11,7 @@ import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsi
 import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import { TokenPrincipal } from '@shared-kernel/domain/value-objects/principal.vo';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { TokenScopes } from '@shared-kernel/domain/value-objects/token-scopes.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -60,6 +61,8 @@ const kept = (version = 2) =>
     issuedAt: NOW,
     mintedThrough: null,
     mintedUnder: null,
+    mintedForRun: null,
+    mintedForAttempt: null,
     version,
   });
 
@@ -154,5 +157,70 @@ describe('WorkspaceToken', () => {
       ),
     ]);
     expect(() => revoked.revoked(BY)).toThrow(InconsistentStateError);
+  });
+
+  describe('minted for a run', () => {
+    const HOUR_LATER = new Date(NOW.getTime() + 60 * 60 * 1_000);
+
+    const forRun = (expiresAt = HOUR_LATER, scopes = ['plan']) =>
+      WorkspaceToken.forRun({
+        id: ID,
+        workspaceId: WORKSPACE,
+        name: TokenName.of('run-token-1'),
+        scopes: TokenScopes.named(scopes),
+        hash: TokenHash.of('a'.repeat(64)),
+        issuedBy: UserId.of('user_1'),
+        runId: RunId.of('run_1'),
+        attempt: 1,
+        expiresAt,
+        now: NOW,
+      });
+
+    it('belongs to the run, and counts as minted', () => {
+      const token = forRun();
+
+      expect(token.mintedForRun?.value).toBe('run_1');
+      expect(token.mintedThrough).toBeNull();
+      expect(token.isMinted).toBe(true);
+      expect(token.admitsAt(NOW)).toBe(true);
+    });
+
+    it('records Spotlight issuing it, with the run and when it ends', () => {
+      const [issued] = forRun().pullEvents() as WorkspaceTokenIssued[];
+
+      expect(issued).toBeInstanceOf(WorkspaceTokenIssued);
+      expect(issued?.change.detail?.recorded()).toEqual({
+        run: 'run_1',
+        attempt: 1,
+        scopes: ['plan'],
+        expiresAt: HOUR_LATER.toISOString(),
+      });
+    });
+
+    it('must end after it is minted', () => {
+      expect(() => forRun(NOW)).toThrow(InvalidWorkspaceTokenError);
+    });
+
+    it('lasts at most an hour', () => {
+      expect(() =>
+        forRun(new Date(NOW.getTime() + 60 * 60 * 1_000 + 1)),
+      ).toThrow(InvalidWorkspaceTokenError);
+    });
+
+    it('may plan, never configure or read secrets', () => {
+      expect(() => forRun(HOUR_LATER, ['configure'])).toThrow(
+        InvalidWorkspaceTokenError,
+      );
+      expect(() => forRun(HOUR_LATER, ['plan', 'secrets'])).toThrow(
+        InvalidWorkspaceTokenError,
+      );
+      expect(forRun(HOUR_LATER, ['read']).isMinted).toBe(true);
+    });
+
+    it('lapses once it ends', () => {
+      const token = forRun();
+
+      expect(token.admitsAt(new Date(HOUR_LATER.getTime() + 1))).toBe(false);
+    });
   });
 });

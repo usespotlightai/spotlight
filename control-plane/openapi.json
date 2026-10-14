@@ -3625,7 +3625,7 @@
             }
           },
           "400": {
-            "description": "A model or effort that is not text"
+            "description": "A model or effort that is not text, or a setup without a repository and a folder"
           },
           "401": {
             "description": "No valid session"
@@ -3634,7 +3634,7 @@
             "description": "No such team for this caller"
           },
           "422": {
-            "description": "An unknown harness, model, effort or repository"
+            "description": "An unknown harness, model, effort or repository, or a setup the GitHub App cannot reach or no host can run"
           }
         },
         "summary": "Start planning with the team’s agent",
@@ -7359,6 +7359,47 @@
         ]
       }
     },
+    "/workspaces/{slug}/members": {
+      "get": {
+        "operationId": "listWorkspaceMembers",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "acme-inc",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/WorkspaceMemberResponseDto"
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such workspace for this caller"
+          }
+        },
+        "summary": "List everyone in the workspace, with their role, their teams, and what may be set",
+        "tags": [
+          "workspaces"
+        ]
+      }
+    },
     "/workspaces/{slug}/members/{userId}": {
       "patch": {
         "description": "Roles are given downwards: an owner may set anyone’s, an admin only those of people they outrank, and nobody may hand out a rank they do not hold. The last owner keeps the workspace.",
@@ -7515,18 +7556,62 @@
         "tags": [
           "teams"
         ]
-      }
-    },
-    "/teams/{teamId}/invites": {
-      "get": {
-        "operationId": "listInvites",
+      },
+      "post": {
+        "operationId": "addTeamMember",
         "parameters": [
           {
             "name": "teamId",
             "required": true,
             "in": "path",
             "schema": {
-              "example": "team_1",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AddTeamMemberRequestDto"
+              }
+            }
+          }
+        },
+        "responses": {
+          "204": {
+            "description": "They are on the team now"
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "404": {
+            "description": "No such team, or not yours to add people to"
+          },
+          "409": {
+            "description": "They are already on the team"
+          },
+          "422": {
+            "description": "They are not in the workspace"
+          }
+        },
+        "summary": "Put somebody already in the workspace on this team",
+        "tags": [
+          "teams"
+        ]
+      }
+    },
+    "/workspaces/{slug}/invites": {
+      "get": {
+        "operationId": "listWorkspaceInvites",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "acme",
               "type": "string"
             }
           }
@@ -7539,7 +7624,7 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/InviteResponseDto"
+                    "$ref": "#/components/schemas/WorkspaceInviteResponseDto"
                   }
                 }
               }
@@ -7549,23 +7634,24 @@
             "description": "No valid session"
           },
           "404": {
-            "description": "No such team for this caller"
+            "description": "No such workspace, or not yours to invite to"
           }
         },
-        "summary": "List the invitations this team is still waiting on",
+        "summary": "List the invitations this workspace is still waiting on",
         "tags": [
           "invites"
         ]
       },
       "post": {
-        "operationId": "inviteToTeam",
+        "description": "One invitation per address. An address with an open or run-out invitation is sent it again with a fresh link, and an address already in the workspace is reported and sent nothing.",
+        "operationId": "inviteToWorkspace",
         "parameters": [
           {
-            "name": "teamId",
+            "name": "slug",
             "required": true,
             "in": "path",
             "schema": {
-              "example": "team_1",
+              "example": "acme",
               "type": "string"
             }
           }
@@ -7575,18 +7661,73 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/InviteToTeamRequestDto"
+                "$ref": "#/components/schemas/InviteToWorkspaceRequestDto"
               }
             }
           }
         },
         "responses": {
-          "201": {
+          "200": {
             "description": "",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/InviteResponseDto"
+                  "$ref": "#/components/schemas/InviteOutcomesResponseDto"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "No valid session"
+          },
+          "403": {
+            "description": "Not a role yours to give"
+          },
+          "404": {
+            "description": "No such workspace, or not yours to invite to"
+          },
+          "409": {
+            "description": "Another invitation was just sent"
+          },
+          "422": {
+            "description": "An address, role or team that does not hold"
+          }
+        },
+        "summary": "Invite people to this workspace by email, with a role and teams",
+        "tags": [
+          "invites"
+        ]
+      }
+    },
+    "/workspaces/{slug}/invites/{inviteId}/resend": {
+      "post": {
+        "operationId": "resendInvite",
+        "parameters": [
+          {
+            "name": "slug",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "example": "acme",
+              "type": "string"
+            }
+          },
+          {
+            "name": "inviteId",
+            "required": true,
+            "in": "path",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorkspaceInviteResponseDto"
                 }
               }
             }
@@ -7595,28 +7736,28 @@
             "description": "No valid session"
           },
           "404": {
-            "description": "No such team, or not yours to invite to"
+            "description": "No such invitation for this caller"
           },
           "409": {
-            "description": "They are already on this team"
+            "description": "Already accepted or revoked"
           }
         },
-        "summary": "Invite somebody onto this team by email",
+        "summary": "Send an invitation again, with a fresh link and two more weeks",
         "tags": [
           "invites"
         ]
       }
     },
-    "/teams/{teamId}/invites/{inviteId}": {
+    "/workspaces/{slug}/invites/{inviteId}": {
       "delete": {
         "operationId": "revokeInvite",
         "parameters": [
           {
-            "name": "teamId",
+            "name": "slug",
             "required": true,
             "in": "path",
             "schema": {
-              "example": "team_1",
+              "example": "acme",
               "type": "string"
             }
           },
@@ -7638,6 +7779,9 @@
           },
           "404": {
             "description": "No such invitation for this caller"
+          },
+          "409": {
+            "description": "Already accepted"
           }
         },
         "summary": "Take an invitation back, so its link stops working",
@@ -7699,7 +7843,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/JoinedTeamResponseDto"
+                  "$ref": "#/components/schemas/JoinedWorkspaceResponseDto"
                 }
               }
             }
@@ -7717,7 +7861,7 @@
             "description": "Already accepted, revoked or run out"
           }
         },
-        "summary": "Take up an invitation, joining the team it was sent for",
+        "summary": "Take up an invitation, joining the workspace and the teams it was sent for",
         "tags": [
           "invites"
         ]
@@ -20538,7 +20682,7 @@
         ]
       },
       "post": {
-        "description": "When the set has no baseline covering its runs, a baseline replay of the live config starts beside it, with a ceiling of its own equal to the one asked for; the answer names it. Replaying live when the set has no baseline makes that replay the baseline.",
+        "description": "When the set has no baseline covering its runs, a baseline replay of the live config starts beside it; the answer names it and gives its own ceiling. Replaying live when the set has no baseline makes that replay the baseline. On a set of at least 5 runs, the first baseline of a live config also checks the set: it replays each run at least 3 times, with its ceiling raised in step up to 1,000, and judges and checks each change a second time. The set's health then reads its noise, and whether the judge and the check give the same answer twice. Once a whole-set replay of the live config finishes, Spotlight replays the live config again on the runs people accepted or sent back, handing each its answer, with the same ceiling and repeats; the set's health reads the gain as its room to improve.",
         "operationId": "startReplay",
         "parameters": [
           {
@@ -20659,262 +20803,6 @@
           }
         ],
         "summary": "Replay a set’s runs under a candidate, or the live config, within a ceiling that applies to this replay on its own",
-        "tags": [
-          "replays"
-        ]
-      }
-    },
-    "/teams/{teamId}/replay-sets/{setId}/probes": {
-      "post": {
-        "description": "Each run is replayed 3 times, which measures the set’s noise. Once the probe finishes, every change its check passed or failed is checked a second time, and its judged changes are judged a second time, in order, as far as the probe’s ceiling still has room for them at what their first judging cost; the rest are not judged again. The second judgings count against the probe’s ceiling but not towards what its runs cost. The set’s health then says how often the judge and the check gave the same answer twice. When the set has no baseline, the probe is its baseline.",
-        "operationId": "probeReplaySet",
-        "parameters": [
-          {
-            "name": "Spotlight-Api-Version",
-            "in": "header",
-            "description": "The API version the client was written against; every response names the version it was answered in",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "enum": [
-                "2026-09-23"
-              ],
-              "default": "2026-09-23"
-            }
-          },
-          {
-            "name": "Spotlight-Client",
-            "in": "header",
-            "description": "Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "example": "terraform-provider/0.1.0"
-            }
-          },
-          {
-            "name": "teamId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "setId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ProbeReplaySetRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ReplayStartedResponseDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Malformed, or asking for an API version this server does not serve",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "No valid credentials",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "A caller who may read the team but not plan",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "No such team, set, candidate or replay for this caller",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "A ceiling of nothing or more than it takes, or a set with no runs",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Check a set: replay it under the live config three times over, then judge and check each change again",
-        "tags": [
-          "replays"
-        ]
-      }
-    },
-    "/teams/{teamId}/replay-sets/{setId}/sanity-replays": {
-      "post": {
-        "description": "The model is checked against the models the station’s harness offers. When the set has no replay of the live config as it is now, run as often, one starts beside it to compare with, under a ceiling of its own equal to the one asked for. The set’s health then says whether the stronger config did clearly better, and which tasks it did worse on.",
-        "operationId": "startSanityReplay",
-        "parameters": [
-          {
-            "name": "Spotlight-Api-Version",
-            "in": "header",
-            "description": "The API version the client was written against; every response names the version it was answered in",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "enum": [
-                "2026-09-23"
-              ],
-              "default": "2026-09-23"
-            }
-          },
-          {
-            "name": "Spotlight-Client",
-            "in": "header",
-            "description": "Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown",
-            "required": false,
-            "schema": {
-              "type": "string",
-              "example": "terraform-provider/0.1.0"
-            }
-          },
-          {
-            "name": "teamId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "name": "setId",
-            "required": true,
-            "in": "path",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/StartSanityReplayRequestDto"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/SanityReplayStartedResponseDto"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Malformed, or asking for an API version this server does not serve",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "401": {
-            "description": "No valid credentials",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "A caller who may read the team but not plan",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "No such team, set, candidate or replay for this caller",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Neither a model nor an effort other than the live config’s, one its harness does not offer, a ceiling of nothing, or a set with no runs",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ProblemResponseDto"
-                }
-              }
-            }
-          }
-        },
-        "security": [
-          {
-            "bearer": []
-          }
-        ],
-        "summary": "Replay a set under the live config with a stronger model or a higher effort, to see whether the set rewards it",
         "tags": [
           "replays"
         ]
@@ -25378,6 +25266,18 @@
           "reason"
         ]
       },
+      "SpotlightApiResponseDto": {
+        "type": "object",
+        "properties": {
+          "sealed": {
+            "type": "string",
+            "description": "A read and plan token for this run alone, sealed to the recipient; egress wears it toward the control plane as a bearer token"
+          }
+        },
+        "required": [
+          "sealed"
+        ]
+      },
       "EgressRedemptionResponseDto": {
         "type": "object",
         "properties": {
@@ -25409,13 +25309,24 @@
             "items": {
               "$ref": "#/components/schemas/WithheldSecretResponseDto"
             }
+          },
+          "spotlightApi": {
+            "nullable": true,
+            "description": "Where the run reaches Spotlight’s own API, the token it reaches it with",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SpotlightApiResponseDto"
+              }
+            ]
           }
         },
         "required": [
           "runId",
           "reaches",
           "secrets",
-          "withheld"
+          "withheld",
+          "spotlightApi"
         ]
       },
       "HeldRunResponseDto": {
@@ -27721,6 +27632,30 @@
           "stationName"
         ]
       },
+      "ChatSetupResponseDto": {
+        "type": "object",
+        "properties": {
+          "repository": {
+            "type": "string",
+            "example": "acme/infra"
+          },
+          "folder": {
+            "type": "string",
+            "example": "spotlight"
+          },
+          "pullRequest": {
+            "type": "string",
+            "nullable": true,
+            "example": "https://github.com/acme/infra/pull/12",
+            "description": "The pull request the chat opened with the configuration"
+          }
+        },
+        "required": [
+          "repository",
+          "folder",
+          "pullRequest"
+        ]
+      },
       "ChatSummaryResponseDto": {
         "type": "object",
         "properties": {
@@ -27765,6 +27700,16 @@
               }
             ]
           },
+          "setup": {
+            "nullable": true,
+            "description": "Where the chat sets up the team’s configuration as code, for a setup chat",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ChatSetupResponseDto"
+              }
+            ]
+          },
           "createdAt": {
             "type": "string",
             "example": "2026-09-14T09:00:00.000Z"
@@ -27787,9 +27732,29 @@
           "effort",
           "repositories",
           "improving",
+          "setup",
           "createdAt",
           "updatedAt",
           "working"
+        ]
+      },
+      "ChatSetupRequestDto": {
+        "type": "object",
+        "properties": {
+          "repository": {
+            "type": "string",
+            "example": "acme/infra",
+            "description": "The repository the team’s configuration lives in"
+          },
+          "folder": {
+            "type": "string",
+            "example": "spotlight",
+            "description": "The folder in it, from the repository root"
+          }
+        },
+        "required": [
+          "repository",
+          "folder"
         ]
       },
       "StartChatRequestDto": {
@@ -27844,6 +27809,14 @@
           "improving": {
             "type": "string",
             "description": "A station the chat is about improving, by its id; the agent is briefed to study its recent runs"
+          },
+          "setup": {
+            "description": "Makes this the team’s setup chat: the agent surveys the team’s tools and opens a pull request with its configuration as code there",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ChatSetupRequestDto"
+              }
+            ]
           }
         },
         "required": [
@@ -28060,6 +28033,16 @@
               }
             ]
           },
+          "setup": {
+            "nullable": true,
+            "description": "Where the chat sets up the team’s configuration as code, for a setup chat",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ChatSetupResponseDto"
+              }
+            ]
+          },
           "createdAt": {
             "type": "string",
             "example": "2026-09-14T09:00:00.000Z"
@@ -28093,6 +28076,7 @@
           "effort",
           "repositories",
           "improving",
+          "setup",
           "createdAt",
           "updatedAt",
           "working",
@@ -28147,7 +28131,8 @@
             "description": "Which step this is",
             "enum": [
               "github",
-              "harness"
+              "harness",
+              "configuration"
             ],
             "example": "github"
           },
@@ -28169,6 +28154,32 @@
           "done"
         ]
       },
+      "SetupChatResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "nullable": true,
+            "description": "The team’s setup chat, when the caller started it. Chats are seen only by whoever started them"
+          },
+          "pullRequest": {
+            "type": "string",
+            "nullable": true,
+            "example": "https://github.com/acme/infra/pull/12",
+            "description": "The pull request it opened with the configuration"
+          },
+          "startedBy": {
+            "type": "string",
+            "example": "Ada Lovelace",
+            "description": "Who started it, empty when they have left the workspace"
+          }
+        },
+        "required": [
+          "id",
+          "pullRequest",
+          "startedBy"
+        ]
+      },
       "OnboardingResponseDto": {
         "type": "object",
         "properties": {
@@ -28178,10 +28189,26 @@
             "items": {
               "$ref": "#/components/schemas/SetupStepResponseDto"
             }
+          },
+          "canSetUp": {
+            "type": "boolean",
+            "description": "Whether a setup chat can start: the GitHub App is installed and a host runs sandboxes"
+          },
+          "setupChat": {
+            "nullable": true,
+            "description": "The chat setting up the team’s configuration as code, the one with a pull request first",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/SetupChatResponseDto"
+              }
+            ]
           }
         },
         "required": [
-          "steps"
+          "steps",
+          "canSetUp",
+          "setupChat"
         ]
       },
       "WorkspaceResourceResponseDto": {
@@ -28749,6 +28776,92 @@
           "role"
         ]
       },
+      "TeamReferenceResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "team_1"
+          },
+          "name": {
+            "type": "string",
+            "example": "Platform"
+          }
+        },
+        "required": [
+          "id",
+          "name"
+        ]
+      },
+      "WorkspaceMemberResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13"
+          },
+          "name": {
+            "type": "string",
+            "example": "Ada Lovelace"
+          },
+          "image": {
+            "type": "string",
+            "nullable": true
+          },
+          "role": {
+            "type": "string",
+            "description": "What they are in the workspace this team belongs to.",
+            "example": "member",
+            "enum": [
+              "owner",
+              "admin",
+              "member"
+            ]
+          },
+          "mayBeSetTo": {
+            "type": "array",
+            "description": "What the caller may set them to, which is empty where that is not theirs to do. Worked out by the same rule the workspace enforces.",
+            "example": [
+              "admin",
+              "member"
+            ],
+            "items": {
+              "type": "string",
+              "enum": [
+                "owner",
+                "admin",
+                "member"
+              ]
+            }
+          },
+          "email": {
+            "type": "string",
+            "example": "ada@example.com"
+          },
+          "teams": {
+            "description": "The teams of this workspace they are on.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TeamReferenceResponseDto"
+            }
+          },
+          "joinedAt": {
+            "type": "string",
+            "description": "When they joined the workspace.",
+            "example": "2026-09-12T09:00:00.000Z"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "image",
+          "role",
+          "mayBeSetTo",
+          "email",
+          "teams",
+          "joinedAt"
+        ]
+      },
       "ChangeMemberRoleRequestDto": {
         "type": "object",
         "properties": {
@@ -28935,7 +29048,42 @@
           "mayBeSetTo"
         ]
       },
-      "InviteResponseDto": {
+      "AddTeamMemberRequestDto": {
+        "type": "object",
+        "properties": {
+          "userId": {
+            "type": "string",
+            "description": "Somebody already in the workspace this team belongs to.",
+            "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13"
+          }
+        },
+        "required": [
+          "userId"
+        ]
+      },
+      "InviterResponseDto": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string",
+            "example": "a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13"
+          },
+          "name": {
+            "type": "string",
+            "example": "Leon Liang"
+          },
+          "image": {
+            "type": "string",
+            "nullable": true
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "image"
+        ]
+      },
+      "WorkspaceInviteResponseDto": {
         "type": "object",
         "properties": {
           "id": {
@@ -28946,10 +29094,31 @@
             "type": "string",
             "example": "ada@example.com"
           },
-          "invitedBy": {
+          "role": {
             "type": "string",
-            "description": "Who asked them.",
-            "example": "Leon Liang"
+            "description": "What they will be in the workspace once they accept.",
+            "enum": [
+              "admin",
+              "member"
+            ],
+            "example": "member"
+          },
+          "teams": {
+            "description": "The teams they join on accepting.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/TeamReferenceResponseDto"
+            }
+          },
+          "invitedBy": {
+            "description": "Who asked them, or null once their account is deleted.",
+            "nullable": true,
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/InviterResponseDto"
+              }
+            ]
           },
           "invitedAt": {
             "type": "string",
@@ -28963,22 +29132,92 @@
         "required": [
           "id",
           "email",
+          "role",
+          "teams",
           "invitedBy",
           "invitedAt",
           "expiresAt"
         ]
       },
-      "InviteToTeamRequestDto": {
+      "InviteToWorkspaceRequestDto": {
+        "type": "object",
+        "properties": {
+          "emails": {
+            "description": "Where each invitation is sent, and who may accept it. One invitation per address.",
+            "example": [
+              "ada@example.com",
+              "grace@example.com"
+            ],
+            "minItems": 1,
+            "maxItems": 50,
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "role": {
+            "type": "string",
+            "description": "What they will be in the workspace once they accept. Nobody is invited as an owner, nor above the inviter.",
+            "enum": [
+              "admin",
+              "member"
+            ],
+            "example": "member"
+          },
+          "teamIds": {
+            "description": "The teams of this workspace they join on accepting.",
+            "example": [
+              "team_1"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        },
+        "required": [
+          "emails",
+          "role",
+          "teamIds"
+        ]
+      },
+      "InviteOutcomeResponseDto": {
         "type": "object",
         "properties": {
           "email": {
             "type": "string",
-            "description": "Where the invitation is sent, and who may accept it.",
             "example": "ada@example.com"
+          },
+          "outcome": {
+            "type": "string",
+            "description": "What came of the address: a new invitation, an open one sent again with a fresh link, nothing, since they are already in the workspace, or an invitation kept whose email could not be sent, which sending again may still deliver.",
+            "enum": [
+              "invited",
+              "sent-again",
+              "already-a-member",
+              "not-sent"
+            ],
+            "example": "invited"
           }
         },
         "required": [
-          "email"
+          "email",
+          "outcome"
+        ]
+      },
+      "InviteOutcomesResponseDto": {
+        "type": "object",
+        "properties": {
+          "outcomes": {
+            "description": "One outcome per address asked, in the order asked.",
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/InviteOutcomeResponseDto"
+            }
+          }
+        },
+        "required": [
+          "outcomes"
         ]
       },
       "InviteOfferResponseDto": {
@@ -28989,17 +29228,34 @@
             "description": "The address it was sent to, which is who may accept it.",
             "example": "ada@example.com"
           },
-          "teamName": {
-            "type": "string",
-            "example": "Platform"
-          },
           "workspaceName": {
             "type": "string",
             "example": "Acme"
           },
           "invitedBy": {
             "type": "string",
+            "description": "Who asked them, or null once their account is deleted.",
+            "nullable": true,
             "example": "Leon Liang"
+          },
+          "role": {
+            "type": "string",
+            "description": "What they will be in the workspace once they accept.",
+            "enum": [
+              "admin",
+              "member"
+            ],
+            "example": "member"
+          },
+          "teamNames": {
+            "description": "The teams they join on accepting.",
+            "example": [
+              "Platform"
+            ],
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           },
           "standing": {
             "type": "string",
@@ -29015,32 +29271,24 @@
         },
         "required": [
           "email",
-          "teamName",
           "workspaceName",
           "invitedBy",
+          "role",
+          "teamNames",
           "standing"
         ]
       },
-      "JoinedTeamResponseDto": {
+      "JoinedWorkspaceResponseDto": {
         "type": "object",
         "properties": {
           "workspaceSlug": {
             "type": "string",
+            "description": "Where they land.",
             "example": "acme"
-          },
-          "teamId": {
-            "type": "string",
-            "example": "team_1"
-          },
-          "teamName": {
-            "type": "string",
-            "example": "Platform"
           }
         },
         "required": [
-          "workspaceSlug",
-          "teamId",
-          "teamName"
+          "workspaceSlug"
         ]
       },
       "SecretSourceResponseDto": {
@@ -33450,6 +33698,19 @@
           "body"
         ]
       },
+      "StationConfigPullRequestResponseDto": {
+        "type": "object",
+        "properties": {
+          "url": {
+            "type": "string",
+            "example": "https://github.com/acme/platform/pull/42",
+            "description": "The pull request’s page on GitHub"
+          }
+        },
+        "required": [
+          "url"
+        ]
+      },
       "NextActResponseDto": {
         "type": "object",
         "properties": {
@@ -33781,6 +34042,16 @@
               "$ref": "#/components/schemas/ConfigChangeResponseDto"
             }
           },
+          "pullRequest": {
+            "nullable": true,
+            "description": "The pull request Spotlight opened that proposes the group’s config, the latest opened where it opened more than one; none where Spotlight opened none, or for a group with no config",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/StationConfigPullRequestResponseDto"
+              }
+            ]
+          },
           "runs": {
             "description": "Its runs that ended, the latest-started first, so the groups’ runs read in turn are the station’s latest-started runs",
             "type": "array",
@@ -33813,6 +34084,7 @@
           "ran",
           "config",
           "changes",
+          "pullRequest",
           "runs",
           "tally",
           "shares",
@@ -39645,7 +39917,7 @@
               "proposed",
               "searched",
               "planned",
-              "sanity"
+              "oracle"
             ],
             "description": "proposed by a person or a token; or live, a snapshot of the station’s config Spotlight takes to replay as a baseline, which only goes with its replays"
           },
@@ -39976,48 +40248,15 @@
           "tasks"
         ]
       },
-      "WorseTaskResponseDto": {
-        "type": "object",
-        "properties": {
-          "taskId": {
-            "type": "string"
-          },
-          "originalRunId": {
-            "type": "string"
-          },
-          "live": {
-            "type": "number",
-            "description": "The live config’s success on the task"
-          },
-          "stronger": {
-            "type": "number",
-            "description": "The stronger config’s success on the task"
-          }
-        },
-        "required": [
-          "taskId",
-          "originalRunId",
-          "live",
-          "stronger"
-        ]
-      },
-      "SanityReadingResponseDto": {
+      "OracleReadingResponseDto": {
         "type": "object",
         "properties": {
           "replayId": {
             "type": "string",
-            "description": "The newest replay of the live config with a stronger model"
+            "description": "The newest replay of the live config handed each run’s answer: the change people accepted, or what they said when they sent it back"
           },
           "candidateId": {
             "type": "string"
-          },
-          "model": {
-            "type": "string",
-            "nullable": true
-          },
-          "effort": {
-            "type": "string",
-            "nullable": true
           },
           "repeats": {
             "type": "number"
@@ -40035,7 +40274,7 @@
           "againstReplayId": {
             "type": "string",
             "nullable": true,
-            "description": "The replay of the live config, run at least as often, it is compared with, chosen when it started"
+            "description": "The replay of the live config it is compared with: the one whose finishing started it"
           },
           "againstState": {
             "type": "string",
@@ -40049,10 +40288,25 @@
               "gone",
               null
             ],
-            "description": "How the replay it is compared with stands: finished once they can be compared; stopped, over-budget or gone means they never will be, so start another"
+            "description": "How the replay it is compared with stands: finished once they can be compared; stopped, over-budget or gone means they never will be"
+          },
+          "answered": {
+            "type": "number",
+            "description": "Runs it replayed: those the live replay replayed whose original was accepted with a change, or sent back with something a person said. Others have no answer to hand over"
+          },
+          "live": {
+            "type": "number",
+            "nullable": true,
+            "description": "The live config’s success on those runs; null until compared"
+          },
+          "withAnswer": {
+            "type": "number",
+            "nullable": true,
+            "description": "Success on those runs with the answer; null until compared"
           },
           "gain": {
             "nullable": true,
+            "description": "The gain the answer brings over the live config: the most a better harness could gain on these runs",
             "type": "object",
             "allOf": [
               {
@@ -40060,30 +40314,24 @@
               }
             ]
           },
-          "rewardsStrongerModel": {
+          "roomToImprove": {
             "type": "boolean",
             "nullable": true,
-            "description": "The stronger config did clearly better; false means the set does not reward a stronger model, so its tasks may be unclear or its scoring off; null until compared"
-          },
-          "worse": {
-            "type": "array",
-            "items": {
-              "$ref": "#/components/schemas/WorseTaskResponseDto"
-            }
+            "description": "The answer did clearly better; false means the set leaves no room a better config could show, so a search on it would find little; null until compared, or when fewer than 5 runs had an answer"
           }
         },
         "required": [
           "replayId",
           "candidateId",
-          "model",
-          "effort",
           "repeats",
           "state",
           "againstReplayId",
           "againstState",
+          "answered",
+          "live",
+          "withAnswer",
           "gain",
-          "rewardsStrongerModel",
-          "worse"
+          "roomToImprove"
         ]
       },
       "SetHealthResponseDto": {
@@ -40129,13 +40377,13 @@
               }
             ]
           },
-          "sanity": {
+          "oracle": {
             "nullable": true,
-            "description": "Whether a stronger model or higher effort does better on the set; null until one was replayed",
+            "description": "How much better the live config does when handed each run’s answer. Started by Spotlight after each replay of the whole set under the live config; null until one started",
             "type": "object",
             "allOf": [
               {
-                "$ref": "#/components/schemas/SanityReadingResponseDto"
+                "$ref": "#/components/schemas/OracleReadingResponseDto"
               }
             ]
           }
@@ -40145,7 +40393,7 @@
           "saturation",
           "judge",
           "checks",
-          "sanity"
+          "oracle"
         ]
       },
       "OutcomeCountResponseDto": {
@@ -40312,6 +40560,7 @@
               "no-briefing",
               "archive-gone",
               "attachments-gone",
+              "answer-gone",
               "repository-gone",
               "not-at-the-station",
               "candidate-unfit",
@@ -40389,7 +40638,7 @@
             "description": "Planned changes of its station are checked against it, as `spotlight replay check` asks; a station has at most one such set"
           },
           "health": {
-            "description": "Whether the set can tell candidates apart, read for the live config as it is now: its noise, how much of it the live config passes already, whether its judge and check give the same answer twice, and whether it rewards a stronger model",
+            "description": "Whether the set can tell candidates apart, read for the live config as it is now: its noise, how much of it the live config passes already, whether its judge and check give the same answer twice, and how much better the live config does when handed each run’s answer",
             "allOf": [
               {
                 "$ref": "#/components/schemas/SetHealthResponseDto"
@@ -40463,6 +40712,7 @@
               "no-briefing",
               "archive-gone",
               "attachments-gone",
+              "answer-gone",
               "repository-gone",
               "not-at-the-station",
               "candidate-unfit",
@@ -40523,6 +40773,7 @@
               "no-briefing",
               "archive-gone",
               "attachments-gone",
+              "answer-gone",
               "repository-gone",
               "not-at-the-station",
               "candidate-unfit",
@@ -40631,7 +40882,7 @@
               "proposed",
               "searched",
               "planned",
-              "sanity"
+              "oracle"
             ]
           },
           "fingerprint": {
@@ -41335,6 +41586,7 @@
               "no-briefing",
               "archive-gone",
               "attachments-gone",
+              "answer-gone",
               "repository-gone",
               "not-at-the-station",
               "candidate-unfit",
@@ -41764,91 +42016,6 @@
           "id",
           "ceiling",
           "baseline"
-        ]
-      },
-      "ProbeReplaySetRequestDto": {
-        "type": "object",
-        "properties": {
-          "ceiling": {
-            "$ref": "#/components/schemas/StartReplayCeilingRequestDto"
-          }
-        },
-        "required": [
-          "ceiling"
-        ]
-      },
-      "StartSanityReplayRequestDto": {
-        "type": "object",
-        "properties": {
-          "model": {
-            "type": "string",
-            "example": "opus",
-            "description": "The stronger model to replay the set under, one its harness offers; the live config’s when left out"
-          },
-          "effort": {
-            "type": "string",
-            "example": "high",
-            "description": "The higher effort to replay the set at; the live config’s when left out. Name a model, an effort, or both"
-          },
-          "ceiling": {
-            "$ref": "#/components/schemas/StartReplayCeilingRequestDto"
-          },
-          "repeats": {
-            "type": "number",
-            "example": 1,
-            "minimum": 1,
-            "maximum": 5,
-            "description": "How many times to replay each run, 1 when left out"
-          }
-        },
-        "required": [
-          "ceiling"
-        ]
-      },
-      "SanityComparisonResponseDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "ceiling": {
-            "$ref": "#/components/schemas/SpendResponseDto"
-          }
-        },
-        "required": [
-          "id",
-          "ceiling"
-        ]
-      },
-      "SanityReplayStartedResponseDto": {
-        "type": "object",
-        "properties": {
-          "id": {
-            "type": "string"
-          },
-          "candidateId": {
-            "type": "string",
-            "description": "The stronger config it replays: the live one, but stronger"
-          },
-          "ceiling": {
-            "$ref": "#/components/schemas/SpendResponseDto"
-          },
-          "comparison": {
-            "nullable": true,
-            "description": "A replay of the live config, run as often, started beside it to compare with when the set had none, under a ceiling of its own equal to the one asked for",
-            "type": "object",
-            "allOf": [
-              {
-                "$ref": "#/components/schemas/SanityComparisonResponseDto"
-              }
-            ]
-          }
-        },
-        "required": [
-          "id",
-          "candidateId",
-          "ceiling",
-          "comparison"
         ]
       },
       "ReplaySearchResponseDto": {
@@ -42632,20 +42799,20 @@
           "rechecked"
         ]
       },
-      "SanityFailedWarningResponseDto": {
+      "NoHeadroomWarningResponseDto": {
         "type": "object",
         "properties": {
           "kind": {
             "type": "string",
             "enum": [
-              "sanity-failed"
+              "no-headroom"
             ],
-            "description": "A stronger model or higher effort did not do clearly better on the set, so its tasks may be unclear or its scoring off"
+            "description": "Handed each run’s answer, the live config did not do clearly better, so the set leaves little room for a better config to show"
           },
           "gain": {
             "type": "number",
-            "example": -0.02,
-            "description": "The stronger config’s gain in success over the live one"
+            "example": 0.02,
+            "description": "The gain in success the answer brought"
           },
           "low": {
             "type": "number",
@@ -42655,10 +42822,10 @@
             "type": "number",
             "example": 0.1
           },
-          "worseTasks": {
+          "answered": {
             "type": "number",
-            "example": 2,
-            "description": "How many tasks the stronger config did worse on"
+            "example": 6,
+            "description": "How many runs were handed an answer"
           }
         },
         "required": [
@@ -42666,7 +42833,7 @@
           "gain",
           "low",
           "high",
-          "worseTasks"
+          "answered"
         ]
       },
       "SearchRunsEstimateResponseDto": {
@@ -42811,7 +42978,7 @@
                   "$ref": "#/components/schemas/FlakyChecksWarningResponseDto"
                 },
                 {
-                  "$ref": "#/components/schemas/SanityFailedWarningResponseDto"
+                  "$ref": "#/components/schemas/NoHeadroomWarningResponseDto"
                 }
               ],
               "discriminator": {
@@ -42822,7 +42989,7 @@
                   "saturated": "#/components/schemas/SaturatedWarningResponseDto",
                   "judge-unstable": "#/components/schemas/JudgeUnstableWarningResponseDto",
                   "flaky-checks": "#/components/schemas/FlakyChecksWarningResponseDto",
-                  "sanity-failed": "#/components/schemas/SanityFailedWarningResponseDto"
+                  "no-headroom": "#/components/schemas/NoHeadroomWarningResponseDto"
                 }
               }
             },
@@ -42937,7 +43104,7 @@
                   "$ref": "#/components/schemas/FlakyChecksWarningResponseDto"
                 },
                 {
-                  "$ref": "#/components/schemas/SanityFailedWarningResponseDto"
+                  "$ref": "#/components/schemas/NoHeadroomWarningResponseDto"
                 }
               ],
               "discriminator": {
@@ -42948,7 +43115,7 @@
                   "saturated": "#/components/schemas/SaturatedWarningResponseDto",
                   "judge-unstable": "#/components/schemas/JudgeUnstableWarningResponseDto",
                   "flaky-checks": "#/components/schemas/FlakyChecksWarningResponseDto",
-                  "sanity-failed": "#/components/schemas/SanityFailedWarningResponseDto"
+                  "no-headroom": "#/components/schemas/NoHeadroomWarningResponseDto"
                 }
               }
             },
@@ -44466,13 +44633,13 @@
               }
             ]
           },
-          "sanity": {
+          "oracle": {
             "nullable": true,
-            "description": "Whether a stronger model or higher effort does better on the set; null until one was replayed",
+            "description": "How much better the live config does when handed each run’s answer. Started by Spotlight after each replay of the whole set under the live config; null until one started",
             "type": "object",
             "allOf": [
               {
-                "$ref": "#/components/schemas/SanityReadingResponseDto"
+                "$ref": "#/components/schemas/OracleReadingResponseDto"
               }
             ]
           },
@@ -44513,7 +44680,7 @@
           "saturation",
           "judge",
           "checks",
-          "sanity",
+          "oracle",
           "tasks",
           "runs",
           "oldestRunEndedAt",

@@ -2,6 +2,7 @@ import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import type { HarnessModel } from '@shared-kernel/domain/value-objects/harness-model.vo';
+import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -15,16 +16,21 @@ import { ChatHandedToRun } from '@work/domain/events/chat-handed-to-run.event';
 import { ChatStarted } from '@work/domain/events/chat-started.event';
 import { ProposalAccepted } from '@work/domain/events/proposal-accepted.event';
 import { ProposalDismissed } from '@work/domain/events/proposal-dismissed.event';
+import { SetupPullRequestOpened } from '@work/domain/events/setup-pull-request-opened.event';
 import { TaskProposed } from '@work/domain/events/task-proposed.event';
 import { InvalidChatTransitionError } from '@work/domain/exceptions/invalid-chat-transition.error';
+import { InvalidSetupBranchError } from '@work/domain/exceptions/invalid-setup-branch.error';
+import { NotASetupChatError } from '@work/domain/exceptions/not-a-setup-chat.error';
 import { NotTheChatStarterError } from '@work/domain/exceptions/not-the-chat-starter.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
 import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
 import { TraceAccess } from '@work/domain/services/trace-access';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
+import type { Branch } from '@work/domain/value-objects/branch.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
 import type { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
 import { ChatTitle } from '@work/domain/value-objects/chat-title.vo';
+import type { ConfigHome } from '@work/domain/value-objects/config-home.vo';
 import { Continuity } from '@work/domain/value-objects/continuity.vo';
 import { ContinuityKey } from '@work/domain/value-objects/continuity-key.vo';
 import type { Effort } from '@work/domain/value-objects/effort.vo';
@@ -53,6 +59,7 @@ export class Chat extends EventRecorder {
     readonly effort: Effort | null,
     readonly repositories: readonly Repository[],
     readonly improving: ImprovedStation | null,
+    readonly setup: ConfigHome | null,
     readonly messages: readonly ChatMessage[],
     readonly currentRunId: RunId | null,
     readonly sessionId: HarnessSession | null,
@@ -75,6 +82,7 @@ export class Chat extends EventRecorder {
     attachments?: readonly Attachment[];
     traces?: readonly TraceReference[];
     improving?: ImprovedStation | null;
+    setup?: ConfigHome | null;
     now: Date;
     newId: () => string;
   }): Chat {
@@ -99,8 +107,12 @@ export class Chat extends EventRecorder {
       input.harness,
       input.model ?? null,
       input.effort ?? null,
-      Chat.distinct(input.repositories ?? []),
+      Chat.distinct([
+        ...(input.setup ? [input.setup.repository] : []),
+        ...(input.repositories ?? []),
+      ]),
       input.improving ?? null,
+      input.setup ?? null,
       [opening],
       null,
       null,
@@ -133,6 +145,7 @@ export class Chat extends EventRecorder {
     effort: Effort | null;
     repositories: readonly Repository[];
     improving?: ImprovedStation | null;
+    setup?: ConfigHome | null;
     messages: readonly ChatMessage[];
     currentRunId: RunId | null;
     sessionId: HarnessSession | null;
@@ -157,6 +170,7 @@ export class Chat extends EventRecorder {
       input.effort,
       input.repositories,
       input.improving ?? null,
+      input.setup ?? null,
       input.messages,
       input.currentRunId,
       input.sessionId,
@@ -213,6 +227,12 @@ export class Chat extends EventRecorder {
     );
   }
 
+  pushableNamed(name: string): Repository | null {
+    const named = this.repositoryNamed(name);
+
+    return named && this.setup?.repository.equals(named) ? named : null;
+  }
+
   said(input: {
     by: UserId;
     body: ChatMessageBody;
@@ -233,6 +253,59 @@ export class Chat extends EventRecorder {
       model: input.model,
       effort: input.effort,
     });
+  }
+
+  mayOpenSetupFrom(runId: RunId, branch: Branch): ConfigHome {
+    const setup = this.setup;
+
+    if (!setup) {
+      throw new NotASetupChatError(this.id.value);
+    }
+
+    if (!this.heldBy(runId)) {
+      throw new InvalidChatTransitionError(
+        `Run ${runId.value} no longer works chat ${this.id.value}.`,
+      );
+    }
+
+    if (branch.isSpotlights) {
+      throw new InvalidSetupBranchError(branch.value);
+    }
+
+    return setup;
+  }
+
+  setupOpened(
+    runId: RunId,
+    branch: Branch,
+    pullRequest: PullRequestUrl,
+    at: Date,
+  ): Chat {
+    const setup = this.mayOpenSetupFrom(runId, branch);
+
+    if (!pullRequest.repository?.equals(setup.repository)) {
+      throw new InvalidChatTransitionError(
+        `Pull request ${pullRequest.value} is not in ${setup.repository.value}.`,
+      );
+    }
+
+    if (setup.pullRequest) {
+      return this;
+    }
+
+    const opened = this.with({ setup: setup.opened(pullRequest) });
+
+    opened.record(
+      new SetupPullRequestOpened(
+        this.id,
+        this.workspaceId,
+        this.teamId,
+        pullRequest,
+        at,
+      ),
+    );
+
+    return opened;
   }
 
   handedTo(runId: RunId, at: Date): Chat {
@@ -462,6 +535,7 @@ export class Chat extends EventRecorder {
     currentRunId?: RunId | null;
     sessionId?: HarnessSession | null;
     runnerId?: RunnerId | null;
+    setup?: ConfigHome | null;
   }): Chat {
     const next = new Chat(
       this.id,
@@ -474,6 +548,7 @@ export class Chat extends EventRecorder {
       part.effort !== undefined ? part.effort : this.effort,
       this.repositories,
       this.improving,
+      part.setup !== undefined ? part.setup : this.setup,
       part.messages ?? this.messages,
       part.currentRunId !== undefined ? part.currentRunId : this.currentRunId,
       part.sessionId !== undefined ? part.sessionId : this.sessionId,

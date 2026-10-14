@@ -10,3 +10,11 @@ export class ChangeMemberRoleRequestDto {
   })
   readonly role!: MemberDto['role'];
 }
+
+export class AddTeamMemberRequestDto {
+  @ApiProperty({
+    description: 'Somebody already in the workspace this team belongs to.',
+    example: 'a17c4e02-9b3d-4f61-8e5a-0c2d7b9f4a13',
+  })
+  readonly userId!: string;
+}

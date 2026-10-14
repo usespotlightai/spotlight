@@ -1,33 +1,24 @@
-import { SettingRowsSkeleton } from '@/components/features/stations/config/SettingRowsSkeleton';
-import { StationSection } from '@/components/features/stations/StationSection';
-import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
+import { Skeleton } from '@/components/shared/skeleton/Skeleton';
+
+const PANELS = [
+  'Agent',
+  'Prompt',
+  'Skills',
+  'Judge',
+  'Ships through',
+  'Version',
+] as const;
 
 export function StationConfigSkeleton() {
   return (
-    <>
-      <SkeletonLine className="w-56 text-sm leading-6" />
+    <section className="flex flex-col gap-1.5">
+      <h2 className="font-medium text-foreground text-xs">Config</h2>
 
-      <StationSection title="Agent">
-        <SettingRowsSkeleton rows={['Harness', 'Model', 'Effort', 'Skills']} />
-      </StationSection>
-
-      <StationSection title="Prompt">
-        <div className="flex flex-col gap-1.5 rounded-lg border border-border bg-card p-3 text-sm leading-6">
-          <SkeletonLine className="w-16" />
-          <SkeletonLine className="w-2/3" />
-          <SkeletonLine className="w-1/2" />
-        </div>
-      </StationSection>
-
-      <StationSection title="Judge">
-        <SettingRowsSkeleton rows={['Judges', 'Threshold']} />
-      </StationSection>
-
-      <StationSection title="From the line">
-        <SettingRowsSkeleton
-          rows={['Repositories', 'Source', 'Replay check']}
-        />
-      </StationSection>
-    </>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        {PANELS.map((title) => (
+          <Skeleton key={title} className="h-61 rounded-lg" />
+        ))}
+      </div>
+    </section>
   );
 }

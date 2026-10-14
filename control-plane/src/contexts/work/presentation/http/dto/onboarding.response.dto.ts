@@ -34,6 +34,40 @@ export class SetupStepResponseDto {
   }
 }
 
+export class SetupChatResponseDto {
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    description:
+      'The team’s setup chat, when the caller started it. Chats are seen only by whoever started them',
+  })
+  readonly id: string | null;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    example: 'https://github.com/acme/infra/pull/12',
+    description: 'The pull request it opened with the configuration',
+  })
+  readonly pullRequest: string | null;
+
+  @ApiProperty({
+    example: 'Ada Lovelace',
+    description: 'Who started it, empty when they have left the workspace',
+  })
+  readonly startedBy: string;
+
+  constructor(
+    id: string | null,
+    pullRequest: string | null,
+    startedBy: string,
+  ) {
+    this.id = id;
+    this.pullRequest = pullRequest;
+    this.startedBy = startedBy;
+  }
+}
+
 export class OnboardingResponseDto {
   @ApiProperty({
     description: 'The list itself, in the order it is worked through',
@@ -42,7 +76,27 @@ export class OnboardingResponseDto {
   })
   readonly steps: readonly SetupStepResponseDto[];
 
-  constructor(steps: readonly SetupStepResponseDto[]) {
+  @ApiProperty({
+    description:
+      'Whether a setup chat can start: the GitHub App is installed and a host runs sandboxes',
+  })
+  readonly canSetUp: boolean;
+
+  @ApiProperty({
+    type: SetupChatResponseDto,
+    nullable: true,
+    description:
+      'The chat setting up the team’s configuration as code, the one with a pull request first',
+  })
+  readonly setupChat: SetupChatResponseDto | null;
+
+  constructor(
+    steps: readonly SetupStepResponseDto[],
+    canSetUp: boolean,
+    setupChat: SetupChatResponseDto | null,
+  ) {
     this.steps = steps;
+    this.canSetUp = canSetUp;
+    this.setupChat = setupChat;
   }
 }

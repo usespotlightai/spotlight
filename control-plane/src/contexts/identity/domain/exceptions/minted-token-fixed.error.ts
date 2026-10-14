@@ -3,11 +3,11 @@ export class MintedTokenFixedError extends Error {
 
   readonly field = 'description';
 
-  readonly because = 'cannot change on a token minted through a trust';
+  readonly because = 'cannot change on a token Spotlight minted';
 
   constructor(tokenName: string) {
     super(
-      `Token ${tokenName} was minted through a trust. Its description cannot change.`,
+      `Token ${tokenName} was minted by Spotlight. Its description cannot change.`,
     );
     this.name = 'MintedTokenFixedError';
   }

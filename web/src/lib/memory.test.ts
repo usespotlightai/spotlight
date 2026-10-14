@@ -8,7 +8,7 @@ import {
   narrowed,
   type ProposedMemory,
   paramsOf,
-  placeOf,
+  placeTreeOf,
   proposalStateOf,
   proposalTitleOf,
   proposedSummary,
@@ -16,7 +16,6 @@ import {
   rememberedCounts,
   speakerOf,
   type TeamMemory,
-  usedBy,
 } from '@/lib/memory';
 
 const memory = (over: Partial<ProposedMemory> = {}): ProposedMemory => ({
@@ -110,14 +109,108 @@ describe('filterOf and paramsOf', () => {
   });
 });
 
-describe('placeOf', () => {
+describe('placeTreeOf', () => {
+  const lines = [
+    {
+      id: 'line_delivery',
+      name: 'Delivery',
+      stations: [{ id: 'station_build', name: 'Implementation' }],
+    },
+  ] as unknown as Parameters<typeof placeTreeOf>[1];
+
+  it('nests the station, repository and each path under the line', () => {
+    expect(
+      placeTreeOf(
+        {
+          lineId: 'line_delivery',
+          stationId: 'station_build',
+          repository: 'acme/worker',
+          paths: ['src/retries/deliver.ts', 'src/queue/'],
+        },
+        lines,
+      ),
+    ).toEqual({
+      kind: 'line',
+      label: 'Delivery',
+      joinedBy: null,
+      children: [
+        {
+          kind: 'station',
+          label: 'Implementation',
+          joinedBy: ' › ',
+          children: [
+            {
+              kind: 'repository',
+              label: 'acme/worker',
+              joinedBy: ' › ',
+              children: [
+                {
+                  kind: 'path',
+                  label: 'src/retries/deliver.ts',
+                  joinedBy: ' › ',
+                  children: [],
+                },
+                {
+                  kind: 'path',
+                  label: 'src/queue/',
+                  joinedBy: ' › ',
+                  children: [],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+  });
+
+  it('says how each part joins the one before it on a single line', () => {
+    const joined = (node: ReturnType<typeof placeTreeOf>): string =>
+      `${node.joinedBy ?? ''}${node.label}${node.children.map(joined).join('')}`;
+
+    expect(
+      joined(
+        placeTreeOf(
+          {
+            lineId: 'line_delivery',
+            stationId: 'station_build',
+            repository: 'acme/worker',
+            paths: ['src/a.ts', 'src/b.ts'],
+          },
+          lines,
+        ),
+      ),
+    ).toBe('Delivery › Implementation › acme/worker › src/a.ts › src/b.ts');
+  });
+
   it('names a line that is gone rather than calling it the whole team', () => {
     expect(
-      placeOf(
+      placeTreeOf(
         { lineId: 'line_gone', stationId: null, repository: null, paths: [] },
         [],
-      ),
+      ).label,
     ).toBe('Line deleted');
+  });
+
+  it('roots a team-wide memory at the team', () => {
+    expect(
+      placeTreeOf(
+        { lineId: null, stationId: null, repository: 'acme/api', paths: [] },
+        lines,
+      ),
+    ).toEqual({
+      kind: 'team',
+      label: 'The whole team',
+      joinedBy: null,
+      children: [
+        {
+          kind: 'repository',
+          label: 'acme/api',
+          joinedBy: ' › ',
+          children: [],
+        },
+      ],
+    });
   });
 });
 
@@ -146,12 +239,6 @@ describe('what a run remembered', () => {
     handle: null,
     standing: null,
     ...over,
-  });
-
-  it('counts the runs that used a memory', () => {
-    expect(usedBy(0)).toBe('Not used by any run yet');
-    expect(usedBy(1)).toBe('Used by 1 run');
-    expect(usedBy(4)).toBe('Used by 4 runs');
   });
 
   it('gives what was briefed, then what was recalled on top of it, once each', () => {

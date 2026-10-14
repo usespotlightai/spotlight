@@ -1,11 +1,41 @@
 import {
+  ANY_VERBS,
   dirname,
   field,
   fields,
   type Grammar,
   type GrammarImport,
+  type GrammarRoute,
+  HTTP_VERBS,
+  named,
   unquoted,
 } from '@change-review/infrastructure/change-stacks/tree-sitter/grammar';
+import type { Node } from '@vscode/tree-sitter-wasm';
+
+const STRINGS = new Set(['interpreted_string_literal', 'raw_string_literal']);
+
+const METHOD_PATTERN = /^([A-Z]+)\s+[^/\s]*(\/\S*)$/;
+
+const routeOf = (node: Node): GrammarRoute | null => {
+  if (node.type !== 'call_expression') {
+    return null;
+  }
+
+  const verb = field(node, 'function')?.text.split('.').pop() ?? '';
+  const pattern = named(field(node, 'arguments')).find((child) =>
+    STRINGS.has(child.type),
+  );
+  const [, method, path] = pattern
+    ? (unquoted(pattern.text).match(METHOD_PATTERN) ?? [])
+    : [];
+
+  return ANY_VERBS.has(verb.toLowerCase()) &&
+    method &&
+    path &&
+    HTTP_VERBS.has(method.toLowerCase())
+    ? { method, path }
+    : null;
+};
 
 export const GO_GRAMMAR: Grammar = {
   name: 'go',
@@ -31,7 +61,7 @@ export const GO_GRAMMAR: Grammar = {
     selector_expression: ['operand', 'field'],
     qualified_type: ['package', 'name'],
   },
-  strings: new Set(['interpreted_string_literal', 'raw_string_literal']),
+  strings: STRINGS,
   calls: { call_expression: ['function', 'arguments'] },
   importsOf: (node) => {
     if (node.type !== 'import_declaration') {
@@ -65,4 +95,5 @@ export const GO_GRAMMAR: Grammar = {
     }),
   project: () => false,
   exportedAs: (_definition, name) => [name],
+  routeOf,
 };

@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { describe, expect, it, vi } from 'vitest';
 import { JudgeAgreement } from '@/components/features/stations/judge/JudgeAgreement';
-import { JUDGE_AGREEMENT } from '@/stories/fixtures/station';
+import { JUDGE_AGREEMENT } from '@/test/fixtures/station';
 
 vi.mock('@/hooks/api/useStationJudge', () => ({
   useStationJudge: () => ({

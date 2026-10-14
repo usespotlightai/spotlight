@@ -1,18 +1,21 @@
 import { Play } from 'lucide-react';
-import { CardList } from '@/components/features/replays/CardList';
-import { RowsSkeleton } from '@/components/features/replays/RowsSkeleton';
-import { StateBox } from '@/components/features/replays/StateBox';
+import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { OutcomeRow } from '@/components/features/stations/outcomes/OutcomeRow';
-import { StationSection } from '@/components/features/stations/StationSection';
+import { RecentRunsSkeleton } from '@/components/features/stations/overview/RecentRunsSkeleton';
 import { CreateTaskLink } from '@/components/features/team/CreateTaskLink';
 import { MembersOnlyOrCouldNotLoad } from '@/components/features/team/MembersOnlyOrCouldNotLoad';
 import { EmptyState } from '@/components/shared/EmptyState';
+import { NestedTable } from '@/components/shared/nested-table/NestedTable';
 import { SectionLink } from '@/components/shared/SectionLink';
 import { useStationOutcomes } from '@/hooks/api/useStationOutcomes';
 import { DEFAULT_PERIOD, insightsPath } from '@/lib/insights';
 import { failed, loading } from '@/lib/query';
 import { runPath } from '@/lib/run';
-import { recentRuns } from '@/lib/station-outcomes';
+import {
+  hasRuns,
+  RECENT_RUN_HEADINGS,
+  recentRuns,
+} from '@/lib/station-outcomes';
 
 const SHOWN = 8;
 
@@ -30,7 +33,9 @@ export function StationRecentRuns({
   stationId,
 }: StationRecentRunsProps) {
   const outcomes = useStationOutcomes(teamId, lineId, stationId);
-  const runs = recentRuns(outcomes.data?.groups ?? [], SHOWN);
+  const groups = outcomes.data?.groups ?? [];
+  const runs = recentRuns(groups, SHOWN);
+  const ran = hasRuns(groups);
   const all = insightsPath(slug, teamId, {
     tab: 'runs',
     period: DEFAULT_PERIOD,
@@ -38,33 +43,43 @@ export function StationRecentRuns({
     page: 1,
   });
 
+  if (loading(outcomes)) {
+    return <RecentRunsSkeleton />;
+  }
+
   return (
-    <StationSection
+    <InsightsCard
+      tableOnly
+      level={3}
       title="Recent runs"
-      action={runs.length > 0 && <SectionLink to={all}>All runs</SectionLink>}
+      actions={ran && <SectionLink to={all}>All runs</SectionLink>}
     >
-      {loading(outcomes) ? (
-        <RowsSkeleton label="Loading the station’s runs" />
-      ) : failed(outcomes) ? (
-        <StateBox>
+      {failed(outcomes) ? (
+        <div className="flex flex-1 items-center justify-center py-10">
           <MembersOnlyOrCouldNotLoad
             membersOnly="Only team members can see this station’s runs"
             what="The station’s runs"
             query={outcomes}
           />
-        </StateBox>
+        </div>
       ) : runs.length === 0 ? (
-        <StateBox>
-          <EmptyState
-            icon={Play}
-            title="No runs yet"
-            action={<CreateTaskLink slug={slug} teamId={teamId} />}
-          >
-            Latest runs show here once tasks reach this station.
-          </EmptyState>
-        </StateBox>
+        <div className="flex flex-1 items-center justify-center py-10">
+          {ran ? (
+            <EmptyState icon={Play} title="No runs on this config yet">
+              Runs on earlier configs are under All runs.
+            </EmptyState>
+          ) : (
+            <EmptyState
+              icon={Play}
+              title="No runs yet"
+              action={<CreateTaskLink slug={slug} teamId={teamId} />}
+            >
+              Latest runs show here once tasks reach this station.
+            </EmptyState>
+          )}
+        </div>
       ) : (
-        <CardList label="Recent runs">
+        <NestedTable label="Recent runs" headings={RECENT_RUN_HEADINGS}>
           {runs.map((run) => (
             <OutcomeRow
               key={run.runId}
@@ -72,8 +87,8 @@ export function StationRecentRuns({
               to={runPath(slug, teamId, run.runId)}
             />
           ))}
-        </CardList>
+        </NestedTable>
       )}
-    </StationSection>
+    </InsightsCard>
   );
 }

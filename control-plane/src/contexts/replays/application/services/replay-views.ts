@@ -82,7 +82,7 @@ const noiseView = (noise: SetNoiseReading | null): SetNoiseDto | null =>
   };
 
 export const healthView = (health: SetHealth): SetHealthDto => {
-  const { saturation, judge, checks, sanity } = health;
+  const { saturation, judge, checks, oracle } = health;
 
   return {
     noise: noiseView(health.noise),
@@ -113,23 +113,18 @@ export const healthView = (health: SetHealth): SetHealthDto => {
         recheck: each.recheck,
       })),
     },
-    sanity: sanity && {
-      replayId: sanity.replayId.value,
-      candidateId: sanity.candidateId.value,
-      model: sanity.model,
-      effort: sanity.effort,
-      repeats: sanity.repeats,
-      state: sanity.state,
-      againstReplayId: sanity.againstReplayId?.value ?? null,
-      againstState: sanity.againstState,
-      gain: gainView(sanity.gain),
-      rewardsStrongerModel: sanity.rewardsStrongerModel,
-      worse: sanity.worse.map((each) => ({
-        taskId: each.taskId.value,
-        originalRunId: each.original.value,
-        live: each.live,
-        stronger: each.stronger,
-      })),
+    oracle: oracle && {
+      replayId: oracle.replayId.value,
+      candidateId: oracle.candidateId.value,
+      repeats: oracle.repeats,
+      state: oracle.state,
+      againstReplayId: oracle.againstReplayId?.value ?? null,
+      againstState: oracle.againstState,
+      answered: oracle.answered,
+      live: oracle.live,
+      withAnswer: oracle.withAnswer,
+      gain: gainView(oracle.gain),
+      roomToImprove: oracle.roomToImprove,
     },
   };
 };

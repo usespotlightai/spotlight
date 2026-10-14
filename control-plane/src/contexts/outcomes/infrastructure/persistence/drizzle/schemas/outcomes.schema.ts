@@ -232,6 +232,30 @@ export const pendingReview = pgTable(
   ],
 );
 
+export const stationConfigPullRequest = pgTable(
+  'station_config_pull_request',
+  {
+    configPullRequestId: text('config_pull_request_id').primaryKey(),
+    workspaceId: text('workspace_id').notNull(),
+    teamId: text('team_id').notNull(),
+    stationId: text('station_id').notNull(),
+    fingerprint: text('fingerprint').notNull(),
+    url: text('url').notNull(),
+    openedAt: timestamp('opened_at').notNull(),
+  },
+  (table) => [
+    index('station_config_pull_request_station_idx').on(
+      table.stationId,
+      table.fingerprint,
+      table.openedAt,
+    ),
+    index('station_config_pull_request_team_idx').on(
+      table.workspaceId,
+      table.teamId,
+    ),
+  ],
+);
+
 export const taskTouches = pgTable(
   'task_touches',
   {

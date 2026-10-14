@@ -308,6 +308,12 @@ const toReplay = (row: ReplayRow, entries: readonly EntryRow[]): Replay =>
         ? null
         : Spend.of(row.unpricedRate, row.ceilingCurrency),
     among: row.among ? row.among.map((each) => RunId.of(each)) : null,
+    answers: row.answers
+      ? row.answers.map((each) => ({
+          run: RunId.of(each.run),
+          answer: each.answer,
+        }))
+      : null,
     repeats: row.repeats,
     probe: row.probe,
     comparedWith: row.comparedWith ? ReplayId.of(row.comparedWith) : null,
@@ -479,11 +485,14 @@ export class DrizzleReplayRepository implements ReplayRepository {
       .where(
         and(
           inArray(replay.setId, [...new Set(setIds.map((each) => each.value))]),
-          isNull(replay.among),
           isNull(replay.searchId),
           or(
-            and(eq(replayCandidate.kind, 'live'), eq(replay.state, 'finished')),
-            eq(replayCandidate.kind, 'sanity'),
+            and(
+              eq(replayCandidate.kind, 'live'),
+              eq(replay.state, 'finished'),
+              isNull(replay.among),
+            ),
+            eq(replayCandidate.kind, 'oracle'),
           ),
         ),
       )
@@ -625,6 +634,12 @@ export class DrizzleReplayRepository implements ReplayRepository {
       unpricedRate: held.unpricedRate?.amount ?? null,
       ceilingCurrency: held.ceiling.currency,
       among: held.among ? held.among.map((each) => each.value) : null,
+      answers: held.answers
+        ? held.answers.map((each) => ({
+            run: each.run.value,
+            answer: each.answer,
+          }))
+        : null,
       repeats: held.repeats,
       probe: held.probe,
       comparedWith: held.comparedWith?.value ?? null,

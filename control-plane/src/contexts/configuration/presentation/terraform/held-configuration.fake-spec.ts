@@ -143,6 +143,7 @@ const REVIEW: HeldLine = {
   reviews: {
     start: 'opened',
     mention: '@spotlight',
+    label: 'spotlight',
     skip: {
       spotlight: true,
       drafts: true,

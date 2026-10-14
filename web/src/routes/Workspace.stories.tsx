@@ -1,71 +1,34 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { Route } from 'react-router';
 import { inboxPath } from '@/lib/inbox';
 import { runnersPath } from '@/lib/runner';
-import { Inbox } from '@/routes/Inbox';
-import { InboxIndex } from '@/routes/InboxIndex';
-import { Runners } from '@/routes/Runners';
-import { Workspace } from '@/routes/Workspace';
-import {
-  failWorkspace,
-  missingWorkspace,
-  SLUG,
-  seedWorkspace,
-} from '@/stories/fixtures/workspace';
-import { StoryShell } from '@/stories/StoryShell';
+import { SLUG } from '@/mocks/world';
+import { choice, type PageArgs, pageStory } from '@/stories/application';
 
-const routes = (
-  <Route path="/w/:slug" element={<Workspace />}>
-    <Route path="inbox" element={<Inbox />}>
-      <Route index element={<InboxIndex />} />
-    </Route>
-    <Route path="settings/runners" element={<Runners />} />
-  </Route>
-);
-
-const at = inboxPath(SLUG);
+type ShellArgs = {
+  readonly showing: 'inbox' | 'not-found' | 'settings';
+};
 
 const meta = {
   title: 'Workspace/Shell',
-} satisfies Meta;
+  ...pageStory<ShellArgs>({
+    at: ({ showing }) => {
+      if (showing === 'not-found') return inboxPath('nowhere');
+      if (showing === 'settings') return runnersPath(SLUG);
+
+      return inboxPath(SLUG);
+    },
+    scope: ({ showing }) => (showing === 'settings' ? 'page' : 'app'),
+    args: { showing: 'inbox' },
+    argTypes: {
+      showing: choice('Showing', {
+        inbox: 'Inbox',
+        'not-found': 'Workspace not found',
+        settings: 'Settings',
+      }),
+    },
+  }),
+} satisfies Meta<PageArgs & ShellArgs>;
 
 export default meta;
 
-type Story = StoryObj<typeof meta>;
-
-export const Loading: Story = {
-  render: () => <StoryShell at={at}>{routes}</StoryShell>,
-};
-
-export const NotFound: Story = {
-  render: () => (
-    <StoryShell at={at} seed={missingWorkspace}>
-      {routes}
-    </StoryShell>
-  ),
-};
-
-export const Failed: Story = {
-  name: 'Error',
-  render: () => (
-    <StoryShell at={at} seed={failWorkspace}>
-      {routes}
-    </StoryShell>
-  ),
-};
-
-export const WithData: Story = {
-  render: () => (
-    <StoryShell at={at} seed={seedWorkspace}>
-      {routes}
-    </StoryShell>
-  ),
-};
-
-export const InSettings: Story = {
-  render: () => (
-    <StoryShell at={runnersPath(SLUG)} seed={seedWorkspace}>
-      {routes}
-    </StoryShell>
-  ),
-};
+export const Shell: StoryObj<typeof meta> = {};

@@ -50,9 +50,10 @@ const showing = () =>
 const offered = (over: Record<string, unknown> = {}) => ({
   data: {
     email: 'ada@example.com',
-    teamName: 'Platform',
     workspaceName: 'Acme',
     invitedBy: 'Leon Liang',
+    role: 'member',
+    teamNames: ['Platform'],
     standing: 'open',
     ...over,
   },
@@ -72,16 +73,49 @@ beforeEach(() => {
 });
 
 describe('AcceptInvite', () => {
-  it('says who asked and what they were asked onto', () => {
+  it('says who asked, to which workspace, and as what', () => {
     showing();
 
     expect(
       screen.getByRole('heading', {
-        name: 'Leon Liang invited you to Platform',
+        name: 'Leon Liang invited you to Acme',
       }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText('in the Acme workspace on Spotlight.'),
+      screen.getByText('You join as a member, on the Platform team.'),
+    ).toBeInTheDocument();
+  });
+
+  it('says someone who has left asked, where their account is gone', () => {
+    invite.mockReturnValue(offered({ invitedBy: null }));
+    showing();
+
+    expect(
+      screen.getByRole('heading', {
+        name: 'Someone who has left invited you to Acme',
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it('names every team an invitation joins', () => {
+    invite.mockReturnValue(
+      offered({ teamNames: ['Platform', 'Growth', 'Mobile'] }),
+    );
+    showing();
+
+    expect(
+      screen.getByText(
+        'You join as a member, on the Platform, Growth and Mobile teams.',
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it('says an admin invitation onto no team joins the workspace only', () => {
+    invite.mockReturnValue(offered({ role: 'admin', teamNames: [] }));
+    showing();
+
+    expect(
+      screen.getByText('You join as an admin of the workspace on Spotlight.'),
     ).toBeInTheDocument();
   });
 
@@ -97,17 +131,13 @@ describe('AcceptInvite', () => {
     expect(signIn).toHaveBeenCalledWith('/invites/tok-123');
   });
 
-  it('takes the invitation up and goes to the team', async () => {
+  it('takes the invitation up and lands in the workspace’s inbox', async () => {
     session.mockReturnValue({
       data: { user: { email: 'ada@example.com' } },
       isPending: false,
     });
     accept.mockImplementation((_, { onSuccess }) =>
-      onSuccess({
-        workspaceSlug: 'acme',
-        teamId: 'team_1',
-        teamName: 'Platform',
-      }),
+      onSuccess({ workspaceSlug: 'acme' }),
     );
     showing();
 
@@ -115,9 +145,22 @@ describe('AcceptInvite', () => {
       screen.getByRole('button', { name: 'Accept invitation' }),
     );
 
-    expect(navigate).toHaveBeenCalledWith('/w/acme/team/team_1', {
+    expect(navigate).toHaveBeenCalledWith('/w/acme/inbox', {
       replace: true,
     });
+  });
+
+  it('takes an address in any case as the same account', () => {
+    session.mockReturnValue({
+      data: { user: { email: 'Ada@Example.COM' } },
+      isPending: false,
+    });
+    showing();
+
+    expect(
+      screen.getByRole('button', { name: 'Accept invitation' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
   it('refuses somebody signed in as anybody else', () => {

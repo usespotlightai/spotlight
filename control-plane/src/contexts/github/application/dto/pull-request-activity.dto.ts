@@ -1,5 +1,6 @@
 export type PullRequestActivityKind =
   | 'opened'
+  | 'labelled'
   | 'merged'
   | 'closed-unmerged'
   | 'commented'
@@ -26,6 +27,7 @@ export interface PullRequestActivity {
   readonly activity: PullRequestActivityKind;
   readonly branch: string | null;
   readonly pullRequest: string | null;
+  readonly label: string | null;
   readonly about: PullRequestAbout | null;
   readonly remark: PullRequestRemark | null;
   readonly byBot: boolean;

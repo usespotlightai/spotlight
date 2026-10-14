@@ -138,17 +138,6 @@ export const objectiveIn = (body: unknown): SearchObjectiveAsked => {
     : refusedAt(['objective'], 'must be success, cost or left out');
 };
 
-export const strongerModelIn = (
-  body: unknown,
-): { readonly model: string | null; readonly effort: string | null } => {
-  const held = fieldsOf(body);
-
-  return {
-    model: optionalTextAt(held, ['model'], 'must be text or left out'),
-    effort: optionalTextAt(held, ['effort'], 'must be text or left out'),
-  };
-};
-
 export const repeatsIn = (body: unknown): number => {
   const held = fieldsOf(body);
   const repeats = held.repeats;

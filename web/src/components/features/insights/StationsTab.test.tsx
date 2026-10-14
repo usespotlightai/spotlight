@@ -4,8 +4,8 @@ import { MemoryRouter } from 'react-router';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { StationsTab } from '@/components/features/insights/StationsTab';
 import { DEFAULT_PERIOD } from '@/lib/insights';
-import { seedStations } from '@/stories/fixtures/insights';
-import { SLUG, TEAM_ID } from '@/stories/fixtures/team';
+import { seedStations } from '@/test/fixtures/insights';
+import { SLUG, TEAM_ID } from '@/test/fixtures/team';
 
 const showing = (path: string) => {
   const client = new QueryClient({

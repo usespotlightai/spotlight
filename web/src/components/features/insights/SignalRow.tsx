@@ -1,9 +1,14 @@
+import type { ReactNode } from 'react';
 import { SignalDumbbell } from '@/components/features/insights/SignalDumbbell';
 import { NestedCell } from '@/components/shared/nested-table/NestedCell';
 import {
+  EDGE_INDENT,
+  LEAD_CELL,
   OUTER_DIVIDER,
   OUTER_GUIDE,
   OUTER_INDENT,
+  ROW_DIVIDER,
+  TABLE_ROW,
 } from '@/components/shared/nested-table/nested-rows';
 import {
   type SignalReading,
@@ -20,28 +25,42 @@ const COMPARED = [
   { id: 'flaggedAbove', heading: 'Flagged above' },
 ] as const;
 
-export function SignalRow({ reading }: { reading: SignalReading }) {
+type SignalRowProps = {
+  reading: SignalReading;
+  nested?: boolean;
+  action?: ReactNode;
+};
+
+export function SignalRow({ reading, nested = true, action }: SignalRowProps) {
+  const pictured = action
+    ? {}
+    : { role: 'img' as const, 'aria-label': signalShown(reading) };
+
   return (
     <li
-      role="img"
-      aria-label={signalShown(reading)}
+      {...pictured}
       data-slot="signal-reading"
       className={cn(
-        'relative col-span-full grid grid-cols-2 items-center gap-x-6 gap-y-2 py-2 pr-2 text-xs @4xl:grid-cols-subgrid',
-        OUTER_GUIDE,
-        OUTER_DIVIDER,
+        TABLE_ROW,
+        nested ? [OUTER_GUIDE, OUTER_DIVIDER] : ROW_DIVIDER,
       )}
     >
       <span
         className={cn(
-          'col-span-full min-w-0 truncate text-foreground @4xl:col-span-1',
-          OUTER_INDENT,
+          LEAD_CELL,
+          'text-foreground',
+          nested ? OUTER_INDENT : EDGE_INDENT,
         )}
       >
-        {signalLabel(reading.signal)}
+        <span className="truncate">{signalLabel(reading.signal)}</span>
       </span>
 
-      <div className="col-span-full min-w-0 @4xl:col-span-1">
+      <div
+        {...(action
+          ? { role: 'img' as const, 'aria-label': signalShown(reading) }
+          : {})}
+        className="col-span-full min-w-0 @4xl:col-span-1 @lg:group-data-compact/nested:col-span-1"
+      >
         <SignalDumbbell reading={reading} />
       </div>
 
@@ -50,6 +69,12 @@ export function SignalRow({ reading }: { reading: SignalReading }) {
           {signalValue(reading, reading[id])}
         </NestedCell>
       ))}
+
+      {action && (
+        <span className="col-span-full flex justify-end @4xl:col-span-1 @lg:group-data-compact/nested:col-span-1">
+          {action}
+        </span>
+      )}
     </li>
   );
 }

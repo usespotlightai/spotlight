@@ -289,6 +289,10 @@ export const replay = pgTable(
     ceilingCurrency: text('ceiling_currency').notNull(),
     unpricedRate: doublePrecision('unpriced_rate'),
     among: jsonb('among').$type<string[]>(),
+    answers:
+      jsonb('answers').$type<
+        { run: string; answer: 'accepted' | 'sent-back' }[]
+      >(),
     repeats: integer('repeats').notNull(),
     probe: boolean('probe').notNull().default(false),
     comparedWith: text('compared_with'),

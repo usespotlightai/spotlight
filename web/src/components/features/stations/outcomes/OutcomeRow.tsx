@@ -1,4 +1,10 @@
-import { OUTCOME_COLUMNS } from '@/components/features/stations/outcomes/columns';
+import { NestedCell } from '@/components/shared/nested-table/NestedCell';
+import {
+  EDGE_INDENT,
+  LEAD_CELL,
+  ROW_DIVIDER,
+  TABLE_ROW,
+} from '@/components/shared/nested-table/nested-rows';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { since } from '@/lib/since';
 import {
@@ -13,9 +19,6 @@ import {
 } from '@/lib/station-outcomes';
 import { cn } from '@/lib/utils';
 
-const FIGURE = 'truncate text-muted-foreground text-xs';
-const NUMBER = cn(FIGURE, 'text-right tabular-nums');
-
 type OutcomeRowProps = {
   run: StationRunOutcome;
   to: string;
@@ -23,17 +26,12 @@ type OutcomeRowProps = {
 
 export function OutcomeRow({ run, to }: OutcomeRowProps) {
   return (
-    <li
-      className={cn(
-        'relative grid h-9 items-center gap-2 rounded-md px-2 text-sm transition-colors hover:bg-accent',
-        OUTCOME_COLUMNS,
-      )}
-    >
-      <span className="flex min-w-0 items-center gap-2">
+    <li className={cn(TABLE_ROW, ROW_DIVIDER)}>
+      <span className={cn(LEAD_CELL, EDGE_INDENT)}>
         <TrailLink
           to={to}
           className={cn(
-            'shrink-0 outline-none after:absolute after:inset-0 after:rounded-md',
+            'shrink-0 font-medium outline-none after:absolute after:inset-0',
             endedBadly(run.ending) ? 'text-destructive' : 'text-foreground',
           )}
         >
@@ -41,19 +39,29 @@ export function OutcomeRow({ run, to }: OutcomeRowProps) {
         </TrailLink>
 
         {run.failure && (
-          <span className={FIGURE} title={run.failure}>
+          <span className="truncate text-muted-foreground" title={run.failure}>
             {run.failure}
           </span>
         )}
       </span>
 
-      <span className={FIGURE}>Round {run.round}</span>
-      <span className={FIGURE}>{checksShown(run.checks)}</span>
-      <span className={FIGURE}>{nextShown(run.next)}</span>
-      <span className={FIGURE}>{deliveryShown(run.delivery)}</span>
-      <span className={NUMBER}>{runTook(run.cost)}</span>
-      <span className={NUMBER}>{runSpent(run.cost)}</span>
-      <span className={NUMBER}>{since(run.endedAt)}</span>
+      <NestedCell heading="Round" numeric={false}>
+        {run.round}
+      </NestedCell>
+      <NestedCell heading="Checks" numeric={false}>
+        {checksShown(run.checks)}
+      </NestedCell>
+      <NestedCell heading="Next" numeric={false}>
+        {nextShown(run.next)}
+      </NestedCell>
+      <NestedCell heading="Delivery" numeric={false}>
+        {deliveryShown(run.delivery)}
+      </NestedCell>
+      <NestedCell heading="Took">{runTook(run.cost)}</NestedCell>
+      <NestedCell heading="Cost" strong>
+        {runSpent(run.cost)}
+      </NestedCell>
+      <NestedCell heading="Ended">{since(run.endedAt)}</NestedCell>
     </li>
   );
 }

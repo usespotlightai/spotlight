@@ -1,4 +1,4 @@
-import type { MemberReaderPort } from '@identity/application/ports/member-reader.port';
+import type { MemberDirectoryPort } from '@identity/application/ports/member-directory.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
@@ -67,7 +67,7 @@ export class ReactToHappenings implements HappeningReactionsPort {
     private readonly transaction: TransactionPort,
     private readonly clock: ClockPort,
     private readonly ids: IdGeneratorPort,
-    private readonly members: MemberReaderPort,
+    private readonly members: MemberDirectoryPort,
     private readonly files: AttachmentStorePort,
     private readonly heardBefore: HeardHappeningsPort,
     private readonly logger: LoggerPort,

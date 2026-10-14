@@ -7,8 +7,8 @@ import { RevokeTokenDialog } from '@/components/features/tokens/RevokeTokenDialo
 import { TokenCreated } from '@/components/features/tokens/TokenCreated';
 import { TokenRow } from '@/components/features/tokens/TokenRow';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
+import { SectionButton } from '@/components/shared/SectionButton';
 import { IconRowSkeleton } from '@/components/shared/skeleton/IconRowSkeleton';
-import { Button } from '@/components/ui/button';
 import type { CreatedWorkspaceToken } from '@/hooks/api/useCreateWorkspaceToken';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { useWorkspaceTokens } from '@/hooks/api/useWorkspaceTokens';
@@ -54,15 +54,12 @@ export function Tokens() {
           title="Workspace tokens"
           count={tokens.data?.length}
           action={
-            <Button
-              variant="outline"
-              size="sm"
-              className="rounded-full border-border bg-card px-3 shadow-none"
+            <SectionButton
               onClick={() => setCreating(true)}
               disabled={!workspaceId}
             >
               Create a token
-            </Button>
+            </SectionButton>
           }
         >
           {loading(tokens) && (

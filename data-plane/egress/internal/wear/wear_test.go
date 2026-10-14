@@ -378,3 +378,104 @@ func TestHandsBackTheStandInWhereverTheHostEchoesASecret(t *testing.T) {
 		t.Errorf("did not refuse a carrier that is neither: %s", logged.String())
 	}
 }
+
+func controlPlane(t *testing.T, address string) *url.URL {
+	t.Helper()
+	parsed, err := url.Parse(address)
+	if err != nil {
+		t.Fatal(err)
+	}
+	return parsed
+}
+
+func plainRequest(header http.Header) *http.Request {
+	return &http.Request{Header: header, URL: &url.URL{}}
+}
+
+func TestTowardControlPlaneWearsTheRunsTokenInPlaceOfItsStandIn(t *testing.T) {
+	wearing, _ := holding(t)
+	if err := wearing.TowardControlPlane(&protocol.SpotlightAPI{Sealed: "sealed:run-token"}, controlPlane(t, "https://Spotlight.example.com"), "run_1", opener{}); err != nil {
+		t.Fatal(err)
+	}
+
+	header := http.Header{"Authorization": {"Bearer " + protocol.SpotlightAPIStandIn}}
+	onto(wearing, "spotlight.example.com", header)
+
+	if got := header.Get("Authorization"); got != "Bearer run-token" {
+		t.Fatalf("Authorization = %q, want the run's token", got)
+	}
+	if !wearing.Wears("spotlight.example.com") {
+		t.Fatal("egress should stand in for the control plane")
+	}
+}
+
+func TestTowardControlPlaneHoldsNothingWithoutAToken(t *testing.T) {
+	wearing, _ := holding(t)
+	if err := wearing.TowardControlPlane(nil, controlPlane(t, "https://spotlight.example.com"), "run_1", opener{}); err != nil {
+		t.Fatal(err)
+	}
+
+	if wearing.Wears("spotlight.example.com") {
+		t.Fatal("egress should hold nothing for the control plane")
+	}
+}
+
+func TestTowardControlPlaneRefusesATokenSealedForAnotherRun(t *testing.T) {
+	wearing, _ := holding(t)
+
+	if err := wearing.TowardControlPlane(&protocol.SpotlightAPI{Sealed: "sealed:run-token"}, controlPlane(t, "https://spotlight.example.com"), "run_2", opener{}); err == nil {
+		t.Fatal("a token sealed for another run should not open")
+	}
+}
+
+func TestTowardControlPlaneRefusesAHeaderAnotherSecretWears(t *testing.T) {
+	wearing, _ := holding(t)
+
+	if err := wearing.TowardControlPlane(&protocol.SpotlightAPI{Sealed: "sealed:run-token"}, controlPlane(t, "https://mcp.linear.app"), "run_1", opener{}); err == nil {
+		t.Fatal("the run's token should not take the Authorization header another secret wears")
+	}
+}
+
+func TestOntoPlainWearsTheRunsTokenOnlyOnThePlainControlPlanesOwnPort(t *testing.T) {
+	wearing, _ := holding(t)
+	if err := wearing.TowardControlPlane(&protocol.SpotlightAPI{Sealed: "sealed:run-token"}, controlPlane(t, "http://control-plane:3000"), "run_1", opener{}); err != nil {
+		t.Fatal(err)
+	}
+
+	worn := http.Header{"Authorization": {"Bearer " + protocol.SpotlightAPIStandIn}}
+	wearing.OntoPlain("control-plane", "3000", plainRequest(worn))
+	if got := worn.Get("Authorization"); got != "Bearer run-token" {
+		t.Fatalf("Authorization = %q, want the run's token on the control plane's port", got)
+	}
+
+	elsewhere := http.Header{"Authorization": {"Bearer " + protocol.SpotlightAPIStandIn}}
+	wearing.OntoPlain("control-plane", "80", plainRequest(elsewhere))
+	if got := elsewhere.Get("Authorization"); got == "Bearer run-token" {
+		t.Fatal("the run's token went to another port of the control plane's host")
+	}
+}
+
+func TestOntoPlainNeverWearsTheTokenOfAnHTTPSControlPlane(t *testing.T) {
+	wearing, _ := holding(t)
+	if err := wearing.TowardControlPlane(&protocol.SpotlightAPI{Sealed: "sealed:run-token"}, controlPlane(t, "https://spotlight.example.com"), "run_1", opener{}); err != nil {
+		t.Fatal(err)
+	}
+
+	header := http.Header{"Authorization": {"Bearer " + protocol.SpotlightAPIStandIn}}
+	wearing.OntoPlain("spotlight.example.com", "80", plainRequest(header))
+
+	if got := header.Get("Authorization"); got == "Bearer run-token" {
+		t.Fatal("the run's token went over plain HTTP to an HTTPS control plane")
+	}
+}
+
+func TestOntoPlainWearsNoOtherSecret(t *testing.T) {
+	wearing, _ := holding(t)
+
+	header := http.Header{"X-Workspace": {protocol.StandInPrefix + "LINEAR_WORKSPACE"}}
+	wearing.OntoPlain("mcp.linear.app", "80", plainRequest(header))
+
+	if got := header.Get("X-Workspace"); got != "" {
+		t.Fatalf("X-Workspace = %q, want the stand-in taken off rather than worn over plain HTTP", got)
+	}
+}

@@ -26,6 +26,12 @@ export interface TraceRow {
   readonly teamId: string;
 }
 
+export interface ChatSetupRow {
+  readonly repository: string;
+  readonly folder: string;
+  readonly pullRequest: string | null;
+}
+
 export interface ImprovedStationRow {
   readonly lineId: string;
   readonly lineKey: string;
@@ -48,6 +54,7 @@ export const chat = pgTable(
     effort: text('effort'),
     repositories: jsonb('repositories').$type<string[]>().notNull().default([]),
     improving: jsonb('improving').$type<ImprovedStationRow>(),
+    setup: jsonb('setup').$type<ChatSetupRow>(),
     currentRunId: text('current_run_id'),
     sessionId: text('session_id'),
     runnerId: text('runner_id'),

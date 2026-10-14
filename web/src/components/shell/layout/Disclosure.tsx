@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 type DisclosureProps = {
   open: boolean;
   slot?: string;
+  label?: string;
   className?: string;
   children: ReactNode;
 };
@@ -11,6 +12,7 @@ type DisclosureProps = {
 export function Disclosure({
   open,
   slot,
+  label,
   className,
   children,
 }: DisclosureProps) {
@@ -24,6 +26,7 @@ export function Disclosure({
       )}
     >
       <ul
+        aria-label={label}
         inert={!open}
         className={cn(
           'flex min-h-0 flex-col gap-0.5 overflow-hidden pt-0.5',

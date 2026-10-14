@@ -121,13 +121,13 @@ describe('search words cover every code the API can answer', () => {
     );
     worded(
       warningShown({
-        kind: 'sanity-failed',
+        kind: 'no-headroom',
         gain: 0,
         low: -0.1,
         high: 0.1,
-        worseTasks: 1,
+        answered: 6,
       }),
-      'sanity-failed',
+      'no-headroom',
     );
     expect(
       [
@@ -136,16 +136,16 @@ describe('search words cover every code the API can answer', () => {
         'SaturatedWarningResponseDto',
         'JudgeUnstableWarningResponseDto',
         'FlakyChecksWarningResponseDto',
-        'SanityFailedWarningResponseDto',
+        'NoHeadroomWarningResponseDto',
       ]
         .flatMap((schema) => codesOf(schema, 'kind'))
         .sort(),
     ).toEqual([
       'flaky-checks',
       'judge-unstable',
+      'no-headroom',
       'noise-unmeasured',
       'noisy',
-      'sanity-failed',
       'saturated',
     ]);
   });

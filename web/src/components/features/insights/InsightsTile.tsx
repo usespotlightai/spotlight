@@ -1,3 +1,4 @@
+import type { ReactNode } from 'react';
 import { DeltaMark } from '@/components/features/insights/DeltaMark';
 import { InfoNote } from '@/components/features/insights/InfoNote';
 import { InsightsLink } from '@/components/features/insights/InsightsLink';
@@ -9,7 +10,7 @@ const AGAINST = 'Against the previous period';
 type InsightsTileProps = {
   label: string;
   value: string;
-  detail?: string;
+  detail?: ReactNode;
   note?: string;
   delta?: Delta | null;
   drill?: TileDrill;

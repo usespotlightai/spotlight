@@ -1,33 +1,40 @@
-import type { InviteAccepted } from '@identity/domain/events/invite-accepted.event';
+import type { PersonReaderPort } from '@identity/application/ports/person-reader.port';
+import type { WorkspaceInviteAccepted } from '@identity/domain/events/workspace-invite-accepted.event';
 import type { TeamRepository } from '@identity/domain/repositories/team.repository';
 import type { WorkspaceRepository } from '@identity/domain/repositories/workspace.repository';
-import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
 
 export class InviteMemberships {
   constructor(
     private readonly workspaces: WorkspaceRepository,
     private readonly teams: TeamRepository,
+    private readonly people: PersonReaderPort,
   ) {}
 
-  async intoWorkspace(accepted: InviteAccepted): Promise<void> {
-    const workspace = await this.workspaces.find(accepted.workspaceId);
+  async joined(accepted: WorkspaceInviteAccepted): Promise<void> {
+    const found = await this.workspaces.find(accepted.workspaceId);
 
-    if (!workspace) {
+    if (!found || !(await this.people.find(accepted.userId))) {
       return;
     }
 
-    await this.workspaces.save(
-      workspace.joinedBy(accepted.userId, WorkspaceRole.member),
-    );
-  }
+    const workspace = found.joinedBy(accepted.userId, accepted.terms.role);
 
-  async intoTeam(accepted: InviteAccepted): Promise<void> {
-    const team = await this.teams.find(accepted.teamId);
-
-    if (!team) {
-      return;
+    if (workspace !== found) {
+      await this.workspaces.save(workspace);
     }
 
-    await this.teams.save(team.joinedBy(accepted.userId));
+    for (const teamId of accepted.terms.teams) {
+      const team = await this.teams.find(teamId);
+
+      if (!team?.workspaceId.equals(workspace.id)) {
+        continue;
+      }
+
+      const joined = team.joinedBy(accepted.userId, workspace);
+
+      if (joined !== team) {
+        await this.teams.save(joined);
+      }
+    }
   }
 }

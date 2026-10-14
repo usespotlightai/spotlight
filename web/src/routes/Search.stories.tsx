@@ -1,89 +1,26 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { Route } from 'react-router';
-import { searchPath } from '@/lib/search';
-import { Search } from '@/routes/Search';
-import {
-  failSearch,
-  LINE_ID,
-  SEARCH_ID,
-  SLUG,
-  STATION_ID,
-  seedCostSearch,
-  seedSearch,
-  seedSearchAwaiting,
-  seedSeedingSearch,
-  seedStalledSearch,
-  TEAM_ID,
-} from '@/stories/fixtures/searches';
-import { StoryPage } from '@/stories/StoryPage';
+import { choice, type PageArgs, pageStory } from '@/stories/application';
 
-const at = searchPath(
-  { slug: SLUG, teamId: TEAM_ID, lineId: LINE_ID, stationId: STATION_ID },
-  SEARCH_ID,
-);
-
-const routes = (
-  <Route
-    path="/w/:slug/team/:teamId/lines/:lineId/stations/:stationId/searches/:searchId"
-    element={<Search />}
-  />
-);
+type SearchArgs = {
+  readonly search: 'search_tests_first' | 'search_live';
+};
 
 const meta = {
   title: 'Team/Lines/Search',
-} satisfies Meta;
+  ...pageStory<SearchArgs>({
+    states: ['data', 'loading', 'error'],
+    at: ({ search }) =>
+      `/w/acme/team/team_platform/lines/line_delivery/stations/station_implementation/searches/${search}`,
+    args: { search: 'search_tests_first' },
+    argTypes: {
+      search: choice('Search', {
+        search_tests_first: 'Finished',
+        search_live: 'Stopped',
+      }),
+    },
+  }),
+} satisfies Meta<PageArgs & SearchArgs>;
 
 export default meta;
 
-type Story = StoryObj<typeof meta>;
-
-export const Loading: Story = {
-  render: () => (
-    <StoryPage at={at} seed={seedSearchAwaiting}>
-      {routes}
-    </StoryPage>
-  ),
-};
-
-export const Empty: Story = {
-  render: () => (
-    <StoryPage at={at} seed={seedSeedingSearch}>
-      {routes}
-    </StoryPage>
-  ),
-};
-
-export const Failed: Story = {
-  name: 'Error',
-  render: () => (
-    <StoryPage at={at} seed={failSearch}>
-      {routes}
-    </StoryPage>
-  ),
-};
-
-export const WithData: Story = {
-  render: () => (
-    <StoryPage at={at} seed={seedSearch}>
-      {routes}
-    </StoryPage>
-  ),
-};
-
-export const AimsForCost: Story = {
-  name: 'Aims for the same success for less',
-  render: () => (
-    <StoryPage at={at} seed={seedCostSearch}>
-      {routes}
-    </StoryPage>
-  ),
-};
-
-export const Stalled: Story = {
-  name: 'Stalled, with why',
-  render: () => (
-    <StoryPage at={at} seed={seedStalledSearch}>
-      {routes}
-    </StoryPage>
-  ),
-};
+export const Search: StoryObj<typeof meta> = {};

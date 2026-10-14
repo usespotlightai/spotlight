@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ReviewThreadCard } from '@/components/features/review/ReviewThreadCard';
 import { type CodeReview, threadsOf } from '@/lib/review';
 import { ReviewContext } from '@/lib/review-context';
-import { REVIEW } from '@/stories/fixtures/change-stack';
+import { REVIEW } from '@/test/fixtures/change-stack';
 
 const drafting = vi.fn();
 const editing = vi.fn();

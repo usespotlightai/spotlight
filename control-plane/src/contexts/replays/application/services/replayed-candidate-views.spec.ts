@@ -274,7 +274,7 @@ describe('replayedCandidatesView', () => {
       saturation: null,
       judge: null,
       checks: null,
-      sanity: null,
+      oracle: null,
       minGain: DEFAULT_MIN_GAIN,
     });
     expect(onlySet().health).toMatchObject({

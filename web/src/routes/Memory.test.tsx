@@ -12,6 +12,9 @@ vi.mock('@/hooks/api/useWorkspace', () => ({
 vi.mock('@/hooks/api/useLines', () => ({
   useLines: () => ({ data: [] }),
 }));
+vi.mock('@/hooks/api/useTeamMemories', () => ({
+  useTeamMemories: () => ({ data: [] }),
+}));
 vi.mock('@/components/features/memory/TeamMemory', () => ({
   TeamMemory: () => <p>The team’s memory</p>,
 }));
@@ -44,11 +47,11 @@ describe('Memory', () => {
     ).toBeInTheDocument();
   });
 
-  it('offers no filters while one linked memory is shown', () => {
+  it('keeps the filters when a link opens one memory', () => {
     showing('?memory=memory_9');
 
     expect(
-      screen.queryByRole('button', { name: /Filter memories/ }),
-    ).not.toBeInTheDocument();
+      screen.getByRole('button', { name: /Filter memories/ }),
+    ).toBeInTheDocument();
   });
 });

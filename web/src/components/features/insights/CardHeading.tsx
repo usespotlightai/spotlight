@@ -4,14 +4,22 @@ type CardTitleProps = {
   titleId: string;
   title: string;
   description?: string;
+  level?: 2 | 3;
 };
 
-export function CardTitle({ titleId, title, description }: CardTitleProps) {
+export function CardTitle({
+  titleId,
+  title,
+  description,
+  level = 2,
+}: CardTitleProps) {
+  const Heading = level === 3 ? 'h3' : 'h2';
+
   return (
     <span className="flex min-w-0 items-center gap-1.5">
-      <h2 id={titleId} className="font-medium text-foreground text-xs">
+      <Heading id={titleId} className="font-medium text-foreground text-xs">
         {title}
-      </h2>
+      </Heading>
       {description && <InfoNote note={description} />}
     </span>
   );

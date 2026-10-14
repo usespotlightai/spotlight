@@ -6,6 +6,32 @@ import {
 import { AttachmentResponseDto } from '@work/presentation/http/dto/attachment.response.dto';
 import { InboxAuthorResponseDto } from '@work/presentation/http/dto/inbox.response.dto';
 
+export class ChatSetupResponseDto {
+  @ApiProperty({ example: 'acme/infra' })
+  readonly repository: string;
+
+  @ApiProperty({ example: 'spotlight' })
+  readonly folder: string;
+
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    example: 'https://github.com/acme/infra/pull/12',
+    description: 'The pull request the chat opened with the configuration',
+  })
+  readonly pullRequest: string | null;
+
+  constructor(from: {
+    repository: string;
+    folder: string;
+    pullRequest: string | null;
+  }) {
+    this.repository = from.repository;
+    this.folder = from.folder;
+    this.pullRequest = from.pullRequest;
+  }
+}
+
 export class ChatImprovingResponseDto {
   @ApiProperty()
   readonly lineId: string;
@@ -68,6 +94,14 @@ export class ChatSummaryResponseDto {
   })
   readonly improving: ChatImprovingResponseDto | null;
 
+  @ApiProperty({
+    type: () => ChatSetupResponseDto,
+    nullable: true,
+    description:
+      'Where the chat sets up the team’s configuration as code, for a setup chat',
+  })
+  readonly setup: ChatSetupResponseDto | null;
+
   @ApiProperty({ example: '2026-09-14T09:00:00.000Z' })
   readonly createdAt: string;
 
@@ -85,6 +119,7 @@ export class ChatSummaryResponseDto {
     effort: string | null,
     repositories: readonly string[],
     improving: ChatImprovingResponseDto | null,
+    setup: ChatSetupResponseDto | null,
     createdAt: string,
     updatedAt: string,
     working: boolean,
@@ -96,6 +131,7 @@ export class ChatSummaryResponseDto {
     this.effort = effort;
     this.repositories = repositories;
     this.improving = improving;
+    this.setup = setup;
     this.createdAt = createdAt;
     this.updatedAt = updatedAt;
     this.working = working;
@@ -273,6 +309,7 @@ export class ChatResponseDto extends ChatSummaryResponseDto {
       summary.effort,
       summary.repositories,
       summary.improving,
+      summary.setup,
       summary.createdAt,
       summary.updatedAt,
       summary.working,

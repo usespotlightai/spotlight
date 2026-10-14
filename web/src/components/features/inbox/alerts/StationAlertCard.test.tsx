@@ -185,9 +185,10 @@ describe('StationAlertCard', () => {
       'href',
       '/w/acme/team/team_1/insights?tab=stations&period=7d#station-station_impl',
     );
-    expect(
-      screen.getByRole('link', { name: /Improve this station/ }),
-    ).toHaveAttribute('href', '/w/acme/team/team_1/agent');
+    expect(screen.getByRole('link', { name: 'Improve' })).toHaveAttribute(
+      'href',
+      '/w/acme/team/team_1/agent',
+    );
   });
 
   it('says when the station came back within it, and when its runs are gone', () => {

@@ -115,7 +115,7 @@ describe('a minted token as a resource', () => {
       outcome: 'invalid',
       problems: [
         expect.objectContaining({
-          reason: expect.stringContaining('minted through a trust'),
+          reason: expect.stringContaining('Spotlight minted'),
         }),
       ],
     });

@@ -42,6 +42,9 @@ const followersOf = (element: HTMLElement): HTMLElement[] => {
   return found;
 };
 
+const rendered = (element: HTMLElement): boolean =>
+  element.getClientRects().length > 0;
+
 export const placementOf = (
   target: HTMLElement,
   parts: readonly HTMLElement[] = [],
@@ -51,7 +54,7 @@ export const placementOf = (
   return new Map(
     [
       target,
-      ...parts,
+      ...parts.filter(rendered),
       ...ancestors,
       ...[target, ...ancestors].flatMap(followersOf),
     ].map((element) => [element, boxOf(element)]),
@@ -102,6 +105,39 @@ export const glideBetween = (
     const frames = [one, other].map((box) => ({
       ...(moves ? { transform: `translateY(${box.top - at.top}px)` } : {}),
       ...(resizes ? { clipPath: clipOf(element, at.height - box.height) } : {}),
+    }));
+
+    return [element.animate(frames, { ...GLIDE, fill: 'both' })];
+  });
+
+type Spot = { readonly left: number; readonly top: number };
+
+export type Spots = ReadonlyMap<HTMLElement, Spot>;
+
+export const spotsOf = (elements: readonly HTMLElement[]): Spots =>
+  new Map(
+    elements.map((element) => {
+      const { left, top } = element.getBoundingClientRect();
+
+      return [element, { left, top }];
+    }),
+  );
+
+export const shiftBetween = (now: Spots, from: Spots, to: Spots): Animation[] =>
+  [...now].flatMap(([element, at]) => {
+    const one = from.get(element);
+    const other = to.get(element);
+
+    if (
+      !one ||
+      !other ||
+      (!apart(one.left, other.left) && !apart(one.top, other.top))
+    ) {
+      return [];
+    }
+
+    const frames = [one, other].map((spot) => ({
+      transform: `translate(${spot.left - at.left}px, ${spot.top - at.top}px)`,
     }));
 
     return [element.animate(frames, { ...GLIDE, fill: 'both' })];

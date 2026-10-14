@@ -7,9 +7,11 @@ import type { BuiltInSkillsPort } from '@work/application/ports/built-in-skills.
 import type { ContentDigestPort } from '@work/application/ports/content-digest.port';
 import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.port';
 import type { MemoriesBriefedBeforePort } from '@work/application/ports/memories-briefed-before.port';
+import type { ReplayAnswer } from '@work/application/ports/replay-dispatch.port';
 import type { StationProfilesPort } from '@work/application/ports/station-profiles.port';
 import type { TraceParentPort } from '@work/application/ports/trace-parent.port';
 import { TaskBriefing } from '@work/application/rendering/task-briefing';
+import type { ReplayAnswers } from '@work/application/services/replay-answers.service';
 import type { StationCatalog } from '@work/application/services/station-catalog.service';
 import { StationOrdering } from '@work/application/services/station-ordering';
 import type { StationSkills } from '@work/application/services/station-skills.service';
@@ -34,6 +36,7 @@ export interface ReplayAsked {
   readonly original: RunId;
   readonly candidate: Line;
   readonly id?: RunId;
+  readonly answer?: ReplayAnswer | null;
 }
 
 export class DispatchReplay {
@@ -55,6 +58,7 @@ export class DispatchReplay {
     private readonly memories: MemoriesBriefedBeforePort,
     private readonly files: AttachmentStorePort,
     digest: ContentDigestPort,
+    private readonly answers: ReplayAnswers,
   ) {
     this.ordering = new StationOrdering(
       harnesses,
@@ -71,6 +75,7 @@ export class DispatchReplay {
     original,
     candidate,
     id: asked,
+    answer = null,
   }: ReplayAsked): Promise<RunId> {
     if (asked && (await this.alreadyQueued(asked, original))) {
       return asked;
@@ -112,7 +117,7 @@ export class DispatchReplay {
       replayed.briefedWith.value,
       plan.startedAt,
     );
-    const briefing = TaskBriefing.brief({
+    const briefed = TaskBriefing.brief({
       task: plan.briefed,
       line: candidate,
       skills: folders.map((each) => each.skill),
@@ -121,6 +126,16 @@ export class DispatchReplay {
       memoryFolder: memories.folder,
       tools: [],
     });
+    const answered = answer && (await this.answers.briefFor(replayed, answer));
+
+    if (answer && !answered) {
+      throw new UnreplayableRunError(
+        original.value,
+        'answer-gone',
+        'The change people accepted or what they said is no longer there.',
+      );
+    }
+    const briefing = answered ? `${briefed}\n\n${answered}` : briefed;
 
     const queued = Run.enqueue({
       id,

@@ -1,12 +1,13 @@
 import { ListChecks } from 'lucide-react';
 import { useState } from 'react';
-import { ReplaysHeading } from '@/components/features/replays/ReplaysHeading';
-import { ComparedWith } from '@/components/features/replays/replay/ComparedWith';
+import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { EntryDetailOf } from '@/components/features/replays/replay/EntryDetailOf';
 import { ReplayComparison } from '@/components/features/replays/replay/ReplayComparison';
-import { ReplayHeader } from '@/components/features/replays/replay/ReplayHeader';
+import { ReplayHeading } from '@/components/features/replays/replay/ReplayHeading';
+import { ReplayTiles } from '@/components/features/replays/replay/ReplayTiles';
+import { StopReplayButton } from '@/components/features/replays/replay/StopReplayButton';
 import { StateBox } from '@/components/features/replays/StateBox';
-import { StationLayout } from '@/components/features/stations/StationLayout';
+import { StationPane } from '@/components/features/stations/StationPane';
 import { EmptyState } from '@/components/shared/EmptyState';
 import {
   type BreadcrumbSegment,
@@ -15,6 +16,8 @@ import {
 import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { buttonVariants } from '@/components/ui/button-variants';
+
+import type { LineResponseDto, StationResponseDto } from '@/lib/api';
 import {
   baselineIn,
   type Replay,
@@ -22,12 +25,18 @@ import {
   type ReplayedStation,
   type ReplaySet,
   replaySetPath,
+  taskColumnsOf,
+  underway,
 } from '@/lib/replay';
+
+import { tasksNoteShown } from '@/lib/replay-words';
 import { TrailContext } from '@/lib/trail';
 import { cn } from '@/lib/utils';
 
 type ReplayPageProps = {
   at: ReplayedStation;
+  line: LineResponseDto | undefined;
+  station: StationResponseDto | undefined;
   replay: ReplayDetail;
   set: ReplaySet;
   siblings: readonly Replay[];
@@ -37,6 +46,8 @@ type ReplayPageProps = {
 
 export function ReplayPage({
   at,
+  line,
+  station,
   replay,
   set,
   siblings,
@@ -50,12 +61,29 @@ export function ReplayPage({
     (replay.baselineReplayId === replay.id ? replay : null);
   const chosen =
     replay.comparison.find((each) => each.originalRunId === picked) ?? null;
+  const { compared, counterpart } = taskColumnsOf(replay);
 
   return (
     <TrailContext value={forward}>
-      <PageHeader title={<Breadcrumbs segments={trail} />} />
+      <PageHeader
+        title={<Breadcrumbs segments={trail} />}
+        bordered={false}
+        actions={
+          underway(replay.state) && (
+            <StopReplayButton teamId={at.teamId} replayId={replay.id} />
+          )
+        }
+      />
 
-      <StationLayout
+      <ReplayHeading
+        at={at}
+        line={line}
+        station={station}
+        replay={replay}
+        setName={set.name}
+      />
+
+      <StationPane
         aside={
           <EntryDetailOf
             slug={at.slug}
@@ -65,19 +93,15 @@ export function ReplayPage({
           />
         }
       >
-        <ReplayHeader
-          at={at}
-          replay={replay}
-          setName={set.name}
-          baseline={baseline}
-        />
+        <ReplayTiles replay={replay} baseline={baseline} />
 
-        <section aria-labelledby="task-by-task" className="flex flex-col gap-2">
-          <ReplaysHeading title="Task by task" id="task-by-task" level="h2" />
-          <ComparedWith at={at} replay={replay} />
-
+        <InsightsCard
+          tableOnly
+          title="Tasks"
+          description={tasksNoteShown(compared ? counterpart : null)}
+        >
           {replay.comparison.length === 0 ? (
-            <StateBox>
+            <StateBox flat>
               <EmptyState
                 icon={ListChecks}
                 title="No tasks in this replay"
@@ -99,15 +123,13 @@ export function ReplayPage({
             </StateBox>
           ) : (
             <ReplayComparison
-              slug={at.slug}
-              teamId={at.teamId}
               replay={replay}
               picked={chosen?.originalRunId ?? null}
               onPick={(id) => setPicked((was) => (was === id ? null : id))}
             />
           )}
-        </section>
-      </StationLayout>
+        </InsightsCard>
+      </StationPane>
     </TrailContext>
   );
 }

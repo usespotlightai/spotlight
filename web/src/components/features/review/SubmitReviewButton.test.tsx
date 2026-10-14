@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { SubmitReviewButton } from '@/components/features/review/SubmitReviewButton';
 import { type CodeReview, threadsOf } from '@/lib/review';
 import { ReviewContext } from '@/lib/review-context';
-import { REVIEW } from '@/stories/fixtures/change-stack';
+import { REVIEW } from '@/test/fixtures/change-stack';
 
 const submitting = vi.fn();
 

@@ -1,11 +1,12 @@
 import { useParams } from 'react-router';
 import { SetHealth } from '@/components/features/replays/set/health/SetHealth';
-import { ReplaySetHeader } from '@/components/features/replays/set/ReplaySetHeader';
+import { ReplaySetActions } from '@/components/features/replays/set/ReplaySetActions';
+import { ReplaySetHeading } from '@/components/features/replays/set/ReplaySetHeading';
 import { ReplaySetSkeleton } from '@/components/features/replays/set/ReplaySetSkeleton';
 import { SetChecks } from '@/components/features/replays/set/SetChecks';
 import { SetReplays } from '@/components/features/replays/set/SetReplays';
 import { SetRuns } from '@/components/features/replays/set/SetRuns';
-import { StationLayout } from '@/components/features/stations/StationLayout';
+import { StationPane } from '@/components/features/stations/StationPane';
 import { MembersOnlyOrCouldNotLoad } from '@/components/features/team/MembersOnlyOrCouldNotLoad';
 import { PageNotice } from '@/components/shared/PageNotice';
 import {
@@ -19,9 +20,10 @@ import { useSearches } from '@/hooks/api/useSearches';
 import { useStation } from '@/hooks/api/useStation';
 import { useStationTrail } from '@/hooks/useStationTrail';
 import { failed, loading } from '@/lib/query';
-import { replaySetPath, replaysAnchorPath } from '@/lib/replay';
+import { anyUnderway, replaysAnchorPath } from '@/lib/replay';
 import { replayedStationOf } from '@/lib/replayed-station';
 import { ongoing } from '@/lib/search';
+import { setCrumbs } from '@/lib/station-crumbs';
 import { TrailContext, useTrail } from '@/lib/trail';
 
 export function ReplaySet() {
@@ -29,7 +31,7 @@ export function ReplaySet() {
   const stationTrail = useStationTrail({ slug, teamId, lineId, stationId });
   const sets = useTeamReplaySets(teamId);
   const replays = useReplays(teamId, setId);
-  const { lines, line, station } = useStation(teamId, lineId, stationId);
+  const { line, station } = useStation(teamId, lineId, stationId);
   const searches = useSearches(teamId, lineId, stationId);
 
   const set = sets.data?.find(
@@ -47,10 +49,7 @@ export function ReplaySet() {
       ),
   );
 
-  const base: BreadcrumbSegment[] = [
-    ...stationTrail,
-    ...(set && at ? [{ label: set.name, to: replaySetPath(at, set.id) }] : []),
-  ];
+  const base: BreadcrumbSegment[] = [...stationTrail, ...setCrumbs(at, set)];
   const { trail, forward } = useTrail(base);
 
   if (loading(sets)) {
@@ -81,26 +80,35 @@ export function ReplaySet() {
 
   return (
     <TrailContext value={forward}>
-      <PageHeader title={<Breadcrumbs segments={trail} />} />
+      <PageHeader
+        title={<Breadcrumbs segments={trail} />}
+        bordered={false}
+        actions={
+          <ReplaySetActions
+            teamId={at.teamId}
+            set={set}
+            running={anyUnderway(replays.data ?? []) || searching}
+            deletedTo={replaysAnchorPath(at)}
+          />
+        }
+      />
 
-      <StationLayout>
-        <ReplaySetHeader
-          teamId={at.teamId}
-          set={set}
-          replays={replays.data ?? []}
-          deletedTo={replaysAnchorPath(at)}
-          replayCheck={line ? line.replayCheck : undefined}
-          searching={searching}
-        />
+      <ReplaySetHeading set={set} line={line} station={station} />
 
-        <SetHealth at={at} set={set} live={station ?? null} liveQuery={lines} />
-
+      <StationPane>
         <SetReplays at={at} set={set} replays={replays} />
 
-        <SetRuns at={at} set={set} frozen={searching} />
+        <SetHealth at={at} set={set} />
 
-        <SetChecks teamId={at.teamId} set={set} />
-      </StationLayout>
+        <div className="grid items-start gap-3 lg:grid-cols-2">
+          <SetRuns at={at} set={set} frozen={searching} />
+          <SetChecks
+            teamId={at.teamId}
+            set={set}
+            replayCheck={line ? line.replayCheck : undefined}
+          />
+        </div>
+      </StationPane>
     </TrailContext>
   );
 }

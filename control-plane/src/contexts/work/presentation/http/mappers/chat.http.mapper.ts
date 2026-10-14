@@ -4,6 +4,7 @@ import {
   ChatMessageResponseDto,
   ChatProposalResponseDto,
   ChatResponseDto,
+  ChatSetupResponseDto,
   ChatSummaryResponseDto,
   ChatTraceResponseDto,
 } from '@work/presentation/http/dto/chat.response.dto';
@@ -20,6 +21,7 @@ export const ChatHttpMapper = {
       dto.effort,
       dto.repositories,
       dto.improving ? new ChatImprovingResponseDto(dto.improving) : null,
+      dto.setup ? new ChatSetupResponseDto(dto.setup) : null,
       dto.createdAt,
       dto.updatedAt,
       dto.working,

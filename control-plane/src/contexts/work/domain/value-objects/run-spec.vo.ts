@@ -108,6 +108,7 @@ export interface RunSpecParts {
   readonly harnessSetup?: RunHarnessSetup;
   readonly settingFiles?: readonly string[];
   readonly wears?: readonly string[];
+  readonly spotlightApi?: boolean;
   readonly replay?: RunReplay;
   readonly search?: RunSearch;
 }
@@ -219,6 +220,7 @@ const copied = (parts: RunSpecParts): RunSpecParts => ({
     ? { settingFiles: [...parts.settingFiles] }
     : {}),
   ...(parts.wears?.length ? { wears: [...parts.wears] } : {}),
+  ...(parts.spotlightApi ? { spotlightApi: true } : {}),
   ...(parts.replay
     ? {
         replay: {
@@ -242,6 +244,7 @@ const replayRefusal = (parts: RunSpecParts): string | null => {
 
   if (
     (parts.wears?.length ?? 0) > 0 ||
+    parts.spotlightApi ||
     (parts.manifest?.length ?? 0) > 0 ||
     (parts.catalog?.length ?? 0) > 0 ||
     (parts.harnessSetup?.mcpServers.length ?? 0) > 0
@@ -504,6 +507,10 @@ export class RunSpec {
 
   get wears(): readonly SecretName[] {
     return (this.parts.wears ?? []).map((each) => SecretName.of(each));
+  }
+
+  get wearsSpotlightApi(): boolean {
+    return this.parts.spotlightApi === true;
   }
 
   get check(): string | null {

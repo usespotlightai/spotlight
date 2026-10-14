@@ -1,113 +1,78 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { Route } from 'react-router';
-import { teamSectionPath } from '@/lib/team';
-import { Memory } from '@/routes/Memory';
 import {
-  emptyTeamMemory,
-  FOCUSED_ID,
-  failTeamMemory,
-  loadTeamMemory,
-  MISSING_ID,
-  SLUG,
-  seedMissingMemory,
-  seedTeamMemory,
-  TEAM_ID,
-} from '@/stories/fixtures/team-memory';
-import { StoryPage } from '@/stories/StoryPage';
+  FOCUS_PARAM,
+  KIND_LABELS,
+  memoryListPath,
+  WRITE_PARAM,
+} from '@/lib/memory';
+import { PLATFORM_ID, SLUG } from '@/mocks/world';
+import { MEMORY_SEED } from '@/mocks/world/team-memories';
+import {
+  choice,
+  type PageArgs,
+  pageStory,
+  toggle,
+} from '@/stories/application';
 
-const routes = (
-  <Route path="/w/:slug/team/:teamId/memory" element={<Memory />} />
-);
-
-const at = teamSectionPath(SLUG, TEAM_ID, 'memory');
+type MemoryArgs = {
+  readonly standing: 'stands' | 'retired';
+  readonly kind: string;
+  readonly opened: string;
+  readonly writing: boolean;
+  readonly editing: boolean;
+};
 
 const meta = {
   title: 'Team/Memory',
-} satisfies Meta;
+  ...pageStory<MemoryArgs>({
+    at: ({ standing, kind, opened, writing }) => {
+      const path = memoryListPath(SLUG, PLATFORM_ID, {
+        standing,
+        kind: kind === 'any' ? null : kind,
+        lineId: null,
+        stationId: null,
+        repository: null,
+        path: null,
+      });
+      const query = new URLSearchParams(path.split('?')[1]);
+      if (opened !== 'none') query.set(FOCUS_PARAM, opened);
+      if (writing) query.set(WRITE_PARAM, '1');
+
+      return `${path.split('?')[0]}?${query}`;
+    },
+    args: {
+      standing: 'stands',
+      kind: 'any',
+      opened: 'none',
+      writing: false,
+      editing: false,
+    },
+    argTypes: {
+      standing: choice('Standing', { stands: 'Standing', retired: 'Retired' }),
+      kind: choice('Kind', { any: 'Every kind', ...KIND_LABELS }),
+      opened: choice('Opened memory', {
+        none: 'None',
+        ...Object.fromEntries(
+          MEMORY_SEED[PLATFORM_ID].map(({ id, handle, body }) => [
+            id,
+            `${handle} ${body.slice(0, 40)}…`,
+          ]),
+        ),
+      }),
+      writing: toggle('Writing a memory'),
+      editing: toggle('Editing the opened memory'),
+    },
+    script: ({ opened, editing }) =>
+      opened !== 'none' && editing
+        ? async (screen, user) => {
+            await user.click(
+              await screen.findByRole('button', { name: 'Edit' }),
+            );
+          }
+        : undefined,
+  }),
+} satisfies Meta<PageArgs & MemoryArgs>;
 
 export default meta;
 
-type Story = StoryObj<typeof meta>;
-
-export const Loading: Story = {
-  render: () => (
-    <StoryPage at={at} seed={loadTeamMemory}>
-      {routes}
-    </StoryPage>
-  ),
-};
-
-export const Empty: Story = {
-  render: () => (
-    <StoryPage at={at} seed={emptyTeamMemory}>
-      {routes}
-    </StoryPage>
-  ),
-};
-
-export const Failed: Story = {
-  name: 'Error',
-  render: () => (
-    <StoryPage at={at} seed={failTeamMemory}>
-      {routes}
-    </StoryPage>
-  ),
-};
-
-export const WithData: Story = {
-  render: () => (
-    <StoryPage at={at} seed={seedTeamMemory}>
-      {routes}
-    </StoryPage>
-  ),
-};
-
-export const Opened: Story = {
-  render: () => (
-    <StoryPage at={at} seed={seedTeamMemory}>
-      {routes}
-    </StoryPage>
-  ),
-  play: async ({ canvas, userEvent }) => {
-    await userEvent.click(
-      await canvas.findByRole('button', { name: /410 Gone/ }),
-    );
-  },
-};
-
-export const Retired: Story = {
-  render: () => (
-    <StoryPage at={`${at}?standing=retired`} seed={seedTeamMemory}>
-      {routes}
-    </StoryPage>
-  ),
-};
-
-export const Writing: Story = {
-  render: () => (
-    <StoryPage at={at} seed={seedTeamMemory}>
-      {routes}
-    </StoryPage>
-  ),
-  play: async ({ canvas, userEvent }) => {
-    await userEvent.click(
-      await canvas.findByRole('button', { name: 'Write a memory' }),
-    );
-  },
-};
-
-export const Focused: Story = {
-  render: () => (
-    <StoryPage at={`${at}?memory=${FOCUSED_ID}`} seed={seedTeamMemory}>
-      {routes}
-    </StoryPage>
-  ),
-};
-
-export const FocusedMissing: Story = {
-  render: () => (
-    <StoryPage at={`${at}?memory=${MISSING_ID}`} seed={seedMissingMemory}>
-      {routes}
-    </StoryPage>
-  ),
-};
+export const Memory: StoryObj<typeof meta> = {};

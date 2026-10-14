@@ -1,5 +1,5 @@
-import { ChevronRight } from 'lucide-react';
 import type { ReactNode } from 'react';
+import { FoldChevron } from '@/components/shared/FoldChevron';
 import {
   OUTER_DIVIDER,
   OUTER_GUIDE,
@@ -36,13 +36,7 @@ export function NestedGroupRow({
           onClick={onToggle}
           className="flex size-4 shrink-0 items-center justify-center rounded-sm text-muted-foreground outline-none hover:bg-accent hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring/50"
         >
-          <ChevronRight
-            aria-hidden
-            className={cn(
-              'size-3 transition-transform duration-200 motion-reduce:transition-none',
-              open && 'rotate-90',
-            )}
-          />
+          <FoldChevron open={open} />
         </button>
       ) : (
         <span aria-hidden className="size-4 shrink-0" />

@@ -10,8 +10,8 @@ import type { PeoplePort } from '@replays/application/ports/people.port';
 import type {
   AgentRefusal,
   ExaminedCandidate,
-  HarnessOffer,
   HeldSearchRun,
+  OracleAnswerAsked,
   ReplayRunOrder,
   ReplayRunQueued,
   RunForgone,
@@ -386,6 +386,15 @@ export class FakeWork implements WorkPort {
     threshold: this.threshold,
   });
 
+  unanswerable = new Set<string>();
+
+  answerable = async (
+    asked: readonly OracleAnswerAsked[],
+  ): Promise<readonly RunId[]> =>
+    asked
+      .filter((each) => !this.unanswerable.has(each.run.value))
+      .map((each) => each.run);
+
   dispatch = async (order: ReplayRunOrder): Promise<ReplayRunQueued> => {
     this.dispatched.push(order);
     return this.refusing ?? { queued: true, fingerprint: FINGERPRINT };
@@ -408,13 +417,6 @@ export class FakeWork implements WorkPort {
   refusingAgent: AgentRefusal | null = null;
 
   agentRefusal = () => this.refusingAgent;
-
-  offer: HarnessOffer | null = {
-    models: ['sonnet', 'opus'],
-    efforts: ['low', 'medium', 'high'],
-  };
-
-  harnessOffer = async () => this.offer;
 
   readonly searchesDispatched: SearchRunOrder[] = [];
 
@@ -530,6 +532,7 @@ export class FakeChangeReview implements ChangeReviewPort {
 
 export class FakeOutcomes implements OutcomesPort {
   readonly accepted = new Set<string>();
+  readonly sentBack = new Set<string>();
   readonly asked: JudgingOrder[] = [];
   readonly askedAgain: string[] = [];
   readonly pairsAsked: PairJudgingOrder[] = [];
@@ -547,7 +550,10 @@ export class FakeOutcomes implements OutcomesPort {
   }
 
   async turnedOut(): Promise<ReadonlyMap<string, OriginalOutcome>> {
-    return new Map([...this.accepted].map((run) => [run, 'accepted'] as const));
+    return new Map([
+      ...[...this.accepted].map((run) => [run, 'accepted'] as const),
+      ...[...this.sentBack].map((run) => [run, 'sent-back'] as const),
+    ]);
   }
 
   async judge(order: JudgingOrder): Promise<JudgingOrdered> {
@@ -603,6 +609,7 @@ export const snapshotsFor = (
 
 export class InMemoryConfigPullRequests implements ConfigPullRequestRepository {
   readonly kept = new Map<string, ConfigPullRequest>();
+  readonly events: DomainEvent[] = [];
 
   async find(id: { value: string }) {
     return this.kept.get(id.value) ?? null;
@@ -650,7 +657,7 @@ export class InMemoryConfigPullRequests implements ConfigPullRequestRepository {
       return kept;
     }
 
-    added.pullEvents();
+    this.events.push(...added.pullEvents());
     this.kept.set(added.id.value, added);
 
     return added;
@@ -663,7 +670,7 @@ export class InMemoryConfigPullRequests implements ConfigPullRequestRepository {
       throw new ConfigPullRequestMovedOnError(saved.id.value);
     }
 
-    saved.pullEvents();
+    this.events.push(...saved.pullEvents());
 
     if (saved.isAbandoned) {
       this.kept.delete(saved.id.value);

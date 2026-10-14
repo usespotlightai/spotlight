@@ -1,57 +1,38 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { Route } from 'react-router';
 import { teamSettingsPath } from '@/lib/settings';
-import { TeamIntegrations } from '@/routes/TeamIntegrations';
-import {
-  emptyTeamIntegrations,
-  failTeamIntegrations,
-  seedTeamIntegrations,
-} from '@/stories/fixtures/integrations';
-import { SLUG, TEAM_ID } from '@/stories/fixtures/team';
-import { StoryPage } from '@/stories/StoryPage';
+import { PLATFORM_ID, SLUG } from '@/mocks/world';
+import { choice, type PageArgs, pageStory } from '@/stories/application';
 
-const at = teamSettingsPath(SLUG, TEAM_ID, 'integrations');
+const OPENED = {
+  none: 'None',
+  Linear: 'Linear: team and your account',
+  Sentry: 'Sentry: your account not connected',
+  Honeycomb: 'Honeycomb: tools act as the team',
+  PagerDuty: 'PagerDuty: receives events only',
+  Statuspage: 'Statuspage: not connected, tools unreadable',
+} as const;
 
-const routes = (
-  <Route
-    path="/w/:slug/settings/team/:teamId/integrations"
-    element={<TeamIntegrations />}
-  />
-);
+type IntegrationsArgs = {
+  readonly opened: keyof typeof OPENED;
+};
 
 const meta = {
   title: 'Settings/Team/Integrations',
-} satisfies Meta;
+  ...pageStory<IntegrationsArgs>({
+    at: teamSettingsPath(SLUG, PLATFORM_ID, 'integrations'),
+    args: { opened: 'none' },
+    argTypes: { opened: choice('Opened integration', OPENED) },
+    script: ({ opened }) =>
+      opened === 'none'
+        ? undefined
+        : async (screen, user) => {
+            await user.click(
+              await screen.findByRole('button', { name: opened }),
+            );
+          },
+  }),
+} satisfies Meta<PageArgs & IntegrationsArgs>;
 
 export default meta;
 
-type Story = StoryObj<typeof meta>;
-
-export const Loading: Story = {
-  render: () => <StoryPage at={at}>{routes}</StoryPage>,
-};
-
-export const Empty: Story = {
-  render: () => (
-    <StoryPage at={at} seed={emptyTeamIntegrations}>
-      {routes}
-    </StoryPage>
-  ),
-};
-
-export const Failed: Story = {
-  name: 'Error',
-  render: () => (
-    <StoryPage at={at} seed={failTeamIntegrations}>
-      {routes}
-    </StoryPage>
-  ),
-};
-
-export const WithData: Story = {
-  render: () => (
-    <StoryPage at={at} seed={seedTeamIntegrations}>
-      {routes}
-    </StoryPage>
-  ),
-};
+export const Integrations: StoryObj<typeof meta> = {};

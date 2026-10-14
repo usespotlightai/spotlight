@@ -25,8 +25,8 @@ const sending = (over: Partial<Env> = {}) => {
 const invite = {
   to: 'ada@example.com',
   token: 'tok-123',
-  teamName: 'Platform',
   workspaceName: 'Acme',
+  teamNames: ['Platform'],
   invitedBy: 'Leon Liang',
 };
 
@@ -56,22 +56,54 @@ describe('InviteByMail', () => {
     );
   });
 
-  it('says who asked and what they were asked onto', async () => {
+  it('says who asked and which workspace they were asked into', async () => {
     const { mail, delivered } = sending();
 
     await mail.send(invite);
 
     expect(delivered[0]?.to).toBe('ada@example.com');
     expect(delivered[0]?.subject).toBe(
-      'Leon Liang invited you to Platform on Spotlight',
+      'Leon Liang invited you to join Acme on Spotlight',
     );
-    expect(delivered[0]?.text).toContain('Acme');
+  });
+
+  it('names the teams they will be on', async () => {
+    const { mail, delivered } = sending();
+
+    await mail.send({
+      ...invite,
+      teamNames: ['Platform', 'Mobile', 'Data'],
+    });
+
+    expect(delivered[0]?.text).toContain(
+      'You will be on the Platform, Mobile and Data teams.',
+    );
+    expect(delivered[0]?.html).toContain('Platform, Mobile and Data teams');
+  });
+
+  it('names one team as one team', async () => {
+    const { mail, delivered } = sending();
+
+    await mail.send(invite);
+
+    expect(delivered[0]?.text).toContain('You will be on the Platform team.');
+  });
+
+  it('names no team where they join none', async () => {
+    const { mail, delivered } = sending();
+
+    await mail.send({ ...invite, teamNames: [] });
+
+    expect(delivered[0]?.text).not.toContain('You will be on');
+    expect(delivered[0]?.text).toContain(
+      'Leon Liang invited you to join Acme on Spotlight.',
+    );
   });
 
   it('leaves nothing in a name to be read as markup', async () => {
     const { mail, delivered } = sending();
 
-    await mail.send({ ...invite, teamName: '<script>alert(1)</script>' });
+    await mail.send({ ...invite, teamNames: ['<script>alert(1)</script>'] });
 
     expect(delivered[0]?.html).not.toContain('<script>');
     expect(delivered[0]?.html).toContain('&lt;script&gt;');

@@ -20,7 +20,7 @@ export function NotFound({ title, to, children }: NotFoundProps) {
           to={to}
           className={cn(
             buttonVariants({ variant: 'outline', size: 'sm' }),
-            'rounded-full bg-card shadow-none',
+            'rounded-full bg-card',
           )}
         >
           Open the team

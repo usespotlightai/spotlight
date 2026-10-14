@@ -26,7 +26,7 @@ import type { Chat } from '@work/domain/aggregates/chat.aggregate';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
-import { builtInToolsFor } from '@work/domain/services/built-in-tools';
+import { builtInToolsForChat } from '@work/domain/services/built-in-tools';
 import {
   chatPlacement,
   chatSetupOf,
@@ -137,10 +137,11 @@ export class DispatchChat implements ChatDispatching {
         briefing,
         handover: { options: [], noteLimit: 0 },
         continuity: RunSpecContract.continuityOf(continuity),
-        manifest: builtInToolsFor('chat').map((each) =>
+        manifest: builtInToolsForChat(chat.setup !== null).map((each) =>
           toolManifestOf(each.declared),
         ),
         attachments: Attached.shapes(chat.allAttachments),
+        ...(chat.setup ? { spotlightApi: true } : {}),
       }),
     });
 

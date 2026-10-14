@@ -22,6 +22,7 @@ import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 
 interface Payload {
   readonly action?: unknown;
+  readonly label?: { readonly name?: unknown };
   readonly installation?: { readonly id?: unknown };
   readonly pull_request?: Pull;
   readonly issue?: Described & {
@@ -161,6 +162,11 @@ const described = (pull: Described | undefined): PullRequestAbout | null => {
     : null;
 };
 
+const ASKED_BY_ANYONE: readonly PullRequestActivityKind[] = [
+  'opened',
+  'labelled',
+];
+
 const byBot = (payload: Payload): boolean =>
   payload.sender?.type === 'Bot' ||
   payload.comment?.user?.type === 'Bot' ||
@@ -172,6 +178,10 @@ const activityOf = (
 ): PullRequestActivityKind | null => {
   if (event === 'pull_request' && OPENING_ACTIONS.includes(payload.action)) {
     return 'opened';
+  }
+
+  if (event === 'pull_request' && payload.action === 'labeled') {
+    return 'labelled';
   }
 
   if (event === 'pull_request' && payload.action === 'closed') {
@@ -221,9 +231,13 @@ const pullRequestActivity = (
       text(payload.pull_request?.html_url) ??
       text(payload.issue?.pull_request?.html_url) ??
       text(payload.check_suite?.pull_requests?.[0]?.html_url),
+    label:
+      activity === 'labelled'
+        ? (text(payload.label?.name)?.trim() ?? null)
+        : null,
     about: described(payload.pull_request) ?? described(payload.issue),
     remark: remarked(payload.comment) ?? remarked(payload.review),
-    byBot: activity !== 'opened' && byBot(payload),
+    byBot: !ASKED_BY_ANYONE.includes(activity) && byBot(payload),
   };
 
   return [{ kind: 'pull-request-activity', activity: read }];

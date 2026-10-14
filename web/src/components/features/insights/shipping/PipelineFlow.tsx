@@ -18,15 +18,11 @@ import {
   type Percentile,
 } from '@/lib/insights-shipping';
 
-const stillByDefault = (): boolean =>
-  typeof window !== 'undefined' &&
-  window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-
 export function PipelineFlow({ flow }: { flow: Flow }) {
   const [percentile, setPercentile] = useState<Percentile>(DEFAULT_PERCENTILE);
   const [layout, setLayout] = useState<FlowLayout>('stations');
   const [focus, setFocus] = useState<PullRequestType | null>(null);
-  const [playing, setPlaying] = useState(() => !stillByDefault());
+  const [playing, setPlaying] = useState(false);
 
   const stages = useMemo(
     () => flowStages(flow, layout, percentile, focus),

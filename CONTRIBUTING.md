@@ -1,0 +1,82 @@
+# Contributing to Spotlight
+
+## Repository
+
+| Path | What |
+|---|---|
+| `control-plane/` | NestJS API on Postgres |
+| `web/` | React SPA (Vite) |
+| `data-plane/` | Go: one binary, `cmd/spotlight`, whose roles are `host/` (`spotlight host`), `runner/` (`spotlight runner`, one run in a sandbox) and `agent/` (the commands agents talk back with); they share only `protocol/` and `control/`. `install.sh` installs it as a host and is served by the control plane |
+
+Locally everything runs in Docker behind Traefik, which terminates HTTPS and
+routes by host and path. Source is bind-mounted, so edits hot-reload.
+
+## Local setup
+
+Requires [Docker](https://docs.docker.com/get-started/get-docker/) and
+[mkcert](https://github.com/FiloSottile/mkcert).
+
+```bash
+echo "127.0.0.1 app.dev.usespotlight.ai files.dev.usespotlight.ai" | sudo tee -a /etc/hosts
+mkcert -install
+(cd .docker/traefik/certs && mkcert "*.dev.usespotlight.ai")
+cp .env.example .env    # fill in, see below
+docker compose up -d
+```
+
+`.env`, documented inline in `.env.example`:
+
+| Variable | Needed for |
+|---|---|
+| `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | sign-in; the control plane won't start without them |
+| `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY` | cloning and pushing; required to start |
+| `GITHUB_WEBHOOK_SECRET`, `CLOUDFLARE_TUNNEL_TOKEN` | GitHub webhooks reaching this machine |
+| `DEV_POOL_TOKEN` | the dev pull pool the compose `host` serves (`scripts/dev-setup.mjs` creates it) |
+| `ANTHROPIC_API_KEY` or `CLAUDE_CODE_OAUTH_TOKEN` | Claude Code agents in the host's sandboxes |
+| `OPENAI_API_KEY` | Codex agents in the host's sandboxes |
+
+| URL | Service |
+|---|---|
+| https://app.dev.usespotlight.ai | web |
+| https://app.dev.usespotlight.ai/api | control-plane |
+| https://files.dev.usespotlight.ai | storage (MinIO attachments bucket) |
+| http://localhost:8025 | mail (Mailpit; catches all outgoing mail) |
+
+Compose also runs `db`, `migrate` (applies migrations before the control plane
+starts), `storage-bucket`, `tunnel`, and `host`: a `spotlight host` serving the
+dev pool, which starts sandboxes from the `spotlight-runner:dev` image on the
+compose network. It reloads on edits to `data-plane/`; the image does not, so
+rebuild it with `docker compose build runner` after changing the runner or agent commands.
+
+## Schema changes
+
+Edit the schema of the context you change, under
+`control-plane/src/contexts/<context>/infrastructure/persistence/drizzle/schemas/`,
+then:
+
+```bash
+docker compose exec -T control-plane npm run db:generate -- --name=describe_the_change
+docker compose up -d
+```
+
+Migrations are generated, never hand-written. Auth tables come from the
+better-auth config: run `npm run auth:generate` first.
+
+## Releases
+
+Harnesses live only in the runner image (`.docker/runner/Dockerfile`, built
+from this repository, with `CLAUDE_CODE_VERSION`, `CLAUDE_AGENT_ACP_VERSION`
+and `CODEX_ACP_VERSION` as build arguments).
+
+Tagging triggers `release.yml`, which starts the `infrastructure` repo's build:
+service images and the runner image, plus the `spotlight` binaries
+attached to this repository's release for the tag.
+
+## Running Spotlight
+
+How to run Spotlight yourself is in the docs ([usespotlightai/docs](https://github.com/usespotlightai/docs)):
+
+- **Self-hosted Spotlight settings** (`reference/self-hosted-settings`): the control plane's environment variables, the S3 bucket and mail.
+- **Host settings**, **Egress** and **Inside a sandbox** (`reference/hosts/`): hosts, runners and how a sandbox reaches the outside.
+- **Run a line in your own image** (`hosts/run-a-line-in-your-own-image`): runner images.
+- **Harness profile** (`reference/terraform/harness-profile`): what a team's agents may do.

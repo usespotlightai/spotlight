@@ -39,6 +39,7 @@ import {
   pullRequestFilterOf,
 } from '@/lib/insights-pull-requests';
 import { percentShown } from '@/lib/judge';
+import { type NestedHeading, SPREAD } from '@/lib/nested-table';
 import { RANGES, type Range } from '@/lib/range';
 import { teamSectionPath } from '@/lib/team';
 
@@ -995,3 +996,21 @@ export const insightsCrumbs = (
       ]
     : [{ label: tab }];
 };
+
+export const signalHeadings = (
+  indent: 'edge' | 'outer',
+): readonly NestedHeading[] => [
+  { label: 'Signal', indent, size: 'minmax(10rem,1fr)' },
+  {
+    label: 'Compared',
+    note: 'The dot is this period, the ring the period before, the line all stations, and the dashed line where a station gets flagged.',
+    size: 'minmax(10rem,2fr)',
+  },
+  { label: 'This period', numeric: true, size: SPREAD },
+  { label: 'Period before', numeric: true, size: SPREAD },
+  { label: 'All stations', numeric: true, size: SPREAD },
+  { label: 'Flagged above', numeric: true, size: SPREAD },
+];
+
+export const signalAsk = (reading: SignalReading): string =>
+  `${signalShown(reading)}. What should change at this station?`;

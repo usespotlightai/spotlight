@@ -1,5 +1,7 @@
 import type { WorkspaceToken } from '@identity/domain/aggregates/workspace-token.aggregate';
+import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
+import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { WorkspaceTokenId } from '@shared-kernel/domain/value-objects/workspace-token-id.vo';
 import type { WorkspaceTokenTrustId } from '@shared-kernel/domain/value-objects/workspace-token-trust-id.vo';
 
@@ -14,6 +16,12 @@ export interface WorkspaceTokenRepository {
 
   mintedThrough(
     trustId: WorkspaceTokenTrustId,
+  ): Promise<readonly WorkspaceToken[]>;
+
+  mintedForRun(
+    workspaceId: WorkspaceId,
+    runId: RunId,
+    attempt: number | null,
   ): Promise<readonly WorkspaceToken[]>;
 
   mintedAndExpiredBy(

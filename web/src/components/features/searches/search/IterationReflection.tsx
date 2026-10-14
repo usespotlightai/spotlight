@@ -1,3 +1,4 @@
+import { IterationNote } from '@/components/features/searches/search/IterationNote';
 import type { SearchIterationResponseDto } from '@/lib/api';
 import { reflecting, whyItStalledAnchor } from '@/lib/search';
 import {
@@ -12,7 +13,7 @@ type IterationReflectionProps = {
 
 export function IterationReflection({ iteration }: IterationReflectionProps) {
   return (
-    <p className="flex flex-wrap items-baseline gap-x-1.5 rounded-xl border border-border border-dashed px-3 py-2 text-muted-foreground text-xs">
+    <IterationNote>
       {reflecting(iteration) || !iteration.reflection
         ? REFLECTION_ITERATION_PENDING
         : reflectionIterationShown(
@@ -25,6 +26,6 @@ export function IterationReflection({ iteration }: IterationReflectionProps) {
       >
         {SEE_WHY_IT_STALLED}
       </a>
-    </p>
+    </IterationNote>
   );
 }

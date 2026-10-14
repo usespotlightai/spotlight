@@ -330,6 +330,10 @@ const read = (raw: unknown): RunSpec => {
     (each) => stringAt(each, 'where its harness keeps settings'),
   );
 
+  const spotlightApi =
+    given.spotlightApi === undefined
+      ? undefined
+      : booleanAt(given.spotlightApi, 'whether it reaches Spotlight’s API');
   const diffs = given.diffs;
   const check = optionalStringAt(given.check, 'what checks its change');
   const startingPoint = given.startingPoint;
@@ -370,6 +374,7 @@ const read = (raw: unknown): RunSpec => {
     ...(harnessSetup ? { harnessSetup } : {}),
     ...(settingFiles ? { settingFiles } : {}),
     ...(wears ? { wears } : {}),
+    ...(spotlightApi ? { spotlightApi } : {}),
     ...(replay ? { replay } : {}),
     ...(search ? { search } : {}),
   });

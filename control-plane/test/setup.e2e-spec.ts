@@ -44,6 +44,7 @@ const NOW = new Date('2026-01-02T03:04:05.000Z');
 const DONE = {
   connectedToGitHub: true,
   hasHarness: true,
+  configured: true,
 };
 
 let held: TestDatabase;

@@ -27,13 +27,13 @@ export function OpenReplaySetButton({ at }: OpenReplaySetButtonProps) {
         onClick={() => setOpen(true)}
       >
         <Plus aria-hidden />
-        Open a replay set
+        Create a replay set
       </Button>
 
       <ReplaySetNameDialog
         open={open}
         onOpenChange={setOpen}
-        title="Open a replay set"
+        title="Create a replay set"
         description="Name the set, then pick past runs to replay in it."
         submit="Open set"
         submitting="Opening…"

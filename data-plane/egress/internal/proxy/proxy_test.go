@@ -31,6 +31,14 @@ func (w wearing) Wears(host string) bool { return w[host] != nil }
 
 func (w wearing) Unwear(string, *http.Response) {}
 
+func (w wearing) OntoPlain(host, port string, r *http.Request) {
+	if values := w["plain:"+host+":"+port]; values != nil {
+		for name, each := range values {
+			r.Header[name] = each
+		}
+	}
+}
+
 func (w wearing) Onto(host string, r *http.Request) {
 	for name, values := range w[host] {
 		r.Header.Del(name)
@@ -258,6 +266,19 @@ func TestForwardsPlainHTTPToAnAllowedHostAsItWas(t *testing.T) {
 	got := r.upstream.last()
 	if got.URL.Path != "/api/runs/claim" || got.Header.Get("Authorization") != "Bearer one-run" || got.Host != "control-plane" {
 		t.Errorf("forwarded %s %v to %q", got.URL, got.Header, got.Host)
+	}
+}
+
+func TestWearsWhatMayTravelPlainOverPlainHTTP(t *testing.T) {
+	r := rigged(t, []string{"control-plane"}, wearing{"plain:control-plane:80": {"Authorization": {"Bearer run-token"}}})
+
+	response, body := r.get(t, "http://control-plane/api/resources", http.Header{"Authorization": {"Bearer stand-in"}})
+	if response == nil || response.StatusCode != http.StatusOK {
+		t.Fatalf("answered %v: %s", response, body)
+	}
+
+	if got := r.upstream.last().Header.Get("Authorization"); got != "Bearer run-token" {
+		t.Errorf("forwarded Authorization %q, want what egress wears over plain HTTP", got)
 	}
 }
 

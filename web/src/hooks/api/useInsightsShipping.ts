@@ -5,7 +5,7 @@ import {
 } from '@/lib/api';
 import type { InsightsPeriod } from '@/lib/insights';
 
-export const insightsShippingKeys = {
+const insightsShippingKeys = {
   forTeam: (teamId: string | undefined, period: InsightsPeriod) =>
     ['insights', 'shipping', teamId ?? null, period] as const,
 };

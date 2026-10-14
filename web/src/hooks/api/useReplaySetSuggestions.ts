@@ -3,7 +3,7 @@ import { replaySetKeys } from '@/hooks/api/useReplaySets';
 import { listReplaySetSuggestions } from '@/lib/api';
 import type { SuggestedRun } from '@/lib/replay';
 
-export const replaySetSuggestionKeys = {
+const replaySetSuggestionKeys = {
   forSet: (setId?: string) =>
     [...replaySetKeys.all, 'suggestions', setId ?? null] as const,
 };

@@ -6,6 +6,7 @@ import { AuthScreen } from '@/components/shell/auth/AuthScreen';
 import { AuthTitle } from '@/components/shell/auth/AuthTitle';
 import { useInvite } from '@/hooks/api/useInvite';
 import { useSession } from '@/hooks/api/useSession';
+import { inviterNamed, joiningAs } from '@/lib/members';
 import { failed, loading } from '@/lib/query';
 
 const WIDTH = 'w-80';
@@ -54,9 +55,9 @@ export function AcceptInvite() {
   return (
     <AuthScreen className={WIDTH}>
       <AuthTitle
-        title={`${invite.invitedBy} invited you to ${invite.teamName}`}
+        title={`${inviterNamed(invite.invitedBy)} invited you to ${invite.workspaceName}`}
       >
-        in the {invite.workspaceName} workspace on Spotlight.
+        {joiningAs(invite.role, invite.teamNames)}
       </AuthTitle>
 
       {closed ? (

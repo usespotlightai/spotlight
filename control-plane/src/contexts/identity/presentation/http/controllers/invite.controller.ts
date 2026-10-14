@@ -1,18 +1,21 @@
 import { AcceptInviteCommand } from '@identity/application/commands/accept-invite.command';
-import { InviteToTeamCommand } from '@identity/application/commands/invite-to-team.command';
+import { InviteToWorkspaceCommand } from '@identity/application/commands/invite-to-workspace.command';
+import { ResendInviteCommand } from '@identity/application/commands/resend-invite.command';
 import { RevokeInviteCommand } from '@identity/application/commands/revoke-invite.command';
 import type {
-  InviteDto,
   InviteOfferDto,
-  JoinedTeamDto,
+  InviteOutcomesDto,
+  JoinedWorkspaceDto,
+  WorkspaceInviteDto,
 } from '@identity/application/dto/invite.dto';
-import { ListInvitesQuery } from '@identity/application/queries/list-invites.query';
+import { ListWorkspaceInvitesQuery } from '@identity/application/queries/list-workspace-invites.query';
 import { ReadInviteQuery } from '@identity/application/queries/read-invite.query';
-import { InviteToTeamRequestDto } from '@identity/presentation/http/dto/invite.request.dto';
+import { InviteToWorkspaceRequestDto } from '@identity/presentation/http/dto/invite.request.dto';
 import {
   InviteOfferResponseDto,
-  InviteResponseDto,
-  JoinedTeamResponseDto,
+  InviteOutcomesResponseDto,
+  JoinedWorkspaceResponseDto,
+  WorkspaceInviteResponseDto,
 } from '@identity/presentation/http/dto/invite.response.dto';
 import {
   Body,
@@ -28,7 +31,6 @@ import {
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import {
   ApiConflictResponse,
-  ApiCreatedResponse,
   ApiForbiddenResponse,
   ApiNoContentResponse,
   ApiNotFoundResponse,
@@ -37,15 +39,19 @@ import {
   ApiParam,
   ApiTags,
   ApiUnauthorizedResponse,
+  ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
 import { AllowAnonymous } from '@platform/http/decorators/allow-anonymous.decorator';
 import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '@shared-kernel/application/ports/session.port';
 
+const listed = (raw: unknown): string[] =>
+  Array.isArray(raw) ? raw.map(String) : [];
+
 @ApiTags('invites')
 @ApiUnauthorizedResponse({ description: 'No valid session' })
-@Controller('teams/:teamId/invites')
-export class TeamInviteController {
+@Controller('workspaces/:slug/invites')
+export class WorkspaceInviteController {
   constructor(
     private readonly commandBus: CommandBus,
     private readonly queryBus: QueryBus,
@@ -53,20 +59,22 @@ export class TeamInviteController {
 
   @Get()
   @ApiOperation({
-    operationId: 'listInvites',
-    summary: 'List the invitations this team is still waiting on',
+    operationId: 'listWorkspaceInvites',
+    summary: 'List the invitations this workspace is still waiting on',
   })
-  @ApiParam({ name: 'teamId', example: 'team_1' })
-  @ApiOkResponse({ type: InviteResponseDto, isArray: true })
-  @ApiNotFoundResponse({ description: 'No such team for this caller' })
+  @ApiParam({ name: 'slug', example: 'acme' })
+  @ApiOkResponse({ type: WorkspaceInviteResponseDto, isArray: true })
+  @ApiNotFoundResponse({
+    description: 'No such workspace, or not yours to invite to',
+  })
   async list(
-    @Param('teamId') teamId: string,
+    @Param('slug') slug: string,
     @CurrentUser() user: AuthenticatedUser,
-  ): Promise<InviteResponseDto[]> {
+  ): Promise<WorkspaceInviteResponseDto[]> {
     const found = await this.queryBus.execute<
-      ListInvitesQuery,
-      InviteDto[] | null
-    >(new ListInvitesQuery(teamId, user.id));
+      ListWorkspaceInvitesQuery,
+      WorkspaceInviteDto[] | null
+    >(new ListWorkspaceInvitesQuery(slug, user.id));
 
     if (!found) {
       throw new NotFoundException();
@@ -76,25 +84,40 @@ export class TeamInviteController {
   }
 
   @Post()
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    operationId: 'inviteToTeam',
-    summary: 'Invite somebody onto this team by email',
+    operationId: 'inviteToWorkspace',
+    summary: 'Invite people to this workspace by email, with a role and teams',
+    description:
+      'One invitation per address. An address with an open or run-out invitation is sent it again with a fresh link, and an address already in the workspace is reported and sent nothing.',
   })
-  @ApiParam({ name: 'teamId', example: 'team_1' })
-  @ApiCreatedResponse({ type: InviteResponseDto })
-  @ApiConflictResponse({ description: 'They are already on this team' })
+  @ApiParam({ name: 'slug', example: 'acme' })
+  @ApiOkResponse({ type: InviteOutcomesResponseDto })
+  @ApiForbiddenResponse({ description: 'Not a role yours to give' })
+  @ApiConflictResponse({ description: 'Another invitation was just sent' })
   @ApiNotFoundResponse({
-    description: 'No such team, or not yours to invite to',
+    description: 'No such workspace, or not yours to invite to',
+  })
+  @ApiUnprocessableEntityResponse({
+    description: 'An address, role or team that does not hold',
   })
   async invite(
-    @Param('teamId') teamId: string,
-    @Body() body: InviteToTeamRequestDto,
+    @Param('slug') slug: string,
+    @Body() body: InviteToWorkspaceRequestDto,
     @CurrentUser() user: AuthenticatedUser,
-  ): Promise<InviteResponseDto> {
+  ): Promise<InviteOutcomesResponseDto> {
     const invited = await this.commandBus.execute<
-      InviteToTeamCommand,
-      InviteDto | null
-    >(new InviteToTeamCommand(teamId, body.email, user.id));
+      InviteToWorkspaceCommand,
+      InviteOutcomesDto | null
+    >(
+      new InviteToWorkspaceCommand(
+        slug,
+        listed(body.emails),
+        String(body.role ?? ''),
+        listed(body.teamIds),
+        user.id,
+      ),
+    );
 
     if (!invited) {
       throw new NotFoundException();
@@ -103,23 +126,52 @@ export class TeamInviteController {
     return invited;
   }
 
+  @Post(':inviteId/resend')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    operationId: 'resendInvite',
+    summary: 'Send an invitation again, with a fresh link and two more weeks',
+  })
+  @ApiParam({ name: 'slug', example: 'acme' })
+  @ApiParam({ name: 'inviteId' })
+  @ApiOkResponse({ type: WorkspaceInviteResponseDto })
+  @ApiConflictResponse({ description: 'Already accepted or revoked' })
+  @ApiNotFoundResponse({ description: 'No such invitation for this caller' })
+  async resend(
+    @Param('slug') slug: string,
+    @Param('inviteId') inviteId: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<WorkspaceInviteResponseDto> {
+    const sent = await this.commandBus.execute<
+      ResendInviteCommand,
+      WorkspaceInviteDto | null
+    >(new ResendInviteCommand(slug, inviteId, user.id));
+
+    if (!sent) {
+      throw new NotFoundException();
+    }
+
+    return sent;
+  }
+
   @Delete(':inviteId')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
     operationId: 'revokeInvite',
     summary: 'Take an invitation back, so its link stops working',
   })
-  @ApiParam({ name: 'teamId', example: 'team_1' })
+  @ApiParam({ name: 'slug', example: 'acme' })
   @ApiParam({ name: 'inviteId' })
   @ApiNoContentResponse({ description: 'The link no longer works' })
+  @ApiConflictResponse({ description: 'Already accepted' })
   @ApiNotFoundResponse({ description: 'No such invitation for this caller' })
   async revoke(
-    @Param('teamId') teamId: string,
+    @Param('slug') slug: string,
     @Param('inviteId') inviteId: string,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<void> {
     const revoked = await this.commandBus.execute<RevokeInviteCommand, boolean>(
-      new RevokeInviteCommand(teamId, inviteId, user.id),
+      new RevokeInviteCommand(slug, inviteId, user.id),
     );
 
     if (!revoked) {
@@ -162,10 +214,11 @@ export class InviteController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     operationId: 'acceptInvite',
-    summary: 'Take up an invitation, joining the team it was sent for',
+    summary:
+      'Take up an invitation, joining the workspace and the teams it was sent for',
   })
   @ApiParam({ name: 'token' })
-  @ApiOkResponse({ type: JoinedTeamResponseDto })
+  @ApiOkResponse({ type: JoinedWorkspaceResponseDto })
   @ApiUnauthorizedResponse({ description: 'No valid session' })
   @ApiForbiddenResponse({ description: 'Signed in as somebody else' })
   @ApiConflictResponse({ description: 'Already accepted, revoked or run out' })
@@ -173,10 +226,10 @@ export class InviteController {
   async accept(
     @Param('token') token: string,
     @CurrentUser() user: AuthenticatedUser,
-  ): Promise<JoinedTeamResponseDto> {
+  ): Promise<JoinedWorkspaceResponseDto> {
     const joined = await this.commandBus.execute<
       AcceptInviteCommand,
-      JoinedTeamDto | null
+      JoinedWorkspaceDto | null
     >(new AcceptInviteCommand(token, user.id, user.email));
 
     if (!joined) {

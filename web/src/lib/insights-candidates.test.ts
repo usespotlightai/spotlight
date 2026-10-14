@@ -11,7 +11,7 @@ import {
   sourceShown,
   stationReplayedPoints,
 } from '@/lib/insights-candidates';
-import { CANDIDATES } from '@/stories/fixtures/insights-candidates';
+import { CANDIDATES } from '@/test/fixtures/insights-candidates';
 
 const at = {
   slug: 'acme',

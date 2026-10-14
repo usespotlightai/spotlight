@@ -3,6 +3,7 @@ import {
   MOST_TRIES,
 } from '@replays/domain/aggregates/config-pull-request.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
+import { ConfigPullRequestOpened } from '@replays/domain/events/config-pull-request-opened.event';
 import { ConfigPullRequestWanted } from '@replays/domain/events/config-pull-request-wanted.event';
 import { CandidateUnpickableError } from '@replays/domain/exceptions/candidate-unpickable.error';
 import { UnknownCandidateError } from '@replays/domain/exceptions/unknown-candidate.error';
@@ -22,11 +23,15 @@ import { ConfigPullRequestReason } from '@replays/domain/value-objects/config-pu
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { Spend } from '@replays/domain/value-objects/spend.vo';
+import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
+import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { describe, expect, it } from 'vitest';
 
 const charged = { spent: Spend.of(1, 'USD'), unpriced: 0 };
+
+const PROPOSED = StationFingerprint.of('e'.repeat(64));
 
 const SOURCE = {
   repository: Repository.of('acme/platform'),
@@ -148,15 +153,31 @@ describe('ConfigPullRequest', () => {
     });
   });
 
-  it('opens with its link and is no longer due', () => {
-    const opened = picked().opened(
-      'https://github.com/acme/platform/pull/7',
-      NOW,
+  it('opens with its link, is no longer due, and records the station config it proposes', () => {
+    const opening = picked();
+
+    opening.pullEvents();
+
+    const opened = opening.opened(
+      PullRequestUrl.of('https://github.com/acme/platform/pull/7'),
+      PROPOSED,
+      later(5),
     );
+    const [event] = opened.pullEvents();
 
     expect(opened.url).toBe('https://github.com/acme/platform/pull/7');
     expect(opened.dueAt).toBeNull();
     expect(opened.isRetryable).toBe(false);
+    expect(event).toBeInstanceOf(ConfigPullRequestOpened);
+    expect(event).toMatchObject({
+      pullRequestId: ConfigPullRequestId.of('pr_1'),
+      workspaceId: STATION.workspaceId,
+      teamId: STATION.teamId,
+      stationId: STATION.stationId,
+      proposing: PROPOSED,
+      url: PullRequestUrl.of('https://github.com/acme/platform/pull/7'),
+      at: later(5),
+    });
   });
 
   it('is tried again only once refused, as a new attempt', () => {

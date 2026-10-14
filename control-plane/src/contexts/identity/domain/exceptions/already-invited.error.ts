@@ -3,7 +3,7 @@ export class AlreadyInvitedError extends Error {
 
   constructor(email: string) {
     super(
-      `An invite to ${email} was just sent for this team. Please try again.`,
+      `An invite to ${email} was just sent for this workspace. Please try again.`,
     );
     this.name = 'AlreadyInvitedError';
   }

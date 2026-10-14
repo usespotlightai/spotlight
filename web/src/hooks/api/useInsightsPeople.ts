@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { readInsightsPeople } from '@/lib/api';
 import type { InsightsPeople, InsightsPeriod } from '@/lib/insights';
 
-export const insightsPeopleKeys = {
+const insightsPeopleKeys = {
   forTeam: (teamId: string | undefined, period: InsightsPeriod) =>
     ['insights', 'people', teamId ?? null, period] as const,
 };

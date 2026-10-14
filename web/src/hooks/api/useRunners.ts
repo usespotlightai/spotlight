@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { listRunnerActivity, listRunners } from '@/lib/api';
 import { withActivity } from '@/lib/runner';
 
-export const runnerKeys = {
+const runnerKeys = {
   all: ['runners'] as const,
   forWorkspace: (slug?: string) => ['runners', slug ?? null] as const,
 };

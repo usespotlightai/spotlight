@@ -1,58 +1,52 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { Route } from 'react-router';
 import { teamSettingsPath } from '@/lib/settings';
-import { TeamGeneral } from '@/routes/TeamGeneral';
-import {
-  failTeamGeneral,
-  SLUG,
-  seedEmptyTeamGeneral,
-  seedTeamGeneral,
-  TEAM_ID,
-} from '@/stories/fixtures/team';
-import { StoryPage } from '@/stories/StoryPage';
+import { GROWTH_ID, PLATFORM_ID, SLUG } from '@/mocks/world';
+import { choice, type PageArgs, pageStory } from '@/stories/application';
+import type { Script } from '@/stories/ScriptedApplication';
 
-const at = teamSettingsPath(SLUG, TEAM_ID, 'general');
+type Doing = 'nothing' | 'adding' | 'inviting';
 
-const routes = (
-  <Route
-    path="/w/:slug/settings/team/:teamId/general"
-    element={<TeamGeneral />}
-  />
-);
+type GeneralArgs = {
+  readonly team: string;
+  readonly doing: Doing;
+};
+
+const openAdd: Script = async (screen, user) => {
+  await user.click(await screen.findByRole('button', { name: 'Add a member' }));
+};
+
+const SCRIPTS: Record<Doing, Script | undefined> = {
+  nothing: undefined,
+  adding: openAdd,
+  inviting: async (screen, user) => {
+    await openAdd(screen, user);
+    await user.click(
+      await screen.findByRole('menuitem', { name: 'Invite someone new' }),
+    );
+  },
+};
 
 const meta = {
   title: 'Settings/Team/General',
-} satisfies Meta;
+  ...pageStory<GeneralArgs>({
+    states: ['data', 'loading', 'error'],
+    at: ({ team }) => teamSettingsPath(SLUG, team, 'general'),
+    args: { team: PLATFORM_ID, doing: 'nothing' },
+    argTypes: {
+      team: choice('Team', {
+        [PLATFORM_ID]: 'Platform',
+        [GROWTH_ID]: 'Growth',
+      }),
+      doing: choice('Doing', {
+        nothing: 'Nothing',
+        adding: 'Adding a member',
+        inviting: 'Inviting someone new',
+      }),
+    },
+    script: ({ doing }) => SCRIPTS[doing],
+  }),
+} satisfies Meta<PageArgs & GeneralArgs>;
 
 export default meta;
 
-type Story = StoryObj<typeof meta>;
-
-export const Loading: Story = {
-  render: () => <StoryPage at={at}>{routes}</StoryPage>,
-};
-
-export const Empty: Story = {
-  render: () => (
-    <StoryPage at={at} seed={seedEmptyTeamGeneral}>
-      {routes}
-    </StoryPage>
-  ),
-};
-
-export const Failed: Story = {
-  name: 'Error',
-  render: () => (
-    <StoryPage at={at} seed={failTeamGeneral}>
-      {routes}
-    </StoryPage>
-  ),
-};
-
-export const WithData: Story = {
-  render: () => (
-    <StoryPage at={at} seed={seedTeamGeneral}>
-      {routes}
-    </StoryPage>
-  ),
-};
+export const General: StoryObj<typeof meta> = {};

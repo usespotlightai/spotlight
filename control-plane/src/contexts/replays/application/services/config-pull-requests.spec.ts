@@ -32,6 +32,7 @@ import {
   MOST_TRIES,
 } from '@replays/domain/aggregates/config-pull-request.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
+import { ConfigPullRequestOpened } from '@replays/domain/events/config-pull-request-opened.event';
 import {
   aSearch,
   candidateOf,
@@ -45,7 +46,9 @@ import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
 import { ConfigPullRequestReason } from '@replays/domain/value-objects/config-pull-request-reason.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { Spend } from '@replays/domain/value-objects/spend.vo';
+import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { beforeEach, describe, expect, it } from 'vitest';
 
@@ -110,6 +113,8 @@ class FakeEditor implements StationSourceEditorPort {
 const charged = { spent: Spend.of(1, 'USD'), unpriced: 0 };
 
 const TERSE = CandidateId.of('candidate_terse');
+
+const PROPOSED = StationFingerprint.of('e'.repeat(64));
 
 const searchWithTerse = (): Search => {
   const runIds = searchRunIds();
@@ -207,7 +212,7 @@ beforeEach(() => {
   memory.searches.set(search.id.value, search);
   for (const each of [
     candidateOf('live', search.seed.candidateId.value),
-    candidateOf('proposed', TERSE.value),
+    candidateOf('proposed', TERSE.value, null, null, PROPOSED),
   ]) {
     memory.candidates.set(each.id.value, each);
   }
@@ -237,6 +242,18 @@ describe('picking a search candidate', () => {
       url: 'https://github.com/acme/platform/pull/1',
       lastCommit: 'commit_1',
     });
+    expect(
+      pullRequests.events.filter(
+        (each) => each instanceof ConfigPullRequestOpened,
+      ),
+    ).toEqual([
+      expect.objectContaining({
+        pullRequestId: only().id,
+        stationId: AT_HAND.stationId,
+        proposing: PROPOSED,
+        url: PullRequestUrl.of('https://github.com/acme/platform/pull/1'),
+      }),
+    ]);
     expect(configs.commits).toEqual([
       {
         branch: only().branch,

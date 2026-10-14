@@ -59,12 +59,7 @@ export function TaskActions({ title, onDelete }: TaskActionsProps) {
             >
               Keep it
             </Button>
-            <Button
-              variant="destructive"
-              size="sm"
-              onClick={onDelete}
-              className="bg-destructive text-white hover:bg-destructive/90 dark:bg-destructive dark:hover:bg-destructive/90"
-            >
+            <Button variant="destructive" size="sm" onClick={onDelete}>
               Delete task
             </Button>
           </DialogFooter>

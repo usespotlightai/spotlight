@@ -46,10 +46,17 @@ const ASKED: Readonly<Record<ReviewAsking, HappeningDeclaration>> = {
     told: 'Somebody mentioned Spotlight on the pull request.',
     spoken: true,
   }),
+  labelled: raised({
+    key: 'github.pull_request.labelled',
+    label: 'Labelled on a pull request',
+    told: 'Somebody labelled the pull request for Spotlight.',
+  }),
 };
 
+type Asked = Extract<PullRequestActivityKind, 'opened' | 'labelled'>;
+
 const RAISED: Readonly<
-  Record<Exclude<PullRequestActivityKind, 'opened'>, HappeningDeclaration>
+  Record<Exclude<PullRequestActivityKind, Asked>, HappeningDeclaration>
 > = {
   merged: raised({
     key: 'github.pull_request.merged',
@@ -130,6 +137,7 @@ const askedFor = (
       marks,
       review: {
         asking,
+        label: heard.label,
         pullRequest,
         author: heard.about.author,
         outside: AuthorAssociation.of(heard.about.authorAssociation).isOutside,
@@ -155,6 +163,12 @@ const happenedIn = (heard: PullRequestActivity): readonly Happened[] => {
     return asked ? [asked] : [];
   }
 
+  if (heard.activity === 'labelled') {
+    const asked = heard.label ? askedFor(heard, 'labelled') : null;
+
+    return asked ? [asked] : [];
+  }
+
   const mentioned = mentions(heard) ? askedFor(heard, 'mentioned') : null;
   const word = happened({ ...heard, activity: heard.activity });
 
@@ -176,7 +190,7 @@ const toItsReview = (word: Happened, pullRequest: string): Happened => ({
 
 const happened = (
   heard: PullRequestActivity & {
-    activity: Exclude<PullRequestActivityKind, 'opened'>;
+    activity: Exclude<PullRequestActivityKind, Asked>;
   },
 ): Happened => {
   const raising = RAISED[heard.activity];
@@ -220,6 +234,7 @@ export class GitHubSource implements WebhookSourcePort {
     RAISED['closed-unmerged'],
     ASKED.opened,
     ASKED.mentioned,
+    ASKED.labelled,
   ];
 
   constructor(private readonly github: GitHubWebhooksPort) {}

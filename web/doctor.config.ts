@@ -12,10 +12,6 @@ export default defineConfig({
         files: ['src/hooks/api/useSignIn.ts'],
         rules: ['react-doctor/query-mutation-missing-invalidation'],
       },
-      {
-        files: ['src/stories/StoryShell.tsx'],
-        rules: ['react-doctor/no-prop-callback-in-render'],
-      },
     ],
   },
 });

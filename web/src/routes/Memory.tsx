@@ -1,13 +1,11 @@
-import { useParams, useSearchParams } from 'react-router';
+import { useParams } from 'react-router';
 import { MemoryFilterMenu } from '@/components/features/memory/MemoryFilterMenu';
 import { TeamMemory } from '@/components/features/memory/TeamMemory';
 import { WriteMemoryButton } from '@/components/features/memory/WriteMemoryButton';
 import { TeamSectionPage } from '@/components/features/team/TeamSectionPage';
-import { FOCUS_PARAM } from '@/lib/memory';
 
 export function Memory() {
   const { slug, teamId } = useParams();
-  const [params] = useSearchParams();
 
   if (!slug || !teamId) {
     return null;
@@ -16,10 +14,11 @@ export function Memory() {
   return (
     <TeamSectionPage
       section="memory"
+      bordered={false}
       actions={
         <>
-          {!params.has(FOCUS_PARAM) && <MemoryFilterMenu teamId={teamId} />}
-          <WriteMemoryButton teamId={teamId} />
+          <MemoryFilterMenu teamId={teamId} />
+          <WriteMemoryButton />
         </>
       }
     >

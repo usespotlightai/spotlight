@@ -1,18 +1,22 @@
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
+import type { SetupChatView } from '@work/application/ports/chat-reader.port';
 import { OnboardingHandler } from '@work/application/queries/handlers/onboarding.handler';
 import { OnboardingQuery } from '@work/application/queries/onboarding.query';
-import type { WorkspaceSetup } from '@work/application/services/workspace-setup.service';
+import type { SetupStanding } from '@work/application/services/setup-standing.service';
 import { SETUP_STEPS, type SetupState } from '@work/domain/services/setup-list';
 import { describe, expect, it, vi } from 'vitest';
 
 type Given = {
   member?: boolean;
   state?: Partial<SetupState>;
+  hostsSandboxes?: boolean;
+  chat?: SetupChatView | null;
 };
 
 const nothing: SetupState = {
   connectedToGitHub: false,
   hasHarness: false,
+  configured: false,
 };
 
 const handler = (given: Given = {}) => {
@@ -30,8 +34,12 @@ const handler = (given: Given = {}) => {
   } as unknown as WorkspaceReaderPort;
 
   const setup = {
-    stateOf: vi.fn().mockResolvedValue({ ...nothing, ...given.state }),
-  } as unknown as WorkspaceSetup;
+    of: vi.fn().mockResolvedValue({
+      state: { ...nothing, ...given.state },
+      hostsSandboxes: given.hostsSandboxes ?? false,
+      chat: given.chat ?? null,
+    }),
+  } as unknown as SetupStanding;
 
   return new OnboardingHandler(workspaces, setup);
 };
@@ -59,5 +67,33 @@ describe('OnboardingHandler', () => {
 
     expect(step(onboarding, 'harness')?.done).toBe(true);
     expect(step(onboarding, 'github')?.done).toBe(false);
+  });
+
+  it('offers a setup chat once the GitHub App is installed and a host runs sandboxes', async () => {
+    await expect(
+      read({ state: { connectedToGitHub: true }, hostsSandboxes: true }),
+    ).resolves.toMatchObject({ canSetUp: true });
+    await expect(
+      read({
+        state: { connectedToGitHub: true, hasHarness: true },
+        hostsSandboxes: false,
+      }),
+    ).resolves.toMatchObject({ canSetUp: false });
+  });
+
+  it('links the setup chat only for whoever started it', async () => {
+    const chat = {
+      id: 'chat_1',
+      pullRequest: null,
+      startedById: 'user_2',
+      startedBy: 'Grace',
+    };
+
+    await expect(read({ chat })).resolves.toMatchObject({
+      setupChat: { id: null, startedBy: 'Grace' },
+    });
+    await expect(
+      read({ chat: { ...chat, startedById: 'user_1' } }),
+    ).resolves.toMatchObject({ setupChat: { id: 'chat_1' } });
   });
 });

@@ -8,6 +8,7 @@ import type {
   IndexedSymbol,
   SymbolIndex,
 } from '@change-review/domain/services/symbol-index';
+import { CSHARP_GRAMMAR } from '@change-review/infrastructure/change-stacks/tree-sitter/csharp.grammar';
 import { GO_GRAMMAR } from '@change-review/infrastructure/change-stacks/tree-sitter/go.grammar';
 import {
   ANY_VERBS,
@@ -20,9 +21,11 @@ import {
   unquoted,
 } from '@change-review/infrastructure/change-stacks/tree-sitter/grammar';
 import { JAVA_GRAMMAR } from '@change-review/infrastructure/change-stacks/tree-sitter/java.grammar';
+import { PHP_GRAMMAR } from '@change-review/infrastructure/change-stacks/tree-sitter/php.grammar';
 import { PYTHON_GRAMMAR } from '@change-review/infrastructure/change-stacks/tree-sitter/python.grammar';
 import { RUBY_GRAMMAR } from '@change-review/infrastructure/change-stacks/tree-sitter/ruby.grammar';
 import { RUST_GRAMMAR } from '@change-review/infrastructure/change-stacks/tree-sitter/rust.grammar';
+import { TERRAFORM_GRAMMAR } from '@change-review/infrastructure/change-stacks/tree-sitter/terraform.grammar';
 import { TYPESCRIPT_GRAMMARS } from '@change-review/infrastructure/change-stacks/tree-sitter/typescript.grammar';
 import { Language, type Node, Parser } from '@vscode/tree-sitter-wasm';
 
@@ -33,6 +36,9 @@ const GRAMMARS: readonly Grammar[] = [
   JAVA_GRAMMAR,
   RUST_GRAMMAR,
   RUBY_GRAMMAR,
+  PHP_GRAMMAR,
+  CSHARP_GRAMMAR,
+  TERRAFORM_GRAMMAR,
 ];
 
 const MOST_SOURCE_LENGTH = 512 * 1024;
@@ -66,10 +72,15 @@ const routePath = (...parts: string[]): string =>
     .filter(Boolean)
     .join('/')}`;
 
-const stringText = (node: Node): string =>
-  unquoted(node.text)
+const stringText = (grammar: Grammar, node: Node): string => {
+  const text = unquoted(node.text)
     .replace(/\$\{[^}]*\}/g, ':param')
     .replace(/#\{[^}]*\}/g, ':param');
+
+  return grammar.interpolations
+    ? text.replace(grammar.interpolations, ':param')
+    : text;
+};
 
 const calleeName = (callee: Node | null): string =>
   callee?.text.split(/[.:]/).pop()?.trim() ?? '';
@@ -79,6 +90,14 @@ const firstString = (
   argumentsNode: Node | null,
 ): Node | null =>
   named(argumentsNode).find((child) => grammar.strings.has(child.type)) ?? null;
+
+const wholeFileComponent = (source: DiffSource): IndexedSymbol => ({
+  name: path.basename(source.path).replace(/\.[^.]+$/, ''),
+  kind: 'component',
+  line: 1,
+  endLine: source.text.split('\n').length,
+  exportedAs: ['default'],
+});
 
 const walk = (grammar: Grammar, root: Node): Walked => {
   const walked: Walked = {
@@ -106,6 +125,8 @@ const walk = (grammar: Grammar, root: Node): Walked => {
 
     aliases.push(...(grammar.aliases?.(node) ?? []));
 
+    walked.references.push(...(grammar.referencesOf?.(node) ?? []));
+
     const defined = grammar.definitions[node.type];
     if (defined && !context.inBody && !inImport) {
       const names = grammar.namesOf?.(node) ?? [field(node, 'name')];
@@ -117,21 +138,22 @@ const walk = (grammar: Grammar, root: Node): Walked => {
 
         skipped.add(name.id);
 
+        const text = grammar.nameOf?.(node, name) ?? name.text;
         const kind =
           defined === 'function' && context.inHost
             ? 'method'
             : grammar.components &&
                 (defined === 'function' || defined === 'constant') &&
-                PASCAL_CASE.test(name.text)
+                PASCAL_CASE.test(text)
               ? 'component'
               : defined;
 
         walked.symbols.push({
-          name: name.text,
+          name: text,
           kind,
           line: lineOf(name),
           endLine: node.endPosition.row + 1,
-          exportedAs: grammar.exportedAs(node, name.text),
+          exportedAs: grammar.exportedAs(node, text),
         });
       }
 
@@ -143,7 +165,7 @@ const walk = (grammar: Grammar, root: Node): Walked => {
     const route = grammar.routeOf?.(node);
     if (route) {
       walked.symbols.push({
-        name: `${route.method} ${routePath(prefix, route.path)}`,
+        name: `${route.method} ${routePath(route.absolute ? '' : prefix, route.path)}`,
         kind: 'route',
         line: lineOf(node),
         endLine: node.endPosition.row + 1,
@@ -160,7 +182,7 @@ const walk = (grammar: Grammar, root: Node): Walked => {
     if (call && !route) {
       const verb = calleeName(field(node, call[0])).toLowerCase();
       const argument = firstString(grammar, field(node, call[1]));
-      const given = argument ? stringText(argument) : '';
+      const given = argument ? stringText(grammar, argument) : '';
 
       if (
         argument &&
@@ -207,7 +229,7 @@ const walk = (grammar: Grammar, root: Node): Walked => {
     }
 
     if (grammar.strings.has(node.type) && !inImport && !skipped.has(node.id)) {
-      const text = stringText(node);
+      const text = stringText(grammar, node);
 
       if (
         text.includes('/') &&
@@ -230,7 +252,7 @@ const walk = (grammar: Grammar, root: Node): Walked => {
       prefix,
     };
 
-    const children = node.children;
+    const children = grammar.opaque?.has(node.type) ? [] : node.children;
     for (let at = children.length - 1; at >= 0; at -= 1) {
       const child = children[at];
       if (child) {
@@ -289,21 +311,36 @@ export class TreeSitterSymbolIndexer implements SymbolIndexerPort {
 
     try {
       const walked = readable.flatMap(({ source, grammar }) => {
-        const language = languages.get(grammar.name);
+        const language = languages.get(grammar.wasm);
 
         if (!language) {
           return [];
         }
 
         parser.setLanguage(language);
-        const tree = parser.parse(source.text);
+        const embedded = grammar.embedded?.(source.text);
+        const tree = parser.parse(embedded?.script ?? source.text);
 
         if (!tree) {
           return [];
         }
 
         try {
-          return [{ source, grammar, walked: walk(grammar, tree.rootNode) }];
+          const found = walk(grammar, tree.rootNode);
+
+          return [
+            {
+              source,
+              grammar,
+              walked: embedded
+                ? {
+                    ...found,
+                    symbols: [wholeFileComponent(source), ...found.symbols],
+                    references: [...found.references, ...embedded.references],
+                  }
+                : found,
+            },
+          ];
         } finally {
           tree.delete();
         }
@@ -357,11 +394,11 @@ export class TreeSitterSymbolIndexer implements SymbolIndexerPort {
       });
 
       const loaded = await Promise.all(
-        GRAMMARS.map(
-          async (grammar) =>
+        [...new Set(GRAMMARS.map((grammar) => grammar.wasm))].map(
+          async (wasm) =>
             [
-              grammar.name,
-              await Language.load(path.join(this.directory, grammar.wasm)),
+              wasm,
+              await Language.load(path.resolve(this.directory, wasm)),
             ] as const,
         ),
       );

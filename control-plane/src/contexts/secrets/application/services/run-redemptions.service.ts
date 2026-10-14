@@ -4,7 +4,10 @@ import type {
   RunRedemption,
   WithheldSecret,
 } from '@secrets/application/contracts/run-redemption.contract';
-import type { RunRedemptionsPort } from '@secrets/application/ports/run-redemptions.port';
+import type {
+  RunRedemptionsPort,
+  RunSealed,
+} from '@secrets/application/ports/run-redemptions.port';
 import type {
   RunSealingPort,
   SealingRecipient,
@@ -20,6 +23,7 @@ import type { SecretRepository } from '@secrets/domain/repositories/secret.repos
 import { RedemptionRecipient } from '@secrets/domain/value-objects/redemption-recipient.vo';
 import { RunHold } from '@secrets/domain/value-objects/run-hold.vo';
 import type { SecretGrant } from '@secrets/domain/value-objects/secret-grant.vo';
+import { SecretValue } from '@secrets/domain/value-objects/secret-value.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -103,6 +107,14 @@ export class RunRedemptions implements RunRedemptionsPort {
     }
 
     return { secrets, withheld };
+  }
+
+  sealedFor(sealed: RunSealed): string {
+    return this.sealing.seal(
+      SecretValue.of(sealed.value),
+      this.sealing.recipientOf(sealed.recipient),
+      { runId: sealed.runId, secretName: sealed.name },
+    );
   }
 
   private async redeemed(

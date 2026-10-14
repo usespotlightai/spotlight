@@ -1059,6 +1059,13 @@ export type WithheldSecretResponseDto = {
   reason: string;
 };
 
+export type SpotlightApiResponseDto = {
+  /**
+   * A read and plan token for this run alone, sealed to the recipient; egress wears it toward the control plane as a bearer token
+   */
+  sealed: string;
+};
+
 export type EgressRedemptionResponseDto = {
   /**
    * The run the sealed values are bound to; null when the sandbox checks a change stack and wears nothing
@@ -1073,6 +1080,10 @@ export type EgressRedemptionResponseDto = {
    * Secrets the run wears that egress will not get, and why
    */
   withheld: Array<WithheldSecretResponseDto>;
+  /**
+   * Where the run reaches Spotlight’s own API, the token it reaches it with
+   */
+  spotlightApi: SpotlightApiResponseDto | null;
 };
 
 export type HeldRunResponseDto = {
@@ -1929,6 +1940,15 @@ export type ChatImprovingResponseDto = {
   stationName: string;
 };
 
+export type ChatSetupResponseDto = {
+  repository: string;
+  folder: string;
+  /**
+   * The pull request the chat opened with the configuration
+   */
+  pullRequest: string | null;
+};
+
 export type ChatSummaryResponseDto = {
   id: string;
   title: string;
@@ -1940,12 +1960,27 @@ export type ChatSummaryResponseDto = {
    * The station the chat is about improving, if any
    */
   improving: ChatImprovingResponseDto | null;
+  /**
+   * Where the chat sets up the team’s configuration as code, for a setup chat
+   */
+  setup: ChatSetupResponseDto | null;
   createdAt: string;
   updatedAt: string;
   /**
    * The agent is answering now
    */
   working: boolean;
+};
+
+export type ChatSetupRequestDto = {
+  /**
+   * The repository the team’s configuration lives in
+   */
+  repository: string;
+  /**
+   * The folder in it, from the repository root
+   */
+  folder: string;
 };
 
 export type StartChatRequestDto = {
@@ -1981,6 +2016,10 @@ export type StartChatRequestDto = {
    * A station the chat is about improving, by its id; the agent is briefed to study its recent runs
    */
   improving?: string;
+  /**
+   * Makes this the team’s setup chat: the agent surveys the team’s tools and opens a pull request with its configuration as code there
+   */
+  setup?: ChatSetupRequestDto;
 };
 
 export type ChatTraceResponseDto = {
@@ -2040,6 +2079,10 @@ export type ChatResponseDto = {
    * The station the chat is about improving, if any
    */
   improving: ChatImprovingResponseDto | null;
+  /**
+   * Where the chat sets up the team’s configuration as code, for a setup chat
+   */
+  setup: ChatSetupResponseDto | null;
   createdAt: string;
   updatedAt: string;
   /**
@@ -2080,10 +2123,25 @@ export type SetupStepResponseDto = {
   /**
    * Which step this is
    */
-  key: 'github' | 'harness';
+  key: 'github' | 'harness' | 'configuration';
   title: string;
   description: string;
   done: boolean;
+};
+
+export type SetupChatResponseDto = {
+  /**
+   * The team’s setup chat, when the caller started it. Chats are seen only by whoever started them
+   */
+  id: string | null;
+  /**
+   * The pull request it opened with the configuration
+   */
+  pullRequest: string | null;
+  /**
+   * Who started it, empty when they have left the workspace
+   */
+  startedBy: string;
 };
 
 export type OnboardingResponseDto = {
@@ -2091,6 +2149,14 @@ export type OnboardingResponseDto = {
    * The list itself, in the order it is worked through
    */
   steps: Array<SetupStepResponseDto>;
+  /**
+   * Whether a setup chat can start: the GitHub App is installed and a host runs sandboxes
+   */
+  canSetUp: boolean;
+  /**
+   * The chat setting up the team’s configuration as code, the one with a pull request first
+   */
+  setupChat: SetupChatResponseDto | null;
 };
 
 export type WorkspaceResourceResponseDto = {
@@ -2347,6 +2413,34 @@ export type WorkspaceResponseDto = {
   role: 'owner' | 'admin' | 'member';
 };
 
+export type TeamReferenceResponseDto = {
+  id: string;
+  name: string;
+};
+
+export type WorkspaceMemberResponseDto = {
+  id: string;
+  name: string;
+  image: string | null;
+  /**
+   * What they are in the workspace this team belongs to.
+   */
+  role: 'owner' | 'admin' | 'member';
+  /**
+   * What the caller may set them to, which is empty where that is not theirs to do. Worked out by the same rule the workspace enforces.
+   */
+  mayBeSetTo: Array<'owner' | 'admin' | 'member'>;
+  email: string;
+  /**
+   * The teams of this workspace they are on.
+   */
+  teams: Array<TeamReferenceResponseDto>;
+  /**
+   * When they joined the workspace.
+   */
+  joinedAt: string;
+};
+
 export type ChangeMemberRoleRequestDto = {
   /**
    * What they are to be in this workspace, which is what they may do in every team of it.
@@ -2410,22 +2504,66 @@ export type MemberResponseDto = {
   mayBeSetTo: Array<'owner' | 'admin' | 'member'>;
 };
 
-export type InviteResponseDto = {
+export type AddTeamMemberRequestDto = {
+  /**
+   * Somebody already in the workspace this team belongs to.
+   */
+  userId: string;
+};
+
+export type InviterResponseDto = {
+  id: string;
+  name: string;
+  image: string | null;
+};
+
+export type WorkspaceInviteResponseDto = {
   id: string;
   email: string;
   /**
-   * Who asked them.
+   * What they will be in the workspace once they accept.
    */
-  invitedBy: string;
+  role: 'admin' | 'member';
+  /**
+   * The teams they join on accepting.
+   */
+  teams: Array<TeamReferenceResponseDto>;
+  /**
+   * Who asked them, or null once their account is deleted.
+   */
+  invitedBy: InviterResponseDto | null;
   invitedAt: string;
   expiresAt: string;
 };
 
-export type InviteToTeamRequestDto = {
+export type InviteToWorkspaceRequestDto = {
   /**
-   * Where the invitation is sent, and who may accept it.
+   * Where each invitation is sent, and who may accept it. One invitation per address.
    */
+  emails: Array<string>;
+  /**
+   * What they will be in the workspace once they accept. Nobody is invited as an owner, nor above the inviter.
+   */
+  role: 'admin' | 'member';
+  /**
+   * The teams of this workspace they join on accepting.
+   */
+  teamIds: Array<string>;
+};
+
+export type InviteOutcomeResponseDto = {
   email: string;
+  /**
+   * What came of the address: a new invitation, an open one sent again with a fresh link, nothing, since they are already in the workspace, or an invitation kept whose email could not be sent, which sending again may still deliver.
+   */
+  outcome: 'invited' | 'sent-again' | 'already-a-member' | 'not-sent';
+};
+
+export type InviteOutcomesResponseDto = {
+  /**
+   * One outcome per address asked, in the order asked.
+   */
+  outcomes: Array<InviteOutcomeResponseDto>;
 };
 
 export type InviteOfferResponseDto = {
@@ -2433,19 +2571,30 @@ export type InviteOfferResponseDto = {
    * The address it was sent to, which is who may accept it.
    */
   email: string;
-  teamName: string;
   workspaceName: string;
-  invitedBy: string;
+  /**
+   * Who asked them, or null once their account is deleted.
+   */
+  invitedBy: string | null;
+  /**
+   * What they will be in the workspace once they accept.
+   */
+  role: 'admin' | 'member';
+  /**
+   * The teams they join on accepting.
+   */
+  teamNames: Array<string>;
   /**
    * Whether it is still worth following.
    */
   standing: 'open' | 'accepted' | 'revoked' | 'expired';
 };
 
-export type JoinedTeamResponseDto = {
+export type JoinedWorkspaceResponseDto = {
+  /**
+   * Where they land.
+   */
   workspaceSlug: string;
-  teamId: string;
-  teamName: string;
 };
 
 export type SecretSourceResponseDto = {
@@ -4256,6 +4405,13 @@ export type MemoryFileResponseDto = {
   body: string;
 };
 
+export type StationConfigPullRequestResponseDto = {
+  /**
+   * The pull request’s page on GitHub
+   */
+  url: string;
+};
+
 export type NextActResponseDto = {
   act: 'started' | 'parked' | 'closed' | 'answered' | 'sent-back';
   at: string;
@@ -4397,6 +4553,10 @@ export type FingerprintGroupResponseDto = {
    * How the config differs from the last one the station ran before the group, listed or not, groups that never ran their config passed over; none where either config is not on record, or for a group carrying on the config in force
    */
   changes: Array<ConfigChangeResponseDto>;
+  /**
+   * The pull request Spotlight opened that proposes the group’s config, the latest opened where it opened more than one; none where Spotlight opened none, or for a group with no config
+   */
+  pullRequest: StationConfigPullRequestResponseDto | null;
   /**
    * Its runs that ended, the latest-started first, so the groups’ runs read in turn are the station’s latest-started runs
    */
@@ -6753,7 +6913,7 @@ export type ReplayCandidateResourceResponseDto = {
   /**
    * proposed by a person or a token; or live, a snapshot of the station’s config Spotlight takes to replay as a baseline, which only goes with its replays
    */
-  kind: 'live' | 'proposed' | 'searched' | 'planned' | 'sanity';
+  kind: 'live' | 'proposed' | 'searched' | 'planned' | 'oracle';
   /**
    * The station block it replays the station under, in the shape the line resource holds a station in
    */
@@ -6923,43 +7083,42 @@ export type GainReadingResponseDto = {
   tasks: number;
 };
 
-export type WorseTaskResponseDto = {
-  taskId: string;
-  originalRunId: string;
+export type OracleReadingResponseDto = {
   /**
-   * The live config’s success on the task
-   */
-  live: number;
-  /**
-   * The stronger config’s success on the task
-   */
-  stronger: number;
-};
-
-export type SanityReadingResponseDto = {
-  /**
-   * The newest replay of the live config with a stronger model
+   * The newest replay of the live config handed each run’s answer: the change people accepted, or what they said when they sent it back
    */
   replayId: string;
   candidateId: string;
-  model: string | null;
-  effort: string | null;
   repeats: number;
   state: 'queued' | 'running' | 'finished' | 'stopped' | 'over-budget';
   /**
-   * The replay of the live config, run at least as often, it is compared with, chosen when it started
+   * The replay of the live config it is compared with: the one whose finishing started it
    */
   againstReplayId: string | null;
   /**
-   * How the replay it is compared with stands: finished once they can be compared; stopped, over-budget or gone means they never will be, so start another
+   * How the replay it is compared with stands: finished once they can be compared; stopped, over-budget or gone means they never will be
    */
   againstState: 'queued' | 'running' | 'finished' | 'stopped' | 'over-budget' | 'gone' | null;
+  /**
+   * Runs it replayed: those the live replay replayed whose original was accepted with a change, or sent back with something a person said. Others have no answer to hand over
+   */
+  answered: number;
+  /**
+   * The live config’s success on those runs; null until compared
+   */
+  live: number | null;
+  /**
+   * Success on those runs with the answer; null until compared
+   */
+  withAnswer: number | null;
+  /**
+   * The gain the answer brings over the live config: the most a better harness could gain on these runs
+   */
   gain: GainReadingResponseDto | null;
   /**
-   * The stronger config did clearly better; false means the set does not reward a stronger model, so its tasks may be unclear or its scoring off; null until compared
+   * The answer did clearly better; false means the set leaves no room a better config could show, so a search on it would find little; null until compared, or when fewer than 5 runs had an answer
    */
-  rewardsStrongerModel: boolean | null;
-  worse: Array<WorseTaskResponseDto>;
+  roomToImprove: boolean | null;
 };
 
 export type SetHealthResponseDto = {
@@ -6980,9 +7139,9 @@ export type SetHealthResponseDto = {
    */
   checks: CheckConsistencyResponseDto | null;
   /**
-   * Whether a stronger model or higher effort does better on the set; null until one was replayed
+   * How much better the live config does when handed each run’s answer. Started by Spotlight after each replay of the whole set under the live config; null until one started
    */
-  sanity: SanityReadingResponseDto | null;
+  oracle: OracleReadingResponseDto | null;
 };
 
 export type OutcomeCountResponseDto = {
@@ -7047,7 +7206,7 @@ export type ReplaySetEntryResponseDto = {
   /**
    * Why the run can no longer be replayed, as it stands now; null while it can
    */
-  refusal: 'unknown-run' | 'not-a-task-run' | 'task-gone' | 'still-running' | 'no-starting-point' | 'no-briefing' | 'archive-gone' | 'attachments-gone' | 'repository-gone' | 'not-at-the-station' | 'candidate-unfit' | 'cannot-start' | 'unchecked' | 'forgone' | 'dispatch-failed' | null;
+  refusal: 'unknown-run' | 'not-a-task-run' | 'task-gone' | 'still-running' | 'no-starting-point' | 'no-briefing' | 'archive-gone' | 'attachments-gone' | 'answer-gone' | 'repository-gone' | 'not-at-the-station' | 'candidate-unfit' | 'cannot-start' | 'unchecked' | 'forgone' | 'dispatch-failed' | null;
   reason: string | null;
   /**
    * How the original run turned out: asked when what a person did next was decide an approval it asked for; else accepted or sent back by what a person did next; else failed; else asked when it ended waiting on a person or a person answered it; else other
@@ -7074,7 +7233,7 @@ export type ReplaySetResponseDto = {
    */
   guardsChanges: boolean;
   /**
-   * Whether the set can tell candidates apart, read for the live config as it is now: its noise, how much of it the live config passes already, whether its judge and check give the same answer twice, and whether it rewards a stronger model
+   * Whether the set can tell candidates apart, read for the live config as it is now: its noise, how much of it the live config passes already, whether its judge and check give the same answer twice, and how much better the live config does when handed each run’s answer
    */
   health: SetHealthResponseDto;
   /**
@@ -7097,7 +7256,7 @@ export type ReplayableRunResponseDto = {
   /**
    * Why it cannot be replayed; null when it can
    */
-  refusal: 'unknown-run' | 'not-a-task-run' | 'task-gone' | 'still-running' | 'no-starting-point' | 'no-briefing' | 'archive-gone' | 'attachments-gone' | 'repository-gone' | 'not-at-the-station' | 'candidate-unfit' | 'cannot-start' | 'unchecked' | 'forgone' | 'dispatch-failed' | null;
+  refusal: 'unknown-run' | 'not-a-task-run' | 'task-gone' | 'still-running' | 'no-starting-point' | 'no-briefing' | 'archive-gone' | 'attachments-gone' | 'answer-gone' | 'repository-gone' | 'not-at-the-station' | 'candidate-unfit' | 'cannot-start' | 'unchecked' | 'forgone' | 'dispatch-failed' | null;
   reason: string | null;
 };
 
@@ -7110,7 +7269,7 @@ export type SuggestedRunResponseDto = {
   /**
    * Why it cannot be replayed; null when it can
    */
-  refusal: 'unknown-run' | 'not-a-task-run' | 'task-gone' | 'still-running' | 'no-starting-point' | 'no-briefing' | 'archive-gone' | 'attachments-gone' | 'repository-gone' | 'not-at-the-station' | 'candidate-unfit' | 'cannot-start' | 'unchecked' | 'forgone' | 'dispatch-failed' | null;
+  refusal: 'unknown-run' | 'not-a-task-run' | 'task-gone' | 'still-running' | 'no-starting-point' | 'no-briefing' | 'archive-gone' | 'attachments-gone' | 'answer-gone' | 'repository-gone' | 'not-at-the-station' | 'candidate-unfit' | 'cannot-start' | 'unchecked' | 'forgone' | 'dispatch-failed' | null;
   reason: string | null;
   /**
    * How the run turned out
@@ -7140,7 +7299,7 @@ export type AddReplaySetEntryRequestDto = {
 export type CandidateResponseDto = {
   id: string;
   name: string;
-  kind: 'live' | 'proposed' | 'searched' | 'planned' | 'sanity';
+  kind: 'live' | 'proposed' | 'searched' | 'planned' | 'oracle';
   /**
    * The StationConfig fingerprint, as runs record it
    */
@@ -7403,7 +7562,7 @@ export type ReplayEntryResponseDto = {
   fingerprint: string | null;
   phase: 'waiting' | 'dispatched' | 'settled';
   ending: 'completed' | 'failed' | 'stopped' | 'asked' | 'unreplayable' | 'not-run' | null;
-  refusal: 'unknown-run' | 'not-a-task-run' | 'task-gone' | 'still-running' | 'no-starting-point' | 'no-briefing' | 'archive-gone' | 'attachments-gone' | 'repository-gone' | 'not-at-the-station' | 'candidate-unfit' | 'cannot-start' | 'unchecked' | 'forgone' | 'dispatch-failed' | null;
+  refusal: 'unknown-run' | 'not-a-task-run' | 'task-gone' | 'still-running' | 'no-starting-point' | 'no-briefing' | 'archive-gone' | 'attachments-gone' | 'answer-gone' | 'repository-gone' | 'not-at-the-station' | 'candidate-unfit' | 'cannot-start' | 'unchecked' | 'forgone' | 'dispatch-failed' | null;
   /**
    * How its run failed: exited, refused and timed-out (it ran past its host’s time limit) count against the candidate; unprepared, unprovisioned, hooks-unanswered, runner-lost and superseded were down to what ran it, and leave the entry unscored
    */
@@ -7547,44 +7706,6 @@ export type ReplayStartedResponseDto = {
    * The set’s baseline replay of the live config, when the set had none covering its runs: this replay itself, or one starting beside it under this id. It spends against a ceiling of its own, equal to the one asked for, so the two together may spend up to twice it
    */
   baseline: StartedBaselineResponseDto | null;
-};
-
-export type ProbeReplaySetRequestDto = {
-  ceiling: StartReplayCeilingRequestDto;
-};
-
-export type StartSanityReplayRequestDto = {
-  /**
-   * The stronger model to replay the set under, one its harness offers; the live config’s when left out
-   */
-  model?: string;
-  /**
-   * The higher effort to replay the set at; the live config’s when left out. Name a model, an effort, or both
-   */
-  effort?: string;
-  ceiling: StartReplayCeilingRequestDto;
-  /**
-   * How many times to replay each run, 1 when left out
-   */
-  repeats?: number;
-};
-
-export type SanityComparisonResponseDto = {
-  id: string;
-  ceiling: SpendResponseDto;
-};
-
-export type SanityReplayStartedResponseDto = {
-  id: string;
-  /**
-   * The stronger config it replays: the live one, but stronger
-   */
-  candidateId: string;
-  ceiling: SpendResponseDto;
-  /**
-   * A replay of the live config, run as often, started beside it to compare with when the set had none, under a ceiling of its own equal to the one asked for
-   */
-  comparison: SanityComparisonResponseDto | null;
 };
 
 export type ReplaySearchResponseDto = {
@@ -7927,21 +8048,21 @@ export type FlakyChecksWarningResponseDto = {
   rechecked: number;
 };
 
-export type SanityFailedWarningResponseDto = {
+export type NoHeadroomWarningResponseDto = {
   /**
-   * A stronger model or higher effort did not do clearly better on the set, so its tasks may be unclear or its scoring off
+   * Handed each run’s answer, the live config did not do clearly better, so the set leaves little room for a better config to show
    */
-  kind: 'sanity-failed';
+  kind: 'no-headroom';
   /**
-   * The stronger config’s gain in success over the live one
+   * The gain in success the answer brought
    */
   gain: number;
   low: number;
   high: number;
   /**
-   * How many tasks the stronger config did worse on
+   * How many runs were handed an answer
    */
-  worseTasks: number;
+  answered: number;
 };
 
 export type SearchRunsEstimateResponseDto = {
@@ -8016,7 +8137,7 @@ export type SearchEstimateResponseDto = {
   /**
    * What would make its results hard to trust; a search may start all the same
    */
-  warnings: Array<NoiseUnmeasuredWarningResponseDto | NoisyWarningResponseDto | SaturatedWarningResponseDto | JudgeUnstableWarningResponseDto | FlakyChecksWarningResponseDto | SanityFailedWarningResponseDto>;
+  warnings: Array<NoiseUnmeasuredWarningResponseDto | NoisyWarningResponseDto | SaturatedWarningResponseDto | JudgeUnstableWarningResponseDto | FlakyChecksWarningResponseDto | NoHeadroomWarningResponseDto>;
 };
 
 export type SearchAgentRequestDto = {
@@ -8054,7 +8175,7 @@ export type SearchStartedResponseDto = {
   /**
    * What makes its results hard to trust; the search starts all the same
    */
-  warnings: Array<NoiseUnmeasuredWarningResponseDto | NoisyWarningResponseDto | SaturatedWarningResponseDto | JudgeUnstableWarningResponseDto | FlakyChecksWarningResponseDto | SanityFailedWarningResponseDto>;
+  warnings: Array<NoiseUnmeasuredWarningResponseDto | NoisyWarningResponseDto | SaturatedWarningResponseDto | JudgeUnstableWarningResponseDto | FlakyChecksWarningResponseDto | NoHeadroomWarningResponseDto>;
 };
 
 export type SearchSplitEntryResponseDto = {
@@ -8652,9 +8773,9 @@ export type ReplaySetHealthResponseDto = {
    */
   checks: CheckConsistencyResponseDto | null;
   /**
-   * Whether a stronger model or higher effort does better on the set; null until one was replayed
+   * How much better the live config does when handed each run’s answer. Started by Spotlight after each replay of the whole set under the live config; null until one started
    */
-  sanity: SanityReadingResponseDto | null;
+  oracle: OracleReadingResponseDto | null;
   /**
    * How many distinct tasks its runs worked; fewer than its runs when a task was worked more than once
    */
@@ -10989,7 +11110,7 @@ export type StartChatData = {
 
 export type StartChatErrors = {
   /**
-   * A model or effort that is not text
+   * A model or effort that is not text, or a setup without a repository and a folder
    */
   400: unknown;
   /**
@@ -11001,7 +11122,7 @@ export type StartChatErrors = {
    */
   404: unknown;
   /**
-   * An unknown harness, model, effort or repository
+   * An unknown harness, model, effort or repository, or a setup the GitHub App cannot reach or no host can run
    */
   422: unknown;
 };
@@ -12670,6 +12791,32 @@ export type GetWorkspaceResponses = {
 
 export type GetWorkspaceResponse = GetWorkspaceResponses[keyof GetWorkspaceResponses];
 
+export type ListWorkspaceMembersData = {
+  body?: never;
+  path: {
+    slug: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/members';
+};
+
+export type ListWorkspaceMembersErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such workspace for this caller
+   */
+  404: unknown;
+};
+
+export type ListWorkspaceMembersResponses = {
+  200: Array<WorkspaceMemberResponseDto>;
+};
+
+export type ListWorkspaceMembersResponse = ListWorkspaceMembersResponses[keyof ListWorkspaceMembersResponses];
+
 export type ChangeMemberRoleData = {
   body: ChangeMemberRoleRequestDto;
   path: {
@@ -12773,70 +12920,146 @@ export type ListMembersResponses = {
 
 export type ListMembersResponse = ListMembersResponses[keyof ListMembersResponses];
 
-export type ListInvitesData = {
+export type AddTeamMemberData = {
+  body: AddTeamMemberRequestDto;
+  path: {
+    teamId: string;
+  };
+  query?: never;
+  url: '/teams/{teamId}/members';
+};
+
+export type AddTeamMemberErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such team, or not yours to add people to
+   */
+  404: unknown;
+  /**
+   * They are already on the team
+   */
+  409: unknown;
+  /**
+   * They are not in the workspace
+   */
+  422: unknown;
+};
+
+export type AddTeamMemberResponses = {
+  /**
+   * They are on the team now
+   */
+  204: void;
+};
+
+export type AddTeamMemberResponse = AddTeamMemberResponses[keyof AddTeamMemberResponses];
+
+export type ListWorkspaceInvitesData = {
   body?: never;
   path: {
-    teamId: string;
+    slug: string;
   };
   query?: never;
-  url: '/teams/{teamId}/invites';
+  url: '/workspaces/{slug}/invites';
 };
 
-export type ListInvitesErrors = {
+export type ListWorkspaceInvitesErrors = {
   /**
    * No valid session
    */
   401: unknown;
   /**
-   * No such team for this caller
+   * No such workspace, or not yours to invite to
    */
   404: unknown;
 };
 
-export type ListInvitesResponses = {
-  200: Array<InviteResponseDto>;
+export type ListWorkspaceInvitesResponses = {
+  200: Array<WorkspaceInviteResponseDto>;
 };
 
-export type ListInvitesResponse = ListInvitesResponses[keyof ListInvitesResponses];
+export type ListWorkspaceInvitesResponse = ListWorkspaceInvitesResponses[keyof ListWorkspaceInvitesResponses];
 
-export type InviteToTeamData = {
-  body: InviteToTeamRequestDto;
+export type InviteToWorkspaceData = {
+  body: InviteToWorkspaceRequestDto;
   path: {
-    teamId: string;
+    slug: string;
   };
   query?: never;
-  url: '/teams/{teamId}/invites';
+  url: '/workspaces/{slug}/invites';
 };
 
-export type InviteToTeamErrors = {
+export type InviteToWorkspaceErrors = {
   /**
    * No valid session
    */
   401: unknown;
   /**
-   * No such team, or not yours to invite to
+   * Not a role yours to give
+   */
+  403: unknown;
+  /**
+   * No such workspace, or not yours to invite to
    */
   404: unknown;
   /**
-   * They are already on this team
+   * Another invitation was just sent
+   */
+  409: unknown;
+  /**
+   * An address, role or team that does not hold
+   */
+  422: unknown;
+};
+
+export type InviteToWorkspaceResponses = {
+  200: InviteOutcomesResponseDto;
+};
+
+export type InviteToWorkspaceResponse = InviteToWorkspaceResponses[keyof InviteToWorkspaceResponses];
+
+export type ResendInviteData = {
+  body?: never;
+  path: {
+    slug: string;
+    inviteId: string;
+  };
+  query?: never;
+  url: '/workspaces/{slug}/invites/{inviteId}/resend';
+};
+
+export type ResendInviteErrors = {
+  /**
+   * No valid session
+   */
+  401: unknown;
+  /**
+   * No such invitation for this caller
+   */
+  404: unknown;
+  /**
+   * Already accepted or revoked
    */
   409: unknown;
 };
 
-export type InviteToTeamResponses = {
-  201: InviteResponseDto;
+export type ResendInviteResponses = {
+  200: WorkspaceInviteResponseDto;
 };
 
-export type InviteToTeamResponse = InviteToTeamResponses[keyof InviteToTeamResponses];
+export type ResendInviteResponse = ResendInviteResponses[keyof ResendInviteResponses];
 
 export type RevokeInviteData = {
   body?: never;
   path: {
-    teamId: string;
+    slug: string;
     inviteId: string;
   };
   query?: never;
-  url: '/teams/{teamId}/invites/{inviteId}';
+  url: '/workspaces/{slug}/invites/{inviteId}';
 };
 
 export type RevokeInviteErrors = {
@@ -12848,6 +13071,10 @@ export type RevokeInviteErrors = {
    * No such invitation for this caller
    */
   404: unknown;
+  /**
+   * Already accepted
+   */
+  409: unknown;
 };
 
 export type RevokeInviteResponses = {
@@ -12910,7 +13137,7 @@ export type AcceptInviteErrors = {
 };
 
 export type AcceptInviteResponses = {
-  200: JoinedTeamResponseDto;
+  200: JoinedWorkspaceResponseDto;
 };
 
 export type AcceptInviteResponse = AcceptInviteResponses[keyof AcceptInviteResponses];
@@ -18930,108 +19157,6 @@ export type StartReplayResponses = {
 };
 
 export type StartReplayResponse = StartReplayResponses[keyof StartReplayResponses];
-
-export type ProbeReplaySetData = {
-  body: ProbeReplaySetRequestDto;
-  headers?: {
-    /**
-     * The API version the client was written against; every response names the version it was answered in
-     */
-    'Spotlight-Api-Version'?: '2026-09-23';
-    /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
-     */
-    'Spotlight-Client'?: string;
-  };
-  path: {
-    teamId: string;
-    setId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/replay-sets/{setId}/probes';
-};
-
-export type ProbeReplaySetErrors = {
-  /**
-   * Malformed, or asking for an API version this server does not serve
-   */
-  400: ProblemResponseDto;
-  /**
-   * No valid credentials
-   */
-  401: ProblemResponseDto;
-  /**
-   * A caller who may read the team but not plan
-   */
-  403: ProblemResponseDto;
-  /**
-   * No such team, set, candidate or replay for this caller
-   */
-  404: ProblemResponseDto;
-  /**
-   * A ceiling of nothing or more than it takes, or a set with no runs
-   */
-  422: ProblemResponseDto;
-};
-
-export type ProbeReplaySetError = ProbeReplaySetErrors[keyof ProbeReplaySetErrors];
-
-export type ProbeReplaySetResponses = {
-  201: ReplayStartedResponseDto;
-};
-
-export type ProbeReplaySetResponse = ProbeReplaySetResponses[keyof ProbeReplaySetResponses];
-
-export type StartSanityReplayData = {
-  body: StartSanityReplayRequestDto;
-  headers?: {
-    /**
-     * The API version the client was written against; every response names the version it was answered in
-     */
-    'Spotlight-Api-Version'?: '2026-09-23';
-    /**
-     * Who is calling, recorded against every configuration change: terraform-provider/<version>, cli/<version> or web; anything else is recorded as unknown
-     */
-    'Spotlight-Client'?: string;
-  };
-  path: {
-    teamId: string;
-    setId: string;
-  };
-  query?: never;
-  url: '/teams/{teamId}/replay-sets/{setId}/sanity-replays';
-};
-
-export type StartSanityReplayErrors = {
-  /**
-   * Malformed, or asking for an API version this server does not serve
-   */
-  400: ProblemResponseDto;
-  /**
-   * No valid credentials
-   */
-  401: ProblemResponseDto;
-  /**
-   * A caller who may read the team but not plan
-   */
-  403: ProblemResponseDto;
-  /**
-   * No such team, set, candidate or replay for this caller
-   */
-  404: ProblemResponseDto;
-  /**
-   * Neither a model nor an effort other than the live config’s, one its harness does not offer, a ceiling of nothing, or a set with no runs
-   */
-  422: ProblemResponseDto;
-};
-
-export type StartSanityReplayError = StartSanityReplayErrors[keyof StartSanityReplayErrors];
-
-export type StartSanityReplayResponses = {
-  201: SanityReplayStartedResponseDto;
-};
-
-export type StartSanityReplayResponse = StartSanityReplayResponses[keyof StartSanityReplayResponses];
 
 export type ReadReplayData = {
   body?: never;

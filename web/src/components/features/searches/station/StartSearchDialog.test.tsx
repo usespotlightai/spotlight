@@ -65,7 +65,7 @@ const setOf = (id: string, name: string, tasks: number): ReplaySet => ({
     saturation: null,
     judge: null,
     checks: null,
-    sanity: null,
+    oracle: null,
   },
   minGain: 0.05,
   composition: {
@@ -364,18 +364,18 @@ describe('StartSearchDialog', () => {
     );
   });
 
-  it('warns of a judge that disagrees with itself, flaky checks and a set that does not reward a stronger model', () => {
+  it('warns of a judge that disagrees with itself, flaky checks and a set the answer leaves no room in', () => {
     estimate.mockReturnValue({
       ...ESTIMATE,
       warnings: [
         { kind: 'judge-unstable', agreement: 0.6, compared: 10 },
         { kind: 'flaky-checks', flaky: 2, rechecked: 9 },
         {
-          kind: 'sanity-failed',
-          gain: -0.02,
-          low: -0.1,
-          high: 0.06,
-          worseTasks: 3,
+          kind: 'no-headroom',
+          gain: 0.02,
+          low: -0.06,
+          high: 0.1,
+          answered: 6,
         },
       ],
     });
@@ -394,8 +394,8 @@ describe('StartSearchDialog', () => {
       warnings.querySelector('[data-kind="flaky-checks"]'),
     ).toHaveTextContent('on 2 of 9 changes it ran twice');
     expect(
-      warnings.querySelector('[data-kind="sanity-failed"]'),
-    ).toHaveTextContent('−2 pts, likely −10 to +6. It did worse on 3 tasks');
+      warnings.querySelector('[data-kind="no-headroom"]'),
+    ).toHaveTextContent('gained only +2 pts, likely −6 to +10, on 6 runs');
   });
 
   it('shows a refusal on the field it names', () => {

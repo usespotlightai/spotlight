@@ -1,29 +1,12 @@
-import { StartSearchButton } from '@/components/features/searches/station/StartSearchButton';
+import { StartSearchControl } from '@/components/features/searches/station/StartSearchControl';
 import { StationSearchList } from '@/components/features/searches/station/StationSearchList';
-import { useReplaySets } from '@/hooks/api/useReplaySets';
-import { useSearches } from '@/hooks/api/useSearches';
-import { failed, loading } from '@/lib/query';
+import { PanelActions } from '@/components/shared/PanelActions';
+import { useSearchStart } from '@/hooks/useSearchStart';
 import type { ReplayedStation } from '@/lib/replay';
-import { ongoingIn, startRefusal } from '@/lib/search';
 
-type StationSearchesProps = {
-  at: ReplayedStation;
-};
-
-export function StationSearches({ at }: StationSearchesProps) {
-  const searches = useSearches(at.teamId, at.lineId, at.stationId);
-  const sets = useReplaySets(at.teamId, at.lineId, at.stationId);
-  const listed = searches.data ?? [];
-  const held = sets.data ?? [];
-  const refusal = sets.data
-    ? startRefusal(held, ongoingIn(listed))
-    : failed(sets)
-      ? 'Sorry, the replay sets couldn’t be loaded. Please try again later.'
-      : 'Loading the replay sets…';
-  const start = (
-    <StartSearchButton at={at} sets={held} refusedBecause={refusal} />
-  );
-  const shown = !loading(searches) && !failed(searches) && listed.length > 0;
+export function StationSearches({ at }: { at: ReplayedStation }) {
+  const { searches, sets } = useSearchStart(at);
+  const start = <StartSearchControl at={at} />;
 
   return (
     <>
@@ -33,7 +16,7 @@ export function StationSearches({ at }: StationSearchesProps) {
         sets={sets.data}
         start={start}
       />
-      {shown && <div>{start}</div>}
+      {(searches.data ?? []).length > 0 && <PanelActions>{start}</PanelActions>}
     </>
   );
 }

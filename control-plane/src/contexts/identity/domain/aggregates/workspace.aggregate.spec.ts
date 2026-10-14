@@ -4,6 +4,8 @@ import { WorkspaceOpened } from '@identity/domain/events/workspace-opened.event'
 import { WorkspaceRedefined } from '@identity/domain/events/workspace-redefined.event';
 import { LastOwnerError } from '@identity/domain/exceptions/last-owner.error';
 import { NotYoursToGiveError } from '@identity/domain/exceptions/not-yours-to-give.error';
+import { NotYoursToInviteError } from '@identity/domain/exceptions/not-yours-to-invite.error';
+import { TeamOutsideWorkspaceError } from '@identity/domain/exceptions/team-outside-workspace.error';
 import { WorkspaceMovedOnError } from '@identity/domain/exceptions/workspace-moved-on.error';
 import { WorkspaceSlugFixedError } from '@identity/domain/exceptions/workspace-slug-fixed.error';
 import { Holdings } from '@identity/domain/value-objects/holdings.vo';
@@ -161,6 +163,48 @@ describe('Workspace', () => {
 
       expect(workspace.joinedBy(ADA, WorkspaceRole.member)).toBe(workspace);
       expect(workspace.roleOf(ADA)).toBe(WorkspaceRole.admin);
+    });
+  });
+
+  describe('inviting somebody', () => {
+    const ACME_ID = WorkspaceId.of('ws_1');
+    const team = (id: string, workspaceId = ACME_ID) => ({
+      id: TeamId.of(id),
+      workspaceId,
+    });
+    const AMONG = [team('team_1'), team('team_2')];
+    const terms = (role: WorkspaceRole, teams = ['team_1']) =>
+      build().inviteTerms({
+        role,
+        teams: teams.map((id) => TeamId.of(id)),
+        among: AMONG,
+      });
+
+    it('offers to make them an admin or a member, on teams of its own', () => {
+      expect(terms(WorkspaceRole.admin).invitedAs).toBe('admin');
+      expect(
+        terms(WorkspaceRole.member, ['team_1', 'team_2']).teams.map(
+          (each) => each.value,
+        ),
+      ).toEqual(['team_1', 'team_2']);
+    });
+
+    it('offers to make nobody an owner', () => {
+      expect(() => terms(WorkspaceRole.owner)).toThrow(NotYoursToInviteError);
+      expect(() => terms(WorkspaceRole.owner)).toThrow(/invited as an owner/);
+    });
+
+    it('offers no team of another workspace, nor one it does not know', () => {
+      expect(() =>
+        build().inviteTerms({
+          role: WorkspaceRole.member,
+          teams: [TeamId.of('team_9')],
+          among: [...AMONG, team('team_9', WorkspaceId.of('ws_2'))],
+        }),
+      ).toThrow(TeamOutsideWorkspaceError);
+      expect(() => terms(WorkspaceRole.member, ['team_gone'])).toThrow(
+        /team team_gone is not in this workspace/,
+      );
     });
   });
 

@@ -4,6 +4,7 @@ import { StationColor } from '@work/domain/value-objects/station-color.vo';
 export interface ReviewsRow {
   readonly start: string;
   readonly mention: string;
+  readonly label: string;
   readonly skip: {
     readonly spotlight: boolean;
     readonly drafts: boolean;

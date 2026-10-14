@@ -1,21 +1,20 @@
 import type { UseQueryResult } from '@tanstack/react-query';
 import { Sparkles } from 'lucide-react';
 import type { ReactNode } from 'react';
-import { CardList } from '@/components/features/replays/CardList';
-import { RowsSkeleton } from '@/components/features/replays/RowsSkeleton';
 import { StateBox } from '@/components/features/replays/StateBox';
 import { SearchRow } from '@/components/features/searches/station/SearchRow';
 import { MembersOnlyOrCouldNotLoad } from '@/components/features/team/MembersOnlyOrCouldNotLoad';
 import { EmptyState } from '@/components/shared/EmptyState';
-import { buttonVariants } from '@/components/ui/button-variants';
+import { NestedTable } from '@/components/shared/nested-table/NestedTable';
+import { NestedTableSkeleton } from '@/components/shared/nested-table/NestedTableSkeleton';
 import { failed, loading } from '@/lib/query';
+import type { ReplayedStation, ReplaySet } from '@/lib/replay';
 import {
-  REPLAYS_ANCHOR,
-  type ReplayedStation,
-  type ReplaySet,
-} from '@/lib/replay';
-import { newestFirst, type Search, searchNumber } from '@/lib/search';
-import { cn } from '@/lib/utils';
+  newestFirst,
+  SEARCH_HEADINGS,
+  type Search,
+  searchNumber,
+} from '@/lib/search';
 
 type StationSearchListProps = {
   at: ReplayedStation;
@@ -33,12 +32,18 @@ export function StationSearchList({
   const listed = searches.data ?? [];
 
   if (loading(searches)) {
-    return <RowsSkeleton label="Loading the searches" />;
+    return (
+      <NestedTableSkeleton
+        label="Loading the searches"
+        headings={SEARCH_HEADINGS}
+        compact
+      />
+    );
   }
 
   if (failed(searches)) {
     return (
-      <StateBox>
+      <StateBox flat>
         <MembersOnlyOrCouldNotLoad
           membersOnly="Only team members can see its searches"
           what="The station’s searches"
@@ -50,32 +55,18 @@ export function StationSearchList({
 
   if (listed.length === 0) {
     return (
-      <StateBox>
-        <EmptyState
-          icon={Sparkles}
-          title="No searches yet"
-          action={
-            sets?.length === 0 ? (
-              <a
-                href={`#${REPLAYS_ANCHOR}`}
-                className={cn(buttonVariants({ size: 'sm' }), 'rounded-full')}
-              >
-                Open a replay set first
-              </a>
-            ) : (
-              start
-            )
-          }
-        >
-          A search has an agent propose configs for this station. Each is
-          replayed on a replay set to find which do better for less.
+      <StateBox flat>
+        <EmptyState icon={Sparkles} title="No searches yet" action={start}>
+          {sets?.length === 0
+            ? 'Searches need a replay set to try configs on.'
+            : 'An agent tries configs on a replay set to find a better, cheaper one.'}
         </EmptyState>
       </StateBox>
     );
   }
 
   return (
-    <CardList label="Searches">
+    <NestedTable label="Searches" headings={SEARCH_HEADINGS} compact>
       {newestFirst(listed).map((search) => (
         <SearchRow
           key={search.id}
@@ -85,6 +76,6 @@ export function StationSearchList({
           setName={sets?.find((set) => set.id === search.setId)?.name ?? null}
         />
       ))}
-    </CardList>
+    </NestedTable>
   );
 }

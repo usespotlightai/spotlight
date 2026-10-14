@@ -1,13 +1,15 @@
-import { ProposeCandidate } from '@/components/features/replays/station/ProposeCandidate';
+import { OpenReplaySetAction } from '@/components/features/replays/station/OpenReplaySetAction';
 import { ReplaySets } from '@/components/features/replays/station/ReplaySets';
-import { StationCandidates } from '@/components/features/replays/station/StationCandidates';
 import { StationSearches } from '@/components/features/searches/station/StationSearches';
 import { ImproveStationLink } from '@/components/features/stations/ImproveStationLink';
-import { Step } from '@/components/shared/steps/Step';
-import { Steps } from '@/components/shared/steps/Steps';
-import { useStationCandidates } from '@/hooks/api/useStationCandidates';
+import { ImproveCard } from '@/components/features/stations/improve/ImproveCard';
+import { ImproveSection } from '@/components/features/stations/improve/ImproveSection';
+import { WorthImproving } from '@/components/features/stations/improve/WorthImproving';
+import { useSearchStart } from '@/hooks/useSearchStart';
 import type { LineResponseDto, StationResponseDto } from '@/lib/api';
-import { REPLAYS_ANCHOR, stationAddress } from '@/lib/replay';
+import { signalAsk } from '@/lib/insights';
+import { loading } from '@/lib/query';
+import { REPLAYS_ANCHOR } from '@/lib/replay';
 import { SEARCHES_ANCHOR } from '@/lib/search';
 
 type StationImproveTabProps = {
@@ -24,59 +26,69 @@ export function StationImproveTab({
   station,
 }: StationImproveTabProps) {
   const at = { slug, teamId, lineId: line.id, stationId: station.id };
-  const { address, candidates, addressFailed } = useStationCandidates(at);
+  const { searches, sets } = useSearchStart(at);
+  const improving = {
+    lineId: line.id,
+    lineKey: line.key,
+    lineName: line.name,
+    stationId: station.id,
+    stationKey: station.key,
+    stationName: station.name,
+  };
 
   return (
-    <Steps>
-      <Step
-        title="Talk it through with the agent"
-        description="The team’s agent reads the station’s config and recent runs. It suggests what to change."
-      >
-        <ImproveStationLink
-          slug={slug}
+    <>
+      <ImproveSection title="What stands out">
+        <WorthImproving
           teamId={teamId}
-          improving={{
-            lineId: line.id,
-            lineKey: line.key,
-            lineName: line.name,
-            stationId: station.id,
-            stationKey: station.key,
-            stationName: station.name,
-          }}
-          className="w-fit"
+          stationId={station.id}
+          action={
+            <ImproveStationLink
+              slug={slug}
+              teamId={teamId}
+              improving={improving}
+              label="Review with the agent"
+              variant="default"
+            />
+          }
+          askAbout={(reading) => (
+            <ImproveStationLink
+              slug={slug}
+              teamId={teamId}
+              improving={improving}
+              label="Ask the agent"
+              ask={signalAsk(reading)}
+            />
+          )}
         />
-      </Step>
+      </ImproveSection>
 
-      <Step
-        id={REPLAYS_ANCHOR}
-        title="Pick past runs to replay"
-        description="Replay set: a few past runs to replay under a candidate. Results compare with the original runs."
-      >
-        <ReplaySets at={at} />
-      </Step>
+      <ImproveSection title="Try a change">
+        <div className="grid gap-3 lg:grid-cols-2">
+          <ImproveCard
+            id={REPLAYS_ANCHOR}
+            title="Replay sets"
+            description="A few past runs to replay under a candidate. Results compare with the original runs."
+            loading={loading(sets)}
+            loadingLabel="Loading the replay sets"
+            footer
+          >
+            <ReplaySets at={at} />
+            <OpenReplaySetAction at={at} />
+          </ImproveCard>
 
-      <Step
-        title="Propose candidates"
-        description="Candidate: the station as you’d like to try it. Replaying it never changes the station."
-      >
-        <StationCandidates
-          candidates={candidates}
-          waiting={!address && !addressFailed}
-          failedToPlace={addressFailed}
-        />
-        <ProposeCandidate
-          slug={slug}
-          address={address ?? stationAddress('<team>', line.key, station.key)}
-        />
-      </Step>
-
-      <Step
-        id={SEARCHES_ANCHOR}
-        title="Or let a search find one"
-        description="Search: an agent proposes configs and replays each on a replay set. It looks for one that does better for less."
-      >
-        <StationSearches at={at} />
-      </Step>
-    </Steps>
+          <ImproveCard
+            id={SEARCHES_ANCHOR}
+            title="Searches"
+            description="An agent proposes configs and replays each on a replay set. It looks for one that does better for less."
+            loading={loading(searches)}
+            loadingLabel="Loading the searches"
+            footer
+          >
+            <StationSearches at={at} />
+          </ImproveCard>
+        </div>
+      </ImproveSection>
+    </>
   );
 }

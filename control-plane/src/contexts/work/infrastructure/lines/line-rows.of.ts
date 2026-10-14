@@ -15,6 +15,7 @@ export const reviewsRow = (policy: ReviewPolicy | null): ReviewsRow | null =>
     ? {
         start: policy.start,
         mention: policy.mention,
+        label: policy.label,
         skip: {
           spotlight: policy.skip.spotlight,
           drafts: policy.skip.drafts,

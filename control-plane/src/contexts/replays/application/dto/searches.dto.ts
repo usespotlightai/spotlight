@@ -43,11 +43,11 @@ export type SearchWarningDto =
       readonly rechecked: number;
     }
   | {
-      readonly kind: 'sanity-failed';
+      readonly kind: 'no-headroom';
       readonly gain: number;
       readonly low: number;
       readonly high: number;
-      readonly worseTasks: number;
+      readonly answered: number;
     };
 
 export type SearchObjectiveDto = 'success' | 'cost';

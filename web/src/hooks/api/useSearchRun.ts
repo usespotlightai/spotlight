@@ -3,7 +3,7 @@ import { readSearchRun } from '@/lib/api';
 import { working } from '@/lib/run';
 import type { SearchRun } from '@/lib/search';
 
-export const searchRunKeys = {
+const searchRunKeys = {
   forRun: (runId?: string) => ['search-run', runId ?? null] as const,
 };
 

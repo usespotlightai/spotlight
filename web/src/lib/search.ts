@@ -4,6 +4,7 @@ import type {
   ReflectedTaskResponseDto,
   ReplayCheckSummaryResponseDto,
   SearchAgentRequestDto,
+  SearchBestResponseDto,
   SearchBudgetRequestDto,
   SearchCandidateResponseDto,
   SearchCauseResponseDto,
@@ -16,6 +17,7 @@ import type {
 import { messageOf } from '@/lib/error';
 import { spentIn } from '@/lib/inbox';
 import { lasted } from '@/lib/insights';
+import { type NestedHeading, SPREAD } from '@/lib/nested-table';
 import {
   type CountBounds,
   ceilingFrom,
@@ -24,6 +26,7 @@ import {
   type ReplayedStation,
   type ReplaySet,
 } from '@/lib/replay';
+import { minGainSentence } from '@/lib/replay-words';
 import type { CauseKind, SearchState } from '@/lib/search-words';
 import { stationPath, stationTabPath } from '@/lib/station';
 import { type ConfigChange, configChangesOf } from '@/lib/station-config';
@@ -162,7 +165,7 @@ export const startRefusal = (
     return 'A search of this station is underway.';
   }
   if (sets.length === 0) {
-    return 'Open a replay set first.';
+    return 'Create a replay set first.';
   }
 
   return sets.some((set) => setRefusal(set) === null)
@@ -409,7 +412,6 @@ export const frontierPoints = (
 ): {
   priced: FrontierPoint[];
   unpriced: SearchCandidate[];
-  unfinished: SearchCandidate[];
 } => {
   const scored = candidatesOf(detail).filter(
     (each) => each.searchScore !== null,
@@ -432,15 +434,11 @@ export const frontierPoints = (
         : [],
     ),
     unpriced: finished.filter((each) => each.costPerRun === null),
-    unfinished: scored.filter((each) => !charted(each)),
   };
 };
 
 export const candidateName = (candidate: SearchCandidate): string =>
   candidate.seed ? 'Live config' : candidate.name;
-
-export const iterationsShown = (search: Search): string =>
-  `${search.iterationsRun} of ${search.budget.iterations} ${search.budget.iterations === 1 ? 'iteration' : 'iterations'}`;
 
 export const setTaskTitle = (
   entry: { readonly runId: string; readonly taskId: string },
@@ -469,7 +467,7 @@ export const referenceShown = (
   return reference.commit ? `Commit ${reference.commit.slice(0, 7)}` : null;
 };
 
-export const regressionsShown = (count: number): string =>
+const regressionsShown = (count: number): string =>
   count === 1 ? '1 regression' : `${count} regressions`;
 
 export const appPathOf = (url: string): string => {
@@ -477,3 +475,53 @@ export const appPathOf = (url: string): string => {
 
   return `${parsed.pathname}${parsed.search}${parsed.hash}`;
 };
+
+export type BestScore = {
+  readonly rate: number | null;
+  readonly interval: SearchBestResponseDto['searchInterval'];
+  readonly heldOut: boolean;
+};
+
+export const bestScoreOf = (best: SearchBestResponseDto): BestScore => {
+  const heldOut = best.heldOutScore !== null;
+
+  return heldOut
+    ? { rate: best.heldOutScore, interval: best.heldOutInterval, heldOut }
+    : { rate: best.searchScore, interval: best.searchInterval, heldOut };
+};
+
+export const SEARCH_HEADINGS: readonly NestedHeading[] = [
+  { label: 'Search', indent: 'edge', size: SPREAD },
+  { label: 'State', size: SPREAD },
+  { label: 'Replay set', size: SPREAD },
+  { label: 'Best', size: 'minmax(8rem,2fr)' },
+  { label: 'Success', numeric: true, size: SPREAD },
+  { label: 'Iterations', numeric: true, size: SPREAD },
+  { label: 'Spent', numeric: true, size: SPREAD },
+  { label: 'Started', numeric: true, size: SPREAD },
+];
+
+const GUARD_NOTE =
+  'spotlight replay check replays a pull request’s change of this station on this set. One guarding set per station.';
+
+export const replayCheckNote = (
+  replayCheck: LineReplayCheck | null | undefined,
+): string => {
+  if (replayCheck === undefined) {
+    return GUARD_NOTE;
+  }
+  if (replayCheck === null) {
+    return `${GUARD_NOTE} Line sets no replay_check. Its pull requests aren’t checked.`;
+  }
+
+  return `${GUARD_NOTE} Fails past ${regressionsShown(replayCheck.mostRegressions)}. Ceiling per check: ${spentIn(replayCheck.ceiling, replayCheck.currency)} · ${minGainSentence(replayCheck.minGain)}`;
+};
+
+export const SEARCH_CANDIDATE_HEADINGS: readonly NestedHeading[] = [
+  { label: 'Candidate', indent: 'edge', size: 'minmax(10rem,3fr)' },
+  { label: 'Searched', numeric: true, size: SPREAD },
+  { label: 'Held out', numeric: true, size: SPREAD },
+  { label: 'Gain', numeric: true, size: SPREAD },
+  { label: 'Cost per run', numeric: true, size: SPREAD },
+  { label: 'Pull request', size: SPREAD },
+];

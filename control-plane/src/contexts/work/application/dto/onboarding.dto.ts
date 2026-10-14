@@ -12,6 +12,14 @@ export interface SetupStepDto {
   readonly done: boolean;
 }
 
+interface SetupChatDto {
+  readonly id: string | null;
+  readonly pullRequest: string | null;
+  readonly startedBy: string;
+}
+
 export interface OnboardingDto {
   readonly steps: readonly SetupStepDto[];
+  readonly canSetUp: boolean;
+  readonly setupChat: SetupChatDto | null;
 }

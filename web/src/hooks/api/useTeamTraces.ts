@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { listTeamTraces } from '@/lib/api';
 import { rangeOf } from '@/lib/range';
 
-export const teamTraceKeys = {
+const teamTraceKeys = {
   forTeam: (teamId?: string, range?: string) =>
     ['traces', 'team', teamId ?? null, range ?? null] as const,
 };

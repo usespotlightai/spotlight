@@ -9,6 +9,7 @@ import { TokenTrustKey } from '@identity/domain/value-objects/token-trust-key.vo
 import { WorkloadRule } from '@identity/domain/value-objects/workload-rule.vo';
 import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { Client } from '@shared-kernel/domain/value-objects/client.vo';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import { TokenScopes } from '@shared-kernel/domain/value-objects/token-scopes.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -62,7 +63,28 @@ const ISSUED = WorkspaceToken.issue({
   by: attributedIn('ws_1'),
 });
 
+const FOR_RUN = WorkspaceToken.forRun({
+  id: WorkspaceTokenId.of('token_3'),
+  workspaceId: WorkspaceId.of('ws_1'),
+  name: TokenName.of('run-token-3'),
+  scopes: TokenScopes.named(['plan']),
+  hash: TokenHash.of('f'.repeat(64)),
+  issuedBy: UserId.of('user_1'),
+  runId: RunId.of('run_1'),
+  attempt: 1,
+  expiresAt: LATER,
+  now: NOW,
+});
+
 describe('BearerAdmission', () => {
+  it('admits a token minted for a run until it ends or is revoked, needing no trust', () => {
+    expect(BearerAdmission.admits(FOR_RUN, null, NOW)).toBe(true);
+    expect(BearerAdmission.admits(FOR_RUN, null, LATER)).toBe(false);
+    expect(
+      BearerAdmission.admits(FOR_RUN.revoked(attributedIn('ws_1')), null, NOW),
+    ).toBe(false);
+  });
+
   it('admits a token issued by hand while it stands, needing no trust', () => {
     expect(BearerAdmission.admits(ISSUED, null, LATER)).toBe(true);
     expect(

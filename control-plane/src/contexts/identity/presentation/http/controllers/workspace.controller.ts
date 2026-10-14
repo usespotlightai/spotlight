@@ -1,14 +1,17 @@
 import { ChangeMemberRoleCommand } from '@identity/application/commands/change-member-role.command';
 import { OpenWorkspaceCommand } from '@identity/application/commands/open-workspace.command';
+import type { WorkspaceMemberDto } from '@identity/application/dto/member.dto';
 import type {
   WorkspaceDetailDto,
   WorkspaceDto,
   WorkspaceListingDto,
 } from '@identity/application/dto/workspace.dto';
 import { GetWorkspaceQuery } from '@identity/application/queries/get-workspace.query';
+import { ListWorkspaceMembersQuery } from '@identity/application/queries/list-workspace-members.query';
 import { ListWorkspacesQuery } from '@identity/application/queries/list-workspaces.query';
 import { CreateWorkspaceRequestDto } from '@identity/presentation/http/dto/create-workspace.request.dto';
 import { ChangeMemberRoleRequestDto } from '@identity/presentation/http/dto/member.request.dto';
+import { WorkspaceMemberResponseDto } from '@identity/presentation/http/dto/member.response.dto';
 import {
   CreatedWorkspaceResponseDto,
   WorkspaceListingResponseDto,
@@ -113,6 +116,31 @@ export class WorkspaceController {
     }
 
     return WorkspaceHttpMapper.toResponse(workspace);
+  }
+
+  @Get(':slug/members')
+  @ApiOperation({
+    operationId: 'listWorkspaceMembers',
+    summary:
+      'List everyone in the workspace, with their role, their teams, and what may be set',
+  })
+  @ApiParam({ name: 'slug', example: 'acme-inc' })
+  @ApiOkResponse({ type: WorkspaceMemberResponseDto, isArray: true })
+  @ApiNotFoundResponse({ description: 'No such workspace for this caller' })
+  async members(
+    @Param('slug') slug: string,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<WorkspaceMemberResponseDto[]> {
+    const found = await this.queryBus.execute<
+      ListWorkspaceMembersQuery,
+      WorkspaceMemberDto[] | null
+    >(new ListWorkspaceMembersQuery(slug, user.id));
+
+    if (!found) {
+      throw new NotFoundException();
+    }
+
+    return found;
   }
 
   @Patch(':slug/members/:userId')

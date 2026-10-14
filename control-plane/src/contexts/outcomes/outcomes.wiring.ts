@@ -90,6 +90,7 @@ import { GradeAsides } from '@outcomes/application/services/grade-asides.service
 import { NoteChangeChecked } from '@outcomes/application/services/note-change-checked.service';
 import { NoteChangeShaped } from '@outcomes/application/services/note-change-shaped.service';
 import { NoteChatStarted } from '@outcomes/application/services/note-chat-started.service';
+import { NoteConfigPullRequestOpened } from '@outcomes/application/services/note-config-pull-request-opened.service';
 import { NotePersonAct } from '@outcomes/application/services/note-person-act.service';
 import { NotePullRequestClosed } from '@outcomes/application/services/note-pull-request-closed.service';
 import { NotePullRequestOpened } from '@outcomes/application/services/note-pull-request-opened.service';
@@ -126,6 +127,7 @@ import { OpenRouterJudge } from '@outcomes/infrastructure/judging/openrouter-jud
 import { OpenRouterPairJudge } from '@outcomes/infrastructure/judging/openrouter-pair-judge';
 import { DrizzleForgotten } from '@outcomes/infrastructure/persistence/drizzle/ledgers/forgotten.ledger';
 import { DrizzlePendingReviews } from '@outcomes/infrastructure/persistence/drizzle/ledgers/pending-reviews.ledger';
+import { DrizzleStationConfigPullRequests } from '@outcomes/infrastructure/persistence/drizzle/ledgers/station-config-pull-requests.ledger';
 import { DrizzleFirstSeen } from '@outcomes/infrastructure/persistence/drizzle/readers/first-seen.reader';
 import { DrizzleChangeJudgingRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/change-judging.repository';
 import { DrizzleChatRecordRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/chat-record.repository';
@@ -259,6 +261,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
   DrizzleFirstSeen,
   DrizzleForgotten,
   DrizzlePendingReviews,
+  DrizzleStationConfigPullRequests,
   { provide: FIRST_SEEN, useExisting: DrizzleFirstSeen },
   {
     provide: StationJudgeReports,
@@ -460,6 +463,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
     OutcomesAccess,
     DrizzleRunRecordRepository,
     DrizzleTaskDeliveryRepository,
+    DrizzleStationConfigPullRequests,
     WORK,
   ]),
   ...bindQueryHandler(ReadStationJudgeQuery, ReadStationJudgeHandler, [
@@ -801,6 +805,15 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
     ) => new NoteChatStarted(chats, forgotten, transaction),
   },
   {
+    provide: NoteConfigPullRequestOpened,
+    inject: [DrizzleStationConfigPullRequests, DrizzleForgotten, TRANSACTION],
+    useFactory: (
+      pullRequests: DrizzleStationConfigPullRequests,
+      forgotten: DrizzleForgotten,
+      transaction: TransactionPort,
+    ) => new NoteConfigPullRequestOpened(pullRequests, forgotten, transaction),
+  },
+  {
     provide: NotePullRequestRecords,
     inject: [DrizzlePullRequestRecordRepository, DrizzleForgotten, TRANSACTION],
     useFactory: (
@@ -840,6 +853,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
       DrizzleTaskChangeShapeRepository,
       DrizzleStationWatchRepository,
       DrizzlePendingReviews,
+      DrizzleStationConfigPullRequests,
       DrizzleForgotten,
       TRANSACTION,
     ],
@@ -857,6 +871,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
       shapes: DrizzleTaskChangeShapeRepository,
       watches: DrizzleStationWatchRepository,
       reviews: DrizzlePendingReviews,
+      configPullRequests: DrizzleStationConfigPullRequests,
       forgotten: DrizzleForgotten,
       transaction: TransactionPort,
     ) =>
@@ -875,6 +890,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
           shapes,
           watches,
           reviews,
+          configPullRequests,
           forgotten,
         },
         transaction,
@@ -906,6 +922,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
       NoteChangeShaped,
       WatchStations,
       AlertInbox,
+      NoteConfigPullRequestOpened,
     ],
     useFactory: (
       types: EventTypes,
@@ -931,6 +948,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
       shaping: NoteChangeShaped,
       watching: WatchStations,
       alerting: AlertInbox,
+      openingConfigPullRequests: NoteConfigPullRequestOpened,
     ) => {
       types.register('outcomes', OUTCOMES_EVENT_TYPES);
       publications.register(OUTCOMES_PUBLICATIONS);
@@ -956,6 +974,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
           shaping,
           watching,
           alerting,
+          openingConfigPullRequests,
         }),
       );
       return true;

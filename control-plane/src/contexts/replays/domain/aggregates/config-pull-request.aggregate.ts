@@ -1,4 +1,5 @@
 import type { ReplayedStation } from '@replays/domain/aggregates/replay-set.aggregate';
+import { ConfigPullRequestOpened } from '@replays/domain/events/config-pull-request-opened.event';
 import { ConfigPullRequestWanted } from '@replays/domain/events/config-pull-request-wanted.event';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { ConfigPullRequestDetail } from '@replays/domain/value-objects/config-pull-request-detail.vo';
@@ -6,10 +7,12 @@ import type { ConfigPullRequestId } from '@replays/domain/value-objects/config-p
 import { ConfigPullRequestReason } from '@replays/domain/value-objects/config-pull-request-reason.vo';
 import type { ConfigPullRequestState } from '@replays/domain/value-objects/config-pull-request-state';
 import type { SearchId } from '@replays/domain/value-objects/search-id.vo';
+import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
+import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -305,10 +308,34 @@ export class ConfigPullRequest extends EventRecorder {
     return this.with({ lastCommit: commit, updatedAt: at });
   }
 
-  opened(url: string, at: Date): ConfigPullRequest {
+  opened(
+    url: PullRequestUrl,
+    proposing: StationFingerprint,
+    at: Date,
+  ): ConfigPullRequest {
     this.mustBeOpening();
 
-    return this.with({ state: 'opened', url, dueAt: null, updatedAt: at });
+    const opened = this.with({
+      state: 'opened',
+      url: url.value,
+      dueAt: null,
+      updatedAt: at,
+    });
+    const { station } = this.state;
+
+    opened.record(
+      new ConfigPullRequestOpened(
+        this.state.id,
+        station.workspaceId,
+        station.teamId,
+        station.stationId,
+        proposing,
+        url,
+        at,
+      ),
+    );
+
+    return opened;
   }
 
   refused(reason: ConfigPullRequestReason, at: Date): ConfigPullRequest {

@@ -247,6 +247,18 @@ describe('CarryGitCall', () => {
     );
   });
 
+  it('carries no push from a chat that sets nothing up', async () => {
+    const { service, git } = carrying(
+      claimedBy('runner_1', RunSubject.chat(ChatId.of('chat_1'))),
+      null,
+    );
+
+    await expect(
+      service.carry('run_1', 'runner_1', 'planning', 'git-receive-pack', call),
+    ).resolves.toBeNull();
+    expect(git.call).not.toHaveBeenCalled();
+  });
+
   it('carries nothing for a run its task has let go of', async () => {
     const { service, git } = carrying(claimedBy('runner_1'), added());
 

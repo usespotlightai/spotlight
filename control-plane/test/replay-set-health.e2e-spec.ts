@@ -555,14 +555,16 @@ interface SetRead {
         recheck: string;
       }[];
     } | null;
-    sanity: {
-      model: string | null;
-      effort: string | null;
+    oracle: {
+      replayId: string;
       state: string;
       againstReplayId: string | null;
-      rewardsStrongerModel: boolean | null;
+      againstState: string | null;
+      answered: number;
+      live: number | null;
+      withAnswer: number | null;
+      roomToImprove: boolean | null;
       gain: { verdict: string } | null;
-      worse: { taskId: string; live: number; stronger: number }[];
     } | null;
   };
 }
@@ -704,16 +706,22 @@ afterAll(async () => {
 });
 
 describe('checking a replay set’s health', () => {
-  it('probes a set: replays the live config three times, judges and checks every change a second time, and says how often each agreed with itself', async () => {
+  it('checks a set with its first baseline: replays the live config three times, judges and checks every change a second time, and says how often each agreed with itself', async () => {
     const started = (
       await owner()
-        .post(`${teamPath()}/replay-sets/${setId}/probes`, {
+        .post(`${teamPath()}/replay-sets/${setId}/replays`, {
+          candidate: 'live',
           ceiling: { amount: 20, currency: 'USD' },
         })
         .expect(201)
-    ).body as { id: string; baseline: { id: string; status: string } | null };
+    ).body as {
+      id: string;
+      ceiling: { amount: number };
+      baseline: { id: string; status: string } | null;
+    };
 
     probeId = started.id;
+    expect(started.ceiling.amount).toBe(60);
     expect(started.baseline).toMatchObject({
       id: probeId,
       status: 'started',
@@ -821,77 +829,45 @@ describe('checking a replay set’s health', () => {
     ]);
   }, 180_000);
 
-  it('replays a set with a stronger model and says whether the set rewards it, naming the tasks it did worse on', async () => {
-    await owner()
-      .post(`${teamPath()}/replay-sets/${setId}/sanity-replays`, {
-        ceiling: { amount: 10, currency: 'USD' },
-      })
-      .expect(422);
-    await owner()
-      .post(`${teamPath()}/replay-sets/${setId}/sanity-replays`, {
-        model: 'sonnet',
-        ceiling: { amount: 10, currency: 'USD' },
-      })
-      .expect(422);
+  it('replays the live config handed each run’s answer once a replay of the whole set finishes, and says how much room the set leaves', async () => {
+    const started = await eventually(async () => {
+      await worked();
+      return (await setOf(setId)).health.oracle;
+    }, 30_000);
 
-    const started = (
-      await owner()
-        .post(`${teamPath()}/replay-sets/${setId}/sanity-replays`, {
-          model: 'opus',
-          ceiling: { amount: 10, currency: 'USD' },
-        })
-        .expect(201)
-    ).body as {
-      id: string;
-      candidateId: string;
-      comparison: { id: string } | null;
-    };
-
-    expect(started.comparison).toBeNull();
-
-    const failing = new Set<string>();
-
-    await settled([started.id], scoredAll, (runId) => {
-      if (failing.size > 0) {
-        return 5;
-      }
-      failing.add(runId);
-      return 2;
+    expect(started).toMatchObject({
+      againstReplayId: probeId,
+      answered: originals.length,
     });
 
-    const sanity = await eventually(async () => {
+    await settled([started.replayId], scoredAll, () => 5);
+
+    const oracle = await eventually(async () => {
       await worked();
-      const read = (await setOf(setId)).health.sanity;
+      const read = (await setOf(setId)).health.oracle;
 
       return read?.state === 'finished' && read.gain ? read : null;
     }, 30_000);
-    const failedRun = [...failing][0] as string;
 
-    expect(sanity).toMatchObject({
-      model: 'opus',
-      effort: null,
-      state: 'finished',
+    expect(oracle).toMatchObject({
       againstReplayId: probeId,
       againstState: 'finished',
-      rewardsStrongerModel: false,
+      answered: originals.length,
+      withAnswer: 1,
+      roomToImprove: false,
     });
-    expect(sanity?.gain?.verdict).toBe('within-noise');
-    expect(sanity?.worse).toEqual([
-      {
-        taskId: (await entryOf(failedRun))?.taskId,
-        originalRunId: (await entryOf(failedRun))?.originalRunId,
-        live: 1,
-        stronger: 0,
-      },
-    ]);
 
+    const [replay] = await db
+      .select()
+      .from(schema.replay)
+      .where(eq(schema.replay.id, started.replayId));
     const [candidate] = await db
       .select()
       .from(schema.replayCandidate)
-      .where(eq(schema.replayCandidate.id, started.candidateId));
+      .where(eq(schema.replayCandidate.id, replay?.candidateId ?? ''));
 
-    expect(candidate?.kind).toBe('sanity');
-    expect(candidate?.station.model).toBe('opus');
+    expect(candidate?.kind).toBe('oracle');
+    expect(candidate?.station.model).toBe('sonnet');
 
     const estimate = (
       await owner()
@@ -906,8 +882,6 @@ describe('checking a replay set’s health', () => {
         .expect(200)
     ).body as { warnings: { kind: string }[] };
 
-    expect(estimate.warnings.map((each) => each.kind)).toContain(
-      'sanity-failed',
-    );
+    expect(estimate.warnings.map((each) => each.kind)).toContain('no-headroom');
   }, 180_000);
 });

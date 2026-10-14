@@ -97,25 +97,18 @@ export interface CheckConsistencyDto {
   readonly flaky: readonly FlakyCheckDto[];
 }
 
-export interface WorseTaskDto {
-  readonly taskId: string;
-  readonly originalRunId: string;
-  readonly live: number;
-  readonly stronger: number;
-}
-
-export interface SanityReadingDto {
+export interface OracleReadingDto {
   readonly replayId: string;
   readonly candidateId: string;
-  readonly model: string | null;
-  readonly effort: string | null;
   readonly repeats: number;
   readonly state: string;
   readonly againstReplayId: string | null;
   readonly againstState: string | null;
+  readonly answered: number;
+  readonly live: number | null;
+  readonly withAnswer: number | null;
   readonly gain: GainReadingDto | null;
-  readonly rewardsStrongerModel: boolean | null;
-  readonly worse: readonly WorseTaskDto[];
+  readonly roomToImprove: boolean | null;
 }
 
 export interface SetHealthDto {
@@ -123,7 +116,7 @@ export interface SetHealthDto {
   readonly saturation: SetSaturationDto | null;
   readonly judge: JudgeConsistencyDto | null;
   readonly checks: CheckConsistencyDto | null;
-  readonly sanity: SanityReadingDto | null;
+  readonly oracle: OracleReadingDto | null;
 }
 
 export interface ReplaySetDto {

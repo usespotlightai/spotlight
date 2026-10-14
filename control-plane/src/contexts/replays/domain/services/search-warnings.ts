@@ -26,11 +26,11 @@ export type SearchWarning =
       readonly rechecked: number;
     }
   | {
-      readonly kind: 'sanity-failed';
+      readonly kind: 'no-headroom';
       readonly gain: number;
       readonly low: number;
       readonly high: number;
-      readonly worseTasks: number;
+      readonly answered: number;
     };
 
 const noiseWarnings = (
@@ -58,7 +58,7 @@ const noiseWarnings = (
 };
 
 const healthWarnings = (health: SetHealth): readonly SearchWarning[] => {
-  const { saturation, judge, checks, sanity } = health;
+  const { saturation, judge, checks, oracle } = health;
 
   return [
     ...(saturation?.saturated
@@ -82,14 +82,14 @@ const healthWarnings = (health: SetHealth): readonly SearchWarning[] => {
           },
         ]
       : []),
-    ...(sanity?.rewardsStrongerModel === false && sanity.gain
+    ...(oracle?.roomToImprove === false && oracle.gain
       ? [
           {
-            kind: 'sanity-failed' as const,
-            gain: sanity.gain.gain,
-            low: sanity.gain.low,
-            high: sanity.gain.high,
-            worseTasks: sanity.worse.length,
+            kind: 'no-headroom' as const,
+            gain: oracle.gain.gain,
+            low: oracle.gain.low,
+            high: oracle.gain.high,
+            answered: oracle.answered,
           },
         ]
       : []),

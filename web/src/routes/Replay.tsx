@@ -6,6 +6,7 @@ import { PageNotice } from '@/components/shared/PageNotice';
 import { useReplay } from '@/hooks/api/useReplay';
 import { useTeamReplaySets } from '@/hooks/api/useReplaySets';
 import { useReplays } from '@/hooks/api/useReplays';
+import { useStation } from '@/hooks/api/useStation';
 import { useStationTrail } from '@/hooks/useStationTrail';
 import { notFound } from '@/lib/error';
 import { failed, loading } from '@/lib/query';
@@ -19,6 +20,7 @@ export function Replay() {
   const replay = useReplay(teamId, replayId);
   const sets = useTeamReplaySets(teamId);
   const siblings = useReplays(teamId, replay.data?.setId);
+  const { line, station } = useStation(teamId, lineId, stationId);
 
   const found = replay.data;
   const at = replayedStationOf({ slug, teamId, lineId, stationId });
@@ -62,6 +64,8 @@ export function Replay() {
   return (
     <ReplayPage
       at={at}
+      line={line}
+      station={station}
       replay={found}
       set={set}
       siblings={siblings.data ?? []}

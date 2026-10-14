@@ -20,6 +20,8 @@ export function StationTabs({
     <TabLinks
       label="Station"
       current={current}
+      variant="underline"
+      className="border-border border-b px-3"
       tabs={STATION_TABS.map((tab) => ({
         id: tab.id,
         label: tab.label,

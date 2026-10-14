@@ -60,7 +60,7 @@ const setOf = (tasks: number): ReplaySet => ({
     saturation: null,
     judge: null,
     checks: null,
-    sanity: null,
+    oracle: null,
   },
   minGain: 0.05,
   composition: {
@@ -195,15 +195,22 @@ describe('StationSearches', () => {
       '/w/acme/team/team_1/lines/line_1/stations/station_1/searches/search_1',
     );
     expect(screen.getByText('Searching')).toBeInTheDocument();
-    expect(screen.getByText('2 of 3 iterations')).toBeInTheDocument();
-    expect(screen.getByText('· $4.50 of $20.00')).toBeInTheDocument();
+    expect(document.querySelector('[data-slot="search"]')).toHaveTextContent(
+      '2 / 3',
+    );
+    expect(screen.getByText('$4.50 / $20.00')).toBeInTheDocument();
     expect(screen.getByText('tests-first')).toBeInTheDocument();
-    expect(
-      screen.getByRole('button', { name: 'Start a search' }),
-    ).toBeDisabled();
+    expect(screen.getByText('80%')).toHaveAccessibleDescription(
+      /^Scored on searched tasks\./,
+    );
+    const start = screen.getByRole('button', { name: 'Start a search' });
+    expect(start).toBeDisabled();
+    expect(start).toHaveAccessibleDescription(
+      'A search of this station is underway.',
+    );
     expect(
       screen.getByText('A search of this station is underway.'),
-    ).toBeInTheDocument();
+    ).toHaveClass('sr-only');
   });
 
   it('marks a search whose best candidate gained only on the tasks it could see, or says too few held-out tasks were scored to tell', () => {
@@ -220,9 +227,11 @@ describe('StationSearches', () => {
 
     renderSearches();
 
-    expect(screen.getByText('Only on seen tasks')).toBeInTheDocument();
     expect(
-      screen.getByText('Too few held-out tasks to tell'),
-    ).toBeInTheDocument();
+      screen.getByRole('img', { name: 'Only on seen tasks' }),
+    ).toHaveAttribute('data-mark', 'marked');
+    expect(
+      screen.getByRole('img', { name: 'Too few held-out tasks to tell' }),
+    ).toHaveAttribute('data-mark', 'too-few-held-out');
   });
 });

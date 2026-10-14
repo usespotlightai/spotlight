@@ -1,3 +1,4 @@
+import type { OracleAnswer } from '@replays/domain/services/oracle-answer';
 import type { CandidateScoring } from '@replays/domain/value-objects/candidate-scoring.vo';
 import type { PlannedLine } from '@replays/domain/value-objects/planned-line.vo';
 import type { ReplayRefusal } from '@replays/domain/value-objects/replay-refusal';
@@ -76,6 +77,11 @@ export interface LiveConfig {
   readonly threshold: ReplayThreshold | null;
 }
 
+export interface OracleAnswerAsked {
+  readonly run: RunId;
+  readonly answer: OracleAnswer;
+}
+
 export interface ReplayRunOrder {
   readonly run: RunId;
   readonly original: RunId;
@@ -84,6 +90,7 @@ export interface ReplayRunOrder {
   readonly stationId: string;
   readonly block: StationBlock;
   readonly line: PlannedLine | null;
+  readonly answer: OracleAnswer | null;
 }
 
 export type ReplayRunQueued =
@@ -127,11 +134,6 @@ export type UnclaimedWithdrawal =
   | { readonly outcome: 'claimed' }
   | { readonly outcome: 'ended' };
 
-export interface HarnessOffer {
-  readonly models: readonly string[];
-  readonly efforts: readonly string[];
-}
-
 export interface AgentRefusal {
   readonly field: 'harness' | 'model' | 'effort';
   readonly reason: string;
@@ -169,6 +171,8 @@ export interface WorkPort {
 
   dispatch(order: ReplayRunOrder): Promise<ReplayRunQueued>;
 
+  answerable(asked: readonly OracleAnswerAsked[]): Promise<readonly RunId[]>;
+
   withdraw(runs: readonly RunId[]): Promise<void>;
 
   forgo(run: RunId, keep: boolean): Promise<RunForgone>;
@@ -176,11 +180,6 @@ export interface WorkPort {
   durations(runs: readonly RunId[]): Promise<ReadonlyMap<string, number>>;
 
   agentRefusal(agent: SearchAgent): AgentRefusal | null;
-
-  harnessOffer(
-    workspaceId: WorkspaceId,
-    harness: string,
-  ): Promise<HarnessOffer | null>;
 
   dispatchSearch(order: SearchRunOrder): Promise<SearchRunQueued>;
 

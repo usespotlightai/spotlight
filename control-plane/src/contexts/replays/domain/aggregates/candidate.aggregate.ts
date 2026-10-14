@@ -28,8 +28,6 @@ import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configu
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-const STRONGER_MODEL_PARTS: readonly string[] = ['model', 'effort'];
-
 interface State {
   readonly id: CandidateId;
   readonly station: ReplayedStation;
@@ -132,23 +130,30 @@ export class Candidate extends EventRecorder {
     );
   }
 
-  static sanity(input: Proposal & { changedFrom: StationChanges }): Candidate {
-    const changed = new Set(input.changedFrom.changes.map((each) => each.part));
-
-    if (
-      changed.size === 0 ||
-      [...changed].some((part) => !STRONGER_MODEL_PARTS.includes(part))
-    ) {
+  static oracleOf(
+    live: Candidate,
+    input: { id: CandidateId; at: Date },
+  ): Candidate {
+    if (!live.isLive) {
       throw new InvalidCandidateError(
-        `for a stronger model may change only the live config’s ${STRONGER_MODEL_PARTS.join(' or ')}`,
+        'handed the answer must replay the live config',
       );
     }
 
     return Candidate.made(
-      input,
-      CandidateName.sanity(input.at),
-      'sanity',
-      input.changedFrom,
+      {
+        id: input.id,
+        station: live.station,
+        address: live.stationAddress,
+        block: live.block,
+        fingerprint: live.fingerprint,
+        digests: live.digests,
+        scoring: live.scoring,
+        at: input.at,
+      },
+      CandidateName.oracle(input.at),
+      'oracle',
+      StationChanges.none(live.fingerprint),
     );
   }
 
@@ -263,8 +268,8 @@ export class Candidate extends EventRecorder {
     return this.state.kind === 'live';
   }
 
-  get isSanity(): boolean {
-    return this.state.kind === 'sanity';
+  get isOracle(): boolean {
+    return this.state.kind === 'oracle';
   }
 
   get basedOn(): StationFingerprint {

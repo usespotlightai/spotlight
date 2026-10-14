@@ -1,17 +1,18 @@
 import {
   ChevronLeft,
   KeyRound,
-  Link2,
   type LucideIcon,
   Server,
   Settings2,
   SquareMousePointer,
+  Users,
   Webhook,
 } from 'lucide-react';
 import { Link } from 'react-router';
 import { SettingsNavGroup } from '@/components/shell/layout/SettingsNavGroup';
 import { SidebarLink } from '@/components/shell/layout/SidebarLink';
 import { useRunners } from '@/hooks/api/useRunners';
+import { membersPath } from '@/lib/members';
 import { administers, type Role } from '@/lib/role';
 import { answeringCount, runnersPath } from '@/lib/runner';
 import {
@@ -26,7 +27,6 @@ import { tokensPath } from '@/lib/token';
 const TEAM_SETTINGS_ICONS: Record<TeamSettingsPageId, LucideIcon> = {
   general: Settings2,
   integrations: Webhook,
-  connections: Link2,
   skills: SquareMousePointer,
 };
 
@@ -71,6 +71,13 @@ export function SettingsSidebar({
               General
             </SidebarLink>
           </li>
+          {administers(workspace.role) && (
+            <li>
+              <SidebarLink to={membersPath(slug)} icon={Users}>
+                Members
+              </SidebarLink>
+            </li>
+          )}
           <li>
             <SidebarLink
               to={runnersPath(slug)}

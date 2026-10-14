@@ -141,11 +141,6 @@ const TeamIntegrations = lazyPage(
   (module) => module.TeamIntegrations,
 );
 
-const TeamConnections = lazyPage(
-  () => import('./routes/TeamConnections.tsx'),
-  (module) => module.TeamConnections,
-);
-
 const TeamSkills = lazyPage(
   () => import('./routes/TeamSkills.tsx'),
   (module) => module.TeamSkills,
@@ -154,6 +149,11 @@ const TeamSkills = lazyPage(
 const Tokens = lazyPage(
   () => import('./routes/Tokens.tsx'),
   (module) => module.Tokens,
+);
+
+const WorkspaceMembers = lazyPage(
+  () => import('./routes/WorkspaceMembers.tsx'),
+  (module) => module.WorkspaceMembers,
 );
 
 const WorkspaceGeneral = lazyPage(
@@ -220,6 +220,7 @@ export default function App() {
             <Route path="settings">
               <Route index element={<Navigate to="general" replace />} />
               <Route path="general" element={<WorkspaceGeneral />} />
+              <Route path="members" element={<WorkspaceMembers />} />
               <Route path="runners" element={<Runners />} />
               <Route path="runners/new" element={<AddHost />} />
               <Route path="tokens" element={<Tokens />} />
@@ -227,7 +228,6 @@ export default function App() {
                 <Route index element={<Navigate to="general" replace />} />
                 <Route path="general" element={<TeamGeneral />} />
                 <Route path="integrations" element={<TeamIntegrations />} />
-                <Route path="connections" element={<TeamConnections />} />
                 <Route path="skills" element={<TeamSkills />} />
               </Route>
             </Route>

@@ -2,7 +2,6 @@ import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { RateWithInterval } from '@/components/features/replays/RateWithInterval';
 import { FrontierChart } from '@/components/features/searches/search/FrontierChart';
 import { FrontierTable } from '@/components/features/searches/search/FrontierTable';
-import { stateShown } from '@/lib/replay-words';
 import {
   candidateName,
   candidatesOf,
@@ -17,7 +16,7 @@ type SearchFrontierProps = {
 
 export function SearchFrontier({ search }: SearchFrontierProps) {
   const currency = search.budget.ceiling.currency;
-  const { priced, unpriced, unfinished } = frontierPoints(search);
+  const { priced, unpriced } = frontierPoints(search);
 
   return (
     <InsightsCard
@@ -60,23 +59,6 @@ export function SearchFrontier({ search }: SearchFrontierProps) {
               )
             </span>
           ))}
-          .
-        </p>
-      )}
-
-      {unfinished.length > 0 && (
-        <p data-slot="unfinished" className="text-muted-foreground text-xs">
-          Hidden, still replaying or stopped early:{' '}
-          {unfinished
-            .map(
-              (each) =>
-                `${candidateName(each)} (${
-                  each.replayState
-                    ? stateShown(each.replayState).toLowerCase()
-                    : 'gone'
-                })`,
-            )
-            .join(', ')}
           .
         </p>
       )}

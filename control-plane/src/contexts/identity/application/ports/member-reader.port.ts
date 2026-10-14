@@ -1,4 +1,5 @@
 import type { PersonSummary } from '@identity/application/ports/person-reader.port';
+import type { TeamNamed } from '@identity/application/read-models/team-named';
 import type { WorkspaceRoleName } from '@identity/domain/value-objects/workspace-role.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -16,11 +17,17 @@ export interface TeamRoster {
   readonly owners: number;
 }
 
+export interface WorkspaceMemberSummary extends PersonSummary {
+  readonly email: string;
+  readonly role: WorkspaceRoleName;
+  readonly teams: readonly TeamNamed[];
+  readonly joinedAt: Date;
+}
+
 export interface MemberReaderPort {
   listForTeam(teamId: TeamId, viewerId: UserId): Promise<TeamRoster | null>;
 
-  // Not viewer-scoped: matches an outside email to a member, not for reading the roster.
-  byEmail(workspaceId: WorkspaceId, email: string): Promise<UserId | null>;
-
-  onTeam(teamId: TeamId, email: string): Promise<boolean>;
+  listForWorkspace(
+    workspaceId: WorkspaceId,
+  ): Promise<readonly WorkspaceMemberSummary[]>;
 }

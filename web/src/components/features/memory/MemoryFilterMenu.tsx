@@ -1,20 +1,22 @@
-import { useId } from 'react';
 import { useSearchParams } from 'react-router';
 import { FilterMenu } from '@/components/shared/filter/FilterMenu';
 import { FilterRow } from '@/components/shared/filter/FilterRow';
 import { ChoiceSelect } from '@/components/shared/form/ChoiceSelect';
-import { FieldInput } from '@/components/shared/form/FieldInput';
 import { useLines } from '@/hooks/api/useLines';
+import { useTeamMemories } from '@/hooks/api/useTeamMemories';
 import {
   filterOf,
   KIND_OPTIONS,
   type MemoryFilter,
+  memoryPathsOf,
   narrowedBy,
   paramsOf,
+  repositoriesOf,
   unnarrowed,
+  workStationsOf,
 } from '@/lib/memory';
 
-const CONTROL = 'h-7 w-44 rounded-lg text-sm';
+const CONTROL = 'w-32';
 
 type MemoryFilterMenuProps = {
   teamId: string;
@@ -23,13 +25,12 @@ type MemoryFilterMenuProps = {
 export function MemoryFilterMenu({ teamId }: MemoryFilterMenuProps) {
   const [params, setParams] = useSearchParams();
   const lines = useLines(teamId).data ?? [];
-  const pathId = useId();
 
   const filter = filterOf(params);
+  const listed = useTeamMemories(teamId, { ...filter, path: null });
+  const paths = memoryPathsOf(listed.data ?? [], filter.path);
   const line = lines.find((each) => each.id === filter.lineId);
-  const repositories = [
-    ...new Set((line ? [line] : lines).flatMap((each) => each.repositories)),
-  ];
+  const repositories = repositoriesOf(line, lines);
   const show = (next: MemoryFilter) =>
     setParams(paramsOf(next), { replace: true });
   const change = (part: Partial<MemoryFilter>) => show({ ...filter, ...part });
@@ -37,11 +38,14 @@ export function MemoryFilterMenu({ teamId }: MemoryFilterMenuProps) {
   return (
     <FilterMenu
       label="Filter memories"
+      compact
+      triggerSize="regular"
       applied={narrowedBy(filter)}
       onClear={() => show(unnarrowed(filter))}
     >
-      <FilterRow label="Kind">
+      <FilterRow compact label="Kind">
         <ChoiceSelect
+          compact
           label="Kind"
           choices={KIND_OPTIONS}
           value={filter.kind}
@@ -51,8 +55,9 @@ export function MemoryFilterMenu({ teamId }: MemoryFilterMenuProps) {
         />
       </FilterRow>
 
-      <FilterRow label="Line">
+      <FilterRow compact label="Line">
         <ChoiceSelect
+          compact
           label="Line"
           choices={lines.map((each) => ({ value: each.id, label: each.name }))}
           value={filter.lineId}
@@ -62,12 +67,14 @@ export function MemoryFilterMenu({ teamId }: MemoryFilterMenuProps) {
         />
       </FilterRow>
 
-      <FilterRow label="Station">
+      <FilterRow compact label="Station">
         <ChoiceSelect
+          compact
           label="Station"
-          choices={(line?.stations ?? [])
-            .filter((each) => each.kind === 'work')
-            .map((each) => ({ value: each.id, label: each.name }))}
+          choices={workStationsOf(line).map((each) => ({
+            value: each.id,
+            label: each.name,
+          }))}
           value={filter.stationId}
           placeholder="Every station"
           disabled={!line}
@@ -76,8 +83,9 @@ export function MemoryFilterMenu({ teamId }: MemoryFilterMenuProps) {
         />
       </FilterRow>
 
-      <FilterRow label="Repository">
+      <FilterRow compact label="Repository">
         <ChoiceSelect
+          compact
           label="Repository"
           choices={repositories.map((each) => ({ value: each, label: each }))}
           value={filter.repository}
@@ -87,13 +95,16 @@ export function MemoryFilterMenu({ teamId }: MemoryFilterMenuProps) {
         />
       </FilterRow>
 
-      <FilterRow label="Path" htmlFor={pathId}>
-        <FieldInput
-          id={pathId}
-          value={filter.path ?? ''}
-          onChange={(event) => change({ path: event.target.value || null })}
-          placeholder="Any path"
-          className={`${CONTROL} border bg-card px-3`}
+      <FilterRow compact label="Path">
+        <ChoiceSelect
+          compact
+          label="Path"
+          choices={paths.map((each) => ({ value: each, label: each }))}
+          value={filter.path}
+          placeholder="Every path"
+          disabled={paths.length === 0}
+          className={CONTROL}
+          onChange={(path) => change({ path })}
         />
       </FilterRow>
     </FilterMenu>

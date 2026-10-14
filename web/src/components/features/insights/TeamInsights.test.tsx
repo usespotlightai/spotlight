@@ -475,7 +475,7 @@ describe('TeamInsights', () => {
       '/w/acme/team/team_1/insights?tab=runs&stationId=station_build',
     );
     expect(
-      within(station).getByRole('link', { name: 'Improve this station' }),
+      within(station).getByRole('link', { name: 'Improve' }),
     ).toHaveAttribute('href', '/w/acme/team/team_1/agent');
     expect(
       within(station).getByRole('img', {

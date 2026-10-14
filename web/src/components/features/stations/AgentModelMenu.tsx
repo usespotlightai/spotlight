@@ -34,11 +34,15 @@ export function AgentModelMenu({
           value={model || DEFAULT_CHOICE}
           onValueChange={(next) => onModel?.(chosen(next))}
         >
-          <DropdownMenuRadioItem value={DEFAULT_CHOICE}>
+          <DropdownMenuRadioItem closeOnClick={false} value={DEFAULT_CHOICE}>
             Default
           </DropdownMenuRadioItem>
           {models.map((each) => (
-            <DropdownMenuRadioItem key={each.id} value={each.id}>
+            <DropdownMenuRadioItem
+              closeOnClick={false}
+              key={each.id}
+              value={each.id}
+            >
               <span className="truncate">{each.name}</span>
             </DropdownMenuRadioItem>
           ))}

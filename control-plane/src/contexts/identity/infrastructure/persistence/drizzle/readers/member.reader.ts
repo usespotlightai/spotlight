@@ -1,7 +1,9 @@
 import type {
   MemberReaderPort,
   TeamRoster,
+  WorkspaceMemberSummary,
 } from '@identity/application/ports/member-reader.port';
+import type { TeamNamed } from '@identity/application/read-models/team-named';
 import { user } from '@identity/infrastructure/persistence/drizzle/schemas/auth.schema';
 import {
   team,
@@ -12,9 +14,9 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
-import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
+import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, asc, eq, sql } from 'drizzle-orm';
+import { and, asc, eq } from 'drizzle-orm';
 
 @Injectable()
 export class DrizzleMemberReader implements MemberReaderPort {
@@ -85,50 +87,39 @@ export class DrizzleMemberReader implements MemberReaderPort {
     };
   }
 
-  async byEmail(
+  async listForWorkspace(
     workspaceId: WorkspaceId,
-    email: string,
-  ): Promise<UserId | null> {
-    const wanted = email.trim();
-
-    if (wanted.length === 0) {
-      return null;
-    }
-
-    const [found] = await this.db
-      .select({ id: user.id })
+  ): Promise<readonly WorkspaceMemberSummary[]> {
+    const rows = await this.db
+      .select({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        image: user.image,
+        role: workspaceMember.role,
+        joinedAt: workspaceMember.createdAt,
+      })
       .from(workspaceMember)
       .innerJoin(user, eq(user.id, workspaceMember.userId))
-      .where(
-        and(
-          eq(workspaceMember.workspaceId, workspaceId.value),
-          sql`lower(${user.email}) = lower(${wanted})`,
-        ),
-      )
-      .limit(1);
+      .where(eq(workspaceMember.workspaceId, workspaceId.value))
+      .orderBy(asc(user.name));
 
-    return found ? UserId.of(found.id) : null;
-  }
+    const onTeams = await this.db
+      .select({ userId: teamMember.userId, id: team.id, name: team.name })
+      .from(teamMember)
+      .innerJoin(team, eq(team.id, teamMember.teamId))
+      .where(eq(team.workspaceId, workspaceId.value))
+      .orderBy(asc(team.name));
 
-  async onTeam(teamId: TeamId, email: string): Promise<boolean> {
-    const wanted = email.trim();
+    const teamsOf = new Map<string, TeamNamed[]>();
 
-    if (wanted.length === 0) {
-      return false;
+    for (const each of onTeams) {
+      const held = teamsOf.get(each.userId) ?? [];
+
+      held.push({ id: each.id, name: each.name });
+      teamsOf.set(each.userId, held);
     }
 
-    const [found] = await this.db
-      .select({ id: user.id })
-      .from(teamMember)
-      .innerJoin(user, eq(user.id, teamMember.userId))
-      .where(
-        and(
-          eq(teamMember.teamId, teamId.value),
-          sql`lower(${user.email}) = lower(${wanted})`,
-        ),
-      )
-      .limit(1);
-
-    return found !== undefined;
+    return rows.map((row) => ({ ...row, teams: teamsOf.get(row.id) ?? [] }));
   }
 }

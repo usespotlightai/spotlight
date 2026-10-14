@@ -1,5 +1,4 @@
-import { StationIcon } from '@/components/features/board/column/StationIcon';
-import { StationAgentLine } from '@/components/features/stations/StationAgentLine';
+import { StationMark } from '@/components/features/stations/StationMark';
 import { StationTabs } from '@/components/features/stations/StationTabs';
 import type { LineResponseDto, StationResponseDto } from '@/lib/api';
 import { type StationTab, stationShare } from '@/lib/station';
@@ -22,38 +21,27 @@ export function StationHeading({
   const works = station.kind === 'work';
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex flex-col gap-1.5">
-        <div className="flex items-start gap-2">
-          <span className="mt-1 p-0.5">
-            <StationIcon
-              share={stationShare(
-                line.stations.findIndex((each) => each.id === station.id),
-                line.stations.length,
-              )}
-              color={station.color}
-              className="size-5"
-            />
-          </span>
+    <div className="flex shrink-0 flex-col gap-4 pt-2">
+      <div className="flex min-w-0 items-center gap-3 px-3">
+        <StationMark
+          share={stationShare(
+            line.stations.findIndex((each) => each.id === station.id),
+            line.stations.length,
+          )}
+          color={station.color}
+        />
 
-          <h1 className="font-semibold text-2xl text-foreground leading-8 tracking-tight">
+        <div className="flex min-w-0 flex-col">
+          <h1 className="truncate font-semibold text-2xl text-foreground leading-8 tracking-tight">
             {station.name}
           </h1>
+
+          {station.description && (
+            <p className="text-muted-foreground text-sm leading-5">
+              {station.description}
+            </p>
+          )}
         </div>
-
-        {station.description && (
-          <p className="text-foreground text-sm leading-6">
-            {station.description}
-          </p>
-        )}
-
-        {works && (
-          <StationAgentLine
-            harness={station.harness}
-            model={station.model}
-            effort={station.effort}
-          />
-        )}
       </div>
 
       {works && (

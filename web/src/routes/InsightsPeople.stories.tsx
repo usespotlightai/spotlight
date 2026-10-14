@@ -1,58 +1,20 @@
 import type { Meta, StoryObj } from '@storybook/react-vite';
-import { Route } from 'react-router';
-import { Insights } from '@/routes/Insights';
-import {
-  emptyPeople,
-  failPeople,
-  insightsAt,
-  loadInsights,
-  seedPeople,
-} from '@/stories/fixtures/insights';
-import { StoryPage } from '@/stories/StoryPage';
-
-const routes = (
-  <Route path="/w/:slug/team/:teamId/insights" element={<Insights />} />
-);
-
-const at = insightsAt('people');
+import { insightsPath } from '@/lib/insights';
+import { PLATFORM_ID, SLUG } from '@/mocks/world';
+import { type PageArgs, pageStory } from '@/stories/application';
 
 const meta = {
   title: 'Team/Insights/People',
-} satisfies Meta;
+  ...pageStory({
+    at: insightsPath(SLUG, PLATFORM_ID, {
+      tab: 'people',
+      period: '30d',
+      filter: {},
+      page: 1,
+    }),
+  }),
+} satisfies Meta<PageArgs>;
 
 export default meta;
 
-type Story = StoryObj<typeof meta>;
-
-export const Loading: Story = {
-  render: () => (
-    <StoryPage at={at} seed={loadInsights}>
-      {routes}
-    </StoryPage>
-  ),
-};
-
-export const Empty: Story = {
-  render: () => (
-    <StoryPage at={at} seed={emptyPeople}>
-      {routes}
-    </StoryPage>
-  ),
-};
-
-export const Failed: Story = {
-  name: 'Error',
-  render: () => (
-    <StoryPage at={at} seed={failPeople}>
-      {routes}
-    </StoryPage>
-  ),
-};
-
-export const WithData: Story = {
-  render: () => (
-    <StoryPage at={at} seed={seedPeople}>
-      {routes}
-    </StoryPage>
-  ),
-};
+export const People: StoryObj<typeof meta> = {};

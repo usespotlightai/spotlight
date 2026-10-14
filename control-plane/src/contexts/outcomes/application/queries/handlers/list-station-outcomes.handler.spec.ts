@@ -1,3 +1,4 @@
+import { stationConfigPullRequestsInMemory } from '@outcomes/application/ports/station-config-pull-requests.fake-spec';
 import type {
   ConfigInOrder,
   StationConfigView,
@@ -21,6 +22,7 @@ import {
 import { UseCaseFault } from '@shared-kernel/application/errors/use-case.fault';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -53,6 +55,7 @@ const CONFIGS: Record<string, StationConfigView> = {
 const listing = async (member = true) => {
   const records = new RunRecordsInMemory();
   const deliveries = new TaskDeliveriesInMemory();
+  const pullRequests = stationConfigPullRequestsInMemory();
   const asked: string[][] = [];
   const work: WorkPort = {
     endedRun: async () => null,
@@ -92,9 +95,16 @@ const listing = async (member = true) => {
   return {
     records,
     deliveries,
+    pullRequests,
     asked,
     list: (last: number | null = null, stationId = 'station_1') =>
-      new ListStationOutcomesHandler(access, records, deliveries, work).execute(
+      new ListStationOutcomesHandler(
+        access,
+        records,
+        deliveries,
+        pullRequests,
+        work,
+      ).execute(
         new ListStationOutcomesQuery(
           'team_1',
           'line_1',
@@ -503,6 +513,53 @@ describe('listing how a station’s runs turned out', () => {
     await listed.records.add(endedRecord('run_1', { stationId: 'station_2' }));
 
     expect((await listed.list()).groups).toEqual([]);
+  });
+
+  it('shows the latest pull request Spotlight opened proposing each group’s config at the station, and none where it opened none', async () => {
+    const listed = await listing();
+    const opened = (
+      id: string,
+      fingerprint: string,
+      openedAt: Date,
+      change: { stationId?: string; teamId?: TeamId } = {},
+    ) =>
+      listed.pullRequests.note({
+        configPullRequestId: id,
+        workspaceId: WORKSPACE,
+        teamId: change.teamId ?? TEAM,
+        stationId: change.stationId ?? 'station_1',
+        fingerprint,
+        url: PullRequestUrl.of(`https://github.com/acme/platform/pull/${id}`),
+        openedAt,
+      });
+    await listed.records.add(
+      endedRecord('run_1', {
+        fingerprint: FIRST_CONFIG,
+        startedAt: at(1),
+        endedAt: at(1),
+      }),
+    );
+    await listed.records.add(
+      endedRecord('run_2', {
+        fingerprint: SECOND_CONFIG,
+        startedAt: at(2),
+        endedAt: at(2),
+      }),
+    );
+    await opened('7', SECOND_CONFIG, at(1));
+    await opened('8', SECOND_CONFIG, at(3));
+    await opened('9', SECOND_CONFIG, at(2));
+    await opened('10', FIRST_CONFIG, at(1), { stationId: 'station_2' });
+    await opened('11', FIRST_CONFIG, at(1), { teamId: TeamId.of('team_2') });
+
+    const outcomes = await listed.list();
+
+    expect(
+      outcomes.groups.map((group) => [group.fingerprint, group.pullRequest]),
+    ).toEqual([
+      [SECOND_CONFIG, { url: 'https://github.com/acme/platform/pull/8' }],
+      [FIRST_CONFIG, null],
+    ]);
   });
 
   it('keeps runs that ran no config before any that did in a group without a config', async () => {

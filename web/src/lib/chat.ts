@@ -67,6 +67,12 @@ export const improvingHandedOver = (state: unknown): ImprovedStation | null => {
     : null;
 };
 
+export const askHandedOver = (state: unknown): string | null => {
+  const ask = (state as { ask?: unknown } | null)?.ask;
+
+  return typeof ask === 'string' && ask.trim() ? ask : null;
+};
+
 export type ChatMoment =
   | {
       readonly kind: 'said';
@@ -85,6 +91,8 @@ export type ChatMoment =
       readonly at: string;
       readonly steps: readonly JournalStep[];
     };
+
+export const CHAT_HARNESS_KEY = 'spotlight.chat-harness';
 
 export const chatPath = (
   slug: string,

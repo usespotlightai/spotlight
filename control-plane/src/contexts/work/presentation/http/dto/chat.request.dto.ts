@@ -1,5 +1,19 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
+export class ChatSetupRequestDto {
+  @ApiProperty({
+    example: 'acme/infra',
+    description: 'The repository the team’s configuration lives in',
+  })
+  readonly repository!: string;
+
+  @ApiProperty({
+    example: 'spotlight',
+    description: 'The folder in it, from the repository root',
+  })
+  readonly folder!: string;
+}
+
 export class StartChatRequestDto {
   @ApiProperty({
     example: 'claude-code',
@@ -58,6 +72,13 @@ export class StartChatRequestDto {
       'A station the chat is about improving, by its id; the agent is briefed to study its recent runs',
   })
   readonly improving?: string;
+
+  @ApiPropertyOptional({
+    type: () => ChatSetupRequestDto,
+    description:
+      'Makes this the team’s setup chat: the agent surveys the team’s tools and opens a pull request with its configuration as code there',
+  })
+  readonly setup?: ChatSetupRequestDto;
 }
 
 export class SayInChatRequestDto {
