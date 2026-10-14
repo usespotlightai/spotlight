@@ -49,7 +49,6 @@ import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/
 import { and, eq, inArray } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
-import { openDatabase, type TestDatabase } from './support/database';
 import { eventually } from './support/eventually';
 import * as schema from './support/schema';
 import { openTeam } from './support/team';
@@ -187,9 +186,6 @@ const pairJudge: PairJudgePort = {
   },
 };
 
-const shared = process.env.DATABASE_URL;
-
-let own: TestDatabase;
 let app: INestApplication;
 let db: DrizzleDatabase;
 let team: Awaited<ReturnType<typeof openTeam>>;
@@ -444,8 +440,6 @@ const worked = async () => {
 };
 
 beforeAll(async () => {
-  own = await openDatabase('replay_pairing');
-  process.env.DATABASE_URL = own.url;
   app = await openApp((module) =>
     module
       .overrideProvider(WORKSPACE_ARCHIVE_STORE)
@@ -558,8 +552,6 @@ beforeAll(async () => {
 
 afterAll(async () => {
   await app?.close();
-  process.env.DATABASE_URL = shared;
-  await own?.close();
 });
 
 describe('a replay at a station whose judge goes by claims', () => {

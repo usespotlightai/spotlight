@@ -12,6 +12,7 @@ import {
   ClaimHostCallCommand,
   type SentHostCallAnswer,
 } from '@work/application/commands/host-call.commands';
+import { LongPoll } from '@work/application/services/long-poll';
 import { NetworkCall } from '@work/domain/aggregates/network-call.aggregate';
 import { NetworkCallMovedOnError } from '@work/domain/exceptions/network-call-moved-on.error';
 import type { NetworkCallRepository } from '@work/domain/repositories/network-call.repository';
@@ -95,6 +96,7 @@ const hosting = (
       runners,
       calls as unknown as NetworkCallRepository,
       clock,
+      new LongPoll(clock),
     ),
     answer: new AnswerHostCallHandler(
       admissions,

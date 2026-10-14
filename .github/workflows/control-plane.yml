@@ -42,39 +42,71 @@ jobs:
       - name: Unit tests
         run: npm test
 
+      - name: Generated files are up to date
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+          BETTER_AUTH_SECRET: ci-better-auth-secret-not-a-real-one
+          BETTER_AUTH_URL: http://localhost:3000
+          SPOTLIGHT_SECRETS_KEY: S9+m23g9lI8X4VNFd0ayFXJH7P14Q3GZGsNvjCglc/Q=
+          GITHUB_CLIENT_ID: ci
+          GITHUB_CLIENT_SECRET: ci
+          GITHUB_APP_ID: ci
+          GITHUB_APP_PRIVATE_KEY: ci
+          S3_BUCKET: files
+        run: |
+          npm run openapi:generate
+          npm run auth:generate
+          git diff --exit-code -- openapi.json src/contexts/identity/infrastructure/persistence/drizzle/schemas/auth.schema.ts \
+            || { echo "::error::Generated files are stale. Run 'npm run openapi:generate' and 'npm run auth:generate' in control-plane."; exit 1; }
+
   e2e:
-    name: e2e
+    name: e2e (${{ matrix.shard }}/3)
     runs-on: ubuntu-latest
-    env:
-      GITHUB_CLIENT_ID: ci
-      GITHUB_CLIENT_SECRET: ci
-      GITHUB_APP_ID: ci
-      GITHUB_APP_PRIVATE_KEY: ci
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3]
+    services:
+      postgres:
+        image: postgres:18.6-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+    defaults:
+      run:
+        working-directory: control-plane
     steps:
       - uses: actions/checkout@v7
 
-      - name: Start stack
-        run: docker compose up -d --wait control-plane
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: control-plane/package-lock.json
 
-      - name: OpenAPI spec is up to date
+      - name: Postgres without durability
         run: |
-          docker compose exec -T control-plane npm run openapi:generate
-          git diff --exit-code -- control-plane/openapi.json \
-            || { echo "::error::openapi.json is stale. Run 'docker compose exec -T control-plane npm run openapi:generate'."; exit 1; }
+          for setting in "fsync = off" "synchronous_commit = off" "full_page_writes = off"; do
+            docker exec ${{ job.services.postgres.id }} psql -U postgres -c "ALTER SYSTEM SET $setting"
+          done
+          docker exec ${{ job.services.postgres.id }} psql -U postgres -c "SELECT pg_reload_conf()"
 
-      - name: Auth schema is up to date
+      - name: Install
         run: |
-          docker compose exec -T control-plane npm run auth:generate
-          git diff --exit-code -- control-plane/src/infrastructure/persistence/drizzle/schemas/auth.schema.ts \
-            || { echo "::error::auth.schema.ts is stale. Run 'docker compose exec -T control-plane npm run auth:generate'."; exit 1; }
+          npm install -g npm@11.19.1
+          npm ci
+
+      - uses: actions/cache@v6
+        with:
+          path: control-plane/node_modules/.vitest-cache
+          key: vitest-e2e-${{ hashFiles('control-plane/package-lock.json') }}-${{ github.sha }}
+          restore-keys: vitest-e2e-${{ hashFiles('control-plane/package-lock.json') }}-
 
       - name: e2e tests
-        run: docker compose exec -T control-plane npm run test:e2e
-
-      - name: Container logs
-        if: failure()
-        run: docker compose logs --no-color
-
-      - name: Tear down
-        if: always()
-        run: docker compose down -v
+        run: npm run test:e2e -- --shard=${{ matrix.shard }}/3

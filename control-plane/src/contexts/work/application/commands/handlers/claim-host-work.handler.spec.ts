@@ -17,6 +17,7 @@ import { ClaimHostWorkHandler } from '@work/application/commands/handlers/claim-
 import { ClaimHostWorkCommand } from '@work/application/commands/runner.commands';
 import type { ClaimedCheck } from '@work/application/ports/check-work.port';
 import { ClaimsTaken } from '@work/application/services/claims-taken.service';
+import { LongPoll } from '@work/application/services/long-poll';
 import type { RunLeases } from '@work/application/services/run-leases.service';
 import type {
   RunStart,
@@ -147,6 +148,7 @@ const pulling = (
       warn: () => {},
       error: () => {},
     }),
+    new LongPoll(clock),
   );
 
   return {

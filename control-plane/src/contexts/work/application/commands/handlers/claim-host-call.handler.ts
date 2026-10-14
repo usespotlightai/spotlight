@@ -5,7 +5,7 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { ClaimHostCallCommand } from '@work/application/commands/host-call.commands';
 import type { HostCallClaimDto } from '@work/application/dto/host-call.dto';
-import { longPolled, pollDeadline } from '@work/application/services/long-poll';
+import type { LongPoll } from '@work/application/services/long-poll';
 import type { NetworkCallRepository } from '@work/domain/repositories/network-call.repository';
 import { CallingHost } from '@work/domain/value-objects/calling-host.vo';
 
@@ -17,6 +17,7 @@ export class ClaimHostCallHandler
     private readonly runners: RunnersPort,
     private readonly calls: NetworkCallRepository,
     private readonly clock: ClockPort,
+    private readonly polls: LongPoll,
   ) {}
 
   async execute(command: ClaimHostCallCommand): Promise<HostCallClaimDto> {
@@ -33,11 +34,8 @@ export class ClaimHostCallHandler
         return { outcome: 'stranger' };
       }
 
-      const claimed = await longPolled(
-        this.clock,
-        () =>
-          this.calls.claimNext(admitted.workspaceId, host, this.clock.now()),
-        pollDeadline(this.clock),
+      const claimed = await this.polls.polled(() =>
+        this.calls.claimNext(admitted.workspaceId, host, this.clock.now()),
       );
 
       if (!claimed) {

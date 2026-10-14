@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { Client, Pool } from 'pg';
-import { databaseNamed } from './e2e-database-url';
+import { databaseNamed, E2E_DATABASE, E2E_TEMPLATE } from './e2e-database-url';
 
 export interface TestDatabase {
   readonly db: DrizzleDatabase;
@@ -30,49 +30,39 @@ export const migrated = async (pool: Pool): Promise<void> => {
   }
 };
 
-const LET_GO_TRIES = 60;
-
-const droppedOnceLetGo = async (
-  admin: Client,
-  database: string,
-): Promise<void> => {
-  for (let tried = 0; tried < LET_GO_TRIES; tried += 1) {
-    const dropped = await admin
-      .query(`DROP DATABASE IF EXISTS "${database}"`)
-      .then(
-        () => true,
-        () => false,
-      );
-
-    if (dropped) {
-      return;
-    }
-
-    await new Promise((settle) => setTimeout(settle, 50));
+const asAdmin = async (statement: string): Promise<void> => {
+  const admin = new Client({ connectionString: process.env.DATABASE_URL });
+  await admin.connect();
+  try {
+    await admin.query(statement);
+  } finally {
+    await admin.end();
   }
-
-  await admin.query(`DROP DATABASE IF EXISTS "${database}" WITH (FORCE)`);
 };
 
+export const clonedDatabase = async (about: string): Promise<string> => {
+  const database = `${E2E_DATABASE}_${about}_${randomUUID().slice(0, 8)}`;
+
+  await asAdmin(`CREATE DATABASE "${database}" TEMPLATE "${E2E_TEMPLATE}"`);
+
+  return databaseNamed(process.env.DATABASE_URL ?? '', database);
+};
+
+export const droppedDatabase = (url: string): Promise<void> =>
+  asAdmin(
+    `DROP DATABASE IF EXISTS "${new URL(url).pathname.slice(1)}" WITH (FORCE)`,
+  );
+
 export const openDatabase = async (about: string): Promise<TestDatabase> => {
-  const here = process.env.DATABASE_URL ?? '';
-  const database = `spotlight_${about}_${randomUUID().slice(0, 8)}`;
-
-  const admin = new Client({ connectionString: here });
-  await admin.connect();
-  await admin.query(`CREATE DATABASE "${database}"`);
-
-  const url = databaseNamed(here, database);
+  const url = await clonedDatabase(about);
   const pool = new Pool({ connectionString: url });
-  await migrated(pool);
 
   return {
     db: drizzle({ client: pool }),
     url,
     close: async () => {
       await pool.end();
-      await droppedOnceLetGo(admin, database);
-      await admin.end();
+      await droppedDatabase(url);
     },
   };
 };
