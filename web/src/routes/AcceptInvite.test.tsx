@@ -174,14 +174,14 @@ describe('AcceptInvite', () => {
       screen.queryByRole('button', { name: 'Accept invitation' }),
     ).not.toBeInTheDocument();
     expect(
-      screen.getByText(/Invitation is for ada@example.com, not /),
+      screen.getByText(/The invitation is for ada@example.com, not /),
     ).toBeInTheDocument();
   });
 
   it.each([
-    ['accepted', 'Invitation already accepted.'],
-    ['revoked', 'Invitation withdrawn.'],
-    ['expired', 'Invitation expired. Please ask for a new one.'],
+    ['accepted', 'This invitation is already accepted.'],
+    ['revoked', 'This invitation is withdrawn.'],
+    ['expired', 'This invitation has expired. Please ask for a new one.'],
   ])('says an invitation that is %s is no longer open', (standing, said) => {
     invite.mockReturnValue(offered({ standing }));
     session.mockReturnValue({

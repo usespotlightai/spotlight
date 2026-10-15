@@ -15,7 +15,7 @@ import (
 	"usespotlight.ai/data-plane/protocol"
 )
 
-const notAdmitted = "this host's SPOTLIGHT_RUNNER_IMAGE does not admit it"
+const notAdmitted = "The host's SPOTLIGHT_RUNNER_IMAGE doesn't admit this image."
 
 type served struct {
 	image string
@@ -140,7 +140,7 @@ func (h *Host) examine(ctx context.Context, each *served) (examined, error) {
 		h.mu.Lock()
 		defer h.mu.Unlock()
 		each.id, each.digest, each.release, each.harnesses = "", "", "", nil
-		each.refused = "Image can't be pulled: " + err.Error()
+		each.refused = "Image can't be pulled. Error: " + err.Error()
 		return examinedOf(each), err
 	}
 
@@ -164,7 +164,7 @@ func (h *Host) examine(ctx context.Context, each *served) (examined, error) {
 	each.judged = judging
 	each.digest = pinned(each.image, pulled)
 	if err != nil {
-		each.refused = "Image can't be inspected: " + err.Error()
+		each.refused = "Image can't be inspected. Error: " + err.Error()
 		each.harnesses, each.release = nil, ""
 		h.log.Warn("could not look inside the runner image", "image", each.image, "error", err)
 		return examinedOf(each), nil

@@ -42,7 +42,7 @@ export function VersionInstrument({
           <SkeletonLine className="w-36 text-xs" />
         </>
       ) : failed(outcomes) ? (
-        <InstrumentValue detail="Its runs could not be loaded.">
+        <InstrumentValue detail="Sorry, the station’s runs couldn’t be loaded.">
           <span className="text-muted-foreground">Unknown</span>
         </InstrumentValue>
       ) : version ? (
@@ -66,7 +66,7 @@ export function VersionInstrument({
           )}
         </>
       ) : (
-        <InstrumentValue detail="Its first run sets the first version.">
+        <InstrumentValue detail="The station’s first run sets the first version.">
           <span className="text-muted-foreground">None yet</span>
         </InstrumentValue>
       )}

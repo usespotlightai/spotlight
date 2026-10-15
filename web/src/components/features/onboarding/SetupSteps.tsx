@@ -179,7 +179,7 @@ export function SetupSteps({ teamId, body, about, resolved }: SetupStepsProps) {
     if (chat) {
       return (
         <p className="text-muted-foreground text-sm leading-6">
-          Being set up by {chat.startedBy || 'a former member'}.
+          {chat.startedBy || 'A former member'} is setting this up.
         </p>
       );
     }
@@ -188,7 +188,8 @@ export function SetupSteps({ teamId, body, about, resolved }: SetupStepsProps) {
       <ConfigHomeForm slug={slug} teamId={teamId} />
     ) : (
       <p className="text-muted-foreground text-sm leading-6">
-        Requires the GitHub App and a host. Push pools can’t run a setup chat.
+        The setup chat needs the GitHub App and a host. Push pools can’t run a
+        setup chat.
       </p>
     );
   };

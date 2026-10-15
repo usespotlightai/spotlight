@@ -1,8 +1,11 @@
 export const JUDGE_STANDING = Symbol('JUDGE_STANDING');
 
-export interface StationOnTeam {
+export interface TeamOfStations {
   readonly workspaceId: string;
   readonly teamId: string;
+}
+
+export interface StationOnLine {
   readonly lineId: string;
   readonly stationId: string;
 }
@@ -25,5 +28,8 @@ export interface JudgeStandingShape {
 }
 
 export interface JudgeStandingPort {
-  of(station: StationOnTeam): Promise<JudgeStandingShape>;
+  standingsOf(
+    team: TeamOfStations,
+    stations: readonly StationOnLine[],
+  ): Promise<readonly JudgeStandingShape[]>;
 }

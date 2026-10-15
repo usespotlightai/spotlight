@@ -48,6 +48,12 @@ type gainReading struct {
 	Tasks   int     `json:"tasks"`
 }
 
+type counterpart struct {
+	ReplayID    string    `json:"replayId"`
+	SuccessRate *float64  `json:"successRate"`
+	Interval    *interval `json:"interval"`
+}
+
 type replayRead struct {
 	ID        string `json:"id"`
 	SetID     string `json:"setId"`
@@ -73,6 +79,7 @@ type replayRead struct {
 		Spent       spend     `json:"spent"`
 	} `json:"totals"`
 	AgainstBaseline  *gainReading `json:"againstBaseline"`
+	ComparedWith     *counterpart `json:"comparedWith"`
 	BaselineReplayID *string      `json:"baselineReplayId"`
 	Comparison       []struct {
 		TaskID     string   `json:"taskId"`
@@ -95,11 +102,11 @@ type started struct {
 }
 
 type followed struct {
-	Replay   replayRead
-	Baseline *replayRead
-	raw      struct {
-		Replay   json.RawMessage `json:"replay"`
-		Baseline json.RawMessage `json:"baseline"`
+	Replay       replayRead
+	ComparedWith *replayRead
+	raw          struct {
+		Replay       json.RawMessage `json:"replay"`
+		ComparedWith json.RawMessage `json:"comparedWith"`
 	}
 }
 
@@ -378,11 +385,11 @@ func (c *cli) follow(teamID, id string) (followed, error) {
 		return followed{}, fmt.Errorf("read replay %s: %w", id, err)
 	}
 
-	baseline := read.Replay.BaselineReplayID
-	if baseline != nil && *baseline != read.Replay.ID {
-		read.Baseline = &replayRead{}
-		if err := c.api.read(teamPath(teamID)+"/replays/"+url.PathEscape(*baseline), &read.raw.Baseline, read.Baseline); err != nil {
-			return followed{}, fmt.Errorf("read its baseline %s: %w", *baseline, err)
+	compared := read.Replay.ComparedWith
+	if compared != nil && compared.ReplayID != read.Replay.ID {
+		read.ComparedWith = &replayRead{}
+		if err := c.api.read(teamPath(teamID)+"/replays/"+url.PathEscape(compared.ReplayID), &read.raw.ComparedWith, read.ComparedWith); err != nil {
+			return followed{}, fmt.Errorf("read the replay it is compared with, %s: %w", compared.ReplayID, err)
 		}
 	}
 
@@ -390,7 +397,7 @@ func (c *cli) follow(teamID, id string) (followed, error) {
 }
 
 func (f followed) ended() bool {
-	return ended(f.Replay.State) && (f.Baseline == nil || ended(f.Baseline.State))
+	return ended(f.Replay.State) && (f.ComparedWith == nil || ended(f.ComparedWith.State))
 }
 
 func ended(state string) bool {
@@ -439,18 +446,22 @@ func (c *cli) printReplay(read followed) {
 	switch {
 	case replay.IsBaseline:
 		fmt.Fprint(c.out, "It is the set's baseline.\n\n")
-	case read.Baseline != nil:
-		fmt.Fprintf(c.out, "Its baseline, %s: %s, %d unscored\n", read.Baseline.State, totalsSay(*read.Baseline), read.Baseline.Totals.Unscored)
+	case read.ComparedWith != nil:
+		against := counterpartSays(replay)
+		fmt.Fprintf(c.out, "Compared with %s, %s: %s, %d unscored\n", against, read.ComparedWith.State, totalsSay(*read.ComparedWith), read.ComparedWith.Totals.Unscored)
+		if both, differs := bothScoredSays(replay.ComparedWith, *read.ComparedWith); differs {
+			fmt.Fprintf(c.out, "On the tasks both scored: %s\n", both)
+		}
 		if replay.AgainstBaseline != nil {
-			fmt.Fprintf(c.out, "%s\n", gainSays(*replay.AgainstBaseline, "the baseline"))
+			fmt.Fprintf(c.out, "%s\n", gainSays(*replay.AgainstBaseline, against))
 		}
 		fmt.Fprintln(c.out)
 	default:
-		fmt.Fprint(c.out, "The set has no baseline to compare against.\n\n")
+		fmt.Fprintf(c.out, "It is compared with nothing: %s.\n\n", nothingComparedSays(replay))
 	}
 
 	table := tabled(c.out)
-	fmt.Fprintln(table, "\tTASK\tCANDIDATE\tBASELINE\tCOST Δ\tSTEPS Δ\tSCORE Δ")
+	fmt.Fprintln(table, "\tTASK\tCANDIDATE\tCOMPARED WITH\tCOST Δ\tSTEPS Δ\tSCORE Δ")
 	for _, each := range replay.Comparison {
 		mark := ""
 		if each.Regressed {
@@ -459,6 +470,50 @@ func (c *cli) printReplay(read followed) {
 		fmt.Fprintf(table, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n", mark, each.TaskID, resultsSay(each.Candidate), resultsSay(each.Baseline), signed(each.CostDelta), signed(each.StepsDelta), signed(each.ScoreDelta))
 	}
 	_ = table.Flush()
+}
+
+func counterpartSays(replay replayRead) string {
+	if replay.BaselineReplayID != nil && replay.ComparedWith.ReplayID == *replay.BaselineReplayID {
+		return "the baseline"
+	}
+
+	switch candidateKind(replay) {
+	case "searched":
+		return "the search's starting config"
+	case "oracle":
+		return "the live config"
+	default:
+		return "an earlier baseline"
+	}
+}
+
+func nothingComparedSays(replay replayRead) string {
+	switch {
+	case candidateKind(replay) == "oracle":
+		return "the live replay it was compared with is gone"
+	case replay.BaselineReplayID == nil:
+		return "the set has no baseline"
+	default:
+		return "the replay it was set beside is gone"
+	}
+}
+
+func candidateKind(replay replayRead) string {
+	if replay.Candidate == nil {
+		return ""
+	}
+
+	return replay.Candidate.Kind
+}
+
+func bothScoredSays(compared *counterpart, its replayRead) (string, bool) {
+	if compared.Interval == nil {
+		return "", false
+	}
+
+	both := intervalSays(*compared.Interval)
+
+	return both, its.Totals.Interval == nil || intervalSays(*its.Totals.Interval) != both
 }
 
 func resultsSay(copies []entry) string {

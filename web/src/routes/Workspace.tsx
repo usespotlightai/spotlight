@@ -51,8 +51,8 @@ export function Workspace() {
           Workspace not found
         </h1>
         <p className="max-w-sm text-center text-muted-foreground text-sm">
-          No workspace at {WORKSPACE_URL_PREFIX}
-          {slug}, or you’re not a member.
+          No workspace exists at {WORKSPACE_URL_PREFIX}
+          {slug}, or you’re not a member of it.
         </p>
         <Link
           to="/workspaces/new"

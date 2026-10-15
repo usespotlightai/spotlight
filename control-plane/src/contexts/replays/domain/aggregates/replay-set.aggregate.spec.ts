@@ -69,7 +69,7 @@ describe('ReplaySet', () => {
         {
           ...replayable('run_1'),
           refusal: 'no-starting-point',
-          reason: 'it never said where it started',
+          reason: 'It never reported a starting point.',
         },
         NOW,
         false,

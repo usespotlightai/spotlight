@@ -149,7 +149,7 @@ func (p *packing) add(name string, seen fs.FileInfo) error {
 	}
 }
 
-// Opened through the root and checked once open, so a file swapped for a link after the walk is never followed.
+// file opens the name through the root and checks the open file, so it does not follow a link that replaced the file after the walk.
 func (p *packing) file(name string) error {
 	file, err := p.root.OpenFile(name, os.O_RDONLY|syscall.O_NONBLOCK, 0)
 	if err != nil {

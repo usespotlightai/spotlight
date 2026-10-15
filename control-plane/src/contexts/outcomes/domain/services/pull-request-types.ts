@@ -10,28 +10,30 @@ export interface PullRequestSaid {
   readonly branch: string | null;
 }
 
-const CONVENTIONAL_TYPES: Readonly<Record<string, PullRequestType>> = {
-  feat: 'feature',
-  feature: 'feature',
-  fix: 'fix',
-  bugfix: 'fix',
-  hotfix: 'fix',
-  refactor: 'refactor',
-  perf: 'refactor',
-  test: 'tests',
-  tests: 'tests',
-  chore: 'chore',
-  build: 'chore',
-  ci: 'chore',
-  docs: 'chore',
-  style: 'chore',
-  deps: 'chore',
-  revert: 'chore',
-};
+export const CONVENTIONAL_TYPES: ReadonlyMap<string, PullRequestType> = new Map(
+  [
+    ['feat', 'feature'],
+    ['feature', 'feature'],
+    ['fix', 'fix'],
+    ['bugfix', 'fix'],
+    ['hotfix', 'fix'],
+    ['refactor', 'refactor'],
+    ['perf', 'refactor'],
+    ['test', 'tests'],
+    ['tests', 'tests'],
+    ['chore', 'chore'],
+    ['build', 'chore'],
+    ['ci', 'chore'],
+    ['docs', 'chore'],
+    ['style', 'chore'],
+    ['deps', 'chore'],
+    ['revert', 'chore'],
+  ],
+);
 
-const CONVENTIONAL = /^\s*([a-z]+)(\([^)]*\))?!?:/i;
+export const CONVENTIONAL = /^\s*([a-z]+)(\([^)]*\))?!?:/i;
 
-const LEADING_WORDS: readonly (readonly [RegExp, PullRequestType])[] = [
+export const LEADING_WORDS: readonly (readonly [RegExp, PullRequestType])[] = [
   [/^\s*(revert|bump|chore|upgrade|release|docs?)\b/i, 'chore'],
   [/^\s*update\s+(dependenc|deps|lock)/i, 'chore'],
   [/^\s*(add|write|cover)\s+(more\s+)?(unit\s+|e2e\s+)?tests?\b/i, 'tests'],
@@ -47,15 +49,16 @@ const LEADING_WORDS: readonly (readonly [RegExp, PullRequestType])[] = [
   ],
 ];
 
-const BRANCH_PREFIXES: readonly (readonly [RegExp, PullRequestType])[] = [
-  [/^(feat|feature|features)[/-]/i, 'feature'],
-  [/^(fix|bugfix|hotfix|bug)[/-]/i, 'fix'],
-  [/^(refactor|refactoring)[/-]/i, 'refactor'],
-  [/^(test|tests)[/-]/i, 'tests'],
-  [/^(chore|deps|dependabot|renovate|release|docs|ci|build)[/-]/i, 'chore'],
-];
+export const BRANCH_PREFIXES: readonly (readonly [RegExp, PullRequestType])[] =
+  [
+    [/^(feat|feature|features)[/-]/i, 'feature'],
+    [/^(fix|bugfix|hotfix|bug)[/-]/i, 'fix'],
+    [/^(refactor|refactoring)[/-]/i, 'refactor'],
+    [/^(test|tests)[/-]/i, 'tests'],
+    [/^(chore|deps|dependabot|renovate|release|docs|ci|build)[/-]/i, 'chore'],
+  ];
 
-const UNMATCHED: PullRequestType = 'other';
+export const UNMATCHED: PullRequestType = 'other';
 
 const firstMatch = (
   text: string,
@@ -67,7 +70,7 @@ const typeOfTitle = (title: string): PullRequestType | null => {
   const conventional = CONVENTIONAL.exec(title)?.[1]?.toLowerCase();
 
   return (
-    (conventional ? CONVENTIONAL_TYPES[conventional] : undefined) ??
+    (conventional ? CONVENTIONAL_TYPES.get(conventional) : undefined) ??
     firstMatch(title, LEADING_WORDS)
   );
 };

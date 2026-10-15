@@ -41,7 +41,7 @@ export function RubricVersionCard({
         {agreement.pairs > 0 && (
           <InsightsCard
             title="Distribution"
-            description="How often each score was given, on runs with both scores."
+            description="How often each score was given. Only runs with both scores count."
           >
             <ScoreDistribution counts={version.distribution} />
           </InsightsCard>

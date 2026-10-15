@@ -243,7 +243,7 @@ describe('StackCheck', () => {
         wholeFailed: checked.wholeFailed,
       }),
     ).toBe(
-      'The finished change does not pass the check, so its layers were not checked on their own.',
+      'The finished change fails the check. Spotlight didn’t check its layers one by one.',
     );
   });
 
@@ -283,7 +283,7 @@ describe('StackCheck', () => {
         wholeFailed: skipped.wholeFailed,
       }),
     ).toBe(
-      'The checkout could not be made ready before the check ran.\n\nnpm ci: no network',
+      'The setup of the checkout failed before the check ran.\n\nnpm ci: no network',
     );
   });
 
@@ -737,7 +737,7 @@ describe('StackCheck', () => {
     it('says how many attempts failed and what the last one was', () => {
       expect(unprovisioned(REFUSED, 5)).toEqual({
         code: 'unprovisioned',
-        detail: '5 attempts; the last was refused: answered 503',
+        detail: 'Attempts: 5\nLast failure: refused: answered 503',
       });
     });
   });
@@ -893,7 +893,7 @@ describe('StackCheck', () => {
       expect(skipped.phase).toBe('skipped');
       expect(skipped.skippedAt(LATER)).toEqual({
         code: 'unprovisioned',
-        detail: '5 attempts; the last was refused: answered 503',
+        detail: 'Attempts: 5\nLast failure: refused: answered 503',
       });
       expect(kinds(skipped)).toEqual([
         'change-stack.check-reservation-dropped',
@@ -905,7 +905,7 @@ describe('StackCheck', () => {
           wholeFailed: skipped.wholeFailed,
         }),
       ).toBe(
-        'No runner could be provisioned to check the layers.\n\n5 attempts; the last was refused: answered 503',
+        'Spotlight couldn’t provision a runner to check the layers.\n\nAttempts: 5\nLast failure: refused: answered 503',
       );
       expect(skipped.provisionFailed(RUNNER, REFUSED, LATER)).toBe(skipped);
     });
@@ -952,7 +952,7 @@ describe('StackCheck', () => {
     it('comes back skipped as unprovisioned', () => {
       const skip = keptSkipOf(
         'unprovisioned',
-        '5 attempts; the last was refused: answered 503',
+        'Attempts: 5\nLast failure: refused: answered 503',
       );
       const check = rehydrated({
         phase: 'skipped',

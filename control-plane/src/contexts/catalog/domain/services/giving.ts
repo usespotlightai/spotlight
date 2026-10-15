@@ -74,20 +74,20 @@ export const givingOf = <K extends CatalogKind>(
   try {
     parsed = CatalogItemId.parse(id);
   } catch {
-    return refused(id, 'unknown', `${id} is not in the catalog`);
+    return refused(id, 'unknown', `Catalog has no item ${id}.`);
   }
 
   const item = catalog.find(parsed);
 
   if (!item) {
-    return refused(id, 'unknown', `${id} is not in the catalog`);
+    return refused(id, 'unknown', `Catalog has no item ${id}.`);
   }
 
   if (item.kind !== kind) {
     return refused(
       id,
       'wrong-kind',
-      `${id} is a catalog ${item.kind}, not a ${kind}`,
+      `Catalog item ${id} is a ${item.kind}, not a ${kind}.`,
     );
   }
 

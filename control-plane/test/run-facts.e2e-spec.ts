@@ -305,6 +305,37 @@ describe('run facts', () => {
     }
   });
 
+  it('takes no opener or delivery from another workspace’s records of the same task', async () => {
+    await touches.add(
+      TaskTouches.heardOf(TaskId.of('task_x'), ELSEWHERE).opened(
+        TaskOpening.of({
+          teamId: TEAM,
+          lineId: 'line_1',
+          stationId: 'station_1',
+          by: UserId.of('user_ada'),
+          at: at(3),
+        }),
+      ),
+    );
+    await deliveries.add(
+      TaskDelivery.opened({
+        taskId: TaskId.of('task_x'),
+        workspaceId: ELSEWHERE,
+        teamId: TEAM,
+        pullRequest: PULL,
+        at: at(2),
+      }),
+    );
+    await records.add(ended('run_x', 'task_x'));
+
+    expect(await factOf('run_x')).toMatchObject({
+      openedBy: null,
+      taskOpenedAt: null,
+      pullRequest: null,
+      deliveryState: null,
+    });
+  });
+
   it('keeps both changes when a run and its task’s delivery change at once', async () => {
     await records.add(ended('run_1', 'task_1'));
     await deliveries.add(

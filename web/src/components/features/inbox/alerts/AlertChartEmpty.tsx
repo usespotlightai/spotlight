@@ -7,7 +7,7 @@ export function AlertChartEmpty() {
       style={{ height: ALERT_CHART_HEIGHT }}
       className="flex items-center justify-center rounded-lg bg-muted/50 px-4 text-center text-muted-foreground text-sm"
     >
-      No chart to show. The runs behind this alert are deleted.
+      There is no chart to show. The runs behind this alert are deleted.
     </p>
   );
 }

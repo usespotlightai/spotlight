@@ -19,7 +19,7 @@ export function AgentInstrument({ station }: { station: StationResponseDto }) {
             {agent.model}
           </InstrumentValue>
         ) : (
-          <InstrumentValue detail="Pick a harness in Terraform">
+          <InstrumentValue detail="Please pick a harness in Terraform.">
             <span className="text-muted-foreground">No agent</span>
           </InstrumentValue>
         )}

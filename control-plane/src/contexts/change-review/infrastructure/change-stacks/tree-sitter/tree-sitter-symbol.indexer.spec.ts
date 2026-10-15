@@ -92,7 +92,7 @@ describe('TreeSitterSymbolIndexer', () => {
       ]),
       source('web/src/api.ts', [
         'export const read = (team: string, run: string) =>',
-        // biome-ignore lint/suspicious/noTemplateCurlyInString: source code being read
+        // biome-ignore lint/suspicious/noTemplateCurlyInString: source code that the test reads
         '  fetch(`/api/teams/${team}/runs/${run}/change-stacks`);',
       ]),
     );

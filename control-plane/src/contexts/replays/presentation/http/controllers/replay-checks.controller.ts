@@ -74,8 +74,8 @@ const nothingToReplay = (keptLive: readonly string[]): never => {
     status: HttpStatus.CONFLICT,
     detail:
       keptLive.length > 0
-        ? `Nothing to replay. A check keeps the changed fields as live: ${keptLive.join(', ')}`
-        : 'Nothing to replay. The plan changes nothing that affects how the station’s runs go.',
+        ? `There is nothing to replay. A check keeps these changed fields at their live values: ${keptLive.join(', ')}`
+        : 'There is nothing to replay. The plan changes nothing that affects how the station’s runs go.',
   });
 };
 
@@ -148,11 +148,15 @@ export class ReplayChecksController {
       new StartReplayCheckCommand(
         teamId,
         {
-          lineId: textAt(body, 'lineId', 'must name the station’s line'),
+          lineId: textAt(
+            body,
+            'lineId',
+            'Line ID must name the line of the station.',
+          ),
           stationKey: textAt(
             body,
             'stationKey',
-            'must be the planned station’s key',
+            'Station key must be the key of the planned station.',
           ),
           station: fieldsOf(body).station,
           line: fieldsOf(body).line,

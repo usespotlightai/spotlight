@@ -100,7 +100,6 @@ const tally = (over: Record<string, unknown> = {}) => ({
 
 const CHANGES = {
   period: { name: '30d' },
-  truncated: false,
   markers: [
     {
       lineId: 'line_1',
@@ -151,7 +150,6 @@ const CHANGES = {
 
 const SETUPS = {
   period: { name: '30d' },
-  truncated: false,
   stationId: 'station_impl',
   size: null,
   sizes: [
@@ -439,7 +437,7 @@ describe('the Changes tab', () => {
     expect(
       document.querySelector('[data-slot="replayed-note"]'),
     ).toHaveTextContent(
-      /replay success on up to 18 runs of past tasks, not live outcomes. Scored by each candidate’s own checks and judge/,
+      /replay success on up to 18 runs of past tasks, not live outcomes. Each candidate’s own checks and judge score it/,
     );
   });
 
@@ -517,7 +515,7 @@ describe('the Changes tab', () => {
     expect(
       document.querySelector('[data-slot="replayed-note"]'),
     ).toHaveTextContent(
-      'Replayed candidates aren’t drawn: no live setup has a priced outcome.',
+      'Replayed candidates aren’t drawn. No live setup has a priced outcome.',
     );
   });
 

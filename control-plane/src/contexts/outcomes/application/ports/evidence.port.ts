@@ -31,4 +31,6 @@ export interface EvidencePort {
   of(runId: string): Promise<RunEvidence | null>;
 
   judgeAt(stationId: string): Promise<StationJudge | null>;
+
+  judgesOnTeam(teamId: string): Promise<ReadonlyMap<string, StationJudge>>;
 }

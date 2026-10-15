@@ -6,7 +6,8 @@ import {
   pipelineCountsOf,
   type Shipping,
   shippedTaskIdsOf,
-  shippingOf,
+  shippingCountsOf,
+  shippingFrom,
 } from '@outcomes/domain/services/shipping';
 import type { TeamHistory } from '@outcomes/domain/services/team-history';
 import type { TeamPullRequest } from '@outcomes/domain/services/team-pull-requests';
@@ -42,16 +43,18 @@ const shippedOf = (
   history: TeamHistory,
   period: InsightsPeriod,
 ) =>
-  shippingOf(
-    pullRequests,
-    pipelineCountsOf(history, shippedTaskIdsOf(pullRequests, period), period),
-    period,
+  shippingFrom(
+    shippingCountsOf(
+      pullRequests,
+      pipelineCountsOf(history, shippedTaskIdsOf(pullRequests, period), period),
+      period,
+    ),
   );
 
 const timesAt = (pipeline: Shipping['pipeline'], kind: FlowStageKind) =>
   pipeline.layouts.stages.find((each) => each.kind === kind)?.times;
 
-describe('shippingOf', () => {
+describe('the Shipping tab', () => {
   it('times opened to merged for Spotlight and for people in the repositories Spotlight merged into', () => {
     const shipping = shippedOf(
       [

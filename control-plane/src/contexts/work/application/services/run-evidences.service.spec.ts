@@ -103,6 +103,21 @@ const evidences = (judge: StationJudge | null = null) =>
         id: { value: 'line_1' },
         stationAt: () => ({ judge }),
       }),
+      ofTeam: async (teamId: TeamId) => [
+        {
+          teamId,
+          id: { value: 'line_1' },
+          stations: [
+            { id: { value: 'station_1' }, judge },
+            { id: { value: 'station_2' }, judge: null },
+          ],
+        },
+        {
+          teamId,
+          id: { value: 'line_2' },
+          stations: [{ id: { value: 'station_3' }, judge }],
+        },
+      ],
     } as unknown as LineRepository,
     {
       attemptsOfRun: async () => [
@@ -204,6 +219,20 @@ describe('RunEvidences', () => {
           }),
         ).judgeAt('station_1')
       )?.rubricVersion,
+    );
+  });
+
+  it('gives the judges of a team’s stations on every line as the station gives each one', async () => {
+    const held = evidences(
+      StationJudge.of({ rubric: 'Did it retry?', sample: 0.5, trust: 0.6 }),
+    );
+    const judge = await held.judgeAt('station_1');
+
+    expect(await held.judgesOnTeam('team_1')).toEqual(
+      new Map([
+        ['station_1', judge],
+        ['station_3', judge && { ...judge, lineId: 'line_2' }],
+      ]),
     );
   });
 

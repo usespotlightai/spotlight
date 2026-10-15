@@ -418,7 +418,7 @@ export const replayableRuns = (
       endedAt: run.endedAt,
       refusal: gone ? 'archive-gone' : null,
       reason: gone
-        ? 'the workspace archive it started from is no longer kept'
+        ? 'The workspace archive that it started from is no longer kept.'
         : null,
     };
   });

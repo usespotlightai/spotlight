@@ -154,7 +154,7 @@ export class HostWorkController {
       throw new ConflictException({
         reason: 'host-unreported',
         message:
-          'This host has not reported through this pool or trust; report presence first',
+          'This host has not reported through this pool or trust. Please report presence first.',
       });
     }
 
@@ -162,7 +162,7 @@ export class HostWorkController {
       throw new ConflictException({
         reason: 'image-unreported',
         message:
-          'This host has not reported serving that image; report presence with it first',
+          'This host has not reported that it serves that image. Please report presence with the image first.',
       });
     }
 
@@ -220,7 +220,7 @@ export class HostWorkController {
       throw new ConflictException({
         reason: 'host-unreported',
         message:
-          'This host has not reported through this pool or trust; report presence first',
+          'This host has not reported through this pool or trust. Please report presence first.',
       });
     }
 
@@ -284,13 +284,15 @@ export class HostWorkController {
     }
 
     if (answered.outcome === 'unknown') {
-      throw new NotFoundException(`There is no call ${id} for this host`);
+      throw new NotFoundException(
+        `Network call ${id} does not exist for this host.`,
+      );
     }
 
     if (answered.outcome === 'not-theirs') {
       throw new ConflictException({
         reason: 'not-this-hosts-call',
-        message: `Another host claimed the call ${id}`,
+        message: `Another host claimed network call ${id}.`,
       });
     }
 
