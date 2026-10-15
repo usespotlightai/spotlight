@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -48,7 +48,7 @@ const SET = {
   entries: [{}, {}],
 } as ReplaySet;
 
-const renderDialog = (baselineRepeats: number | null) =>
+const openDialog = async (baselineRepeats: number | null) => {
   render(
     <MemoryRouter>
       <StartReplayDialog
@@ -63,11 +63,16 @@ const renderDialog = (baselineRepeats: number | null) =>
     </MemoryRouter>,
   );
 
+  await waitFor(() =>
+    expect(screen.getByRole('radio', { name: /Live config/ })).toHaveFocus(),
+  );
+};
+
 describe('StartReplayDialog', () => {
   beforeEach(() => mutate.mockReset());
 
-  it('offers the live config and the proposed candidates', () => {
-    renderDialog(1);
+  it('offers the live config and the proposed candidates', async () => {
+    await openDialog(1);
 
     expect(screen.getByRole('radio', { name: /Live config/ })).toBeChecked();
     expect(
@@ -75,8 +80,8 @@ describe('StartReplayDialog', () => {
     ).toBeInTheDocument();
   });
 
-  it('says a live replay becomes the new baseline where the set’s runs changed since its baseline', () => {
-    renderDialog(1);
+  it('says a live replay becomes the new baseline where the set’s runs changed since its baseline', async () => {
+    await openDialog(1);
 
     expect(
       screen.getByText(/this replay becomes the new baseline/),
@@ -84,7 +89,7 @@ describe('StartReplayDialog', () => {
   });
 
   it('explains that a baseline also starts, spending its own ceiling, when a candidate replays a set with none', async () => {
-    renderDialog(null);
+    await openDialog(null);
 
     expect(
       screen.getByText(/This replay of the live config becomes the baseline/),
@@ -101,7 +106,7 @@ describe('StartReplayDialog', () => {
   });
 
   it('says a new baseline starts when the set’s baseline copied each run fewer times than asked', async () => {
-    renderDialog(1);
+    await openDialog(1);
 
     const repeats = screen.getByRole('textbox', { name: 'Repeats' });
     await userEvent.clear(repeats);
@@ -125,7 +130,7 @@ describe('StartReplayDialog', () => {
   });
 
   it('refuses a ceiling of nothing, saying why', async () => {
-    renderDialog(1);
+    await openDialog(1);
 
     await userEvent.click(screen.getByRole('button', { name: 'Start replay' }));
 
@@ -136,7 +141,7 @@ describe('StartReplayDialog', () => {
   });
 
   it('starts the chosen candidate within the ceiling', async () => {
-    renderDialog(1);
+    await openDialog(1);
 
     await userEvent.click(
       screen.getByRole('radio', { name: /Shorter prompt/ }),
@@ -157,7 +162,7 @@ describe('StartReplayDialog', () => {
   });
 
   it('replays each run as many times as asked, from 1 to 5', async () => {
-    renderDialog(1);
+    await openDialog(1);
 
     const repeats = screen.getByRole('textbox', { name: 'Repeats' });
     await userEvent.type(screen.getByLabelText('Most it may spend'), '5');
