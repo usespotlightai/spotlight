@@ -319,7 +319,6 @@ const countedOf = (
 
 const STATIONS: InsightsStations = {
   period: PERIOD,
-  truncated: false,
   team: tally({
     runs: 212,
     failed: 14,

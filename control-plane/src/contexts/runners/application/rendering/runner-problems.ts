@@ -51,7 +51,7 @@ export const RunnerProblems = {
       path: RUNNER_POOL,
       at: FieldPath.of(['provision', 'url']),
       reason:
-        'is not https; its calls carry a one-run token, so a production deployment refuses to make them',
+        'is not https. Its calls carry a one-run token. A production deployment refuses to make them',
       severity: 'warning',
     });
   },
@@ -60,7 +60,7 @@ export const RunnerProblems = {
     return ConfigurationProblem.of({
       path: WORKSPACE_RUNNERS,
       at: FieldPath.of(['pools', at]),
-      reason: `names ${key}, but the workspace has no runner pool by that key`,
+      reason: `names ${key}. Runner pool ${key} doesn't exist in this workspace`,
       severity: 'warning',
     });
   },
@@ -69,7 +69,7 @@ export const RunnerProblems = {
     return ConfigurationProblem.of({
       path: WORKSPACE_RUNNERS,
       at: FieldPath.of(['trusts', at]),
-      reason: `names ${key}, but the workspace trusts no workload by that key`,
+      reason: `names ${key}. Runner trust ${key} doesn't exist in this workspace`,
       severity: 'warning',
     });
   },

@@ -86,7 +86,7 @@ describe('crossingShown', () => {
 describe('recoveredShown', () => {
   it('says the runs came back under a level or rise, and back over a floor or fall', () => {
     expect(recoveredShown(alert({}), '4 Oct')).toBe(
-      'Back under the threshold since 4 Oct.',
+      'The station has been back under the threshold since 4 Oct.',
     );
     expect(
       recoveredShown(
@@ -102,7 +102,7 @@ describe('recoveredShown', () => {
         }),
         '4 Oct',
       ),
-    ).toBe('Back over the threshold since 4 Oct.');
+    ).toBe('The station has been back over the threshold since 4 Oct.');
   });
 });
 

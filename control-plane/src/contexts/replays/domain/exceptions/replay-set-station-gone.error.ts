@@ -3,7 +3,7 @@ export class ReplaySetStationGoneError extends Error {
 
   constructor(setId: string) {
     super(
-      `The station of replay set ${setId} is gone from its line. The set can only be renamed, trimmed or deleted.`,
+      `The station of replay set ${setId} is gone from its line. You can only rename the set, remove runs from it or delete it.`,
     );
     this.name = 'ReplaySetStationGoneError';
   }

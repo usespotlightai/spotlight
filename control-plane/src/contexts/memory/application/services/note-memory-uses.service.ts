@@ -1,5 +1,8 @@
-import type { MemoryUsesPort } from '@memory/application/ports/memory-uses.port';
 import type { WorkPort } from '@memory/application/ports/work.port';
+import type {
+  RecordMemoryUses,
+  UsingRun,
+} from '@memory/application/services/record-memory-uses.service';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import {
   handlesRead,
@@ -7,30 +10,26 @@ import {
   MEMORY_FOLDER,
 } from '@memory/domain/services/memory-folder';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
-import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
-import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 export class NoteMemoryUses {
   constructor(
-    private readonly uses: MemoryUsesPort,
+    private readonly recording: RecordMemoryUses,
     private readonly work: WorkPort,
     private readonly memories: MemoryRepository,
-    private readonly clock: ClockPort,
   ) {}
 
-  runBriefed(runId: RunId, memories: readonly string[]): Promise<void> {
-    return this.uses.record(
-      runId,
+  runBriefed(run: UsingRun, memories: readonly string[]): Promise<void> {
+    return this.recording.recorded(
+      run,
       'briefed',
       memories.map((each) => MemoryId.of(each)),
-      this.clock.now(),
     );
   }
 
-  async runEnded(runId: RunId): Promise<void> {
-    const site = await this.work.siteOfRun(runId);
+  async runEnded(run: UsingRun): Promise<void> {
+    const site = await this.work.siteOfRun(run.id);
     const referenced = await this.work.referencedUnder(
-      runId,
+      run.id,
       MEMORY_FOLDER,
       MEMORY_FILE,
     );
@@ -44,11 +43,10 @@ export class NoteMemoryUses {
       (each) => each.appliesAt(site),
     );
 
-    await this.uses.record(
-      runId,
+    await this.recording.recorded(
+      run,
       'recalled',
       read.map((each) => each.id),
-      this.clock.now(),
     );
   }
 }

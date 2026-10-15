@@ -12,7 +12,7 @@ export class HarnessVersion {
 
     if (!matched?.[1] || matched[1].length > MAX_LENGTH) {
       throw new InvalidHarnessVersionError(
-        'must be a harness CLI release, such as 2.1.270',
+        'must be a harness CLI release, as in 2.1.270',
       );
     }
 

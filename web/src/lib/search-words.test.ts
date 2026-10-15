@@ -39,7 +39,7 @@ describe('search words', () => {
 
   it('warns plainly when a set’s noise is unmeasured or too loud, naming the repeats that would help', () => {
     expect(warningShown({ kind: 'noise-unmeasured' })).toMatch(
-      /^Set’s noise is unmeasured/,
+      /^The set’s noise isn’t measured/,
     );
     expect(
       warningShown({
@@ -50,7 +50,7 @@ describe('search words', () => {
         neededRepeats: 5,
       }),
     ).toBe(
-      'Success moved 12 pts between copies of the same runs, above the line’s minimum real gain. Replaying each run 5 times would bring it under. Minimum real gain: +5 pts',
+      'Success moved 12 pts between copies of the same runs. This is more than the line’s minimum real gain. If you replay each run 5 times, the noise falls below it. Minimum real gain: +5 pts',
     );
     expect(
       warningShown({
@@ -61,7 +61,7 @@ describe('search words', () => {
         neededRepeats: 36,
       }),
     ).toBe(
-      'Success moved 30 pts between copies of the same runs, above the line’s minimum real gain. Even 5 repeats, the maximum, won’t bring it under. Read small gains with care, or raise the line’s min_gain. Minimum real gain: +5 pts',
+      'Success moved 30 pts between copies of the same runs. This is more than the line’s minimum real gain. Even the maximum of 5 repeats won’t bring the noise below it. Read small gains with care, or raise the line’s min_gain. Minimum real gain: +5 pts',
     );
     expect(repeatsSuggestionShown(3)).toBe('Replay each run 3 times');
   });

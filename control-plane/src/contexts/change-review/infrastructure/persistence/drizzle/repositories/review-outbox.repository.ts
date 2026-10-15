@@ -111,7 +111,7 @@ export class DrizzleReviewOutbox implements ReviewOutboxPort {
     return new Map(
       rows.map((row) => [
         row.subjectId,
-        row.failure ?? 'Could not reach GitHub',
+        row.failure ?? 'Spotlight couldn’t reach GitHub.',
       ]),
     );
   }

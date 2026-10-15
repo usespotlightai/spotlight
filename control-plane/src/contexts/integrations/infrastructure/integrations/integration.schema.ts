@@ -169,7 +169,7 @@ const approvalSchema = z.object({
     .string()
     .min(
       1,
-      'says why a person has to approve it, which is what they are shown before they decide',
+      'says why a person has to approve it. The person reads this before they decide',
     ),
 });
 
@@ -178,7 +178,7 @@ const toolSchema = z.object({
   approval: approvalSchema.optional(),
   description: z
     .string()
-    .min(1, 'says when an agent should use it, which is how it decides to'),
+    .min(1, 'says when an agent should use it. The agent reads this to decide'),
   inputs: z
     .record(
       z
@@ -338,7 +338,7 @@ export const integrationSchema = z
       .regex(NAME, 'is the name this host is addressed by, as in slack')
       .refine(
         (named) => named !== CATALOG_SOURCE,
-        'is catalog, which names Spotlight’s catalog: address this host by another name',
+        'is catalog, which is the name of Spotlight’s catalog. Please address this host by another name',
       ),
     name: z.string().min(1).optional(),
     types: z

@@ -53,7 +53,7 @@ export class AgentReviews implements PullRequestReviewingPort {
     return draft.id.value;
   }
 
-  // A draft belongs to one review, so the review and the claim on its drafts commit together.
+  // A draft is part of one review, so the review and the claim on its drafts commit together.
   async submit(on: ReviewingRun, verdict: SubmittedVerdict): Promise<string> {
     const task = await this.reviewed(on);
     const author = ReviewAuthor.agent(on.runId);

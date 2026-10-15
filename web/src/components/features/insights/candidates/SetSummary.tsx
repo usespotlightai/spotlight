@@ -31,7 +31,7 @@ export function SetSummary({ at, set }: SetSummaryProps) {
         </span>
         <SetCaveats health={set.health} minGain={set.health.minGain} />
         {set.guardsChanges && (
-          <Noted note="Checks pull requests: a pull request that changes this station’s config is replayed on this set, and passes only if it does at least as well as the live config.">
+          <Noted note="Checks pull requests. If a pull request changes this station’s config, Spotlight replays it on this set. The pull request passes only if it does at least as well as the live config.">
             <span
               role="img"
               aria-label="Checks pull requests"

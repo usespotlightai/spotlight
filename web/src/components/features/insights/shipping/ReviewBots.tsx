@@ -37,7 +37,7 @@ export function ReviewBots({ bots }: { bots: readonly ReviewBot[] }) {
     <InsightsCard
       tableOnly
       title="AI review agents"
-      description="Bots that reviewed the team’s pull requests, Spotlight’s review tasks included. Resolved: share of their comments resolved before merge"
+      description="Bots that reviewed the team’s pull requests. Spotlight’s review tasks count. Resolved: share of their comments resolved before merge"
     >
       <InsightsTable
         label="AI review agents"

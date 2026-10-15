@@ -9,6 +9,7 @@ import type {
 } from '@outcomes/domain/services/headline';
 import type { OverviewCounts } from '@outcomes/domain/services/overview-counts';
 import type { TallyCounts } from '@outcomes/domain/services/run-tally';
+import { configMarkers } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/config-markers.sql';
 import {
   asUtc,
   atWithin,
@@ -17,7 +18,6 @@ import {
   isCurrent,
   iso,
   msOf,
-  onTeam,
   ran,
 } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/run-fact.sql';
 import {
@@ -34,8 +34,7 @@ import {
   taskTouches,
 } from '@outcomes/infrastructure/persistence/drizzle/schemas/outcomes.schema';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
-import { type SQL, sql } from 'drizzle-orm';
-import { alias } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 
 interface TasksRow extends Record<string, unknown> {
   readonly is_current: boolean;
@@ -156,42 +155,16 @@ const markersIn = async (
   db: DrizzleDatabase,
   team: TeamInPeriod,
 ): Promise<readonly ConfigMarker[]> => {
-  const { current } = team.period;
-  const earlier = alias(runFact, 'earlier');
-  const configRun = (of: typeof runFact | typeof earlier): SQL =>
-    sql`${of.ran} and ${of.startedAt} is not null and ${of.fingerprint} is not null`;
   const result = await db.execute<MarkerRow>(sql`
     select
-      ${runFact.lineId} as line_id,
-      ${runFact.stationId} as station_id,
-      ${runFact.fingerprint} as fingerprint,
-      previous.fingerprint as previous_fingerprint,
-      ${msOf(sql`${runFact.beganAt}`)} as began_ms,
-      ${runFact.runId} as run_id
-    from ${runFact}
-    cross join lateral (
-      select ${earlier.fingerprint} as fingerprint
-      from ${runFact} as ${earlier}
-      where ${earlier.workspaceId} = ${runFact.workspaceId}
-        and ${earlier.teamId} = ${runFact.teamId}
-        and ${earlier.stationId} = ${runFact.stationId}
-        and ${configRun(earlier)}
-        and (
-          ${earlier.beganAt} < ${runFact.beganAt}
-          or (
-            ${earlier.beganAt} = ${runFact.beganAt}
-            and ${earlier.runId} collate "C" < ${runFact.runId} collate "C"
-          )
-        )
-      order by ${earlier.beganAt} desc, ${earlier.runId} collate "C" desc
-      limit 1
-    ) as previous
-    where ${onTeam(team)}
-      and ${configRun(runFact)}
-      and ${runFact.beganAt} >= ${iso(current.from)}::timestamp
-      and ${runFact.beganAt} < ${iso(current.to)}::timestamp
-      and previous.fingerprint <> ${runFact.fingerprint}
-    order by ${runFact.beganAt}, ${runFact.runId} collate "C"
+      markers.line_id,
+      markers.station_id,
+      markers.fingerprint,
+      markers.previous_fingerprint,
+      ${msOf(sql`markers.began_at`)} as began_ms,
+      markers.run_id
+    from (${configMarkers(team, team.period.current)}) as markers
+    order by markers.began_at, markers.run_id collate "C"
   `);
 
   return result.rows.map((row) => ({

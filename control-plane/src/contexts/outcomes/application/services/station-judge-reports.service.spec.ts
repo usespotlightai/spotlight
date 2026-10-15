@@ -1,7 +1,12 @@
-import type { StationJudge } from '@outcomes/application/ports/evidence.port';
+import type {
+  EvidencePort,
+  StationJudge,
+} from '@outcomes/application/ports/evidence.port';
 import { StationJudgeReports } from '@outcomes/application/services/station-judge-reports.service';
+import { deliveredOf } from '@outcomes/domain/insights.fake-spec';
 import {
   judgeScore,
+  NEXT_RUBRIC_VERSION,
   personGrade,
   RUBRIC_VERSION,
   ScoresInMemory,
@@ -12,8 +17,14 @@ import {
   TaskDeliveriesInMemory,
   WORKSPACE,
 } from '@outcomes/domain/outcomes.fake-spec';
+import {
+  judgeReportOf,
+  standingIn,
+} from '@outcomes/domain/services/judge-report';
 import { NextAct } from '@outcomes/domain/value-objects/next-act.vo';
+import { Rubric } from '@outcomes/domain/value-objects/rubric.vo';
 import { ScoreScale } from '@outcomes/domain/value-objects/score-scale.vo';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -60,6 +71,8 @@ const reporting = async (judge: StationJudge | null = JUDGE) => {
       holds: async () => true,
       of: async () => null,
       judgeAt: async () => judge,
+      judgesOnTeam: async () =>
+        new Map(judge ? [['station_1', judge] as const] : []),
     },
     scores,
     records,
@@ -67,7 +80,174 @@ const reporting = async (judge: StationJudge | null = JUDGE) => {
   );
 };
 
+const JUDGES: ReadonlyMap<string, StationJudge> = new Map([
+  ['station_1', JUDGE],
+  ['station_2', { ...JUDGE, trust: 0.9 }],
+  ['station_4', { ...JUDGE, rubric: 'scores: stars\nHow well?' }],
+  ['station_5', { ...JUDGE, teamId: 'team_2' }],
+  ['station_6', { ...JUDGE, lineId: 'line_2' }],
+]);
+
+const STATIONS = [
+  'station_1',
+  'station_2',
+  'station_3',
+  'station_4',
+  'station_5',
+  'station_6',
+].map((stationId) => ({ lineId: 'line_1', stationId }));
+
+const judgedAcross = async () => {
+  const records = new RunRecordsInMemory();
+  const scores = new ScoresInMemory();
+  const deliveries = new TaskDeliveriesInMemory();
+  const asked: string[] = [];
+  const evidence: EvidencePort = {
+    holds: async () => true,
+    of: async () => null,
+    judgeAt: async (stationId) => JUDGES.get(stationId) ?? null,
+    judgesOnTeam: async (teamId) => {
+      asked.push(teamId);
+
+      return new Map(
+        [...JUDGES].filter(([, judge]) => judge.teamId === teamId),
+      );
+    },
+  };
+
+  for (let at = 0; at < 12; at += 1) {
+    const runId = `run_${at}`;
+    await records.add(
+      endedRecord(runId, { taskId: `task_${runId}` }).actedOn(
+        NextAct.of(at % 2 === 0 ? 'closed' : 'sent-back', AT),
+      ),
+    );
+    await scores.add(
+      judgeScore(runId, ScoreScale.yesNo(), at % 2 === 0 ? 1 : 0),
+    );
+  }
+  for (let at = 0; at < 10; at += 1) {
+    const runId = `run_2_${at}`;
+    const taskId = `task_2_${at}`;
+    await records.add(endedRecord(runId, { taskId, stationId: 'station_2' }));
+    await scores.add(
+      judgeScore(runId, ScoreScale.yesNo(), at < 3 ? 1 : at % 2, {
+        stationId: 'station_2',
+        taskId,
+      }),
+    );
+    if (at % 2 === 0) {
+      await scores.add(
+        personGrade(runId, ScoreScale.yesNo(), at % 2, { taskId }),
+      );
+    } else {
+      await deliveries.add(
+        deliveredOf(taskId, { openedAt: AT, closedAt: AT, merged: true }),
+      );
+    }
+  }
+  for (const [runId, stationId] of [
+    ['run_2_old', 'station_2'],
+    ['run_4_1', 'station_4'],
+    ['run_5_1', 'station_5'],
+    ['run_6_1', 'station_6'],
+  ] as const) {
+    await records.add(endedRecord(runId, { taskId: `task_${runId}` }));
+    await scores.add(
+      judgeScore(runId, ScoreScale.yesNo(), 1, {
+        stationId,
+        rubricVersion:
+          stationId === 'station_2' ? NEXT_RUBRIC_VERSION : RUBRIC_VERSION,
+      }),
+    );
+  }
+
+  return { evidence, asked, scores, records, deliveries };
+};
+
+const oneByOne = async (
+  held: Awaited<ReturnType<typeof judgedAcross>>,
+  station: { lineId: string; stationId: string },
+) => {
+  const found = await held.evidence.judgeAt(station.stationId);
+  const judge =
+    found && found.teamId === 'team_1' && found.lineId === station.lineId
+      ? found
+      : null;
+  const rubric =
+    judge &&
+    Rubric.readable({
+      text: judge.rubric,
+      claims: judge.claims,
+      passShare: judge.passShare,
+      version: judge.rubricVersion,
+    });
+  const judged =
+    judge && rubric
+      ? await held.scores.judgedAtStation({
+          workspaceId: WORKSPACE,
+          teamId: TeamId.of('team_1'),
+          ...station,
+          rubricVersion: judge.rubricVersion,
+          last: 500,
+        })
+      : [];
+  const records = await held.records.ofRuns(judged.map((each) => each.runId));
+  const grades = (
+    await held.scores.ofRuns(
+      [...new Set([...records, ...judged].map((each) => each.runId.value))].map(
+        RunId.of,
+      ),
+    )
+  ).filter((each) => !each.fromJudge);
+  const deliveries = await held.deliveries.forTasks(
+    records.flatMap((each) => (each.taskId ? [each.taskId] : [])),
+  );
+
+  return {
+    stationId: station.stationId,
+    rubricVersion: judge?.rubricVersion ?? null,
+    ...standingIn(
+      judgeReportOf({ judged, grades, records, covering: [], deliveries }),
+      judge && {
+        rubricVersion: judge.rubricVersion,
+        scale: rubric?.scale ?? null,
+        trust: judge.trust,
+      },
+    ),
+  };
+};
+
 describe('StationJudgeReports', () => {
+  it('gives each station of a team the standing it has alone, with one look at the team’s judges', async () => {
+    const held = await judgedAcross();
+    const reports = new StationJudgeReports(
+      held.evidence,
+      held.scores,
+      held.records,
+      held.deliveries,
+    );
+
+    const standings = await reports.standingsOf(
+      { workspaceId: WORKSPACE.value, teamId: 'team_1' },
+      STATIONS,
+    );
+
+    expect(standings).toEqual(
+      await Promise.all(STATIONS.map((each) => oneByOne(held, each))),
+    );
+    expect(standings.map((each) => each.hiddenBecause)).toEqual([
+      null,
+      expect.not.stringMatching(/no-judge|unreadable-rubric/),
+      'no-judge',
+      'unreadable-rubric',
+      'no-judge',
+      'no-judge',
+    ]);
+    expect(standings[1]?.pairs).toBe(10);
+    expect(held.asked).toEqual(['team_1']);
+  });
+
   it('reports how often the station’s judge agrees with people, and trusts it once it agrees enough', async () => {
     const { judge, report, standing } = await (await reporting()).at(STATION);
 
@@ -85,12 +265,10 @@ describe('StationJudgeReports', () => {
   });
 
   it('answers Insights whether a station’s judge is trusted', async () => {
-    const standing = await (await reporting()).of({
-      workspaceId: 'ws_1',
-      teamId: 'team_1',
-      lineId: 'line_1',
-      stationId: 'station_1',
-    });
+    const [standing] = await (await reporting()).standingsOf(
+      { workspaceId: 'ws_1', teamId: 'team_1' },
+      [{ lineId: 'line_1', stationId: 'station_1' }],
+    );
 
     expect(standing).toMatchObject({
       stationId: 'station_1',

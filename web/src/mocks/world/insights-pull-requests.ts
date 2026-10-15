@@ -524,7 +524,6 @@ export const pullRequestsOf = (
 
   return {
     period: span.period,
-    truncated: false,
     total: facts.filter((fact) => activeIn(fact, span.now)).length,
     repositories: repositoriesOf(teamId),
     weeks,
@@ -673,7 +672,6 @@ export const pullRequestListOf = (
 
   return {
     period: span.period,
-    truncated: false,
     total: matching.length,
     page,
     size,

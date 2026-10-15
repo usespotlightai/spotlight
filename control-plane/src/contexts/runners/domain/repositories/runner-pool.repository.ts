@@ -10,7 +10,7 @@ export interface RunnerPoolRepository {
 
   find(id: RunnerPoolId): Promise<RunnerPool | null>;
 
-  // Must lock the pool until the surrounding transaction ends, so runners started under it are counted one at a time.
+  // Must lock the pool until the outer transaction ends, so that runners started in the pool are counted one at a time.
   findForStart(id: RunnerPoolId): Promise<RunnerPool | null>;
 
   findByTokenHash(hash: TokenHash): Promise<RunnerPool | null>;

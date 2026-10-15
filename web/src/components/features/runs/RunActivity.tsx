@@ -25,7 +25,7 @@ export function RunActivity({ journals, working, station }: RunActivityProps) {
   return (
     <ol className="-mx-1 flex flex-col gap-px">
       {steps.map((step, at) => (
-        // biome-ignore lint/suspicious/noArrayIndexKey: steps are appended and never reordered, so where one sits is what names it
+        // biome-ignore lint/suspicious/noArrayIndexKey: the position of a step identifies it, because new steps go only at the end
         <InboxStep key={at} step={step} live={working} />
       ))}
 

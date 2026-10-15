@@ -1,5 +1,12 @@
-import { spendingOf } from '@outcomes/domain/services/measures';
+import { medianOf, spendingOf } from '@outcomes/domain/services/measures';
 import { describe, expect, it } from 'vitest';
+
+describe('medianOf', () => {
+  it('rounds the middle of an even count up, and gives zero, not minus zero, for a middle of minus one half', () => {
+    expect(medianOf([-3, -2])).toBe(-2);
+    expect(Object.is(medianOf([-1, 0]), 0)).toBe(true);
+  });
+});
 
 describe('spendingOf', () => {
   it('sums the priced runs in their one currency and counts the runs with no price', () => {

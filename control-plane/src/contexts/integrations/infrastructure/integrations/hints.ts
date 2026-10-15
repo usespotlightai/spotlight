@@ -38,10 +38,10 @@ export const refusalOfType = (
   if (map) {
     return MAP_KEYS.has(map[1] as string)
       ? refusalOfType(map[2] as string, known)
-      : `keys a map by ${map[1]}, and a map is keyed by string, int, uint or bool`;
+      : `keys a map by ${map[1]}. A map key must be string, int, uint or bool`;
   }
 
-  return `is not a type a check knows: write string, int, double, bool, bytes, dyn, list<…>, map<string, …>, or a name under types`;
+  return `is not a type that a check knows. Please write string, int, double, bool, bytes, dyn, list<…>, map<string, …> or a name under types`;
 };
 
 const namesIn = (hint: Hint, into: Set<string>): Set<string> => {

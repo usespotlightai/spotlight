@@ -23,7 +23,7 @@ export class CatalogItemId {
     if (!isCatalogReference(trimmed)) {
       throw new InvalidCatalogEntryError(
         'name',
-        `must be a catalog id, such as ${CATALOG_SOURCE}.web-search@1.4.0`,
+        `Catalog name "${trimmed}" must be a catalog id, such as ${CATALOG_SOURCE}.web-search@1.4.0.`,
       );
     }
 
