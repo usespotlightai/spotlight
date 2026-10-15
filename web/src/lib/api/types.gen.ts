@@ -7653,7 +7653,7 @@ export type ReplayResponseDto = {
   endedAt: string | null;
   totals: ReplayTotalsResponseDto;
   /**
-   * Its gain in success over the replay it is compared with (pairedWith where set, else the set’s baseline), with whether it is within noise; null with none
+   * Its gain in success over the replay it is compared with (pairedWith where set, else for a replay with the answer the live replay it was handed the answer against, else the set’s baseline), with whether it is within noise; null with none
    */
   againstBaseline: GainReadingResponseDto | null;
   /**
@@ -7800,7 +7800,7 @@ export type ReplayDetailResponseDto = {
   endedAt: string | null;
   totals: ReplayTotalsResponseDto;
   /**
-   * Its gain in success over the replay it is compared with (pairedWith where set, else the set’s baseline), with whether it is within noise; null with none
+   * Its gain in success over the replay it is compared with (pairedWith where set, else for a replay with the answer the live replay it was handed the answer against, else the set’s baseline), with whether it is within noise; null with none
    */
   againstBaseline: GainReadingResponseDto | null;
   /**
@@ -7814,7 +7814,7 @@ export type ReplayDetailResponseDto = {
   entries: Array<ReplayEntryResponseDto>;
   baselineReplayId: string | null;
   /**
-   * The replay its comparison rows, gain and deltas are against: pairedWith where set, else the set’s baseline; null for the baseline itself or with none
+   * The replay its comparison rows, gain and deltas are against: pairedWith where set, else for a replay with the answer the live replay it was handed the answer against, else the set’s baseline; null for the baseline itself or with none
    */
   comparedWithReplayId: string | null;
   /**
@@ -7822,7 +7822,7 @@ export type ReplayDetailResponseDto = {
    */
   search: ReplaySearchResponseDto | null;
   /**
-   * Per task against the set’s baseline, regressions first
+   * Per task against the replay it is compared with (comparedWithReplayId), regressions first
    */
   comparison: Array<EntryComparisonResponseDto>;
 };
