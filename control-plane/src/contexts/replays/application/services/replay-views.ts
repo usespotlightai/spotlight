@@ -318,7 +318,7 @@ export const replaySearchView = (
       }
     : null;
 
-export const counterpartView = (
+const counterpartView = (
   replay: Replay,
   against: Replay | null,
 ): ReplayCounterpartDto | null => {
