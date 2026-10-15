@@ -179,7 +179,7 @@ const inRepository = (from: string, path: string): string => {
   return posix.isAbsolute(path) || joined === '..' || joined.startsWith('../')
     ? refused(
         'file-missing',
-        `The file ${quotedKey(path)} points outside the repository`,
+        `The file ${quotedKey(path)} is outside the repository.`,
       )
     : joined;
 };
@@ -285,21 +285,21 @@ class Editing {
     const { found: line, unknown } = this.ours(keyed, () => resource.key);
 
     if (!line) {
-      const counted = `${countOf(lines.length, `resource "${resource.type}"`)} in the file, ${keyed.length} keyed ${quotedKey(resource.key)}`;
+      const counted = `${countOf(lines.length, `resource "${resource.type}"`, `resources "${resource.type}"`)} in the file, ${keyed.length} with key ${quotedKey(resource.key)}`;
 
       return keyed.length === 0
         ? refused(
             'block-not-found',
-            `Found no resource "${resource.type}" keyed ${quotedKey(resource.key)} (${counted})`,
+            `The file has no resource "${resource.type}" with key ${quotedKey(resource.key)}. Found: ${counted}`,
           )
         : unknown > 0
           ? refused(
               'blocks-ambiguous',
-              `Found more than one resource "${resource.type}" keyed ${quotedKey(resource.key)} that could be the team ${owner.key}'s (${counted})`,
+              `More than one resource "${resource.type}" with key ${quotedKey(resource.key)} can belong to team ${owner.key}. Found: ${counted}`,
             )
           : refused(
               'block-not-found',
-              `Found no resource "${resource.type}" keyed ${quotedKey(resource.key)} of the team ${owner.key} (${counted})`,
+              `The file has no resource "${resource.type}" with key ${quotedKey(resource.key)} for team ${owner.key}. Found: ${counted}`,
             );
     }
 
@@ -318,16 +318,16 @@ class Editing {
     }
 
     const counted = [
-      `${countOf(stations.length, `${block.type} block`)} in the resource keyed ${quotedKey(resource.key)}`,
-      `${matching.length} keyed ${quotedKey(block.key)}`,
+      `${countOf(stations.length, `${block.type} block`)} in the resource with key ${quotedKey(resource.key)}`,
+      `${matching.length} with key ${quotedKey(block.key)}`,
       ...(dynamic > 0 ? [countOf(dynamic, 'dynamic block')] : []),
     ].join(', ');
 
     return refused(
       matching.length === 0 ? 'block-not-found' : 'blocks-ambiguous',
       matching.length === 0
-        ? `Found no ${block.type} block keyed ${quotedKey(block.key)} (${counted})`
-        : `Found more than one ${block.type} block keyed ${quotedKey(block.key)} (${counted})`,
+        ? `The resource has no ${block.type} block with key ${quotedKey(block.key)}. Found: ${counted}`
+        : `The resource has more than one ${block.type} block with key ${quotedKey(block.key)}. Found: ${counted}`,
     );
   }
 
@@ -358,7 +358,7 @@ class Editing {
 
     const computed = {
       ok: false as const,
-      why: `\`${name}\` is computed in Terraform (\`${held.written}\`); change it by hand`,
+      why: `Terraform computes \`${name}\` from \`${held.written}\`. Please change it by hand.`,
     };
     const literalOf = (read: HclRead): HclLiteral | undefined =>
       read.kind === 'literal'
@@ -387,7 +387,7 @@ class Editing {
         if (!read.fromModule) {
           return {
             ok: false,
-            why: `\`${name}\` reads \`${held.written}\`, a path Terraform resolves from wherever it runs; write it as file("\${path.module}/${read.path}") so Spotlight can follow it, or change it by hand`,
+            why: `\`${name}\` reads \`${held.written}\`. Terraform resolves this path from its working directory. Please write it as file("\${path.module}/${read.path}") or change it by hand.`,
           };
         }
 
@@ -397,7 +397,7 @@ class Editing {
         return content === null
           ? refused(
               'file-missing',
-              `\`${name}\` reads ${quotedKey(path)}, which the repository does not hold`,
+              `\`${name}\` reads ${quotedKey(path)}. The repository doesn't have this file.`,
               { attribute: name, expression: held.written },
             )
           : { ok: true, value: content, path };
@@ -572,7 +572,7 @@ class Editing {
       if (found.length > 1) {
         refused(
           'unparsable',
-          `The ${this.edit.block.type} block sets \`${field.name}\` more than once`,
+          `The ${this.edit.block.type} block sets \`${field.name}\` more than once.`,
           { attribute: field.name },
         );
       }
@@ -595,7 +595,7 @@ class Editing {
       if (!same(current.value, field.was)) {
         refused(
           'drifted',
-          `\`${field.name}\` changed in the repository since the search began; the file no longer holds the value the search started from`,
+          `\`${field.name}\` changed in the repository after the search began. The file no longer has the value that the search started from.`,
           { attribute: field.name },
         );
       }
@@ -643,7 +643,7 @@ class Editing {
       if (held.read.kind === 'file' && typeof field.now === 'string') {
         refused(
           'edit-failed',
-          `\`${field.name}\` reads \`${held.written}\`; Spotlight writes only the station's own files, so change it by hand`,
+          `\`${field.name}\` reads \`${held.written}\`. Spotlight writes only the station's own files. Please change it by hand.`,
           {
             attribute: field.name,
             expression: held.written,
@@ -713,7 +713,7 @@ class Editing {
     const drifted = () =>
       refused(
         'drifted',
-        `\`${guarded.type}\` changed in the repository since the search began; the file no longer holds the value the search started from`,
+        `\`${guarded.type}\` changed in the repository after the search began. The file no longer has the value that the search started from.`,
         { attribute: guarded.type },
       );
 
@@ -757,7 +757,7 @@ class Editing {
       if (error instanceof HclSyntaxError) {
         refused(
           'edit-failed',
-          `Spotlight's edit of the file ${error.message}; change it by hand`,
+          `Spotlight's edit of the file ${error.message}. Please change the file by hand.`,
         );
       }
       throw error;
@@ -784,7 +784,7 @@ class Editing {
       if (!read.ok || !same(read.value, field.now)) {
         refused(
           'edit-failed',
-          `Spotlight's edit of \`${field.name}\` reads back differently; change it by hand`,
+          `Spotlight's edit of \`${field.name}\` reads back with a different value. Please change it by hand.`,
           { attribute: field.name, wanted: field.now },
         );
       }
@@ -798,7 +798,7 @@ class Editing {
     if (body.commented || body.blocks.length > 0) {
       return refused(
         'edit-failed',
-        `The ${this.edit.block.type} block is written on one line; write it over several lines to let Spotlight add to it`,
+        `The ${this.edit.block.type} block is written on one line. Spotlight can add to a block only if it spans several lines.`,
       );
     }
 
@@ -819,7 +819,7 @@ const parsedOrRefused = async (text: string): Promise<ParsedBody> => {
     return await parsedHcl(text);
   } catch (error) {
     if (error instanceof HclSyntaxError) {
-      return refused('unparsable', `The file ${error.message}`);
+      return refused('unparsable', `The file ${error.message}.`);
     }
     throw error;
   }

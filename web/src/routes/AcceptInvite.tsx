@@ -12,9 +12,9 @@ import { failed, loading } from '@/lib/query';
 const WIDTH = 'w-80';
 
 const SAYS: Record<string, string> = {
-  accepted: 'Invitation already accepted.',
-  revoked: 'Invitation withdrawn.',
-  expired: 'Invitation expired. Please ask for a new one.',
+  accepted: 'This invitation is already accepted.',
+  revoked: 'This invitation is withdrawn.',
+  expired: 'This invitation has expired. Please ask for a new one.',
 };
 
 export function AcceptInvite() {
@@ -44,7 +44,8 @@ export function AcceptInvite() {
     return (
       <AuthScreen className={WIDTH}>
         <AuthTitle title="Invitation link doesn’t work">
-          It may be withdrawn or only partly copied. Please ask for a new one.
+          The invitation may be withdrawn, or the link may be incomplete. Please
+          ask for a new one.
         </AuthTitle>
       </AuthScreen>
     );

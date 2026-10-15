@@ -27,7 +27,7 @@ describe('a hinted type', () => {
     expect(refusalOfType('strng', known)).toMatch(/write string, int/);
     expect(refusalOfType('list<Isue>', known)).toMatch(/not a type/);
     expect(refusalOfType('map<double, string>', known)).toMatch(
-      /keyed by string/,
+      /map key must be string/,
     );
   });
 

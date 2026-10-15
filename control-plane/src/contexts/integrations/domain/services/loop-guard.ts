@@ -26,21 +26,21 @@ export const loopStopFor = (input: {
   if (input.chain.holds(input.firing.key)) {
     return {
       kind: 'repeated',
-      saying: `${input.firing.saying} would fire again for what caused it: ${named}`,
+      saying: `It would fire again for the change that caused it. Cause chain: ${named}`,
     };
   }
 
   if (input.chain.depth >= MOST_DEPTH) {
     return {
       kind: 'too-deep',
-      saying: `${input.firing.saying} would be ${input.chain.depth + 1} causes deep, past the ${MOST_DEPTH} allowed: ${named}`,
+      saying: `Its chain of causes would be ${input.chain.depth + 1} deep. Maximum depth: ${MOST_DEPTH}. Cause chain: ${named}`,
     };
   }
 
   if (input.recentRepeats >= MOST_RECENT_REPEATS) {
     return {
       kind: 'recurring',
-      saying: `${input.firing.saying} fired ${input.recentRepeats} times for the same change in the last ${RECENT_MS / 60_000} minutes: ${named}`,
+      saying: `It fired ${input.recentRepeats} times for the same change in the last ${RECENT_MS / 60_000} minutes. Cause chain: ${named}`,
     };
   }
 

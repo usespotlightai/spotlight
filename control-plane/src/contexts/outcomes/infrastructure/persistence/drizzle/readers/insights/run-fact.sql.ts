@@ -1,4 +1,5 @@
 import type { TeamInPeriod } from '@outcomes/application/ports/insights-reader.port';
+import type { GroupCounts } from '@outcomes/domain/services/change-verdict';
 import type { TallyCounts } from '@outcomes/domain/services/run-tally';
 import type { Window } from '@outcomes/domain/value-objects/insights-period.vo';
 import type { Spend } from '@outcomes/domain/value-objects/run-cost.vo';
@@ -16,6 +17,12 @@ export const ran = sql`${runFact.ran}`;
 export const priced = sql`${ran} and ${runFact.cost} is not null and coalesce(${runFact.currency}, '') <> ''`;
 
 export const sentBack = sql`${ran} and ${runFact.nextAct} = 'sent-back'`;
+
+export const textArray = (values: readonly string[]): SQL =>
+  sql`array[${sql.join(
+    values.map((each) => sql`${each}`),
+    sql`, `,
+  )}]::text[]`;
 
 export const atWithin = (at: SQL, window: Window): SQL =>
   sql`(${at} >= ${asUtc(window.from)} and ${at} < ${asUtc(window.to)})`;
@@ -38,11 +45,11 @@ export const msOf = (column: SQL): SQL =>
 export const dateOf = (ms: number | null): Date | null =>
   ms === null ? null : new Date(ms);
 
-const medianOver = (ms: SQL, when: SQL): SQL =>
-  sql`round((percentile_cont(0.5) within group (order by ${ms}) filter (where ${when}))::numeric)::float8`;
+const percentileOver = (percent: number, ms: SQL, when: SQL): SQL =>
+  sql`(percentile_disc(${sql.raw(String(percent / 100))}) within group (order by ${ms}) filter (where ${when}))::float8`;
 
-const p90Over = (ms: SQL, when: SQL): SQL =>
-  sql`(percentile_disc(0.9) within group (order by ${ms}) filter (where ${when}))::float8`;
+const medianOver = (ms: SQL, when: SQL): SQL =>
+  sql`floor(percentile_cont(0.5) within group (order by ${ms}) filter (where ${when}) + 0.5)`;
 
 export const isCurrent = sql.raw('"run_fact"."is_current"');
 
@@ -104,9 +111,20 @@ export const spendOf = (row: SpendRow): Spend | null =>
     ? { amount: row.amount, currency: row.currency }
     : null;
 
+export const percentilesOver = (
+  ms: SQL,
+  when: SQL,
+): SQL => sql`json_build_object(
+  'p50', ${medianOver(ms, when)},
+  'p75', ${percentileOver(75, ms, when)},
+  'p90', ${percentileOver(90, ms, when)},
+  'p95', ${percentileOver(95, ms, when)},
+  'count', count(${ms}) filter (where ${when})
+)`;
+
 export const spreadOver = (ms: SQL, when: SQL): SQL => sql`json_build_object(
   'p50', ${medianOver(ms, when)},
-  'p90', ${p90Over(ms, when)},
+  'p90', ${percentileOver(90, ms, when)},
   'count', count(${ms}) filter (where ${when})
 )`;
 
@@ -125,7 +143,7 @@ export const tallyColumns = sql`
   count(distinct ${runFact.taskId}) filter (where ${ran} and ${runFact.deliveryState} = 'merged')::int as merged,
   ${spendColumns},
   ${medianOver(sql`${runFact.ms}`, timed)} as median_ms,
-  ${p90Over(sql`${runFact.ms}`, timed)} as p90_ms`;
+  ${percentileOver(90, sql`${runFact.ms}`, timed)} as p90_ms`;
 
 export interface TallyColumns extends SpendRow {
   readonly runs: number;
@@ -158,4 +176,29 @@ export const tallyCountsOf = (row: TallyColumns): TallyCounts => ({
   mixedCurrencies: row.currencies > 1,
   medianMs: row.median_ms,
   p90Ms: row.p90_ms,
+});
+
+const finished = sql`${ran} and ${runFact.deliveryState} is not null and ${runFact.deliveryState} <> 'open'`;
+
+export const settledColumns = sql`
+  ${counted(sql`${ran} and ${runFact.nextAct} is not null`)} as acted,
+  ${counted(finished)} as finished,
+  count(distinct ${runFact.taskId}) filter (where ${finished})::int as finished_tasks,
+  ${counted(sql`${ran} and ${runFact.digested}`)} as digested`;
+
+export interface GroupColumns extends TallyColumns {
+  readonly acted: number;
+  readonly finished: number;
+  readonly finished_tasks: number;
+  readonly digested: number;
+}
+
+export const groupCountsOf = (row: GroupColumns): GroupCounts => ({
+  tally: tallyCountsOf(row),
+  settled: {
+    acted: row.acted,
+    finished: row.finished,
+    finishedTasks: row.finished_tasks,
+    digested: row.digested,
+  },
 });

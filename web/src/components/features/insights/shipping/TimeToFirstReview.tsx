@@ -19,7 +19,7 @@ export function TimeToFirstReview({ days }: { days: readonly ReviewDay[] }) {
   return (
     <InsightsCard
       title="Time to first review"
-      description="From pull request opened to first human review, at the chosen percentile."
+      description="Time from when a pull request opens to its first human review, at the chosen percentile."
       actions={
         <div className="flex items-center gap-1.5">
           <PercentilePicker value={percentile} onChange={setPercentile} />

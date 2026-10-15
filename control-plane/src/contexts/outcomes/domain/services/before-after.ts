@@ -1,10 +1,30 @@
 import type { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
+import type { Score } from '@outcomes/domain/aggregates/score.aggregate';
+import {
+  type GroupCounts,
+  groupCountsOf,
+} from '@outcomes/domain/services/change-verdict';
+import type { CarriedConfigs } from '@outcomes/domain/services/config-stretches';
 import {
   beganAt,
   type ConfigMarker,
   configMarkersAlong,
 } from '@outcomes/domain/services/daily-output';
-import { atStation } from '@outcomes/domain/services/team-history';
+import {
+  judgedByRun,
+  judgedRunsOf,
+  type RubricShares,
+  rubricsOf,
+} from '@outcomes/domain/services/judge-shares';
+import {
+  atStation,
+  startedWithin,
+  type TeamHistory,
+} from '@outcomes/domain/services/team-history';
+import {
+  type InsightsPeriod,
+  within,
+} from '@outcomes/domain/value-objects/insights-period.vo';
 
 export interface ChangeSplit {
   readonly marker: ConfigMarker;
@@ -89,3 +109,36 @@ export const changeSplitsOf = (
     ];
   });
 };
+
+export interface ChangeCounts {
+  readonly marker: ConfigMarker;
+  readonly before: GroupCounts;
+  readonly after: GroupCounts;
+  readonly judgedBefore: readonly RubricShares[];
+  readonly judgedAfter: readonly RubricShares[];
+}
+
+export const changeCountsOf = (
+  history: TeamHistory,
+  period: InsightsPeriod,
+  carried: CarriedConfigs,
+  scores: readonly Score[],
+): readonly ChangeCounts[] =>
+  changeSplitsOf(
+    startedWithin(history.records, {
+      from: carried.from,
+      to: period.lookback.to,
+    }),
+    (marker) => within(period.current, marker.firstRunAt),
+    carried.lastRuns,
+  ).map((split) => {
+    const judged = judgedByRun(judgedRunsOf(scores, split.marker.stationId));
+
+    return {
+      marker: split.marker,
+      before: groupCountsOf(split.before, history.deliveries),
+      after: groupCountsOf(split.after, history.deliveries),
+      judgedBefore: rubricsOf(split.before, judged),
+      judgedAfter: rubricsOf(split.after, judged),
+    };
+  });

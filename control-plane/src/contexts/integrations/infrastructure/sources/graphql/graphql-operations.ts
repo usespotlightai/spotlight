@@ -147,11 +147,11 @@ const operationOf = (
   const unnameable = field.args.find((arg) => !isNameable(arg.name));
 
   if (name === '') {
-    return `passes over ${field.name}, which has no name a tool can take`;
+    return `passes over ${field.name}. It has no name that a tool can take`;
   }
 
   if (unnameable) {
-    return `passes over ${field.name}, because it takes ${unnameable.name}, which a tool cannot`;
+    return `passes over ${field.name}. It takes ${unnameable.name}, which a tool cannot take`;
   }
 
   const variables = field.args.map(declared);

@@ -1,22 +1,35 @@
 import { Injectable } from '@nestjs/common';
 import type {
   InsightsReaderPort,
+  PullRequestListing,
+  PullRequestPage,
+  RunsListed,
+  SetupFilter,
   TeamInPeriod,
 } from '@outcomes/application/ports/insights-reader.port';
+import type { RunListing } from '@outcomes/domain/repositories/run-record.repository';
+import type { ChangeCounts } from '@outcomes/domain/services/before-after';
 import type { CostCountsInPeriod } from '@outcomes/domain/services/cost-breakdown';
 import type { FlowCounts } from '@outcomes/domain/services/flow';
 import type { MemoryCounts } from '@outcomes/domain/services/memory-comparison';
 import type { OverviewCounts } from '@outcomes/domain/services/overview-counts';
 import type { PeopleCounts } from '@outcomes/domain/services/people-counts';
-import type { PipelineCounts } from '@outcomes/domain/services/shipping';
+import type { PullRequestCounts } from '@outcomes/domain/services/pull-request-insights';
+import type { SetupComparisonCounts } from '@outcomes/domain/services/setup-comparison';
+import type { ShippingCounts } from '@outcomes/domain/services/shipping';
 import type { TeamCounts } from '@outcomes/domain/services/station-reports';
 import type { ToolCounts } from '@outcomes/domain/services/tool-insights';
+import { changeCountsIn } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/change-counts.sql';
 import { costCountsIn } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/cost-counts.sql';
 import { flowCountsIn } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/flow-counts.sql';
 import { memoryCountsIn } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/memory-counts.sql';
 import { overviewCountsIn } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/overview-counts.sql';
 import { peopleCountsIn } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/people-counts.sql';
-import { pipelineCountsIn } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/pipeline-counts.sql';
+import { pullRequestCountsIn } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/pull-request-counts.sql';
+import { pullRequestPageIn } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/pull-request-page.sql';
+import { runPageIn } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/run-page.sql';
+import { setupCountsIn } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/setup-counts.sql';
+import { shippingCountsIn } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/shipping-counts.sql';
 import { stationCountsIn } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/station-counts.sql';
 import { toolCountsIn } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/tool-counts.sql';
 import { DrizzleReading } from '@platform/persistence/drizzle/drizzle.reading';
@@ -45,18 +58,49 @@ export class DrizzleInsightsReader implements InsightsReaderPort {
     return this.reading.read((db) => peopleCountsIn(db, team));
   }
 
-  pipelineCounts(
-    team: TeamInPeriod,
-    taskIds: readonly string[],
-  ): Promise<PipelineCounts> {
-    return this.reading.read((db) => pipelineCountsIn(db, team, taskIds));
-  }
-
   toolCounts(team: TeamInPeriod): Promise<ToolCounts> {
     return this.reading.read((db) => toolCountsIn(db, team));
   }
 
   memoryCounts(team: TeamInPeriod): Promise<MemoryCounts> {
     return this.reading.read((db) => memoryCountsIn(db, team));
+  }
+
+  setupCounts(
+    team: TeamInPeriod,
+    filter: SetupFilter,
+  ): Promise<SetupComparisonCounts> {
+    return this.reading.read((db) => setupCountsIn(db, team, filter));
+  }
+
+  changeCounts(team: TeamInPeriod): Promise<readonly ChangeCounts[]> {
+    return this.reading.read((db) => changeCountsIn(db, team));
+  }
+
+  pullRequestCounts(
+    team: TeamInPeriod,
+    repositories: readonly string[],
+  ): Promise<PullRequestCounts> {
+    return this.reading.read((db) =>
+      pullRequestCountsIn(db, team, repositories),
+    );
+  }
+
+  pullRequestPage(
+    team: TeamInPeriod,
+    listing: PullRequestListing,
+  ): Promise<PullRequestPage> {
+    return this.reading.read((db) => pullRequestPageIn(db, team, listing));
+  }
+
+  shippingCounts(
+    team: TeamInPeriod,
+    repositories: readonly string[],
+  ): Promise<ShippingCounts> {
+    return this.reading.read((db) => shippingCountsIn(db, team, repositories));
+  }
+
+  runPage(listing: RunListing): Promise<RunsListed> {
+    return this.reading.read((db) => runPageIn(db, listing));
   }
 }

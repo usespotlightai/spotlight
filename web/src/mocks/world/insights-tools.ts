@@ -150,7 +150,6 @@ export const toolsOf = (
 
   return {
     period: span.period,
-    truncated: false,
     weeks,
     runs: runs.length,
     trendRule: TREND_RULE,

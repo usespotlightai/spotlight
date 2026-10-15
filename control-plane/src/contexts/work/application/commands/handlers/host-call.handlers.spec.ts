@@ -318,7 +318,7 @@ describe('AnswerHostCallHandler', () => {
       await answer.execute(new AnswerHostCallCommand(POOL, 'call_1', ANSWER)),
     ).toEqual({
       outcome: 'settled',
-      reason: 'A network call was settled while it was being answered',
+      reason: 'The network call was settled while the host answered it.',
     });
   });
 });

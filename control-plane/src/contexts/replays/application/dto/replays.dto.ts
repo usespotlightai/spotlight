@@ -307,6 +307,12 @@ export interface CandidateDto {
   readonly createdAt: string;
 }
 
+export interface ReplayCounterpartDto {
+  readonly replayId: string;
+  readonly successRate: number | null;
+  readonly interval: RateIntervalDto | null;
+}
+
 export interface ReplayDto {
   readonly id: string;
   readonly setId: string;
@@ -323,6 +329,7 @@ export interface ReplayDto {
   readonly endedAt: string | null;
   readonly totals: ReplayTotalsDto;
   readonly againstBaseline: GainReadingDto | null;
+  readonly comparedWith: ReplayCounterpartDto | null;
   readonly pairedWith: string | null;
   readonly pairsAgainstBaseline: PairTallyDto | null;
   readonly entries: readonly ReplayEntryDto[];
@@ -353,7 +360,6 @@ export interface ReplaySearchDto {
 export interface ReplayDetailDto extends ReplayDto {
   readonly search: ReplaySearchDto | null;
   readonly baselineReplayId: string | null;
-  readonly comparedWithReplayId: string | null;
   readonly comparison: readonly EntryComparisonDto[];
 }
 

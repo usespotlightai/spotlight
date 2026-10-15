@@ -302,7 +302,9 @@ describe('HandOver', () => {
 
     expect(saved?.awaitingReview).toBe(true);
     expect(saved?.currentRunId).toBeNull();
-    expect(saved?.notes[0]?.body.value).toContain('Stopped from the console');
+    expect(saved?.notes[0]?.body.value).toContain(
+      'A person stopped the run. The task is back with you.',
+    );
   });
 
   it('closes a task the run said was done', async () => {
@@ -585,7 +587,7 @@ describe('HandOver', () => {
       await handOver(stoppedRun(), tasks(heldBack()));
 
       expect(saved?.notes[1]?.body.value).toBe(
-        `${MOVED}\n\nThe run was stopped from the console.`,
+        `${MOVED}\n\nA person stopped the run.`,
       );
     });
 

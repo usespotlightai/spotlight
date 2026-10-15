@@ -317,7 +317,9 @@ describe('ChangeStack', () => {
     }
 
     expect(exhausted.state).toBe('failed');
-    expect(exhausted.failure).toBe('The change stack could not be drafted.');
+    expect(exhausted.failure).toBe(
+      'Spotlight couldn’t draft the change stack.',
+    );
     expect(exhausted.owesWork).toBe(false);
   });
 

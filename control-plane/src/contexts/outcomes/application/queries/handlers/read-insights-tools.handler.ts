@@ -3,7 +3,7 @@ import type { InsightsToolsDto } from '@outcomes/application/dto/insights-tools.
 import type { InsightsReaderPort } from '@outcomes/application/ports/insights-reader.port';
 import type { WorkPort } from '@outcomes/application/ports/work.port';
 import type { ReadInsightsToolsQuery } from '@outcomes/application/queries/read-insights-tools.query';
-import type { TeamHistories } from '@outcomes/application/services/team-histories.service';
+import type { TeamScopes } from '@outcomes/application/services/team-scopes.service';
 import { weeksOf } from '@outcomes/domain/services/pull-request-insights';
 import {
   TREND_FEWEST_RUNS,
@@ -18,14 +18,14 @@ export class ReadInsightsToolsHandler
   implements QueryHandlerPort<ReadInsightsToolsQuery, InsightsToolsDto>
 {
   constructor(
-    private readonly histories: TeamHistories,
+    private readonly scopes: TeamScopes,
     private readonly reader: InsightsReaderPort,
     private readonly work: WorkPort,
   ) {}
 
   async execute(query: ReadInsightsToolsQuery): Promise<InsightsToolsDto> {
     try {
-      const { clearance, period } = await this.histories.scope(
+      const { clearance, period } = await this.scopes.scope(
         query.teamId,
         query.principal,
         query.period,
@@ -39,7 +39,6 @@ export class ReadInsightsToolsHandler
 
       return {
         period: periodOf(period),
-        truncated: false,
         weeks,
         trendRule: {
           recentWeeks: TREND_RECENT_WEEKS,

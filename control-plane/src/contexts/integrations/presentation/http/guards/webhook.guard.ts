@@ -63,7 +63,7 @@ export class WebhookGuard implements CanActivate {
       raw: request.rawBody ?? null,
     };
 
-    // Unknown teams and sources fail like bad signatures, revealing nothing.
+    // Unknown teams and sources fail as bad signatures do. This gives no data to the caller.
     if (!source || !(await this.trusts(source, delivered))) {
       throw new UnauthorizedException();
     }

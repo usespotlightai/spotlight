@@ -106,7 +106,7 @@ describe('SetChecks', () => {
 
     expect(screen.getByText('No checks yet')).toBeInTheDocument();
     expect(
-      screen.getByText('Set doesn’t guard config changes.'),
+      screen.getByText('The set doesn’t guard config changes.'),
     ).toBeInTheDocument();
     expect(
       screen.getByRole('switch', { name: 'Guards config changes' }),

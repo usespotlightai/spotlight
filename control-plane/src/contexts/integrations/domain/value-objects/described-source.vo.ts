@@ -65,11 +65,13 @@ export class DescribedSource {
     }
 
     if (input.kind !== 'openapi' && url === null) {
-      throw refuse('is called at its url, which it does not name');
+      throw refuse('names no url to call');
     }
 
     if (input.kind === 'mcp' && document !== null) {
-      throw refuse('lists its tools when asked, and is never written out');
+      throw refuse(
+        'cannot be written out as a document. An MCP server lists its tools when asked',
+      );
     }
 
     if (baseUrl !== null && !isWebAddress(baseUrl)) {

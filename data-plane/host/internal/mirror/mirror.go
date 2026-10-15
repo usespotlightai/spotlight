@@ -66,7 +66,7 @@ func (m *Mirrors) Refresh(ctx context.Context, fetch Fetch) (string, error) {
 		return "", fmt.Errorf("mirror %s: %w", key, err)
 	}
 
-	// Cloned aside and moved into place, so no sandbox ever mounts half a mirror.
+	// Clone into a temporary directory first. Then move the clone into place, so no sandbox mounts half a mirror.
 	aside, err := os.MkdirTemp(filepath.Dir(dir), "."+fetch.Repository+"-")
 	if err != nil {
 		return "", fmt.Errorf("mirror %s: %w", key, err)
@@ -90,7 +90,7 @@ func (m *Mirrors) Refresh(ctx context.Context, fetch Fetch) (string, error) {
 }
 
 func (m *Mirrors) fetch(ctx context.Context, dir string, fetch Fetch) error {
-	// The one-run credential rides in the environment, never in argv where any process could read it.
+	// Put the one-run credential in the environment, not in argv. Any process can read argv.
 	env := []string{
 		"GIT_CONFIG_COUNT=1",
 		"GIT_CONFIG_KEY_0=http.extraHeader",
@@ -106,7 +106,7 @@ func (m *Mirrors) fetch(ctx context.Context, dir string, fetch Fetch) error {
 	return nil
 }
 
-// Only while no host serves from them: a git still running would lose its locks.
+// Tidy must run only when no host serves from the mirrors. A git process that still runs will lose its locks.
 func (m *Mirrors) Tidy() error {
 	workspaces, err := os.ReadDir(m.root)
 	if errors.Is(err, os.ErrNotExist) {

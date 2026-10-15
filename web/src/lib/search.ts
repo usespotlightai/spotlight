@@ -26,7 +26,7 @@ import {
   type ReplayedStation,
   type ReplaySet,
 } from '@/lib/replay';
-import { minGainSentence } from '@/lib/replay-words';
+import { minGainSentence, STATION_GONE_FROM_LINE } from '@/lib/replay-words';
 import type { CauseKind, SearchState } from '@/lib/search-words';
 import { stationPath, stationTabPath } from '@/lib/station';
 import { type ConfigChange, configChangesOf } from '@/lib/station-config';
@@ -147,13 +147,13 @@ const tasksShown = (count: number): string =>
 
 export const setRefusal = (set: ReplaySet): string | null => {
   if (set.stationGone) {
-    return 'Station is gone from its line.';
+    return STATION_GONE_FROM_LINE;
   }
 
   const tasks = tasksIn(set);
 
   return tasks < LEAST_TASKS
-    ? `Covers ${tasksShown(tasks)}. A search holds some out. Minimum different tasks: ${LEAST_TASKS}`
+    ? `The set covers ${tasksShown(tasks)}. A search holds some tasks out. Minimum different tasks: ${LEAST_TASKS}`
     : null;
 };
 
@@ -298,20 +298,20 @@ export const searchChanges = (candidate: SearchCandidate): ConfigChange[] =>
 
 export const pickRefusal = (candidate: SearchCandidate): string | null => {
   if (candidate.seed) {
-    return 'Live config is what the station already runs.';
+    return 'The station already runs the live config.';
   }
 
   switch (candidate.replayState) {
     case 'finished':
       return null;
     case 'stopped':
-      return 'Can’t be picked. Its replay was stopped before finishing.';
+      return 'You can’t pick this candidate. Its replay stopped before it finished.';
     case 'over-budget':
-      return 'Can’t be picked. Its replay hit its ceiling before finishing.';
+      return 'You can’t pick this candidate. Its replay reached its ceiling before it finished.';
     case null:
-      return 'Can’t be picked. Its replay is gone.';
+      return 'You can’t pick this candidate. Its replay is gone.';
     default:
-      return 'Can be picked once its replay on the searched tasks finishes.';
+      return 'After its replay on the searched tasks finishes, you can pick this candidate.';
   }
 };
 

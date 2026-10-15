@@ -8,7 +8,7 @@ import type { FirstSeenPort } from '@outcomes/application/ports/first-seen.port'
 import type { InsightsReaderPort } from '@outcomes/application/ports/insights-reader.port';
 import type { PeoplePort } from '@outcomes/application/ports/people.port';
 import type { ReadInsightsPeopleQuery } from '@outcomes/application/queries/read-insights-people.query';
-import type { TeamHistories } from '@outcomes/application/services/team-histories.service';
+import type { TeamScopes } from '@outcomes/application/services/team-scopes.service';
 import { adoptionFrom } from '@outcomes/domain/services/adoption';
 import {
   humanLoadChangesOf,
@@ -21,7 +21,7 @@ export class ReadInsightsPeopleHandler
   implements QueryHandlerPort<ReadInsightsPeopleQuery, InsightsPeopleDto>
 {
   constructor(
-    private readonly histories: TeamHistories,
+    private readonly scopes: TeamScopes,
     private readonly reader: InsightsReaderPort,
     private readonly firstSeen: FirstSeenPort,
     private readonly people: PeoplePort,
@@ -29,7 +29,7 @@ export class ReadInsightsPeopleHandler
 
   async execute(query: ReadInsightsPeopleQuery): Promise<InsightsPeopleDto> {
     try {
-      const { clearance, period } = await this.histories.scope(
+      const { clearance, period } = await this.scopes.scope(
         query.teamId,
         query.principal,
         query.period,
@@ -54,7 +54,6 @@ export class ReadInsightsPeopleHandler
 
       return {
         period: periodOf(period),
-        truncated: false,
         load: humanLoadDtoOf(load),
         loadChanges: humanLoadChangesOf(
           load,

@@ -32,7 +32,7 @@ interface Answerable {
 export class WebhookController {
   constructor(private readonly commandBus: CommandBus) {}
 
-  // Declared before `:source`, or `w` would match as a source name.
+  // Keep this route before `:source`. If not, `w` matches as a source name.
   @Post(TEAM_DELIVERIES)
   @AllowAnonymous()
   @UseGuards(WebhookGuard)

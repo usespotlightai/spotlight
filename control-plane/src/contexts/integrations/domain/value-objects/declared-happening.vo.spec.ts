@@ -39,7 +39,7 @@ describe('DeclaredHappening', () => {
 
   it('refuses one that could never find a task', () => {
     expect(() => declaring({ finds: [], findsByBranch: false })).toThrow(
-      /could find a task/,
+      /no task can be found/,
     );
   });
 

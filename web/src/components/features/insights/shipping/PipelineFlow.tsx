@@ -37,7 +37,7 @@ export function PipelineFlow({ flow }: { flow: Flow }) {
   return (
     <InsightsCard
       title="Flow through the pipeline"
-      description="Time merged pull requests spend per stage, task opened to merge, at the chosen percentile. Stages: each station the task ran at, awaiting review, in review, awaiting merge. Awaiting review ends at the first non-author review or any approval, bots’ included. Pick a type for its own times."
+      description="Time that merged pull requests spend in each stage, from task opened to merge, at the chosen percentile. Stages: each station the task ran at, awaiting review, in review, awaiting merge. Awaiting review ends at the first review by someone other than the author, or at any approval. Bots’ reviews count. Pick a type to see its own times."
       table={<PipelineFlowTable stages={stages} />}
       actions={
         <div className="flex items-center gap-1.5">

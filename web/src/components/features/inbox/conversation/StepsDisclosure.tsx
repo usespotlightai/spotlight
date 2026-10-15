@@ -40,7 +40,7 @@ export function StepsDisclosure({
         <FadingScroll className="max-h-[min(18rem,50dvh)]">
           <ol className="flex flex-col gap-px pt-1">
             {steps.map((step, at) => (
-              // biome-ignore lint/suspicious/noArrayIndexKey: steps are appended and never reordered, so where one sits is what names it
+              // biome-ignore lint/suspicious/noArrayIndexKey: the position of a step identifies it, because new steps go only at the end
               <InboxStep key={at} step={step} live={live} />
             ))}
           </ol>

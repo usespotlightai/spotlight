@@ -111,7 +111,7 @@ describe('StationAlert', () => {
       InvalidStationAlertError,
     );
     expect(() => again.alongside([first])).toThrow(
-      /is already set on this station/,
+      /already exists on this station/,
     );
     try {
       again.alongside([first]);

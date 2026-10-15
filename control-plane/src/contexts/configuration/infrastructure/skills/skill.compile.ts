@@ -49,7 +49,7 @@ export const compileSkill = (held: unknown): CompiledSkill => {
   if (!(SKILL_FILE in files)) {
     return refused(
       FieldPath.of(['files']),
-      `holds no ${SKILL_FILE}, which is what a skill is read from`,
+      `holds no ${SKILL_FILE}. Spotlight reads each skill from its ${SKILL_FILE}`,
     );
   }
 

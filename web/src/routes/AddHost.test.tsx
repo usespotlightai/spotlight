@@ -149,9 +149,13 @@ describe('AddHost', () => {
     expect(
       screen.getByText(/Pool: hosts that share one token/),
     ).toBeInTheDocument();
-    expect(screen.getByText(/shown only once/)).toBeInTheDocument();
     expect(
-      screen.getByText(/The host appears here once connected/),
+      screen.getByText(/Spotlight shows the pool token in it only once/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        /The agent image download takes a few minutes\. The host appears here when it connects/,
+      ),
     ).toBeInTheDocument();
   });
 

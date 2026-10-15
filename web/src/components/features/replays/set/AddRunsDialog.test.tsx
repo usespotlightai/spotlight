@@ -95,7 +95,7 @@ describe('AddRunsDialog', () => {
     expect(suggestions).toHaveTextContent('Accepted');
     expect(
       screen.getByText(
-        'Recent runs with outcomes the set has few of. Nothing is added until you add it.',
+        'Recent runs with outcomes that the set has few of. These runs join the set only when you add them.',
       ),
     ).toBeInTheDocument();
 

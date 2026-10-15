@@ -14,7 +14,7 @@ import {
   type TaskColumns,
   titleShown,
 } from '@/lib/replay';
-import { capitalised, pairShown, REGRESSED_NOTE } from '@/lib/replay-words';
+import { pairShown, REGRESSED_NOTE } from '@/lib/replay-words';
 import { cn } from '@/lib/utils';
 
 type TaskRowProps = {
@@ -33,7 +33,7 @@ export function TaskRow({
   onPick,
 }: TaskRowProps) {
   const title = titleShown(row.title);
-  const { compared, judged, paired, counterpart } = columns;
+  const { compared, judged, paired, counterpart, counterpartLabel } = columns;
 
   return (
     <li
@@ -65,7 +65,7 @@ export function TaskRow({
         <EntrySide copies={row.candidate} />
       </NestedCell>
       {compared && (
-        <NestedCell heading={capitalised(counterpart)} numeric={false}>
+        <NestedCell heading={counterpartLabel} numeric={false}>
           {row.baseline.length > 0 ? (
             <EntrySide copies={row.baseline} />
           ) : (

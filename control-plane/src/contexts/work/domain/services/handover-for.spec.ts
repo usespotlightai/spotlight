@@ -88,21 +88,23 @@ describe('HandoverFor.declared', () => {
     const handover = declared('Code Review');
 
     expect(handover.kind).toBe('review');
-    expect(handover.body.value).toContain('not a station on this line');
+    expect(handover.body.value).toContain('This line has no such station.');
   });
 
   it('will not pass a task to a station nothing runs at', () => {
     const handover = declared('backlog', 'Not ready yet.');
 
     expect(handover.kind).toBe('review');
-    expect(handover.body.value).toContain('nothing runs to take the task up');
+    expect(handover.body.value).toContain(
+      'Nothing runs there to take up the task.',
+    );
   });
 
   it('will not pass a task where work does not pass to from where it stands', () => {
     const handover = declared('code-review', 'Looks done.');
 
     expect(handover.kind).toBe('review');
-    expect(handover.body.value).toContain('which work does not pass to');
+    expect(handover.body.value).toContain('Work does not pass there');
   });
 
   it('asks a person when the run says so', () => {
@@ -135,7 +137,7 @@ describe('HandoverFor.declared', () => {
     const handover = declared('deployment', 'Ship it.');
 
     expect(handover.kind).toBe('review');
-    expect(handover.body.value).toContain('not a station on this line');
+    expect(handover.body.value).toContain('This line has no such station.');
   });
 
   it('asks a person where the task stands on no line', () => {

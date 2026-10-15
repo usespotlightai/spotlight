@@ -32,7 +32,7 @@ export class ReviewAccess {
     const task = run?.taskId ? await this.work.task(run.taskId) : null;
 
     if (!member || !task || !ReviewClearance.of(member).reaches(task)) {
-      throw new UnknownReviewError('run');
+      throw new UnknownReviewError(`run ${runId}`);
     }
 
     const person = await this.people.find(member.by);

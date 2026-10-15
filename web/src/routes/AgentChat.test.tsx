@@ -189,7 +189,7 @@ describe('AgentChat', () => {
 
     expect(container.querySelector('header')).toBeInTheDocument();
     expect(
-      screen.getByText('Chat not found on this team.'),
+      screen.getByText('This team has no chat at that address.'),
     ).toBeInTheDocument();
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });

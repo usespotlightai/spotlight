@@ -6,7 +6,7 @@ export class SearchSetTooSmallError extends Error {
     readonly heldOut: number,
   ) {
     super(
-      `A search needs at least 2 held-out and 3 searched tasks. Replay set covers ${tasks} tasks, ${heldOut} held out.`,
+      `A search needs at least 2 held-out tasks and 3 searched tasks. The replay set covers ${tasks} tasks. Held out: ${heldOut}`,
     );
     this.name = 'SearchSetTooSmallError';
   }

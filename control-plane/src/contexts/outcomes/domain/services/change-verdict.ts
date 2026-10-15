@@ -1,11 +1,13 @@
 import type { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
 import type { TaskDelivery } from '@outcomes/domain/aggregates/task-delivery.aggregate';
-import { rateOf, spendingOf } from '@outcomes/domain/services/measures';
-import type { TallyCounts } from '@outcomes/domain/services/run-tally';
+import { rateOf } from '@outcomes/domain/services/measures';
 import {
-  measureOf,
-  settledFor,
-} from '@outcomes/domain/services/station-measures';
+  NO_RUNS,
+  runTally,
+  type TallyCounts,
+} from '@outcomes/domain/services/run-tally';
+import { settledFor } from '@outcomes/domain/services/station-measures';
+import { tasksOf } from '@outcomes/domain/services/team-history';
 import {
   ALERT_MEASURES,
   type AlertMeasure,
@@ -56,15 +58,35 @@ export interface GroupCounts {
   readonly settled: SettledCounts;
 }
 
-interface MeasureReading {
+export const NO_GROUP: GroupCounts = {
+  tally: NO_RUNS,
+  settled: { acted: 0, finished: 0, finishedTasks: 0, digested: 0 },
+};
+
+export const groupCountsOf = (
+  records: readonly RunRecord[],
+  deliveries: readonly TaskDelivery[],
+): GroupCounts => {
+  const { failedShare: _, ...tally } = runTally(records, deliveries);
+  const ran = records.filter((each) => each.ran);
+  const finished = ran.filter(settledFor('merged_rate', deliveries));
+
+  return {
+    tally,
+    settled: {
+      acted: ran.filter((each) => each.next !== null).length,
+      finished: finished.length,
+      finishedTasks: tasksOf(finished).length,
+      digested: ran.filter((each) => each.cost !== null).length,
+    },
+  };
+};
+
+export interface MeasureReading {
   readonly value: number | null;
   readonly settled: number;
   readonly currency: string | null;
 }
-
-const currencyOf = (records: readonly RunRecord[]): string | null =>
-  spendingOf(records.map((each) => each.cost?.spend ?? null)).spend?.currency ??
-  null;
 
 const verdictOn = (
   measure: AlertMeasure,
@@ -82,7 +104,7 @@ const verdictOn = (
   return after > before === HIGHER_IS_BETTER.has(measure) ? 'better' : 'worse';
 };
 
-const verdictFrom = (
+export const verdictFrom = (
   measure: AlertMeasure,
   was: MeasureReading,
   now: MeasureReading,
@@ -111,34 +133,6 @@ const verdictFrom = (
     }),
   };
 };
-
-const readingOfRuns = (
-  measure: AlertMeasure,
-  records: readonly RunRecord[],
-  deliveries: readonly TaskDelivery[],
-): MeasureReading => {
-  const settled = settledFor(measure, deliveries);
-  const held = records.filter((each) => each.ran && settled(each));
-
-  return {
-    value: measureOf(measure, held, deliveries),
-    settled: held.length,
-    currency: currencyOf(held),
-  };
-};
-
-export const changeVerdictOf = (
-  before: readonly RunRecord[],
-  after: readonly RunRecord[],
-  deliveries: readonly TaskDelivery[],
-): readonly MeasureVerdict[] =>
-  ALERT_MEASURES.map((measure) =>
-    verdictFrom(
-      measure,
-      readingOfRuns(measure, before, deliveries),
-      readingOfRuns(measure, after, deliveries),
-    ),
-  );
 
 const readingOfCounts = (
   measure: AlertMeasure,
