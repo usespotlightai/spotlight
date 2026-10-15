@@ -256,7 +256,6 @@ export const overviewOf = (
 
   return {
     period: span.period,
-    truncated: false,
     headline,
     changes: changesOfHeadline(headline, headlineOf(teamId, span.before)),
     output: span.period.days.map((day) => {
@@ -357,7 +356,6 @@ export const flowOf = (
 
   return {
     period: span.period,
-    truncated: false,
     flow: {
       stations: flowStationsOf(teamId, span),
       delivery: {
@@ -535,7 +533,6 @@ export const stationsOf = (
 
   return {
     period: span.period,
-    truncated: false,
     team,
     teamChanges: tallyChangesOf(now, before),
     teamSeen: seenOf(now),
@@ -629,7 +626,6 @@ export const peopleOf = (
 
   return {
     period: span.period,
-    truncated: false,
     load,
     loadChanges: {
       asksPerTask: changeOf(load.asksPerTask, before.asksPerTask, 'down'),
@@ -753,7 +749,6 @@ export const costOf = (
 
   return {
     period: span.period,
-    truncated: false,
     cost: {
       spend: moneyOf(spend),
       unpriced: runs.filter((run) => run.cost === null).length,

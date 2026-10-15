@@ -20,7 +20,7 @@ export function DeliveryStages({ delivery }: DeliveryStagesProps) {
   return (
     <TileGroup
       title="Past the last station"
-      note="Time from task opened to pull request, first human review and merge. Times: median and p90"
+      note="Time from when a task opens to its pull request, first human review and merge. Times: median and p90"
     >
       <InsightsTile
         label="PRs opened"

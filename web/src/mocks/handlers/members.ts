@@ -188,7 +188,7 @@ const inviteHandlers = [
     ) {
       return problem(
         422,
-        `Please give between 1 and ${MOST_INVITED_AT_ONCE} email addresses. Received: ${terms.emails.length}`,
+        `Number of email addresses must be 1 to ${MOST_INVITED_AT_ONCE}. Received: ${terms.emails.length}`,
       );
     }
     if ((terms.role as Role) === 'owner') {
@@ -204,7 +204,7 @@ const inviteHandlers = [
       );
     }
     if (stranger) {
-      return problem(422, `Sorry, team ${stranger} is not in this workspace.`);
+      return problem(422, `Team ${stranger} is not in this workspace.`);
     }
 
     return json({
@@ -343,7 +343,7 @@ const memberHandlers = [
     if (!person) {
       return problem(
         422,
-        'Sorry, this person is not a member of this workspace. Please invite them first.',
+        'This person is not a member of this workspace. Please invite them first.',
       );
     }
     if (team.some((each) => each.id === userId)) {

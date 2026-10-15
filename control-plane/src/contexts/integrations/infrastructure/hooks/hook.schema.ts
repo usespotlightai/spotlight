@@ -72,7 +72,7 @@ const stepSchema = z
       context.addIssue({
         code: 'custom',
         message:
-          'either calls a tool or makes a request, so it names exactly one of call and request',
+          'names exactly one of call and request. A step either calls a tool or makes a request',
       });
     }
 
@@ -80,7 +80,7 @@ const stepSchema = z
       context.addIssue({
         code: 'custom',
         path: ['with'],
-        message: 'gives inputs to a tool, so it goes with call',
+        message: 'gives inputs to a tool. It goes only with call',
       });
     }
   });

@@ -48,7 +48,6 @@ export class ReadReplayHandler
       return {
         ...replayView(replay, candidate, baseline, against, minGain),
         baselineReplayId: baseline?.id.value ?? null,
-        comparedWithReplayId: against?.id.value ?? null,
         search: replaySearchView(replay, candidate),
         comparison: compared.map((each) => ({
           originalRunId: each.original,

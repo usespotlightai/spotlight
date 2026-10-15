@@ -26,7 +26,7 @@ export function AgreementMeter({ standing }: { standing: JudgeStanding }) {
           />
           <MeterBar
             share={standing.agreement ?? 0}
-            label={`${measureShown(standing.measure)} ${statShown(standing.agreement)} against a minimum of ${statShown(standing.trust)}`}
+            label={`${measureShown(standing.measure)} ${statShown(standing.agreement)}. Minimum required: ${statShown(standing.trust)}`}
             mark={standing.trust ?? 0}
             markTitle={`Minimum required: ${statShown(standing.trust)}`}
           />

@@ -126,23 +126,23 @@ export const verdictShown = (
 export const warningShown = (warning: SearchWarning): string => {
   switch (warning.kind) {
     case 'noise-unmeasured':
-      return 'Set’s noise is unmeasured. A small gain may be luck. Replay each run more than once, or start a replay of a set of 5 or more runs to check it.';
+      return 'The set’s noise isn’t measured. A small gain can be chance. Please replay each run more than once, or replay a set of 5 or more runs to measure it.';
     case 'noisy': {
       const fix =
         warning.neededRepeats > warning.suggestedRepeats
-          ? `Even ${warning.suggestedRepeats} repeats, the maximum, won’t bring it under. Read small gains with care, or raise the line’s min_gain.`
-          : `Replaying each run ${warning.suggestedRepeats} times would bring it under.`;
+          ? `Even the maximum of ${warning.suggestedRepeats} repeats won’t bring the noise below it. Read small gains with care, or raise the line’s min_gain.`
+          : `If you replay each run ${warning.suggestedRepeats} times, the noise falls below it.`;
 
-      return `Success moved ${pointsShown(warning.spread)} between copies of the same runs, above the line’s minimum real gain. ${fix} Minimum real gain: ${minGainShown(warning.minGain)}`;
+      return `Success moved ${pointsShown(warning.spread)} between copies of the same runs. This is more than the line’s minimum real gain. ${fix} Minimum real gain: ${minGainShown(warning.minGain)}`;
     }
     case 'saturated':
-      return `Live config already succeeds on ${percentShown(warning.rate)} of this set. Aim for the same success for less, or add tasks the live config fails.`;
+      return `The live config already succeeds on ${percentShown(warning.rate)} of this set. Aim for the same success for less, or add tasks that the live config fails.`;
     case 'judge-unstable':
-      return `Judge gave the same verdict twice on only ${percentShown(warning.agreement)} of ${warning.compared} ${warning.compared === 1 ? 'change' : 'changes'}. Make the rubric more specific before you search.`;
+      return `The judge gave the same verdict twice on only ${percentShown(warning.agreement)} of ${warning.compared} ${warning.compared === 1 ? 'change' : 'changes'}. Make the rubric more specific before you search.`;
     case 'flaky-checks':
-      return `Check flipped on ${warning.flaky} of ${warning.rechecked} changes it ran twice. It may flip a candidate’s result by chance. The set page lists them.`;
+      return `The check flipped on ${warning.flaky} of ${warning.rechecked} changes that it ran twice. It can flip a candidate’s result by chance. The set page lists these changes.`;
     case 'no-headroom':
-      return `Handed each run’s answer, the live config gained only ${gainShown(warning)}, likely ${gainRangeShown(warning)}, on ${warning.answered} ${warning.answered === 1 ? 'run' : 'runs'}. A better config has little room to show here. Add tasks the live config fails.`;
+      return `With each run’s answer, the live config gained only ${gainShown(warning)} on ${warning.answered} ${warning.answered === 1 ? 'run' : 'runs'}. The likely range is ${gainRangeShown(warning)}. A better config has little room to show a gain here. Please add tasks that the live config fails.`;
   }
 };
 
@@ -159,8 +159,8 @@ const OBJECTIVES: Record<SearchObjective, string> = {
 };
 
 const OBJECTIVE_NOTES: Record<SearchObjective, string> = {
-  success: 'Ranks candidates by how often they succeed.',
-  cost: 'Ranks candidates by cost per run. Only those matching the live config’s success, within noise, count.',
+  success: 'Spotlight ranks candidates by how often they succeed.',
+  cost: 'Spotlight ranks candidates by cost per run. Only candidates that match the live config’s success, within noise, count.',
 };
 
 const BEST_TERMS: Record<SearchObjective, string> = {
@@ -175,8 +175,8 @@ const NO_BEST: Record<SearchObjective, string> = {
 
 const FRONTIER_NOTES: Record<SearchObjective, string> = {
   success:
-    'Success on the searched tasks against cost per run. Frontier: candidates no other beats for less. The live config is always on it.',
-  cost: 'Success on the searched tasks against cost per run. Frontier: candidates matching the live config’s success, within noise, that no other matches for less. The live config is always on it.',
+    'Success on the searched tasks and cost per run of each candidate. Frontier: candidates that no other candidate beats for less. The live config is always on the frontier.',
+  cost: 'Success on the searched tasks and cost per run of each candidate. Frontier: candidates that match the live config’s success, within noise, and that no other candidate matches for less. The live config is always on the frontier.',
 };
 
 export const OBJECTIVE_LABEL = 'Aim for';
@@ -188,7 +188,7 @@ export const objectiveNote = (objective: SearchObjective): string =>
   OBJECTIVE_NOTES[objective];
 
 export const objectiveSuggestedShown = (rate: number): string =>
-  `Suggested: the live config already succeeds on ${percentShown(rate)} of this set. Little room for more success.`;
+  `Suggested: the live config already succeeds on ${percentShown(rate)} of this set. The set has little room for more success.`;
 
 export const bestTermShown = (objective: SearchObjective): string =>
   BEST_TERMS[objective];
@@ -204,8 +204,8 @@ export const bestScoreNote = (
   interval: { low: number; high: number } | null,
 ): string =>
   [
-    `Scored on ${heldOut ? 'held-out' : 'searched'} tasks.`,
-    interval && `Likely ${intervalShown(interval)}.`,
+    `This score is from the ${heldOut ? 'held-out' : 'searched'} tasks.`,
+    interval && `Likely range: ${intervalShown(interval)}`,
   ]
     .filter(Boolean)
     .join(' ');
@@ -220,9 +220,9 @@ const ONLY_ON_SEEN_TASKS: Record<OnlyOnSeenTasks, string> = {
 
 const ONLY_ON_SEEN_TASKS_NOTES: Record<OnlyOnSeenTasks, string> = {
   marked:
-    'Beat the live config on searched tasks, not on held-out ones. Gain may not carry over to new work.',
+    'This candidate beat the live config on searched tasks but not on held-out tasks. The gain may not carry over to new work.',
   'too-few-held-out':
-    'Beat the live config on searched tasks. Too few held-out tasks scored to tell if the gain carries over.',
+    'This candidate beat the live config on searched tasks. Too few held-out tasks have a score to tell if the gain carries over.',
 };
 
 export const onlyOnSeenTasksShown = (mark: OnlyOnSeenTasks): string =>
@@ -232,13 +232,13 @@ export const onlyOnSeenTasksNote = (mark: OnlyOnSeenTasks): string =>
   ONLY_ON_SEEN_TASKS_NOTES[mark];
 
 export const ONLY_ON_SEEN_TASKS_PICK =
-  'Gain showed only on searched tasks. You can still pick it, but it may not carry over to new work.';
+  'The gain showed only on searched tasks. You can still pick this candidate, but the gain may not carry over to new work.';
 
 export const onlyOnSeenTasksCountShown = (count: number): string =>
-  `${count} frontier ${count === 1 ? 'candidate' : 'candidates'} gained only on searched tasks, not held-out ones.`;
+  `${count} frontier ${count === 1 ? 'candidate' : 'candidates'} gained only on searched tasks, not on held-out tasks.`;
 
 export const SEARCH_CEILING_NOTE =
-  'Most the whole search may spend: its replays and its agent’s runs.';
+  'The most that the whole search can spend. Its replays and its agent’s runs count.';
 
 export const whyItStalledShown = (iteration: number): string =>
   `Why it stalled (iteration ${iteration})`;
@@ -254,13 +254,13 @@ const CAUSE_TITLES: Record<CauseKind, string> = {
 };
 
 const CAUSE_MEANINGS: Record<CauseKind, string> = {
-  task: 'Task is unclear, out of date, or can’t be done as asked. No config would get it right.',
+  task: 'The task is unclear, out of date, or can’t be done as asked. No config would get it right.',
   judge:
-    'Work may be fine, but the judge scored it wrong. Its rubric asks for the wrong thing.',
+    'The work can be fine, but the judge scored it wrong. The judge’s rubric asks for the wrong thing.',
   check:
-    'Check failed for a reason the change didn’t cause, such as a broken or flaky test.',
+    'The check failed for a reason that the change didn’t cause, such as a broken or flaky test.',
   infra:
-    'Run failed around the work: the runner, the network or a missing tool.',
+    'Something around the work failed the run, such as the runner, the network or a missing tool.',
   config:
     'A change to the station’s config, such as prompt, model or skills, could still fix it.',
 };
@@ -270,7 +270,8 @@ const CAUSE_ACTIONS: Record<CauseKind, string> = {
   judge: 'Fix the judge’s rubric.',
   check: 'Fix the check.',
   infra: 'Replay it again. If it keeps failing, fix what the run needs.',
-  config: 'Nothing to do. The search keeps trying configs for these.',
+  config:
+    'You don’t need to do anything. The search keeps trying configs for these tasks.',
 };
 
 export const causeTitleShown = (cause: CauseKind): string =>
@@ -285,7 +286,7 @@ export const causeActionShown = (cause: CauseKind): string =>
 export const UNCAUSED_TITLE = 'No cause recorded';
 
 export const UNCAUSED_NOTE =
-  'Search agent looked into these but recorded no cause.';
+  'The search agent looked into these tasks but recorded no cause.';
 
 export const SUGGESTED = 'Suggested:';
 
@@ -301,20 +302,21 @@ export const standingShown = (candidate: {
   `Looked at why ${candidate.seed ? 'the live config' : candidate.name} failed`;
 
 export const reflectionLookedShown = (tasks: number): string =>
-  `Two iterations in a row found nothing better. The search agent sorted the ${tasksCounted(tasks)} the best config still failed by cause.`;
+  `Two iterations in a row found nothing better. The search agent sorted the ${tasksCounted(tasks)} that the best config still failed by cause.`;
 
 export const REFLECTION_LOOKING =
   'Two iterations in a row found nothing better. The search agent is looking into why the remaining tasks fail.';
 
 const REFLECTION_OUTCOMES: Record<ReflectionOutcome, string> = {
-  'went-on': 'Search continued. A config change could still fix some of them.',
+  'went-on':
+    'The search continued. A config change can still fix some of these tasks.',
   'no-config-cause':
-    'Search ended. Nothing left is fixable by config. Unspent budget is kept.',
-  'no-failures': 'Search ended. No searched task failed.',
+    'The search ended. No config change can fix the tasks that are left. The rest of the budget stays unspent.',
+  'no-failures': 'The search ended. No searched task failed.',
   'did-not-run':
-    'Search ended. The search agent’s run failed before recording any cause.',
+    'The search ended. The search agent’s run failed before it recorded a cause.',
   'out-of-budget':
-    'Search ended with no budget left. A config change could still fix some of them.',
+    'The search ended with no budget left. A config change can still fix some of these tasks.',
 };
 
 export const reflectionOutcomeShown = (outcome: ReflectionOutcome): string =>
@@ -324,15 +326,15 @@ export const reflectionIterationShown = (
   tasks: number,
   causes: number,
 ): string =>
-  `Proposed nothing. Looked into ${tasksCounted(tasks)} the best config still failed. Causes recorded: ${causes}`;
+  `This iteration proposed nothing. The search agent looked into ${tasksCounted(tasks)} that the best config still failed. Causes recorded: ${causes}`;
 
 export const REFLECTION_ITERATION_PENDING =
-  'Proposes nothing. The search agent is looking into why the remaining tasks fail.';
+  'This iteration proposes nothing. The search agent is looking into why the remaining tasks fail.';
 
 export const SEE_WHY_IT_STALLED = 'See why it stalled';
 
 export const SPLIT_NOTE =
-  'Search agent sees only the searched tasks and their scores. Held-out tasks stay hidden. The best candidates replay on them after searching, to check they didn’t just fit what it saw.';
+  'The search agent sees only the searched tasks and their scores. It doesn’t see the held-out tasks. After the search, the best candidates replay on the held-out tasks to check that they don’t only fit what the agent saw.';
 
 export const heldOutTasksShown = (titles: readonly string[]): string =>
   titles.length > 0 ? `Held out: ${titles.join(', ')}.` : '';
@@ -343,14 +345,14 @@ export const ON_THE_FRONTIER_NOTE =
   'On the frontier: no other candidate succeeds more for the same cost or less.';
 
 export const CANDIDATES_NOTE =
-  'Configs the search agent proposed, by iteration. Pick a candidate for its reasoning, replays and pull request.';
+  'Configs that the search agent proposed, by iteration. Pick a candidate to see its reasoning, replays and pull request.';
 
 export const budgetNoteShown = (
   budget: Pick<SearchResponseDto['budget'], 'perIteration' | 'concurrency'>,
   repeats: string,
   agent: string,
 ): string =>
-  `${budget.perIteration} ${budget.perIteration === 1 ? 'candidate' : 'candidates'} each iteration, ${budget.concurrency} at once. ${repeats}. Search agent: ${agent}.`;
+  `Each iteration tries ${budget.perIteration} ${budget.perIteration === 1 ? 'candidate' : 'candidates'}, ${budget.concurrency} at once. ${repeats}. Search agent: ${agent}`;
 
 export const candidateGainNote = (
   searched: SearchCandidateResponseDto['searchedGain'],
@@ -385,8 +387,8 @@ export const iterationNoteShown = (
     `${ITERATION_STATES[iteration.state]}.`,
     iteration.kind === 'reflect'
       ? null
-      : `${iteration.proposed.length} of ${iteration.attempts} ${iteration.attempts === 1 ? 'proposal' : 'proposals'} taken.`,
-    spent.length > 0 ? `Search agent spent ${spent.join(' · ')}.` : null,
+      : `The search took ${iteration.proposed.length} of ${iteration.attempts} ${iteration.attempts === 1 ? 'proposal' : 'proposals'}.`,
+    spent.length > 0 ? `The search agent spent ${spent.join(' · ')}.` : null,
   ]
     .filter(Boolean)
     .join(' ');

@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -48,7 +48,7 @@ const SET = {
   entries: [{}, {}],
 } as ReplaySet;
 
-const renderDialog = (baselineRepeats: number | null) =>
+const openDialog = async (baselineRepeats: number | null) => {
   render(
     <MemoryRouter>
       <StartReplayDialog
@@ -63,11 +63,16 @@ const renderDialog = (baselineRepeats: number | null) =>
     </MemoryRouter>,
   );
 
+  await waitFor(() =>
+    expect(screen.getByRole('radio', { name: /Live config/ })).toHaveFocus(),
+  );
+};
+
 describe('StartReplayDialog', () => {
   beforeEach(() => mutate.mockReset());
 
-  it('offers the live config and the proposed candidates', () => {
-    renderDialog(1);
+  it('offers the live config and the proposed candidates', async () => {
+    await openDialog(1);
 
     expect(screen.getByRole('radio', { name: /Live config/ })).toBeChecked();
     expect(
@@ -75,8 +80,8 @@ describe('StartReplayDialog', () => {
     ).toBeInTheDocument();
   });
 
-  it('says a live replay becomes the new baseline where the set’s runs changed since its baseline', () => {
-    renderDialog(1);
+  it('says a live replay becomes the new baseline where the set’s runs changed since its baseline', async () => {
+    await openDialog(1);
 
     expect(
       screen.getByText(/this replay becomes the new baseline/),
@@ -84,10 +89,10 @@ describe('StartReplayDialog', () => {
   });
 
   it('explains that a baseline also starts, spending its own ceiling, when a candidate replays a set with none', async () => {
-    renderDialog(null);
+    await openDialog(null);
 
     expect(
-      screen.getByText(/This replay of the live config becomes it/),
+      screen.getByText(/This replay of the live config becomes the baseline/),
     ).toBeInTheDocument();
     expect(screen.queryByText(/twice this ceiling/)).toBeNull();
 
@@ -96,12 +101,12 @@ describe('StartReplayDialog', () => {
     );
 
     expect(
-      screen.getByText(/Most both may spend: twice this ceiling/),
+      screen.getByText(/both replays can spend up to twice this ceiling/),
     ).toBeInTheDocument();
   });
 
   it('says a new baseline starts when the set’s baseline copied each run fewer times than asked', async () => {
-    renderDialog(1);
+    await openDialog(1);
 
     const repeats = screen.getByRole('textbox', { name: 'Repeats' });
     await userEvent.clear(repeats);
@@ -109,7 +114,7 @@ describe('StartReplayDialog', () => {
 
     expect(
       screen.getByText(
-        /Set’s baseline replays each run once, fewer than this replay\. This replay of the live config becomes the new baseline/,
+        /The set’s baseline replays each run once\. This replay repeats each run more often\. This replay of the live config becomes the new baseline/,
       ),
     ).toBeInTheDocument();
 
@@ -118,12 +123,14 @@ describe('StartReplayDialog', () => {
     );
 
     expect(
-      screen.getByText(/A new baseline replaying each run 3 times also starts/),
+      screen.getByText(
+        /A new baseline that replays each run 3 times also starts/,
+      ),
     ).toBeInTheDocument();
   });
 
   it('refuses a ceiling of nothing, saying why', async () => {
-    renderDialog(1);
+    await openDialog(1);
 
     await userEvent.click(screen.getByRole('button', { name: 'Start replay' }));
 
@@ -134,7 +141,7 @@ describe('StartReplayDialog', () => {
   });
 
   it('starts the chosen candidate within the ceiling', async () => {
-    renderDialog(1);
+    await openDialog(1);
 
     await userEvent.click(
       screen.getByRole('radio', { name: /Shorter prompt/ }),
@@ -155,7 +162,7 @@ describe('StartReplayDialog', () => {
   });
 
   it('replays each run as many times as asked, from 1 to 5', async () => {
-    renderDialog(1);
+    await openDialog(1);
 
     const repeats = screen.getByRole('textbox', { name: 'Repeats' });
     await userEvent.type(screen.getByLabelText('Most it may spend'), '5');

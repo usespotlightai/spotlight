@@ -149,7 +149,9 @@ describe('OAuth2ConnectionController', () => {
       controller.connect('team_1', 'linear', ADMIN, answering().response, {
         for: 'someone-else' as 'me',
       }),
-    ).rejects.toThrow(/Connect for team or me/);
+    ).rejects.toThrow(
+      /A connection must be for team or me\. Received: someone-else/,
+    );
     expect(execute).not.toHaveBeenCalled();
   });
 });

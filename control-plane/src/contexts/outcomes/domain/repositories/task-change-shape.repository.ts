@@ -6,8 +6,6 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 export interface TaskChangeShapeRepository {
   forTask(taskId: TaskId): Promise<TaskChangeShape | null>;
 
-  forTasks(taskIds: readonly TaskId[]): Promise<readonly TaskChangeShape[]>;
-
   add(shape: TaskChangeShape): Promise<void>;
 
   save(shape: TaskChangeShape): Promise<void>;

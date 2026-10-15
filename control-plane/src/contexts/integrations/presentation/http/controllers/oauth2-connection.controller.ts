@@ -90,7 +90,7 @@ export class OAuth2ConnectionController {
 
     if (!CONNECTING_FOR.includes(connecting)) {
       throw new BadRequestException(
-        `Connect for ${CONNECTING_FOR.join(' or ')}`,
+        `A connection must be for ${CONNECTING_FOR.join(' or ')}. Received: ${String(connecting)}`,
       );
     }
 

@@ -161,7 +161,7 @@ const dayOf = (value: AskedValue, period: Window): Window | null => {
 
   if (!from || !within(period, from)) {
     throw new InvalidRunFilterError(
-      `day must be in the period, written YYYY-MM-DD, not ${asked}`,
+      `day must be a date in the period, in the form YYYY-MM-DD, not ${asked}`,
     );
   }
 
@@ -184,7 +184,7 @@ const weekOf = (value: AskedValue): Window | null => {
 
   if (!window || !monday) {
     throw new InvalidRunFilterError(
-      `week must be a Monday written YYYY-MM-DD, not ${asked}`,
+      `week must be a Monday in the form YYYY-MM-DD, not ${asked}`,
     );
   }
 

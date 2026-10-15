@@ -25,7 +25,7 @@ export function AutoGrowTextarea({
 }: AutoGrowTextareaProps) {
   const ref = useRef<HTMLTextAreaElement>(null);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: the text is what the measurement follows, though the effect reads only the node
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the measurement must follow the text, but the effect reads only the node
   useLayoutEffect(() => {
     if (ref.current) {
       fitToContent(ref.current);

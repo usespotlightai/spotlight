@@ -53,7 +53,7 @@ const refusalOf = (
       return [
         problemAt(
           POSITION,
-          'holds no expression in the definition, so nothing is written there to check',
+          'holds no expression in the definition. Nothing is written there to check',
         ),
       ];
   }

@@ -44,7 +44,9 @@ export class RunnerGuard implements CanActivate {
       bearerIn(request.headers.authorization),
     );
     if (!runner) {
-      throw new UnauthorizedException();
+      throw new UnauthorizedException(
+        'The runner token is missing, spent or wrong.',
+      );
     }
 
     request[REQUEST_RUNNER] = runner.value;

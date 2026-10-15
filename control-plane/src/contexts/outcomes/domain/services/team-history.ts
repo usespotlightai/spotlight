@@ -3,11 +3,7 @@ import type { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate
 import type { TaskDelivery } from '@outcomes/domain/aggregates/task-delivery.aggregate';
 import type { TaskFailures } from '@outcomes/domain/aggregates/task-failures.aggregate';
 import type { TaskTouches } from '@outcomes/domain/aggregates/task-touches.aggregate';
-import {
-  inEndOrder,
-  inStartOrder,
-  startOf,
-} from '@outcomes/domain/services/run-order';
+import { inEndOrder } from '@outcomes/domain/services/run-order';
 import {
   type Window,
   within,
@@ -33,36 +29,6 @@ export const endedWithin = (
   records
     .filter((each) => within(window, each.end?.endedAt ?? null))
     .sort(inEndOrder);
-
-export interface StartedHistory {
-  readonly records: readonly RunRecord[];
-  readonly runsFrom: Date;
-}
-
-export const latestStarted = (
-  records: readonly RunRecord[],
-  most: number,
-  from: Date,
-): StartedHistory => {
-  const inOrder = [...records].sort((one, other) =>
-    inStartOrder(startOf(one), startOf(other)),
-  );
-  const lastLeftOut = inOrder[inOrder.length - most - 1];
-
-  if (!lastLeftOut) {
-    return { records, runsFrom: from };
-  }
-
-  const cut = startOf(lastLeftOut).beganAt.getTime();
-  const kept = inOrder.filter((each) => startOf(each).beganAt.getTime() > cut);
-  const held = new Set(kept);
-  const firstKept = kept[0] ? startOf(kept[0]).beganAt.getTime() : cut + 1;
-
-  return {
-    records: records.filter((each) => held.has(each)),
-    runsFrom: new Date(Math.max(from.getTime(), firstKept)),
-  };
-};
 
 export const startedWithin = (
   records: readonly RunRecord[],

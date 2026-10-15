@@ -393,7 +393,7 @@ describe('Search', () => {
     renderSearch();
 
     expect(tileNote('Best')).toHaveAccessibleDescription(
-      /^Aims for more success\./,
+      /^The search aims for more success\./,
     );
   });
 
@@ -403,14 +403,14 @@ describe('Search', () => {
     renderSearch();
 
     expect(tileNote('Cheapest')).toHaveAccessibleDescription(
-      /^Aims for the same success for less\./,
+      /^The search aims for the same success for less\./,
     );
     expect(tile('Cheapest')).toHaveTextContent(
       'No candidate holds its success yet',
     );
     expect(
       screen.getByText(
-        /candidates matching the live config’s success, within noise/,
+        /Frontier: candidates that match the live config’s success, within noise/,
       ),
     ).toBeInTheDocument();
   });
@@ -465,7 +465,7 @@ describe('Search', () => {
 
     expect(
       screen.getByText(
-        '1 frontier candidate gained only on searched tasks, not held-out ones.',
+        '1 frontier candidate gained only on searched tasks, not on held-out tasks.',
       ),
     ).toBeInTheDocument();
 
@@ -482,7 +482,7 @@ describe('Search', () => {
 
     const opened = await openCandidate('tests-first');
     expect(within(opened).getByRole('note')).toHaveTextContent(
-      'Gain showed only on searched tasks.',
+      'The gain showed only on searched tasks.',
     );
     expect(within(opened).getByRole('button', { name: 'Pick' })).toBeEnabled();
 
@@ -584,7 +584,7 @@ describe('Search', () => {
       'Iteration',
       expect.stringContaining('tests-first'),
       'Iteration',
-      'Search',
+      'The',
     ]);
     expect(
       within(candidateRow('tests-first')).getByRole('img', {
@@ -592,7 +592,7 @@ describe('Search', () => {
       }),
     ).toBeInTheDocument();
     expect(
-      screen.getByText('Search agent proposed nothing replayable.'),
+      screen.getByText('The search agent proposed nothing replayable.'),
     ).toBeInTheDocument();
 
     const opened = await openCandidate('tests-first');
@@ -771,7 +771,7 @@ describe('Search', () => {
         within(reflected).getByText(`· ${REFLECTION_KIND}`),
       ).toBeInTheDocument();
       expect(
-        within(reflected).queryByText(/proposals? taken/),
+        within(reflected).queryByText(/The search took/),
       ).not.toBeInTheDocument();
       expect(note).toHaveAttribute('data-slot', 'iteration-note');
       expect(

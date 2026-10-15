@@ -8,7 +8,7 @@ export class UnreplayableEntryError extends Error {
     readonly refusal: ReplayRefusal,
     reason: string,
   ) {
-    super(`Run ${runId} cannot be replayed. Reason: ${reason}`);
+    super(`Run ${runId} cannot be replayed. ${reason}`);
     this.name = 'UnreplayableEntryError';
   }
 }

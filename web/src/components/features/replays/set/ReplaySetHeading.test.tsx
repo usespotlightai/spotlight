@@ -85,7 +85,7 @@ describe('ReplaySetHeading and ReplaySetActions', () => {
     const deleting = screen.getByRole('button', { name: 'Delete' });
     expect(deleting).toBeDisabled();
     expect(deleting).toHaveAccessibleDescription(
-      'A replay or search of this set is running. Delete it once that ends or is stopped.',
+      'A replay or search of this set is running. Please delete the set after it ends.',
     );
   });
 

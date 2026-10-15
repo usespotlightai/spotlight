@@ -307,7 +307,7 @@ export class HookFiring extends EventRecorder {
     return stop
       ? HookFailure.of(
           'loop',
-          `Hook ${hook} was stopped. Reason: ${stop.saying}`,
+          `Hook ${hook} was stopped to prevent a loop. ${stop.saying}`,
         )
       : null;
   }

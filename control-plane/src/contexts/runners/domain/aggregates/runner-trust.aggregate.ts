@@ -109,7 +109,7 @@ export class RunnerTrust extends EventRecorder {
     if (!definition.key.equals(this.key)) {
       throw new RunnerTrustKeyFixedError(
         this.key.value,
-        `can't change its key. Please replace the trust to key it ${definition.key.value}`,
+        `can't change its key to ${definition.key.value}. Please replace the trust instead`,
       );
     }
 

@@ -198,7 +198,7 @@ export class RunnerPool extends EventRecorder {
       throw new RunnerPoolFixedError(
         this.key.value,
         'key',
-        `can't change its key. Please replace the pool to key it ${definition.key.value}`,
+        `can't change its key to ${definition.key.value}. Please replace the pool instead`,
       );
     }
 
@@ -206,7 +206,7 @@ export class RunnerPool extends EventRecorder {
       throw new RunnerPoolFixedError(
         this.key.value,
         'provision',
-        `${this.mode === 'push' ? 'provisions' : 'is pulled from'} for its whole life. Please replace the pool to ${given.mode === 'push' ? 'provision' : 'pull'} instead`,
+        `can't change from ${this.mode === 'push' ? 'provisioning' : 'being pulled from'} to ${given.mode === 'push' ? 'provisioning' : 'being pulled from'}. Please replace the pool instead`,
       );
     }
 

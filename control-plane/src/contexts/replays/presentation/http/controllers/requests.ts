@@ -38,7 +38,7 @@ const ceilingAt = (
   if (typeof amount !== 'number') {
     return refusedAt(
       [...at, 'amount'],
-      `must be a number, the most the ${what} may spend`,
+      `Ceiling amount must be a number. It is the most the ${what} may spend.`,
     );
   }
 
@@ -47,7 +47,10 @@ const ceilingAt = (
     currency:
       typeof currency === 'string'
         ? currency
-        : refusedAt([...at, 'currency'], 'must be a currency code, as in USD'),
+        : refusedAt(
+            [...at, 'currency'],
+            'Ceiling currency must be a currency code, such as USD.',
+          ),
   };
 };
 
@@ -86,21 +89,29 @@ export const searchBudgetIn = (body: unknown): SearchBudgetAsked => {
   const repeats = budget.repeats;
 
   return {
-    iterations: countAt(budget, ['budget', 'iterations'], 'must be a number'),
+    iterations: countAt(
+      budget,
+      ['budget', 'iterations'],
+      'Iterations must be a number.',
+    ),
     perIteration: countAt(
       budget,
       ['budget', 'perIteration'],
-      'must be a number',
+      'Candidates per iteration must be a number.',
     ),
     ceiling: ceilingAt(budget.ceiling, ['budget', 'ceiling'], 'search'),
     concurrency:
       concurrency === undefined || concurrency === null
         ? null
-        : countAt(budget, ['budget', 'concurrency'], 'must be a number'),
+        : countAt(
+            budget,
+            ['budget', 'concurrency'],
+            'Concurrency must be a number.',
+          ),
     repeats:
       repeats === undefined || repeats === null
         ? null
-        : countAt(budget, ['budget', 'repeats'], 'must be a number'),
+        : countAt(budget, ['budget', 'repeats'], 'Repeats must be a number.'),
   };
 };
 
@@ -112,16 +123,16 @@ export const searchAgentIn = (body: unknown): SearchAgentAsked => {
     harness:
       typeof harness === 'string'
         ? harness
-        : refusedAt(['agent', 'harness'], 'must name the agent’s harness'),
+        : refusedAt(['agent', 'harness'], 'Agent harness is required.'),
     model: optionalTextAt(
       agent,
       ['agent', 'model'],
-      'must be text or left out',
+      'Agent model must be text or left out.',
     ),
     effort: optionalTextAt(
       agent,
       ['agent', 'effort'],
-      'must be text or left out',
+      'Agent effort must be text or left out.',
     ),
   };
 };
@@ -135,7 +146,7 @@ export const objectiveIn = (body: unknown): SearchObjectiveAsked => {
 
   return isSearchObjective(held)
     ? held
-    : refusedAt(['objective'], 'must be success, cost or left out');
+    : refusedAt(['objective'], 'Objective must be success, cost or left out.');
 };
 
 export const repeatsIn = (body: unknown): number => {
@@ -144,7 +155,7 @@ export const repeatsIn = (body: unknown): number => {
 
   return repeats === undefined || repeats === null
     ? 1
-    : countAt(held, ['repeats'], 'must be a number');
+    : countAt(held, ['repeats'], 'Repeats must be a number.');
 };
 
 export const referenceIn = (
@@ -160,7 +171,7 @@ export const referenceIn = (
     commit: optionalTextAt(
       reference,
       ['reference', 'commit'],
-      'must be a hex sha or left out',
+      'Commit must be a hex SHA or left out.',
     ),
     pullRequest:
       pullRequest === undefined || pullRequest === null
@@ -168,7 +179,7 @@ export const referenceIn = (
         : countAt(
             reference,
             ['reference', 'pullRequest'],
-            'must be a number or left out',
+            'Pull request must be a number or left out.',
           ),
   };
 };
@@ -185,7 +196,7 @@ export const keyedIn = (
     ? { lineId: line, key: station }
     : refusedAt(
         [line ? 'station' : 'line'],
-        'must be given with both line and station',
+        'Line and station must be given together.',
       );
 };
 

@@ -66,8 +66,8 @@ export function SetRuns({ at, set, frozen }: SetRunsProps) {
       {set.entries.length === 0 ? (
         <StateBox flat>
           <EmptyState icon={History} title="No runs in this set" action={add}>
-            Add past runs of the station. A run is replayable if its starting
-            point was kept.
+            Add past runs of the station. If Spotlight kept a run’s starting
+            point, you can replay the run.
           </EmptyState>
         </StateBox>
       ) : (

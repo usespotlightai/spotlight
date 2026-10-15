@@ -13,7 +13,7 @@ export class ProfileKey {
     if (!areWords(trimmed)) {
       throw new InvalidIdentifierError(
         'harness profile',
-        `must be lowercase words joined by dashes, at most ${LONGEST_WORDS} characters, such as careful`,
+        `must be lowercase words joined by dashes, at most ${LONGEST_WORDS} characters, as in careful`,
       );
     }
 

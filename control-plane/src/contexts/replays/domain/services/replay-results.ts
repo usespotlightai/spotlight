@@ -160,6 +160,12 @@ export const taskSuccessesOf = (
   return successes;
 };
 
+export const scoredOriginalsOf = (replay: Replay): readonly RunId[] => {
+  const successes = taskSuccessesOf(replay);
+
+  return replay.originals.filter((original) => successes.has(original.value));
+};
+
 export const totalsOf = (
   replay: Replay,
   among: readonly RunId[] | null = null,

@@ -62,7 +62,7 @@ export function GitHubDetails({
                     <NotedWarning
                       tone="destructive"
                       label="Not reached"
-                      note={`The App can’t reach ${repository}, so agents can’t work in it. Give the App access on GitHub.`}
+                      note={`The App can’t reach ${repository}. Agents can’t work in it. Please give the App access on GitHub.`}
                     />
                   )}
                 </li>

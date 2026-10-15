@@ -58,7 +58,7 @@ export function AlertsInstrument({
         )}
       >
         {alerts.map((alert, place) => (
-          // biome-ignore lint/suspicious/noArrayIndexKey: alerts are listed as written and may repeat
+          // biome-ignore lint/suspicious/noArrayIndexKey: the alerts show in their written order and can repeat
           <AlertSlide key={place} alert={alert} />
         ))}
       </ul>
@@ -67,7 +67,7 @@ export function AlertsInstrument({
         <div className="-mt-1 flex justify-center gap-1.5">
           {Array.from({ length: pages }, (_, place) => (
             <button
-              // biome-ignore lint/suspicious/noArrayIndexKey: a dot is named by its page's place
+              // biome-ignore lint/suspicious/noArrayIndexKey: the position of its page identifies a dot
               key={place}
               type="button"
               aria-label={`Show page ${place + 1} of ${pages}`}

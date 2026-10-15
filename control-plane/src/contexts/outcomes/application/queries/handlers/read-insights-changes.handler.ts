@@ -11,7 +11,7 @@ import {
   configChangesOf,
   fingerprintsAsked,
 } from '@outcomes/application/services/config-changes';
-import type { TeamHistories } from '@outcomes/application/services/team-histories.service';
+import type { TeamScopes } from '@outcomes/application/services/team-scopes.service';
 import type { TrustedJudges } from '@outcomes/application/services/trusted-judges.service';
 import type { ChangeCounts } from '@outcomes/domain/services/before-after';
 import { verdictsFrom } from '@outcomes/domain/services/change-verdict';
@@ -37,7 +37,7 @@ export class ReadInsightsChangesHandler
   implements QueryHandlerPort<ReadInsightsChangesQuery, InsightsChangesDto>
 {
   constructor(
-    private readonly histories: TeamHistories,
+    private readonly scopes: TeamScopes,
     private readonly reader: InsightsReaderPort,
     private readonly judges: TrustedJudges,
     private readonly work: WorkPort,
@@ -45,7 +45,7 @@ export class ReadInsightsChangesHandler
 
   async execute(query: ReadInsightsChangesQuery): Promise<InsightsChangesDto> {
     try {
-      const { clearance, period } = await this.histories.scope(
+      const { clearance, period } = await this.scopes.scope(
         query.teamId,
         query.principal,
         query.period,
@@ -96,7 +96,6 @@ export class ReadInsightsChangesHandler
 
       return {
         period: periodOf(period),
-        truncated: false,
         markers,
         judges: standings.judges.map(({ rubricVersion: _, ...each }) => each),
       };

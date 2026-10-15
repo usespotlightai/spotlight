@@ -2,14 +2,14 @@ import { GainVerdict } from '@/components/features/replays/GainVerdict';
 import { PairTally } from '@/components/features/replays/PairTally';
 import { RateWithInterval } from '@/components/features/replays/RateWithInterval';
 import {
-  baselineTotalsFor,
+  counterpartNoun,
+  counterpartRateOf,
   counterpartShown,
   type Replay,
   type ReplayedStation,
   replayPath,
 } from '@/lib/replay';
 import {
-  BASELINE,
   NO_SCORE_YET,
   pairsJudged,
   SUCCEEDED,
@@ -26,31 +26,36 @@ type SuccessAgainstBaselineProps = {
     | 'againstBaseline'
     | 'pairsAgainstBaseline'
     | 'pairedWith'
+    | 'comparedWith'
     | 'candidate'
   >;
-  baseline: Pick<Replay, 'id' | 'totals'> | null;
+  baselineId: string | null;
   at?: ReplayedStation;
   className?: string;
 };
 
 export function SuccessAgainstBaseline({
   replay,
-  baseline,
+  baselineId,
   at,
   className,
 }: SuccessAgainstBaselineProps) {
   const { successRate, interval } = replay.totals;
-  const against = baselineTotalsFor(replay, baseline);
-  const baselineShown = against && against.successRate !== null && (
-    <>
-      {BASELINE}{' '}
-      <RateWithInterval
-        rate={against.successRate}
-        interval={against.interval}
-        className="text-muted-foreground"
-      />
-    </>
-  );
+  const against = counterpartRateOf(replay, baselineId);
+  const againstShown =
+    against &&
+    (against.successRate === null ? (
+      counterpartNoun(against)
+    ) : (
+      <>
+        {counterpartNoun(against)}{' '}
+        <RateWithInterval
+          rate={against.successRate}
+          interval={against.interval}
+          className="text-muted-foreground"
+        />
+      </>
+    ));
 
   return (
     <span
@@ -70,15 +75,12 @@ export function SuccessAgainstBaseline({
       )}
       {replay.isBaseline ? (
         <span className="text-muted-foreground">· {THE_BASELINE}</span>
-      ) : replay.againstBaseline ? (
-        <GainVerdict
-          gain={replay.againstBaseline}
-          against={baselineShown || BASELINE}
-        />
+      ) : replay.againstBaseline && againstShown ? (
+        <GainVerdict gain={replay.againstBaseline} against={againstShown} />
       ) : (
-        baselineShown && (
+        againstShown && (
           <span className="text-muted-foreground tabular-nums">
-            · {baselineShown}
+            · {againstShown}
           </span>
         )
       )}
@@ -92,7 +94,7 @@ export function SuccessAgainstBaseline({
             against={counterpartShown(
               replay.pairedWith,
               replay.candidate,
-              baseline?.id ?? null,
+              baselineId,
             )}
             to={at ? replayPath(at, replay.pairedWith) : null}
           />
