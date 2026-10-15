@@ -54,7 +54,7 @@ export function ReplayPage({
 
   const chosen =
     replay.comparison.find((each) => each.originalRunId === picked) ?? null;
-  const { compared, counterpart } = taskColumnsOf(replay);
+  const { compared, counterpart, counterpartLabel } = taskColumnsOf(replay);
 
   return (
     <TrailContext value={forward}>
@@ -82,6 +82,7 @@ export function ReplayPage({
             slug={at.slug}
             teamId={at.teamId}
             chosen={chosen}
+            counterpartLabel={counterpartLabel}
             onClose={() => setPicked(null)}
           />
         }

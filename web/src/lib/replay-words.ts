@@ -852,7 +852,7 @@ export const REGRESSED_NOTE = (against: string): string =>
   `Regressed: fewer copies succeeded than in ${against}, or the judge scored it lower.`;
 
 export const BASELINE_NOTE =
-  'The set’s baseline replays the live config. Spotlight compares every other replay of the set with the baseline.';
+  'The set’s baseline replays the live config. Most replays are compared with it. A search’s replays are compared with its starting config, and a replay with the answer with the live replay that started it.';
 
 export const successDetailShown = (
   totals: { readonly scored: number; readonly unscored: number },
