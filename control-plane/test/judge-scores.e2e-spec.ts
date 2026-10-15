@@ -16,6 +16,7 @@ import { RunSetup } from '@outcomes/domain/value-objects/run-setup.vo';
 import { ScoreId } from '@outcomes/domain/value-objects/score-id.vo';
 import { ScoreScale } from '@outcomes/domain/value-objects/score-scale.vo';
 import { SeenEvidence } from '@outcomes/domain/value-objects/seen-evidence.vo';
+import { DrizzleRunFactProjection } from '@outcomes/infrastructure/persistence/drizzle/projections/run-fact.projection';
 import { DrizzleJudgingRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/judging.repository';
 import { DrizzleRunRecordRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/run-record.repository';
 import { DrizzleScoreRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/score.repository';
@@ -142,11 +143,16 @@ beforeAll(async () => {
   } as unknown as DomainEventDispatcher;
   judgings = new DrizzleJudgingRepository(context, dispatcher);
   scores = new DrizzleScoreRepository(context, dispatcher);
-  records = new DrizzleRunRecordRepository(context, dispatcher);
+  records = new DrizzleRunRecordRepository(
+    context,
+    new DrizzleRunFactProjection(context),
+    dispatcher,
+  );
   reports = new StationJudgeReports(
     {
       holds: async () => true,
       of: async () => null,
+      judgesOnTeam: async () => new Map(),
       judgeAt: async (stationId) =>
         stationId === CLAIMS_STATION
           ? {
@@ -172,7 +178,11 @@ beforeAll(async () => {
     },
     scores,
     records,
-    new DrizzleTaskDeliveryRepository(context, dispatcher),
+    new DrizzleTaskDeliveryRepository(
+      context,
+      new DrizzleRunFactProjection(context),
+      dispatcher,
+    ),
   );
 }, 60_000);
 
@@ -322,6 +332,145 @@ describe('scores, kept', () => {
     expect(
       (await scores.gradeBy(RunId.of('run_a'), UserId.of('user_ada')))?.value,
     ).toBe(0);
+  });
+});
+
+describe('judge scores at many stations, read at once', () => {
+  const ELSEWHERE = WorkspaceId.of('ws_stations');
+  const NEXT_VERSION = 'd'.repeat(64);
+
+  const judgedAt = (
+    runId: string,
+    at: number,
+    where: {
+      stationId: string;
+      teamId?: string;
+      lineId?: string;
+      workspaceId?: WorkspaceId;
+      rubricVersion?: string;
+    },
+  ) =>
+    Score.judged({
+      id: ScoreId.of(`judge_${runId}`),
+      runId: RunId.of(runId),
+      workspaceId: where.workspaceId ?? ELSEWHERE,
+      place: RunPlace.of({
+        teamId: TeamId.of(where.teamId ?? 'team_1'),
+        lineId: where.lineId ?? 'line_1',
+        stationId: where.stationId,
+        taskId: TaskId.of(`task_${runId}`),
+      }),
+      fingerprint: CONFIG,
+      scale: YES_NO,
+      value: 1,
+      marks: null,
+      rubricVersion: where.rubricVersion ?? VERSION,
+      model: 'some/model',
+      reasons: [reason()],
+      seen: seen(),
+      at: new Date(NOW.getTime() + at * 60_000),
+    });
+
+  it('keeps the last judge scores of each asked station and rubric, and no others', async () => {
+    const added = [
+      ...[0, 1, 2, 3, 4].map((at) =>
+        judgedAt(`many_a_${at}`, at, { stationId: 'station_a' }),
+      ),
+      judgedAt('many_a_tie', 2, { stationId: 'station_a' }),
+      judgedAt('many_b_0', 0, { stationId: 'station_b' }),
+      judgedAt('many_b_1', 1, { stationId: 'station_b' }),
+      ...[2, 3, 4].map((at) =>
+        judgedAt(`many_b_next_${at}`, at, {
+          stationId: 'station_b',
+          rubricVersion: NEXT_VERSION,
+        }),
+      ),
+      judgedAt('many_c_0', 0, { stationId: 'station_c' }),
+      judgedAt('many_other_team', 9, {
+        stationId: 'station_a',
+        teamId: 'team_2',
+      }),
+      judgedAt('many_unasked', 9, { stationId: 'station_d' }),
+      judgedAt('many_other_workspace', 9, {
+        stationId: 'station_a',
+        workspaceId: WorkspaceId.of('ws_stations_next_door'),
+      }),
+      judgedAt('many_other_line', 9, {
+        stationId: 'station_a',
+        lineId: 'line_2',
+      }),
+    ];
+    for (const each of added) {
+      await scores.add(each);
+    }
+    await scores.add(
+      Score.graded({
+        id: ScoreId.of('grade_many_c_1'),
+        runId: RunId.of('many_c_1'),
+        workspaceId: ELSEWHERE,
+        place: RunPlace.of({
+          teamId: TEAM,
+          lineId: 'line_1',
+          stationId: 'station_c',
+          taskId: TaskId.of('task_many_c_1'),
+        }),
+        fingerprint: CONFIG,
+        scale: YES_NO,
+        value: 1,
+        marks: null,
+        rubricVersion: VERSION,
+        by: UserId.of('user_ada'),
+        at: LATER,
+      }),
+    );
+    const stations = ['station_a', 'station_b', 'station_c'].map(
+      (stationId) => ({ lineId: 'line_1', stationId, rubricVersion: VERSION }),
+    );
+
+    const read = await scores.judgedAtStations({
+      workspaceId: ELSEWHERE,
+      teamId: TEAM,
+      stations: [...stations, stations[0] as (typeof stations)[number]],
+      last: 3,
+    });
+
+    expect(read.map((each) => each.id.value).sort()).toEqual(
+      [
+        'judge_many_a_3',
+        'judge_many_a_4',
+        'judge_many_a_tie',
+        'judge_many_b_0',
+        'judge_many_b_1',
+        'judge_many_c_0',
+      ].sort(),
+    );
+    const oneByOne = await Promise.all(
+      stations.map((each) =>
+        scores.judgedAtStation({
+          workspaceId: ELSEWHERE,
+          teamId: TEAM,
+          ...each,
+          last: 3,
+        }),
+      ),
+    );
+    expect(read.map((each) => each.id.value).sort()).toEqual(
+      oneByOne
+        .flat()
+        .map((each) => each.id.value)
+        .sort(),
+    );
+    expect(read.find((each) => each.id.value === 'judge_many_a_4')).toEqual(
+      added[4],
+    );
+    expect(
+      await scores.judgedAtStations({
+        workspaceId: ELSEWHERE,
+        teamId: TEAM,
+        stations: [],
+        last: 3,
+      }),
+    ).toEqual([]);
   });
 });
 
@@ -496,7 +645,9 @@ describe('how often a claims judge agrees with people, claim by claim', () => {
       );
     }
 
-    const [kept] = await scores.ofRuns([RunId.of('claims_0')]);
+    const kept = (await scores.ofRuns([RunId.of('claims_0')])).find(
+      (each) => each.fromJudge,
+    );
     expect(kept?.marks).toEqual([true, true]);
     expect(kept?.reasons.map((each) => each.claim)).toEqual([0, 1]);
 

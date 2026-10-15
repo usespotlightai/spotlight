@@ -35639,11 +35639,6 @@
           "period": {
             "$ref": "#/components/schemas/InsightsPeriodResponseDto"
           },
-          "truncated": {
-            "type": "boolean",
-            "example": false,
-            "description": "Whether the team ran more than 20,000 runs over the period and the one before, so only the latest 20,000 were counted"
-          },
           "headline": {
             "description": "This period",
             "allOf": [
@@ -35694,7 +35689,6 @@
         },
         "required": [
           "period",
-          "truncated",
           "headline",
           "changes",
           "output",
@@ -35946,11 +35940,6 @@
           "period": {
             "$ref": "#/components/schemas/InsightsPeriodResponseDto"
           },
-          "truncated": {
-            "type": "boolean",
-            "example": false,
-            "description": "Whether the team ran more than 20,000 runs over the period and the one before, so only the latest 20,000 were counted"
-          },
           "flow": {
             "description": "This period",
             "allOf": [
@@ -35962,7 +35951,6 @@
         },
         "required": [
           "period",
-          "truncated",
           "flow"
         ]
       },
@@ -36282,11 +36270,6 @@
           "period": {
             "$ref": "#/components/schemas/InsightsPeriodResponseDto"
           },
-          "truncated": {
-            "type": "boolean",
-            "example": false,
-            "description": "Whether the team ran more than 20,000 runs over the period and the one before, so only the latest 20,000 were counted"
-          },
           "team": {
             "description": "The whole team",
             "allOf": [
@@ -36335,7 +36318,6 @@
         },
         "required": [
           "period",
-          "truncated",
           "team",
           "teamChanges",
           "teamSeen",
@@ -36580,11 +36562,6 @@
           "period": {
             "$ref": "#/components/schemas/InsightsPeriodResponseDto"
           },
-          "truncated": {
-            "type": "boolean",
-            "example": false,
-            "description": "Whether the team ran more than 20,000 runs over the period and the one before, so only the latest 20,000 were counted"
-          },
           "load": {
             "description": "This period",
             "allOf": [
@@ -36607,7 +36584,6 @@
         },
         "required": [
           "period",
-          "truncated",
           "load",
           "loadChanges",
           "adoption"
@@ -36862,11 +36838,6 @@
           "period": {
             "$ref": "#/components/schemas/InsightsPeriodResponseDto"
           },
-          "truncated": {
-            "type": "boolean",
-            "example": false,
-            "description": "Whether the team ran more than 20,000 runs over the period and the one before, so only the latest 20,000 were counted"
-          },
           "cost": {
             "$ref": "#/components/schemas/CostBreakdownResponseDto"
           },
@@ -36883,7 +36854,6 @@
         },
         "required": [
           "period",
-          "truncated",
           "cost",
           "spendChange"
         ]
@@ -37156,11 +37126,6 @@
           "period": {
             "$ref": "#/components/schemas/InsightsPeriodResponseDto"
           },
-          "truncated": {
-            "type": "boolean",
-            "example": false,
-            "description": "Whether the team had more than 20,000 runs in the period, so only the newest 20,000 were counted"
-          },
           "weeks": {
             "example": [
               "2026-09-21",
@@ -37214,7 +37179,6 @@
         },
         "required": [
           "period",
-          "truncated",
           "weeks",
           "runs",
           "trendRule",
@@ -37497,11 +37461,6 @@
           "period": {
             "$ref": "#/components/schemas/InsightsPeriodResponseDto"
           },
-          "truncated": {
-            "type": "boolean",
-            "example": false,
-            "description": "Whether the team ran more than 20,000 runs over the period and the one before, so only the latest 20,000 were counted"
-          },
           "markers": {
             "description": "Every station config change in the period, the oldest first, with the station’s tally before and after it",
             "type": "array",
@@ -37519,7 +37478,6 @@
         },
         "required": [
           "period",
-          "truncated",
           "markers",
           "judges"
         ]
@@ -37692,11 +37650,6 @@
           "period": {
             "$ref": "#/components/schemas/InsightsPeriodResponseDto"
           },
-          "truncated": {
-            "type": "boolean",
-            "example": false,
-            "description": "Whether the team ran more than 20,000 runs over the period and the one before, so only the latest 20,000 were counted"
-          },
           "stationId": {
             "type": "string",
             "nullable": true,
@@ -37757,7 +37710,6 @@
         },
         "required": [
           "period",
-          "truncated",
           "stationId",
           "size",
           "sizes",
@@ -37849,11 +37801,6 @@
           "period": {
             "$ref": "#/components/schemas/InsightsPeriodResponseDto"
           },
-          "truncated": {
-            "type": "boolean",
-            "example": false,
-            "description": "Whether the team ran more than 20,000 runs over the period and the one before, so only the latest 20,000 were counted"
-          },
           "standing": {
             "type": "number",
             "example": 14,
@@ -37922,7 +37869,6 @@
         },
         "required": [
           "period",
-          "truncated",
           "standing",
           "memoriesBriefed",
           "memoriesRecalled",
@@ -38443,11 +38389,6 @@
           "period": {
             "$ref": "#/components/schemas/InsightsPeriodResponseDto"
           },
-          "truncated": {
-            "type": "boolean",
-            "example": false,
-            "description": "Whether the team had more than 20,000 pull requests in the period, so only the newest 20,000 were counted"
-          },
           "total": {
             "type": "number",
             "example": 64,
@@ -38508,7 +38449,6 @@
         },
         "required": [
           "period",
-          "truncated",
           "total",
           "repositories",
           "weeks",
@@ -39268,11 +39208,6 @@
           "period": {
             "$ref": "#/components/schemas/InsightsPeriodResponseDto"
           },
-          "truncated": {
-            "type": "boolean",
-            "example": false,
-            "description": "Whether only the latest pull requests or runs were counted"
-          },
           "toMerge": {
             "description": "Opened to merged, for pull requests merged in the period",
             "allOf": [
@@ -39346,7 +39281,6 @@
         },
         "required": [
           "period",
-          "truncated",
           "toMerge",
           "toMergeChanges",
           "mergeDays",
@@ -39549,10 +39483,6 @@
           "period": {
             "$ref": "#/components/schemas/InsightsPeriodResponseDto"
           },
-          "truncated": {
-            "type": "boolean",
-            "example": false
-          },
           "total": {
             "type": "number",
             "example": 52,
@@ -39576,7 +39506,6 @@
         },
         "required": [
           "period",
-          "truncated",
           "total",
           "page",
           "size",

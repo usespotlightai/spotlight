@@ -1,4 +1,5 @@
 import { MemoriesProposed } from '@memory/domain/events/memories-proposed.event';
+import { MemoriesUsed } from '@memory/domain/events/memories-used.event';
 import { MemoryApproved } from '@memory/domain/events/memory-approved.event';
 import { MemoryDraftingAsked } from '@memory/domain/events/memory-drafting-asked.event';
 import { MemoryDraftingFailed } from '@memory/domain/events/memory-drafting-failed.event';
@@ -27,6 +28,7 @@ export const MEMORY_EVENT_TYPES = [
   MemoryPath,
   MemoryScope,
   MemoriesProposed,
+  MemoriesUsed,
   MemoryDraftingAsked,
   MemoryDraftingFailed,
   MemoryApproved,

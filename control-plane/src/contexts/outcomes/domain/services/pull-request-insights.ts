@@ -1,4 +1,5 @@
 import {
+  byText,
   known,
   rateOf,
   type Spread,
@@ -93,6 +94,33 @@ export interface PullRequestInsights {
   readonly depth: readonly RoundsShare[];
 }
 
+export interface MergedTally {
+  readonly repository: string;
+  readonly week: string;
+  readonly by: PullRequestAuthor;
+  readonly merged: number;
+}
+
+export interface MergedCounts {
+  readonly merged: number;
+  readonly toMerge: Spread;
+  readonly inReview: Spread;
+  readonly rounds: number;
+  readonly comments: number;
+  readonly reverted: number;
+}
+
+export interface PullRequestCounts {
+  readonly reached: number;
+  readonly tallies: readonly MergedTally[];
+  readonly named: readonly string[];
+  readonly compared: readonly string[];
+  readonly spotlight: MergedCounts;
+  readonly people: MergedCounts;
+  readonly types: readonly TypeShare[];
+  readonly depth: readonly RoundsShare[];
+}
+
 export const weekOf = (at: Date): string => {
   const midnight = Date.UTC(
     at.getUTCFullYear(),
@@ -135,42 +163,39 @@ export const mergedWithin = (
       each.seen.state === 'merged' && within(window, each.seen.closedAt),
   );
 
-const shareOf = (merged: readonly TeamPullRequest[]): Share => {
-  const made = merged.filter((each) => each.by === 'spotlight').length;
-  const touched = merged.filter((each) => each.by === 'touched').length;
+const shareOf = (tallies: readonly MergedTally[]): Share => {
+  const of = (author: PullRequestAuthor): number =>
+    tallies
+      .filter((each) => each.by === author)
+      .reduce((sum, each) => sum + each.merged, 0);
+  const merged = tallies.reduce((sum, each) => sum + each.merged, 0);
+  const made = of('spotlight');
+  const touched = of('touched');
 
   return {
-    merged: merged.length,
+    merged,
     made,
     touched,
     spotlight: made + touched,
-    people: merged.filter((each) => each.by === 'people').length,
-    bots: merged.filter((each) => each.by === 'bots').length,
-    share: rateOf(made + touched, merged.length),
+    people: of('people'),
+    bots: of('bots'),
+    share: rateOf(made + touched, merged),
   };
 };
 
 const weeklyOf = (
-  merged: readonly TeamPullRequest[],
+  tallies: readonly MergedTally[],
   weeks: readonly string[],
 ): readonly WeekShare[] =>
   weeks.map((week) => ({
     week,
-    ...shareOf(
-      merged.filter((each) => within(weekWindowOf(week), each.seen.closedAt)),
-    ),
+    ...shareOf(tallies.filter((each) => each.week === week)),
   }));
 
-const repositoriesOf = (
-  teamRepositories: readonly string[],
-  merged: readonly TeamPullRequest[],
-): readonly string[] => {
+const repositoriesOf = (repositories: readonly string[]): readonly string[] => {
   const named: string[] = [];
 
-  for (const repository of [
-    ...teamRepositories,
-    ...merged.map((each) => each.seen.repository),
-  ]) {
+  for (const repository of repositories) {
     if (!named.some((each) => sameRepository(each, repository))) {
       named.push(repository);
     }
@@ -179,21 +204,20 @@ const repositoriesOf = (
   return named;
 };
 
-export const penetrationOf = (
-  pullRequests: readonly TeamPullRequest[],
+export const penetrationFrom = (
+  counts: PullRequestCounts,
   teamRepositories: readonly string[],
   window: Window,
 ): Penetration => {
-  const merged = mergedWithin(pullRequests, window);
   const weeks = weeksOf(window);
 
   return {
-    ...shareOf(merged),
-    weeks: weeklyOf(merged, weeks),
-    repositories: repositoriesOf(teamRepositories, merged)
+    ...shareOf(counts.tallies),
+    weeks: weeklyOf(counts.tallies, weeks),
+    repositories: repositoriesOf([...teamRepositories, ...counts.named])
       .map((repository) => {
-        const here = merged.filter((each) =>
-          sameRepository(each.seen.repository, repository),
+        const here = counts.tallies.filter(
+          (each) => each.repository === repository.toLowerCase(),
         );
 
         return { repository, ...shareOf(here), weeks: weeklyOf(here, weeks) };
@@ -205,24 +229,24 @@ export const penetrationOf = (
   };
 };
 
-const meanOf = (values: readonly number[]): number | null =>
-  values.length > 0
-    ? values.reduce((sum, each) => sum + each, 0) / values.length
-    : null;
+const meanOf = (sum: number, count: number): number | null =>
+  count > 0 ? sum / count : null;
 
-const measuresOf = (merged: readonly TeamPullRequest[]): GroupMeasures => {
-  const reverts = merged.filter(reverted).length;
+const measuresFrom = (counts: MergedCounts): GroupMeasures => ({
+  merged: counts.merged,
+  toMerge: counts.toMerge,
+  inReview: counts.inReview,
+  meanRounds: meanOf(counts.rounds, counts.merged),
+  meanComments: meanOf(counts.comments, counts.merged),
+  reverted: counts.reverted,
+  revertRate: rateOf(counts.reverted, counts.merged),
+});
 
-  return {
-    merged: merged.length,
-    toMerge: spreadOf(known(merged.map(toMergeMs))),
-    inReview: spreadOf(known(merged.map(inReviewMs))),
-    meanRounds: meanOf(merged.map((each) => each.seen.reviewRounds)),
-    meanComments: meanOf(merged.map((each) => each.seen.reviewComments)),
-    reverted: reverts,
-    revertRate: rateOf(reverts, merged.length),
-  };
-};
+export const comparisonFrom = (counts: PullRequestCounts): Comparison => ({
+  repositories: counts.compared,
+  spotlight: measuresFrom(counts.spotlight),
+  people: measuresFrom(counts.people),
+});
 
 const by = (
   pullRequests: readonly TeamPullRequest[],
@@ -230,9 +254,12 @@ const by = (
 ): readonly TeamPullRequest[] =>
   pullRequests.filter((each) => each.by === author);
 
+const namedIn = (merged: readonly TeamPullRequest[]): readonly string[] =>
+  repositoriesOf(merged.map((each) => each.seen.repository));
+
 const comparedRepositories = (
   merged: readonly TeamPullRequest[],
-): readonly string[] => repositoriesOf([], by(merged, 'spotlight'));
+): readonly string[] => namedIn(by(merged, 'spotlight'));
 
 export const comparedRepositoriesOf = (
   pullRequests: readonly TeamPullRequest[],
@@ -249,20 +276,6 @@ export const inRepositories = (
       sameRepository(repository, each.seen.repository),
     ),
   );
-
-export const comparisonOf = (
-  pullRequests: readonly TeamPullRequest[],
-  window: Window,
-): Comparison => {
-  const merged = mergedWithin(pullRequests, window);
-  const repositories = comparedRepositories(merged);
-
-  return {
-    repositories,
-    spotlight: measuresOf(by(merged, 'spotlight')),
-    people: measuresOf(inRepositories(by(merged, 'people'), repositories)),
-  };
-};
 
 export const typesOf = (
   pullRequests: readonly TeamPullRequest[],
@@ -318,14 +331,76 @@ export const depthOf = (
   }));
 };
 
-export const pullRequestInsightsOf = (
+const talliesOf = (
+  merged: readonly TeamPullRequest[],
+): readonly MergedTally[] => {
+  const tallies = new Map<string, MergedTally>();
+
+  for (const each of merged) {
+    if (each.seen.closedAt === null) {
+      continue;
+    }
+
+    const repository = each.seen.repository.toLowerCase();
+    const week = weekOf(each.seen.closedAt);
+    const key = JSON.stringify([repository, week, each.by]);
+    const held = tallies.get(key);
+
+    tallies.set(key, {
+      repository,
+      week,
+      by: each.by,
+      merged: (held?.merged ?? 0) + 1,
+    });
+  }
+
+  return [...tallies.values()].sort(
+    (a, b) =>
+      byText(a.repository, b.repository) ||
+      byText(a.week, b.week) ||
+      byText(a.by, b.by),
+  );
+};
+
+const sumOf = (values: readonly number[]): number =>
+  values.reduce((sum, each) => sum + each, 0);
+
+const mergedCountsOf = (merged: readonly TeamPullRequest[]): MergedCounts => ({
+  merged: merged.length,
+  toMerge: spreadOf(known(merged.map(toMergeMs))),
+  inReview: spreadOf(known(merged.map(inReviewMs))),
+  rounds: sumOf(merged.map((each) => each.seen.reviewRounds)),
+  comments: sumOf(merged.map((each) => each.seen.reviewComments)),
+  reverted: merged.filter(reverted).length,
+});
+
+export const pullRequestCountsOf = (
   pullRequests: readonly TeamPullRequest[],
+  window: Window,
+): PullRequestCounts => {
+  const merged = mergedWithin(pullRequests, window);
+  const compared = comparedRepositories(merged);
+
+  return {
+    reached: pullRequests.length,
+    tallies: talliesOf(merged),
+    named: namedIn(merged),
+    compared,
+    spotlight: mergedCountsOf(by(merged, 'spotlight')),
+    people: mergedCountsOf(inRepositories(by(merged, 'people'), compared)),
+    types: typesOf(pullRequests, window),
+    depth: depthOf(pullRequests, window),
+  };
+};
+
+export const pullRequestInsightsFrom = (
+  counts: PullRequestCounts,
   teamRepositories: readonly string[],
   window: Window,
 ): PullRequestInsights => ({
   weeks: weeksOf(window),
-  penetration: penetrationOf(pullRequests, teamRepositories, window),
-  comparison: comparisonOf(pullRequests, window),
-  types: typesOf(pullRequests, window),
-  depth: depthOf(pullRequests, window),
+  penetration: penetrationFrom(counts, teamRepositories, window),
+  comparison: comparisonFrom(counts),
+  types: counts.types,
+  depth: counts.depth,
 });

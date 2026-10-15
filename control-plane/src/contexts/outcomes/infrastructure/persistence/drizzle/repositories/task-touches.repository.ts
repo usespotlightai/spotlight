@@ -1,22 +1,19 @@
 import { Injectable } from '@nestjs/common';
 import { TaskTouches } from '@outcomes/domain/aggregates/task-touches.aggregate';
 import { TaskTouchesMovedOnError } from '@outcomes/domain/exceptions/task-touches-moved-on.error';
-import type { TeamWindow } from '@outcomes/domain/repositories/run-record.repository';
 import type { TaskTouchesRepository } from '@outcomes/domain/repositories/task-touches.repository';
 import { InboxAsk } from '@outcomes/domain/value-objects/inbox-ask.vo';
 import { PersonTouch } from '@outcomes/domain/value-objects/person-touch.vo';
 import { TaskOpening } from '@outcomes/domain/value-objects/task-opening.vo';
-import {
-  runRecord,
-  taskTouches,
-} from '@outcomes/infrastructure/persistence/drizzle/schemas/outcomes.schema';
+import { DrizzleRunFactProjection } from '@outcomes/infrastructure/persistence/drizzle/projections/run-fact.projection';
+import { taskTouches } from '@outcomes/infrastructure/persistence/drizzle/schemas/outcomes.schema';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, desc, eq, gte, inArray, lt, or } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 
 type TouchesRow = typeof taskTouches.$inferSelect;
 
@@ -80,40 +77,57 @@ const columnsOf = (touches: TaskTouches) => ({
 
 @Injectable()
 export class DrizzleTaskTouchesRepository implements TaskTouchesRepository {
-  constructor(private readonly context: DrizzleContext) {}
+  constructor(
+    private readonly context: DrizzleContext,
+    private readonly facts: DrizzleRunFactProjection,
+  ) {}
 
   async add(added: TaskTouches): Promise<void> {
-    const written = await this.context.db
-      .insert(taskTouches)
-      .values({
-        taskId: added.taskId.value,
-        workspaceId: added.workspaceId.value,
-        version: added.version,
-        ...columnsOf(added),
-      })
-      .onConflictDoNothing({ target: taskTouches.taskId })
-      .returning({ taskId: taskTouches.taskId });
+    await this.context.run(async () => {
+      const written = await this.context.db
+        .insert(taskTouches)
+        .values({
+          taskId: added.taskId.value,
+          workspaceId: added.workspaceId.value,
+          version: added.version,
+          ...columnsOf(added),
+        })
+        .onConflictDoNothing({ target: taskTouches.taskId })
+        .returning({ taskId: taskTouches.taskId });
 
-    if (written.length === 0) {
-      throw new TaskTouchesMovedOnError(added.taskId.value);
-    }
+      if (written.length === 0) {
+        throw new TaskTouchesMovedOnError(added.taskId.value);
+      }
+
+      await this.facts.refresh({
+        kind: 'tasks',
+        taskIds: [added.taskId.value],
+      });
+    });
   }
 
   async save(saved: TaskTouches): Promise<void> {
-    const written = await this.context.db
-      .update(taskTouches)
-      .set({ version: saved.version + 1, ...columnsOf(saved) })
-      .where(
-        and(
-          eq(taskTouches.taskId, saved.taskId.value),
-          eq(taskTouches.version, saved.version),
-        ),
-      )
-      .returning({ taskId: taskTouches.taskId });
+    await this.context.run(async () => {
+      const written = await this.context.db
+        .update(taskTouches)
+        .set({ version: saved.version + 1, ...columnsOf(saved) })
+        .where(
+          and(
+            eq(taskTouches.taskId, saved.taskId.value),
+            eq(taskTouches.version, saved.version),
+          ),
+        )
+        .returning({ taskId: taskTouches.taskId });
 
-    if (written.length === 0) {
-      throw new TaskTouchesMovedOnError(saved.taskId.value);
-    }
+      if (written.length === 0) {
+        throw new TaskTouchesMovedOnError(saved.taskId.value);
+      }
+
+      await this.facts.refresh({
+        kind: 'tasks',
+        taskIds: [saved.taskId.value],
+      });
+    });
   }
 
   async of(taskId: TaskId): Promise<TaskTouches | null> {
@@ -126,83 +140,46 @@ export class DrizzleTaskTouchesRepository implements TaskTouchesRepository {
     return row ? toTouches(row) : null;
   }
 
-  async forTasks(taskIds: readonly TaskId[]): Promise<readonly TaskTouches[]> {
-    if (taskIds.length === 0) {
-      return [];
-    }
-
-    const rows = await this.context.db
-      .select()
-      .from(taskTouches)
-      .where(
-        inArray(
-          taskTouches.taskId,
-          taskIds.map((each) => each.value),
-        ),
-      );
-
-    return rows.map(toTouches);
-  }
-
-  async ofTeamBetween(
-    window: TeamWindow,
-    most: number,
-  ): Promise<readonly TaskTouches[]> {
-    const rows = await this.context.db
-      .select()
-      .from(taskTouches)
-      .where(
-        and(
-          eq(taskTouches.workspaceId, window.workspaceId.value),
-          or(
-            and(
-              eq(taskTouches.teamId, window.teamId.value),
-              gte(taskTouches.touchedAt, window.from),
-              lt(taskTouches.openedAt, window.to),
-            ),
-            inArray(
-              taskTouches.taskId,
-              this.context.db
-                .selectDistinct({ taskId: runRecord.taskId })
-                .from(runRecord)
-                .where(
-                  and(
-                    eq(runRecord.workspaceId, window.workspaceId.value),
-                    eq(runRecord.teamId, window.teamId.value),
-                    gte(runRecord.endedAt, window.from),
-                    lt(runRecord.endedAt, window.to),
-                  ),
-                ),
-            ),
-          ),
-        ),
-      )
-      .orderBy(desc(taskTouches.touchedAt), desc(taskTouches.taskId))
-      .limit(most);
-
-    return rows.map(toTouches);
-  }
-
   async removeForTask(taskId: TaskId): Promise<void> {
-    await this.context.db
-      .delete(taskTouches)
-      .where(eq(taskTouches.taskId, taskId.value));
+    await this.context.run(async () => {
+      await this.context.db
+        .delete(taskTouches)
+        .where(eq(taskTouches.taskId, taskId.value));
+
+      await this.facts.refresh({ kind: 'tasks', taskIds: [taskId.value] });
+    });
   }
 
   async removeForTeam(workspaceId: WorkspaceId, teamId: TeamId): Promise<void> {
-    await this.context.db
-      .delete(taskTouches)
-      .where(
-        and(
-          eq(taskTouches.workspaceId, workspaceId.value),
-          eq(taskTouches.teamId, teamId.value),
-        ),
-      );
+    await this.context.run(async () => {
+      const removed = await this.context.db
+        .delete(taskTouches)
+        .where(
+          and(
+            eq(taskTouches.workspaceId, workspaceId.value),
+            eq(taskTouches.teamId, teamId.value),
+          ),
+        )
+        .returning({ taskId: taskTouches.taskId });
+
+      await this.facts.forgetOpenings({
+        kind: 'tasks',
+        workspaceId: workspaceId.value,
+        taskIds: removed.map((each) => each.taskId),
+      });
+    });
   }
 
   async removeForWorkspace(workspaceId: WorkspaceId): Promise<void> {
-    await this.context.db
-      .delete(taskTouches)
-      .where(eq(taskTouches.workspaceId, workspaceId.value));
+    await this.context.run(async () => {
+      await this.context.db
+        .delete(taskTouches)
+        .where(eq(taskTouches.workspaceId, workspaceId.value));
+
+      await this.facts.forgetOpenings({
+        kind: 'workspace',
+        workspaceId: workspaceId.value,
+      });
+    });
   }
 }

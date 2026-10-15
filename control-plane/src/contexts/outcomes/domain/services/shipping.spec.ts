@@ -3,9 +3,14 @@ import { endedRecord } from '@outcomes/domain/outcomes.fake-spec';
 import { teamPullRequestOf } from '@outcomes/domain/pull-requests.fake-spec';
 import {
   type FlowStageKind,
+  pipelineCountsOf,
   type Shipping,
-  shippingOf,
+  shippedTaskIdsOf,
+  shippingCountsOf,
+  shippingFrom,
 } from '@outcomes/domain/services/shipping';
+import type { TeamHistory } from '@outcomes/domain/services/team-history';
+import type { TeamPullRequest } from '@outcomes/domain/services/team-pull-requests';
 import { InsightsPeriod } from '@outcomes/domain/value-objects/insights-period.vo';
 import { describe, expect, it } from 'vitest';
 
@@ -33,12 +38,25 @@ const merged = (
 
 const NOTHING = historyOf({});
 
+const shippedOf = (
+  pullRequests: readonly TeamPullRequest[],
+  history: TeamHistory,
+  period: InsightsPeriod,
+) =>
+  shippingFrom(
+    shippingCountsOf(
+      pullRequests,
+      pipelineCountsOf(history, shippedTaskIdsOf(pullRequests, period), period),
+      period,
+    ),
+  );
+
 const timesAt = (pipeline: Shipping['pipeline'], kind: FlowStageKind) =>
   pipeline.layouts.stages.find((each) => each.kind === kind)?.times;
 
-describe('shippingOf', () => {
+describe('the Shipping tab', () => {
   it('times opened to merged for Spotlight and for people in the repositories Spotlight merged into', () => {
-    const shipping = shippingOf(
+    const shipping = shippedOf(
       [
         merged(1, '2026-09-29', 4, { by: 'spotlight', taskId: 'task_1' }),
         merged(2, '2026-09-30', 10),
@@ -65,7 +83,7 @@ describe('shippingOf', () => {
   });
 
   it('goes day by day, each day on its own and over the 7 days ending it', () => {
-    const shipping = shippingOf(
+    const shipping = shippedOf(
       [
         merged(1, '2026-09-28', 2, { by: 'spotlight' }),
         merged(2, '2026-09-30', 6, { by: 'spotlight' }),
@@ -86,7 +104,7 @@ describe('shippingOf', () => {
   });
 
   it('times each type, slowest first at each percentile, and buckets review rounds week by week and over the period', () => {
-    const shipping = shippingOf(
+    const shipping = shippedOf(
       [
         merged(1, '2026-09-29', 9, {
           by: 'spotlight',
@@ -133,7 +151,7 @@ describe('shippingOf', () => {
   });
 
   it('times ready for review to the first review, counts who still waits and human reviews, leaving drafts and bots’ pull requests out', () => {
-    const shipping = shippingOf(
+    const shipping = shippedOf(
       [
         teamPullRequestOf(1, {
           seen: {
@@ -181,7 +199,7 @@ describe('shippingOf', () => {
   });
 
   it('sums each bot’s activity over the pull requests active in the period, busiest first', () => {
-    const shipping = shippingOf(
+    const shipping = shippedOf(
       [
         teamPullRequestOf(1, {
           seen: {
@@ -243,7 +261,7 @@ describe('shippingOf', () => {
   });
 
   it('puts a type only people merged after the types Spotlight merged', () => {
-    const shipping = shippingOf(
+    const shipping = shippedOf(
       [
         merged(1, '2026-09-29', 2, { type: 'chore' }),
         merged(2, '2026-09-29', 4, { by: 'spotlight', type: 'feature' }),
@@ -269,7 +287,7 @@ describe('shippingOf', () => {
       touches: [touchesOf('task_1', { openedAt: day('2026-09-28', 8) })],
     });
 
-    const { pipeline } = shippingOf(
+    const { pipeline } = shippedOf(
       [merged(1, '2026-09-29', 4, { by: 'spotlight', taskId: 'task_1' })],
       history,
       PERIOD,
@@ -296,7 +314,7 @@ describe('shippingOf', () => {
       touches: [touchesOf('task_1', { openedAt: day('2026-09-28', 8) })],
     });
 
-    const { pipeline } = shippingOf(
+    const { pipeline } = shippedOf(
       [
         teamPullRequestOf(1, {
           by: 'spotlight',
@@ -373,7 +391,7 @@ describe('shippingOf', () => {
           closedAt: day(on, hours.closed),
         },
       });
-    const { pipeline } = shippingOf(
+    const { pipeline } = shippedOf(
       [
         shipped(1, 'feature', '2026-09-28', {
           opened: 10,
@@ -434,7 +452,7 @@ describe('shippingOf', () => {
   });
 
   it('marks the first of equally long stages as the longest, and none where nothing was measured', () => {
-    const { pipeline } = shippingOf(
+    const { pipeline } = shippedOf(
       [
         teamPullRequestOf(1, {
           by: 'spotlight',
@@ -459,12 +477,12 @@ describe('shippingOf', () => {
 
     expect(worst(pipeline.layouts.stages)).toEqual([true, false, false, false]);
     expect(
-      worst(shippingOf([], NOTHING, PERIOD).pipeline.layouts.stages),
+      worst(shippedOf([], NOTHING, PERIOD).pipeline.layouts.stages),
     ).toEqual([false, false, false, false]);
   });
 
   it('counts a review before the pull request was ready, or an approval after the merge, as no wait', () => {
-    const { pipeline, reviewDays } = shippingOf(
+    const { pipeline, reviewDays } = shippedOf(
       [
         teamPullRequestOf(1, {
           by: 'spotlight',
@@ -494,16 +512,16 @@ describe('shippingOf', () => {
   });
 
   it('tells a period with nothing merged, waiting or reviewed apart', () => {
-    expect(shippingOf([], NOTHING, PERIOD).shippedAny).toBe(false);
+    expect(shippedOf([], NOTHING, PERIOD).shippedAny).toBe(false);
     expect(
-      shippingOf(
+      shippedOf(
         [merged(1, '2026-09-30', 2, { by: 'spotlight' })],
         NOTHING,
         PERIOD,
       ).shippedAny,
     ).toBe(true);
     expect(
-      shippingOf(
+      shippedOf(
         [merged(1, '2026-08-01', 2, { by: 'spotlight' })],
         NOTHING,
         PERIOD,
@@ -512,7 +530,7 @@ describe('shippingOf', () => {
   });
 
   it('counts only the period’s merges in the week it starts in', () => {
-    const shipping = shippingOf(
+    const shipping = shippedOf(
       [
         merged(1, '2026-09-23', 2, { by: 'spotlight' }),
         merged(2, '2026-09-25', 2, { by: 'spotlight' }),
@@ -528,7 +546,7 @@ describe('shippingOf', () => {
   });
 
   it('follows only the tasks opened within the history it holds', () => {
-    const { pipeline } = shippingOf(
+    const { pipeline } = shippedOf(
       [
         merged(1, '2026-09-29', 4, { by: 'spotlight', taskId: 'task_1' }),
         merged(2, '2026-09-30', 4, { by: 'spotlight', taskId: 'task_2' }),
@@ -548,7 +566,7 @@ describe('shippingOf', () => {
   });
 
   it('leaves a pull request out of who waits while it is back as a draft, and takes that time off its wait', () => {
-    const { reviewDays, pipeline } = shippingOf(
+    const { reviewDays, pipeline } = shippedOf(
       [
         teamPullRequestOf(1, {
           by: 'spotlight',
@@ -594,7 +612,7 @@ describe('shippingOf', () => {
       spells: { from: Date; to: Date | null }[],
       reviewedAt = day('2026-09-29', 21),
     ) =>
-      shippingOf(
+      shippedOf(
         [
           teamPullRequestOf(1, {
             seen: {
@@ -623,7 +641,7 @@ describe('shippingOf', () => {
   });
 
   it('stops counting a closed pull request as waiting, even while back as a draft', () => {
-    const { reviewDays } = shippingOf(
+    const { reviewDays } = shippedOf(
       [
         teamPullRequestOf(1, {
           seen: {

@@ -8,6 +8,10 @@ import type { Refusal } from '@outcomes/domain/value-objects/refusal.vo';
 import type { RunCost } from '@outcomes/domain/value-objects/run-cost.vo';
 import type { RunEnd } from '@outcomes/domain/value-objects/run-end.vo';
 import type { RunEnding } from '@outcomes/domain/value-objects/run-ending';
+import {
+  type MemoryWay,
+  RunMemories,
+} from '@outcomes/domain/value-objects/run-memories.vo';
 import type { RunTools } from '@outcomes/domain/value-objects/run-tools.vo';
 import type { RunTurnout } from '@outcomes/domain/value-objects/run-turnout';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
@@ -30,6 +34,7 @@ export class RunRecord extends EventRecorder {
     readonly handedOn: HandedOn | null,
     readonly tools: RunTools | null,
     readonly refusals: readonly Refusal[],
+    readonly memories: RunMemories,
     readonly version: number,
   ) {
     super();
@@ -54,6 +59,7 @@ export class RunRecord extends EventRecorder {
       null,
       null,
       [],
+      RunMemories.NONE,
       0,
     );
   }
@@ -72,6 +78,7 @@ export class RunRecord extends EventRecorder {
     handedOn: HandedOn | null;
     tools: RunTools | null;
     refusals: readonly Refusal[];
+    memories: RunMemories;
     version: number;
   }): RunRecord {
     if (
@@ -106,6 +113,7 @@ export class RunRecord extends EventRecorder {
       input.handedOn,
       input.tools,
       input.refusals,
+      input.memories,
       input.version,
     );
   }
@@ -133,6 +141,7 @@ export class RunRecord extends EventRecorder {
       known(this.handedOn?.at) ? this.handedOn : null,
       this.tools,
       this.refusals,
+      this.memories,
       this.version,
     );
   }
@@ -224,6 +233,12 @@ export class RunRecord extends EventRecorder {
       : this.with({ refusals: [...this.refusals, refusal] });
   }
 
+  usedMemories(way: MemoryWay, memories: readonly string[]): RunRecord {
+    const used = this.memories.with(way, memories);
+
+    return used === this.memories ? this : this.with({ memories: used });
+  }
+
   failedAfterCallingTo(server: string): boolean {
     return (
       this.ending === 'failed' &&
@@ -272,6 +287,7 @@ export class RunRecord extends EventRecorder {
     handedOn?: HandedOn;
     tools?: RunTools;
     refusals?: readonly Refusal[];
+    memories?: RunMemories;
   }): RunRecord {
     const next = new RunRecord(
       this.runId,
@@ -287,6 +303,7 @@ export class RunRecord extends EventRecorder {
       change.handedOn ?? this.handedOn,
       change.tools ?? this.tools,
       change.refusals ?? this.refusals,
+      change.memories ?? this.memories,
       this.version,
     );
 

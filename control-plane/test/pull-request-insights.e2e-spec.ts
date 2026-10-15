@@ -301,6 +301,23 @@ describe('the team’s pull request insights (e2e)', () => {
     expect(answer.body.depth).toHaveLength(4);
   });
 
+  it('shows on the Shipping tab how fast and how deep what merged went, Spotlight’s apart from people’s', async () => {
+    const answer = await asOwner(insights('shipping'));
+
+    expect(answer.status).toBe(200);
+    expect(answer.body.toMerge).toMatchObject({
+      spotlight: { count: 1 },
+      people: { count: 2 },
+    });
+    expect(answer.body.mergeDays).toHaveLength(7);
+    expect(
+      answer.body.depthTotals.reduce(
+        (sum: number, each: { merged: number }) => sum + each.merged,
+        0,
+      ),
+    ).toBe(3);
+  });
+
   it('lists the pull requests behind a number, with the task that made Spotlight’s', async () => {
     const answer = await asOwner(
       insights('pull-requests/list', 'period=7d&author=spotlight&state=merged'),

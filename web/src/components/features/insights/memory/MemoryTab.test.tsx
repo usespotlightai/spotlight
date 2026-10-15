@@ -54,7 +54,6 @@ const tally = (over: Record<string, unknown> = {}) => ({
 
 const MEMORY = {
   period: { name: '30d' },
-  truncated: false,
   standing: 12,
   memoriesBriefed: 7,
   memoriesRecalled: 2,

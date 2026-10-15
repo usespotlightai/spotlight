@@ -1,6 +1,10 @@
-import { day } from '@outcomes/domain/insights.fake-spec';
+import type { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
+import { day, historyOf } from '@outcomes/domain/insights.fake-spec';
 import { costedRecord, endedRecord } from '@outcomes/domain/outcomes.fake-spec';
-import { toolInsightsOf } from '@outcomes/domain/services/tool-insights';
+import {
+  toolCountsOf,
+  toolInsightsFrom,
+} from '@outcomes/domain/services/tool-insights';
 import { Refusal } from '@outcomes/domain/value-objects/refusal.vo';
 import {
   RunTools,
@@ -8,6 +12,19 @@ import {
 } from '@outcomes/domain/value-objects/run-tools.vo';
 import { LatencyHistogram } from '@shared-kernel/domain/value-objects/latency-histogram.vo';
 import { describe, expect, it } from 'vitest';
+
+const ALWAYS = { from: new Date(0), to: new Date(8_640_000_000_000_000) };
+
+const insightsOf = (
+  records: readonly RunRecord[],
+  weeks: readonly string[],
+  defined: readonly string[],
+) =>
+  toolInsightsFrom(
+    toolCountsOf(historyOf({ records }), ALWAYS),
+    weeks,
+    defined,
+  );
 
 const WEEKS = ['2026-09-07', '2026-09-14', '2026-09-21', '2026-09-28'];
 
@@ -47,9 +64,9 @@ const ran = (
     }),
   });
 
-describe('toolInsightsOf', () => {
+describe('toolInsightsFrom', () => {
   it('counts per week the runs given a skill and the runs that read it', () => {
-    const insights = toolInsightsOf(
+    const insights = insightsOf(
       [
         ran('run_1', day('2026-09-08'), { skills: ['grafana'] }),
         ran('run_2', day('2026-09-09'), {
@@ -93,7 +110,7 @@ describe('toolInsightsOf', () => {
       ),
     ];
 
-    const [skill] = toolInsightsOf(records, WEEKS, []).skills;
+    const [skill] = insightsOf(records, WEEKS, []).skills;
 
     expect(skill?.trend).toBe('spreading');
     expect(skill?.defined).toBe(false);
@@ -110,7 +127,7 @@ describe('toolInsightsOf', () => {
   });
 
   it('lists defined skills no run read as unused, even ones runs were given', () => {
-    const insights = toolInsightsOf(
+    const insights = insightsOf(
       [
         ran('run_1', day('2026-09-29'), {
           skills: ['grafana', 'our-migrations'],
@@ -125,7 +142,7 @@ describe('toolInsightsOf', () => {
   });
 
   it('measures each server’s runs, calls per run, latency, errors and failing runs', () => {
-    const insights = toolInsightsOf(
+    const insights = insightsOf(
       [
         ran('run_1', day('2026-09-29'), {
           servers: [calls('linear', [100, 200, 300])],
@@ -186,7 +203,7 @@ describe('toolInsightsOf', () => {
         }),
       );
 
-    const insights = toolInsightsOf([twice], WEEKS, []);
+    const insights = insightsOf([twice], WEEKS, []);
 
     expect(insights.refusals).toEqual([
       { tool: 'comment', server: 'linear', refused: 1 },
@@ -201,7 +218,7 @@ describe('toolInsightsOf', () => {
         servers: server ? [calls(server, [100])] : [],
       }).refused(Refusal.of({ tool, server, at: day('2026-09-30') }));
 
-    const insights = toolInsightsOf(
+    const insights = insightsOf(
       [
         refused('run_1', 'create_issue', 'linear'),
         refused('run_2', 'create_issue', 'linear'),
@@ -226,7 +243,7 @@ describe('toolInsightsOf', () => {
   });
 
   it('leaves out runs withdrawn before they ran', () => {
-    const insights = toolInsightsOf(
+    const insights = insightsOf(
       [
         endedRecord('run_1', { ending: 'withdrawn', skills: ['grafana'] }),
         ran('run_2', day('2026-09-29')),
@@ -237,5 +254,59 @@ describe('toolInsightsOf', () => {
 
     expect(insights.runs).toBe(1);
     expect(insights.skills).toEqual([]);
+  });
+});
+
+describe('toolCountsOf', () => {
+  it('counts the runs that ran for the team, each station and each week, all of them first', () => {
+    const counts = toolCountsOf(
+      historyOf({
+        records: [
+          ran('run_1', day('2026-09-14'), {
+            stationId: 'review',
+            skills: ['grafana'],
+          }),
+          ran('run_2', day('2026-09-13'), { stationId: 'build' }),
+          ran('run_3', day('2026-09-14'), {
+            stationId: 'build',
+            ending: 'withdrawn',
+          }),
+          ran('run_4', day('2026-09-29'), { stationId: 'build' }),
+        ],
+      }),
+      { from: day('2026-09-01'), to: day('2026-09-28') },
+    );
+
+    expect(counts.runs).toEqual([
+      { stationId: null, week: null, runs: 2 },
+      { stationId: null, week: '2026-09-07', runs: 1 },
+      { stationId: null, week: '2026-09-14', runs: 1 },
+      { stationId: 'build', week: null, runs: 1 },
+      { stationId: 'build', week: '2026-09-07', runs: 1 },
+      { stationId: 'review', week: null, runs: 1 },
+      { stationId: 'review', week: '2026-09-14', runs: 1 },
+    ]);
+    expect(counts.stations.map((each) => each.stationId)).toEqual([
+      'build',
+      'review',
+    ]);
+    expect(counts.skills).toEqual([
+      { key: 'grafana', stationId: null, week: null, given: 1, used: 0 },
+      {
+        key: 'grafana',
+        stationId: null,
+        week: '2026-09-14',
+        given: 1,
+        used: 0,
+      },
+      { key: 'grafana', stationId: 'review', week: null, given: 1, used: 0 },
+      {
+        key: 'grafana',
+        stationId: 'review',
+        week: '2026-09-14',
+        given: 1,
+        used: 0,
+      },
+    ]);
   });
 });

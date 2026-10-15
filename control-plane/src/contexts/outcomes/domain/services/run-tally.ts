@@ -74,6 +74,45 @@ export const runTally = (
   };
 };
 
+export type TallyCounts = Omit<RunTally, 'failedShare'>;
+
+export const NO_RUNS: TallyCounts = {
+  runs: 0,
+  withdrawn: 0,
+  failed: 0,
+  stopped: 0,
+  checksPassed: 0,
+  checksFailed: 0,
+  accepted: 0,
+  sentBack: 0,
+  handedOn: 0,
+  merged: 0,
+  cost: null,
+  unpriced: 0,
+  mixedCurrencies: false,
+  medianMs: null,
+  p90Ms: null,
+};
+
+export const tallyOf = (counts: TallyCounts): RunTally => ({
+  runs: counts.runs,
+  withdrawn: counts.withdrawn,
+  failed: counts.failed,
+  failedShare: rateOf(counts.failed, counts.runs),
+  stopped: counts.stopped,
+  checksPassed: counts.checksPassed,
+  checksFailed: counts.checksFailed,
+  accepted: counts.accepted,
+  sentBack: counts.sentBack,
+  handedOn: counts.handedOn,
+  merged: counts.merged,
+  cost: counts.cost,
+  unpriced: counts.unpriced,
+  mixedCurrencies: counts.mixedCurrencies,
+  medianMs: counts.medianMs,
+  p90Ms: counts.p90Ms,
+});
+
 export interface TallyChanges {
   readonly runs: Change | null;
   readonly failed: Change | null;

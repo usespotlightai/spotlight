@@ -1,13 +1,11 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { TaskDelivery } from '@outcomes/domain/aggregates/task-delivery.aggregate';
 import { TaskDeliveryMovedOnError } from '@outcomes/domain/exceptions/task-delivery-moved-on.error';
-import type { TeamWindow } from '@outcomes/domain/repositories/run-record.repository';
 import type { TaskDeliveryRepository } from '@outcomes/domain/repositories/task-delivery.repository';
-import {
-  runRecord,
-  taskDelivery,
-} from '@outcomes/infrastructure/persistence/drizzle/schemas/outcomes.schema';
+import { DrizzleRunFactProjection } from '@outcomes/infrastructure/persistence/drizzle/projections/run-fact.projection';
+import { taskDelivery } from '@outcomes/infrastructure/persistence/drizzle/schemas/outcomes.schema';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { inList } from '@platform/persistence/drizzle/in-list';
 import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
@@ -16,7 +14,7 @@ import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, desc, eq, gte, inArray, isNull, lt, or } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 
 type DeliveryRow = typeof taskDelivery.$inferSelect;
 
@@ -45,47 +43,62 @@ const columnsOf = (delivery: TaskDelivery) => ({
 export class DrizzleTaskDeliveryRepository implements TaskDeliveryRepository {
   constructor(
     private readonly context: DrizzleContext,
+    private readonly facts: DrizzleRunFactProjection,
     @Inject(DOMAIN_EVENT_DISPATCHER)
     private readonly events: DomainEventDispatcher,
   ) {}
 
   async add(added: TaskDelivery): Promise<void> {
-    const written = await this.context.db
-      .insert(taskDelivery)
-      .values({
-        taskId: added.taskId.value,
-        workspaceId: added.workspaceId.value,
-        teamId: added.teamId.value,
-        version: added.version,
-        ...columnsOf(added),
-      })
-      .onConflictDoNothing({ target: taskDelivery.taskId })
-      .returning({ taskId: taskDelivery.taskId });
+    await this.context.run(async () => {
+      const written = await this.context.db
+        .insert(taskDelivery)
+        .values({
+          taskId: added.taskId.value,
+          workspaceId: added.workspaceId.value,
+          teamId: added.teamId.value,
+          version: added.version,
+          ...columnsOf(added),
+        })
+        .onConflictDoNothing({ target: taskDelivery.taskId })
+        .returning({ taskId: taskDelivery.taskId });
 
-    if (written.length === 0) {
-      throw new TaskDeliveryMovedOnError(added.taskId.value);
-    }
+      if (written.length === 0) {
+        throw new TaskDeliveryMovedOnError(added.taskId.value);
+      }
 
-    await this.events.dispatch(added.pullEvents());
+      await this.facts.refresh({
+        kind: 'tasks',
+        taskIds: [added.taskId.value],
+      });
+
+      await this.events.dispatch(added.pullEvents());
+    });
   }
 
   async save(saved: TaskDelivery): Promise<void> {
-    const written = await this.context.db
-      .update(taskDelivery)
-      .set({ version: saved.version + 1, ...columnsOf(saved) })
-      .where(
-        and(
-          eq(taskDelivery.taskId, saved.taskId.value),
-          eq(taskDelivery.version, saved.version),
-        ),
-      )
-      .returning({ taskId: taskDelivery.taskId });
+    await this.context.run(async () => {
+      const written = await this.context.db
+        .update(taskDelivery)
+        .set({ version: saved.version + 1, ...columnsOf(saved) })
+        .where(
+          and(
+            eq(taskDelivery.taskId, saved.taskId.value),
+            eq(taskDelivery.version, saved.version),
+          ),
+        )
+        .returning({ taskId: taskDelivery.taskId });
 
-    if (written.length === 0) {
-      throw new TaskDeliveryMovedOnError(saved.taskId.value);
-    }
+      if (written.length === 0) {
+        throw new TaskDeliveryMovedOnError(saved.taskId.value);
+      }
 
-    await this.events.dispatch(saved.pullEvents());
+      await this.facts.refresh({
+        kind: 'tasks',
+        taskIds: [saved.taskId.value],
+      });
+
+      await this.events.dispatch(saved.pullEvents());
+    });
   }
 
   async forTask(taskId: TaskId): Promise<TaskDelivery | null> {
@@ -107,56 +120,11 @@ export class DrizzleTaskDeliveryRepository implements TaskDeliveryRepository {
       .select()
       .from(taskDelivery)
       .where(
-        inArray(
+        inList(
           taskDelivery.taskId,
           taskIds.map((each) => each.value),
         ),
       );
-
-    return rows.map(toDelivery);
-  }
-
-  async ofTeamBetween(
-    window: TeamWindow,
-    most: number,
-  ): Promise<readonly TaskDelivery[]> {
-    const rows = await this.context.db
-      .select()
-      .from(taskDelivery)
-      .where(
-        and(
-          eq(taskDelivery.workspaceId, window.workspaceId.value),
-          or(
-            and(
-              eq(taskDelivery.teamId, window.teamId.value),
-              lt(taskDelivery.openedAt, window.to),
-              or(
-                and(
-                  isNull(taskDelivery.closedAt),
-                  gte(taskDelivery.openedAt, window.from),
-                ),
-                gte(taskDelivery.closedAt, window.from),
-              ),
-            ),
-            inArray(
-              taskDelivery.taskId,
-              this.context.db
-                .selectDistinct({ taskId: runRecord.taskId })
-                .from(runRecord)
-                .where(
-                  and(
-                    eq(runRecord.workspaceId, window.workspaceId.value),
-                    eq(runRecord.teamId, window.teamId.value),
-                    gte(runRecord.endedAt, window.from),
-                    lt(runRecord.endedAt, window.to),
-                  ),
-                ),
-            ),
-          ),
-        ),
-      )
-      .orderBy(desc(taskDelivery.openedAt), desc(taskDelivery.taskId))
-      .limit(most);
 
     return rows.map(toDelivery);
   }
@@ -197,25 +165,45 @@ export class DrizzleTaskDeliveryRepository implements TaskDeliveryRepository {
   }
 
   async removeForTask(taskId: TaskId): Promise<void> {
-    await this.context.db
-      .delete(taskDelivery)
-      .where(eq(taskDelivery.taskId, taskId.value));
+    await this.context.run(async () => {
+      await this.context.db
+        .delete(taskDelivery)
+        .where(eq(taskDelivery.taskId, taskId.value));
+
+      await this.facts.refresh({ kind: 'tasks', taskIds: [taskId.value] });
+    });
   }
 
   async removeForTeam(workspaceId: WorkspaceId, teamId: TeamId): Promise<void> {
-    await this.context.db
-      .delete(taskDelivery)
-      .where(
-        and(
-          eq(taskDelivery.workspaceId, workspaceId.value),
-          eq(taskDelivery.teamId, teamId.value),
-        ),
-      );
+    await this.context.run(async () => {
+      const removed = await this.context.db
+        .delete(taskDelivery)
+        .where(
+          and(
+            eq(taskDelivery.workspaceId, workspaceId.value),
+            eq(taskDelivery.teamId, teamId.value),
+          ),
+        )
+        .returning({ taskId: taskDelivery.taskId });
+
+      await this.facts.forgetDeliveries({
+        kind: 'tasks',
+        workspaceId: workspaceId.value,
+        taskIds: removed.map((each) => each.taskId),
+      });
+    });
   }
 
   async removeForWorkspace(workspaceId: WorkspaceId): Promise<void> {
-    await this.context.db
-      .delete(taskDelivery)
-      .where(eq(taskDelivery.workspaceId, workspaceId.value));
+    await this.context.run(async () => {
+      await this.context.db
+        .delete(taskDelivery)
+        .where(eq(taskDelivery.workspaceId, workspaceId.value));
+
+      await this.facts.forgetDeliveries({
+        kind: 'workspace',
+        workspaceId: workspaceId.value,
+      });
+    });
   }
 }

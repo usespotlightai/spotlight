@@ -795,6 +795,61 @@ CREATE TABLE "pull_request_record" (
 	CONSTRAINT "pull_request_record_workspace_id_pull_request_pk" PRIMARY KEY("workspace_id","pull_request")
 );
 --> statement-breakpoint
+CREATE TABLE "run_fact" (
+	"run_id" text PRIMARY KEY NOT NULL,
+	"workspace_id" text NOT NULL,
+	"team_id" text NOT NULL,
+	"line_id" text NOT NULL,
+	"station_id" text NOT NULL,
+	"task_id" text NOT NULL,
+	"fingerprint" text,
+	"harness" text NOT NULL,
+	"model" text,
+	"effort" text,
+	"profile_key" text,
+	"repositories" jsonb NOT NULL,
+	"skills" jsonb NOT NULL,
+	"queued_at" timestamp,
+	"started_at" timestamp,
+	"ended_at" timestamp NOT NULL,
+	"began_at" timestamp NOT NULL,
+	"ending" "run_record_ending" NOT NULL,
+	"ran" boolean NOT NULL,
+	"failure" text,
+	"round" integer NOT NULL,
+	"asked" boolean NOT NULL,
+	"superseded_at" timestamp,
+	"checks" "run_record_checks",
+	"checked_at" timestamp,
+	"next_act" "run_record_act",
+	"next_at" timestamp,
+	"approval_answered_at" timestamp,
+	"handed_on_to" text,
+	"handed_on_at" timestamp,
+	"digested" boolean NOT NULL,
+	"ms" integer,
+	"steps" integer,
+	"faults" integer,
+	"changed_lines" integer,
+	"used" integer,
+	"size" integer,
+	"cost" double precision,
+	"currency" text,
+	"input_tokens" bigint,
+	"output_tokens" bigint,
+	"cache_read_tokens" bigint,
+	"cache_write_tokens" bigint,
+	"tools" jsonb,
+	"refusals" jsonb NOT NULL,
+	"memories" jsonb NOT NULL,
+	"opened_by" text,
+	"task_opened_at" timestamp,
+	"pull_request" text,
+	"delivery_state" "task_delivery_state",
+	"delivery_opened_at" timestamp,
+	"delivery_closed_at" timestamp
+);
+--> statement-breakpoint
 CREATE TABLE "run_record" (
 	"run_id" text PRIMARY KEY NOT NULL,
 	"workspace_id" text NOT NULL,
@@ -839,6 +894,7 @@ CREATE TABLE "run_record" (
 	"cache_write_tokens" bigint,
 	"tools" jsonb,
 	"refusals" jsonb DEFAULT '[]'::jsonb NOT NULL,
+	"memories" jsonb DEFAULT '{"briefed":[],"recalled":[]}'::jsonb NOT NULL,
 	"version" integer DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
@@ -1796,12 +1852,17 @@ CREATE INDEX "pull_request_record_repository_idx" ON "pull_request_record" USING
 CREATE INDEX "pull_request_record_owner_idx" ON "pull_request_record" USING btree ("owner_task_id");--> statement-breakpoint
 CREATE INDEX "pull_request_record_team_idx" ON "pull_request_record" USING btree ("owner_team_id");--> statement-breakpoint
 CREATE INDEX "pull_request_record_review_tasks_idx" ON "pull_request_record" USING gin ("review_task_ids");--> statement-breakpoint
+CREATE INDEX "run_fact_team_ended_idx" ON "run_fact" USING btree ("workspace_id","team_id","ended_at");--> statement-breakpoint
+CREATE INDEX "run_fact_ended_idx" ON "run_fact" USING btree ("ended_at");--> statement-breakpoint
+CREATE INDEX "run_fact_station_began_idx" ON "run_fact" USING btree ("workspace_id","team_id","station_id","began_at");--> statement-breakpoint
+CREATE INDEX "run_fact_task_idx" ON "run_fact" USING btree ("task_id");--> statement-breakpoint
 CREATE INDEX "run_record_team_idx" ON "run_record" USING btree ("team_id","ended_at");--> statement-breakpoint
 CREATE INDEX "run_record_station_idx" ON "run_record" USING btree ("station_id","ended_at");--> statement-breakpoint
 CREATE INDEX "run_record_team_station_began_idx" ON "run_record" USING btree ("team_id","station_id",coalesce("started_at", "ended_at"),"run_id" collate "C","fingerprint","started_at","ended_at") WHERE "run_record"."started_at" is not null and "run_record"."ended_at" is not null and "run_record"."fingerprint" is not null and "run_record"."ending" <> 'withdrawn';--> statement-breakpoint
 CREATE INDEX "run_record_team_station_started_idx" ON "run_record" USING btree ("team_id","station_id",coalesce("started_at", "ended_at"),"run_id" collate "C") WHERE "run_record"."ended_at" is not null;--> statement-breakpoint
 CREATE INDEX "run_record_task_idx" ON "run_record" USING btree ("task_id","ended_at");--> statement-breakpoint
 CREATE INDEX "run_record_workspace_idx" ON "run_record" USING btree ("workspace_id");--> statement-breakpoint
+CREATE INDEX "run_record_ended_idx" ON "run_record" USING btree ("ended_at");--> statement-breakpoint
 CREATE UNIQUE INDEX "score_judge_idx" ON "score" USING btree ("run_id","rubric_version") WHERE "score"."source" = 'judge';--> statement-breakpoint
 CREATE UNIQUE INDEX "score_person_idx" ON "score" USING btree ("run_id","by") WHERE "score"."source" = 'person';--> statement-breakpoint
 CREATE INDEX "score_station_idx" ON "score" USING btree ("station_id","at");--> statement-breakpoint

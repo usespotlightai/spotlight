@@ -4,11 +4,21 @@ import {
   historyOf,
   touchesOf,
 } from '@outcomes/domain/insights.fake-spec';
-import { adoptionOf } from '@outcomes/domain/services/adoption';
+import {
+  adoptionCountsOf,
+  adoptionFrom,
+} from '@outcomes/domain/services/adoption';
+import type { TeamHistory } from '@outcomes/domain/services/team-history';
 import { InsightsPeriod } from '@outcomes/domain/value-objects/insights-period.vo';
 import { describe, expect, it } from 'vitest';
 
 const PERIOD = InsightsPeriod.of('7d', new Date('2026-10-01T15:00:00.000Z'));
+
+const adoptionOf = (
+  history: TeamHistory,
+  period: InsightsPeriod,
+  firstSeen: ReadonlyMap<string, Date>,
+) => adoptionFrom(adoptionCountsOf(history, period), period, firstSeen);
 
 const history = historyOf({
   touches: [
@@ -28,7 +38,7 @@ const history = historyOf({
   ],
 });
 
-describe('adoptionOf', () => {
+describe('adoptionFrom the counts of adoptionCountsOf', () => {
   it('counts who was active this period, the one before, this week and this month', () => {
     const adoption = adoptionOf(history, PERIOD, new Map());
 

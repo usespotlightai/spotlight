@@ -1,4 +1,5 @@
 import { InvalidPullRequestFilterError } from '@outcomes/domain/exceptions/invalid-pull-request-filter.error';
+import { byText } from '@outcomes/domain/services/measures';
 import {
   comparedRepositoriesOf,
   sameRepository,
@@ -194,7 +195,6 @@ export const filteredPullRequests = (
           roundBucketOf(each.seen.reviewRounds) === filter.rounds),
     )
     .sort(
-      (a, b) =>
-        lastAt(b) - lastAt(a) || a.pullRequest.localeCompare(b.pullRequest),
+      (a, b) => lastAt(b) - lastAt(a) || byText(a.pullRequest, b.pullRequest),
     );
 };
