@@ -1309,7 +1309,7 @@ export class ReplayResponseDto {
     nullable: true,
     type: GainReadingResponseDto,
     description:
-      'Its gain in success over the replay it is compared with (pairedWith where set, else the set’s baseline), with whether it is within noise; null with none',
+      'Its gain in success over the replay it is compared with (pairedWith where set, else for a replay with the answer the live replay it was handed the answer against, else the set’s baseline), with whether it is within noise; null with none',
   })
   readonly againstBaseline: GainReadingResponseDto | null;
 
@@ -1497,7 +1497,7 @@ export class ReplayDetailResponseDto extends ReplayResponseDto {
     nullable: true,
     type: String,
     description:
-      'The replay its comparison rows, gain and deltas are against: pairedWith where set, else the set’s baseline; null for the baseline itself or with none',
+      'The replay its comparison rows, gain and deltas are against: pairedWith where set, else for a replay with the answer the live replay it was handed the answer against, else the set’s baseline; null for the baseline itself or with none',
   })
   readonly comparedWithReplayId: string | null;
 
@@ -1511,7 +1511,8 @@ export class ReplayDetailResponseDto extends ReplayResponseDto {
   @ApiProperty({
     type: EntryComparisonResponseDto,
     isArray: true,
-    description: 'Per task against the set’s baseline, regressions first',
+    description:
+      'Per task against the replay it is compared with (comparedWithReplayId), regressions first',
   })
   readonly comparison: EntryComparisonResponseDto[];
 

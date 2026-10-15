@@ -41863,7 +41863,7 @@
           },
           "againstBaseline": {
             "nullable": true,
-            "description": "Its gain in success over the replay it is compared with (pairedWith where set, else the set’s baseline), with whether it is within noise; null with none",
+            "description": "Its gain in success over the replay it is compared with (pairedWith where set, else for a replay with the answer the live replay it was handed the answer against, else the set’s baseline), with whether it is within noise; null with none",
             "type": "object",
             "allOf": [
               {
@@ -42204,7 +42204,7 @@
           },
           "againstBaseline": {
             "nullable": true,
-            "description": "Its gain in success over the replay it is compared with (pairedWith where set, else the set’s baseline), with whether it is within noise; null with none",
+            "description": "Its gain in success over the replay it is compared with (pairedWith where set, else for a replay with the answer the live replay it was handed the answer against, else the set’s baseline), with whether it is within noise; null with none",
             "type": "object",
             "allOf": [
               {
@@ -42240,7 +42240,7 @@
           "comparedWithReplayId": {
             "type": "string",
             "nullable": true,
-            "description": "The replay its comparison rows, gain and deltas are against: pairedWith where set, else the set’s baseline; null for the baseline itself or with none"
+            "description": "The replay its comparison rows, gain and deltas are against: pairedWith where set, else for a replay with the answer the live replay it was handed the answer against, else the set’s baseline; null for the baseline itself or with none"
           },
           "search": {
             "nullable": true,
@@ -42253,7 +42253,7 @@
             ]
           },
           "comparison": {
-            "description": "Per task against the set’s baseline, regressions first",
+            "description": "Per task against the replay it is compared with (comparedWithReplayId), regressions first",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/EntryComparisonResponseDto"
