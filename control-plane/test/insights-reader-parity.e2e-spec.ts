@@ -1,7 +1,13 @@
-import { pullRequestsHeldIn } from '@outcomes/application/ports/insights-reader.fake-spec';
+import {
+  pullRequestsHeldIn,
+  runsListedIn,
+} from '@outcomes/application/ports/insights-reader.fake-spec';
 import type { TeamInPeriod } from '@outcomes/application/ports/insights-reader.port';
 import { OutcomesAccess } from '@outcomes/application/services/outcomes-access.service';
-import { TeamHistories } from '@outcomes/application/services/team-histories.service';
+import {
+  TeamHistories,
+  windowOf,
+} from '@outcomes/application/services/team-histories.service';
 import { ChatRecord } from '@outcomes/domain/aggregates/chat-record.aggregate';
 import {
   type BotActivity,
@@ -36,6 +42,13 @@ import {
   weekOf,
   weekWindowOf,
 } from '@outcomes/domain/services/pull-request-insights';
+import {
+  HARNESS_DEFAULT_MODEL,
+  NO_REPOSITORY,
+  NO_SERVER,
+  type RunFilterAsked,
+  runFilterOf,
+} from '@outcomes/domain/services/run-filter';
 import { RUN_SIZES, type RunSize } from '@outcomes/domain/services/run-size';
 import {
   setupCountsOf,
@@ -268,6 +281,31 @@ const refusedIn = (record: RunRecord, endedAt: Date): RunRecord => {
 
   return refused;
 };
+const NO_RUN_FILTER: RunFilterAsked = {
+  lineId: null,
+  stationId: null,
+  outcome: null,
+  harness: null,
+  model: null,
+  repository: null,
+  fingerprint: null,
+  taskId: null,
+  taskIds: null,
+  personId: null,
+  day: null,
+  week: null,
+  skillGiven: null,
+  skillUsed: null,
+  server: null,
+  serverFailed: null,
+  failedAfter: null,
+  refusedTool: null,
+  refusedServer: null,
+  delivery: null,
+  next: null,
+  asked: null,
+};
+
 const ago = (ms: number): Date => new Date(NOW.getTime() - ms);
 
 const inPlaceOrder = (
@@ -288,6 +326,7 @@ let held: TestDatabase;
 let histories: TeamHistories;
 let reader: DrizzleInsightsReader;
 let touches: DrizzleTaskTouchesRepository;
+let deliveries: DrizzleTaskDeliveryRepository;
 let scores: DrizzleScoreRepository;
 let runs: DrizzleRunRecordRepository;
 let pullRequests: DrizzlePullRequestRecordRepository;
@@ -301,7 +340,7 @@ beforeAll(async () => {
   } as unknown as DomainEventDispatcher;
   const facts = new DrizzleRunFactProjection(context);
   const records = new DrizzleRunRecordRepository(context, facts, quiet);
-  const deliveries = new DrizzleTaskDeliveryRepository(context, facts, quiet);
+  deliveries = new DrizzleTaskDeliveryRepository(context, facts, quiet);
   touches = new DrizzleTaskTouchesRepository(context, facts);
   const failures = new DrizzleTaskFailuresRepository(context);
   const chats = new DrizzleChatRecordRepository(context);
@@ -1593,6 +1632,218 @@ describe('how Shipping clips review and pipeline times at their edges', () => {
     expect(inReview?.times.all.total).toMatchObject({ count: 2 });
     expect(inReview?.times.all.total.p90).toBe(1 * DAY);
     expect(counts).toEqual(expected);
+  });
+});
+
+describe('the runs a team ran, a page at a time', () => {
+  it.each([
+    ['nothing', {}],
+    ['a station', { stationId: STATIONS[0].stationId }],
+    ['a line', { lineId: STATIONS[2].lineId }],
+    ['an outcome', { outcome: 'failed' }],
+    ['a harness', { harness: 'codex' }],
+    ['a model', { model: 'opus' }],
+    ['the harness’s own model', { model: HARNESS_DEFAULT_MODEL }],
+    ['a repository', { repository: 'acme/api' }],
+    ['no repository', { repository: NO_REPOSITORY }],
+    ['a station config', { fingerprint: 'a'.repeat(64) }],
+    ['some tasks', { taskIds: ['task_0', 'task_1', 'task_2', 'task_3'] }],
+    ['no task', { taskIds: [] }],
+    ['the person who opened the task', { personId: PEOPLE[0] }],
+    ['a day', { day: dayOf(ago(3 * DAY)) }],
+    ['a week', { week: weekOf(ago(10 * DAY)) }],
+    ['a skill given', { skillGiven: 'grafana' }],
+    ['a skill used', { skillUsed: 'grafana' }],
+    ['a server', { server: 'linear' }],
+    ['a server that failed', { serverFailed: 'github' }],
+    ['a server it failed after', { failedAfter: 'sentry' }],
+    ['a refused tool', { refusedTool: 'merge' }],
+    ['a refused tool of no server', { refusedServer: NO_SERVER }],
+    ['a delivery', { delivery: 'merged' }],
+    ['a next act', { next: NEXT_ACTS[0] }],
+    ['a task that asked', { asked: 'true' }],
+    [
+      'a station and a person',
+      { stationId: STATIONS[1].stationId, personId: PEOPLE[1] },
+    ],
+  ] as const)(
+    'lists the same runs as the records when it asks for %s',
+    async (_, over) => {
+      const { clearance, period } = await histories.scope(
+        TEAM.value,
+        PersonPrincipal.of(VIEWER),
+        '30d',
+      );
+      const filter = runFilterOf({ ...NO_RUN_FILTER, ...over }, period.current);
+      const size = 25;
+      const listingOf = (page: number) => ({
+        window: windowOf(clearance, period.current),
+        filter,
+        offset: (page - 1) * size,
+        limit: size,
+      });
+      const first = await reader.runPage(listingOf(1));
+
+      for (let page = 1; page <= Math.ceil(first.total / size) + 1; page++) {
+        expect(await reader.runPage(listingOf(page))).toEqual(
+          await runsListedIn(
+            { records: runs, touches, deliveries },
+            listingOf(page),
+          ),
+        );
+      }
+    },
+  );
+
+  it('covers what makes listing runs hard to get right', async () => {
+    const { clearance, period } = await histories.scope(
+      TEAM.value,
+      PersonPrincipal.of(VIEWER),
+      '90d',
+    );
+    const { runs: listed } = await reader.runPage({
+      window: windowOf(clearance, period.current),
+      filter: runFilterOf(NO_RUN_FILTER, period.current),
+      offset: 0,
+      limit: 10_000,
+    });
+
+    expect(listed.some((each) => each.openedBy !== null)).toBe(true);
+    expect(listed.some((each) => each.delivery !== null)).toBe(true);
+    expect(listed.some((each) => each.next !== null)).toBe(true);
+    expect(listed.some((each) => each.handedOn !== null)).toBe(true);
+    expect(listed.some((each) => each.cost !== null)).toBe(true);
+    expect(listed.some((each) => each.ending === 'superseded')).toBe(true);
+    expect(listed.some((each) => each.tokens === null)).toBe(true);
+    expect(listed.some((each) => each.queuedMs !== null)).toBe(true);
+    expect(
+      listed.some(
+        (each, at) =>
+          at > 0 &&
+          each.endedAt.getTime() === listed[at - 1]?.endedAt.getTime(),
+      ),
+    ).toBe(true);
+  });
+});
+
+describe('how the run list treats the window’s edges and runs that ended together', () => {
+  const EDGES = TeamId.of('team_run_edges');
+  const period = InsightsPeriod.of('7d', NOW);
+  const { from, to } = period.current;
+  const dayAt = (days: number, hours = 0) =>
+    new Date(from.getTime() + days * DAY + hours * HOUR);
+  const listingOf = (over: Partial<RunFilterAsked>) => ({
+    window: { workspaceId: WORKSPACE, teamId: EDGES, from, to },
+    filter: runFilterOf({ ...NO_RUN_FILTER, ...over }, period.current),
+    offset: 0,
+    limit: 20,
+  });
+  const listed = async (over: Partial<RunFilterAsked>) => {
+    const listing = listingOf(over);
+    const read = await reader.runPage(listing);
+
+    expect(read).toEqual(
+      await runsListedIn({ records: runs, touches, deliveries }, listing),
+    );
+
+    return read.runs.map((each) => each.runId);
+  };
+
+  beforeAll(async () => {
+    const context = new DrizzleContext(held.db);
+    const quiet = {
+      dispatch: async () => {},
+    } as unknown as DomainEventDispatcher;
+    const facts = new DrizzleRunFactProjection(context);
+    const records = new DrizzleRunRecordRepository(context, facts, quiet);
+    const touching = new DrizzleTaskTouchesRepository(context, facts);
+
+    await context.run(async () => {
+      for (const [runId, endedAt, started] of [
+        ['run_edge_from', from, true],
+        ['run_edge_to', to, true],
+        ['run_B', dayAt(1), true],
+        ['run_a', dayAt(1), true],
+        ['run_day_start', dayAt(2), true],
+        ['run_next_day', dayAt(3), true],
+        ['run_queued_only', dayAt(4, 1), false],
+        ['run_ask_from', dayAt(5), true],
+        ['run_ask_to', dayAt(5), true],
+        ['run_ask_elsewhere', dayAt(6), true],
+      ] as const) {
+        await records.add(
+          RunRecord.heardOf(RunId.of(runId), WORKSPACE).ended(
+            RunEnd.of({
+              place: RunPlace.of({
+                teamId: EDGES,
+                lineId: 'line_edges',
+                stationId: 'edges',
+                taskId: TaskId.of(`task_${runId}`),
+              }),
+              fingerprint: 'a'.repeat(64),
+              setup: RunSetup.of({
+                harness: 'claude-code',
+                model: 'sonnet',
+                effort: null,
+                profileKey: null,
+                repositories: [],
+                skills: [],
+              }),
+              queuedAt: new Date(endedAt.getTime() - 3 * HOUR),
+              startedAt: started ? new Date(endedAt.getTime() - HOUR) : null,
+              endedAt,
+              ending: started ? 'completed' : 'withdrawn',
+              failure: null,
+              round: 1,
+              asked: false,
+            }),
+          ),
+        );
+      }
+
+      for (const [runId, workspaceId, askedAt] of [
+        ['run_ask_from', WORKSPACE, from],
+        ['run_ask_to', WORKSPACE, to],
+        ['run_ask_elsewhere', WorkspaceId.of('workspace_elsewhere'), dayAt(1)],
+      ] as const) {
+        await touching.add(
+          TaskTouches.heardOf(TaskId.of(`task_${runId}`), workspaceId).asked(
+            InboxAsk.of('edges', askedAt),
+          ),
+        );
+      }
+    });
+  });
+
+  it('keeps a run that ended as the window starts, leaves out one that ended as it ends, and lists runs that ended together by their ids', async () => {
+    expect(await listed({})).toEqual([
+      'run_ask_elsewhere',
+      'run_ask_to',
+      'run_ask_from',
+      'run_queued_only',
+      'run_next_day',
+      'run_day_start',
+      'run_a',
+      'run_B',
+      'run_edge_from',
+    ]);
+  });
+
+  it('times only the queue of a run that started, and nothing of one that never did', async () => {
+    const { runs: read } = await reader.runPage(listingOf({}));
+
+    expect(read.find((each) => each.runId === 'run_a')).toMatchObject({
+      queuedMs: 2 * HOUR,
+      runningMs: HOUR,
+    });
+    expect(read.find((each) => each.runId === 'run_queued_only')).toMatchObject(
+      { queuedMs: null, runningMs: null },
+    );
+  });
+
+  it('takes into a day the run that ended as it starts, not the one that ended as it ends, and into the period an ask as it starts, not one as it ends nor one of another workspace', async () => {
+    expect(await listed({ day: dayOf(dayAt(2)) })).toEqual(['run_day_start']);
+    expect(await listed({ asked: 'true' })).toEqual(['run_ask_from']);
   });
 });
 

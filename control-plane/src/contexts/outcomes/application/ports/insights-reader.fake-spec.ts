@@ -1,15 +1,21 @@
 import type {
   InsightsReaderPort,
+  ListedRun,
+  RunsListed,
   TeamInPeriod,
 } from '@outcomes/application/ports/insights-reader.port';
 import type { TeamHistoryHeld } from '@outcomes/application/services/team-histories.service';
+import type { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
 import { ScoresInMemory } from '@outcomes/domain/judging.fake-spec';
 import {
   PullRequestRecordsInMemory,
   TaskChangeShapesInMemory,
 } from '@outcomes/domain/pull-requests.fake-spec';
 import type { PullRequestRecordRepository } from '@outcomes/domain/repositories/pull-request-record.repository';
-import type { RunRecordRepository } from '@outcomes/domain/repositories/run-record.repository';
+import type {
+  RunListing,
+  RunRecordRepository,
+} from '@outcomes/domain/repositories/run-record.repository';
 import type { ScoreRepository } from '@outcomes/domain/repositories/score.repository';
 import type { TaskChangeShapeRepository } from '@outcomes/domain/repositories/task-change-shape.repository';
 import { changeCountsOf } from '@outcomes/domain/services/before-after';
@@ -37,12 +43,15 @@ import {
   openingsOf,
   stationsOf,
   type TeamHistory,
+  tasksOf,
 } from '@outcomes/domain/services/team-history';
 import {
   type TeamPullRequest,
   teamPullRequestOf,
 } from '@outcomes/domain/services/team-pull-requests';
 import { toolCountsOf } from '@outcomes/domain/services/tool-insights';
+import type { DeliveryState } from '@outcomes/domain/value-objects/delivery-state';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 
 const ALL = Number.MAX_SAFE_INTEGER;
 
@@ -144,6 +153,80 @@ const reachFrom = (
   from,
   most: Number.MAX_SAFE_INTEGER,
 });
+
+const listedRunOf = (
+  record: RunRecord,
+  openedBy: string | null,
+  delivery: DeliveryState | null,
+): ListedRun | null => {
+  const { end, ending } = record;
+
+  return end && ending
+    ? {
+        runId: record.runId.value,
+        taskId: end.place.taskId.value,
+        lineId: end.place.lineId,
+        stationId: end.place.stationId,
+        fingerprint: end.fingerprint,
+        harness: end.setup.harness,
+        model: end.setup.model,
+        effort: end.setup.effort,
+        profileKey: end.setup.profileKey,
+        repositories: end.setup.repositories,
+        openedBy,
+        queuedAt: end.queuedAt,
+        startedAt: end.startedAt,
+        endedAt: end.endedAt,
+        queuedMs: end.queuedMs,
+        runningMs: end.runningMs,
+        ms: record.cost?.ms ?? null,
+        cost: record.cost?.spend ?? null,
+        tokens: record.cost?.tokens ?? null,
+        ending,
+        failure: end.failure,
+        checks: record.checks,
+        next: record.next ? { act: record.next.act, at: record.next.at } : null,
+        handedOn: record.handedOn
+          ? { to: record.handedOn.to, at: record.handedOn.at }
+          : null,
+        delivery,
+      }
+    : null;
+};
+
+export const runsListedIn = async (
+  held: Pick<TeamHistoryHeld, 'records' | 'touches' | 'deliveries'>,
+  listing: RunListing,
+): Promise<RunsListed> => {
+  const listed = await held.records.listedForTeam(listing);
+  const worked = tasksOf(listed.records).map((each) => TaskId.of(each));
+  const openers = new Map(
+    (await held.touches.forTasks(worked)).map((each) => [
+      each.taskId.value,
+      each.opening?.by?.value ?? null,
+    ]),
+  );
+  const deliveries = new Map(
+    (await held.deliveries.forTasks(worked)).map((each) => [
+      each.taskId.value,
+      each.state,
+    ]),
+  );
+
+  return {
+    total: listed.total,
+    runs: listed.records.flatMap((record) => {
+      const taskId = record.taskId?.value ?? '';
+      const run = listedRunOf(
+        record,
+        openers.get(taskId) ?? null,
+        deliveries.get(taskId) ?? null,
+      );
+
+      return run ? [run] : [];
+    }),
+  };
+};
 
 export const insightsReaderInMemory = (
   held: TeamHistoryHeld,
@@ -250,6 +333,7 @@ export const insightsReaderInMemory = (
       pullRequests: listed.slice((page - 1) * size, page * size),
     };
   },
+  runPage: (listing) => runsListedIn(held, listing),
   shippingCounts: async (team, repositories) => {
     const reached = await pullRequestsHeldIn(
       held.records,

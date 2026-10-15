@@ -646,7 +646,10 @@ export class DrizzleRunRecordRepository implements RunRecordRepository {
           .select()
           .from(runRecord)
           .where(where)
-          .orderBy(desc(runRecord.endedAt), desc(runRecord.runId))
+          .orderBy(
+            desc(runRecord.endedAt),
+            sql`${runRecord.runId} collate "C" desc`,
+          )
           .offset(listing.offset)
           .limit(listing.limit);
 

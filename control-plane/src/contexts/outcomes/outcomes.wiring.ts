@@ -469,9 +469,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
   ),
   ...bindQueryHandler(ListInsightsRunsQuery, ListInsightsRunsHandler, [
     TeamHistories,
-    DrizzleRunRecordRepository,
-    DrizzleTaskTouchesRepository,
-    DrizzleTaskDeliveryRepository,
+    INSIGHTS_READER,
     PEOPLE,
   ]),
   ...bindQueryHandler(ListStationOutcomesQuery, ListStationOutcomesHandler, [

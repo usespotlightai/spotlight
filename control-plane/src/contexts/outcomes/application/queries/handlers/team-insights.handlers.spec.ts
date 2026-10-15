@@ -216,15 +216,8 @@ describe('the team’s insights', () => {
   });
 
   it('lists the runs a page at a time, with who opened each task', async () => {
-    const { histories, people, records, touches, deliveries } =
-      await insights();
-    const listing = new ListInsightsRunsHandler(
-      histories,
-      records,
-      touches,
-      deliveries,
-      people,
-    );
+    const { histories, reader, people } = await insights();
+    const listing = new ListInsightsRunsHandler(histories, reader, people);
 
     const first = await listing.execute(
       new ListInsightsRunsQuery('team_1', READ_TOKEN, '7d', ANY, 1, 2),
