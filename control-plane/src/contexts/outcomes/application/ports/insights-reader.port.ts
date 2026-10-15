@@ -8,7 +8,7 @@ import type { PullRequestFilter } from '@outcomes/domain/services/pull-request-f
 import type { PullRequestCounts } from '@outcomes/domain/services/pull-request-insights';
 import type { RunSize } from '@outcomes/domain/services/run-size';
 import type { SetupComparisonCounts } from '@outcomes/domain/services/setup-comparison';
-import type { PipelineCounts } from '@outcomes/domain/services/shipping';
+import type { ShippingCounts } from '@outcomes/domain/services/shipping';
 import type { TeamCounts } from '@outcomes/domain/services/station-reports';
 import type { TeamPullRequest } from '@outcomes/domain/services/team-pull-requests';
 import type { ToolCounts } from '@outcomes/domain/services/tool-insights';
@@ -27,12 +27,6 @@ export interface TeamInPeriod {
 export interface SetupFilter {
   readonly stationId: string | null;
   readonly size: RunSize | null;
-}
-
-export interface PullRequestReach {
-  readonly repositories: readonly string[];
-  readonly from: Date;
-  readonly most: number;
 }
 
 export interface PullRequestsAsked {
@@ -56,10 +50,6 @@ export interface InsightsReaderPort {
   costCounts(team: TeamInPeriod): Promise<CostCountsInPeriod>;
   flowCounts(team: TeamInPeriod): Promise<FlowCounts>;
   peopleCounts(team: TeamInPeriod): Promise<PeopleCounts>;
-  pipelineCounts(
-    team: TeamInPeriod,
-    taskIds: readonly string[],
-  ): Promise<PipelineCounts>;
   toolCounts(team: TeamInPeriod): Promise<ToolCounts>;
   memoryCounts(team: TeamInPeriod): Promise<MemoryCounts>;
   setupCounts(
@@ -67,10 +57,6 @@ export interface InsightsReaderPort {
     filter: SetupFilter,
   ): Promise<SetupComparisonCounts>;
   changeCounts(team: TeamInPeriod): Promise<readonly ChangeCounts[]>;
-  pullRequests(
-    team: TeamInPeriod,
-    reach: PullRequestReach,
-  ): Promise<readonly TeamPullRequest[]>;
   pullRequestCounts(
     team: TeamInPeriod,
     repositories: readonly string[],
@@ -79,4 +65,8 @@ export interface InsightsReaderPort {
     team: TeamInPeriod,
     listing: PullRequestListing,
   ): Promise<PullRequestPage>;
+  shippingCounts(
+    team: TeamInPeriod,
+    repositories: readonly string[],
+  ): Promise<ShippingCounts>;
 }

@@ -1,7 +1,4 @@
-import type {
-  PullRequestReach,
-  TeamInPeriod,
-} from '@outcomes/application/ports/insights-reader.port';
+import type { TeamInPeriod } from '@outcomes/application/ports/insights-reader.port';
 import {
   type TeamPullRequest,
   teamPullRequestFrom,
@@ -98,6 +95,13 @@ export const reachedPullRequests = (
     ${pullRequestRecord.openedAt} as opened_at,
     ${pullRequestRecord.closedAt} as closed_at,
     ${pullRequestRecord.firstReviewAt} as first_review_at,
+    ${pullRequestRecord.readyForReviewAt} as ready_for_review_at,
+    ${pullRequestRecord.firstUnblockingReviewAt} as first_unblocking_review_at,
+    ${pullRequestRecord.firstApprovedAt} as first_approved_at,
+    ${pullRequestRecord.draftSpells} as draft_spells,
+    ${pullRequestRecord.humanReviewedAt} as human_reviewed_at,
+    ${pullRequestRecord.botActivity} as bot_activity,
+    ${pullRequestRecord.ownerTaskId} as owner_task_id,
     ${pullRequestRecord.reviewRounds} as review_rounds,
     ${pullRequestRecord.reviewComments} as review_comments,
     ${pullRequestRecord.revertedBy} is not null as reverted,
@@ -167,17 +171,6 @@ const teamPullRequestsWhere = async (
       : [];
   });
 };
-
-export const pullRequestsIn = (
-  db: DrizzleDatabase,
-  team: TeamInPeriod,
-  reach: PullRequestReach,
-): Promise<readonly TeamPullRequest[]> =>
-  teamPullRequestsWhere(
-    db,
-    reachOf(team, reach.repositories, reach.from),
-    reach.most,
-  );
 
 export const pullRequestsNamedIn = async (
   db: DrizzleDatabase,

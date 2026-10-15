@@ -1,6 +1,5 @@
 import type {
   InsightsReaderPort,
-  PullRequestReach,
   TeamInPeriod,
 } from '@outcomes/application/ports/insights-reader.port';
 import type { TeamHistoryHeld } from '@outcomes/application/services/team-histories.service';
@@ -28,7 +27,11 @@ import {
   setupCountsOf,
   setupRunsWithin,
 } from '@outcomes/domain/services/setup-comparison';
-import { pipelineCountsOf } from '@outcomes/domain/services/shipping';
+import {
+  pipelineCountsOf,
+  shippedTaskIdsOf,
+  shippingCountsOf,
+} from '@outcomes/domain/services/shipping';
 import { teamCountsOf } from '@outcomes/domain/services/station-reports';
 import {
   openingsOf,
@@ -82,6 +85,12 @@ const openingsFor = async (held: TeamHistoryHeld, history: TeamHistory) =>
     ]),
   );
 
+export interface PullRequestReach {
+  readonly repositories: readonly string[];
+  readonly from: Date;
+  readonly most: number;
+}
+
 export interface PullRequestsHeld {
   readonly records: PullRequestRecordRepository;
   readonly shapes: TaskChangeShapeRepository;
@@ -127,12 +136,12 @@ export const pullRequestsHeldIn = async (
   });
 };
 
-const currentReach = (
-  team: TeamInPeriod,
+const reachFrom = (
+  from: Date,
   repositories: readonly string[],
 ): PullRequestReach => ({
   repositories,
-  from: team.period.current.from,
+  from,
   most: Number.MAX_SAFE_INTEGER,
 });
 
@@ -170,8 +179,6 @@ export const insightsReaderInMemory = (
   },
   peopleCounts: async (team) =>
     peopleCountsOf(await historyOf(held, team), team.period),
-  pipelineCounts: async (team, taskIds) =>
-    pipelineCountsOf(await historyOf(held, team), taskIds, team.period),
   overviewCounts: async (team) => {
     const history = await historyOf(held, team);
 
@@ -216,15 +223,13 @@ export const insightsReaderInMemory = (
       await scores.ofRuns(history.records.map((each) => each.runId)),
     );
   },
-  pullRequests: (team, reach) =>
-    pullRequestsHeldIn(held.records, pullRequests, team, reach),
   pullRequestCounts: async (team, repositories) =>
     pullRequestCountsOf(
       await pullRequestsHeldIn(
         held.records,
         pullRequests,
         team,
-        currentReach(team, repositories),
+        reachFrom(team.period.current.from, repositories),
       ),
       team.period.current,
     ),
@@ -234,7 +239,7 @@ export const insightsReaderInMemory = (
         held.records,
         pullRequests,
         team,
-        currentReach(team, repositories),
+        reachFrom(team.period.current.from, repositories),
       ),
       filter,
       team.period.current,
@@ -244,5 +249,23 @@ export const insightsReaderInMemory = (
       total: listed.length,
       pullRequests: listed.slice((page - 1) * size, page * size),
     };
+  },
+  shippingCounts: async (team, repositories) => {
+    const reached = await pullRequestsHeldIn(
+      held.records,
+      pullRequests,
+      team,
+      reachFrom(team.period.previous.from, repositories),
+    );
+
+    return shippingCountsOf(
+      reached,
+      pipelineCountsOf(
+        await historyOf(held, team),
+        shippedTaskIdsOf(reached, team.period),
+        team.period,
+      ),
+      team.period,
+    );
   },
 });

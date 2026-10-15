@@ -10,18 +10,11 @@ import type {
   TeamScope,
 } from '@outcomes/application/services/team-histories.service';
 import type { PullRequestCounts } from '@outcomes/domain/services/pull-request-insights';
-import type { TeamPullRequest } from '@outcomes/domain/services/team-pull-requests';
+import type { ShippingCounts } from '@outcomes/domain/services/shipping';
 import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo';
-
-const MOST_PULL_REQUESTS = 20_000;
 
 interface TeamRepositories extends TeamScope {
   readonly repositories: readonly string[];
-}
-
-export interface TeamPullRequestsInPeriod extends TeamRepositories {
-  readonly pullRequests: readonly TeamPullRequest[];
-  readonly truncated: boolean;
 }
 
 export interface TeamPullRequestCounts extends TeamRepositories {
@@ -29,6 +22,10 @@ export interface TeamPullRequestCounts extends TeamRepositories {
 }
 
 export type TeamPullRequestPage = TeamScope & PullRequestPage;
+
+export interface TeamShippingCounts extends TeamScope {
+  readonly counts: ShippingCounts;
+}
 
 const teamOf = (scope: TeamScope): TeamInPeriod => ({
   workspaceId: scope.clearance.workspaceId,
@@ -42,30 +39,6 @@ export class TeamPullRequests {
     private readonly work: WorkPort,
     private readonly reader: InsightsReaderPort,
   ) {}
-
-  async of(
-    teamId: string,
-    principal: Principal,
-    period: string,
-    reach: 'current' | 'previous' = 'current',
-  ): Promise<TeamPullRequestsInPeriod> {
-    const scope = await this.scoped(teamId, principal, period);
-    const found = await this.reader.pullRequests(teamOf(scope), {
-      repositories: scope.repositories,
-      from:
-        reach === 'previous'
-          ? scope.period.previous.from
-          : scope.period.current.from,
-      most: MOST_PULL_REQUESTS + 1,
-    });
-    const truncated = found.length > MOST_PULL_REQUESTS;
-
-    return {
-      ...scope,
-      truncated,
-      pullRequests: truncated ? found.slice(0, MOST_PULL_REQUESTS) : found,
-    };
-  }
 
   async counts(
     teamId: string,
@@ -97,6 +70,22 @@ export class TeamPullRequests {
         repositories: scope.repositories,
         ...asked,
       })),
+    };
+  }
+
+  async shipping(
+    teamId: string,
+    principal: Principal,
+    period: string,
+  ): Promise<TeamShippingCounts> {
+    const scope = await this.scoped(teamId, principal, period);
+
+    return {
+      ...scope,
+      counts: await this.reader.shippingCounts(
+        teamOf(scope),
+        scope.repositories,
+      ),
     };
   }
 

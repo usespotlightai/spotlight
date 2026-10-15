@@ -461,7 +461,6 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
   ),
   ...bindQueryHandler(ReadInsightsShippingQuery, ReadInsightsShippingHandler, [
     TeamPullRequests,
-    INSIGHTS_READER,
   ]),
   ...bindQueryHandler(
     ListInsightsPullRequestsQuery,

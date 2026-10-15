@@ -3,7 +3,11 @@ import type { TeamInPeriod } from '@outcomes/application/ports/insights-reader.p
 import { OutcomesAccess } from '@outcomes/application/services/outcomes-access.service';
 import { TeamHistories } from '@outcomes/application/services/team-histories.service';
 import { ChatRecord } from '@outcomes/domain/aggregates/chat-record.aggregate';
-import { PullRequestRecord } from '@outcomes/domain/aggregates/pull-request-record.aggregate';
+import {
+  type BotActivity,
+  PullRequestRecord,
+  type SeenPullRequest,
+} from '@outcomes/domain/aggregates/pull-request-record.aggregate';
 import { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
 import { Score } from '@outcomes/domain/aggregates/score.aggregate';
 import { TaskChangeShape } from '@outcomes/domain/aggregates/task-change-shape.aggregate';
@@ -37,7 +41,13 @@ import {
   setupCountsOf,
   setupRunsWithin,
 } from '@outcomes/domain/services/setup-comparison';
-import { pipelineCountsOf } from '@outcomes/domain/services/shipping';
+import {
+  pipelineCountsOf,
+  type Stage,
+  shippedTaskIdsOf,
+  shippingCountsOf,
+  type Timed,
+} from '@outcomes/domain/services/shipping';
 import {
   stationReportsFrom,
   teamCountsOf,
@@ -53,6 +63,7 @@ import { FailureOccurrence } from '@outcomes/domain/value-objects/failure-occurr
 import { HandedOn } from '@outcomes/domain/value-objects/handed-on.vo';
 import { InboxAsk } from '@outcomes/domain/value-objects/inbox-ask.vo';
 import {
+  dayOf,
   INSIGHTS_PERIODS,
   InsightsPeriod,
 } from '@outcomes/domain/value-objects/insights-period.vo';
@@ -122,15 +133,6 @@ const NOW = new Date('2026-10-14T15:00:00.000Z');
 const HOUR = 60 * 60_000;
 const DAY = 24 * HOUR;
 const RUNS = 600;
-
-const CANDIDATES = [
-  ...Array.from({ length: RUNS / 2 }, (_, index) => `task_${index}`),
-  'task_both_windows',
-  'task_0',
-  'task_run_tie_a',
-  'task_stale',
-  'task_nowhere',
-];
 
 const STATIONS = [
   { lineId: 'line_a', stationId: 'plan' },
@@ -1143,67 +1145,454 @@ describe('the insights reader against the team history', () => {
   });
 });
 
-describe('the pipeline of the tasks a team shipped', () => {
-  it.each(INSIGHTS_PERIODS)(
-    'counts the same pipeline as the domain over %s',
-    async (name) => {
-      const { history, period, truncated } = await histories.of(
-        TEAM.value,
-        PersonPrincipal.of(VIEWER),
-        name,
-      );
-      const counts = await reader.pipelineCounts(
-        { workspaceId: WORKSPACE, teamId: TEAM, period },
-        CANDIDATES,
-      );
+describe('the Shipping numbers of a team', () => {
+  const REPOSITORIES = ['Acme/API', 'acme/web'];
+  const expectedOf = async (name: string) => {
+    const { history, period, truncated } = await histories.of(
+      TEAM.value,
+      PersonPrincipal.of(VIEWER),
+      name,
+    );
+    const team = { workspaceId: WORKSPACE, teamId: TEAM, period };
+    const reached = await pullRequestsHeldIn(
+      runs,
+      { records: pullRequests, shapes },
+      team,
+      { repositories: REPOSITORIES, from: period.previous.from, most: 10_000 },
+    );
 
-      expect(truncated).toBe(false);
-      expect(counts).toEqual(pipelineCountsOf(history, CANDIDATES, period));
+    expect(truncated).toBe(false);
+
+    return {
+      team,
+      expected: shippingCountsOf(
+        reached,
+        pipelineCountsOf(history, shippedTaskIdsOf(reached, period), period),
+        period,
+      ),
+    };
+  };
+
+  it.each(INSIGHTS_PERIODS)(
+    'counts the same Shipping numbers as the domain over %s',
+    async (name) => {
+      const { team, expected } = await expectedOf(name);
+
+      expect(await reader.shippingCounts(team, REPOSITORIES)).toEqual(expected);
     },
   );
 
-  it('covers what makes a pipeline hard to get right', async () => {
-    const { history, period } = await histories.of(
-      TEAM.value,
-      PersonPrincipal.of(VIEWER),
-      '90d',
-    );
-    const { openings, stations, passages } = await reader.pipelineCounts(
-      { workspaceId: WORKSPACE, teamId: TEAM, period },
-      CANDIDATES,
-    );
-    const opened = new Set(openings.map((each) => each.taskId));
-    const touched = openingsOf(history.touches);
+  it('covers what makes the Shipping numbers hard to get right', async () => {
+    const { team } = await expectedOf('90d');
+    const counts = await reader.shippingCounts(team, REPOSITORIES);
+    const [awaitingReview] = counts.pipeline.review;
 
-    expect(openings.length).toBeGreaterThan(10);
-    expect(stations.length).toBeGreaterThan(2);
-    expect(passages.some((each) => each.queued > 0)).toBe(true);
-    expect(passages.some((each) => each.inbox > 0)).toBe(true);
+    expect(counts.toMerge.spotlight.count).toBeGreaterThan(1);
+    expect(counts.toMerge.people.count).toBeGreaterThan(1);
+    expect(counts.toMergeBefore.spotlight.count).toBeGreaterThan(0);
+    expect(counts.types.length).toBeGreaterThan(2);
+    expect(counts.depth.some((each) => each.merged > 0)).toBe(true);
     expect(
-      CANDIDATES.some(
-        (taskId) => touched.get(taskId)?.opening && !opened.has(taskId),
+      counts.mergeDays.some(
+        (each) => each.rolling.spotlight.count > each.daily.spotlight.count,
       ),
     ).toBe(true);
     expect(
-      openings.some(
-        (each) => !touched.get(each.taskId)?.opening?.teamId.equals(TEAM),
-      ),
+      counts.reviewDays.some((each) => each.toFirstReview.rolling.count > 1),
     ).toBe(true);
+    expect(counts.reviewDays.some((each) => each.awaiting > 0)).toBe(true);
+    expect(counts.reviewDays.some((each) => each.humanReviews > 0)).toBe(true);
+    expect(counts.bots.length).toBeGreaterThan(0);
+    expect(counts.pipeline.merged).toBeGreaterThan(1);
+    expect(counts.pipeline.merged).toBeLessThan(counts.toMerge.spotlight.count);
+    expect(counts.pipeline.stations.length).toBeGreaterThan(1);
+    expect(awaitingReview?.times.all.total.count).toBeGreaterThan(0);
+  });
+});
+
+describe('how the Shipping numbers treat a day’s edges, drafts, bots and the period before', () => {
+  const SHIP = TeamId.of('team_ship_edges');
+  const period = InsightsPeriod.of('7d', NOW);
+  const team = { workspaceId: WORKSPACE, teamId: SHIP, period };
+  const REPOSITORIES = ['acme/edges', 'acme/before'];
+  const dayAt = (days: number, hours = 0) =>
+    new Date(period.current.from.getTime() + days * DAY + hours * HOUR);
+  const bot = (login: string): BotActivity => ({
+    login,
+    reviews: 1,
+    comments: 2,
+    threads: 1,
+    resolvedThreads: 1,
   });
 
-  it('reads nothing for no tasks', async () => {
-    const { period } = await histories.scope(
-      TEAM.value,
+  beforeAll(async () => {
+    const context = new DrizzleContext(held.db);
+    const added = new DrizzlePullRequestRecordRepository(context);
+    const seenAt = (
+      repository: string,
+      number: number,
+      over: Partial<
+        Pick<
+          SeenPullRequest,
+          | 'openedAt'
+          | 'state'
+          | 'closedAt'
+          | 'readyForReviewAt'
+          | 'draftSpells'
+          | 'firstUnblockingReviewAt'
+          | 'humanReviewedAt'
+          | 'botActivity'
+        >
+      >,
+    ) =>
+      PullRequestRecord.noted(
+        WORKSPACE,
+        PullRequestUrl.of(`https://github.com/${repository}/pull/${number}`),
+      ).seenAs({
+        repository,
+        number,
+        title: 'Add uploads',
+        author: 'ada',
+        authorIsBot: false,
+        branch: null,
+        additions: 1,
+        deletions: 1,
+        changedFiles: 1,
+        openedAt: dayAt(-5),
+        state: 'open',
+        closedAt: null,
+        updatedAt: dayAt(-5),
+        readyForReviewAt: null,
+        draftSpells: [],
+        firstReviewAt: null,
+        firstUnblockingReviewAt: null,
+        firstApprovedAt: null,
+        humanReviewedAt: [],
+        reviews: 0,
+        reviewRounds: 0,
+        reviewComments: 0,
+        botActivity: [],
+        isRevert: false,
+        revertedBy: null,
+        version: 1,
+        ...over,
+      });
+    const owned = (number: number) => ({
+      taskId: TaskId.of(`task_ship_${number}`),
+      teamId: SHIP,
+    });
+
+    await context.run(async () => {
+      await added.add(
+        seenAt('acme/edges', 1, {
+          openedAt: dayAt(2, -5),
+          state: 'merged',
+          closedAt: dayAt(2),
+        }).ownedBy(owned(1)),
+      );
+      await added.add(
+        seenAt('acme/edges', 2, {
+          readyForReviewAt: dayAt(4),
+          humanReviewedAt: [dayAt(5)],
+        }),
+      );
+      await added.add(
+        seenAt('acme/edges', 3, {
+          state: 'merged',
+          closedAt: dayAt(3, 12),
+          readyForReviewAt: dayAt(3),
+          draftSpells: [{ from: dayAt(3, -3), to: dayAt(3, -2) }],
+          firstUnblockingReviewAt: dayAt(3, 2),
+        }),
+      );
+      await added.add(
+        seenAt('acme/edges', 4, {
+          openedAt: dayAt(1),
+          botActivity: [bot('alpha')],
+        }),
+      );
+      await added.add(
+        seenAt('acme/edges', 5, {
+          openedAt: dayAt(2, 1),
+          botActivity: [bot('zeta')],
+        }),
+      );
+      await added.add(
+        seenAt('acme/before', 6, {
+          state: 'merged',
+          closedAt: dayAt(-3),
+        }).ownedBy(owned(6)),
+      );
+      await added.add(
+        seenAt('acme/before', 7, { state: 'merged', closedAt: dayAt(-2) }),
+      );
+    });
+  });
+
+  it('counts a merge, a ready pull request and a human review at midnight in the day that starts then, takes off only the draft time inside the wait, keeps bots in the order it first saw them, and compares the period before in its own repositories', async () => {
+    const counts = await reader.shippingCounts(team, REPOSITORIES);
+    const { history } = await histories.of(
+      SHIP.value,
       PersonPrincipal.of(VIEWER),
-      '90d',
+      '7d',
+    );
+    const reached = await pullRequestsHeldIn(
+      runs,
+      { records: pullRequests, shapes },
+      team,
+      { repositories: REPOSITORIES, from: period.previous.from, most: 100 },
+    );
+    const mergeDay = (at: number) =>
+      counts.mergeDays.find((each) => each.day === dayOf(dayAt(at)));
+    const reviewDay = (at: number) =>
+      counts.reviewDays.find((each) => each.day === dayOf(dayAt(at)));
+
+    expect(mergeDay(1)?.daily.spotlight.count).toBe(0);
+    expect(mergeDay(2)?.daily.spotlight.count).toBe(1);
+    expect([reviewDay(2)?.awaiting, reviewDay(3)?.awaiting]).toEqual([1, 1]);
+    expect([reviewDay(4)?.humanReviews, reviewDay(5)?.humanReviews]).toEqual([
+      0, 1,
+    ]);
+    expect(reviewDay(3)?.toFirstReview.daily).toMatchObject({
+      p50: 2 * HOUR,
+      count: 1,
+    });
+    expect(counts.bots.map((each) => each.login)).toEqual(['zeta', 'alpha']);
+    expect(counts.toMergeBefore.people.count).toBe(1);
+    expect(counts).toEqual(
+      shippingCountsOf(
+        reached,
+        pipelineCountsOf(history, shippedTaskIdsOf(reached, period), period),
+        period,
+      ),
+    );
+  });
+});
+
+describe('how Shipping clips review and pipeline times at their edges', () => {
+  const WAITS = TeamId.of('team_ship_waits');
+  const CLIPS = TeamId.of('team_ship_clips');
+  const period = InsightsPeriod.of('7d', NOW);
+  const dayAt = (days: number, hours = 0) =>
+    new Date(period.current.from.getTime() + days * DAY + hours * HOUR);
+  const bot = (login: string): BotActivity => ({
+    login,
+    reviews: 1,
+    comments: 2,
+    threads: 1,
+    resolvedThreads: 1,
+  });
+  const shippingOf = async (
+    teamId: TeamId,
+    repositories: readonly string[],
+  ) => {
+    const team = { workspaceId: WORKSPACE, teamId, period };
+    const { history } = await histories.of(
+      teamId.value,
+      PersonPrincipal.of(VIEWER),
+      '7d',
+    );
+    const reached = await pullRequestsHeldIn(
+      runs,
+      { records: pullRequests, shapes },
+      team,
+      { repositories, from: period.previous.from, most: 100 },
     );
 
-    expect(
-      await reader.pipelineCounts(
-        { workspaceId: WORKSPACE, teamId: TEAM, period },
-        [],
+    return {
+      counts: await reader.shippingCounts(team, repositories),
+      expected: shippingCountsOf(
+        reached,
+        pipelineCountsOf(history, shippedTaskIdsOf(reached, period), period),
+        period,
       ),
-    ).toEqual({ openings: [], stations: [], passages: [] });
+    };
+  };
+
+  beforeAll(async () => {
+    const context = new DrizzleContext(held.db);
+    const facts = new DrizzleRunFactProjection(context);
+    const added = new DrizzlePullRequestRecordRepository(context);
+    const touching = new DrizzleTaskTouchesRepository(context, facts);
+    const seenAt = (
+      repository: string,
+      number: number,
+      over: Partial<SeenPullRequest>,
+    ) =>
+      PullRequestRecord.noted(
+        WORKSPACE,
+        PullRequestUrl.of(`https://github.com/${repository}/pull/${number}`),
+      ).seenAs({
+        repository,
+        number,
+        title: 'Add uploads',
+        author: 'ada',
+        authorIsBot: false,
+        branch: null,
+        additions: 1,
+        deletions: 1,
+        changedFiles: 1,
+        openedAt: dayAt(-1),
+        state: 'open',
+        closedAt: null,
+        updatedAt: dayAt(-1),
+        readyForReviewAt: dayAt(1),
+        draftSpells: [],
+        firstReviewAt: null,
+        firstUnblockingReviewAt: null,
+        firstApprovedAt: null,
+        humanReviewedAt: [],
+        reviews: 0,
+        reviewRounds: 0,
+        reviewComments: 0,
+        botActivity: [],
+        isRevert: false,
+        revertedBy: null,
+        version: 1,
+        ...over,
+      });
+
+    await context.run(async () => {
+      for (const [number, over] of [
+        [1, { draftSpells: [{ from: dayAt(1, 2), to: dayAt(3) }] }],
+        [2, { draftSpells: [{ from: dayAt(3), to: dayAt(4) }] }],
+        [3, { draftSpells: [{ from: dayAt(2, 5), to: null }] }],
+        [4, { state: 'merged', closedAt: dayAt(3) }],
+        [5, { firstUnblockingReviewAt: dayAt(3) }],
+        [
+          6,
+          {
+            draftSpells: [{ from: dayAt(1, 1), to: null }],
+            firstUnblockingReviewAt: dayAt(1, 3),
+          },
+        ],
+        [
+          7,
+          {
+            draftSpells: [{ from: dayAt(1, 1), to: dayAt(1, 5) }],
+            firstUnblockingReviewAt: dayAt(1, 3),
+          },
+        ],
+        [
+          8,
+          {
+            readyForReviewAt: dayAt(2),
+            draftSpells: [
+              { from: dayAt(2), to: dayAt(2, 2) },
+              { from: dayAt(2), to: dayAt(2, 2) },
+            ],
+            firstUnblockingReviewAt: dayAt(2, 2),
+          },
+        ],
+        [
+          9,
+          { readyForReviewAt: null, botActivity: [bot('zeta'), bot('alpha')] },
+        ],
+        [
+          10,
+          {
+            readyForReviewAt: null,
+            state: 'closed',
+            closedAt: period.current.from,
+            botActivity: [bot('beta')],
+          },
+        ],
+      ] as const) {
+        await added.add(seenAt('acme/waits', number, over));
+      }
+
+      const opening = (taskId: string, at: Date) =>
+        touching.add(
+          TaskTouches.heardOf(TaskId.of(taskId), WORKSPACE).opened(
+            TaskOpening.of({
+              teamId: CLIPS,
+              lineId: 'line_clips',
+              stationId: 'draft',
+              by: VIEWER,
+              at,
+            }),
+          ),
+        );
+
+      for (const [number, openedAt, over] of [
+        [
+          1,
+          dayAt(2),
+          { title: 'Fix the login', openedAt: dayAt(1), closedAt: dayAt(3) },
+        ],
+        [
+          2,
+          dayAt(0),
+          {
+            openedAt: dayAt(1),
+            closedAt: dayAt(2),
+            firstUnblockingReviewAt: dayAt(2, 3),
+          },
+        ],
+        [
+          3,
+          dayAt(0),
+          {
+            openedAt: dayAt(1),
+            closedAt: dayAt(2),
+            firstUnblockingReviewAt: dayAt(1),
+            firstApprovedAt: dayAt(3),
+          },
+        ],
+        [4, period.lookback.from, { openedAt: dayAt(1), closedAt: dayAt(3) }],
+      ] as const) {
+        const taskId = `task_clips_${number}`;
+
+        await opening(taskId, openedAt);
+        await added.add(
+          seenAt('acme/clips', number, {
+            ...over,
+            state: 'merged',
+            readyForReviewAt: null,
+          }).ownedBy({ taskId: TaskId.of(taskId), teamId: CLIPS }),
+        );
+      }
+    });
+  });
+
+  it('waits for a review only outside a draft and before the review or the close, and takes off only the draft time inside the wait', async () => {
+    const { counts, expected } = await shippingOf(WAITS, ['acme/waits']);
+    const reviewDay = (at: number) =>
+      counts.reviewDays.find((each) => each.day === dayOf(dayAt(at)));
+
+    expect(reviewDay(2)?.awaiting).toBe(1);
+    expect(reviewDay(1)?.toFirstReview.daily).toMatchObject({
+      p50: 1 * HOUR,
+      count: 2,
+    });
+    expect(reviewDay(2)?.toFirstReview.daily).toMatchObject({
+      p50: 0,
+      count: 1,
+    });
+    expect(counts.bots.map((each) => each.login)).toEqual([
+      'zeta',
+      'alpha',
+      'beta',
+    ]);
+    expect(counts).toEqual(expected);
+  });
+
+  it('counts a stage of the pipeline as nothing when it would end before it starts, ends review at the earlier of approval and merge, and takes a task opened as the look back starts', async () => {
+    const { counts, expected } = await shippingOf(CLIPS, []);
+    const [, inReview] = counts.pipeline.review;
+
+    expect(counts.pipeline.merged).toBe(4);
+    expect(counts.pipeline.coding.times.all.total).toMatchObject({
+      p50: 1 * DAY,
+      count: 4,
+    });
+    expect(
+      counts.pipeline.coding.times.types.find((each) => each.type === 'fix')
+        ?.times.total,
+    ).toMatchObject({ p50: 0, count: 1 });
+    expect(inReview?.times.all.total).toMatchObject({ count: 2 });
+    expect(inReview?.times.all.total.p90).toBe(1 * DAY);
+    expect(counts).toEqual(expected);
   });
 });
 
@@ -2121,42 +2510,29 @@ describe('how setups fall into sizes and judges', () => {
 });
 
 describe('the pull requests a team made or reviewed', () => {
-  const REPOSITORIES = ['Acme/API', 'acme/web'];
-
-  it.each(INSIGHTS_PERIODS)(
-    'reads the same pull requests as the domain over %s, from the current and the previous window',
-    async (name) => {
-      const { period } = await histories.scope(
-        TEAM.value,
-        PersonPrincipal.of(VIEWER),
-        name,
-      );
-      const team = { workspaceId: WORKSPACE, teamId: TEAM, period };
-
-      for (const from of [period.current.from, period.previous.from]) {
-        const reach = { repositories: REPOSITORIES, from, most: 10_000 };
-
-        expect(await reader.pullRequests(team, reach)).toEqual(
-          await pullRequestsHeldIn(
-            runs,
-            { records: pullRequests, shapes },
-            team,
-            reach,
-          ),
-        );
-      }
-    },
-  );
-
   it('covers what makes reading pull requests hard to get right', async () => {
     const { period } = await histories.scope(
       TEAM.value,
       PersonPrincipal.of(VIEWER),
       '90d',
     );
-    const read = await reader.pullRequests(
+    const { pullRequests: read } = await reader.pullRequestPage(
       { workspaceId: WORKSPACE, teamId: TEAM, period },
-      { repositories: REPOSITORIES, from: period.previous.from, most: 10_000 },
+      {
+        repositories: ['Acme/API', 'acme/web'],
+        filter: {
+          repositories: null,
+          author: null,
+          type: null,
+          state: null,
+          week: null,
+          reverted: false,
+          rounds: null,
+          compared: false,
+        },
+        page: 1,
+        size: 10_000,
+      },
     );
 
     expect(new Set(read.map((each) => each.by)).size).toBe(4);
@@ -2170,30 +2546,6 @@ describe('the pull requests a team made or reviewed', () => {
       ),
     ).toBe(true);
     expect(read.some((each) => each.seen.state === 'open')).toBe(true);
-  });
-
-  it('stops at the most it is asked for, newest first', async () => {
-    const { period } = await histories.scope(
-      TEAM.value,
-      PersonPrincipal.of(VIEWER),
-      '90d',
-    );
-    const team = { workspaceId: WORKSPACE, teamId: TEAM, period };
-    const reach = {
-      repositories: REPOSITORIES,
-      from: period.previous.from,
-      most: 3,
-    };
-
-    expect(await reader.pullRequests(team, reach)).toEqual(
-      await pullRequestsHeldIn(
-        runs,
-        { records: pullRequests, shapes },
-        team,
-        reach,
-      ),
-    );
-    expect((await reader.pullRequests(team, reach)).length).toBe(3);
   });
 });
 
@@ -2478,12 +2830,26 @@ describe('how pull requests fall into the window and what their task spent', () 
 
   it('keeps one closed at the window start and leaves out one closed before it or opened at its end, breaks a tie by pull request, and sums its task’s spend in end order', async () => {
     const team = { workspaceId: WORKSPACE, teamId: PULLS, period };
-    const reach = { repositories: [], from, most: 100 };
-    const read = await reader.pullRequests(team, reach);
+    const filter = {
+      repositories: null,
+      author: null,
+      type: null,
+      state: null,
+      week: null,
+      reverted: false,
+      rounds: null,
+      compared: false,
+    };
+    const { pullRequests: read } = await reader.pullRequestPage(team, {
+      repositories: [],
+      filter,
+      page: 1,
+      size: 100,
+    });
 
     expect(read.map((each) => each.pullRequest)).toEqual([
-      pullOf(5).value,
       pullOf(4).value,
+      pullOf(5).value,
       pullOf(1).value,
     ]);
     expect(read[2]?.spending).toEqual({
@@ -2494,11 +2860,15 @@ describe('how pull requests fall into the window and what their task spent', () 
       mixedCurrencies: false,
     });
     expect(read).toEqual(
-      await pullRequestsHeldIn(
-        runs,
-        { records: pullRequests, shapes },
-        team,
-        reach,
+      filteredPullRequests(
+        await pullRequestsHeldIn(
+          runs,
+          { records: pullRequests, shapes },
+          team,
+          { repositories: [], from, most: 100 },
+        ),
+        filter,
+        period.current,
       ),
     );
   });
@@ -3004,6 +3374,7 @@ describe('how the pipeline sums a task’s time at each station', () => {
     const facts = new DrizzleRunFactProjection(context);
     const records = new DrizzleRunRecordRepository(context, facts, quiet);
     const touching = new DrizzleTaskTouchesRepository(context, facts);
+    const added = new DrizzlePullRequestRecordRepository(context);
     const ran = (
       runId: string,
       taskId: string,
@@ -3139,43 +3510,94 @@ describe('how the pipeline sums a task’s time at each station', () => {
         ),
       );
       await touching.add(openedOn('task_next_door', NEXT_DOOR, opened));
+
+      for (const [number, taskId] of TASKS.entries()) {
+        const url = PullRequestUrl.of(
+          `https://github.com/acme/piped/pull/${number}`,
+        );
+
+        await added.add(
+          PullRequestRecord.noted(WORKSPACE, url)
+            .seenAs({
+              repository: 'acme/piped',
+              number,
+              title: 'Add uploads',
+              author: 'ada',
+              authorIsBot: false,
+              branch: null,
+              additions: 1,
+              deletions: 1,
+              changedFiles: 1,
+              openedAt: at(7),
+              state: 'merged',
+              closedAt: at(10),
+              updatedAt: at(10),
+              readyForReviewAt: at(7),
+              draftSpells: [{ from: at(7), to: at(8) }],
+              firstReviewAt: at(8.5),
+              firstUnblockingReviewAt: at(8.5),
+              firstApprovedAt: at(9),
+              humanReviewedAt: [],
+              reviews: 1,
+              reviewRounds: 1,
+              reviewComments: 0,
+              botActivity: [],
+              isRevert: false,
+              revertedBy: null,
+              version: 1,
+            })
+            .ownedBy({ taskId: TaskId.of(taskId), teamId: PIPED }),
+        );
+      }
     });
   });
 
-  it('adds up every run and every answered ask of a task opened in reach', async () => {
-    const counts = await reader.pipelineCounts(
-      { workspaceId: WORKSPACE, teamId: PIPED, period },
-      TASKS,
-    );
+  it('adds up every run and every answered ask of a task opened in reach, and times its review', async () => {
+    const team = { workspaceId: WORKSPACE, teamId: PIPED, period };
+    const counts = await reader.shippingCounts(team, []);
     const { history } = await histories.of(
       PIPED.value,
       PersonPrincipal.of(VIEWER),
       '7d',
     );
-
-    expect(counts).toEqual({
-      openings: [{ taskId: 'task_piped', openedAt: opened }],
-      stations: [
-        { lineId: 'line_piped', stationId: 'draft' },
-        { lineId: 'line_piped', stationId: 'check' },
-      ],
-      passages: [
-        {
-          taskId: 'task_piped',
-          stationId: 'check',
-          queued: 0,
-          running: 0,
-          inbox: 0.25 * HOUR,
-        },
-        {
-          taskId: 'task_piped',
-          stationId: 'draft',
-          queued: 0.5 * HOUR,
-          running: 3 * HOUR,
-          inbox: 0.5 * HOUR,
-        },
-      ],
+    const reached = await pullRequestsHeldIn(
+      runs,
+      { records: pullRequests, shapes },
+      team,
+      { repositories: [], from: period.previous.from, most: 100 },
+    );
+    const median = (stage: Stage<Timed> | undefined) => ({
+      total: stage?.times.all.total.p50,
+      queued: stage?.times.all.parts?.queued.p50,
+      running: stage?.times.all.parts?.running.p50,
+      inbox: stage?.times.all.parts?.inbox.p50,
     });
-    expect(counts).toEqual(pipelineCountsOf(history, TASKS, period));
+
+    expect(counts.pipeline.merged).toBe(1);
+    expect(counts.pipeline.stations.map((each) => each.place)).toEqual([
+      { lineId: 'line_piped', stationId: 'draft' },
+      { lineId: 'line_piped', stationId: 'check' },
+    ]);
+    expect(counts.pipeline.stations.map(median)).toEqual([
+      {
+        total: 4 * HOUR,
+        queued: 0.5 * HOUR,
+        running: 3 * HOUR,
+        inbox: 0.5 * HOUR,
+      },
+      { total: 0.25 * HOUR, queued: 0, running: 0, inbox: 0.25 * HOUR },
+    ]);
+    expect(
+      [counts.pipeline.coding, ...counts.pipeline.review].map(
+        (each) => each.times.all.total.p50,
+      ),
+    ).toEqual([7 * HOUR, 0.5 * HOUR, 0.5 * HOUR, 1 * HOUR]);
+    expect(counts).toEqual(
+      shippingCountsOf(
+        reached,
+        pipelineCountsOf(history, shippedTaskIdsOf(reached, period), period),
+        period,
+      ),
+    );
   });
 });

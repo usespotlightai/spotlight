@@ -350,7 +350,7 @@ describe('the team’s pull requests', () => {
 
 describe('what the agents ship', () => {
   it('reaches back into the previous period for the rolling days and the comparison, keeping the period’s numbers to the period', async () => {
-    const { service, reader, pullRequests, touches } = await team();
+    const { service, pullRequests, touches } = await team();
     await touches.add(
       touchesOf('task_1', { openedAt: new Date('2026-09-28T09:00:00.000Z') }),
     );
@@ -360,10 +360,9 @@ describe('what the agents ship', () => {
         .ownedBy({ taskId: TaskId.of('task_7'), teamId: TEAM }),
     );
 
-    const shipping = await new ReadInsightsShippingHandler(
-      service,
-      reader,
-    ).execute(new ReadInsightsShippingQuery(TEAM.value, READ_TOKEN, '7d'));
+    const shipping = await new ReadInsightsShippingHandler(service).execute(
+      new ReadInsightsShippingQuery(TEAM.value, READ_TOKEN, '7d'),
+    );
     const [first] = shipping.mergeDays;
 
     expect(shipping.truncated).toBe(false);
@@ -400,10 +399,10 @@ describe('what the agents ship', () => {
   });
 
   it('refuses a person off the team', async () => {
-    const { service, reader } = await team();
+    const { service } = await team();
 
     await expect(
-      new ReadInsightsShippingHandler(service, reader).execute(
+      new ReadInsightsShippingHandler(service).execute(
         new ReadInsightsShippingQuery(TEAM.value, STRANGER, '7d'),
       ),
     ).rejects.toBeInstanceOf(UseCaseFault);
