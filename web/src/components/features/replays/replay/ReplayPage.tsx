@@ -19,8 +19,6 @@ import { buttonVariants } from '@/components/ui/button-variants';
 
 import type { LineResponseDto, StationResponseDto } from '@/lib/api';
 import {
-  baselineIn,
-  type Replay,
   type ReplayDetail,
   type ReplayedStation,
   type ReplaySet,
@@ -39,7 +37,6 @@ type ReplayPageProps = {
   station: StationResponseDto | undefined;
   replay: ReplayDetail;
   set: ReplaySet;
-  siblings: readonly Replay[];
   trail: BreadcrumbSegment[];
   forward: BreadcrumbSegment[];
 };
@@ -50,15 +47,11 @@ export function ReplayPage({
   station,
   replay,
   set,
-  siblings,
   trail,
   forward,
 }: ReplayPageProps) {
   const [picked, setPicked] = useState<string | null>(null);
 
-  const baseline =
-    baselineIn(siblings) ??
-    (replay.baselineReplayId === replay.id ? replay : null);
   const chosen =
     replay.comparison.find((each) => each.originalRunId === picked) ?? null;
   const { compared, counterpart } = taskColumnsOf(replay);
@@ -93,7 +86,7 @@ export function ReplayPage({
           />
         }
       >
-        <ReplayTiles replay={replay} baseline={baseline} />
+        <ReplayTiles replay={replay} />
 
         <InsightsCard
           tableOnly

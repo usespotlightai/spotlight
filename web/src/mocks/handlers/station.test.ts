@@ -148,7 +148,10 @@ describe('the mock station', () => {
       throwOnError: true,
     });
 
-    expect(replay.comparedWithReplayId).toBe('replay_live_4');
+    expect(replay.comparedWith).toMatchObject({
+      replayId: 'replay_live_4',
+      successRate: expect.any(Number),
+    });
     expect(replay.comparison).toHaveLength(7);
     expect(run.original.title).toBe('Fix the flaky billing test');
     expect(of.setName).toBe('Billing work');

@@ -41080,6 +41080,35 @@
           "medianMs"
         ]
       },
+      "ReplayCounterpartResponseDto": {
+        "type": "object",
+        "properties": {
+          "replayId": {
+            "type": "string",
+            "description": "The replay compared with: pairedWith where set, else for a replay with the answer the live replay it was handed the answer against, else the set’s baseline"
+          },
+          "successRate": {
+            "type": "number",
+            "nullable": true,
+            "description": "Its success rate on the tasks the gain pairs, the tasks both replays scored: per task, the share of its scored copies that succeeded, averaged over those tasks; null with no such task"
+          },
+          "interval": {
+            "nullable": true,
+            "description": "Its success rate on the tasks both replays scored, with its 95% interval over those tasks; null with no such task",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RateIntervalResponseDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "replayId",
+          "successRate",
+          "interval"
+        ]
+      },
       "PairTallyResponseDto": {
         "type": "object",
         "properties": {
@@ -41910,11 +41939,21 @@
           },
           "againstBaseline": {
             "nullable": true,
-            "description": "Its gain in success over the replay it is compared with (pairedWith where set, else the set’s baseline), with whether it is within noise; null with none",
+            "description": "Its gain in success over the replay in comparedWith, with whether it is within noise; null with none",
             "type": "object",
             "allOf": [
               {
                 "$ref": "#/components/schemas/GainReadingResponseDto"
+              }
+            ]
+          },
+          "comparedWith": {
+            "nullable": true,
+            "description": "The replay its gain, comparison rows and deltas are against, with its success rate; null for the baseline itself or with none",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ReplayCounterpartResponseDto"
               }
             ]
           },
@@ -41956,6 +41995,7 @@
           "endedAt",
           "totals",
           "againstBaseline",
+          "comparedWith",
           "pairedWith",
           "pairsAgainstBaseline",
           "entries"
@@ -42251,11 +42291,21 @@
           },
           "againstBaseline": {
             "nullable": true,
-            "description": "Its gain in success over the replay it is compared with (pairedWith where set, else the set’s baseline), with whether it is within noise; null with none",
+            "description": "Its gain in success over the replay in comparedWith, with whether it is within noise; null with none",
             "type": "object",
             "allOf": [
               {
                 "$ref": "#/components/schemas/GainReadingResponseDto"
+              }
+            ]
+          },
+          "comparedWith": {
+            "nullable": true,
+            "description": "The replay its gain, comparison rows and deltas are against, with its success rate; null for the baseline itself or with none",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ReplayCounterpartResponseDto"
               }
             ]
           },
@@ -42284,11 +42334,6 @@
             "type": "string",
             "nullable": true
           },
-          "comparedWithReplayId": {
-            "type": "string",
-            "nullable": true,
-            "description": "The replay its comparison rows, gain and deltas are against: pairedWith where set, else the set’s baseline; null for the baseline itself or with none"
-          },
           "search": {
             "nullable": true,
             "description": "The search it belongs to, when a search started it",
@@ -42300,7 +42345,7 @@
             ]
           },
           "comparison": {
-            "description": "Per task against the set’s baseline, regressions first",
+            "description": "Per task against the replay it is compared with (comparedWith), regressions first",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/EntryComparisonResponseDto"
@@ -42323,11 +42368,11 @@
           "endedAt",
           "totals",
           "againstBaseline",
+          "comparedWith",
           "pairedWith",
           "pairsAgainstBaseline",
           "entries",
           "baselineReplayId",
-          "comparedWithReplayId",
           "search",
           "comparison"
         ]
