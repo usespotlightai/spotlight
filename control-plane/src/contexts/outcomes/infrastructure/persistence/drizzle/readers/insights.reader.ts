@@ -3,9 +3,11 @@ import type {
   InsightsReaderPort,
   PullRequestListing,
   PullRequestPage,
+  RunsListed,
   SetupFilter,
   TeamInPeriod,
 } from '@outcomes/application/ports/insights-reader.port';
+import type { RunListing } from '@outcomes/domain/repositories/run-record.repository';
 import type { ChangeCounts } from '@outcomes/domain/services/before-after';
 import type { CostCountsInPeriod } from '@outcomes/domain/services/cost-breakdown';
 import type { FlowCounts } from '@outcomes/domain/services/flow';
@@ -25,6 +27,7 @@ import { overviewCountsIn } from '@outcomes/infrastructure/persistence/drizzle/r
 import { peopleCountsIn } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/people-counts.sql';
 import { pullRequestCountsIn } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/pull-request-counts.sql';
 import { pullRequestPageIn } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/pull-request-page.sql';
+import { runPageIn } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/run-page.sql';
 import { setupCountsIn } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/setup-counts.sql';
 import { shippingCountsIn } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/shipping-counts.sql';
 import { stationCountsIn } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/station-counts.sql';
@@ -95,5 +98,9 @@ export class DrizzleInsightsReader implements InsightsReaderPort {
     repositories: readonly string[],
   ): Promise<ShippingCounts> {
     return this.reading.read((db) => shippingCountsIn(db, team, repositories));
+  }
+
+  runPage(listing: RunListing): Promise<RunsListed> {
+    return this.reading.read((db) => runPageIn(db, listing));
   }
 }

@@ -50,7 +50,7 @@ describe('ConnectionCard', () => {
     showing(ASKED, 'user_sam');
 
     expect(
-      screen.getByText('Waiting for Maya Chen to connect Linear.'),
+      screen.getByText('The run is waiting for Maya Chen to connect Linear.'),
     ).toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: 'Connect' }),

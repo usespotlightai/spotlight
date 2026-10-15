@@ -28,11 +28,11 @@ const recordOf = (tool: Tool): OperationRecord | string => {
   const unnameable = Object.keys(properties).find((each) => !isNameable(each));
 
   if (name === '') {
-    return `passes over ${tool.name}, which has no name a tool can take`;
+    return `passes over ${tool.name}. It has no name that a tool can take`;
   }
 
   if (unnameable) {
-    return `passes over ${tool.name}, because it takes ${unnameable}, which a tool cannot`;
+    return `passes over ${tool.name}. It takes ${unnameable}, which a tool cannot take`;
   }
 
   return {

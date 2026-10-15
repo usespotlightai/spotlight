@@ -172,7 +172,7 @@ describe('a search for a better station config, when it stalls or loses its stat
     });
     expect(notice?.points).toEqual([
       expect.stringMatching(
-        /^No config change can fix the \d+ tasks? still failing\. Unspent budget is kept\.$/,
+        /^No config change can fix the \d+ tasks? still failing\. The rest of the budget stays unspent\.$/,
       ),
       expect.stringMatching(
         /^Fix the judge’s rubric, for “Drain (the )?queue[^”]*”: Drop the line of the rubric that asks for tests\.$/,

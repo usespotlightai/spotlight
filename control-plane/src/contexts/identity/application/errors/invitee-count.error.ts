@@ -5,7 +5,7 @@ export class InviteeCountError extends Error {
 
   constructor(count: number) {
     super(
-      `Please give between 1 and ${MOST_INVITED_AT_ONCE} email addresses. Received: ${count}`,
+      `Number of email addresses must be 1 to ${MOST_INVITED_AT_ONCE}. Received: ${count}`,
     );
     this.name = 'InviteeCountError';
   }

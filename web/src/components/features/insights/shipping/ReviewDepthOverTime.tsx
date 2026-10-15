@@ -74,7 +74,7 @@ export function ReviewDepthOverTime({
   return (
     <InsightsCard
       title="Review depth as throughput climbs"
-      description="Merged pull requests per week by review rounds, against total merged. Lighter colours growing as the line rises means review is thinning."
+      description="Merged pull requests per week by review rounds. The line shows the total merged. If the lighter colours grow while the line rises, review is thinning."
     >
       <div className="grid gap-3 md:grid-cols-[1fr_14rem]">
         <figure

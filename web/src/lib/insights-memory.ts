@@ -58,7 +58,7 @@ export const memoryTiles = (memory: InsightsMemory): MemoryTile[] => [
     id: 'flagged',
     label: 'Flagged wrong',
     value: countShown(memory.flagged.length),
-    detail: 'Retired by people this period',
+    detail: 'Retired by people in this period',
   },
   benchmarkTile(memory.benchmark),
 ];

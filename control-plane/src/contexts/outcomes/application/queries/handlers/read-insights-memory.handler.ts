@@ -6,9 +6,9 @@ import type { MemoryUsePort } from '@outcomes/application/ports/memory-use.port'
 import type { PeoplePort } from '@outcomes/application/ports/people.port';
 import type { ReadInsightsMemoryQuery } from '@outcomes/application/queries/read-insights-memory.query';
 import {
-  type TeamHistories,
+  type TeamScopes,
   windowOf,
-} from '@outcomes/application/services/team-histories.service';
+} from '@outcomes/application/services/team-scopes.service';
 import { memoryComparisonFrom } from '@outcomes/domain/services/memory-comparison';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
@@ -17,7 +17,7 @@ export class ReadInsightsMemoryHandler
   implements QueryHandlerPort<ReadInsightsMemoryQuery, InsightsMemoryDto>
 {
   constructor(
-    private readonly histories: TeamHistories,
+    private readonly scopes: TeamScopes,
     private readonly reader: InsightsReaderPort,
     private readonly memory: MemoryUsePort,
     private readonly benchmark: MemoryBenchmarkPort,
@@ -26,7 +26,7 @@ export class ReadInsightsMemoryHandler
 
   async execute(query: ReadInsightsMemoryQuery): Promise<InsightsMemoryDto> {
     try {
-      const { clearance, period } = await this.histories.scope(
+      const { clearance, period } = await this.scopes.scope(
         query.teamId,
         query.principal,
         query.period,
@@ -48,7 +48,6 @@ export class ReadInsightsMemoryHandler
 
       return {
         period: periodOf(period),
-        truncated: false,
         standing: use.standing,
         memoriesBriefed: compared.memoriesBriefed,
         memoriesRecalled: compared.memoriesRecalled,

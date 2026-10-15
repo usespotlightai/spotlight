@@ -60,7 +60,7 @@ export class ReviewAuthor {
     return this.kind !== 'github';
   }
 
-  // Every agent reviews as Spotlight, so one run takes up what another left.
+  // Every agent reviews as Spotlight, so a run can continue what another run left.
   isSameAs(other: ReviewAuthor): boolean {
     if (this.kind !== other.kind || !this.inSpotlight) {
       return false;

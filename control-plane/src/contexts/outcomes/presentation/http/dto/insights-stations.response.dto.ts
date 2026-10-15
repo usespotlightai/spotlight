@@ -288,13 +288,6 @@ export class InsightsStationsResponseDto {
   @ApiProperty({ type: InsightsPeriodResponseDto })
   readonly period: InsightsPeriodResponseDto;
 
-  @ApiProperty({
-    example: false,
-    description:
-      'Whether the team ran more than 20,000 runs over the period and the one before, so only the latest 20,000 were counted',
-  })
-  readonly truncated: boolean;
-
   @ApiProperty({ type: RunTallyResponseDto, description: 'The whole team' })
   readonly team: RunTallyResponseDto;
 
@@ -330,7 +323,6 @@ export class InsightsStationsResponseDto {
 
   constructor(stations: InsightsStationsDto) {
     this.period = new InsightsPeriodResponseDto(stations.period);
-    this.truncated = stations.truncated;
     this.team = new RunTallyResponseDto(stations.team);
     this.teamChanges = new TallyChangesResponseDto(stations.teamChanges);
     this.teamSeen = new TallySeenResponseDto(stations.teamSeen);

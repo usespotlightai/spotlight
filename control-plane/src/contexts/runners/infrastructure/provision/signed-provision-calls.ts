@@ -56,7 +56,7 @@ export class SignedProvisionCalls implements ProvisionCallsPort {
     if (!this.settings.hosts.allow(call.url.hostname)) {
       return {
         outcome: 'not-allowed',
-        detail: `${call.url.hostname} is not on this deployment’s outbound allow-list`,
+        detail: `This deployment’s outbound allow-list doesn’t include ${call.url.hostname}.`,
       };
     }
 
@@ -95,7 +95,7 @@ export class SignedProvisionCalls implements ProvisionCallsPort {
 
     return {
       outcome: 'refused',
-      detail: `answered ${answered.status}${said ? `: ${said}` : ''}`,
+      detail: `Provision URL answered ${answered.status}.${said ? ` Response: ${said}` : ''}`,
     };
   }
 }

@@ -46,7 +46,7 @@ describe('judge', () => {
 
   it('says why a judge’s scores are hidden', () => {
     expect(standingShown(STANDING)).toBe(
-      'Hidden until more runs have both judge and human scores. Runs so far: 4',
+      'Hidden until more runs have scores from both the judge and people. Runs so far: 4',
     );
     expect(standingShown({ ...STANDING, hiddenBecause: 'no-agreement' })).toBe(
       'Hidden. Agreement can’t be measured while all scores are identical.',
@@ -87,7 +87,7 @@ describe('judgeTiles', () => {
     );
 
     expect(tiles.map((tile) => [tile.label, tile.value, tile.detail])).toEqual([
-      ['Cohen’s kappa', '0.71', 'Trusted, needs 0.60'],
+      ['Cohen’s kappa', '0.71', 'Trusted. Minimum required: 0.60'],
       ['Both scores', '24', '48% of the last 50'],
       ['Judge only', '6', '12% of the last 50'],
       ['People only', '14', '28% of the last 50'],
@@ -158,7 +158,11 @@ describe('comparisonStats', () => {
       ['Pearson correlation', '1.00', 'Very strong correlation'],
       ['Spearman correlation', '1.00', 'Weak correlation'],
       ['Mean absolute error', '0.00', expect.stringMatching(/^How far/)],
-      ['Root mean square error', '0.00', expect.stringMatching(/^Like mean/)],
+      [
+        'Root mean square error',
+        '0.00',
+        expect.stringMatching(/^This is like mean/),
+      ],
     ]);
   });
 

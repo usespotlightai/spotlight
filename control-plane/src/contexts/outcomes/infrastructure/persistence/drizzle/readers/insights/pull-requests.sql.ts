@@ -18,7 +18,8 @@ import {
   taskChangeShape,
 } from '@outcomes/infrastructure/persistence/drizzle/schemas/outcomes.schema';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
-import { getTableColumns, type SQL, sql } from 'drizzle-orm';
+import { inList } from '@platform/persistence/drizzle/in-list';
+import { getTableColumns, type SQL, type SQLWrapper, sql } from 'drizzle-orm';
 
 const owned = sql`${pullRequestRecord.ownerTaskId} is not null and ${pullRequestRecord.ownerTeamId} is not null`;
 
@@ -57,8 +58,14 @@ const spent = sql`(
   where ${runFact.taskId} = ${pullRequestRecord.ownerTaskId}
 ) as spent`;
 
-export const lowerCasedIn = (values: readonly string[]): SQL =>
-  sql`(select jsonb_array_elements_text(${JSON.stringify(values.map((each) => each.toLowerCase()))}::jsonb))`;
+export const inLowerCase = (
+  column: SQLWrapper,
+  values: readonly string[],
+): SQL =>
+  inList(
+    column,
+    values.map((each) => each.toLowerCase()),
+  );
 
 export const atIn = (column: SQL, window: Window): SQL =>
   sql`${column} >= ${iso(window.from)}::timestamp and ${column} < ${iso(window.to)}::timestamp`;
@@ -72,7 +79,7 @@ const reachOf = (
     and ${seenRecord}
     and (
       ${pullRequestRecord.ownerTeamId} = ${team.teamId.value}
-      or ${pullRequestRecord.repository} in ${lowerCasedIn(repositories)}
+      or ${inLowerCase(pullRequestRecord.repository, repositories)}
     )
     and ${pullRequestRecord.openedAt} < ${iso(team.period.current.to)}::timestamp
     and (
@@ -121,7 +128,6 @@ export const reachedPullRequests = (
 const teamPullRequestsWhere = async (
   db: DrizzleDatabase,
   where: SQL,
-  most: number,
 ): Promise<readonly TeamPullRequest[]> => {
   const rows = await db
     .select({
@@ -140,8 +146,7 @@ const teamPullRequestsWhere = async (
     )
     .leftJoinLateral(spent, sql`true`)
     .where(where)
-    .orderBy(newestFirst)
-    .limit(most);
+    .orderBy(newestFirst);
 
   return rows.flatMap((row) => {
     const seen = seenOfRow(row);
@@ -180,10 +185,7 @@ export const pullRequestsNamedIn = async (
   const found = await teamPullRequestsWhere(
     db,
     sql`${pullRequestRecord.workspaceId} = ${team.workspaceId.value}
-      and ${pullRequestRecord.pullRequest} in (
-        select jsonb_array_elements_text(${JSON.stringify(named)}::jsonb)
-      )`,
-    named.length,
+      and ${inList(pullRequestRecord.pullRequest, named)}`,
   );
   const byName = new Map(found.map((each) => [each.pullRequest, each]));
 

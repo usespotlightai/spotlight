@@ -123,7 +123,7 @@ export const unprovisioned = (
   attempts: number,
 ): StackSkip => ({
   code: UNPROVISIONED,
-  detail: `${attempts} attempts; the last was ${failure.saying}`,
+  detail: `Attempts: ${attempts}\nLast failure: ${failure.saying}`,
 });
 
 export const nobodyChecked = (): StackSkip => ({

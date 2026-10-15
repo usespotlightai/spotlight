@@ -63,7 +63,7 @@ describe('checkStepsOf, on making the checkout ready', () => {
 
     expect(readying(steps)).toEqual([
       ['whole', true],
-      // The whole change installed the lockfile; this layer does not have it.
+      // The whole change installed the lockfile. This layer does not have it.
       ['c1.l1', true],
       // This one brings it back.
       ['c1.l2', true],

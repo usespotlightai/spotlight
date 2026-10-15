@@ -6,7 +6,6 @@ import { NoRunsInPeriod } from '@/components/features/insights/NoRunsInPeriod';
 import { StationsSkeleton } from '@/components/features/insights/StationsSkeleton';
 import { StationsTable } from '@/components/features/insights/StationsTable';
 import { StationInsights } from '@/components/features/insights/station/StationInsights';
-import { TruncatedNote } from '@/components/features/insights/TruncatedNote';
 import { useInsightsStations } from '@/hooks/api/useInsightsStations';
 import { useScrollToHash } from '@/hooks/useScrollToHash';
 import {
@@ -50,7 +49,6 @@ export function StationsTab({
     teamChanges,
     teamTrend,
     stations: reports,
-    truncated,
   } = stations.data;
 
   if (stationId) {
@@ -75,8 +73,6 @@ export function StationsTab({
 
   return (
     <div className="flex flex-col gap-3">
-      {truncated && <TruncatedNote />}
-
       <InsightsTiles label="The whole team">
         {tallyTiles(team, teamSeen, teamChanges, trendOf(teamTrend)).map(
           (tile) => (
@@ -95,7 +91,7 @@ export function StationsTab({
 
       <InsightsCard
         title="By station"
-        description="Same counts as each station’s page. The line shows runs per day, failures in red, beside the change in runs from the previous period."
+        description="The counts are the same as on each station’s page. The line shows runs per day, with failures in red. The number beside it is the change in runs since the previous period."
       >
         <StationsTable stations={reports} counted={teamCounted} names={names} />
       </InsightsCard>

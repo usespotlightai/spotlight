@@ -65,7 +65,8 @@ export function PickCandidate({
         ) : (
           !opened && (
             <span className="text-muted-foreground">
-              Opens a pull request changing the station to this config.
+              Picking opens a pull request that changes the station to this
+              config.
             </span>
           )
         )}

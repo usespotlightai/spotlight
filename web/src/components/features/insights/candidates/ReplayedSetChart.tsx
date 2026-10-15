@@ -13,8 +13,8 @@ export function ReplayedSetChart({ set }: ReplayedSetChartProps) {
     <>
       {points.length === 0 || !currency ? (
         <p className="py-6 text-center text-muted-foreground text-sm">
-          Nothing on this set has a priced score yet. Show the table to see
-          what’s there.
+          Nothing on this set has a priced score yet. Show the table to see the
+          replays.
         </p>
       ) : (
         <ReplayedScatter points={points} currency={currency} />

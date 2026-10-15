@@ -1,23 +1,19 @@
 import { Injectable } from '@nestjs/common';
 import { TaskTouches } from '@outcomes/domain/aggregates/task-touches.aggregate';
 import { TaskTouchesMovedOnError } from '@outcomes/domain/exceptions/task-touches-moved-on.error';
-import type { TeamWindow } from '@outcomes/domain/repositories/run-record.repository';
 import type { TaskTouchesRepository } from '@outcomes/domain/repositories/task-touches.repository';
 import { InboxAsk } from '@outcomes/domain/value-objects/inbox-ask.vo';
 import { PersonTouch } from '@outcomes/domain/value-objects/person-touch.vo';
 import { TaskOpening } from '@outcomes/domain/value-objects/task-opening.vo';
 import { DrizzleRunFactProjection } from '@outcomes/infrastructure/persistence/drizzle/projections/run-fact.projection';
-import {
-  runRecord,
-  taskTouches,
-} from '@outcomes/infrastructure/persistence/drizzle/schemas/outcomes.schema';
+import { taskTouches } from '@outcomes/infrastructure/persistence/drizzle/schemas/outcomes.schema';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, desc, eq, gte, inArray, lt, or } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 
 type TouchesRow = typeof taskTouches.$inferSelect;
 
@@ -142,63 +138,6 @@ export class DrizzleTaskTouchesRepository implements TaskTouchesRepository {
       .limit(1);
 
     return row ? toTouches(row) : null;
-  }
-
-  async forTasks(taskIds: readonly TaskId[]): Promise<readonly TaskTouches[]> {
-    if (taskIds.length === 0) {
-      return [];
-    }
-
-    const rows = await this.context.db
-      .select()
-      .from(taskTouches)
-      .where(
-        inArray(
-          taskTouches.taskId,
-          taskIds.map((each) => each.value),
-        ),
-      );
-
-    return rows.map(toTouches);
-  }
-
-  async ofTeamBetween(
-    window: TeamWindow,
-    most: number,
-  ): Promise<readonly TaskTouches[]> {
-    const rows = await this.context.db
-      .select()
-      .from(taskTouches)
-      .where(
-        and(
-          eq(taskTouches.workspaceId, window.workspaceId.value),
-          or(
-            and(
-              eq(taskTouches.teamId, window.teamId.value),
-              gte(taskTouches.touchedAt, window.from),
-              lt(taskTouches.openedAt, window.to),
-            ),
-            inArray(
-              taskTouches.taskId,
-              this.context.db
-                .selectDistinct({ taskId: runRecord.taskId })
-                .from(runRecord)
-                .where(
-                  and(
-                    eq(runRecord.workspaceId, window.workspaceId.value),
-                    eq(runRecord.teamId, window.teamId.value),
-                    gte(runRecord.endedAt, window.from),
-                    lt(runRecord.endedAt, window.to),
-                  ),
-                ),
-            ),
-          ),
-        ),
-      )
-      .orderBy(desc(taskTouches.touchedAt), desc(taskTouches.taskId))
-      .limit(most);
-
-    return rows.map(toTouches);
   }
 
   async removeForTask(taskId: TaskId): Promise<void> {

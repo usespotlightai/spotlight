@@ -21,36 +21,39 @@ export const standingOf = (
   facts: ReplayFacts | null,
 ): ReplayStanding | null => {
   if (!facts?.inWorkspace) {
-    return { refusal: 'unknown-run', reason: 'there is no such run' };
+    return {
+      refusal: 'unknown-run',
+      reason: 'The run is not in this workspace.',
+    };
   }
   if (!facts.taskId || !facts.stationId) {
     return {
       refusal: 'not-a-task-run',
-      reason: 'it worked no task of its own',
+      reason: 'It did not work a task of its own.',
     };
   }
   if (!facts.ended) {
-    return { refusal: 'still-running', reason: 'it has not ended yet' };
+    return { refusal: 'still-running', reason: 'It has not ended yet.' };
   }
   if (!facts.startedFrom) {
     return {
       refusal: 'no-starting-point',
-      reason: 'it never said where it started',
+      reason: 'It never reported a starting point.',
     };
   }
   if (!facts.briefed) {
     return {
       refusal: 'no-briefing',
-      reason: 'the task it was briefed with was never kept',
+      reason: 'Its task briefing was not kept.',
     };
   }
   if (!facts.taskStands) {
-    return { refusal: 'task-gone', reason: 'the task it worked was deleted' };
+    return { refusal: 'task-gone', reason: 'Its task was deleted.' };
   }
   if (facts.archive === 'gone') {
     return {
       refusal: 'archive-gone',
-      reason: 'the workspace archive it started from is no longer kept',
+      reason: 'The workspace archive that it started from is no longer kept.',
     };
   }
 

@@ -80,14 +80,14 @@ describe('a pull request reviewed from GitHub (e2e)', () => {
       by: attributedIn(),
       workspaceId: WorkspaceId.of(held),
       teamId: TeamId.of(held),
-      // biome-ignore lint/style/noNonNullAssertion: Spotlight ships a review line
+      // biome-ignore lint/style/noNonNullAssertion: Spotlight has a built-in review line
       line: opening!,
       newId: () => `${held}_${++next}`,
     });
 
     await lines.add(line);
     const stored = await lines.find(line.id);
-    // biome-ignore lint/style/noNonNullAssertion: the built-in review line reviews
+    // biome-ignore lint/style/noNonNullAssertion: the built-in review line has reviews
     expect(stored?.reviews?.equals(line.reviews!)).toBe(true);
 
     const marks = [{ kind: REVIEW_MARK, value: pull }];
@@ -128,7 +128,7 @@ describe('a pull request reviewed from GitHub (e2e)', () => {
 
     const task = await tasks.holding(
       WorkspaceId.of(held),
-      // biome-ignore lint/style/noNonNullAssertion: a mark always concerns
+      // biome-ignore lint/style/noNonNullAssertion: concerns with a mark are not null
       Concerns.of({ marks: [Mark.review(PullRequestUrl.of(pull))] })!,
     );
 

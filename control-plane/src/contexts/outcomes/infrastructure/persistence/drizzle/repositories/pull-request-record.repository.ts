@@ -1,10 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PullRequestRecord } from '@outcomes/domain/aggregates/pull-request-record.aggregate';
 import { PullRequestRecordMovedOnError } from '@outcomes/domain/exceptions/pull-request-record-moved-on.error';
-import type {
-  PullRequestRecordRepository,
-  TeamPullRequestWindow,
-} from '@outcomes/domain/repositories/pull-request-record.repository';
+import type { PullRequestRecordRepository } from '@outcomes/domain/repositories/pull-request-record.repository';
 import {
   type PullRequestRow,
   seenOfRow,
@@ -15,19 +12,7 @@ import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import {
-  and,
-  arrayContains,
-  desc,
-  eq,
-  gte,
-  inArray,
-  isNotNull,
-  isNull,
-  lt,
-  or,
-  sql,
-} from 'drizzle-orm';
+import { and, arrayContains, eq, or } from 'drizzle-orm';
 
 const toRecord = (row: PullRequestRow): PullRequestRecord =>
   PullRequestRecord.rehydrate({
@@ -159,40 +144,6 @@ export class DrizzlePullRequestRecordRepository
     if (gone.length === 0) {
       throw new PullRequestRecordMovedOnError(removed.pullRequest.value);
     }
-  }
-
-  async seenForTeamBetween(
-    window: TeamPullRequestWindow,
-    most: number,
-  ): Promise<readonly PullRequestRecord[]> {
-    const repositories = window.repositories.map((each) => each.toLowerCase());
-    const rows = await this.context.db
-      .select()
-      .from(pullRequestRecord)
-      .where(
-        and(
-          eq(pullRequestRecord.workspaceId, window.workspaceId.value),
-          isNotNull(pullRequestRecord.seenVersion),
-          or(
-            eq(pullRequestRecord.ownerTeamId, window.teamId.value),
-            repositories.length > 0
-              ? inArray(pullRequestRecord.repository, repositories)
-              : sql`false`,
-          ),
-          lt(pullRequestRecord.openedAt, window.to),
-          or(
-            isNull(pullRequestRecord.closedAt),
-            gte(pullRequestRecord.closedAt, window.from),
-          ),
-        ),
-      )
-      .orderBy(
-        desc(pullRequestRecord.openedAt),
-        sql`${pullRequestRecord.pullRequest} collate "C" desc`,
-      )
-      .limit(most);
-
-    return rows.map(toRecord);
   }
 
   async heldByTask(

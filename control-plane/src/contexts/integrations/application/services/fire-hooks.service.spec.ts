@@ -702,7 +702,7 @@ describe('FireHooks.workOne, guarding against loops', () => {
       hook: 'audit',
       code: 'loop',
       saying:
-        'Hook audit was stopped. Reason: the hook audit would fire again for what caused it: task.moved of Add a column (triage → build) → the hook audit → a delivery from slack → task.moved of Add a column (triage → build) → the hook audit',
+        'Hook audit was stopped to prevent a loop. It would fire again for the change that caused it. Cause chain: task.moved of Add a column (triage → build) → the hook audit → a delivery from slack → task.moved of Add a column (triage → build) → the hook audit',
       heardAs: 'loop:firing_1',
     });
     expect(saved[0]?.stoppedForLooping).toBe(true);
@@ -726,7 +726,7 @@ describe('FireHooks.workOne, guarding against loops', () => {
 
     expect(runtime.step).not.toHaveBeenCalled();
     expect(vi.mocked(notes.failed).mock.calls[0]?.[0]?.saying).toContain(
-      'past the 8 allowed',
+      'Maximum depth: 8',
     );
   });
 

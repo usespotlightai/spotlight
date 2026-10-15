@@ -75,7 +75,7 @@ export class JoseHookTokens implements HookTokensPort {
   async signed(claims: HookTokenClaims): Promise<string> {
     if (!this.signer) {
       throw new Error(
-        'This Spotlight has no key to sign hook tokens with; set HOOK_SIGNING_KEY',
+        'This deployment has no key to sign hook tokens with. Please set HOOK_SIGNING_KEY.',
       );
     }
 
