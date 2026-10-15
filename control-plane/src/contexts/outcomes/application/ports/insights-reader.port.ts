@@ -4,6 +4,8 @@ import type { FlowCounts } from '@outcomes/domain/services/flow';
 import type { MemoryCounts } from '@outcomes/domain/services/memory-comparison';
 import type { OverviewCounts } from '@outcomes/domain/services/overview-counts';
 import type { PeopleCounts } from '@outcomes/domain/services/people-counts';
+import type { PullRequestFilter } from '@outcomes/domain/services/pull-request-filter';
+import type { PullRequestCounts } from '@outcomes/domain/services/pull-request-insights';
 import type { RunSize } from '@outcomes/domain/services/run-size';
 import type { SetupComparisonCounts } from '@outcomes/domain/services/setup-comparison';
 import type { PipelineCounts } from '@outcomes/domain/services/shipping';
@@ -33,6 +35,21 @@ export interface PullRequestReach {
   readonly most: number;
 }
 
+export interface PullRequestsAsked {
+  readonly filter: PullRequestFilter;
+  readonly page: number;
+  readonly size: number;
+}
+
+export interface PullRequestListing extends PullRequestsAsked {
+  readonly repositories: readonly string[];
+}
+
+export interface PullRequestPage {
+  readonly total: number;
+  readonly pullRequests: readonly TeamPullRequest[];
+}
+
 export interface InsightsReaderPort {
   stationCounts(team: TeamInPeriod): Promise<TeamCounts>;
   overviewCounts(team: TeamInPeriod): Promise<OverviewCounts>;
@@ -54,4 +71,12 @@ export interface InsightsReaderPort {
     team: TeamInPeriod,
     reach: PullRequestReach,
   ): Promise<readonly TeamPullRequest[]>;
+  pullRequestCounts(
+    team: TeamInPeriod,
+    repositories: readonly string[],
+  ): Promise<PullRequestCounts>;
+  pullRequestPage(
+    team: TeamInPeriod,
+    listing: PullRequestListing,
+  ): Promise<PullRequestPage>;
 }

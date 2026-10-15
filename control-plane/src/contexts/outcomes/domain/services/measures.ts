@@ -9,6 +9,8 @@ export interface Spread {
 const sorted = (values: readonly number[]): number[] =>
   [...values].sort((a, b) => a - b);
 
+const roundedOf = (value: number): number => Math.round(value) || 0;
+
 export const medianOf = (values: readonly number[]): number | null => {
   if (values.length === 0) {
     return null;
@@ -19,7 +21,7 @@ export const medianOf = (values: readonly number[]): number | null => {
 
   return ordered.length % 2 === 1
     ? (ordered[middle] ?? null)
-    : Math.round(((ordered[middle - 1] ?? 0) + (ordered[middle] ?? 0)) / 2);
+    : roundedOf(((ordered[middle - 1] ?? 0) + (ordered[middle] ?? 0)) / 2);
 };
 
 export const percentileOf = (

@@ -21,6 +21,8 @@ import { judgedRunsOf } from '@outcomes/domain/services/judge-shares';
 import { memoryCountsOf } from '@outcomes/domain/services/memory-comparison';
 import { overviewCountsOf } from '@outcomes/domain/services/overview-counts';
 import { peopleCountsOf } from '@outcomes/domain/services/people-counts';
+import { filteredPullRequests } from '@outcomes/domain/services/pull-request-filter';
+import { pullRequestCountsOf } from '@outcomes/domain/services/pull-request-insights';
 import { inEndOrder } from '@outcomes/domain/services/run-order';
 import {
   setupCountsOf,
@@ -125,6 +127,15 @@ export const pullRequestsHeldIn = async (
   });
 };
 
+const currentReach = (
+  team: TeamInPeriod,
+  repositories: readonly string[],
+): PullRequestReach => ({
+  repositories,
+  from: team.period.current.from,
+  most: Number.MAX_SAFE_INTEGER,
+});
+
 export const insightsReaderInMemory = (
   held: TeamHistoryHeld,
   scores: ScoreRepository = new ScoresInMemory(),
@@ -207,4 +218,31 @@ export const insightsReaderInMemory = (
   },
   pullRequests: (team, reach) =>
     pullRequestsHeldIn(held.records, pullRequests, team, reach),
+  pullRequestCounts: async (team, repositories) =>
+    pullRequestCountsOf(
+      await pullRequestsHeldIn(
+        held.records,
+        pullRequests,
+        team,
+        currentReach(team, repositories),
+      ),
+      team.period.current,
+    ),
+  pullRequestPage: async (team, { repositories, filter, page, size }) => {
+    const listed = filteredPullRequests(
+      await pullRequestsHeldIn(
+        held.records,
+        pullRequests,
+        team,
+        currentReach(team, repositories),
+      ),
+      filter,
+      team.period.current,
+    );
+
+    return {
+      total: listed.length,
+      pullRequests: listed.slice((page - 1) * size, page * size),
+    };
+  },
 });

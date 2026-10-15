@@ -18,6 +18,12 @@ export const priced = sql`${ran} and ${runFact.cost} is not null and coalesce(${
 
 export const sentBack = sql`${ran} and ${runFact.nextAct} = 'sent-back'`;
 
+export const textArray = (values: readonly string[]): SQL =>
+  sql`array[${sql.join(
+    values.map((each) => sql`${each}`),
+    sql`, `,
+  )}]::text[]`;
+
 export const atWithin = (at: SQL, window: Window): SQL =>
   sql`(${at} >= ${asUtc(window.from)} and ${at} < ${asUtc(window.to)})`;
 
@@ -40,7 +46,7 @@ export const dateOf = (ms: number | null): Date | null =>
   ms === null ? null : new Date(ms);
 
 const medianOver = (ms: SQL, when: SQL): SQL =>
-  sql`round((percentile_cont(0.5) within group (order by ${ms}) filter (where ${when}))::numeric)::float8`;
+  sql`floor(percentile_cont(0.5) within group (order by ${ms}) filter (where ${when}) + 0.5)`;
 
 const p90Over = (ms: SQL, when: SQL): SQL =>
   sql`(percentile_disc(0.9) within group (order by ${ms}) filter (where ${when}))::float8`;

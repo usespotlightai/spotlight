@@ -1,4 +1,5 @@
 import { pullRequestsHeldIn } from '@outcomes/application/ports/insights-reader.fake-spec';
+import type { TeamInPeriod } from '@outcomes/application/ports/insights-reader.port';
 import { OutcomesAccess } from '@outcomes/application/services/outcomes-access.service';
 import { TeamHistories } from '@outcomes/application/services/team-histories.service';
 import { ChatRecord } from '@outcomes/domain/aggregates/chat-record.aggregate';
@@ -22,6 +23,12 @@ import { memoryCountsOf } from '@outcomes/domain/services/memory-comparison';
 import { overviewCountsOf } from '@outcomes/domain/services/overview-counts';
 import { peopleCountsOf } from '@outcomes/domain/services/people-counts';
 import {
+  filteredPullRequests,
+  type PullRequestFilter,
+} from '@outcomes/domain/services/pull-request-filter';
+import {
+  pullRequestCountsOf,
+  pullRequestInsightsFrom,
   weekOf,
   weekWindowOf,
 } from '@outcomes/domain/services/pull-request-insights';
@@ -188,7 +195,7 @@ const RUBRICS = ['a'.repeat(64), 'b'.repeat(64)];
 const prRandom = seeded(SEED * 19 + 7);
 const prPick = <T>(from: readonly T[]): T =>
   from[Math.floor(prRandom() * from.length)] as T;
-const PULL_REQUESTS = 160;
+const PULL_REQUESTS = 600;
 const PR_REPOSITORIES = ['acme/api', 'acme/web', 'Acme/API', 'other/tool'];
 const PR_TITLES = [
   'Fix the login',
@@ -668,7 +675,7 @@ beforeAll(async () => {
     for (let index = 0; index < PULL_REQUESTS; index += 1) {
       const home = prPick(HOMES);
       const repository = prPick(PR_REPOSITORIES);
-      const openedAt = ago(Math.floor(prRandom() * 200 * DAY));
+      const openedAt = ago(Math.floor(prRandom() * 120 * DAY));
       const later = (hours: number) =>
         new Date(openedAt.getTime() + hours * HOUR);
       const state = prPick(['open', 'merged', 'merged', 'closed'] as const);
@@ -713,7 +720,8 @@ beforeAll(async () => {
               ]
             : [],
         isRevert: prRandom() < 0.05,
-        revertedBy: null,
+        revertedBy:
+          prRandom() < 0.15 ? 'https://github.com/acme/api/pull/999' : null,
         version: 1,
       });
 
@@ -2189,6 +2197,144 @@ describe('the pull requests a team made or reviewed', () => {
   });
 });
 
+describe('the pull request numbers and list of a team', () => {
+  const REPOSITORIES = ['Acme/API', 'acme/web'];
+  const heldFor = (team: TeamInPeriod) =>
+    pullRequestsHeldIn(runs, { records: pullRequests, shapes }, team, {
+      repositories: REPOSITORIES,
+      from: team.period.current.from,
+      most: 10_000,
+    });
+  const teamOver = async (name: string): Promise<TeamInPeriod> => {
+    const { period } = await histories.scope(
+      TEAM.value,
+      PersonPrincipal.of(VIEWER),
+      name,
+    );
+
+    return { workspaceId: WORKSPACE, teamId: TEAM, period };
+  };
+  const filterOf = (over: Partial<PullRequestFilter>): PullRequestFilter => ({
+    repositories: null,
+    author: null,
+    type: null,
+    state: null,
+    week: null,
+    reverted: false,
+    rounds: null,
+    compared: false,
+    ...over,
+  });
+
+  it.each(INSIGHTS_PERIODS)(
+    'counts the same pull requests as the domain over %s',
+    async (name) => {
+      const team = await teamOver(name);
+
+      expect(await reader.pullRequestCounts(team, REPOSITORIES)).toEqual(
+        pullRequestCountsOf(await heldFor(team), team.period.current),
+      );
+    },
+  );
+
+  it('covers what makes the pull request numbers hard to get right', async () => {
+    const team = await teamOver('90d');
+    const counts = await reader.pullRequestCounts(team, REPOSITORIES);
+    const insights = pullRequestInsightsFrom(
+      counts,
+      REPOSITORIES,
+      team.period.current,
+    );
+
+    expect(new Set(counts.tallies.map((each) => each.by)).size).toBe(4);
+    expect(counts.compared.length).toBeGreaterThan(0);
+    expect(counts.people.merged).toBeGreaterThan(0);
+    expect(counts.spotlight.reverted).toBeGreaterThan(0);
+    expect(counts.spotlight.inReview.count).toBeGreaterThan(1);
+    expect(counts.types.some((each) => each.spend !== null)).toBe(true);
+    expect(counts.types.some((each) => each.mixedCurrencies)).toBe(true);
+    expect(counts.types.some((each) => each.unpriced > 0)).toBe(true);
+    expect(
+      counts.depth.every((each) => each.spotlight > 0 && each.people > 0),
+    ).toBe(true);
+    expect(
+      insights.penetration.repositories.map((each) => each.repository),
+    ).toContain('other/tool');
+  });
+
+  it.each([
+    ['nothing', {}],
+    ['open', { state: 'open' }],
+    ['merged', { state: 'merged' }],
+    ['closed', { state: 'closed' }],
+    ['made by Spotlight', { author: 'spotlight' }],
+    ['touched by Spotlight', { author: 'touched' }],
+    ['made by people', { author: 'people' }],
+    ['made by bots', { author: 'bots' }],
+    ['a fix', { type: 'fix' }],
+    ['a feature', { type: 'feature' }],
+    ['reverted', { reverted: true }],
+    ['no review round', { rounds: '0' }],
+    ['three review rounds or more', { rounds: '3+' }],
+    ['in a compared repository', { compared: true }],
+    [
+      'in a repository written in other letters',
+      { repositories: ['ACME/api'] },
+    ],
+    ['in no repository', { repositories: [] }],
+    [
+      'merged by people in a compared repository',
+      { compared: true, author: 'people', state: 'merged' },
+    ],
+  ] as const)(
+    'lists the same pages as the domain when it asks for %s',
+    async (_, over) => {
+      const team = await teamOver('30d');
+      const filter = filterOf(over);
+      const listed = filteredPullRequests(
+        await heldFor(team),
+        filter,
+        team.period.current,
+      );
+      const size = 7;
+
+      for (let page = 1; page <= Math.ceil(listed.length / size) + 1; page++) {
+        expect(
+          await reader.pullRequestPage(team, {
+            repositories: REPOSITORIES,
+            filter,
+            page,
+            size,
+          }),
+        ).toEqual({
+          total: listed.length,
+          pullRequests: listed.slice((page - 1) * size, page * size),
+        });
+      }
+    },
+  );
+
+  it('lists the same page as the domain for a week', async () => {
+    const team = await teamOver('30d');
+    const filter = filterOf({ week: weekWindowOf(weekOf(ago(10 * DAY))) });
+    const listed = filteredPullRequests(
+      await heldFor(team),
+      filter,
+      team.period.current,
+    );
+
+    expect(listed.length).toBeGreaterThan(0);
+    expect(
+      await reader.pullRequestPage(team, {
+        repositories: REPOSITORIES,
+        filter,
+        page: 1,
+        size: 100,
+      }),
+    ).toEqual({ total: listed.length, pullRequests: listed });
+  });
+});
+
 describe('how pull requests fall into the window and what their task spent', () => {
   const PULLS = TeamId.of('team_pulls');
   const period = InsightsPeriod.of('7d', NOW);
@@ -2355,6 +2501,285 @@ describe('how pull requests fall into the window and what their task spent', () 
         reach,
       ),
     );
+  });
+});
+
+describe('how the pull request numbers round, sum and sort', () => {
+  const MATHS = TeamId.of('team_pull_maths');
+  const period = InsightsPeriod.of('7d', NOW);
+  const from = period.current.from;
+  const closed = new Date(from.getTime() + 2 * DAY);
+  const hoursIn = (hours: number) => new Date(from.getTime() + hours * HOUR);
+  const pullOf = (repository: string, number: number) =>
+    PullRequestUrl.of(`https://github.com/${repository}/pull/${number}`);
+  const REPOSITORIES = ['acme/maths', 'acme/lone', 'acme/open', 'acme/touched'];
+  const team = { workspaceId: WORKSPACE, teamId: MATHS, period };
+  const peopleListed = async (compared: boolean, page = 1) =>
+    reader.pullRequestPage(team, {
+      repositories: REPOSITORIES,
+      filter: {
+        repositories: null,
+        author: 'people',
+        type: null,
+        state: null,
+        week: null,
+        reverted: false,
+        rounds: null,
+        compared,
+      },
+      page,
+      size: 10,
+    });
+
+  beforeAll(async () => {
+    const context = new DrizzleContext(held.db);
+    const quiet = {
+      dispatch: async () => {},
+    } as unknown as DomainEventDispatcher;
+    const records = new DrizzleRunRecordRepository(
+      context,
+      new DrizzleRunFactProjection(context),
+      quiet,
+    );
+    const added = new DrizzlePullRequestRecordRepository(context);
+    const seenAt = (
+      repository: string,
+      number: number,
+      over: {
+        readonly spelled?: string;
+        readonly title?: string;
+        readonly openedAt?: Date;
+        readonly closedAt?: Date | null;
+        readonly firstReviewAt?: Date | null;
+        readonly authorIsBot?: boolean;
+      } = {},
+    ) => {
+      const openedAt = over.openedAt ?? hoursIn(1);
+      const closedAt = over.closedAt === undefined ? closed : over.closedAt;
+
+      return PullRequestRecord.noted(
+        WORKSPACE,
+        pullOf(over.spelled ?? repository, number),
+      ).seenAs({
+        repository,
+        number,
+        title: over.title ?? 'Update the readme',
+        author: 'ada',
+        authorIsBot: over.authorIsBot ?? false,
+        branch: null,
+        additions: 1,
+        deletions: 1,
+        changedFiles: 1,
+        openedAt,
+        state: closedAt ? 'merged' : 'open',
+        closedAt,
+        updatedAt: closedAt ?? openedAt,
+        readyForReviewAt: openedAt,
+        draftSpells: [],
+        firstReviewAt: over.firstReviewAt ?? null,
+        firstUnblockingReviewAt: null,
+        firstApprovedAt: null,
+        humanReviewedAt: [],
+        reviews: 0,
+        reviewRounds: 0,
+        reviewComments: 0,
+        botActivity: [],
+        isRevert: false,
+        revertedBy: null,
+        version: 1,
+      });
+    };
+    const owned = (number: number) => ({
+      taskId: TaskId.of(`task_maths_${number}`),
+      teamId: MATHS,
+    });
+    const spent = (
+      runId: string,
+      taskId: TaskId,
+      amount: number,
+      currency: string,
+    ) =>
+      records.add(
+        RunRecord.heardOf(RunId.of(runId), WORKSPACE)
+          .ended(
+            RunEnd.of({
+              place: RunPlace.of({
+                teamId: MATHS,
+                lineId: 'line_maths',
+                stationId: 'maths',
+                taskId,
+              }),
+              fingerprint: 'a'.repeat(64),
+              setup: RunSetup.of({
+                harness: 'claude-code',
+                model: 'sonnet',
+                effort: null,
+                profileKey: null,
+                repositories: [],
+                skills: [],
+              }),
+              queuedAt: null,
+              startedAt: ago(2 * HOUR),
+              endedAt: ago(HOUR),
+              ending: 'completed',
+              failure: null,
+              round: 1,
+              asked: false,
+            }),
+          )
+          .digested(
+            RunCost.of({
+              ms: 1_000,
+              steps: 1,
+              faults: 0,
+              changedLines: 1,
+              used: null,
+              size: null,
+              amount,
+              currency,
+              tokens: {
+                input: null,
+                output: null,
+                cacheRead: null,
+                cacheWrite: null,
+              },
+            }),
+            RunTools.NONE,
+          ),
+      );
+
+    await context.run(async () => {
+      for (const [number, hoursAfter, reviewedAfterMs, amount] of [
+        [1, 1, 3, 0.1],
+        [2, 2, 2, 0.2],
+        [3, 3, null, 0.3],
+      ] as const) {
+        await added.add(
+          seenAt('acme/maths', number, {
+            title: `Fix part ${number}`,
+            openedAt: hoursIn(hoursAfter),
+            firstReviewAt:
+              reviewedAfterMs === null
+                ? null
+                : new Date(closed.getTime() + reviewedAfterMs),
+          }).ownedBy(owned(number)),
+        );
+        await spent(`maths_${number}`, owned(number).taskId, amount, 'USD');
+      }
+
+      await added.add(
+        seenAt('acme/maths', 7, { title: 'Write tests for retries' }).ownedBy(
+          owned(7),
+        ),
+      );
+      await spent('maths_mixed_usd', owned(7).taskId, 1, 'USD');
+      await spent('maths_mixed_eur', owned(7).taskId, 1, 'EUR');
+
+      for (const [repository, number, over] of [
+        ['acme/maths', 8, { openedAt: hoursIn(-1), closedAt: from }],
+        [
+          'acme/maths',
+          9,
+          { openedAt: hoursIn(-1), closedAt: period.current.to },
+        ],
+        ['Acme/Tie', 10, { openedAt: hoursIn(5) }],
+        ['acme/tie', 11, { openedAt: hoursIn(5) }],
+        ['acme/open', 12, { closedAt: null }],
+      ] as const) {
+        await added.add(
+          seenAt(repository, number, {
+            ...over,
+            title: 'Implement uploads',
+          }).ownedBy(owned(number)),
+        );
+      }
+
+      for (const [repository, number] of [
+        ['acme/maths', 5],
+        ['acme/lone', 6],
+        ['acme/open', 13],
+        ['acme/touched', 15],
+      ] as const) {
+        await added.add(seenAt(repository, number));
+      }
+
+      await added.add(seenAt('acme/maths', 4, { spelled: 'Acme/maths' }));
+
+      await added.add(
+        seenAt('acme/touched', 14).reviewedBy(TaskId.of('task_maths_review')),
+      );
+      await added.add(
+        seenAt('acme/maths', 16, {
+          authorIsBot: true,
+          closedAt: new Date('2026-10-12T00:00:00.000Z'),
+        }),
+      );
+    });
+  });
+
+  it('rounds a median of negative times up, as the domain does, sums the spend of a type newest first, and keeps the window bounds and the first spelling', async () => {
+    const counts = await reader.pullRequestCounts(team, REPOSITORIES);
+    const typed = (type: string) =>
+      counts.types.find((each) => each.type === type);
+
+    expect(counts.compared).toEqual(['acme/tie', 'acme/maths']);
+    expect(counts.spotlight.merged).toBe(7);
+    expect(counts.people.merged).toBe(2);
+    expect(counts.spotlight.inReview).toEqual({ p50: -2, p90: -2, count: 2 });
+    expect(typed('fix')?.spend).toEqual({
+      // Keep this order: 0.1 + 0.2 + 0.3 is not equal to 0.6.
+      amount: 0.3 + 0.2 + 0.1,
+      currency: 'USD',
+    });
+    expect(typed('tests')).toMatchObject({
+      spotlight: 1,
+      spend: null,
+      mixedCurrencies: true,
+    });
+    expect(typed('feature')?.spotlight).toBe(3);
+    expect(counts.tallies).toContainEqual({
+      repository: 'acme/maths',
+      week: '2026-10-12',
+      by: 'bots',
+      merged: 1,
+    });
+    expect(counts).toEqual(
+      pullRequestCountsOf(
+        await pullRequestsHeldIn(
+          runs,
+          { records: pullRequests, shapes },
+          team,
+          { repositories: REPOSITORIES, from, most: 100 },
+        ),
+        period.current,
+      ),
+    );
+  });
+
+  it('lists pull requests closed at the same time in the order of their code units, and leaves out repositories without a merged pull request Spotlight made when it asks for compared ones', async () => {
+    const listed = async (compared: boolean) =>
+      (await peopleListed(compared)).pullRequests.map(
+        (each) => each.pullRequest,
+      );
+
+    expect(await listed(false)).toEqual([
+      pullOf('Acme/maths', 4).value,
+      pullOf('acme/lone', 6).value,
+      pullOf('acme/maths', 5).value,
+      pullOf('acme/open', 13).value,
+      pullOf('acme/touched', 15).value,
+    ]);
+    expect(await listed(true)).toEqual([
+      pullOf('Acme/maths', 4).value,
+      pullOf('acme/maths', 5).value,
+    ]);
+  });
+
+  it('gives an empty page for a page far after the last', async () => {
+    expect(await peopleListed(false, 1e300)).toEqual({
+      total: 5,
+      pullRequests: [],
+    });
   });
 });
 

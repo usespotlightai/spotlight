@@ -9,6 +9,7 @@ import {
   PULL_REQUEST_TYPES,
   type PullRequestType,
 } from '@outcomes/domain/value-objects/pull-request-type';
+import { textArray } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/run-fact.sql';
 import { type SQL, sql } from 'drizzle-orm';
 
 const JS_SPACE =
@@ -113,10 +114,7 @@ const typeOfChanges = (titles: SQL, intents: SQL): SQL => sql`(
   ) as typed
   where typed.type is not null
   group by typed.type
-  order by count(*) desc, array_position(array[${sql.join(
-    PULL_REQUEST_TYPES.map((each) => sql`${each}`),
-    sql`, `,
-  )}]::text[], typed.type)
+  order by count(*) desc, array_position(${textArray(PULL_REQUEST_TYPES)}, typed.type)
   limit 1
 )`;
 

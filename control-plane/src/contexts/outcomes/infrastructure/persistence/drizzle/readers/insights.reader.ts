@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import type {
   InsightsReaderPort,
+  PullRequestListing,
+  PullRequestPage,
   PullRequestReach,
   SetupFilter,
   TeamInPeriod,
@@ -11,6 +13,7 @@ import type { FlowCounts } from '@outcomes/domain/services/flow';
 import type { MemoryCounts } from '@outcomes/domain/services/memory-comparison';
 import type { OverviewCounts } from '@outcomes/domain/services/overview-counts';
 import type { PeopleCounts } from '@outcomes/domain/services/people-counts';
+import type { PullRequestCounts } from '@outcomes/domain/services/pull-request-insights';
 import type { SetupComparisonCounts } from '@outcomes/domain/services/setup-comparison';
 import type { PipelineCounts } from '@outcomes/domain/services/shipping';
 import type { TeamCounts } from '@outcomes/domain/services/station-reports';
@@ -23,6 +26,8 @@ import { memoryCountsIn } from '@outcomes/infrastructure/persistence/drizzle/rea
 import { overviewCountsIn } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/overview-counts.sql';
 import { peopleCountsIn } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/people-counts.sql';
 import { pipelineCountsIn } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/pipeline-counts.sql';
+import { pullRequestCountsIn } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/pull-request-counts.sql';
+import { pullRequestPageIn } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/pull-request-page.sql';
 import { pullRequestsIn } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/pull-requests.sql';
 import { setupCountsIn } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/setup-counts.sql';
 import { stationCountsIn } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/station-counts.sql';
@@ -84,5 +89,21 @@ export class DrizzleInsightsReader implements InsightsReaderPort {
     reach: PullRequestReach,
   ): Promise<readonly TeamPullRequest[]> {
     return this.reading.read((db) => pullRequestsIn(db, team, reach));
+  }
+
+  pullRequestCounts(
+    team: TeamInPeriod,
+    repositories: readonly string[],
+  ): Promise<PullRequestCounts> {
+    return this.reading.read((db) =>
+      pullRequestCountsIn(db, team, repositories),
+    );
+  }
+
+  pullRequestPage(
+    team: TeamInPeriod,
+    listing: PullRequestListing,
+  ): Promise<PullRequestPage> {
+    return this.reading.read((db) => pullRequestPageIn(db, team, listing));
   }
 }

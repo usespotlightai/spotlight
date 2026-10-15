@@ -188,7 +188,7 @@ export class DrizzlePullRequestRecordRepository
       )
       .orderBy(
         desc(pullRequestRecord.openedAt),
-        desc(pullRequestRecord.pullRequest),
+        sql`${pullRequestRecord.pullRequest} collate "C" desc`,
       )
       .limit(most);
 
