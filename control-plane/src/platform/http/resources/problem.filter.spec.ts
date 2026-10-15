@@ -18,6 +18,7 @@ const answering = (exception: unknown) => {
   const headers = new Map<string, string>();
   const reply = vi.fn();
   const error = vi.fn();
+  const report = vi.fn();
   const adapterHost = {
     httpAdapter: {
       setHeader: (_: unknown, name: string, value: string) =>
@@ -32,14 +33,13 @@ const answering = (exception: unknown) => {
     }),
   } as unknown as ArgumentsHost;
 
-  new ProblemFilter(adapterHost, { error } as unknown as LoggerPort).catch(
-    exception,
-    host,
-  );
+  new ProblemFilter(adapterHost, { error } as unknown as LoggerPort, {
+    report,
+  }).catch(exception, host);
 
   const [, body, status] = reply.mock.calls[0] as [unknown, unknown, number];
 
-  return { body, status, headers, error };
+  return { body, status, headers, error, report };
 };
 
 describe('ProblemFilter', () => {
@@ -103,9 +103,9 @@ describe('ProblemFilter', () => {
     }
   });
 
-  it('logs a fault of its own, and says nothing of it to the caller', () => {
+  it('logs and reports a fault of its own, and says nothing of it to the caller', () => {
     const surprise = new Error('the disk melted');
-    const { body, status, error } = answering(surprise);
+    const { body, status, error, report } = answering(surprise);
 
     expect(status).toBe(500);
     expect(JSON.stringify(body)).not.toContain('melted');
@@ -113,5 +113,23 @@ describe('ProblemFilter', () => {
       expect.objectContaining({ err: surprise }),
       'Server fault',
     );
+    expect(report).toHaveBeenCalledExactlyOnceWith(surprise, {
+      source: 'http',
+    });
+  });
+
+  it('reports no fault of a service upstream, which UseCaseFaultFilter does not report either', () => {
+    const { status, report } = answering(
+      new UseCaseFault('refused-upstream', 'GitHub refused'),
+    );
+
+    expect(status).toBe(502);
+    expect(report).not.toHaveBeenCalled();
+  });
+
+  it('reports no problem a caller caused', () => {
+    const { report } = answering(ProblemException.notFound('line'));
+
+    expect(report).not.toHaveBeenCalled();
   });
 });

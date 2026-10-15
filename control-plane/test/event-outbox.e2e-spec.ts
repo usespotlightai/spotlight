@@ -27,7 +27,7 @@ import {
 import { CausalChain } from '@shared-kernel/domain/value-objects/causal-chain.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import { eq } from 'drizzle-orm';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
 
 class Marker {
@@ -40,6 +40,7 @@ class Marker {
 
 class Rang implements DomainEvent {
   readonly kind = 'bell.rang';
+  readonly workspaceId = Marker.of('workspace-1');
 
   constructor(readonly marker: Marker) {}
 }
@@ -126,6 +127,7 @@ const outboxWith = () => {
     clock,
     causation,
   );
+  const reports = { report: vi.fn() };
   const delivery = new EventDelivery(
     context,
     outbox,
@@ -133,9 +135,10 @@ const outboxWith = () => {
     clock,
     logger,
     causation,
+    reports,
   );
 
-  return { outbox, delivery };
+  return { outbox, delivery, reports };
 };
 
 beforeAll(async () => {
@@ -256,9 +259,9 @@ describe('the event outbox', () => {
     expect(heard).toContain('flaky two');
   });
 
-  it('gives up on a subscriber that keeps failing', async () => {
+  it('gives up on a subscriber that keeps failing, and reports only the last failure', async () => {
     failing = MOST_ATTEMPTS + 5;
-    const { outbox, delivery } = outboxWith();
+    const { outbox, delivery, reports } = outboxWith();
 
     await outbox.record([new Rang(Marker.of('three'))]);
 
@@ -273,6 +276,13 @@ describe('the event outbox', () => {
     expect(given).toHaveLength(1);
     expect(given[0]?.attempts).toBe(MOST_ATTEMPTS);
     expect(given[0]?.lastError).toBe('not yet');
+    expect(reports.report).toHaveBeenCalledExactlyOnceWith(
+      new Error('not yet'),
+      expect.objectContaining({
+        source: 'test.flaky',
+        workspaceId: 'workspace-1',
+      }),
+    );
     failing = 0;
   });
 });

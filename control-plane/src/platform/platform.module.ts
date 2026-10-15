@@ -2,6 +2,7 @@ import { Global, Module } from '@nestjs/common';
 import { APP_FILTER, HttpAdapterHost } from '@nestjs/core';
 import { CqrsModule } from '@nestjs/cqrs';
 import { ConfigModule } from '@platform/config/config.module';
+import { SentryErrorReports } from '@platform/errors/sentry-error-reports';
 import { AmbientCausation } from '@platform/events/ambient-causation';
 import { EventDelivery } from '@platform/events/event-delivery';
 import { EventDeliveryWorker } from '@platform/events/event-delivery.worker';
@@ -12,6 +13,7 @@ import { EventSubscribers } from '@platform/events/event-subscribers';
 import { EventTypes } from '@platform/events/event-types';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import { EXPRESSION_ENGINE } from '@platform/expressions/expression-engine.port';
+import { ErrorReportingController } from '@platform/http/controllers/error-reporting.controller';
 import { HealthController } from '@platform/http/controllers/health.controller';
 import { ServerFaultFilter } from '@platform/http/filters/server-fault.filter';
 import { UseCaseFaultFilter } from '@platform/http/filters/use-case-fault.filter';
@@ -25,9 +27,11 @@ import { DrizzleReading } from '@platform/persistence/drizzle/drizzle.reading';
 import { SystemClock } from '@platform/time/system-clock';
 import { TokenMint } from '@platform/tokens/token-mint.service';
 import { JoseWorkloadTokens } from '@platform/workload/jose-workload-tokens';
+import { SentryGlobalFilter } from '@sentry/nestjs/setup';
 import { CAUSATION } from '@shared-kernel/application/ports/causation.port';
 import { CLOCK } from '@shared-kernel/application/ports/clock.port';
 import { DOMAIN_EVENT_DISPATCHER } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
+import { ERROR_REPORTS } from '@shared-kernel/application/ports/error-reports.port';
 import { ID_GENERATOR } from '@shared-kernel/application/ports/id-generator.port';
 import { IDEMPOTENT_CREATES } from '@shared-kernel/application/ports/idempotent-creates.port';
 import { IDEMPOTENT_RECALLS } from '@shared-kernel/application/ports/idempotent-recalls.port';
@@ -44,7 +48,7 @@ import { SHARED_KERNEL_EVENT_TYPES } from '@shared-kernel/domain/event-types';
 @Global()
 @Module({
   imports: [ConfigModule, LoggingModule, DrizzleModule, CqrsModule],
-  controllers: [HealthController],
+  controllers: [HealthController, ErrorReportingController],
   providers: [
     {
       provide: GracefulShutdown,
@@ -52,6 +56,7 @@ import { SHARED_KERNEL_EVENT_TYPES } from '@shared-kernel/domain/event-types';
       useFactory: (adapters: HttpAdapterHost, logger: LoggerPort) =>
         new GracefulShutdown(adapters, logger),
     },
+    { provide: APP_FILTER, useClass: SentryGlobalFilter },
     { provide: APP_FILTER, useClass: ServerFaultFilter },
     { provide: APP_FILTER, useClass: UseCaseFaultFilter },
     DrizzleContext,
@@ -76,6 +81,7 @@ import { SHARED_KERNEL_EVENT_TYPES } from '@shared-kernel/domain/event-types';
     EventDeliveryWorker,
     { provide: ID_GENERATOR, useClass: CryptoIdGenerator },
     { provide: CLOCK, useClass: SystemClock },
+    { provide: ERROR_REPORTS, useClass: SentryErrorReports },
     { provide: EXPRESSION_ENGINE, useClass: CelExpressionEngine },
     TokenMint,
     { provide: TOKEN_MINT, useClass: TokenMint },
@@ -84,6 +90,7 @@ import { SHARED_KERNEL_EVENT_TYPES } from '@shared-kernel/domain/event-types';
     { provide: WORKLOAD_TOKENS, useClass: JoseWorkloadTokens },
   ],
   exports: [
+    ERROR_REPORTS,
     ConfigModule,
     LoggingModule,
     DrizzleModule,

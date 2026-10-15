@@ -1,6 +1,8 @@
+import { useEffect } from 'react';
 import { Navigate, Outlet, useLocation } from 'react-router';
 import { useSession } from '@/hooks/api/useSession';
 import { useWorkspaces } from '@/hooks/api/useWorkspaces';
+import { reportAs } from '@/lib/error-reporting';
 import { loading } from '@/lib/query';
 
 const CREATE_WORKSPACE = '/workspaces/new';
@@ -10,6 +12,9 @@ export function RequireAuth() {
   const location = useLocation();
   const signedIn = Boolean(session?.user);
   const workspaces = useWorkspaces(signedIn);
+  const userId = session?.user.id ?? null;
+
+  useEffect(() => reportAs(userId), [userId]);
 
   if (isPending) {
     return null;

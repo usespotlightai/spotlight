@@ -20,6 +20,7 @@ import (
 	"usespotlight.ai/data-plane/host/internal/mirror"
 	"usespotlight.ai/data-plane/host/internal/sandbox"
 	"usespotlight.ai/data-plane/protocol"
+	"usespotlight.ai/data-plane/telemetry"
 )
 
 const (
@@ -156,6 +157,7 @@ func (h *Host) Serve(ctx context.Context) error {
 		failing.Do(func() {
 			failure = err
 			h.log.Error("the control plane will not have this host; it stops claiming and lets its sandboxes finish", "error", err)
+			telemetry.Report(err, telemetry.Tags{"host": h.opts.HostID, "workspace": h.workspace})
 		})
 		stopClaiming()
 	}
@@ -440,12 +442,14 @@ func (h *Host) sandbox(ctx context.Context, image string, handed protocol.Handed
 	body, err := json.Marshal(inSandbox)
 	if err != nil {
 		log.Error("could not hand over the work", "error", err)
+		h.reported(err, handed)
 		return
 	}
 
 	worker, err := h.pool.Seat(handed)
 	if err != nil {
 		log.Error("could not act for the runner it was handed", "error", err)
+		h.reported(err, handed)
 		return
 	}
 
@@ -476,6 +480,7 @@ func (h *Host) sandbox(ctx context.Context, image string, handed protocol.Handed
 	defer way.close()
 	if err != nil {
 		log.Warn("gave up the work: its way out did not start", "error", err)
+		h.reported(err, handed)
 		h.giveUp(ctx, handed, worker, fmt.Sprintf("The sandbox's egress didn't start. Error: %v", err), log)
 		return
 	}
@@ -508,6 +513,7 @@ func (h *Host) sandbox(ctx context.Context, image string, handed protocol.Handed
 	h.started(image, err == nil)
 	if err != nil {
 		log.Error("could not start a sandbox; claiming from this image pauses", "image", ready.digest, "error", err)
+		h.reported(err, handed)
 		return
 	}
 
@@ -702,6 +708,17 @@ func renewal(work protocol.Claimed, worker Worker) func(context.Context) (bool, 
 	}
 
 	return nil
+}
+
+func (h *Host) reported(err error, handed protocol.Handed) {
+	tags := telemetry.Tags{"host": h.opts.HostID, "workspace": h.workspace, "runner": handed.RunnerID}
+	if run := handed.Work.Run; run != nil {
+		tags["run"] = run.ID
+	}
+	if check := handed.Work.Check; check != nil {
+		tags["run"], tags["stack"] = check.RunID, check.StackID
+	}
+	telemetry.Report(err, tags)
 }
 
 func (h *Host) giveUp(ctx context.Context, handed protocol.Handed, worker Worker, reason string, log *slog.Logger) {

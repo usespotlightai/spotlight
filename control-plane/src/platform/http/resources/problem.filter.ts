@@ -22,6 +22,10 @@ import {
 } from '@platform/http/resources/resource-headers';
 import { UseCaseFault } from '@shared-kernel/application/errors/use-case.fault';
 import {
+  ERROR_REPORTS,
+  type ErrorReportsPort,
+} from '@shared-kernel/application/ports/error-reports.port';
+import {
   LOGGER,
   type LoggerPort,
 } from '@shared-kernel/application/ports/logger.port';
@@ -55,6 +59,7 @@ export class ProblemFilter implements ExceptionFilter {
   constructor(
     private readonly adapterHost: HttpAdapterHost,
     @Inject(LOGGER) private readonly logger: LoggerPort,
+    @Inject(ERROR_REPORTS) private readonly reports: ErrorReportsPort,
   ) {}
 
   catch(exception: unknown, host: ArgumentsHost): void {
@@ -62,6 +67,9 @@ export class ProblemFilter implements ExceptionFilter {
     const problem = problemOf(exception);
 
     if (problem.status >= HttpStatus.INTERNAL_SERVER_ERROR) {
+      if (!(exception instanceof UseCaseFault)) {
+        this.reports.report(exception, { source: 'http' });
+      }
       const request = http.getRequest<LoggableRequest>();
 
       this.logger.error(

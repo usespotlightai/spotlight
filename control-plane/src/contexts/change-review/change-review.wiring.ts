@@ -189,6 +189,10 @@ import {
   type ClockPort,
 } from '@shared-kernel/application/ports/clock.port';
 import {
+  ERROR_REPORTS,
+  type ErrorReportsPort,
+} from '@shared-kernel/application/ports/error-reports.port';
+import {
   ID_GENERATOR,
   type IdGeneratorPort,
 } from '@shared-kernel/application/ports/id-generator.port';
@@ -401,6 +405,7 @@ const services: Provider[] = [
       ReorderChangeStack,
       CLOCK,
       LOGGER,
+      ERROR_REPORTS,
     ],
     useFactory: (
       stacks: DrizzleChangeStackRepository,
@@ -410,6 +415,7 @@ const services: Provider[] = [
       reordering: ReorderChangeStack,
       clock: ClockPort,
       logger: LoggerPort,
+      reports: ErrorReportsPort,
     ) =>
       new WorkChangeStacks(
         stacks,
@@ -419,6 +425,7 @@ const services: Provider[] = [
         reordering,
         clock,
         logger,
+        reports,
       ),
   },
   {
@@ -502,6 +509,7 @@ const services: Provider[] = [
       TRANSACTION,
       CLOCK,
       LOGGER,
+      ERROR_REPORTS,
     ],
     useFactory: (
       sets: DrizzleDecisionSetRepository,
@@ -511,6 +519,7 @@ const services: Provider[] = [
       transaction: TransactionPort,
       clock: ClockPort,
       logger: LoggerPort,
+      reports: ErrorReportsPort,
     ) =>
       new WorkDecisionSets(
         sets,
@@ -520,6 +529,7 @@ const services: Provider[] = [
         transaction,
         clock,
         logger,
+        reports,
       ),
   },
   {
@@ -643,6 +653,7 @@ const services: Provider[] = [
       PULL_REQUEST_REVIEWS,
       CLOCK,
       LOGGER,
+      ERROR_REPORTS,
     ],
     useFactory: (
       outbox: ReviewOutboxPort,
@@ -654,6 +665,7 @@ const services: Provider[] = [
       github: PullRequestReviewsPort,
       clock: ClockPort,
       logger: LoggerPort,
+      reports: ErrorReportsPort,
     ) =>
       new SyncReviews(
         outbox,
@@ -665,6 +677,7 @@ const services: Provider[] = [
         github,
         clock,
         logger,
+        reports,
       ),
   },
   {

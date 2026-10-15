@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 ARG NODE_VERSION=24-alpine
 ARG NPM_VERSION=11.19.1
 ARG NGINX_VERSION=1.29-alpine
@@ -10,10 +11,14 @@ COPY web/package.json web/package-lock.json ./
 RUN npm ci
 
 FROM node:${NODE_VERSION} AS build
+ARG SPOTLIGHT_VERSION=dev
+ARG SENTRY_ORG
+ARG SENTRY_PROJECT
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY web/ ./
-RUN npm run build
+RUN --mount=type=secret,id=sentry_auth_token,env=SENTRY_AUTH_TOKEN \
+    SENTRY_RELEASE="${SPOTLIGHT_VERSION}" npm run build
 
 FROM node:${NODE_VERSION} AS development
 ENV NODE_ENV=development

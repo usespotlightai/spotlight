@@ -2,6 +2,7 @@ import { Suspense } from 'react';
 import { Navigate, Route, Routes } from 'react-router';
 import { RequireAuth } from './components/shell/auth/RequireAuth.tsx';
 import { RequireGuest } from './components/shell/auth/RequireGuest.tsx';
+import { PageErrorBoundary } from './components/shell/layout/PageErrorBoundary.tsx';
 import { lazyPage } from './lib/lazy-page.ts';
 import { Inbox } from './routes/Inbox.tsx';
 import { Workspace } from './routes/Workspace.tsx';
@@ -168,74 +169,79 @@ const WorkspaceIndex = lazyPage(
 
 export default function App() {
   return (
-    <Suspense fallback={null}>
-      <Routes>
-        <Route element={<RequireGuest />}>
-          <Route path="/login" element={<Login />} />
-        </Route>
+    <PageErrorBoundary>
+      <Suspense fallback={null}>
+        <Routes>
+          <Route element={<RequireGuest />}>
+            <Route path="/login" element={<Login />} />
+          </Route>
 
-        <Route path="/invites/:token" element={<AcceptInvite />} />
+          <Route path="/invites/:token" element={<AcceptInvite />} />
 
-        <Route element={<RequireAuth />}>
-          <Route index element={<DefaultWorkspace />} />
-          <Route path="/workspaces/new" element={<CreateWorkspace />} />
-          <Route path="/github/installed" element={<GitHubInstalled />} />
-          <Route path="/w/:slug" element={<Workspace />}>
-            <Route index element={<WorkspaceIndex />} />
-            <Route path="team/:teamId">
-              <Route index element={<TeamIndex />} />
-              <Route path="lines/:lineId" element={<LineBoard />} />
-              <Route
-                path="lines/:lineId/stations/:stationId/:tab?"
-                element={<Station />}
-              />
-              <Route
-                path="lines/:lineId/stations/:stationId/replay-sets/:setId"
-                element={<ReplaySet />}
-              />
-              <Route
-                path="lines/:lineId/stations/:stationId/replays/:replayId"
-                element={<Replay />}
-              />
-              <Route
-                path="lines/:lineId/stations/:stationId/searches/:searchId"
-                element={<Search />}
-              />
-              <Route path="tasks/:taskId" element={<Task />} />
-              <Route path="tasks/:taskId/trace" element={<TaskTrace />} />
-              <Route path="agent" element={<Agent />} />
-              <Route path="agent/:chatId" element={<AgentChat />} />
-              <Route path="runs" element={<Runs />} />
-              <Route path="runs/:runId" element={<Run />} />
-              <Route path="runs/:runId/changes" element={<RunChangeStack />} />
-              <Route path="insights" element={<Insights />} />
-              <Route path="memory" element={<Memory />} />
-            </Route>
-            <Route path="inbox" element={<Inbox />}>
-              <Route index element={<InboxIndex />} />
-              <Route path=":itemId" element={<InboxItem />} />
-              <Route path="notices/:noticeId" element={<InboxNotice />} />
-            </Route>
-
-            <Route path="settings">
-              <Route index element={<Navigate to="general" replace />} />
-              <Route path="general" element={<WorkspaceGeneral />} />
-              <Route path="members" element={<WorkspaceMembers />} />
-              <Route path="runners" element={<Runners />} />
-              <Route path="runners/new" element={<AddHost />} />
-              <Route path="tokens" element={<Tokens />} />
+          <Route element={<RequireAuth />}>
+            <Route index element={<DefaultWorkspace />} />
+            <Route path="/workspaces/new" element={<CreateWorkspace />} />
+            <Route path="/github/installed" element={<GitHubInstalled />} />
+            <Route path="/w/:slug" element={<Workspace />}>
+              <Route index element={<WorkspaceIndex />} />
               <Route path="team/:teamId">
+                <Route index element={<TeamIndex />} />
+                <Route path="lines/:lineId" element={<LineBoard />} />
+                <Route
+                  path="lines/:lineId/stations/:stationId/:tab?"
+                  element={<Station />}
+                />
+                <Route
+                  path="lines/:lineId/stations/:stationId/replay-sets/:setId"
+                  element={<ReplaySet />}
+                />
+                <Route
+                  path="lines/:lineId/stations/:stationId/replays/:replayId"
+                  element={<Replay />}
+                />
+                <Route
+                  path="lines/:lineId/stations/:stationId/searches/:searchId"
+                  element={<Search />}
+                />
+                <Route path="tasks/:taskId" element={<Task />} />
+                <Route path="tasks/:taskId/trace" element={<TaskTrace />} />
+                <Route path="agent" element={<Agent />} />
+                <Route path="agent/:chatId" element={<AgentChat />} />
+                <Route path="runs" element={<Runs />} />
+                <Route path="runs/:runId" element={<Run />} />
+                <Route
+                  path="runs/:runId/changes"
+                  element={<RunChangeStack />}
+                />
+                <Route path="insights" element={<Insights />} />
+                <Route path="memory" element={<Memory />} />
+              </Route>
+              <Route path="inbox" element={<Inbox />}>
+                <Route index element={<InboxIndex />} />
+                <Route path=":itemId" element={<InboxItem />} />
+                <Route path="notices/:noticeId" element={<InboxNotice />} />
+              </Route>
+
+              <Route path="settings">
                 <Route index element={<Navigate to="general" replace />} />
-                <Route path="general" element={<TeamGeneral />} />
-                <Route path="integrations" element={<TeamIntegrations />} />
-                <Route path="skills" element={<TeamSkills />} />
+                <Route path="general" element={<WorkspaceGeneral />} />
+                <Route path="members" element={<WorkspaceMembers />} />
+                <Route path="runners" element={<Runners />} />
+                <Route path="runners/new" element={<AddHost />} />
+                <Route path="tokens" element={<Tokens />} />
+                <Route path="team/:teamId">
+                  <Route index element={<Navigate to="general" replace />} />
+                  <Route path="general" element={<TeamGeneral />} />
+                  <Route path="integrations" element={<TeamIntegrations />} />
+                  <Route path="skills" element={<TeamSkills />} />
+                </Route>
               </Route>
             </Route>
           </Route>
-        </Route>
 
-        <Route path="*" element={<Navigate to="/" replace />} />
-      </Routes>
-    </Suspense>
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
+    </PageErrorBoundary>
   );
 }

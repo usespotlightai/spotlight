@@ -6,6 +6,7 @@ import (
 	"crypto/x509"
 	"errors"
 	"fmt"
+	"net/url"
 	"os"
 	"path/filepath"
 	"runtime"
@@ -21,6 +22,7 @@ import (
 	"usespotlight.ai/data-plane/host/internal/trust"
 	"usespotlight.ai/data-plane/protocol"
 	"usespotlight.ai/data-plane/reach"
+	"usespotlight.ai/data-plane/telemetry"
 )
 
 type Config struct {
@@ -193,11 +195,13 @@ func Load(version string) (Config, error) {
 			values[name] = value
 		}
 	}
+	reporting(values)
 	cfg.SandboxEnv, err = sandboxed(values, cfg.PoolToken)
 	note(err)
 
 	cfg.Egress, err = egressOf(get, version, cfg.PoolToken)
 	note(err)
+	cfg.Egress.Allow = withReporting(cfg.Egress.Allow)
 
 	if cfg.State == "" {
 		cfg.State = defaultState()
@@ -215,6 +219,22 @@ func (c Config) Credential() control.Credential {
 		return control.Bearer(c.PoolToken)
 	}
 	return c.Workload
+}
+
+func reporting(values map[string]string) {
+	for name, passed := range telemetry.Passed {
+		if value := os.Getenv(name); value != "" {
+			values[passed] = value
+		}
+	}
+}
+
+func withReporting(allow []string) []string {
+	dsn, err := url.Parse(os.Getenv("SENTRY_DSN"))
+	if len(allow) == 0 || err != nil || dsn.Hostname() == "" {
+		return allow
+	}
+	return append(allow, dsn.Hostname())
 }
 
 func egressOf(get func(string) string, version, poolToken string) (Egress, error) {
@@ -241,6 +261,7 @@ func egressOf(get func(string) string, version, poolToken string) (Egress, error
 			values[name] = value
 		}
 	}
+	reporting(values)
 	egress.Env, err = sandboxed(values, poolToken)
 	if err != nil {
 		problems = append(problems, fmt.Errorf("egress: %w", err))

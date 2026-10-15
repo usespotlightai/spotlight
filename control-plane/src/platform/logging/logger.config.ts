@@ -2,27 +2,20 @@ import { randomUUID } from 'node:crypto';
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import { RequestMethod } from '@nestjs/common';
 import type { Env } from '@platform/config/env.schema';
+import { traceIdOf } from '@platform/http/trace-id';
+import {
+  REDACTED_REQUEST_HEADERS,
+  REDACTED_RESPONSE_HEADERS,
+} from '@platform/logging/redacted-headers';
 import type { Params } from 'nestjs-pino';
 import { type DestinationStream, pino } from 'pino';
 import pinoHttp, { type HttpLogger, type Options } from 'pino-http';
 
 const REQUEST_ID_HEADER = 'x-request-id';
 
-const TRACEPARENT = /^[\da-f]{2}-([\da-f]{32})-[\da-f]{16}-[\da-f]{2}$/;
-const NIL_TRACE_ID = '0'.repeat(32);
-
-function traceIdOf(req: IncomingMessage): string | undefined {
-  const header = req.headers.traceparent;
-  const value = Array.isArray(header) ? header[0] : header;
-  const traceId = value?.match(TRACEPARENT)?.[1];
-
-  return traceId && traceId !== NIL_TRACE_ID ? traceId : undefined;
-}
-
 const REDACT_PATHS = [
-  'req.headers.cookie',
-  'req.headers.authorization',
-  'res.headers["set-cookie"]',
+  ...REDACTED_REQUEST_HEADERS.map((name) => `req.headers.${name}`),
+  ...REDACTED_RESPONSE_HEADERS.map((name) => `res.headers["${name}"]`),
 ];
 
 const IGNORED_PATHS = ['/api/health'];

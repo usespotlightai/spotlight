@@ -15,6 +15,10 @@ import {
   type ClockPort,
 } from '@shared-kernel/application/ports/clock.port';
 import {
+  ERROR_REPORTS,
+  type ErrorReportsPort,
+} from '@shared-kernel/application/ports/error-reports.port';
+import {
   LOGGER,
   type LoggerPort,
 } from '@shared-kernel/application/ports/logger.port';
@@ -28,6 +32,18 @@ const backoffMs = (attempts: number): number =>
 
 const because = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
+
+const fieldOf = (encoded: unknown, key: string): unknown =>
+  typeof encoded === 'object' && encoded !== null
+    ? (encoded as Record<string, unknown>)[key]
+    : undefined;
+
+const idOf = (payload: unknown, key: string): string | undefined => {
+  const field = fieldOf(payload, key);
+  const id = typeof field === 'string' ? field : fieldOf(field, 'value');
+
+  return typeof id === 'string' ? id : undefined;
+};
 
 interface Due {
   readonly eventId: string;
@@ -46,6 +62,7 @@ export class EventDelivery {
     @Inject(CLOCK) private readonly clock: ClockPort,
     @Inject(LOGGER) private readonly logger: LoggerPort,
     @Inject(CAUSATION) private readonly causation: CausationPort,
+    @Inject(ERROR_REPORTS) private readonly reports: ErrorReportsPort,
   ) {}
 
   async workOff(limit = 100): Promise<number> {
@@ -167,6 +184,16 @@ export class EventDelivery {
         ? 'Giving up delivering a domain event'
         : 'Delivering a domain event',
     );
+
+    if (givingUp) {
+      this.reports.report(error, {
+        source: due.subscriber,
+        workspaceId: idOf(due.payload, 'workspaceId'),
+        teamId: idOf(due.payload, 'teamId'),
+        taskId: idOf(due.payload, 'taskId'),
+        runId: idOf(due.payload, 'runId'),
+      });
+    }
 
     await this.context.run(() =>
       this.context.db

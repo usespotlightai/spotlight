@@ -3,6 +3,7 @@ import type { INestApplication } from '@nestjs/common';
 import { Test, type TestingModuleBuilder } from '@nestjs/testing';
 import { ENV } from '@platform/config/config.constants';
 import { parseEnv } from '@platform/config/env';
+import type { Env } from '@platform/config/env.schema';
 import {
   type AuthenticatedUser,
   SESSION_READER,
@@ -26,9 +27,10 @@ const sessionsFromHeader: SessionReaderPort = {
 };
 
 export const openApp = async (
-  overriding: (module: TestingModuleBuilder) => TestingModuleBuilder = (
-    module,
-  ) => module,
+  overriding: (
+    module: TestingModuleBuilder,
+    env: Env,
+  ) => TestingModuleBuilder = (module) => module,
 ): Promise<INestApplication> => {
   const env = { ...parseEnv(), DATABASE_URL: await clonedDatabase('app') };
   const compiled = await overriding(
@@ -37,6 +39,7 @@ export const openApp = async (
       .useValue(sessionsFromHeader)
       .overrideProvider(ENV)
       .useValue(env),
+    env,
   ).compile();
   const app = configureApp(compiled.createNestApplication());
   const closed = app.close.bind(app);

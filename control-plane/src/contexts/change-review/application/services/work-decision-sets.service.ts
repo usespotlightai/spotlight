@@ -5,6 +5,7 @@ import { DecisionSetMovedOnError } from '@change-review/domain/exceptions/decisi
 import type { DecisionSetRepository } from '@change-review/domain/repositories/decision-set.repository';
 import { DecisionGrounds } from '@change-review/domain/value-objects/decision-grounds.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
+import type { ErrorReportsPort } from '@shared-kernel/application/ports/error-reports.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { OwedWorkPort } from '@shared-kernel/application/ports/owed-work.port';
@@ -27,6 +28,7 @@ export class WorkDecisionSets implements OwedWorkPort {
     transaction: TransactionPort,
     clock: ClockPort,
     logger: LoggerPort,
+    reports: ErrorReportsPort,
   ) {
     this.#pool = new OwedWorkPool<DecisionSet, TaskId>(
       {
@@ -36,9 +38,12 @@ export class WorkDecisionSets implements OwedWorkPort {
         find: (taskId) => this.sets.forTask(taskId),
         save: (set) => this.sets.save(set),
         keyOf: (set) => set.taskId,
-        about: (set) => ({
+        ids: (set) => ({
+          workspaceId: set.workspaceId.value,
           taskId: set.taskId.value,
           runId: set.draft?.runId.value,
+        }),
+        about: (set) => ({
           attempts: set.draft?.work.attempts,
         }),
         worked: (set) => this.drafted(set),
@@ -47,6 +52,7 @@ export class WorkDecisionSets implements OwedWorkPort {
       transaction,
       clock,
       logger,
+      reports,
     );
   }
 

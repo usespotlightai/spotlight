@@ -26,6 +26,7 @@ import (
 	"usespotlight.ai/data-plane/egress/internal/wear"
 	"usespotlight.ai/data-plane/protocol"
 	"usespotlight.ai/data-plane/reach"
+	"usespotlight.ai/data-plane/telemetry"
 )
 
 const Usage = `  spotlight egress            the one way out of a sandbox, wearing its run's secrets toward their hosts`
@@ -49,6 +50,7 @@ func Main(args []string, _ string) int {
 
 	if err := run(); err != nil {
 		slog.Error("egress stopped", "error", err)
+		telemetry.Report(err, nil)
 		return 1
 	}
 
