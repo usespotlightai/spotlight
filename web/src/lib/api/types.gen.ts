@@ -7369,6 +7369,21 @@ export type ReplayTotalsResponseDto = {
   medianMs: number | null;
 };
 
+export type ReplayCounterpartResponseDto = {
+  /**
+   * The replay compared with: pairedWith where set, else for a replay with the answer the live replay it was handed the answer against, else the set’s baseline
+   */
+  replayId: string;
+  /**
+   * Its success rate: per task, the share of its scored copies that succeeded, averaged over the tasks scored; null before it scored a task
+   */
+  successRate: number | null;
+  /**
+   * Its success rate with its 95% interval over the tasks; null before it scored a task
+   */
+  interval: RateIntervalResponseDto | null;
+};
+
 export type PairTallyResponseDto = {
   /**
    * Tasks where the judge found the change better
@@ -7653,9 +7668,13 @@ export type ReplayResponseDto = {
   endedAt: string | null;
   totals: ReplayTotalsResponseDto;
   /**
-   * Its gain in success over the replay it is compared with (pairedWith where set, else for a replay with the answer the live replay it was handed the answer against, else the set’s baseline), with whether it is within noise; null with none
+   * Its gain in success over the replay in comparedWith, with whether it is within noise; null with none
    */
   againstBaseline: GainReadingResponseDto | null;
+  /**
+   * The replay its gain, comparison rows and deltas are against, with its success rate; null for the baseline itself or with none
+   */
+  comparedWith: ReplayCounterpartResponseDto | null;
   /**
    * The replay its changes are set beside, judged blind: the baseline standing when it started, or its search’s seed; null for a baseline, a probe or a replay that had none
    */
@@ -7800,9 +7819,13 @@ export type ReplayDetailResponseDto = {
   endedAt: string | null;
   totals: ReplayTotalsResponseDto;
   /**
-   * Its gain in success over the replay it is compared with (pairedWith where set, else for a replay with the answer the live replay it was handed the answer against, else the set’s baseline), with whether it is within noise; null with none
+   * Its gain in success over the replay in comparedWith, with whether it is within noise; null with none
    */
   againstBaseline: GainReadingResponseDto | null;
+  /**
+   * The replay its gain, comparison rows and deltas are against, with its success rate; null for the baseline itself or with none
+   */
+  comparedWith: ReplayCounterpartResponseDto | null;
   /**
    * The replay its changes are set beside, judged blind: the baseline standing when it started, or its search’s seed; null for a baseline, a probe or a replay that had none
    */
@@ -7814,15 +7837,11 @@ export type ReplayDetailResponseDto = {
   entries: Array<ReplayEntryResponseDto>;
   baselineReplayId: string | null;
   /**
-   * The replay its comparison rows, gain and deltas are against: pairedWith where set, else for a replay with the answer the live replay it was handed the answer against, else the set’s baseline; null for the baseline itself or with none
-   */
-  comparedWithReplayId: string | null;
-  /**
    * The search it belongs to, when a search started it
    */
   search: ReplaySearchResponseDto | null;
   /**
-   * Per task against the replay it is compared with (comparedWithReplayId), regressions first
+   * Per task against the replay it is compared with (comparedWith), regressions first
    */
   comparison: Array<EntryComparisonResponseDto>;
 };

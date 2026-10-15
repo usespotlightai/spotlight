@@ -24,9 +24,13 @@ import { type NestedHeading, SPREAD } from '@/lib/nested-table';
 import {
   AGAINST_LIVE,
   AN_EARLIER_BASELINE,
+  BASELINE_LABEL,
   CLOSER_TO_ACCEPTED,
   capitalised,
+  EARLIER_BASELINE_LABEL,
+  LIVE_CONFIG_LABEL,
   type ReplayState,
+  SEARCH_START_LABEL,
   STATION_GONE_FROM_LINE,
   THE_BASELINE,
   THE_SEARCH_START,
@@ -121,12 +125,6 @@ export const candidateShown = (candidate: ReplayedCandidate | null): string => {
 export const titleShown = (title: string | null): string =>
   title ?? 'A deleted task';
 
-export const baselineTotalsFor = (
-  replay: Pick<Replay, 'id'>,
-  baseline: Pick<Replay, 'id' | 'totals'> | null,
-): Replay['totals'] | null =>
-  baseline && baseline.id !== replay.id ? baseline.totals : null;
-
 export const spendOfCeiling = (spent: Spend, ceiling: Spend): string =>
   `${spentIn(spent.amount, spent.currency)} / ${spentIn(ceiling.amount, ceiling.currency)}`;
 
@@ -206,23 +204,76 @@ export const msDeltaShown = (delta: number | null): string =>
 export const scoreDeltaShown = (delta: number | null): string =>
   delta === null ? '–' : `${signOf(delta)}${Math.abs(delta).toFixed(2)}`;
 
-export const counterpartShown = (
+type Counterpart = 'baseline' | 'search-start' | 'live' | 'earlier-baseline';
+
+const counterpartOf = (
   counterpartId: string,
   candidate: Replay['candidate'],
   baselineId: string | null,
-): string => {
+): Counterpart => {
   if (counterpartId === baselineId) {
-    return THE_BASELINE;
+    return 'baseline';
   }
 
   switch (candidate?.kind) {
     case 'searched':
-      return THE_SEARCH_START;
+      return 'search-start';
     case 'oracle':
-      return AGAINST_LIVE;
+      return 'live';
     default:
-      return AN_EARLIER_BASELINE;
+      return 'earlier-baseline';
   }
+};
+
+const COUNTERPARTS_SHOWN: Record<Counterpart, string> = {
+  baseline: THE_BASELINE,
+  'search-start': THE_SEARCH_START,
+  live: AGAINST_LIVE,
+  'earlier-baseline': AN_EARLIER_BASELINE,
+};
+
+const COUNTERPART_LABELS: Record<Counterpart, string> = {
+  baseline: BASELINE_LABEL,
+  'search-start': SEARCH_START_LABEL,
+  live: LIVE_CONFIG_LABEL,
+  'earlier-baseline': EARLIER_BASELINE_LABEL,
+};
+
+export const counterpartShown = (
+  counterpartId: string,
+  candidate: Replay['candidate'],
+  baselineId: string | null,
+): string =>
+  COUNTERPARTS_SHOWN[counterpartOf(counterpartId, candidate, baselineId)];
+
+export const counterpartLabel = (
+  counterpartId: string,
+  candidate: Replay['candidate'],
+  baselineId: string | null,
+): string =>
+  COUNTERPART_LABELS[counterpartOf(counterpartId, candidate, baselineId)];
+
+export type CounterpartRate = {
+  readonly label: string;
+  readonly successRate: number;
+  readonly interval: RateIntervalResponseDto | null;
+};
+
+export const counterpartRateOf = (
+  replay: Pick<Replay, 'comparedWith' | 'candidate'>,
+  baselineId: string | null,
+): CounterpartRate | null => {
+  const against = replay.comparedWith;
+
+  if (!against || against.successRate === null) {
+    return null;
+  }
+
+  return {
+    label: counterpartLabel(against.replayId, replay.candidate, baselineId),
+    successRate: against.successRate,
+    interval: against.interval,
+  };
 };
 
 export type EntryPair = NonNullable<ReplayEntry['pair']>;
@@ -394,9 +445,9 @@ export const taskColumnsOf = (replay: ReplayDetail): TaskColumns => ({
     [...each.candidate, ...each.baseline].some((entry) => entry.judge),
   ),
   paired: replay.comparison.some((each) => each.pair !== null),
-  counterpart: replay.comparedWithReplayId
+  counterpart: replay.comparedWith
     ? counterpartShown(
-        replay.comparedWithReplayId,
+        replay.comparedWith.replayId,
         replay.candidate,
         replay.baselineReplayId,
       )

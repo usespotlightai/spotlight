@@ -3,21 +3,20 @@ import { InsightsTiles } from '@/components/features/insights/InsightsTiles';
 import { spendShown } from '@/lib/insights';
 import { percentShown } from '@/lib/judge';
 import {
-  baselineTotalsFor,
+  counterpartRateOf,
   counterpartShown,
   overCeiling,
-  type Replay,
   type ReplayDetail,
   spendBreakdown,
 } from '@/lib/replay';
 import {
-  BASELINE,
   capitalised,
   gainRangeShown,
   gainShown,
   gainVerdictNote,
   gainVerdictShown,
   intervalShown,
+  lowered,
   NO_SCORE_YET,
   PAIRING_SPEND_LABEL,
   pairsJudged,
@@ -43,12 +42,11 @@ const scoringShown = (replay: ReplayDetail): string => {
 
 type ReplayTilesProps = {
   replay: ReplayDetail;
-  baseline: Pick<Replay, 'id' | 'totals'> | null;
 };
 
-export function ReplayTiles({ replay, baseline }: ReplayTilesProps) {
+export function ReplayTiles({ replay }: ReplayTilesProps) {
   const { totals } = replay;
-  const against = baselineTotalsFor(replay, baseline);
+  const against = counterpartRateOf(replay, replay.baselineReplayId);
   const gain = replay.againstBaseline;
   const pairs =
     replay.pairedWith && pairsJudged(replay.pairsAgainstBaseline)
@@ -86,8 +84,8 @@ export function ReplayTiles({ replay, baseline }: ReplayTilesProps) {
           value={gainShown(gain)}
           detail={[
             capitalised(gainVerdictShown(gain.verdict)),
-            against?.successRate != null &&
-              `${BASELINE} ${percentShown(against.successRate)}`,
+            against &&
+              `${lowered(against.label)} ${percentShown(against.successRate)}`,
           ]
             .filter(Boolean)
             .join(' · ')}
@@ -103,7 +101,7 @@ export function ReplayTiles({ replay, baseline }: ReplayTilesProps) {
             counterpartShown(
               replay.pairedWith,
               replay.candidate,
-              baseline?.id ?? null,
+              replay.baselineReplayId,
             ),
           )}
         />

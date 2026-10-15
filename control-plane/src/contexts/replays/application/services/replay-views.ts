@@ -9,6 +9,7 @@ import type {
   ModelSpentDto,
   PairTallyDto,
   RateIntervalDto,
+  ReplayCounterpartDto,
   ReplayDto,
   ReplayEntryDto,
   ReplaySearchDto,
@@ -316,6 +317,22 @@ export const replaySearchView = (
       }
     : null;
 
+export const counterpartView = (
+  against: Replay | null,
+): ReplayCounterpartDto | null => {
+  if (!against) {
+    return null;
+  }
+
+  const totals = totalsOf(against);
+
+  return {
+    replayId: against.id.value,
+    successRate: totals.successRate,
+    interval: intervalView(totals.interval),
+  };
+};
+
 export const replayView = (
   replay: Replay,
   candidate: Candidate | null,
@@ -369,6 +386,7 @@ export const replayView = (
       medianMs: totals.medianMs,
     },
     againstBaseline: gainView(against && gainBetween(replay, against, minGain)),
+    comparedWith: counterpartView(against),
     pairedWith: replay.pairsWith?.value ?? null,
     pairsAgainstBaseline: pairs && pairTallyView(pairs),
     entries: replay.entries.map((each) => entryView(each, replay.scoring)),

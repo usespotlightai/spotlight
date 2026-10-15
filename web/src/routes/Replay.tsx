@@ -5,7 +5,6 @@ import { MembersOnlyOrCouldNotLoad } from '@/components/features/team/MembersOnl
 import { PageNotice } from '@/components/shared/PageNotice';
 import { useReplay } from '@/hooks/api/useReplay';
 import { useTeamReplaySets } from '@/hooks/api/useReplaySets';
-import { useReplays } from '@/hooks/api/useReplays';
 import { useStation } from '@/hooks/api/useStation';
 import { useStationTrail } from '@/hooks/useStationTrail';
 import { notFound } from '@/lib/error';
@@ -19,7 +18,6 @@ export function Replay() {
   const stationTrail = useStationTrail({ slug, teamId, lineId, stationId });
   const replay = useReplay(teamId, replayId);
   const sets = useTeamReplaySets(teamId);
-  const siblings = useReplays(teamId, replay.data?.setId);
   const { line, station } = useStation(teamId, lineId, stationId);
 
   const found = replay.data;
@@ -68,7 +66,6 @@ export function Replay() {
       station={station}
       replay={found}
       set={set}
-      siblings={siblings.data ?? []}
       trail={trail}
       forward={forward}
     />

@@ -10,8 +10,8 @@ import {
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { percentShown } from '@/lib/judge';
 import {
-  baselineTotalsFor,
   candidateShown,
+  counterpartRateOf,
   counterpartShown,
   type Replay,
   type ReplayedStation,
@@ -41,19 +41,20 @@ const GAIN_TONES = {
 type ReplayRowProps = {
   at: ReplayedStation;
   replay: Replay;
-  baseline: Replay | null;
+  baseline: Pick<Replay, 'id'> | null;
 };
 
-const gainNoteOf = (replay: Replay, baseline: Replay | null): string => {
+const gainNoteOf = (
+  replay: Replay,
+  baseline: Pick<Replay, 'id'> | null,
+): string => {
   const gain = replay.againstBaseline;
-  const against = baselineTotalsFor(replay, baseline);
+  const against = counterpartRateOf(replay, baseline?.id ?? null);
   const lines = [
     gain
       ? `${gainVerdictShown(gain.verdict)}. Likely range: ${gainRangeShown(gain)} pts`
       : null,
-    against?.successRate != null
-      ? `Baseline: ${percentShown(against.successRate)}`
-      : null,
+    against ? `${against.label}: ${percentShown(against.successRate)}` : null,
     replay.pairedWith && pairsJudged(replay.pairsAgainstBaseline)
       ? `Side by side with ${counterpartShown(replay.pairedWith, replay.candidate, baseline?.id ?? null)}: ${pairTallyShown(replay.pairsAgainstBaseline)}`
       : null,
