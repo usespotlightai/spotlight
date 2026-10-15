@@ -9,14 +9,15 @@ import type {
 } from '@outcomes/domain/services/headline';
 import type { OverviewCounts } from '@outcomes/domain/services/overview-counts';
 import type { TallyCounts } from '@outcomes/domain/services/run-tally';
+import { configMarkers } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/config-markers.sql';
 import {
   asUtc,
+  atWithin,
   dateOf,
   factsInPeriod,
   isCurrent,
   iso,
   msOf,
-  onTeam,
   ran,
 } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/run-fact.sql';
 import {
@@ -25,17 +26,15 @@ import {
 } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/station-counts.sql';
 import {
   ofTeamDeliveries,
-  ofTeamTouches,
+  teamActivity,
 } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/team-scope.sql';
 import {
-  chatRecord,
   runFact,
   taskDelivery,
   taskTouches,
 } from '@outcomes/infrastructure/persistence/drizzle/schemas/outcomes.schema';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
-import { type SQL, sql } from 'drizzle-orm';
-import { alias } from 'drizzle-orm/pg-core';
+import { sql } from 'drizzle-orm';
 
 interface TasksRow extends Record<string, unknown> {
   readonly is_current: boolean;
@@ -114,31 +113,11 @@ const peopleIn = async (
   db: DrizzleDatabase,
   team: TeamInPeriod,
 ): Promise<readonly PersonRow[]> => {
-  const { current, previous, lookback } = team.period;
+  const { current, previous } = team.period;
   const result = await db.execute<PersonRow>(sql`
-    with touched as (
-      select ${taskTouches.openedBy} as opened_by, ${taskTouches.openedAt} as opened_at, ${taskTouches.acts} as acts
-      from ${taskTouches}
-      where ${ofTeamTouches(team)}
-    ), activity as (
-      select opened_by as person, opened_at at time zone 'UTC' as at
-      from touched
-      where opened_by is not null and opened_at is not null
-      union all
-      select act.value->>'by', (act.value->>'at')::timestamptz
-      from touched
-      cross join lateral jsonb_array_elements(touched.acts) as act(value)
-      union all
-      select ${chatRecord.startedBy}, ${chatRecord.startedAt} at time zone 'UTC'
-      from ${chatRecord}
-      where ${chatRecord.workspaceId} = ${team.workspaceId.value}
-        and ${chatRecord.teamId} = ${team.teamId.value}
-        and ${chatRecord.startedAt} >= ${iso(lookback.from)}::timestamp
-        and ${chatRecord.startedAt} < ${iso(lookback.to)}::timestamp
-    )
-    select distinct person, at >= ${asUtc(current.from)} as is_current
-    from activity
-    where at >= ${asUtc(previous.from)} and at < ${asUtc(current.to)}
+    select distinct activity.person, activity.at >= ${asUtc(current.from)} as is_current
+    from ${teamActivity(team)}
+    where ${atWithin(sql`activity.at`, { from: previous.from, to: current.to })}
   `);
 
   return result.rows;
@@ -176,42 +155,16 @@ const markersIn = async (
   db: DrizzleDatabase,
   team: TeamInPeriod,
 ): Promise<readonly ConfigMarker[]> => {
-  const { current } = team.period;
-  const earlier = alias(runFact, 'earlier');
-  const configRun = (of: typeof runFact | typeof earlier): SQL =>
-    sql`${of.ran} and ${of.startedAt} is not null and ${of.fingerprint} is not null`;
   const result = await db.execute<MarkerRow>(sql`
     select
-      ${runFact.lineId} as line_id,
-      ${runFact.stationId} as station_id,
-      ${runFact.fingerprint} as fingerprint,
-      previous.fingerprint as previous_fingerprint,
-      ${msOf(sql`${runFact.beganAt}`)} as began_ms,
-      ${runFact.runId} as run_id
-    from ${runFact}
-    cross join lateral (
-      select ${earlier.fingerprint} as fingerprint
-      from ${runFact} as ${earlier}
-      where ${earlier.workspaceId} = ${runFact.workspaceId}
-        and ${earlier.teamId} = ${runFact.teamId}
-        and ${earlier.stationId} = ${runFact.stationId}
-        and ${configRun(earlier)}
-        and (
-          ${earlier.beganAt} < ${runFact.beganAt}
-          or (
-            ${earlier.beganAt} = ${runFact.beganAt}
-            and ${earlier.runId} collate "C" < ${runFact.runId} collate "C"
-          )
-        )
-      order by ${earlier.beganAt} desc, ${earlier.runId} collate "C" desc
-      limit 1
-    ) as previous
-    where ${onTeam(team)}
-      and ${configRun(runFact)}
-      and ${runFact.beganAt} >= ${iso(current.from)}::timestamp
-      and ${runFact.beganAt} < ${iso(current.to)}::timestamp
-      and previous.fingerprint <> ${runFact.fingerprint}
-    order by ${runFact.beganAt}, ${runFact.runId} collate "C"
+      markers.line_id,
+      markers.station_id,
+      markers.fingerprint,
+      markers.previous_fingerprint,
+      ${msOf(sql`markers.began_at`)} as began_ms,
+      markers.run_id
+    from (${configMarkers(team, team.period.current)}) as markers
+    order by markers.began_at, markers.run_id collate "C"
   `);
 
   return result.rows.map((row) => ({

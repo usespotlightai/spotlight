@@ -3,7 +3,7 @@ export class SecretSlotTakenError extends Error {
 
   constructor(secretName: string, takenBy: string, slot: string) {
     super(
-      `The ${secretName} and ${takenBy} secrets are both worn in ${slot} toward that host, and a request carries one`,
+      `Secrets ${secretName} and ${takenBy} are both worn in ${slot} toward the same host. A request can carry only one of them.`,
     );
     this.name = 'SecretSlotTakenError';
   }

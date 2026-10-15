@@ -6,7 +6,6 @@ import { InsightsTiles } from '@/components/features/insights/InsightsTiles';
 import { NoRunsInPeriod } from '@/components/features/insights/NoRunsInPeriod';
 import { PeopleSkeleton } from '@/components/features/insights/PeopleSkeleton';
 import { PeopleTable } from '@/components/features/insights/PeopleTable';
-import { TruncatedNote } from '@/components/features/insights/TruncatedNote';
 import { useInsightsPeople } from '@/hooks/api/useInsightsPeople';
 import {
   changeShown,
@@ -37,7 +36,7 @@ export function PeopleTab({ slug, teamId, period }: PeopleTabProps) {
     return <InsightsFailed what="The people" query={people} />;
   }
 
-  const { load, loadChanges, adoption, truncated } = people.data;
+  const { load, loadChanges, adoption } = people.data;
   const refused = tasksFilter(load.refusedTaskIds);
 
   if (load.tasks === 0 && adoption.activeCount === 0) {
@@ -51,8 +50,6 @@ export function PeopleTab({ slug, teamId, period }: PeopleTabProps) {
 
   return (
     <div className="flex flex-col gap-3">
-      {truncated && <TruncatedNote />}
-
       <InsightsSection
         title="What the work asks of people"
         note={`Tasks worked this period: ${countShown(load.tasks)}`}

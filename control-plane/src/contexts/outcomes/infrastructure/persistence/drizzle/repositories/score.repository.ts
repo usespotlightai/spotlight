@@ -4,6 +4,7 @@ import { ScoreMovedOnError } from '@outcomes/domain/exceptions/score-moved-on.er
 import type {
   ScoreRepository,
   StationScores,
+  StationsScores,
 } from '@outcomes/domain/repositories/score.repository';
 import { Citation } from '@outcomes/domain/value-objects/citation.vo';
 import { JudgeReason } from '@outcomes/domain/value-objects/judge-reason.vo';
@@ -17,6 +18,7 @@ import {
   score,
 } from '@outcomes/infrastructure/persistence/drizzle/schemas/outcomes.schema';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { inList } from '@platform/persistence/drizzle/in-list';
 import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
@@ -27,7 +29,7 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, desc, eq, inArray } from 'drizzle-orm';
+import { and, desc, eq, type SQL, sql } from 'drizzle-orm';
 
 type ScoreRow = typeof score.$inferSelect;
 
@@ -95,6 +97,24 @@ const storedReasons = (held: Score): StoredReason[] =>
     citations: each.citations.map(storedCitation),
     claim: each.claim,
   }));
+
+const judgedWhere = (criteria: {
+  readonly workspaceId: WorkspaceId;
+  readonly teamId: TeamId;
+  readonly lineId: string;
+  readonly stationId: string;
+  readonly rubricVersion?: string;
+}): SQL | undefined =>
+  and(
+    eq(score.workspaceId, criteria.workspaceId.value),
+    eq(score.teamId, criteria.teamId.value),
+    eq(score.lineId, criteria.lineId),
+    eq(score.stationId, criteria.stationId),
+    eq(score.source, 'judge'),
+    criteria.rubricVersion === undefined
+      ? undefined
+      : eq(score.rubricVersion, criteria.rubricVersion),
+  );
 
 @Injectable()
 export class DrizzleScoreRepository implements ScoreRepository {
@@ -195,7 +215,7 @@ export class DrizzleScoreRepository implements ScoreRepository {
       .select()
       .from(score)
       .where(
-        inArray(
+        inList(
           score.runId,
           runIds.map((each) => each.value),
         ),
@@ -208,20 +228,38 @@ export class DrizzleScoreRepository implements ScoreRepository {
     const rows = await this.context.db
       .select()
       .from(score)
-      .where(
-        and(
-          eq(score.workspaceId, criteria.workspaceId.value),
-          eq(score.teamId, criteria.teamId.value),
-          eq(score.lineId, criteria.lineId),
-          eq(score.stationId, criteria.stationId),
-          eq(score.source, 'judge'),
-          criteria.rubricVersion === undefined
-            ? undefined
-            : eq(score.rubricVersion, criteria.rubricVersion),
-        ),
-      )
-      .orderBy(desc(score.at))
+      .where(judgedWhere(criteria))
+      .orderBy(desc(score.at), desc(score.id))
       .limit(criteria.last);
+
+    return rows.map(toScore);
+  }
+
+  async judgedAtStations(criteria: StationsScores): Promise<readonly Score[]> {
+    const asked = [
+      ...new Map(
+        criteria.stations.map((each) => [
+          JSON.stringify([each.lineId, each.stationId, each.rubricVersion]),
+          each,
+        ]),
+      ).values(),
+    ];
+
+    if (asked.length === 0) {
+      return [];
+    }
+
+    const picked = sql.join(
+      asked.map(
+        (each) =>
+          sql`(select ${score.id} from ${score} where ${judgedWhere({ ...criteria, ...each })} order by ${score.at} desc, ${score.id} desc limit ${criteria.last})`,
+      ),
+      sql` union all `,
+    );
+    const rows = await this.context.db
+      .select()
+      .from(score)
+      .where(sql`${score.id} in (${picked})`);
 
     return rows.map(toScore);
   }

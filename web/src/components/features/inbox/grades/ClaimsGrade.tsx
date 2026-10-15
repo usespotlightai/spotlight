@@ -44,7 +44,7 @@ export function ClaimsGrade({
     >
       {claims.map((_, at) => (
         <li
-          // biome-ignore lint/suspicious/noArrayIndexKey: a claim is named by its place in the judge's list
+          // biome-ignore lint/suspicious/noArrayIndexKey: the position of a claim in the judge's list identifies it
           key={at}
           data-slot="claim-to-grade"
         >

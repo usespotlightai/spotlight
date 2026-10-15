@@ -158,7 +158,9 @@ describe('OpenRouterChangeStackDrafter', () => {
 
     await expect(
       draft(new OpenRouterChangeStackDrafter('or-key', DEFAULT_MODEL, fetch)),
-    ).rejects.toThrow('OpenRouter refused to draft: 402 Insufficient credits');
+    ).rejects.toThrow(
+      'OpenRouter refused the request. Response: 402 Insufficient credits',
+    );
   });
 
   it('refuses an answer whose layers leave out their file notes', async () => {
@@ -192,7 +194,7 @@ describe('OpenRouterChangeStackDrafter', () => {
 
     await expect(
       draft(new OpenRouterChangeStackDrafter('or-key', DEFAULT_MODEL, fetch)),
-    ).rejects.toThrow('Drafting stopped early: length');
+    ).rejects.toThrow('OpenRouter gave no usable answer. Reason: length');
   });
 });
 

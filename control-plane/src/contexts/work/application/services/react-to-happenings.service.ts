@@ -90,7 +90,7 @@ export class ReactToHappenings implements HappeningReactionsPort {
         continue;
       }
 
-      // Fetched outside the transaction so a slow host never holds the task while it downloads.
+      // Fetch outside the transaction, so that a slow host does not hold the task during the download.
       const attachments = await this.kept(workspaceId, happened.attachments);
 
       await this.transaction.run(async () => {

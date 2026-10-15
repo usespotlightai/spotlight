@@ -28,6 +28,7 @@ import { Refusal } from '@outcomes/domain/value-objects/refusal.vo';
 import { Rubric } from '@outcomes/domain/value-objects/rubric.vo';
 import { RunCost } from '@outcomes/domain/value-objects/run-cost.vo';
 import { RunEnd } from '@outcomes/domain/value-objects/run-end.vo';
+import { RunMemories } from '@outcomes/domain/value-objects/run-memories.vo';
 import { RunPlace } from '@outcomes/domain/value-objects/run-place.vo';
 import { RunSetup } from '@outcomes/domain/value-objects/run-setup.vo';
 import { RunTools } from '@outcomes/domain/value-objects/run-tools.vo';
@@ -48,6 +49,7 @@ export const OUTCOMES_EVENT_TYPES = [
   RunEnd,
   RunPlace,
   RunTools,
+  RunMemories,
   Refusal,
   Citation,
   JudgeReason,

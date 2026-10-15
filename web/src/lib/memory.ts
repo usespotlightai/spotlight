@@ -67,7 +67,7 @@ export const KIND_DESCRIPTIONS: Record<MemoryKind, string> = {
   rationale:
     "Why something was done a certain way. The reason isn't written down elsewhere.",
   'rejected-approach':
-    'An approach set aside, and why. Stops anyone trying it again.',
+    'An approach set aside, and why. It stops anyone from trying it again.',
   failure:
     'Something that failed, and what it failed on. For example, a flaky test.',
   environment:

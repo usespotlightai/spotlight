@@ -38,7 +38,7 @@ const nameOf = (written: unknown): Named => {
     };
   } catch (error) {
     if (error instanceof InvalidCandidateError) {
-      return { ok: false, reason: error.reason };
+      return { ok: false, reason: error.message };
     }
     throw error;
   }

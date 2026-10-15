@@ -23,7 +23,7 @@ export interface KeptWithRun {
 export interface RunRepository {
   add(run: Run, kept?: KeptWithRun): Promise<void>;
 
-  // Must be atomic and follow ClaimOrder: concurrent runners must never claim the same run.
+  // Must be atomic and follow ClaimOrder. Two runners must never claim the same run.
   claimNext(by: Claimant, now: Date): Promise<Run | null>;
 
   findById(id: RunId): Promise<Run | null>;

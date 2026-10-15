@@ -14,6 +14,7 @@ import type { NotePullRequestReviewed } from '@outcomes/application/services/not
 import type { NoteRunDigested } from '@outcomes/application/services/note-run-digested.service';
 import type { NoteRunEnded } from '@outcomes/application/services/note-run-ended.service';
 import type { NoteRunHandedOn } from '@outcomes/application/services/note-run-handed-on.service';
+import type { NoteRunMemories } from '@outcomes/application/services/note-run-memories.service';
 import type { NoteRunSuperseded } from '@outcomes/application/services/note-run-superseded.service';
 import type { NoteTaskFailed } from '@outcomes/application/services/note-task-failed.service';
 import type { NoteTaskTouch } from '@outcomes/application/services/note-task-touch.service';
@@ -27,6 +28,7 @@ import type { StationAlertRaised } from '@outcomes/domain/events/station-alert-r
 import type { StationAlertRecovered } from '@outcomes/domain/events/station-alert-recovered.event';
 import type { StationAlertReopened } from '@outcomes/domain/events/station-alert-reopened.event';
 import type { TaskDeliveryClosed } from '@outcomes/domain/events/task-delivery-closed.event';
+import { isMemoryWay } from '@outcomes/domain/value-objects/run-memories.vo';
 import {
   CHANGE_CHECKED,
   type ChangeCheckedIntegrationEvent,
@@ -47,6 +49,10 @@ import {
   LINE_REDEFINED,
   type LineRedefinedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/line-redefined.integration-event';
+import {
+  MEMORIES_USED,
+  type MemoriesUsedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/memories-used.integration-event';
 import {
   PULL_REQUEST_CLOSED,
   type PullRequestClosedIntegrationEvent,
@@ -137,6 +143,7 @@ export interface OutcomesReactions {
   readonly scoring: RecordJudgeScore;
   readonly grading: GradeAsides;
   readonly digesting: NoteRunDigested;
+  readonly remembering: NoteRunMemories;
   readonly handingOn: NoteRunHandedOn;
   readonly reviewing: NotePullRequestReviewed;
   readonly failing: NoteTaskFailed;
@@ -301,6 +308,18 @@ export const outcomesSubscribers = (
     [RUN_DIGESTED],
     (event) =>
       event.taskId ? reactions.digesting.digested(event) : Promise.resolve(),
+  ),
+  subscribing<MemoriesUsedIntegrationEvent>(
+    'outcomes.record-run-memories',
+    [MEMORIES_USED],
+    (event) =>
+      event.taskId && isMemoryWay(event.way)
+        ? reactions.remembering.used({
+            ...event,
+            taskId: event.taskId,
+            way: event.way,
+          })
+        : Promise.resolve(),
   ),
   subscribing<TaskHandedOnIntegrationEvent>(
     'outcomes.record-handed-on-run',

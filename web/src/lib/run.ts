@@ -7,6 +7,9 @@ export type TeamRun = TeamRunResponseDto;
 
 export type Review = NonNullable<Run['review']>;
 
+export const RUNS_AUTONOMOUSLY =
+  'The agent runs autonomously. It can’t receive messages.';
+
 export const tokensShown = (count: number | null): string =>
   count === null ? 'not reported' : counted(count);
 
@@ -15,8 +18,8 @@ export const working = (run: Pick<Run, 'state'>): boolean =>
 
 export const idleNoteOf = (run: Pick<Run, 'state'>): string =>
   run.state === 'failed'
-    ? 'Failed before the agent started.'
-    : 'Ended before the agent started.';
+    ? 'The run failed before the agent started.'
+    : 'The run ended before the agent started.';
 
 export const waitsOnPerson = (run: Pick<Run, 'state'>): boolean =>
   run.state === 'waiting' || run.state === 'parked';

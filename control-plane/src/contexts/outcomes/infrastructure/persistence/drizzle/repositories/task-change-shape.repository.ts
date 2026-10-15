@@ -7,7 +7,7 @@ import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 
 type ShapeRow = typeof taskChangeShape.$inferSelect;
 
@@ -44,26 +44,6 @@ export class DrizzleTaskChangeShapeRepository
       .limit(1);
 
     return row ? toShape(row) : null;
-  }
-
-  async forTasks(
-    taskIds: readonly TaskId[],
-  ): Promise<readonly TaskChangeShape[]> {
-    if (taskIds.length === 0) {
-      return [];
-    }
-
-    const rows = await this.context.db
-      .select()
-      .from(taskChangeShape)
-      .where(
-        inArray(
-          taskChangeShape.taskId,
-          taskIds.map((each) => each.value),
-        ),
-      );
-
-    return rows.map(toShape);
   }
 
   async add(added: TaskChangeShape): Promise<void> {

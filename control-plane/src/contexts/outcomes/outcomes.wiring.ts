@@ -28,7 +28,10 @@ import {
   GRADES,
   type GradesPort,
 } from '@outcomes/application/ports/grades.port';
-import { INSIGHTS_READER } from '@outcomes/application/ports/insights-reader.port';
+import {
+  INSIGHTS_READER,
+  type InsightsReaderPort,
+} from '@outcomes/application/ports/insights-reader.port';
 import { JUDGE, type JudgePort } from '@outcomes/application/ports/judge.port';
 import {
   JUDGE_STANDING,
@@ -105,6 +108,7 @@ import { NotePullRequestReviewed } from '@outcomes/application/services/note-pul
 import { NoteRunDigested } from '@outcomes/application/services/note-run-digested.service';
 import { NoteRunEnded } from '@outcomes/application/services/note-run-ended.service';
 import { NoteRunHandedOn } from '@outcomes/application/services/note-run-handed-on.service';
+import { NoteRunMemories } from '@outcomes/application/services/note-run-memories.service';
 import { NoteRunSuperseded } from '@outcomes/application/services/note-run-superseded.service';
 import { NoteTaskFailed } from '@outcomes/application/services/note-task-failed.service';
 import { NoteTaskTouch } from '@outcomes/application/services/note-task-touch.service';
@@ -114,8 +118,8 @@ import { RunAcceptance } from '@outcomes/application/services/run-acceptance.ser
 import { RunOutcomes } from '@outcomes/application/services/run-outcomes.service';
 import { RunScoresViews } from '@outcomes/application/services/run-scores-views.service';
 import { StationJudgeReports } from '@outcomes/application/services/station-judge-reports.service';
-import { TeamHistories } from '@outcomes/application/services/team-histories.service';
 import { TeamPullRequests } from '@outcomes/application/services/team-pull-requests.service';
+import { TeamScopes } from '@outcomes/application/services/team-scopes.service';
 import { TrustedJudges } from '@outcomes/application/services/trusted-judges.service';
 import { WatchStations } from '@outcomes/application/services/watch-stations.service';
 import { WorkChangeJudgings } from '@outcomes/application/services/work-change-judgings.service';
@@ -320,48 +324,30 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
     ) => new RunOutcomes(records, deliveries),
   },
   {
-    provide: TeamHistories,
-    inject: [
-      OutcomesAccess,
-      DrizzleRunRecordRepository,
-      DrizzleTaskDeliveryRepository,
-      DrizzleTaskTouchesRepository,
-      DrizzleTaskFailuresRepository,
-      DrizzleChatRecordRepository,
-      CLOCK,
-    ],
-    useFactory: (
-      access: OutcomesAccess,
-      records: DrizzleRunRecordRepository,
-      deliveries: DrizzleTaskDeliveryRepository,
-      touches: DrizzleTaskTouchesRepository,
-      failures: DrizzleTaskFailuresRepository,
-      chats: DrizzleChatRecordRepository,
-      clock: ClockPort,
-    ) =>
-      new TeamHistories(
-        access,
-        { records, deliveries, touches, failures, chats },
-        clock,
-      ),
+    provide: TeamScopes,
+    inject: [OutcomesAccess, CLOCK],
+    useFactory: (access: OutcomesAccess, clock: ClockPort) =>
+      new TeamScopes(access, clock),
   },
   {
     provide: TrustedJudges,
-    inject: [JUDGE_STANDING, DrizzleScoreRepository],
-    useFactory: (standing: JudgeStandingPort, scores: DrizzleScoreRepository) =>
-      new TrustedJudges(standing, scores),
+    inject: [JUDGE_STANDING],
+    useFactory: (standing: JudgeStandingPort) => new TrustedJudges(standing),
   },
   ...bindQueryHandler(ReadInsightsChangesQuery, ReadInsightsChangesHandler, [
-    TeamHistories,
+    TeamScopes,
+    INSIGHTS_READER,
     TrustedJudges,
     WORK,
   ]),
   ...bindQueryHandler(ReadInsightsSetupsQuery, ReadInsightsSetupsHandler, [
-    TeamHistories,
+    TeamScopes,
+    INSIGHTS_READER,
     TrustedJudges,
   ]),
   ...bindQueryHandler(ReadInsightsMemoryQuery, ReadInsightsMemoryHandler, [
-    TeamHistories,
+    TeamScopes,
+    INSIGHTS_READER,
     MEMORY_USE,
     MEMORY_BENCHMARK,
     PEOPLE,
@@ -412,47 +398,41 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
     ) => new AlertInbox(asides, watches),
   },
   ...bindQueryHandler(ReadInsightsOverviewQuery, ReadInsightsOverviewHandler, [
-    TeamHistories,
+    TeamScopes,
     INSIGHTS_READER,
     PEOPLE,
   ]),
   ...bindQueryHandler(ReadInsightsFlowQuery, ReadInsightsFlowHandler, [
-    TeamHistories,
+    TeamScopes,
     INSIGHTS_READER,
   ]),
   ...bindQueryHandler(ReadInsightsStationsQuery, ReadInsightsStationsHandler, [
-    TeamHistories,
+    TeamScopes,
     INSIGHTS_READER,
   ]),
   ...bindQueryHandler(ReadInsightsPeopleQuery, ReadInsightsPeopleHandler, [
-    TeamHistories,
+    TeamScopes,
+    INSIGHTS_READER,
     FIRST_SEEN,
     PEOPLE,
   ]),
   ...bindQueryHandler(ReadInsightsCostQuery, ReadInsightsCostHandler, [
-    TeamHistories,
+    TeamScopes,
     INSIGHTS_READER,
   ]),
   ...bindQueryHandler(ReadInsightsToolsQuery, ReadInsightsToolsHandler, [
-    TeamHistories,
+    TeamScopes,
+    INSIGHTS_READER,
     WORK,
   ]),
   {
     provide: TeamPullRequests,
-    inject: [
-      TeamHistories,
-      WORK,
-      DrizzlePullRequestRecordRepository,
-      DrizzleRunRecordRepository,
-      DrizzleTaskChangeShapeRepository,
-    ],
+    inject: [TeamScopes, WORK, INSIGHTS_READER],
     useFactory: (
-      histories: TeamHistories,
+      scopes: TeamScopes,
       work: WorkPort,
-      records: DrizzlePullRequestRecordRepository,
-      runs: DrizzleRunRecordRepository,
-      shapes: DrizzleTaskChangeShapeRepository,
-    ) => new TeamPullRequests(histories, work, { records, runs, shapes }),
+      reader: InsightsReaderPort,
+    ) => new TeamPullRequests(scopes, work, reader),
   },
   ...bindQueryHandler(
     ReadInsightsPullRequestsQuery,
@@ -461,7 +441,6 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
   ),
   ...bindQueryHandler(ReadInsightsShippingQuery, ReadInsightsShippingHandler, [
     TeamPullRequests,
-    TeamHistories,
   ]),
   ...bindQueryHandler(
     ListInsightsPullRequestsQuery,
@@ -469,10 +448,8 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
     [TeamPullRequests],
   ),
   ...bindQueryHandler(ListInsightsRunsQuery, ListInsightsRunsHandler, [
-    TeamHistories,
-    DrizzleRunRecordRepository,
-    DrizzleTaskTouchesRepository,
-    DrizzleTaskDeliveryRepository,
+    TeamScopes,
+    INSIGHTS_READER,
     PEOPLE,
   ]),
   ...bindQueryHandler(ListStationOutcomesQuery, ListStationOutcomesHandler, [
@@ -770,6 +747,16 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
     ) => new NoteRunDigested(work, records, forgotten, transaction),
   },
   {
+    provide: NoteRunMemories,
+    inject: [WORK, DrizzleRunRecordRepository, DrizzleForgotten, TRANSACTION],
+    useFactory: (
+      work: WorkPort,
+      records: DrizzleRunRecordRepository,
+      forgotten: DrizzleForgotten,
+      transaction: TransactionPort,
+    ) => new NoteRunMemories(work, records, forgotten, transaction),
+  },
+  {
     provide: NoteRunHandedOn,
     inject: [DrizzleRunRecordRepository, DrizzleForgotten, TRANSACTION],
     useFactory: (
@@ -938,6 +925,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
       RecordJudgeScore,
       GradeAsides,
       NoteRunDigested,
+      NoteRunMemories,
       NoteRunHandedOn,
       NotePullRequestReviewed,
       NoteTaskFailed,
@@ -964,6 +952,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
       scoring: RecordJudgeScore,
       grading: GradeAsides,
       digesting: NoteRunDigested,
+      remembering: NoteRunMemories,
       handingOn: NoteRunHandedOn,
       reviewing: NotePullRequestReviewed,
       failing: NoteTaskFailed,
@@ -990,6 +979,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
           scoring,
           grading,
           digesting,
+          remembering,
           handingOn,
           reviewing,
           failing,

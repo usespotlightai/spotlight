@@ -253,7 +253,7 @@ export const tasksShown = (tasks: number, runs: number): string =>
 export const replayedNote = (points: readonly ReplayedPoint[]): string => {
   const scored = Math.max(0, ...points.map((each) => each.scored));
 
-  return `Replayed points show replay success on up to ${runsShown(scored)} of past tasks, not live outcomes. Scored by each candidate’s own checks and judge. The task-size filter doesn’t apply.`;
+  return `Replayed points show replay success on up to ${runsShown(scored)} of past tasks, not live outcomes. Each candidate’s own checks and judge score it. The task-size filter doesn’t apply.`;
 };
 
 export const CANDIDATES_TRUNCATED =
@@ -277,13 +277,13 @@ export const heldOutBrief = (candidate: SetCandidate): string => {
 export const costBasisNote = ({ shown }: SetCandidate): string | null =>
   shown.costBasis === shown.basis
     ? null
-    : 'Over all its scored runs: live is priced in another currency';
+    : 'Cost is over all its scored runs. The live config is priced in another currency.';
 
 export const originShown = (candidate: SetCandidate): string =>
   candidate.kind === 'proposed' ? 'Proposed' : 'Search';
 
 const SOURCES_NOTE =
-  'Search: a search agent proposed it and replayed it on this set. Proposed: put forward by a person or Terraform, then replayed. Live: the station’s current config, replayed to compare with. Trophy, best value: no other config from the same search, nor the live config it started from, succeeded as often for less. Not the same as beating live; see Against live.';
+  'Search: a search agent proposed it and replayed it on this set. Proposed: a person or Terraform proposed it, then Spotlight replayed it. Live: the station’s current config, replayed for comparison. Trophy, best value: no other config from the same search succeeded as often for less. The live config it started from didn’t either. Best value doesn’t mean it beats live. See Against live.';
 
 export const candidateHeadings = (
   heldOut: boolean,

@@ -431,7 +431,7 @@ export class FireHooks {
         firing.failedWith(
           HookFailure.of(
             'superseded',
-            'its task is gone, so there is nothing to tell about',
+            'The task of this hook firing no longer exists.',
           ),
           this.clock.now(),
           false,

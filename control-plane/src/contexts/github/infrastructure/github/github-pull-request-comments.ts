@@ -17,7 +17,7 @@ const numbered = (url: string): number => {
   const last = Number(url.trim().split('/').pop());
 
   if (!Number.isInteger(last) || last <= 0) {
-    throw new InvalidPullRequestError(`at ${url} is named by no number`);
+    throw new InvalidPullRequestError(`at ${url} has no number`);
   }
 
   return last;

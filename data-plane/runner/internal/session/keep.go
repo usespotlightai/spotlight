@@ -201,7 +201,7 @@ func (k *keeper) kept(ctx context.Context) (string, bool) {
 	return fmt.Sprintf("Captured the workspace for the next run (%s)", sized(packed.Size)), true
 }
 
-// Renews even once a person has asked the run to stop: the run is ending, and must stay held until it has.
+// leased renews the lease also after a person asks the run to stop. The run must keep its lease until it ends.
 func (k *keeper) leased(ctx context.Context, do func(context.Context)) {
 	renewing, stop := context.WithCancel(ctx)
 	defer stop()

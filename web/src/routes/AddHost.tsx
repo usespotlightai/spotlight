@@ -34,7 +34,7 @@ export function AddHost() {
 
       <SettingsPage
         title="Add a host"
-        description="Host: a machine that runs agents for this workspace. Appears here once connected."
+        description="Host: a machine that runs agents for this workspace. The host appears here when it connects."
       >
         {workspace && <AddHostSteps slug={slug} workspaceId={workspace.id} />}
       </SettingsPage>

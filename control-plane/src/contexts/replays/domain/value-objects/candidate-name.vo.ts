@@ -46,17 +46,17 @@ export class CandidateName {
   static proposed(raw: string): CandidateName {
     if (raw.toLowerCase().startsWith(LIVE_PREFIX.toLowerCase())) {
       throw new InvalidCandidateError(
-        `name cannot start with reserved prefix ${LIVE_PREFIX}`,
+        `name cannot start with the reserved prefix “${LIVE_PREFIX}”`,
       );
     }
     if (raw.toLowerCase().startsWith(PLANNED_PREFIX.toLowerCase())) {
       throw new InvalidCandidateError(
-        `name cannot start with reserved prefix ${PLANNED_PREFIX}`,
+        `name cannot start with the reserved prefix “${PLANNED_PREFIX}”`,
       );
     }
     if (raw.toLowerCase().startsWith(ORACLE_PREFIX.toLowerCase())) {
       throw new InvalidCandidateError(
-        `name cannot start with reserved prefix ${ORACLE_PREFIX}`,
+        `name cannot start with the reserved prefix “${ORACLE_PREFIX}”`,
       );
     }
 

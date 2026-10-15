@@ -1,5 +1,4 @@
-import type { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
-import type { TaskDelivery } from '@outcomes/domain/aggregates/task-delivery.aggregate';
+import type { ListedRun } from '@outcomes/application/ports/insights-reader.port';
 import type { Adoption } from '@outcomes/domain/services/adoption';
 import type {
   CacheUse,
@@ -91,7 +90,6 @@ export type StationWorthImprovingDto = StationWorthImproving;
 
 export interface InsightsOverviewDto {
   readonly period: PeriodDto;
-  readonly truncated: boolean;
   readonly headline: HeadlineDto;
   readonly changes: HeadlineChangesDto;
   readonly output: readonly DayOutputDto[];
@@ -140,7 +138,6 @@ export interface FlowDto {
 
 export interface InsightsFlowDto {
   readonly period: PeriodDto;
-  readonly truncated: boolean;
   readonly flow: FlowDto;
 }
 
@@ -148,7 +145,6 @@ export type StationReportDto = StationReport;
 
 export interface InsightsStationsDto {
   readonly period: PeriodDto;
-  readonly truncated: boolean;
   readonly team: RunTally;
   readonly teamChanges: TallyChangesDto;
   readonly teamSeen: TallySeen;
@@ -184,7 +180,6 @@ export interface AdoptionDto {
 
 export interface InsightsPeopleDto {
   readonly period: PeriodDto;
-  readonly truncated: boolean;
   readonly load: HumanLoadDto;
   readonly loadChanges: HumanLoadChangesDto;
   readonly adoption: AdoptionDto;
@@ -206,7 +201,6 @@ export type TokenCountsDto = TokenCounts;
 
 export interface InsightsCostDto {
   readonly period: PeriodDto;
-  readonly truncated: boolean;
   readonly cost: CostBreakdownDto;
   readonly spendChange: ChangeDto | null;
 }
@@ -320,47 +314,32 @@ export const adoptionDtoOf = (
   })),
 });
 
-export const insightsRunOf = (
-  record: RunRecord,
-  openedBy: string | null,
-  deliveries: ReadonlyMap<string, TaskDelivery>,
-): InsightsRunDto | null => {
-  const end = record.end;
-  const ending = record.ending;
-
-  if (!end || !ending) {
-    return null;
-  }
-
-  return {
-    runId: record.runId.value,
-    taskId: end.place.taskId.value,
-    lineId: end.place.lineId,
-    stationId: end.place.stationId,
-    fingerprint: end.fingerprint,
-    harness: end.setup.harness,
-    model: end.setup.model,
-    effort: end.setup.effort,
-    profileKey: end.setup.profileKey,
-    repositories: end.setup.repositories,
-    openedBy,
-    queuedAt: end.queuedAt?.toISOString() ?? null,
-    startedAt: end.startedAt?.toISOString() ?? null,
-    endedAt: end.endedAt.toISOString(),
-    queuedMs: end.queuedMs,
-    runningMs: end.runningMs,
-    ms: record.cost?.ms ?? null,
-    cost: record.cost?.spend ?? null,
-    tokens: record.cost?.tokens ?? null,
-    ending,
-    failure: end.failure,
-    checks: record.checks,
-    next: record.next
-      ? { act: record.next.act, at: record.next.at.toISOString() }
-      : null,
-    handedOn: record.handedOn
-      ? { to: record.handedOn.to, at: record.handedOn.at.toISOString() }
-      : null,
-    delivery: deliveries.get(end.place.taskId.value)?.state ?? null,
-  };
-};
+export const insightsRunOf = (run: ListedRun): InsightsRunDto => ({
+  runId: run.runId,
+  taskId: run.taskId,
+  lineId: run.lineId,
+  stationId: run.stationId,
+  fingerprint: run.fingerprint,
+  harness: run.harness,
+  model: run.model,
+  effort: run.effort,
+  profileKey: run.profileKey,
+  repositories: run.repositories,
+  openedBy: run.openedBy,
+  queuedAt: run.queuedAt?.toISOString() ?? null,
+  startedAt: run.startedAt?.toISOString() ?? null,
+  endedAt: run.endedAt.toISOString(),
+  queuedMs: run.queuedMs,
+  runningMs: run.runningMs,
+  ms: run.ms,
+  cost: run.cost,
+  tokens: run.tokens,
+  ending: run.ending,
+  failure: run.failure,
+  checks: run.checks,
+  next: run.next ? { act: run.next.act, at: run.next.at.toISOString() } : null,
+  handedOn: run.handedOn
+    ? { to: run.handedOn.to, at: run.handedOn.at.toISOString() }
+    : null,
+  delivery: run.delivery,
+});

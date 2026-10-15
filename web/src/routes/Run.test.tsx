@@ -499,7 +499,7 @@ describe('Run', () => {
       renderRun();
 
       expect(
-        screen.getByText('Failed before the agent started.'),
+        screen.getByText('The run failed before the agent started.'),
       ).toBeInTheDocument();
       expect(
         screen.getByRole('link', { name: 'Open the task' }),
@@ -831,7 +831,7 @@ describe('Run', () => {
       expect(composer).toHaveAttribute('contenteditable', 'false');
       expect(composer).toHaveAttribute(
         'aria-placeholder',
-        'Agent runs autonomously. It can’t receive messages.',
+        'The agent runs autonomously. It can’t receive messages.',
       );
       expect(screen.getByRole('button', { name: 'Send' })).toBeDisabled();
     });

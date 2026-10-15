@@ -1,14 +1,32 @@
 import { teamPullRequestOf } from '@outcomes/domain/pull-requests.fake-spec';
 import {
-  comparisonOf,
+  comparisonFrom,
   depthOf,
-  penetrationOf,
+  penetrationFrom,
+  pullRequestCountsOf,
   typesOf,
   weekOf,
   weeksOf,
 } from '@outcomes/domain/services/pull-request-insights';
+import type { TeamPullRequest } from '@outcomes/domain/services/team-pull-requests';
 import type { Window } from '@outcomes/domain/value-objects/insights-period.vo';
 import { describe, expect, it } from 'vitest';
+
+const penetrationOf = (
+  pullRequests: readonly TeamPullRequest[],
+  teamRepositories: readonly string[],
+  window: Window,
+) =>
+  penetrationFrom(
+    pullRequestCountsOf(pullRequests, window),
+    teamRepositories,
+    window,
+  );
+
+const comparisonOf = (
+  pullRequests: readonly TeamPullRequest[],
+  window: Window,
+) => comparisonFrom(pullRequestCountsOf(pullRequests, window));
 
 const HOUR = 60 * 60 * 1000;
 
@@ -152,6 +170,24 @@ describe('penetrationOf', () => {
       ['acme/api', 1],
       ['acme/docs', 0],
     ]);
+  });
+
+  it('counts a merged pull request in the team’s spelling of its repository', () => {
+    expect(
+      penetrationOf(
+        [merged(1, '2026-09-22', { seen: { repository: 'acme/api' } })],
+        ['Acme/API'],
+        WINDOW,
+      ).repositories.map((each) => [each.repository, each.merged]),
+    ).toEqual([['Acme/API', 1]]);
+  });
+
+  it('sorts repositories with as many merged pull requests by their names, whatever their case', () => {
+    expect(
+      penetrationOf([], ['B/x', 'a/x'], WINDOW).repositories.map(
+        (each) => each.repository,
+      ),
+    ).toEqual(['a/x', 'B/x']);
   });
 });
 

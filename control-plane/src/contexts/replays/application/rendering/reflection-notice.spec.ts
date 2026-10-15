@@ -53,7 +53,7 @@ describe('ReflectionNoticeWording', () => {
       'The search for a better Build config ended with nothing the config can fix',
     );
     expect(said.points).toEqual([
-      'No config change can fix the 2 tasks still failing. Unspent budget is kept.',
+      'No config change can fix the 2 tasks still failing. The rest of the budget stays unspent.',
       'Fix the judge’s rubric, for “Drain the queue on restart”: Drop the test requirement.',
       'Take the task out of the replay set, or reword it, for one of the searched tasks: Evidence 2.',
     ]);
@@ -102,7 +102,7 @@ describe('ReflectionNoticeWording', () => {
     );
 
     expect(points).toHaveLength(20);
-    expect(points[19]).toBe('7 more on the search page.');
+    expect(points[19]).toBe('The search page shows 7 more.');
   });
 
   it('always says what happened first, even with nothing for a person to fix', () => {

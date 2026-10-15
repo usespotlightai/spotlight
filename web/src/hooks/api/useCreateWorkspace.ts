@@ -25,7 +25,7 @@ export function useCreateWorkspace() {
 
       throw new Error(
         response?.status === 409
-          ? 'Workspace URL already taken. Please go back and choose another.'
+          ? 'This workspace URL is already taken. Please go back and choose another.'
           : messageOf(error, 'Sorry, the workspace couldn’t be created.'),
       );
     },

@@ -7,7 +7,7 @@ export function McpServers({ servers }: { servers: readonly ServerReport[] }) {
     <InsightsCard
       tableOnly={servers.length > 0}
       title="MCP servers"
-      description="MCP servers that runs called. Unfinished calls count as failed; refused calls are left out. Refused: runs with a refused call. Failing runs: failed runs whose last call to the server failed"
+      description="MCP servers that runs called. Unfinished calls count as failed. Refused calls don’t count. Refused: runs with a refused call. Failing runs: failed runs whose last call to the server failed"
     >
       {servers.length > 0 ? (
         <McpServersTable servers={servers} />

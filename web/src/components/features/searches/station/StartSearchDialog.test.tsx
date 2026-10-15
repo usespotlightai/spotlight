@@ -165,7 +165,7 @@ describe('StartSearchDialog', () => {
     expect(screen.getByRole('radio', { name: /Two tasks/ })).toBeDisabled();
     expect(
       screen.getByText(
-        'Covers 2 tasks. A search holds some out. Minimum different tasks: 5',
+        'The set covers 2 tasks. A search holds some tasks out. Minimum different tasks: 5',
       ),
     ).toBeInTheDocument();
   });
@@ -218,7 +218,7 @@ describe('StartSearchDialog', () => {
     const warnings = screen.getByRole('list', { name: 'Warnings' });
     expect(
       warnings.querySelector('[data-kind="noise-unmeasured"]'),
-    ).toHaveTextContent(/Set’s noise is unmeasured/);
+    ).toHaveTextContent(/The set’s noise isn’t measured/);
     expect(
       screen.getByRole('button', { name: 'Start search' }),
     ).not.toBeDisabled();
@@ -245,7 +245,7 @@ describe('StartSearchDialog', () => {
     );
 
     expect(screen.getByRole('list', { name: 'Warnings' })).toHaveTextContent(
-      'Success moved 15 pts between copies of the same runs, above the line’s minimum real gain. Replaying each run 5 times would bring it under. Minimum real gain: +5 pts',
+      'Success moved 15 pts between copies of the same runs. This is more than the line’s minimum real gain. If you replay each run 5 times, the noise falls below it. Minimum real gain: +5 pts',
     );
 
     fireEvent.click(
@@ -308,7 +308,7 @@ describe('StartSearchDialog', () => {
       within(aim).getByRole('radio', { name: /The same success for less/ }),
     ).toBeChecked();
     expect(aim).toHaveTextContent(
-      'Suggested: the live config already succeeds on 97% of this set. Little room for more success.',
+      'Suggested: the live config already succeeds on 97% of this set. The set has little room for more success.',
     );
     expect(
       screen
@@ -389,13 +389,15 @@ describe('StartSearchDialog', () => {
     const warnings = screen.getByRole('list', { name: 'Warnings' });
     expect(
       warnings.querySelector('[data-kind="judge-unstable"]'),
-    ).toHaveTextContent('Judge gave the same verdict twice on only 60%');
+    ).toHaveTextContent('The judge gave the same verdict twice on only 60%');
     expect(
       warnings.querySelector('[data-kind="flaky-checks"]'),
-    ).toHaveTextContent('on 2 of 9 changes it ran twice');
+    ).toHaveTextContent('on 2 of 9 changes that it ran twice');
     expect(
       warnings.querySelector('[data-kind="no-headroom"]'),
-    ).toHaveTextContent('gained only +2 pts, likely −6 to +10, on 6 runs');
+    ).toHaveTextContent(
+      'gained only +2 pts on 6 runs. The likely range is −6 to +10',
+    );
   });
 
   it('shows a refusal on the field it names', () => {

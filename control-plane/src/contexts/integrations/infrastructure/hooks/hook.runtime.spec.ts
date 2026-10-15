@@ -285,7 +285,7 @@ describe('CompiledHookRuntime', () => {
     expect(taken.outcome).toMatchObject({
       status: 'failed',
       code: 'not-allowed',
-      reason: expect.stringMatching(/a hook acts as nobody/),
+      reason: expect.stringMatching(/A hook acts as nobody/),
     });
   });
 

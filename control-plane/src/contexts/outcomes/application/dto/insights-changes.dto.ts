@@ -31,7 +31,6 @@ export interface ChangeMarkerDto {
 
 export interface InsightsChangesDto {
   readonly period: PeriodDto;
-  readonly truncated: boolean;
   readonly markers: readonly ChangeMarkerDto[];
   readonly judges: readonly StationStandingDto[];
 }
@@ -40,7 +39,6 @@ export type SetupOutcomeDto = SetupOutcome;
 
 export interface InsightsSetupsDto {
   readonly period: PeriodDto;
-  readonly truncated: boolean;
   readonly stationId: string | null;
   readonly size: string | null;
   readonly sizes: readonly SizeBound[];

@@ -1,10 +1,10 @@
 import type { BotActivity } from '@outcomes/domain/aggregates/pull-request-record.aggregate';
-import type { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
 import { inboxWaitsWithin } from '@outcomes/domain/services/flow';
 import {
   type ByPercentile,
   between,
   byPercentile,
+  byText,
   known,
   type Percentile,
   type Percentiles,
@@ -47,7 +47,7 @@ import {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-const ROLLING_DAYS = 7;
+export const ROLLING_DAYS = 7;
 
 export interface ByAuthor {
   readonly spotlight: Percentiles;
@@ -66,31 +66,38 @@ export interface ByAuthorChanges {
   readonly people: PercentileChanges;
 }
 
-interface MergeDay {
+export interface MergeDay {
   readonly day: string;
   readonly daily: ByAuthor;
   readonly rolling: ByAuthor;
 }
 
-interface TypeMerge {
+export interface TypeMerge {
   readonly type: PullRequestType;
   readonly merged: number;
   readonly toMerge: ByAuthor;
 }
 
-export interface RoundsCount {
+interface RoundsMerged {
   readonly rounds: RoundBucket;
   readonly merged: number;
+}
+
+export interface RoundsCount extends RoundsMerged {
   readonly share: number | null;
 }
 
-interface DepthWeek {
+export interface DepthWeekCounts {
   readonly week: string;
   readonly merged: number;
+  readonly rounds: readonly RoundsMerged[];
+}
+
+interface DepthWeek extends DepthWeekCounts {
   readonly rounds: readonly RoundsCount[];
 }
 
-interface ReviewDay {
+export interface ReviewDay {
   readonly day: string;
   readonly toFirstReview: {
     readonly daily: Percentiles;
@@ -113,7 +120,7 @@ export type StationPart = (typeof STATION_PARTS)[number];
 
 type StageParts = Readonly<Record<StationPart, Percentiles>>;
 
-interface Timed {
+export interface Timed {
   readonly total: Percentiles;
   readonly parts: StageParts | null;
 }
@@ -144,7 +151,7 @@ export const FLOW_STAGE_KINDS = [
 
 export type FlowStageKind = (typeof FLOW_STAGE_KINDS)[number];
 
-interface Stage<T> {
+export interface Stage<T> {
   readonly kind: FlowStageKind;
   readonly place: StationPlace | null;
   readonly times: Typed<T>;
@@ -156,12 +163,52 @@ const FLOW_LAYOUTS = ['stations', 'stages'] as const;
 
 export type FlowLayout = (typeof FLOW_LAYOUTS)[number];
 
+interface PipelineOpening {
+  readonly taskId: string;
+  readonly openedAt: Date;
+}
+
+interface PipelinePassage {
+  readonly taskId: string;
+  readonly stationId: string;
+  readonly queued: number;
+  readonly running: number;
+  readonly inbox: number;
+}
+
+export interface PipelineCounts {
+  readonly openings: readonly PipelineOpening[];
+  readonly stations: readonly StationPlace[];
+  readonly passages: readonly PipelinePassage[];
+}
+
+interface TypeCount {
+  readonly type: PullRequestType;
+  readonly merged: number;
+}
+
+export interface ShippedPipeline {
+  readonly merged: number;
+  readonly types: readonly TypeCount[];
+  readonly coding: Stage<Timed>;
+  readonly stations: readonly Stage<Timed>[];
+  readonly review: readonly Stage<Timed>[];
+}
+
+export interface ShippingCounts {
+  readonly toMerge: ByAuthor;
+  readonly toMergeBefore: ByAuthor;
+  readonly mergeDays: readonly MergeDay[];
+  readonly types: readonly TypeMerge[];
+  readonly depth: readonly DepthWeekCounts[];
+  readonly reviewDays: readonly ReviewDay[];
+  readonly bots: readonly BotActivity[];
+  readonly pipeline: ShippedPipeline;
+}
+
 interface PipelineFlow {
   readonly merged: number;
-  readonly types: readonly {
-    readonly type: PullRequestType;
-    readonly merged: number;
-  }[];
+  readonly types: readonly TypeCount[];
   readonly layouts: Readonly<Record<FlowLayout, readonly FlowStage[]>>;
 }
 
@@ -345,7 +392,7 @@ const overlapOf = (one: Window, other: Window): Window => ({
 const depthWeeksOf = (
   compared: readonly TeamPullRequest[],
   window: Window,
-): readonly DepthWeek[] =>
+): readonly DepthWeekCounts[] =>
   weeksOf(window).map((week) => {
     const merged = mergedWithin(
       compared,
@@ -355,22 +402,29 @@ const depthWeeksOf = (
     return {
       week,
       merged: merged.length,
-      rounds: roundsCountsOf(
-        (rounds) =>
-          merged.filter(
-            (each) => roundBucketOf(each.seen.reviewRounds) === rounds,
-          ).length,
-      ),
+      rounds: ROUND_BUCKETS.map((rounds) => ({
+        rounds,
+        merged: merged.filter(
+          (each) => roundBucketOf(each.seen.reviewRounds) === rounds,
+        ).length,
+      })),
     };
   });
 
-const depthTotalsOf = (weeks: readonly DepthWeek[]): readonly RoundsCount[] =>
+const mergedIn = (rounds: RoundBucket, week: DepthWeekCounts): number =>
+  week.rounds.find((each) => each.rounds === rounds)?.merged ?? 0;
+
+const depthFrom = (weeks: readonly DepthWeekCounts[]): readonly DepthWeek[] =>
+  weeks.map((week) => ({
+    ...week,
+    rounds: roundsCountsOf((rounds) => mergedIn(rounds, week)),
+  }));
+
+const depthTotalsOf = (
+  weeks: readonly DepthWeekCounts[],
+): readonly RoundsCount[] =>
   roundsCountsOf((rounds) =>
-    weeks.reduce(
-      (sum, week) =>
-        sum + (week.rounds.find((each) => each.rounds === rounds)?.merged ?? 0),
-      0,
-    ),
+    weeks.reduce((sum, week) => sum + mergedIn(rounds, week), 0),
   );
 
 const firstReviewedWithin = (
@@ -413,10 +467,10 @@ const activeWithin = (each: TeamPullRequest, window: Window): boolean =>
   (!each.seen.closedAt ||
     each.seen.closedAt.getTime() >= window.from.getTime());
 
-const botsOf = (
+const botSumsOf = (
   pullRequests: readonly TeamPullRequest[],
   window: Window,
-): readonly ReviewBot[] => {
+): readonly BotActivity[] => {
   const summed = new Map<string, BotActivity>();
 
   for (const activity of pullRequests
@@ -437,7 +491,11 @@ const botsOf = (
     );
   }
 
-  return [...summed.values()]
+  return [...summed.values()];
+};
+
+const botsFrom = (sums: readonly BotActivity[]): readonly ReviewBot[] =>
+  [...sums]
     .map((each) => ({
       login: each.login,
       comments: each.comments,
@@ -446,7 +504,6 @@ const botsOf = (
         each.threads > 0 ? each.resolvedThreads / each.threads : null,
     }))
     .sort((one, other) => other.comments - one.comments);
-};
 
 interface Passage {
   readonly type: PullRequestType;
@@ -556,30 +613,99 @@ const jammedOf = (stages: readonly Stage<Timed>[]): readonly FlowStage[] => {
   }));
 };
 
-const pipelineOf = (
-  merged: readonly TeamPullRequest[],
-  history: TeamHistory,
-  reach: Window,
-): PipelineFlow => {
-  const openings = openingsOf(history.touches);
-  const openedAt = (each: TeamPullRequest): Date | null =>
-    openings.get(each.taskId ?? '')?.opening?.at ?? null;
-  const made = merged.filter((each) => {
-    const opened = openedAt(each);
+export const shippedTaskIdsOf = (
+  pullRequests: readonly TeamPullRequest[],
+  period: InsightsPeriod,
+): readonly string[] =>
+  [
+    ...new Set(
+      mergedWithin(pullRequests, period.current).flatMap((each) =>
+        each.by === 'spotlight' && each.taskId !== null ? [each.taskId] : [],
+      ),
+    ),
+  ].sort(byText);
 
-    return (
-      each.by === 'spotlight' &&
-      opened !== null &&
-      opened.getTime() >= reach.from.getTime()
-    );
+export const pipelineCountsOf = (
+  history: TeamHistory,
+  taskIds: readonly string[],
+  period: InsightsPeriod,
+): PipelineCounts => {
+  const reach = period.lookback;
+  const touched = openingsOf(history.touches);
+  const openings = [...new Set(taskIds)].sort(byText).flatMap((taskId) => {
+    const openedAt = touched.get(taskId)?.opening?.at ?? null;
+
+    return openedAt !== null && openedAt.getTime() >= reach.from.getTime()
+      ? [{ taskId, openedAt }]
+      : [];
   });
-  const tasks = new Set(made.map((each) => each.taskId));
+  const tasks = new Set(openings.map((each) => each.taskId));
   const runs = history.records.filter(
     (each) => each.taskId && tasks.has(each.taskId.value) && each.end,
   );
   const waits = inboxWaitsWithin(history, reach);
-  const runsOf = (taskId: string | null): readonly RunRecord[] =>
-    runs.filter((each) => each.taskId?.value === taskId);
+  const stations = stationsOf(runs);
+  const stationIds = stations.map((each) => each.stationId).sort(byText);
+
+  return {
+    openings,
+    stations,
+    passages: openings.flatMap(({ taskId }) =>
+      stationIds.flatMap((stationId) => {
+        const here = runs.filter(
+          (run) =>
+            run.taskId?.value === taskId &&
+            run.end?.place.stationId === stationId,
+        );
+
+        return here.length > 0
+          ? [
+              {
+                taskId,
+                stationId,
+                queued: sumOf(
+                  known(here.map((run) => run.end?.queuedMs ?? null)),
+                ),
+                running: sumOf(
+                  known(here.map((run) => run.end?.runningMs ?? null)),
+                ),
+                inbox: sumOf(
+                  known(
+                    waits
+                      .filter(
+                        (wait) =>
+                          wait.taskId === taskId &&
+                          wait.stationId === stationId,
+                      )
+                      .map((wait) => lasted(wait.askedAt, wait.answeredAt)),
+                  ),
+                ),
+              },
+            ]
+          : [];
+      }),
+    ),
+  };
+};
+
+const shippedPipelineOf = (
+  merged: readonly TeamPullRequest[],
+  counts: PipelineCounts,
+): ShippedPipeline => {
+  const openings = new Map(
+    counts.openings.map((each) => [each.taskId, each.openedAt]),
+  );
+  const openedAt = (each: TeamPullRequest): Date | null =>
+    openings.get(each.taskId ?? '') ?? null;
+  const passages = new Map(
+    counts.passages.map((each) => [
+      JSON.stringify([each.taskId, each.stationId]),
+      each,
+    ]),
+  );
+  const made = merged.filter(
+    (each) => each.by === 'spotlight' && openedAt(each) !== null,
+  );
   const step = (
     each: TeamPullRequest,
     from: Date | null,
@@ -598,45 +724,29 @@ const pipelineOf = (
     'coding',
     made.map((each) => step(each, openedAt(each), each.seen.openedAt)),
   );
-  const stations = stationsOf(runs).map(
+  const stations = counts.stations.map(
     (place): Stage<Timed> => ({
       kind: 'station',
       place,
       times: byTypeOf(
         made.flatMap((each) => {
-          const here = runsOf(each.taskId).filter(
-            (run) => run.end?.place.stationId === place.stationId,
+          const passage = passages.get(
+            JSON.stringify([each.taskId, place.stationId]),
           );
 
-          if (here.length === 0) {
-            return [];
-          }
-
-          const queued = sumOf(
-            known(here.map((run) => run.end?.queuedMs ?? null)),
-          );
-          const running = sumOf(
-            known(here.map((run) => run.end?.runningMs ?? null)),
-          );
-          const inbox = sumOf(
-            known(
-              waits
-                .filter(
-                  (wait) =>
-                    wait.taskId === each.taskId &&
-                    wait.stationId === place.stationId,
-                )
-                .map((wait) => lasted(wait.askedAt, wait.answeredAt)),
-            ),
-          );
-
-          return [
-            {
-              type: each.type,
-              total: queued + running + inbox,
-              parts: { queued, running, inbox },
-            },
-          ];
+          return passage
+            ? [
+                {
+                  type: each.type,
+                  total: passage.queued + passage.running + passage.inbox,
+                  parts: {
+                    queued: passage.queued,
+                    running: passage.running,
+                    inbox: passage.inbox,
+                  },
+                },
+              ]
+            : [];
         }),
         true,
       ),
@@ -679,55 +789,76 @@ const pipelineOf = (
       const count = made.filter((each) => each.type === type).length;
       return count > 0 ? [{ type, merged: count }] : [];
     }),
-    layouts: {
-      stations: jammedOf([...stations, ...review]),
-      stages: jammedOf([coding, ...review]),
-    },
+    coding,
+    stations,
+    review,
   };
 };
 
-export const shippingOf = (
+const pipelineFrom = (shipped: ShippedPipeline): PipelineFlow => ({
+  merged: shipped.merged,
+  types: shipped.types,
+  layouts: {
+    stations: jammedOf([...shipped.stations, ...shipped.review]),
+    stages: jammedOf([shipped.coding, ...shipped.review]),
+  },
+});
+
+export const shippingCountsOf = (
   pullRequests: readonly TeamPullRequest[],
-  history: TeamHistory,
+  counts: PipelineCounts,
   period: InsightsPeriod,
-): Shipping => {
+): ShippingCounts => {
   const repositories = comparedRepositoriesOf(pullRequests, period.current);
   const compared = comparedOf(pullRequests, repositories);
   const merged = mergedWithin(compared, period.current);
-  const reviewed = pullRequests.filter((each) => each.by !== 'bots');
-  const toMerge = byAuthorOf(merged);
-  const toMergeBefore = byAuthorOf(
-    mergedWithin(
-      comparedOf(
-        pullRequests,
-        comparedRepositoriesOf(pullRequests, period.previous),
-      ),
-      period.previous,
-    ),
-  );
-  const types = typeMergesOf(merged);
-  const depth = depthWeeksOf(compared, period.current);
-  const reviewDays = reviewDaysOf(reviewed, period.days);
-  const pipeline = pipelineOf(
-    mergedWithin(pullRequests, period.current),
-    history,
-    period.lookback,
-  );
 
   return {
-    toMerge,
-    toMergeChanges: byAuthorChangesOf(toMerge, toMergeBefore),
+    toMerge: byAuthorOf(merged),
+    toMergeBefore: byAuthorOf(
+      mergedWithin(
+        comparedOf(
+          pullRequests,
+          comparedRepositoriesOf(pullRequests, period.previous),
+        ),
+        period.previous,
+      ),
+    ),
     mergeDays: mergeDaysOf(compared, period.days),
-    types,
-    slowestFirst: slowestFirstOf(types),
+    types: typeMergesOf(merged),
+    depth: depthWeeksOf(compared, period.current),
+    reviewDays: reviewDaysOf(
+      pullRequests.filter((each) => each.by !== 'bots'),
+      period.days,
+    ),
+    bots: botSumsOf(pullRequests, period.current),
+    pipeline: shippedPipelineOf(
+      mergedWithin(pullRequests, period.current),
+      counts,
+    ),
+  };
+};
+
+export const shippingFrom = (counts: ShippingCounts): Shipping => {
+  const pipeline = pipelineFrom(counts.pipeline);
+  const depth = depthFrom(counts.depth);
+
+  return {
+    toMerge: counts.toMerge,
+    toMergeChanges: byAuthorChangesOf(counts.toMerge, counts.toMergeBefore),
+    mergeDays: counts.mergeDays,
+    types: counts.types,
+    slowestFirst: slowestFirstOf(counts.types),
     depth,
-    depthTotals: depthTotalsOf(depth),
-    reviewDays,
-    bots: botsOf(pullRequests, period.current),
+    depthTotals: depthTotalsOf(counts.depth),
+    reviewDays: counts.reviewDays,
+    bots: botsFrom(counts.bots),
     pipeline,
     shippedAny:
       pipeline.merged > 0 ||
-      types.length > 0 ||
-      reviewDays.some((each) => each.awaiting > 0 || each.humanReviews > 0),
+      counts.types.length > 0 ||
+      counts.reviewDays.some(
+        (each) => each.awaiting > 0 || each.humanReviews > 0,
+      ),
   };
 };

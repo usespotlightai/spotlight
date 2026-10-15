@@ -51,7 +51,7 @@ export function WorthImproving({
     <InsightsCard
       tableOnly
       title="Worth improving"
-      description={`What got worse over the ${span}, or trails the rest of the team. The team’s agent reads this, the config and recent runs, and suggests what to change.`}
+      description={`Signals that got worse over the ${span}, or that trail the rest of the team. The team’s agent reads these signals, the config and recent runs, and suggests what to change.`}
     >
       {failed(overview) ? (
         <CouldNotLoad

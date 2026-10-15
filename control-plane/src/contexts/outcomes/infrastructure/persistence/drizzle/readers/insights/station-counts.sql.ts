@@ -10,20 +10,18 @@ import { FailureOccurrence } from '@outcomes/domain/value-objects/failure-occurr
 import type { Window } from '@outcomes/domain/value-objects/insights-period.vo';
 import {
   asUtc,
-  counted,
   day,
   endedIn,
   factsInPeriod,
   inEndOrder,
   isCurrent,
   iso,
-  medianOver,
   onTeam,
-  p90Over,
-  ran,
-  type SpendRow,
-  spendColumns,
-  spendOf,
+  type StationRow,
+  stationsInEndOrder,
+  type TallyColumns,
+  tallyColumns,
+  tallyCountsOf,
 } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/run-fact.sql';
 import {
   runFact,
@@ -34,29 +32,12 @@ import {
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { sql } from 'drizzle-orm';
 
-interface TallyRow extends SpendRow, Record<string, unknown> {
+interface TallyRow extends TallyColumns, Record<string, unknown> {
   readonly is_current: boolean;
   readonly station_id: string | null;
   readonly day: string | null;
   readonly all_stations: number;
   readonly all_days: number;
-  readonly runs: number;
-  readonly withdrawn: number;
-  readonly failed: number;
-  readonly stopped: number;
-  readonly checks_passed: number;
-  readonly checks_failed: number;
-  readonly accepted: number;
-  readonly sent_back: number;
-  readonly handed_on: number;
-  readonly merged: number;
-  readonly median_ms: number | null;
-  readonly p90_ms: number | null;
-}
-
-interface StationRow extends Record<string, unknown> {
-  readonly station_id: string;
-  readonly line_id: string;
 }
 
 interface RunFailureRow extends Record<string, unknown> {
@@ -71,26 +52,6 @@ interface FailingRow extends Record<string, unknown> {
   readonly occurrence: StoredOccurrence;
 }
 
-const timed = sql`${ran} and ${runFact.ms} is not null`;
-
-const countsOf = (row: TallyRow): TallyCounts => ({
-  runs: row.runs,
-  withdrawn: row.withdrawn,
-  failed: row.failed,
-  stopped: row.stopped,
-  checksPassed: row.checks_passed,
-  checksFailed: row.checks_failed,
-  accepted: row.accepted,
-  sentBack: row.sent_back,
-  handedOn: row.handed_on,
-  merged: row.merged,
-  cost: spendOf(row),
-  unpriced: row.unpriced,
-  mixedCurrencies: row.currencies > 1,
-  medianMs: row.median_ms,
-  p90Ms: row.p90_ms,
-});
-
 class WindowTallies {
   #current: TallyCounts | null = null;
   #previous: TallyCounts | null = null;
@@ -99,12 +60,12 @@ class WindowTallies {
   hold(row: TallyRow): void {
     if (row.all_days === 0 && row.day !== null) {
       if (row.is_current) {
-        this.#byDay.set(row.day, countsOf(row));
+        this.#byDay.set(row.day, tallyCountsOf(row));
       }
     } else if (row.is_current) {
-      this.#current = countsOf(row);
+      this.#current = tallyCountsOf(row);
     } else {
-      this.#previous = countsOf(row);
+      this.#previous = tallyCountsOf(row);
     }
   }
 
@@ -128,19 +89,7 @@ const talliesIn = async (
         ${day} as day,
         grouping(${runFact.stationId})::int as all_stations,
         grouping(${day})::int as all_days,
-        ${counted(ran)} as runs,
-        ${counted(sql`not ${ran}`)} as withdrawn,
-        ${counted(sql`${ran} and ${runFact.supersededAt} is null and ${runFact.ending} = 'failed'`)} as failed,
-        ${counted(sql`${ran} and ${runFact.supersededAt} is null and ${runFact.ending} = 'stopped'`)} as stopped,
-        ${counted(sql`${ran} and ${runFact.checks} = 'passed'`)} as checks_passed,
-        ${counted(sql`${ran} and ${runFact.checks} = 'failed'`)} as checks_failed,
-        ${counted(sql`${ran} and ${runFact.nextAct} = 'closed'`)} as accepted,
-        ${counted(sql`${ran} and ${runFact.nextAct} = 'sent-back'`)} as sent_back,
-        ${counted(sql`${ran} and ${runFact.handedOnTo} is not null`)} as handed_on,
-        count(distinct ${runFact.taskId}) filter (where ${ran} and ${runFact.deliveryState} = 'merged')::int as merged,
-        ${spendColumns},
-        ${medianOver(sql`${runFact.ms}`, timed)} as median_ms,
-        ${p90Over(sql`${runFact.ms}`, timed)} as p90_ms
+        ${tallyColumns}
       from ${factsInPeriod(team)}
       group by grouping sets (
         (${isCurrent}),
@@ -159,19 +108,13 @@ const stationsIn = async (
   team: TeamInPeriod,
 ): Promise<readonly StationRow[]> => {
   const { current } = team.period;
-  const result = await db.execute<StationRow>(sql`
-      select station_id, line_id from (
-        select distinct on (${runFact.stationId})
-          ${runFact.stationId} as station_id,
-          ${runFact.lineId} as line_id,
-          ${runFact.endedAt} as ended_at,
-          ${runFact.runId} as run_id
-        from ${runFact}
-        where ${onTeam(team)} and ${endedIn(current.from, current.to)}
-        order by ${runFact.stationId}, ${inEndOrder}
-      ) as first
-      order by ended_at, run_id collate "C"
-    `);
+  const result = await db.execute<StationRow>(
+    stationsInEndOrder(
+      sql`
+        select ${runFact}.* from ${runFact}
+        where ${onTeam(team)} and ${endedIn(current.from, current.to)}`,
+    ),
+  );
 
   return result.rows;
 };
