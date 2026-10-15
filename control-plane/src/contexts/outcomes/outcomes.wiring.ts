@@ -348,12 +348,12 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
   },
   {
     provide: TrustedJudges,
-    inject: [JUDGE_STANDING, DrizzleScoreRepository],
-    useFactory: (standing: JudgeStandingPort, scores: DrizzleScoreRepository) =>
-      new TrustedJudges(standing, scores),
+    inject: [JUDGE_STANDING],
+    useFactory: (standing: JudgeStandingPort) => new TrustedJudges(standing),
   },
   ...bindQueryHandler(ReadInsightsChangesQuery, ReadInsightsChangesHandler, [
     TeamHistories,
+    INSIGHTS_READER,
     TrustedJudges,
     WORK,
   ]),

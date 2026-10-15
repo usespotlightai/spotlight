@@ -4,6 +4,7 @@ import type {
   SetupFilter,
   TeamInPeriod,
 } from '@outcomes/application/ports/insights-reader.port';
+import type { ChangeCounts } from '@outcomes/domain/services/before-after';
 import type { CostCountsInPeriod } from '@outcomes/domain/services/cost-breakdown';
 import type { FlowCounts } from '@outcomes/domain/services/flow';
 import type { MemoryCounts } from '@outcomes/domain/services/memory-comparison';
@@ -13,6 +14,7 @@ import type { SetupComparisonCounts } from '@outcomes/domain/services/setup-comp
 import type { PipelineCounts } from '@outcomes/domain/services/shipping';
 import type { TeamCounts } from '@outcomes/domain/services/station-reports';
 import type { ToolCounts } from '@outcomes/domain/services/tool-insights';
+import { changeCountsIn } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/change-counts.sql';
 import { costCountsIn } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/cost-counts.sql';
 import { flowCountsIn } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/flow-counts.sql';
 import { memoryCountsIn } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/memory-counts.sql';
@@ -68,5 +70,9 @@ export class DrizzleInsightsReader implements InsightsReaderPort {
     filter: SetupFilter,
   ): Promise<SetupComparisonCounts> {
     return this.reading.read((db) => setupCountsIn(db, team, filter));
+  }
+
+  changeCounts(team: TeamInPeriod): Promise<readonly ChangeCounts[]> {
+    return this.reading.read((db) => changeCountsIn(db, team));
   }
 }

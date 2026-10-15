@@ -2,16 +2,13 @@ import type {
   SetupFilter,
   TeamInPeriod,
 } from '@outcomes/application/ports/insights-reader.port';
+import type { RubricShares } from '@outcomes/domain/services/judge-shares';
 import { SIZE_BOUNDS } from '@outcomes/domain/services/run-size';
 import type {
-  RubricShares,
   SetupComparisonCounts,
   SetupCounts,
 } from '@outcomes/domain/services/setup-comparison';
-import {
-  SCORE_KINDS,
-  ScoreScale,
-} from '@outcomes/domain/value-objects/score-scale.vo';
+import { shareOfScore } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/judge-share.sql';
 import {
   counted,
   endedIn,
@@ -68,19 +65,6 @@ const sizeOfRun = sql`case
   when ${runFact.changedLines} > 0 then ${sizedBy(sql`${runFact.changedLines}`, 'mostLines')}
   else ${sizedBy(sql`${runFact.steps}`, 'mostSteps')}
 end`;
-
-const shareOfScore = sql`case ${sql.join(
-  SCORE_KINDS.map((kind) => {
-    const values = ScoreScale.of(kind).values;
-    const lowest = Math.min(...values);
-    const highest = Math.max(...values);
-
-    return highest === lowest
-      ? sql`when ${score.kind} = ${kind} then 0::float8`
-      : sql`when ${score.kind} = ${kind} then (${score.value} - ${lowest}::float8) / ${highest - lowest}::float8`;
-  }),
-  sql` `,
-)} end`;
 
 const endedFor = (team: TeamInPeriod, filter: SetupFilter): SQL => {
   const { current } = team.period;

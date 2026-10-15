@@ -88,6 +88,7 @@ export const judgeScore = (
     at?: Date;
     rubricVersion?: string;
     taskId?: string;
+    stationId?: string;
     marks?: readonly boolean[];
   } = {},
 ): Score =>
@@ -95,7 +96,7 @@ export const judgeScore = (
     id: ScoreId.of(`judge_${runId}_${change.rubricVersion ?? RUBRIC_VERSION}`),
     runId: RunId.of(runId),
     workspaceId: WORKSPACE,
-    place: placeOf(change.taskId ?? `task_${runId}`),
+    place: placeOf(change.taskId ?? `task_${runId}`, change.stationId),
     fingerprint: FIRST_CONFIG,
     scale,
     value: change.marks ? shareOf(change.marks) : value,

@@ -1,3 +1,4 @@
+import type { ChangeCounts } from '@outcomes/domain/services/before-after';
 import type { CostCountsInPeriod } from '@outcomes/domain/services/cost-breakdown';
 import type { FlowCounts } from '@outcomes/domain/services/flow';
 import type { MemoryCounts } from '@outcomes/domain/services/memory-comparison';
@@ -41,4 +42,5 @@ export interface InsightsReaderPort {
     team: TeamInPeriod,
     filter: SetupFilter,
   ): Promise<SetupComparisonCounts>;
+  changeCounts(team: TeamInPeriod): Promise<readonly ChangeCounts[]>;
 }

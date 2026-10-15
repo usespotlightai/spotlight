@@ -5,13 +5,15 @@ import type {
 import type { TeamHistoryHeld } from '@outcomes/application/services/team-histories.service';
 import { ScoresInMemory } from '@outcomes/domain/judging.fake-spec';
 import type { ScoreRepository } from '@outcomes/domain/repositories/score.repository';
+import { changeCountsOf } from '@outcomes/domain/services/before-after';
+import type { CarriedConfigs } from '@outcomes/domain/services/config-stretches';
 import { costCountsOf } from '@outcomes/domain/services/cost-breakdown';
 import { flowCountsOf } from '@outcomes/domain/services/flow';
+import { judgedRunsOf } from '@outcomes/domain/services/judge-shares';
 import { memoryCountsOf } from '@outcomes/domain/services/memory-comparison';
 import { overviewCountsOf } from '@outcomes/domain/services/overview-counts';
 import { peopleCountsOf } from '@outcomes/domain/services/people-counts';
 import {
-  judgedRunsOf,
   setupCountsOf,
   setupRunsWithin,
 } from '@outcomes/domain/services/setup-comparison';
@@ -38,6 +40,22 @@ const historyOf = async (
     touches: await held.touches.ofTeamBetween(window, ALL),
     failures: await held.failures.ofTeamBetween(window, ALL),
     chats: await held.chats.ofTeamBetween(window, ALL),
+  };
+};
+
+const carriedOf = async (
+  held: TeamHistoryHeld,
+  team: TeamInPeriod,
+  history: TeamHistory,
+): Promise<CarriedConfigs> => {
+  const from = team.period.lookback.from;
+
+  return {
+    from,
+    lastRuns: await held.records.lastConfigRunsBefore(
+      team.teamId,
+      stationsOf(history.records).map(({ stationId }) => ({ stationId, from })),
+    ),
   };
 };
 
@@ -83,21 +101,11 @@ export const insightsReaderInMemory = (
     pipelineCountsOf(await historyOf(held, team), taskIds, team.period),
   overviewCounts: async (team) => {
     const history = await historyOf(held, team);
-    const from = team.period.lookback.from;
 
     return overviewCountsOf(
       history,
       team.period,
-      {
-        from,
-        lastRuns: await held.records.lastConfigRunsBefore(
-          team.teamId,
-          stationsOf(history.records).map(({ stationId }) => ({
-            stationId,
-            from,
-          })),
-        ),
-      },
+      await carriedOf(held, team, history),
       await openingsFor(held, history),
     );
   },
@@ -123,6 +131,16 @@ export const insightsReaderInMemory = (
             await scores.ofRuns(records.map((each) => each.runId)),
             filter.stationId,
           ),
+    );
+  },
+  changeCounts: async (team) => {
+    const history = await historyOf(held, team);
+
+    return changeCountsOf(
+      history,
+      team.period,
+      await carriedOf(held, team, history),
+      await scores.ofRuns(history.records.map((each) => each.runId)),
     );
   },
 });

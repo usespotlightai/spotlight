@@ -6,6 +6,7 @@ import { Score } from '@outcomes/domain/aggregates/score.aggregate';
 import { TaskDelivery } from '@outcomes/domain/aggregates/task-delivery.aggregate';
 import { TaskFailures } from '@outcomes/domain/aggregates/task-failures.aggregate';
 import { TaskTouches } from '@outcomes/domain/aggregates/task-touches.aggregate';
+import { changeCountsOf } from '@outcomes/domain/services/before-after';
 import {
   type CostCounts,
   type CostPlace,
@@ -13,6 +14,7 @@ import {
   costCountsOf,
 } from '@outcomes/domain/services/cost-breakdown';
 import { flowCountsOf, flowFrom } from '@outcomes/domain/services/flow';
+import { judgedRunsOf } from '@outcomes/domain/services/judge-shares';
 import { memoryCountsOf } from '@outcomes/domain/services/memory-comparison';
 import { overviewCountsOf } from '@outcomes/domain/services/overview-counts';
 import { peopleCountsOf } from '@outcomes/domain/services/people-counts';
@@ -22,7 +24,6 @@ import {
 } from '@outcomes/domain/services/pull-request-insights';
 import { RUN_SIZES, type RunSize } from '@outcomes/domain/services/run-size';
 import {
-  judgedRunsOf,
   setupCountsOf,
   setupRunsWithin,
 } from '@outcomes/domain/services/setup-comparison';
@@ -1578,6 +1579,262 @@ describe('the setups a team’s runs used', () => {
     for (const size of RUN_SIZES) {
       expect((await at(null, size)).setups.length).toBeGreaterThan(0);
     }
+  });
+});
+
+describe('the config changes of a team', () => {
+  it.each(INSIGHTS_PERIODS)(
+    'counts the same changes as the domain over %s',
+    async (name) => {
+      const held = await histories.of(
+        TEAM.value,
+        PersonPrincipal.of(VIEWER),
+        name,
+      );
+      const { history, period, truncated } = held;
+
+      expect(truncated).toBe(false);
+      expect(
+        await reader.changeCounts({
+          workspaceId: WORKSPACE,
+          teamId: TEAM,
+          period,
+        }),
+      ).toEqual(
+        changeCountsOf(
+          history,
+          period,
+          await histories.carriedOn(held),
+          await scores.ofRuns(history.records.map((each) => each.runId)),
+        ),
+      );
+    },
+  );
+
+  it('covers what makes config changes hard to get right', async () => {
+    const { period } = await histories.scope(
+      TEAM.value,
+      PersonPrincipal.of(VIEWER),
+      '30d',
+    );
+    const changes = await reader.changeCounts({
+      workspaceId: WORKSPACE,
+      teamId: TEAM,
+      period,
+    });
+    const sides = changes.flatMap((each) => [each.before, each.after]);
+
+    expect(changes.length).toBeGreaterThan(5);
+    expect(new Set(changes.map((each) => each.marker.stationId)).size).toBe(
+      STATIONS.length,
+    );
+    expect(sides.some((each) => each.tally.withdrawn > 0)).toBe(true);
+    expect(
+      changes.some(
+        (each) => each.judgedBefore.length > 0 && each.judgedAfter.length > 0,
+      ),
+    ).toBe(true);
+  });
+});
+
+describe('how a config change splits a station’s runs', () => {
+  const CHANGING = TeamId.of('team_changing');
+  const period = InsightsPeriod.of('7d', NOW);
+  const A = 'a'.repeat(64);
+  const B = 'b'.repeat(64);
+  const RUBRIC = 'd'.repeat(64);
+
+  beforeAll(async () => {
+    const context = new DrizzleContext(held.db);
+    const quiet = {
+      dispatch: async () => {},
+    } as unknown as DomainEventDispatcher;
+    const records = new DrizzleRunRecordRepository(
+      context,
+      new DrizzleRunFactProjection(context),
+      quiet,
+    );
+    const judged = new DrizzleScoreRepository(context, quiet);
+    const ran = (
+      runId: string,
+      stationId: string,
+      fingerprint: string,
+      beganHoursAgo: number,
+      ending: RunEnding = 'completed',
+      endedHoursAgo = beganHoursAgo - 0.5,
+    ) =>
+      records.add(
+        RunRecord.heardOf(RunId.of(runId), WORKSPACE).ended(
+          RunEnd.of({
+            place: RunPlace.of({
+              teamId: CHANGING,
+              lineId: 'line_changing',
+              stationId,
+              taskId: TaskId.of(`task_${runId}`),
+            }),
+            fingerprint,
+            setup: RunSetup.of({
+              harness: 'claude-code',
+              model: 'sonnet',
+              effort: null,
+              profileKey: null,
+              repositories: [],
+              skills: [],
+            }),
+            queuedAt: null,
+            startedAt:
+              ending === 'withdrawn' ? null : ago(beganHoursAgo * HOUR),
+            endedAt: ago(endedHoursAgo * HOUR),
+            ending,
+            failure: null,
+            round: 1,
+            asked: false,
+          }),
+        ),
+      );
+    const judgedAt = (runId: string, stationId: string, met: number) => {
+      const marks = Array.from({ length: 10 }, (_, at) => at < met);
+
+      return judged.add(
+        Score.judged({
+          id: ScoreId.of(`score_${runId}`),
+          runId: RunId.of(runId),
+          workspaceId: WORKSPACE,
+          place: RunPlace.of({
+            teamId: CHANGING,
+            lineId: 'line_changing',
+            stationId,
+            taskId: TaskId.of(`task_${runId}`),
+          }),
+          fingerprint: B,
+          scale: ScoreScale.claims(),
+          value: shareMet(marks),
+          marks,
+          rubricVersion: RUBRIC,
+          model: 'judge/model',
+          reasons: marks.map((_, at) =>
+            JudgeReason.of({
+              text: `Reason ${at}.`,
+              citations: [Citation.ofStep(1)],
+              claim: at,
+            }),
+          ),
+          seen: SeenEvidence.none(),
+          at: ago(HOUR),
+        }),
+      );
+    };
+
+    await context.run(async () => {
+      await ran('flip_a1', 'flip', A, 100);
+      await ran('flip_b_early', 'flip', B, 90, 'withdrawn');
+      await ran('flip_b1', 'flip', B, 80);
+      await ran('flip_a_early', 'flip', A, 70, 'withdrawn');
+      await ran('flip_a2', 'flip', A, 60);
+      await ran('carry_old', 'carry', A, 24 * 60);
+      await ran('carry_new', 'carry', B, 50);
+      await ran('tie_first', 'tie', A, 40);
+      await ran('tie_b', 'tie', B, 30);
+      await ran('tie_a', 'tie', A, 30);
+      await ran('judged_old', 'judged', A, 20);
+
+      for (const [runId, met] of [
+        ['judged_c', 3],
+        ['judged_b', 2],
+        ['judged_a', 1],
+      ] as const) {
+        await ran(runId, 'judged', B, 10);
+        await judgedAt(runId, 'judged', met);
+      }
+
+      await ran('ord_old', 'ordered', A, 9);
+
+      for (const [runId, began, ended, met] of [
+        ['ord_1', 6, 1, 1],
+        ['ord_2', 5, 2, 2],
+        ['ord_3', 4, 3, 3],
+      ] as const) {
+        await ran(runId, 'ordered', B, began, 'completed', ended);
+        await judgedAt(runId, 'ordered', met);
+      }
+
+      await ran('tie2_a', 'tie2', A, 26);
+      await ran('tie2_b', 'tie2', B, 26);
+      await ran('tie2_c', 'tie2', B, 22);
+    });
+  });
+
+  it('splits at each change, counts a withdrawn run of the new config before it as after, leaves a side empty, breaks ties by run, and sums judge shares in end order', async () => {
+    const changes = await reader.changeCounts({
+      workspaceId: WORKSPACE,
+      teamId: CHANGING,
+      period,
+    });
+    const inPeriod = await histories.of(
+      CHANGING.value,
+      PersonPrincipal.of(VIEWER),
+      '7d',
+    );
+    const sides = (runId: string) => {
+      const change = changes.find((each) => each.marker.runId === runId);
+
+      return change
+        ? [
+            change.before.tally.runs,
+            change.before.tally.withdrawn,
+            change.after.tally.runs,
+            change.after.tally.withdrawn,
+          ]
+        : null;
+    };
+
+    expect(
+      changes.map((each) => [
+        each.marker.stationId,
+        each.marker.runId,
+        each.marker.previousFingerprint === A ? 'A' : 'B',
+      ]),
+    ).toEqual([
+      ['flip', 'flip_b1', 'A'],
+      ['flip', 'flip_a2', 'B'],
+      ['carry', 'carry_new', 'A'],
+      ['tie', 'tie_b', 'A'],
+      ['tie2', 'tie2_b', 'A'],
+      ['judged', 'judged_a', 'A'],
+      ['ordered', 'ord_1', 'A'],
+    ]);
+    expect(sides('flip_b1')).toEqual([1, 0, 1, 1]);
+    expect(sides('flip_a2')).toEqual([1, 0, 1, 1]);
+    expect(sides('carry_new')).toEqual([0, 0, 1, 0]);
+    expect(sides('tie_b')).toEqual([2, 0, 1, 0]);
+    expect(
+      changes.find((each) => each.marker.runId === 'judged_a')?.judgedAfter,
+    ).toEqual([
+      {
+        rubricVersion: RUBRIC,
+        // Keep this order: 0.1 + 0.2 + 0.3 is not equal to 0.6.
+        sum: 0.1 + 0.2 + 0.3,
+        judged: 3,
+      },
+    ]);
+    expect(
+      changes.find((each) => each.marker.runId === 'ord_1')?.judgedAfter,
+    ).toEqual([
+      {
+        rubricVersion: RUBRIC,
+        // Keep this order: the runs ended in this order.
+        sum: 0.3 + 0.2 + 0.1,
+        judged: 3,
+      },
+    ]);
+    expect(changes).toEqual(
+      changeCountsOf(
+        inPeriod.history,
+        period,
+        await histories.carriedOn(inPeriod),
+        await scores.ofRuns(inPeriod.history.records.map((each) => each.runId)),
+      ),
+    );
   });
 });
 

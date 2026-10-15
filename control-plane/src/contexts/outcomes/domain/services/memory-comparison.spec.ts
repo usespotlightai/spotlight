@@ -1,7 +1,7 @@
 import type { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
+import { changeVerdictOfRuns } from '@outcomes/domain/change-verdict.fake-spec';
 import { deliveredOf, historyOf } from '@outcomes/domain/insights.fake-spec';
 import { costedRecord, endedRecord } from '@outcomes/domain/outcomes.fake-spec';
-import { changeVerdictOf } from '@outcomes/domain/services/change-verdict';
 import {
   memoryComparisonFrom,
   memoryCountsOf,
@@ -128,7 +128,7 @@ describe('verdicts from counts', () => {
       );
 
       expect(memoryComparisonFrom(counts).verdicts).toEqual(
-        changeVerdictOf(before, after, deliveries),
+        changeVerdictOfRuns(before, after, deliveries),
       );
     }
   });
