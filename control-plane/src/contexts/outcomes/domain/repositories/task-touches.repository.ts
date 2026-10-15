@@ -10,8 +10,6 @@ export interface TaskTouchesRepository {
 
   of(taskId: TaskId): Promise<TaskTouches | null>;
 
-  forTasks(taskIds: readonly TaskId[]): Promise<readonly TaskTouches[]>;
-
   removeForTask(taskId: TaskId): Promise<void>;
 
   removeForTeam(workspaceId: WorkspaceId, teamId: TeamId): Promise<void>;

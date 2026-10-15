@@ -74,6 +74,15 @@ const inKeyOrder = <T>(
   });
 };
 
+const touchesOf = async (
+  touches: DrizzleTaskTouchesRepository,
+  taskIds: readonly TaskId[],
+) => {
+  const found = await Promise.all(taskIds.map((each) => touches.of(each)));
+
+  return found.flatMap((each) => (each ? [each] : []));
+};
+
 const ranInWindow = (db: DrizzleDatabase, window: TeamWindow) =>
   db
     .selectDistinct({ taskId: runRecord.taskId })
@@ -356,7 +365,7 @@ export const historyHeldIn = ({
     },
   },
   touches: {
-    forTasks: (taskIds) => touches.forTasks(taskIds),
+    forTasks: (taskIds) => touchesOf(touches, taskIds),
     ofTeamBetween: async (window, most) => {
       const keys = (
         await db
@@ -379,11 +388,7 @@ export const historyHeldIn = ({
           .limit(most)
       ).map((each) => each.taskId);
 
-      return inKeyOrder(
-        keys,
-        await touches.forTasks(keys.map(TaskId.of)),
-        (each) => each.taskId.value,
-      );
+      return touchesOf(touches, keys.map(TaskId.of));
     },
   },
   failures: {

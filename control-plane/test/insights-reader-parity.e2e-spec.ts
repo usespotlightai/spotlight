@@ -333,7 +333,7 @@ const ordered = (counts: CostCounts): CostCounts => ({
 });
 
 let held: TestDatabase;
-let histories: TeamScopes;
+let scopes: TeamScopes;
 let reader: DrizzleInsightsReader;
 let touches: DrizzleTaskTouchesRepository;
 let deliveries: DrizzleTaskDeliveryRepository;
@@ -360,7 +360,7 @@ const historyOver = async (
   principal: Principal,
   name: string,
 ) => {
-  const { clearance, period } = await histories.scope(teamId, principal, name);
+  const { clearance, period } = await scopes.scope(teamId, principal, name);
   const team = {
     workspaceId: clearance.workspaceId,
     teamId: clearance.teamId,
@@ -397,7 +397,7 @@ beforeAll(async () => {
   shapes = new DrizzleTaskChangeShapeRepository(context);
   scores = new DrizzleScoreRepository(context, quiet);
 
-  histories = new TeamScopes(
+  scopes = new TeamScopes(
     new OutcomesAccess({
       namesOf: async () => new Map(),
       clearedOnTeam: async () => ({ workspaceId: WORKSPACE, by: VIEWER }),
@@ -917,7 +917,7 @@ describe('the insights reader against the team history', () => {
       const expected = teamCountsOf(
         {
           ...history,
-          touches: await touches.forTasks(
+          touches: await historyHeldIn(heldRepositories()).touches.forTasks(
             history.failures.map((each) => each.taskId),
           ),
         },
@@ -934,7 +934,7 @@ describe('the insights reader against the team history', () => {
   );
 
   it('covers what makes a station report hard to get right', async () => {
-    const { period } = await histories.scope(
+    const { period } = await scopes.scope(
       TEAM.value,
       PersonPrincipal.of(VIEWER),
       '90d',
@@ -977,7 +977,7 @@ describe('the insights reader against the team history', () => {
         period,
         await carriedOver(held),
         openingsOf(
-          await touches.forTasks([
+          await historyHeldIn(heldRepositories()).touches.forTasks([
             ...history.failures.map((each) => each.taskId),
             ...history.deliveries.map((each) => each.taskId),
           ]),
@@ -988,7 +988,7 @@ describe('the insights reader against the team history', () => {
   );
 
   it('covers what makes an overview hard to get right', async () => {
-    const { period } = await histories.scope(
+    const { period } = await scopes.scope(
       TEAM.value,
       PersonPrincipal.of(VIEWER),
       '90d',
@@ -1030,7 +1030,7 @@ describe('the insights reader against the team history', () => {
   );
 
   it('breaks the cost of a period priced in one currency down', async () => {
-    const { period } = await histories.scope(
+    const { period } = await scopes.scope(
       TEAM.value,
       PersonPrincipal.of(VIEWER),
       '30d',
@@ -1049,7 +1049,7 @@ describe('the insights reader against the team history', () => {
   });
 
   it('covers what makes a cost breakdown hard to get right', async () => {
-    const { period } = await histories.scope(
+    const { period } = await scopes.scope(
       TEAM.value,
       PersonPrincipal.of(VIEWER),
       '90d',
@@ -1105,7 +1105,9 @@ describe('the insights reader against the team history', () => {
         history,
         period,
         openingsOf(
-          await touches.forTasks(history.deliveries.map((each) => each.taskId)),
+          await historyHeldIn(heldRepositories()).touches.forTasks(
+            history.deliveries.map((each) => each.taskId),
+          ),
         ),
       );
       const byStation = <T extends { readonly stationId: string }>(
@@ -1133,7 +1135,7 @@ describe('the insights reader against the team history', () => {
   );
 
   it('covers what makes a flow hard to get right', async () => {
-    const { period } = await histories.scope(
+    const { period } = await scopes.scope(
       TEAM.value,
       PersonPrincipal.of(VIEWER),
       '90d',
@@ -1177,7 +1179,7 @@ describe('the insights reader against the team history', () => {
   );
 
   it('covers what makes people counts hard to get right', async () => {
-    const { period } = await histories.scope(
+    const { period } = await scopes.scope(
       TEAM.value,
       PersonPrincipal.of(VIEWER),
       '90d',
@@ -1199,7 +1201,7 @@ describe('the insights reader against the team history', () => {
   });
 
   it('counts someone active only the period before in it and in the month, not now', async () => {
-    const { period } = await histories.scope(
+    const { period } = await scopes.scope(
       TEAM.value,
       PersonPrincipal.of(VIEWER),
       '7d',
@@ -1704,7 +1706,7 @@ describe('the runs a team ran, a page at a time', () => {
   ] as const)(
     'lists the same runs as the records when it asks for %s',
     async (_, over) => {
-      const { clearance, period } = await histories.scope(
+      const { clearance, period } = await scopes.scope(
         TEAM.value,
         PersonPrincipal.of(VIEWER),
         '30d',
@@ -1731,7 +1733,7 @@ describe('the runs a team ran, a page at a time', () => {
   );
 
   it('covers what makes listing runs hard to get right', async () => {
-    const { clearance, period } = await histories.scope(
+    const { clearance, period } = await scopes.scope(
       TEAM.value,
       PersonPrincipal.of(VIEWER),
       '90d',
@@ -1901,7 +1903,7 @@ describe('the tools a team’s runs used', () => {
   );
 
   it('covers what makes tool counts hard to get right', async () => {
-    const { period } = await histories.scope(
+    const { period } = await scopes.scope(
       TEAM.value,
       PersonPrincipal.of(VIEWER),
       '90d',
@@ -2166,7 +2168,7 @@ describe('the memories a team’s runs used', () => {
   );
 
   it('covers what makes memory use hard to get right', async () => {
-    const { period } = await histories.scope(
+    const { period } = await scopes.scope(
       TEAM.value,
       PersonPrincipal.of(VIEWER),
       '90d',
@@ -2354,7 +2356,7 @@ describe('the setups a team’s runs used', () => {
   );
 
   it('covers what makes setup counts hard to get right', async () => {
-    const { period } = await histories.scope(
+    const { period } = await scopes.scope(
       TEAM.value,
       PersonPrincipal.of(VIEWER),
       '90d',
@@ -2410,7 +2412,7 @@ describe('the config changes of a team', () => {
   );
 
   it('covers what makes config changes hard to get right', async () => {
-    const { period } = await histories.scope(
+    const { period } = await scopes.scope(
       TEAM.value,
       PersonPrincipal.of(VIEWER),
       '30d',
@@ -2789,7 +2791,7 @@ describe('how setups fall into sizes and judges', () => {
 
 describe('the pull requests a team made or reviewed', () => {
   it('covers what makes reading pull requests hard to get right', async () => {
-    const { period } = await histories.scope(
+    const { period } = await scopes.scope(
       TEAM.value,
       PersonPrincipal.of(VIEWER),
       '90d',
@@ -2836,7 +2838,7 @@ describe('the pull request numbers and list of a team', () => {
       most: 10_000,
     });
   const teamOver = async (name: string): Promise<TeamInPeriod> => {
-    const { period } = await histories.scope(
+    const { period } = await scopes.scope(
       TEAM.value,
       PersonPrincipal.of(VIEWER),
       name,

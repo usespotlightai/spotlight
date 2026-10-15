@@ -429,10 +429,10 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
     provide: TeamPullRequests,
     inject: [TeamScopes, WORK, INSIGHTS_READER],
     useFactory: (
-      histories: TeamScopes,
+      scopes: TeamScopes,
       work: WorkPort,
       reader: InsightsReaderPort,
-    ) => new TeamPullRequests(histories, work, reader),
+    ) => new TeamPullRequests(scopes, work, reader),
   },
   ...bindQueryHandler(
     ReadInsightsPullRequestsQuery,

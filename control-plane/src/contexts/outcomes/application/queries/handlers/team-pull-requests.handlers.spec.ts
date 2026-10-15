@@ -96,7 +96,7 @@ const team = async () => {
     failures: new TaskFailuresInMemory(),
     chats: new ChatRecordsInMemory(),
   };
-  const histories = new TeamScopes(new OutcomesAccess(people), {
+  const scopes = new TeamScopes(new OutcomesAccess(people), {
     now: () => NOW,
     sleep: async () => {},
   });
@@ -105,7 +105,7 @@ const team = async () => {
     shapes,
   });
   const service = new TeamPullRequests(
-    histories,
+    scopes,
     {
       endedRun: async () => null,
       configsInOrder: async () => [],

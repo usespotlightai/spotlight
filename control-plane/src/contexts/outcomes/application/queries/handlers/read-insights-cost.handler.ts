@@ -14,13 +14,13 @@ export class ReadInsightsCostHandler
   implements QueryHandlerPort<ReadInsightsCostQuery, InsightsCostDto>
 {
   constructor(
-    private readonly histories: TeamScopes,
+    private readonly scopes: TeamScopes,
     private readonly reader: InsightsReaderPort,
   ) {}
 
   async execute(query: ReadInsightsCostQuery): Promise<InsightsCostDto> {
     try {
-      const { clearance, period } = await this.histories.scope(
+      const { clearance, period } = await this.scopes.scope(
         query.teamId,
         query.principal,
         query.period,

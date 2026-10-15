@@ -13,7 +13,7 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, eq, inArray } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 
 type TouchesRow = typeof taskTouches.$inferSelect;
 
@@ -138,24 +138,6 @@ export class DrizzleTaskTouchesRepository implements TaskTouchesRepository {
       .limit(1);
 
     return row ? toTouches(row) : null;
-  }
-
-  async forTasks(taskIds: readonly TaskId[]): Promise<readonly TaskTouches[]> {
-    if (taskIds.length === 0) {
-      return [];
-    }
-
-    const rows = await this.context.db
-      .select()
-      .from(taskTouches)
-      .where(
-        inArray(
-          taskTouches.taskId,
-          taskIds.map((each) => each.value),
-        ),
-      );
-
-    return rows.map(toTouches);
   }
 
   async removeForTask(taskId: TaskId): Promise<void> {

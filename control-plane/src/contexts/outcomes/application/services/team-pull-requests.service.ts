@@ -35,7 +35,7 @@ const teamOf = (scope: TeamScope): TeamInPeriod => ({
 
 export class TeamPullRequests {
   constructor(
-    private readonly histories: TeamScopes,
+    private readonly scopes: TeamScopes,
     private readonly work: WorkPort,
     private readonly reader: InsightsReaderPort,
   ) {}
@@ -94,7 +94,7 @@ export class TeamPullRequests {
     principal: Principal,
     period: string,
   ): Promise<TeamRepositories> {
-    const scope = await this.histories.scope(teamId, principal, period);
+    const scope = await this.scopes.scope(teamId, principal, period);
 
     return {
       ...scope,

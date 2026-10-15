@@ -21,14 +21,14 @@ export class ListInsightsRunsHandler
   implements QueryHandlerPort<ListInsightsRunsQuery, InsightsRunsDto>
 {
   constructor(
-    private readonly histories: TeamScopes,
+    private readonly scopes: TeamScopes,
     private readonly reader: InsightsReaderPort,
     private readonly people: PeoplePort,
   ) {}
 
   async execute(query: ListInsightsRunsQuery): Promise<InsightsRunsDto> {
     try {
-      const { clearance, period } = await this.histories.scope(
+      const { clearance, period } = await this.scopes.scope(
         query.teamId,
         query.principal,
         query.period,

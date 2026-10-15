@@ -128,7 +128,6 @@ export const reachedPullRequests = (
 const teamPullRequestsWhere = async (
   db: DrizzleDatabase,
   where: SQL,
-  most: number,
 ): Promise<readonly TeamPullRequest[]> => {
   const rows = await db
     .select({
@@ -147,8 +146,7 @@ const teamPullRequestsWhere = async (
     )
     .leftJoinLateral(spent, sql`true`)
     .where(where)
-    .orderBy(newestFirst)
-    .limit(most);
+    .orderBy(newestFirst);
 
   return rows.flatMap((row) => {
     const seen = seenOfRow(row);
@@ -188,7 +186,6 @@ export const pullRequestsNamedIn = async (
     db,
     sql`${pullRequestRecord.workspaceId} = ${team.workspaceId.value}
       and ${inList(pullRequestRecord.pullRequest, named)}`,
-    named.length,
   );
   const byName = new Map(found.map((each) => [each.pullRequest, each]));
 

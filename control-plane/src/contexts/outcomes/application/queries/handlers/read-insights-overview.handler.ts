@@ -25,7 +25,7 @@ export class ReadInsightsOverviewHandler
   implements QueryHandlerPort<ReadInsightsOverviewQuery, InsightsOverviewDto>
 {
   constructor(
-    private readonly histories: TeamScopes,
+    private readonly scopes: TeamScopes,
     private readonly reader: InsightsReaderPort,
     private readonly people: PeoplePort,
   ) {}
@@ -34,7 +34,7 @@ export class ReadInsightsOverviewHandler
     query: ReadInsightsOverviewQuery,
   ): Promise<InsightsOverviewDto> {
     try {
-      const { clearance, period } = await this.histories.scope(
+      const { clearance, period } = await this.scopes.scope(
         query.teamId,
         query.principal,
         query.period,

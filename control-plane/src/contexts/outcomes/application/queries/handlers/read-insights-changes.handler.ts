@@ -37,7 +37,7 @@ export class ReadInsightsChangesHandler
   implements QueryHandlerPort<ReadInsightsChangesQuery, InsightsChangesDto>
 {
   constructor(
-    private readonly histories: TeamScopes,
+    private readonly scopes: TeamScopes,
     private readonly reader: InsightsReaderPort,
     private readonly judges: TrustedJudges,
     private readonly work: WorkPort,
@@ -45,7 +45,7 @@ export class ReadInsightsChangesHandler
 
   async execute(query: ReadInsightsChangesQuery): Promise<InsightsChangesDto> {
     try {
-      const { clearance, period } = await this.histories.scope(
+      const { clearance, period } = await this.scopes.scope(
         query.teamId,
         query.principal,
         query.period,

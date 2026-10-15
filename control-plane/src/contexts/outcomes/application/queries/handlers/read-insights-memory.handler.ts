@@ -17,7 +17,7 @@ export class ReadInsightsMemoryHandler
   implements QueryHandlerPort<ReadInsightsMemoryQuery, InsightsMemoryDto>
 {
   constructor(
-    private readonly histories: TeamScopes,
+    private readonly scopes: TeamScopes,
     private readonly reader: InsightsReaderPort,
     private readonly memory: MemoryUsePort,
     private readonly benchmark: MemoryBenchmarkPort,
@@ -26,7 +26,7 @@ export class ReadInsightsMemoryHandler
 
   async execute(query: ReadInsightsMemoryQuery): Promise<InsightsMemoryDto> {
     try {
-      const { clearance, period } = await this.histories.scope(
+      const { clearance, period } = await this.scopes.scope(
         query.teamId,
         query.principal,
         query.period,

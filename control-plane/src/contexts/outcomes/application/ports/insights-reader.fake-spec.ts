@@ -25,7 +25,6 @@ import type {
 } from '@outcomes/domain/repositories/run-record.repository';
 import type { ScoreRepository } from '@outcomes/domain/repositories/score.repository';
 import type { TaskDeliveryRepository } from '@outcomes/domain/repositories/task-delivery.repository';
-import type { TaskTouchesRepository } from '@outcomes/domain/repositories/task-touches.repository';
 import { changeCountsOf } from '@outcomes/domain/services/before-after';
 import type { CarriedConfigs } from '@outcomes/domain/services/config-stretches';
 import { costCountsOf } from '@outcomes/domain/services/cost-breakdown';
@@ -82,7 +81,10 @@ export interface HistoryHeld {
   readonly deliveries: Pick<TaskDeliveryRepository, 'forTasks'> & {
     readonly ofTeamBetween: TeamBetween<TaskDelivery>;
   };
-  readonly touches: Pick<TaskTouchesRepository, 'forTasks'> & {
+  readonly touches: {
+    readonly forTasks: (
+      taskIds: readonly TaskId[],
+    ) => Promise<readonly TaskTouches[]>;
     readonly ofTeamBetween: TeamBetween<TaskTouches>;
   };
   readonly failures: { readonly ofTeamBetween: TeamBetween<TaskFailures> };
