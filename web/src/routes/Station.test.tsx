@@ -1017,7 +1017,7 @@ describe('Station', () => {
       expect(judge).toHaveTextContent('20%of runs judged');
       expect(
         within(judge).getByRole('img', {
-          name: 'Cohen’s kappa 0.71 against a minimum of 0.60',
+          name: 'Cohen’s kappa 0.71. Minimum required: 0.60',
         }),
       ).toBeInTheDocument();
     });

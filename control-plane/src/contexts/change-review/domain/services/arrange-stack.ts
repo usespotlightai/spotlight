@@ -99,11 +99,11 @@ export const arranged = (
     {
       kind: 'incidental',
       title,
-      intent: `Incidental changes to ${listed(kinds)}, with nothing to review on their own.`,
+      intent: `Incidental changes to ${listed(kinds)}. They need no review on their own.`,
       layers: [
         {
           title,
-          summary: `${incidental.length} ${incidental.length === 1 ? 'change' : 'changes'} Spotlight recognised as incidental.`,
+          summary: `Spotlight recognised ${incidental.length} ${incidental.length === 1 ? 'change' : 'changes'} as incidental.`,
           dependsOn: [],
           ranges: [...incidental]
             .sort((a, b) => (order.get(a.hunk) ?? 0) - (order.get(b.hunk) ?? 0))

@@ -4,7 +4,6 @@ import { ChangesSkeleton } from '@/components/features/insights/changes/ChangesS
 import { SetupComparison } from '@/components/features/insights/changes/SetupComparison';
 import { InsightsFailed } from '@/components/features/insights/InsightsFailed';
 import { NoRunsInPeriod } from '@/components/features/insights/NoRunsInPeriod';
-import { TruncatedNote } from '@/components/features/insights/TruncatedNote';
 import { useInsightsCandidates } from '@/hooks/api/useInsightsCandidates';
 import { useInsightsChanges } from '@/hooks/api/useInsightsChanges';
 import {
@@ -60,8 +59,6 @@ export function ChangesTab({ slug, teamId, period, names }: ChangesTabProps) {
 
   return (
     <div className="flex flex-col gap-3">
-      {(changes.data.truncated || setups.data.truncated) && <TruncatedNote />}
-
       <ChangeMarkerList
         slug={slug}
         teamId={teamId}

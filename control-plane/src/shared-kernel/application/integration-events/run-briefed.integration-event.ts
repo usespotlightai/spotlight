@@ -4,5 +4,6 @@ export type RunBriefedIntegrationEvent = {
   readonly kind: typeof RUN_BRIEFED;
   readonly runId: string;
   readonly workspaceId: string;
+  readonly taskId: string | null;
   readonly memories: readonly string[];
 };

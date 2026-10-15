@@ -88,7 +88,7 @@ export class SearchBudget {
 
     if (perRun.amount < LEAST_RUN) {
       throw new InvalidSearchError(
-        `ceiling must allow at least ${LEAST_RUN} ${this.ceiling.currency} per replay run. Please raise it or lower iterations or candidates`,
+        `ceiling must allow at least ${LEAST_RUN} ${this.ceiling.currency} for each replay run. Please raise the ceiling, or lower the iterations or candidates per iteration`,
       );
     }
 

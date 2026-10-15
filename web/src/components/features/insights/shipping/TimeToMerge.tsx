@@ -5,6 +5,7 @@ import { DayChart } from '@/components/features/insights/shipping/DayChart';
 import { PercentilePicker } from '@/components/features/insights/shipping/PercentilePicker';
 import { Segmented } from '@/components/shared/Segmented';
 import { changeShown, lasted, lastedOrNone } from '@/lib/insights';
+import { SPOTLIGHT_COMPARED_WITH_PEOPLE } from '@/lib/insights-pull-requests';
 import {
   type ByAuthor,
   type ByAuthorChanges,
@@ -34,7 +35,7 @@ export function TimeToMerge({ now, changes, days }: TimeToMergeProps) {
   return (
     <InsightsCard
       title="Time to merge"
-      description="From pull request opened to merge, at the chosen percentile. Spotlight’s against people’s alone, in repositories Spotlight merged into."
+      description={`Time from when a pull request opens to its merge, at the chosen percentile. ${SPOTLIGHT_COMPARED_WITH_PEOPLE}`}
       actions={
         <div className="flex items-center gap-1.5">
           <PercentilePicker value={percentile} onChange={setPercentile} />

@@ -244,7 +244,7 @@ describe('SetupSteps', () => {
 
     expect(screen.queryByText('Choose the config home')).toBeNull();
     expect(
-      screen.getByText(/Requires the GitHub App and a host\./),
+      screen.getByText(/The setup chat needs the GitHub App and a host\./),
     ).toBeInTheDocument();
   });
 
@@ -268,7 +268,7 @@ describe('SetupSteps', () => {
     );
     showing();
 
-    expect(screen.getByText('Being set up by Grace.')).toBeInTheDocument();
+    expect(screen.getByText('Grace is setting this up.')).toBeInTheDocument();
     expect(screen.queryByRole('link', { name: 'Open setup chat' })).toBeNull();
     expect(screen.queryByText('Choose the config home')).toBeNull();
   });

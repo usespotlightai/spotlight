@@ -34,7 +34,7 @@ export function RememberedCard({
         <div className="flex min-h-6 min-w-0 items-center gap-3">
           <p className="flex min-w-0 flex-1 flex-wrap items-center gap-x-1.5 text-muted-foreground text-xs leading-5">
             {about.map((each, at) => (
-              // biome-ignore lint/suspicious/noArrayIndexKey: the details are fixed in order for a card
+              // biome-ignore lint/suspicious/noArrayIndexKey: the details of a card have a fixed order
               <Fragment key={at}>
                 {at > 0 && <span aria-hidden>·</span>}
                 <span>{each}</span>

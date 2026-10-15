@@ -78,6 +78,7 @@ const working = async (
     {
       holds: async () => true,
       of: async (runId) => evidence[runId] ?? null,
+      judgesOnTeam: async () => new Map(),
       judgeAt: async () => null,
     },
     {
@@ -134,6 +135,7 @@ describe('WorkChangeJudgings', () => {
       {
         holds: async () => true,
         of: async (runId) => evidenceOf(runId, '+drain()'),
+        judgesOnTeam: async () => new Map(),
         judgeAt: async () => null,
       },
       {

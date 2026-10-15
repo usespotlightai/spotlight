@@ -8,7 +8,7 @@ const RESERVED = new Set(['__proto__', 'constructor', 'prototype']);
 
 export type Bindings = Readonly<Record<string, unknown>>;
 
-// CEL only rejects reserved names in expressions; strip them from data too.
+// CEL rejects reserved names only in expressions. Remove them from the data also.
 export const bound = (value: unknown): unknown => {
   let nodes = 0;
 

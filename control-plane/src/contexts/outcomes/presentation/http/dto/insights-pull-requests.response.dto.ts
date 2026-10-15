@@ -320,13 +320,6 @@ export class InsightsPullRequestsResponseDto {
   readonly period: InsightsPeriodResponseDto;
 
   @ApiProperty({
-    example: false,
-    description:
-      'Whether the team had more than 20,000 pull requests in the period, so only the newest 20,000 were counted',
-  })
-  readonly truncated: boolean;
-
-  @ApiProperty({
     example: 64,
     description:
       'Pull requests recorded in the team’s repositories that were open at some point in the period, whatever became of them',
@@ -379,7 +372,6 @@ export class InsightsPullRequestsResponseDto {
 
   constructor(insights: InsightsPullRequestsDto) {
     this.period = new InsightsPeriodResponseDto(insights.period);
-    this.truncated = insights.truncated;
     this.total = insights.total;
     this.repositories = insights.repositories;
     this.weeks = insights.weeks;
@@ -533,9 +525,6 @@ export class InsightsPullRequestListResponseDto {
   @ApiProperty({ type: InsightsPeriodResponseDto })
   readonly period: InsightsPeriodResponseDto;
 
-  @ApiProperty({ example: false })
-  readonly truncated: boolean;
-
   @ApiProperty({ example: 52, description: 'Pull requests that match' })
   readonly total: number;
 
@@ -554,7 +543,6 @@ export class InsightsPullRequestListResponseDto {
 
   constructor(list: InsightsPullRequestListDto) {
     this.period = new InsightsPeriodResponseDto(list.period);
-    this.truncated = list.truncated;
     this.total = list.total;
     this.page = list.page;
     this.size = list.size;

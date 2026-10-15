@@ -1,11 +1,24 @@
 import { randomUUID } from 'node:crypto';
+import { RecordMemoryUses } from '@memory/application/services/record-memory-uses.service';
+import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
+import type { MemoryUse } from '@memory/domain/value-objects/memory-use';
 import type { INestApplication } from '@nestjs/common';
+import { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
+import { NextAct } from '@outcomes/domain/value-objects/next-act.vo';
+import { RunEnd } from '@outcomes/domain/value-objects/run-end.vo';
+import { RunPlace } from '@outcomes/domain/value-objects/run-place.vo';
+import { RunSetup } from '@outcomes/domain/value-objects/run-setup.vo';
+import { DrizzleRunRecordRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/run-record.repository';
+import { EventDelivery } from '@platform/events/event-delivery';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
-import { sql } from 'drizzle-orm';
+import { inArray, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
+import { eventually } from './support/eventually';
 import * as schema from './support/schema';
 import { openTeam } from './support/team';
 
@@ -40,24 +53,50 @@ const remembered = async (
 };
 
 const ran = async (runId: string) => {
-  await db.insert(schema.runRecord).values({
-    runId,
-    workspaceId: team.workspaceId.value,
-    teamId: team.teamId.value,
-    lineId: team.line.id.value,
-    stationId: team.stationId.value,
-    taskId: team.list.id.value,
-    harness: 'claude-code',
-    repositories: [],
-    skills: [],
-    queuedAt: ago(3),
-    endedAt: ago(2),
-    ending: 'completed',
-    round: 1,
-    nextAct: runId.endsWith('x') ? 'closed' : null,
-    nextAt: runId.endsWith('x') ? ago(1) : null,
-  });
+  const ended = RunRecord.heardOf(RunId.of(runId), team.workspaceId).ended(
+    RunEnd.of({
+      place: RunPlace.of({
+        teamId: team.teamId,
+        lineId: team.line.id.value,
+        stationId: team.stationId.value,
+        taskId: team.list.id,
+      }),
+      fingerprint: null,
+      setup: RunSetup.of({
+        harness: 'claude-code',
+        model: null,
+        effort: null,
+        profileKey: null,
+        repositories: [],
+        skills: [],
+      }),
+      queuedAt: ago(3),
+      startedAt: null,
+      endedAt: ago(2),
+      ending: 'completed',
+      failure: null,
+      round: 1,
+      asked: false,
+    }),
+  );
+
+  await app
+    .get(DrizzleRunRecordRepository)
+    .add(
+      runId.endsWith('x') ? ended.actedOn(NextAct.of('closed', ago(1))) : ended,
+    );
 };
+
+const used = (runId: string, way: MemoryUse, memory: string) =>
+  app.get(RecordMemoryUses).recorded(
+    {
+      id: RunId.of(runId),
+      workspaceId: team.workspaceId,
+      taskId: team.list.id,
+    },
+    way,
+    [MemoryId.of(memory)],
+  );
 
 beforeAll(async () => {
   app = await openApp();
@@ -89,17 +128,30 @@ beforeAll(async () => {
   for (const runId of [x, y, z]) {
     await ran(runId);
   }
-  await db.insert(schema.memoryUse).values([
-    { memoryId: standing, runId: x, way: 'briefed', at: ago(2) },
-    { memoryId: standing, runId: x, way: 'recalled', at: ago(2) },
-    { memoryId: wrong, runId: y, way: 'briefed', at: ago(2) },
+  await used(x, 'briefed', standing);
+  await used(x, 'recalled', standing);
+  await used(y, 'briefed', wrong);
+  await app.get(RecordMemoryUses).recorded(
     {
-      memoryId: wrong,
-      runId: `${randomUUID()}-elsewhere`,
-      way: 'recalled',
-      at: ago(2),
+      id: RunId.of(`${randomUUID()}-elsewhere`),
+      workspaceId: team.workspaceId,
+      taskId: TaskId.of(randomUUID()),
     },
-  ]);
+    'recalled',
+    [MemoryId.of(wrong)],
+  );
+  await eventually(async () => {
+    await app.get(EventDelivery).drain(2_000);
+    const heard = await db
+      .select({ memories: schema.runFact.memories })
+      .from(schema.runFact)
+      .where(inArray(schema.runFact.runId, [x, y]));
+
+    return (
+      heard.filter((each) => each.memories.briefed.length > 0).length === 2 &&
+      heard.some((each) => each.memories.recalled.length > 0)
+    );
+  });
 }, 60_000);
 
 afterAll(async () => {

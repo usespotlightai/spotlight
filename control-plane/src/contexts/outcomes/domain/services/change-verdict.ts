@@ -1,10 +1,13 @@
 import type { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
 import type { TaskDelivery } from '@outcomes/domain/aggregates/task-delivery.aggregate';
-import { spendingOf } from '@outcomes/domain/services/measures';
+import { rateOf } from '@outcomes/domain/services/measures';
 import {
-  measureOf,
-  settledFor,
-} from '@outcomes/domain/services/station-measures';
+  NO_RUNS,
+  runTally,
+  type TallyCounts,
+} from '@outcomes/domain/services/run-tally';
+import { settledFor } from '@outcomes/domain/services/station-measures';
+import { tasksOf } from '@outcomes/domain/services/team-history';
 import {
   ALERT_MEASURES,
   type AlertMeasure,
@@ -43,9 +46,47 @@ export interface MeasureVerdict {
   readonly change: Change | null;
 }
 
-const currencyOf = (records: readonly RunRecord[]): string | null =>
-  spendingOf(records.map((each) => each.cost?.spend ?? null)).spend?.currency ??
-  null;
+interface SettledCounts {
+  readonly acted: number;
+  readonly finished: number;
+  readonly finishedTasks: number;
+  readonly digested: number;
+}
+
+export interface GroupCounts {
+  readonly tally: TallyCounts;
+  readonly settled: SettledCounts;
+}
+
+export const NO_GROUP: GroupCounts = {
+  tally: NO_RUNS,
+  settled: { acted: 0, finished: 0, finishedTasks: 0, digested: 0 },
+};
+
+export const groupCountsOf = (
+  records: readonly RunRecord[],
+  deliveries: readonly TaskDelivery[],
+): GroupCounts => {
+  const { failedShare: _, ...tally } = runTally(records, deliveries);
+  const ran = records.filter((each) => each.ran);
+  const finished = ran.filter(settledFor('merged_rate', deliveries));
+
+  return {
+    tally,
+    settled: {
+      acted: ran.filter((each) => each.next !== null).length,
+      finished: finished.length,
+      finishedTasks: tasksOf(finished).length,
+      digested: ran.filter((each) => each.cost !== null).length,
+    },
+  };
+};
+
+export interface MeasureReading {
+  readonly value: number | null;
+  readonly settled: number;
+  readonly currency: string | null;
+}
 
 const verdictOn = (
   measure: AlertMeasure,
@@ -63,39 +104,95 @@ const verdictOn = (
   return after > before === HIGHER_IS_BETTER.has(measure) ? 'better' : 'worse';
 };
 
-export const changeVerdictOf = (
-  before: readonly RunRecord[],
-  after: readonly RunRecord[],
-  deliveries: readonly TaskDelivery[],
-): readonly MeasureVerdict[] =>
-  ALERT_MEASURES.map((measure) => {
-    const settled = settledFor(measure, deliveries);
-    const was = before.filter((each) => each.ran && settled(each));
-    const now = after.filter((each) => each.ran && settled(each));
-    const wasValue = measureOf(measure, was, deliveries);
-    const nowValue = measureOf(measure, now, deliveries);
-    const priced = measure === 'cost_per_run';
-    const sameMoney = !priced || currencyOf(was) === currencyOf(now);
-    const comparable = sameMoney ? wasValue : null;
+export const verdictFrom = (
+  measure: AlertMeasure,
+  was: MeasureReading,
+  now: MeasureReading,
+): MeasureVerdict => {
+  const priced = measure === 'cost_per_run';
+  const sameMoney = !priced || was.currency === now.currency;
 
-    return {
+  return {
+    measure,
+    before: was.value,
+    after: now.value,
+    settledBefore: was.settled,
+    settledAfter: now.settled,
+    currency: priced ? (now.currency ?? was.currency) : null,
+    verdict: verdictOn(
       measure,
-      before: wasValue,
-      after: nowValue,
-      settledBefore: was.length,
-      settledAfter: now.length,
-      currency: priced ? (currencyOf(now) ?? currencyOf(was)) : null,
-      verdict: verdictOn(
-        measure,
-        wasValue,
-        nowValue,
-        sameMoney &&
-          was.length >= FEWEST_SETTLED_RUNS &&
-          now.length >= FEWEST_SETTLED_RUNS,
-      ),
-      change: changeOf(nowValue, comparable, {
-        better: 'neither',
-        unit: priced ? 'percent' : 'points',
-      }),
-    };
-  });
+      was.value,
+      now.value,
+      sameMoney &&
+        was.settled >= FEWEST_SETTLED_RUNS &&
+        now.settled >= FEWEST_SETTLED_RUNS,
+    ),
+    change: changeOf(now.value, sameMoney ? was.value : null, {
+      better: 'neither',
+      unit: priced ? 'percent' : 'points',
+    }),
+  };
+};
+
+const readingOfCounts = (
+  measure: AlertMeasure,
+  { tally, settled }: GroupCounts,
+): MeasureReading => {
+  const currency = tally.cost?.currency ?? null;
+
+  switch (measure) {
+    case 'sent_back_rate':
+      return {
+        value: rateOf(tally.sentBack, settled.acted),
+        settled: settled.acted,
+        currency,
+      };
+    case 'accepted_rate':
+      return {
+        value: rateOf(tally.accepted, settled.acted),
+        settled: settled.acted,
+        currency,
+      };
+    case 'failed_rate':
+      return {
+        value: rateOf(tally.failed, tally.runs),
+        settled: tally.runs,
+        currency,
+      };
+    case 'checks_failed_rate': {
+      const checked = tally.checksPassed + tally.checksFailed;
+
+      return {
+        value: rateOf(tally.checksFailed, checked),
+        settled: checked,
+        currency,
+      };
+    }
+    case 'merged_rate':
+      return {
+        value: rateOf(tally.merged, settled.finishedTasks),
+        settled: settled.finished,
+        currency,
+      };
+    case 'cost_per_run':
+      return {
+        value: tally.cost
+          ? rateOf(tally.cost.amount, tally.runs - tally.unpriced)
+          : null,
+        settled: settled.digested,
+        currency,
+      };
+  }
+};
+
+export const verdictsFrom = (
+  before: GroupCounts,
+  after: GroupCounts,
+): readonly MeasureVerdict[] =>
+  ALERT_MEASURES.map((measure) =>
+    verdictFrom(
+      measure,
+      readingOfCounts(measure, before),
+      readingOfCounts(measure, after),
+    ),
+  );

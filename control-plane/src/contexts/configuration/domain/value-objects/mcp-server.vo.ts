@@ -27,14 +27,14 @@ export class McpServer {
     if (!areWords(name)) {
       throw new InvalidHarnessProfileError(
         ['mcpServers', at, 'name'],
-        'MCP server name must be lowercase words joined by dashes, such as linear',
+        'MCP server name must be lowercase words joined by dashes, as in linear',
       );
     }
 
     if (command.length === 0) {
       throw new InvalidHarnessProfileError(
         ['mcpServers', at, 'command'],
-        'MCP server needs a command, such as npx',
+        'MCP server needs a command, as in npx',
       );
     }
 

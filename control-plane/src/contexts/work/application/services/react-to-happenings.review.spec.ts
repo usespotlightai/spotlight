@@ -94,7 +94,7 @@ const opened = (
     .worksIn(
       repositories.map((each) =>
         WorkedRepository.of(
-          // biome-ignore lint/style/noNonNullAssertion: a pull request’s address always names its repository
+          // biome-ignore lint/style/noNonNullAssertion: the address of a pull request always contains its repository
           PullRequestUrl.of(`https://github.com/${each}/pull/1`).repository!,
         ),
       ),

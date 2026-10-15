@@ -12,6 +12,7 @@ import { HandedOn } from '@outcomes/domain/value-objects/handed-on.vo';
 import { NextAct } from '@outcomes/domain/value-objects/next-act.vo';
 import { Refusal } from '@outcomes/domain/value-objects/refusal.vo';
 import type { RunCost } from '@outcomes/domain/value-objects/run-cost.vo';
+import { RunMemories } from '@outcomes/domain/value-objects/run-memories.vo';
 import { RunTools } from '@outcomes/domain/value-objects/run-tools.vo';
 import { LatencyHistogram } from '@shared-kernel/domain/value-objects/latency-histogram.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -198,6 +199,7 @@ describe('RunRecord', () => {
         handedOn: null,
         tools: null,
         refusals: [],
+        memories: RunMemories.NONE,
         version: 0,
       }),
     ).toThrow(InvalidOutcomeError);
@@ -227,6 +229,7 @@ describe('RunRecord', () => {
       handedOn: null,
       tools: null,
       refusals: [],
+      memories: RunMemories.NONE,
       version: 3,
     });
 
@@ -280,6 +283,7 @@ describe('RunRecord', () => {
         handedOn: null,
         tools: null,
         refusals: [],
+        memories: RunMemories.NONE,
         version: 0,
       }),
     ).toThrow(InvalidOutcomeError);
@@ -340,6 +344,7 @@ describe('RunRecord', () => {
         handedOn: null,
         tools,
         refusals: [],
+        memories: RunMemories.NONE,
         version: 0,
       });
 
@@ -498,5 +503,25 @@ describe('RunRecord', () => {
     expect(failed.failedAfterCallingTo('sentry')).toBe(false);
     expect(failed.failedAfterCallingTo('wiki')).toBe(false);
     expect(completed.failedAfterCallingTo('linear')).toBe(false);
+  });
+
+  it('keeps the memories a run used, heard before or after it ended, and records no event for them', () => {
+    const briefed = RunRecord.heardOf(RUN, WORKSPACE).usedMemories('briefed', [
+      'mem_1',
+    ]);
+    const ended = briefed.ended(endOf()).usedMemories('recalled', ['mem_2']);
+
+    expect(ended.memories.briefed).toEqual(['mem_1']);
+    expect(ended.memories.recalled).toEqual(['mem_2']);
+    expect(ended.usedMemories('recalled', ['mem_2'])).toBe(ended);
+    expect(briefed.usedMemories('briefed', ['mem_3']).pullEvents()).toEqual([]);
+  });
+
+  it('keeps the memories it used when looked at as of an earlier time', () => {
+    const used = RunRecord.heardOf(RUN, WORKSPACE)
+      .ended(endOf())
+      .usedMemories('briefed', ['mem_1']);
+
+    expect(used.asOf(EARLIER).memories).toBe(used.memories);
   });
 });

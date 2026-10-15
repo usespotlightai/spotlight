@@ -10,7 +10,7 @@ const languagesOf = (paths: readonly string[]): SupportedLanguages[] => [
   ...new Set(paths.map((path) => getFiletypeFromFileName(path))),
 ];
 
-// Loading every language a stack needs up front spares the first layer that reaches for one.
+// Load all the languages of a stack at the start, so that a layer does not wait for its language.
 export function usePreloadedLanguages(paths: readonly string[]): void {
   const langs = languagesOf(paths).sort().join(' ');
 
@@ -19,7 +19,7 @@ export function usePreloadedLanguages(paths: readonly string[]): void {
       return;
     }
 
-    // Each diff asks for its own language as it mounts, so a refusal here costs nothing.
+    // A failure here has no effect, because each diff asks for its language when it mounts.
     void preloadHighlighter({
       themes: DIFF_THEMES,
       langs: langs.split(' ') as SupportedLanguages[],

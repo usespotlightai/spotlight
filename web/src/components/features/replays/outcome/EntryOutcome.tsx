@@ -80,7 +80,7 @@ export function EntryOutcome({ teamId, entry }: EntryOutcomeProps) {
               <ol className="flex flex-col gap-2">
                 {entry.reasons.map((reason, at) => (
                   <ReplayReasonItem
-                    // biome-ignore lint/suspicious/noArrayIndexKey: an entry's reasons are settled once and never reordered
+                    // biome-ignore lint/suspicious/noArrayIndexKey: the reasons of an entry are set one time and their order does not change
                     key={at}
                     reason={reason}
                     stacks={stacks}
@@ -94,7 +94,7 @@ export function EntryOutcome({ teamId, entry }: EntryOutcomeProps) {
           {checks.length > 0 && (
             <OutcomePart title="Checks">
               {checks.map((check, at) => (
-                // biome-ignore lint/suspicious/noArrayIndexKey: one check per stack, in the stacks' order
+                // biome-ignore lint/suspicious/noArrayIndexKey: there is one check for each stack, in the order of the stacks
                 <ReplayCheck key={at} check={check} />
               ))}
             </OutcomePart>

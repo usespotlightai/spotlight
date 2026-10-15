@@ -44,7 +44,7 @@ import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-const NOT_DRAFTED = 'The change stack could not be drafted.';
+const NOT_DRAFTED = 'Spotlight couldn’t draft the change stack.';
 
 const changeLayers = (
   stack: readonly { kind: string; layers: readonly unknown[] }[],

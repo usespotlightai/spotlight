@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { TaskFailures } from '@outcomes/domain/aggregates/task-failures.aggregate';
 import { TaskFailuresMovedOnError } from '@outcomes/domain/exceptions/task-failures-moved-on.error';
-import type { TeamWindow } from '@outcomes/domain/repositories/run-record.repository';
 import type { TaskFailuresRepository } from '@outcomes/domain/repositories/task-failures.repository';
 import { FailureOccurrence } from '@outcomes/domain/value-objects/failure-occurrence.vo';
 import { taskFailures } from '@outcomes/infrastructure/persistence/drizzle/schemas/outcomes.schema';
@@ -9,7 +8,7 @@ import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, desc, eq, gte } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 
 type FailuresRow = typeof taskFailures.$inferSelect;
 
@@ -83,26 +82,6 @@ export class DrizzleTaskFailuresRepository implements TaskFailuresRepository {
       .limit(1);
 
     return row ? toFailures(row) : null;
-  }
-
-  async ofTeamBetween(
-    window: TeamWindow,
-    most: number,
-  ): Promise<readonly TaskFailures[]> {
-    const rows = await this.context.db
-      .select()
-      .from(taskFailures)
-      .where(
-        and(
-          eq(taskFailures.workspaceId, window.workspaceId.value),
-          eq(taskFailures.teamId, window.teamId.value),
-          gte(taskFailures.lastAt, window.from),
-        ),
-      )
-      .orderBy(desc(taskFailures.lastAt), desc(taskFailures.taskId))
-      .limit(most);
-
-    return rows.map(toFailures);
   }
 
   async removeForTask(taskId: TaskId): Promise<void> {

@@ -27,7 +27,7 @@ export class UnreplayableRunError extends Error {
   constructor(
     readonly runId: string,
     readonly refusal: ReplayRefusal,
-    reason: string,
+    readonly reason: string,
   ) {
     super(`Run ${runId} cannot be replayed. ${reason}`);
     this.name = 'UnreplayableRunError';

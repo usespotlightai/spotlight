@@ -22,6 +22,7 @@ import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
 import { TaskRevision } from '@work/domain/value-objects/task-revision.vo';
 import { DrizzleRunRepository } from '@work/infrastructure/persistence/drizzle/repositories/run.repository';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
+import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openApp, served, TEST_USER_HEADER } from './support/app';
 import { eventually } from './support/eventually';
@@ -232,6 +233,19 @@ describe('briefing runs with what the team remembers', () => {
     });
     expect(counted(byPath.id)).toBe(1);
     expect(counted(lineOnly.id)).toBe(0);
+
+    const kept = await eventually(async () => {
+      const [record] = await db
+        .select({ memories: schema.runRecord.memories })
+        .from(schema.runRecord)
+        .where(eq(schema.runRecord.runId, runId.value));
+
+      return record?.memories.briefed.length ? record.memories : null;
+    });
+    expect(kept).toEqual({
+      briefed: [byPath.id, teamWide.id].sort(),
+      recalled: [],
+    });
   });
 
   it('never briefs a memory still waiting on a person', async () => {

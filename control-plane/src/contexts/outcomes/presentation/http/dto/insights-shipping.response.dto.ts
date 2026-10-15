@@ -600,12 +600,6 @@ export class InsightsShippingResponseDto {
   readonly period: InsightsPeriodResponseDto;
 
   @ApiProperty({
-    example: false,
-    description: 'Whether only the latest pull requests or runs were counted',
-  })
-  readonly truncated: boolean;
-
-  @ApiProperty({
     type: ByAuthorResponseDto,
     description: 'Opened to merged, for pull requests merged in the period',
   })
@@ -663,7 +657,6 @@ export class InsightsShippingResponseDto {
 
   constructor(shipping: InsightsShippingDto) {
     this.period = new InsightsPeriodResponseDto(shipping.period);
-    this.truncated = shipping.truncated;
     this.toMerge = new ByAuthorResponseDto(shipping.toMerge);
     this.toMergeChanges = new ByAuthorChangesResponseDto(
       shipping.toMergeChanges,

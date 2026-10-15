@@ -59,6 +59,7 @@ const asking = (
     {
       holds: async () => change.held ?? true,
       of: async () => null,
+      judgesOnTeam: async () => new Map(),
       judgeAt: async () =>
         change.judged === false
           ? null

@@ -1,17 +1,15 @@
-import type { MemoryUsesPort } from '@memory/application/ports/memory-uses.port';
 import type { HeldRun, WorkPort } from '@memory/application/ports/work.port';
+import type { RecordMemoryUses } from '@memory/application/services/record-memory-uses.service';
 import { UnknownRunError } from '@memory/domain/exceptions/unknown-run.error';
 import { keptFromSearches } from '@memory/domain/services/search-reach';
 import type { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
-import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 
 export class RunnerMemoryAtHand {
   constructor(
     private readonly work: WorkPort,
-    private readonly uses: MemoryUsesPort,
-    private readonly clock: ClockPort,
+    private readonly recording: RecordMemoryUses,
   ) {}
 
   async held(runId: string, runnerId: string): Promise<HeldRun> {
@@ -37,6 +35,6 @@ export class RunnerMemoryAtHand {
       return;
     }
 
-    await this.uses.record(held.id, 'recalled', memories, this.clock.now());
+    await this.recording.recorded(held, 'recalled', memories);
   }
 }

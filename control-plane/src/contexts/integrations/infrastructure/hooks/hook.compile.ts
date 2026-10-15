@@ -232,7 +232,7 @@ class HookCompiler {
     if (READS_A_SECRET.test(held)) {
       this.problem(
         at,
-        'reads a secret’s value, which no hook may; a hook signs its requests with its own secret',
+        'reads a secret’s value. No hook may read a secret. A hook signs its requests with its own secret',
       );
 
       return null;

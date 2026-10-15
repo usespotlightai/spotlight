@@ -7,9 +7,10 @@ import { ListInsightsPullRequestsQuery } from '@outcomes/application/queries/lis
 import { ReadInsightsPullRequestsQuery } from '@outcomes/application/queries/read-insights-pull-requests.query';
 import { ReadInsightsShippingQuery } from '@outcomes/application/queries/read-insights-shipping.query';
 import { OutcomesAccess } from '@outcomes/application/services/outcomes-access.service';
-import { TeamHistories } from '@outcomes/application/services/team-histories.service';
 import { TeamPullRequests } from '@outcomes/application/services/team-pull-requests.service';
+import { TeamScopes } from '@outcomes/application/services/team-scopes.service';
 import { PullRequestRecord } from '@outcomes/domain/aggregates/pull-request-record.aggregate';
+import { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
 import { TaskChangeShape } from '@outcomes/domain/aggregates/task-change-shape.aggregate';
 import {
   ChatRecordsInMemory,
@@ -36,6 +37,7 @@ import {
   TokenPrincipal,
 } from '@shared-kernel/domain/value-objects/principal.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
+import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { TokenScopes } from '@shared-kernel/domain/value-objects/token-scopes.vo';
@@ -94,13 +96,16 @@ const team = async () => {
     failures: new TaskFailuresInMemory(),
     chats: new ChatRecordsInMemory(),
   };
-  const histories = new TeamHistories(new OutcomesAccess(people), held, {
+  const scopes = new TeamScopes(new OutcomesAccess(people), {
     now: () => NOW,
     sleep: async () => {},
   });
-  const reader = insightsReaderInMemory(held);
+  const reader = insightsReaderInMemory(held, undefined, {
+    records: pullRequests,
+    shapes,
+  });
   const service = new TeamPullRequests(
-    histories,
+    scopes,
     {
       endedRun: async () => null,
       configsInOrder: async () => [],
@@ -108,7 +113,7 @@ const team = async () => {
       teamSkillKeys: async () => [],
       alertsAt: async () => null,
     },
-    { records: pullRequests, runs: records, shapes },
+    reader,
   );
 
   await pullRequests.add(
@@ -145,6 +150,13 @@ const team = async () => {
   );
   await records.add(costedRecord('run_1', { taskId: 'task_1', amount: 1.25 }));
   await records.add(costedRecord('run_2', { taskId: 'task_1', amount: 0.75 }));
+  await records.add(
+    RunRecord.heardOf(
+      RunId.of('run_still_working'),
+      WORKSPACE,
+      TaskId.of('task_1'),
+    ).usedMemories('briefed', ['mem_1']),
+  );
   await shapes.add(
     TaskChangeShape.shaped({
       taskId: TaskId.of('task_1'),
@@ -338,7 +350,7 @@ describe('the team’s pull requests', () => {
 
 describe('what the agents ship', () => {
   it('reaches back into the previous period for the rolling days and the comparison, keeping the period’s numbers to the period', async () => {
-    const { service, reader, pullRequests, touches } = await team();
+    const { service, pullRequests, touches } = await team();
     await touches.add(
       touchesOf('task_1', { openedAt: new Date('2026-09-28T09:00:00.000Z') }),
     );
@@ -348,13 +360,11 @@ describe('what the agents ship', () => {
         .ownedBy({ taskId: TaskId.of('task_7'), teamId: TEAM }),
     );
 
-    const shipping = await new ReadInsightsShippingHandler(
-      service,
-      reader,
-    ).execute(new ReadInsightsShippingQuery(TEAM.value, READ_TOKEN, '7d'));
+    const shipping = await new ReadInsightsShippingHandler(service).execute(
+      new ReadInsightsShippingQuery(TEAM.value, READ_TOKEN, '7d'),
+    );
     const [first] = shipping.mergeDays;
 
-    expect(shipping.truncated).toBe(false);
     expect(shipping.toMerge.spotlight).toMatchObject({
       p50Ms: 4 * 60 * 60 * 1000,
       count: 1,
@@ -388,10 +398,10 @@ describe('what the agents ship', () => {
   });
 
   it('refuses a person off the team', async () => {
-    const { service, reader } = await team();
+    const { service } = await team();
 
     await expect(
-      new ReadInsightsShippingHandler(service, reader).execute(
+      new ReadInsightsShippingHandler(service).execute(
         new ReadInsightsShippingQuery(TEAM.value, STRANGER, '7d'),
       ),
     ).rejects.toBeInstanceOf(UseCaseFault);

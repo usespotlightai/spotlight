@@ -20,7 +20,7 @@ const gradedOn = (
   if (terms.scale.byClaims) {
     if (command.claims === null || command.value !== null) {
       throw new InvalidScoreError(
-        'on a claims scale must mark each claim met or not',
+        'on a claims scale must mark each claim as met or not met',
       );
     }
 
