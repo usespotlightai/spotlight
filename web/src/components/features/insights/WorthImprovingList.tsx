@@ -43,7 +43,7 @@ export function WorthImprovingList({
   return (
     <InsightsCard
       title="Stations worth improving"
-      description="Stations doing worse than the period before, or trailing the rest of the team."
+      description="Stations that do worse than in the previous period, or worse than the rest of the team."
     >
       {stations.length === 0 ? (
         <p className="py-2 text-muted-foreground text-sm">
@@ -123,7 +123,7 @@ export function WorthImprovingList({
                         OUTER_INDENT,
                       )}
                     >
-                      Cost not compared: prices in more than one currency
+                      Cost isn’t compared. Prices are in more than one currency.
                     </li>
                   )}
                 </FoldingRows>

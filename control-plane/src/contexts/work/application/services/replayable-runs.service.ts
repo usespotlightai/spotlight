@@ -131,7 +131,13 @@ export class ReplayableRuns implements ReplayableRunsPort {
     const run = await this.runs.findById(RunId.of(runId));
 
     if (!run?.workspaceId.equals(workspaceId)) {
-      return refused(runId, null, null, 'unknown-run', 'there is no such run');
+      return refused(
+        runId,
+        null,
+        null,
+        'unknown-run',
+        'The run is not in this workspace.',
+      );
     }
 
     const taskId = run.taskId?.value ?? null;
@@ -144,7 +150,7 @@ export class ReplayableRuns implements ReplayableRunsPort {
         taskId,
         stationId,
         'not-at-the-station',
-        'no line holds the station it worked at',
+        'No line holds the station that it worked at.',
       );
     }
 
@@ -152,7 +158,7 @@ export class ReplayableRuns implements ReplayableRunsPort {
       await this.dispatch.planned(run, line, RunId.of(this.ids.generate()));
     } catch (error) {
       if (error instanceof UnreplayableRunError) {
-        return refused(runId, taskId, stationId, error.refusal, error.message);
+        return refused(runId, taskId, stationId, error.refusal, error.reason);
       }
 
       this.logger.warn(
@@ -164,7 +170,7 @@ export class ReplayableRuns implements ReplayableRunsPort {
         taskId,
         stationId,
         'unchecked',
-        'it could not be checked just now; try again later',
+        'It could not be checked just now. Please try again later.',
       );
     }
 

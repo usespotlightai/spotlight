@@ -3,10 +3,10 @@ import { Noted } from '@/components/shared/Noted';
 import { Pill } from '@/components/shared/Pill';
 import type { LineResponseDto, StationResponseDto } from '@/lib/api';
 import type { ReplaySet } from '@/lib/replay';
+import { STATION_GONE_FROM_LINE } from '@/lib/replay-words';
 import { since } from '@/lib/since';
 
-const STATION_GONE =
-  'Station is gone from its line. The set starts no replays, takes no runs and keeps no workspaces.';
+const STATION_GONE = `${STATION_GONE_FROM_LINE} The set starts no replays, takes no runs and keeps no workspaces.`;
 
 type ReplaySetHeadingProps = {
   set: ReplaySet;

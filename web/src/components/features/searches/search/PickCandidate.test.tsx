@@ -64,7 +64,7 @@ describe('PickCandidate', () => {
     renderPick({ ...CANDIDATE, onlyOnSeenTasks: 'marked' });
 
     expect(screen.getByRole('note')).toHaveTextContent(
-      'Gain showed only on searched tasks.',
+      'The gain showed only on searched tasks.',
     );
     expect(screen.getByRole('button', { name: 'Pick' })).toBeEnabled();
   });

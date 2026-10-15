@@ -38,7 +38,7 @@ export class DrizzleModule implements OnApplicationShutdown {
     @Inject(READ_PG_POOL) private readonly readPool: Pool,
   ) {}
 
-  // On shutdown, not destroy: destroy hooks run while requests are still served.
+  // Close the pool on shutdown, not on destroy. Destroy hooks run when the app still serves requests.
   async onApplicationShutdown(): Promise<void> {
     await Promise.all(
       [...new Set([this.pool, this.readPool])].map((each) => each.end()),

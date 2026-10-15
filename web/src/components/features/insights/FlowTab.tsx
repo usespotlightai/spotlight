@@ -3,7 +3,6 @@ import { FlowSkeleton } from '@/components/features/insights/FlowSkeleton';
 import { InsightsFailed } from '@/components/features/insights/InsightsFailed';
 import { NoRunsInPeriod } from '@/components/features/insights/NoRunsInPeriod';
 import { StationWaits } from '@/components/features/insights/StationWaits';
-import { TruncatedNote } from '@/components/features/insights/TruncatedNote';
 import { useInsightsFlow } from '@/hooks/api/useInsightsFlow';
 import type { InsightsPeriod, StationNames } from '@/lib/insights';
 import { failed, loading } from '@/lib/query';
@@ -26,7 +25,7 @@ export function FlowTab({ slug, teamId, period, names }: FlowTabProps) {
     return <InsightsFailed what="The flow" query={flow} />;
   }
 
-  const { flow: now, truncated } = flow.data;
+  const { flow: now } = flow.data;
 
   if (
     now.stations.length === 0 &&
@@ -42,8 +41,6 @@ export function FlowTab({ slug, teamId, period, names }: FlowTabProps) {
 
   return (
     <div className="flex flex-col gap-3">
-      {truncated && <TruncatedNote />}
-
       {now.stations.length > 0 && (
         <StationWaits
           slug={slug}

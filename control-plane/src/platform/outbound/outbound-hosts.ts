@@ -1,4 +1,4 @@
-// Hosts are the deployment's to allow, never a config author's.
+// The deployment sets the permitted hosts. A config author cannot set them.
 export class OutboundHosts {
   private readonly allowed: readonly string[];
 

@@ -1,6 +1,5 @@
 import { InsightsFailed } from '@/components/features/insights/InsightsFailed';
 import { NoRunsInPeriod } from '@/components/features/insights/NoRunsInPeriod';
-import { TruncatedNote } from '@/components/features/insights/TruncatedNote';
 import { McpServers } from '@/components/features/insights/tools/McpServers';
 import { NoToolsUsed } from '@/components/features/insights/tools/NoToolsUsed';
 import { RefusedTools } from '@/components/features/insights/tools/RefusedTools';
@@ -46,8 +45,6 @@ export function ToolsTab({ slug, teamId, period, names }: ToolsTabProps) {
 
   return (
     <div className="flex flex-col gap-3">
-      {insights.truncated && <TruncatedNote />}
-
       {insights.skills.length > 0 && (
         <SkillUse
           slug={slug}

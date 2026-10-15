@@ -10,7 +10,7 @@ import {
   type ReplayedStation,
   replaySetPath,
 } from '@/lib/replay';
-import { BASELINE_NOTE } from '@/lib/replay-words';
+import { BASELINE_LABEL, BASELINE_NOTE } from '@/lib/replay-words';
 import { searchPath } from '@/lib/search';
 import { ranShown, since } from '@/lib/since';
 
@@ -49,7 +49,7 @@ export function ReplayHeading({
           {replay.isBaseline && (
             <Noted note={BASELINE_NOTE}>
               <span className="flex">
-                <Pill>Baseline</Pill>
+                <Pill>{BASELINE_LABEL}</Pill>
               </span>
             </Noted>
           )}

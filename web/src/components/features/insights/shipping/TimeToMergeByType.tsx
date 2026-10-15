@@ -3,7 +3,10 @@ import { InsightsCard } from '@/components/features/insights/InsightsCard';
 import { ChartLegend } from '@/components/features/insights/shipping/ChartLegend';
 import { PercentilePicker } from '@/components/features/insights/shipping/PercentilePicker';
 import { lastedOrNone } from '@/lib/insights';
-import { typeShown } from '@/lib/insights-pull-requests';
+import {
+  PULL_REQUEST_TYPE_SOURCE,
+  typeShown,
+} from '@/lib/insights-pull-requests';
 import {
   DEFAULT_PERCENTILE,
   type InsightsShipping,
@@ -32,7 +35,7 @@ export function TimeToMergeByType({
   return (
     <InsightsCard
       title="Time to merge by PR type"
-      description="Time to merge, split by pull request type. Type from: change stack, else title and branch"
+      description={`Time to merge for each pull request type. ${PULL_REQUEST_TYPE_SOURCE}`}
       actions={<PercentilePicker value={percentile} onChange={setPercentile} />}
     >
       <ul aria-label="Time to merge by type" className="flex flex-col gap-2">

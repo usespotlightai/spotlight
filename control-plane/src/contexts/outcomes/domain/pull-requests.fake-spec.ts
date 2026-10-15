@@ -5,10 +5,7 @@ import {
 import { TaskChangeShape } from '@outcomes/domain/aggregates/task-change-shape.aggregate';
 import { PullRequestRecordMovedOnError } from '@outcomes/domain/exceptions/pull-request-record-moved-on.error';
 import { TaskChangeShapeMovedOnError } from '@outcomes/domain/exceptions/task-change-shape-moved-on.error';
-import type {
-  PullRequestRecordRepository,
-  TeamPullRequestWindow,
-} from '@outcomes/domain/repositories/pull-request-record.repository';
+import type { PullRequestRecordRepository } from '@outcomes/domain/repositories/pull-request-record.repository';
 import type { TaskChangeShapeRepository } from '@outcomes/domain/repositories/task-change-shape.repository';
 import { spendingOf } from '@outcomes/domain/services/measures';
 import type { TeamPullRequest } from '@outcomes/domain/services/team-pull-requests';
@@ -69,6 +66,14 @@ export const teamPullRequestOf = (
 
 const keyOf = (workspaceId: WorkspaceId, pullRequest: PullRequestUrl) =>
   `${workspaceId.value} ${pullRequest.value}`;
+
+export interface TeamPullRequestWindow {
+  readonly workspaceId: WorkspaceId;
+  readonly teamId: TeamId;
+  readonly repositories: readonly string[];
+  readonly from: Date;
+  readonly to: Date;
+}
 
 export class PullRequestRecordsInMemory implements PullRequestRecordRepository {
   readonly held = new Map<string, PullRequestRecord>();

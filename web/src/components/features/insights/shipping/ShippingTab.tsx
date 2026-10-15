@@ -3,10 +3,8 @@ import { InsightsSection } from '@/components/features/insights/InsightsSection'
 import { NoPullRequests } from '@/components/features/insights/pull-requests/NoPullRequests';
 import { ShippingPanels } from '@/components/features/insights/shipping/ShippingPanels';
 import { ShippingSkeleton } from '@/components/features/insights/shipping/ShippingSkeleton';
-import { TruncatedNote } from '@/components/features/insights/TruncatedNote';
 import { useInsightsShipping } from '@/hooks/api/useInsightsShipping';
 import type { InsightsPeriod, StationNames } from '@/lib/insights';
-import { PULL_REQUESTS_TRUNCATED } from '@/lib/insights-pull-requests';
 import { shippingOf } from '@/lib/insights-shipping';
 import { failed, loading } from '@/lib/query';
 
@@ -46,14 +44,5 @@ export function ShippingTab({ slug, teamId, period, names }: ShippingTabProps) {
     );
   }
 
-  return (
-    <ShippingPanels
-      shipping={shippingOf(insights.data, names)}
-      note={
-        insights.data.truncated && (
-          <TruncatedNote said={PULL_REQUESTS_TRUNCATED} />
-        )
-      }
-    />
-  );
+  return <ShippingPanels shipping={shippingOf(insights.data, names)} />;
 }

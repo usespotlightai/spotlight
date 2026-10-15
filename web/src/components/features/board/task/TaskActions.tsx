@@ -48,7 +48,8 @@ export function TaskActions({ title, onDelete }: TaskActionsProps) {
           </DialogHeader>
 
           <p className="text-muted-foreground text-sm">
-            Station notes on this task are deleted too. This can’t be undone.
+            Spotlight also deletes the station notes on this task. You can’t
+            undo this.
           </p>
 
           <DialogFooter className="sm:justify-end">

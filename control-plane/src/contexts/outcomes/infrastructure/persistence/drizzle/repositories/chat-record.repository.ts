@@ -2,13 +2,12 @@ import { Injectable } from '@nestjs/common';
 import { ChatRecord } from '@outcomes/domain/aggregates/chat-record.aggregate';
 import { ChatRecordMovedOnError } from '@outcomes/domain/exceptions/chat-record-moved-on.error';
 import type { ChatRecordRepository } from '@outcomes/domain/repositories/chat-record.repository';
-import type { TeamWindow } from '@outcomes/domain/repositories/run-record.repository';
 import { chatRecord } from '@outcomes/infrastructure/persistence/drizzle/schemas/outcomes.schema';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, desc, eq, gte, lt } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 
 type ChatRow = typeof chatRecord.$inferSelect;
 
@@ -53,27 +52,6 @@ export class DrizzleChatRecordRepository implements ChatRecordRepository {
       .limit(1);
 
     return row ? toRecord(row) : null;
-  }
-
-  async ofTeamBetween(
-    window: TeamWindow,
-    most: number,
-  ): Promise<readonly ChatRecord[]> {
-    const rows = await this.context.db
-      .select()
-      .from(chatRecord)
-      .where(
-        and(
-          eq(chatRecord.workspaceId, window.workspaceId.value),
-          eq(chatRecord.teamId, window.teamId.value),
-          gte(chatRecord.startedAt, window.from),
-          lt(chatRecord.startedAt, window.to),
-        ),
-      )
-      .orderBy(desc(chatRecord.startedAt), desc(chatRecord.chatId))
-      .limit(most);
-
-    return rows.map(toRecord);
   }
 
   async removeForTeam(workspaceId: WorkspaceId, teamId: TeamId): Promise<void> {

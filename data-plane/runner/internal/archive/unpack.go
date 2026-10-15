@@ -151,7 +151,7 @@ func (r *restoring) makeRoom(name string, dir bool) error {
 	return r.root.RemoveAll(name)
 }
 
-// Deepest first, so a folder that allows no writing is closed only once everything in it is written.
+// settle starts at the deepest folder, so a folder that does not permit writes is closed only after all of its contents are written.
 func (r *restoring) settle() error {
 	for i := len(r.folders) - 1; i >= 0; i-- {
 		placed := r.folders[i]

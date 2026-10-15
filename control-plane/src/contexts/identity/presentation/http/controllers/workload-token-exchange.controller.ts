@@ -23,7 +23,7 @@ import { CLIENT_HEADER } from '@platform/http/resources/resource-headers';
 import { Client } from '@shared-kernel/domain/value-objects/client.vo';
 
 const REFUSED =
-  'No such trust, a token its issuer did not sign for its audience, a workload it does not admit, or a closed workspace';
+  'Spotlight refused the exchange. Possible causes: an unknown trust, a token its issuer did not sign for the trust’s audience, a workload the trust does not admit, or a closed workspace';
 
 @ApiTags('workspace-tokens')
 @AllowAnonymous()

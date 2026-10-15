@@ -2,7 +2,7 @@ root = "."
 tmp_dir = "tmp"
 
 [build]
-  # Build then mv: overwriting a running binary fails with "text file busy".
+  # Build, then mv. If you overwrite a binary that runs, the write fails with "text file busy".
   cmd = "go build -o /tmp/spotlight.next ./cmd/spotlight && mv /tmp/spotlight.next /tmp/spotlight"
   entrypoint = "/tmp/spotlight"
   args_bin = ["host"]
@@ -11,9 +11,9 @@ tmp_dir = "tmp"
   exclude_regex = ["_test\\.go"]
   stop_on_error = false
   send_interrupt = true
-  # Long enough for its sandboxes to be stopped and destroyed.
+  # This delay gives the host enough time to stop and destroy its sandboxes.
   kill_delay = "45s"
-  # Docker Desktop stops delivering inotify events into the container.
+  # Docker Desktop stops the delivery of inotify events into the container.
   poll = true
   poll_interval = 500
 

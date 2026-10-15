@@ -53,7 +53,7 @@ describe('loopStopFor', () => {
     ).toEqual({
       kind: 'repeated',
       saying:
-        'the hook notify would fire again for what caused it: task.moved (build → review) → the hook notify → a delivery from slack → task.moved (review → build) → the hook notify → a delivery from slack → task.moved (build → review) → the hook notify',
+        'It would fire again for the change that caused it. Cause chain: task.moved (build → review) → the hook notify → a delivery from slack → task.moved (review → build) → the hook notify → a delivery from slack → task.moved (build → review) → the hook notify',
     });
   });
 

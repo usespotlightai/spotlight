@@ -2,7 +2,7 @@ import { periodOf } from '@outcomes/application/dto/insights.dto';
 import type { InsightsSetupsDto } from '@outcomes/application/dto/insights-changes.dto';
 import type { InsightsReaderPort } from '@outcomes/application/ports/insights-reader.port';
 import type { ReadInsightsSetupsQuery } from '@outcomes/application/queries/read-insights-setups.query';
-import type { TeamHistories } from '@outcomes/application/services/team-histories.service';
+import type { TeamScopes } from '@outcomes/application/services/team-scopes.service';
 import type { TrustedJudges } from '@outcomes/application/services/trusted-judges.service';
 import { InvalidSetupFilterError } from '@outcomes/domain/exceptions/invalid-setup-filter.error';
 import {
@@ -38,7 +38,7 @@ export class ReadInsightsSetupsHandler
   implements QueryHandlerPort<ReadInsightsSetupsQuery, InsightsSetupsDto>
 {
   constructor(
-    private readonly histories: TeamHistories,
+    private readonly scopes: TeamScopes,
     private readonly reader: InsightsReaderPort,
     private readonly judges: TrustedJudges,
   ) {}
@@ -46,7 +46,7 @@ export class ReadInsightsSetupsHandler
   async execute(query: ReadInsightsSetupsQuery): Promise<InsightsSetupsDto> {
     try {
       const size = sizeAsked(query.size);
-      const { clearance, period } = await this.histories.scope(
+      const { clearance, period } = await this.scopes.scope(
         query.teamId,
         query.principal,
         query.period,
@@ -79,7 +79,6 @@ export class ReadInsightsSetupsHandler
 
       return {
         period: periodOf(period),
-        truncated: false,
         stationId: query.stationId,
         size,
         sizes: SIZE_BOUNDS,

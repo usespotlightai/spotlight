@@ -75,7 +75,7 @@ export class AnswerHostCallHandler
         if (error instanceof NetworkCallMovedOnError) {
           return {
             outcome: 'settled',
-            reason: 'A network call was settled while it was being answered',
+            reason: 'The network call was settled while the host answered it.',
           };
         }
 

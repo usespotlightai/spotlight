@@ -109,7 +109,7 @@ describe('openapiOperations', () => {
 
   it('passes over an operation whose body is not JSON', () => {
     expect(read().passedOver).toEqual([
-      'passes over uploadFile, because it sends a body that is not JSON, which a tool cannot send yet',
+      'passes over uploadFile. It sends a body that is not JSON. A tool cannot send such a body yet',
     ]);
   });
 
@@ -124,7 +124,7 @@ describe('openapiOperations', () => {
 
     expect(twice.operations.map((each) => each.upstream)).toEqual(['listPets']);
     expect(twice.passedOver).toEqual([
-      'passes over list_pets, because another operation is also called list-pets',
+      'passes over list_pets. Another operation is also called list-pets',
     ]);
   });
 
@@ -154,7 +154,7 @@ describe('openapiOperations', () => {
     expect(odata.operations.map((each) => each.name)).toEqual(['list-users']);
     expect(odata.operations[0]?.inputs).toEqual([]);
     expect(odata.passedOver).toEqual([
-      'passes over me, because it needs its cookie parameter session, which a tool cannot send',
+      'passes over me. It needs its cookie parameter session, which a tool cannot send',
     ]);
   });
 
@@ -188,7 +188,7 @@ describe('openapiOperations', () => {
 
     expect(read(elsewhere, { ...AT, connected: true }).operations).toEqual([]);
     expect(read(elsewhere, { ...AT, connected: true }).passedOver[0]).toBe(
-      'passes over updatePet, because it calls api.elsewhere.example, and the connection is worn only toward the host the description came from or the one its baseUrl names',
+      'passes over updatePet. It calls api.elsewhere.example. The connection is worn only toward the host of the description or the host that baseUrl names',
     );
     expect(read(PETSTORE, { ...AT, connected: true }).operations).toHaveLength(
       7,
@@ -218,7 +218,7 @@ describe('openapiOperations', () => {
 
     expect(odd.operations).toEqual([]);
     expect(odd.passedOver).toEqual([
-      'passes over a, because one of its parameters cannot be read',
+      'passes over a. One of its parameters cannot be read',
     ]);
   });
 

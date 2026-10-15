@@ -74,7 +74,7 @@ export class GitHubAppAccess implements RepositoryAccessPort {
     if (!minted.token || !minted.expires_at) {
       throw new UpstreamRefusedError(
         'GitHub would not mint an installation token',
-        'it answered without one',
+        'The answer had no token',
       );
     }
 

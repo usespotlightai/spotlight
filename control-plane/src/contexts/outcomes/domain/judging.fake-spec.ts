@@ -13,7 +13,9 @@ import type { PairJudgingRepository } from '@outcomes/domain/repositories/pair-j
 import type {
   ScoreRepository,
   StationScores,
+  StationsScores,
 } from '@outcomes/domain/repositories/score.repository';
+import { byText } from '@outcomes/domain/services/measures';
 import { Citation } from '@outcomes/domain/value-objects/citation.vo';
 import { JudgeCriteria } from '@outcomes/domain/value-objects/judge-criteria.vo';
 import { JudgeReason } from '@outcomes/domain/value-objects/judge-reason.vo';
@@ -453,8 +455,36 @@ export class ScoresInMemory implements ScoreRepository {
           (criteria.rubricVersion === undefined ||
             each.rubricVersion === criteria.rubricVersion),
       )
-      .sort((a, b) => b.at.getTime() - a.at.getTime())
+      .sort(
+        (a, b) =>
+          b.at.getTime() - a.at.getTime() || byText(b.id.value, a.id.value),
+      )
       .slice(0, criteria.last);
+  }
+
+  async judgedAtStations(criteria: StationsScores): Promise<readonly Score[]> {
+    const asked = [
+      ...new Map(
+        criteria.stations.map((each) => [
+          JSON.stringify([each.lineId, each.stationId, each.rubricVersion]),
+          each,
+        ]),
+      ).values(),
+    ];
+    const judged = await Promise.all(
+      asked.map((each) =>
+        this.judgedAtStation({
+          workspaceId: criteria.workspaceId,
+          teamId: criteria.teamId,
+          lineId: each.lineId,
+          stationId: each.stationId,
+          rubricVersion: each.rubricVersion,
+          last: criteria.last,
+        }),
+      ),
+    );
+
+    return judged.flat();
   }
 
   async removeForTask(taskId: TaskId): Promise<void> {

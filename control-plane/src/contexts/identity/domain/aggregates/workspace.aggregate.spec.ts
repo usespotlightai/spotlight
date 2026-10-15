@@ -203,7 +203,7 @@ describe('Workspace', () => {
         }),
       ).toThrow(TeamOutsideWorkspaceError);
       expect(() => terms(WorkspaceRole.member, ['team_gone'])).toThrow(
-        /team team_gone is not in this workspace/,
+        /Team team_gone is not in this workspace/,
       );
     });
   });

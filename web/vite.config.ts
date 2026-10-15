@@ -8,7 +8,7 @@ export default defineConfig({
   server: {
     allowedHosts: ['.dev.usespotlight.ai'],
     watch: {
-      // Docker Desktop stops delivering inotify events into the container.
+      // After some time, inotify events from Docker Desktop do not reach the container.
       usePolling: true,
       interval: 300,
     },

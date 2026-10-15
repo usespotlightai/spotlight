@@ -19,7 +19,7 @@ export function SearchBudgetCounts({
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
       <CountField
         label="Iterations"
-        hint="Times the search agent runs, 1 to 10."
+        hint="The search agent runs this many times, from 1 to 10."
         value={inputs.iterations}
         problem={problemOf('iterations')}
         disabled={disabled}
@@ -27,7 +27,7 @@ export function SearchBudgetCounts({
       />
       <CountField
         label="Candidates per iteration"
-        hint="Candidates each agent run may propose, 1 to 5."
+        hint="Each agent run can propose this many candidates, from 1 to 5."
         value={inputs.perIteration}
         problem={problemOf('perIteration')}
         disabled={disabled}
@@ -35,7 +35,7 @@ export function SearchBudgetCounts({
       />
       <CountField
         label="At once"
-        hint="Replay runs at the same time, 1 to 10."
+        hint="Spotlight runs this many replay runs at the same time, from 1 to 10."
         value={inputs.concurrency}
         problem={problemOf('concurrency')}
         disabled={disabled}

@@ -18,9 +18,10 @@ const Usage = `  spotlight replay propose --station <team/line/station> --name <
   spotlight replay stop --team <key> <replay id>
       each takes --json; reads SPOTLIGHT_URL and SPOTLIGHT_API_TOKEN, a workspace
       token that may plan (read is enough to list, show and follow); status and
-      watch exit 2 when the candidate regresses on a task its baseline did well;
-      --repeats replays each run up to 5 times, so each task is rated by the
-      share of its copies that succeeded and every rate carries a 95% interval
+      watch exit 2 when the candidate regresses on a task its counterpart did
+      well; --repeats replays each run up to 5 times, so each task is rated by
+      the share of its copies that succeeded and every rate carries a 95%
+      interval
 ` + CheckUsage
 
 const (
@@ -30,7 +31,7 @@ const (
 	regressedExit = 2
 )
 
-var errRegressed = errors.New("the candidate regressed against its baseline")
+var errRegressed = errors.New("the candidate regressed against its counterpart")
 
 type cli struct {
 	api   *api

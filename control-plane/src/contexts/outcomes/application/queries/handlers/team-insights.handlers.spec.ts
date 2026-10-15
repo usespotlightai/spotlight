@@ -12,7 +12,7 @@ import { ReadInsightsPeopleQuery } from '@outcomes/application/queries/read-insi
 import { ReadInsightsStationsQuery } from '@outcomes/application/queries/read-insights-stations.query';
 import { ReadInsightsToolsQuery } from '@outcomes/application/queries/read-insights-tools.query';
 import { OutcomesAccess } from '@outcomes/application/services/outcomes-access.service';
-import { TeamHistories } from '@outcomes/application/services/team-histories.service';
+import { TeamScopes } from '@outcomes/application/services/team-scopes.service';
 import {
   ChatRecordsInMemory,
   chatOf,
@@ -96,11 +96,10 @@ const insights = async () => {
     namesOf: async (ids) =>
       new Map(ids.map((each) => [each, `Name of ${each}`])),
   };
-  const histories = new TeamHistories(
-    new OutcomesAccess(people),
-    { records, deliveries, touches, failures, chats },
-    { now: () => NOW, sleep: async () => {} },
-  );
+  const scopes = new TeamScopes(new OutcomesAccess(people), {
+    now: () => NOW,
+    sleep: async () => {},
+  });
 
   for (const [runId, taskId, hour] of [
     ['run_1', 'task_1', 9],
@@ -129,15 +128,15 @@ const insights = async () => {
     chats,
   });
 
-  return { histories, reader, people, cleared, records, touches, deliveries };
+  return { scopes, reader, people, cleared, records, touches, deliveries };
 };
 
 describe('the team’s insights', () => {
   it('answers a workspace token that may read the workspace', async () => {
-    const { histories, reader, people, cleared } = await insights();
+    const { scopes, reader, people, cleared } = await insights();
 
     const overview = await new ReadInsightsOverviewHandler(
-      histories,
+      scopes,
       reader,
       people,
     ).execute(new ReadInsightsOverviewQuery('team_1', READ_TOKEN, '7d'));
@@ -165,30 +164,30 @@ describe('the team’s insights', () => {
   });
 
   it('finds no team for someone not on it', async () => {
-    const { histories, reader, people } = await insights();
+    const { scopes, reader, people } = await insights();
 
     await expect(
-      new ReadInsightsOverviewHandler(histories, reader, people).execute(
+      new ReadInsightsOverviewHandler(scopes, reader, people).execute(
         new ReadInsightsOverviewQuery('team_1', STRANGER, '7d'),
       ),
     ).rejects.toMatchObject({ kind: 'not-found' });
   });
 
   it('refuses a period it does not look back over', async () => {
-    const { histories, reader, people } = await insights();
+    const { scopes, reader, people } = await insights();
 
     await expect(
-      new ReadInsightsOverviewHandler(histories, reader, people).execute(
+      new ReadInsightsOverviewHandler(scopes, reader, people).execute(
         new ReadInsightsOverviewQuery('team_1', READ_TOKEN, '14d'),
       ),
     ).rejects.toMatchObject({ kind: 'invalid-input' });
   });
 
   it('tallies each station the way the Station page does', async () => {
-    const { histories, reader } = await insights();
+    const { scopes, reader } = await insights();
 
     const stations = await new ReadInsightsStationsHandler(
-      histories,
+      scopes,
       reader,
     ).execute(
       new ReadInsightsStationsQuery(
@@ -216,8 +215,8 @@ describe('the team’s insights', () => {
   });
 
   it('lists the runs a page at a time, with who opened each task', async () => {
-    const { histories, reader, people } = await insights();
-    const listing = new ListInsightsRunsHandler(histories, reader, people);
+    const { scopes, reader, people } = await insights();
+    const listing = new ListInsightsRunsHandler(scopes, reader, people);
 
     const first = await listing.execute(
       new ListInsightsRunsQuery('team_1', READ_TOKEN, '7d', ANY, 1, 2),
@@ -239,10 +238,10 @@ describe('the team’s insights', () => {
   });
 
   it('calls someone new only if nothing they did on the team came before the period', async () => {
-    const { histories, reader, people } = await insights();
+    const { scopes, reader, people } = await insights();
 
     const read = await new ReadInsightsPeopleHandler(
-      histories,
+      scopes,
       reader,
       {
         onTeam: async () => new Map([['user_ada', day('2026-01-01')]]),
@@ -262,7 +261,7 @@ describe('the team’s insights', () => {
   });
 
   it('reads which skills and servers the period’s runs used from what each run was digested with', async () => {
-    const { histories, reader, records } = await insights();
+    const { scopes, reader, records } = await insights();
     const asked: string[] = [];
     const work: WorkPort = {
       endedRun: async () => null,
@@ -295,7 +294,7 @@ describe('the team’s insights', () => {
     );
 
     const tools = await new ReadInsightsToolsHandler(
-      histories,
+      scopes,
       reader,
       work,
     ).execute(new ReadInsightsToolsQuery('team_1', READ_TOKEN, '7d'));
@@ -318,11 +317,11 @@ describe('the team’s insights', () => {
   });
 
   it('finds no tools for someone not on the team', async () => {
-    const { histories, reader } = await insights();
+    const { scopes, reader } = await insights();
     const work = { teamSkillKeys: async () => [] } as unknown as WorkPort;
 
     await expect(
-      new ReadInsightsToolsHandler(histories, reader, work).execute(
+      new ReadInsightsToolsHandler(scopes, reader, work).execute(
         new ReadInsightsToolsQuery('team_1', STRANGER, '7d'),
       ),
     ).rejects.toMatchObject({ kind: 'not-found' });

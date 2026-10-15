@@ -10,7 +10,7 @@ export type Fetch = typeof globalThis.fetch;
 
 export class OpenRouterRefusedError extends Error {
   constructor(reason: string) {
-    super(`OpenRouter refused to draft: ${reason}`);
+    super(`OpenRouter refused the request. Response: ${reason}`);
     this.name = 'OpenRouterRefusedError';
   }
 }
@@ -20,7 +20,7 @@ export class OpenRouterUnansweredError extends Error {
     reason: string,
     readonly usage: OpenRouterUsage | null,
   ) {
-    super(`Drafting stopped early: ${reason}`);
+    super(`OpenRouter gave no usable answer. Reason: ${reason}`);
     this.name = 'OpenRouterUnansweredError';
   }
 }
@@ -165,7 +165,7 @@ export const askForJson = async <T>(ask: {
     };
   } catch (error) {
     throw new OpenRouterUnansweredError(
-      `the answer did not fit its shape (${error instanceof Error ? error.message : String(error)})`,
+      `the answer doesn't match the expected shape (${error instanceof Error ? error.message : String(error)})`,
       usageOf(answered),
     );
   }

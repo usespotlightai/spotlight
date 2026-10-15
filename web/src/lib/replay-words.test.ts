@@ -80,7 +80,7 @@ describe('replay words', () => {
   it('names over budget as such, and says what it means', () => {
     expect(stateShown('over-budget')).toBe('Over budget');
     expect(stateNote('over-budget')).toBe(
-      'Ceiling reached. No more runs start.',
+      'The replay reached its ceiling. No more runs start.',
     );
     expect(stateNote('finished')).toBeNull();
   });
@@ -165,7 +165,7 @@ describe('replay words', () => {
       ['Flaky checks', 'Not checked', 'unknown'],
     ]);
     expect(readings[2]?.advice).toMatch(
-      /^Measured by the first baseline of the live config: it judges each change twice/,
+      /^The first baseline of the live config judges each change twice/,
     );
   });
 
@@ -269,7 +269,9 @@ describe('replay words', () => {
     expect(readings[1]?.advice).toMatch(
       /^Live config: 95% on 6 runs\. With the answer: 97%\. Even the answer barely helps\./,
     );
-    expect(readings[2]?.advice).toMatch(/2 second judgings still to come\.$/);
+    expect(readings[2]?.advice).toMatch(
+      /2 second judgings are still to come\.$/,
+    );
   });
 
   it('reads the room a set leaves from the live config handed each run’s answer', () => {
@@ -359,7 +361,7 @@ describe('replay words', () => {
 
   it('says when the first baseline also checks the set, and only for a set of 5 or more runs', () => {
     expect(baselineNoteShown(false, null, 1, true)).toBe(
-      'Set has no baseline yet. This replay of the live config becomes it. First baseline checks the set: each run 3 times, ceiling ×3. Each change judged and checked twice.',
+      'The set has no baseline yet. This replay of the live config becomes the baseline. The first baseline checks the set. It replays each run 3 times with 3 times the ceiling. It judges and checks each change twice.',
     );
     expect(baselineNoteShown(false, null, 1)).not.toMatch(/checks the set/);
     expect(
@@ -408,7 +410,7 @@ describe('spendNoteShown', () => {
         over: true,
       }),
     ).toBe(
-      'Runs $2.75 · Drafting $0.12 · Judging $0.18. Runs underway at the ceiling still finish. A replay may end slightly over it. Also spent €1.00. Spent in another currency. Not counted against the ceiling. Not priced: 2 runs · 1 model call.',
+      'Runs $2.75 · Drafting $0.12 · Judging $0.18. Runs that are underway at the ceiling still finish. A replay can end slightly over its ceiling. Also spent €1.00. These amounts are in another currency. They don’t count against the ceiling. Not priced: 2 runs · 1 model call.',
     );
   });
 });

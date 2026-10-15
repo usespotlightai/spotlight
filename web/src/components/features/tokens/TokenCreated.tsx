@@ -18,8 +18,8 @@ export function TokenCreated({ name, token, onDone }: TokenCreatedProps) {
           Copy the {name} token now
         </h2>
         <p className="text-muted-foreground text-xs">
-          It’s shown only once. Store it as a secret, e.g. in your CI. If lost,
-          revoke it and create another.
+          Spotlight shows this token only once. Please store it as a secret, for
+          example in your CI. If you lose it, revoke it and create another.
         </p>
       </div>
 

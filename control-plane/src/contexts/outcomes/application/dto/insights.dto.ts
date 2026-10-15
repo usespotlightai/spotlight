@@ -90,7 +90,6 @@ export type StationWorthImprovingDto = StationWorthImproving;
 
 export interface InsightsOverviewDto {
   readonly period: PeriodDto;
-  readonly truncated: boolean;
   readonly headline: HeadlineDto;
   readonly changes: HeadlineChangesDto;
   readonly output: readonly DayOutputDto[];
@@ -139,7 +138,6 @@ export interface FlowDto {
 
 export interface InsightsFlowDto {
   readonly period: PeriodDto;
-  readonly truncated: boolean;
   readonly flow: FlowDto;
 }
 
@@ -147,7 +145,6 @@ export type StationReportDto = StationReport;
 
 export interface InsightsStationsDto {
   readonly period: PeriodDto;
-  readonly truncated: boolean;
   readonly team: RunTally;
   readonly teamChanges: TallyChangesDto;
   readonly teamSeen: TallySeen;
@@ -183,7 +180,6 @@ export interface AdoptionDto {
 
 export interface InsightsPeopleDto {
   readonly period: PeriodDto;
-  readonly truncated: boolean;
   readonly load: HumanLoadDto;
   readonly loadChanges: HumanLoadChangesDto;
   readonly adoption: AdoptionDto;
@@ -205,7 +201,6 @@ export type TokenCountsDto = TokenCounts;
 
 export interface InsightsCostDto {
   readonly period: PeriodDto;
-  readonly truncated: boolean;
   readonly cost: CostBreakdownDto;
   readonly spendChange: ChangeDto | null;
 }

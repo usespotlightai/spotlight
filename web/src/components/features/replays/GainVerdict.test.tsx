@@ -30,7 +30,7 @@ describe('GainVerdict', () => {
       '+12 pts(+3 to +21)vs baseline 50%· Better',
     );
     expect(wordOf(container)).toHaveAccessibleDescription(
-      'Real gain over 20 tasks scored on both sides. Likely range stays above zero and reaches the minimum. Minimum real gain: +5 pts',
+      'The gain on 20 tasks with a score on both sides is real. The likely range stays above zero and reaches the minimum. Minimum real gain: +5 pts',
     );
   });
 
@@ -49,7 +49,7 @@ describe('GainVerdict', () => {
     expect(verdictOf(container)).toHaveTextContent(
       '+4 pts(−8 to +15)· within noise',
     );
-    expect(wordOf(container)).toHaveAccessibleDescription(/^Could be chance/);
+    expect(wordOf(container)).toHaveAccessibleDescription(/can be chance/);
   });
 
   it('says a real loss is worse', () => {

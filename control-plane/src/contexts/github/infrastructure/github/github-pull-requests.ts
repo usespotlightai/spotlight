@@ -98,7 +98,7 @@ export class GitHubPullRequests implements PullRequestPort {
       (response) =>
         answered<ChangedFile[]>(
           response,
-          `GitHub would not say what ${pullRequest.value} changes`,
+          `GitHub would not list the files that ${pullRequest.value} changes`,
         ),
     );
   }
@@ -138,7 +138,7 @@ export class GitHubPullRequests implements PullRequestPort {
         `${this.at(opening.repository)}/pulls?state=open&base=${encodeURIComponent(into)}&head=${encodeURIComponent(`${opening.repository.owner}:${opening.branch}`)}`,
         token,
       ),
-      `GitHub would not say what is open for ${opening.branch}`,
+      `GitHub would not list the open pull requests for ${opening.branch}`,
     );
 
     return open[0]?.html_url ? { url: open[0].html_url } : null;
@@ -176,8 +176,8 @@ export class GitHubPullRequests implements PullRequestPort {
 
     if (!opened.html_url) {
       throw new UpstreamRefusedError(
-        'opening the pull request',
-        'GitHub named no pull request',
+        'GitHub would not open the pull request',
+        'The answer had no pull request URL',
       );
     }
 
@@ -190,7 +190,7 @@ export class GitHubPullRequests implements PullRequestPort {
   ): Promise<string> {
     const found = await answered<{ default_branch: string }>(
       await call(this.at(repository), token),
-      `GitHub would not say what ${repository.value} merges into`,
+      `GitHub would not return the default branch of ${repository.value}`,
     );
 
     return found.default_branch;

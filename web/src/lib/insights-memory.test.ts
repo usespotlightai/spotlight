@@ -25,7 +25,7 @@ describe('memoryTiles', () => {
       ['3', 'Kept by the team now'],
       ['2', 'to 1 run'],
       ['1', 'by 4 runs'],
-      ['0', 'Retired by people this period'],
+      ['0', 'Retired by people in this period'],
       ['–', 'No benchmark yet'],
     ]);
   });

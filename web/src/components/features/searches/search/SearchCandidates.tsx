@@ -75,10 +75,10 @@ export function SearchCandidates({
             }
           >
             {search.state === 'seeding'
-              ? 'Live config replays first. The search agent proposes candidates once it finishes.'
+              ? 'The live config replays first. The search agent proposes candidates after that replay finishes.'
               : search.ending === 'seed-failed'
-                ? 'Live config couldn’t be replayed. The search agent never ran.'
-                : 'Search agent proposed no candidates.'}
+                ? 'Spotlight couldn’t replay the live config. The search agent never ran.'
+                : 'The search agent proposed no candidates.'}
           </EmptyState>
         </StateBox>
       )}

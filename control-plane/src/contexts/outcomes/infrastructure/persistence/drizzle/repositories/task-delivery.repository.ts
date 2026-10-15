@@ -1,14 +1,11 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { TaskDelivery } from '@outcomes/domain/aggregates/task-delivery.aggregate';
 import { TaskDeliveryMovedOnError } from '@outcomes/domain/exceptions/task-delivery-moved-on.error';
-import type { TeamWindow } from '@outcomes/domain/repositories/run-record.repository';
 import type { TaskDeliveryRepository } from '@outcomes/domain/repositories/task-delivery.repository';
 import { DrizzleRunFactProjection } from '@outcomes/infrastructure/persistence/drizzle/projections/run-fact.projection';
-import {
-  runRecord,
-  taskDelivery,
-} from '@outcomes/infrastructure/persistence/drizzle/schemas/outcomes.schema';
+import { taskDelivery } from '@outcomes/infrastructure/persistence/drizzle/schemas/outcomes.schema';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { inList } from '@platform/persistence/drizzle/in-list';
 import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
@@ -17,7 +14,7 @@ import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { and, desc, eq, gte, inArray, isNull, lt, or } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 
 type DeliveryRow = typeof taskDelivery.$inferSelect;
 
@@ -123,59 +120,11 @@ export class DrizzleTaskDeliveryRepository implements TaskDeliveryRepository {
       .select()
       .from(taskDelivery)
       .where(
-        inArray(
+        inList(
           taskDelivery.taskId,
           taskIds.map((each) => each.value),
         ),
       );
-
-    return rows.map(toDelivery);
-  }
-
-  async ofTeamBetween(
-    window: TeamWindow,
-    most: number,
-  ): Promise<readonly TaskDelivery[]> {
-    const rows = await this.context.db
-      .select()
-      .from(taskDelivery)
-      .where(
-        and(
-          eq(taskDelivery.workspaceId, window.workspaceId.value),
-          or(
-            and(
-              eq(taskDelivery.teamId, window.teamId.value),
-              lt(taskDelivery.openedAt, window.to),
-              or(
-                and(
-                  isNull(taskDelivery.closedAt),
-                  or(
-                    gte(taskDelivery.openedAt, window.from),
-                    gte(taskDelivery.firstReviewAt, window.from),
-                  ),
-                ),
-                gte(taskDelivery.closedAt, window.from),
-              ),
-            ),
-            inArray(
-              taskDelivery.taskId,
-              this.context.db
-                .selectDistinct({ taskId: runRecord.taskId })
-                .from(runRecord)
-                .where(
-                  and(
-                    eq(runRecord.workspaceId, window.workspaceId.value),
-                    eq(runRecord.teamId, window.teamId.value),
-                    gte(runRecord.endedAt, window.from),
-                    lt(runRecord.endedAt, window.to),
-                  ),
-                ),
-            ),
-          ),
-        ),
-      )
-      .orderBy(desc(taskDelivery.openedAt), desc(taskDelivery.taskId))
-      .limit(most);
 
     return rows.map(toDelivery);
   }

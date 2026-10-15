@@ -19,30 +19,36 @@ export class TrustedJudges {
     clearance: OutcomesClearance,
     stations: readonly StationPlace[],
   ): Promise<JudgeStandings> {
-    const judges: StationJudgeStanding[] = [];
-
-    for (const station of stations) {
-      const shape = await this.standing.of({
+    const shapes = await this.standing.standingsOf(
+      {
         workspaceId: clearance.workspaceId.value,
         teamId: clearance.teamId.value,
+      },
+      stations.map((station) => ({
         lineId: station.lineId,
         stationId: station.stationId,
-      });
+      })),
+    );
+    const byStation = new Map(shapes.map((each) => [each.stationId, each]));
+    const judges = stations.flatMap((station) => {
+      const shape = byStation.get(station.stationId);
 
-      if (shape.hiddenBecause !== 'no-judge') {
-        judges.push({
-          lineId: station.lineId,
-          stationId: station.stationId,
-          rubricVersion: shape.rubricVersion,
-          trusted: shape.trusted,
-          measure: shape.measure,
-          agreement: shape.agreement,
-          pairs: shape.pairs,
-          trust: shape.trust,
-          hiddenBecause: shape.hiddenBecause,
-        });
-      }
-    }
+      return !shape || shape.hiddenBecause === 'no-judge'
+        ? []
+        : [
+            {
+              lineId: station.lineId,
+              stationId: station.stationId,
+              rubricVersion: shape.rubricVersion,
+              trusted: shape.trusted,
+              measure: shape.measure,
+              agreement: shape.agreement,
+              pairs: shape.pairs,
+              trust: shape.trust,
+              hiddenBecause: shape.hiddenBecause,
+            },
+          ];
+    });
 
     return {
       judges,

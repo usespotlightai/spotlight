@@ -60,6 +60,7 @@ func replayOf(state string, regressed bool) string {
   "candidate":{"id":"cand_1","name":"Shorter prompt","kind":"proposed"},
   "ceiling":{"amount":5,"currency":"USD"},
   "totals":{"entries":2,"settled":2,"succeeded":1,"successRate":0.5,"scored":2,"unscored":0,"spent":{"amount":1.25,"currency":"USD"}},
+  "comparedWith":{"replayId":"replay_base","successRate":1,"interval":{"rate":1,"low":0.34,"high":1}},
   "baselineReplayId":"replay_base",
   "comparison":[
     {"taskId":"task_2","candidate":[{"result":"` + candidateResult + `"}],"baseline":[{"result":"` + baselineResult + `"}],"costDelta":0.1,"stepsDelta":3,"scoreDelta":null,"regressed":` + map[bool]string{true: "true", false: "false"}[regressed] + `},
@@ -70,8 +71,29 @@ func replayOf(state string, regressed bool) string {
 const baseline = `{"id":"replay_base","setId":"set_1","state":"finished","isBaseline":true,
   "candidate":{"id":"cand_live","name":"Live config, 2026-10-01","kind":"live"},
   "ceiling":{"amount":5,"currency":"USD"},
-  "totals":{"entries":2,"settled":2,"succeeded":2,"successRate":1,"scored":2,"unscored":0,"spent":{"amount":1,"currency":"USD"}},
-  "baselineReplayId":"replay_base","comparison":[]}`
+  "totals":{"entries":2,"settled":2,"succeeded":2,"successRate":1,"interval":{"rate":1,"low":0.34,"high":1},"tasks":2,"tasksScored":2,"scored":2,"unscored":0,"spent":{"amount":1,"currency":"USD"}},
+  "comparedWith":null,"baselineReplayId":"replay_base","comparison":[]}`
+
+func replayUnder(kind, against string) string {
+	compared := `"comparedWith":null`
+	if against != "" {
+		compared = `"comparedWith":{"replayId":"` + against + `","successRate":0.6,"interval":{"rate":0.6,"low":0.4,"high":0.8}}`
+	}
+
+	return strings.NewReplacer(
+		`"kind":"proposed"`, `"kind":"`+kind+`"`,
+		`"comparedWith":{"replayId":"replay_base","successRate":1,"interval":{"rate":1,"low":0.34,"high":1}}`, compared,
+	).Replace(replayOf("finished", false))
+}
+
+func counterpartOf(id, state string) string {
+	return strings.NewReplacer(
+		`"id":"replay_base"`, `"id":"`+id+`"`,
+		`"state":"finished"`, `"state":"`+state+`"`,
+		`"isBaseline":true`, `"isBaseline":false`,
+		`"succeeded":2,"successRate":1,"interval":{"rate":1,"low":0.34,"high":1}`, `"succeeded":1,"successRate":0.5,"interval":{"rate":0.5,"low":0.1,"high":0.9}`,
+	).Replace(baseline)
+}
 
 func serve(t *testing.T) *spotlight {
 	t.Helper()
@@ -400,7 +422,7 @@ func TestStatusShowsRegressionsFirstAndExitsAsRegressed(t *testing.T) {
 	spotlight.replays = []string{replayOf("finished", true)}
 
 	said, err := replaying("status", "--team", "core", "replay_1")
-	if !errors.Is(err, errRegressed) {
+	if !errors.Is(err, errRegressed) || !strings.Contains(err.Error(), "the candidate regressed against its counterpart on 1 of 2 tasks") {
 		t.Fatalf("err = %v, want a regression", err)
 	}
 
@@ -408,7 +430,7 @@ func TestStatusShowsRegressionsFirstAndExitsAsRegressed(t *testing.T) {
 	if regressed < 0 || regressed > strings.Index(said, "task_1") {
 		t.Fatalf("said %q, want the regression first", said)
 	}
-	for _, want := range []string{"Succeeded: 1 of 2 (50%), 0 unscored", "Its baseline, finished: 2 of 2 (100%)", "1.25 USD of 5 USD"} {
+	for _, want := range []string{"Succeeded: 1 of 2 (50%), 0 unscored", "Compared with the baseline, finished: 2 of 2 (100%); 100% (34–100%) over 2 of 2 tasks, 0 unscored\n\n", "CANDIDATE  COMPARED WITH  COST Δ", "1.25 USD of 5 USD"} {
 		if !strings.Contains(said, want) {
 			t.Fatalf("said %q, want %q", said, want)
 		}
@@ -438,7 +460,7 @@ func TestStatusOfACandidateThatHeldUpExitsCleanly(t *testing.T) {
 	}
 }
 
-func TestWatchAsksUntilTheReplayAndItsBaselineEnd(t *testing.T) {
+func TestWatchAsksUntilTheReplayAndTheReplayItIsComparedWithEnd(t *testing.T) {
 	spotlight := serve(t)
 	spotlight.replays = []string{replayOf("running", false), replayOf("running", false), replayOf("finished", true)}
 	out := new(bytes.Buffer)
@@ -453,7 +475,7 @@ func TestWatchAsksUntilTheReplayAndItsBaselineEnd(t *testing.T) {
 	if slept != 2 {
 		t.Fatalf("slept %d times, want 2", slept)
 	}
-	if json.Unmarshal(out.Bytes(), &answered) != nil || answered["replay"].(map[string]any)["state"] != "finished" || answered["baseline"].(map[string]any)["id"] != "replay_base" {
+	if json.Unmarshal(out.Bytes(), &answered) != nil || answered["replay"].(map[string]any)["state"] != "finished" || answered["comparedWith"].(map[string]any)["id"] != "replay_base" {
 		t.Fatalf("--json said %q", out.String())
 	}
 }
@@ -579,5 +601,155 @@ func TestATokenSpotlightRefusesIsTold(t *testing.T) {
 
 	if _, err := replaying("candidates", "--station", "core/delivery/build"); err == nil || !strings.Contains(err.Error(), "No valid credentials") {
 		t.Fatalf("err = %v", err)
+	}
+}
+
+func TestStatusNamesTheReplayItIsComparedWithAndFollowsIt(t *testing.T) {
+	for _, each := range []struct {
+		name, kind, against string
+		noBaseline          bool
+		want                string
+	}{
+		{"paired", "proposed", "replay_earlier", false, "an earlier baseline"},
+		{"paired with the standing baseline", "proposed", "replay_base", false, "the baseline"},
+		{"with the answer", "oracle", "replay_live", false, "the live config"},
+		{"with the answer against the standing baseline", "oracle", "replay_base", false, "the baseline"},
+		{"searched", "searched", "replay_seed", false, "the search's starting config"},
+		{"searched in a set with no baseline", "searched", "replay_seed", true, "the search's starting config"},
+	} {
+		t.Run(each.name, func(t *testing.T) {
+			spotlight := serve(t)
+			replay := strings.Replace(replayUnder(each.kind, each.against), `"totals":{`, `"againstBaseline":{"gain":0.2,"low":0.1,"high":0.3,"verdict":"better","minGain":0.05,"tasks":2},"totals":{`, 1)
+			if each.noBaseline {
+				replay = strings.Replace(replay, `"baselineReplayId":"replay_base"`, `"baselineReplayId":null`, 1)
+			}
+			spotlight.replays = []string{replay}
+			spotlight.answers["GET /api/teams/team_1/replays/"+each.against] = counterpartOf(each.against, "finished")
+
+			said, err := replaying("status", "--team", "core", "replay_1")
+			if err != nil {
+				t.Fatalf("status: %v", err)
+			}
+			for _, want := range []string{
+				"Compared with " + each.want + ", finished: 1 of 2 (50%); 50% (10–90%) over 2 of 2 tasks, 0 unscored\nOn the tasks both scored: 60% (40–80%)\n",
+				"Better than " + each.want + ": +20 points (+10 to +30) over 2 tasks",
+			} {
+				if !strings.Contains(said, want) {
+					t.Fatalf("said %q, want %q", said, want)
+				}
+			}
+			spotlight.last(http.MethodGet, "/api/teams/team_1/replays/"+each.against)
+			for _, asked := range spotlight.asked {
+				if each.against != "replay_base" && asked.path == "/api/teams/team_1/replays/replay_base" {
+					t.Fatalf("asked for the baseline, not the replay it is compared with")
+				}
+			}
+		})
+	}
+}
+
+func TestWatchWaitsForTheReplayItIsComparedWith(t *testing.T) {
+	for _, each := range []struct {
+		kind, against, want string
+	}{
+		{"oracle", "replay_live", "the live config"},
+		{"searched", "replay_seed", "the search's starting config"},
+		{"proposed", "replay_earlier", "an earlier baseline"},
+	} {
+		t.Run(each.kind, func(t *testing.T) {
+			spotlight := serve(t)
+			spotlight.replays = []string{replayUnder(each.kind, each.against)}
+			route := "GET /api/teams/team_1/replays/" + each.against
+			spotlight.answers[route] = counterpartOf(each.against, "running")
+			out := new(bytes.Buffer)
+			slept := 0
+			c := &cli{api: newAPI(os.Getenv(urlVar), token, "test"), out: out, in: strings.NewReader(""), sleep: func(time.Duration) {
+				slept++
+				spotlight.mu.Lock()
+				spotlight.answers[route] = counterpartOf(each.against, "finished")
+				spotlight.mu.Unlock()
+			}}
+
+			if err := c.watch([]string{"--team", "core", "replay_1"}); err != nil {
+				t.Fatalf("watch: %v", err)
+			}
+			if slept != 1 || !strings.Contains(out.String(), "Compared with "+each.want+", finished:") {
+				t.Fatalf("slept %d times and said %q", slept, out.String())
+			}
+		})
+	}
+}
+
+func TestStatusOfTheBaselineComparesItWithNothing(t *testing.T) {
+	spotlight := serve(t)
+	spotlight.replays = []string{strings.Replace(baseline, `"id":"replay_base"`, `"id":"replay_1"`, 1)}
+
+	said, err := replaying("status", "--team", "core", "replay_1")
+	if err != nil {
+		t.Fatalf("status: %v", err)
+	}
+	if !strings.Contains(said, "It is the set's baseline.\n") || strings.Contains(said, "Compared with") {
+		t.Fatalf("said %q", said)
+	}
+	for _, asked := range spotlight.asked {
+		if asked.path == "/api/teams/team_1/replays/replay_base" {
+			t.Fatalf("asked for another replay")
+		}
+	}
+}
+
+func TestStatusSaysWhyNothingIsCompared(t *testing.T) {
+	for _, each := range []struct {
+		name, replay, want string
+	}{
+		{"no baseline", strings.Replace(replayUnder("proposed", ""), `"baselineReplayId":"replay_base"`, `"baselineReplayId":null`, 1), "It is compared with nothing: the set has no baseline.\n"},
+		{"live replay gone", replayUnder("oracle", ""), "It is compared with nothing: the live replay it was compared with is gone.\n"},
+		{"paired replay gone", replayUnder("proposed", ""), "It is compared with nothing: the replay it was set beside is gone.\n"},
+	} {
+		t.Run(each.name, func(t *testing.T) {
+			spotlight := serve(t)
+			spotlight.replays = []string{each.replay}
+
+			said, err := replaying("status", "--team", "core", "replay_1")
+			if err != nil {
+				t.Fatalf("status: %v", err)
+			}
+			if !strings.Contains(said, each.want) {
+				t.Fatalf("said %q, want %q", said, each.want)
+			}
+		})
+	}
+}
+
+func TestStatusAnswersInJSONWithTheReplayItIsComparedWith(t *testing.T) {
+	spotlight := serve(t)
+	spotlight.replays = []string{replayUnder("searched", "replay_seed")}
+	spotlight.answers["GET /api/teams/team_1/replays/replay_seed"] = counterpartOf("replay_seed", "finished")
+
+	said, err := replaying("status", "--team", "core", "--json", "replay_1")
+	if err != nil {
+		t.Fatalf("status: %v", err)
+	}
+
+	var answered struct {
+		Replay struct {
+			ComparedWith struct {
+				ReplayID string `json:"replayId"`
+			} `json:"comparedWith"`
+		} `json:"replay"`
+		ComparedWith struct {
+			ID string `json:"id"`
+		} `json:"comparedWith"`
+		Baseline any `json:"baseline"`
+	}
+	if json.Unmarshal([]byte(said), &answered) != nil || answered.Replay.ComparedWith.ReplayID != "replay_seed" || answered.ComparedWith.ID != "replay_seed" || answered.Baseline != nil {
+		t.Fatalf("--json said %q", said)
+	}
+
+	spotlight.replays = []string{replayUnder("oracle", "")}
+	said, err = replaying("status", "--team", "core", "--json", "replay_1")
+	var bare map[string]any
+	if err != nil || json.Unmarshal([]byte(said), &bare) != nil || bare["comparedWith"] != nil {
+		t.Fatalf("err = %v, --json said %q", err, said)
 	}
 }

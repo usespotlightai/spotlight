@@ -305,7 +305,6 @@ describe('the team’s pull request insights (e2e)', () => {
     const answer = await asOwner(insights('shipping'));
 
     expect(answer.status).toBe(200);
-    expect(answer.body.truncated).toBe(false);
     expect(answer.body.toMerge).toMatchObject({
       spotlight: { count: 1 },
       people: { count: 2 },
