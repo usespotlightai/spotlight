@@ -40,7 +40,10 @@ export const ofTeamDeliveries = (team: TeamInPeriod): SQL => {
         and (
           (
             ${taskDelivery.closedAt} is null
-            and ${taskDelivery.openedAt} >= ${iso(lookback.from)}::timestamp
+            and (
+              ${taskDelivery.openedAt} >= ${iso(lookback.from)}::timestamp
+              or ${taskDelivery.firstReviewAt} >= ${iso(lookback.from)}::timestamp
+            )
           )
           or ${taskDelivery.closedAt} >= ${iso(lookback.from)}::timestamp
         )

@@ -389,7 +389,8 @@ export class TaskDeliveriesInMemory implements TaskDeliveryRepository {
           each.teamId.equals(window.teamId) &&
           each.openedAt.getTime() < window.to.getTime() &&
           (each.closedAt === null
-            ? each.openedAt.getTime() >= window.from.getTime()
+            ? each.openedAt.getTime() >= window.from.getTime() ||
+              (each.firstReviewAt?.getTime() ?? 0) >= window.from.getTime()
             : each.closedAt.getTime() >= window.from.getTime()),
       )
       .sort((a, b) => b.openedAt.getTime() - a.openedAt.getTime())

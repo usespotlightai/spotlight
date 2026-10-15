@@ -786,6 +786,17 @@ beforeAll(async () => {
         at: ago(300 * DAY),
       }).reviewed({ pullRequest: stalePull, byBot: false, at: ago(DAY) }),
     );
+    await deliveries.add(
+      TaskDelivery.opened({
+        taskId: TaskId.of('task_abandoned'),
+        workspaceId: WORKSPACE,
+        teamId: TEAM,
+        pullRequest: PullRequestUrl.of(
+          'https://github.com/acme/api/pull/abandoned',
+        ),
+        at: ago(300 * DAY),
+      }),
+    );
   });
 }, 120_000);
 
@@ -1054,6 +1065,10 @@ describe('the insights reader against the team history', () => {
       deliveries.some((each) => each.closedAt === null && !each.merged),
     ).toBe(true);
     expect(deliveries.some((each) => each.taskOpenedAt !== null)).toBe(true);
+    expect(deliveries.map((each) => each.taskId)).toContain('task_stale');
+    expect(deliveries.map((each) => each.taskId)).not.toContain(
+      'task_abandoned',
+    );
   });
 
   it.each(INSIGHTS_PERIODS)(

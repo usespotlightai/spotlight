@@ -149,7 +149,10 @@ export class DrizzleTaskDeliveryRepository implements TaskDeliveryRepository {
               or(
                 and(
                   isNull(taskDelivery.closedAt),
-                  gte(taskDelivery.openedAt, window.from),
+                  or(
+                    gte(taskDelivery.openedAt, window.from),
+                    gte(taskDelivery.firstReviewAt, window.from),
+                  ),
                 ),
                 gte(taskDelivery.closedAt, window.from),
               ),
