@@ -54,7 +54,6 @@ export type RoundsShareDto = RoundsShare;
 
 export interface InsightsPullRequestsDto {
   readonly period: PeriodDto;
-  readonly truncated: boolean;
   readonly total: number;
   readonly repositories: readonly string[];
   readonly weeks: readonly string[];
@@ -96,7 +95,6 @@ export interface InsightsPullRequestDto {
 
 export interface InsightsPullRequestListDto {
   readonly period: PeriodDto;
-  readonly truncated: boolean;
   readonly total: number;
   readonly page: number;
   readonly size: number;
@@ -111,10 +109,7 @@ const measuresDtoOf = (measures: GroupMeasures): GroupMeasuresDto => ({
 
 export const pullRequestInsightsDtoOf = (
   insights: PullRequestInsights,
-): Omit<
-  InsightsPullRequestsDto,
-  'period' | 'truncated' | 'total' | 'repositories'
-> => ({
+): Omit<InsightsPullRequestsDto, 'period' | 'total' | 'repositories'> => ({
   weeks: insights.weeks,
   penetration: insights.penetration,
   comparison: {

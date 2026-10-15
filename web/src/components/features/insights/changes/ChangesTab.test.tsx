@@ -100,7 +100,6 @@ const tally = (over: Record<string, unknown> = {}) => ({
 
 const CHANGES = {
   period: { name: '30d' },
-  truncated: false,
   markers: [
     {
       lineId: 'line_1',
@@ -151,7 +150,6 @@ const CHANGES = {
 
 const SETUPS = {
   period: { name: '30d' },
-  truncated: false,
   stationId: 'station_impl',
   size: null,
   sizes: [

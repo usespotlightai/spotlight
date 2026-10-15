@@ -3,6 +3,7 @@ import {
   type CarriedConfigs,
   configChangesAlong,
 } from '@outcomes/domain/services/config-stretches';
+import type { ResolvedDelivery } from '@outcomes/domain/services/headline';
 import { spendingOf } from '@outcomes/domain/services/measures';
 import {
   endedWithin,
@@ -41,38 +42,62 @@ export interface ConfigMarker {
   readonly runId: string;
 }
 
-export const dailyOutputOf = (
+export interface DaySpending {
+  readonly runs: number;
+  readonly spend: Spend | null;
+  readonly unpriced: number;
+  readonly mixedCurrencies: boolean;
+}
+
+const NO_SPENDING: DaySpending = {
+  runs: 0,
+  spend: null,
+  unpriced: 0,
+  mixedCurrencies: false,
+};
+
+export const daySpendingOf = (
   history: TeamHistory,
+  period: InsightsPeriod,
+): ReadonlyMap<string, DaySpending> => {
+  const byDay = new Map<string, RunRecord[]>();
+
+  for (const record of endedWithin(history.records, period.current)) {
+    if (record.ran && record.end) {
+      const day = dayOf(record.end.endedAt);
+      byDay.set(day, [...(byDay.get(day) ?? []), record]);
+    }
+  }
+
+  return new Map(
+    [...byDay].map(([day, runs]) => {
+      const { spend, unpriced, mixedCurrencies } = spendingOf(
+        runs.map((each) => each.cost?.spend ?? null),
+      );
+
+      return [day, { runs: runs.length, spend, unpriced, mixedCurrencies }];
+    }),
+  );
+};
+
+export const dailyOutputFrom = (
+  spending: ReadonlyMap<string, DaySpending>,
+  resolved: readonly ResolvedDelivery[],
   period: InsightsPeriod,
   markers: readonly ConfigMarker[],
 ): readonly DayOutput[] => {
-  const ran = endedWithin(history.records, period.current).filter(
-    (each) => each.ran,
-  );
-  const merged = history.deliveries.filter(
+  const merged = resolved.filter(
     (each) => each.merged && within(period.current, each.closedAt),
   );
 
   return period.days.map((day) => {
-    const runs = ran.filter(
-      (each) => each.end && dayOf(each.end.endedAt) === day,
-    );
-    const mergedThatDay = merged.filter(
-      (each) => each.closedAt && dayOf(each.closedAt) === day,
-    );
-
-    const { spend, unpriced, mixedCurrencies } = spendingOf(
-      runs.map((each) => each.cost?.spend ?? null),
-    );
+    const mergedThatDay = merged.filter((each) => dayOf(each.closedAt) === day);
 
     return {
       day,
-      runs: runs.length,
-      spend,
-      unpriced,
-      mixedCurrencies,
+      ...(spending.get(day) ?? NO_SPENDING),
       merged: mergedThatDay.length,
-      mergedTaskIds: mergedThatDay.map((each) => each.taskId.value),
+      mergedTaskIds: mergedThatDay.map((each) => each.taskId),
       changes: markers.filter((each) => dayOf(each.firstRunAt) === day),
     };
   });

@@ -20,7 +20,7 @@ export interface RunFailureSummary {
   readonly runIds: readonly string[];
 }
 
-interface Located {
+export interface LocatedFailure {
   readonly taskId: string;
   readonly occurrence: FailureOccurrence;
 }
@@ -29,7 +29,7 @@ export const failuresWithin = (
   failures: readonly TaskFailures[],
   window: Window,
   stationId: string | null = null,
-): readonly Located[] =>
+): readonly LocatedFailure[] =>
   failures.flatMap((each) =>
     each.occurrences
       .filter(
@@ -41,9 +41,9 @@ export const failuresWithin = (
   );
 
 export const taskFailureSummaries = (
-  located: readonly Located[],
+  located: readonly LocatedFailure[],
 ): readonly TaskFailureSummary[] => {
-  const grouped = new Map<string, Located[]>();
+  const grouped = new Map<string, LocatedFailure[]>();
 
   for (const each of located) {
     const key = `${each.occurrence.source}\u0000${each.occurrence.code}`;
@@ -82,7 +82,16 @@ export const runFailureSummaries = (
     }
   }
 
-  return [...grouped.entries()]
-    .map(([failure, runIds]) => ({ failure, runs: runIds.length, runIds }))
-    .sort((a, b) => b.runs - a.runs);
+  return mostRunsFirst(
+    [...grouped.entries()].map(([failure, runIds]) => ({
+      failure,
+      runs: runIds.length,
+      runIds,
+    })),
+  );
 };
+
+export const mostRunsFirst = (
+  summaries: readonly RunFailureSummary[],
+): readonly RunFailureSummary[] =>
+  [...summaries].sort((a, b) => b.runs - a.runs);

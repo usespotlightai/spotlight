@@ -1,7 +1,4 @@
 import type { JudgeStandingPort } from '@outcomes/application/ports/judge-standing.port';
-import type { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
-import type { ScoreRepository } from '@outcomes/domain/repositories/score.repository';
-import { shareOf } from '@outcomes/domain/services/judge-shares';
 import type { JudgeStanding } from '@outcomes/domain/services/judge-standing';
 import type { OutcomesClearance } from '@outcomes/domain/services/outcomes-clearance';
 import type { StationPlace } from '@outcomes/domain/services/team-history';
@@ -10,71 +7,57 @@ export interface StationJudgeStanding extends StationPlace, JudgeStanding {
   readonly rubricVersion: string | null;
 }
 
-export interface TrustedJudging {
+export interface JudgeStandings {
   readonly judges: readonly StationJudgeStanding[];
-  readonly shares: ReadonlyMap<string, number>;
+  readonly trusted: ReadonlyMap<string, string>;
 }
 
 export class TrustedJudges {
-  constructor(
-    private readonly standing: JudgeStandingPort,
-    private readonly scores: ScoreRepository,
-  ) {}
+  constructor(private readonly standing: JudgeStandingPort) {}
 
-  async of(
+  async standings(
     clearance: OutcomesClearance,
     stations: readonly StationPlace[],
-    records: readonly RunRecord[],
-  ): Promise<TrustedJudging> {
-    const judges: StationJudgeStanding[] = [];
-
-    for (const station of stations) {
-      const shape = await this.standing.of({
+  ): Promise<JudgeStandings> {
+    const shapes = await this.standing.standingsOf(
+      {
         workspaceId: clearance.workspaceId.value,
         teamId: clearance.teamId.value,
+      },
+      stations.map((station) => ({
         lineId: station.lineId,
         stationId: station.stationId,
-      });
-
-      if (shape.hiddenBecause !== 'no-judge') {
-        judges.push({
-          lineId: station.lineId,
-          stationId: station.stationId,
-          rubricVersion: shape.rubricVersion,
-          trusted: shape.trusted,
-          measure: shape.measure,
-          agreement: shape.agreement,
-          pairs: shape.pairs,
-          trust: shape.trust,
-          hiddenBecause: shape.hiddenBecause,
-        });
-      }
-    }
-
-    const trusted = new Map(
-      judges
-        .filter((each) => each.trusted && each.rubricVersion !== null)
-        .map((each) => [each.stationId, each.rubricVersion]),
+      })),
     );
-    const judged = records.filter((each) => {
-      const stationId = each.end?.place.stationId;
-      return stationId !== undefined && trusted.has(stationId);
-    });
-    const scores =
-      judged.length === 0
+    const byStation = new Map(shapes.map((each) => [each.stationId, each]));
+    const judges = stations.flatMap((station) => {
+      const shape = byStation.get(station.stationId);
+
+      return !shape || shape.hiddenBecause === 'no-judge'
         ? []
-        : await this.scores.ofRuns(judged.map((each) => each.runId));
+        : [
+            {
+              lineId: station.lineId,
+              stationId: station.stationId,
+              rubricVersion: shape.rubricVersion,
+              trusted: shape.trusted,
+              measure: shape.measure,
+              agreement: shape.agreement,
+              pairs: shape.pairs,
+              trust: shape.trust,
+              hiddenBecause: shape.hiddenBecause,
+            },
+          ];
+    });
 
     return {
       judges,
-      shares: new Map(
-        scores
-          .filter(
-            (each) =>
-              each.fromJudge &&
-              trusted.get(each.place.stationId) === each.rubricVersion,
-          )
-          .map((each) => [each.runId.value, shareOf(each.scale, each.value)]),
+      trusted: new Map(
+        judges.flatMap((each) =>
+          each.trusted && each.rubricVersion !== null
+            ? [[each.stationId, each.rubricVersion] as const]
+            : [],
+        ),
       ),
     };
   }

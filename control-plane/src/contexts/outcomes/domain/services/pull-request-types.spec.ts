@@ -70,4 +70,15 @@ describe('pullRequestTypeOf', () => {
       'feature',
     );
   });
+
+  it('reads no type from a word that only names a property of every object', () => {
+    expect(
+      pullRequestTypeOf({
+        changeTitles: [],
+        changeIntents: [],
+        title: 'constructor: odd',
+        branch: null,
+      }),
+    ).toBe('other');
+  });
 });

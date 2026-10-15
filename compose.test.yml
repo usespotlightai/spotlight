@@ -22,3 +22,10 @@ services:
       retries: 3
     tmpfs:
       - /var/lib/postgresql
+
+  pgbouncer:
+    environment:
+      POSTGRES_HOST: e2e-db
+    depends_on:
+      e2e-db:
+        condition: service_healthy

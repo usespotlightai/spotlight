@@ -3,6 +3,7 @@ import { RememberCommand } from '@memory/application/commands/remember.command';
 import type { MemoryUsesPort } from '@memory/application/ports/memory-uses.port';
 import type { HeldRun, WorkPort } from '@memory/application/ports/work.port';
 import { MemoryReviews } from '@memory/application/services/memory-reviews.service';
+import { RecordMemoryUses } from '@memory/application/services/record-memory-uses.service';
 import { RunnerMemoryAtHand } from '@memory/application/services/runner-memory-at-hand.service';
 import type { MemoryDraft } from '@memory/domain/aggregates/memory-draft.aggregate';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
@@ -62,8 +63,12 @@ const remembering = (held: HeldRun | null = HELD) => {
   const handler = new RememberHandler(
     new RunnerMemoryAtHand(
       work,
-      { record: async () => {} } as unknown as MemoryUsesPort,
-      { now: () => NOW, sleep: async () => {} },
+      new RecordMemoryUses(
+        { record: async () => {} } as unknown as MemoryUsesPort,
+        { dispatch: async () => {} },
+        { run: (work) => work() },
+        { now: () => NOW, sleep: async () => {} },
+      ),
     ),
     work,
     {

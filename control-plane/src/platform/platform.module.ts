@@ -21,6 +21,7 @@ import { GracefulShutdown } from '@platform/lifecycle/graceful-shutdown';
 import { LoggingModule } from '@platform/logging/logging.module';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { DrizzleModule } from '@platform/persistence/drizzle/drizzle.module';
+import { DrizzleReading } from '@platform/persistence/drizzle/drizzle.reading';
 import { SystemClock } from '@platform/time/system-clock';
 import { TokenMint } from '@platform/tokens/token-mint.service';
 import { JoseWorkloadTokens } from '@platform/workload/jose-workload-tokens';
@@ -54,6 +55,7 @@ import { SHARED_KERNEL_EVENT_TYPES } from '@shared-kernel/domain/event-types';
     { provide: APP_FILTER, useClass: ServerFaultFilter },
     { provide: APP_FILTER, useClass: UseCaseFaultFilter },
     DrizzleContext,
+    DrizzleReading,
     { provide: TRANSACTION, useExisting: DrizzleContext },
     { provide: ISOLATION, useExisting: DrizzleContext },
     { provide: CAUSATION, useClass: AmbientCausation },
@@ -87,6 +89,7 @@ import { SHARED_KERNEL_EVENT_TYPES } from '@shared-kernel/domain/event-types';
     DrizzleModule,
     CqrsModule,
     DrizzleContext,
+    DrizzleReading,
     TRANSACTION,
     ISOLATION,
     CAUSATION,

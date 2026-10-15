@@ -1,3 +1,4 @@
+import type { TaskTouches } from '@outcomes/domain/aggregates/task-touches.aggregate';
 import {
   activitiesOf,
   peopleActiveIn,
@@ -11,7 +12,6 @@ import {
 } from '@outcomes/domain/services/measures';
 import {
   endedWithin,
-  openingsOf,
   type TeamHistory,
   tasksOf,
 } from '@outcomes/domain/services/team-history';
@@ -44,51 +44,97 @@ export interface Headline {
   readonly peopleIds: readonly string[];
 }
 
-export const headlineOf = (history: TeamHistory, window: Window): Headline => {
+export interface HeadlineCounts {
+  readonly runs: number;
+  readonly tasks: number;
+  readonly spend: Spend | null;
+  readonly unpriced: number;
+  readonly mixedCurrencies: boolean;
+  readonly touches: number;
+  readonly people: readonly string[];
+}
+
+export interface ResolvedDelivery {
+  readonly taskId: string;
+  readonly merged: boolean;
+  readonly closedAt: Date;
+  readonly taskOpenedAt: Date | null;
+}
+
+export const headlineCountsOf = (
+  history: TeamHistory,
+  window: Window,
+): HeadlineCounts => {
   const ended = endedWithin(history.records, window).filter((each) => each.ran);
   const tasks = tasksOf(ended);
   const worked = new Set(tasks);
-  const resolved = history.deliveries.filter(
-    (each) => each.state !== 'open' && within(window, each.closedAt),
-  );
-  const merged = resolved.filter((each) => each.merged);
   const { spend, unpriced, mixedCurrencies } = spendingOf(
     ended.map((each) => each.cost?.spend ?? null),
   );
-  const openings = openingsOf(history.touches);
-  const touches = history.touches
-    .filter((each) => worked.has(each.taskId.value))
-    .flatMap((each) => each.acts)
-    .filter((act) => within(window, act.at)).length;
-  const people = peopleActiveIn(activitiesOf(history), window);
 
   return {
+    runs: ended.length,
+    tasks: tasks.length,
     spend,
     unpriced,
     mixedCurrencies,
-    runs: ended.length,
-    tasks: tasks.length,
+    touches: history.touches
+      .filter((each) => worked.has(each.taskId.value))
+      .flatMap((each) => each.acts)
+      .filter((act) => within(window, act.at)).length,
+    people: peopleActiveIn(activitiesOf(history), window),
+  };
+};
+
+export const resolvedDeliveriesOf = (
+  history: TeamHistory,
+  openings: ReadonlyMap<string, TaskTouches>,
+): readonly ResolvedDelivery[] =>
+  history.deliveries.flatMap((each) =>
+    each.state !== 'open' && each.closedAt
+      ? [
+          {
+            taskId: each.taskId.value,
+            merged: each.merged,
+            closedAt: each.closedAt,
+            taskOpenedAt: openings.get(each.taskId.value)?.opening?.at ?? null,
+          },
+        ]
+      : [],
+  );
+
+export const headlineFrom = (
+  counts: HeadlineCounts,
+  resolved: readonly ResolvedDelivery[],
+  window: Window,
+): Headline => {
+  const closed = resolved.filter((each) => within(window, each.closedAt));
+  const merged = closed.filter((each) => each.merged);
+  const { spend } = counts;
+
+  return {
+    spend,
+    unpriced: counts.unpriced,
+    mixedCurrencies: counts.mixedCurrencies,
+    runs: counts.runs,
+    tasks: counts.tasks,
     mergedPullRequests: merged.length,
-    closedPullRequests: resolved.length - merged.length,
-    mergeRate: rateOf(merged.length, resolved.length),
+    closedPullRequests: closed.length - merged.length,
+    mergeRate: rateOf(merged.length, closed.length),
     costPerMerge:
       spend && merged.length > 0
         ? { amount: spend.amount / merged.length, currency: spend.currency }
         : null,
     taskToMerge: spreadOf(
-      merged.flatMap((delivery) => {
-        const opened = openings.get(delivery.taskId.value)?.opening?.at;
-
-        return opened && delivery.closedAt
-          ? [between(opened, delivery.closedAt)]
-          : [];
-      }),
+      merged.flatMap((each) =>
+        each.taskOpenedAt ? [between(each.taskOpenedAt, each.closedAt)] : [],
+      ),
     ),
-    touches,
-    touchesPerTask: rateOf(touches, tasks.length),
-    activePeople: people.length,
-    mergedTaskIds: merged.map((each) => each.taskId.value),
-    peopleIds: people,
+    touches: counts.touches,
+    touchesPerTask: rateOf(counts.touches, counts.tasks),
+    activePeople: counts.people.length,
+    mergedTaskIds: merged.map((each) => each.taskId),
+    peopleIds: counts.people,
   };
 };
 

@@ -1,6 +1,11 @@
 import { day, historyOf } from '@outcomes/domain/insights.fake-spec';
 import { costedRecord, endedRecord } from '@outcomes/domain/outcomes.fake-spec';
-import { costBreakdownOf } from '@outcomes/domain/services/cost-breakdown';
+import {
+  costBreakdownFrom,
+  costCountsOf,
+} from '@outcomes/domain/services/cost-breakdown';
+import type { TeamHistory } from '@outcomes/domain/services/team-history';
+import type { Window } from '@outcomes/domain/value-objects/insights-period.vo';
 import { InsightsPeriod } from '@outcomes/domain/value-objects/insights-period.vo';
 import { RunCost } from '@outcomes/domain/value-objects/run-cost.vo';
 import { RunTools } from '@outcomes/domain/value-objects/run-tools.vo';
@@ -30,7 +35,10 @@ const tokened = (
     RunTools.NONE,
   );
 
-describe('costBreakdownOf', () => {
+const costBreakdownOf = (history: TeamHistory, window: Window) =>
+  costBreakdownFrom(costCountsOf(history, window));
+
+describe('costBreakdownFrom the counts of costCountsOf', () => {
   it('shares out cache reads among the input the runs read, leaving out runs whose counts are unknown', () => {
     const history = historyOf({
       records: [

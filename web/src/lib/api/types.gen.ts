@@ -5160,10 +5160,6 @@ export type PersonNameResponseDto = {
 export type InsightsOverviewResponseDto = {
   period: InsightsPeriodResponseDto;
   /**
-   * Whether the team ran more than 20,000 runs over the period and the one before, so only the latest 20,000 were counted
-   */
-  truncated: boolean;
-  /**
    * This period
    */
   headline: HeadlineResponseDto;
@@ -5288,10 +5284,6 @@ export type FlowResponseDto = {
 
 export type InsightsFlowResponseDto = {
   period: InsightsPeriodResponseDto;
-  /**
-   * Whether the team ran more than 20,000 runs over the period and the one before, so only the latest 20,000 were counted
-   */
-  truncated: boolean;
   /**
    * This period
    */
@@ -5425,10 +5417,6 @@ export type StationReportResponseDto = {
 export type InsightsStationsResponseDto = {
   period: InsightsPeriodResponseDto;
   /**
-   * Whether the team ran more than 20,000 runs over the period and the one before, so only the latest 20,000 were counted
-   */
-  truncated: boolean;
-  /**
    * The whole team
    */
   team: RunTallyResponseDto;
@@ -5555,10 +5543,6 @@ export type AdoptionResponseDto = {
 export type InsightsPeopleResponseDto = {
   period: InsightsPeriodResponseDto;
   /**
-   * Whether the team ran more than 20,000 runs over the period and the one before, so only the latest 20,000 were counted
-   */
-  truncated: boolean;
-  /**
    * This period
    */
   load: HumanLoadResponseDto;
@@ -5678,10 +5662,6 @@ export type CostBreakdownResponseDto = {
 
 export type InsightsCostResponseDto = {
   period: InsightsPeriodResponseDto;
-  /**
-   * Whether the team ran more than 20,000 runs over the period and the one before, so only the latest 20,000 were counted
-   */
-  truncated: boolean;
   cost: CostBreakdownResponseDto;
   /**
    * Spend against the period before, where both periods were priced in one currency
@@ -5821,10 +5801,6 @@ export type ToolRefusalsResponseDto = {
 
 export type InsightsToolsResponseDto = {
   period: InsightsPeriodResponseDto;
-  /**
-   * Whether the team had more than 20,000 runs in the period, so only the newest 20,000 were counted
-   */
-  truncated: boolean;
   /**
    * The Mondays of every week the period touches, oldest first
    */
@@ -5970,10 +5946,6 @@ export type StationStandingResponseDto = {
 export type InsightsChangesResponseDto = {
   period: InsightsPeriodResponseDto;
   /**
-   * Whether the team ran more than 20,000 runs over the period and the one before, so only the latest 20,000 were counted
-   */
-  truncated: boolean;
-  /**
    * Every station config change in the period, the oldest first, with the station’s tally before and after it
    */
   markers: Array<ChangeMarkerResponseDto>;
@@ -6051,10 +6023,6 @@ export type SetupOutcomeResponseDto = {
 export type InsightsSetupsResponseDto = {
   period: InsightsPeriodResponseDto;
   /**
-   * Whether the team ran more than 20,000 runs over the period and the one before, so only the latest 20,000 were counted
-   */
-  truncated: boolean;
-  /**
    * The station the comparison was narrowed to, if any
    */
   stationId: string | null;
@@ -6116,10 +6084,6 @@ export type MemoryBenchmarkResponseDto = {
 
 export type InsightsMemoryResponseDto = {
   period: InsightsPeriodResponseDto;
-  /**
-   * Whether the team ran more than 20,000 runs over the period and the one before, so only the latest 20,000 were counted
-   */
-  truncated: boolean;
   /**
    * Memories the team keeps now
    */
@@ -6372,10 +6336,6 @@ export type RoundsShareResponseDto = {
 
 export type InsightsPullRequestsResponseDto = {
   period: InsightsPeriodResponseDto;
-  /**
-   * Whether the team had more than 20,000 pull requests in the period, so only the newest 20,000 were counted
-   */
-  truncated: boolean;
   /**
    * Pull requests recorded in the team’s repositories that were open at some point in the period, whatever became of them
    */
@@ -6677,10 +6637,6 @@ export type PipelineFlowResponseDto = {
 export type InsightsShippingResponseDto = {
   period: InsightsPeriodResponseDto;
   /**
-   * Whether only the latest pull requests or runs were counted
-   */
-  truncated: boolean;
-  /**
    * Opened to merged, for pull requests merged in the period
    */
   toMerge: ByAuthorResponseDto;
@@ -6767,7 +6723,6 @@ export type InsightsPullRequestResponseDto = {
 
 export type InsightsPullRequestListResponseDto = {
   period: InsightsPeriodResponseDto;
-  truncated: boolean;
   /**
    * Pull requests that match
    */

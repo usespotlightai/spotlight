@@ -77,7 +77,6 @@ const week = {
 
 const SUMMARY = {
   period: { name: '30d' },
-  truncated: false,
   total: 6,
   repositories: ['acme/api'],
   weeks: ['2026-09-28'],
@@ -152,7 +151,6 @@ const pullRequest = (over: Partial<InsightsPullRequest>): InsightsPullRequest =>
 
 const LIST = {
   period: { name: '30d' },
-  truncated: false,
   total: 2,
   page: 1,
   size: 50,
@@ -324,16 +322,6 @@ describe('the pull requests of the Productivity tab', () => {
     expect(within(types).getByRole('link', { name: '2' })).toHaveAttribute(
       'href',
       `${PRODUCTIVITY}&author=spotlight&type=fix&state=merged`,
-    );
-  });
-
-  it('says when only the newest pull requests were counted', () => {
-    answers.summary = held({ ...SUMMARY, truncated: true });
-
-    showing();
-
-    expect(screen.getByRole('note')).toHaveTextContent(
-      'Only the newest 20,000 pull requests in this period are counted.',
     );
   });
 

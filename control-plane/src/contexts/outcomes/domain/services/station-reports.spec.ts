@@ -6,13 +6,21 @@ import {
 } from '@outcomes/domain/insights.fake-spec';
 import { endedRecord } from '@outcomes/domain/outcomes.fake-spec';
 import {
-  stationReportsOf,
-  teamReportOf,
+  stationReportsFrom,
+  teamCountsOf,
+  teamReportFrom,
 } from '@outcomes/domain/services/station-reports';
+import type { TeamHistory } from '@outcomes/domain/services/team-history';
 import { InsightsPeriod } from '@outcomes/domain/value-objects/insights-period.vo';
 import { describe, expect, it } from 'vitest';
 
 const PERIOD = InsightsPeriod.of('7d', new Date('2026-10-01T15:00:00.000Z'));
+
+const stationReportsOf = (history: TeamHistory, period: InsightsPeriod) =>
+  stationReportsFrom(teamCountsOf(history, period), period);
+
+const teamReportOf = (history: TeamHistory, period: InsightsPeriod) =>
+  teamReportFrom(teamCountsOf(history, period), period);
 
 describe('stationReportsOf', () => {
   it('tallies each station this period and the one before, and per day', () => {

@@ -375,16 +375,8 @@ describe('what the outcomes context hears for a team’s insights (e2e)', () => 
     );
   });
 
-  it('reads the tools a run used with each record of the team', async () => {
-    const [record] = await app.get(DrizzleRunRecordRepository).endedForTeam(
-      {
-        workspaceId: team.workspaceId,
-        teamId: team.teamId,
-        from: ago(7 * 24 * 60),
-        to: ago(0),
-      },
-      10,
-    );
+  it('reads the tools a run used with each record it reads at once', async () => {
+    const [record] = await app.get(DrizzleRunRecordRepository).ofRuns([RUN]);
 
     expect(record?.tools?.callsTo('linear')?.latency).toEqual(
       LatencyHistogram.timing([200, 400, 900]),
@@ -446,11 +438,35 @@ describe('the team’s insights (e2e)', () => {
       unpriced: 0,
       mixedCurrencies: false,
     });
-    expect(answer.body.truncated).toBe(false);
     expect(answer.body.headline.taskToMerge.count).toBe(1);
     expect(answer.body.people).toEqual([
       { personId: team.owner.value, name: 'Ada' },
     ]);
+  });
+
+  it('lays the run and its merge out by day, against an empty period before', async () => {
+    const answer = await asOwner(insights('overview'));
+    const output: {
+      runs: number;
+      spend: unknown;
+      mergedTaskIds: string[];
+    }[] = answer.body.output;
+
+    expect(output).toHaveLength(7);
+    expect(output.filter((each) => each.runs > 0)).toEqual([
+      expect.objectContaining({
+        runs: 1,
+        spend: { amount: 1.25, currency: 'USD' },
+        unpriced: 0,
+      }),
+    ]);
+    expect(output.flatMap((each) => each.mergedTaskIds)).toEqual([TASK.value]);
+    expect(answer.body.outputCurrency).toBe('USD');
+    expect(answer.body.outputMixedCurrencies).toBe(false);
+    expect(answer.body.changes.mergedPullRequests).toMatchObject({
+      fromZero: true,
+    });
+    expect(answer.body.changes.activePeople).toMatchObject({ fromZero: true });
   });
 
   it('answers a workspace token with the read scope', async () => {

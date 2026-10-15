@@ -1,5 +1,6 @@
 import type { MemoryUsesPort } from '@memory/application/ports/memory-uses.port';
 import type { HeldRun, WorkPort } from '@memory/application/ports/work.port';
+import { RecordMemoryUses } from '@memory/application/services/record-memory-uses.service';
 import { RunnerMemoryAtHand } from '@memory/application/services/runner-memory-at-hand.service';
 import { KeptFromSearchesError } from '@memory/domain/exceptions/kept-from-searches.error';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
@@ -26,12 +27,16 @@ const atHand = (holding: HeldRun = held(false)) => {
   const recorded: string[][] = [];
   const hand = new RunnerMemoryAtHand(
     { heldBy: async () => holding } as unknown as WorkPort,
-    {
-      record: async (_run: RunId, _way: string, memories: MemoryId[]) => {
-        recorded.push(memories.map((each) => each.value));
-      },
-    } as unknown as MemoryUsesPort,
-    { now: () => NOW, sleep: async () => {} },
+    new RecordMemoryUses(
+      {
+        record: async (_run: RunId, _way: string, memories: MemoryId[]) => {
+          recorded.push(memories.map((each) => each.value));
+        },
+      } as unknown as MemoryUsesPort,
+      { dispatch: async () => {} },
+      { run: (work) => work() },
+      { now: () => NOW, sleep: async () => {} },
+    ),
   );
 
   return { hand, recorded };

@@ -6,7 +6,6 @@ import { FlaggedMemories } from '@/components/features/insights/memory/FlaggedMe
 import { MemoryComparison } from '@/components/features/insights/memory/MemoryComparison';
 import { MemorySkeleton } from '@/components/features/insights/memory/MemorySkeleton';
 import { NoMemories } from '@/components/features/insights/memory/NoMemories';
-import { TruncatedNote } from '@/components/features/insights/TruncatedNote';
 import { useInsightsMemory } from '@/hooks/api/useInsightsMemory';
 import type { InsightsPeriod } from '@/lib/insights';
 import { memoryTiles, usedNoMemory } from '@/lib/insights-memory';
@@ -37,8 +36,6 @@ export function MemoryTab({ slug, teamId, period }: MemoryTabProps) {
 
   return (
     <div className="flex flex-col gap-3">
-      {read.truncated && <TruncatedNote />}
-
       <InsightsTiles label="Memory use">
         {memoryTiles(read).map((tile) => (
           <InsightsTile
