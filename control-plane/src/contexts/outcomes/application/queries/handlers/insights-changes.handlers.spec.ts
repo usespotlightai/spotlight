@@ -133,13 +133,16 @@ const held = async (
     },
     { now: () => NOW, sleep: async () => {} },
   );
-  const reader = insightsReaderInMemory({
-    records,
-    deliveries,
-    touches: new TaskTouchesInMemory(records),
-    failures: new TaskFailuresInMemory(),
-    chats: new ChatRecordsInMemory(),
-  });
+  const reader = insightsReaderInMemory(
+    {
+      records,
+      deliveries,
+      touches: new TaskTouchesInMemory(records),
+      failures: new TaskFailuresInMemory(),
+      chats: new ChatRecordsInMemory(),
+    },
+    scores,
+  );
 
   for (const [runId, hour, fingerprint, model, act] of [
     ['run_1', 9, FIRST_CONFIG, 'sonnet', 'sent-back'],
@@ -289,9 +292,10 @@ describe('ReadInsightsChangesHandler', () => {
 
 describe('ReadInsightsSetupsHandler', () => {
   it('compares setups, narrowed by station and run size, and judge scores only within one station', async () => {
-    const { histories, scores } = await held();
+    const { histories, scores, reader } = await held();
     const handler = new ReadInsightsSetupsHandler(
       histories,
+      reader,
       new TrustedJudges(standing(true), scores),
     );
 
@@ -321,9 +325,10 @@ describe('ReadInsightsSetupsHandler', () => {
   });
 
   it('refuses a size it does not know', async () => {
-    const { histories, scores } = await held();
+    const { histories, scores, reader } = await held();
     const handler = new ReadInsightsSetupsHandler(
       histories,
+      reader,
       new TrustedJudges(standing(true), scores),
     );
 

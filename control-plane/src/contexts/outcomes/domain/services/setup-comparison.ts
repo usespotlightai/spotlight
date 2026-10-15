@@ -1,14 +1,24 @@
 import type { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
+import type { Score } from '@outcomes/domain/aggregates/score.aggregate';
 import type { TaskDelivery } from '@outcomes/domain/aggregates/task-delivery.aggregate';
 import {
+  type GroupCounts,
+  groupCountsOf,
+} from '@outcomes/domain/services/change-verdict';
+import {
   type JudgeShare,
-  judgeShareOf,
+  shareOf,
 } from '@outcomes/domain/services/judge-shares';
-import { rateOf, spendingOf } from '@outcomes/domain/services/measures';
+import { byText, rateOf } from '@outcomes/domain/services/measures';
 import { paretoFrontier } from '@outcomes/domain/services/pareto';
-import { type RunTally, runTally } from '@outcomes/domain/services/run-tally';
-import { settledFor } from '@outcomes/domain/services/station-measures';
-import { tasksOf } from '@outcomes/domain/services/team-history';
+import { type RunSize, sizeOf } from '@outcomes/domain/services/run-size';
+import { type RunTally, tallyOf } from '@outcomes/domain/services/run-tally';
+import {
+  endedWithin,
+  type StationPlace,
+  stationsOf,
+} from '@outcomes/domain/services/team-history';
+import type { Window } from '@outcomes/domain/value-objects/insights-period.vo';
 
 export const OUTCOME_MEASURES = [
   'accepted',
@@ -71,35 +81,171 @@ const setupOf = (record: RunRecord): Setup | null => {
     : null;
 };
 
-const answered = (record: RunRecord): boolean =>
-  record.next !== null || record.handedOn !== null;
+export interface JudgedRun {
+  readonly runId: string;
+  readonly rubricVersion: string;
+  readonly share: number;
+}
 
-const outcomesOf = (
+export interface RubricShares {
+  readonly rubricVersion: string;
+  readonly sum: number;
+  readonly judged: number;
+}
+
+export interface SetupCounts extends Setup {
+  readonly counts: GroupCounts;
+  readonly answered: number;
+  readonly rubrics: readonly RubricShares[];
+}
+
+export interface SetupComparisonCounts {
+  readonly stations: readonly StationPlace[];
+  readonly setups: readonly SetupCounts[];
+}
+
+const nullsFirst = (one: string | null, other: string | null): number =>
+  one === null || other === null
+    ? Number(other === null) - Number(one === null)
+    : byText(one, other);
+
+const inSetupOrder = (one: Setup, other: Setup): number =>
+  byText(one.harness, other.harness) ||
+  nullsFirst(one.model, other.model) ||
+  nullsFirst(one.effort, other.effort) ||
+  nullsFirst(one.profileKey, other.profileKey);
+
+export const setupRunsWithin = (
+  records: readonly RunRecord[],
+  window: Window,
+  stationId: string | null,
+  size: RunSize | null,
+): readonly RunRecord[] =>
+  endedWithin(records, window).filter(
+    (each) =>
+      (stationId === null || each.end?.place.stationId === stationId) &&
+      (size === null || sizeOf(each) === size),
+  );
+
+export const judgedRunsOf = (
+  scores: readonly Score[],
+  stationId: string,
+): readonly JudgedRun[] =>
+  scores.flatMap((each) =>
+    each.fromJudge &&
+    each.rubricVersion !== null &&
+    each.place.stationId === stationId
+      ? [
+          {
+            runId: each.runId.value,
+            rubricVersion: each.rubricVersion,
+            share: shareOf(each.scale, each.value),
+          },
+        ]
+      : [],
+  );
+
+const rubricsOf = (
+  records: readonly RunRecord[],
+  judged: ReadonlyMap<string, readonly JudgedRun[]>,
+): readonly RubricShares[] => {
+  const held = new Map<string, RubricShares>();
+
+  for (const record of records) {
+    for (const each of judged.get(record.runId.value) ?? []) {
+      const was = held.get(each.rubricVersion);
+
+      held.set(each.rubricVersion, {
+        rubricVersion: each.rubricVersion,
+        sum: (was?.sum ?? 0) + each.share,
+        judged: (was?.judged ?? 0) + 1,
+      });
+    }
+  }
+
+  return [...held.values()].sort((one, other) =>
+    byText(one.rubricVersion, other.rubricVersion),
+  );
+};
+
+const byRun = (
+  judged: readonly JudgedRun[],
+): ReadonlyMap<string, readonly JudgedRun[]> => {
+  const held = new Map<string, JudgedRun[]>();
+
+  for (const each of judged) {
+    const ofRun = held.get(each.runId) ?? [];
+
+    ofRun.push(each);
+    held.set(each.runId, ofRun);
+  }
+
+  return held;
+};
+
+export const setupCountsOf = (
   records: readonly RunRecord[],
   deliveries: readonly TaskDelivery[],
-  judge: JudgeShare | null,
-): Record<OutcomeMeasure, number | null> => {
-  const actedOn = records.filter(settledFor('accepted_rate', deliveries));
-  const acted = runTally(actedOn, deliveries);
-  const left = records.filter(answered);
-  const checked = runTally(records, deliveries);
-  const closed = records.filter(settledFor('merged_rate', deliveries));
+  judged: readonly JudgedRun[],
+): SetupComparisonCounts => {
+  const groups = new Map<string, { setup: Setup; records: RunRecord[] }>();
+  const judgedByRun = byRun(judged);
+
+  for (const record of records.filter((each) => each.ran)) {
+    const setup = setupOf(record);
+
+    if (setup) {
+      const key = keyOf(setup);
+      const group = groups.get(key) ?? { setup, records: [] };
+
+      group.records.push(record);
+      groups.set(key, group);
+    }
+  }
 
   return {
-    accepted: rateOf(acted.accepted, acted.runs),
-    sent_back: rateOf(acted.sentBack, acted.runs),
-    handed_on: rateOf(
-      left.filter((each) => each.handedOn !== null).length,
-      left.length,
-    ),
-    checks_passed: rateOf(
-      checked.checksPassed,
-      checked.checksPassed + checked.checksFailed,
-    ),
-    merged: rateOf(runTally(closed, deliveries).merged, tasksOf(closed).length),
-    judge: judge?.mean ?? null,
+    stations: stationsOf(records),
+    setups: [...groups.values()]
+      .map(
+        (group): SetupCounts => ({
+          ...group.setup,
+          counts: groupCountsOf(group.records, deliveries),
+          answered: group.records.filter(
+            (each) => each.next !== null || each.handedOn !== null,
+          ).length,
+          rubrics: rubricsOf(group.records, judgedByRun),
+        }),
+      )
+      .sort(inSetupOrder),
   };
 };
+
+const judgeOf = (
+  rubrics: readonly RubricShares[],
+  trusted: string | null,
+): JudgeShare => {
+  const held = rubrics.find((each) => each.rubricVersion === trusted);
+
+  return held
+    ? { mean: held.sum / held.judged, judged: held.judged }
+    : { mean: null, judged: 0 };
+};
+
+const outcomesOf = (
+  tally: RunTally,
+  { counts, answered }: SetupCounts,
+  judge: JudgeShare | null,
+): Record<OutcomeMeasure, number | null> => ({
+  accepted: rateOf(tally.accepted, counts.settled.acted),
+  sent_back: rateOf(tally.sentBack, counts.settled.acted),
+  handed_on: rateOf(tally.handedOn, answered),
+  checks_passed: rateOf(
+    tally.checksPassed,
+    tally.checksPassed + tally.checksFailed,
+  ),
+  merged: rateOf(tally.merged, counts.settled.finishedTasks),
+  judge: judge?.mean ?? null,
+});
 
 const mostUsed = (currencies: readonly string[]): string | null => {
   const counted = new Map<string, number>();
@@ -115,50 +261,36 @@ const mostUsed = (currencies: readonly string[]): string | null => {
   );
 };
 
-export const setupsCompared = (
-  records: readonly RunRecord[],
-  deliveries: readonly TaskDelivery[],
-  judgeShares: ReadonlyMap<string, number> | null,
+export type SetupJudging =
+  | { readonly withheld: true }
+  | { readonly withheld: false; readonly trusted: string | null };
+
+export const setupsFrom = (
+  setups: readonly SetupCounts[],
+  judging: SetupJudging,
 ): SetupComparison => {
-  const groups = new Map<string, { setup: Setup; records: RunRecord[] }>();
-
-  for (const record of records.filter((each) => each.ran)) {
-    const setup = setupOf(record);
-
-    if (!setup) {
-      continue;
-    }
-
-    const key = keyOf(setup);
-    const group = groups.get(key) ?? { setup, records: [] };
-    group.records.push(record);
-    groups.set(key, group);
-  }
-
-  const measured = [...groups.entries()].map(([key, group]) => {
-    const tally = runTally(group.records, deliveries);
-    const spending = spendingOf(
-      group.records.map((each) => each.cost?.spend ?? null),
-    );
-    const judge = judgeShares
-      ? judgeShareOf(
-          group.records.flatMap((each) => {
-            const share = judgeShares.get(each.runId.value);
-            return share === undefined ? [] : [share];
-          }),
-        )
-      : null;
+  const measured = setups.map((each) => {
+    const tally = tallyOf(each.counts.tally);
+    const judge = judging.withheld
+      ? null
+      : judgeOf(each.rubrics, judging.trusted);
+    const setup: Setup = {
+      harness: each.harness,
+      model: each.model,
+      effort: each.effort,
+      profileKey: each.profileKey,
+    };
 
     return {
-      key,
-      setup: group.setup,
+      key: keyOf(setup),
+      setup,
       tally,
-      costPerRun: spending.spend
-        ? rateOf(spending.spend.amount, spending.priced)
+      costPerRun: tally.cost
+        ? rateOf(tally.cost.amount, tally.runs - tally.unpriced)
         : null,
-      currency: spending.spend?.currency ?? null,
+      currency: tally.cost?.currency ?? null,
       judge,
-      outcomes: outcomesOf(group.records, deliveries, judge),
+      outcomes: outcomesOf(tally, each, judge),
     };
   });
 

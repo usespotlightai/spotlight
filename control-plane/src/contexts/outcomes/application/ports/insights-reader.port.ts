@@ -3,6 +3,8 @@ import type { FlowCounts } from '@outcomes/domain/services/flow';
 import type { MemoryCounts } from '@outcomes/domain/services/memory-comparison';
 import type { OverviewCounts } from '@outcomes/domain/services/overview-counts';
 import type { PeopleCounts } from '@outcomes/domain/services/people-counts';
+import type { RunSize } from '@outcomes/domain/services/run-size';
+import type { SetupComparisonCounts } from '@outcomes/domain/services/setup-comparison';
 import type { PipelineCounts } from '@outcomes/domain/services/shipping';
 import type { TeamCounts } from '@outcomes/domain/services/station-reports';
 import type { ToolCounts } from '@outcomes/domain/services/tool-insights';
@@ -18,6 +20,11 @@ export interface TeamInPeriod {
   readonly period: InsightsPeriod;
 }
 
+export interface SetupFilter {
+  readonly stationId: string | null;
+  readonly size: RunSize | null;
+}
+
 export interface InsightsReaderPort {
   stationCounts(team: TeamInPeriod): Promise<TeamCounts>;
   overviewCounts(team: TeamInPeriod): Promise<OverviewCounts>;
@@ -30,4 +37,8 @@ export interface InsightsReaderPort {
   ): Promise<PipelineCounts>;
   toolCounts(team: TeamInPeriod): Promise<ToolCounts>;
   memoryCounts(team: TeamInPeriod): Promise<MemoryCounts>;
+  setupCounts(
+    team: TeamInPeriod,
+    filter: SetupFilter,
+  ): Promise<SetupComparisonCounts>;
 }

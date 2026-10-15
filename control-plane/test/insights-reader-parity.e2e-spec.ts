@@ -2,6 +2,7 @@ import { OutcomesAccess } from '@outcomes/application/services/outcomes-access.s
 import { TeamHistories } from '@outcomes/application/services/team-histories.service';
 import { ChatRecord } from '@outcomes/domain/aggregates/chat-record.aggregate';
 import { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
+import { Score } from '@outcomes/domain/aggregates/score.aggregate';
 import { TaskDelivery } from '@outcomes/domain/aggregates/task-delivery.aggregate';
 import { TaskFailures } from '@outcomes/domain/aggregates/task-failures.aggregate';
 import { TaskTouches } from '@outcomes/domain/aggregates/task-touches.aggregate';
@@ -19,14 +20,24 @@ import {
   weekOf,
   weekWindowOf,
 } from '@outcomes/domain/services/pull-request-insights';
+import { RUN_SIZES, type RunSize } from '@outcomes/domain/services/run-size';
+import {
+  judgedRunsOf,
+  setupCountsOf,
+  setupRunsWithin,
+} from '@outcomes/domain/services/setup-comparison';
 import { pipelineCountsOf } from '@outcomes/domain/services/shipping';
 import {
   stationReportsFrom,
   teamCountsOf,
   teamReportFrom,
 } from '@outcomes/domain/services/station-reports';
-import { openingsOf } from '@outcomes/domain/services/team-history';
+import {
+  openingsOf,
+  type TeamHistory,
+} from '@outcomes/domain/services/team-history';
 import { toolCountsOf } from '@outcomes/domain/services/tool-insights';
+import { Citation } from '@outcomes/domain/value-objects/citation.vo';
 import { FailureOccurrence } from '@outcomes/domain/value-objects/failure-occurrence.vo';
 import { HandedOn } from '@outcomes/domain/value-objects/handed-on.vo';
 import { InboxAsk } from '@outcomes/domain/value-objects/inbox-ask.vo';
@@ -34,6 +45,7 @@ import {
   INSIGHTS_PERIODS,
   InsightsPeriod,
 } from '@outcomes/domain/value-objects/insights-period.vo';
+import { JudgeReason } from '@outcomes/domain/value-objects/judge-reason.vo';
 import { NEXT_ACTS, NextAct } from '@outcomes/domain/value-objects/next-act.vo';
 import { PersonTouch } from '@outcomes/domain/value-objects/person-touch.vo';
 import { Refusal } from '@outcomes/domain/value-objects/refusal.vo';
@@ -47,11 +59,19 @@ import {
   RunTools,
   type ServerCalls,
 } from '@outcomes/domain/value-objects/run-tools.vo';
+import { ScoreId } from '@outcomes/domain/value-objects/score-id.vo';
+import {
+  SCORE_KINDS,
+  ScoreScale,
+  shareMet,
+} from '@outcomes/domain/value-objects/score-scale.vo';
+import { SeenEvidence } from '@outcomes/domain/value-objects/seen-evidence.vo';
 import { TaskOpening } from '@outcomes/domain/value-objects/task-opening.vo';
 import { DrizzleRunFactProjection } from '@outcomes/infrastructure/persistence/drizzle/projections/run-fact.projection';
 import { DrizzleInsightsReader } from '@outcomes/infrastructure/persistence/drizzle/readers/insights.reader';
 import { DrizzleChatRecordRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/chat-record.repository';
 import { DrizzleRunRecordRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/run-record.repository';
+import { DrizzleScoreRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/score.repository';
 import { DrizzleTaskDeliveryRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/task-delivery.repository';
 import { DrizzleTaskFailuresRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/task-failures.repository';
 import { DrizzleTaskTouchesRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/task-touches.repository';
@@ -154,6 +174,11 @@ const toolPick = <T>(from: readonly T[]): T =>
 const toolChance = (share: number): boolean => toolRandom() < share;
 const upTo = (most: number): number => Math.floor(toolRandom() * (most + 1));
 
+const setupRandom = seeded(SEED * 17 + 3);
+const setupPick = <T>(from: readonly T[]): T =>
+  from[Math.floor(setupRandom() * from.length)] as T;
+const RUBRICS = ['a'.repeat(64), 'b'.repeat(64)];
+
 const SKILLS = [[], ['grafana'], ['grafana', 'release-notes'], ['deploy']];
 const READ = ['grafana', 'release-notes', 'deploy', 'Search'];
 const SERVERS = ['linear', 'github', 'sentry'];
@@ -232,6 +257,7 @@ let held: TestDatabase;
 let histories: TeamHistories;
 let reader: DrizzleInsightsReader;
 let touches: DrizzleTaskTouchesRepository;
+let scores: DrizzleScoreRepository;
 
 beforeAll(async () => {
   held = await openDatabase('insights_parity');
@@ -245,6 +271,7 @@ beforeAll(async () => {
   touches = new DrizzleTaskTouchesRepository(context, facts);
   const failures = new DrizzleTaskFailuresRepository(context);
   const chats = new DrizzleChatRecordRepository(context);
+  scores = new DrizzleScoreRepository(context, quiet);
 
   histories = new TeamHistories(
     new OutcomesAccess({
@@ -285,8 +312,8 @@ beforeAll(async () => {
           setup: RunSetup.of({
             harness: pick(['claude-code', 'codex']),
             model: pick(['opus', 'sonnet', null]),
-            effort: null,
-            profileKey: null,
+            effort: setupPick([null, null, 'high']),
+            profileKey: setupPick([null, null, 'fast']),
             repositories: pick(REPOSITORIES),
             skills: toolPick(SKILLS),
           }),
@@ -304,9 +331,9 @@ beforeAll(async () => {
         record = record.digested(
           RunCost.of({
             ms: chance(0.9) ? Math.floor(random() * 3_600_000) : null,
-            steps: 3,
+            steps: setupPick([3, 20, 21, 80, 81]),
             faults: 0,
-            changedLines: 10,
+            changedLines: setupPick([0, 0, 10, 50, 51, 400, 401]),
             used: null,
             size: null,
             amount: chance(0.85) ? Math.round(random() * 1000) / 100 : null,
@@ -357,6 +384,51 @@ beforeAll(async () => {
       record = rememberedIn(refusedIn(record, endedAt));
 
       await records.add(record);
+
+      for (const rubricVersion of RUBRICS) {
+        if (setupRandom() < 0.4) {
+          const kind = setupPick(SCORE_KINDS);
+          const marks =
+            kind === 'claims'
+              ? Array.from(
+                  { length: setupPick([1, 2, 3, 4]) },
+                  () => setupRandom() < 0.5,
+                )
+              : null;
+
+          await scores.add(
+            Score.judged({
+              id: ScoreId.of(`score_${index}_${rubricVersion.slice(0, 1)}`),
+              runId: record.runId,
+              workspaceId: home.workspaceId,
+              place: RunPlace.of({
+                teamId: home.teamId,
+                ...(setupRandom() < 0.1 ? setupPick(STATIONS) : station),
+                taskId,
+              }),
+              fingerprint: null,
+              scale: ScoreScale.of(kind),
+              value: marks
+                ? shareMet(marks)
+                : kind === 'yes-no'
+                  ? setupPick([0, 1])
+                  : setupPick([1, 2, 3, 4, 5]),
+              marks,
+              rubricVersion,
+              model: 'judge/model',
+              reasons: (marks ?? [true]).map((_, at) =>
+                JudgeReason.of({
+                  text: `Reason ${at}.`,
+                  citations: [Citation.ofStep(1)],
+                  claim: marks ? at : null,
+                }),
+              ),
+              seen: SeenEvidence.none(),
+              at: endedAt,
+            }),
+          );
+        }
+      }
 
       if (index % 2 === 0) {
         const far = chance(0.15);
@@ -1425,6 +1497,238 @@ describe('how the memory counts leave out what did not run', () => {
       },
     });
     expect(counts).toEqual(memoryCountsOf(history, period.current));
+  });
+});
+
+const setupsExpected = async (
+  history: TeamHistory,
+  period: InsightsPeriod,
+  stationId: string | null,
+  size: RunSize | null,
+) => {
+  const records = setupRunsWithin(
+    history.records,
+    period.current,
+    stationId,
+    size,
+  );
+
+  return setupCountsOf(
+    records,
+    history.deliveries,
+    stationId === null
+      ? []
+      : judgedRunsOf(
+          await scores.ofRuns(records.map((each) => each.runId)),
+          stationId,
+        ),
+  );
+};
+
+describe('the setups a team’s runs used', () => {
+  const FILTERS = [null, 'review', 'plan', 'elsewhere_only'].flatMap(
+    (stationId) => [null, ...RUN_SIZES].map((size) => ({ stationId, size })),
+  );
+
+  it.each(INSIGHTS_PERIODS)(
+    'counts the same setups as the domain over %s, for every station and size',
+    async (name) => {
+      const { history, period, truncated } = await histories.of(
+        TEAM.value,
+        PersonPrincipal.of(VIEWER),
+        name,
+      );
+
+      expect(truncated).toBe(false);
+
+      for (const { stationId, size } of FILTERS) {
+        expect(
+          await reader.setupCounts(
+            { workspaceId: WORKSPACE, teamId: TEAM, period },
+            { stationId, size },
+          ),
+        ).toEqual(await setupsExpected(history, period, stationId, size));
+      }
+    },
+  );
+
+  it('covers what makes setup counts hard to get right', async () => {
+    const { period } = await histories.scope(
+      TEAM.value,
+      PersonPrincipal.of(VIEWER),
+      '90d',
+    );
+    const at = (stationId: string | null, size: RunSize | null) =>
+      reader.setupCounts(
+        { workspaceId: WORKSPACE, teamId: TEAM, period },
+        { stationId, size },
+      );
+    const all = await at(null, null);
+    const review = await at('review', null);
+
+    expect(all.setups.length).toBeGreaterThan(3);
+    expect(all.setups.some((each) => each.model === null)).toBe(true);
+    expect(all.setups.some((each) => each.effort === null)).toBe(true);
+    expect(all.setups.some((each) => each.profileKey !== null)).toBe(true);
+    expect(all.setups.every((each) => each.rubrics.length === 0)).toBe(true);
+    expect(
+      all.setups.some((each) => each.answered > each.counts.settled.acted),
+    ).toBe(true);
+    expect(review.setups.some((each) => each.rubrics.length === 2)).toBe(true);
+    for (const size of RUN_SIZES) {
+      expect((await at(null, size)).setups.length).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe('how setups fall into sizes and judges', () => {
+  const SIZED = TeamId.of('team_sized');
+  const period = InsightsPeriod.of('7d', NOW);
+  const SIZES: readonly (readonly [string, number, number, boolean])[] = [
+    ['lines_50', 50, 99, true],
+    ['lines_51', 51, 1, true],
+    ['lines_401', 401, 1, true],
+    ['steps_20', 0, 20, true],
+    ['steps_21', 0, 21, true],
+    ['not_digested', 0, 1, false],
+  ];
+
+  beforeAll(async () => {
+    const context = new DrizzleContext(held.db);
+    const quiet = {
+      dispatch: async () => {},
+    } as unknown as DomainEventDispatcher;
+    const records = new DrizzleRunRecordRepository(
+      context,
+      new DrizzleRunFactProjection(context),
+      quiet,
+    );
+    const judged = new DrizzleScoreRepository(context, quiet);
+    const placeOf = (runId: string) =>
+      RunPlace.of({
+        teamId: SIZED,
+        lineId: 'line_sized',
+        stationId: 'sizing',
+        taskId: TaskId.of(`task_${runId}`),
+      });
+
+    await context.run(async () => {
+      for (const [runId, changedLines, steps, digested] of [
+        ...SIZES,
+      ].reverse()) {
+        const ended = RunRecord.heardOf(RunId.of(runId), WORKSPACE).ended(
+          RunEnd.of({
+            place: placeOf(runId),
+            fingerprint: 'a'.repeat(64),
+            setup: RunSetup.of({
+              harness: 'claude-code',
+              model: 'sonnet',
+              effort: null,
+              profileKey: null,
+              repositories: [],
+              skills: [],
+            }),
+            queuedAt: null,
+            startedAt: ago(2 * HOUR),
+            endedAt: ago(HOUR),
+            ending: 'completed',
+            failure: null,
+            round: 1,
+            asked: false,
+          }),
+        );
+
+        await records.add(
+          digested
+            ? ended.digested(
+                RunCost.of({
+                  ms: 1_000,
+                  steps,
+                  faults: 0,
+                  changedLines,
+                  used: null,
+                  size: null,
+                  amount: 1,
+                  currency: 'USD',
+                  tokens: {
+                    input: null,
+                    output: null,
+                    cacheRead: null,
+                    cacheWrite: null,
+                  },
+                }),
+                RunTools.NONE,
+              )
+            : ended,
+        );
+      }
+
+      const oneIn = (met: number, of: number) =>
+        Array.from({ length: of }, (_, at) => at < met);
+
+      for (const [runId, marks] of [
+        ['steps_20', oneIn(3, 10)],
+        ['lines_51', oneIn(1, 5)],
+        ['lines_50', oneIn(1, 10)],
+      ] as const) {
+        await judged.add(
+          Score.judged({
+            id: ScoreId.of(`score_${runId}`),
+            runId: RunId.of(runId),
+            workspaceId: WORKSPACE,
+            place: placeOf(runId),
+            fingerprint: null,
+            scale: ScoreScale.claims(),
+            value: shareMet(marks),
+            marks,
+            rubricVersion: 'c'.repeat(64),
+            model: 'judge/model',
+            reasons: marks.map((_, at) =>
+              JudgeReason.of({
+                text: `Reason ${at}.`,
+                citations: [Citation.ofStep(1)],
+                claim: at,
+              }),
+            ),
+            seen: SeenEvidence.none(),
+            at: ago(HOUR),
+          }),
+        );
+      }
+    });
+  });
+
+  it('puts a run at each limit in the right size, leaves an undigested run out of every size, and sums each judge share', async () => {
+    const { history } = await histories.of(
+      SIZED.value,
+      PersonPrincipal.of(VIEWER),
+      '7d',
+    );
+    const runsOf = async (size: RunSize | null) =>
+      (
+        await reader.setupCounts(
+          { workspaceId: WORKSPACE, teamId: SIZED, period },
+          { stationId: 'sizing', size },
+        )
+      ).setups[0]?.counts.tally.runs ?? 0;
+    const all = await reader.setupCounts(
+      { workspaceId: WORKSPACE, teamId: SIZED, period },
+      { stationId: 'sizing', size: null },
+    );
+
+    expect(await runsOf('small')).toBe(2);
+    expect(await runsOf('medium')).toBe(2);
+    expect(await runsOf('large')).toBe(1);
+    expect(await runsOf(null)).toBe(6);
+    expect(all.setups[0]?.rubrics).toEqual([
+      {
+        rubricVersion: 'c'.repeat(64),
+        // Keep this order: 0.1 + 0.2 + 0.3 is not equal to 0.6.
+        sum: 0.1 + 0.2 + 0.3,
+        judged: 3,
+      },
+    ]);
+    expect(all).toEqual(await setupsExpected(history, period, 'sizing', null));
   });
 });
 

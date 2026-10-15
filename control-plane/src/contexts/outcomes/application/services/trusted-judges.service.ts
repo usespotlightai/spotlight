@@ -10,6 +10,11 @@ export interface StationJudgeStanding extends StationPlace, JudgeStanding {
   readonly rubricVersion: string | null;
 }
 
+export interface JudgeStandings {
+  readonly judges: readonly StationJudgeStanding[];
+  readonly trusted: ReadonlyMap<string, string>;
+}
+
 export interface TrustedJudging {
   readonly judges: readonly StationJudgeStanding[];
   readonly shares: ReadonlyMap<string, number>;
@@ -21,11 +26,10 @@ export class TrustedJudges {
     private readonly scores: ScoreRepository,
   ) {}
 
-  async of(
+  async standings(
     clearance: OutcomesClearance,
     stations: readonly StationPlace[],
-    records: readonly RunRecord[],
-  ): Promise<TrustedJudging> {
+  ): Promise<JudgeStandings> {
     const judges: StationJudgeStanding[] = [];
 
     for (const station of stations) {
@@ -51,11 +55,24 @@ export class TrustedJudges {
       }
     }
 
-    const trusted = new Map(
-      judges
-        .filter((each) => each.trusted && each.rubricVersion !== null)
-        .map((each) => [each.stationId, each.rubricVersion]),
-    );
+    return {
+      judges,
+      trusted: new Map(
+        judges.flatMap((each) =>
+          each.trusted && each.rubricVersion !== null
+            ? [[each.stationId, each.rubricVersion] as const]
+            : [],
+        ),
+      ),
+    };
+  }
+
+  async of(
+    clearance: OutcomesClearance,
+    stations: readonly StationPlace[],
+    records: readonly RunRecord[],
+  ): Promise<TrustedJudging> {
+    const { judges, trusted } = await this.standings(clearance, stations);
     const judged = records.filter((each) => {
       const stationId = each.end?.place.stationId;
       return stationId !== undefined && trusted.has(stationId);

@@ -1,20 +1,13 @@
-import type { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
-import type { TaskDelivery } from '@outcomes/domain/aggregates/task-delivery.aggregate';
 import {
   type GroupCounts,
+  groupCountsOf,
   type MeasureVerdict,
   verdictsFrom,
 } from '@outcomes/domain/services/change-verdict';
-import {
-  type RunTally,
-  runTally,
-  tallyOf,
-} from '@outcomes/domain/services/run-tally';
-import { settledFor } from '@outcomes/domain/services/station-measures';
+import { type RunTally, tallyOf } from '@outcomes/domain/services/run-tally';
 import {
   endedWithin,
   type TeamHistory,
-  tasksOf,
 } from '@outcomes/domain/services/team-history';
 import type { Window } from '@outcomes/domain/value-objects/insights-period.vo';
 
@@ -36,24 +29,6 @@ export interface MemoryComparison {
   readonly memoriesBriefed: number;
   readonly memoriesRecalled: number;
 }
-
-const groupCountsOf = (
-  records: readonly RunRecord[],
-  deliveries: readonly TaskDelivery[],
-): GroupCounts => {
-  const { failedShare: _, ...tally } = runTally(records, deliveries);
-  const finished = records.filter(settledFor('merged_rate', deliveries));
-
-  return {
-    tally,
-    settled: {
-      acted: records.filter((each) => each.next !== null).length,
-      finished: finished.length,
-      finishedTasks: tasksOf(finished).length,
-      digested: records.filter((each) => each.cost !== null).length,
-    },
-  };
-};
 
 const distinct = (memories: readonly (readonly string[])[]): number =>
   new Set(memories.flat()).size;

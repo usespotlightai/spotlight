@@ -1,4 +1,5 @@
 import type { TeamInPeriod } from '@outcomes/application/ports/insights-reader.port';
+import type { GroupCounts } from '@outcomes/domain/services/change-verdict';
 import type { TallyCounts } from '@outcomes/domain/services/run-tally';
 import type { Window } from '@outcomes/domain/value-objects/insights-period.vo';
 import type { Spend } from '@outcomes/domain/value-objects/run-cost.vo';
@@ -158,4 +159,29 @@ export const tallyCountsOf = (row: TallyColumns): TallyCounts => ({
   mixedCurrencies: row.currencies > 1,
   medianMs: row.median_ms,
   p90Ms: row.p90_ms,
+});
+
+const finished = sql`${ran} and ${runFact.deliveryState} is not null and ${runFact.deliveryState} <> 'open'`;
+
+export const settledColumns = sql`
+  ${counted(sql`${ran} and ${runFact.nextAct} is not null`)} as acted,
+  ${counted(finished)} as finished,
+  count(distinct ${runFact.taskId}) filter (where ${finished})::int as finished_tasks,
+  ${counted(sql`${ran} and ${runFact.digested}`)} as digested`;
+
+export interface GroupColumns extends TallyColumns {
+  readonly acted: number;
+  readonly finished: number;
+  readonly finished_tasks: number;
+  readonly digested: number;
+}
+
+export const groupCountsOf = (row: GroupColumns): GroupCounts => ({
+  tally: tallyCountsOf(row),
+  settled: {
+    acted: row.acted,
+    finished: row.finished,
+    finishedTasks: row.finished_tasks,
+    digested: row.digested,
+  },
 });

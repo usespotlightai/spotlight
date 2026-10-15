@@ -359,6 +359,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
   ]),
   ...bindQueryHandler(ReadInsightsSetupsQuery, ReadInsightsSetupsHandler, [
     TeamHistories,
+    INSIGHTS_READER,
     TrustedJudges,
   ]),
   ...bindQueryHandler(ReadInsightsMemoryQuery, ReadInsightsMemoryHandler, [

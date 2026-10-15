@@ -3,11 +3,18 @@ import type {
   TeamInPeriod,
 } from '@outcomes/application/ports/insights-reader.port';
 import type { TeamHistoryHeld } from '@outcomes/application/services/team-histories.service';
+import { ScoresInMemory } from '@outcomes/domain/judging.fake-spec';
+import type { ScoreRepository } from '@outcomes/domain/repositories/score.repository';
 import { costCountsOf } from '@outcomes/domain/services/cost-breakdown';
 import { flowCountsOf } from '@outcomes/domain/services/flow';
 import { memoryCountsOf } from '@outcomes/domain/services/memory-comparison';
 import { overviewCountsOf } from '@outcomes/domain/services/overview-counts';
 import { peopleCountsOf } from '@outcomes/domain/services/people-counts';
+import {
+  judgedRunsOf,
+  setupCountsOf,
+  setupRunsWithin,
+} from '@outcomes/domain/services/setup-comparison';
 import { pipelineCountsOf } from '@outcomes/domain/services/shipping';
 import { teamCountsOf } from '@outcomes/domain/services/station-reports';
 import {
@@ -44,6 +51,7 @@ const openingsFor = async (held: TeamHistoryHeld, history: TeamHistory) =>
 
 export const insightsReaderInMemory = (
   held: TeamHistoryHeld,
+  scores: ScoreRepository = new ScoresInMemory(),
 ): InsightsReaderPort => ({
   stationCounts: async (team) => {
     const history = await historyOf(held, team);
@@ -97,4 +105,24 @@ export const insightsReaderInMemory = (
     toolCountsOf(await historyOf(held, team), team.period.current),
   memoryCounts: async (team) =>
     memoryCountsOf(await historyOf(held, team), team.period.current),
+  setupCounts: async (team, filter) => {
+    const history = await historyOf(held, team);
+    const records = setupRunsWithin(
+      history.records,
+      team.period.current,
+      filter.stationId,
+      filter.size,
+    );
+
+    return setupCountsOf(
+      records,
+      history.deliveries,
+      filter.stationId === null
+        ? []
+        : judgedRunsOf(
+            await scores.ofRuns(records.map((each) => each.runId)),
+            filter.stationId,
+          ),
+    );
+  },
 });

@@ -1,11 +1,15 @@
 import type { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
 import type { TaskDelivery } from '@outcomes/domain/aggregates/task-delivery.aggregate';
 import { rateOf, spendingOf } from '@outcomes/domain/services/measures';
-import type { TallyCounts } from '@outcomes/domain/services/run-tally';
+import {
+  runTally,
+  type TallyCounts,
+} from '@outcomes/domain/services/run-tally';
 import {
   measureOf,
   settledFor,
 } from '@outcomes/domain/services/station-measures';
+import { tasksOf } from '@outcomes/domain/services/team-history';
 import {
   ALERT_MEASURES,
   type AlertMeasure,
@@ -55,6 +59,24 @@ export interface GroupCounts {
   readonly tally: TallyCounts;
   readonly settled: SettledCounts;
 }
+
+export const groupCountsOf = (
+  records: readonly RunRecord[],
+  deliveries: readonly TaskDelivery[],
+): GroupCounts => {
+  const { failedShare: _, ...tally } = runTally(records, deliveries);
+  const finished = records.filter(settledFor('merged_rate', deliveries));
+
+  return {
+    tally,
+    settled: {
+      acted: records.filter((each) => each.next !== null).length,
+      finished: finished.length,
+      finishedTasks: tasksOf(finished).length,
+      digested: records.filter((each) => each.cost !== null).length,
+    },
+  };
+};
 
 interface MeasureReading {
   readonly value: number | null;
