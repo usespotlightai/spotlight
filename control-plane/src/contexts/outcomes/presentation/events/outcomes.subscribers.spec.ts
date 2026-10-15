@@ -18,6 +18,7 @@ import { NotePullRequestReviewed } from '@outcomes/application/services/note-pul
 import { NoteRunDigested } from '@outcomes/application/services/note-run-digested.service';
 import { NoteRunEnded } from '@outcomes/application/services/note-run-ended.service';
 import { NoteRunHandedOn } from '@outcomes/application/services/note-run-handed-on.service';
+import { NoteRunMemories } from '@outcomes/application/services/note-run-memories.service';
 import { NoteRunSuperseded } from '@outcomes/application/services/note-run-superseded.service';
 import { NoteTaskFailed } from '@outcomes/application/services/note-task-failed.service';
 import { NoteTaskTouch } from '@outcomes/application/services/note-task-touch.service';
@@ -62,6 +63,7 @@ import { CHANGE_STACK_SHAPED } from '@shared-kernel/application/integration-even
 import { CHAT_STARTED } from '@shared-kernel/application/integration-events/chat-started.integration-event';
 import { CONFIG_PULL_REQUEST_OPENED } from '@shared-kernel/application/integration-events/config-pull-request-opened.integration-event';
 import { LINE_REDEFINED } from '@shared-kernel/application/integration-events/line-redefined.integration-event';
+import { MEMORIES_USED } from '@shared-kernel/application/integration-events/memories-used.integration-event';
 import { PULL_REQUEST_CLOSED } from '@shared-kernel/application/integration-events/pull-request-closed.integration-event';
 import { PULL_REQUEST_FORGOTTEN } from '@shared-kernel/application/integration-events/pull-request-forgotten.integration-event';
 import { PULL_REQUEST_OPENED } from '@shared-kernel/application/integration-events/pull-request-opened.integration-event';
@@ -184,6 +186,7 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
       {
         holds: async () => true,
         of: async () => null,
+        judgesOnTeam: async () => new Map(),
         judgeAt: async () => ({
           teamId: 'team_1',
           lineId: 'line_1',
@@ -223,6 +226,7 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
       },
     }),
     digesting: new NoteRunDigested(WORK, records, forgotten, inTransaction),
+    remembering: new NoteRunMemories(WORK, records, forgotten, inTransaction),
     handingOn: new NoteRunHandedOn(records, forgotten, inTransaction),
     reviewing: new NotePullRequestReviewed(
       deliveries,
@@ -515,6 +519,47 @@ describe('outcomesSubscribers', () => {
       servers: [],
       skillsRead: [],
     });
+
+    expect(await heard.record()).toBeNull();
+  });
+
+  it('keeps the memories a run used, heard before and after it ended', async () => {
+    const heard = subscribed();
+    const used = (way: string, memories: readonly string[]) =>
+      heard.deliver('outcomes.record-run-memories', {
+        kind: MEMORIES_USED,
+        runId: 'run_1',
+        workspaceId: 'ws_1',
+        taskId: 'task_1',
+        way,
+        memories,
+      });
+
+    await used('briefed', ['mem_1']);
+    await heard.deliver('outcomes.record-ended-run', runEnded());
+    await used('recalled', ['mem_2']);
+
+    expect((await heard.record())?.hasEnded).toBe(true);
+    expect((await heard.record())?.memories).toMatchObject({
+      briefed: ['mem_1'],
+      recalled: ['mem_2'],
+    });
+  });
+
+  it('keeps no memories for a run that worked no task, nor for a way it does not know', async () => {
+    const heard = subscribed();
+    const used = (taskId: string | null, way: string) =>
+      heard.deliver('outcomes.record-run-memories', {
+        kind: MEMORIES_USED,
+        runId: 'run_1',
+        workspaceId: 'ws_1',
+        taskId,
+        way,
+        memories: ['mem_1'],
+      });
+
+    await used(null, 'briefed');
+    await used('task_1', 'forgotten');
 
     expect(await heard.record()).toBeNull();
   });

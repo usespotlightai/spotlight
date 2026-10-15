@@ -96,7 +96,7 @@ export function buildLogging(
 
   return {
     params: {
-      // nestjs-pino's default `*` becomes `/api/{*path}`, which misses a bare `/api`.
+      // The nestjs-pino default `*` becomes `/api/{*path}`. That path does not match `/api` alone.
       forRoutes: [
         { path: '/', method: RequestMethod.ALL },
         { path: '{*path}', method: RequestMethod.ALL },

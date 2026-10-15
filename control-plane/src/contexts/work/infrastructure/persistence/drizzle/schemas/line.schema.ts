@@ -84,7 +84,7 @@ export const line = pgTable(
   ],
 );
 
-// No unique constraint on position: Postgres checks per row, so swaps would fail.
+// Do not add a unique constraint on position. Postgres checks each row, so swaps fail.
 export const station = pgTable(
   'station',
   {

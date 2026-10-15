@@ -275,7 +275,7 @@ export class HttpOutbound {
       return undefined;
     }
 
-    // A host not told the body is JSON reads it as form data and finds no fields.
+    // If the host does not know that the body is JSON, it reads the body as form data and finds no fields.
     return typeof read === 'string'
       ? { text: read, json: false }
       : { text: asJson(read), json: true };

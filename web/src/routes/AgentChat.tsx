@@ -40,7 +40,7 @@ export function AgentChat() {
       <PageNotice>
         {notFound(thread.error) ? (
           <p className="text-muted-foreground text-sm">
-            Chat not found on this team.
+            This team has no chat at that address.
           </p>
         ) : (
           <CouldNotLoad

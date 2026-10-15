@@ -112,7 +112,7 @@ export const recoveredShown = (
   const { fallsBy, below } = alert.threshold;
   const side = fallsBy !== null || below !== null ? 'over' : 'under';
 
-  return `Back ${side} the threshold since ${day}.`;
+  return `The station has been back ${side} the threshold since ${day}.`;
 };
 
 export const thresholdLine = (alert: StationAlertCrossing): number | null =>

@@ -841,6 +841,7 @@ CREATE TABLE "run_fact" (
 	"cache_write_tokens" bigint,
 	"tools" jsonb,
 	"refusals" jsonb NOT NULL,
+	"memories" jsonb NOT NULL,
 	"opened_by" text,
 	"task_opened_at" timestamp,
 	"pull_request" text,
@@ -893,6 +894,7 @@ CREATE TABLE "run_record" (
 	"cache_write_tokens" bigint,
 	"tools" jsonb,
 	"refusals" jsonb DEFAULT '[]'::jsonb NOT NULL,
+	"memories" jsonb DEFAULT '{"briefed":[],"recalled":[]}'::jsonb NOT NULL,
 	"version" integer DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint

@@ -108,7 +108,7 @@ export function Conversation({
   const held = useRef<number | null>(null);
   const ours = useRef(false);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: the item is what starts the conversation over, though the effect reads only the nodes
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a new item starts the conversation again, but the effect reads only the nodes
   useLayoutEffect(() => {
     const box = scroller.current;
     const inside = content.current;
@@ -197,7 +197,7 @@ export function Conversation({
 
           return (
             <section
-              // biome-ignore lint/suspicious/noArrayIndexKey: turns are cut in order and never reordered
+              // biome-ignore lint/suspicious/noArrayIndexKey: the turns come in order and their order does not change
               key={at}
               className="flex flex-col"
             >

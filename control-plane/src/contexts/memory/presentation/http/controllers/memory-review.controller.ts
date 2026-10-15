@@ -69,7 +69,9 @@ export class MemoryReviewController {
     >(new ReadMemoryReviewQuery(teamId, taskId, runId, user.id));
 
     if (!found) {
-      throw new NotFoundException();
+      throw new NotFoundException(
+        `Run ${runId} of task ${taskId} has no memories to review.`,
+      );
     }
 
     return new MemoryReviewResponseDto(found);

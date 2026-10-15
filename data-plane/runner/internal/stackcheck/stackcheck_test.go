@@ -180,7 +180,7 @@ func TestPerformChecksTheWholeChangeThenEachLayerOnItsOwn(t *testing.T) {
 	if !passed["whole"] || passed["c1.l1"] || passed["c2.l1"] {
 		t.Fatalf("passed %v", passed)
 	}
-	if !strings.Contains(checked.Steps[2].Output, "do not apply") {
+	if !strings.Contains(checked.Steps[2].Output, "don't apply") {
 		t.Fatalf("output %q", checked.Steps[2].Output)
 	}
 	if told.stacks[0] != "stack-1" {
@@ -320,7 +320,7 @@ func TestPerformStopsAStepThatRunsTooLong(t *testing.T) {
 	if len(steps) != 1 || steps[0].Passed {
 		t.Fatalf("steps %+v", steps)
 	}
-	if !strings.Contains(steps[0].Output, "did not finish") {
+	if !strings.Contains(steps[0].Output, "didn't finish in time") {
 		t.Fatalf("output %q", steps[0].Output)
 	}
 }
@@ -524,9 +524,9 @@ func TestPerformMakesTheCheckoutReadyAgainOnlyWhereAStepAsksFor(t *testing.T) {
 		t.Fatalf("steps %+v", steps)
 	}
 
-	// deps/ is ignored, so git clean leaves it between steps the way it leaves
-	// an installed node_modules, and it carries a mark for each time the
-	// checkout was made ready.
+	// deps/ is ignored, so git clean keeps it between steps, as it keeps an
+	// installed node_modules. deps/ has a mark for each time that setup made
+	// the checkout ready.
 	ready, err := os.ReadFile(
 		filepath.Join(r.dir, "workspace", "widgets", "deps", "marks.txt"),
 	)

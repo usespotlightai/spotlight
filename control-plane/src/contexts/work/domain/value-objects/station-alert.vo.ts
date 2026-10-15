@@ -96,7 +96,7 @@ export class StationAlert {
     if (!bounded(measure, threshold, value)) {
       throw new InvalidStationAlertError(
         threshold,
-        `${SAID[threshold]} ${bounds(measure, threshold)}`,
+        `"${SAID[threshold]}" value must be ${bounds(measure, threshold)}`,
       );
     }
     if (!Number.isInteger(input.over) || input.over < 1) {
@@ -135,7 +135,7 @@ export class StationAlert {
     if (earlier.some((each) => each.watchesAsWell(this))) {
       throw new InvalidStationAlertError(
         null,
-        `on whether ${this.measure} ${SAID[this.threshold]} an amount is already set on this station`,
+        `for "${this.measure} ${SAID[this.threshold]}" already exists on this station`,
       );
     }
 

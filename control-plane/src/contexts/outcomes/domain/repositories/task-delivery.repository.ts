@@ -1,5 +1,4 @@
 import type { TaskDelivery } from '@outcomes/domain/aggregates/task-delivery.aggregate';
-import type { TeamWindow } from '@outcomes/domain/repositories/run-record.repository';
 import type { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -13,11 +12,6 @@ export interface TaskDeliveryRepository {
   forTask(taskId: TaskId): Promise<TaskDelivery | null>;
 
   forTasks(taskIds: readonly TaskId[]): Promise<readonly TaskDelivery[]>;
-
-  ofTeamBetween(
-    window: TeamWindow,
-    most: number,
-  ): Promise<readonly TaskDelivery[]>;
 
   ofTeam(
     workspaceId: WorkspaceId,

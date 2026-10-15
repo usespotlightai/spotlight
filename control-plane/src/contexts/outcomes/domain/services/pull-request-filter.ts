@@ -1,4 +1,5 @@
 import { InvalidPullRequestFilterError } from '@outcomes/domain/exceptions/invalid-pull-request-filter.error';
+import { byText } from '@outcomes/domain/services/measures';
 import {
   comparedRepositoriesOf,
   sameRepository,
@@ -102,7 +103,7 @@ const weekOf = (value: AskedValue): Window | null => {
 
   if (!window || Number.isNaN(window.from.getTime())) {
     throw new InvalidPullRequestFilterError(
-      `week must be a day written YYYY-MM-DD, not ${asked}`,
+      `week must be a date in the form YYYY-MM-DD, not ${asked}`,
     );
   }
 
@@ -194,7 +195,6 @@ export const filteredPullRequests = (
           roundBucketOf(each.seen.reviewRounds) === filter.rounds),
     )
     .sort(
-      (a, b) =>
-        lastAt(b) - lastAt(a) || a.pullRequest.localeCompare(b.pullRequest),
+      (a, b) => lastAt(b) - lastAt(a) || byText(a.pullRequest, b.pullRequest),
     );
 };

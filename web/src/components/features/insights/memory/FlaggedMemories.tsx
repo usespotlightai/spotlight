@@ -34,7 +34,7 @@ export function FlaggedMemories({
     <InsightsCard
       tableOnly={flagged.length > 0}
       title="Flagged wrong"
-      description="Memories people retired as wrong this period. Replaced memories don’t count."
+      description="Memories that people retired as wrong in this period. Replaced memories don’t count."
     >
       {flagged.length === 0 ? (
         <p className="text-muted-foreground text-sm">

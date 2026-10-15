@@ -44,8 +44,8 @@ export function PipelineFlowLegend({
             <Info aria-hidden className="size-3" />
           </TooltipTrigger>
           <TooltipContent className="max-w-72 text-xs">
-            Colour: time in the stage against the slowest stage. Dots crowd and
-            the band narrows where pull requests wait.
+            Colour: time in the stage compared with the slowest stage. Where
+            pull requests wait, the dots crowd and the band narrows.
           </TooltipContent>
         </Tooltip>
       </span>

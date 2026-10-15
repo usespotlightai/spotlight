@@ -3,7 +3,7 @@ export class ChangesUnguardedError extends Error {
 
   constructor(stationKey: string) {
     super(
-      `No replay set guards changes of station ${stationKey}. Please flag one of its replay sets as guarding changes.`,
+      `No replay set guards config changes of station ${stationKey}. Please turn on “Guards config changes” for one of its replay sets.`,
     );
     this.name = 'ChangesUnguardedError';
   }

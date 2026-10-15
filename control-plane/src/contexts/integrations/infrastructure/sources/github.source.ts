@@ -179,7 +179,7 @@ const happenedIn = (heard: PullRequestActivity): readonly Happened[] => {
   ];
 };
 
-// The task that opened a pull request and the task reviewing it each hear the word, by their own mark.
+// The task that opened a pull request and the task that reviews it each hear the word through their own mark.
 const toItsReview = (word: Happened, pullRequest: string): Happened => ({
   ...word,
   concerns: {

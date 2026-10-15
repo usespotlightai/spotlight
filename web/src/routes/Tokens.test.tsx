@@ -247,7 +247,7 @@ describe('Tokens', () => {
       name: 'The terraform token',
     });
     expect(shown).toHaveTextContent('token_secret');
-    expect(shown).toHaveTextContent('shown only once');
+    expect(shown).toHaveTextContent('Spotlight shows this token only once');
     expect(
       within(shown).getByRole('button', { name: 'Copy token' }),
     ).toBeInTheDocument();

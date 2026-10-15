@@ -5,7 +5,7 @@ export class InvalidCatalogEntryError extends Error {
     readonly field: 'name' | 'version',
     readonly because: string,
   ) {
-    super(`Catalog ${field} ${because}.`);
+    super(because);
     this.name = 'InvalidCatalogEntryError';
   }
 }

@@ -51,7 +51,7 @@ const line = Line.open({
   by: attributedIn(),
   workspaceId: WORKSPACE,
   teamId: TeamId.of('team_1'),
-  // biome-ignore lint/style/noNonNullAssertion: Spotlight ships lines
+  // biome-ignore lint/style/noNonNullAssertion: Spotlight has built-in lines
   line: opening!,
   newId: fresh,
 });

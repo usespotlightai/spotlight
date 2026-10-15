@@ -22,7 +22,7 @@ export class SourceForDelivery {
       return this.registered.find(addressed.source);
     }
 
-    // Built-in sources win, so a team file cannot take over a built-in host's deliveries.
+    // Built-in sources have priority, so a team file cannot take the deliveries of a built-in host.
     if (this.registered.find(addressed.source)) {
       return null;
     }

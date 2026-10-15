@@ -14,7 +14,7 @@ const SIGNING_ENCODINGS = ['hex', 'base64'] as const;
 
 export type SigningEncoding = (typeof SIGNING_ENCODINGS)[number];
 
-// Deliberately no unsigned option: agents act on whatever a delivery says.
+// There is no unsigned option on purpose. Agents act on all that a delivery says.
 export class Signing {
   private constructor(
     readonly scheme: SigningScheme,

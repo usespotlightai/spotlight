@@ -72,7 +72,8 @@ export function ReplaySet() {
     return (
       <PageNotice title="Replay set not found">
         <p className="text-muted-foreground text-sm">
-          No replay set at this address. It may have been deleted.
+          This team has no replay set at that address. Someone may have deleted
+          it.
         </p>
       </PageNotice>
     );

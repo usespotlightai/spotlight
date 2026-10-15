@@ -42,7 +42,7 @@ const HAPPENINGS: Readonly<
   'went-on': (looked) =>
     `Two iterations in a row found nothing better. A config change could still fix some of the ${tasksCounted(looked)} still failing.`,
   'no-config-cause': (looked) =>
-    `No config change can fix the ${tasksCounted(looked)} still failing. Unspent budget is kept.`,
+    `No config change can fix the ${tasksCounted(looked)} still failing. The rest of the budget stays unspent.`,
   'no-failures': () =>
     'Two iterations in a row found nothing better. The best config already passes every searched task.',
   'did-not-run': () =>
@@ -73,7 +73,7 @@ const keptToMost = (points: readonly string[]): readonly string[] =>
   points.length > MOST_POINTS
     ? [
         ...points.slice(0, MOST_POINTS - 1),
-        `${points.length - MOST_POINTS + 1} more on the search page.`,
+        `The search page shows ${points.length - MOST_POINTS + 1} more.`,
       ]
     : points;
 

@@ -14,10 +14,10 @@ const attached = (name: string): boolean =>
   areLanguagesAttached([getFiletypeFromFileName(name)]);
 
 export function useHighlighterReady(name: string): boolean {
-  // Reading it at once keeps a warm diff from painting blank for a frame.
+  // Read the state immediately so that a warm diff does not paint blank for one frame.
   const [ready, setReady] = useState(() => attached(name));
 
-  // A diff mounted before Shiki is ready paints blank and never repaints.
+  // If a diff mounts before Shiki is ready, it paints blank and does not paint again.
   useEffect(() => {
     if (attached(name)) {
       setReady(true);

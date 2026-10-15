@@ -16,7 +16,7 @@ export class ProvisionUrl {
     } catch {
       throw new InvalidRunnerPoolError(
         'provision.url',
-        'must be an absolute https URL, such as https://provision.example.com/runs',
+        'must be an absolute https URL, as in https://provision.example.com/runs',
       );
     }
 

@@ -1,4 +1,5 @@
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
+import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { JournalStep } from '@work/application/contracts/run-journal.contract';
 import type { BriefedTasksPort } from '@work/application/ports/briefed-tasks.port';
 import type { ContentDigestPort } from '@work/application/ports/content-digest.port';
@@ -10,6 +11,7 @@ import type {
   StationJudgeSettings,
 } from '@work/application/ports/run-evidence.port';
 import type { RunJournalReaderPort } from '@work/application/ports/run-journal-reader.port';
+import type { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
@@ -17,6 +19,7 @@ import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { hunksOf } from '@work/domain/services/change-hunks';
 import { workspacePath } from '@work/domain/services/workspace-path';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
+import type { StationJudge } from '@work/domain/value-objects/station-judge.vo';
 
 const MOST_TEXT = 4_000;
 
@@ -138,17 +141,40 @@ export class RunEvidences implements RunEvidencePort {
     const line = await this.lines.holding(at);
     const judge = line?.stationAt(at)?.judge ?? null;
 
-    return line && judge
-      ? {
-          teamId: line.teamId.value,
-          lineId: line.id.value,
-          rubric: judge.rubric,
-          claims: judge.claims,
-          passShare: judge.passShare,
-          rubricVersion: this.digest.sha256(judge.criteria),
-          sample: judge.sample,
-          trust: judge.trust,
-        }
-      : null;
+    return line && judge ? this.settingsOf(line, judge) : null;
+  }
+
+  async judgesOnTeam(
+    teamId: string,
+  ): Promise<ReadonlyMap<string, StationJudgeSettings>> {
+    const lines = await this.lines.ofTeam(TeamId.of(teamId));
+
+    return new Map(
+      lines.flatMap((line) =>
+        line.stations.flatMap((station) =>
+          station.judge
+            ? [
+                [
+                  station.id.value,
+                  this.settingsOf(line, station.judge),
+                ] as const,
+              ]
+            : [],
+        ),
+      ),
+    );
+  }
+
+  private settingsOf(line: Line, judge: StationJudge): StationJudgeSettings {
+    return {
+      teamId: line.teamId.value,
+      lineId: line.id.value,
+      rubric: judge.rubric,
+      claims: judge.claims,
+      passShare: judge.passShare,
+      rubricVersion: this.digest.sha256(judge.criteria),
+      sample: judge.sample,
+      trust: judge.trust,
+    };
   }
 }

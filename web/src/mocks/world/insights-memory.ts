@@ -99,7 +99,6 @@ export const memoryOf = (
 
   return {
     period: span.period,
-    truncated: false,
     standing: memories.filter((memory) => memory.standing === 'stands').length,
     memoriesBriefed: briefedIds.size,
     memoriesRecalled: recalledIds.size,

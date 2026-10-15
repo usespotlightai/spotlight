@@ -22,7 +22,7 @@ const clauseOf = (raw: string): Clause => {
   if (!found) {
     throw new InvalidCatalogEntryError(
       'version',
-      `"${raw.trim()}" must be a version constraint, ${EXAMPLE}`,
+      `Catalog version "${raw.trim()}" must be a version constraint, ${EXAMPLE}.`,
     );
   }
 
@@ -78,7 +78,10 @@ export class VersionConstraint {
     const trimmed = raw.trim();
 
     if (trimmed === '') {
-      throw new InvalidCatalogEntryError('version', `is required, ${EXAMPLE}`);
+      throw new InvalidCatalogEntryError(
+        'version',
+        `Catalog version is required. Please give a version constraint, ${EXAMPLE}.`,
+      );
     }
 
     return new VersionConstraint(trimmed, trimmed.split(',').map(clauseOf));

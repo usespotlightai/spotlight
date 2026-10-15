@@ -4,6 +4,6 @@ import type { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.v
 export interface GivenPoolTokensRepository {
   wasGiven(token: TokenHash): Promise<boolean>;
 
-  // Throws PoolTokenSpentError when the token was given before, however the race with another giving ends.
+  // Throws PoolTokenSpentError when the token was given before. It also throws when a concurrent `give` wins the race.
   give(token: TokenHash, to: RunnerPoolId): Promise<void>;
 }

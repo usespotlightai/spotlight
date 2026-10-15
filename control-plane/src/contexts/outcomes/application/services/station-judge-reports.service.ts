@@ -5,10 +5,12 @@ import type {
 import type {
   JudgeStandingPort,
   JudgeStandingShape,
-  StationOnTeam,
+  StationOnLine,
+  TeamOfStations,
 } from '@outcomes/application/ports/judge-standing.port';
 import type { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
 import type { Score } from '@outcomes/domain/aggregates/score.aggregate';
+import type { TaskDelivery } from '@outcomes/domain/aggregates/task-delivery.aggregate';
 import type { RunRecordRepository } from '@outcomes/domain/repositories/run-record.repository';
 import type { ScoreRepository } from '@outcomes/domain/repositories/score.repository';
 import type { TaskDeliveryRepository } from '@outcomes/domain/repositories/task-delivery.repository';
@@ -51,6 +53,45 @@ export interface StationJudgement {
   readonly standing: JudgeStanding;
 }
 
+interface Labels {
+  readonly records: readonly RunRecord[];
+  readonly grades: readonly Score[];
+  readonly deliveries: readonly TaskDelivery[];
+}
+
+const currentOf = (
+  station: { teamId: TeamId; lineId: string },
+  judge: StationJudge | null,
+): CurrentStationJudge | null => {
+  if (
+    !judge ||
+    judge.teamId !== station.teamId.value ||
+    judge.lineId !== station.lineId
+  ) {
+    return null;
+  }
+
+  const rubric = Rubric.readable({
+    text: judge.rubric,
+    claims: judge.claims,
+    passShare: judge.passShare,
+    version: judge.rubricVersion,
+  });
+
+  return {
+    ...judge,
+    scale: rubric?.scale ?? null,
+    rubricBody: rubric?.body ?? null,
+  };
+};
+
+const standingFrom = (
+  judged: readonly Score[],
+  labels: Labels,
+  judge: CurrentStationJudge | null,
+): JudgeStanding =>
+  standingIn(judgeReportOf({ judged, covering: [], ...labels }), judge);
+
 export class StationJudgeReports implements JudgeStandingPort {
   constructor(
     private readonly evidence: EvidencePort,
@@ -88,44 +129,53 @@ export class StationJudgeReports implements JudgeStandingPort {
     lineId: string;
     stationId: string;
   }): Promise<CurrentStationJudge | null> {
-    const judge = await this.evidence.judgeAt(station.stationId);
-
-    if (
-      !judge ||
-      judge.teamId !== station.teamId.value ||
-      judge.lineId !== station.lineId
-    ) {
-      return null;
-    }
-
-    const rubric = Rubric.readable({
-      text: judge.rubric,
-      claims: judge.claims,
-      passShare: judge.passShare,
-      version: judge.rubricVersion,
-    });
-
-    return {
-      ...judge,
-      scale: rubric?.scale ?? null,
-      rubricBody: rubric?.body ?? null,
-    };
+    return currentOf(station, await this.evidence.judgeAt(station.stationId));
   }
 
-  async of(station: StationOnTeam): Promise<JudgeStandingShape> {
-    const place = {
-      workspaceId: WorkspaceId.of(station.workspaceId),
-      teamId: TeamId.of(station.teamId),
-      lineId: station.lineId,
-      stationId: station.stationId,
-    };
-    const judge = await this.currentJudge(place);
+  async standingsOf(
+    team: TeamOfStations,
+    stations: readonly StationOnLine[],
+  ): Promise<readonly JudgeStandingShape[]> {
+    const teamId = TeamId.of(team.teamId);
+    const judges = await this.evidence.judgesOnTeam(team.teamId);
+    const current = stations.map((station) => ({
+      station,
+      judge: currentOf(
+        { teamId, ...station },
+        judges.get(station.stationId) ?? null,
+      ),
+    }));
+    const judged = await this.scores.judgedAtStations({
+      workspaceId: WorkspaceId.of(team.workspaceId),
+      teamId,
+      stations: current.flatMap(({ station, judge }) =>
+        judge?.scale
+          ? [
+              {
+                lineId: station.lineId,
+                stationId: station.stationId,
+                rubricVersion: judge.rubricVersion,
+              },
+            ]
+          : [],
+      ),
+      last: MOST_JUDGED,
+    });
+    const labels = await this.labelsFor(judged, []);
 
-    return {
+    return current.map(({ station, judge }) => ({
       stationId: station.stationId,
       rubricVersion: judge?.rubricVersion ?? null,
-      ...(await this.standingFor(place, judge)),
-    };
+      ...standingFrom(
+        judged.filter(
+          (each) =>
+            each.place.lineId === station.lineId &&
+            each.place.stationId === station.stationId,
+        ),
+        labels,
+        judge,
+      ),
+    }));
   }
 
   private async standingFor(
@@ -140,13 +190,24 @@ export class StationJudgeReports implements JudgeStandingPort {
         })
       : [];
 
-    return standingIn(await this.reportOf(judged, []), judge);
+    return standingFrom(judged, await this.labelsFor(judged, []), judge);
   }
 
   private async reportOf(
     judged: readonly Score[],
     recent: readonly RunRecord[],
   ): Promise<JudgeReport> {
+    return judgeReportOf({
+      judged,
+      covering: recent,
+      ...(await this.labelsFor(judged, recent)),
+    });
+  }
+
+  private async labelsFor(
+    judged: readonly Score[],
+    recent: readonly RunRecord[],
+  ): Promise<Labels> {
     const known = new Set(recent.map((each) => each.runId.value));
     const records = [
       ...recent,
@@ -166,12 +227,6 @@ export class StationJudgeReports implements JudgeStandingPort {
       records.flatMap((each) => (each.taskId ? [each.taskId] : [])),
     );
 
-    return judgeReportOf({
-      judged,
-      grades,
-      records,
-      covering: recent,
-      deliveries,
-    });
+    return { records, grades, deliveries };
   }
 }

@@ -46,8 +46,8 @@ export function DeleteReplaySetButton({
             <DialogHeader>
               <DialogTitle>Delete {set.name}?</DialogTitle>
               <DialogDescription>
-                Deletes its replays and results. Its runs’ starting workspaces
-                are no longer kept. This can’t be undone.
+                This also deletes the set’s replays and results. Spotlight stops
+                keeping its runs’ starting workspaces. You can’t undo this.
               </DialogDescription>
             </DialogHeader>
 
