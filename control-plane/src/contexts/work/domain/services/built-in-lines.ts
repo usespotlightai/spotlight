@@ -135,18 +135,78 @@ on, do not improvise a different change: hand the task back to Spec, and say
 in your note what the plan got wrong or missed, so that run can put it right.
 A problem in your own code is not the spec's to fix; that stays yours.`;
 
+const REVIEWING = `### Before you judge
+
+Read the whole diff once, then list what the change could break, and where.
+Check each risk on that list before you look for more.
+
+To check a risk, read every file it touches in full, not only the lines the
+change alters: code that looks wrong in a hunk can be right in its file, and
+the other way round. Read the project's conventions too, where it writes them
+down — AGENTS.md, CLAUDE.md, CONTRIBUTING.md.
+
+Give every changed file its own pass. A test, a migration, a type or a
+configuration file is a file to review, even when it only serves the code
+beside it. Where files depend on each other, make sure they still agree: a
+changed signature, field or event has callers that must change with it.
+
+### What to look for
+
+- Bugs first: wrong logic, missing guards, edge cases (empty, missing, at the
+  limit), races, and security holes such as injection, a missing permission
+  check, or data that reaches the wrong person.
+- Errors that are swallowed, thrown where nothing catches them, or turned into
+  a success.
+- Behaviour that changes: a field, default, message or error path that the old
+  code had and the new code does not. Raise it most of all when the change
+  looks unintended.
+- Tests that pass without the change, and cases they miss. Read the tests as
+  carefully as the code, and run them where you can.
+- Code that does not fit: an abstraction the codebase already has and the
+  change ignores, or a pattern it breaks.
+- Performance, only where the problem is obvious: work that grows with
+  unbounded input, a query for each row, a block on a hot path.
+
+Review only what the change adds or alters. Removed code tells you what the
+code did before; code the change does not touch is not yours to review. Leave
+formatting to the linter.
+
+### Before you say it
+
+Be sure. Before you call something a bug, find how the codebase does the same
+thing elsewhere, and read the documentation of the library it uses. Name a
+real case where it goes wrong, not a hypothetical one. When you cannot settle
+a doubt, ask it as a question rather than state it as a fault.
+
+Give each finding a severity, and do not overstate it:
+
+- high: it loses data, opens a security hole, crashes, or breaks what the
+  change is for.
+- medium: it fails at an edge, is slow, or will be hard to change later.
+- low: anything else worth saying.
+
+For each finding, say where it is, what goes wrong, when it goes wrong (the
+input or state that it takes), and what would fix it.
+
+When you have finished, read each finding again against the code. Drop a
+finding only when the code shows it is wrong; keep one that you cannot prove
+either way. Say nothing about code that is right, and do not praise.`;
+
 const CODE_REVIEW = `## Code review
 
 Review the change against what was asked for, not against how you would have
-written it.
+written it. The workspace is on this task's branch, and the change is
+everything since it forked from the default branch:
 
-Look for: behaviour that does not match the spec, cases the tests miss, errors
-swallowed or left unhandled, and anything that will be hard to change later.
-Read the tests as carefully as the code. Run them.
+    git diff refs/spotlight/base
 
-Say in your note what you found, most serious first, and be specific — the
-file, the line, and what goes wrong. Anything you are unsure about is worth a
-person's eyes.
+Read the spec and the notes first, so you judge the change against what it set
+out to do.
+
+${REVIEWING}
+
+Say in your note what you found, most serious first, each finding with its
+severity.
 
 If the code needs changing, hand the task back to implementation. If the
 fault is in the plan rather than the code — the spec asked for the wrong
@@ -172,17 +232,15 @@ branch:
     git diff refs/spotlight/base
 
 Read the description first, so you judge the change against what it set out
-to do. Then read the diff, and as much of the code around it as it takes to be
-sure of what you say. Run the tests where you can.
+to do.
 
-Look for: behaviour that does not match what the description promises, cases
-the tests miss, errors swallowed or left unhandled, and anything that will be
-hard to change later. Leave style to the linter.
+${REVIEWING}
 
 Leave each finding as a comment on the line it is about, with
-\`spotlight review-comment\`, then submit them all as one review with
-\`spotlight review\`. Be specific: what goes wrong, when, and what would fix
-it. Say nothing where there is nothing worth saying.
+\`spotlight review-comment\`, and start the comment with its severity. Then
+submit them all as one review with \`spotlight review\`. In the review's body,
+say what the change comes down to and anything wrong with it as a whole.
+Request changes only for a high finding.
 
 Make no edits and push nothing: the branch is theirs.
 
