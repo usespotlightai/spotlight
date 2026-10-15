@@ -9,6 +9,7 @@ import {
   taskDelivery,
 } from '@outcomes/infrastructure/persistence/drizzle/schemas/outcomes.schema';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { inList } from '@platform/persistence/drizzle/in-list';
 import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
@@ -123,7 +124,7 @@ export class DrizzleTaskDeliveryRepository implements TaskDeliveryRepository {
       .select()
       .from(taskDelivery)
       .where(
-        inArray(
+        inList(
           taskDelivery.taskId,
           taskIds.map((each) => each.value),
         ),

@@ -41,6 +41,7 @@ import {
   taskTouches,
 } from '@outcomes/infrastructure/persistence/drizzle/schemas/outcomes.schema';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
+import { inList } from '@platform/persistence/drizzle/in-list';
 import {
   DOMAIN_EVENT_DISPATCHER,
   type DomainEventDispatcher,
@@ -520,7 +521,7 @@ export class DrizzleRunRecordRepository implements RunRecordRepository {
       .select()
       .from(runRecord)
       .where(
-        inArray(
+        inList(
           runRecord.runId,
           runIds.map((each) => each.value),
         ),

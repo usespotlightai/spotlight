@@ -11,7 +11,7 @@ import {
 } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/pull-request-counts.sql';
 import {
   atIn,
-  lowerCasedIn,
+  inLowerCase,
   pullRequestsNamedIn,
   reachedPullRequests,
 } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/pull-requests.sql';
@@ -45,7 +45,7 @@ const listedOf = (filter: PullRequestFilter, window: Window): SQL =>
       inStateOf(filter, window),
       ...(filter.week ? [atIn(sql`closed_at`, filter.week)] : []),
       ...(filter.repositories
-        ? [sql`repository_key in ${lowerCasedIn(filter.repositories)}`]
+        ? [inLowerCase(sql`repository_key`, filter.repositories)]
         : []),
       ...(filter.compared
         ? [sql`repository_key in (select repository_key from compared)`]

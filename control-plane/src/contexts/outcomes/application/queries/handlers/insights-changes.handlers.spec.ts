@@ -98,16 +98,17 @@ const WORK: WorkPort = {
 };
 
 const standing = (trusted: boolean): JudgeStandingPort => ({
-  of: async (station) => ({
-    stationId: station.stationId,
-    rubricVersion: 'c'.repeat(64),
-    trusted,
-    measure: 'kappa',
-    agreement: trusted ? 0.8 : 0.2,
-    pairs: 20,
-    trust: 0.6,
-    hiddenBecause: trusted ? null : 'below-trust',
-  }),
+  standingsOf: async (_team, stations) =>
+    stations.map((station) => ({
+      stationId: station.stationId,
+      rubricVersion: 'c'.repeat(64),
+      trusted,
+      measure: 'kappa',
+      agreement: trusted ? 0.8 : 0.2,
+      pairs: 20,
+      trust: 0.6,
+      hiddenBecause: trusted ? null : 'below-trust',
+    })),
 });
 
 const held = async (
