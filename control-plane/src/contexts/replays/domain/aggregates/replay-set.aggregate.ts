@@ -243,7 +243,7 @@ export class ReplaySet extends EventRecorder {
       throw new UnreplayableEntryError(
         run.value,
         replayable.refusal ?? 'not-a-task-run',
-        replayable.reason ?? 'it worked no task of its own',
+        replayable.reason ?? 'It did not work a task of its own.',
       );
     }
 

@@ -608,6 +608,10 @@ export class Replay extends EventRecorder {
     return this.state.comparedWith;
   }
 
+  get counterpart(): ReplayId | null {
+    return this.state.pairsWith ?? this.state.comparedWith;
+  }
+
   get searchId(): SearchId | null {
     return this.state.searchId;
   }

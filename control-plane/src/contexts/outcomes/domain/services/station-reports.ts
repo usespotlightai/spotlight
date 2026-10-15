@@ -31,6 +31,7 @@ import {
 import {
   dayOf,
   type InsightsPeriod,
+  type Window,
 } from '@outcomes/domain/value-objects/insights-period.vo';
 
 export interface DayTally {
@@ -102,13 +103,24 @@ const windowCountsOf = (
   };
 };
 
+export const failingTasksOf = (
+  history: TeamHistory,
+  window: Window,
+): readonly FailingTask[] => {
+  const openings = openingsOf(history.touches);
+
+  return failuresWithin(history.failures, window).map((each) => ({
+    ...each,
+    lineId: openings.get(each.taskId)?.opening?.lineId ?? null,
+  }));
+};
+
 export const teamCountsOf = (
   history: TeamHistory,
   period: InsightsPeriod,
 ): TeamCounts => {
   const current = endedWithin(history.records, period.current);
   const previous = endedWithin(history.records, period.previous);
-  const openings = openingsOf(history.touches);
 
   return {
     team: windowCountsOf(current, previous, history.deliveries),
@@ -125,10 +137,7 @@ export const teamCountsOf = (
         runFailures: runFailureSummaries(here),
       };
     }),
-    failing: failuresWithin(history.failures, period.current).map((each) => ({
-      ...each,
-      lineId: openings.get(each.taskId)?.opening?.lineId ?? null,
-    })),
+    failing: failingTasksOf(history, period.current),
   };
 };
 

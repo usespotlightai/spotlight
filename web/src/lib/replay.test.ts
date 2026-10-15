@@ -6,12 +6,14 @@ import type {
   ReplaySet,
 } from '@/lib/replay';
 import {
-  baselineTotalsFor,
   ceilingFrom,
   ceilingShare,
   comparisonInOrder,
   copiesTally,
   costDeltaShown,
+  counterpartLabel,
+  counterpartNoun,
+  counterpartRateOf,
   counterpartShown,
   flippedTitles,
   judgeScoreShown,
@@ -27,12 +29,23 @@ import {
   stationAddress,
 } from '@/lib/replay';
 
-const totals = (successRate: number | null) =>
-  ({ successRate }) as unknown as Replay['totals'];
+const candidate = (kind: 'proposed' | 'searched' | 'oracle') =>
+  ({ kind }) as Replay['candidate'];
 
-const replay = (id: string, successRate: number | null) => ({
-  id,
-  totals: totals(successRate),
+const comparedWith = (
+  replayId: string,
+  successRate: number | null,
+  kind: 'proposed' | 'searched' | 'oracle' = 'proposed',
+) => ({
+  candidate: candidate(kind),
+  comparedWith: {
+    replayId,
+    successRate,
+    interval:
+      successRate === null
+        ? null
+        : { rate: successRate, low: successRate - 0.25, high: successRate },
+  },
 });
 
 const copy = (
@@ -68,12 +81,37 @@ describe('replays', () => {
     ).toEqual(['b', 'd', 'a', 'c']);
   });
 
-  it('compares with the baseline’s totals, but not the baseline with itself', () => {
+  it('shows the rate of the replay the gain is against, named for what it is', () => {
+    expect(counterpartRateOf(comparedWith('base', 0.5), 'base')).toEqual({
+      label: 'Baseline',
+      successRate: 0.5,
+      interval: { rate: 0.5, low: 0.25, high: 0.5 },
+    });
     expect(
-      baselineTotalsFor(replay('r', 0.75), replay('b', 0.5))?.successRate,
-    ).toBe(0.5);
-    expect(baselineTotalsFor(replay('b', 0.5), replay('b', 0.5))).toBeNull();
-    expect(baselineTotalsFor(replay('r', 0.75), null)).toBeNull();
+      counterpartRateOf(comparedWith('live', 0.75, 'oracle'), 'base'),
+    ).toMatchObject({ label: 'Live config', successRate: 0.75 });
+  });
+
+  it('shows no counterpart for a replay compared with nothing', () => {
+    expect(
+      counterpartRateOf(
+        { candidate: candidate('proposed'), comparedWith: null },
+        'base',
+      ),
+    ).toBeNull();
+  });
+
+  it('names a counterpart that has scored nothing yet, with no rate', () => {
+    expect(
+      counterpartRateOf(comparedWith('live', null, 'oracle'), 'base'),
+    ).toEqual({ label: 'Live config', successRate: null, interval: null });
+  });
+
+  it('names the counterpart in lower case inside a sentence', () => {
+    expect(counterpartNoun({ label: 'Search’s starting config' })).toBe(
+      'search’s starting config',
+    );
+    expect(counterpartNoun({ label: 'Baseline' })).toBe('baseline');
   });
 
   it('reads repeats as a whole number from 1 to 5', () => {
@@ -168,9 +206,6 @@ describe('replays', () => {
   });
 
   it('names what a replay was set beside: the baseline, the search’s starting config, the live config or an earlier baseline', () => {
-    const candidate = (kind: 'proposed' | 'searched' | 'oracle') =>
-      ({ kind }) as Replay['candidate'];
-
     expect(counterpartShown('base', candidate('proposed'), 'base')).toBe(
       'the baseline',
     );
@@ -183,6 +218,22 @@ describe('replays', () => {
     expect(counterpartShown('older', candidate('proposed'), 'base')).toBe(
       'an earlier baseline',
     );
+  });
+
+  it('labels what a replay is compared with, as a short noun', () => {
+    expect(counterpartLabel('base', candidate('oracle'), 'base')).toBe(
+      'Baseline',
+    );
+    expect(counterpartLabel('seed', candidate('searched'), 'base')).toBe(
+      'Search’s starting config',
+    );
+    expect(counterpartLabel('live', candidate('oracle'), 'base')).toBe(
+      'Live config',
+    );
+    expect(counterpartLabel('older', candidate('proposed'), 'base')).toBe(
+      'Earlier baseline',
+    );
+    expect(counterpartLabel('older', null, null)).toBe('Earlier baseline');
   });
 
   it('shows a judge’s score on its own scale', () => {
@@ -235,10 +286,10 @@ describe('replays', () => {
 
     expect(startRefusal(set({}))).toBeNull();
     expect(startRefusal(set({ entries: [] }))).toBe(
-      'Add runs to the set first.',
+      'Please add runs to the set first.',
     );
     expect(startRefusal(set({ stationGone: true }))).toBe(
-      'Station is gone from its line.',
+      'The station is gone from its line.',
     );
   });
 

@@ -54,7 +54,7 @@ export const generatedTools = (input: {
   if (chosen.length > GENERATED_AT_MOST) {
     throw new InvalidIntegrationError(
       input.source.value,
-      `offers ${chosen.length} tools from its ${input.described.described}, more than the ${GENERATED_AT_MOST} a station can choose between; name the ones it offers in ${kind}.tools.include`,
+      `offers ${chosen.length} tools from its ${input.described.described}. A station can choose between at most ${GENERATED_AT_MOST} tools. Please name the tools to offer in ${kind}.tools.include`,
     );
   }
 
@@ -71,7 +71,7 @@ export const generatedTools = (input: {
 
     if (approval && operation.takes(APPROVAL_INTENT_INPUT)) {
       passedOver.push(
-        `passes over ${operation.name}, which needs approval and takes ${APPROVAL_INTENT_INPUT}, the input Spotlight keeps for the agent to say what it wants to do; switch its approval off in ${kind}.tools.approval to offer it`,
+        `passes over ${operation.name}. It needs approval and takes ${APPROVAL_INTENT_INPUT}, an input that Spotlight keeps for the agent to say what it wants to do. To offer it, switch its approval off in ${kind}.tools.approval`,
       );
       continue;
     }

@@ -24,6 +24,7 @@ import {
 } from '@shared-kernel/application/ports/domain-event-subscriber.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
+import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export const memorySubscribers = (
   asking: AskForMemories,
@@ -34,7 +35,15 @@ export const memorySubscribers = (
   subscribing<RunBriefedIntegrationEvent>(
     'memory.note-briefed-memories',
     [RUN_BRIEFED],
-    (event) => noting.runBriefed(RunId.of(event.runId), event.memories),
+    (event) =>
+      noting.runBriefed(
+        {
+          id: RunId.of(event.runId),
+          workspaceId: WorkspaceId.of(event.workspaceId),
+          taskId: event.taskId ? TaskId.of(event.taskId) : null,
+        },
+        event.memories,
+      ),
   ),
   subscribing<MemoriesProposed>(
     'memory.raise-review',
@@ -59,7 +68,12 @@ export const memorySubscribers = (
   subscribing<RunEndedIntegrationEvent>(
     'memory.note-memories-read',
     [RUN_ENDED],
-    (event) => noting.runEnded(RunId.of(event.runId)),
+    (event) =>
+      noting.runEnded({
+        id: RunId.of(event.runId),
+        workspaceId: WorkspaceId.of(event.workspaceId),
+        taskId: event.taskId ? TaskId.of(event.taskId) : null,
+      }),
   ),
   subscribing<RunEndedIntegrationEvent>(
     'memory.ask-for-memories',

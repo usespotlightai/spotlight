@@ -1,5 +1,5 @@
 {
-  "id": "9a147079-07e5-4097-99a3-1abc6bad08fe",
+  "id": "c26afc18-da9a-43aa-bb90-c1bf6b0a2bc2",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -6619,6 +6619,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "memories": {
+          "name": "memories",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
         "opened_by": {
           "name": "opened_by",
           "type": "text",
@@ -6690,6 +6696,39 @@
           "columns": [
             {
               "expression": "ended_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "run_fact_station_began_idx": {
+          "name": "run_fact_station_began_idx",
+          "columns": [
+            {
+              "expression": "workspace_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "team_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "station_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "began_at",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -6990,6 +7029,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'[]'::jsonb"
+        },
+        "memories": {
+          "name": "memories",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{\"briefed\":[],\"recalled\":[]}'::jsonb"
         },
         "version": {
           "name": "version",

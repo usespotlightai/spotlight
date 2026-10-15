@@ -33,13 +33,24 @@ export interface HumanLoad {
   readonly refusedTaskIds: readonly string[];
 }
 
-export const humanLoadOf = (
+export interface HumanLoadCounts {
+  readonly asks: number;
+  readonly unanswered: number;
+  readonly toAnswer: Spread;
+  readonly askedTaskIds: readonly string[];
+  readonly tasks: number;
+  readonly runs: number;
+  readonly sentBack: number;
+  readonly refused: number;
+  readonly refusedTaskIds: readonly string[];
+}
+
+export const humanLoadCountsOf = (
   history: TeamHistory,
   window: Window,
-): HumanLoad => {
+): HumanLoadCounts => {
   const ended = endedWithin(history.records, window);
   const tally = runTally(ended, history.deliveries);
-  const tasks = tasksOf(ended.filter((each) => each.ran)).length;
   const waits = inboxWaitsWithin(history, window);
   const refusedIn = history.touches.filter((each) =>
     each.acts.some((act) => act.refuses && within(window, act.at)),
@@ -47,23 +58,35 @@ export const humanLoadOf = (
 
   return {
     asks: waits.length,
-    tasks,
-    asksPerTask: rateOf(waits.length, tasks),
+    unanswered: waits.filter((each) => each.answeredAt === null).length,
     toAnswer: spreadOf(
       waits.flatMap((each) =>
         each.answeredAt ? [between(each.askedAt, each.answeredAt)] : [],
       ),
     ),
-    unanswered: waits.filter((each) => each.answeredAt === null).length,
+    askedTaskIds: [...new Set(waits.map((each) => each.taskId))],
+    tasks: tasksOf(ended.filter((each) => each.ran)).length,
+    runs: tally.runs,
     sentBack: tally.sentBack,
-    sentBackRate: rateOf(tally.sentBack, tally.runs),
     refused: refusedIn.flatMap((each) =>
       each.acts.filter((act) => act.refuses && within(window, act.at)),
     ).length,
-    askedTaskIds: [...new Set(waits.map((each) => each.taskId))],
     refusedTaskIds: refusedIn.map((each) => each.taskId.value),
   };
 };
+
+export const humanLoadFrom = (counts: HumanLoadCounts): HumanLoad => ({
+  asks: counts.asks,
+  tasks: counts.tasks,
+  asksPerTask: rateOf(counts.asks, counts.tasks),
+  toAnswer: counts.toAnswer,
+  unanswered: counts.unanswered,
+  sentBack: counts.sentBack,
+  sentBackRate: rateOf(counts.sentBack, counts.runs),
+  refused: counts.refused,
+  askedTaskIds: counts.askedTaskIds,
+  refusedTaskIds: counts.refusedTaskIds,
+});
 
 export interface HumanLoadChanges {
   readonly asksPerTask: Change | null;

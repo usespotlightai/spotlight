@@ -182,7 +182,7 @@ const serverIn = (servers: unknown, url: string | null): string | null => {
     return new URL(written, url ?? undefined).href.replace(/\/+$/, '');
   } catch {
     throw new DescriptionUnreadable(
-      `names the server ${JSON.stringify(written)}, which is not a web address; give the openapi block a baseUrl`,
+      `names the server ${JSON.stringify(written)}, which is not a web address. Please give the openapi block a baseUrl`,
     );
   }
 };
@@ -203,7 +203,7 @@ const serverOf = (document: Node, at: Reading): string => {
   }
 
   throw new DescriptionUnreadable(
-    'names no server to call; give the openapi block a baseUrl',
+    'names no server to call. Please give the openapi block a baseUrl',
   );
 };
 
@@ -283,10 +283,10 @@ const operationOf = (
       ? `${method.toLowerCase()} ${path.replace(/[{}]/g, '')}`
       : upstream,
   );
-  const passOver = (because: string) => `passes over ${upstream}, ${because}`;
+  const passOver = (because: string) => `passes over ${upstream}. ${because}`;
 
   if (name === '') {
-    return passOver('which has no name a tool can take');
+    return passOver('It has no name that a tool can take');
   }
 
   const server = at.baseUrl
@@ -301,7 +301,7 @@ const operationOf = (
     (at.url === null || hostOf(server) !== hostOf(at.url))
   ) {
     return passOver(
-      `because it calls ${hostOf(server)}, and the connection is worn only toward the host the description came from or the one its baseUrl names`,
+      `It calls ${hostOf(server)}. The connection is worn only toward the host of the description or the host that baseUrl names`,
     );
   }
 
@@ -312,7 +312,7 @@ const operationOf = (
     const parameter = parameterOf(walk, raw);
 
     if (!parameter) {
-      return passOver('because one of its parameters cannot be read');
+      return passOver('One of its parameters cannot be read');
     }
 
     byPlace.set(`${parameter.in} ${parameter.name}`, parameter);
@@ -333,14 +333,14 @@ const operationOf = (
     if (!sendable) {
       if (parameter.required) {
         return passOver(
-          `because it needs its ${parameter.in} parameter ${parameter.name}, which a tool cannot send`,
+          `It needs its ${parameter.in} parameter ${parameter.name}, which a tool cannot send`,
         );
       }
       continue;
     }
 
     if (inputs.some((each) => each.name === parameter.name)) {
-      return passOver(`because it takes ${parameter.name} twice`);
+      return passOver(`It takes ${parameter.name} twice`);
     }
 
     inputs.push({
@@ -369,15 +369,13 @@ const operationOf = (
 
   if (isNode(requestBody) && !body && requestBody.required === true) {
     return passOver(
-      'because it sends a body that is not JSON, which a tool cannot send yet',
+      'It sends a body that is not JSON. A tool cannot send such a body yet',
     );
   }
 
   if (body) {
     if (inputs.some((each) => each.name === BODY)) {
-      return passOver(
-        `because it takes a parameter called ${BODY} as well as a body`,
-      );
+      return passOver(`It takes a parameter called ${BODY} as well as a body`);
     }
 
     inputs.push({
@@ -420,7 +418,7 @@ export const openapiOperations = (
 
   if (document.swagger !== undefined) {
     throw new DescriptionUnreadable(
-      'is a Swagger 2 description, which Spotlight does not read; convert it to OpenAPI 3',
+      'is a Swagger 2 description. Spotlight reads only OpenAPI 3. Please convert it to OpenAPI 3',
     );
   }
 
@@ -429,7 +427,7 @@ export const openapiOperations = (
     !document.openapi.startsWith('3.')
   ) {
     throw new DescriptionUnreadable(
-      'is not an OpenAPI 3 description, which says openapi: 3.0 or 3.1',
+      'is not an OpenAPI 3 description. An OpenAPI 3 description says openapi: 3.0 or 3.1',
     );
   }
 

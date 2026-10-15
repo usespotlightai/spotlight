@@ -3,6 +3,7 @@ import type {
   ChangeMarkerDto,
   InsightsChangesDto,
 } from '@outcomes/application/dto/insights-changes.dto';
+import type { InsightsReaderPort } from '@outcomes/application/ports/insights-reader.port';
 import type { WorkPort } from '@outcomes/application/ports/work.port';
 import type { ReadInsightsChangesQuery } from '@outcomes/application/queries/read-insights-changes.query';
 import {
@@ -10,24 +11,16 @@ import {
   configChangesOf,
   fingerprintsAsked,
 } from '@outcomes/application/services/config-changes';
-import type { TeamHistories } from '@outcomes/application/services/team-histories.service';
+import type { TeamScopes } from '@outcomes/application/services/team-scopes.service';
 import type { TrustedJudges } from '@outcomes/application/services/trusted-judges.service';
-import type { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
-import {
-  type ChangeSplit,
-  changeSplitsOf,
-} from '@outcomes/domain/services/before-after';
-import { changeVerdictOf } from '@outcomes/domain/services/change-verdict';
+import type { ChangeCounts } from '@outcomes/domain/services/before-after';
+import { verdictsFrom } from '@outcomes/domain/services/change-verdict';
 import {
   judgeChangeOf,
-  judgeShareOf,
+  judgeShareFrom,
 } from '@outcomes/domain/services/judge-shares';
-import { runTally } from '@outcomes/domain/services/run-tally';
-import {
-  type StationPlace,
-  startedWithin,
-} from '@outcomes/domain/services/team-history';
-import { within } from '@outcomes/domain/value-objects/insights-period.vo';
+import { tallyOf } from '@outcomes/domain/services/run-tally';
+import type { StationPlace } from '@outcomes/domain/services/team-history';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
@@ -35,97 +28,76 @@ const placesOf = (places: readonly StationPlace[]): readonly StationPlace[] => [
   ...new Map(places.map((each) => [each.stationId, each])).values(),
 ];
 
-const pairOfSplit = (split: ChangeSplit): ConfigPair => ({
-  previous: split.previousFingerprint,
-  next: split.marker.fingerprint,
+const pairOf = ({ marker }: ChangeCounts): ConfigPair => ({
+  previous: marker.previousFingerprint,
+  next: marker.fingerprint,
 });
-
-const sharesOf = (
-  records: readonly RunRecord[],
-  shares: ReadonlyMap<string, number>,
-): number[] =>
-  records.flatMap((each) => {
-    const share = shares.get(each.runId.value);
-    return share === undefined ? [] : [share];
-  });
 
 export class ReadInsightsChangesHandler
   implements QueryHandlerPort<ReadInsightsChangesQuery, InsightsChangesDto>
 {
   constructor(
-    private readonly histories: TeamHistories,
+    private readonly scopes: TeamScopes,
+    private readonly reader: InsightsReaderPort,
     private readonly judges: TrustedJudges,
     private readonly work: WorkPort,
   ) {}
 
   async execute(query: ReadInsightsChangesQuery): Promise<InsightsChangesDto> {
     try {
-      const held = await this.histories.of(
+      const { clearance, period } = await this.scopes.scope(
         query.teamId,
         query.principal,
         query.period,
       );
-      const { clearance, period, history, truncated } = held;
-      const carried = await this.histories.carriedOn(held);
-      const splits = changeSplitsOf(
-        startedWithin(history.records, {
-          from: carried.from,
-          to: period.lookback.to,
-        }),
-        (marker) => within(period.current, marker.firstRunAt),
-        carried.lastRuns,
-      );
-      const judging = await this.judges.of(
+      const changes = await this.reader.changeCounts({
+        workspaceId: clearance.workspaceId,
+        teamId: clearance.teamId,
+        period,
+      });
+      const standings = await this.judges.standings(
         clearance,
-        placesOf(splits.map((each) => each.marker)),
-        splits.flatMap((each) => [...each.before, ...each.after]),
+        placesOf(changes.map((each) => each.marker)),
       );
-      const trusted = new Set(
-        judging.judges
+      const trustedStations = new Set(
+        standings.judges
           .filter((each) => each.trusted)
           .map((each) => each.stationId),
       );
       const configs = configChangesOf(
-        await this.work.configsInOrder(
-          fingerprintsAsked(splits.map(pairOfSplit)),
-        ),
+        await this.work.configsInOrder(fingerprintsAsked(changes.map(pairOf))),
       );
-      const markers: ChangeMarkerDto[] = splits.map((split) => {
-        const { marker } = split;
-        const judged = trusted.has(marker.stationId);
-        const judgeBefore = judged
-          ? judgeShareOf(sharesOf(split.before, judging.shares))
+      const markers: ChangeMarkerDto[] = changes.map((change) => {
+        const { marker } = change;
+        const trustedRubric = standings.trusted.get(marker.stationId) ?? null;
+        const judgeBefore = trustedStations.has(marker.stationId)
+          ? judgeShareFrom(change.judgedBefore, trustedRubric)
           : null;
-        const judgeAfter = judged
-          ? judgeShareOf(sharesOf(split.after, judging.shares))
+        const judgeAfter = trustedStations.has(marker.stationId)
+          ? judgeShareFrom(change.judgedAfter, trustedRubric)
           : null;
 
         return {
           lineId: marker.lineId,
           stationId: marker.stationId,
           fingerprint: marker.fingerprint,
-          previousFingerprint: split.previousFingerprint,
+          previousFingerprint: marker.previousFingerprint,
           firstRunAt: marker.firstRunAt.toISOString(),
           runId: marker.runId,
-          before: runTally(split.before, history.deliveries),
-          after: runTally(split.after, history.deliveries),
-          verdicts: changeVerdictOf(
-            split.before,
-            split.after,
-            history.deliveries,
-          ),
+          before: tallyOf(change.before.tally),
+          after: tallyOf(change.after.tally),
+          verdicts: verdictsFrom(change.before, change.after),
           judgeBefore,
           judgeAfter,
           judgeChange: judgeChangeOf(judgeBefore, judgeAfter),
-          changes: configs.between(pairOfSplit(split)),
+          changes: configs.between(pairOf(change)),
         };
       });
 
       return {
         period: periodOf(period),
-        truncated,
         markers,
-        judges: judging.judges.map(({ rubricVersion: _, ...each }) => each),
+        judges: standings.judges.map(({ rubricVersion: _, ...each }) => each),
       };
     } catch (error) {
       rethrowAsFault(error);

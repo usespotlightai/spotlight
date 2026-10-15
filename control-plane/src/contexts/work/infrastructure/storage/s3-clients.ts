@@ -16,7 +16,7 @@ export interface S3Clients {
 export const s3ClientsOf = (env: Env): S3Clients => {
   const shared = {
     region: env.S3_REGION,
-    // Otherwise presigned URLs carry a pre-upload checksum that S3 rejects.
+    // If not, presigned URLs contain a pre-upload checksum that S3 rejects.
     requestChecksumCalculation: 'WHEN_REQUIRED' as const,
     responseChecksumValidation: 'WHEN_REQUIRED' as const,
     credentials:

@@ -124,7 +124,7 @@ export class Integration {
     if (holding.byRequester && !connects) {
       throw new InvalidIntegrationError(
         source.value,
-        'takes each person’s connection, and a person can only connect over oauth2',
+        'takes each person’s connection. A person can connect only over oauth2',
       );
     }
 

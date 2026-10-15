@@ -20,7 +20,7 @@ export class ConversationId {
     }
   }
 
-  // Task ids are opaque and may contain the separator, so split from the end.
+  // Task ids are opaque and can contain the separator, so split from the end.
   static parse(value: string): ConversationId {
     const at = value.lastIndexOf(AT);
 

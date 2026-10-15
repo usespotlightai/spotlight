@@ -1,15 +1,17 @@
 import type { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
-import { rateOf } from '@outcomes/domain/services/measures';
-import { weekWindowOf } from '@outcomes/domain/services/pull-request-insights';
+import { byText, rateOf } from '@outcomes/domain/services/measures';
+import { weekOf } from '@outcomes/domain/services/pull-request-insights';
 import {
   type SkillTrend,
   skillTrendOf,
 } from '@outcomes/domain/services/skill-trend';
 import {
+  endedWithin,
   type StationPlace,
   stationsOf,
+  type TeamHistory,
 } from '@outcomes/domain/services/team-history';
-import { within } from '@outcomes/domain/value-objects/insights-period.vo';
+import type { Window } from '@outcomes/domain/value-objects/insights-period.vo';
 import { LatencyHistogram } from '@shared-kernel/domain/value-objects/latency-histogram.vo';
 
 export interface SkillWeek {
@@ -58,6 +60,38 @@ export interface ToolRefusals {
   readonly refused: number;
 }
 
+export interface RunCount {
+  readonly stationId: string | null;
+  readonly week: string | null;
+  readonly runs: number;
+}
+
+export interface SkillUseCount {
+  readonly key: string;
+  readonly stationId: string | null;
+  readonly week: string | null;
+  readonly given: number;
+  readonly used: number;
+}
+
+export interface ServerCounts {
+  readonly server: string;
+  readonly runs: number;
+  readonly calls: number;
+  readonly failedCalls: number;
+  readonly latency: readonly number[];
+  readonly failingRuns: number;
+  readonly refused: number;
+}
+
+export interface ToolCounts {
+  readonly runs: readonly RunCount[];
+  readonly stations: readonly StationPlace[];
+  readonly skills: readonly SkillUseCount[];
+  readonly servers: readonly ServerCounts[];
+  readonly refusals: readonly ToolRefusals[];
+}
+
 export interface ToolInsights {
   readonly runs: number;
   readonly skills: readonly SkillReport[];
@@ -77,101 +111,81 @@ const count = (
   holds: (record: RunRecord) => boolean,
 ): number => records.filter(holds).length;
 
-const weekly = (
+const nullsFirst = (one: string | null, other: string | null): number =>
+  one === null || other === null
+    ? Number(other === null) - Number(one === null)
+    : byText(one, other);
+
+const inCountOrder = (
+  one: { readonly stationId: string | null; readonly week: string | null },
+  other: { readonly stationId: string | null; readonly week: string | null },
+): number =>
+  nullsFirst(one.stationId, other.stationId) ||
+  nullsFirst(one.week, other.week);
+
+const groupsOf = (
   records: readonly RunRecord[],
-  weeks: readonly string[],
-  skill: string,
-): readonly SkillWeek[] =>
-  weeks.map((week) => {
-    const inWeek = records.filter((each) =>
-      within(weekWindowOf(week), each.end?.endedAt ?? null),
-    );
-
-    const used = count(inWeek, (each) => usedBy(each, skill));
-
-    return {
-      week,
-      runs: inWeek.length,
-      given: count(inWeek, (each) => givenTo(each, skill)),
-      used,
-      usedShare: rateOf(used, inWeek.length),
-    };
-  });
-
-const byUseThenName = (one: SkillReport, other: SkillReport): number =>
-  other.used - one.used || one.key.localeCompare(other.key);
-
-interface StationRecords {
-  readonly place: StationPlace;
+): readonly {
+  readonly stationId: string | null;
+  readonly week: string | null;
   readonly records: readonly RunRecord[];
-}
-
-const byStation = (
-  records: readonly RunRecord[],
-): readonly StationRecords[] => {
+}[] => {
   const held = new Map<string, RunRecord[]>();
+  const keyOf = (stationId: string | null, week: string | null) =>
+    JSON.stringify([stationId, week]);
 
   for (const record of records) {
-    const stationId = record.end?.place.stationId;
+    if (record.end) {
+      const { stationId } = record.end.place;
+      const week = weekOf(record.end.endedAt);
 
-    if (stationId) {
-      const there = held.get(stationId) ?? [];
+      for (const key of [
+        keyOf(null, null),
+        keyOf(null, week),
+        keyOf(stationId, null),
+        keyOf(stationId, week),
+      ]) {
+        const grouped = held.get(key) ?? [];
 
-      there.push(record);
-      held.set(stationId, there);
+        grouped.push(record);
+        held.set(key, grouped);
+      }
     }
   }
 
-  return stationsOf(records).map((place) => ({
-    place,
-    records: held.get(place.stationId) ?? [],
-  }));
+  return [...held.entries()]
+    .map(([key, grouped]) => {
+      const [stationId, week] = JSON.parse(key) as [
+        string | null,
+        string | null,
+      ];
+
+      return { stationId, week, records: grouped };
+    })
+    .sort(inCountOrder);
 };
 
-const skillReportsOf = (
+const skillUseOf = (
   records: readonly RunRecord[],
-  weeks: readonly string[],
-  defined: ReadonlySet<string>,
-): readonly SkillReport[] => {
-  const keys = new Set(
-    records.flatMap((each) => [
-      ...(each.end?.setup.skills ?? []),
-      ...(each.tools?.skillsRead ?? []),
-    ]),
+): readonly SkillUseCount[] => {
+  const keys = [
+    ...new Set(
+      records.flatMap((each) => [
+        ...(each.end?.setup.skills ?? []),
+        ...(each.tools?.skillsRead ?? []),
+      ]),
+    ),
+  ].sort(byText);
+  const groups = groupsOf(records);
+
+  return keys.flatMap((key) =>
+    groups.flatMap(({ stationId, week, records: grouped }) => {
+      const given = count(grouped, (each) => givenTo(each, key));
+      const used = count(grouped, (each) => usedBy(each, key));
+
+      return given + used === 0 ? [] : [{ key, stationId, week, given, used }];
+    }),
   );
-  const stations = byStation(records);
-
-  return [...keys]
-    .map((key): SkillReport => {
-      const team = weekly(records, weeks, key);
-      const atStations = stations.flatMap(({ place, records: there }) => {
-        const given = count(there, (each) => givenTo(each, key));
-        const used = count(there, (each) => usedBy(each, key));
-
-        return given + used === 0
-          ? []
-          : [
-              {
-                ...place,
-                runs: there.length,
-                given,
-                used,
-                trend: skillTrendOf(weekly(there, weeks, key)),
-              },
-            ];
-      });
-
-      return {
-        key,
-        defined: defined.has(key),
-        given: count(records, (each) => givenTo(each, key)),
-        used: count(records, (each) => usedBy(each, key)),
-        weeks: team,
-        trend: skillTrendOf(team),
-        stations: atStations,
-      };
-    })
-    .sort(byUseThenName);
 };
 
 const refusalsOf = (records: readonly RunRecord[]): readonly ToolRefusals[] => {
@@ -196,76 +210,167 @@ const refusalsOf = (records: readonly RunRecord[]): readonly ToolRefusals[] => {
 
   return [...tools.values()].sort(
     (one, other) =>
-      other.refused - one.refused ||
-      one.tool.localeCompare(other.tool) ||
-      (one.server ?? '').localeCompare(other.server ?? ''),
+      byText(one.tool, other.tool) || nullsFirst(one.server, other.server),
   );
 };
 
 const refusedAt = (record: RunRecord, server: string): boolean =>
   record.refusals.some((each) => each.server === server);
 
-const serverReportsOf = (
+const serverCountsOf = (
   records: readonly RunRecord[],
-): readonly ServerReport[] => {
-  const servers = new Set(
-    records.flatMap((each) =>
-      (each.tools?.servers ?? []).map((calls) => calls.server),
+): readonly ServerCounts[] =>
+  [
+    ...new Set(
+      records.flatMap((each) =>
+        (each.tools?.servers ?? []).map((calls) => calls.server),
+      ),
     ),
-  );
-
-  return [...servers]
-    .map((server): ServerReport => {
+  ]
+    .sort(byText)
+    .map((server): ServerCounts => {
       const calling = records.flatMap((each) => {
         const calls = each.tools?.callsTo(server);
         return calls ? [calls] : [];
       });
-      const calls = calling.reduce((sum, each) => sum + each.calls, 0);
-      const failedCalls = calling.reduce((sum, each) => sum + each.failed, 0);
-      const latency = calling.reduce(
-        (merged, each) => merged.plus(each.latency),
-        LatencyHistogram.EMPTY,
-      );
 
       return {
         server,
         runs: calling.length,
-        calls,
-        callsPerRun: rateOf(calls, calling.length),
-        p50Ms: latency.percentile(50),
-        p95Ms: latency.percentile(95),
-        failedCalls,
-        errorRate: rateOf(failedCalls, calls),
+        calls: calling.reduce((sum, each) => sum + each.calls, 0),
+        failedCalls: calling.reduce((sum, each) => sum + each.failed, 0),
+        latency: calling.reduce(
+          (merged, each) => merged.plus(each.latency),
+          LatencyHistogram.EMPTY,
+        ).counts,
         failingRuns: count(records, (each) =>
           each.failedAfterCallingTo(server),
         ),
         refused: count(records, (each) => refusedAt(each, server)),
       };
-    })
-    .sort(
-      (one, other) =>
-        other.runs - one.runs || one.server.localeCompare(other.server),
-    );
+    });
+
+export const toolCountsOf = (
+  history: TeamHistory,
+  window: Window,
+): ToolCounts => {
+  const ran = endedWithin(history.records, window).filter((each) => each.ran);
+
+  return {
+    runs: groupsOf(ran).map(({ stationId, week, records: grouped }) => ({
+      stationId,
+      week,
+      runs: grouped.length,
+    })),
+    stations: stationsOf(ran),
+    skills: skillUseOf(ran),
+    servers: serverCountsOf(ran),
+    refusals: refusalsOf(ran),
+  };
 };
 
-export const toolInsightsOf = (
-  records: readonly RunRecord[],
+const byUseThenName = (one: SkillReport, other: SkillReport): number =>
+  other.used - one.used || one.key.localeCompare(other.key);
+
+export const toolInsightsFrom = (
+  counts: ToolCounts,
   weeks: readonly string[],
   defined: readonly string[],
 ): ToolInsights => {
-  const ran = records.filter((each) => each.ran);
-  const skills = skillReportsOf(ran, weeks, new Set(defined));
+  const keyOf = (...parts: readonly (string | null)[]) => JSON.stringify(parts);
+  const runs = new Map(
+    counts.runs.map((each) => [keyOf(each.stationId, each.week), each.runs]),
+  );
+  const uses = new Map(
+    counts.skills.map((each) => [
+      keyOf(each.key, each.stationId, each.week),
+      each,
+    ]),
+  );
+  const runsAt = (stationId: string | null, week: string | null): number =>
+    runs.get(keyOf(stationId, week)) ?? 0;
+  const useAt = (key: string, stationId: string | null, week: string | null) =>
+    uses.get(keyOf(key, stationId, week)) ?? { given: 0, used: 0 };
+  const weekly = (key: string, stationId: string | null): SkillWeek[] =>
+    weeks.map((week) => {
+      const inWeek = runsAt(stationId, week);
+      const { given, used } = useAt(key, stationId, week);
+
+      return {
+        week,
+        runs: inWeek,
+        given,
+        used,
+        usedShare: rateOf(used, inWeek),
+      };
+    });
+  const definedKeys = new Set(defined);
+  const skills = [...new Set(counts.skills.map((each) => each.key))]
+    .map((key): SkillReport => {
+      const team = weekly(key, null);
+      const all = useAt(key, null, null);
+
+      return {
+        key,
+        defined: definedKeys.has(key),
+        given: all.given,
+        used: all.used,
+        weeks: team,
+        trend: skillTrendOf(team),
+        stations: counts.stations.flatMap((place) => {
+          const there = useAt(key, place.stationId, null);
+
+          return there.given + there.used === 0
+            ? []
+            : [
+                {
+                  ...place,
+                  runs: runsAt(place.stationId, null),
+                  given: there.given,
+                  used: there.used,
+                  trend: skillTrendOf(weekly(key, place.stationId)),
+                },
+              ];
+        }),
+      };
+    })
+    .sort(byUseThenName);
   const used = new Set(
     skills.filter((each) => each.used > 0).map((each) => each.key),
   );
 
   return {
-    runs: ran.length,
+    runs: runsAt(null, null),
     skills,
-    unused: [...new Set(defined)]
+    unused: [...definedKeys]
       .filter((each) => !used.has(each))
       .sort((one, other) => one.localeCompare(other)),
-    servers: serverReportsOf(ran),
-    refusals: refusalsOf(ran),
+    servers: counts.servers
+      .map((each): ServerReport => {
+        const latency = LatencyHistogram.of(each.latency);
+
+        return {
+          server: each.server,
+          runs: each.runs,
+          calls: each.calls,
+          callsPerRun: rateOf(each.calls, each.runs),
+          p50Ms: latency.percentile(50),
+          p95Ms: latency.percentile(95),
+          failedCalls: each.failedCalls,
+          errorRate: rateOf(each.failedCalls, each.calls),
+          failingRuns: each.failingRuns,
+          refused: each.refused,
+        };
+      })
+      .sort(
+        (one, other) =>
+          other.runs - one.runs || one.server.localeCompare(other.server),
+      ),
+    refusals: [...counts.refusals].sort(
+      (one, other) =>
+        other.refused - one.refused ||
+        one.tool.localeCompare(other.tool) ||
+        (one.server ?? '').localeCompare(other.server ?? ''),
+    ),
   };
 };

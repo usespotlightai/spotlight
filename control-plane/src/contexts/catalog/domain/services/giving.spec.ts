@@ -82,7 +82,7 @@ describe('givingOf', () => {
       refusal: {
         id: 'web-search',
         reason: 'unknown',
-        because: 'web-search is not in the catalog',
+        because: 'Catalog has no item web-search.',
       },
     });
   });
@@ -113,7 +113,7 @@ describe('givingOf', () => {
       refusal: {
         id: 'catalog.research@1.0.0',
         reason: 'wrong-kind',
-        because: 'catalog.research@1.0.0 is a catalog skill, not a tool',
+        because: 'Catalog item catalog.research@1.0.0 is a skill, not a tool.',
       },
     });
   });
@@ -133,7 +133,7 @@ describe('givingOf', () => {
         id: 'catalog.web-search@1.0.0',
         reason: 'not-entitled',
         because:
-          'catalog.web-search@1.0.0 needs the Team plan. Workspace plan: Free',
+          'Catalog item catalog.web-search@1.0.0 needs the Team plan. Workspace plan: Free',
       },
     });
   });

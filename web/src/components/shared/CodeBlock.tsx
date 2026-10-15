@@ -57,7 +57,7 @@ export function CodeBlock({
         (commandHtml ? (
           <div
             className="code-block"
-            // biome-ignore lint/security/noDangerouslySetInnerHtml: Shiki markup for the step's own trusted command
+            // biome-ignore lint/security/noDangerouslySetInnerHtml: the Shiki markup comes from the trusted command of the step
             dangerouslySetInnerHTML={{ __html: commandHtml }}
           />
         ) : (

@@ -61,7 +61,10 @@ export function LatestReplay({ teamId, setId, className }: LatestReplayProps) {
           <span className="text-foreground">
             {candidateShown(latest.candidate)}
           </span>
-          <SuccessAgainstBaseline replay={latest} baseline={baselineIn(all)} />
+          <SuccessAgainstBaseline
+            replay={latest}
+            baselineId={baselineIn(all)?.id ?? null}
+          />
         </TooltipContent>
       </Tooltip>
       <ReplayStatePill state={latest.state} className={COMPACT_PILL} />

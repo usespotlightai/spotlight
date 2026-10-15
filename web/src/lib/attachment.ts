@@ -51,7 +51,7 @@ export const sized = (bytes: number): string => {
 
 export const refused = (file: { readonly size: number }): string | null =>
   file.size > MAX_ATTACHMENT_BYTES
-    ? `Too large. Maximum size: ${sized(MAX_ATTACHMENT_BYTES)}`
+    ? `The file is too large. Maximum size: ${sized(MAX_ATTACHMENT_BYTES)}`
     : null;
 
 export const filesIn = (carried: DataTransfer | null): File[] =>

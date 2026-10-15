@@ -77,13 +77,6 @@ export class InsightsMemoryResponseDto {
   @ApiProperty({ type: InsightsPeriodResponseDto })
   readonly period: InsightsPeriodResponseDto;
 
-  @ApiProperty({
-    example: false,
-    description:
-      'Whether the team ran more than 20,000 runs over the period and the one before, so only the latest 20,000 were counted',
-  })
-  readonly truncated: boolean;
-
   @ApiProperty({ example: 14, description: 'Memories the team keeps now' })
   readonly standing: number;
 
@@ -142,7 +135,6 @@ export class InsightsMemoryResponseDto {
 
   constructor(memory: InsightsMemoryDto) {
     this.period = new InsightsPeriodResponseDto(memory.period);
-    this.truncated = memory.truncated;
     this.standing = memory.standing;
     this.memoriesBriefed = memory.memoriesBriefed;
     this.memoriesRecalled = memory.memoriesRecalled;

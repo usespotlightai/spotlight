@@ -19,8 +19,6 @@ import { buttonVariants } from '@/components/ui/button-variants';
 
 import type { LineResponseDto, StationResponseDto } from '@/lib/api';
 import {
-  baselineIn,
-  type Replay,
   type ReplayDetail,
   type ReplayedStation,
   type ReplaySet,
@@ -39,7 +37,6 @@ type ReplayPageProps = {
   station: StationResponseDto | undefined;
   replay: ReplayDetail;
   set: ReplaySet;
-  siblings: readonly Replay[];
   trail: BreadcrumbSegment[];
   forward: BreadcrumbSegment[];
 };
@@ -50,18 +47,14 @@ export function ReplayPage({
   station,
   replay,
   set,
-  siblings,
   trail,
   forward,
 }: ReplayPageProps) {
   const [picked, setPicked] = useState<string | null>(null);
 
-  const baseline =
-    baselineIn(siblings) ??
-    (replay.baselineReplayId === replay.id ? replay : null);
   const chosen =
     replay.comparison.find((each) => each.originalRunId === picked) ?? null;
-  const { compared, counterpart } = taskColumnsOf(replay);
+  const { compared, counterpart, counterpartLabel } = taskColumnsOf(replay);
 
   return (
     <TrailContext value={forward}>
@@ -89,11 +82,12 @@ export function ReplayPage({
             slug={at.slug}
             teamId={at.teamId}
             chosen={chosen}
+            counterpartLabel={counterpartLabel}
             onClose={() => setPicked(null)}
           />
         }
       >
-        <ReplayTiles replay={replay} baseline={baseline} />
+        <ReplayTiles replay={replay} />
 
         <InsightsCard
           tableOnly
@@ -117,8 +111,8 @@ export function ReplayPage({
                   </TrailLink>
                 }
               >
-                Set had no runs when this replay started. Add runs to the set,
-                then replay it again.
+                The set had no runs when this replay started. Please add runs to
+                the set, then replay it again.
               </EmptyState>
             </StateBox>
           ) : (

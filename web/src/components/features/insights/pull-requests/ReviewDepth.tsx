@@ -53,7 +53,7 @@ export function ReviewDepth({ depth, repositories }: ReviewDepthProps) {
     <InsightsCard
       tableOnly
       title="Review depth"
-      description="Review rounds per merged pull request. A person’s approval or change request is a round. Comments after the last add one more. Dismissed reviews don’t count."
+      description="Review rounds per merged pull request. A person’s approval or change request is a round. Comments after the last round add one more round. Dismissed reviews don’t count."
     >
       <InsightsTable
         label="Merged pull requests by review rounds"

@@ -27,7 +27,7 @@ describe('PairTally', () => {
     expect(
       screen.getByText('1 win, 2 losses, 0 ties'),
     ).toHaveAccessibleDescription(
-      /Loss: the search’s starting config’s is closer/,
+      /a loss if the search’s starting config’s is closer/,
     );
   });
 

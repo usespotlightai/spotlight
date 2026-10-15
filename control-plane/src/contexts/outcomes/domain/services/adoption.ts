@@ -81,62 +81,84 @@ export const peopleActiveIn = (
     ),
   ].sort();
 
-const usesOf = (
-  activities: readonly Activity[],
-  personId: string,
-  firstSeenAt: Date,
-  window: Window,
-): PersonUse => {
-  const own = activities.filter(
-    (each) => each.personId === personId && within(window, each.at),
-  );
-  const counted = (kind: ActivityKind) =>
-    own.filter((each) => each.kind === kind).length;
+export interface PersonActivity {
+  readonly personId: string;
+  readonly opened: number;
+  readonly acts: number;
+  readonly chats: number;
+  readonly lastActiveAt: Date;
+  readonly firstAt: Date;
+}
+
+export interface AdoptionCounts {
+  readonly people: readonly PersonActivity[];
+  readonly before: number;
+  readonly weekly: number;
+  readonly monthly: number;
+}
+
+export const adoptionCountsOf = (
+  history: TeamHistory,
+  period: InsightsPeriod,
+): AdoptionCounts => {
+  const activities = activitiesOf(history);
 
   return {
-    personId,
-    tasksOpened: counted('opened'),
-    acts: counted('acted'),
-    chats: counted('chatted'),
-    firstSeenAt,
-    lastActiveAt: new Date(Math.max(...own.map((each) => each.at.getTime()))),
-    isNew: within(window, firstSeenAt),
+    people: peopleActiveIn(activities, period.current).map((personId) => {
+      const all = activities.filter((each) => each.personId === personId);
+      const own = all.filter((each) => within(period.current, each.at));
+      const counted = (kind: ActivityKind) =>
+        own.filter((each) => each.kind === kind).length;
+
+      return {
+        personId,
+        opened: counted('opened'),
+        acts: counted('acted'),
+        chats: counted('chatted'),
+        lastActiveAt: new Date(
+          Math.max(...own.map((each) => each.at.getTime())),
+        ),
+        firstAt: new Date(Math.min(...all.map((each) => each.at.getTime()))),
+      };
+    }),
+    before: peopleActiveIn(activities, period.previous).length,
+    weekly: peopleActiveIn(activities, period.lastWeek).length,
+    monthly: peopleActiveIn(activities, period.lastMonth).length,
   };
 };
 
-export const adoptionOf = (
-  history: TeamHistory,
+export const adoptionFrom = (
+  counts: AdoptionCounts,
   period: InsightsPeriod,
   firstSeen: ReadonlyMap<string, Date>,
 ): Adoption => {
-  const activities = activitiesOf(history);
-  const active = peopleActiveIn(activities, period.current);
-  const weekly = peopleActiveIn(activities, period.lastWeek);
-  const monthly = peopleActiveIn(activities, period.lastMonth);
-  const firstOf = (personId: string): Date => {
-    const seen = activities
-      .filter((each) => each.personId === personId)
-      .map((each) => each.at.getTime());
-    const earliest = firstSeen.get(personId)?.getTime();
+  const people = counts.people.map((each): PersonUse => {
+    const earliest = firstSeen.get(each.personId)?.getTime();
+    const firstSeenAt = new Date(
+      Math.min(each.firstAt.getTime(), ...(earliest ? [earliest] : [])),
+    );
 
-    return new Date(Math.min(...seen, ...(earliest ? [earliest] : [])));
-  };
-  const people = active.map((personId) =>
-    usesOf(activities, personId, firstOf(personId), period.current),
-  );
-
-  const activeBefore = peopleActiveIn(activities, period.previous);
+    return {
+      personId: each.personId,
+      tasksOpened: each.opened,
+      acts: each.acts,
+      chats: each.chats,
+      firstSeenAt,
+      lastActiveAt: each.lastActiveAt,
+      isNew: within(period.current, firstSeenAt),
+    };
+  });
 
   return {
-    activeCount: active.length,
-    activeChange: changeOf(active.length, activeBefore.length, {
+    activeCount: people.length,
+    activeChange: changeOf(people.length, counts.before, {
       better: 'up',
       unit: 'percent',
     }),
     newAdopterCount: people.filter((each) => each.isNew).length,
-    weeklyCount: weekly.length,
-    monthlyCount: monthly.length,
-    stickiness: monthly.length > 0 ? weekly.length / monthly.length : null,
+    weeklyCount: counts.weekly,
+    monthlyCount: counts.monthly,
+    stickiness: counts.monthly > 0 ? counts.weekly / counts.monthly : null,
     people,
   };
 };

@@ -94,6 +94,27 @@ describe('the pull request list', () => {
     expect(numbers({ compared: 'false' })).toEqual([2, 1, 3, 5]);
   });
 
+  it('lists pull requests closed at the same time in the order of their code units', () => {
+    const at = new Date('2026-09-22T08:00:00Z');
+    const listed = filteredPullRequests(
+      [
+        teamPullRequestOf(6, {
+          seen: { repository: 'acme/lone', state: 'merged', closedAt: at },
+        }),
+        teamPullRequestOf(4, {
+          seen: { repository: 'Acme/maths', state: 'merged', closedAt: at },
+        }),
+      ],
+      pullRequestFilterOf(NOTHING),
+      WINDOW,
+    );
+
+    expect(listed.map((each) => each.pullRequest)).toEqual([
+      'https://github.com/Acme/maths/pull/4',
+      'https://github.com/acme/lone/pull/6',
+    ]);
+  });
+
   it('narrows to what closed in a week, what was reverted and how many rounds it took', () => {
     expect(numbers({ week: '2026-09-21' })).toEqual([1]);
     expect(numbers({ reverted: 'true' })).toEqual([2]);

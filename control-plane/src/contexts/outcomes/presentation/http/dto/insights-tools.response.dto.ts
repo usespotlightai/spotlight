@@ -274,13 +274,6 @@ export class InsightsToolsResponseDto {
   readonly period: InsightsPeriodResponseDto;
 
   @ApiProperty({
-    example: false,
-    description:
-      'Whether the team had more than 20,000 runs in the period, so only the newest 20,000 were counted',
-  })
-  readonly truncated: boolean;
-
-  @ApiProperty({
     type: String,
     isArray: true,
     example: ['2026-09-21', '2026-09-28'],
@@ -329,7 +322,6 @@ export class InsightsToolsResponseDto {
 
   constructor(tools: InsightsToolsDto) {
     this.period = new InsightsPeriodResponseDto(tools.period);
-    this.truncated = tools.truncated;
     this.weeks = [...tools.weeks];
     this.runs = tools.runs;
     this.trendRule = new TrendRuleResponseDto(tools.trendRule);

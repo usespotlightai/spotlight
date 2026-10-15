@@ -9,12 +9,28 @@ import { costedRecord, endedRecord } from '@outcomes/domain/outcomes.fake-spec';
 import {
   type Headline,
   headlineChangesOf,
-  headlineOf,
+  headlineCountsOf,
+  headlineFrom,
+  resolvedDeliveriesOf,
 } from '@outcomes/domain/services/headline';
-import { InsightsPeriod } from '@outcomes/domain/value-objects/insights-period.vo';
+import {
+  openingsOf,
+  type TeamHistory,
+} from '@outcomes/domain/services/team-history';
+import {
+  InsightsPeriod,
+  type Window,
+} from '@outcomes/domain/value-objects/insights-period.vo';
 import { describe, expect, it } from 'vitest';
 
 const PERIOD = InsightsPeriod.of('7d', new Date('2026-10-01T15:00:00.000Z'));
+
+const headlineOf = (history: TeamHistory, window: Window): Headline =>
+  headlineFrom(
+    headlineCountsOf(history, window),
+    resolvedDeliveriesOf(history, openingsOf(history.touches)),
+    window,
+  );
 
 describe('headlineOf', () => {
   it('adds up spend, merges and their rate for the period alone', () => {

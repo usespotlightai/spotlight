@@ -22,7 +22,7 @@ export class SubmitReviewHandler
     private readonly clock: ClockPort,
   ) {}
 
-  // A draft belongs to one review, so the review and the claim on its drafts commit together.
+  // A draft is part of one review, so the review and the claim on its drafts commit together.
   async execute(command: SubmitReviewCommand): Promise<string> {
     try {
       const { task, author } = await this.access.ofRun(

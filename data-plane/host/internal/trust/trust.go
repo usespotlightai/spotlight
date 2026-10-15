@@ -14,7 +14,7 @@ type Workload struct {
 	TokenFile string
 }
 
-// Read on every call: platforms rotate a projected workload token in place.
+// Authorize reads the token file on each call. Platforms rotate a projected workload token in place.
 func (w Workload) Authorize(request *http.Request) error {
 	issued, err := os.ReadFile(w.TokenFile)
 	if err != nil {

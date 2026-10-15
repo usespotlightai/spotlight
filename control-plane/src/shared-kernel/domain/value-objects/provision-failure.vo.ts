@@ -43,14 +43,14 @@ export class ProvisionFailure {
   static lapsed(until: Date): ProvisionFailure {
     return ProvisionFailure.of(
       'lapsed',
-      `the pool accepted the work, but no runner claimed it by ${until.toISOString()}`,
+      `The pool accepted the work. No runner claimed it by ${until.toISOString()}.`,
     );
   }
 
   static harnessMissing(harness: string): ProvisionFailure {
     return ProvisionFailure.of(
       'harness-missing',
-      `the runner the pool started has no ${harness} installed`,
+      `The runner that the pool started doesn't have ${harness} installed.`,
     );
   }
 

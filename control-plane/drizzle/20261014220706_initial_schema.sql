@@ -841,6 +841,7 @@ CREATE TABLE "run_fact" (
 	"cache_write_tokens" bigint,
 	"tools" jsonb,
 	"refusals" jsonb NOT NULL,
+	"memories" jsonb NOT NULL,
 	"opened_by" text,
 	"task_opened_at" timestamp,
 	"pull_request" text,
@@ -893,6 +894,7 @@ CREATE TABLE "run_record" (
 	"cache_write_tokens" bigint,
 	"tools" jsonb,
 	"refusals" jsonb DEFAULT '[]'::jsonb NOT NULL,
+	"memories" jsonb DEFAULT '{"briefed":[],"recalled":[]}'::jsonb NOT NULL,
 	"version" integer DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
@@ -1852,6 +1854,7 @@ CREATE INDEX "pull_request_record_team_idx" ON "pull_request_record" USING btree
 CREATE INDEX "pull_request_record_review_tasks_idx" ON "pull_request_record" USING gin ("review_task_ids");--> statement-breakpoint
 CREATE INDEX "run_fact_team_ended_idx" ON "run_fact" USING btree ("workspace_id","team_id","ended_at");--> statement-breakpoint
 CREATE INDEX "run_fact_ended_idx" ON "run_fact" USING btree ("ended_at");--> statement-breakpoint
+CREATE INDEX "run_fact_station_began_idx" ON "run_fact" USING btree ("workspace_id","team_id","station_id","began_at");--> statement-breakpoint
 CREATE INDEX "run_fact_task_idx" ON "run_fact" USING btree ("task_id");--> statement-breakpoint
 CREATE INDEX "run_record_team_idx" ON "run_record" USING btree ("team_id","ended_at");--> statement-breakpoint
 CREATE INDEX "run_record_station_idx" ON "run_record" USING btree ("station_id","ended_at");--> statement-breakpoint
