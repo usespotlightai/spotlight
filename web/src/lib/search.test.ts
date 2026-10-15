@@ -118,11 +118,11 @@ describe('search', () => {
 
   it('counts distinct tasks, not runs, before a set may be searched', () => {
     expect(setRefusal(setOf(4))).toBe(
-      'Covers 4 tasks. A search holds some out. Minimum different tasks: 5',
+      'The set covers 4 tasks. A search holds some tasks out. Minimum different tasks: 5',
     );
     expect(setRefusal(setOf(5))).toBeNull();
     expect(setRefusal(setOf(5, { stationGone: true }))).toBe(
-      'Station is gone from its line.',
+      'The station is gone from its line.',
     );
   });
 
@@ -209,14 +209,14 @@ describe('search', () => {
   it('may pick only a candidate whose search replay finished, never the seed', () => {
     expect(pickRefusal(candidate({}))).toBeNull();
     expect(pickRefusal(candidate({ replayState: 'running' }))).toBe(
-      'Can be picked once its replay on the searched tasks finishes.',
+      'After its replay on the searched tasks finishes, you can pick this candidate.',
     );
     expect(pickRefusal(candidate({ seed: true }))).not.toBeNull();
     expect(pickRefusal(candidate({ replayState: 'stopped' }))).toBe(
-      'Can’t be picked. Its replay was stopped before finishing.',
+      'You can’t pick this candidate. Its replay stopped before it finished.',
     );
     expect(pickRefusal(candidate({ replayState: 'over-budget' }))).toBe(
-      'Can’t be picked. Its replay hit its ceiling before finishing.',
+      'You can’t pick this candidate. Its replay reached its ceiling before it finished.',
     );
   });
 

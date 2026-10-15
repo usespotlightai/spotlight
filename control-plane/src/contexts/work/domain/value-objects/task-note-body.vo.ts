@@ -28,7 +28,7 @@ export class TaskNoteBody {
     to: StationName,
   ): TaskNoteBody {
     return TaskNoteBody.of(
-      `Heard while a run held the task. It moves to ${to.value} when the run ends, unless the run passes it on.\n\n${TaskNoteBody.heard(told, said).value}`,
+      `Heard while a run held the task. If the run does not pass the task on, the task moves to ${to.value} when the run ends.\n\n${TaskNoteBody.heard(told, said).value}`,
     );
   }
 

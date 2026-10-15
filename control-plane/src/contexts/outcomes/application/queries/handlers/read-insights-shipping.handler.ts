@@ -26,7 +26,6 @@ export class ReadInsightsShippingHandler
 
       return {
         period: periodOf(period),
-        truncated: false,
         ...shippingDtoOf(shippingFrom(counts)),
       };
     } catch (error) {

@@ -13,7 +13,7 @@ export interface HeldRunStanding {
   readonly isSearch: boolean;
 }
 
-// Not viewer-scoped: callers must authorize the runner by team before reading.
+// Not viewer-scoped. Callers must authorize the runner by team before they read.
 export interface RunnerTraceReaderPort {
   heldRunStanding(
     runId: RunId,

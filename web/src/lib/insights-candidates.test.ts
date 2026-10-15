@@ -220,6 +220,8 @@ describe('costBasisNote', () => {
         ...candidate,
         shown: { ...candidate.shown, basis: 'compared', costBasis: 'overall' },
       }),
-    ).toBe('Over all its scored runs: live is priced in another currency');
+    ).toBe(
+      'Cost is over all its scored runs. The live config is priced in another currency.',
+    );
   });
 });

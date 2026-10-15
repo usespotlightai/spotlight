@@ -19,7 +19,7 @@ func (w *Workspace) Receive(path string, owner *account.User, fetch func(io.Writ
 	}
 	path = filepath.Clean(path)
 
-	// Opened as a root, so a link the agent left cannot redirect the runner's write.
+	// Open the workspace as a root, so a link that the agent left cannot redirect the runner's write.
 	root, err := os.OpenRoot(w.Dir)
 	if err != nil {
 		return fmt.Errorf("open workspace: %w", err)
@@ -77,7 +77,7 @@ func place(root *os.Root, path string, owner *account.User, fetch func(io.Writer
 	}
 
 	err = fetch(file)
-	// Chowned before the rename, so it is never visible as anyone's but the agent's.
+	// Chown the file before the rename, so the visible file always has the agent as its owner.
 	if err == nil && owner != nil {
 		err = file.Chown(int(owner.UID), int(owner.GID))
 	}

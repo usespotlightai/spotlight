@@ -154,7 +154,7 @@ func (c *conversation) converse(ctx context.Context, prompt string) int {
 
 		c.log.Info("turn finished", "stopReason", result.StopReason)
 
-		// A harness can end the turn right after a cancel without reading the prompt at all.
+		// A harness can end the turn immediately after a cancel and not read the prompt.
 		if steered && !resaid && heard == 0 && result.StopReason == "end_turn" {
 			c.log.Info("the harness let what was said go unread; saying it again")
 			resaid = true

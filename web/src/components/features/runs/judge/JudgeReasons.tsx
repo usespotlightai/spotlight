@@ -13,7 +13,7 @@ export function JudgeReasons({ reasons, label, className }: JudgeReasonsProps) {
     <ol aria-label={label} className={cn('flex flex-col gap-1.5', className)}>
       {reasons.map((reason, at) => (
         <JudgeReasonItem
-          // biome-ignore lint/suspicious/noArrayIndexKey: a verdict's reasons never change once recorded, so where one sits is what names it
+          // biome-ignore lint/suspicious/noArrayIndexKey: the position of a reason identifies it, because the reasons of a verdict do not change after they are recorded
           key={at}
           reason={reason}
         />

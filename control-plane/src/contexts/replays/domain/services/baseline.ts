@@ -31,9 +31,9 @@ export const comparedAgainst = (
   replay: Replay,
   setReplays: readonly Replay[],
 ): Replay | null => {
-  const pairsWith = replay.pairsWith;
-  const against = pairsWith
-    ? (setReplays.find((each) => each.id.equals(pairsWith)) ?? null)
+  const counterpart = replay.counterpart;
+  const against = counterpart
+    ? (setReplays.find((each) => each.id.equals(counterpart)) ?? null)
     : baselineOf(setReplays);
 
   return against && !against.id.equals(replay.id) ? against : null;

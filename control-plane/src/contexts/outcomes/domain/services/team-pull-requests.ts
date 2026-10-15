@@ -1,16 +1,10 @@
-import type {
-  PullRequestRecord,
-  SeenPullRequest,
-} from '@outcomes/domain/aggregates/pull-request-record.aggregate';
-import type { TaskChangeShape } from '@outcomes/domain/aggregates/task-change-shape.aggregate';
+import type { SeenPullRequest } from '@outcomes/domain/aggregates/pull-request-record.aggregate';
 import {
   between,
   type Spending,
   spendingOf,
 } from '@outcomes/domain/services/measures';
-import { pullRequestTypeOf } from '@outcomes/domain/services/pull-request-types';
 import type { PullRequestType } from '@outcomes/domain/value-objects/pull-request-type';
-import type { Spend } from '@outcomes/domain/value-objects/run-cost.vo';
 
 export const PULL_REQUEST_AUTHORS = [
   'spotlight',
@@ -67,34 +61,6 @@ export const teamPullRequestFrom = (
   type: read.type,
   spending: read.ownerTaskId === null ? spendingOf([]) : read.spending,
 });
-
-export const teamPullRequestOf = (
-  record: PullRequestRecord,
-  shape: TaskChangeShape | null,
-  spends: readonly (Spend | null)[],
-): TeamPullRequest | null => {
-  const seen = record.seen;
-
-  if (!seen) {
-    return null;
-  }
-
-  const shaped = record.owner ? shape?.shape : undefined;
-
-  return teamPullRequestFrom({
-    pullRequest: record.pullRequest.value,
-    seen,
-    ownerTaskId: record.owner?.taskId.value ?? null,
-    reviewTaskIds: record.reviewTasks.map((each) => each.value),
-    type: pullRequestTypeOf({
-      changeTitles: shaped?.changeTitles ?? [],
-      changeIntents: shaped?.changeIntents ?? [],
-      title: seen.title,
-      branch: seen.branch,
-    }),
-    spending: spendingOf(spends),
-  });
-};
 
 export const toMergeMs = (each: TeamPullRequest): number | null =>
   each.seen.state === 'merged' && each.seen.closedAt

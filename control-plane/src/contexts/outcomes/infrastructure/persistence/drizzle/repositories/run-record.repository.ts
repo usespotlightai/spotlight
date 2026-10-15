@@ -2,23 +2,14 @@ import { Inject, Injectable } from '@nestjs/common';
 import { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
 import { RunRecordMovedOnError } from '@outcomes/domain/exceptions/run-record-moved-on.error';
 import type {
-  RunListing,
-  RunPage,
   RunRecordRepository,
   StationRecords,
-  TeamWindow,
 } from '@outcomes/domain/repositories/run-record.repository';
 import {
   earliestBounds,
   type StretchBound,
 } from '@outcomes/domain/services/config-stretches';
-import type {
-  Narrowing,
-  RunFilter,
-} from '@outcomes/domain/services/run-filter';
-import { inEndOrder } from '@outcomes/domain/services/run-order';
 import { HandedOn } from '@outcomes/domain/value-objects/handed-on.vo';
-import type { Window } from '@outcomes/domain/value-objects/insights-period.vo';
 import {
   NEXT_ACTS,
   NextAct,
@@ -37,8 +28,6 @@ import {
   runRecord,
   type StoredTools,
   startOrderColumns,
-  taskDelivery,
-  taskTouches,
 } from '@outcomes/infrastructure/persistence/drizzle/schemas/outcomes.schema';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { inList } from '@platform/persistence/drizzle/in-list';
@@ -54,117 +43,18 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import {
   and,
-  count,
   desc,
   eq,
-  gte,
   inArray,
   isNotNull,
-  isNull,
-  lt,
   lte,
   ne,
   type SQL,
-  type SQLWrapper,
   sql,
 } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 
 type RecordRow = typeof runRecord.$inferSelect;
-
-const endedInWindow = (window: TeamWindow): SQL | undefined =>
-  and(
-    eq(runRecord.workspaceId, window.workspaceId.value),
-    eq(runRecord.teamId, window.teamId.value),
-    gte(runRecord.endedAt, window.from),
-    lt(runRecord.endedAt, window.to),
-  );
-
-const modelWhere = (model: Narrowing): SQL | undefined => {
-  if (model.kind === 'any') {
-    return undefined;
-  }
-
-  return model.kind === 'none'
-    ? isNull(runRecord.model)
-    : eq(runRecord.model, model.value);
-};
-
-const repositoryWhere = (repository: Narrowing): SQL | undefined => {
-  if (repository.kind === 'any') {
-    return undefined;
-  }
-
-  return repository.kind === 'none'
-    ? sql`coalesce(jsonb_array_length(${runRecord.repositories}), 0) = 0`
-    : sql`${runRecord.repositories} @> ${JSON.stringify([repository.value])}::jsonb`;
-};
-
-const endedWithin = (window: Window | null): SQL | undefined =>
-  window === null
-    ? undefined
-    : and(
-        gte(runRecord.endedAt, window.from),
-        lt(runRecord.endedAt, window.to),
-      );
-
-const holding = (column: SQLWrapper, value: unknown): SQL =>
-  sql`${column} @> ${JSON.stringify(value)}::jsonb`;
-
-const ranWhere = sql`${runRecord.ending}::text <> 'withdrawn'`;
-
-const refusedServerOf = (server: Narrowing): { server?: string | null } => {
-  if (server.kind === 'any') {
-    return {};
-  }
-
-  return { server: server.kind === 'none' ? null : server.value };
-};
-
-const refusalWhere = (filter: RunFilter): SQL | undefined =>
-  filter.refusedTool === null && filter.refusedServer.kind === 'any'
-    ? undefined
-    : holding(runRecord.refusals, [
-        {
-          ...(filter.refusedTool === null ? {} : { tool: filter.refusedTool }),
-          ...refusedServerOf(filter.refusedServer),
-        },
-      ]);
-
-const toolsWhere = (filter: RunFilter): (SQL | undefined)[] => {
-  const narrowed = [
-    filter.skillGiven === null
-      ? undefined
-      : holding(runRecord.skills, [filter.skillGiven]),
-    filter.skillUsed === null
-      ? undefined
-      : holding(sql`${runRecord.tools}->'skillsRead'`, [filter.skillUsed]),
-    filter.server === null
-      ? undefined
-      : holding(sql`${runRecord.tools}->'servers'`, [
-          { server: filter.server },
-        ]),
-    filter.serverFailed === null
-      ? undefined
-      : sql`exists (select 1 from jsonb_array_elements(${runRecord.tools}->'servers') as called where called->>'server' = ${filter.serverFailed} and (called->>'failed')::int > 0)`,
-    filter.failedAfter === null
-      ? undefined
-      : and(
-          sql`${runRecord.ending}::text = 'failed'`,
-          isNull(runRecord.supersededAt),
-          holding(sql`${runRecord.tools}->'servers'`, [
-            { server: filter.failedAfter, lastCallFailed: true },
-          ]),
-        ),
-    refusalWhere(filter),
-  ].filter((each) => each !== undefined);
-
-  return [
-    endedWithin(filter.week),
-    ...narrowed,
-    narrowed.length > 0 ? ranWhere : undefined,
-  ];
-};
 
 const endOf = (row: RecordRow): RunEnd | null => {
   if (!row.endedAt) {
@@ -616,124 +506,6 @@ export class DrizzleRunRecordRepository implements RunRecordRepository {
       .limit(criteria.last);
 
     return rows.map(toRecord);
-  }
-
-  async endedForTeam(
-    window: TeamWindow,
-    most: number,
-  ): Promise<readonly RunRecord[]> {
-    const rows = await this.context.db
-      .select()
-      .from(runRecord)
-      .where(endedInWindow(window))
-      .orderBy(...startOrderColumns(runRecord).map((each) => sql`${each} desc`))
-      .limit(most);
-
-    return rows.map(toRecord).sort(inEndOrder);
-  }
-
-  async listedForTeam(listing: RunListing): Promise<RunPage> {
-    const where = and(
-      endedInWindow(listing.window),
-      ...this.filtered(listing.window, listing.filter),
-    );
-    const { counted, rows } = await this.context.db.transaction(
-      async (tx) => {
-        const [counted] = await tx
-          .select({ total: count() })
-          .from(runRecord)
-          .where(where);
-        const rows = await tx
-          .select()
-          .from(runRecord)
-          .where(where)
-          .orderBy(
-            desc(runRecord.endedAt),
-            sql`${runRecord.runId} collate "C" desc`,
-          )
-          .offset(listing.offset)
-          .limit(listing.limit);
-
-        return { counted, rows };
-      },
-      { isolationLevel: 'repeatable read', accessMode: 'read only' },
-    );
-
-    return { records: rows.map(toRecord), total: counted?.total ?? 0 };
-  }
-
-  private filtered(window: TeamWindow, filter: RunFilter): (SQL | undefined)[] {
-    const workspace = window.workspaceId.value;
-
-    return [
-      filter.lineId === null ? undefined : eq(runRecord.lineId, filter.lineId),
-      filter.stationId === null
-        ? undefined
-        : eq(runRecord.stationId, filter.stationId),
-      filter.outcome === null
-        ? undefined
-        : sql`${runRecord.ending}::text = ${filter.outcome}`,
-      filter.harness === null
-        ? undefined
-        : eq(runRecord.harness, filter.harness),
-      modelWhere(filter.model),
-      repositoryWhere(filter.repository),
-      filter.fingerprint === null
-        ? undefined
-        : eq(runRecord.fingerprint, filter.fingerprint),
-      filter.taskIds === null
-        ? undefined
-        : filter.taskIds.length === 0
-          ? sql`false`
-          : inArray(runRecord.taskId, [...filter.taskIds]),
-      endedWithin(filter.day),
-      ...toolsWhere(filter),
-      filter.next === null
-        ? undefined
-        : sql`${runRecord.nextAct}::text = ${filter.next}`,
-      filter.personId === null
-        ? undefined
-        : inArray(
-            runRecord.taskId,
-            this.context.db
-              .select({ taskId: taskTouches.taskId })
-              .from(taskTouches)
-              .where(
-                and(
-                  eq(taskTouches.workspaceId, workspace),
-                  eq(taskTouches.openedBy, filter.personId),
-                ),
-              ),
-          ),
-      filter.delivery === null
-        ? undefined
-        : inArray(
-            runRecord.taskId,
-            this.context.db
-              .select({ taskId: taskDelivery.taskId })
-              .from(taskDelivery)
-              .where(
-                and(
-                  eq(taskDelivery.workspaceId, workspace),
-                  sql`${taskDelivery.state}::text = ${filter.delivery}`,
-                ),
-              ),
-          ),
-      filter.askedWithin === null
-        ? undefined
-        : inArray(
-            runRecord.taskId,
-            this.context.db
-              .select({ taskId: taskTouches.taskId })
-              .from(taskTouches)
-              .where(
-                and(
-                  eq(taskTouches.workspaceId, workspace),
-                  sql`exists (select 1 from jsonb_array_elements(${taskTouches.asks}) as ask where (ask->>'at')::timestamptz >= ${filter.askedWithin.from.toISOString()}::timestamptz and (ask->>'at')::timestamptz < ${filter.askedWithin.to.toISOString()}::timestamptz)`,
-                ),
-              ),
-          ),
-    ];
   }
 
   async removeForTask(taskId: TaskId): Promise<void> {

@@ -258,7 +258,7 @@ describe('WorkspaceMembers on the mock API', () => {
     );
 
     expect(within(dialog).getByRole('alert')).toHaveTextContent(
-      'Sorry, 51 addresses. Please invite at most 50 at once.',
+      'Sorry, the list has 51 addresses. Please invite at most 50 at once.',
     );
     expect(
       within(dialog).getByRole('button', { name: 'Send invites' }),

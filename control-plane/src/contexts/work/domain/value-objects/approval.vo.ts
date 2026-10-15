@@ -126,7 +126,7 @@ export class Approval {
       !this.askedOf.equals(decided.by)
     ) {
       throw new InvalidApprovalAnswerError(
-        'is asked of the person whose connection the tool acts with, so only they can approve it',
+        'Only the person whose connection the tool acts with can approve this request.',
       );
     }
 
@@ -170,7 +170,7 @@ export class Approval {
     if (!('call' in edited)) {
       throw new InvalidApprovalAnswerError(
         edited.refused
-          ? `The edited request cannot run: ${edited.refused}`
+          ? `The edited request cannot run. Problem: ${edited.refused}`
           : `Edits must fill every asked input with a value of its kind. Inputs asked: ${asked.given.map((each) => each.name).join(', ') || 'none'}`,
       );
     }

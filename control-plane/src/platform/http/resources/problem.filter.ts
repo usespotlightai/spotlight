@@ -45,7 +45,7 @@ const problemOf = (exception: unknown): Problem => {
 
   return ProblemException.withStatus(
     HttpStatus.INTERNAL_SERVER_ERROR,
-    'The request could not be completed',
+    'The server failed with an unexpected error.',
   ).problem;
 };
 

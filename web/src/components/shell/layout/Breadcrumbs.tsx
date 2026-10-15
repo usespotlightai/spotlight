@@ -6,7 +6,7 @@ import { Shortened } from '@/components/shell/layout/Shortened';
 
 const LABEL_WIDTH = 256;
 
-/** Must stay serialisable: crumbs travel in navigation state. */
+/** This type must remain serialisable because crumbs go in the navigation state. */
 export type BreadcrumbSegment = {
   label: string;
   avatar?: string;

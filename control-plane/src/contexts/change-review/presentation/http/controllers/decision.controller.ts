@@ -58,7 +58,7 @@ export class DecisionController {
     >(new ReadTaskDecisionsQuery(teamId, taskId, user.id));
 
     if (!found) {
-      throw new NotFoundException();
+      throw new NotFoundException(`Task ${taskId} not found.`);
     }
 
     return new TaskDecisionsResponseDto(found);

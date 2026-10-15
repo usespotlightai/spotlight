@@ -12,7 +12,7 @@ export function UnusedSkills({ slug, teamId, unused }: UnusedSkillsProps) {
   return (
     <InsightsCard
       title="Unused skills"
-      description="Team skills no run read in this period."
+      description="Team skills that no run read in this period."
     >
       <ul aria-label="Unused skills" className="flex flex-wrap gap-1.5">
         {unused.map((key) => (

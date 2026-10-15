@@ -101,7 +101,7 @@ describe('Hook', () => {
       expect(hook().refusalToCall(COMMENT, asking)).toMatchObject({
         code: 'not-allowed',
         reason:
-          "calls linear.comment, which asks a person's approval before each call, and a hook cannot give it",
+          "calls linear.comment, which needs a person's approval before each call. A hook cannot give that approval",
       });
     });
   });

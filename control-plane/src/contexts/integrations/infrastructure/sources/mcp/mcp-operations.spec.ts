@@ -79,8 +79,8 @@ describe('mcpOperations', () => {
       'search_issues',
     ]);
     expect(read.passedOver).toEqual([
-      'passes over odd, because it takes a b, which a tool cannot',
-      'passes over search-issues, because another operation is also called search-issues',
+      'passes over odd. It takes a b, which a tool cannot take',
+      'passes over search-issues. Another operation is also called search-issues',
     ]);
   });
 });

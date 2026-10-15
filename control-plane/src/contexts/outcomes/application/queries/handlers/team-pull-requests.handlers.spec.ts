@@ -7,8 +7,8 @@ import { ListInsightsPullRequestsQuery } from '@outcomes/application/queries/lis
 import { ReadInsightsPullRequestsQuery } from '@outcomes/application/queries/read-insights-pull-requests.query';
 import { ReadInsightsShippingQuery } from '@outcomes/application/queries/read-insights-shipping.query';
 import { OutcomesAccess } from '@outcomes/application/services/outcomes-access.service';
-import { TeamHistories } from '@outcomes/application/services/team-histories.service';
 import { TeamPullRequests } from '@outcomes/application/services/team-pull-requests.service';
+import { TeamScopes } from '@outcomes/application/services/team-scopes.service';
 import { PullRequestRecord } from '@outcomes/domain/aggregates/pull-request-record.aggregate';
 import { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
 import { TaskChangeShape } from '@outcomes/domain/aggregates/task-change-shape.aggregate';
@@ -96,7 +96,7 @@ const team = async () => {
     failures: new TaskFailuresInMemory(),
     chats: new ChatRecordsInMemory(),
   };
-  const histories = new TeamHistories(new OutcomesAccess(people), held, {
+  const scopes = new TeamScopes(new OutcomesAccess(people), {
     now: () => NOW,
     sleep: async () => {},
   });
@@ -105,7 +105,7 @@ const team = async () => {
     shapes,
   });
   const service = new TeamPullRequests(
-    histories,
+    scopes,
     {
       endedRun: async () => null,
       configsInOrder: async () => [],
@@ -365,7 +365,6 @@ describe('what the agents ship', () => {
     );
     const [first] = shipping.mergeDays;
 
-    expect(shipping.truncated).toBe(false);
     expect(shipping.toMerge.spotlight).toMatchObject({
       p50Ms: 4 * 60 * 60 * 1000,
       count: 1,

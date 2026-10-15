@@ -30,6 +30,7 @@ type EntryDetailProps = {
   slug: string;
   teamId: string;
   row: EntryComparison;
+  counterpartLabel: string;
   open: boolean;
   onClose: () => void;
   ref?: Ref<HTMLElement>;
@@ -39,6 +40,7 @@ export function EntryDetail({
   slug,
   teamId,
   row,
+  counterpartLabel,
   open,
   onClose,
   ref,
@@ -103,7 +105,7 @@ export function EntryDetail({
           row.baseline.length > 0 ? 'This replay' : 'Result',
           row.candidate,
         )}
-        {sides('Baseline', row.baseline)}
+        {sides(counterpartLabel, row.baseline)}
       </div>
     </SidePane>
   );

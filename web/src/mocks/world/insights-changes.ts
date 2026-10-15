@@ -100,7 +100,6 @@ export const changesOf = (
 
   return {
     period: span.period,
-    truncated: false,
     markers,
     judges: runs.length === 0 ? [] : [...JUDGES],
   };
@@ -222,7 +221,6 @@ export const setupsOf = (
 
   return {
     period: span.period,
-    truncated: false,
     stationId,
     size,
     sizes: SIZES,

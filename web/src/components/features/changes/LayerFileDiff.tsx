@@ -44,7 +44,7 @@ export function LayerFileDiff({
           ) : (
             <p className="px-3 py-2 text-faint text-xs">
               {file.binary
-                ? 'Binary file. No lines to show.'
+                ? 'This file is binary. It has no lines to show.'
                 : 'No lines changed.'}
             </p>
           )}

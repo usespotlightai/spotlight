@@ -32,7 +32,6 @@ export class ListInsightsPullRequestsHandler
 
       return {
         period: periodOf(period),
-        truncated: false,
         total,
         page,
         size,

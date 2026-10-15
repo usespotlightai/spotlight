@@ -3,7 +3,7 @@ export class PersonToolPolicyMovedOnError extends Error {
 
   constructor(source: string) {
     super(
-      `Your rules for the ${source} tools changed in another request meanwhile`,
+      `Your rules for the ${source} tools changed in another request. Please reload and try again.`,
     );
     this.name = 'PersonToolPolicyMovedOnError';
   }

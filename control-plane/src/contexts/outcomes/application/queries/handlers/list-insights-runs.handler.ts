@@ -9,9 +9,9 @@ import type { PeoplePort } from '@outcomes/application/ports/people.port';
 import { pageOf, sizeOf } from '@outcomes/application/queries/handlers/paging';
 import type { ListInsightsRunsQuery } from '@outcomes/application/queries/list-insights-runs.query';
 import {
-  type TeamHistories,
+  type TeamScopes,
   windowOf,
-} from '@outcomes/application/services/team-histories.service';
+} from '@outcomes/application/services/team-scopes.service';
 import { runFilterOf } from '@outcomes/domain/services/run-filter';
 import { pageAskedOf, pageWithin } from '@outcomes/domain/services/run-page';
 import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
@@ -21,14 +21,14 @@ export class ListInsightsRunsHandler
   implements QueryHandlerPort<ListInsightsRunsQuery, InsightsRunsDto>
 {
   constructor(
-    private readonly histories: TeamHistories,
+    private readonly scopes: TeamScopes,
     private readonly reader: InsightsReaderPort,
     private readonly people: PeoplePort,
   ) {}
 
   async execute(query: ListInsightsRunsQuery): Promise<InsightsRunsDto> {
     try {
-      const { clearance, period } = await this.histories.scope(
+      const { clearance, period } = await this.scopes.scope(
         query.teamId,
         query.principal,
         query.period,

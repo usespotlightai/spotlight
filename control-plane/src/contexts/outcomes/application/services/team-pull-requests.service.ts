@@ -6,9 +6,9 @@ import type {
 } from '@outcomes/application/ports/insights-reader.port';
 import type { WorkPort } from '@outcomes/application/ports/work.port';
 import type {
-  TeamHistories,
   TeamScope,
-} from '@outcomes/application/services/team-histories.service';
+  TeamScopes,
+} from '@outcomes/application/services/team-scopes.service';
 import type { PullRequestCounts } from '@outcomes/domain/services/pull-request-insights';
 import type { ShippingCounts } from '@outcomes/domain/services/shipping';
 import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo';
@@ -35,7 +35,7 @@ const teamOf = (scope: TeamScope): TeamInPeriod => ({
 
 export class TeamPullRequests {
   constructor(
-    private readonly histories: TeamHistories,
+    private readonly scopes: TeamScopes,
     private readonly work: WorkPort,
     private readonly reader: InsightsReaderPort,
   ) {}
@@ -94,7 +94,7 @@ export class TeamPullRequests {
     principal: Principal,
     period: string,
   ): Promise<TeamRepositories> {
-    const scope = await this.histories.scope(teamId, principal, period);
+    const scope = await this.scopes.scope(teamId, principal, period);
 
     return {
       ...scope,

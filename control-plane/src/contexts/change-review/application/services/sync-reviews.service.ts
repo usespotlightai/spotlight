@@ -108,7 +108,9 @@ export class SyncReviews implements ReviewSyncWorkPort {
     }
 
     const failure =
-      error instanceof Error ? error.message : 'GitHub could not be reached';
+      error instanceof Error
+        ? error.message
+        : 'Spotlight couldn’t reach GitHub.';
 
     this.logger.warn(
       { syncId: sync.id, kind: sync.kind, attempts: sync.attempts, err: error },
@@ -156,14 +158,14 @@ export class SyncReviews implements ReviewSyncWorkPort {
     const task = await this.work.task(sync.taskId);
 
     if (!task) {
-      throw new GaveUp('The task is gone');
+      throw new GaveUp('The task no longer exists.');
     }
     if (!task.pullRequest) {
-      throw new NotYet('The task has no pull request yet');
+      throw new NotYet('The task has no pull request yet.');
     }
 
     if (!(await this.connections.isConnected(task.workspaceId))) {
-      throw new GaveUp('The workspace is not connected to GitHub');
+      throw new GaveUp('The workspace isn’t connected to GitHub.');
     }
 
     const on = async (author: ReviewAuthor): Promise<OnPullRequest> => ({
@@ -190,7 +192,7 @@ export class SyncReviews implements ReviewSyncWorkPort {
     );
 
     if (!comment?.author.userId) {
-      throw new GaveUp('The comment is gone');
+      throw new GaveUp('The comment no longer exists.');
     }
 
     const target = await on(comment.author);
@@ -206,7 +208,7 @@ export class SyncReviews implements ReviewSyncWorkPort {
     }
 
     if (!comment.github) {
-      throw new GaveUp('The comment was never on GitHub');
+      throw new GaveUp('The comment was never posted to GitHub.');
     }
 
     if (sync.kind === 'edit') {
@@ -231,7 +233,7 @@ export class SyncReviews implements ReviewSyncWorkPort {
     const review = await this.reviews.find(ReviewId.of(sync.subjectId));
 
     if (!review) {
-      throw new GaveUp('The review is gone');
+      throw new GaveUp('The review no longer exists.');
     }
     if (review.state !== 'submitted') {
       return;
@@ -306,16 +308,21 @@ export class SyncReviews implements ReviewSyncWorkPort {
       : null;
 
     if (!parent || parent.state === 'deleted') {
-      throw new GaveUp('The comment it answers is gone');
+      throw new GaveUp('The comment that this reply answers no longer exists.');
     }
     if (parent.sending) {
-      throw new NotYet('The comment it answers is not on GitHub yet', true);
+      throw new NotYet(
+        'The comment that this reply answers isn’t on GitHub yet.',
+        true,
+      );
     }
 
     const thread = parent.threadOnGitHub;
 
     if (!thread) {
-      throw new GaveUp('The comment it answers never reached GitHub');
+      throw new GaveUp(
+        'The comment that this reply answers never reached GitHub.',
+      );
     }
 
     const posted = await this.github.reply({
@@ -370,7 +377,7 @@ export class SyncReviews implements ReviewSyncWorkPort {
           throw new GaveUp(
             error instanceof Error
               ? error.message
-              : 'What reached GitHub could not be kept',
+              : 'Spotlight couldn’t save the comment that reached GitHub.',
           );
         }
       }
