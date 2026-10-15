@@ -358,8 +358,6 @@ export const SUCCEEDED = 'succeeded';
 
 export const THE_BASELINE = 'the baseline';
 
-export const BASELINE = 'baseline';
-
 export const VERSUS = 'vs';
 
 export const runsScoredShown = (scored: number): string =>
@@ -701,6 +699,14 @@ export const THE_SEARCH_START = 'the search’s starting config';
 
 export const AN_EARLIER_BASELINE = 'an earlier baseline';
 
+export const BASELINE_LABEL = 'Baseline';
+
+export const LIVE_CONFIG_LABEL = 'Live config';
+
+export const SEARCH_START_LABEL = 'Search’s starting config';
+
+export const EARLIER_BASELINE_LABEL = 'Earlier baseline';
+
 export const pairTallyShown = (tally: PairTally): string =>
   [
     counted(tally.wins, 'win', 'wins'),
@@ -716,6 +722,9 @@ export const pairsJudged = (tally: PairTally | null): tally is PairTally =>
 
 export const capitalised = (words: string): string =>
   `${words.charAt(0).toUpperCase()}${words.slice(1)}`;
+
+export const lowered = (words: string): string =>
+  `${words.charAt(0).toLowerCase()}${words.slice(1)}`;
 
 export const pairShown = (
   pair: PairOutcome | null,

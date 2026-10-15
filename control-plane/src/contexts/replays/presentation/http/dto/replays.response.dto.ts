@@ -20,6 +20,7 @@ import type {
   OracleReadingDto,
   PairTallyDto,
   RateIntervalDto,
+  ReplayCounterpartDto,
   ReplayDetailDto,
   ReplayDto,
   ReplayEntryDto,
@@ -1251,6 +1252,36 @@ export class CandidateResponseDto {
   }
 }
 
+export class ReplayCounterpartResponseDto {
+  @ApiProperty({
+    description:
+      'The replay compared with: pairedWith where set, else for a replay with the answer the live replay it was handed the answer against, else the set’s baseline',
+  })
+  readonly replayId: string;
+
+  @ApiProperty({
+    nullable: true,
+    type: Number,
+    description:
+      'Its success rate on the tasks the gain pairs, the tasks both replays scored: per task, the share of its scored copies that succeeded, averaged over those tasks; null with no such task',
+  })
+  readonly successRate: number | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: RateIntervalResponseDto,
+    description:
+      'Its success rate on the tasks both replays scored, with its 95% interval over those tasks; null with no such task',
+  })
+  readonly interval: RateIntervalResponseDto | null;
+
+  constructor(counterpart: ReplayCounterpartDto) {
+    this.replayId = counterpart.replayId;
+    this.successRate = counterpart.successRate;
+    this.interval = intervalResponse(counterpart.interval);
+  }
+}
+
 export class ReplayResponseDto {
   @ApiProperty()
   readonly id: string;
@@ -1309,9 +1340,17 @@ export class ReplayResponseDto {
     nullable: true,
     type: GainReadingResponseDto,
     description:
-      'Its gain in success over the replay it is compared with (pairedWith where set, else for a replay with the answer the live replay it was handed the answer against, else the set’s baseline), with whether it is within noise; null with none',
+      'Its gain in success over the replay in comparedWith, with whether it is within noise; null with none',
   })
   readonly againstBaseline: GainReadingResponseDto | null;
+
+  @ApiProperty({
+    nullable: true,
+    type: ReplayCounterpartResponseDto,
+    description:
+      'The replay its gain, comparison rows and deltas are against, with its success rate; null for the baseline itself or with none',
+  })
+  readonly comparedWith: ReplayCounterpartResponseDto | null;
 
   @ApiProperty({
     nullable: true,
@@ -1350,6 +1389,9 @@ export class ReplayResponseDto {
     this.endedAt = replay.endedAt;
     this.totals = new ReplayTotalsResponseDto(replay.totals);
     this.againstBaseline = gainResponse(replay.againstBaseline);
+    this.comparedWith = replay.comparedWith
+      ? new ReplayCounterpartResponseDto(replay.comparedWith)
+      : null;
     this.pairedWith = replay.pairedWith;
     this.pairsAgainstBaseline = replay.pairsAgainstBaseline
       ? new PairTallyResponseDto(replay.pairsAgainstBaseline)
@@ -1495,14 +1537,6 @@ export class ReplayDetailResponseDto extends ReplayResponseDto {
 
   @ApiProperty({
     nullable: true,
-    type: String,
-    description:
-      'The replay its comparison rows, gain and deltas are against: pairedWith where set, else for a replay with the answer the live replay it was handed the answer against, else the set’s baseline; null for the baseline itself or with none',
-  })
-  readonly comparedWithReplayId: string | null;
-
-  @ApiProperty({
-    nullable: true,
     type: ReplaySearchResponseDto,
     description: 'The search it belongs to, when a search started it',
   })
@@ -1512,14 +1546,13 @@ export class ReplayDetailResponseDto extends ReplayResponseDto {
     type: EntryComparisonResponseDto,
     isArray: true,
     description:
-      'Per task against the replay it is compared with (comparedWithReplayId), regressions first',
+      'Per task against the replay it is compared with (comparedWith), regressions first',
   })
   readonly comparison: EntryComparisonResponseDto[];
 
   constructor(replay: ReplayDetailDto) {
     super(replay);
     this.baselineReplayId = replay.baselineReplayId;
-    this.comparedWithReplayId = replay.comparedWithReplayId;
     this.search = replay.search
       ? new ReplaySearchResponseDto(replay.search)
       : null;
