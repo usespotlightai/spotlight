@@ -3,6 +3,7 @@ import { InsightsTiles } from '@/components/features/insights/InsightsTiles';
 import { spendShown } from '@/lib/insights';
 import { percentShown } from '@/lib/judge';
 import {
+  counterpartNoun,
   counterpartRateOf,
   counterpartShown,
   overCeiling,
@@ -16,7 +17,6 @@ import {
   gainVerdictNote,
   gainVerdictShown,
   intervalShown,
-  lowered,
   NO_SCORE_YET,
   PAIRING_SPEND_LABEL,
   pairsJudged,
@@ -84,8 +84,8 @@ export function ReplayTiles({ replay }: ReplayTilesProps) {
           value={gainShown(gain)}
           detail={[
             capitalised(gainVerdictShown(gain.verdict)),
-            against &&
-              `${lowered(against.label)} ${percentShown(against.successRate)}`,
+            against?.successRate != null &&
+              `${counterpartNoun(against)} ${percentShown(against.successRate)}`,
           ]
             .filter(Boolean)
             .join(' · ')}

@@ -38,6 +38,7 @@ import {
 import {
   type PairTally,
   pairTallyOf,
+  scoredOriginalsOf,
   totalsOf,
 } from '@replays/domain/services/replay-results';
 import type { SetHealth } from '@replays/domain/services/set-health';
@@ -318,13 +319,14 @@ export const replaySearchView = (
     : null;
 
 export const counterpartView = (
+  replay: Replay,
   against: Replay | null,
 ): ReplayCounterpartDto | null => {
   if (!against) {
     return null;
   }
 
-  const totals = totalsOf(against);
+  const totals = totalsOf(against, scoredOriginalsOf(replay));
 
   return {
     replayId: against.id.value,
@@ -386,7 +388,7 @@ export const replayView = (
       medianMs: totals.medianMs,
     },
     againstBaseline: gainView(against && gainBetween(replay, against, minGain)),
-    comparedWith: counterpartView(against),
+    comparedWith: counterpartView(replay, against),
     pairedWith: replay.pairsWith?.value ?? null,
     pairsAgainstBaseline: pairs && pairTallyView(pairs),
     entries: replay.entries.map((each) => entryView(each, replay.scoring)),

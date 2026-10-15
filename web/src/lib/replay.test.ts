@@ -12,6 +12,7 @@ import {
   copiesTally,
   costDeltaShown,
   counterpartLabel,
+  counterpartNoun,
   counterpartRateOf,
   counterpartShown,
   flippedTitles,
@@ -91,14 +92,26 @@ describe('replays', () => {
     ).toMatchObject({ label: 'Live config', successRate: 0.75 });
   });
 
-  it('shows no counterpart rate for a replay compared with nothing, or with one not scored yet', () => {
+  it('shows no counterpart for a replay compared with nothing', () => {
     expect(
       counterpartRateOf(
         { candidate: candidate('proposed'), comparedWith: null },
         'base',
       ),
     ).toBeNull();
-    expect(counterpartRateOf(comparedWith('base', null), 'base')).toBeNull();
+  });
+
+  it('names a counterpart that has scored nothing yet, with no rate', () => {
+    expect(
+      counterpartRateOf(comparedWith('live', null, 'oracle'), 'base'),
+    ).toEqual({ label: 'Live config', successRate: null, interval: null });
+  });
+
+  it('names the counterpart in lower case inside a sentence', () => {
+    expect(counterpartNoun({ label: 'Search’s starting config' })).toBe(
+      'search’s starting config',
+    );
+    expect(counterpartNoun({ label: 'Baseline' })).toBe('baseline');
   });
 
   it('reads repeats as a whole number from 1 to 5', () => {

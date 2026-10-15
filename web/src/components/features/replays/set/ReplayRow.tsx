@@ -19,6 +19,7 @@ import {
   spendOfCeiling,
 } from '@/lib/replay';
 import {
+  BASELINE_LABEL,
   gainRangeShown,
   gainShown,
   gainVerdictShown,
@@ -41,31 +42,30 @@ const GAIN_TONES = {
 type ReplayRowProps = {
   at: ReplayedStation;
   replay: Replay;
-  baseline: Pick<Replay, 'id'> | null;
+  baselineId: string | null;
 };
 
-const gainNoteOf = (
-  replay: Replay,
-  baseline: Pick<Replay, 'id'> | null,
-): string => {
+const gainNoteOf = (replay: Replay, baselineId: string | null): string => {
   const gain = replay.againstBaseline;
-  const against = counterpartRateOf(replay, baseline?.id ?? null);
+  const against = counterpartRateOf(replay, baselineId);
   const lines = [
     gain
       ? `${gainVerdictShown(gain.verdict)}. Likely range: ${gainRangeShown(gain)} pts`
       : null,
-    against ? `${against.label}: ${percentShown(against.successRate)}` : null,
+    against?.successRate != null
+      ? `${against.label}: ${percentShown(against.successRate)}`
+      : null,
     replay.pairedWith && pairsJudged(replay.pairsAgainstBaseline)
-      ? `Side by side with ${counterpartShown(replay.pairedWith, replay.candidate, baseline?.id ?? null)}: ${pairTallyShown(replay.pairsAgainstBaseline)}`
+      ? `Side by side with ${counterpartShown(replay.pairedWith, replay.candidate, baselineId)}: ${pairTallyShown(replay.pairsAgainstBaseline)}`
       : null,
   ];
 
   return lines.filter(Boolean).join(' · ');
 };
 
-function Gain({ replay, baseline }: Omit<ReplayRowProps, 'at'>) {
+function Gain({ replay, baselineId }: Omit<ReplayRowProps, 'at'>) {
   if (replay.isBaseline) {
-    return <span className="text-muted-foreground">Baseline</span>;
+    return <span className="text-muted-foreground">{BASELINE_LABEL}</span>;
   }
 
   const gain = replay.againstBaseline;
@@ -75,13 +75,13 @@ function Gain({ replay, baseline }: Omit<ReplayRowProps, 'at'>) {
   }
 
   return (
-    <Noted note={gainNoteOf(replay, baseline)}>
+    <Noted note={gainNoteOf(replay, baselineId)}>
       <span className={GAIN_TONES[gain.verdict]}>{gainShown(gain)}</span>
     </Noted>
   );
 }
 
-export function ReplayRow({ at, replay, baseline }: ReplayRowProps) {
+export function ReplayRow({ at, replay, baselineId }: ReplayRowProps) {
   const { successRate, interval, unscored } = replay.totals;
   const running = replay.state === 'running' || replay.state === 'queued';
   const note = stateNote(replay.state);
@@ -135,7 +135,7 @@ export function ReplayRow({ at, replay, baseline }: ReplayRowProps) {
       </NestedCell>
       <NestedCell heading="Gain">
         <span className="relative z-10">
-          <Gain replay={replay} baseline={baseline} />
+          <Gain replay={replay} baselineId={baselineId} />
         </span>
       </NestedCell>
       <NestedCell heading="Spent">

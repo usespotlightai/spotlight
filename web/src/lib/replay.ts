@@ -26,9 +26,9 @@ import {
   AN_EARLIER_BASELINE,
   BASELINE_LABEL,
   CLOSER_TO_ACCEPTED,
-  capitalised,
   EARLIER_BASELINE_LABEL,
   LIVE_CONFIG_LABEL,
+  lowered,
   type ReplayState,
   SEARCH_START_LABEL,
   STATION_GONE_FROM_LINE,
@@ -119,7 +119,7 @@ export const candidateShown = (candidate: ReplayedCandidate | null): string => {
     return 'A removed candidate';
   }
 
-  return candidate.kind === 'live' ? 'Live config' : candidate.name;
+  return candidate.kind === 'live' ? LIVE_CONFIG_LABEL : candidate.name;
 };
 
 export const titleShown = (title: string | null): string =>
@@ -255,7 +255,7 @@ export const counterpartLabel = (
 
 export type CounterpartRate = {
   readonly label: string;
-  readonly successRate: number;
+  readonly successRate: number | null;
   readonly interval: RateIntervalResponseDto | null;
 };
 
@@ -265,7 +265,7 @@ export const counterpartRateOf = (
 ): CounterpartRate | null => {
   const against = replay.comparedWith;
 
-  if (!against || against.successRate === null) {
+  if (!against) {
     return null;
   }
 
@@ -275,6 +275,9 @@ export const counterpartRateOf = (
     interval: against.interval,
   };
 };
+
+export const counterpartNoun = (against: Pick<CounterpartRate, 'label'>) =>
+  lowered(against.label);
 
 export type EntryPair = NonNullable<ReplayEntry['pair']>;
 
@@ -437,6 +440,7 @@ export type TaskColumns = {
   readonly judged: boolean;
   readonly paired: boolean;
   readonly counterpart: string;
+  readonly counterpartLabel: string;
 };
 
 export const taskColumnsOf = (replay: ReplayDetail): TaskColumns => ({
@@ -452,6 +456,13 @@ export const taskColumnsOf = (replay: ReplayDetail): TaskColumns => ({
         replay.baselineReplayId,
       )
     : THE_BASELINE,
+  counterpartLabel: replay.comparedWith
+    ? counterpartLabel(
+        replay.comparedWith.replayId,
+        replay.candidate,
+        replay.baselineReplayId,
+      )
+    : BASELINE_LABEL,
 });
 
 export const taskHeadingsOf = (
@@ -463,7 +474,7 @@ export const taskHeadingsOf = (
     size: SPREAD,
   },
   ...(columns.compared
-    ? [{ label: capitalised(columns.counterpart), size: SPREAD }]
+    ? [{ label: columns.counterpartLabel, size: SPREAD }]
     : []),
   ...(columns.judged ? [{ label: 'Judge', numeric: true, size: SPREAD }] : []),
   ...(columns.paired

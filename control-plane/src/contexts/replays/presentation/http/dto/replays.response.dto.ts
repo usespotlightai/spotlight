@@ -1263,7 +1263,7 @@ export class ReplayCounterpartResponseDto {
     nullable: true,
     type: Number,
     description:
-      'Its success rate: per task, the share of its scored copies that succeeded, averaged over the tasks scored; null before it scored a task',
+      'Its success rate on the tasks the gain pairs, the tasks both replays scored: per task, the share of its scored copies that succeeded, averaged over those tasks; null with no such task',
   })
   readonly successRate: number | null;
 
@@ -1271,7 +1271,7 @@ export class ReplayCounterpartResponseDto {
     nullable: true,
     type: RateIntervalResponseDto,
     description:
-      'Its success rate with its 95% interval over the tasks; null before it scored a task',
+      'Its success rate on the tasks both replays scored, with its 95% interval over those tasks; null with no such task',
   })
   readonly interval: RateIntervalResponseDto | null;
 

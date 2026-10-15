@@ -358,8 +358,6 @@ export const SUCCEEDED = 'succeeded';
 
 export const THE_BASELINE = 'the baseline';
 
-export const BASELINE = 'baseline';
-
 export const VERSUS = 'vs';
 
 export const runsScoredShown = (scored: number): string =>
