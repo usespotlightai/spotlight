@@ -2,7 +2,9 @@ export class LearnedOutputMovedOnError extends Error {
   readonly violation = 'conflict' as const;
 
   constructor(tool: string) {
-    super(`What ${tool} answers was learned by another call meanwhile`);
+    super(
+      `Another call learned what ${tool} answers at the same time. Please try again.`,
+    );
     this.name = 'LearnedOutputMovedOnError';
   }
 }

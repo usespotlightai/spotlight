@@ -64,26 +64,61 @@ interface Share {
   readonly amount: number;
 }
 
-const sliced = (
-  priced: readonly Priced[],
-  sharesOf: (each: Priced) => readonly Share[],
-): readonly CostSlice[] => {
-  const slices = new Map<string | null, { amount: number; runs: number }>();
+const COST_PARTS = ['harness', 'model', 'station', 'repository'] as const;
 
-  for (const each of priced) {
-    for (const share of sharesOf(each)) {
-      const held = slices.get(share.key) ?? { amount: 0, runs: 0 };
-      slices.set(share.key, {
-        amount: held.amount + share.amount,
-        runs: held.runs + 1,
-      });
-    }
-  }
+type CostPart = (typeof COST_PARTS)[number];
 
-  return [...slices.entries()]
-    .map(([key, slice]) => ({ key, ...slice }))
-    .sort((a, b) => b.amount - a.amount);
-};
+export interface CostPlace {
+  readonly run: number;
+  readonly offset: number;
+}
+
+export interface CostShareCount {
+  readonly part: CostPart;
+  readonly key: string | null;
+  readonly amount: number;
+  readonly runs: number;
+  readonly first: CostPlace;
+}
+
+interface FlowEnd {
+  readonly kind: FlowNodeKind;
+  readonly key: string | null;
+}
+
+export interface CostLinkCount {
+  readonly source: FlowEnd;
+  readonly target: FlowEnd;
+  readonly amount: number;
+  readonly first: CostPlace;
+}
+
+export interface CacheTotals {
+  readonly input: number;
+  readonly cacheRead: number;
+  readonly cacheWrite: number | null;
+}
+
+interface StationCacheTotals {
+  readonly stationId: string;
+  readonly first: number;
+  readonly cache: CacheTotals | null;
+}
+
+export interface CostCounts {
+  readonly spend: Spend | null;
+  readonly unpriced: number;
+  readonly mixedCurrencies: boolean;
+  readonly shares: readonly CostShareCount[];
+  readonly links: readonly CostLinkCount[];
+  readonly cache: CacheTotals | null;
+  readonly cacheByStation: readonly StationCacheTotals[];
+}
+
+export interface CostCountsInPeriod {
+  readonly current: CostCounts;
+  readonly spendBefore: Spend | null;
+}
 
 const repositorySharesOf = (each: Priced): readonly Share[] => {
   const repositories = each.record.end?.setup.repositories ?? [];
@@ -96,49 +131,9 @@ const repositorySharesOf = (each: Priced): readonly Share[] => {
       }));
 };
 
-const nodeId = (kind: FlowNodeKind, key: string | null): string =>
-  `${kind}:${key ?? ''}`;
+const nodeId = ({ kind, key }: FlowEnd): string => `${kind}:${key ?? ''}`;
 
-const linked = (
-  priced: readonly Priced[],
-): { nodes: FlowNode[]; links: FlowLink[] } => {
-  const nodes = new Map<string, FlowNode>();
-  const links = new Map<string, FlowLink>();
-  const node = (kind: FlowNodeKind, key: string | null): string => {
-    const id = nodeId(kind, key);
-    nodes.set(id, { id, kind, key });
-    return id;
-  };
-  const link = (source: string, target: string, amount: number) => {
-    const key = `${source}\u0000${target}`;
-    const held = links.get(key);
-    links.set(key, {
-      source,
-      target,
-      amount: (held?.amount ?? 0) + amount,
-    });
-  };
-
-  for (const each of priced) {
-    const end = each.record.end;
-
-    if (!end) {
-      continue;
-    }
-
-    const model = node('model', end.setup.model);
-    const station = node('station', end.place.stationId);
-    link(model, station, each.amount);
-
-    for (const share of repositorySharesOf(each)) {
-      link(station, node('repository', share.key), share.amount);
-    }
-  }
-
-  return { nodes: [...nodes.values()], links: [...links.values()] };
-};
-
-const cacheUseOf = (records: readonly RunRecord[]): CacheUse => {
+const cacheTotalsOf = (records: readonly RunRecord[]): CacheTotals | null => {
   const known = records.flatMap((each) => {
     const tokens = each.cost?.tokens;
 
@@ -154,76 +149,178 @@ const cacheUseOf = (records: readonly RunRecord[]): CacheUse => {
   });
 
   if (known.length === 0) {
-    return { input: null, cacheRead: null, cacheWrite: null, cacheShare: null };
+    return null;
   }
 
-  const input = known.reduce((sum, each) => sum + each.input, 0);
-  const cacheRead = known.reduce((sum, each) => sum + each.cacheRead, 0);
   const written = known.flatMap((each) =>
     each.cacheWrite === null ? [] : [each.cacheWrite],
   );
-  const cacheWrite =
-    written.length > 0 ? written.reduce((sum, each) => sum + each, 0) : null;
 
   return {
-    input,
-    cacheRead,
-    cacheWrite,
-    cacheShare: rateOf(cacheRead, input + cacheRead + (cacheWrite ?? 0)),
+    input: known.reduce((sum, each) => sum + each.input, 0),
+    cacheRead: known.reduce((sum, each) => sum + each.cacheRead, 0),
+    cacheWrite:
+      written.length > 0 ? written.reduce((sum, each) => sum + each, 0) : null,
   };
 };
 
-const cacheByStationOf = (
-  records: readonly RunRecord[],
-): readonly StationCacheUse[] => {
-  const stations = new Map<string, RunRecord[]>();
+export const costCountsOf = (
+  history: TeamHistory,
+  window: Window,
+): CostCounts => {
+  const ran = endedWithin(history.records, window).filter((each) => each.ran);
+  const spending = spendingOf(ran.map((each) => each.cost?.spend ?? null));
+  const priced: Priced[] = ran.flatMap((record) =>
+    record.cost?.spend ? [{ record, amount: record.cost.spend.amount }] : [],
+  );
+  const shares = new Map<string, CostShareCount>();
+  const links = new Map<string, CostLinkCount>();
+  const share = (
+    part: CostPart,
+    key: string | null,
+    amount: number,
+    first: CostPlace,
+  ) => {
+    const id = `${part}\u0000${key ?? ''}\u0000${key === null}`;
+    const held = shares.get(id);
+    shares.set(id, {
+      part,
+      key,
+      amount: (held?.amount ?? 0) + amount,
+      runs: (held?.runs ?? 0) + 1,
+      first: held?.first ?? first,
+    });
+  };
+  const link = (
+    source: FlowEnd,
+    target: FlowEnd,
+    amount: number,
+    first: CostPlace,
+  ) => {
+    const id = `${nodeId(source)}\u0000${nodeId(target)}`;
+    const held = links.get(id);
+    links.set(id, {
+      source,
+      target,
+      amount: (held?.amount ?? 0) + amount,
+      first: held?.first ?? first,
+    });
+  };
 
-  for (const each of records) {
-    const stationId = each.end?.place.stationId;
+  for (const [index, each] of priced.entries()) {
+    const end = each.record.end;
 
-    if (stationId) {
-      stations.set(stationId, [...(stations.get(stationId) ?? []), each]);
+    if (!end) {
+      continue;
+    }
+
+    const run = index + 1;
+    const model: FlowEnd = { kind: 'model', key: end.setup.model };
+    const station: FlowEnd = { kind: 'station', key: end.place.stationId };
+
+    share('harness', end.setup.harness, each.amount, { run, offset: 0 });
+    share('model', model.key, each.amount, { run, offset: 0 });
+    share('station', station.key, each.amount, { run, offset: 1 });
+    link(model, station, each.amount, { run, offset: 0 });
+
+    for (const [position, repository] of repositorySharesOf(each).entries()) {
+      share('repository', repository.key, repository.amount, {
+        run,
+        offset: 2 + position,
+      });
+      link(
+        station,
+        { kind: 'repository', key: repository.key },
+        repository.amount,
+        { run, offset: 1 + position },
+      );
     }
   }
 
-  return [...stations.entries()].map(([stationId, here]) => ({
-    stationId,
-    ...cacheUseOf(here),
-  }));
-};
+  const stations = new Map<string, { first: number; runs: RunRecord[] }>();
 
-export const costBreakdownOf = (
-  history: TeamHistory,
-  window: Window,
-): CostBreakdown => {
-  const ran = endedWithin(history.records, window).filter((each) => each.ran);
-  const spending = spendingOf(ran.map((each) => each.cost?.spend ?? null));
-  const priced: Priced[] = spending.spend
-    ? ran.flatMap((record) =>
-        record.cost?.spend
-          ? [{ record, amount: record.cost.spend.amount }]
-          : [],
-      )
-    : [];
-  const flows = linked(priced);
+  for (const [index, each] of ran.entries()) {
+    const stationId = each.end?.place.stationId;
+
+    if (stationId) {
+      const held = stations.get(stationId);
+      stations.set(stationId, {
+        first: held?.first ?? index + 1,
+        runs: [...(held?.runs ?? []), each],
+      });
+    }
+  }
 
   return {
     spend: spending.spend,
     unpriced: spending.unpriced,
     mixedCurrencies: spending.mixedCurrencies,
-    byHarness: sliced(priced, (each) => [
-      { key: each.record.end?.setup.harness ?? null, amount: each.amount },
-    ]),
-    byModel: sliced(priced, (each) => [
-      { key: each.record.end?.setup.model ?? null, amount: each.amount },
-    ]),
-    byStation: sliced(priced, (each) => [
-      { key: each.record.end?.place.stationId ?? null, amount: each.amount },
-    ]),
-    byRepository: sliced(priced, repositorySharesOf),
-    nodes: flows.nodes,
-    links: flows.links,
-    cache: cacheUseOf(ran),
-    cacheByStation: cacheByStationOf(ran),
+    shares: [...shares.values()],
+    links: [...links.values()],
+    cache: cacheTotalsOf(ran),
+    cacheByStation: [...stations.entries()].map(([stationId, held]) => ({
+      stationId,
+      first: held.first,
+      cache: cacheTotalsOf(held.runs),
+    })),
+  };
+};
+
+const cacheUseOf = (totals: CacheTotals | null): CacheUse =>
+  totals
+    ? {
+        ...totals,
+        cacheShare: rateOf(
+          totals.cacheRead,
+          totals.input + totals.cacheRead + (totals.cacheWrite ?? 0),
+        ),
+      }
+    : { input: null, cacheRead: null, cacheWrite: null, cacheShare: null };
+
+const inFirstOrder = <T extends { readonly first: CostPlace }>(
+  items: readonly T[],
+): T[] =>
+  [...items].sort(
+    (a, b) => a.first.run - b.first.run || a.first.offset - b.first.offset,
+  );
+
+export const costBreakdownFrom = (counts: CostCounts): CostBreakdown => {
+  const priced = counts.spend !== null;
+  const slicesOf = (part: CostPart): readonly CostSlice[] =>
+    priced
+      ? inFirstOrder(counts.shares.filter((each) => each.part === part))
+          .sort((a, b) => b.amount - a.amount)
+          .map(({ key, amount, runs }) => ({ key, amount, runs }))
+      : [];
+
+  return {
+    spend: counts.spend,
+    unpriced: counts.unpriced,
+    mixedCurrencies: counts.mixedCurrencies,
+    byHarness: slicesOf('harness'),
+    byModel: slicesOf('model'),
+    byStation: slicesOf('station'),
+    byRepository: slicesOf('repository'),
+    nodes: priced
+      ? inFirstOrder(
+          counts.shares.flatMap((each) =>
+            each.part === 'harness' ? [] : [{ ...each, kind: each.part }],
+          ),
+        ).map(({ kind, key }) => ({ id: nodeId({ kind, key }), kind, key }))
+      : [],
+    links: priced
+      ? inFirstOrder(counts.links).map((each) => ({
+          source: nodeId(each.source),
+          target: nodeId(each.target),
+          amount: each.amount,
+        }))
+      : [],
+    cache: cacheUseOf(counts.cache),
+    cacheByStation: [...counts.cacheByStation]
+      .sort((a, b) => a.first - b.first)
+      .map((each) => ({
+        stationId: each.stationId,
+        ...cacheUseOf(each.cache),
+      })),
   };
 };

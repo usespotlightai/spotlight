@@ -624,8 +624,25 @@ type Paired = {
   readonly baseline: ReplayEntryResponseDto | undefined;
 };
 
+const counterpartSpecOf = (replay: ReplaySpec): ReplaySpec | null =>
+  replay.comparedWith ? (replaySpec(replay.comparedWith) ?? null) : null;
+
+const counterpartOf = (
+  replay: ReplaySpec,
+): ReplayResponseDto['comparedWith'] => {
+  const against = counterpartSpecOf(replay);
+
+  if (!against) {
+    return null;
+  }
+
+  const { successRate, interval } = totalsOf(entriesOf(against));
+
+  return { replayId: against.id, successRate, interval };
+};
+
 const pairsWith = (replay: ReplaySpec): Paired[] => {
-  const against = replay.comparedWith ? replaySpec(replay.comparedWith) : null;
+  const against = counterpartSpecOf(replay);
   const baselineEntries = against ? entriesOf(against) : [];
 
   return entriesOf(replay).map((entry) => ({
@@ -688,6 +705,7 @@ export const replayOf = (replay: ReplaySpec): ReplayResponseDto => {
       replay.endedHoursAgo === null ? null : hoursAgo(replay.endedHoursAgo),
     totals: totalsOf(entries),
     againstBaseline: gain,
+    comparedWith: counterpartOf(replay),
     pairedWith: replay.paired ? replay.comparedWith : null,
     pairsAgainstBaseline: pairs,
     entries,
@@ -766,7 +784,6 @@ export const replayDetailOf = (
 ): ReplayDetailResponseDto => ({
   ...replayOf(replay),
   baselineReplayId: baselineOfSet(replay.setId)?.id ?? null,
-  comparedWithReplayId: replay.comparedWith,
   search: replay.search,
   comparison: pairsWith(replay).map((pair) => comparisonOf(replay, pair)),
 });

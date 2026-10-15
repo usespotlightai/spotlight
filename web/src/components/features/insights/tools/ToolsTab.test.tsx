@@ -44,7 +44,6 @@ const LINES = [
 
 const TOOLS = {
   period: { name: '30d' },
-  truncated: false,
   weeks: ['2026-09-21', '2026-09-28'],
   runs: 12,
   trendRule: { recentWeeks: 2, fewestRuns: 5, shiftPoints: 20 },
@@ -253,16 +252,6 @@ describe('the skills and tools of the Tools and skills tab', () => {
     expect(
       screen.queryByRole('list', { name: 'Stations using borrowed' }),
     ).toBeNull();
-  });
-
-  it('says when only the latest runs were counted', () => {
-    answer.tools = held({ ...TOOLS, truncated: true });
-
-    showing();
-
-    expect(screen.getByRole('note')).toHaveTextContent(
-      'Only the latest 20,000 runs',
-    );
   });
 
   it('leaves out skills, unused skills and refusals where there are none', () => {

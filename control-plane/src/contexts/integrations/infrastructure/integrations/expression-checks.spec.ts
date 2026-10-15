@@ -301,7 +301,7 @@ describe('a position that names no expression', () => {
 describe('the check and the compiler', () => {
   const doubted = (message: string, suggestion: string | null) =>
     suggestion
-      ? `does not check: ${message}; did you mean ${suggestion}?`
+      ? `does not check: ${message}. Did you mean ${suggestion}?`
       : `does not check: ${message}`;
 
   const valueAt = (held: unknown, field: FieldPath): unknown =>

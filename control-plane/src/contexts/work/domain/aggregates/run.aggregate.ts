@@ -187,7 +187,9 @@ export class Run extends EventRecorder {
     }
 
     if (run.briefedWith.briefed.length > 0 && !run.isReplay) {
-      run.record(new RunBriefed(run.id, run.workspaceId, run.briefedWith));
+      run.record(
+        new RunBriefed(run.id, run.workspaceId, run.taskId, run.briefedWith),
+      );
     }
 
     return run;

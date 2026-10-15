@@ -4,11 +4,19 @@ import {
   touchesOf,
 } from '@outcomes/domain/insights.fake-spec';
 import { endedRecord } from '@outcomes/domain/outcomes.fake-spec';
-import { flowOf } from '@outcomes/domain/services/flow';
+import { flowCountsOf, flowFrom } from '@outcomes/domain/services/flow';
+import {
+  openingsOf,
+  type TeamHistory,
+} from '@outcomes/domain/services/team-history';
 import { InsightsPeriod } from '@outcomes/domain/value-objects/insights-period.vo';
 import { describe, expect, it } from 'vitest';
 
 const PERIOD = InsightsPeriod.of('7d', new Date('2026-10-01T15:00:00.000Z'));
+
+const flowOf = (history: TeamHistory, period: InsightsPeriod) =>
+  flowFrom(flowCountsOf(history, period, openingsOf(history.touches)), period);
+
 const MINUTE = 60_000;
 
 const at = (hour: number, minute = 0) =>
@@ -16,7 +24,7 @@ const at = (hour: number, minute = 0) =>
     `2026-09-29T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00.000Z`,
   );
 
-describe('flowOf', () => {
+describe('flowFrom the counts of flowCountsOf', () => {
   it('times how long each station’s runs waited for a runner and then ran', () => {
     const history = historyOf({
       records: [

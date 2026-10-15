@@ -359,7 +359,7 @@ describe('InviteToWorkspaceHandler', () => {
 
     await expect(
       handler.execute(invite(['ada@example.com'], 'member', ['team_9'])),
-    ).rejects.toThrow(/team team_9 is not in this workspace/);
+    ).rejects.toThrow(/Team team_9 is not in this workspace/);
     expect(send).not.toHaveBeenCalled();
   });
 

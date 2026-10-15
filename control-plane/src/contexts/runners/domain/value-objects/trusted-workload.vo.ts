@@ -15,7 +15,7 @@ const bounded = (
   if (!held || held.length > LONGEST || /\s/.test(held)) {
     throw new InvalidTrustedWorkloadError(
       field,
-      `must be one word of at most ${LONGEST} characters, such as ${example}`,
+      `must be one word of at most ${LONGEST} characters, as in ${example}`,
     );
   }
 

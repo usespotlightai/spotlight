@@ -25,8 +25,8 @@ export function AcceptAsSignedIn({
     <div className="flex flex-col gap-3">
       {asSomeoneElse ? (
         <p role="alert" className="text-center text-muted-foreground text-sm">
-          Invitation is for {invitedEmail}, not {signedInAs}. Please sign in as{' '}
-          {invitedEmail} to accept.
+          The invitation is for {invitedEmail}, not {signedInAs}. Please sign in
+          as {invitedEmail} to accept it.
         </p>
       ) : (
         <>

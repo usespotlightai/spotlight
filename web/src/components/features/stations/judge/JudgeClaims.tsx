@@ -15,7 +15,7 @@ export function JudgeClaims({ claims, passShare }: JudgeClaimsProps) {
       <ol className="flex list-decimal flex-col gap-0.5 pl-4 text-foreground marker:text-muted-foreground">
         {claims.map((claim, at) => (
           <li
-            // biome-ignore lint/suspicious/noArrayIndexKey: a claim is named by its place in the judge's list
+            // biome-ignore lint/suspicious/noArrayIndexKey: the position of a claim in the judge's list identifies it
             key={at}
             data-slot="judge-claim"
           >

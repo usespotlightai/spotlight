@@ -56,11 +56,11 @@ export function ConnectionCard({
       <p className="text-muted-foreground text-xs leading-5">
         {connection.met
           ? theirs
-            ? `You connected ${connection.integration}, so the run carried on.`
-            : `${who} connected ${connection.integration}, so the run carried on.`
+            ? `You connected ${connection.integration}. The run carried on.`
+            : `${who} connected ${connection.integration}. The run carried on.`
           : theirs
-            ? `Connect your ${connection.integration} account and the run carries on.`
-            : `Waiting for ${who} to connect ${connection.integration}.`}
+            ? `If you connect your ${connection.integration} account, the run carries on.`
+            : `The run is waiting for ${who} to connect ${connection.integration}.`}
       </p>
     </DecisionCard>
   );

@@ -1,14 +1,17 @@
-import type { InboxWait } from '@outcomes/domain/aggregates/task-touches.aggregate';
+import type {
+  InboxWait,
+  TaskTouches,
+} from '@outcomes/domain/aggregates/task-touches.aggregate';
 import {
   between,
   known,
+  NO_SPREAD,
   type Spread,
   spreadOf,
 } from '@outcomes/domain/services/measures';
 import {
   atStation,
   endedWithin,
-  openingsOf,
   type StationPlace,
   stationsOf,
   type TeamHistory,
@@ -86,46 +89,141 @@ export const inboxWaitsWithin = (
 const answerMs = (wait: InboxWait): number | null =>
   wait.answeredAt ? between(wait.askedAt, wait.answeredAt) : null;
 
-const flowWithin = (history: TeamHistory, window: Window): FlowWithin => {
+export interface StationRunCounts extends StationPlace {
+  readonly taskIds: readonly string[];
+  readonly runs: number;
+  readonly queued: Spread;
+  readonly running: Spread;
+}
+
+export interface StationInboxCounts {
+  readonly stationId: string;
+  readonly asks: number;
+  readonly unanswered: number;
+  readonly inbox: Spread;
+}
+
+export interface FlowWindowCounts {
+  readonly stations: readonly StationRunCounts[];
+  readonly inbox: readonly StationInboxCounts[];
+}
+
+export interface DeliveryMoments {
+  readonly taskId: string;
+  readonly openedAt: Date;
+  readonly firstReviewAt: Date | null;
+  readonly closedAt: Date | null;
+  readonly merged: boolean;
+  readonly taskOpenedAt: Date | null;
+}
+
+export interface FlowCounts {
+  readonly current: FlowWindowCounts;
+  readonly previous: FlowWindowCounts;
+  readonly deliveries: readonly DeliveryMoments[];
+}
+
+const windowCountsOf = (
+  history: TeamHistory,
+  window: Window,
+): FlowWindowCounts => {
   const ended = endedWithin(history.records, window);
   const waits = inboxWaitsWithin(history, window);
-  const openings = openingsOf(history.touches);
-  const opened = history.deliveries.filter((each) =>
-    within(window, each.openedAt),
-  );
-  const reviewed = history.deliveries.filter((each) =>
-    within(window, each.firstReviewAt),
-  );
-  const merged = history.deliveries.filter(
-    (each) => each.merged && within(window, each.closedAt),
-  );
+  const asked = new Map<string, (InboxWait & { readonly taskId: string })[]>();
+
+  for (const wait of waits) {
+    const here = asked.get(wait.stationId) ?? [];
+    here.push(wait);
+    asked.set(wait.stationId, here);
+  }
 
   return {
     stations: stationsOf(ended).map((place) => {
       const here = atStation(ended, place.stationId).filter((each) => each.ran);
-      const asked = waits.filter((each) => each.stationId === place.stationId);
-      const taskIds = tasksOf(here);
 
       return {
         ...place,
-        tasks: taskIds.length,
-        taskIds,
+        taskIds: tasksOf(here),
         runs: here.length,
         queued: spreadOf(known(here.map((each) => each.end?.queuedMs ?? null))),
         running: spreadOf(
           known(here.map((each) => each.end?.runningMs ?? null)),
         ),
-        inbox: spreadOf(known(asked.map(answerMs))),
-        asks: asked.length,
-        unanswered: asked.filter((each) => each.answeredAt === null).length,
+      };
+    }),
+    inbox: [...asked.entries()].map(([stationId, here]) => ({
+      stationId,
+      asks: here.length,
+      unanswered: here.filter((each) => each.answeredAt === null).length,
+      inbox: spreadOf(known(here.map(answerMs))),
+    })),
+  };
+};
+
+const touchedWithin = (each: DeliveryMoments, window: Window): boolean =>
+  within(window, each.openedAt) ||
+  within(window, each.firstReviewAt) ||
+  (each.merged && within(window, each.closedAt));
+
+export const flowCountsOf = (
+  history: TeamHistory,
+  period: InsightsPeriod,
+  openings: ReadonlyMap<string, TaskTouches>,
+): FlowCounts => ({
+  current: windowCountsOf(history, period.current),
+  previous: windowCountsOf(history, period.previous),
+  deliveries: history.deliveries
+    .map((each) => ({
+      taskId: each.taskId.value,
+      openedAt: each.openedAt,
+      firstReviewAt: each.firstReviewAt,
+      closedAt: each.closedAt,
+      merged: each.merged,
+      taskOpenedAt: openings.get(each.taskId.value)?.opening?.at ?? null,
+    }))
+    .filter(
+      (each) =>
+        touchedWithin(each, period.current) ||
+        touchedWithin(each, period.previous),
+    ),
+});
+
+const flowWithin = (
+  counts: FlowWindowCounts,
+  deliveries: readonly DeliveryMoments[],
+  window: Window,
+): FlowWithin => {
+  const inbox = new Map(counts.inbox.map((each) => [each.stationId, each]));
+  const opened = deliveries.filter((each) => within(window, each.openedAt));
+  const reviewed = deliveries.filter((each) =>
+    within(window, each.firstReviewAt),
+  );
+  const merged = deliveries.filter(
+    (each) => each.merged && within(window, each.closedAt),
+  );
+
+  return {
+    stations: counts.stations.map((station) => {
+      const asked = inbox.get(station.stationId);
+
+      return {
+        lineId: station.lineId,
+        stationId: station.stationId,
+        tasks: station.taskIds.length,
+        taskIds: station.taskIds,
+        runs: station.runs,
+        queued: station.queued,
+        running: station.running,
+        inbox: asked?.inbox ?? NO_SPREAD,
+        asks: asked?.asks ?? 0,
+        unanswered: asked?.unanswered ?? 0,
       };
     }),
     delivery: {
       toPullRequest: spreadOf(
-        opened.flatMap((each) => {
-          const from = openings.get(each.taskId.value)?.opening?.at;
-          return from ? [between(from, each.openedAt)] : [];
-        }),
+        opened.flatMap((each) =>
+          each.taskOpenedAt ? [between(each.taskOpenedAt, each.openedAt)] : [],
+        ),
       ),
       toFirstReview: spreadOf(
         reviewed.flatMap((each) =>
@@ -143,18 +241,22 @@ const flowWithin = (history: TeamHistory, window: Window): FlowWithin => {
       opened: opened.length,
       reviewed: reviewed.length,
       merged: merged.length,
-      openedTaskIds: opened.map((each) => each.taskId.value),
-      reviewedTaskIds: reviewed.map((each) => each.taskId.value),
-      mergedTaskIds: merged.map((each) => each.taskId.value),
+      openedTaskIds: opened.map((each) => each.taskId),
+      reviewedTaskIds: reviewed.map((each) => each.taskId),
+      mergedTaskIds: merged.map((each) => each.taskId),
     },
   };
 };
 
 const risingIsBetter = { better: 'up', unit: 'percent' } as const;
 
-export const flowOf = (history: TeamHistory, period: InsightsPeriod): Flow => {
-  const now = flowWithin(history, period.current);
-  const before = flowWithin(history, period.previous);
+export const flowFrom = (counts: FlowCounts, period: InsightsPeriod): Flow => {
+  const now = flowWithin(counts.current, counts.deliveries, period.current);
+  const before = flowWithin(
+    counts.previous,
+    counts.deliveries,
+    period.previous,
+  );
   const tasksBefore = new Map(
     before.stations.map((each) => [each.stationId, each.tasks]),
   );

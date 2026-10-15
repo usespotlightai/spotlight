@@ -79,7 +79,7 @@ export class ScoreScale {
 
     if (this.byClaims) {
       throw new InvalidScoreError(
-        'on a claims scale must mark each claim met or not',
+        'on a claims scale must mark each claim as met or not met',
       );
     }
 
@@ -100,7 +100,7 @@ export class ScoreScale {
     }
     if (count === 0 || marks.length !== count) {
       throw new InvalidScoreError(
-        `on a claims scale must mark all ${count} claims met or not`,
+        `on a claims scale must mark all ${count} claims as met or not met`,
       );
     }
 

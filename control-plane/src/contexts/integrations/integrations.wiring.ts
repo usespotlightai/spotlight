@@ -673,7 +673,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
   {
     provide: WebhookSources,
     inject: [DiscoveryService],
-    // Lazy: discovery only sees providers once the container is built.
+    // Lazy: discovery finds providers only after the container is built.
     useFactory: (discovery: DiscoveryService) =>
       new WebhookSources(() => markedSources(discovery)),
   },

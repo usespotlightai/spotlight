@@ -10,7 +10,7 @@ export function GradeRubric({ rubric }: GradeRubricProps) {
     <section
       data-slot="grade-rubric"
       aria-label={RUBRIC_LABEL}
-      // biome-ignore lint/a11y/noNoninteractiveTabindex: a scrolling region takes focus so the keyboard can scroll it
+      // biome-ignore lint/a11y/noNoninteractiveTabindex: a region that scrolls takes focus so that the keyboard can scroll it
       tabIndex={0}
       className="max-h-48 overflow-y-auto overscroll-contain break-words rounded outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >

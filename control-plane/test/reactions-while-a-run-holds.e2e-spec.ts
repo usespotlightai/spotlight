@@ -55,7 +55,7 @@ import { openTeam } from './support/team';
 const RUNNER = RunnerId.of('runner_reactions');
 const CHANGES_REQUESTED = 'github.pull_request.changes-requested';
 const HELD_BACK_TO_CODE_REVIEW =
-  'Heard while a run held the task. It moves to Code Review when the run ends, unless the run passes it on.\n\nChanges were requested on the pull request.';
+  'Heard while a run held the task. If the run does not pass the task on, the task moves to Code Review when the run ends.\n\nChanges were requested on the pull request.';
 
 let app: INestApplication;
 let db: DrizzleDatabase;

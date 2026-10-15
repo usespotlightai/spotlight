@@ -167,11 +167,11 @@ export const standingShown = (standing: JudgeStanding): string => {
     case null:
       return `Trusted. ${measureShown(standing.measure)}: ${statShown(standing.agreement)} over ${standing.pairs} runs. Minimum required: ${statShown(standing.trust)}`;
     case 'no-judge':
-      return 'No judge on this station. No scores to trust.';
+      return 'This station has no judge. There are no scores to trust.';
     case 'unreadable-rubric':
       return 'Hidden. The rubric names a scale that cannot be read.';
     case 'too-few-pairs':
-      return `Hidden until more runs have both judge and human scores. Runs so far: ${standing.pairs}`;
+      return `Hidden until more runs have scores from both the judge and people. Runs so far: ${standing.pairs}`;
     case 'no-agreement':
       return 'Hidden. Agreement can’t be measured while all scores are identical.';
     case 'below-trust':
@@ -217,7 +217,7 @@ export const judgeTiles = (
     label: measureShown(standing.measure),
     value: statShown(standing.agreement),
     detail: standing.trusted
-      ? `Trusted, needs ${statShown(standing.trust)}`
+      ? `Trusted. Minimum required: ${statShown(standing.trust)}`
       : standingShown(standing),
   },
   ...COVERAGE_PARTS.map((part) => ({
@@ -257,10 +257,10 @@ export type ComparisonStat = {
 };
 
 const KAPPA_NOTE =
-  'How often the judge and people agree, beyond what chance would give: 1 is perfect, 0 is chance. 0.81 and up is almost perfect, 0.61 to 0.80 substantial, 0.41 to 0.60 moderate, below 0 less than chance.';
+  'How often the judge and people agree, beyond chance. 1 is perfect agreement and 0 is chance. Scale: 0.81 and up almost perfect · 0.61 to 0.80 substantial · 0.41 to 0.60 moderate · below 0 less than chance';
 
 const correlationNote = (ranked: boolean): string =>
-  `How closely the judge’s scores ${ranked ? 'rank runs the way' : 'rise and fall with'} people’s do: 1 is in step, 0 is no relation. 0.9 and up is very strong, 0.7 to 0.9 strong, 0.5 to 0.7 moderate, below 0 inverse.`;
+  `How closely the judge’s scores ${ranked ? 'rank runs the way people’s scores do' : 'rise and fall with people’s scores'}. 1 means they move in step and 0 means no relation. Scale: 0.9 and up very strong · 0.7 to 0.9 strong · 0.5 to 0.7 moderate · below 0 inverse`;
 
 const read = (reading: string | null, note: string): string =>
   reading ? `${reading}. ${note}` : note;
@@ -298,7 +298,7 @@ export const comparisonStats = (version: RubricVersion): ComparisonStat[] => {
       {
         label: 'Root mean square error',
         value: statShown(agreement.rmse),
-        note: 'Like mean absolute error, but large misses count for more. Lower is better.',
+        note: 'This is like mean absolute error, but large misses count for more. Lower is better.',
       },
     ];
   }
@@ -310,19 +310,19 @@ export const comparisonStats = (version: RubricVersion): ComparisonStat[] => {
       note: kappaRead(
         readings.kappa,
         version.kind === 'claims'
-          ? `Across every claim together. ${KAPPA_NOTE}`
+          ? `This kappa covers every claim together. ${KAPPA_NOTE}`
           : KAPPA_NOTE,
       ),
     },
     {
       label: 'F1 score',
       value: statShown(agreement.f1),
-      note: 'How well the judge’s yes matches people’s yes, missing none and adding none: 1 is a perfect match. Higher is better.',
+      note: 'How well the judge’s yes matches people’s yes. A perfect match misses none, adds none and scores 1. Higher is better.',
     },
     {
       label: 'Overall agreement',
       value: percentShown(agreement.observed),
-      note: 'The share of runs where the judge and people gave the same score, chance included.',
+      note: 'The share of runs where the judge and people gave the same score. Agreement by chance counts.',
     },
   ];
 };

@@ -1169,7 +1169,7 @@ describe('runner pools (e2e)', () => {
       expect(await checkReadFor(skipped.runId)).toMatchObject({
         state: 'skipped',
         reason: expect.stringContaining(
-          'No runner could be provisioned to check the layers.',
+          'Spotlight couldn’t provision a runner to check the layers.',
         ),
       });
     }, 30_000);

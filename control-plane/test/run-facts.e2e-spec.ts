@@ -229,6 +229,34 @@ describe('run facts', () => {
     });
   });
 
+  it('keeps the memories a run was briefed with before it ended in its fact, and those it recalled after', async () => {
+    const runId = RunId.of('run_briefed');
+    await records.add(
+      RunRecord.heardOf(runId, WORKSPACE, TaskId.of('task_b')).usedMemories(
+        'briefed',
+        ['mem_1'],
+      ),
+    );
+
+    expect(await factOf('run_briefed')).toBeNull();
+
+    const briefed = (await records.of(runId)) as RunRecord;
+    await records.save(
+      briefed.ended(ended('run_briefed', 'task_b').end as RunEnd),
+    );
+
+    expect(await factOf('run_briefed')).toMatchObject({
+      memories: { briefed: ['mem_1'], recalled: [] },
+    });
+
+    const finished = (await records.of(runId)) as RunRecord;
+    await records.save(finished.usedMemories('recalled', ['mem_2']));
+
+    expect(await factOf('run_briefed')).toMatchObject({
+      memories: { briefed: ['mem_1'], recalled: ['mem_2'] },
+    });
+  });
+
   it('takes who opened the task and how it was delivered from their own records', async () => {
     await records.add(ended('run_1', 'task_1'));
     await records.add(ended('run_2', 'task_1'));
@@ -275,6 +303,37 @@ describe('run facts', () => {
         deliveryClosedAt: at(0.1),
       });
     }
+  });
+
+  it('takes no opener or delivery from another workspace’s records of the same task', async () => {
+    await touches.add(
+      TaskTouches.heardOf(TaskId.of('task_x'), ELSEWHERE).opened(
+        TaskOpening.of({
+          teamId: TEAM,
+          lineId: 'line_1',
+          stationId: 'station_1',
+          by: UserId.of('user_ada'),
+          at: at(3),
+        }),
+      ),
+    );
+    await deliveries.add(
+      TaskDelivery.opened({
+        taskId: TaskId.of('task_x'),
+        workspaceId: ELSEWHERE,
+        teamId: TEAM,
+        pullRequest: PULL,
+        at: at(2),
+      }),
+    );
+    await records.add(ended('run_x', 'task_x'));
+
+    expect(await factOf('run_x')).toMatchObject({
+      openedBy: null,
+      taskOpenedAt: null,
+      pullRequest: null,
+      deliveryState: null,
+    });
   });
 
   it('keeps both changes when a run and its task’s delivery change at once', async () => {

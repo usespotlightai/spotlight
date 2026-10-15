@@ -36,19 +36,19 @@ export function Penetration({ penetration }: PenetrationProps) {
         <InsightsTile
           label="Reviewed by Spotlight"
           value={countShown(penetration.touched)}
-          detail="Others’ with a Spotlight review task"
+          detail="Others’ pull requests with a Spotlight review task"
           drill={drill({ author: 'touched' })}
         />
         <InsightsTile
           label="Spotlight’s share"
           value={shareShown(penetration.share)}
-          detail="Made or reviewed by Spotlight, of all merged, bots’ included"
+          detail="Share of all merged pull requests that Spotlight made or reviewed. Bots’ pull requests count."
         />
       </InsightsTiles>
 
       <InsightsCard
         title="Week by week"
-        description="Merged pull requests each week: made by Spotlight, others’ with a Spotlight review task, people alone, bots alone."
+        description="Merged pull requests each week, by who made them: Spotlight, others with a Spotlight review task, people alone, bots alone."
         table={<PenetrationTable weeks={penetration.weeks} repository={null} />}
       >
         <PenetrationChart weeks={penetration.weeks} />

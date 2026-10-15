@@ -1,8 +1,11 @@
+import type { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
+import type { TaskDelivery } from '@outcomes/domain/aggregates/task-delivery.aggregate';
 import { deliveredOf } from '@outcomes/domain/insights.fake-spec';
 import { costedRecord, endedRecord } from '@outcomes/domain/outcomes.fake-spec';
 import {
-  changeVerdictOf,
+  groupCountsOf,
   type MeasureVerdict,
+  verdictsFrom,
 } from '@outcomes/domain/services/change-verdict';
 import type { AlertMeasure } from '@outcomes/domain/value-objects/alert-rule.vo';
 import { NextAct } from '@outcomes/domain/value-objects/next-act.vo';
@@ -25,9 +28,19 @@ const of = (
 ): MeasureVerdict | undefined =>
   verdicts.find((each) => each.measure === measure);
 
+const changeVerdictOf = (
+  before: readonly RunRecord[],
+  after: readonly RunRecord[],
+  deliveries: readonly TaskDelivery[],
+) =>
+  verdictsFrom(
+    groupCountsOf(before, deliveries),
+    groupCountsOf(after, deliveries),
+  );
+
 const FIVE_CLOSED = ['closed', 'closed', 'closed', 'closed', 'closed'] as const;
 
-describe('changeVerdictOf', () => {
+describe('verdictsFrom', () => {
   it('calls a measure better or worse only from enough settled runs on each side', () => {
     const before = runs('b', [
       'closed',
@@ -171,5 +184,34 @@ describe('changeVerdictOf', () => {
         'cost_per_run',
       ),
     ).toMatchObject({ verdict: 'insufficient', change: null });
+  });
+
+  it('settles a measure only on the runs that ran, whatever a withdrawn run on its side was given', () => {
+    const withdrawn = costedRecord('a_withdrawn', {
+      taskId: 'task_withdrawn',
+      ending: 'withdrawn',
+      endedAt: at(10),
+    }).actedOn(NextAct.of('closed', at(10)));
+    const verdicts = changeVerdictOf(
+      runs('b', FIVE_CLOSED),
+      [...runs('a', FIVE_CLOSED), withdrawn],
+      [
+        deliveredOf('task_withdrawn', {
+          openedAt: at(9),
+          closedAt: at(11),
+          merged: true,
+        }),
+      ],
+    );
+
+    expect(of(verdicts, 'accepted_rate')).toMatchObject({
+      settledAfter: 5,
+      after: 1,
+    });
+    expect(of(verdicts, 'cost_per_run')?.settledAfter).toBe(0);
+    expect(of(verdicts, 'merged_rate')).toMatchObject({
+      settledAfter: 0,
+      after: null,
+    });
   });
 });
