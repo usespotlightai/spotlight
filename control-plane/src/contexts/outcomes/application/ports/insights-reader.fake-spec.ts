@@ -1,10 +1,18 @@
 import type {
   InsightsReaderPort,
+  PullRequestReach,
   TeamInPeriod,
 } from '@outcomes/application/ports/insights-reader.port';
 import type { TeamHistoryHeld } from '@outcomes/application/services/team-histories.service';
 import { ScoresInMemory } from '@outcomes/domain/judging.fake-spec';
+import {
+  PullRequestRecordsInMemory,
+  TaskChangeShapesInMemory,
+} from '@outcomes/domain/pull-requests.fake-spec';
+import type { PullRequestRecordRepository } from '@outcomes/domain/repositories/pull-request-record.repository';
+import type { RunRecordRepository } from '@outcomes/domain/repositories/run-record.repository';
 import type { ScoreRepository } from '@outcomes/domain/repositories/score.repository';
+import type { TaskChangeShapeRepository } from '@outcomes/domain/repositories/task-change-shape.repository';
 import { changeCountsOf } from '@outcomes/domain/services/before-after';
 import type { CarriedConfigs } from '@outcomes/domain/services/config-stretches';
 import { costCountsOf } from '@outcomes/domain/services/cost-breakdown';
@@ -13,6 +21,7 @@ import { judgedRunsOf } from '@outcomes/domain/services/judge-shares';
 import { memoryCountsOf } from '@outcomes/domain/services/memory-comparison';
 import { overviewCountsOf } from '@outcomes/domain/services/overview-counts';
 import { peopleCountsOf } from '@outcomes/domain/services/people-counts';
+import { inEndOrder } from '@outcomes/domain/services/run-order';
 import {
   setupCountsOf,
   setupRunsWithin,
@@ -24,6 +33,10 @@ import {
   stationsOf,
   type TeamHistory,
 } from '@outcomes/domain/services/team-history';
+import {
+  type TeamPullRequest,
+  teamPullRequestOf,
+} from '@outcomes/domain/services/team-pull-requests';
 import { toolCountsOf } from '@outcomes/domain/services/tool-insights';
 
 const ALL = Number.MAX_SAFE_INTEGER;
@@ -67,9 +80,58 @@ const openingsFor = async (held: TeamHistoryHeld, history: TeamHistory) =>
     ]),
   );
 
+export interface PullRequestsHeld {
+  readonly records: PullRequestRecordRepository;
+  readonly shapes: TaskChangeShapeRepository;
+}
+
+export const pullRequestsHeldIn = async (
+  runs: RunRecordRepository,
+  pullRequests: PullRequestsHeld,
+  { workspaceId, teamId, period }: TeamInPeriod,
+  reach: PullRequestReach,
+): Promise<readonly TeamPullRequest[]> => {
+  const records = await pullRequests.records.seenForTeamBetween(
+    {
+      workspaceId,
+      teamId,
+      repositories: reach.repositories,
+      from: reach.from,
+      to: period.current.to,
+    },
+    reach.most,
+  );
+  const owners = records.flatMap((each) =>
+    each.owner ? [each.owner.taskId] : [],
+  );
+  const ran = [...(await runs.ofTasks(owners))]
+    .filter((each) => each.hasEnded)
+    .sort(inEndOrder);
+  const shapes = await pullRequests.shapes.forTasks(owners);
+
+  return records.flatMap((record) => {
+    const owner = record.owner?.taskId;
+    const view = teamPullRequestOf(
+      record,
+      (owner && shapes.find((each) => each.taskId.equals(owner))) || null,
+      owner
+        ? ran
+            .filter((each) => each.taskId?.equals(owner))
+            .map((each) => each.cost?.spend ?? null)
+        : [],
+    );
+
+    return view ? [view] : [];
+  });
+};
+
 export const insightsReaderInMemory = (
   held: TeamHistoryHeld,
   scores: ScoreRepository = new ScoresInMemory(),
+  pullRequests: PullRequestsHeld = {
+    records: new PullRequestRecordsInMemory(),
+    shapes: new TaskChangeShapesInMemory(),
+  },
 ): InsightsReaderPort => ({
   stationCounts: async (team) => {
     const history = await historyOf(held, team);
@@ -143,4 +205,6 @@ export const insightsReaderInMemory = (
       await scores.ofRuns(history.records.map((each) => each.runId)),
     );
   },
+  pullRequests: (team, reach) =>
+    pullRequestsHeldIn(held.records, pullRequests, team, reach),
 });

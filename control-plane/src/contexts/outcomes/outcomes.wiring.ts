@@ -28,7 +28,10 @@ import {
   GRADES,
   type GradesPort,
 } from '@outcomes/application/ports/grades.port';
-import { INSIGHTS_READER } from '@outcomes/application/ports/insights-reader.port';
+import {
+  INSIGHTS_READER,
+  type InsightsReaderPort,
+} from '@outcomes/application/ports/insights-reader.port';
 import { JUDGE, type JudgePort } from '@outcomes/application/ports/judge.port';
 import {
   JUDGE_STANDING,
@@ -444,20 +447,12 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
   ]),
   {
     provide: TeamPullRequests,
-    inject: [
-      TeamHistories,
-      WORK,
-      DrizzlePullRequestRecordRepository,
-      DrizzleRunRecordRepository,
-      DrizzleTaskChangeShapeRepository,
-    ],
+    inject: [TeamHistories, WORK, INSIGHTS_READER],
     useFactory: (
       histories: TeamHistories,
       work: WorkPort,
-      records: DrizzlePullRequestRecordRepository,
-      runs: DrizzleRunRecordRepository,
-      shapes: DrizzleTaskChangeShapeRepository,
-    ) => new TeamPullRequests(histories, work, { records, runs, shapes }),
+      reader: InsightsReaderPort,
+    ) => new TeamPullRequests(histories, work, reader),
   },
   ...bindQueryHandler(
     ReadInsightsPullRequestsQuery,

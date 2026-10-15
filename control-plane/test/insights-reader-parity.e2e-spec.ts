@@ -1,8 +1,11 @@
+import { pullRequestsHeldIn } from '@outcomes/application/ports/insights-reader.fake-spec';
 import { OutcomesAccess } from '@outcomes/application/services/outcomes-access.service';
 import { TeamHistories } from '@outcomes/application/services/team-histories.service';
 import { ChatRecord } from '@outcomes/domain/aggregates/chat-record.aggregate';
+import { PullRequestRecord } from '@outcomes/domain/aggregates/pull-request-record.aggregate';
 import { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
 import { Score } from '@outcomes/domain/aggregates/score.aggregate';
+import { TaskChangeShape } from '@outcomes/domain/aggregates/task-change-shape.aggregate';
 import { TaskDelivery } from '@outcomes/domain/aggregates/task-delivery.aggregate';
 import { TaskFailures } from '@outcomes/domain/aggregates/task-failures.aggregate';
 import { TaskTouches } from '@outcomes/domain/aggregates/task-touches.aggregate';
@@ -71,8 +74,10 @@ import { TaskOpening } from '@outcomes/domain/value-objects/task-opening.vo';
 import { DrizzleRunFactProjection } from '@outcomes/infrastructure/persistence/drizzle/projections/run-fact.projection';
 import { DrizzleInsightsReader } from '@outcomes/infrastructure/persistence/drizzle/readers/insights.reader';
 import { DrizzleChatRecordRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/chat-record.repository';
+import { DrizzlePullRequestRecordRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/pull-request-record.repository';
 import { DrizzleRunRecordRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/run-record.repository';
 import { DrizzleScoreRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/score.repository';
+import { DrizzleTaskChangeShapeRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/task-change-shape.repository';
 import { DrizzleTaskDeliveryRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/task-delivery.repository';
 import { DrizzleTaskFailuresRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/task-failures.repository';
 import { DrizzleTaskTouchesRepository } from '@outcomes/infrastructure/persistence/drizzle/repositories/task-touches.repository';
@@ -180,6 +185,22 @@ const setupPick = <T>(from: readonly T[]): T =>
   from[Math.floor(setupRandom() * from.length)] as T;
 const RUBRICS = ['a'.repeat(64), 'b'.repeat(64)];
 
+const prRandom = seeded(SEED * 19 + 7);
+const prPick = <T>(from: readonly T[]): T =>
+  from[Math.floor(prRandom() * from.length)] as T;
+const PULL_REQUESTS = 160;
+const PR_REPOSITORIES = ['acme/api', 'acme/web', 'Acme/API', 'other/tool'];
+const PR_TITLES = [
+  'Fix the login',
+  'feat(api): add uploads',
+  'Refactor the queue',
+  'Bump lodash',
+  'Write tests for retries',
+  'Retry failed uploads',
+  'docs: explain setup',
+];
+const shaped = new Set<string>();
+
 const SKILLS = [[], ['grafana'], ['grafana', 'release-notes'], ['deploy']];
 const READ = ['grafana', 'release-notes', 'deploy', 'Search'];
 const SERVERS = ['linear', 'github', 'sentry'];
@@ -259,6 +280,9 @@ let histories: TeamHistories;
 let reader: DrizzleInsightsReader;
 let touches: DrizzleTaskTouchesRepository;
 let scores: DrizzleScoreRepository;
+let runs: DrizzleRunRecordRepository;
+let pullRequests: DrizzlePullRequestRecordRepository;
+let shapes: DrizzleTaskChangeShapeRepository;
 
 beforeAll(async () => {
   held = await openDatabase('insights_parity');
@@ -272,6 +296,9 @@ beforeAll(async () => {
   touches = new DrizzleTaskTouchesRepository(context, facts);
   const failures = new DrizzleTaskFailuresRepository(context);
   const chats = new DrizzleChatRecordRepository(context);
+  runs = records;
+  pullRequests = new DrizzlePullRequestRecordRepository(context);
+  shapes = new DrizzleTaskChangeShapeRepository(context);
   scores = new DrizzleScoreRepository(context, quiet);
 
   histories = new TeamHistories(
@@ -637,6 +664,87 @@ beforeAll(async () => {
         startedAt: ago(9 * DAY),
       }),
     );
+
+    for (let index = 0; index < PULL_REQUESTS; index += 1) {
+      const home = prPick(HOMES);
+      const repository = prPick(PR_REPOSITORIES);
+      const openedAt = ago(Math.floor(prRandom() * 200 * DAY));
+      const later = (hours: number) =>
+        new Date(openedAt.getTime() + hours * HOUR);
+      const state = prPick(['open', 'merged', 'merged', 'closed'] as const);
+      const owner =
+        prRandom() < 0.5 ? `task_${Math.floor(prRandom() * (RUNS / 2))}` : null;
+      let record = PullRequestRecord.noted(
+        home.workspaceId,
+        PullRequestUrl.of(`https://github.com/${repository}/pull/${index}`),
+      ).seenAs({
+        repository,
+        number: index,
+        title: prPick(PR_TITLES),
+        author: prPick(['ada', 'dependabot', 'bob']),
+        authorIsBot: prRandom() < 0.2,
+        branch: prPick([null, 'feat/uploads', 'fix/login', 'chore/deps']),
+        additions: Math.floor(prRandom() * 400),
+        deletions: Math.floor(prRandom() * 100),
+        changedFiles: 1 + Math.floor(prRandom() * 9),
+        openedAt,
+        state,
+        closedAt: state === 'open' ? null : later(1 + prRandom() * 90),
+        updatedAt: later(100),
+        readyForReviewAt: prRandom() < 0.9 ? later(0.5) : null,
+        draftSpells: prRandom() < 0.2 ? [{ from: later(1), to: later(2) }] : [],
+        firstReviewAt: prRandom() < 0.6 ? later(3) : null,
+        firstUnblockingReviewAt: prRandom() < 0.5 ? later(4) : null,
+        firstApprovedAt: prRandom() < 0.4 ? later(5) : null,
+        humanReviewedAt: prRandom() < 0.5 ? [later(3), later(6)] : [],
+        reviews: Math.floor(prRandom() * 4),
+        reviewRounds: Math.floor(prRandom() * 4),
+        reviewComments: Math.floor(prRandom() * 9),
+        botActivity:
+          prRandom() < 0.3
+            ? [
+                {
+                  login: 'coderabbit',
+                  reviews: 1,
+                  comments: Math.floor(prRandom() * 5),
+                  threads: 2,
+                  resolvedThreads: Math.floor(prRandom() * 3),
+                },
+              ]
+            : [],
+        isRevert: prRandom() < 0.05,
+        revertedBy: null,
+        version: 1,
+      });
+
+      if (owner) {
+        record = record.ownedBy({
+          taskId: TaskId.of(owner),
+          teamId: prRandom() < 0.8 ? home.teamId : NEXT_DOOR,
+        });
+      }
+      if (prRandom() < 0.2) {
+        record = record.reviewedBy(TaskId.of(`task_review_${index}`));
+      }
+
+      await pullRequests.add(record);
+
+      if (owner && prRandom() < 0.5 && !shaped.has(owner)) {
+        shaped.add(owner);
+        await shapes.add(
+          TaskChangeShape.shaped({
+            taskId: TaskId.of(owner),
+            workspaceId: home.workspaceId,
+            teamId: home.teamId,
+            shape: {
+              changeTitles: [prPick(PR_TITLES), prPick(PR_TITLES)],
+              changeIntents: ['', prPick(PR_TITLES)],
+              at: later(2),
+            },
+          }),
+        );
+      }
+    }
 
     const stalePull = PullRequestUrl.of(
       'https://github.com/acme/api/pull/stale',
@@ -1986,6 +2094,252 @@ describe('how setups fall into sizes and judges', () => {
       },
     ]);
     expect(all).toEqual(await setupsExpected(history, period, 'sizing', null));
+  });
+});
+
+describe('the pull requests a team made or reviewed', () => {
+  const REPOSITORIES = ['Acme/API', 'acme/web'];
+
+  it.each(INSIGHTS_PERIODS)(
+    'reads the same pull requests as the domain over %s, from the current and the previous window',
+    async (name) => {
+      const { period } = await histories.scope(
+        TEAM.value,
+        PersonPrincipal.of(VIEWER),
+        name,
+      );
+      const team = { workspaceId: WORKSPACE, teamId: TEAM, period };
+
+      for (const from of [period.current.from, period.previous.from]) {
+        const reach = { repositories: REPOSITORIES, from, most: 10_000 };
+
+        expect(await reader.pullRequests(team, reach)).toEqual(
+          await pullRequestsHeldIn(
+            runs,
+            { records: pullRequests, shapes },
+            team,
+            reach,
+          ),
+        );
+      }
+    },
+  );
+
+  it('covers what makes reading pull requests hard to get right', async () => {
+    const { period } = await histories.scope(
+      TEAM.value,
+      PersonPrincipal.of(VIEWER),
+      '90d',
+    );
+    const read = await reader.pullRequests(
+      { workspaceId: WORKSPACE, teamId: TEAM, period },
+      { repositories: REPOSITORIES, from: period.previous.from, most: 10_000 },
+    );
+
+    expect(new Set(read.map((each) => each.by)).size).toBe(4);
+    expect(new Set(read.map((each) => each.type)).size).toBeGreaterThan(4);
+    expect(read.some((each) => each.spending.mixedCurrencies)).toBe(true);
+    expect(read.some((each) => each.spending.unpriced > 0)).toBe(true);
+    expect(read.some((each) => each.spending.spend !== null)).toBe(true);
+    expect(
+      read.some(
+        (each) => each.by === 'spotlight' && !each.pullRequest.includes('acme'),
+      ),
+    ).toBe(true);
+    expect(read.some((each) => each.seen.state === 'open')).toBe(true);
+  });
+
+  it('stops at the most it is asked for, newest first', async () => {
+    const { period } = await histories.scope(
+      TEAM.value,
+      PersonPrincipal.of(VIEWER),
+      '90d',
+    );
+    const team = { workspaceId: WORKSPACE, teamId: TEAM, period };
+    const reach = {
+      repositories: REPOSITORIES,
+      from: period.previous.from,
+      most: 3,
+    };
+
+    expect(await reader.pullRequests(team, reach)).toEqual(
+      await pullRequestsHeldIn(
+        runs,
+        { records: pullRequests, shapes },
+        team,
+        reach,
+      ),
+    );
+    expect((await reader.pullRequests(team, reach)).length).toBe(3);
+  });
+});
+
+describe('how pull requests fall into the window and what their task spent', () => {
+  const PULLS = TeamId.of('team_pulls');
+  const period = InsightsPeriod.of('7d', NOW);
+  const from = period.current.from;
+  const pullOf = (number: number) =>
+    PullRequestUrl.of(`https://github.com/acme/pulls/pull/${number}`);
+
+  beforeAll(async () => {
+    const context = new DrizzleContext(held.db);
+    const quiet = {
+      dispatch: async () => {},
+    } as unknown as DomainEventDispatcher;
+    const records = new DrizzleRunRecordRepository(
+      context,
+      new DrizzleRunFactProjection(context),
+      quiet,
+    );
+    const added = new DrizzlePullRequestRecordRepository(context);
+    const seenAt = (number: number, openedAt: Date, closedAt: Date | null) =>
+      PullRequestRecord.noted(WORKSPACE, pullOf(number)).seenAs({
+        repository: 'acme/pulls',
+        number,
+        title: 'Add uploads',
+        author: 'ada',
+        authorIsBot: false,
+        branch: null,
+        additions: 1,
+        deletions: 1,
+        changedFiles: 1,
+        openedAt,
+        state: closedAt ? 'merged' : 'open',
+        closedAt,
+        updatedAt: openedAt,
+        readyForReviewAt: openedAt,
+        draftSpells: [],
+        firstReviewAt: null,
+        firstUnblockingReviewAt: null,
+        firstApprovedAt: null,
+        humanReviewedAt: [],
+        reviews: 0,
+        reviewRounds: 0,
+        reviewComments: 0,
+        botActivity: [],
+        isRevert: false,
+        revertedBy: null,
+        version: 1,
+      });
+
+    await context.run(async () => {
+      await added.add(
+        seenAt(1, new Date(from.getTime() - 5 * DAY), from).ownedBy({
+          taskId: TaskId.of('task_pulls_spent'),
+          teamId: PULLS,
+        }),
+      );
+      await added.add(
+        seenAt(
+          2,
+          new Date(from.getTime() - 5 * DAY),
+          new Date(from.getTime() - 1),
+        ).ownedBy({
+          taskId: TaskId.of('task_pulls_before'),
+          teamId: PULLS,
+        }),
+      );
+      await added.add(
+        seenAt(3, period.current.to, null).ownedBy({
+          taskId: TaskId.of('task_pulls_after'),
+          teamId: PULLS,
+        }),
+      );
+
+      for (const [number, openedAt] of [
+        [4, new Date(from.getTime() + HOUR)],
+        [5, new Date(from.getTime() + HOUR)],
+      ] as const) {
+        await added.add(
+          seenAt(number, openedAt, null).ownedBy({
+            taskId: TaskId.of(`task_pulls_${number}`),
+            teamId: PULLS,
+          }),
+        );
+      }
+
+      for (const [runId, amount, endedHoursAgo] of [
+        ['pulls_a', 0.3, 1],
+        ['pulls_b', 0.2, 2],
+        ['pulls_c', 0.1, 3],
+      ] as const) {
+        await records.add(
+          RunRecord.heardOf(RunId.of(runId), WORKSPACE)
+            .ended(
+              RunEnd.of({
+                place: RunPlace.of({
+                  teamId: PULLS,
+                  lineId: 'line_pulls',
+                  stationId: 'pulls',
+                  taskId: TaskId.of('task_pulls_spent'),
+                }),
+                fingerprint: 'a'.repeat(64),
+                setup: RunSetup.of({
+                  harness: 'claude-code',
+                  model: 'sonnet',
+                  effort: null,
+                  profileKey: null,
+                  repositories: [],
+                  skills: [],
+                }),
+                queuedAt: null,
+                startedAt: ago((endedHoursAgo + 1) * HOUR),
+                endedAt: ago(endedHoursAgo * HOUR),
+                ending: 'completed',
+                failure: null,
+                round: 1,
+                asked: false,
+              }),
+            )
+            .digested(
+              RunCost.of({
+                ms: 1_000,
+                steps: 1,
+                faults: 0,
+                changedLines: 1,
+                used: null,
+                size: null,
+                amount,
+                currency: 'USD',
+                tokens: {
+                  input: null,
+                  output: null,
+                  cacheRead: null,
+                  cacheWrite: null,
+                },
+              }),
+              RunTools.NONE,
+            ),
+        );
+      }
+    });
+  });
+
+  it('keeps one closed at the window start and leaves out one closed before it or opened at its end, breaks a tie by pull request, and sums its task’s spend in end order', async () => {
+    const team = { workspaceId: WORKSPACE, teamId: PULLS, period };
+    const reach = { repositories: [], from, most: 100 };
+    const read = await reader.pullRequests(team, reach);
+
+    expect(read.map((each) => each.pullRequest)).toEqual([
+      pullOf(5).value,
+      pullOf(4).value,
+      pullOf(1).value,
+    ]);
+    expect(read[2]?.spending).toEqual({
+      // Keep this order: 0.1 + 0.2 + 0.3 is not equal to 0.6.
+      spend: { amount: 0.1 + 0.2 + 0.3, currency: 'USD' },
+      priced: 3,
+      unpriced: 0,
+      mixedCurrencies: false,
+    });
+    expect(read).toEqual(
+      await pullRequestsHeldIn(
+        runs,
+        { records: pullRequests, shapes },
+        team,
+        reach,
+      ),
+    );
   });
 });
 

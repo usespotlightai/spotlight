@@ -1,13 +1,14 @@
 import { Injectable } from '@nestjs/common';
-import {
-  PullRequestRecord,
-  type SeenPullRequest,
-} from '@outcomes/domain/aggregates/pull-request-record.aggregate';
+import { PullRequestRecord } from '@outcomes/domain/aggregates/pull-request-record.aggregate';
 import { PullRequestRecordMovedOnError } from '@outcomes/domain/exceptions/pull-request-record-moved-on.error';
 import type {
   PullRequestRecordRepository,
   TeamPullRequestWindow,
 } from '@outcomes/domain/repositories/pull-request-record.repository';
+import {
+  type PullRequestRow,
+  seenOfRow,
+} from '@outcomes/infrastructure/persistence/drizzle/mappers/pull-request-seen.mapper';
 import { pullRequestRecord } from '@outcomes/infrastructure/persistence/drizzle/schemas/outcomes.schema';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
@@ -28,54 +29,11 @@ import {
   sql,
 } from 'drizzle-orm';
 
-type RecordRow = typeof pullRequestRecord.$inferSelect;
-
-const seenOf = (row: RecordRow): SeenPullRequest | null =>
-  row.seenVersion !== null &&
-  row.repository !== null &&
-  row.number !== null &&
-  row.title !== null &&
-  row.openedAt !== null &&
-  row.updatedAt !== null &&
-  row.state !== null
-    ? {
-        repository: row.repository,
-        number: row.number,
-        title: row.title,
-        author: row.author,
-        authorIsBot: row.authorIsBot,
-        branch: row.branch,
-        additions: row.additions,
-        deletions: row.deletions,
-        changedFiles: row.changedFiles,
-        openedAt: row.openedAt,
-        state: row.state,
-        closedAt: row.closedAt,
-        updatedAt: row.updatedAt,
-        readyForReviewAt: row.readyForReviewAt,
-        draftSpells: row.draftSpells.map((each) => ({
-          from: new Date(each.from),
-          to: each.to ? new Date(each.to) : null,
-        })),
-        firstReviewAt: row.firstReviewAt,
-        firstUnblockingReviewAt: row.firstUnblockingReviewAt,
-        firstApprovedAt: row.firstApprovedAt,
-        humanReviewedAt: row.humanReviewedAt,
-        reviews: row.reviews,
-        reviewRounds: row.reviewRounds,
-        reviewComments: row.reviewComments,
-        botActivity: row.botActivity,
-        isRevert: row.isRevert,
-        revertedBy: row.revertedBy,
-        version: row.seenVersion,
-      }
-    : null;
-
-const toRecord = (row: RecordRow): PullRequestRecord =>
+const toRecord = (row: PullRequestRow): PullRequestRecord =>
   PullRequestRecord.rehydrate({
     workspaceId: WorkspaceId.of(row.workspaceId),
     pullRequest: PullRequestUrl.of(row.pullRequest),
-    seen: seenOf(row),
+    seen: seenOfRow(row),
     owner:
       row.ownerTaskId && row.ownerTeamId
         ? {

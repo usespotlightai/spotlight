@@ -8,6 +8,7 @@ import type { RunSize } from '@outcomes/domain/services/run-size';
 import type { SetupComparisonCounts } from '@outcomes/domain/services/setup-comparison';
 import type { PipelineCounts } from '@outcomes/domain/services/shipping';
 import type { TeamCounts } from '@outcomes/domain/services/station-reports';
+import type { TeamPullRequest } from '@outcomes/domain/services/team-pull-requests';
 import type { ToolCounts } from '@outcomes/domain/services/tool-insights';
 import type { InsightsPeriod } from '@outcomes/domain/value-objects/insights-period.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -24,6 +25,12 @@ export interface TeamInPeriod {
 export interface SetupFilter {
   readonly stationId: string | null;
   readonly size: RunSize | null;
+}
+
+export interface PullRequestReach {
+  readonly repositories: readonly string[];
+  readonly from: Date;
+  readonly most: number;
 }
 
 export interface InsightsReaderPort {
@@ -43,4 +50,8 @@ export interface InsightsReaderPort {
     filter: SetupFilter,
   ): Promise<SetupComparisonCounts>;
   changeCounts(team: TeamInPeriod): Promise<readonly ChangeCounts[]>;
+  pullRequests(
+    team: TeamInPeriod,
+    reach: PullRequestReach,
+  ): Promise<readonly TeamPullRequest[]>;
 }

@@ -100,7 +100,10 @@ const team = async () => {
     now: () => NOW,
     sleep: async () => {},
   });
-  const reader = insightsReaderInMemory(held);
+  const reader = insightsReaderInMemory(held, undefined, {
+    records: pullRequests,
+    shapes,
+  });
   const service = new TeamPullRequests(
     histories,
     {
@@ -110,7 +113,7 @@ const team = async () => {
       teamSkillKeys: async () => [],
       alertsAt: async () => null,
     },
-    { records: pullRequests, runs: records, shapes },
+    reader,
   );
 
   await pullRequests.add(

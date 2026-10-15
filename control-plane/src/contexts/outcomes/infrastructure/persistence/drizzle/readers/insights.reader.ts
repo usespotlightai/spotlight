@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type {
   InsightsReaderPort,
+  PullRequestReach,
   SetupFilter,
   TeamInPeriod,
 } from '@outcomes/application/ports/insights-reader.port';
@@ -13,6 +14,7 @@ import type { PeopleCounts } from '@outcomes/domain/services/people-counts';
 import type { SetupComparisonCounts } from '@outcomes/domain/services/setup-comparison';
 import type { PipelineCounts } from '@outcomes/domain/services/shipping';
 import type { TeamCounts } from '@outcomes/domain/services/station-reports';
+import type { TeamPullRequest } from '@outcomes/domain/services/team-pull-requests';
 import type { ToolCounts } from '@outcomes/domain/services/tool-insights';
 import { changeCountsIn } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/change-counts.sql';
 import { costCountsIn } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/cost-counts.sql';
@@ -21,6 +23,7 @@ import { memoryCountsIn } from '@outcomes/infrastructure/persistence/drizzle/rea
 import { overviewCountsIn } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/overview-counts.sql';
 import { peopleCountsIn } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/people-counts.sql';
 import { pipelineCountsIn } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/pipeline-counts.sql';
+import { pullRequestsIn } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/pull-requests.sql';
 import { setupCountsIn } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/setup-counts.sql';
 import { stationCountsIn } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/station-counts.sql';
 import { toolCountsIn } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/tool-counts.sql';
@@ -74,5 +77,12 @@ export class DrizzleInsightsReader implements InsightsReaderPort {
 
   changeCounts(team: TeamInPeriod): Promise<readonly ChangeCounts[]> {
     return this.reading.read((db) => changeCountsIn(db, team));
+  }
+
+  pullRequests(
+    team: TeamInPeriod,
+    reach: PullRequestReach,
+  ): Promise<readonly TeamPullRequest[]> {
+    return this.reading.read((db) => pullRequestsIn(db, team, reach));
   }
 }

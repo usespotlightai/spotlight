@@ -35,20 +35,38 @@ export interface TeamPullRequest {
   readonly spending: Spending;
 }
 
-const authorOf = (
-  record: PullRequestRecord,
-  seen: SeenPullRequest,
-): PullRequestAuthor => {
-  if (record.owner) {
+export interface PullRequestRead {
+  readonly pullRequest: string;
+  readonly seen: SeenPullRequest;
+  readonly ownerTaskId: string | null;
+  readonly reviewTaskIds: readonly string[];
+  readonly type: PullRequestType;
+  readonly spending: Spending;
+}
+
+const authorOf = (read: PullRequestRead): PullRequestAuthor => {
+  if (read.ownerTaskId !== null) {
     return 'spotlight';
   }
 
-  if (record.reviewTasks.length > 0) {
+  if (read.reviewTaskIds.length > 0) {
     return 'touched';
   }
 
-  return seen.authorIsBot ? 'bots' : 'people';
+  return read.seen.authorIsBot ? 'bots' : 'people';
 };
+
+export const teamPullRequestFrom = (
+  read: PullRequestRead,
+): TeamPullRequest => ({
+  pullRequest: read.pullRequest,
+  seen: read.seen,
+  by: authorOf(read),
+  taskId: read.ownerTaskId,
+  reviewTaskIds: read.reviewTaskIds,
+  type: read.type,
+  spending: read.ownerTaskId === null ? spendingOf([]) : read.spending,
+});
 
 export const teamPullRequestOf = (
   record: PullRequestRecord,
@@ -63,11 +81,10 @@ export const teamPullRequestOf = (
 
   const shaped = record.owner ? shape?.shape : undefined;
 
-  return {
+  return teamPullRequestFrom({
     pullRequest: record.pullRequest.value,
     seen,
-    by: authorOf(record, seen),
-    taskId: record.owner?.taskId.value ?? null,
+    ownerTaskId: record.owner?.taskId.value ?? null,
     reviewTaskIds: record.reviewTasks.map((each) => each.value),
     type: pullRequestTypeOf({
       changeTitles: shaped?.changeTitles ?? [],
@@ -75,8 +92,8 @@ export const teamPullRequestOf = (
       title: seen.title,
       branch: seen.branch,
     }),
-    spending: spendingOf(record.owner ? spends : []),
-  };
+    spending: spendingOf(spends),
+  });
 };
 
 export const toMergeMs = (each: TeamPullRequest): number | null =>
