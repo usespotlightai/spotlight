@@ -39,7 +39,6 @@ export class ReadInsightsStationsHandler
 
       return {
         period: periodOf(period),
-        truncated: false,
         team: team.tally,
         teamChanges: team.changes,
         teamSeen: team.seen,

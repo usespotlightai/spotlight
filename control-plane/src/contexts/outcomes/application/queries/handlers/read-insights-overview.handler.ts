@@ -60,7 +60,6 @@ export class ReadInsightsOverviewHandler
 
       return {
         period: periodOf(period),
-        truncated: false,
         headline: headlineDtoOf(headline),
         changes: headlineChangesOf(
           headline,

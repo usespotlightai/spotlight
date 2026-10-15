@@ -34,7 +34,6 @@ export class ReadInsightsCostHandler
 
       return {
         period: periodOf(period),
-        truncated: false,
         cost,
         spendChange: spendChangeOf(cost.spend, counts.spendBefore, 'neither'),
       };

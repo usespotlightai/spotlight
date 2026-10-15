@@ -164,13 +164,6 @@ export class InsightsChangesResponseDto {
   readonly period: InsightsPeriodResponseDto;
 
   @ApiProperty({
-    example: false,
-    description:
-      'Whether the team ran more than 20,000 runs over the period and the one before, so only the latest 20,000 were counted',
-  })
-  readonly truncated: boolean;
-
-  @ApiProperty({
     type: ChangeMarkerResponseDto,
     isArray: true,
     description:
@@ -188,7 +181,6 @@ export class InsightsChangesResponseDto {
 
   constructor(changes: InsightsChangesDto) {
     this.period = new InsightsPeriodResponseDto(changes.period);
-    this.truncated = changes.truncated;
     this.markers = changes.markers.map(
       (each) => new ChangeMarkerResponseDto(each),
     );
@@ -360,13 +352,6 @@ export class InsightsSetupsResponseDto {
   readonly period: InsightsPeriodResponseDto;
 
   @ApiProperty({
-    example: false,
-    description:
-      'Whether the team ran more than 20,000 runs over the period and the one before, so only the latest 20,000 were counted',
-  })
-  readonly truncated: boolean;
-
-  @ApiProperty({
     nullable: true,
     type: String,
     description: 'The station the comparison was narrowed to, if any',
@@ -429,7 +414,6 @@ export class InsightsSetupsResponseDto {
 
   constructor(setups: InsightsSetupsDto) {
     this.period = new InsightsPeriodResponseDto(setups.period);
-    this.truncated = setups.truncated;
     this.stationId = setups.stationId;
     this.size = setups.size;
     this.sizes = setups.sizes.map((each) => new SizeBoundResponseDto(each));

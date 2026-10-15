@@ -39,7 +39,6 @@ export class ReadInsightsToolsHandler
 
       return {
         period: periodOf(period),
-        truncated: false,
         weeks,
         trendRule: {
           recentWeeks: TREND_RECENT_WEEKS,

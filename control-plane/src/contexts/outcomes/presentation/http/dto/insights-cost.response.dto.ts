@@ -223,13 +223,6 @@ export class InsightsCostResponseDto {
   @ApiProperty({ type: InsightsPeriodResponseDto })
   readonly period: InsightsPeriodResponseDto;
 
-  @ApiProperty({
-    example: false,
-    description:
-      'Whether the team ran more than 20,000 runs over the period and the one before, so only the latest 20,000 were counted',
-  })
-  readonly truncated: boolean;
-
   @ApiProperty({ type: CostBreakdownResponseDto })
   readonly cost: CostBreakdownResponseDto;
 
@@ -243,7 +236,6 @@ export class InsightsCostResponseDto {
 
   constructor(cost: InsightsCostDto) {
     this.period = new InsightsPeriodResponseDto(cost.period);
-    this.truncated = cost.truncated;
     this.cost = new CostBreakdownResponseDto(cost.cost);
     this.spendChange = changeResponseOf(cost.spendChange);
   }

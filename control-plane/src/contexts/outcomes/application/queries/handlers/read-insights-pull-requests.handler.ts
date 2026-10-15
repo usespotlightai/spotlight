@@ -27,7 +27,6 @@ export class ReadInsightsPullRequestsHandler
 
       return {
         period: periodOf(period),
-        truncated: false,
         total: counts.reached,
         repositories,
         ...pullRequestInsightsDtoOf(

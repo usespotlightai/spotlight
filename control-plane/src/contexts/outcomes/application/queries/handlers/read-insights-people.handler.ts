@@ -54,7 +54,6 @@ export class ReadInsightsPeopleHandler
 
       return {
         period: periodOf(period),
-        truncated: false,
         load: humanLoadDtoOf(load),
         loadChanges: humanLoadChangesOf(
           load,

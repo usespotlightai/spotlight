@@ -33,7 +33,6 @@ export class ReadInsightsFlowHandler
 
       return {
         period: periodOf(period),
-        truncated: false,
         flow: flowDtoOf(flowFrom(counts, period)),
       };
     } catch (error) {

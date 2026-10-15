@@ -4,7 +4,6 @@ import { InsightsTiles } from '@/components/features/insights/InsightsTiles';
 import { NoRunsInPeriod } from '@/components/features/insights/NoRunsInPeriod';
 import { OutputAgainstCost } from '@/components/features/insights/OutputAgainstCost';
 import { OverviewSkeleton } from '@/components/features/insights/OverviewSkeleton';
-import { TruncatedNote } from '@/components/features/insights/TruncatedNote';
 import { WorthImprovingList } from '@/components/features/insights/WorthImprovingList';
 import { useInsightsOverview } from '@/hooks/api/useInsightsOverview';
 import {
@@ -40,7 +39,6 @@ export function OverviewTab({ slug, teamId, period, names }: OverviewTabProps) {
     outputCurrency,
     outputMixedCurrencies,
     worthImproving,
-    truncated,
   } = overview.data;
 
   if (headline.runs === 0 && headline.mergedPullRequests === 0) {
@@ -58,8 +56,6 @@ export function OverviewTab({ slug, teamId, period, names }: OverviewTabProps) {
 
   return (
     <div className="flex flex-col gap-3">
-      {truncated && <TruncatedNote />}
-
       <InsightsTiles label="Headline numbers">
         {headlineTiles(headline, changes).map((tile) => (
           <InsightsTile

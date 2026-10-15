@@ -96,7 +96,6 @@ export class ReadInsightsChangesHandler
 
       return {
         period: periodOf(period),
-        truncated: false,
         markers,
         judges: standings.judges.map(({ rubricVersion: _, ...each }) => each),
       };

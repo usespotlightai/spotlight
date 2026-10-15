@@ -438,7 +438,6 @@ describe('the team’s insights (e2e)', () => {
       unpriced: 0,
       mixedCurrencies: false,
     });
-    expect(answer.body.truncated).toBe(false);
     expect(answer.body.headline.taskToMerge.count).toBe(1);
     expect(answer.body.people).toEqual([
       { personId: team.owner.value, name: 'Ada' },

@@ -79,7 +79,6 @@ export class ReadInsightsSetupsHandler
 
       return {
         period: periodOf(period),
-        truncated: false,
         stationId: query.stationId,
         size,
         sizes: SIZE_BOUNDS,

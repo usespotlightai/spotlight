@@ -365,7 +365,6 @@ describe('what the agents ship', () => {
     );
     const [first] = shipping.mergeDays;
 
-    expect(shipping.truncated).toBe(false);
     expect(shipping.toMerge.spotlight).toMatchObject({
       p50Ms: 4 * 60 * 60 * 1000,
       count: 1,

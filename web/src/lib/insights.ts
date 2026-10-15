@@ -284,9 +284,6 @@ const MIXED_CURRENCIES = 'Prices in more than one currency';
 export const whyNoSpend = (mixedCurrencies: boolean): string =>
   mixedCurrencies ? MIXED_CURRENCIES : NOTHING_PRICED;
 
-export const TRUNCATED =
-  'Only the latest 20,000 runs over this period and the one before are counted.';
-
 export const mergedFilter = (taskIds: readonly string[]): RunFilter =>
   taskIds.length > 0 && taskIds.length <= MOST_TASK_IDS
     ? { taskIds: taskIds.join(',') }

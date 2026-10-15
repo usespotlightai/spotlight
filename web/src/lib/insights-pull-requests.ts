@@ -236,6 +236,3 @@ export const sizeShown = (pullRequest: InsightsPullRequest): string =>
     : `+${pullRequest.additions.toLocaleString()} −${pullRequest.deletions.toLocaleString()}`;
 
 export const PULL_REQUESTS_LIST_ID = 'pull-request-list';
-
-export const PULL_REQUESTS_TRUNCATED =
-  'Only the newest 20,000 pull requests in this period are counted.';
