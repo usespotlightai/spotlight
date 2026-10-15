@@ -24,7 +24,7 @@ export function CandidatesCard({
   return (
     <InsightsCard
       title="Replayed candidates"
-      description="Each candidate config replayed on past tasks, beside the live config on the same runs. Success is by the candidate’s own checks and judge. None of it is applied to the station."
+      description="Each candidate config replayed on past tasks, compared with the live config on the same runs. The candidate’s own checks and judge decide success. Replays don’t change the station’s config."
       actions={
         <ChartTableSwitch
           tabled={!charted}

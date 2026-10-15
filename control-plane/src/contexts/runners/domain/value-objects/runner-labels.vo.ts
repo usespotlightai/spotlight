@@ -21,7 +21,7 @@ export class RunnerLabels {
 
       if (!areWords(label)) {
         throw new InvalidRunnerLabelError(
-          `must be lowercase words joined by dashes, at most ${LONGEST_WORDS} characters, such as vpc-internal`,
+          `must be lowercase words joined by dashes, at most ${LONGEST_WORDS} characters, as in vpc-internal`,
         );
       }
 

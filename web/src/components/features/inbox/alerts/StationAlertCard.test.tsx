@@ -201,11 +201,11 @@ describe('StationAlertCard', () => {
     showing();
 
     expect(
-      screen.getByText(/Back under the threshold since/),
+      screen.getByText(/back under the threshold since/),
     ).toBeInTheDocument();
     expect(
       screen.getByText(
-        'No chart to show. The runs behind this alert are deleted.',
+        'There is no chart to show. The runs behind this alert are deleted.',
       ),
     ).toBeInTheDocument();
   });

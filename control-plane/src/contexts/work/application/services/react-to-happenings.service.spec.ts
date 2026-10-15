@@ -679,7 +679,7 @@ describe('ReactToHappenings', () => {
       await heard(COMMENTED, held('station_1'), 'This retries forever.');
 
       expect(saved?.notes.map((each) => each.body.value)).toEqual([
-        'Heard while a run held the task. It moves to Code Review when the run ends, unless the run passes it on.\n\ncompose.yml:22\nThis retries forever.',
+        'Heard while a run held the task. If the run does not pass the task on, the task moves to Code Review when the run ends.\n\ncompose.yml:22\nThis retries forever.',
       ]);
       expect(saved?.notes[0]?.station).toEqual(
         StationName.of('Implementation'),
@@ -694,7 +694,7 @@ describe('ReactToHappenings', () => {
 
       expect(saved?.stationId).toEqual(StationId.of('station_1'));
       expect(saved?.notes[0]?.body.value).toContain(
-        'unless the run passes it on.\n\nThe pull request was commented.',
+        'moves to Code Review when the run ends.\n\nThe pull request was commented.',
       );
       expect(saved?.heldBackTo).toEqual(StationId.of('station_2'));
       expect(dispatched).toHaveLength(0);

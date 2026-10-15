@@ -217,7 +217,6 @@ const MIXED_COST = {
     cacheByStation: [],
   },
   spendChange: null,
-  truncated: false,
 } as unknown as InsightsCost;
 
 function Address() {
@@ -599,20 +598,9 @@ describe('TeamInsights', () => {
     );
   });
 
-  it('notes when only the latest runs were counted', () => {
-    answers.overview = held({ ...OVERVIEW, truncated: true });
-
-    showing();
-
-    expect(screen.getByRole('note')).toHaveTextContent(
-      'Only the latest 20,000 runs',
-    );
-  });
-
   it('drills from people’s load into the runs that asked them', () => {
     answers.people = held({
       period: { name: '30d' },
-      truncated: false,
       load: {
         asks: 4,
         tasks: 2,

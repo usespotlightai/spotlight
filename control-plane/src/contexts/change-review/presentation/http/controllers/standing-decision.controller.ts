@@ -85,7 +85,7 @@ export class StandingDecisionController {
     );
 
     if (!found) {
-      throw new NotFoundException();
+      throw new NotFoundException(`Workspace ${slug} not found.`);
     }
 
     return new StandingDecisionListResponseDto(found);

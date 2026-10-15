@@ -405,7 +405,7 @@ webhook:
       expect(read.ok).toBe(false);
       expect(
         !read.ok && read.problems.map((each) => each.reason).join(' '),
-      ).toMatch(/a person can only connect over oauth2/);
+      ).toMatch(/A person can connect only over oauth2/);
     });
 
     it('collects a manually-set secret as a credential', () => {
@@ -587,7 +587,7 @@ on:
         'on["task.asked"].to.thread',
       );
       expect(warnings(text)[0]?.reason).toMatch(
-        /No such key: makrs; did you mean task\.marks\?/,
+        /No such key: makrs\. Did you mean task\.marks\?/,
       );
     });
 
@@ -596,7 +596,7 @@ on:
 
       expect(dottedOf(warning?.field)).toBe('actions.post.request.body');
       expect(warning?.reason).toMatch(
-        /Unknown variable: asked; did you mean ask\?/,
+        /Unknown variable: asked\. Did you mean ask\?/,
       );
     });
 
@@ -1137,7 +1137,7 @@ openapi:
     ).toEqual([
       [
         'openapi.tools.approval.add-pets',
-        'names add-pets, which no operation of its OpenAPI description is called',
+        'names add-pets, but no operation of its OpenAPI description has that name',
       ],
     ]);
   });
@@ -1374,7 +1374,7 @@ mcp:
       ).map((each) => [dottedOf(each.field), each.reason]),
     ).toContainEqual([
       'connection.oauth2',
-      expect.stringMatching(/which it does not name/),
+      expect.stringMatching(/mcp\.url names no MCP server/),
     ]);
     expect(
       problems(

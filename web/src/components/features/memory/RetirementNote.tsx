@@ -10,7 +10,7 @@ type RetirementNoteProps = {
 
 export function RetirementNote({ retirement }: RetirementNoteProps) {
   if (retirement.supersededBy) {
-    return <p>Replaced by a newer memory.</p>;
+    return <p>A newer memory replaced this one.</p>;
   }
 
   const by = {

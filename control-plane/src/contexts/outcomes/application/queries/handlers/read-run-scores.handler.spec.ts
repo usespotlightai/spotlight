@@ -106,6 +106,7 @@ const reading = async (agreeing: boolean, scoredBy = RUBRIC_VERSION) => {
     of: async () => {
       throw new Error('the run’s journal is never read again');
     },
+    judgesOnTeam: async () => new Map(),
     judgeAt: async () => JUDGE,
   };
 

@@ -3,7 +3,7 @@ import { RenameReplaySetButton } from '@/components/features/replays/set/RenameR
 import type { ReplaySet } from '@/lib/replay';
 
 const UNDELETABLE =
-  'A replay or search of this set is running. Delete it once that ends or is stopped.';
+  'A replay or search of this set is running. Please delete the set after it ends.';
 
 type ReplaySetActionsProps = {
   teamId: string;

@@ -72,6 +72,6 @@ describe('drafting decisions through OpenRouter', () => {
 
     await expect(
       new OpenRouterDecisionDrafter('key', 'some/model', fetch).draft(REASONED),
-    ).rejects.toThrow('Drafting stopped early: length');
+    ).rejects.toThrow('OpenRouter gave no usable answer. Reason: length');
   });
 });

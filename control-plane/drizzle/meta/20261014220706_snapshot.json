@@ -1,5 +1,5 @@
 {
-  "id": "625d4dc4-4e96-49fe-8787-0a947e2c8c99",
+  "id": "c26afc18-da9a-43aa-bb90-c1bf6b0a2bc2",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -6619,6 +6619,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "memories": {
+          "name": "memories",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
         "opened_by": {
           "name": "opened_by",
           "type": "text",
@@ -7023,6 +7029,13 @@
           "primaryKey": false,
           "notNull": true,
           "default": "'[]'::jsonb"
+        },
+        "memories": {
+          "name": "memories",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'{\"briefed\":[],\"recalled\":[]}'::jsonb"
         },
         "version": {
           "name": "version",

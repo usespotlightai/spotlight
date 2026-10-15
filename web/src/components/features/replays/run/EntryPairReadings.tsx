@@ -80,7 +80,7 @@ export function EntryPairReadings({ pair, againstTo }: EntryPairReadingsProps) {
 
                   return (
                     <li
-                      // biome-ignore lint/suspicious/noArrayIndexKey: a reading's reasons never change once recorded, so where one sits is what names it
+                      // biome-ignore lint/suspicious/noArrayIndexKey: the position of a reason identifies it, because the reasons of a reading do not change after they are recorded
                       key={at}
                       data-slot="pair-reason"
                       className="text-foreground leading-5"

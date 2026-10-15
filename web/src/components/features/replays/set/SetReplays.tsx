@@ -22,7 +22,7 @@ import {
 } from '@/lib/replay';
 
 const REPLAYS_NOTE =
-  'Each replay reruns the set under one config. Gain: success against the baseline, the latest live-config replay.';
+  'Each replay reruns the set under one config. The baseline is the latest replay of the live config. Gain: the change in success over the replay it is compared with, on the tasks both scored';
 
 type SetReplaysProps = {
   at: ReplayedStation;
@@ -78,7 +78,7 @@ export function SetReplays({ at, set, replays }: SetReplaysProps) {
             key={replay.id}
             at={at}
             replay={replay}
-            baseline={baseline}
+            baselineId={baseline?.id ?? null}
           />
         ))}
       </NestedTable>

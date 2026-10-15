@@ -194,6 +194,7 @@ export const WORK_PUBLICATIONS = [
       kind: RUN_BRIEFED,
       runId: event.runId.value,
       workspaceId: event.workspaceId.value,
+      taskId: event.taskId?.value ?? null,
       memories: event.memories.briefed.map((each) => each.id),
     }),
   ),

@@ -6,7 +6,6 @@ import { InsightsFailed } from '@/components/features/insights/InsightsFailed';
 import { InsightsTile } from '@/components/features/insights/InsightsTile';
 import { InsightsTiles } from '@/components/features/insights/InsightsTiles';
 import { NoRunsInPeriod } from '@/components/features/insights/NoRunsInPeriod';
-import { TruncatedNote } from '@/components/features/insights/TruncatedNote';
 import { useHarnesses } from '@/hooks/api/useHarnesses';
 import { useInsightsCost } from '@/hooks/api/useInsightsCost';
 import {
@@ -43,7 +42,7 @@ export function CostTab({ slug, teamId, period, names }: CostTabProps) {
     return <InsightsFailed what="The cost" query={cost} />;
   }
 
-  const { cost: breakdown, spendChange, truncated } = cost.data;
+  const { cost: breakdown, spendChange } = cost.data;
   const { spend } = breakdown;
 
   if (
@@ -63,8 +62,6 @@ export function CostTab({ slug, teamId, period, names }: CostTabProps) {
 
   return (
     <div className="flex flex-col gap-3">
-      {truncated && <TruncatedNote />}
-
       <InsightsTiles label="Spend">
         <InsightsTile
           label="Spend"
@@ -81,7 +78,7 @@ export function CostTab({ slug, teamId, period, names }: CostTabProps) {
         <InsightsTile
           label="Cache share"
           value={cacheShown(breakdown.cache.cacheShare)}
-          detail="Of input tokens, read from cache"
+          detail="Share of input tokens read from cache"
         />
       </InsightsTiles>
 

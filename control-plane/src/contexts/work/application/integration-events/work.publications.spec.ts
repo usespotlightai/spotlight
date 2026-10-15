@@ -722,6 +722,7 @@ describe('WORK_PUBLICATIONS', () => {
         new RunBriefed(
           RUN,
           WORKSPACE,
+          TASK,
           BriefedMemories.of({
             briefed: [{ id: 'memory_1', handle: 'M-1' }],
             cut: [{ id: 'memory_2', handle: 'M-2' }],
@@ -733,6 +734,7 @@ describe('WORK_PUBLICATIONS', () => {
         kind: 'work.run-briefed.v1',
         runId: 'run_1',
         workspaceId: 'ws_1',
+        taskId: 'task_1',
         memories: ['memory_1'],
       },
     ]);

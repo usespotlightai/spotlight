@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-// Sealed by the control plane's X25519RunSealing, so a change on either side that breaks the other fails here.
+// The control plane's X25519RunSealing sealed these values. A change on one side that breaks the other side fails here.
 const (
 	controlPlanePrivate = "sGMDFRZy+DsQRa8nKNJOxqAz5VQmij8qotJxDm7gnWs="
 	controlPlaneSealed  = "v1.1o5eXNj2G0k4siFghhBwLMMXHsX7r1EL/f7FBHT9ky8=.UAc3AFGL0OALAHco.37mlV67CXU3Tpj6VELkItw==.hM5erVUYjK9q"

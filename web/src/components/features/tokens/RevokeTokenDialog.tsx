@@ -38,8 +38,8 @@ export function RevokeTokenDialog({
         <DialogHeader>
           <DialogTitle>Revoke {asked?.name}?</DialogTitle>
           <DialogDescription>
-            Anything using this token is refused immediately. This can’t be
-            undone.
+            Spotlight immediately refuses anything that uses this token. You
+            can’t undo this.
           </DialogDescription>
         </DialogHeader>
 

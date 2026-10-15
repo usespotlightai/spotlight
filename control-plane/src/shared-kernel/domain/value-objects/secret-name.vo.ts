@@ -14,7 +14,7 @@ export class SecretName {
     if (!SHAPE.test(named)) {
       throw new InvalidIdentifierError(
         'secret name',
-        'is capitals, digits and underscores, as in LINEAR_WEBHOOK_SECRET',
+        'must use only capitals, digits and underscores, such as LINEAR_WEBHOOK_SECRET',
       );
     }
 

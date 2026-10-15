@@ -28,11 +28,6 @@ export interface RunListing {
   readonly limit: number;
 }
 
-export interface RunPage {
-  readonly records: readonly RunRecord[];
-  readonly total: number;
-}
-
 export interface RunRecordRepository {
   add(record: RunRecord): Promise<void>;
 
@@ -60,10 +55,6 @@ export interface RunRecordRepository {
   latestStartedAtStation(
     criteria: StationRecords,
   ): Promise<readonly RunRecord[]>;
-
-  endedForTeam(window: TeamWindow, most: number): Promise<readonly RunRecord[]>;
-
-  listedForTeam(listing: RunListing): Promise<RunPage>;
 
   removeForTask(taskId: TaskId): Promise<void>;
 

@@ -60,7 +60,6 @@ const NOTHING: InsightsShippingResponseDto = {
     previousTo: '2026-09-24T00:00:00.000Z',
     days: [],
   },
-  truncated: false,
   toMerge: { spotlight: spread(null), people: spread(null) },
   toMergeChanges: {
     spotlight: { p50: null, p75: null, p90: null, p95: null },

@@ -30,7 +30,7 @@ const KEYWORDS = new Set(['for', 'in', 'if', 'true', 'false', 'null']);
 
 const HEREDOC_MARKER = 'EOT';
 
-// biome-ignore lint/suspicious/noControlCharactersInRegex: a heredoc cannot hold control characters
+// biome-ignore lint/suspicious/noControlCharactersInRegex: a heredoc cannot contain control characters
 const UNPRINTABLE = /[\u0000-\u0008\u000b-\u001f\u007f]/;
 
 const keyOf = (key: string): string =>

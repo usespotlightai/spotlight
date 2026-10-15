@@ -10,7 +10,7 @@ export function NothingProposed({ iteration }: NothingProposedProps) {
     <IterationNote>
       {iteration?.state === 'wanted' || iteration?.state === 'running'
         ? 'Nothing proposed yet.'
-        : 'Search agent proposed nothing replayable.'}
+        : 'The search agent proposed nothing replayable.'}
     </IterationNote>
   );
 }
