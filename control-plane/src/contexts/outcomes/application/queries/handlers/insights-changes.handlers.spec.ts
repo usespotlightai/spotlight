@@ -12,7 +12,7 @@ import { ReadInsightsMemoryQuery } from '@outcomes/application/queries/read-insi
 import { ReadInsightsSetupsQuery } from '@outcomes/application/queries/read-insights-setups.query';
 import { ReadStationAlertQuery } from '@outcomes/application/queries/read-station-alert.query';
 import { OutcomesAccess } from '@outcomes/application/services/outcomes-access.service';
-import { TeamHistories } from '@outcomes/application/services/team-histories.service';
+import { TeamScopes } from '@outcomes/application/services/team-scopes.service';
 import { TrustedJudges } from '@outcomes/application/services/trusted-judges.service';
 import { StationWatch } from '@outcomes/domain/aggregates/station-watch.aggregate';
 import { StationWatchesInMemory } from '@outcomes/domain/alerts.fake-spec';
@@ -123,17 +123,10 @@ const held = async (
   const records = new RunRecordsInMemory();
   const deliveries = new TaskDeliveriesInMemory();
   const scores = new ScoresInMemory();
-  const histories = new TeamHistories(
-    new OutcomesAccess(people),
-    {
-      records,
-      deliveries,
-      touches: new TaskTouchesInMemory(records),
-      failures: new TaskFailuresInMemory(),
-      chats: new ChatRecordsInMemory(),
-    },
-    { now: () => NOW, sleep: async () => {} },
-  );
+  const histories = new TeamScopes(new OutcomesAccess(people), {
+    now: () => NOW,
+    sleep: async () => {},
+  });
   const reader = insightsReaderInMemory(
     {
       records,

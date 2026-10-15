@@ -3,7 +3,7 @@ import type { InsightsToolsDto } from '@outcomes/application/dto/insights-tools.
 import type { InsightsReaderPort } from '@outcomes/application/ports/insights-reader.port';
 import type { WorkPort } from '@outcomes/application/ports/work.port';
 import type { ReadInsightsToolsQuery } from '@outcomes/application/queries/read-insights-tools.query';
-import type { TeamHistories } from '@outcomes/application/services/team-histories.service';
+import type { TeamScopes } from '@outcomes/application/services/team-scopes.service';
 import { weeksOf } from '@outcomes/domain/services/pull-request-insights';
 import {
   TREND_FEWEST_RUNS,
@@ -18,7 +18,7 @@ export class ReadInsightsToolsHandler
   implements QueryHandlerPort<ReadInsightsToolsQuery, InsightsToolsDto>
 {
   constructor(
-    private readonly histories: TeamHistories,
+    private readonly histories: TeamScopes,
     private readonly reader: InsightsReaderPort,
     private readonly work: WorkPort,
   ) {}

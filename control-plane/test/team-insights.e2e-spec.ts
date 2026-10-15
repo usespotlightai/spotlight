@@ -375,16 +375,8 @@ describe('what the outcomes context hears for a team’s insights (e2e)', () => 
     );
   });
 
-  it('reads the tools a run used with each record of the team', async () => {
-    const [record] = await app.get(DrizzleRunRecordRepository).endedForTeam(
-      {
-        workspaceId: team.workspaceId,
-        teamId: team.teamId,
-        from: ago(7 * 24 * 60),
-        to: ago(0),
-      },
-      10,
-    );
+  it('reads the tools a run used with each record it reads at once', async () => {
+    const [record] = await app.get(DrizzleRunRecordRepository).ofRuns([RUN]);
 
     expect(record?.tools?.callsTo('linear')?.latency).toEqual(
       LatencyHistogram.timing([200, 400, 900]),

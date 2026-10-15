@@ -11,7 +11,7 @@ import {
   configChangesOf,
   fingerprintsAsked,
 } from '@outcomes/application/services/config-changes';
-import type { TeamHistories } from '@outcomes/application/services/team-histories.service';
+import type { TeamScopes } from '@outcomes/application/services/team-scopes.service';
 import type { TrustedJudges } from '@outcomes/application/services/trusted-judges.service';
 import type { ChangeCounts } from '@outcomes/domain/services/before-after';
 import { verdictsFrom } from '@outcomes/domain/services/change-verdict';
@@ -37,7 +37,7 @@ export class ReadInsightsChangesHandler
   implements QueryHandlerPort<ReadInsightsChangesQuery, InsightsChangesDto>
 {
   constructor(
-    private readonly histories: TeamHistories,
+    private readonly histories: TeamScopes,
     private readonly reader: InsightsReaderPort,
     private readonly judges: TrustedJudges,
     private readonly work: WorkPort,

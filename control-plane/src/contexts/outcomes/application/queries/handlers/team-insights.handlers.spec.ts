@@ -12,7 +12,7 @@ import { ReadInsightsPeopleQuery } from '@outcomes/application/queries/read-insi
 import { ReadInsightsStationsQuery } from '@outcomes/application/queries/read-insights-stations.query';
 import { ReadInsightsToolsQuery } from '@outcomes/application/queries/read-insights-tools.query';
 import { OutcomesAccess } from '@outcomes/application/services/outcomes-access.service';
-import { TeamHistories } from '@outcomes/application/services/team-histories.service';
+import { TeamScopes } from '@outcomes/application/services/team-scopes.service';
 import {
   ChatRecordsInMemory,
   chatOf,
@@ -96,11 +96,10 @@ const insights = async () => {
     namesOf: async (ids) =>
       new Map(ids.map((each) => [each, `Name of ${each}`])),
   };
-  const histories = new TeamHistories(
-    new OutcomesAccess(people),
-    { records, deliveries, touches, failures, chats },
-    { now: () => NOW, sleep: async () => {} },
-  );
+  const histories = new TeamScopes(new OutcomesAccess(people), {
+    now: () => NOW,
+    sleep: async () => {},
+  });
 
   for (const [runId, taskId, hour] of [
     ['run_1', 'task_1', 9],

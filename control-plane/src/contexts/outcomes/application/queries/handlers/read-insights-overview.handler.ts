@@ -8,7 +8,7 @@ import {
 import type { InsightsReaderPort } from '@outcomes/application/ports/insights-reader.port';
 import type { PeoplePort } from '@outcomes/application/ports/people.port';
 import type { ReadInsightsOverviewQuery } from '@outcomes/application/queries/read-insights-overview.query';
-import type { TeamHistories } from '@outcomes/application/services/team-histories.service';
+import type { TeamScopes } from '@outcomes/application/services/team-scopes.service';
 import {
   dailyOutputFrom,
   outputCurrencyOf,
@@ -25,7 +25,7 @@ export class ReadInsightsOverviewHandler
   implements QueryHandlerPort<ReadInsightsOverviewQuery, InsightsOverviewDto>
 {
   constructor(
-    private readonly histories: TeamHistories,
+    private readonly histories: TeamScopes,
     private readonly reader: InsightsReaderPort,
     private readonly people: PeoplePort,
   ) {}
