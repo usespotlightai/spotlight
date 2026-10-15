@@ -4,7 +4,7 @@ import {
 } from '@outcomes/application/dto/insights.dto';
 import type { InsightsReaderPort } from '@outcomes/application/ports/insights-reader.port';
 import type { ReadInsightsStationsQuery } from '@outcomes/application/queries/read-insights-stations.query';
-import type { TeamHistories } from '@outcomes/application/services/team-histories.service';
+import type { TeamScopes } from '@outcomes/application/services/team-scopes.service';
 import { tallyCountedOf } from '@outcomes/domain/services/run-tally';
 import {
   stationReportsFrom,
@@ -17,7 +17,7 @@ export class ReadInsightsStationsHandler
   implements QueryHandlerPort<ReadInsightsStationsQuery, InsightsStationsDto>
 {
   constructor(
-    private readonly histories: TeamHistories,
+    private readonly scopes: TeamScopes,
     private readonly reader: InsightsReaderPort,
   ) {}
 
@@ -25,7 +25,7 @@ export class ReadInsightsStationsHandler
     query: ReadInsightsStationsQuery,
   ): Promise<InsightsStationsDto> {
     try {
-      const { clearance, period } = await this.histories.scope(
+      const { clearance, period } = await this.scopes.scope(
         query.teamId,
         query.principal,
         query.period,
@@ -39,7 +39,6 @@ export class ReadInsightsStationsHandler
 
       return {
         period: periodOf(period),
-        truncated: false,
         team: team.tally,
         teamChanges: team.changes,
         teamSeen: team.seen,

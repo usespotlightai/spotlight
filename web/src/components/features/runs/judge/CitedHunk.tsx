@@ -14,7 +14,7 @@ export function CitedHunk({ hunk }: { hunk: Hunk }) {
         <pre className="overflow-x-auto px-3 py-1.5 font-mono text-xs leading-5">
           {hunk.lines.map((line, at) => (
             <span
-              // biome-ignore lint/suspicious/noArrayIndexKey: a hunk's lines are fixed, so where one sits is what names it
+              // biome-ignore lint/suspicious/noArrayIndexKey: the position of a line identifies it, because the lines of a hunk are fixed
               key={at}
               className={cn(
                 'block',
@@ -29,7 +29,7 @@ export function CitedHunk({ hunk }: { hunk: Hunk }) {
         </pre>
       ) : (
         <p className="px-3 py-1.5 text-muted-foreground text-xs">
-          Hunk is no longer in the run’s changes.
+          The hunk is no longer in the run’s changes.
         </p>
       )}
     </div>

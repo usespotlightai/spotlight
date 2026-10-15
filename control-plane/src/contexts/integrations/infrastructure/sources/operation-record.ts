@@ -58,7 +58,7 @@ export const keepingFirst = (
   for (const record of records) {
     if (named.has(record.name)) {
       passedOver.push(
-        `passes over ${record.upstream}, because another operation is also called ${record.name}`,
+        `passes over ${record.upstream}. Another operation is also called ${record.name}`,
       );
     } else {
       named.set(record.name, record);

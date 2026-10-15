@@ -19,7 +19,6 @@ export type ToolRefusalsDto = ToolRefusals;
 
 export interface InsightsToolsDto {
   readonly period: PeriodDto;
-  readonly truncated: boolean;
   readonly weeks: readonly string[];
   readonly runs: number;
   readonly trendRule: TrendRuleDto;

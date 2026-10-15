@@ -65,8 +65,8 @@ export function InviteForm({
       <DialogHeader>
         <DialogTitle>Invite people</DialogTitle>
         <DialogDescription>
-          Each address gets a link by email. They join by signing in with that
-          address.
+          Spotlight emails a link to each address. People join when they sign in
+          with that address.
         </DialogDescription>
       </DialogHeader>
 
@@ -109,8 +109,8 @@ export function InviteForm({
 
         {tooMany && (
           <p role="alert" className="text-destructive text-xs">
-            Sorry, {parsed.valid.length} addresses. Please invite at most{' '}
-            {MOST_INVITED_AT_ONCE} at once.
+            Sorry, the list has {parsed.valid.length} addresses. Please invite
+            at most {MOST_INVITED_AT_ONCE} at once.
           </p>
         )}
 

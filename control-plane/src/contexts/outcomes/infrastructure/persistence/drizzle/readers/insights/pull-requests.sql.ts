@@ -1,7 +1,4 @@
-import type {
-  PullRequestReach,
-  TeamInPeriod,
-} from '@outcomes/application/ports/insights-reader.port';
+import type { TeamInPeriod } from '@outcomes/application/ports/insights-reader.port';
 import {
   type TeamPullRequest,
   teamPullRequestFrom,
@@ -21,7 +18,8 @@ import {
   taskChangeShape,
 } from '@outcomes/infrastructure/persistence/drizzle/schemas/outcomes.schema';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
-import { getTableColumns, type SQL, sql } from 'drizzle-orm';
+import { inList } from '@platform/persistence/drizzle/in-list';
+import { getTableColumns, type SQL, type SQLWrapper, sql } from 'drizzle-orm';
 
 const owned = sql`${pullRequestRecord.ownerTaskId} is not null and ${pullRequestRecord.ownerTeamId} is not null`;
 
@@ -60,8 +58,14 @@ const spent = sql`(
   where ${runFact.taskId} = ${pullRequestRecord.ownerTaskId}
 ) as spent`;
 
-export const lowerCasedIn = (values: readonly string[]): SQL =>
-  sql`(select jsonb_array_elements_text(${JSON.stringify(values.map((each) => each.toLowerCase()))}::jsonb))`;
+export const inLowerCase = (
+  column: SQLWrapper,
+  values: readonly string[],
+): SQL =>
+  inList(
+    column,
+    values.map((each) => each.toLowerCase()),
+  );
 
 export const atIn = (column: SQL, window: Window): SQL =>
   sql`${column} >= ${iso(window.from)}::timestamp and ${column} < ${iso(window.to)}::timestamp`;
@@ -75,7 +79,7 @@ const reachOf = (
     and ${seenRecord}
     and (
       ${pullRequestRecord.ownerTeamId} = ${team.teamId.value}
-      or ${pullRequestRecord.repository} in ${lowerCasedIn(repositories)}
+      or ${inLowerCase(pullRequestRecord.repository, repositories)}
     )
     and ${pullRequestRecord.openedAt} < ${iso(team.period.current.to)}::timestamp
     and (
@@ -98,6 +102,13 @@ export const reachedPullRequests = (
     ${pullRequestRecord.openedAt} as opened_at,
     ${pullRequestRecord.closedAt} as closed_at,
     ${pullRequestRecord.firstReviewAt} as first_review_at,
+    ${pullRequestRecord.readyForReviewAt} as ready_for_review_at,
+    ${pullRequestRecord.firstUnblockingReviewAt} as first_unblocking_review_at,
+    ${pullRequestRecord.firstApprovedAt} as first_approved_at,
+    ${pullRequestRecord.draftSpells} as draft_spells,
+    ${pullRequestRecord.humanReviewedAt} as human_reviewed_at,
+    ${pullRequestRecord.botActivity} as bot_activity,
+    ${pullRequestRecord.ownerTaskId} as owner_task_id,
     ${pullRequestRecord.reviewRounds} as review_rounds,
     ${pullRequestRecord.reviewComments} as review_comments,
     ${pullRequestRecord.revertedBy} is not null as reverted,
@@ -117,7 +128,6 @@ export const reachedPullRequests = (
 const teamPullRequestsWhere = async (
   db: DrizzleDatabase,
   where: SQL,
-  most: number,
 ): Promise<readonly TeamPullRequest[]> => {
   const rows = await db
     .select({
@@ -136,8 +146,7 @@ const teamPullRequestsWhere = async (
     )
     .leftJoinLateral(spent, sql`true`)
     .where(where)
-    .orderBy(newestFirst)
-    .limit(most);
+    .orderBy(newestFirst);
 
   return rows.flatMap((row) => {
     const seen = seenOfRow(row);
@@ -168,17 +177,6 @@ const teamPullRequestsWhere = async (
   });
 };
 
-export const pullRequestsIn = (
-  db: DrizzleDatabase,
-  team: TeamInPeriod,
-  reach: PullRequestReach,
-): Promise<readonly TeamPullRequest[]> =>
-  teamPullRequestsWhere(
-    db,
-    reachOf(team, reach.repositories, reach.from),
-    reach.most,
-  );
-
 export const pullRequestsNamedIn = async (
   db: DrizzleDatabase,
   team: TeamInPeriod,
@@ -187,10 +185,7 @@ export const pullRequestsNamedIn = async (
   const found = await teamPullRequestsWhere(
     db,
     sql`${pullRequestRecord.workspaceId} = ${team.workspaceId.value}
-      and ${pullRequestRecord.pullRequest} in (
-        select jsonb_array_elements_text(${JSON.stringify(named)}::jsonb)
-      )`,
-    named.length,
+      and ${inList(pullRequestRecord.pullRequest, named)}`,
   );
   const byName = new Map(found.map((each) => [each.pullRequest, each]));
 

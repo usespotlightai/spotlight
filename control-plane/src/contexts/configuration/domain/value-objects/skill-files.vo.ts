@@ -6,7 +6,7 @@ export const skillFileRefusal = (path: string): string | null => {
   }
 
   if (path.startsWith('/') || path.includes('\\') || path.includes('\0')) {
-    return 'must be a relative path in the skill folder, such as scripts/query.sh';
+    return 'must be a relative path in the skill folder, as in scripts/query.sh';
   }
 
   if (path.split('/').some((each) => ['', '.', '..'].includes(each))) {

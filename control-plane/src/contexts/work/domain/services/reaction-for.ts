@@ -150,7 +150,7 @@ export const ReactionFor = {
     return null;
   },
 
-  // holder wears the pull request's own mark; held wears the mark of a review of it.
+  // holder wears the mark of the pull request. held wears the mark of a review of the pull request.
   reviewAsked(input: {
     lines: readonly Line[];
     opens: OpensWith;

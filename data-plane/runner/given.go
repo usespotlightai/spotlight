@@ -35,7 +35,7 @@ func handedIn(path string) (*protocol.Handed, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read the work it was handed: %w", err)
 	}
-	// The credential is read once; nothing later in the sandbox may find it on disk.
+	// The credential is read one time. Nothing later in the sandbox can find it on disk.
 	if err := os.Remove(path); err != nil && !errors.Is(err, os.ErrNotExist) {
 		return nil, fmt.Errorf("take away the work it was handed: %w", err)
 	}

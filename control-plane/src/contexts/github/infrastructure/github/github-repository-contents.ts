@@ -92,7 +92,7 @@ export class GitHubRepositoryContents implements RepositoryContentsPort {
           `${this.at(repository)}/commits/${encodeURIComponent(ref ?? defaultBranch)}`,
           token,
         ),
-        `GitHub would not say where ${ref ?? defaultBranch} of ${repository.value} stands`,
+        `GitHub would not return the latest commit of ${ref ?? defaultBranch} in ${repository.value}`,
       ),
       'reading a commit',
     );
@@ -107,7 +107,7 @@ export class GitHubRepositoryContents implements RepositoryContentsPort {
 
     const found = await answered<Contents>(
       response,
-      `GitHub would not hand over ${path} in ${repository.value}`,
+      `GitHub would not return ${path} in ${repository.value}`,
     );
 
     if (found.type === 'symlink' || (found.path && found.path !== path)) {
@@ -133,7 +133,7 @@ export class GitHubRepositoryContents implements RepositoryContentsPort {
     const token = await this.tokenFor(workspaceId);
     const base = await answered<Commit>(
       await call(`${this.at(repository)}/git/commits/${commit.base}`, token),
-      `GitHub would not hand over the commit ${commit.base}`,
+      `GitHub would not return commit ${commit.base}`,
     );
     const baseTree = shaOf(base.tree ?? {}, 'reading the base tree');
     const tree = [];
@@ -156,7 +156,7 @@ export class GitHubRepositoryContents implements RepositoryContentsPort {
               token,
               sending({ content: file.content, encoding: 'utf-8' }),
             ),
-            `GitHub would not take ${file.path}`,
+            `GitHub would not store ${file.path}`,
           ),
           'writing a blob',
         ),
@@ -170,7 +170,7 @@ export class GitHubRepositoryContents implements RepositoryContentsPort {
           token,
           sending({ base_tree: baseTree, tree }),
         ),
-        'GitHub would not take the changed tree',
+        'GitHub would not store the changed tree',
       ),
       'writing a tree',
     );
@@ -185,7 +185,7 @@ export class GitHubRepositoryContents implements RepositoryContentsPort {
             parents: [commit.base],
           }),
         ),
-        'GitHub would not take the commit',
+        'GitHub would not store the commit',
       ),
       'writing a commit',
     );
@@ -241,7 +241,7 @@ export class GitHubRepositoryContents implements RepositoryContentsPort {
     );
 
     if (created.status !== UNPROCESSABLE) {
-      await answered(created, `GitHub would not open the branch ${branch}`);
+      await answered(created, `GitHub would not create branch ${branch}`);
       return;
     }
 
@@ -251,7 +251,7 @@ export class GitHubRepositoryContents implements RepositoryContentsPort {
           `${this.at(repository)}/git/ref/heads/${pathIn(branch)}`,
           token,
         ),
-        `GitHub would not say where ${branch} stands`,
+        `GitHub would not return the latest commit of ${branch}`,
       )
     ).object?.sha;
 
@@ -265,7 +265,7 @@ export class GitHubRepositoryContents implements RepositoryContentsPort {
         token,
         { method: 'PATCH', body: JSON.stringify({ sha, force: true }) },
       ),
-      `GitHub would not move the branch ${branch}`,
+      `GitHub would not update branch ${branch}`,
     );
   }
 
@@ -276,7 +276,7 @@ export class GitHubRepositoryContents implements RepositoryContentsPort {
   ): Promise<string> {
     const found = await answered<BlobContents>(
       await call(`${this.at(repository)}/git/blobs/${sha}`, token),
-      `GitHub would not hand over the blob ${sha}`,
+      `GitHub would not return blob ${sha}`,
     );
 
     return decoded(found.content);
@@ -294,7 +294,7 @@ export class GitHubRepositoryContents implements RepositoryContentsPort {
 
     const found = await answered<{ default_branch: string }>(
       response,
-      `GitHub would not say what ${repository.value} merges into`,
+      `GitHub would not return the default branch of ${repository.value}`,
     );
 
     return found.default_branch;

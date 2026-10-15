@@ -45,11 +45,11 @@ export const msOf = (column: SQL): SQL =>
 export const dateOf = (ms: number | null): Date | null =>
   ms === null ? null : new Date(ms);
 
+const percentileOver = (percent: number, ms: SQL, when: SQL): SQL =>
+  sql`(percentile_disc(${sql.raw(String(percent / 100))}) within group (order by ${ms}) filter (where ${when}))::float8`;
+
 const medianOver = (ms: SQL, when: SQL): SQL =>
   sql`floor(percentile_cont(0.5) within group (order by ${ms}) filter (where ${when}) + 0.5)`;
-
-const p90Over = (ms: SQL, when: SQL): SQL =>
-  sql`(percentile_disc(0.9) within group (order by ${ms}) filter (where ${when}))::float8`;
 
 export const isCurrent = sql.raw('"run_fact"."is_current"');
 
@@ -111,9 +111,20 @@ export const spendOf = (row: SpendRow): Spend | null =>
     ? { amount: row.amount, currency: row.currency }
     : null;
 
+export const percentilesOver = (
+  ms: SQL,
+  when: SQL,
+): SQL => sql`json_build_object(
+  'p50', ${medianOver(ms, when)},
+  'p75', ${percentileOver(75, ms, when)},
+  'p90', ${percentileOver(90, ms, when)},
+  'p95', ${percentileOver(95, ms, when)},
+  'count', count(${ms}) filter (where ${when})
+)`;
+
 export const spreadOver = (ms: SQL, when: SQL): SQL => sql`json_build_object(
   'p50', ${medianOver(ms, when)},
-  'p90', ${p90Over(ms, when)},
+  'p90', ${percentileOver(90, ms, when)},
   'count', count(${ms}) filter (where ${when})
 )`;
 
@@ -132,7 +143,7 @@ export const tallyColumns = sql`
   count(distinct ${runFact.taskId}) filter (where ${ran} and ${runFact.deliveryState} = 'merged')::int as merged,
   ${spendColumns},
   ${medianOver(sql`${runFact.ms}`, timed)} as median_ms,
-  ${p90Over(sql`${runFact.ms}`, timed)} as p90_ms`;
+  ${percentileOver(90, sql`${runFact.ms}`, timed)} as p90_ms`;
 
 export interface TallyColumns extends SpendRow {
   readonly runs: number;

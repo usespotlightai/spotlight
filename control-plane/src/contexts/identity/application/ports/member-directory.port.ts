@@ -4,6 +4,6 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 export const MEMBER_DIRECTORY = Symbol('MEMBER_DIRECTORY');
 
 export interface MemberDirectoryPort {
-  // Not viewer-scoped: matches an outside email to a member, not for reading the roster.
+  // Not viewer-scoped. Use it to match an outside email to a member, not to read the roster.
   byEmail(workspaceId: WorkspaceId, email: string): Promise<UserId | null>;
 }

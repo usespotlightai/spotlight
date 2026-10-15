@@ -156,13 +156,13 @@ export class OpenConfigPullRequests implements OwedWorkPort {
     if (!named || !path) {
       return refusedAs(
         'no-source',
-        'Config pull request has no target repository.',
+        'The config pull request has no target repository.',
       );
     }
     if (!search || !station || !teamKey) {
       return refusedAs(
         'block-not-found',
-        'Searched station is no longer on its line.',
+        'The searched station is gone from its line.',
       );
     }
 
@@ -179,7 +179,7 @@ export class OpenConfigPullRequests implements OwedWorkPort {
     if (!candidate || !seed) {
       return refusedAs(
         'block-not-found',
-        'Picked candidate or search seed no longer exists.',
+        'The picked candidate or the seed of the search no longer exists.',
       );
     }
 

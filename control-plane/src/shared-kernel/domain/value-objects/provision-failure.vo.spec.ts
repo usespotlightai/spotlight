@@ -58,7 +58,7 @@ describe('ProvisionFailure', () => {
 
     expect(lapsed.kind).toBe('lapsed');
     expect(lapsed.detail).toBe(
-      'the pool accepted the work, but no runner claimed it by 2026-09-24T12:05:00.000Z',
+      'The pool accepted the work. No runner claimed it by 2026-09-24T12:05:00.000Z.',
     );
   });
 

@@ -378,7 +378,6 @@ export const shippingOf = (
 
   return {
     period: span.period,
-    truncated: false,
     toMerge,
     toMergeChanges: changesOf(toMerge, byAuthor(mergedIn(facts, span.before))),
     mergeDays:

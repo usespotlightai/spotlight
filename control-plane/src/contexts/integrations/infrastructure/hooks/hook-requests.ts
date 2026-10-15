@@ -247,7 +247,7 @@ export class HookRequests {
 
       if (!secret) {
         throw new Error(
-          'has no secret to sign with, so nothing was sent; give the hook a new secret with a higher secretVersion',
+          'has no secret to sign with. Spotlight sent nothing. Please give the hook a new secret with a higher secretVersion',
         );
       }
 

@@ -56,7 +56,7 @@ func (o Options) Diff(ctx context.Context, checkout string) (string, error) {
 	return strings.TrimSpace(diff), nil
 }
 
-// Committed diffs what the checkout's HEAD holds against where the run began, leaving out the working tree.
+// Committed diffs what the checkout's HEAD holds against the point where the run started. It ignores the working tree.
 func (o Options) Committed(ctx context.Context, checkout string) (string, error) {
 	if _, err := o.git(ctx, checkout, "", "rev-parse", "--verify", "--quiet", BaseRef); err != nil {
 		return "", fmt.Errorf("the checkout has no record of where the run began")

@@ -338,6 +338,7 @@ beforeAll(async () => {
       {
         holds: async () => true,
         of: async () => null,
+        judgesOnTeam: async () => new Map(),
         judgeAt: async () => null,
       },
       {

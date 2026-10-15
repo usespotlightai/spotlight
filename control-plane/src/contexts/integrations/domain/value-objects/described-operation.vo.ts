@@ -100,7 +100,7 @@ export class DescribedOperation {
 
     for (const name of names) {
       if (!OPERATION_INPUT.test(name) || name === WHOLE_CALL_INPUT) {
-        throw refuse(`takes ${JSON.stringify(name)}, which a tool cannot`);
+        throw refuse(`takes ${JSON.stringify(name)}, which a tool cannot take`);
       }
     }
 

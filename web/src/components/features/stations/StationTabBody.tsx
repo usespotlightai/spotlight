@@ -5,9 +5,9 @@ import type { StationTab } from '@/lib/station';
 
 const ENDS = {
   backlog:
-    'Tasks wait here until someone starts them. Nothing runs at a backlog, so it has no harness and nothing to instruct.',
+    'Tasks wait here until someone starts them. Nothing runs at a backlog. It has no harness and no prompt.',
   completed:
-    'Tasks land here once the line is done with them. Nothing runs at it.',
+    'Tasks land here when the line is done with them. Nothing runs here.',
 };
 
 type StationTabBodyProps = {

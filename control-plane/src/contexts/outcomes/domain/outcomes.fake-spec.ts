@@ -4,7 +4,6 @@ import { RunRecordMovedOnError } from '@outcomes/domain/exceptions/run-record-mo
 import { TaskDeliveryMovedOnError } from '@outcomes/domain/exceptions/task-delivery-moved-on.error';
 import type {
   RunListing,
-  RunPage,
   RunRecordRepository,
   StationRecords,
   TeamWindow,
@@ -157,6 +156,11 @@ export const lastConfigRunsFrom = (
 
   return [...last.values()];
 };
+
+export interface RunPage {
+  readonly records: readonly RunRecord[];
+  readonly total: number;
+}
 
 export class RunRecordsInMemory implements RunRecordRepository {
   readonly held = new Map<string, RunRecord>();

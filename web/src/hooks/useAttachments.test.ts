@@ -59,7 +59,7 @@ describe('useAttachments', () => {
     expect(uploaded).not.toHaveBeenCalled();
     expect(result.current.attachments[0]).toMatchObject({
       state: 'failed',
-      problem: 'Too large. Maximum size: 25 MB',
+      problem: 'The file is too large. Maximum size: 25 MB',
     });
   });
 

@@ -118,8 +118,8 @@ import { RunAcceptance } from '@outcomes/application/services/run-acceptance.ser
 import { RunOutcomes } from '@outcomes/application/services/run-outcomes.service';
 import { RunScoresViews } from '@outcomes/application/services/run-scores-views.service';
 import { StationJudgeReports } from '@outcomes/application/services/station-judge-reports.service';
-import { TeamHistories } from '@outcomes/application/services/team-histories.service';
 import { TeamPullRequests } from '@outcomes/application/services/team-pull-requests.service';
+import { TeamScopes } from '@outcomes/application/services/team-scopes.service';
 import { TrustedJudges } from '@outcomes/application/services/trusted-judges.service';
 import { WatchStations } from '@outcomes/application/services/watch-stations.service';
 import { WorkChangeJudgings } from '@outcomes/application/services/work-change-judgings.service';
@@ -324,30 +324,10 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
     ) => new RunOutcomes(records, deliveries),
   },
   {
-    provide: TeamHistories,
-    inject: [
-      OutcomesAccess,
-      DrizzleRunRecordRepository,
-      DrizzleTaskDeliveryRepository,
-      DrizzleTaskTouchesRepository,
-      DrizzleTaskFailuresRepository,
-      DrizzleChatRecordRepository,
-      CLOCK,
-    ],
-    useFactory: (
-      access: OutcomesAccess,
-      records: DrizzleRunRecordRepository,
-      deliveries: DrizzleTaskDeliveryRepository,
-      touches: DrizzleTaskTouchesRepository,
-      failures: DrizzleTaskFailuresRepository,
-      chats: DrizzleChatRecordRepository,
-      clock: ClockPort,
-    ) =>
-      new TeamHistories(
-        access,
-        { records, deliveries, touches, failures, chats },
-        clock,
-      ),
+    provide: TeamScopes,
+    inject: [OutcomesAccess, CLOCK],
+    useFactory: (access: OutcomesAccess, clock: ClockPort) =>
+      new TeamScopes(access, clock),
   },
   {
     provide: TrustedJudges,
@@ -355,18 +335,18 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
     useFactory: (standing: JudgeStandingPort) => new TrustedJudges(standing),
   },
   ...bindQueryHandler(ReadInsightsChangesQuery, ReadInsightsChangesHandler, [
-    TeamHistories,
+    TeamScopes,
     INSIGHTS_READER,
     TrustedJudges,
     WORK,
   ]),
   ...bindQueryHandler(ReadInsightsSetupsQuery, ReadInsightsSetupsHandler, [
-    TeamHistories,
+    TeamScopes,
     INSIGHTS_READER,
     TrustedJudges,
   ]),
   ...bindQueryHandler(ReadInsightsMemoryQuery, ReadInsightsMemoryHandler, [
-    TeamHistories,
+    TeamScopes,
     INSIGHTS_READER,
     MEMORY_USE,
     MEMORY_BENCHMARK,
@@ -418,41 +398,41 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
     ) => new AlertInbox(asides, watches),
   },
   ...bindQueryHandler(ReadInsightsOverviewQuery, ReadInsightsOverviewHandler, [
-    TeamHistories,
+    TeamScopes,
     INSIGHTS_READER,
     PEOPLE,
   ]),
   ...bindQueryHandler(ReadInsightsFlowQuery, ReadInsightsFlowHandler, [
-    TeamHistories,
+    TeamScopes,
     INSIGHTS_READER,
   ]),
   ...bindQueryHandler(ReadInsightsStationsQuery, ReadInsightsStationsHandler, [
-    TeamHistories,
+    TeamScopes,
     INSIGHTS_READER,
   ]),
   ...bindQueryHandler(ReadInsightsPeopleQuery, ReadInsightsPeopleHandler, [
-    TeamHistories,
+    TeamScopes,
     INSIGHTS_READER,
     FIRST_SEEN,
     PEOPLE,
   ]),
   ...bindQueryHandler(ReadInsightsCostQuery, ReadInsightsCostHandler, [
-    TeamHistories,
+    TeamScopes,
     INSIGHTS_READER,
   ]),
   ...bindQueryHandler(ReadInsightsToolsQuery, ReadInsightsToolsHandler, [
-    TeamHistories,
+    TeamScopes,
     INSIGHTS_READER,
     WORK,
   ]),
   {
     provide: TeamPullRequests,
-    inject: [TeamHistories, WORK, INSIGHTS_READER],
+    inject: [TeamScopes, WORK, INSIGHTS_READER],
     useFactory: (
-      histories: TeamHistories,
+      scopes: TeamScopes,
       work: WorkPort,
       reader: InsightsReaderPort,
-    ) => new TeamPullRequests(histories, work, reader),
+    ) => new TeamPullRequests(scopes, work, reader),
   },
   ...bindQueryHandler(
     ReadInsightsPullRequestsQuery,
@@ -461,7 +441,6 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
   ),
   ...bindQueryHandler(ReadInsightsShippingQuery, ReadInsightsShippingHandler, [
     TeamPullRequests,
-    INSIGHTS_READER,
   ]),
   ...bindQueryHandler(
     ListInsightsPullRequestsQuery,
@@ -469,10 +448,8 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
     [TeamPullRequests],
   ),
   ...bindQueryHandler(ListInsightsRunsQuery, ListInsightsRunsHandler, [
-    TeamHistories,
-    DrizzleRunRecordRepository,
-    DrizzleTaskTouchesRepository,
-    DrizzleTaskDeliveryRepository,
+    TeamScopes,
+    INSIGHTS_READER,
     PEOPLE,
   ]),
   ...bindQueryHandler(ListStationOutcomesQuery, ListStationOutcomesHandler, [

@@ -63,7 +63,7 @@ const SET: ReplaySet = {
 };
 
 const HELD =
-  'A search of this set is running. Add or take out runs once it ends or is stopped.';
+  'A search of this set is running. Add or take out runs after the search ends or a person stops it.';
 
 const renderRuns = (frozen: boolean) =>
   render(

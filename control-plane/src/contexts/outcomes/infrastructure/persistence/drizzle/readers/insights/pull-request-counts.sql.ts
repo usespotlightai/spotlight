@@ -64,9 +64,11 @@ const firstSpellings = (pullRequests: SQL): SQL => sql`
   from ${pullRequests}
   group by repository_key`;
 
+export const toMergeMs = sql`(${msOf(sql`closed_at`)} - ${msOf(sql`opened_at`)})`;
+
 const measured = sql`json_build_object(
   'merged', count(*)::int,
-  'toMerge', ${spreadOver(sql`(${msOf(sql`closed_at`)} - ${msOf(sql`opened_at`)})`, sql`true`)},
+  'toMerge', ${spreadOver(toMergeMs, sql`true`)},
   'inReview', ${spreadOver(sql`(${msOf(sql`closed_at`)} - ${msOf(sql`first_review_at`)})`, sql`true`)},
   'rounds', coalesce(sum(review_rounds), 0)::int,
   'comments', coalesce(sum(review_comments), 0)::int,

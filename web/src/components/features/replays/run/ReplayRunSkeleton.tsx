@@ -5,6 +5,7 @@ import { CrumbSeparator } from '@/components/shared/skeleton/CrumbSeparator';
 import { Skeleton } from '@/components/shared/skeleton/Skeleton';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
+import { RUNS_AUTONOMOUSLY } from '@/lib/run';
 
 export function ReplayRunSkeleton() {
   return (
@@ -39,7 +40,7 @@ export function ReplayRunSkeleton() {
         </div>
 
         <ComposerFooter>
-          <ChatInputSkeleton placeholder="Agent runs autonomously. It can’t receive messages." />
+          <ChatInputSkeleton placeholder={RUNS_AUTONOMOUSLY} />
         </ComposerFooter>
       </RunSidePanel>
     </div>

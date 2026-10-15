@@ -46,7 +46,7 @@ export class DeclaredHappening {
     if (finds.length === 0 && !findsByBranch) {
       throw new InvalidIdentifierError(
         'happening',
-        'needs a branch or a mark, or nothing could find a task from it',
+        'needs a branch or a mark. Without one, no task can be found from it',
       );
     }
 

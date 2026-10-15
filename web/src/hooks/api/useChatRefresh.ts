@@ -17,7 +17,7 @@ export function useChatRefresh(chatId: string | undefined, chat?: Chat) {
   const working = chat?.working;
   const said = chat?.messages.length;
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: a run settling or a new message is what the journal has to catch up with, though the effect reads neither
+  // biome-ignore lint/correctness/useExhaustiveDependencies: the journal must update when a run stops or a new message comes, but the effect reads neither value
   useEffect(() => {
     void queryClient.invalidateQueries({ queryKey: chatKeys.journal(chatId) });
   }, [queryClient, chatId, working, said]);

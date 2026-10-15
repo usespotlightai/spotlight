@@ -15,7 +15,7 @@ import {
 
 export function BestTile({ search }: { search: SearchDetail }) {
   const { best, objective } = search;
-  const aims = `Aims for ${objectiveShown(objective).toLowerCase()}. ${objectiveNote(objective)}`;
+  const aims = `The search aims for ${objectiveShown(objective).toLowerCase()}. ${objectiveNote(objective)}`;
 
   if (!best) {
     return (

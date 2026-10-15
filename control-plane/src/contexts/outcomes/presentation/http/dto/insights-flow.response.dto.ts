@@ -203,19 +203,11 @@ export class InsightsFlowResponseDto {
   @ApiProperty({ type: InsightsPeriodResponseDto })
   readonly period: InsightsPeriodResponseDto;
 
-  @ApiProperty({
-    example: false,
-    description:
-      'Whether the team ran more than 20,000 runs over the period and the one before, so only the latest 20,000 were counted',
-  })
-  readonly truncated: boolean;
-
   @ApiProperty({ type: FlowResponseDto, description: 'This period' })
   readonly flow: FlowResponseDto;
 
   constructor(flow: InsightsFlowDto) {
     this.period = new InsightsPeriodResponseDto(flow.period);
-    this.truncated = flow.truncated;
     this.flow = new FlowResponseDto(flow.flow);
   }
 }

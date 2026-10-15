@@ -21,7 +21,7 @@ export function ConfusionMatrix({
   return (
     <div className="text-xs">
       <p id={captionId} className="sr-only">
-        The judge’s scores down, people’s across
+        The judge’s scores in rows, people’s scores in columns
       </p>
       <table
         data-slot="confusion-matrix"

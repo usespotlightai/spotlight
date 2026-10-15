@@ -117,11 +117,11 @@ export function SpotlightAgainstPeople({
       description={
         comparison.repositories.length > 0
           ? `People’s exclude bots’ and any with a Spotlight review task. Times are medians, with the p90 under the info icon; rounds and comments per pull request. Repositories Spotlight merged into: ${comparison.repositories.join(', ')}`
-          : 'Spotlight merged nothing in this period. Nothing to compare people’s pull requests with.'
+          : 'Spotlight merged no pull requests in this period. There is nothing to compare people’s pull requests with.'
       }
     >
       <InsightsTable
-        label="Spotlight’s pull requests against people’s"
+        label="Spotlight’s pull requests compared with people’s"
         columns={columns}
         rows={MEASURES}
         rowKey={(measure) => measure.id}
