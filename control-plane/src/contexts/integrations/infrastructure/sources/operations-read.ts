@@ -32,9 +32,9 @@ export const operationsRead = (read: ReadOperations): OperationsRead => {
       operations.push(operationOf(record));
     } catch (error) {
       passedOver.push(
-        `passes over ${record.upstream}, because ${
+        `passes over ${record.upstream}. ${
           error instanceof InvalidIntegrationPartError
-            ? `it ${error.because}`
+            ? `It ${error.because}`
             : reasonOf(error)
         }`,
       );

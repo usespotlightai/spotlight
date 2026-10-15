@@ -8,7 +8,7 @@ import {
 } from './test/support/e2e-database-url';
 import { E2E_LONG_POLL_MS } from './test/support/long-poll';
 
-// Never the app's own database: a running control plane would take up the tests' work.
+// Do not use the app's own database. A control plane on that database takes the work of the tests.
 const E2E_ENV = {
   NODE_ENV: 'test',
   LOG_LEVEL: 'warn',

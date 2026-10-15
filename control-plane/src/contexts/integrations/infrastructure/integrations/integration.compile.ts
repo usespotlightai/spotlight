@@ -283,7 +283,7 @@ const READS_A_SECRET = /(^|[^A-Za-z0-9_.])secret\s*(\.|\[)/;
 
 const doubted = (error: ExpressionErrorDto): string =>
   error.suggestion
-    ? `does not check: ${error.message}; did you mean ${error.suggestion}?`
+    ? `does not check: ${error.message}. Did you mean ${error.suggestion}?`
     : `does not check: ${error.message}`;
 
 class Compiler {
@@ -356,7 +356,7 @@ class Compiler {
           path: this.path,
           at: place.field,
           reason:
-            'reads a secret’s value, which nothing may; name the secret in auth.secrets and Spotlight wears it toward the hosts it is bound to',
+            'reads a secret’s value. No expression may read a secret. Please name the secret in auth.secrets, and Spotlight wears it toward the hosts it is bound to',
         }),
       );
 
@@ -771,7 +771,7 @@ const discoveredAt = (mcp: string | null): string => {
   if (mcp === null) {
     throw new InvalidIntegrationPartError(
       'connection',
-      'discovers how to connect from the MCP server it names in mcp.url, which it does not name',
+      'discovers how to connect from its MCP server, but mcp.url names no MCP server',
     );
   }
 
@@ -1154,7 +1154,7 @@ export const compileIntegration = (
       if (!named.has(name)) {
         compiler.warn(
           FieldPath.of([written.kind, 'tools', 'approval', name]),
-          `names ${name}, which no operation of its ${describedIR?.source.described ?? 'description'} is called`,
+          `names ${name}, but no operation of its ${describedIR?.source.described ?? 'description'} has that name`,
         );
       }
     }
@@ -1272,7 +1272,7 @@ const hintProblemsOf = (
           {
             at: FieldPath.of(['types', cycle]),
             reason:
-              'names itself, however far round, which a check cannot follow',
+              'refers to itself, directly or through other types. A check cannot follow such a type',
           },
         ]
       : []),

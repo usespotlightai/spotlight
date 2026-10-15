@@ -231,7 +231,7 @@ export class Hook {
     if (offered.approval) {
       return HookFailure.of(
         'not-allowed',
-        `calls ${named.value}, which asks a person's approval before each call, and a hook cannot give it`,
+        `calls ${named.value}, which needs a person's approval before each call. A hook cannot give that approval`,
       );
     }
 

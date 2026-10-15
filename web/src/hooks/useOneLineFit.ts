@@ -61,7 +61,7 @@ export function useOneLineFit(written: Written, opened: boolean) {
     return () => measured.disconnect();
   }, []);
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: measure again once what is written has rendered
+  // biome-ignore lint/correctness/useExhaustiveDependencies: measure again after the written text renders
   useLayoutEffect(() => measure(), [written]);
 
   return { inner, writing, height, expanded };

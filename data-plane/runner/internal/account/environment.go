@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-// Never inherited: the agent can read its own env, and the runner's token is here.
+// The agent does not inherit runnerOnly variables. The agent can read its own env, and these variables contain the runner's token.
 const runnerOnly = "SPOTLIGHT_"
 
 var theRunners = []string{"HOME=", "USER=", "LOGNAME=", "SHELL="}

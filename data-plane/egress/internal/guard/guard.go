@@ -48,19 +48,19 @@ func refuseUnreachable(ctx context.Context, _, address string, _ syscall.RawConn
 
 	ip, err := netip.ParseAddr(host)
 	if err != nil {
-		return &Refusal{fmt.Sprintf("egress never opens a connection to %s", host)}
+		return &Refusal{fmt.Sprintf("Egress never opens a connection to %s.", host)}
 	}
 	ip = ip.Unmap()
 
 	if ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsUnspecified() ||
 		ip.IsMulticast() || ip.IsInterfaceLocalMulticast() || nowhere.Contains(ip) {
-		return &Refusal{fmt.Sprintf("egress never opens a connection to %s", host)}
+		return &Refusal{fmt.Sprintf("Egress never opens a connection to %s.", host)}
 	}
 
 	if !Named(ctx) && (ip.IsPrivate() || slices.ContainsFunc(inside, func(prefix netip.Prefix) bool {
 		return prefix.Contains(ip)
 	})) {
-		return &Refusal{fmt.Sprintf("egress opens a connection to the private address %s only for a host the allow-list names", host)}
+		return &Refusal{fmt.Sprintf("Egress opens a connection to private address %s only if the allow-list names the host.", host)}
 	}
 
 	return nil

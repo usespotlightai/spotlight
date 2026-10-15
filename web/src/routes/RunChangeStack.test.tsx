@@ -156,7 +156,7 @@ describe('RunChangeStack', () => {
           {
             ...INVITATIONS,
             state: 'failed',
-            failure: 'The change stack could not be drafted.',
+            failure: 'Spotlight couldn’t draft the change stack.',
             cohorts: [],
           },
         ],

@@ -152,7 +152,7 @@ describe('memory in Insights', () => {
     expect(within(tiles).getByText('to 30 runs')).toBeInTheDocument();
 
     const compared = screen.getByRole('list', {
-      name: 'Runs without memories against runs with them',
+      name: 'Runs without memories compared with runs with them',
     });
     expect(
       within(compared).getByText('Accepted rate').closest('li'),

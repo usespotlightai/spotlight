@@ -7245,7 +7245,7 @@
             }
           },
           "401": {
-            "description": "No such trust, a token its issuer did not sign for its audience, a workload it does not admit, or a closed workspace"
+            "description": "Spotlight refused the exchange. Possible causes: an unknown trust, a token its issuer did not sign for the trust’s audience, a workload the trust does not admit, or a closed workspace"
           }
         },
         "summary": "Exchange the OIDC token a CI platform issued a workload for a short-lived workspace token, through a workspace token trust that admits it",
@@ -16482,7 +16482,7 @@
             }
           },
           "401": {
-            "description": "Missing, expired or unknown callback token; each hook request carries a fresh one in spotlight-callback-token"
+            "description": "The callback token is missing, expired or unknown. Each hook request carries a fresh token in spotlight-callback-token."
           }
         },
         "security": [
@@ -16525,7 +16525,7 @@
             "description": "The note is on the task"
           },
           "401": {
-            "description": "Missing, expired or unknown callback token; each hook request carries a fresh one in spotlight-callback-token"
+            "description": "The callback token is missing, expired or unknown. Each hook request carries a fresh token in spotlight-callback-token."
           }
         },
         "security": [
@@ -40962,6 +40962,35 @@
           "medianMs"
         ]
       },
+      "ReplayCounterpartResponseDto": {
+        "type": "object",
+        "properties": {
+          "replayId": {
+            "type": "string",
+            "description": "The replay compared with: pairedWith where set, else for a replay with the answer the live replay it was handed the answer against, else the set’s baseline"
+          },
+          "successRate": {
+            "type": "number",
+            "nullable": true,
+            "description": "Its success rate on the tasks the gain pairs, the tasks both replays scored: per task, the share of its scored copies that succeeded, averaged over those tasks; null with no such task"
+          },
+          "interval": {
+            "nullable": true,
+            "description": "Its success rate on the tasks both replays scored, with its 95% interval over those tasks; null with no such task",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/RateIntervalResponseDto"
+              }
+            ]
+          }
+        },
+        "required": [
+          "replayId",
+          "successRate",
+          "interval"
+        ]
+      },
       "PairTallyResponseDto": {
         "type": "object",
         "properties": {
@@ -41792,11 +41821,21 @@
           },
           "againstBaseline": {
             "nullable": true,
-            "description": "Its gain in success over the replay it is compared with (pairedWith where set, else the set’s baseline), with whether it is within noise; null with none",
+            "description": "Its gain in success over the replay in comparedWith, with whether it is within noise; null with none",
             "type": "object",
             "allOf": [
               {
                 "$ref": "#/components/schemas/GainReadingResponseDto"
+              }
+            ]
+          },
+          "comparedWith": {
+            "nullable": true,
+            "description": "The replay its gain, comparison rows and deltas are against, with its success rate; null for the baseline itself or with none",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ReplayCounterpartResponseDto"
               }
             ]
           },
@@ -41838,6 +41877,7 @@
           "endedAt",
           "totals",
           "againstBaseline",
+          "comparedWith",
           "pairedWith",
           "pairsAgainstBaseline",
           "entries"
@@ -42133,11 +42173,21 @@
           },
           "againstBaseline": {
             "nullable": true,
-            "description": "Its gain in success over the replay it is compared with (pairedWith where set, else the set’s baseline), with whether it is within noise; null with none",
+            "description": "Its gain in success over the replay in comparedWith, with whether it is within noise; null with none",
             "type": "object",
             "allOf": [
               {
                 "$ref": "#/components/schemas/GainReadingResponseDto"
+              }
+            ]
+          },
+          "comparedWith": {
+            "nullable": true,
+            "description": "The replay its gain, comparison rows and deltas are against, with its success rate; null for the baseline itself or with none",
+            "type": "object",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ReplayCounterpartResponseDto"
               }
             ]
           },
@@ -42166,11 +42216,6 @@
             "type": "string",
             "nullable": true
           },
-          "comparedWithReplayId": {
-            "type": "string",
-            "nullable": true,
-            "description": "The replay its comparison rows, gain and deltas are against: pairedWith where set, else the set’s baseline; null for the baseline itself or with none"
-          },
           "search": {
             "nullable": true,
             "description": "The search it belongs to, when a search started it",
@@ -42182,7 +42227,7 @@
             ]
           },
           "comparison": {
-            "description": "Per task against the set’s baseline, regressions first",
+            "description": "Per task against the replay it is compared with (comparedWith), regressions first",
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/EntryComparisonResponseDto"
@@ -42205,11 +42250,11 @@
           "endedAt",
           "totals",
           "againstBaseline",
+          "comparedWith",
           "pairedWith",
           "pairsAgainstBaseline",
           "entries",
           "baselineReplayId",
-          "comparedWithReplayId",
           "search",
           "comparison"
         ]
@@ -43319,7 +43364,7 @@
           },
           "message": {
             "type": "string",
-            "example": "`prompt` is computed in Terraform (`local.build_prompt`); change it by hand"
+            "example": "Terraform computes `prompt` from `local.build_prompt`. Please change it by hand."
           },
           "attribute": {
             "type": "string",

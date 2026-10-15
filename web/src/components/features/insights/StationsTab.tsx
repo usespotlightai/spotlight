@@ -91,7 +91,7 @@ export function StationsTab({
 
       <InsightsCard
         title="By station"
-        description="Same counts as each station’s page. The line shows runs per day, failures in red, beside the change in runs from the previous period."
+        description="The counts are the same as on each station’s page. The line shows runs per day, with failures in red. The number beside it is the change in runs since the previous period."
       >
         <StationsTable stations={reports} counted={teamCounted} names={names} />
       </InsightsCard>

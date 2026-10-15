@@ -236,3 +236,9 @@ export const sizeShown = (pullRequest: InsightsPullRequest): string =>
     : `+${pullRequest.additions.toLocaleString()} −${pullRequest.deletions.toLocaleString()}`;
 
 export const PULL_REQUESTS_LIST_ID = 'pull-request-list';
+
+export const SPOTLIGHT_COMPARED_WITH_PEOPLE =
+  'Compares Spotlight’s pull requests with pull requests by people alone, in repositories where Spotlight merged.';
+
+export const PULL_REQUEST_TYPE_SOURCE =
+  'The type comes from the change stack. Without one, it comes from the title and branch.';

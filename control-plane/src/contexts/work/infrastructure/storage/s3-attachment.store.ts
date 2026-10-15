@@ -143,7 +143,7 @@ export class S3AttachmentStore implements AttachmentStorePort {
   ): Promise<string> {
     this.refuseWithoutABucket();
 
-    // Non-images (and SVG) download rather than render, so they cannot run as pages.
+    // Non-image files and SVG files download and do not render, so they cannot run as pages.
     const shown =
       wanted === 'shown' && file.image && file.contentType !== 'image/svg+xml';
 

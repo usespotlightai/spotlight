@@ -39,7 +39,7 @@ export function Tokens() {
     <>
       <SettingsPage
         title="Tokens"
-        description="Workspace token: lets Terraform or a script act in this workspace. Only owners and admins can see, create and revoke tokens."
+        description="Workspace token: a key that lets Terraform or a script act in this workspace. Only owners and admins can see, create and revoke tokens."
       >
         {created && (
           <TokenCreated

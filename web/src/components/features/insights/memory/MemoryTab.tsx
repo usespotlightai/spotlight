@@ -50,7 +50,7 @@ export function MemoryTab({ slug, teamId, period }: MemoryTabProps) {
       <InsightsCard
         tableOnly
         title="Runs with memories and without"
-        description="Outcomes of runs briefed or reading a memory, against the period’s other runs."
+        description="Outcomes of runs that got a memory in their brief or read one, compared with the other runs in this period."
       >
         <MemoryComparison
           runs={{

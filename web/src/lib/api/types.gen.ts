@@ -7324,6 +7324,21 @@ export type ReplayTotalsResponseDto = {
   medianMs: number | null;
 };
 
+export type ReplayCounterpartResponseDto = {
+  /**
+   * The replay compared with: pairedWith where set, else for a replay with the answer the live replay it was handed the answer against, else the set’s baseline
+   */
+  replayId: string;
+  /**
+   * Its success rate on the tasks the gain pairs, the tasks both replays scored: per task, the share of its scored copies that succeeded, averaged over those tasks; null with no such task
+   */
+  successRate: number | null;
+  /**
+   * Its success rate on the tasks both replays scored, with its 95% interval over those tasks; null with no such task
+   */
+  interval: RateIntervalResponseDto | null;
+};
+
 export type PairTallyResponseDto = {
   /**
    * Tasks where the judge found the change better
@@ -7608,9 +7623,13 @@ export type ReplayResponseDto = {
   endedAt: string | null;
   totals: ReplayTotalsResponseDto;
   /**
-   * Its gain in success over the replay it is compared with (pairedWith where set, else the set’s baseline), with whether it is within noise; null with none
+   * Its gain in success over the replay in comparedWith, with whether it is within noise; null with none
    */
   againstBaseline: GainReadingResponseDto | null;
+  /**
+   * The replay its gain, comparison rows and deltas are against, with its success rate; null for the baseline itself or with none
+   */
+  comparedWith: ReplayCounterpartResponseDto | null;
   /**
    * The replay its changes are set beside, judged blind: the baseline standing when it started, or its search’s seed; null for a baseline, a probe or a replay that had none
    */
@@ -7755,9 +7774,13 @@ export type ReplayDetailResponseDto = {
   endedAt: string | null;
   totals: ReplayTotalsResponseDto;
   /**
-   * Its gain in success over the replay it is compared with (pairedWith where set, else the set’s baseline), with whether it is within noise; null with none
+   * Its gain in success over the replay in comparedWith, with whether it is within noise; null with none
    */
   againstBaseline: GainReadingResponseDto | null;
+  /**
+   * The replay its gain, comparison rows and deltas are against, with its success rate; null for the baseline itself or with none
+   */
+  comparedWith: ReplayCounterpartResponseDto | null;
   /**
    * The replay its changes are set beside, judged blind: the baseline standing when it started, or its search’s seed; null for a baseline, a probe or a replay that had none
    */
@@ -7769,15 +7792,11 @@ export type ReplayDetailResponseDto = {
   entries: Array<ReplayEntryResponseDto>;
   baselineReplayId: string | null;
   /**
-   * The replay its comparison rows, gain and deltas are against: pairedWith where set, else the set’s baseline; null for the baseline itself or with none
-   */
-  comparedWithReplayId: string | null;
-  /**
    * The search it belongs to, when a search started it
    */
   search: ReplaySearchResponseDto | null;
   /**
-   * Per task against the set’s baseline, regressions first
+   * Per task against the replay it is compared with (comparedWith), regressions first
    */
   comparison: Array<EntryComparisonResponseDto>;
 };
@@ -12661,7 +12680,7 @@ export type ExchangeWorkloadTokenData = {
 
 export type ExchangeWorkloadTokenErrors = {
   /**
-   * No such trust, a token its issuer did not sign for its audience, a workload it does not admit, or a closed workspace
+   * Spotlight refused the exchange. Possible causes: an unknown trust, a token its issuer did not sign for the trust’s audience, a workload the trust does not admit, or a closed workspace
    */
   401: unknown;
 };
@@ -16968,7 +16987,7 @@ export type ReadHookTaskData = {
 
 export type ReadHookTaskErrors = {
   /**
-   * Missing, expired or unknown callback token; each hook request carries a fresh one in spotlight-callback-token
+   * The callback token is missing, expired or unknown. Each hook request carries a fresh token in spotlight-callback-token.
    */
   401: unknown;
 };
@@ -16994,7 +17013,7 @@ export type NoteOnHookTaskData = {
 
 export type NoteOnHookTaskErrors = {
   /**
-   * Missing, expired or unknown callback token; each hook request carries a fresh one in spotlight-callback-token
+   * The callback token is missing, expired or unknown. Each hook request carries a fresh token in spotlight-callback-token.
    */
   401: unknown;
 };

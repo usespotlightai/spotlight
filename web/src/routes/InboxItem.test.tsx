@@ -509,7 +509,7 @@ describe('InboxItem', () => {
     expect(
       screen.queryByRole('textbox', { name: /Answer/ }),
     ).not.toBeInTheDocument();
-    expect(screen.getByText(/Moved on to Code Review/)).toBeInTheDocument();
+    expect(screen.getByText(/moved on to Code Review/)).toBeInTheDocument();
   });
 
   it('says only that it is settled where it was closed in place', () => {
@@ -524,8 +524,8 @@ describe('InboxItem', () => {
 
     renderItem();
 
-    expect(screen.getByText(/Settled/)).toBeInTheDocument();
-    expect(screen.queryByText(/Moved on/)).not.toBeInTheDocument();
+    expect(screen.getByText(/settled here/)).toBeInTheDocument();
+    expect(screen.queryByText(/moved on/)).not.toBeInTheDocument();
   });
 
   it('says when a reply was sent', () => {

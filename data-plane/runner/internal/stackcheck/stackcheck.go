@@ -242,23 +242,23 @@ func (o Options) step(
 	}
 
 	if output, err := o.git(ctx, tree, "", "reset", "--hard", "--quiet", BaseRef); err != nil {
-		return failed("Could not return the copy to where the run began: " + output), true
+		return failed("Git couldn't reset the copy to where the run began.\n\n" + output), true
 	}
 	if output, err := o.git(ctx, tree, "", "clean", "-fdq"); err != nil {
-		return failed("Could not return the copy to where the run began: " + output), true
+		return failed("Git couldn't reset the copy to where the run began.\n\n" + output), true
 	}
 
 	if strings.TrimSpace(step.Patch) != "" {
 		if output, err := o.git(ctx, tree, step.Patch, "apply", "--whitespace=nowarn", "-"); err != nil {
-			return failed("These changes do not apply on their own:\n" + output), true
+			return failed("These changes don't apply on their own.\n\n" + output), true
 		}
 	}
 
-	// After the patch, so what the step installs is what the step asks for.
+	// Run setup after the patch, so the step installs what it asks for.
 	if check.Setup != "" && step.RunsSetup {
 		if output, err := prepare.Setup(ctx, tree, check.Setup, o.RunAs, o.Setup); err != nil {
 			o.Log.Warn("could not make the checkout ready", "step", step.ID, "error", err)
-			return failed("The checkout could not be made ready to check:\n" + output), false
+			return failed("The setup command failed in this checkout.\n\n" + output), false
 		}
 	}
 
@@ -267,7 +267,7 @@ func (o Options) step(
 
 	output, err := o.run(running, tree, "", nil, sh, "-c", check.Command)
 	if running.Err() != nil {
-		return failed(output + fmt.Sprintf("\n\nThe check did not finish within %s.", o.or(o.Step, defaultStep))), true
+		return failed(output + fmt.Sprintf("\n\nThe check didn't finish in time. Time limit: %s", o.or(o.Step, defaultStep))), true
 	}
 
 	return protocol.CheckedStep{

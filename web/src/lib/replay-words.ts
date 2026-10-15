@@ -62,9 +62,9 @@ const STATES: Record<ReplayState, string> = {
 };
 
 const STATE_NOTES: Partial<Record<ReplayState, string>> = {
-  queued: 'Waiting for a runner',
-  stopped: 'Stopped by a person. No more runs start.',
-  'over-budget': 'Ceiling reached. No more runs start.',
+  queued: 'The replay waits for a runner.',
+  stopped: 'A person stopped the replay. No more runs start.',
+  'over-budget': 'The replay reached its ceiling. No more runs start.',
 };
 
 const RESULTS: Record<EntryResult, string> = {
@@ -140,7 +140,7 @@ const RUN_FAILURES: Record<RunFailure, string> = {
   exited: 'agent exited with an error',
   unprepared: 'workspace setup failed before the agent started (not scored)',
   refused:
-    'config not allowed: missing harness profile, or tools, MCP servers or secrets replays don’t get',
+    'config not allowed: it has no harness profile, or it uses tools, MCP servers or secrets that replays don’t get',
   unprovisioned: 'no runner available (not scored)',
   'hooks-unanswered': 'hooks didn’t respond (not scored)',
   'runner-lost': 'runner lost (not scored)',
@@ -218,14 +218,16 @@ export const unpricedRunsShown = (count: number): string =>
 export const unpricedCallsShown = (count: number): string =>
   counted(count, 'model call', 'model calls');
 
+export const STATION_GONE_FROM_LINE = 'The station is gone from its line.';
+
 export const RUNS_HELD_BY_SEARCH =
-  'A search of this set is running. Add or take out runs once it ends or is stopped.';
+  'A search of this set is running. Add or take out runs after the search ends or a person stops it.';
 
 const OVER_CEILING_NOTE =
-  'Runs underway at the ceiling still finish. A replay may end slightly over it.';
+  'Runs that are underway at the ceiling still finish. A replay can end slightly over its ceiling.';
 
 const ELSEWHERE_NOTE =
-  'Spent in another currency. Not counted against the ceiling.';
+  'These amounts are in another currency. They don’t count against the ceiling.';
 
 const detailShown = (reason: EntryReasonResponseDto): string | null => {
   const detail = reason.detail;
@@ -296,15 +298,15 @@ export const minGainShown = (minGain: number): string =>
 
 export const gainVerdictNote = (gain: GainReadingResponseDto): string => {
   const minimum = `Minimum real gain: ${minGainShown(gain.minGain)}`;
-  const over = `over ${counted(gain.tasks, 'task', 'tasks')} scored on both sides.`;
+  const over = `on ${counted(gain.tasks, 'task', 'tasks')} with a score on both sides`;
 
   switch (gain.verdict) {
     case 'better':
-      return `Real gain ${over} Likely range stays above zero and reaches the minimum. ${minimum}`;
+      return `The gain ${over} is real. The likely range stays above zero and reaches the minimum. ${minimum}`;
     case 'worse':
-      return `Real loss ${over} Likely range stays below zero and reaches the minimum. ${minimum}`;
+      return `The loss ${over} is real. The likely range stays below zero and reaches the minimum. ${minimum}`;
     default:
-      return `Could be chance ${over} Likely range crosses zero or falls short of the minimum. ${minimum}`;
+      return `The difference ${over} can be chance. The likely range crosses zero or falls short of the minimum. ${minimum}`;
   }
 };
 
@@ -322,7 +324,7 @@ export const repeatsShown = (repeats: number): string =>
   repeats === 1 ? 'Each run once' : `Each run ${repeats} times`;
 
 export const REPEATS_HINT =
-  'Times each run is replayed, 1 to 5. More copies measure noise and narrow the ranges. Runs and spend grow with them.';
+  'Spotlight replays each run this many times, from 1 to 5. More copies measure noise and narrow the ranges. They also add runs and spend.';
 
 const NOISE_UNMEASURED = 'Not measured';
 
@@ -356,8 +358,6 @@ export const SUCCEEDED = 'succeeded';
 
 export const THE_BASELINE = 'the baseline';
 
-export const BASELINE = 'baseline';
-
 export const VERSUS = 'vs';
 
 export const runsScoredShown = (scored: number): string =>
@@ -373,12 +373,13 @@ const PROBE_REPEATS = 3;
 
 const FEWEST_CHECKED_RUNS = 5;
 
-const TWICE_CEILING = 'Most both may spend: twice this ceiling';
+const TWICE_CEILING =
+  'Together, both replays can spend up to twice this ceiling.';
 
 const timesShown = (repeats: number): string =>
   repeats === 1 ? 'once' : `${repeats} times`;
 
-const CHECKS_SET = `First baseline checks the set: each run ${PROBE_REPEATS} times, ceiling ×${PROBE_REPEATS}. Each change judged and checked twice.`;
+const CHECKS_SET = `The first baseline checks the set. It replays each run ${PROBE_REPEATS} times with ${PROBE_REPEATS} times the ceiling. It judges and checks each change twice.`;
 
 export const checksSetOf = (set: {
   readonly entries: readonly unknown[];
@@ -395,20 +396,20 @@ export const baselineNoteShown = (
 
   if (baselineRepeats === null) {
     return proposed
-      ? `Set has no baseline yet. A baseline of the live config also starts, with its own equal ceiling. ${TWICE_CEILING}${checking}`
-      : `Set has no baseline yet. This replay of the live config becomes it.${checking}`;
+      ? `The set has no baseline yet. A baseline of the live config also starts, with its own ceiling of the same size. ${TWICE_CEILING}${checking}`
+      : `The set has no baseline yet. This replay of the live config becomes the baseline.${checking}`;
   }
   if (repeats !== null && repeats > baselineRepeats) {
-    const fewer = `Set’s baseline replays each run ${timesShown(baselineRepeats)}, fewer than this replay.`;
+    const fewer = `The set’s baseline replays each run ${timesShown(baselineRepeats)}. This replay repeats each run more often.`;
 
     return proposed
-      ? `${fewer} A new baseline replaying each run ${timesShown(repeats)} also starts, with its own equal ceiling. ${TWICE_CEILING}${checking}`
+      ? `${fewer} A new baseline that replays each run ${timesShown(repeats)} also starts, with its own ceiling of the same size. ${TWICE_CEILING}${checking}`
       : `${fewer} This replay of the live config becomes the new baseline.${checking}`;
   }
 
   return proposed
-    ? 'If the set’s runs changed since its baseline, a new baseline also starts. It gets its own equal ceiling.'
-    : 'If the set’s runs changed since its baseline, this replay becomes the new baseline. Otherwise it replays beside it.';
+    ? 'If the set’s runs changed since its baseline, a new baseline also starts. It gets its own ceiling of the same size.'
+    : 'If the set’s runs changed since its baseline, this replay becomes the new baseline. Otherwise, Spotlight compares it with the current baseline.';
 };
 
 export type SetHealth = SetHealthResponseDto;
@@ -434,7 +435,7 @@ const UNREAD_HEALTH: SetHealth = {
 export const HEALTH_LABEL = 'Health';
 
 export const HEALTH_NOTE =
-  'Whether this set can tell a better config from a worse one. Measured by Spotlight: the first baseline of the live config replays each run 3 times, then the live config is replayed handed each run’s answer. Sets of fewer than 5 runs are not checked.';
+  'Shows whether this set can tell a better config from a worse one. The first baseline of the live config replays each run 3 times. Then Spotlight replays the live config with each run’s answer. Spotlight doesn’t check sets of fewer than 5 runs.';
 
 const changesShown = (count: number): string =>
   counted(count, 'change', 'changes');
@@ -442,7 +443,7 @@ const changesShown = (count: number): string =>
 const NOT_CHECKED = 'Not checked';
 
 const stillToCome = (count: number, what: string): string =>
-  count === 0 ? '' : ` ${count.toLocaleString()} ${what} still to come.`;
+  count === 0 ? '' : ` ${count.toLocaleString()} ${what} are still to come.`;
 
 const noiseReading = (
   noise: SetHealth['noise'],
@@ -456,7 +457,7 @@ const noiseReading = (
       said: NOISE_UNMEASURED,
       tone: 'unknown',
       advice:
-        'Measured by the first baseline of the live config: it replays each run 3 times. Shows how much success moves by chance.',
+        'The first baseline of the live config replays each run 3 times to measure noise. Noise shows how much success moves by chance.',
     };
   }
 
@@ -468,12 +469,12 @@ const noiseReading = (
     tone: noise.noisyInOneCopy ? 'bad' : 'good',
     advice: noise.noisyInOneCopy
       ? `One copy can’t tell a real gain from chance. Search with more repeats per run, or raise the line’s min_gain. ${minimum}`
-      : `Noise is within the line’s minimum real gain. A gain that size is unlikely to be chance. ${minimum}`,
+      : `Noise is within the line’s minimum real gain. A gain of that size is unlikely to be chance. ${minimum}`,
   };
 };
 
 const MEASURED_WITH_ANSWER =
-  'Measured with the answer after a replay of the whole set, when its runs were accepted or sent back.';
+  'If the set’s runs were accepted or sent back, Spotlight measures this with the answer after a replay of the whole set.';
 
 const ANSWER_GIVEN =
   'Answer: the change people accepted, or what they said when they sent the run back.';
@@ -505,12 +506,12 @@ const liveRoomReading = (
     ? {
         said: `Almost none: ${succeeds}`,
         tone: 'bad',
-        advice: `No room for more success. Search for the same success at less cost, or add tasks the live config fails. ${MEASURED_WITH_ANSWER}`,
+        advice: `The set has no room for more success. Search for the same success at less cost, or add tasks that the live config fails. ${MEASURED_WITH_ANSWER}`,
       }
     : {
         said: sentence(succeeds),
         tone: 'good',
-        advice: `Room left for a search to find more success. ${MEASURED_WITH_ANSWER}`,
+        advice: `The set has room for a search to find more success. ${MEASURED_WITH_ANSWER}`,
       };
 };
 
@@ -528,7 +529,7 @@ const roomReading = (
       ...base,
       said: 'Measuring with the answer',
       tone: 'pending',
-      advice: `Live config is replayed handed each run’s answer. ${ANSWER_GIVEN}`,
+      advice: `Spotlight replays the live config with each run’s answer. ${ANSWER_GIVEN}`,
     };
   }
   if (oracleLost(oracle)) {
@@ -536,7 +537,7 @@ const roomReading = (
       ...base,
       said: 'Couldn’t measure with the answer',
       tone: 'unknown',
-      advice: `Replay with the answer didn’t finish beside its live replay. ${MEASURED_WITH_ANSWER}`,
+      advice: `The replay with the answer or its live replay didn’t finish. ${MEASURED_WITH_ANSWER}`,
     };
   }
   if (!oracle.gain || oracle.live === null || oracle.withAnswer === null) {
@@ -548,7 +549,7 @@ const roomReading = (
       ...base,
       said: `Too few runs to tell: ${counted(oracle.answered, 'run', 'runs')} with an answer`,
       tone: 'unknown',
-      advice: `Measuring room takes 5 runs that were accepted or sent back. Add some to the set. ${ANSWER_GIVEN}`,
+      advice: `Spotlight needs 5 runs that were accepted or sent back to measure room. Please add some to the set. ${ANSWER_GIVEN}`,
     };
   }
 
@@ -565,7 +566,7 @@ const roomReading = (
         ...base,
         said: `Little: ${gainShown(oracle.gain)} with the answer`,
         tone: 'bad',
-        advice: `${rates} Even the answer barely helps. Add tasks the live config fails, or search for the same success at less cost. ${ANSWER_GIVEN}`,
+        advice: `${rates} Even the answer barely helps. Add tasks that the live config fails, or search for the same success at less cost. ${ANSWER_GIVEN}`,
       };
 };
 
@@ -586,7 +587,7 @@ const judgeReading = (judge: SetHealth['judge']): HealthReading => {
       said: NOT_CHECKED,
       tone: 'unknown',
       advice:
-        'Measured by the first baseline of the live config: it judges each change twice. Shows whether verdicts match.',
+        'The first baseline of the live config judges each change twice to measure this. It shows whether the verdicts match.',
     };
   }
 
@@ -597,7 +598,7 @@ const judgeReading = (judge: SetHealth['judge']): HealthReading => {
       ...base,
       said: 'Judging again',
       tone: 'pending',
-      advice: `Each change is being judged a second time.${pending}`,
+      advice: `The judge is judging each change a second time.${pending}`,
     };
   }
 
@@ -608,13 +609,13 @@ const judgeReading = (judge: SetHealth['judge']): HealthReading => {
         ...base,
         said,
         tone: 'bad',
-        advice: `Verdicts are partly chance. Make the rubric more specific before you search.${pending}`,
+        advice: `The verdicts are partly chance. Please make the rubric more specific before you search.${pending}`,
       }
     : {
         ...base,
         said,
         tone: 'good',
-        advice: `Verdicts hold when judged again.${pending}`,
+        advice: `The verdicts stay the same when the judge judges again.${pending}`,
       };
 };
 
@@ -627,7 +628,7 @@ const checksReading = (checks: SetHealth['checks']): HealthReading => {
       said: NOT_CHECKED,
       tone: 'unknown',
       advice:
-        'Measured by the first baseline of the live config: it runs the station’s check twice on each change. Shows whether it gives the same answer.',
+        'The first baseline of the live config runs the station’s check twice on each change to measure this. It shows whether the check gives the same answer.',
     };
   }
 
@@ -638,7 +639,7 @@ const checksReading = (checks: SetHealth['checks']): HealthReading => {
       ...base,
       said: 'Checking again',
       tone: 'pending',
-      advice: `Each change is being checked a second time.${pending}`,
+      advice: `Spotlight is checking each change a second time.${pending}`,
     };
   }
 
@@ -647,13 +648,13 @@ const checksReading = (checks: SetHealth['checks']): HealthReading => {
         ...base,
         said: `${checks.flaky.length} of ${changesShown(checks.rechecked)} flipped`,
         tone: 'bad',
-        advice: `Check passed once and failed once on these. Fix the flaky tests, or take these tasks out of the set.${pending}`,
+        advice: `The check passed once and failed once on these changes. Please fix the flaky tests, or take these tasks out of the set.${pending}`,
       }
     : {
         ...base,
         said: `None of ${changesShown(checks.rechecked)} flipped`,
         tone: 'good',
-        advice: `Check gave the same answer both times.${pending}`,
+        advice: `The check gave the same answer both times.${pending}`,
       };
 };
 
@@ -698,6 +699,14 @@ export const THE_SEARCH_START = 'the search’s starting config';
 
 export const AN_EARLIER_BASELINE = 'an earlier baseline';
 
+export const BASELINE_LABEL = 'Baseline';
+
+export const LIVE_CONFIG_LABEL = 'Live config';
+
+export const SEARCH_START_LABEL = 'Search’s starting config';
+
+export const EARLIER_BASELINE_LABEL = 'Earlier baseline';
+
 export const pairTallyShown = (tally: PairTally): string =>
   [
     counted(tally.wins, 'win', 'wins'),
@@ -706,13 +715,16 @@ export const pairTallyShown = (tally: PairTally): string =>
   ].join(', ');
 
 export const pairTallyNote = (against: string): string =>
-  `A blind judge compares each task’s change with ${against}’s. Win: this one is closer to the accepted change. Loss: ${against}’s is closer. Tie: neither. Success rate is unaffected.`;
+  `A blind judge compares each task’s change with ${against}’s change. It counts a win if this change is closer to the accepted change, and a loss if ${against}’s is closer. Otherwise, it counts a tie. Wins and losses don’t change the success rate.`;
 
 export const pairsJudged = (tally: PairTally | null): tally is PairTally =>
   tally !== null && tally.wins + tally.losses + tally.ties > 0;
 
 export const capitalised = (words: string): string =>
   `${words.charAt(0).toUpperCase()}${words.slice(1)}`;
+
+export const lowered = (words: string): string =>
+  `${words.charAt(0).toLowerCase()}${words.slice(1)}`;
 
 export const pairShown = (
   pair: PairOutcome | null,
@@ -737,7 +749,7 @@ export const OTHER_RUN = 'The other run';
 export const READINGS_LABEL = 'Both readings';
 
 export const PAIR_ASKED =
-  'Not judged side by side yet. Happens once the replay finishes.';
+  'The judge hasn’t compared the changes side by side yet. It compares them when the replay finishes.';
 
 export const PAIRING_SPEND_LABEL = 'Side by side';
 
@@ -753,12 +765,12 @@ const UNPAIRED: Record<Unpaired, string> = {
   ungrounded: 'judge cited nothing either change did',
   errored: 'judging failed',
   interrupted: 'judging was interrupted',
-  'other-rubric': 'counterpart was judged by another judge version',
+  'other-rubric': 'another judge version judged the counterpart',
   budget: 'no room left under the ceiling',
 };
 
 export const READINGS_DISAGREED =
-  'Judge picked a different change depending on which it saw first. Counts as a tie.';
+  'The judge picked a different change depending on which change it saw first. This counts as a tie.';
 
 export const unpairedShown = (why: Unpaired | null): string =>
   `Not judged side by side: ${why ? UNPAIRED[why] : 'nothing to compare it with'}.`;
@@ -834,13 +846,13 @@ export const endedSpanShown = (
 export const SUGGESTIONS_LABEL = 'Suggested to even the mix';
 
 export const SUGGESTIONS_NOTE =
-  'Recent runs with outcomes the set has few of. Nothing is added until you add it.';
+  'Recent runs with outcomes that the set has few of. These runs join the set only when you add them.';
 
 export const REGRESSED_NOTE = (against: string): string =>
   `Regressed: fewer copies succeeded than in ${against}, or the judge scored it lower.`;
 
 export const BASELINE_NOTE =
-  'Set’s baseline: the live config. Every other replay of the set is compared against it.';
+  'The set’s baseline replays the live config. Most replays are compared with it. A search’s replays are compared with its starting config, and a replay with the answer with the live replay that started it.';
 
 export const successDetailShown = (
   totals: { readonly scored: number; readonly unscored: number },
@@ -900,5 +912,5 @@ export const spendNoteShown = (parts: SpendParts): string =>
 
 export const tasksNoteShown = (counterpart: string | null): string =>
   counterpart
-    ? `Each task replayed against ${counterpart}, regressions first. Pick a task for its runs and judging.`
-    : 'Each task of the set, replayed. Pick a task for its runs and judging.';
+    ? `Each task of the set, replayed and compared with ${counterpart}. Regressions come first. Pick a task to see its runs and judging.`
+    : 'Each task of the set, replayed. Pick a task to see its runs and judging.';

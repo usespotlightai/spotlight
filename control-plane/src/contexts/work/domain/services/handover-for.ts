@@ -16,11 +16,11 @@ const ownWords = (declaration: Declaration): TaskNoteBody | null =>
 
 const REFUSED: Record<PassRefusal, (key: string) => string> = {
   'standing-there': (key) =>
-    `The run asked for "${key}", where the task already stands.`,
+    `The run asked for station "${key}". The task already stands there.`,
   'nothing-runs': (key) =>
-    `The run asked for "${key}", where nothing runs to take the task up.`,
+    `The run asked for station "${key}". Nothing runs there to take up the task.`,
   'no-way': (key) =>
-    `The run asked for "${key}", which work does not pass to from where the task stands.`,
+    `The run asked for station "${key}". Work does not pass there from the task’s station.`,
 };
 
 export const HandoverFor = {
@@ -72,7 +72,7 @@ export const HandoverFor = {
     if (!line || !named) {
       return Handover.review(
         TaskNoteBody.of(
-          `The run asked for "${declaration.next}", which is not a station on this line.`,
+          `The run asked for station "${declaration.next}". This line has no such station.`,
         ),
         ownWords(declaration),
       );
@@ -105,7 +105,9 @@ export const HandoverFor = {
     if (outcome.failure) {
       return Handover.failed(
         TaskNoteBody.of(
-          `The run failed: ${outcome.message ?? `exit ${outcome.exitCode}`}`,
+          outcome.message
+            ? `The run failed: ${outcome.message}`
+            : `The run failed. Exit code: ${outcome.exitCode}`,
         ),
         TaskFailure.fromRun(outcome.failure.code),
       );
@@ -121,7 +123,7 @@ export const HandoverFor = {
   exhausted(attempts: number, failure: RunFailureCode): Handover {
     return Handover.failed(
       TaskNoteBody.of(
-        `The run was given up on after ${attempts} attempts without finishing.`,
+        `Spotlight gave up on the run after ${attempts} attempts. The run did not finish.`,
       ),
       TaskFailure.fromRun(failure),
     );
@@ -129,8 +131,8 @@ export const HandoverFor = {
 
   stopped(): Handover {
     return Handover.review(
-      TaskNoteBody.of('Stopped from the console. It is back with you.'),
-      TaskNoteBody.of('The run was stopped from the console.'),
+      TaskNoteBody.of('A person stopped the run. The task is back with you.'),
+      TaskNoteBody.of('A person stopped the run.'),
     );
   },
 };

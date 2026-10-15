@@ -222,7 +222,8 @@ describe('DispatchSearch', () => {
     ).toBeNull();
     expect(dispatch.refusalOf({ ...ORDER.agent, harness: 'emacs' })).toEqual({
       field: 'harness',
-      reason: 'names a harness a runner can start: claude-code',
+      reason:
+        'Harness emacs is not one that a runner can start. Harnesses: claude-code',
     });
     expect(
       dispatch.refusalOf({ ...ORDER.agent, model: 'm'.repeat(61) })?.field,
