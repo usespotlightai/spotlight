@@ -9,7 +9,7 @@ ENV CGO_ENABLED=0
 ARG SPOTLIGHT_VERSION=dev
 RUN go build -ldflags "-X main.version=${SPOTLIGHT_VERSION}" -o /out/spotlight ./cmd/spotlight
 
-# Not Alpine: cursor-agent ships only a glibc binary.
+# Do not use Alpine. The cursor-agent package has only a glibc binary.
 FROM debian:bookworm-slim AS runner
 ARG CLAUDE_CODE_VERSION=latest
 ARG CLAUDE_AGENT_ACP_VERSION=latest

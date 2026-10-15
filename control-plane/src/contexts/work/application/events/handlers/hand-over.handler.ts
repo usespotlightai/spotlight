@@ -74,7 +74,7 @@ export class HandOver implements RunOutcomes {
     );
   }
 
-  // Called directly, not dispatched: the run-event dispatcher is already running this handler.
+  // This is called directly, not dispatched, because the run-event dispatcher already runs this handler.
   private async saved(task: Task): Promise<void> {
     await this.tasks.save(task);
   }

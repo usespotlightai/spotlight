@@ -2,16 +2,16 @@ import type { SkipCode } from '@change-review/domain/value-objects/stack-check.v
 
 const SAID: Readonly<Record<SkipCode, string>> = {
   'no-base':
-    'Spotlight does not know where the run began, so nothing could be checked against it.',
+    'Spotlight doesn’t know the commit where the run began. The layers can’t be checked without it.',
   'no-checkout': 'Spotlight does not know which checkout the changes are from.',
   'checkout-failed':
     'Spotlight could not lay out a copy of the checkout to check.',
-  'setup-failed': 'The checkout could not be made ready before the check ran.',
+  'setup-failed': 'The setup of the checkout failed before the check ran.',
   'no-room': 'The runner had no room to check the layers.',
   'out-of-time': 'There was no time left to check the layers.',
-  'no-image': 'The runner image the line names could not be pulled.',
+  'no-image': 'The host couldn’t pull the runner image that the line names.',
   'nobody-checked': 'No runner checked the layers in time.',
-  unprovisioned: 'No runner could be provisioned to check the layers.',
+  unprovisioned: 'Spotlight couldn’t provision a runner to check the layers.',
 };
 
 export interface UncheckedFor {
@@ -27,6 +27,6 @@ export const checkReasonOf = (found: UncheckedFor): string | null => {
   }
 
   return found.wholeFailed
-    ? 'The finished change does not pass the check, so its layers were not checked on their own.'
+    ? 'The finished change fails the check. Spotlight didn’t check its layers one by one.'
     : null;
 };

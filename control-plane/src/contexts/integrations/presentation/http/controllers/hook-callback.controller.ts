@@ -31,7 +31,7 @@ import { AllowAnonymous } from '@platform/http/decorators/allow-anonymous.decora
 import { HOOK_CALLBACKS } from '@platform/http/routes';
 
 const REFUSED =
-  'Missing, expired or unknown callback token; each hook request carries a fresh one in spotlight-callback-token';
+  'The callback token is missing, expired or unknown. Each hook request carries a fresh token in spotlight-callback-token.';
 
 @ApiTags('hooks')
 @ApiBearerAuth()

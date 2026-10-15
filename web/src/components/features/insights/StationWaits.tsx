@@ -72,7 +72,7 @@ export function StationWaits({
   return (
     <InsightsCard
       title="Where tasks wait"
-      description="Median time per station: queued, running, in the inbox. Stations in the order they first ran."
+      description="Median time that tasks spend queued, running and in the inbox at each station. Stations show in the order they first ran."
       table={
         <StationWaitsTable
           slug={slug}

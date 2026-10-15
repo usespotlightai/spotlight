@@ -1,104 +1,106 @@
+import type {
+  InsightsReaderPort,
+  PullRequestPage,
+  PullRequestsAsked,
+  TeamInPeriod,
+} from '@outcomes/application/ports/insights-reader.port';
 import type { WorkPort } from '@outcomes/application/ports/work.port';
 import type {
-  TeamHistories,
   TeamScope,
-} from '@outcomes/application/services/team-histories.service';
-import type { PullRequestRecordRepository } from '@outcomes/domain/repositories/pull-request-record.repository';
-import type { RunRecordRepository } from '@outcomes/domain/repositories/run-record.repository';
-import type { TaskChangeShapeRepository } from '@outcomes/domain/repositories/task-change-shape.repository';
-import {
-  type TeamPullRequest,
-  teamPullRequestOf,
-} from '@outcomes/domain/services/team-pull-requests';
-import type { Spend } from '@outcomes/domain/value-objects/run-cost.vo';
+  TeamScopes,
+} from '@outcomes/application/services/team-scopes.service';
+import type { PullRequestCounts } from '@outcomes/domain/services/pull-request-insights';
+import type { ShippingCounts } from '@outcomes/domain/services/shipping';
 import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo';
 
-const MOST_PULL_REQUESTS = 20_000;
-
-export interface TeamPullRequestsHeld {
-  readonly records: PullRequestRecordRepository;
-  readonly runs: RunRecordRepository;
-  readonly shapes: TaskChangeShapeRepository;
-}
-
-export interface TeamPullRequestsInPeriod extends TeamScope {
+interface TeamRepositories extends TeamScope {
   readonly repositories: readonly string[];
-  readonly pullRequests: readonly TeamPullRequest[];
-  readonly truncated: boolean;
 }
+
+export interface TeamPullRequestCounts extends TeamRepositories {
+  readonly counts: PullRequestCounts;
+}
+
+export type TeamPullRequestPage = TeamScope & PullRequestPage;
+
+export interface TeamShippingCounts extends TeamScope {
+  readonly counts: ShippingCounts;
+}
+
+const teamOf = (scope: TeamScope): TeamInPeriod => ({
+  workspaceId: scope.clearance.workspaceId,
+  teamId: scope.clearance.teamId,
+  period: scope.period,
+});
 
 export class TeamPullRequests {
   constructor(
-    private readonly histories: TeamHistories,
+    private readonly scopes: TeamScopes,
     private readonly work: WorkPort,
-    private readonly held: TeamPullRequestsHeld,
+    private readonly reader: InsightsReaderPort,
   ) {}
 
-  async of(
+  async counts(
     teamId: string,
     principal: Principal,
     period: string,
-    reach: 'current' | 'previous' = 'current',
-  ): Promise<TeamPullRequestsInPeriod> {
-    const scope = await this.histories.scope(teamId, principal, period);
-    const repositories = await this.work.teamRepositories(
-      scope.clearance.teamId.value,
-    );
-    const found = await this.held.records.seenForTeamBetween(
-      {
-        workspaceId: scope.clearance.workspaceId,
-        teamId: scope.clearance.teamId,
-        repositories,
-        from:
-          reach === 'previous'
-            ? scope.period.previous.from
-            : scope.period.current.from,
-        to: scope.period.current.to,
-      },
-      MOST_PULL_REQUESTS + 1,
-    );
-    const truncated = found.length > MOST_PULL_REQUESTS;
-    const records = truncated ? found.slice(0, MOST_PULL_REQUESTS) : found;
-    const owners = [
-      ...new Map(
-        records.flatMap((each) =>
-          each.owner
-            ? [[each.owner.taskId.value, each.owner.taskId] as const]
-            : [],
-        ),
-      ).values(),
-    ];
-    const spends = new Map<string, (Spend | null)[]>();
-
-    for (const run of await this.held.runs.ofTasks(owners)) {
-      if (run.taskId && run.hasEnded) {
-        spends.set(run.taskId.value, [
-          ...(spends.get(run.taskId.value) ?? []),
-          run.cost?.spend ?? null,
-        ]);
-      }
-    }
-
-    const shapes = new Map(
-      (await this.held.shapes.forTasks(owners)).map((each) => [
-        each.taskId.value,
-        each,
-      ]),
-    );
+  ): Promise<TeamPullRequestCounts> {
+    const scope = await this.scoped(teamId, principal, period);
 
     return {
       ...scope,
-      repositories,
-      truncated,
-      pullRequests: records.flatMap((record) => {
-        const owner = record.owner?.taskId.value;
-        const view = teamPullRequestOf(
-          record,
-          (owner && shapes.get(owner)) || null,
-          (owner && spends.get(owner)) || [],
-        );
-        return view ? [view] : [];
-      }),
+      counts: await this.reader.pullRequestCounts(
+        teamOf(scope),
+        scope.repositories,
+      ),
+    };
+  }
+
+  async page(
+    teamId: string,
+    principal: Principal,
+    period: string,
+    asked: PullRequestsAsked,
+  ): Promise<TeamPullRequestPage> {
+    const scope = await this.scoped(teamId, principal, period);
+
+    return {
+      ...scope,
+      ...(await this.reader.pullRequestPage(teamOf(scope), {
+        repositories: scope.repositories,
+        ...asked,
+      })),
+    };
+  }
+
+  async shipping(
+    teamId: string,
+    principal: Principal,
+    period: string,
+  ): Promise<TeamShippingCounts> {
+    const scope = await this.scoped(teamId, principal, period);
+
+    return {
+      ...scope,
+      counts: await this.reader.shippingCounts(
+        teamOf(scope),
+        scope.repositories,
+      ),
+    };
+  }
+
+  private async scoped(
+    teamId: string,
+    principal: Principal,
+    period: string,
+  ): Promise<TeamRepositories> {
+    const scope = await this.scopes.scope(teamId, principal, period);
+
+    return {
+      ...scope,
+      repositories: await this.work.teamRepositories(
+        scope.clearance.teamId.value,
+      ),
     };
   }
 }

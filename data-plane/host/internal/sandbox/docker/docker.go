@@ -252,7 +252,7 @@ func (e *Engine) lay(ctx context.Context, id string, files []sandbox.File) error
 	return nil
 }
 
-// Extracted beside its own directory, so the image's existing parents keep their modes.
+// layOne extracts the archive in the parent of the file's directory, so the existing parent directories in the image keep their modes.
 func (e *Engine) layOne(ctx context.Context, id string, file sandbox.File) error {
 	name := path.Clean("/" + file.Path)
 	dir := path.Dir(name)

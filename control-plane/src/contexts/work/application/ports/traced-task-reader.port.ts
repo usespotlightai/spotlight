@@ -8,7 +8,7 @@ export interface TracedTask {
   readonly teamId: string;
 }
 
-// Not viewer-scoped: the chat checks each task is of its own team.
+// Not viewer-scoped. The chat checks that each task is part of its own team.
 export interface TracedTaskReaderPort {
   of(taskIds: readonly TaskId[]): Promise<TracedTask[]>;
 }

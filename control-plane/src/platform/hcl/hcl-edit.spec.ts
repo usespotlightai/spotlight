@@ -471,7 +471,7 @@ describe('editedHclBlock', () => {
     ).toEqual({
       code: 'computed-attribute',
       message:
-        '`effort` is computed in Terraform (`var.effort`); change it by hand',
+        'Terraform computes `effort` from `var.effort`. Please change it by hand.',
       attribute: 'effort',
       expression: 'var.effort',
       wanted: 'max',
@@ -538,7 +538,7 @@ describe('editedHclBlock', () => {
     ).toMatchObject({
       code: 'block-not-found',
       message:
-        'Found no station block keyed "ship" (3 station blocks in the resource keyed "delivery", 0 keyed "ship")',
+        'The resource has no station block with key "ship". Found: 3 station blocks in the resource with key "delivery", 0 with key "ship"',
     });
 
     const twice = LINES.replace(

@@ -476,7 +476,7 @@ func (h *Host) sandbox(ctx context.Context, image string, handed protocol.Handed
 	defer way.close()
 	if err != nil {
 		log.Warn("gave up the work: its way out did not start", "error", err)
-		h.giveUp(ctx, handed, worker, fmt.Sprintf("The sandbox's egress did not start: %v", err), log)
+		h.giveUp(ctx, handed, worker, fmt.Sprintf("The sandbox's egress didn't start. Error: %v", err), log)
 		return
 	}
 
@@ -607,11 +607,11 @@ func (h *Host) readied(
 	reason := ""
 	switch {
 	case err != nil:
-		reason = fmt.Sprintf("Runner image %s can't be pulled: %v", image, err)
+		reason = fmt.Sprintf("Runner image %s can't be pulled. Error: %v", image, err)
 	case ready.refused != "":
 		reason = fmt.Sprintf("Runner image %s is refused. %s", image, ready.refused)
 	case handed.Work.Run != nil && handed.Work.Run.Harness != "" && !ready.holds(handed.Work.Run.Harness):
-		reason = fmt.Sprintf("Runner image %s no longer holds the %s harness", ready.digest, handed.Work.Run.Harness)
+		reason = fmt.Sprintf("Runner image %s no longer holds the %s harness.", ready.digest, handed.Work.Run.Harness)
 	}
 
 	if ok && (ready.id != before.id || ready.refused != before.refused) {
@@ -687,7 +687,7 @@ func renewal(work protocol.Claimed, worker Worker) func(context.Context) (bool, 
 	switch {
 	case work.Run != nil:
 		return func(ctx context.Context) (bool, error) {
-			// A run asked to stop still starts: only its runner can say it stopped.
+			// A run with a request to stop still starts. Only its runner can say that it stopped.
 			_, err := worker.RenewLease(ctx, work.Run.ID)
 			return false, err
 		}

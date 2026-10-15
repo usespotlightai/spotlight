@@ -1,7 +1,9 @@
 import type { TeamInPeriod } from '@outcomes/application/ports/insights-reader.port';
-import type { GroupCounts } from '@outcomes/domain/services/change-verdict';
+import {
+  type GroupCounts,
+  NO_GROUP,
+} from '@outcomes/domain/services/change-verdict';
 import type { MemoryCounts } from '@outcomes/domain/services/memory-comparison';
-import { NO_RUNS } from '@outcomes/domain/services/run-tally';
 import type { MemoryWay } from '@outcomes/domain/value-objects/run-memories.vo';
 import {
   counted,
@@ -27,11 +29,6 @@ interface UseRow extends Record<string, unknown> {
   readonly memories_briefed: number;
   readonly memories_recalled: number;
 }
-
-const NO_GROUP: GroupCounts = {
-  tally: NO_RUNS,
-  settled: { acted: 0, finished: 0, finishedTasks: 0, digested: 0 },
-};
 
 const endedInWindow = (team: TeamInPeriod): SQL => {
   const { current } = team.period;

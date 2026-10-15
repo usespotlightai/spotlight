@@ -66,6 +66,7 @@ const grading = async (
   const evidence = {
     holds: async () => true,
     of: async () => null,
+    judgesOnTeam: async () => new Map(),
     judgeAt: async () => station,
   };
   const reports = new StationJudgeReports(

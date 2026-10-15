@@ -201,7 +201,7 @@ describe('StationSearches', () => {
     expect(screen.getByText('$4.50 / $20.00')).toBeInTheDocument();
     expect(screen.getByText('tests-first')).toBeInTheDocument();
     expect(screen.getByText('80%')).toHaveAccessibleDescription(
-      /^Scored on searched tasks\./,
+      /^This score is from the searched tasks\./,
     );
     const start = screen.getByRole('button', { name: 'Start a search' });
     expect(start).toBeDisabled();

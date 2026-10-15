@@ -20,7 +20,7 @@ export class ConfigPullRequestReasonResponseDto {
 
   @ApiProperty({
     example:
-      '`prompt` is computed in Terraform (`local.build_prompt`); change it by hand',
+      'Terraform computes `prompt` from `local.build_prompt`. Please change it by hand.',
   })
   readonly message: string;
 

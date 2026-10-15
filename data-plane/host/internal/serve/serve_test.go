@@ -1190,7 +1190,7 @@ func TestServesTheImagesLinesNameThatItsAllowListAdmits(t *testing.T) {
 	}
 	eventually(t, "the refusal reported", func() bool {
 		each, ok := pool.reported("ghcr.io/someone-else/runner:main")
-		return ok && strings.Contains(each.Refused, "does not admit")
+		return ok && strings.Contains(each.Refused, "doesn't admit")
 	})
 }
 
@@ -1491,7 +1491,7 @@ func TestGivesUpTheRunWhenItsEgressIsNeverReady(t *testing.T) {
 	pool.work <- handed("runner_1")
 	eventually(t, "the run given up", func() bool {
 		done, ok := pool.worker.completion("run-runner_1")
-		return ok && done.Failed && done.Unprepared && strings.Contains(done.Message, "egress did not start")
+		return ok && done.Failed && done.Unprepared && strings.Contains(done.Message, "egress didn't start")
 	})
 
 	if got := len(engine.workSandboxes()); got != 0 {
@@ -1739,7 +1739,7 @@ func TestAnswersACallWhoseEgressWillNotStart(t *testing.T) {
 	eventually(t, "the call answered", func() bool { _, ok := pool.answered("call_1"); return ok })
 
 	answer, _ := pool.answered("call_1")
-	if answer.Status != 0 || answer.Error != "the host's egress did not start: the egress image will not run" {
+	if answer.Status != 0 || answer.Error != "The host's egress didn't start. Error: the egress image will not run" {
 		t.Errorf("answered %+v", answer)
 	}
 }
@@ -1755,7 +1755,7 @@ func TestAnswersACallWhoseEgressNeverAnswers(t *testing.T) {
 	eventually(t, "the call answered", func() bool { _, ok := pool.answered("call_1"); return ok })
 
 	answer, _ := pool.answered("call_1")
-	if answer.Status != 0 || answer.Error != "the host's egress did not answer within 150ms" {
+	if answer.Status != 0 || answer.Error != "The host's egress didn't answer in time. Time limit: 150ms" {
 		t.Errorf("answered %+v", answer)
 	}
 	id, _, _ := engine.egressFor("call_1")

@@ -109,7 +109,6 @@ export interface PipelineFlowDto {
 
 export interface InsightsShippingDto {
   readonly period: PeriodDto;
-  readonly truncated: boolean;
   readonly toMerge: ByAuthorDto;
   readonly toMergeChanges: ByAuthorChangesDto;
   readonly mergeDays: readonly MergeDayDto[];
@@ -167,7 +166,7 @@ const flowStageDtoOf = (stage: FlowStage): FlowStageDto => ({
 
 export const shippingDtoOf = (
   shipping: Shipping,
-): Omit<InsightsShippingDto, 'period' | 'truncated'> => ({
+): Omit<InsightsShippingDto, 'period'> => ({
   toMerge: byAuthorDtoOf(shipping.toMerge),
   toMergeChanges: shipping.toMergeChanges,
   mergeDays: shipping.mergeDays.map((each) => ({

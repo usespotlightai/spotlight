@@ -186,6 +186,7 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
       {
         holds: async () => true,
         of: async () => null,
+        judgesOnTeam: async () => new Map(),
         judgeAt: async () => ({
           teamId: 'team_1',
           lineId: 'line_1',

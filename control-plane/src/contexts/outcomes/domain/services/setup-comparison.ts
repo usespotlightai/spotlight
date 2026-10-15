@@ -1,13 +1,16 @@
 import type { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
-import type { Score } from '@outcomes/domain/aggregates/score.aggregate';
 import type { TaskDelivery } from '@outcomes/domain/aggregates/task-delivery.aggregate';
 import {
   type GroupCounts,
   groupCountsOf,
 } from '@outcomes/domain/services/change-verdict';
 import {
+  type JudgedRun,
   type JudgeShare,
-  shareOf,
+  judgedByRun,
+  judgeShareFrom,
+  type RubricShares,
+  rubricsOf,
 } from '@outcomes/domain/services/judge-shares';
 import { byText, rateOf } from '@outcomes/domain/services/measures';
 import { paretoFrontier } from '@outcomes/domain/services/pareto';
@@ -81,18 +84,6 @@ const setupOf = (record: RunRecord): Setup | null => {
     : null;
 };
 
-export interface JudgedRun {
-  readonly runId: string;
-  readonly rubricVersion: string;
-  readonly share: number;
-}
-
-export interface RubricShares {
-  readonly rubricVersion: string;
-  readonly sum: number;
-  readonly judged: number;
-}
-
 export interface SetupCounts extends Setup {
   readonly counts: GroupCounts;
   readonly answered: number;
@@ -127,69 +118,13 @@ export const setupRunsWithin = (
       (size === null || sizeOf(each) === size),
   );
 
-export const judgedRunsOf = (
-  scores: readonly Score[],
-  stationId: string,
-): readonly JudgedRun[] =>
-  scores.flatMap((each) =>
-    each.fromJudge &&
-    each.rubricVersion !== null &&
-    each.place.stationId === stationId
-      ? [
-          {
-            runId: each.runId.value,
-            rubricVersion: each.rubricVersion,
-            share: shareOf(each.scale, each.value),
-          },
-        ]
-      : [],
-  );
-
-const rubricsOf = (
-  records: readonly RunRecord[],
-  judged: ReadonlyMap<string, readonly JudgedRun[]>,
-): readonly RubricShares[] => {
-  const held = new Map<string, RubricShares>();
-
-  for (const record of records) {
-    for (const each of judged.get(record.runId.value) ?? []) {
-      const was = held.get(each.rubricVersion);
-
-      held.set(each.rubricVersion, {
-        rubricVersion: each.rubricVersion,
-        sum: (was?.sum ?? 0) + each.share,
-        judged: (was?.judged ?? 0) + 1,
-      });
-    }
-  }
-
-  return [...held.values()].sort((one, other) =>
-    byText(one.rubricVersion, other.rubricVersion),
-  );
-};
-
-const byRun = (
-  judged: readonly JudgedRun[],
-): ReadonlyMap<string, readonly JudgedRun[]> => {
-  const held = new Map<string, JudgedRun[]>();
-
-  for (const each of judged) {
-    const ofRun = held.get(each.runId) ?? [];
-
-    ofRun.push(each);
-    held.set(each.runId, ofRun);
-  }
-
-  return held;
-};
-
 export const setupCountsOf = (
   records: readonly RunRecord[],
   deliveries: readonly TaskDelivery[],
   judged: readonly JudgedRun[],
 ): SetupComparisonCounts => {
   const groups = new Map<string, { setup: Setup; records: RunRecord[] }>();
-  const judgedByRun = byRun(judged);
+  const byRun = judgedByRun(judged);
 
   for (const record of records.filter((each) => each.ran)) {
     const setup = setupOf(record);
@@ -213,22 +148,11 @@ export const setupCountsOf = (
           answered: group.records.filter(
             (each) => each.next !== null || each.handedOn !== null,
           ).length,
-          rubrics: rubricsOf(group.records, judgedByRun),
+          rubrics: rubricsOf(group.records, byRun),
         }),
       )
       .sort(inSetupOrder),
   };
-};
-
-const judgeOf = (
-  rubrics: readonly RubricShares[],
-  trusted: string | null,
-): JudgeShare => {
-  const held = rubrics.find((each) => each.rubricVersion === trusted);
-
-  return held
-    ? { mean: held.sum / held.judged, judged: held.judged }
-    : { mean: null, judged: 0 };
 };
 
 const outcomesOf = (
@@ -273,7 +197,7 @@ export const setupsFrom = (
     const tally = tallyOf(each.counts.tally);
     const judge = judging.withheld
       ? null
-      : judgeOf(each.rubrics, judging.trusted);
+      : judgeShareFrom(each.rubrics, judging.trusted);
     const setup: Setup = {
       harness: each.harness,
       model: each.model,

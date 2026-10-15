@@ -12,7 +12,7 @@ import { ReadInsightsMemoryQuery } from '@outcomes/application/queries/read-insi
 import { ReadInsightsSetupsQuery } from '@outcomes/application/queries/read-insights-setups.query';
 import { ReadStationAlertQuery } from '@outcomes/application/queries/read-station-alert.query';
 import { OutcomesAccess } from '@outcomes/application/services/outcomes-access.service';
-import { TeamHistories } from '@outcomes/application/services/team-histories.service';
+import { TeamScopes } from '@outcomes/application/services/team-scopes.service';
 import { TrustedJudges } from '@outcomes/application/services/trusted-judges.service';
 import { StationWatch } from '@outcomes/domain/aggregates/station-watch.aggregate';
 import { StationWatchesInMemory } from '@outcomes/domain/alerts.fake-spec';
@@ -98,16 +98,17 @@ const WORK: WorkPort = {
 };
 
 const standing = (trusted: boolean): JudgeStandingPort => ({
-  of: async (station) => ({
-    stationId: station.stationId,
-    rubricVersion: 'c'.repeat(64),
-    trusted,
-    measure: 'kappa',
-    agreement: trusted ? 0.8 : 0.2,
-    pairs: 20,
-    trust: 0.6,
-    hiddenBecause: trusted ? null : 'below-trust',
-  }),
+  standingsOf: async (_team, stations) =>
+    stations.map((station) => ({
+      stationId: station.stationId,
+      rubricVersion: 'c'.repeat(64),
+      trusted,
+      measure: 'kappa',
+      agreement: trusted ? 0.8 : 0.2,
+      pairs: 20,
+      trust: 0.6,
+      hiddenBecause: trusted ? null : 'below-trust',
+    })),
 });
 
 const held = async (
@@ -122,17 +123,10 @@ const held = async (
   const records = new RunRecordsInMemory();
   const deliveries = new TaskDeliveriesInMemory();
   const scores = new ScoresInMemory();
-  const histories = new TeamHistories(
-    new OutcomesAccess(people),
-    {
-      records,
-      deliveries,
-      touches: new TaskTouchesInMemory(records),
-      failures: new TaskFailuresInMemory(),
-      chats: new ChatRecordsInMemory(),
-    },
-    { now: () => NOW, sleep: async () => {} },
-  );
+  const scopes = new TeamScopes(new OutcomesAccess(people), {
+    now: () => NOW,
+    sleep: async () => {},
+  });
   const reader = insightsReaderInMemory(
     {
       records,
@@ -166,16 +160,17 @@ const held = async (
   await scores.add(judgeScore('run_1', ScoreScale.yesNo(), 0));
   await scores.add(judgeScore('run_3', ScoreScale.yesNo(), 1));
 
-  return { records, deliveries, scores, histories, reader };
+  return { records, deliveries, scores, scopes, reader };
 };
 
 describe('ReadInsightsChangesHandler', () => {
   it('opens each config change with the station’s tally before and after it and what changed, reading every config at once', async () => {
-    const { histories, scores } = await held();
+    const { scopes, reader } = await held();
     const asked: (readonly string[])[] = [];
     const handler = new ReadInsightsChangesHandler(
-      histories,
-      new TrustedJudges(standing(true), scores),
+      scopes,
+      reader,
+      new TrustedJudges(standing(true)),
       {
         ...WORK,
         configsInOrder: (fingerprints) => {
@@ -212,15 +207,16 @@ describe('ReadInsightsChangesHandler', () => {
   });
 
   it('opens a return to the earlier config as a change of its own, set against the stretch just before it', async () => {
-    const { histories, scores } = await held([
+    const { scopes, reader } = await held([
       ['run_5', 13, FIRST_CONFIG, 'sonnet', 'sent-back'],
       ['run_6', 14, FIRST_CONFIG, 'sonnet', 'sent-back'],
       ['run_7', 15, FIRST_CONFIG, 'sonnet', 'closed'],
     ]);
     const asked: (readonly string[])[] = [];
     const handler = new ReadInsightsChangesHandler(
-      histories,
-      new TrustedJudges(standing(true), scores),
+      scopes,
+      reader,
+      new TrustedJudges(standing(true)),
       {
         ...WORK,
         configsInOrder: (fingerprints) => {
@@ -255,10 +251,11 @@ describe('ReadInsightsChangesHandler', () => {
   });
 
   it('shows no judge scores where the station’s judge is not trusted', async () => {
-    const { histories, scores } = await held();
+    const { scopes, reader } = await held();
     const handler = new ReadInsightsChangesHandler(
-      histories,
-      new TrustedJudges(standing(false), scores),
+      scopes,
+      reader,
+      new TrustedJudges(standing(false)),
       WORK,
     );
 
@@ -277,10 +274,11 @@ describe('ReadInsightsChangesHandler', () => {
   });
 
   it('finds no team for someone not on it', async () => {
-    const { histories, scores } = await held();
+    const { scopes, reader } = await held();
     const handler = new ReadInsightsChangesHandler(
-      histories,
-      new TrustedJudges(standing(true), scores),
+      scopes,
+      reader,
+      new TrustedJudges(standing(true)),
       WORK,
     );
 
@@ -292,11 +290,11 @@ describe('ReadInsightsChangesHandler', () => {
 
 describe('ReadInsightsSetupsHandler', () => {
   it('compares setups, narrowed by station and run size, and judge scores only within one station', async () => {
-    const { histories, scores, reader } = await held();
+    const { scopes, reader } = await held();
     const handler = new ReadInsightsSetupsHandler(
-      histories,
+      scopes,
       reader,
-      new TrustedJudges(standing(true), scores),
+      new TrustedJudges(standing(true)),
     );
 
     const all = await handler.execute(
@@ -325,11 +323,11 @@ describe('ReadInsightsSetupsHandler', () => {
   });
 
   it('refuses a size it does not know', async () => {
-    const { histories, scores, reader } = await held();
+    const { scopes, reader } = await held();
     const handler = new ReadInsightsSetupsHandler(
-      histories,
+      scopes,
       reader,
-      new TrustedJudges(standing(true), scores),
+      new TrustedJudges(standing(true)),
     );
 
     await expect(
@@ -342,7 +340,7 @@ describe('ReadInsightsSetupsHandler', () => {
 
 describe('ReadInsightsMemoryHandler', () => {
   it('sets runs with memories against runs without, and names who flagged one wrong', async () => {
-    const { histories, reader, records } = await held();
+    const { scopes, reader, records } = await held();
     const asked: unknown[] = [];
     const memory: MemoryUsePort = {
       between: async (window) => {
@@ -374,7 +372,7 @@ describe('ReadInsightsMemoryHandler', () => {
       }
     }
     const handler = new ReadInsightsMemoryHandler(
-      histories,
+      scopes,
       reader,
       memory,
       { latestFor: async () => null },

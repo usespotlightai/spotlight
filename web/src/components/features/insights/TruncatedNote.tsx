@@ -1,7 +1,6 @@
 import { Info } from 'lucide-react';
-import { TRUNCATED } from '@/lib/insights';
 
-export function TruncatedNote({ said = TRUNCATED }: { said?: string }) {
+export function TruncatedNote({ said }: { said: string }) {
   return (
     <p
       role="note"

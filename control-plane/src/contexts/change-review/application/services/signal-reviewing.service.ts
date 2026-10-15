@@ -10,7 +10,7 @@ import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 
 const LOOKING: PullRequestReaction = 'eyes';
 
-// Deliveries retry out of order, so each asks what holds the task now rather than trusting the order it heard them in.
+// Deliveries retry out of order. Each one asks what holds the task now and does not trust the order in which it heard them.
 export class SignalReviewing {
   constructor(
     private readonly work: WorkPort,

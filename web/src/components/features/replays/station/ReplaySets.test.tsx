@@ -99,6 +99,7 @@ const replay = (over: Partial<Replay>): Replay =>
       minGain: 0.05,
       tasks: 4,
     },
+    comparedWith: { replayId: 'baseline', successRate: 0.5, interval: null },
     pairedWith: 'baseline',
     pairsAgainstBaseline: { wins: 2, losses: 1, ties: 1 },
     ...over,
@@ -166,6 +167,7 @@ describe('ReplaySets', () => {
         id: 'baseline',
         isBaseline: true,
         pairedWith: null,
+        comparedWith: null,
         startedAt: '2026-10-01T09:00:00.000Z',
         totals: { successRate: 0.5 } as Replay['totals'],
       }),
@@ -202,5 +204,77 @@ describe('ReplaySets', () => {
     ).toHaveTextContent(
       'Side by side with the baseline: 2 wins, 1 loss, 1 tie',
     );
+  });
+
+  it('shows a replay with the answer against the live replay it was handed the answer against', async () => {
+    sets.mockReturnValue([SET]);
+    replays.mockReturnValue([
+      replay({
+        id: 'answer',
+        candidate: {
+          id: 'c',
+          name: 'With the answer',
+          kind: 'oracle',
+          fingerprint: 'f',
+          station: {},
+          createdAt: '2026-10-01T09:00:00.000Z',
+        },
+        comparedWith: { replayId: 'live', successRate: 0.25, interval: null },
+        pairedWith: null,
+        pairsAgainstBaseline: null,
+      }),
+      replay({
+        id: 'baseline',
+        isBaseline: true,
+        pairedWith: null,
+        comparedWith: null,
+        startedAt: '2026-10-01T09:00:00.000Z',
+        totals: { successRate: 0.5 } as Replay['totals'],
+      }),
+    ]);
+
+    renderSets();
+
+    await userEvent.hover(
+      screen.getByRole('button', { name: '75% succeeded' }),
+    );
+
+    expect(await screen.findByText('With the answer')).toBeInTheDocument();
+    expect(
+      document.querySelector('[data-slot="success-against-baseline"]'),
+    ).toHaveTextContent('+25 pts(+5 to +45)vs live config 25%· Better');
+  });
+
+  it('names a counterpart that has scored nothing yet, with no rate', async () => {
+    sets.mockReturnValue([SET]);
+    replays.mockReturnValue([
+      replay({
+        candidate: {
+          id: 'c',
+          name: 'With the answer',
+          kind: 'oracle',
+          fingerprint: 'f',
+          station: {},
+          createdAt: '2026-10-01T09:00:00.000Z',
+        },
+        againstBaseline: null,
+        comparedWith: { replayId: 'live', successRate: null, interval: null },
+        pairedWith: null,
+        pairsAgainstBaseline: null,
+      }),
+    ]);
+
+    renderSets();
+
+    await userEvent.hover(
+      screen.getByRole('button', { name: '75% succeeded' }),
+    );
+
+    expect(await screen.findByText('With the answer')).toBeInTheDocument();
+    const success = document.querySelector(
+      '[data-slot="success-against-baseline"]',
+    );
+    expect(success).toHaveTextContent('75% (50–100%) succeeded· live config');
+    expect(success).not.toHaveTextContent('baseline');
   });
 });

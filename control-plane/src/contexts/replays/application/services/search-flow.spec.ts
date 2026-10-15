@@ -728,7 +728,7 @@ describe('a stalled search looking into why', () => {
         about: 'iteration 3',
         endedSearch: true,
         points: [
-          'No config change can fix the 2 tasks still failing. Unspent budget is kept.',
+          'No config change can fix the 2 tasks still failing. The rest of the budget stays unspent.',
           'Fix the judge’s rubric, for “Drain the queue”: Loosen the rubric.',
           `Fix what the run needed around the work, for one of the searched tasks: Task ${searchedAt(1).taskId.value} failed for the infra.`,
         ],

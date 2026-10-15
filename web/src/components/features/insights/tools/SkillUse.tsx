@@ -23,7 +23,7 @@ export function SkillUse({ slug, teamId, skills, rule, names }: SkillUseProps) {
   return (
     <InsightsCard
       title="Skills"
-      description="Runs given each skill and runs that read it, per station. A read is a tool call that touches the skill’s folder or names it. The line shows the share of runs that read it, week by week."
+      description="Runs that got each skill and runs that read it, per station. A read is a tool call that touches the skill’s folder or names it. The line shows the share of runs that read it, week by week."
     >
       <NestedTable label="Skill use" headings={skillHeadings(rule)}>
         {skills.map((skill) => (

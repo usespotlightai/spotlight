@@ -52,12 +52,12 @@ export function LayerDetail({ stack, located, onPick }: LayerDetailProps) {
       ? folded.paths
       : foldedFor(located, files).paths;
 
-  // The pane stays mounted between layers, so each layer folds itself afresh.
+  // Because the pane remains mounted between layers, each layer must set its folded files again.
   if (folded.layerId !== layer.id) {
     setFolded(foldedFor(located, files));
   }
 
-  // biome-ignore lint/correctness/useExhaustiveDependencies: a new layer reads from the top
+  // biome-ignore lint/correctness/useExhaustiveDependencies: a new layer starts at the top
   useEffect(() => {
     virtualizer?.scrollTo({ top: 0 });
   }, [virtualizer, layer.id]);

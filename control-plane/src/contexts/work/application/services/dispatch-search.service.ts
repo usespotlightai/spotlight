@@ -70,7 +70,7 @@ export class DispatchSearch implements SearchDispatchPort {
     if (!known.includes(agent.harness)) {
       return {
         field: 'harness',
-        reason: `names a harness a runner can start: ${known.join(', ')}`,
+        reason: `Harness ${agent.harness} is not one that a runner can start. Harnesses: ${known.join(', ')}`,
       };
     }
     const { model, effort } = agent;
@@ -78,13 +78,13 @@ export class DispatchSearch implements SearchDispatchPort {
     if (model !== null && !holds(() => HarnessModel.of(model))) {
       return {
         field: 'model',
-        reason: `names the model in 1 to ${MOST_MODEL} characters, or leaves it out`,
+        reason: `Model must be 1 to ${MOST_MODEL} characters, or empty.`,
       };
     }
     if (effort !== null && !holds(() => Effort.of(effort))) {
       return {
         field: 'effort',
-        reason: `is one of ${EFFORTS.join(', ')}, or left out`,
+        reason: `Effort must be one of ${EFFORTS.join(', ')}, or empty.`,
       };
     }
 

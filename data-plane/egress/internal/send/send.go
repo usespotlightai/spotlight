@@ -63,20 +63,20 @@ func (s *Sender) Send(ctx context.Context, call protocol.HostCall) protocol.Host
 func (s *Sender) sent(ctx context.Context, call protocol.HostCall, timeout time.Duration) (protocol.HostCallAnswer, error) {
 	address, err := url.Parse(call.URL)
 	if err != nil || address.Hostname() == "" {
-		return protocol.HostCallAnswer{}, &guard.Refusal{Reason: fmt.Sprintf("%s is not an address", call.URL)}
+		return protocol.HostCallAnswer{}, &guard.Refusal{Reason: fmt.Sprintf("The call's URL isn't a valid address. URL: %s", call.URL)}
 	}
 	if address.Scheme != "https" && address.Scheme != "http" {
-		return protocol.HostCallAnswer{}, &guard.Refusal{Reason: fmt.Sprintf("egress sends only http and https, not %s", address.Scheme)}
+		return protocol.HostCallAnswer{}, &guard.Refusal{Reason: fmt.Sprintf("Egress sends only http and https calls. Scheme: %s", address.Scheme)}
 	}
 
 	host := address.Hostname()
 	if !s.allowed.Admits(host) {
-		return protocol.HostCallAnswer{}, &guard.Refusal{Reason: fmt.Sprintf("the host's allow-list does not admit %s", host)}
+		return protocol.HostCallAnswer{}, &guard.Refusal{Reason: fmt.Sprintf("The host's allow-list doesn't admit %s.", host)}
 	}
 
 	body, err := base64.StdEncoding.DecodeString(call.Body)
 	if err != nil {
-		return protocol.HostCallAnswer{}, &guard.Refusal{Reason: "the call's body is not base64"}
+		return protocol.HostCallAnswer{}, &guard.Refusal{Reason: "The call's body isn't base64."}
 	}
 
 	sending, cancel := context.WithTimeout(guard.Naming(ctx, s.allowed.Names(host)), timeout)
@@ -133,17 +133,17 @@ func plain(err error, timeout time.Duration) string {
 	case errors.As(err, &refusal):
 		return refusal.Reason
 	case errors.Is(err, context.DeadlineExceeded) || timedOut(err):
-		return fmt.Sprintf("timed out after %s", timeout)
+		return fmt.Sprintf("The call timed out. Time limit: %s", timeout)
 	case errors.Is(err, context.Canceled):
-		return "egress stopped before the call was answered"
+		return "Egress stopped before the call was answered."
 	case errors.Is(err, syscall.ECONNREFUSED):
-		return "connection refused"
+		return "The server refused the connection."
 	case errors.Is(err, syscall.ECONNRESET):
-		return "connection reset"
+		return "The server reset the connection."
 	case errors.As(err, &unresolved):
-		return fmt.Sprintf("%s does not resolve", unresolved.Name)
+		return fmt.Sprintf("Host name %s doesn't resolve.", unresolved.Name)
 	case errors.As(err, &unverified):
-		return fmt.Sprintf("the certificate is not trusted: %v", unverified.Err)
+		return fmt.Sprintf("The server's certificate isn't trusted. Error: %v", unverified.Err)
 	}
 
 	var failed *url.Error

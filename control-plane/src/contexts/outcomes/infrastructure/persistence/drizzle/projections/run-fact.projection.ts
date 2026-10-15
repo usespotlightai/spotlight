@@ -167,8 +167,20 @@ const projected = (db: DrizzleDatabase, where: SQL) =>
       ),
     })
     .from(runRecord)
-    .leftJoin(taskTouches, eq(taskTouches.taskId, runRecord.taskId))
-    .leftJoin(taskDelivery, eq(taskDelivery.taskId, runRecord.taskId))
+    .leftJoin(
+      taskTouches,
+      and(
+        eq(taskTouches.taskId, runRecord.taskId),
+        eq(taskTouches.workspaceId, runRecord.workspaceId),
+      ),
+    )
+    .leftJoin(
+      taskDelivery,
+      and(
+        eq(taskDelivery.taskId, runRecord.taskId),
+        eq(taskDelivery.workspaceId, runRecord.workspaceId),
+      ),
+    )
     .where(and(ended, where));
 
 const AT_ONCE = 100;

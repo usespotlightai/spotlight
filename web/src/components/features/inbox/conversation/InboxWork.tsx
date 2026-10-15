@@ -28,7 +28,7 @@ export function InboxWork({ journals }: { journals: readonly RunJournal[] }) {
           {spent && (
             <span
               className="flex items-center gap-1"
-              title={`${counted(spent.used)} of ${counted(spent.size)} tokens held in context`}
+              title={`Tokens in context: ${counted(spent.used)} of ${counted(spent.size)}`}
             >
               <ContextDonut used={spent.used} size={spent.size} />
               {counted(spent.used)}/{counted(spent.size)}

@@ -14,6 +14,19 @@ export interface StationScores {
   readonly last: number;
 }
 
+interface JudgedStation {
+  readonly lineId: string;
+  readonly stationId: string;
+  readonly rubricVersion: string;
+}
+
+export interface StationsScores {
+  readonly workspaceId: WorkspaceId;
+  readonly teamId: TeamId;
+  readonly stations: readonly JudgedStation[];
+  readonly last: number;
+}
+
 export interface ScoreRepository {
   add(score: Score): Promise<void>;
 
@@ -26,6 +39,8 @@ export interface ScoreRepository {
   ofRuns(runIds: readonly RunId[]): Promise<readonly Score[]>;
 
   judgedAtStation(criteria: StationScores): Promise<readonly Score[]>;
+
+  judgedAtStations(criteria: StationsScores): Promise<readonly Score[]>;
 
   removeForTask(taskId: TaskId): Promise<void>;
 

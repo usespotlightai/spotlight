@@ -50,8 +50,8 @@ export function SetChecks({ teamId, set, replayCheck }: SetChecksProps) {
       <StateBox flat>
         <EmptyState icon={ShieldCheck} title="No checks yet">
           {set.guardsChanges
-            ? 'Pull requests that change this station are checked here.'
-            : 'Set doesn’t guard config changes.'}
+            ? 'This set checks pull requests that change this station.'
+            : 'The set doesn’t guard config changes.'}
         </EmptyState>
       </StateBox>
     );

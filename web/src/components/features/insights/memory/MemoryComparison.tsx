@@ -24,7 +24,7 @@ type MemoryComparisonProps = {
 export function MemoryComparison({ runs, verdicts }: MemoryComparisonProps) {
   return (
     <NestedTable
-      label="Runs without memories against runs with them"
+      label="Runs without memories compared with runs with them"
       headings={HEADINGS}
     >
       {comparedRows({ one: runs.without, other: runs.with }, verdicts).map(

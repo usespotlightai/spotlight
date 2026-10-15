@@ -92,7 +92,7 @@ export class RunOutcome {
   }
 
   static stopped(exitCode: number): RunOutcome {
-    return new RunOutcome(exitCode, null, 'Stopped from the console.', true);
+    return new RunOutcome(exitCode, null, 'A person stopped the run.', true);
   }
 
   private static failedWith(code: RunFailureCode, message: string): RunOutcome {

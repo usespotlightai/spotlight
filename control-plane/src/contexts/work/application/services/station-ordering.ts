@@ -56,7 +56,7 @@ export interface Laid {
   readonly settingFiles: readonly string[];
 }
 
-// No host address may ever reach a runner; remotes are named as Spotlight serves them.
+// Do not send a host address to a runner. Name each remote as Spotlight serves it.
 const laidOut = (
   { order, prepared, home, folders }: Ordered,
   laid: Laid,

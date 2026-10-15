@@ -63,7 +63,9 @@ export class AuthenticatedGuard implements CanActivate {
       const principal = await this.tokens.identify(bearer);
 
       if (!principal) {
-        throw new UnauthorizedException();
+        throw new UnauthorizedException(
+          'The workspace token is unknown, expired or revoked.',
+        );
       }
 
       request[REQUEST_PRINCIPAL] = principal;
@@ -74,7 +76,9 @@ export class AuthenticatedGuard implements CanActivate {
     const user = await this.sessions.read(request.headers);
 
     if (!user) {
-      throw new UnauthorizedException();
+      throw new UnauthorizedException(
+        'Your session is missing or expired. Please sign in.',
+      );
     }
 
     request[REQUEST_USER] = user;

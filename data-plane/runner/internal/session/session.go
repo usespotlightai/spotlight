@@ -119,7 +119,7 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 		run.Spec.Checkouts = reached(run.Spec.Checkouts, serving.Remote)
 	}
 
-	// As the runner, before the handover, so nothing prepare holds is left for the agent to find.
+	// Prepare as the runner, before the handover, so the agent finds nothing that prepare holds.
 	if err := opts.prepare(ctx, space.Dir, run, journal); err != nil {
 		return unprepared(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
@@ -690,9 +690,11 @@ func failed(
 		log.Warn("could not mark the run failed", "error", err)
 	}
 
+	saying := failureOf(cause, beforeHandover)
+
 	journal.append(protocol.Event{
 		Type:    protocol.EventFailed,
-		Message: cause.Error(),
+		Message: saying,
 	})
 	journal.flush(ctx)
 
@@ -700,12 +702,19 @@ func failed(
 		ExitCode:   -1,
 		Failed:     true,
 		Unprepared: beforeHandover,
-		Message:    cause.Error(),
+		Message:    saying,
 	}); err != nil {
 		log.Warn("could not report the failure", "error", err)
 	}
 
 	return cause
+}
+
+func failureOf(cause error, beforeHandover bool) string {
+	if beforeHandover {
+		return "The runner couldn't prepare the run. Error: " + cause.Error()
+	}
+	return "The runner couldn't start the agent. Error: " + cause.Error()
 }
 
 type progress struct {
@@ -758,7 +767,7 @@ func (o Options) setUp(
 		output, err := prepare.Setup(ctx, filepath.Join(dir, checkout.Path), checkout.Setup, o.AgentUser, o.SetupTimeout)
 		if err != nil {
 			log.Warn("could not set up a checkout", "path", checkout.Path, "error", err)
-			output = strings.TrimSpace(fmt.Sprintf("%s\n\nSetting up %s failed: %v", output, checkout.Path, err))
+			output = strings.TrimSpace(fmt.Sprintf("%s\n\nSetup failed for %s. Error: %v", output, checkout.Path, err))
 		}
 		if output != "" {
 			journal.append(protocol.Event{Type: protocol.EventOutput, Message: setupStep, Data: []byte(output)})
