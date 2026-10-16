@@ -7,6 +7,7 @@ import { EventDelivery, MOST_ATTEMPTS } from '@platform/events/event-delivery';
 import { EventOutbox } from '@platform/events/event-outbox';
 import { EventProjections } from '@platform/events/event-projections';
 import { EventPublications } from '@platform/events/event-publications';
+import { EventReactions } from '@platform/events/event-reactions';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import { EventTypes } from '@platform/events/event-types';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
@@ -95,6 +96,15 @@ const outboxWith = () => {
       ['bell.published-rang.v1'],
       async (event) => {
         heard.push(`published ${typeof event.marker} ${event.marker}`);
+      },
+    ),
+    subscribing<{ kind: string; marker: string }>(
+      'test.refuse-published',
+      ['bell.published-rang.v1'],
+      async (event) => {
+        if (event.marker === 'refused') {
+          throw new Error('refused');
+        }
       },
     ),
     subscribing<Rang>('test.flaky', ['bell.rang'], async (event) => {
@@ -270,7 +280,10 @@ describe('the event outbox', () => {
       now = new Date(now.getTime() + 2 * 60 * 60 * 1000);
     }
 
-    const rows = await held.db.select().from(eventDelivery);
+    const rows = await held.db
+      .select()
+      .from(eventDelivery)
+      .where(eq(eventDelivery.subscriber, 'test.flaky'));
     const given = rows.filter((each) => each.failedAt !== null);
 
     expect(given).toHaveLength(1);
@@ -284,5 +297,67 @@ describe('the event outbox', () => {
       }),
     );
     failing = 0;
+  });
+
+  it('counts what a subscriber still owes for the events about one thing', async () => {
+    const { outbox, delivery } = outboxWith();
+    const owed = (marker: string) =>
+      new EventReactions(context).owedBy('test.hear-published', { marker });
+
+    await outbox.record([new Rang(Marker.of('tracked'))]);
+
+    await expect(owed('tracked')).resolves.toEqual({ owed: 1, givenUp: 0 });
+    await expect(owed('never-rang')).resolves.toEqual({ owed: 0, givenUp: 0 });
+
+    await delivery.workOff();
+
+    await expect(owed('tracked')).resolves.toEqual({ owed: 0, givenUp: 0 });
+  });
+
+  it('matches every field it is given', async () => {
+    const { outbox } = outboxWith();
+    const owed = (kind: string) =>
+      new EventReactions(context).owedBy('test.hear-published', {
+        marker: 'two-fields',
+        kind,
+      });
+
+    await outbox.record([new Rang(Marker.of('two-fields'))]);
+
+    await expect(owed('bell.published-rang.v1')).resolves.toEqual({
+      owed: 1,
+      givenUp: 0,
+    });
+    await expect(owed('bell.other')).resolves.toEqual({ owed: 0, givenUp: 0 });
+  });
+
+  it('finds the events about one thing by an id held in a value object', async () => {
+    const { outbox } = outboxWith();
+
+    await outbox.record([new Rang(Marker.of('nested'))]);
+
+    await expect(
+      new EventReactions(context).owedBy('test.answer', { marker: 'nested' }),
+    ).resolves.toEqual({ owed: 1, givenUp: 0 });
+  });
+
+  it('counts what a subscriber gave up on, and not what it still tries again', async () => {
+    const { outbox, delivery } = outboxWith();
+    const owed = () =>
+      new EventReactions(context).owedBy('test.refuse-published', {
+        marker: 'refused',
+      });
+
+    await outbox.record([new Rang(Marker.of('refused'))]);
+    await delivery.workOff();
+
+    await expect(owed()).resolves.toEqual({ owed: 1, givenUp: 0 });
+
+    for (let attempt = 0; attempt < MOST_ATTEMPTS; attempt += 1) {
+      now = new Date(now.getTime() + 2 * 60 * 60 * 1000);
+      await delivery.workOff();
+    }
+
+    await expect(owed()).resolves.toEqual({ owed: 1, givenUp: 1 });
   });
 });

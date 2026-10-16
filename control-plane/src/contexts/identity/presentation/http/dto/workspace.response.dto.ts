@@ -1,3 +1,7 @@
+import {
+  PROVISIONINGS,
+  type Provisioning,
+} from '@identity/application/ports/workspace-provisioning.port';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class TeamResponseDto {
@@ -59,18 +63,28 @@ export class WorkspaceResponseDto {
   })
   readonly role: string;
 
+  @ApiProperty({
+    description:
+      'Whether Spotlight has opened the first team of the workspace. The value is failed after Spotlight stopped its attempts.',
+    enum: PROVISIONINGS,
+    example: 'done',
+  })
+  readonly provisioning: Provisioning;
+
   constructor(
     id: string,
     name: string,
     slug: string,
     teams: TeamResponseDto[],
     role: string,
+    provisioning: Provisioning,
   ) {
     this.id = id;
     this.name = name;
     this.slug = slug;
     this.teams = teams;
     this.role = role;
+    this.provisioning = provisioning;
   }
 }
 

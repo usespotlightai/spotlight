@@ -16,7 +16,9 @@ import {
 import { welcomeTask } from '@work/domain/services/welcome-task';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 
-export class LinesNotOpenYet extends Error {}
+export const PROVISION_TEAM = 'work.provision-team';
+
+class LinesNotOpenYet extends Error {}
 
 export interface NewTeam {
   readonly workspaceId: WorkspaceId;
@@ -35,7 +37,12 @@ export class ProvisionTeam {
     private readonly harness: HarnessId,
   ) {}
 
-  async openLines(team: NewTeam): Promise<void> {
+  async provision(team: NewTeam): Promise<void> {
+    await this.openLines(team);
+    await this.welcome(team);
+  }
+
+  private async openLines(team: NewTeam): Promise<void> {
     const standing = await this.lines.ofTeam(team.teamId);
 
     for (const opening of BUILT_IN_LINES) {
@@ -47,7 +54,7 @@ export class ProvisionTeam {
     }
   }
 
-  async welcome(team: NewTeam): Promise<void> {
+  private async welcome(team: NewTeam): Promise<void> {
     if (await this.tasks.settingUpFor(team.teamId)) {
       return;
     }

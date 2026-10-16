@@ -277,6 +277,7 @@ export type SettingsWorld = {
   tokens: WorkspaceTokenResourceResponseDto[];
   pools: RunnerPoolResourceResponseDto[];
   fleet: Fleet;
+  settingUp: string[];
 };
 
 const NOBODY: TeamConnections = { mine: [], people: [] };
@@ -295,6 +296,7 @@ export const settingsWorld = perWorld(
           tokens: [],
           pools: [],
           fleet: structuredClone(NO_FLEET),
+          settingUp: [],
         }
       : {
           gitHubConnected: true,
@@ -304,5 +306,6 @@ export const settingsWorld = perWorld(
           tokens: structuredClone(TOKENS),
           pools: structuredClone(RUNNER_POOLS),
           fleet: structuredClone(FLEET),
+          settingUp: [],
         },
 );

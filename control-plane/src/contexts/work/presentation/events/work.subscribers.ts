@@ -41,9 +41,10 @@ import type { DigestRun } from '@work/application/events/handlers/digest-run.han
 import type { EnqueueChatRun } from '@work/application/events/handlers/enqueue-chat-run.handler';
 import type { EnqueueTaskRun } from '@work/application/events/handlers/enqueue-task-run.handler';
 import type { NotifyOutsideTools } from '@work/application/events/handlers/notify-outside-tools.handler';
-import type {
-  NewTeam,
-  ProvisionTeam,
+import {
+  type NewTeam,
+  PROVISION_TEAM,
+  type ProvisionTeam,
 } from '@work/application/events/handlers/provision-team.handler';
 import type { StopLetGoRun } from '@work/application/events/handlers/stop-let-go-run.handler';
 import type { ConnectionsMade } from '@work/application/services/connections-made.service';
@@ -219,16 +220,10 @@ export const workSubscribers = (reactions: {
     (event) => reactions.digests.onRunAbandoned(event),
   ),
   subscribing<TeamCreatedIntegrationEvent>(
-    'work.open-built-in-lines',
+    PROVISION_TEAM,
     [TEAM_CREATED],
     async (event) =>
-      signedUp(event) && reactions.provisioning.openLines(newTeam(event)),
-  ),
-  subscribing<TeamCreatedIntegrationEvent>(
-    'work.welcome-team',
-    [TEAM_CREATED],
-    async (event) =>
-      signedUp(event) && reactions.provisioning.welcome(newTeam(event)),
+      signedUp(event) && reactions.provisioning.provision(newTeam(event)),
   ),
   subscribing<WorkspaceConnectedIntegrationEvent>(
     'work.settle-on-connection',

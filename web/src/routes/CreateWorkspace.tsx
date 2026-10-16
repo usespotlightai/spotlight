@@ -11,10 +11,10 @@ import { AuthScreen } from '@/components/shell/auth/AuthScreen';
 import { AuthTitle } from '@/components/shell/auth/AuthTitle';
 import { Button } from '@/components/ui/button';
 import { useCreateWorkspace } from '@/hooks/api/useCreateWorkspace';
-import { openedJustNow } from '@/hooks/api/useInbox';
 import { useSession } from '@/hooks/api/useSession';
 import { useSignOut } from '@/hooks/api/useSignOut';
 import { inboxPath } from '@/lib/inbox';
+import { markOpenedHere } from '@/lib/provisioning';
 import { sanitizeSlug, slugify } from '@/lib/slug';
 import { WORKSPACE_URL_PREFIX } from '@/lib/workspace';
 
@@ -62,7 +62,7 @@ export function CreateWorkspace() {
       { name: name.trim(), slug: slugify(slug), teamName: teamName.trim() },
       {
         onSuccess: (workspace) => {
-          openedJustNow(workspace.slug);
+          markOpenedHere(workspace.slug);
           void navigate(inboxPath(workspace.slug), { replace: true });
         },
       },

@@ -3,6 +3,10 @@ import {
   SETUP_STEP_KEYS,
   type SetupStepDto,
 } from '@work/application/dto/onboarding.dto';
+import {
+  PROVISIONINGS,
+  type Provisioning,
+} from '@work/application/ports/team-provisioning.port';
 
 export class SetupStepResponseDto {
   @ApiProperty({
@@ -70,6 +74,14 @@ export class SetupChatResponseDto {
 
 export class OnboardingResponseDto {
   @ApiProperty({
+    description:
+      'Whether Spotlight has opened the first lines and the setup task of the team. The value is failed after Spotlight stopped its attempts.',
+    enum: PROVISIONINGS,
+    example: 'done',
+  })
+  readonly provisioning: Provisioning;
+
+  @ApiProperty({
     description: 'The list itself, in the order it is worked through',
     type: SetupStepResponseDto,
     isArray: true,
@@ -91,10 +103,12 @@ export class OnboardingResponseDto {
   readonly setupChat: SetupChatResponseDto | null;
 
   constructor(
+    provisioning: Provisioning,
     steps: readonly SetupStepResponseDto[],
     canSetUp: boolean,
     setupChat: SetupChatResponseDto | null,
   ) {
+    this.provisioning = provisioning;
     this.steps = steps;
     this.canSetUp = canSetUp;
     this.setupChat = setupChat;

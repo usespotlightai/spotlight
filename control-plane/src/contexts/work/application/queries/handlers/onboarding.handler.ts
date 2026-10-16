@@ -5,6 +5,7 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { OnboardingDto } from '@work/application/dto/onboarding.dto';
+import type { TeamProvisioningPort } from '@work/application/ports/team-provisioning.port';
 import type { OnboardingQuery } from '@work/application/queries/onboarding.query';
 import type { SetupStanding } from '@work/application/services/setup-standing.service';
 import { shownFor } from '@work/application/services/setup-steps';
@@ -15,6 +16,7 @@ export class OnboardingHandler
   constructor(
     private readonly workspaces: WorkspaceReaderPort,
     private readonly setup: SetupStanding,
+    private readonly provisioning: TeamProvisioningPort,
   ) {}
 
   async execute(query: OnboardingQuery): Promise<OnboardingDto | null> {
@@ -28,14 +30,17 @@ export class OnboardingHandler
         return null;
       }
 
+      const teamId = TeamId.of(query.teamId);
+      const provisioning = await this.provisioning.of(teamId);
       const setup = await this.setup.of(
         WorkspaceId.of(team.workspaceId),
-        TeamId.of(query.teamId),
+        teamId,
       );
 
       const { chat } = setup;
 
       return {
+        provisioning,
         steps: shownFor(setup.state),
         canSetUp: setup.state.connectedToGitHub && setup.hostsSandboxes,
         setupChat: chat && {

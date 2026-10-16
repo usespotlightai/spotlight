@@ -1,4 +1,5 @@
 import { Link, useMatch, useParams } from 'react-router';
+import { SettingUpWorkspace } from '@/components/features/onboarding/SettingUpWorkspace';
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { PageNotice } from '@/components/shared/PageNotice';
 import { DashboardLayout } from '@/components/shell/layout/DashboardLayout';
@@ -6,6 +7,7 @@ import { PageOutlet } from '@/components/shell/layout/PageOutlet';
 import { SettingsSidebar } from '@/components/shell/layout/SettingsSidebar';
 import { WorkspaceSidebar } from '@/components/shell/layout/WorkspaceSidebar';
 import { buttonVariants } from '@/components/ui/button-variants';
+import { useSettingUp } from '@/hooks/api/useSettingUp';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { useLastPlace } from '@/hooks/useLastPlace';
 import { failed, loading } from '@/lib/query';
@@ -17,6 +19,7 @@ export function Workspace() {
   const workspace = useWorkspace(slug);
   const inSettings = Boolean(useMatch('/w/:slug/settings/*'));
   const leftAt = useLastPlace(!inSettings);
+  const settingUp = useSettingUp(slug, workspace.data);
 
   if (!slug) {
     return null;
@@ -65,6 +68,10 @@ export function Workspace() {
         </Link>
       </main>
     );
+  }
+
+  if (settingUp && !inSettings) {
+    return <SettingUpWorkspace />;
   }
 
   return (

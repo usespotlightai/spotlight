@@ -9,6 +9,7 @@ import { EventDeliveryWorker } from '@platform/events/event-delivery.worker';
 import { EventOutbox } from '@platform/events/event-outbox';
 import { EventProjections } from '@platform/events/event-projections';
 import { EventPublications } from '@platform/events/event-publications';
+import { EventReactions } from '@platform/events/event-reactions';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import { EventTypes } from '@platform/events/event-types';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
@@ -79,6 +80,7 @@ import { SHARED_KERNEL_EVENT_TYPES } from '@shared-kernel/domain/event-types';
     { provide: DOMAIN_EVENT_DISPATCHER, useExisting: EventOutbox },
     EventDelivery,
     EventDeliveryWorker,
+    EventReactions,
     { provide: ID_GENERATOR, useClass: CryptoIdGenerator },
     { provide: CLOCK, useClass: SystemClock },
     { provide: ERROR_REPORTS, useClass: SentryErrorReports },
@@ -107,6 +109,7 @@ import { SHARED_KERNEL_EVENT_TYPES } from '@shared-kernel/domain/event-types';
     EventOutbox,
     DOMAIN_EVENT_DISPATCHER,
     EventDelivery,
+    EventReactions,
     ID_GENERATOR,
     CLOCK,
     EXPRESSION_ENGINE,

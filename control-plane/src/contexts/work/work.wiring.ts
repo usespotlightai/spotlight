@@ -377,6 +377,7 @@ import {
   TEAM_MEMORIES,
   type TeamMemoriesPort,
 } from '@work/application/ports/team-memories.port';
+import { TEAM_PROVISIONING } from '@work/application/ports/team-provisioning.port';
 import {
   TEAM_SKILLS,
   type TeamSkillsPort,
@@ -546,6 +547,7 @@ import { WORK_EVENT_TYPES } from '@work/domain/event-types';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import { BUILT_IN_SKILL_KEYS } from '@work/domain/services/built-in-skills';
 import { AcpHarnessToolNames } from '@work/infrastructure/acp/harness-tools';
+import { OutboxTeamProvisioning } from '@work/infrastructure/events/outbox-team-provisioning';
 import { GitHubReachableRepositories } from '@work/infrastructure/github/github-reachable-repositories';
 import {
   BuiltInHarnesses,
@@ -899,6 +901,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   },
 
   { provide: ARCHIVE_STANDINGS, useClass: DrizzleArchiveStandings },
+  { provide: TEAM_PROVISIONING, useClass: OutboxTeamProvisioning },
   { provide: BRIEFED_TASKS, useClass: DrizzleBriefedTasks },
 
   { provide: CHAT_READER, useClass: DrizzleChatReader },
@@ -2019,6 +2022,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   ...bindQueryHandler(OnboardingQuery, OnboardingHandler, [
     WORKSPACE_READER,
     SetupStanding,
+    TEAM_PROVISIONING,
   ]),
 
   ...bindCommandHandler(ReadInboxAsideCommand, ReadInboxAsideHandler, [

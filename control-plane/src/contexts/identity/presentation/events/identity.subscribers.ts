@@ -1,4 +1,7 @@
-import type { FirstTeam } from '@identity/application/services/first-team.service';
+import {
+  FIRST_TEAM,
+  type FirstTeam,
+} from '@identity/application/services/first-team.service';
 import type { InviteMemberships } from '@identity/application/services/invite-memberships.service';
 import type { MintedTokens } from '@identity/application/services/minted-tokens.service';
 import type { WorkspaceInviteAccepted } from '@identity/domain/events/workspace-invite-accepted.event';
@@ -14,10 +17,8 @@ export const identitySubscribers = (
   firstTeam: FirstTeam,
   minted: MintedTokens,
 ): readonly DomainEventSubscriber[] => [
-  subscribing<WorkspaceOpened>(
-    'identity.first-team',
-    ['workspace.opened'],
-    (event) => firstTeam.openFor(event),
+  subscribing<WorkspaceOpened>(FIRST_TEAM, ['workspace.opened'], (event) =>
+    firstTeam.openFor(event),
   ),
   subscribing<WorkspaceInviteAccepted>(
     'identity.join-on-accept',
