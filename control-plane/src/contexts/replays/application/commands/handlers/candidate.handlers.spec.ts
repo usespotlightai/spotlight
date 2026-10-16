@@ -148,7 +148,7 @@ describe('WithdrawCandidateHandler', () => {
 
   it('refuses a version it is not at, naming the one it is', async () => {
     expect(await withdraw('candidate_proposed', 3)).toEqual({
-      outcome: 'moved-on',
+      outcome: 'version-conflict',
       currentVersion: 0,
     });
   });

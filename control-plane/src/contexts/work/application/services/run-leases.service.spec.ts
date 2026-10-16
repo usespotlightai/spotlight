@@ -5,7 +5,7 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { RunLeases } from '@work/application/services/run-leases.service';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import { RunLapsed } from '@work/domain/events/run-lapsed.event';
-import { RunMovedOnError } from '@work/domain/exceptions/run-moved-on.error';
+import { RunVersionConflictError } from '@work/domain/exceptions/run-version-conflict.error';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { describe, expect, it } from 'vitest';
@@ -26,15 +26,15 @@ const claimedBy = (id: string, runner: string, at = NOON) =>
     }),
   }).claim(RunnerId.of(runner), at);
 
-const holding = (held: Run[], movedOn: string[] = []) => {
+const holding = (held: Run[], conflicting: string[] = []) => {
   const saved: Run[] = [];
   const runs = {
     lapsedClaims: async (now: Date) => held.filter((each) => each.lapsed(now)),
     claimedBy: async (runner: RunnerId) =>
       held.filter((each) => each.wasWorkedBy(runner)),
     save: async (run: Run) => {
-      if (movedOn.includes(run.id.value)) {
-        throw new RunMovedOnError(run.id.value);
+      if (conflicting.includes(run.id.value)) {
+        throw new RunVersionConflictError(run.id.value);
       }
       saved.push(run);
     },
@@ -69,7 +69,7 @@ describe('RunLeases', () => {
     );
   });
 
-  it('leaves alone a run that moved on while it was being requeued', async () => {
+  it('leaves alone a run that changed while it was being requeued', async () => {
     const { leases, saved } = holding(
       [claimedBy('run_1', 'runner_1'), claimedBy('run_2', 'runner_1')],
       ['run_1'],

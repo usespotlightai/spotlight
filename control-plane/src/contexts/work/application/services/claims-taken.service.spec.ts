@@ -8,7 +8,7 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import type { CheckWorkPort } from '@work/application/ports/check-work.port';
 import { ClaimsTaken } from '@work/application/services/claims-taken.service';
 import { Run } from '@work/domain/aggregates/run.aggregate';
-import { RunMovedOnError } from '@work/domain/exceptions/run-moved-on.error';
+import { RunVersionConflictError } from '@work/domain/exceptions/run-version-conflict.error';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -50,7 +50,7 @@ const taking = (
       }
       if (clashes > 0) {
         clashes -= 1;
-        throw new RunMovedOnError(run.id.value);
+        throw new RunVersionConflictError(run.id.value);
       }
       saved.push(run);
     }),
@@ -102,7 +102,7 @@ describe('ClaimsTaken', () => {
     expect(saved.map((each) => each.state)).toEqual(['queued']);
   });
 
-  it('tries again when the run moved on while it was unclaimed', async () => {
+  it('tries again when the run changed while it was unclaimed', async () => {
     const { taken, saved } = taking({ refuses: true, clashes: 1 });
 
     await expect(taken.run(claimed(), RUNNER)).rejects.toThrow(

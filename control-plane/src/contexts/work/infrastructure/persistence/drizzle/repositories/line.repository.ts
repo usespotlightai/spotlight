@@ -19,8 +19,8 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Station } from '@work/domain/entities/station.entity';
 import { LineAlreadyOpenedError } from '@work/domain/exceptions/line-already-opened.error';
-import { LineMovedOnError } from '@work/domain/exceptions/line-moved-on.error';
 import { LineRoleTakenError } from '@work/domain/exceptions/line-role-taken.error';
+import { LineVersionConflictError } from '@work/domain/exceptions/line-version-conflict.error';
 import { StrandedWorkError } from '@work/domain/exceptions/stranded-work.error';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import { AgentPrompt } from '@work/domain/value-objects/agent-prompt.vo';
@@ -229,7 +229,7 @@ export class DrizzleLineRepository implements LineRepository {
       });
 
     if (written.length === 0) {
-      throw new LineMovedOnError(saved.id.value);
+      throw new LineVersionConflictError(saved.id.value);
     }
 
     const standing = await this.context.db
@@ -297,7 +297,7 @@ export class DrizzleLineRepository implements LineRepository {
         .returning({ id: line.id });
 
       if (removed.length === 0) {
-        throw new LineMovedOnError(retired.id.value);
+        throw new LineVersionConflictError(retired.id.value);
       }
     } catch (error) {
       if (violates(error, RESTRICT_VIOLATION, 'task_station_id')) {

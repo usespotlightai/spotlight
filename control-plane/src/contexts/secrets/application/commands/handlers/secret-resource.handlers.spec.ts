@@ -193,7 +193,7 @@ describe('UpdateSecretHandler', () => {
     const { update } = await created();
 
     expect(await update(LINEAR, 0)).toEqual({
-      outcome: 'moved-on',
+      outcome: 'version-conflict',
       currentVersion: 1,
     });
   });

@@ -1,4 +1,4 @@
-import { StackCheckMovedOnError } from '@change-review/domain/exceptions/stack-check-moved-on.error';
+import { StackCheckVersionConflictError } from '@change-review/domain/exceptions/stack-check-version-conflict.error';
 import type { StackCheckRepository } from '@change-review/domain/repositories/stack-check.repository';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
@@ -26,7 +26,7 @@ export class SettleOverdueChecks implements OwedWorkPort {
       try {
         await this.checks.save(check.settledOverdue(now));
       } catch (error) {
-        if (!(error instanceof StackCheckMovedOnError)) {
+        if (!(error instanceof StackCheckVersionConflictError)) {
           this.logger.error(
             { err: error, stack: check.stackId.value },
             this.name,

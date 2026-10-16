@@ -9,7 +9,7 @@ import { InvalidRunnerPoolError } from '@runners/domain/exceptions/invalid-runne
 import { PoolTokenSpentError } from '@runners/domain/exceptions/pool-token-spent.error';
 import { PoolTokenTakenError } from '@runners/domain/exceptions/pool-token-taken.error';
 import { RunnerPoolFixedError } from '@runners/domain/exceptions/runner-pool-fixed.error';
-import { RunnerPoolMovedOnError } from '@runners/domain/exceptions/runner-pool-moved-on.error';
+import { RunnerPoolVersionConflictError } from '@runners/domain/exceptions/runner-pool-version-conflict.error';
 import type { GivenPoolTokensRepository } from '@runners/domain/repositories/given-pool-tokens.repository';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
 import { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
@@ -58,7 +58,7 @@ export class UpdateRunnerPoolHandler
         return forbiddenTo('manage-runners');
       }
 
-      standing.expecting(command.expectedVersion);
+      standing.assertVersion(command.expectedVersion);
 
       const compiled = this.definitions.pool(command.definition);
 
@@ -79,11 +79,11 @@ export class UpdateRunnerPoolHandler
 
       return { outcome: 'updated', id: id.value };
     } catch (error) {
-      if (error instanceof RunnerPoolMovedOnError) {
+      if (error instanceof RunnerPoolVersionConflictError) {
         const current = await this.pools.find(id);
 
         return current
-          ? { outcome: 'moved-on', currentVersion: current.version }
+          ? { outcome: 'version-conflict', currentVersion: current.version }
           : null;
       }
 

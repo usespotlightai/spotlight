@@ -1,5 +1,5 @@
 import { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
-import { ChangeStackMovedOnError } from '@change-review/domain/exceptions/change-stack-moved-on.error';
+import { ChangeStackVersionConflictError } from '@change-review/domain/exceptions/change-stack-version-conflict.error';
 import type { ChangeStackRepository } from '@change-review/domain/repositories/change-stack.repository';
 import { BaseCommit } from '@change-review/domain/value-objects/base-commit.vo';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
@@ -147,7 +147,7 @@ export class DrizzleChangeStackRepository implements ChangeStackRepository {
       .returning({ id: changeStack.id });
 
     if (written.length === 0) {
-      throw new ChangeStackMovedOnError(saved.id.value);
+      throw new ChangeStackVersionConflictError(saved.id.value);
     }
   }
 

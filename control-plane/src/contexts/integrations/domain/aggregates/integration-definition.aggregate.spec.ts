@@ -4,7 +4,7 @@ import { IntegrationDefined } from '@integrations/domain/events/integration-defi
 import { IntegrationRedefined } from '@integrations/domain/events/integration-redefined.event';
 import { IntegrationReread } from '@integrations/domain/events/integration-reread.event';
 import { IntegrationRetired } from '@integrations/domain/events/integration-retired.event';
-import { IntegrationDefinitionMovedOnError } from '@integrations/domain/exceptions/integration-definition-moved-on.error';
+import { IntegrationDefinitionVersionConflictError } from '@integrations/domain/exceptions/integration-definition-version-conflict.error';
 import { IntegrationHostFixedError } from '@integrations/domain/exceptions/integration-host-fixed.error';
 import { IntegrationToolsInUseError } from '@integrations/domain/exceptions/integration-tools-in-use.error';
 import { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
@@ -222,10 +222,10 @@ describe('IntegrationDefinition', () => {
     );
   });
 
-  it('refuses a change based on a version it has moved on from', () => {
-    expect(() => standing([], 3).expecting(3)).not.toThrow();
-    expect(() => standing([], 3).expecting(2)).toThrow(
-      IntegrationDefinitionMovedOnError,
+  it('refuses a change based on a version that is no longer current', () => {
+    expect(() => standing([], 3).assertVersion(3)).not.toThrow();
+    expect(() => standing([], 3).assertVersion(2)).toThrow(
+      IntegrationDefinitionVersionConflictError,
     );
   });
 

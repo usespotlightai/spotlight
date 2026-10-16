@@ -3,7 +3,7 @@ import { Skill } from '@configuration/domain/entities/skill.entity';
 import { SkillDefined } from '@configuration/domain/events/skill-defined.event';
 import { SkillRedefined } from '@configuration/domain/events/skill-redefined.event';
 import { SkillRetired } from '@configuration/domain/events/skill-retired.event';
-import { SkillDefinitionMovedOnError } from '@configuration/domain/exceptions/skill-definition-moved-on.error';
+import { SkillDefinitionVersionConflictError } from '@configuration/domain/exceptions/skill-definition-version-conflict.error';
 import { SkillInUseError } from '@configuration/domain/exceptions/skill-in-use.error';
 import { SkillKeyFixedError } from '@configuration/domain/exceptions/skill-key-fixed.error';
 import { SkillDefinitionId } from '@configuration/domain/value-objects/skill-definition-id.vo';
@@ -70,7 +70,9 @@ describe('SkillDefinition', () => {
   });
 
   it('refuses a change made against another version', () => {
-    expect(() => kept(3).expecting(2)).toThrow(SkillDefinitionMovedOnError);
+    expect(() => kept(3).assertVersion(2)).toThrow(
+      SkillDefinitionVersionConflictError,
+    );
   });
 
   it('takes new files, and says so', () => {

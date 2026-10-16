@@ -9,7 +9,7 @@ import { RunnerPoolRedefined } from '@runners/domain/events/runner-pool-redefine
 import { RunnerPoolRetired } from '@runners/domain/events/runner-pool-retired.event';
 import { InvalidRunnerPoolError } from '@runners/domain/exceptions/invalid-runner-pool.error';
 import { RunnerPoolFixedError } from '@runners/domain/exceptions/runner-pool-fixed.error';
-import { RunnerPoolMovedOnError } from '@runners/domain/exceptions/runner-pool-moved-on.error';
+import { RunnerPoolVersionConflictError } from '@runners/domain/exceptions/runner-pool-version-conflict.error';
 import { MaxRuns } from '@runners/domain/value-objects/max-runs.vo';
 import { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
 import { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
@@ -207,8 +207,10 @@ describe('RunnerPool', () => {
     expect((retired as RunnerPoolRetired).change.action).toBe('deleted');
   });
 
-  it('refuses a write from a version it has moved on from', () => {
-    expect(() => aPullPool().expecting(3)).toThrow(RunnerPoolMovedOnError);
+  it('refuses a write from a version that is no longer current', () => {
+    expect(() => aPullPool().assertVersion(3)).toThrow(
+      RunnerPoolVersionConflictError,
+    );
   });
 
   it('takes a whole number of runs as its limit', () => {

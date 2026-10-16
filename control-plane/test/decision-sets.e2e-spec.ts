@@ -1,6 +1,6 @@
 import { DecisionSet } from '@change-review/domain/aggregates/decision-set.aggregate';
 import type { ProposedDecision } from '@change-review/domain/entities/decision.entity';
-import { DecisionSetMovedOnError } from '@change-review/domain/exceptions/decision-set-moved-on.error';
+import { DecisionSetVersionConflictError } from '@change-review/domain/exceptions/decision-set-version-conflict.error';
 import { DecisionDisputeId } from '@change-review/domain/value-objects/decision-dispute-id.vo';
 import { DecisionGrounds } from '@change-review/domain/value-objects/decision-grounds.vo';
 import { DecisionMerge } from '@change-review/domain/value-objects/decision-merge.vo';
@@ -180,7 +180,7 @@ describe('storing a task’s decisions', () => {
     await sets.save(set.asked(FIRST, NOW));
 
     await expect(sets.save(set.asked(SECOND, NOW))).rejects.toThrow(
-      DecisionSetMovedOnError,
+      DecisionSetVersionConflictError,
     );
   });
 
@@ -218,7 +218,7 @@ describe('storing a task’s decisions', () => {
     await sets.save(set.asked(FIRST, NOW));
 
     await expect(sets.save(set.closedUnmerged())).rejects.toThrow(
-      DecisionSetMovedOnError,
+      DecisionSetVersionConflictError,
     );
   });
 

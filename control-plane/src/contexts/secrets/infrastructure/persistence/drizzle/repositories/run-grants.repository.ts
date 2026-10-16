@@ -1,6 +1,6 @@
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { RunGrants } from '@secrets/domain/aggregates/run-grants.aggregate';
-import { RunGrantsMovedOnError } from '@secrets/domain/exceptions/run-grants-moved-on.error';
+import { RunGrantsVersionConflictError } from '@secrets/domain/exceptions/run-grants-version-conflict.error';
 import type { RunGrantsRepository } from '@secrets/domain/repositories/run-grants.repository';
 import { RedemptionRecipient } from '@secrets/domain/value-objects/redemption-recipient.vo';
 import { RunHold } from '@secrets/domain/value-objects/run-hold.vo';
@@ -117,7 +117,7 @@ export class DrizzleRunGrants implements RunGrantsRepository {
       .returning({ runId: runGrants.runId });
 
     if (forgotten.length === 0) {
-      throw new RunGrantsMovedOnError(grants.runId.value);
+      throw new RunGrantsVersionConflictError(grants.runId.value);
     }
   }
 
@@ -151,7 +151,7 @@ export class DrizzleRunGrants implements RunGrantsRepository {
           .returning({ runId: runGrants.runId });
 
     if (touched.length === 0) {
-      throw new RunGrantsMovedOnError(grants.runId.value);
+      throw new RunGrantsVersionConflictError(grants.runId.value);
     }
   }
 

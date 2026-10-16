@@ -3,7 +3,7 @@ import { SkillDefined } from '@configuration/domain/events/skill-defined.event';
 import { SkillRedefined } from '@configuration/domain/events/skill-redefined.event';
 import { SkillRetired } from '@configuration/domain/events/skill-retired.event';
 import { InvalidSkillError } from '@configuration/domain/exceptions/invalid-skill.error';
-import { SkillDefinitionMovedOnError } from '@configuration/domain/exceptions/skill-definition-moved-on.error';
+import { SkillDefinitionVersionConflictError } from '@configuration/domain/exceptions/skill-definition-version-conflict.error';
 import { SkillInUseError } from '@configuration/domain/exceptions/skill-in-use.error';
 import { SkillKeyFixedError } from '@configuration/domain/exceptions/skill-key-fixed.error';
 import type { SkillDefinitionId } from '@configuration/domain/value-objects/skill-definition-id.vo';
@@ -88,9 +88,9 @@ export class SkillDefinition extends EventRecorder {
     return new SkillDefinition({ ...input, retired: false });
   }
 
-  expecting(version: number): void {
+  assertVersion(version: number): void {
     if (version !== this.version) {
-      throw new SkillDefinitionMovedOnError(this.key.value);
+      throw new SkillDefinitionVersionConflictError(this.key.value);
     }
   }
 

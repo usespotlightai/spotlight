@@ -3,7 +3,7 @@ import type { UpdateWorkspaceRunnersCommand } from '@runners/application/command
 import type { RunnerDefinitionsPort } from '@runners/application/ports/runner-definitions.port';
 import { RunnerProblems } from '@runners/application/rendering/runner-problems';
 import { InvalidWorkspaceRunnersError } from '@runners/domain/exceptions/invalid-workspace-runners.error';
-import { WorkspaceRunnersMovedOnError } from '@runners/domain/exceptions/workspace-runners-moved-on.error';
+import { WorkspaceRunnersVersionConflictError } from '@runners/domain/exceptions/workspace-runners-version-conflict.error';
 import type { WorkspaceRunnersRepository } from '@runners/domain/repositories/workspace-runners.repository';
 import { WorkspaceRunnersId } from '@runners/domain/value-objects/workspace-runners-id.vo';
 import {
@@ -48,7 +48,7 @@ export class UpdateWorkspaceRunnersHandler
         return forbiddenTo('manage-runners');
       }
 
-      standing.expecting(command.expectedVersion);
+      standing.assertVersion(command.expectedVersion);
 
       const compiled = this.definitions.workspaceRunners(command.definition);
 
@@ -67,11 +67,11 @@ export class UpdateWorkspaceRunnersHandler
 
       return { outcome: 'updated', id: id.value };
     } catch (error) {
-      if (error instanceof WorkspaceRunnersMovedOnError) {
+      if (error instanceof WorkspaceRunnersVersionConflictError) {
         const current = await this.declarations.find(id);
 
         return current
-          ? { outcome: 'moved-on', currentVersion: current.version }
+          ? { outcome: 'version-conflict', currentVersion: current.version }
           : null;
       }
 

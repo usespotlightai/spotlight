@@ -74,7 +74,11 @@ describe('resource answers', () => {
   it.each([
     [null, 404, 'not-found'],
     [INVALID, 422, 'invalid'],
-    [{ outcome: 'moved-on' as const, currentVersion: 4 }, 409, 'moved-on'],
+    [
+      { outcome: 'version-conflict' as const, currentVersion: 4 },
+      409,
+      'version-conflict',
+    ],
     [{ outcome: 'in-use' as const, reason: 'held' }, 409, 'in-use'],
     [forbiddenTo('configure'), 403, 'forbidden'],
   ])('refuses an update that came to %j', async (outcome, status, slug) => {
@@ -133,7 +137,7 @@ describe('resource answers', () => {
       await problemOf(() =>
         answerUpdated(
           'line',
-          { outcome: 'moved-on', currentVersion: 4 },
+          { outcome: 'version-conflict', currentVersion: 4 },
           answer,
         ),
       ),
@@ -144,7 +148,10 @@ describe('resource answers', () => {
     expect(answerDeleted('line', { outcome: 'deleted' })).toBeUndefined();
     expect(
       await problemOf(() =>
-        answerDeleted('line', { outcome: 'moved-on', currentVersion: 4 }),
+        answerDeleted('line', {
+          outcome: 'version-conflict',
+          currentVersion: 4,
+        }),
       ),
     ).toMatchObject({ status: 409, currentVersion: 4 });
   });

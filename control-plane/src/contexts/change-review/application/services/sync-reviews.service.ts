@@ -7,7 +7,7 @@ import type {
 import type { ReviewSyncWorkPort } from '@change-review/application/ports/review-sync-work.port';
 import type { WorkPort } from '@change-review/application/ports/work.port';
 import type { ReviewComment } from '@change-review/domain/aggregates/review-comment.aggregate';
-import { ReviewCommentMovedOnError } from '@change-review/domain/exceptions/review-comment-moved-on.error';
+import { ReviewCommentVersionConflictError } from '@change-review/domain/exceptions/review-comment-version-conflict.error';
 import type { ReviewRepository } from '@change-review/domain/repositories/review.repository';
 import type { ReviewCommentRepository } from '@change-review/domain/repositories/review-comment.repository';
 import type { ReviewAuthor } from '@change-review/domain/value-objects/review-author.vo';
@@ -378,7 +378,7 @@ export class SyncReviews implements ReviewSyncWorkPort {
         return;
       } catch (error) {
         if (
-          !(error instanceof ReviewCommentMovedOnError) ||
+          !(error instanceof ReviewCommentVersionConflictError) ||
           attempt >= KEEPING_ATTEMPTS
         ) {
           throw new GaveUp(

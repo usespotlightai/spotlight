@@ -5,8 +5,8 @@ import {
   violates,
 } from '@platform/persistence/drizzle/violations';
 import { Search } from '@replays/domain/aggregates/search.aggregate';
-import { SearchMovedOnError } from '@replays/domain/exceptions/search-moved-on.error';
 import { SearchUnderwayError } from '@replays/domain/exceptions/search-underway.error';
+import { SearchVersionConflictError } from '@replays/domain/exceptions/search-version-conflict.error';
 import type {
   SearchPage,
   SearchRepository,
@@ -440,7 +440,7 @@ export class DrizzleSearchRepository implements SearchRepository {
             .returning({ id: replaySearch.id });
 
       if (written.length === 0) {
-        throw new SearchMovedOnError(saved.id.value);
+        throw new SearchVersionConflictError(saved.id.value);
       }
 
       if (!saved.isAbandoned) {

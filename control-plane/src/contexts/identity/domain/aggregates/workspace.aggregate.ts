@@ -8,8 +8,8 @@ import { NotYoursToGiveError } from '@identity/domain/exceptions/not-yours-to-gi
 import { NotYoursToInviteError } from '@identity/domain/exceptions/not-yours-to-invite.error';
 import { TeamOutsideWorkspaceError } from '@identity/domain/exceptions/team-outside-workspace.error';
 import { WorkspaceInUseError } from '@identity/domain/exceptions/workspace-in-use.error';
-import { WorkspaceMovedOnError } from '@identity/domain/exceptions/workspace-moved-on.error';
 import { WorkspaceSlugFixedError } from '@identity/domain/exceptions/workspace-slug-fixed.error';
+import { WorkspaceVersionConflictError } from '@identity/domain/exceptions/workspace-version-conflict.error';
 import {
   type RolePositions,
   refusalToGive,
@@ -106,9 +106,9 @@ export class Workspace extends EventRecorder {
     );
   }
 
-  expecting(version: number): void {
+  assertVersion(version: number): void {
     if (version !== this.version) {
-      throw new WorkspaceMovedOnError(this.slug.value);
+      throw new WorkspaceVersionConflictError(this.slug.value);
     }
   }
 

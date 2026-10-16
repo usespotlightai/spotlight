@@ -1,6 +1,6 @@
 import { RunnerTrust } from '@runners/domain/aggregates/runner-trust.aggregate';
 import { RunnerTrustKeyFixedError } from '@runners/domain/exceptions/runner-trust-key-fixed.error';
-import { RunnerTrustMovedOnError } from '@runners/domain/exceptions/runner-trust-moved-on.error';
+import { RunnerTrustVersionConflictError } from '@runners/domain/exceptions/runner-trust-version-conflict.error';
 import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
 import { RunnerTrustId } from '@runners/domain/value-objects/runner-trust-id.vo';
 import { TrustKey } from '@runners/domain/value-objects/trust-key.vo';
@@ -133,6 +133,8 @@ describe('RunnerTrust', () => {
   });
 
   it('refuses a change to a version no longer current', () => {
-    expect(() => standing().expecting(3)).toThrow(RunnerTrustMovedOnError);
+    expect(() => standing().assertVersion(3)).toThrow(
+      RunnerTrustVersionConflictError,
+    );
   });
 });

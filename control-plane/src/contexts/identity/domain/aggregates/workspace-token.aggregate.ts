@@ -5,8 +5,8 @@ import { WorkspaceTokenRedescribed } from '@identity/domain/events/workspace-tok
 import { WorkspaceTokenRevoked } from '@identity/domain/events/workspace-token-revoked.event';
 import { InvalidWorkspaceTokenError } from '@identity/domain/exceptions/invalid-workspace-token.error';
 import { MintedTokenFixedError } from '@identity/domain/exceptions/minted-token-fixed.error';
-import { WorkspaceTokenMovedOnError } from '@identity/domain/exceptions/workspace-token-moved-on.error';
 import { WorkspaceTokenTermsFixedError } from '@identity/domain/exceptions/workspace-token-terms-fixed.error';
+import { WorkspaceTokenVersionConflictError } from '@identity/domain/exceptions/workspace-token-version-conflict.error';
 import { MintedTokenDetail } from '@identity/domain/value-objects/minted-token-detail.vo';
 import { RunTokenDetail } from '@identity/domain/value-objects/run-token-detail.vo';
 import { TokenDescription } from '@identity/domain/value-objects/token-description.vo';
@@ -264,9 +264,9 @@ export class WorkspaceToken extends EventRecorder {
     return new WorkspaceToken({ ...input, revoked: false });
   }
 
-  expecting(version: number): void {
+  assertVersion(version: number): void {
     if (version !== this.version) {
-      throw new WorkspaceTokenMovedOnError(this.id.value);
+      throw new WorkspaceTokenVersionConflictError(this.id.value);
     }
   }
 

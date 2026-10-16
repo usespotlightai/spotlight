@@ -3,8 +3,8 @@ import { WorkspaceTokenIssued } from '@identity/domain/events/workspace-token-is
 import { WorkspaceTokenRedescribed } from '@identity/domain/events/workspace-token-redescribed.event';
 import { WorkspaceTokenRevoked } from '@identity/domain/events/workspace-token-revoked.event';
 import { InvalidWorkspaceTokenError } from '@identity/domain/exceptions/invalid-workspace-token.error';
-import { WorkspaceTokenMovedOnError } from '@identity/domain/exceptions/workspace-token-moved-on.error';
 import { WorkspaceTokenTermsFixedError } from '@identity/domain/exceptions/workspace-token-terms-fixed.error';
+import { WorkspaceTokenVersionConflictError } from '@identity/domain/exceptions/workspace-token-version-conflict.error';
 import { TokenDescription } from '@identity/domain/value-objects/token-description.vo';
 import { TokenName } from '@identity/domain/value-objects/token-name.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
@@ -141,7 +141,9 @@ describe('WorkspaceToken', () => {
   });
 
   it('refuses a change made against another version', () => {
-    expect(() => kept(2).expecting(1)).toThrow(WorkspaceTokenMovedOnError);
+    expect(() => kept(2).assertVersion(1)).toThrow(
+      WorkspaceTokenVersionConflictError,
+    );
   });
 
   it('admits nobody once revoked, and cannot change after', () => {

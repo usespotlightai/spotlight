@@ -4,7 +4,7 @@ import type {
   Renewed,
 } from '@integrations/application/ports/integration-runtime.port';
 import type { HostConnection } from '@integrations/domain/aggregates/host-connection.aggregate';
-import { HostConnectionMovedOnError } from '@integrations/domain/exceptions/host-connection-moved-on.error';
+import { HostConnectionVersionConflictError } from '@integrations/domain/exceptions/host-connection-version-conflict.error';
 import type { HostConnectionRepository } from '@integrations/domain/repositories/host-connection.repository';
 import type { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
 import type { ConnectionHolder } from '@integrations/domain/value-objects/connection-holder.vo';
@@ -101,7 +101,7 @@ export class ConnectionRenewal {
     try {
       await this.connections.save(claimed);
     } catch (error) {
-      if (error instanceof HostConnectionMovedOnError) {
+      if (error instanceof HostConnectionVersionConflictError) {
         return null;
       }
 
@@ -183,7 +183,7 @@ export class ConnectionRenewal {
         return;
       } catch (error) {
         if (
-          !(error instanceof HostConnectionMovedOnError) ||
+          !(error instanceof HostConnectionVersionConflictError) ||
           attempt >= SETTLES
         ) {
           throw error;

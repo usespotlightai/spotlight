@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { PairJudging } from '@outcomes/domain/aggregates/pair-judging.aggregate';
-import { PairJudgingMovedOnError } from '@outcomes/domain/exceptions/pair-judging-moved-on.error';
+import { PairJudgingVersionConflictError } from '@outcomes/domain/exceptions/pair-judging-version-conflict.error';
 import type { PairJudgingRepository } from '@outcomes/domain/repositories/pair-judging.repository';
 import { JudgeCriteria } from '@outcomes/domain/value-objects/judge-criteria.vo';
 import { JudgingFailure } from '@outcomes/domain/value-objects/judging-failure.vo';
@@ -109,7 +109,7 @@ export class DrizzlePairJudgingRepository implements PairJudgingRepository {
         .returning({ runId: pairJudging.runId });
 
       if (written.length === 0) {
-        throw new PairJudgingMovedOnError(
+        throw new PairJudgingVersionConflictError(
           added.runId.value,
           added.against.value,
         );
@@ -134,7 +134,7 @@ export class DrizzlePairJudgingRepository implements PairJudgingRepository {
         .returning({ runId: pairJudging.runId });
 
       if (written.length === 0) {
-        throw new PairJudgingMovedOnError(
+        throw new PairJudgingVersionConflictError(
           saved.runId.value,
           saved.against.value,
         );

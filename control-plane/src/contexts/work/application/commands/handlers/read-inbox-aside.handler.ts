@@ -4,7 +4,7 @@ import type { CommandHandlerPort } from '@shared-kernel/application/ports/comman
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { ReadInboxAsideCommand } from '@work/application/commands/read-inbox-aside.command';
 import type { AsideAtHand } from '@work/application/services/aside-at-hand.service';
-import { TaskAsideMovedOnError } from '@work/domain/exceptions/task-aside-moved-on.error';
+import { TaskAsideVersionConflictError } from '@work/domain/exceptions/task-aside-version-conflict.error';
 import type { TaskAsideRepository } from '@work/domain/repositories/task-aside.repository';
 
 export class ReadInboxAsideHandler
@@ -19,7 +19,7 @@ export class ReadInboxAsideHandler
   async execute(command: ReadInboxAsideCommand): Promise<void> {
     try {
       await this.readOnce(command).catch((error: unknown) => {
-        if (error instanceof TaskAsideMovedOnError) {
+        if (error instanceof TaskAsideVersionConflictError) {
           return this.readOnce(command);
         }
         throw error;

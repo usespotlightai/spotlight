@@ -1,7 +1,7 @@
 import { WorkspaceToken } from '@identity/domain/aggregates/workspace-token.aggregate';
 import { NoSuchWorkspaceError } from '@identity/domain/exceptions/no-such-workspace.error';
 import { WorkspaceTokenAlreadyIssuedError } from '@identity/domain/exceptions/workspace-token-already-issued.error';
-import { WorkspaceTokenMovedOnError } from '@identity/domain/exceptions/workspace-token-moved-on.error';
+import { WorkspaceTokenVersionConflictError } from '@identity/domain/exceptions/workspace-token-version-conflict.error';
 import type { WorkspaceTokenRepository } from '@identity/domain/repositories/workspace-token.repository';
 import { TokenDescription } from '@identity/domain/value-objects/token-description.vo';
 import { TokenName } from '@identity/domain/value-objects/token-name.vo';
@@ -114,7 +114,7 @@ export class DrizzleWorkspaceTokenRepository
             .returning({ id: workspaceToken.id });
 
       if (written.length === 0) {
-        throw new WorkspaceTokenMovedOnError(saved.id.value);
+        throw new WorkspaceTokenVersionConflictError(saved.id.value);
       }
 
       await this.events.dispatch(saved.pullEvents());

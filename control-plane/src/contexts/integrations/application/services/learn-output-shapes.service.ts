@@ -1,5 +1,5 @@
 import { LearnedOutput } from '@integrations/domain/aggregates/learned-output.aggregate';
-import { LearnedOutputMovedOnError } from '@integrations/domain/exceptions/learned-output-moved-on.error';
+import { LearnedOutputVersionConflictError } from '@integrations/domain/exceptions/learned-output-version-conflict.error';
 import type { LearnedOutputRepository } from '@integrations/domain/repositories/learned-output.repository';
 import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -52,7 +52,7 @@ export class LearnOutputShapes {
         return;
       } catch (error) {
         if (
-          !(error instanceof LearnedOutputMovedOnError) ||
+          !(error instanceof LearnedOutputVersionConflictError) ||
           attempt >= ATTEMPTS
         ) {
           throw error;

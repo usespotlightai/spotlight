@@ -1,7 +1,7 @@
 import { HarnessProfileMapper } from '@configuration/application/mappers/harness-profile.mapper';
 import { HarnessProfile } from '@configuration/domain/aggregates/harness-profile.aggregate';
 import { HarnessProfileAlreadyDefinedError } from '@configuration/domain/exceptions/harness-profile-already-defined.error';
-import { HarnessProfileMovedOnError } from '@configuration/domain/exceptions/harness-profile-moved-on.error';
+import { HarnessProfileVersionConflictError } from '@configuration/domain/exceptions/harness-profile-version-conflict.error';
 import type { HarnessProfileRepository } from '@configuration/domain/repositories/harness-profile.repository';
 import { HarnessProfileId } from '@configuration/domain/value-objects/harness-profile-id.vo';
 import { ProfileKey } from '@configuration/domain/value-objects/profile-key.vo';
@@ -110,7 +110,7 @@ export class DrizzleHarnessProfiles implements HarnessProfileRepository {
           .returning({ id: harnessProfile.id });
 
     if (touched.length === 0) {
-      throw new HarnessProfileMovedOnError(profile.key.value);
+      throw new HarnessProfileVersionConflictError(profile.key.value);
     }
   }
 }

@@ -1,7 +1,7 @@
 import { WorkspaceInvite } from '@identity/domain/aggregates/workspace-invite.aggregate';
 import { WorkspaceInviteOffered } from '@identity/domain/events/workspace-invite-offered.event';
 import { AlreadyInvitedError } from '@identity/domain/exceptions/already-invited.error';
-import { InviteMovedOnError } from '@identity/domain/exceptions/invite-moved-on.error';
+import { InviteVersionConflictError } from '@identity/domain/exceptions/invite-version-conflict.error';
 import type { WorkspaceInviteRepository } from '@identity/domain/repositories/workspace-invite.repository';
 import { EmailAddress } from '@identity/domain/value-objects/email-address.vo';
 import { InviteId } from '@identity/domain/value-objects/invite-id.vo';
@@ -90,7 +90,7 @@ export class DrizzleWorkspaceInviteRepository
       .returning({ id: workspaceInvite.id });
 
     if (written.length === 0) {
-      throw new InviteMovedOnError(id);
+      throw new InviteVersionConflictError(id);
     }
   }
 

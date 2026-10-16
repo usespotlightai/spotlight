@@ -2,7 +2,7 @@ import { JudgingError } from '@outcomes/application/errors/judging.error';
 import type { EvidencePort } from '@outcomes/application/ports/evidence.port';
 import type { JudgePort } from '@outcomes/application/ports/judge.port';
 import type { Judging } from '@outcomes/domain/aggregates/judging.aggregate';
-import { JudgingMovedOnError } from '@outcomes/domain/exceptions/judging-moved-on.error';
+import { JudgingVersionConflictError } from '@outcomes/domain/exceptions/judging-version-conflict.error';
 import type { JudgingRepository } from '@outcomes/domain/repositories/judging.repository';
 import { JudgeEvidence } from '@outcomes/domain/services/judge-evidence';
 import { JudgingFailure } from '@outcomes/domain/value-objects/judging-failure.vo';
@@ -46,7 +46,7 @@ export class WorkJudgings implements OwedWorkPort {
           attempts: judging.work?.attempts,
         }),
         worked: (judging) => this.judged(judging),
-        stale: (error) => error instanceof JudgingMovedOnError,
+        stale: (error) => error instanceof JudgingVersionConflictError,
       },
       transaction,
       clock,

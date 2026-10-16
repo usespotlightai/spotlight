@@ -6,8 +6,8 @@ import { TeamRedefined } from '@identity/domain/events/team-redefined.event';
 import { AlreadyOnTheTeamError } from '@identity/domain/exceptions/already-on-the-team.error';
 import { NotInTheWorkspaceError } from '@identity/domain/exceptions/not-in-the-workspace.error';
 import { TeamKeyFixedError } from '@identity/domain/exceptions/team-key-fixed.error';
-import { TeamMovedOnError } from '@identity/domain/exceptions/team-moved-on.error';
 import { TeamOutsideWorkspaceError } from '@identity/domain/exceptions/team-outside-workspace.error';
+import { TeamVersionConflictError } from '@identity/domain/exceptions/team-version-conflict.error';
 import { Holdings } from '@identity/domain/value-objects/holdings.vo';
 import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import { TeamName } from '@identity/domain/value-objects/team-name.vo';
@@ -201,8 +201,8 @@ describe('Team', () => {
     });
 
     it('refuses a change made against another version', () => {
-      expect(() => kept(3).expecting(2)).toThrow(TeamMovedOnError);
-      expect(() => kept(3).expecting(3)).not.toThrow();
+      expect(() => kept(3).assertVersion(2)).toThrow(TeamVersionConflictError);
+      expect(() => kept(3).assertVersion(3)).not.toThrow();
     });
 
     it('takes a new name, and says so', () => {

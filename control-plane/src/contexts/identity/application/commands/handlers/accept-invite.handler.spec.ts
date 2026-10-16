@@ -2,7 +2,7 @@ import { AcceptInviteCommand } from '@identity/application/commands/accept-invit
 import { AcceptInviteHandler } from '@identity/application/commands/handlers/accept-invite.handler';
 import { Workspace } from '@identity/domain/aggregates/workspace.aggregate';
 import { WorkspaceInvite } from '@identity/domain/aggregates/workspace-invite.aggregate';
-import { InviteMovedOnError } from '@identity/domain/exceptions/invite-moved-on.error';
+import { InviteVersionConflictError } from '@identity/domain/exceptions/invite-version-conflict.error';
 import type { WorkspaceRepository } from '@identity/domain/repositories/workspace.repository';
 import type { WorkspaceInviteRepository } from '@identity/domain/repositories/workspace-invite.repository';
 import { EmailAddress } from '@identity/domain/value-objects/email-address.vo';
@@ -149,7 +149,7 @@ describe('AcceptInviteHandler', () => {
   it('refuses with a conflict where the invite was revoked while it was being accepted', async () => {
     const { handler, save, dispatched } = accepting();
     save.mockImplementationOnce(async () => {
-      throw new InviteMovedOnError('invite_1');
+      throw new InviteVersionConflictError('invite_1');
     });
 
     await expect(handler.execute(accept())).rejects.toMatchObject({

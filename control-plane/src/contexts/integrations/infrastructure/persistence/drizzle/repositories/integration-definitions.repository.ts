@@ -4,7 +4,7 @@ import type {
 } from '@integrations/application/ports/listed-servers.port';
 import { IntegrationDefinition } from '@integrations/domain/aggregates/integration-definition.aggregate';
 import { IntegrationAlreadyDefinedError } from '@integrations/domain/exceptions/integration-already-defined.error';
-import { IntegrationDefinitionMovedOnError } from '@integrations/domain/exceptions/integration-definition-moved-on.error';
+import { IntegrationDefinitionVersionConflictError } from '@integrations/domain/exceptions/integration-definition-version-conflict.error';
 import type { IntegrationDefinitionRepository } from '@integrations/domain/repositories/integration-definition.repository';
 import { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
 import { DefinitionDocument } from '@integrations/domain/value-objects/definition-document.vo';
@@ -172,7 +172,9 @@ export class DrizzleIntegrationDefinitions
           .returning({ id: integrationDefinition.id });
 
     if (touched.length === 0) {
-      throw new IntegrationDefinitionMovedOnError(definition.source.value);
+      throw new IntegrationDefinitionVersionConflictError(
+        definition.source.value,
+      );
     }
   }
 

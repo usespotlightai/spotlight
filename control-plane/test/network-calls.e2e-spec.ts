@@ -2,7 +2,7 @@ import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { NetworkCalls } from '@work/application/services/network-calls.service';
 import { NetworkCall } from '@work/domain/aggregates/network-call.aggregate';
-import { NetworkCallMovedOnError } from '@work/domain/exceptions/network-call-moved-on.error';
+import { NetworkCallVersionConflictError } from '@work/domain/exceptions/network-call-version-conflict.error';
 import { CallingHost } from '@work/domain/value-objects/calling-host.vo';
 import { NetworkAnswer } from '@work/domain/value-objects/network-answer.vo';
 import { NetworkCallId } from '@work/domain/value-objects/network-call-id.vo';
@@ -128,7 +128,7 @@ describe('DrizzleNetworkCallRepository', () => {
     expect(new Set(handed).size).toBe(3);
   });
 
-  it('keeps the answer, and refuses to write over a call that moved on', async () => {
+  it('keeps the answer, and refuses to write over a call that changed', async () => {
     const call = await queued();
     await calls.claimNext(WorkspaceId.of('ws_1'), HOST, NOW);
     const claimed = await calls.find(call.id);
@@ -147,7 +147,7 @@ describe('DrizzleNetworkCallRepository', () => {
 
     await expect(
       calls.save(claimed.answeredWith(HOST, answer, later(2_000))),
-    ).rejects.toThrow(NetworkCallMovedOnError);
+    ).rejects.toThrow(NetworkCallVersionConflictError);
 
     const clock = { now: () => later(1_500), sleep: async () => {} };
     expect(

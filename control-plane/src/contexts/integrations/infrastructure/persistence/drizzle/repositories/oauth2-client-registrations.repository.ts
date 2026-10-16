@@ -1,5 +1,5 @@
 import { OAuth2ClientRegistration } from '@integrations/domain/aggregates/oauth2-client-registration.aggregate';
-import { OAuth2ClientRegistrationMovedOnError } from '@integrations/domain/exceptions/oauth2-client-registration-moved-on.error';
+import { OAuth2ClientRegistrationVersionConflictError } from '@integrations/domain/exceptions/oauth2-client-registration-version-conflict.error';
 import type { OAuth2ClientRegistrationRepository } from '@integrations/domain/repositories/oauth2-client-registration.repository';
 import { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
 import { AuthorizationServer } from '@integrations/domain/value-objects/authorization-server.vo';
@@ -89,7 +89,9 @@ export class DrizzleOAuth2ClientRegistrations
           .returning({ source: oauth2ClientRegistration.source });
 
     if (kept.length === 0) {
-      throw new OAuth2ClientRegistrationMovedOnError(registration.source.value);
+      throw new OAuth2ClientRegistrationVersionConflictError(
+        registration.source.value,
+      );
     }
   }
 

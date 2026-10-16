@@ -2,8 +2,8 @@ import type { WithdrawCandidateCommand } from '@replays/application/commands/wit
 import type { PeoplePort } from '@replays/application/ports/people.port';
 import { CandidateIsLiveError } from '@replays/domain/exceptions/candidate-is-live.error';
 import { CandidateKeptBySpotlightError } from '@replays/domain/exceptions/candidate-kept-by-spotlight.error';
-import { CandidateMovedOnError } from '@replays/domain/exceptions/candidate-moved-on.error';
 import { CandidateUnderwayError } from '@replays/domain/exceptions/candidate-underway.error';
+import { CandidateVersionConflictError } from '@replays/domain/exceptions/candidate-version-conflict.error';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
@@ -56,7 +56,7 @@ export class WithdrawCandidateHandler
           return false;
         }
 
-        candidate.expecting(command.expectedVersion);
+        candidate.assertVersion(command.expectedVersion);
 
         const replays = await this.replays.ofCandidate(id);
 
@@ -72,11 +72,11 @@ export class WithdrawCandidateHandler
 
       return withdrawn ? { outcome: 'deleted' } : null;
     } catch (error) {
-      if (error instanceof CandidateMovedOnError) {
+      if (error instanceof CandidateVersionConflictError) {
         const current = await this.candidates.find(id);
 
         return current
-          ? { outcome: 'moved-on', currentVersion: current.version }
+          ? { outcome: 'version-conflict', currentVersion: current.version }
           : null;
       }
 

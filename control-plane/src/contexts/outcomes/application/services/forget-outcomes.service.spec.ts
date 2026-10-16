@@ -5,7 +5,7 @@ import {
 } from '@outcomes/application/services/forget-outcomes.service';
 import { StationWatch } from '@outcomes/domain/aggregates/station-watch.aggregate';
 import { StationWatchesInMemory } from '@outcomes/domain/alerts.fake-spec';
-import { StationWatchMovedOnError } from '@outcomes/domain/exceptions/station-watch-moved-on.error';
+import { StationWatchVersionConflictError } from '@outcomes/domain/exceptions/station-watch-version-conflict.error';
 import { TEAM, WORKSPACE } from '@outcomes/domain/outcomes.fake-spec';
 import { AlertId } from '@outcomes/domain/value-objects/alert-id.vo';
 import { AlertRule } from '@outcomes/domain/value-objects/alert-rule.vo';
@@ -46,7 +46,7 @@ class WatchesMovingOn extends StationWatchesInMemory {
 
   override async save(watch: StationWatch): Promise<void> {
     if (watch.station.stationId === this.movingOn) {
-      throw new StationWatchMovedOnError(watch.station.stationId);
+      throw new StationWatchVersionConflictError(watch.station.stationId);
     }
     await super.save(watch);
   }
@@ -84,12 +84,12 @@ describe('ForgetOutcomes', () => {
     expect(await watches.stationsHolding(TASK)).toEqual([]);
   });
 
-  it('keeps the task forgotten and lets a watch that moved on be retried', async () => {
+  it('keeps the task forgotten and lets a watch that changed be retried', async () => {
     const watches = new WatchesMovingOn('station_2');
     const { forget, forgotten } = await forgetting(watches);
 
     await expect(forget.alertsOfTask(WORKSPACE, TASK)).rejects.toBeInstanceOf(
-      StationWatchMovedOnError,
+      StationWatchVersionConflictError,
     );
     expect(await forgotten.forgot(WORKSPACE, TASK)).toBe(true);
     expect(await watches.stationsHolding(TASK)).toEqual(['station_2']);

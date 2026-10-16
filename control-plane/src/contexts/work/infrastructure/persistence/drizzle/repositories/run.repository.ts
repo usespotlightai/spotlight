@@ -19,7 +19,7 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { RunSpecContract } from '@work/application/contracts/run-spec.contract';
 import { Run } from '@work/domain/aggregates/run.aggregate';
-import { RunMovedOnError } from '@work/domain/exceptions/run-moved-on.error';
+import { RunVersionConflictError } from '@work/domain/exceptions/run-version-conflict.error';
 import type {
   Claimant,
   KeptWithRun,
@@ -218,7 +218,7 @@ export class DrizzleRunRepository implements RunRepository {
       .returning({ id: run.id });
 
     if (written.length === 0) {
-      throw new RunMovedOnError(saved.id.value);
+      throw new RunVersionConflictError(saved.id.value);
     }
   }
 

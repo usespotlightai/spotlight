@@ -8,7 +8,7 @@ import {
   type StoredArchive,
   WorkspaceArchive,
 } from '@work/domain/aggregates/workspace-archive.aggregate';
-import { WorkspaceArchiveMovedOnError } from '@work/domain/exceptions/workspace-archive-moved-on.error';
+import { WorkspaceArchiveVersionConflictError } from '@work/domain/exceptions/workspace-archive-version-conflict.error';
 import { ArchiveDigest } from '@work/domain/value-objects/archive-digest.vo';
 import type { ArchiveHolder } from '@work/domain/value-objects/archive-holder.vo';
 import { ArchiveSize } from '@work/domain/value-objects/archive-size.vo';
@@ -184,7 +184,7 @@ describe('keeping workspace archives', () => {
     await archives.save(granted.sealed(STORED, ago(HOUR)));
 
     await expect(archives.save(granted.sealed(STORED, NOW))).rejects.toThrow(
-      WorkspaceArchiveMovedOnError,
+      WorkspaceArchiveVersionConflictError,
     );
 
     const sealed = (await archives.find(granted.id)) as WorkspaceArchive;

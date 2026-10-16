@@ -3,7 +3,7 @@ import type { IdentityDefinitionsPort } from '@identity/application/ports/identi
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import { IdentityProblems } from '@identity/application/rendering/identity-problems';
 import { TeamKeyFixedError } from '@identity/domain/exceptions/team-key-fixed.error';
-import { TeamMovedOnError } from '@identity/domain/exceptions/team-moved-on.error';
+import { TeamVersionConflictError } from '@identity/domain/exceptions/team-version-conflict.error';
 import type { TeamRepository } from '@identity/domain/repositories/team.repository';
 import {
   forbiddenTo,
@@ -45,7 +45,7 @@ export class UpdateTeamHandler
         return forbiddenTo('configure');
       }
 
-      standing.expecting(command.expectedVersion);
+      standing.assertVersion(command.expectedVersion);
 
       const compiled = this.definitions.team(command.definition);
 
@@ -64,11 +64,11 @@ export class UpdateTeamHandler
 
       return { outcome: 'updated', id: id.value };
     } catch (error) {
-      if (error instanceof TeamMovedOnError) {
+      if (error instanceof TeamVersionConflictError) {
         const current = await this.teams.find(id);
 
         return current
-          ? { outcome: 'moved-on', currentVersion: current.version }
+          ? { outcome: 'version-conflict', currentVersion: current.version }
           : null;
       }
 

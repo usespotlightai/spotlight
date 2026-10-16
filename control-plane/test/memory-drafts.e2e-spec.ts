@@ -1,6 +1,6 @@
 import { MemoryDraft } from '@memory/domain/aggregates/memory-draft.aggregate';
 import type { ProposedMemory } from '@memory/domain/entities/memory-proposal.entity';
-import { MemoryDraftMovedOnError } from '@memory/domain/exceptions/memory-draft-moved-on.error';
+import { MemoryDraftVersionConflictError } from '@memory/domain/exceptions/memory-draft-version-conflict.error';
 import { DraftEvidence } from '@memory/domain/services/draft-evidence';
 import { rejectionsHeededAt } from '@memory/domain/services/rejections-heeded';
 import { MemoryDraftId } from '@memory/domain/value-objects/memory-draft-id.vo';
@@ -192,7 +192,7 @@ describe('storing a task’s memory draft', () => {
     await drafts.save(read.leased(NOW));
 
     await expect(drafts.save(read.leased(NOW))).rejects.toBeInstanceOf(
-      MemoryDraftMovedOnError,
+      MemoryDraftVersionConflictError,
     );
   });
 

@@ -1,5 +1,5 @@
 import type { Runner } from '@runners/domain/aggregates/runner.aggregate';
-import { RunnerMovedOnError } from '@runners/domain/exceptions/runner-moved-on.error';
+import { RunnerVersionConflictError } from '@runners/domain/exceptions/runner-version-conflict.error';
 import type { RunnerRepository } from '@runners/domain/repositories/runner.repository';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 
@@ -26,7 +26,10 @@ export const reviseRunner = async (
       await runners.save(changed);
       return changed;
     } catch (error) {
-      if (!(error instanceof RunnerMovedOnError) || attempt >= ATTEMPTS) {
+      if (
+        !(error instanceof RunnerVersionConflictError) ||
+        attempt >= ATTEMPTS
+      ) {
         throw error;
       }
     }

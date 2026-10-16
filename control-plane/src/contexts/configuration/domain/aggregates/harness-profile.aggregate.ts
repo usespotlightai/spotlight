@@ -3,7 +3,7 @@ import { HarnessProfileRedefined } from '@configuration/domain/events/harness-pr
 import { HarnessProfileRetired } from '@configuration/domain/events/harness-profile-retired.event';
 import { HarnessProfileInUseError } from '@configuration/domain/exceptions/harness-profile-in-use.error';
 import { HarnessProfileKeyFixedError } from '@configuration/domain/exceptions/harness-profile-key-fixed.error';
-import { HarnessProfileMovedOnError } from '@configuration/domain/exceptions/harness-profile-moved-on.error';
+import { HarnessProfileVersionConflictError } from '@configuration/domain/exceptions/harness-profile-version-conflict.error';
 import { SecretsUnheldError } from '@configuration/domain/exceptions/secrets-unheld.error';
 import { unheldSecrets } from '@configuration/domain/services/unheld-secrets';
 import type { HarnessProfileId } from '@configuration/domain/value-objects/harness-profile-id.vo';
@@ -89,9 +89,9 @@ export class HarnessProfile extends EventRecorder {
     return new HarnessProfile({ ...input, retired: false });
   }
 
-  expecting(version: number): void {
+  assertVersion(version: number): void {
     if (version !== this.version) {
-      throw new HarnessProfileMovedOnError(this.key.value);
+      throw new HarnessProfileVersionConflictError(this.key.value);
     }
   }
 

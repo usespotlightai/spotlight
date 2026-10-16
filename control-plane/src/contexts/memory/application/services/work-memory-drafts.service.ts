@@ -8,7 +8,7 @@ import type { WorkPort } from '@memory/application/ports/work.port';
 import type { MemoriesInReach } from '@memory/application/services/memories-in-reach.service';
 import type { MemoryDraft } from '@memory/domain/aggregates/memory-draft.aggregate';
 import type { ProposedMemory } from '@memory/domain/entities/memory-proposal.entity';
-import { MemoryDraftMovedOnError } from '@memory/domain/exceptions/memory-draft-moved-on.error';
+import { MemoryDraftVersionConflictError } from '@memory/domain/exceptions/memory-draft-version-conflict.error';
 import type { MemoryDraftRepository } from '@memory/domain/repositories/memory-draft.repository';
 import { DraftEvidence } from '@memory/domain/services/draft-evidence';
 import {
@@ -74,7 +74,7 @@ export class WorkMemoryDrafts implements OwedWorkPort {
           attempts: draft.drafting?.work.attempts,
         }),
         worked: (draft) => this.drafted(draft),
-        stale: (error) => error instanceof MemoryDraftMovedOnError,
+        stale: (error) => error instanceof MemoryDraftVersionConflictError,
       },
       transaction,
       clock,

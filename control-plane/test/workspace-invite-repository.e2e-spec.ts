@@ -1,6 +1,6 @@
 import { WorkspaceInvite } from '@identity/domain/aggregates/workspace-invite.aggregate';
 import { AlreadyInvitedError } from '@identity/domain/exceptions/already-invited.error';
-import { InviteMovedOnError } from '@identity/domain/exceptions/invite-moved-on.error';
+import { InviteVersionConflictError } from '@identity/domain/exceptions/invite-version-conflict.error';
 import { EmailAddress } from '@identity/domain/value-objects/email-address.vo';
 import { InviteId } from '@identity/domain/value-objects/invite-id.vo';
 import { InviteTerms } from '@identity/domain/value-objects/invite-terms.vo';
@@ -228,7 +228,7 @@ describe('DrizzleWorkspaceInviteRepository (e2e)', () => {
 
     await expect(
       invites.save(revoker.revoked(UserId.of('user_leon'), NOW)),
-    ).rejects.toThrow(InviteMovedOnError);
+    ).rejects.toThrow(InviteVersionConflictError);
     expect((await readBack(invite)).acceptedAt).toEqual(NOW);
     expect((await readBack(invite)).version).toBe(2);
     expect(recorded.map((each) => each.kind)).toEqual([

@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PullRequestRecord } from '@outcomes/domain/aggregates/pull-request-record.aggregate';
-import { PullRequestRecordMovedOnError } from '@outcomes/domain/exceptions/pull-request-record-moved-on.error';
+import { PullRequestRecordVersionConflictError } from '@outcomes/domain/exceptions/pull-request-record-version-conflict.error';
 import type { PullRequestRecordRepository } from '@outcomes/domain/repositories/pull-request-record.repository';
 import {
   type PullRequestRow,
@@ -109,7 +109,7 @@ export class DrizzlePullRequestRecordRepository
       .returning({ pullRequest: pullRequestRecord.pullRequest });
 
     if (written.length === 0) {
-      throw new PullRequestRecordMovedOnError(added.pullRequest.value);
+      throw new PullRequestRecordVersionConflictError(added.pullRequest.value);
     }
   }
 
@@ -126,7 +126,7 @@ export class DrizzlePullRequestRecordRepository
       .returning({ pullRequest: pullRequestRecord.pullRequest });
 
     if (written.length === 0) {
-      throw new PullRequestRecordMovedOnError(saved.pullRequest.value);
+      throw new PullRequestRecordVersionConflictError(saved.pullRequest.value);
     }
   }
 
@@ -142,7 +142,9 @@ export class DrizzlePullRequestRecordRepository
       .returning({ pullRequest: pullRequestRecord.pullRequest });
 
     if (gone.length === 0) {
-      throw new PullRequestRecordMovedOnError(removed.pullRequest.value);
+      throw new PullRequestRecordVersionConflictError(
+        removed.pullRequest.value,
+      );
     }
   }
 

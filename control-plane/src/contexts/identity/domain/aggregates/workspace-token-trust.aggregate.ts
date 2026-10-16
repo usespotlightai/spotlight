@@ -4,7 +4,7 @@ import { WorkspaceTokenTrustRedefined } from '@identity/domain/events/workspace-
 import { WorkspaceTokenTrustWithdrawn } from '@identity/domain/events/workspace-token-trust-withdrawn.event';
 import { TokenTrustBeyondGrantorError } from '@identity/domain/exceptions/token-trust-beyond-grantor.error';
 import { TokenTrustKeyFixedError } from '@identity/domain/exceptions/token-trust-key-fixed.error';
-import { TokenTrustMovedOnError } from '@identity/domain/exceptions/token-trust-moved-on.error';
+import { TokenTrustVersionConflictError } from '@identity/domain/exceptions/token-trust-version-conflict.error';
 import { WorkloadNotAdmittedError } from '@identity/domain/exceptions/workload-not-admitted.error';
 import type { Grantor } from '@identity/domain/value-objects/grantor.vo';
 import type { TokenLifetime } from '@identity/domain/value-objects/token-lifetime.vo';
@@ -95,9 +95,9 @@ export class WorkspaceTokenTrust extends EventRecorder {
     return new WorkspaceTokenTrust({ ...input, withdrawn: false });
   }
 
-  expecting(version: number): void {
+  assertVersion(version: number): void {
     if (version !== this.version) {
-      throw new TokenTrustMovedOnError(this.id.value);
+      throw new TokenTrustVersionConflictError(this.id.value);
     }
   }
 

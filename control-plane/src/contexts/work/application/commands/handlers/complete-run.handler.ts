@@ -8,8 +8,8 @@ import type { CompleteRunCommand } from '@work/application/commands/runner.comma
 import type { RunCompletionDto } from '@work/application/dto/run-completion.dto';
 import type { HookedTasksPort } from '@work/application/ports/hooked-tasks.port';
 import type { LifecycleHooksPort } from '@work/application/ports/lifecycle-hooks.port';
-import { RunMovedOnError } from '@work/domain/exceptions/run-moved-on.error';
-import { TaskMovedOnError } from '@work/domain/exceptions/task-moved-on.error';
+import { RunVersionConflictError } from '@work/domain/exceptions/run-version-conflict.error';
+import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
 import { UnknownRunError } from '@work/domain/exceptions/unknown-run.error';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
@@ -22,8 +22,9 @@ import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 
 const ATTEMPTS = 3;
 
-const movedOn = (error: unknown): boolean =>
-  error instanceof RunMovedOnError || error instanceof TaskMovedOnError;
+const isVersionConflict = (error: unknown): boolean =>
+  error instanceof RunVersionConflictError ||
+  error instanceof TaskVersionConflictError;
 
 export class CompleteRunHandler
   implements CommandHandlerPort<CompleteRunCommand, RunCompletionDto>
@@ -88,7 +89,7 @@ export class CompleteRunHandler
       try {
         return await this.transaction.run(work);
       } catch (error) {
-        if (!movedOn(error) || attempt >= ATTEMPTS) {
+        if (!isVersionConflict(error) || attempt >= ATTEMPTS) {
           throw error;
         }
       }

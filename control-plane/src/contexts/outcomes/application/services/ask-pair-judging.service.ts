@@ -6,7 +6,7 @@ import type {
 } from '@outcomes/application/ports/pair-judging.port';
 import { PairJudging } from '@outcomes/domain/aggregates/pair-judging.aggregate';
 import { InvalidScoreError } from '@outcomes/domain/exceptions/invalid-score.error';
-import { PairJudgingMovedOnError } from '@outcomes/domain/exceptions/pair-judging-moved-on.error';
+import { PairJudgingVersionConflictError } from '@outcomes/domain/exceptions/pair-judging-version-conflict.error';
 import type { PairJudgingRepository } from '@outcomes/domain/repositories/pair-judging.repository';
 import { JudgeCriteria } from '@outcomes/domain/value-objects/judge-criteria.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -55,7 +55,7 @@ export class AskPairJudging implements PairJudgingPort {
     try {
       await this.transaction.run(() => this.judgings.add(judging));
     } catch (error) {
-      if (!(error instanceof PairJudgingMovedOnError)) {
+      if (!(error instanceof PairJudgingVersionConflictError)) {
         throw error;
       }
     }

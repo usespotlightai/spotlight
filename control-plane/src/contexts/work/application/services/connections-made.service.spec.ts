@@ -6,7 +6,7 @@ import { ConnectionsMade } from '@work/application/services/connections-made.ser
 import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { Station } from '@work/domain/entities/station.entity';
-import { TaskMovedOnError } from '@work/domain/exceptions/task-moved-on.error';
+import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { ConnectionAsk } from '@work/domain/value-objects/connection-ask.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
@@ -95,7 +95,7 @@ const answering = (fails = 0) => {
     save: vi.fn(async (task: Task) => {
       if (fails > 0) {
         fails--;
-        throw new TaskMovedOnError('task_1');
+        throw new TaskVersionConflictError('task_1');
       }
       standing = task;
       saved.push(task);
@@ -128,7 +128,7 @@ describe('ConnectionsMade', () => {
     expect(saved[0]?.awaitingReview).toBe(false);
   });
 
-  it('tries again when the task moved on while it answered', async () => {
+  it('tries again when the task changed while it answered', async () => {
     const { made, saved } = answering(1);
 
     await made.answer({ teamId: TEAM, source: 'linear', personId: ALICE });

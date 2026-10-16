@@ -1,7 +1,7 @@
 import type { DeleteHarnessProfileCommand } from '@configuration/application/commands/delete-harness-profile.command';
 import type { StationGifts } from '@configuration/application/services/station-gifts.service';
 import { HarnessProfileInUseError } from '@configuration/domain/exceptions/harness-profile-in-use.error';
-import { HarnessProfileMovedOnError } from '@configuration/domain/exceptions/harness-profile-moved-on.error';
+import { HarnessProfileVersionConflictError } from '@configuration/domain/exceptions/harness-profile-version-conflict.error';
 import type { HarnessProfileRepository } from '@configuration/domain/repositories/harness-profile.repository';
 import { HarnessProfileId } from '@configuration/domain/value-objects/harness-profile-id.vo';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
@@ -47,7 +47,7 @@ export class DeleteHarnessProfileHandler
         return forbiddenTo('configure');
       }
 
-      standing.expecting(command.expectedVersion);
+      standing.assertVersion(command.expectedVersion);
 
       const named = await this.given.onTeam(standing.teamId, 'profile');
 
@@ -62,11 +62,11 @@ export class DeleteHarnessProfileHandler
 
       return { outcome: 'deleted' };
     } catch (error) {
-      if (error instanceof HarnessProfileMovedOnError) {
+      if (error instanceof HarnessProfileVersionConflictError) {
         const current = await this.profiles.withId(id);
 
         return current
-          ? { outcome: 'moved-on', currentVersion: current.version }
+          ? { outcome: 'version-conflict', currentVersion: current.version }
           : null;
       }
 

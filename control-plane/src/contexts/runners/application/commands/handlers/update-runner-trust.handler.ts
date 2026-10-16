@@ -3,7 +3,7 @@ import type { UpdateRunnerTrustCommand } from '@runners/application/commands/run
 import type { RunnerDefinitionsPort } from '@runners/application/ports/runner-definitions.port';
 import { RunnerProblems } from '@runners/application/rendering/runner-problems';
 import { RunnerTrustKeyFixedError } from '@runners/domain/exceptions/runner-trust-key-fixed.error';
-import { RunnerTrustMovedOnError } from '@runners/domain/exceptions/runner-trust-moved-on.error';
+import { RunnerTrustVersionConflictError } from '@runners/domain/exceptions/runner-trust-version-conflict.error';
 import type { RunnerTrustRepository } from '@runners/domain/repositories/runner-trust.repository';
 import { RunnerTrustId } from '@runners/domain/value-objects/runner-trust-id.vo';
 import {
@@ -48,7 +48,7 @@ export class UpdateRunnerTrustHandler
         return forbiddenTo('manage-runners');
       }
 
-      standing.expecting(command.expectedVersion);
+      standing.assertVersion(command.expectedVersion);
 
       const compiled = this.definitions.trust(command.definition);
 
@@ -67,11 +67,11 @@ export class UpdateRunnerTrustHandler
 
       return { outcome: 'updated', id: id.value };
     } catch (error) {
-      if (error instanceof RunnerTrustMovedOnError) {
+      if (error instanceof RunnerTrustVersionConflictError) {
         const current = await this.trusts.find(id);
 
         return current
-          ? { outcome: 'moved-on', currentVersion: current.version }
+          ? { outcome: 'version-conflict', currentVersion: current.version }
           : null;
       }
 

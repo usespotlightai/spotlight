@@ -12,7 +12,7 @@ import type {
   StoredArchive,
   WorkspaceArchive,
 } from '@work/domain/aggregates/workspace-archive.aggregate';
-import { WorkspaceArchiveMovedOnError } from '@work/domain/exceptions/workspace-archive-moved-on.error';
+import { WorkspaceArchiveVersionConflictError } from '@work/domain/exceptions/workspace-archive-version-conflict.error';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { WorkspaceArchiveRepository } from '@work/domain/repositories/workspace-archive.repository';
 import type { ContinuityKey } from '@work/domain/value-objects/continuity-key.vo';
@@ -84,7 +84,7 @@ export class InMemoryArchives implements WorkspaceArchiveRepository {
     const held = this.kept.get(archive.id.value);
 
     if (!held || held.version !== archive.version) {
-      throw new WorkspaceArchiveMovedOnError(archive.id.value);
+      throw new WorkspaceArchiveVersionConflictError(archive.id.value);
     }
 
     if (archive.isDiscarded) {

@@ -4,7 +4,7 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Notice } from '@work/domain/aggregates/notice.aggregate';
-import { NoticeMovedOnError } from '@work/domain/exceptions/notice-moved-on.error';
+import { NoticeVersionConflictError } from '@work/domain/exceptions/notice-version-conflict.error';
 import type { NoticeRepository } from '@work/domain/repositories/notice.repository';
 import type { NoticeForm } from '@work/domain/value-objects/notice-form';
 import { NoticeId } from '@work/domain/value-objects/notice-id.vo';
@@ -65,7 +65,7 @@ export class DrizzleNoticeRepository implements NoticeRepository {
       .returning({ id: notice.id });
 
     if (written.length === 0) {
-      throw new NoticeMovedOnError(saved.id.value);
+      throw new NoticeVersionConflictError(saved.id.value);
     }
   }
 

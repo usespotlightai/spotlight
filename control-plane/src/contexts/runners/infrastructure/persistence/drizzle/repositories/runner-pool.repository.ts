@@ -7,7 +7,7 @@ import {
 import { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregate';
 import { PoolTokenTakenError } from '@runners/domain/exceptions/pool-token-taken.error';
 import { RunnerPoolAlreadyDefinedError } from '@runners/domain/exceptions/runner-pool-already-defined.error';
-import { RunnerPoolMovedOnError } from '@runners/domain/exceptions/runner-pool-moved-on.error';
+import { RunnerPoolVersionConflictError } from '@runners/domain/exceptions/runner-pool-version-conflict.error';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
 import { MaxRuns } from '@runners/domain/value-objects/max-runs.vo';
 import {
@@ -136,7 +136,7 @@ export class DrizzleRunnerPoolRepository implements RunnerPoolRepository {
             .returning({ id: runnerPool.id });
 
       if (stored.length === 0) {
-        throw new RunnerPoolMovedOnError(saved.id.value);
+        throw new RunnerPoolVersionConflictError(saved.id.value);
       }
 
       await this.events.dispatch(saved.pullEvents());

@@ -8,7 +8,7 @@ import type { RunJournalPort } from '@work/application/ports/run-journal.port';
 import type { RunStreamPort } from '@work/application/ports/run-stream.port';
 import { ProvisionFailures } from '@work/application/services/provision-failures.service';
 import { Run } from '@work/domain/aggregates/run.aggregate';
-import { RunMovedOnError } from '@work/domain/exceptions/run-moved-on.error';
+import { RunVersionConflictError } from '@work/domain/exceptions/run-version-conflict.error';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import { RunAttempt } from '@work/domain/value-objects/run-attempt.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
@@ -42,7 +42,7 @@ const failing = (stored: Run, conflicts = 0) => {
     save: vi.fn(async (run: Run) => {
       if (clashes > 0) {
         clashes -= 1;
-        throw new RunMovedOnError(run.id.value);
+        throw new RunVersionConflictError(run.id.value);
       }
       held = run;
     }),
@@ -128,7 +128,7 @@ describe('ProvisionFailures', () => {
     ]);
   });
 
-  it('tries again when the run moved on while it was being failed', async () => {
+  it('tries again when the run changed while it was being failed', async () => {
     const { failures, runs } = failing(reserved(), 1);
 
     expect(

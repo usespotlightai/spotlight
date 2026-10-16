@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { ChangeJudging } from '@outcomes/domain/aggregates/change-judging.aggregate';
-import { ChangeJudgingMovedOnError } from '@outcomes/domain/exceptions/change-judging-moved-on.error';
+import { ChangeJudgingVersionConflictError } from '@outcomes/domain/exceptions/change-judging-version-conflict.error';
 import type { ChangeJudgingRepository } from '@outcomes/domain/repositories/change-judging.repository';
 import { JudgeCriteria } from '@outcomes/domain/value-objects/judge-criteria.vo';
 import { JudgingFailure } from '@outcomes/domain/value-objects/judging-failure.vo';
@@ -120,7 +120,7 @@ export class DrizzleChangeJudgingRepository implements ChangeJudgingRepository {
         .returning({ runId: changeJudging.runId });
 
       if (written.length === 0) {
-        throw new ChangeJudgingMovedOnError(added.runId.value);
+        throw new ChangeJudgingVersionConflictError(added.runId.value);
       }
 
       await this.events.dispatch(added.pullEvents());
@@ -142,7 +142,7 @@ export class DrizzleChangeJudgingRepository implements ChangeJudgingRepository {
         .returning({ runId: changeJudging.runId });
 
       if (written.length === 0) {
-        throw new ChangeJudgingMovedOnError(saved.runId.value);
+        throw new ChangeJudgingVersionConflictError(saved.runId.value);
       }
 
       await this.events.dispatch(saved.pullEvents());

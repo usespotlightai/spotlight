@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { CheckAccess } from '@change-review/application/services/check-access.service';
 import { StackCheck } from '@change-review/domain/aggregates/stack-check.aggregate';
-import { StackCheckMovedOnError } from '@change-review/domain/exceptions/stack-check-moved-on.error';
+import { StackCheckVersionConflictError } from '@change-review/domain/exceptions/stack-check-version-conflict.error';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
 import { DrizzleStackCheckRepository } from '@change-review/infrastructure/persistence/drizzle/repositories/stack-check.repository';
@@ -346,7 +346,7 @@ describe('forgetting the checks of a deleted task', () => {
     );
 
     await expect(repository.remove(stale.forgotten(NOW))).rejects.toThrow(
-      StackCheckMovedOnError,
+      StackCheckVersionConflictError,
     );
   });
 });

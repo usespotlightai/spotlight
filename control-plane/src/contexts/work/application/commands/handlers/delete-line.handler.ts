@@ -10,7 +10,7 @@ import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo'
 import type { DeleteLineCommand } from '@work/application/commands/delete-line.command';
 import type { StationTalliesPort } from '@work/application/ports/station-tallies.port';
 import { LineInUseError } from '@work/domain/exceptions/line-in-use.error';
-import { LineMovedOnError } from '@work/domain/exceptions/line-moved-on.error';
+import { LineVersionConflictError } from '@work/domain/exceptions/line-version-conflict.error';
 import { StrandedWorkError } from '@work/domain/exceptions/stranded-work.error';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
@@ -45,7 +45,7 @@ export class DeleteLineHandler
         return forbiddenTo('configure');
       }
 
-      standing.expecting(command.expectedVersion);
+      standing.assertVersion(command.expectedVersion);
 
       await this.transaction.run(async () => {
         const tasks = await this.tallies.lockedStandingAt(
@@ -62,11 +62,11 @@ export class DeleteLineHandler
 
       return { outcome: 'deleted' };
     } catch (error) {
-      if (error instanceof LineMovedOnError) {
+      if (error instanceof LineVersionConflictError) {
         const current = await this.lines.find(id);
 
         return current
-          ? { outcome: 'moved-on', currentVersion: current.version }
+          ? { outcome: 'version-conflict', currentVersion: current.version }
           : null;
       }
 

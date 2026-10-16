@@ -17,7 +17,7 @@ import type { WorkspaceAdministration } from '@identity/application/services/wor
 import type { Workspace } from '@identity/domain/aggregates/workspace.aggregate';
 import { WorkspaceInvite } from '@identity/domain/aggregates/workspace-invite.aggregate';
 import { AlreadyInvitedError } from '@identity/domain/exceptions/already-invited.error';
-import { InviteMovedOnError } from '@identity/domain/exceptions/invite-moved-on.error';
+import { InviteVersionConflictError } from '@identity/domain/exceptions/invite-version-conflict.error';
 import type { TeamRepository } from '@identity/domain/repositories/team.repository';
 import type { WorkspaceInviteRepository } from '@identity/domain/repositories/workspace-invite.repository';
 import { EmailAddress } from '@identity/domain/value-objects/email-address.vo';
@@ -123,7 +123,7 @@ export class InviteToWorkspaceHandler
 
     const written = await this.written(asked).catch((error: unknown) => {
       if (
-        error instanceof InviteMovedOnError ||
+        error instanceof InviteVersionConflictError ||
         error instanceof AlreadyInvitedError
       ) {
         return this.written(asked);

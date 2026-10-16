@@ -11,8 +11,8 @@ import type {
 
 const refused = (kind: string, outcome: Refused): never => {
   switch (outcome.outcome) {
-    case 'moved-on':
-      throw ProblemException.movedOn(kind, outcome.currentVersion);
+    case 'version-conflict':
+      throw ProblemException.versionConflict(kind, outcome.currentVersion);
     case 'in-use':
       throw ProblemException.inUse(kind, outcome.reason);
     case 'forbidden':

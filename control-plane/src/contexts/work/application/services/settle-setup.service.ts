@@ -5,7 +5,7 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 import type { SetupStanding } from '@work/application/services/setup-standing.service';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import { InvalidTaskTransitionError } from '@work/domain/exceptions/invalid-task-transition.error';
-import { TaskMovedOnError } from '@work/domain/exceptions/task-moved-on.error';
+import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { settling } from '@work/domain/services/setup-list';
@@ -74,7 +74,7 @@ export class SettleSetup {
         await this.tasks.save(task.settled(saying));
       }
     } catch (error) {
-      if (error instanceof TaskMovedOnError) {
+      if (error instanceof TaskVersionConflictError) {
         return;
       }
 

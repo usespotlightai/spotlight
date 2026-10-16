@@ -1,7 +1,7 @@
 import { RunTokens } from '@identity/application/services/run-tokens.service';
 import type { WorkspaceToken } from '@identity/domain/aggregates/workspace-token.aggregate';
 import { WorkspaceTokenRevoked } from '@identity/domain/events/workspace-token-revoked.event';
-import { WorkspaceTokenMovedOnError } from '@identity/domain/exceptions/workspace-token-moved-on.error';
+import { WorkspaceTokenVersionConflictError } from '@identity/domain/exceptions/workspace-token-version-conflict.error';
 import type { WorkspaceTokenRepository } from '@identity/domain/repositories/workspace-token.repository';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
@@ -81,7 +81,7 @@ describe('RunTokens', () => {
 
     await service.mintFor(WANTED);
     vi.mocked(tokens.save).mockRejectedValueOnce(
-      new WorkspaceTokenMovedOnError('Token_1'),
+      new WorkspaceTokenVersionConflictError('Token_1'),
     );
 
     await expect(

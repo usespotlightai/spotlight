@@ -11,7 +11,7 @@ import type { MemoryReviews } from '@memory/application/services/memory-reviews.
 import type { RunnerMemoryAtHand } from '@memory/application/services/runner-memory-at-hand.service';
 import type { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import { MemoryDraft } from '@memory/domain/aggregates/memory-draft.aggregate';
-import { MemoryDraftMovedOnError } from '@memory/domain/exceptions/memory-draft-moved-on.error';
+import { MemoryDraftVersionConflictError } from '@memory/domain/exceptions/memory-draft-version-conflict.error';
 import { UnknownMemoryError } from '@memory/domain/exceptions/unknown-memory.error';
 import { UnknownRunError } from '@memory/domain/exceptions/unknown-run.error';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
@@ -90,7 +90,7 @@ export class RememberHandler
       };
       const remembered = await this.rememberedOnce(remembrance).catch(
         (error: unknown) => {
-          if (error instanceof MemoryDraftMovedOnError) {
+          if (error instanceof MemoryDraftVersionConflictError) {
             return this.rememberedOnce(remembrance);
           }
           throw error;

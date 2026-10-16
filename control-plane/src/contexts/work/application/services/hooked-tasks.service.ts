@@ -19,7 +19,7 @@ import type { TaskDispatching } from '@work/application/services/task-dispatch';
 import type { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import type { Station } from '@work/domain/entities/station.entity';
-import { TaskMovedOnError } from '@work/domain/exceptions/task-moved-on.error';
+import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { Placement } from '@work/domain/services/placement';
@@ -195,7 +195,10 @@ export class HookedTasks implements HookedTasksPort, TaskNotesFromHooksPort {
       try {
         return await this.transaction.run(work);
       } catch (error) {
-        if (!(error instanceof TaskMovedOnError) || attempt >= ATTEMPTS) {
+        if (
+          !(error instanceof TaskVersionConflictError) ||
+          attempt >= ATTEMPTS
+        ) {
           throw error;
         }
       }

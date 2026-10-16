@@ -10,7 +10,7 @@ import type {
   ClaimedCheck,
 } from '@work/application/ports/check-work.port';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
-import { RunMovedOnError } from '@work/domain/exceptions/run-moved-on.error';
+import { RunVersionConflictError } from '@work/domain/exceptions/run-version-conflict.error';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 
 const ATTEMPTS = 3;
@@ -78,7 +78,10 @@ export class ClaimsTaken {
         await this.runs.save(held.unclaimedBy(runner));
         return;
       } catch (error) {
-        if (!(error instanceof RunMovedOnError) || attempt >= ATTEMPTS) {
+        if (
+          !(error instanceof RunVersionConflictError) ||
+          attempt >= ATTEMPTS
+        ) {
           throw error;
         }
       }

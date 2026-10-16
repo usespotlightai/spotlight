@@ -69,8 +69,10 @@ describe('ProblemFilter', () => {
     });
   });
 
-  it('names the current version of a resource that moved on, as its ETag too', () => {
-    const { body, headers } = answering(ProblemException.movedOn('line', 4));
+  it('names the current version of a resource that changed, as its ETag too', () => {
+    const { body, headers } = answering(
+      ProblemException.versionConflict('line', 4),
+    );
 
     expect(body).toMatchObject({ status: 409, currentVersion: 4 });
     expect(headers.get('ETag')).toBe('"4"');

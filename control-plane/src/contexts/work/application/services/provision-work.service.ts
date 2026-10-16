@@ -19,7 +19,7 @@ import type {
 } from '@work/application/ports/check-provisioning.port';
 import type { ProvisionFailures } from '@work/application/services/provision-failures.service';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
-import { RunMovedOnError } from '@work/domain/exceptions/run-moved-on.error';
+import { RunVersionConflictError } from '@work/domain/exceptions/run-version-conflict.error';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import {
   type PoolOnOffer,
@@ -260,7 +260,7 @@ export class ProvisionWork {
     try {
       await this.runs.save(reserved);
     } catch (error) {
-      if (error instanceof RunMovedOnError) {
+      if (error instanceof RunVersionConflictError) {
         return 'settled';
       }
 

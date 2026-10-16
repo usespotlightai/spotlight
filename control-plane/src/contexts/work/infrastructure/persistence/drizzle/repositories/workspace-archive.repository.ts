@@ -9,7 +9,7 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { WorkspaceArchive } from '@work/domain/aggregates/workspace-archive.aggregate';
-import { WorkspaceArchiveMovedOnError } from '@work/domain/exceptions/workspace-archive-moved-on.error';
+import { WorkspaceArchiveVersionConflictError } from '@work/domain/exceptions/workspace-archive-version-conflict.error';
 import type { WorkspaceArchiveRepository } from '@work/domain/repositories/workspace-archive.repository';
 import { ArchiveDigest } from '@work/domain/value-objects/archive-digest.vo';
 import type { ArchiveHolder } from '@work/domain/value-objects/archive-holder.vo';
@@ -103,7 +103,7 @@ export class DrizzleWorkspaceArchiveRepository
             .returning({ id: workspaceArchive.id });
 
       if (written.length === 0) {
-        throw new WorkspaceArchiveMovedOnError(saved.id.value);
+        throw new WorkspaceArchiveVersionConflictError(saved.id.value);
       }
 
       await this.events.dispatch(saved.pullEvents());

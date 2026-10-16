@@ -1,7 +1,7 @@
 import { Workspace } from '@identity/domain/aggregates/workspace.aggregate';
 import { WorkspaceInUseError } from '@identity/domain/exceptions/workspace-in-use.error';
-import { WorkspaceMovedOnError } from '@identity/domain/exceptions/workspace-moved-on.error';
 import { WorkspaceSlugTakenError } from '@identity/domain/exceptions/workspace-slug-taken.error';
+import { WorkspaceVersionConflictError } from '@identity/domain/exceptions/workspace-version-conflict.error';
 import type { WorkspaceRepository } from '@identity/domain/repositories/workspace.repository';
 import { Holdings } from '@identity/domain/value-objects/holdings.vo';
 import { WorkspaceName } from '@identity/domain/value-objects/workspace-name.vo';
@@ -119,7 +119,7 @@ export class DrizzleWorkspaceRepository implements WorkspaceRepository {
         .returning({ id: workspace.id });
 
       if (written.length === 0) {
-        throw new WorkspaceMovedOnError(saved.slug.value);
+        throw new WorkspaceVersionConflictError(saved.slug.value);
       }
 
       await this.writeMembers(saved);
@@ -143,7 +143,7 @@ export class DrizzleWorkspaceRepository implements WorkspaceRepository {
       });
 
     if (removed.length === 0) {
-      throw new WorkspaceMovedOnError(saved.slug.value);
+      throw new WorkspaceVersionConflictError(saved.slug.value);
     }
   }
 

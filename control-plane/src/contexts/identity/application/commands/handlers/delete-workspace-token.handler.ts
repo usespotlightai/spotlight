@@ -1,6 +1,6 @@
 import type { DeleteWorkspaceTokenCommand } from '@identity/application/commands/workspace-token.commands';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
-import { WorkspaceTokenMovedOnError } from '@identity/domain/exceptions/workspace-token-moved-on.error';
+import { WorkspaceTokenVersionConflictError } from '@identity/domain/exceptions/workspace-token-version-conflict.error';
 import type { WorkspaceTokenRepository } from '@identity/domain/repositories/workspace-token.repository';
 import {
   forbiddenTo,
@@ -44,7 +44,7 @@ export class DeleteWorkspaceTokenHandler
         return forbiddenTo('administer');
       }
 
-      standing.expecting(command.expectedVersion);
+      standing.assertVersion(command.expectedVersion);
 
       await this.transaction.run(() =>
         this.tokens.save(
@@ -54,11 +54,11 @@ export class DeleteWorkspaceTokenHandler
 
       return { outcome: 'deleted' };
     } catch (error) {
-      if (error instanceof WorkspaceTokenMovedOnError) {
+      if (error instanceof WorkspaceTokenVersionConflictError) {
         const current = await this.tokens.find(id);
 
         return current
-          ? { outcome: 'moved-on', currentVersion: current.version }
+          ? { outcome: 'version-conflict', currentVersion: current.version }
           : null;
       }
 

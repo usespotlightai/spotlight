@@ -2,9 +2,9 @@ import { ChatRecord } from '@outcomes/domain/aggregates/chat-record.aggregate';
 import { TaskDelivery } from '@outcomes/domain/aggregates/task-delivery.aggregate';
 import { TaskFailures } from '@outcomes/domain/aggregates/task-failures.aggregate';
 import { TaskTouches } from '@outcomes/domain/aggregates/task-touches.aggregate';
-import { ChatRecordMovedOnError } from '@outcomes/domain/exceptions/chat-record-moved-on.error';
-import { TaskFailuresMovedOnError } from '@outcomes/domain/exceptions/task-failures-moved-on.error';
-import { TaskTouchesMovedOnError } from '@outcomes/domain/exceptions/task-touches-moved-on.error';
+import { ChatRecordVersionConflictError } from '@outcomes/domain/exceptions/chat-record-version-conflict.error';
+import { TaskFailuresVersionConflictError } from '@outcomes/domain/exceptions/task-failures-version-conflict.error';
+import { TaskTouchesVersionConflictError } from '@outcomes/domain/exceptions/task-touches-version-conflict.error';
 import {
   type RunRecordsInMemory,
   TEAM,
@@ -38,7 +38,7 @@ export class TaskTouchesInMemory implements TaskTouchesRepository {
 
   async add(touches: TaskTouches): Promise<void> {
     if (this.held.has(touches.taskId.value)) {
-      throw new TaskTouchesMovedOnError(touches.taskId.value);
+      throw new TaskTouchesVersionConflictError(touches.taskId.value);
     }
     this.held.set(touches.taskId.value, touches);
   }
@@ -47,7 +47,7 @@ export class TaskTouchesInMemory implements TaskTouchesRepository {
     const held = this.held.get(touches.taskId.value);
 
     if (!held || held.version !== touches.version) {
-      throw new TaskTouchesMovedOnError(touches.taskId.value);
+      throw new TaskTouchesVersionConflictError(touches.taskId.value);
     }
     this.held.set(
       touches.taskId.value,
@@ -118,7 +118,7 @@ export class TaskFailuresInMemory implements TaskFailuresRepository {
 
   async add(failures: TaskFailures): Promise<void> {
     if (this.held.has(failures.taskId.value)) {
-      throw new TaskFailuresMovedOnError(failures.taskId.value);
+      throw new TaskFailuresVersionConflictError(failures.taskId.value);
     }
     this.held.set(failures.taskId.value, failures);
   }
@@ -127,7 +127,7 @@ export class TaskFailuresInMemory implements TaskFailuresRepository {
     const held = this.held.get(failures.taskId.value);
 
     if (!held || held.version !== failures.version) {
-      throw new TaskFailuresMovedOnError(failures.taskId.value);
+      throw new TaskFailuresVersionConflictError(failures.taskId.value);
     }
     this.held.set(
       failures.taskId.value,
@@ -179,7 +179,7 @@ export class ChatRecordsInMemory implements ChatRecordRepository {
 
   async add(record: ChatRecord): Promise<void> {
     if (this.held.has(record.chatId)) {
-      throw new ChatRecordMovedOnError(record.chatId);
+      throw new ChatRecordVersionConflictError(record.chatId);
     }
     this.held.set(record.chatId, record);
   }

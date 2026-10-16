@@ -9,7 +9,7 @@ import {
 } from '@change-review/application/services/sync-reviews.service';
 import { Review } from '@change-review/domain/aggregates/review.aggregate';
 import { ReviewComment } from '@change-review/domain/aggregates/review-comment.aggregate';
-import { ReviewCommentMovedOnError } from '@change-review/domain/exceptions/review-comment-moved-on.error';
+import { ReviewCommentVersionConflictError } from '@change-review/domain/exceptions/review-comment-version-conflict.error';
 import type { ReviewRepository } from '@change-review/domain/repositories/review.repository';
 import type { ReviewCommentRepository } from '@change-review/domain/repositories/review-comment.repository';
 import { AuthorName } from '@change-review/domain/value-objects/author-name.vo';
@@ -132,7 +132,7 @@ const syncing = (over: {
       find: async (id) => comments.get(id.value) ?? null,
       save: async (comment) => {
         if (conflicts.delete(comment.id.value)) {
-          throw new ReviewCommentMovedOnError(comment.id.value);
+          throw new ReviewCommentVersionConflictError(comment.id.value);
         }
         comments.set(comment.id.value, comment);
       },

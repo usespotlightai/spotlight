@@ -3,8 +3,8 @@ import type { IdentityDefinitionsPort } from '@identity/application/ports/identi
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import { IdentityProblems } from '@identity/application/rendering/identity-problems';
 import { MintedTokenFixedError } from '@identity/domain/exceptions/minted-token-fixed.error';
-import { WorkspaceTokenMovedOnError } from '@identity/domain/exceptions/workspace-token-moved-on.error';
 import { WorkspaceTokenTermsFixedError } from '@identity/domain/exceptions/workspace-token-terms-fixed.error';
+import { WorkspaceTokenVersionConflictError } from '@identity/domain/exceptions/workspace-token-version-conflict.error';
 import type { WorkspaceTokenRepository } from '@identity/domain/repositories/workspace-token.repository';
 import {
   forbiddenTo,
@@ -49,7 +49,7 @@ export class UpdateWorkspaceTokenHandler
         return forbiddenTo('administer');
       }
 
-      standing.expecting(command.expectedVersion);
+      standing.assertVersion(command.expectedVersion);
 
       const compiled = this.definitions.workspaceToken(command.definition);
 
@@ -68,11 +68,11 @@ export class UpdateWorkspaceTokenHandler
 
       return { outcome: 'updated', id: id.value };
     } catch (error) {
-      if (error instanceof WorkspaceTokenMovedOnError) {
+      if (error instanceof WorkspaceTokenVersionConflictError) {
         const current = await this.tokens.find(id);
 
         return current
-          ? { outcome: 'moved-on', currentVersion: current.version }
+          ? { outcome: 'version-conflict', currentVersion: current.version }
           : null;
       }
 

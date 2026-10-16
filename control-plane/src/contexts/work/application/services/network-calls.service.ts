@@ -7,7 +7,7 @@ import type {
   NetworkRequest as Request,
 } from '@work/application/ports/network-calls.port';
 import { NetworkCall } from '@work/domain/aggregates/network-call.aggregate';
-import { NetworkCallMovedOnError } from '@work/domain/exceptions/network-call-moved-on.error';
+import { NetworkCallVersionConflictError } from '@work/domain/exceptions/network-call-version-conflict.error';
 import { UnknownNetworkCallError } from '@work/domain/exceptions/unknown-network-call.error';
 import type { NetworkCallRepository } from '@work/domain/repositories/network-call.repository';
 import { NetworkCallId } from '@work/domain/value-objects/network-call-id.vo';
@@ -154,7 +154,7 @@ export class NetworkCalls implements NetworkCallsPort {
       await this.calls.save(settled);
       return true;
     } catch (error) {
-      if (error instanceof NetworkCallMovedOnError) {
+      if (error instanceof NetworkCallVersionConflictError) {
         return false;
       }
 

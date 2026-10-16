@@ -6,7 +6,7 @@ import {
 } from '@platform/persistence/drizzle/violations';
 import { RunnerTrust } from '@runners/domain/aggregates/runner-trust.aggregate';
 import { RunnerTrustAlreadyDefinedError } from '@runners/domain/exceptions/runner-trust-already-defined.error';
-import { RunnerTrustMovedOnError } from '@runners/domain/exceptions/runner-trust-moved-on.error';
+import { RunnerTrustVersionConflictError } from '@runners/domain/exceptions/runner-trust-version-conflict.error';
 import type { RunnerTrustRepository } from '@runners/domain/repositories/runner-trust.repository';
 import { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
 import { RunnerTrustId } from '@runners/domain/value-objects/runner-trust-id.vo';
@@ -91,7 +91,7 @@ export class DrizzleRunnerTrustRepository implements RunnerTrustRepository {
             .returning({ id: runnerTrust.id });
 
       if (written.length === 0) {
-        throw new RunnerTrustMovedOnError(saved.id.value);
+        throw new RunnerTrustVersionConflictError(saved.id.value);
       }
 
       await this.events.dispatch(saved.pullEvents());

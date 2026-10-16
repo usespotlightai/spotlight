@@ -1,7 +1,7 @@
 import { DecisionSet } from '@change-review/domain/aggregates/decision-set.aggregate';
 import { Decision } from '@change-review/domain/entities/decision.entity';
 import { DecisionDispute } from '@change-review/domain/entities/decision-dispute.entity';
-import { DecisionSetMovedOnError } from '@change-review/domain/exceptions/decision-set-moved-on.error';
+import { DecisionSetVersionConflictError } from '@change-review/domain/exceptions/decision-set-version-conflict.error';
 import type { DecisionSetRepository } from '@change-review/domain/repositories/decision-set.repository';
 import { DecisionDisputeId } from '@change-review/domain/value-objects/decision-dispute-id.vo';
 import { DecisionDraft } from '@change-review/domain/value-objects/decision-draft.vo';
@@ -185,7 +185,7 @@ export class DrizzleDecisionSetRepository implements DecisionSetRepository {
         .returning({ id: decisionSet.id });
 
       if (written.length === 0) {
-        throw new DecisionSetMovedOnError(saved.id.value);
+        throw new DecisionSetVersionConflictError(saved.id.value);
       }
 
       await this.decisionsReplaced(saved);
@@ -206,7 +206,7 @@ export class DrizzleDecisionSetRepository implements DecisionSetRepository {
         .returning({ id: decisionSet.id });
 
       if (removed.length === 0) {
-        throw new DecisionSetMovedOnError(set.id.value);
+        throw new DecisionSetVersionConflictError(set.id.value);
       }
 
       await this.events.dispatch(set.pullEvents());

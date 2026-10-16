@@ -10,7 +10,7 @@ import {
   WORKSPACE_ARCHIVE_STORE,
   type WorkspaceArchiveStorePort,
 } from '@work/application/ports/workspace-archive-store.port';
-import { RunMovedOnError } from '@work/domain/exceptions/run-moved-on.error';
+import { RunVersionConflictError } from '@work/domain/exceptions/run-version-conflict.error';
 import { DrizzleRunRepository } from '@work/infrastructure/persistence/drizzle/repositories/run.repository';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { eq } from 'drizzle-orm';
@@ -585,7 +585,7 @@ describe('a run that asks a person', () => {
     await runs.save(read.park(holder, new Date()));
 
     await expect(runs.save(read.resumed())).rejects.toBeInstanceOf(
-      RunMovedOnError,
+      RunVersionConflictError,
     );
     expect((await runRow(runId))?.state).toBe('parked');
   });

@@ -3,7 +3,7 @@ import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { StartingPointHold } from '@work/domain/aggregates/starting-point-hold.aggregate';
-import { StartingPointHoldMovedOnError } from '@work/domain/exceptions/starting-point-hold-moved-on.error';
+import { StartingPointHoldVersionConflictError } from '@work/domain/exceptions/starting-point-hold-version-conflict.error';
 import type { StartingPointHoldRepository } from '@work/domain/repositories/starting-point-hold.repository';
 import { startingPointHold } from '@work/infrastructure/persistence/drizzle/schemas/starting-point-hold.schema';
 import { and, eq } from 'drizzle-orm';
@@ -48,7 +48,7 @@ export class DrizzleStartingPointHoldRepository
       .returning({ holder: startingPointHold.holder });
 
     if (written.length === 0) {
-      throw new StartingPointHoldMovedOnError(hold.holder);
+      throw new StartingPointHoldVersionConflictError(hold.holder);
     }
   }
 
@@ -72,7 +72,7 @@ export class DrizzleStartingPointHoldRepository
           .returning({ holder: startingPointHold.holder });
 
     if (written.length === 0) {
-      throw new StartingPointHoldMovedOnError(hold.holder);
+      throw new StartingPointHoldVersionConflictError(hold.holder);
     }
   }
 }

@@ -1665,8 +1665,8 @@ describe('Task, its revision', () => {
   });
 
   it('refuses what was decided on a revision it has moved on from', () => {
-    expect(added().expecting(TaskRevision.of(0)).revision.value).toBe(0);
-    expect(() => added().expecting(TaskRevision.of(1))).toThrow(
+    expect(added().assertRevision(TaskRevision.of(0)).revision.value).toBe(0);
+    expect(() => added().assertRevision(TaskRevision.of(1))).toThrow(
       StaleTaskRevisionError,
     );
     expect(() => TaskRevision.of(-1)).toThrow(InvalidTaskRevisionError);

@@ -1,6 +1,6 @@
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type { DeleteWorkspaceRunnersCommand } from '@runners/application/commands/runner-resource.commands';
-import { WorkspaceRunnersMovedOnError } from '@runners/domain/exceptions/workspace-runners-moved-on.error';
+import { WorkspaceRunnersVersionConflictError } from '@runners/domain/exceptions/workspace-runners-version-conflict.error';
 import type { WorkspaceRunnersRepository } from '@runners/domain/repositories/workspace-runners.repository';
 import { WorkspaceRunnersId } from '@runners/domain/value-objects/workspace-runners-id.vo';
 import {
@@ -44,7 +44,7 @@ export class DeleteWorkspaceRunnersHandler
         return forbiddenTo('manage-runners');
       }
 
-      standing.expecting(command.expectedVersion);
+      standing.assertVersion(command.expectedVersion);
 
       await this.transaction.run(() =>
         this.declarations.save(
@@ -54,11 +54,11 @@ export class DeleteWorkspaceRunnersHandler
 
       return { outcome: 'deleted' };
     } catch (error) {
-      if (error instanceof WorkspaceRunnersMovedOnError) {
+      if (error instanceof WorkspaceRunnersVersionConflictError) {
         const current = await this.declarations.find(id);
 
         return current
-          ? { outcome: 'moved-on', currentVersion: current.version }
+          ? { outcome: 'version-conflict', currentVersion: current.version }
           : null;
       }
 

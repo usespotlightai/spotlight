@@ -2,7 +2,7 @@ import type { DeleteWorkspaceCommand } from '@identity/application/commands/dele
 import type { IdentityResourcesPort } from '@identity/application/ports/identity-resources.port';
 import type { WorkspaceHoldingsPort } from '@identity/application/ports/workspace-holdings.port';
 import { WorkspaceInUseError } from '@identity/domain/exceptions/workspace-in-use.error';
-import { WorkspaceMovedOnError } from '@identity/domain/exceptions/workspace-moved-on.error';
+import { WorkspaceVersionConflictError } from '@identity/domain/exceptions/workspace-version-conflict.error';
 import type { WorkspaceRepository } from '@identity/domain/repositories/workspace.repository';
 import { Holdings } from '@identity/domain/value-objects/holdings.vo';
 import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
@@ -46,7 +46,7 @@ export class DeleteWorkspaceHandler
         return forbiddenTo('administer');
       }
 
-      standing.expecting(command.expectedVersion);
+      standing.assertVersion(command.expectedVersion);
 
       const held = Holdings.of(await this.holdings.of(id));
 
@@ -70,11 +70,11 @@ export class DeleteWorkspaceHandler
 
       return { outcome: 'deleted' };
     } catch (error) {
-      if (error instanceof WorkspaceMovedOnError) {
+      if (error instanceof WorkspaceVersionConflictError) {
         const current = await this.workspaces.find(id);
 
         return current
-          ? { outcome: 'moved-on', currentVersion: current.version }
+          ? { outcome: 'version-conflict', currentVersion: current.version }
           : null;
       }
 

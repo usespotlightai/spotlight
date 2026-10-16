@@ -1,6 +1,6 @@
 import type { PatchWriterPort } from '@change-review/application/ports/patch-writer.port';
 import type { StackCheck } from '@change-review/domain/aggregates/stack-check.aggregate';
-import { StackCheckMovedOnError } from '@change-review/domain/exceptions/stack-check-moved-on.error';
+import { StackCheckVersionConflictError } from '@change-review/domain/exceptions/stack-check-version-conflict.error';
 import { UnknownChangeStackError } from '@change-review/domain/exceptions/unknown-change-stack.error';
 import type { ChangeStackRepository } from '@change-review/domain/repositories/change-stack.repository';
 import type { StackCheckRepository } from '@change-review/domain/repositories/stack-check.repository';
@@ -85,7 +85,10 @@ export class ClaimChangeStackCheck implements CheckWorkPort {
         await this.checks.save(held.unclaimedBy(runner, now));
         return;
       } catch (error) {
-        if (!(error instanceof StackCheckMovedOnError) || attempt >= ATTEMPTS) {
+        if (
+          !(error instanceof StackCheckVersionConflictError) ||
+          attempt >= ATTEMPTS
+        ) {
           throw error;
         }
       }
@@ -115,7 +118,10 @@ export class ClaimChangeStackCheck implements CheckWorkPort {
         await this.checks.save(check.renewedFor(runner, now));
         return 'renewed';
       } catch (error) {
-        if (!(error instanceof StackCheckMovedOnError) || attempt >= ATTEMPTS) {
+        if (
+          !(error instanceof StackCheckVersionConflictError) ||
+          attempt >= ATTEMPTS
+        ) {
           throw error;
         }
       }

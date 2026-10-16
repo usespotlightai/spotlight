@@ -4,7 +4,7 @@ import {
   type HookFiringHistoryPort,
 } from '@integrations/application/ports/hook-firing-history.port';
 import { HookFiring } from '@integrations/domain/aggregates/hook-firing.aggregate';
-import { HookFiringMovedOnError } from '@integrations/domain/exceptions/hook-firing-moved-on.error';
+import { HookFiringVersionConflictError } from '@integrations/domain/exceptions/hook-firing-version-conflict.error';
 import {
   HOOK_FIRINGS,
   type HookFiringRepository,
@@ -129,7 +129,7 @@ describe('hook firings, kept in the database (e2e)', () => {
     expect(first.id).toBe(second.id);
 
     await expect(firings.save(first.worked(later))).rejects.toBeInstanceOf(
-      HookFiringMovedOnError,
+      HookFiringVersionConflictError,
     );
     await expect(stateOf(first.id)).resolves.toBe('working');
 

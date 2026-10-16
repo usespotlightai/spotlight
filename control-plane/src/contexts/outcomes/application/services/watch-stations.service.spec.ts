@@ -7,7 +7,7 @@ import { StationWatchesInMemory } from '@outcomes/domain/alerts.fake-spec';
 import { RunRecordEnded } from '@outcomes/domain/events/run-record-ended.event';
 import { RunRecordSettled } from '@outcomes/domain/events/run-record-settled.event';
 import { TaskDeliveryClosed } from '@outcomes/domain/events/task-delivery-closed.event';
-import { StationWatchMovedOnError } from '@outcomes/domain/exceptions/station-watch-moved-on.error';
+import { StationWatchVersionConflictError } from '@outcomes/domain/exceptions/station-watch-version-conflict.error';
 import { day, deliveredOf } from '@outcomes/domain/insights.fake-spec';
 import {
   endedRecord,
@@ -337,7 +337,7 @@ describe('WatchStations', () => {
           AlertId.of('alert_9'),
         ),
       ),
-    ).rejects.toBeInstanceOf(StationWatchMovedOnError);
+    ).rejects.toBeInstanceOf(StationWatchVersionConflictError);
     expect((await station.watches.of('station_1'))?.crossings).toEqual([]);
   });
 });

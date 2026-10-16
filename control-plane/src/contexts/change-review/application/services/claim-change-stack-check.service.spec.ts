@@ -2,7 +2,7 @@ import type { PatchWriterPort } from '@change-review/application/ports/patch-wri
 import { ClaimChangeStackCheck } from '@change-review/application/services/claim-change-stack-check.service';
 import { ChangeStack } from '@change-review/domain/aggregates/change-stack.aggregate';
 import { StackCheck } from '@change-review/domain/aggregates/stack-check.aggregate';
-import { StackCheckMovedOnError } from '@change-review/domain/exceptions/stack-check-moved-on.error';
+import { StackCheckVersionConflictError } from '@change-review/domain/exceptions/stack-check-version-conflict.error';
 import { UnknownChangeStackError } from '@change-review/domain/exceptions/unknown-change-stack.error';
 import type { ChangeStackRepository } from '@change-review/domain/repositories/change-stack.repository';
 import type { StackCheckRepository } from '@change-review/domain/repositories/stack-check.repository';
@@ -257,7 +257,7 @@ describe('ClaimChangeStackCheck', () => {
             save: async (check: StackCheck) => {
               if (left > 0) {
                 left -= 1;
-                throw new StackCheckMovedOnError(check.stackId.value);
+                throw new StackCheckVersionConflictError(check.stackId.value);
               }
               saved.push(check);
             },
@@ -293,7 +293,7 @@ describe('ClaimChangeStackCheck', () => {
       expect(free.saved).toEqual([]);
     });
 
-    it('tries again when the check moved on while it was unclaimed', async () => {
+    it('tries again when the check changed while it was unclaimed', async () => {
       const { service, saved } = unclaiming(
         waitingCheck().claimedFor(RUNNER, LAPTOP, NOW),
         1,
@@ -320,7 +320,7 @@ describe('ClaimChangeStackCheck', () => {
             save: async (check: StackCheck) => {
               if (left > 0) {
                 left -= 1;
-                throw new StackCheckMovedOnError(check.stackId.value);
+                throw new StackCheckVersionConflictError(check.stackId.value);
               }
               saved.push(check);
             },
@@ -370,7 +370,7 @@ describe('ClaimChangeStackCheck', () => {
       expect(saved).toHaveLength(1);
     });
 
-    it('tries again when the check moved on while it was renewed', async () => {
+    it('tries again when the check changed while it was renewed', async () => {
       const { service, saved } = renewing(held(), 2);
 
       await expect(
@@ -384,7 +384,7 @@ describe('ClaimChangeStackCheck', () => {
 
       await expect(
         service.renewLease(RUN, 'stack_1', false, RUNNER, NOW),
-      ).rejects.toThrow(StackCheckMovedOnError);
+      ).rejects.toThrow(StackCheckVersionConflictError);
       expect(saved).toEqual([]);
     });
 

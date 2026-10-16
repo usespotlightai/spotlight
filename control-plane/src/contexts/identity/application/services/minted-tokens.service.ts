@@ -1,5 +1,5 @@
 import type { WorkspaceTokenTrustWithdrawn } from '@identity/domain/events/workspace-token-trust-withdrawn.event';
-import { WorkspaceTokenMovedOnError } from '@identity/domain/exceptions/workspace-token-moved-on.error';
+import { WorkspaceTokenVersionConflictError } from '@identity/domain/exceptions/workspace-token-version-conflict.error';
 import type { WorkspaceTokenRepository } from '@identity/domain/repositories/workspace-token.repository';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
@@ -43,7 +43,7 @@ export class MintedTokens {
     try {
       await write();
     } catch (error) {
-      if (!(error instanceof WorkspaceTokenMovedOnError)) {
+      if (!(error instanceof WorkspaceTokenVersionConflictError)) {
         throw error;
       }
     }

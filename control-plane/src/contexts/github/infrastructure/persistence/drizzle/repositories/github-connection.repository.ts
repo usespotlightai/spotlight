@@ -1,5 +1,5 @@
 import { GitHubConnection } from '@github/domain/aggregates/github-connection.aggregate';
-import { GitHubConnectionMovedOnError } from '@github/domain/exceptions/github-connection-moved-on.error';
+import { GitHubConnectionVersionConflictError } from '@github/domain/exceptions/github-connection-version-conflict.error';
 import { InstallationClaimedError } from '@github/domain/exceptions/installation-claimed.error';
 import type { GitHubConnectionRepository } from '@github/domain/repositories/github-connection.repository';
 import { GitHubInstallation } from '@github/domain/value-objects/github-installation.vo';
@@ -100,7 +100,7 @@ export class DrizzleGitHubConnections implements GitHubConnectionRepository {
       .returning({ workspaceId: githubConnection.workspaceId });
 
     if (removed.length === 0 && connection.version > 0) {
-      throw new GitHubConnectionMovedOnError();
+      throw new GitHubConnectionVersionConflictError();
     }
   }
 
@@ -126,7 +126,7 @@ export class DrizzleGitHubConnections implements GitHubConnectionRepository {
         .returning({ workspaceId: githubConnection.workspaceId });
 
       if (written.length === 0) {
-        throw new GitHubConnectionMovedOnError();
+        throw new GitHubConnectionVersionConflictError();
       }
     } catch (error) {
       if (isClaimCollision(error)) {

@@ -5,7 +5,7 @@ import {
   violates,
 } from '@platform/persistence/drizzle/violations';
 import { RunnerHost } from '@runners/domain/aggregates/runner-host.aggregate';
-import { RunnerHostMovedOnError } from '@runners/domain/exceptions/runner-host-moved-on.error';
+import { RunnerHostVersionConflictError } from '@runners/domain/exceptions/runner-host-version-conflict.error';
 import type { RunnerHostRepository } from '@runners/domain/repositories/runner-host.repository';
 import { Admission } from '@runners/domain/value-objects/admission.vo';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
@@ -116,7 +116,7 @@ export class DrizzleRunnerHostRepository implements RunnerHostRepository {
         });
       } catch (error) {
         if (violates(error, UNIQUE_VIOLATION, 'runner_host_pkey')) {
-          throw new RunnerHostMovedOnError(host.id.value);
+          throw new RunnerHostVersionConflictError(host.id.value);
         }
 
         throw error;
@@ -140,7 +140,7 @@ export class DrizzleRunnerHostRepository implements RunnerHostRepository {
         .returning({ id: runnerHost.id });
 
       if (written.length === 0) {
-        throw new RunnerHostMovedOnError(host.id.value);
+        throw new RunnerHostVersionConflictError(host.id.value);
       }
 
       await this.events.dispatch(host.pullEvents());
@@ -159,7 +159,7 @@ export class DrizzleRunnerHostRepository implements RunnerHostRepository {
       .returning({ id: runnerHost.id });
 
     if (removed.length === 0) {
-      throw new RunnerHostMovedOnError(host.id.value);
+      throw new RunnerHostVersionConflictError(host.id.value);
     }
   }
 

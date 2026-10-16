@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { TaskFailures } from '@outcomes/domain/aggregates/task-failures.aggregate';
-import { TaskFailuresMovedOnError } from '@outcomes/domain/exceptions/task-failures-moved-on.error';
+import { TaskFailuresVersionConflictError } from '@outcomes/domain/exceptions/task-failures-version-conflict.error';
 import type { TaskFailuresRepository } from '@outcomes/domain/repositories/task-failures.repository';
 import { FailureOccurrence } from '@outcomes/domain/value-objects/failure-occurrence.vo';
 import { taskFailures } from '@outcomes/infrastructure/persistence/drizzle/schemas/outcomes.schema';
@@ -53,7 +53,7 @@ export class DrizzleTaskFailuresRepository implements TaskFailuresRepository {
       .returning({ taskId: taskFailures.taskId });
 
     if (written.length === 0) {
-      throw new TaskFailuresMovedOnError(added.taskId.value);
+      throw new TaskFailuresVersionConflictError(added.taskId.value);
     }
   }
 
@@ -70,7 +70,7 @@ export class DrizzleTaskFailuresRepository implements TaskFailuresRepository {
       .returning({ taskId: taskFailures.taskId });
 
     if (written.length === 0) {
-      throw new TaskFailuresMovedOnError(saved.taskId.value);
+      throw new TaskFailuresVersionConflictError(saved.taskId.value);
     }
   }
 

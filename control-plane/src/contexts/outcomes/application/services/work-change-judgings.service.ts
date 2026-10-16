@@ -2,7 +2,7 @@ import { JudgingError } from '@outcomes/application/errors/judging.error';
 import type { EvidencePort } from '@outcomes/application/ports/evidence.port';
 import type { JudgePort } from '@outcomes/application/ports/judge.port';
 import type { ChangeJudging } from '@outcomes/domain/aggregates/change-judging.aggregate';
-import { ChangeJudgingMovedOnError } from '@outcomes/domain/exceptions/change-judging-moved-on.error';
+import { ChangeJudgingVersionConflictError } from '@outcomes/domain/exceptions/change-judging-version-conflict.error';
 import type { ChangeJudgingRepository } from '@outcomes/domain/repositories/change-judging.repository';
 import { JudgeEvidence } from '@outcomes/domain/services/judge-evidence';
 import { JudgingFailure } from '@outcomes/domain/value-objects/judging-failure.vo';
@@ -54,7 +54,7 @@ export class WorkChangeJudgings implements OwedWorkPort {
           attempts: judging.work?.attempts,
         }),
         worked: (judging) => this.judged(judging),
-        stale: (error) => error instanceof ChangeJudgingMovedOnError,
+        stale: (error) => error instanceof ChangeJudgingVersionConflictError,
       },
       transaction,
       clock,

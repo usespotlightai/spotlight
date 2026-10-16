@@ -1,5 +1,5 @@
 import type { StackCheck } from '@change-review/domain/aggregates/stack-check.aggregate';
-import { StackCheckMovedOnError } from '@change-review/domain/exceptions/stack-check-moved-on.error';
+import { StackCheckVersionConflictError } from '@change-review/domain/exceptions/stack-check-version-conflict.error';
 import type { StackCheckRepository } from '@change-review/domain/repositories/stack-check.repository';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import type { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
@@ -46,7 +46,7 @@ export class ProvisionChangeStackChecks implements CheckProvisioningPort {
 
       return reserved?.reservation?.until ?? null;
     } catch (error) {
-      if (error instanceof StackCheckMovedOnError) {
+      if (error instanceof StackCheckVersionConflictError) {
         return null;
       }
 
@@ -99,7 +99,10 @@ export class ProvisionChangeStackChecks implements CheckProvisioningPort {
         await this.checks.save(changed);
         return changed;
       } catch (error) {
-        if (!(error instanceof StackCheckMovedOnError) || attempt >= ATTEMPTS) {
+        if (
+          !(error instanceof StackCheckVersionConflictError) ||
+          attempt >= ATTEMPTS
+        ) {
           throw error;
         }
       }

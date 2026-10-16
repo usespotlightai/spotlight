@@ -12,7 +12,7 @@ import type { LineCompilerPort } from '@work/application/ports/line-compiler.por
 import type { ApplyLines } from '@work/application/services/apply-lines.service';
 import { lineRefusal } from '@work/application/services/line-refusals';
 import type { StationCatalog } from '@work/application/services/station-catalog.service';
-import { LineMovedOnError } from '@work/domain/exceptions/line-moved-on.error';
+import { LineVersionConflictError } from '@work/domain/exceptions/line-version-conflict.error';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 
@@ -48,7 +48,7 @@ export class UpdateLineHandler
         return forbiddenTo('configure');
       }
 
-      standing.expecting(command.expectedVersion);
+      standing.assertVersion(command.expectedVersion);
 
       const compiled = this.compiler.compile(command.definition);
 
@@ -85,11 +85,11 @@ export class UpdateLineHandler
 
       return { outcome: 'updated', id: id.value };
     } catch (error) {
-      if (error instanceof LineMovedOnError) {
+      if (error instanceof LineVersionConflictError) {
         const current = await this.lines.find(id);
 
         return current
-          ? { outcome: 'moved-on', currentVersion: current.version }
+          ? { outcome: 'version-conflict', currentVersion: current.version }
           : null;
       }
 

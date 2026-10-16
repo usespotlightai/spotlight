@@ -1,6 +1,6 @@
 import { RunGrantsKept } from '@secrets/application/services/run-grants-kept';
 import type { RunGrants } from '@secrets/domain/aggregates/run-grants.aggregate';
-import { RunGrantsMovedOnError } from '@secrets/domain/exceptions/run-grants-moved-on.error';
+import { RunGrantsVersionConflictError } from '@secrets/domain/exceptions/run-grants-version-conflict.error';
 import { RedemptionRecipient } from '@secrets/domain/value-objects/redemption-recipient.vo';
 import { RunHold } from '@secrets/domain/value-objects/run-hold.vo';
 import {
@@ -15,14 +15,14 @@ const HOLD = RunHold.of(RunId.of('run_1'), 1);
 const RUN = { hold: HOLD, workspaceId: WORKSPACE };
 
 class Contended extends InMemoryGrants {
-  constructor(private movedOn: number) {
+  constructor(private conflicts: number) {
     super();
   }
 
   override async save(grants: RunGrants): Promise<void> {
-    if (this.movedOn > 0) {
-      this.movedOn -= 1;
-      throw new RunGrantsMovedOnError(grants.runId.value);
+    if (this.conflicts > 0) {
+      this.conflicts -= 1;
+      throw new RunGrantsVersionConflictError(grants.runId.value);
     }
 
     await super.save(grants);
@@ -44,7 +44,7 @@ describe('RunGrantsKept', () => {
   it('gives up once the grants keep moving on', async () => {
     await expect(
       new RunGrantsKept(new Contended(3)).changed(RUN, pinning),
-    ).rejects.toThrow(RunGrantsMovedOnError);
+    ).rejects.toThrow(RunGrantsVersionConflictError);
   });
 
   it('writes nothing when the change leaves the grants as they were', async () => {

@@ -3,7 +3,7 @@ import type { HarnessProfileCompilerPort } from '@configuration/application/port
 import type { HeldSecretsPort } from '@configuration/application/ports/held-secrets.port';
 import { HarnessProfileProblems } from '@configuration/application/rendering/harness-profile-problems';
 import { HarnessProfileKeyFixedError } from '@configuration/domain/exceptions/harness-profile-key-fixed.error';
-import { HarnessProfileMovedOnError } from '@configuration/domain/exceptions/harness-profile-moved-on.error';
+import { HarnessProfileVersionConflictError } from '@configuration/domain/exceptions/harness-profile-version-conflict.error';
 import { SecretsUnheldError } from '@configuration/domain/exceptions/secrets-unheld.error';
 import type { HarnessProfileRepository } from '@configuration/domain/repositories/harness-profile.repository';
 import { HarnessProfileId } from '@configuration/domain/value-objects/harness-profile-id.vo';
@@ -51,7 +51,7 @@ export class UpdateHarnessProfileHandler
         return forbiddenTo('configure');
       }
 
-      standing.expecting(command.expectedVersion);
+      standing.assertVersion(command.expectedVersion);
 
       const compiled = this.compiler.compile(command.definition);
 
@@ -71,11 +71,11 @@ export class UpdateHarnessProfileHandler
 
       return { outcome: 'updated', id: id.value };
     } catch (error) {
-      if (error instanceof HarnessProfileMovedOnError) {
+      if (error instanceof HarnessProfileVersionConflictError) {
         const current = await this.profiles.withId(id);
 
         return current
-          ? { outcome: 'moved-on', currentVersion: current.version }
+          ? { outcome: 'version-conflict', currentVersion: current.version }
           : null;
       }
 

@@ -1,10 +1,10 @@
 import { Secret } from '@secrets/domain/aggregates/secret.aggregate';
 import { InvalidSecretError } from '@secrets/domain/exceptions/invalid-secret.error';
 import { SecretInUseError } from '@secrets/domain/exceptions/secret-in-use.error';
-import { SecretMovedOnError } from '@secrets/domain/exceptions/secret-moved-on.error';
 import { SecretNameFixedError } from '@secrets/domain/exceptions/secret-name-fixed.error';
 import { SecretNotBoundError } from '@secrets/domain/exceptions/secret-not-bound.error';
 import { SecretUnwearableError } from '@secrets/domain/exceptions/secret-unwearable.error';
+import { SecretVersionConflictError } from '@secrets/domain/exceptions/secret-version-conflict.error';
 import { SecretChangeDetail } from '@secrets/domain/value-objects/secret-change-detail.vo';
 import { SecretId } from '@secrets/domain/value-objects/secret-id.vo';
 import { SecretSource } from '@secrets/domain/value-objects/secret-source.vo';
@@ -199,8 +199,8 @@ describe('Secret', () => {
     });
 
     it('refuses a change to a version no longer current', () => {
-      expect(() => kept().expecting(0)).toThrow(SecretMovedOnError);
-      expect(() => kept().expecting(1)).not.toThrow();
+      expect(() => kept().assertVersion(0)).toThrow(SecretVersionConflictError);
+      expect(() => kept().assertVersion(1)).not.toThrow();
     });
   });
 

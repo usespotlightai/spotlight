@@ -8,7 +8,7 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { TaskAside } from '@work/domain/aggregates/task-aside.aggregate';
-import { TaskAsideMovedOnError } from '@work/domain/exceptions/task-aside-moved-on.error';
+import { TaskAsideVersionConflictError } from '@work/domain/exceptions/task-aside-version-conflict.error';
 import type { TaskAsideRepository } from '@work/domain/repositories/task-aside.repository';
 import { AsideAbout } from '@work/domain/value-objects/aside-about.vo';
 import type { AsideForm } from '@work/domain/value-objects/aside-form';
@@ -81,7 +81,7 @@ export class DrizzleTaskAsideRepository implements TaskAsideRepository {
         .returning({ id: taskAside.id });
 
       if (written.length === 0) {
-        throw new TaskAsideMovedOnError(saved.id.value);
+        throw new TaskAsideVersionConflictError(saved.id.value);
       }
 
       await this.context.db.delete(taskAsideRead).where(

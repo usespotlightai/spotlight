@@ -1,7 +1,7 @@
 import { SettleOverdueChecks } from '@change-review/application/services/settle-overdue-checks.service';
 import { StackCheck } from '@change-review/domain/aggregates/stack-check.aggregate';
 import { CheckReservationDropped } from '@change-review/domain/events/check-reservation-dropped.event';
-import { StackCheckMovedOnError } from '@change-review/domain/exceptions/stack-check-moved-on.error';
+import { StackCheckVersionConflictError } from '@change-review/domain/exceptions/stack-check-version-conflict.error';
 import type { StackCheckRepository } from '@change-review/domain/repositories/stack-check.repository';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
@@ -37,7 +37,7 @@ const settling = (
   const saved: StackCheck[] = [];
   const save = vi.fn(async (check: StackCheck) => {
     if (conflicting.includes(check.stackId.value)) {
-      throw new StackCheckMovedOnError(check.stackId.value);
+      throw new StackCheckVersionConflictError(check.stackId.value);
     }
     saved.push(check);
   });

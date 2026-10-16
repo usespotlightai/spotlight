@@ -1,7 +1,7 @@
 import { UpdateIntegrationHandler } from '@integrations/application/commands/handlers/update-integration.handler';
 import { UpdateIntegrationCommand } from '@integrations/application/commands/update-integration.command';
 import type { IntegrationDefinition } from '@integrations/domain/aggregates/integration-definition.aggregate';
-import { IntegrationDefinitionMovedOnError } from '@integrations/domain/exceptions/integration-definition-moved-on.error';
+import { IntegrationDefinitionVersionConflictError } from '@integrations/domain/exceptions/integration-definition-version-conflict.error';
 import { ToolUses } from '@integrations/domain/value-objects/tool-uses.vo';
 import {
   access,
@@ -66,7 +66,7 @@ describe('UpdateIntegrationHandler', () => {
     const { update, kept } = updating();
 
     expect(await update(LINEAR, 2)).toEqual({
-      outcome: 'moved-on',
+      outcome: 'version-conflict',
       currentVersion: 3,
     });
     expect(kept.save).not.toHaveBeenCalled();
@@ -74,19 +74,19 @@ describe('UpdateIntegrationHandler', () => {
 
   it('names the version that won when another change got there first', async () => {
     const { update } = updating({
-      refusing: new IntegrationDefinitionMovedOnError('linear'),
+      refusing: new IntegrationDefinitionVersionConflictError('linear'),
       thenAt: standingAt(4),
     });
 
     expect(await update(LINEAR)).toEqual({
-      outcome: 'moved-on',
+      outcome: 'version-conflict',
       currentVersion: 4,
     });
   });
 
   it('answers nothing when the integration was deleted while it changed it', async () => {
     const { update } = updating({
-      refusing: new IntegrationDefinitionMovedOnError('linear'),
+      refusing: new IntegrationDefinitionVersionConflictError('linear'),
       thenAt: null,
     });
 

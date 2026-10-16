@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { TaskDelivery } from '@outcomes/domain/aggregates/task-delivery.aggregate';
-import { TaskDeliveryMovedOnError } from '@outcomes/domain/exceptions/task-delivery-moved-on.error';
+import { TaskDeliveryVersionConflictError } from '@outcomes/domain/exceptions/task-delivery-version-conflict.error';
 import type { TaskDeliveryRepository } from '@outcomes/domain/repositories/task-delivery.repository';
 import { DrizzleRunFactProjection } from '@outcomes/infrastructure/persistence/drizzle/projections/run-fact.projection';
 import { taskDelivery } from '@outcomes/infrastructure/persistence/drizzle/schemas/outcomes.schema';
@@ -63,7 +63,7 @@ export class DrizzleTaskDeliveryRepository implements TaskDeliveryRepository {
         .returning({ taskId: taskDelivery.taskId });
 
       if (written.length === 0) {
-        throw new TaskDeliveryMovedOnError(added.taskId.value);
+        throw new TaskDeliveryVersionConflictError(added.taskId.value);
       }
 
       await this.facts.refresh({
@@ -89,7 +89,7 @@ export class DrizzleTaskDeliveryRepository implements TaskDeliveryRepository {
         .returning({ taskId: taskDelivery.taskId });
 
       if (written.length === 0) {
-        throw new TaskDeliveryMovedOnError(saved.taskId.value);
+        throw new TaskDeliveryVersionConflictError(saved.taskId.value);
       }
 
       await this.facts.refresh({

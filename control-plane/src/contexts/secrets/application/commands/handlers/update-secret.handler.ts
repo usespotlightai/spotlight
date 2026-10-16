@@ -3,8 +3,8 @@ import type { UpdateSecretCommand } from '@secrets/application/commands/update-s
 import type { SecretDefinitionsPort } from '@secrets/application/ports/secret-definitions.port';
 import { SecretProblems } from '@secrets/application/rendering/secret-problems';
 import { InvalidSecretError } from '@secrets/domain/exceptions/invalid-secret.error';
-import { SecretMovedOnError } from '@secrets/domain/exceptions/secret-moved-on.error';
 import { SecretNameFixedError } from '@secrets/domain/exceptions/secret-name-fixed.error';
+import { SecretVersionConflictError } from '@secrets/domain/exceptions/secret-version-conflict.error';
 import type { SecretRepository } from '@secrets/domain/repositories/secret.repository';
 import { SecretId } from '@secrets/domain/value-objects/secret-id.vo';
 import {
@@ -48,7 +48,7 @@ export class UpdateSecretHandler
         return forbiddenTo('manage-secrets');
       }
 
-      standing.expecting(command.expectedVersion);
+      standing.assertVersion(command.expectedVersion);
 
       const compiled = this.definitions.secret(command.definition);
 
@@ -66,11 +66,11 @@ export class UpdateSecretHandler
 
       return { outcome: 'updated', id: id.value };
     } catch (error) {
-      if (error instanceof SecretMovedOnError) {
+      if (error instanceof SecretVersionConflictError) {
         const current = await this.secrets.withId(id);
 
         return current
-          ? { outcome: 'moved-on', currentVersion: current.version }
+          ? { outcome: 'version-conflict', currentVersion: current.version }
           : null;
       }
 

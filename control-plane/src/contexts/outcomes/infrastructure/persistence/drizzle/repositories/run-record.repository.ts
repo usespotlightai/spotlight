@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
-import { RunRecordMovedOnError } from '@outcomes/domain/exceptions/run-record-moved-on.error';
+import { RunRecordVersionConflictError } from '@outcomes/domain/exceptions/run-record-version-conflict.error';
 import type {
   RunRecordRepository,
   StationRecords,
@@ -360,7 +360,7 @@ export class DrizzleRunRecordRepository implements RunRecordRepository {
         .returning({ runId: runRecord.runId });
 
       if (written.length === 0) {
-        throw new RunRecordMovedOnError(added.runId.value);
+        throw new RunRecordVersionConflictError(added.runId.value);
       }
 
       await this.facts.refresh({ kind: 'runs', runIds: [added.runId.value] });
@@ -383,7 +383,7 @@ export class DrizzleRunRecordRepository implements RunRecordRepository {
         .returning({ runId: runRecord.runId });
 
       if (written.length === 0) {
-        throw new RunRecordMovedOnError(saved.runId.value);
+        throw new RunRecordVersionConflictError(saved.runId.value);
       }
 
       await this.facts.refresh({ kind: 'runs', runIds: [saved.runId.value] });

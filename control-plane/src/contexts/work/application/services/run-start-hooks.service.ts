@@ -7,7 +7,7 @@ import type {
   LifecycleHooksPort,
 } from '@work/application/ports/lifecycle-hooks.port';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
-import { RunMovedOnError } from '@work/domain/exceptions/run-moved-on.error';
+import { RunVersionConflictError } from '@work/domain/exceptions/run-version-conflict.error';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 
 const ATTEMPTS = 3;
@@ -107,7 +107,10 @@ export class RunStartHooks {
         await this.runs.save(change(found));
         return;
       } catch (error) {
-        if (!(error instanceof RunMovedOnError) || attempt >= ATTEMPTS) {
+        if (
+          !(error instanceof RunVersionConflictError) ||
+          attempt >= ATTEMPTS
+        ) {
           throw error;
         }
       }

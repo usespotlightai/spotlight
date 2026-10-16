@@ -6,8 +6,8 @@ import { LastOwnerError } from '@identity/domain/exceptions/last-owner.error';
 import { NotYoursToGiveError } from '@identity/domain/exceptions/not-yours-to-give.error';
 import { NotYoursToInviteError } from '@identity/domain/exceptions/not-yours-to-invite.error';
 import { TeamOutsideWorkspaceError } from '@identity/domain/exceptions/team-outside-workspace.error';
-import { WorkspaceMovedOnError } from '@identity/domain/exceptions/workspace-moved-on.error';
 import { WorkspaceSlugFixedError } from '@identity/domain/exceptions/workspace-slug-fixed.error';
+import { WorkspaceVersionConflictError } from '@identity/domain/exceptions/workspace-version-conflict.error';
 import { Holdings } from '@identity/domain/value-objects/holdings.vo';
 import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import { TeamName } from '@identity/domain/value-objects/team-name.vo';
@@ -423,7 +423,9 @@ describe('Workspace', () => {
     });
 
     it('refuses a change made against another version', () => {
-      expect(() => kept(3).expecting(2)).toThrow(WorkspaceMovedOnError);
+      expect(() => kept(3).assertVersion(2)).toThrow(
+        WorkspaceVersionConflictError,
+      );
     });
 
     it('takes a new name, and says so', () => {

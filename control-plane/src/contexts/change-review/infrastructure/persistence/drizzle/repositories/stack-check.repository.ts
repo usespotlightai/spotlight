@@ -1,5 +1,5 @@
 import { StackCheck } from '@change-review/domain/aggregates/stack-check.aggregate';
-import { StackCheckMovedOnError } from '@change-review/domain/exceptions/stack-check-moved-on.error';
+import { StackCheckVersionConflictError } from '@change-review/domain/exceptions/stack-check-version-conflict.error';
 import type {
   CheckClaimant,
   StackCheckRepository,
@@ -163,7 +163,7 @@ export class DrizzleStackCheckRepository implements StackCheckRepository {
         .returning({ stackId: stackCheck.stackId });
 
       if (written.length === 0) {
-        throw new StackCheckMovedOnError(saved.stackId.value);
+        throw new StackCheckVersionConflictError(saved.stackId.value);
       }
 
       await this.events.dispatch(saved.pullEvents());
@@ -231,7 +231,7 @@ export class DrizzleStackCheckRepository implements StackCheckRepository {
         .returning({ stackId: stackCheck.stackId });
 
       if (deleted.length === 0) {
-        throw new StackCheckMovedOnError(removed.stackId.value);
+        throw new StackCheckVersionConflictError(removed.stackId.value);
       }
 
       await this.events.dispatch(removed.pullEvents());

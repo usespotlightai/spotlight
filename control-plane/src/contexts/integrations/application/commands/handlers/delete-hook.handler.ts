@@ -1,6 +1,6 @@
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type { DeleteHookCommand } from '@integrations/application/commands/delete-hook.command';
-import { HookDefinitionMovedOnError } from '@integrations/domain/exceptions/hook-definition-moved-on.error';
+import { HookDefinitionVersionConflictError } from '@integrations/domain/exceptions/hook-definition-version-conflict.error';
 import type { HookDefinitionRepository } from '@integrations/domain/repositories/hook-definition.repository';
 import { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
 import {
@@ -41,7 +41,7 @@ export class DeleteHookHandler
         return forbiddenTo('configure');
       }
 
-      standing.expecting(command.expectedVersion);
+      standing.assertVersion(command.expectedVersion);
 
       await this.transaction.run(() =>
         this.definitions.save(
@@ -51,11 +51,11 @@ export class DeleteHookHandler
 
       return { outcome: 'deleted' };
     } catch (error) {
-      if (error instanceof HookDefinitionMovedOnError) {
+      if (error instanceof HookDefinitionVersionConflictError) {
         const current = await this.definitions.withId(id);
 
         return current
-          ? { outcome: 'moved-on', currentVersion: current.version }
+          ? { outcome: 'version-conflict', currentVersion: current.version }
           : null;
       }
 

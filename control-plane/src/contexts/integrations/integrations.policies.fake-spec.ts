@@ -1,6 +1,6 @@
 import { PersonToolRules } from '@integrations/application/services/person-tool-rules.service';
 import { PersonToolPolicy } from '@integrations/domain/aggregates/person-tool-policy.aggregate';
-import { PersonToolPolicyMovedOnError } from '@integrations/domain/exceptions/person-tool-policy-moved-on.error';
+import { PersonToolPolicyVersionConflictError } from '@integrations/domain/exceptions/person-tool-policy-version-conflict.error';
 import type { PersonToolPolicyRepository } from '@integrations/domain/repositories/person-tool-policy.repository';
 import type { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -33,7 +33,7 @@ export class InMemoryPersonToolPolicies implements PersonToolPolicyRepository {
     const key = keyOf(policy.teamId, policy.personId, policy.source);
 
     if ((this.held.get(key)?.version ?? 0) !== policy.version) {
-      throw new PersonToolPolicyMovedOnError(policy.source.value);
+      throw new PersonToolPolicyVersionConflictError(policy.source.value);
     }
 
     this.held.set(

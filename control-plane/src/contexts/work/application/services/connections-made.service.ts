@@ -2,7 +2,7 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
-import { TaskMovedOnError } from '@work/domain/exceptions/task-moved-on.error';
+import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
@@ -59,7 +59,10 @@ export class ConnectionsMade {
         await this.tasks.save(answered);
         return;
       } catch (error) {
-        if (!(error instanceof TaskMovedOnError) || attempt >= ATTEMPTS) {
+        if (
+          !(error instanceof TaskVersionConflictError) ||
+          attempt >= ATTEMPTS
+        ) {
           throw error;
         }
       }

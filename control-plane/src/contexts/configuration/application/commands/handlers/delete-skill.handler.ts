@@ -1,6 +1,6 @@
 import type { DeleteSkillCommand } from '@configuration/application/commands/delete-skill.command';
 import type { StationGifts } from '@configuration/application/services/station-gifts.service';
-import { SkillDefinitionMovedOnError } from '@configuration/domain/exceptions/skill-definition-moved-on.error';
+import { SkillDefinitionVersionConflictError } from '@configuration/domain/exceptions/skill-definition-version-conflict.error';
 import { SkillInUseError } from '@configuration/domain/exceptions/skill-in-use.error';
 import type { SkillDefinitionRepository } from '@configuration/domain/repositories/skill-definition.repository';
 import { SkillDefinitionId } from '@configuration/domain/value-objects/skill-definition-id.vo';
@@ -44,7 +44,7 @@ export class DeleteSkillHandler
         return forbiddenTo('configure');
       }
 
-      standing.expecting(command.expectedVersion);
+      standing.assertVersion(command.expectedVersion);
 
       const given = await this.given.onTeam(standing.teamId, 'skill');
 
@@ -59,11 +59,11 @@ export class DeleteSkillHandler
 
       return { outcome: 'deleted' };
     } catch (error) {
-      if (error instanceof SkillDefinitionMovedOnError) {
+      if (error instanceof SkillDefinitionVersionConflictError) {
         const current = await this.definitions.withId(id);
 
         return current
-          ? { outcome: 'moved-on', currentVersion: current.version }
+          ? { outcome: 'version-conflict', currentVersion: current.version }
           : null;
       }
 

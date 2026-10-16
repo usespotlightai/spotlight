@@ -21,7 +21,7 @@ import { InvalidReviewPolicyError } from '@work/domain/exceptions/invalid-review
 import { InvalidStationLayoutError } from '@work/domain/exceptions/invalid-station-layout.error';
 import { LineInUseError } from '@work/domain/exceptions/line-in-use.error';
 import { LineKeyFixedError } from '@work/domain/exceptions/line-key-fixed.error';
-import { LineMovedOnError } from '@work/domain/exceptions/line-moved-on.error';
+import { LineVersionConflictError } from '@work/domain/exceptions/line-version-conflict.error';
 import { UnknownHappeningError } from '@work/domain/exceptions/unknown-happening.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
 import { UnreadyRepositoryError } from '@work/domain/exceptions/unready-repository.error';
@@ -255,9 +255,9 @@ export class Line extends EventRecorder {
     );
   }
 
-  expecting(version: number): void {
+  assertVersion(version: number): void {
     if (version !== this.version) {
-      throw new LineMovedOnError(this.id.value);
+      throw new LineVersionConflictError(this.id.value);
     }
   }
 

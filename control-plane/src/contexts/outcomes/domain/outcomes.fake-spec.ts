@@ -1,7 +1,7 @@
 import { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
 import { TaskDelivery } from '@outcomes/domain/aggregates/task-delivery.aggregate';
-import { RunRecordMovedOnError } from '@outcomes/domain/exceptions/run-record-moved-on.error';
-import { TaskDeliveryMovedOnError } from '@outcomes/domain/exceptions/task-delivery-moved-on.error';
+import { RunRecordVersionConflictError } from '@outcomes/domain/exceptions/run-record-version-conflict.error';
+import { TaskDeliveryVersionConflictError } from '@outcomes/domain/exceptions/task-delivery-version-conflict.error';
 import type {
   RunListing,
   RunRecordRepository,
@@ -168,7 +168,7 @@ export class RunRecordsInMemory implements RunRecordRepository {
 
   async add(record: RunRecord): Promise<void> {
     if (this.held.has(record.runId.value)) {
-      throw new RunRecordMovedOnError(record.runId.value);
+      throw new RunRecordVersionConflictError(record.runId.value);
     }
     this.raised.push(...record.pullEvents());
     this.held.set(record.runId.value, record);
@@ -178,7 +178,7 @@ export class RunRecordsInMemory implements RunRecordRepository {
     const held = this.held.get(record.runId.value);
 
     if (!held || held.version !== record.version) {
-      throw new RunRecordMovedOnError(record.runId.value);
+      throw new RunRecordVersionConflictError(record.runId.value);
     }
     this.raised.push(...record.pullEvents());
     this.held.set(
@@ -352,7 +352,7 @@ export class TaskDeliveriesInMemory implements TaskDeliveryRepository {
 
   async add(delivery: TaskDelivery): Promise<void> {
     if (this.held.has(delivery.taskId.value)) {
-      throw new TaskDeliveryMovedOnError(delivery.taskId.value);
+      throw new TaskDeliveryVersionConflictError(delivery.taskId.value);
     }
     this.raised.push(...delivery.pullEvents());
     this.held.set(delivery.taskId.value, delivery);
@@ -362,7 +362,7 @@ export class TaskDeliveriesInMemory implements TaskDeliveryRepository {
     const held = this.held.get(delivery.taskId.value);
 
     if (!held || held.version !== delivery.version) {
-      throw new TaskDeliveryMovedOnError(delivery.taskId.value);
+      throw new TaskDeliveryVersionConflictError(delivery.taskId.value);
     }
     this.raised.push(...delivery.pullEvents());
     this.held.set(

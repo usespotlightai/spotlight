@@ -4,7 +4,7 @@ import type { HookCompilerPort } from '@integrations/application/ports/hook-comp
 import { HookProblems } from '@integrations/application/rendering/hook-problems';
 import type { HookAllowancesService } from '@integrations/application/services/hook-allowances.service';
 import { secretGiven } from '@integrations/application/services/signing-secrets';
-import { HookDefinitionMovedOnError } from '@integrations/domain/exceptions/hook-definition-moved-on.error';
+import { HookDefinitionVersionConflictError } from '@integrations/domain/exceptions/hook-definition-version-conflict.error';
 import { HookKeyFixedError } from '@integrations/domain/exceptions/hook-key-fixed.error';
 import { InvalidHookError } from '@integrations/domain/exceptions/invalid-hook.error';
 import type { HookDefinitionRepository } from '@integrations/domain/repositories/hook-definition.repository';
@@ -49,7 +49,7 @@ export class UpdateHookHandler
         return forbiddenTo('configure');
       }
 
-      standing.expecting(command.expectedVersion);
+      standing.assertVersion(command.expectedVersion);
 
       const compiled = this.compiler.compile(command.definition);
 
@@ -70,11 +70,11 @@ export class UpdateHookHandler
 
       return { outcome: 'updated', id: id.value };
     } catch (error) {
-      if (error instanceof HookDefinitionMovedOnError) {
+      if (error instanceof HookDefinitionVersionConflictError) {
         const current = await this.definitions.withId(id);
 
         return current
-          ? { outcome: 'moved-on', currentVersion: current.version }
+          ? { outcome: 'version-conflict', currentVersion: current.version }
           : null;
       }
 

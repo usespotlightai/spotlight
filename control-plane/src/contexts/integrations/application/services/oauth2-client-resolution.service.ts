@@ -9,7 +9,7 @@ import type {
   OAuth2ClientsPort,
 } from '@integrations/application/ports/oauth2-clients.port';
 import { OAuth2ClientRegistration } from '@integrations/domain/aggregates/oauth2-client-registration.aggregate';
-import { OAuth2ClientRegistrationMovedOnError } from '@integrations/domain/exceptions/oauth2-client-registration-moved-on.error';
+import { OAuth2ClientRegistrationVersionConflictError } from '@integrations/domain/exceptions/oauth2-client-registration-version-conflict.error';
 import type { OAuth2ClientRegistrationRepository } from '@integrations/domain/repositories/oauth2-client-registration.repository';
 import { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
 import type { AuthorizationServer } from '@integrations/domain/value-objects/authorization-server.vo';
@@ -109,7 +109,7 @@ export class OAuth2ClientResolution implements OAuth2ClientsPort {
         held ? held.replacedBy(registered) : registered,
       );
     } catch (error) {
-      if (!(error instanceof OAuth2ClientRegistrationMovedOnError)) {
+      if (!(error instanceof OAuth2ClientRegistrationVersionConflictError)) {
         throw error;
       }
 

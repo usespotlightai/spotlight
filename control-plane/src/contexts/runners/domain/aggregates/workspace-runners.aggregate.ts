@@ -2,7 +2,7 @@ import { WorkspaceRunnersDeclared } from '@runners/domain/events/workspace-runne
 import { WorkspaceRunnersDropped } from '@runners/domain/events/workspace-runners-dropped.event';
 import { WorkspaceRunnersRedeclared } from '@runners/domain/events/workspace-runners-redeclared.event';
 import { InvalidWorkspaceRunnersError } from '@runners/domain/exceptions/invalid-workspace-runners.error';
-import { WorkspaceRunnersMovedOnError } from '@runners/domain/exceptions/workspace-runners-moved-on.error';
+import { WorkspaceRunnersVersionConflictError } from '@runners/domain/exceptions/workspace-runners-version-conflict.error';
 import type { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
 import type { TrustKey } from '@runners/domain/value-objects/trust-key.vo';
 import type { WorkspaceRunnersId } from '@runners/domain/value-objects/workspace-runners-id.vo';
@@ -102,9 +102,9 @@ export class WorkspaceRunners extends EventRecorder {
     );
   }
 
-  expecting(version: number): void {
+  assertVersion(version: number): void {
     if (version !== this.version) {
-      throw new WorkspaceRunnersMovedOnError(this.id.value);
+      throw new WorkspaceRunnersVersionConflictError(this.id.value);
     }
   }
 

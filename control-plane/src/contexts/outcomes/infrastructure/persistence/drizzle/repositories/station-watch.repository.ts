@@ -1,6 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { StationWatch } from '@outcomes/domain/aggregates/station-watch.aggregate';
-import { StationWatchMovedOnError } from '@outcomes/domain/exceptions/station-watch-moved-on.error';
+import { StationWatchVersionConflictError } from '@outcomes/domain/exceptions/station-watch-version-conflict.error';
 import type { StationWatchRepository } from '@outcomes/domain/repositories/station-watch.repository';
 import { AlertCrossing } from '@outcomes/domain/value-objects/alert-crossing.vo';
 import { AlertId } from '@outcomes/domain/value-objects/alert-id.vo';
@@ -104,7 +104,7 @@ export class DrizzleStationWatchRepository implements StationWatchRepository {
         .returning({ stationId: stationWatch.stationId });
 
       if (written.length === 0) {
-        throw new StationWatchMovedOnError(added.station.stationId);
+        throw new StationWatchVersionConflictError(added.station.stationId);
       }
 
       await this.writeAlerts(added);
@@ -126,7 +126,7 @@ export class DrizzleStationWatchRepository implements StationWatchRepository {
         .returning({ stationId: stationWatch.stationId });
 
       if (written.length === 0) {
-        throw new StationWatchMovedOnError(saved.station.stationId);
+        throw new StationWatchVersionConflictError(saved.station.stationId);
       }
 
       await this.writeAlerts(saved);

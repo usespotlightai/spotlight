@@ -1,7 +1,7 @@
 import { Team } from '@identity/domain/aggregates/team.aggregate';
 import { NoSuchWorkspaceError } from '@identity/domain/exceptions/no-such-workspace.error';
 import { TeamAlreadyDefinedError } from '@identity/domain/exceptions/team-already-defined.error';
-import { TeamMovedOnError } from '@identity/domain/exceptions/team-moved-on.error';
+import { TeamVersionConflictError } from '@identity/domain/exceptions/team-version-conflict.error';
 import type { TeamRepository } from '@identity/domain/repositories/team.repository';
 import { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import { TeamName } from '@identity/domain/value-objects/team-name.vo';
@@ -93,7 +93,7 @@ export class DrizzleTeamRepository implements TeamRepository {
           .returning({ id: team.id });
 
         if (removed.length === 0) {
-          throw new TeamMovedOnError(saved.id.value);
+          throw new TeamVersionConflictError(saved.id.value);
         }
 
         return;
@@ -112,7 +112,7 @@ export class DrizzleTeamRepository implements TeamRepository {
         .returning({ id: team.id });
 
       if (written.length === 0) {
-        throw new TeamMovedOnError(saved.id.value);
+        throw new TeamVersionConflictError(saved.id.value);
       }
 
       const held = saved.members.map((member) => member.value);

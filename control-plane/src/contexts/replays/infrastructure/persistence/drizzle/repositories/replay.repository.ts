@@ -4,7 +4,7 @@ import {
   PAIRING_STATE,
   Replay,
 } from '@replays/domain/aggregates/replay.aggregate';
-import { ReplayMovedOnError } from '@replays/domain/exceptions/replay-moved-on.error';
+import { ReplayVersionConflictError } from '@replays/domain/exceptions/replay-version-conflict.error';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import { STANDING_BASELINE_STATES } from '@replays/domain/services/baseline';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
@@ -606,7 +606,7 @@ export class DrizzleReplayRepository implements ReplayRepository {
             .returning({ id: replay.id });
 
       if (written.length === 0) {
-        throw new ReplayMovedOnError(saved.id.value);
+        throw new ReplayVersionConflictError(saved.id.value);
       }
 
       if (!saved.isAbandoned) {

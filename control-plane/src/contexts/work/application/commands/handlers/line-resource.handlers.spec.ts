@@ -22,8 +22,8 @@ import { StationCatalog } from '@work/application/services/station-catalog.servi
 import { Line } from '@work/domain/aggregates/line.aggregate';
 import { LineAlreadyOpenedError } from '@work/domain/exceptions/line-already-opened.error';
 import { LineInUseError } from '@work/domain/exceptions/line-in-use.error';
-import { LineMovedOnError } from '@work/domain/exceptions/line-moved-on.error';
 import { LineRoleTakenError } from '@work/domain/exceptions/line-role-taken.error';
+import { LineVersionConflictError } from '@work/domain/exceptions/line-version-conflict.error';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import {
   BUILT_IN_LINES,
@@ -312,16 +312,16 @@ describe('UpdateLineHandler', () => {
     const { update, reconcile } = updating();
 
     expect(await update(DELIVERY, 2)).toEqual({
-      outcome: 'moved-on',
+      outcome: 'version-conflict',
       currentVersion: 3,
     });
     expect(reconcile).not.toHaveBeenCalled();
     expect(
       await updating({
-        refusing: new LineMovedOnError('line_1'),
+        refusing: new LineVersionConflictError('line_1'),
         thenAt: standingAt(4),
       }).update(DELIVERY),
-    ).toEqual({ outcome: 'moved-on', currentVersion: 4 });
+    ).toEqual({ outcome: 'version-conflict', currentVersion: 4 });
   });
 
   it('refuses a change to a catalog item the plan does not include, and reconciles nothing', async () => {
@@ -396,6 +396,9 @@ describe('DeleteLineHandler', () => {
     expect(await busy.remove()).toMatchObject({ outcome: 'in-use' });
     expect(busy.kept.save).not.toHaveBeenCalled();
     expect(kept.save).not.toHaveBeenCalled();
-    expect(await remove(2)).toEqual({ outcome: 'moved-on', currentVersion: 3 });
+    expect(await remove(2)).toEqual({
+      outcome: 'version-conflict',
+      currentVersion: 3,
+    });
   });
 });

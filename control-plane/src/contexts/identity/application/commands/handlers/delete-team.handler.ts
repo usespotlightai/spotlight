@@ -2,7 +2,7 @@ import type { DeleteTeamCommand } from '@identity/application/commands/delete-te
 import type { TeamHoldingsPort } from '@identity/application/ports/team-holdings.port';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import { TeamInUseError } from '@identity/domain/exceptions/team-in-use.error';
-import { TeamMovedOnError } from '@identity/domain/exceptions/team-moved-on.error';
+import { TeamVersionConflictError } from '@identity/domain/exceptions/team-version-conflict.error';
 import type { TeamRepository } from '@identity/domain/repositories/team.repository';
 import { Holdings } from '@identity/domain/value-objects/holdings.vo';
 import {
@@ -45,7 +45,7 @@ export class DeleteTeamHandler
         return forbiddenTo('configure');
       }
 
-      standing.expecting(command.expectedVersion);
+      standing.assertVersion(command.expectedVersion);
 
       const held = Holdings.of(await this.holdings.of(id));
 
@@ -60,11 +60,11 @@ export class DeleteTeamHandler
 
       return { outcome: 'deleted' };
     } catch (error) {
-      if (error instanceof TeamMovedOnError) {
+      if (error instanceof TeamVersionConflictError) {
         const current = await this.teams.find(id);
 
         return current
-          ? { outcome: 'moved-on', currentVersion: current.version }
+          ? { outcome: 'version-conflict', currentVersion: current.version }
           : null;
       }
 

@@ -13,7 +13,7 @@ import { DescribedDocument } from '@integrations/domain/aggregates/described-doc
 import { HostConnection } from '@integrations/domain/aggregates/host-connection.aggregate';
 import { OAuth2ClientRegistration } from '@integrations/domain/aggregates/oauth2-client-registration.aggregate';
 import { PersonToolPolicy } from '@integrations/domain/aggregates/person-tool-policy.aggregate';
-import { OAuth2ClientRegistrationMovedOnError } from '@integrations/domain/exceptions/oauth2-client-registration-moved-on.error';
+import { OAuth2ClientRegistrationVersionConflictError } from '@integrations/domain/exceptions/oauth2-client-registration-version-conflict.error';
 import type { OAuth2ClientRegistrationRepository } from '@integrations/domain/repositories/oauth2-client-registration.repository';
 import { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
 import { ConnectionHolder } from '@integrations/domain/value-objects/connection-holder.vo';
@@ -207,7 +207,9 @@ class InMemoryRegistrations implements OAuth2ClientRegistrationRepository {
 
   async save(registration: OAuth2ClientRegistration): Promise<void> {
     if (registration.isNew && this.held) {
-      throw new OAuth2ClientRegistrationMovedOnError(registration.source.value);
+      throw new OAuth2ClientRegistrationVersionConflictError(
+        registration.source.value,
+      );
     }
 
     this.held = registration;

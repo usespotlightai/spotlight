@@ -3,8 +3,8 @@ import {
   type SeenPullRequest,
 } from '@outcomes/domain/aggregates/pull-request-record.aggregate';
 import { TaskChangeShape } from '@outcomes/domain/aggregates/task-change-shape.aggregate';
-import { PullRequestRecordMovedOnError } from '@outcomes/domain/exceptions/pull-request-record-moved-on.error';
-import { TaskChangeShapeMovedOnError } from '@outcomes/domain/exceptions/task-change-shape-moved-on.error';
+import { PullRequestRecordVersionConflictError } from '@outcomes/domain/exceptions/pull-request-record-version-conflict.error';
+import { TaskChangeShapeVersionConflictError } from '@outcomes/domain/exceptions/task-change-shape-version-conflict.error';
 import type { PullRequestRecordRepository } from '@outcomes/domain/repositories/pull-request-record.repository';
 import type { TaskChangeShapeRepository } from '@outcomes/domain/repositories/task-change-shape.repository';
 import { spendingOf } from '@outcomes/domain/services/measures';
@@ -89,7 +89,7 @@ export class PullRequestRecordsInMemory implements PullRequestRecordRepository {
     const key = keyOf(record.workspaceId, record.pullRequest);
 
     if (this.held.has(key)) {
-      throw new PullRequestRecordMovedOnError(record.pullRequest.value);
+      throw new PullRequestRecordVersionConflictError(record.pullRequest.value);
     }
     this.held.set(key, record);
   }
@@ -99,7 +99,7 @@ export class PullRequestRecordsInMemory implements PullRequestRecordRepository {
     const held = this.held.get(key);
 
     if (!held || held.version !== record.version) {
-      throw new PullRequestRecordMovedOnError(record.pullRequest.value);
+      throw new PullRequestRecordVersionConflictError(record.pullRequest.value);
     }
     this.held.set(
       key,
@@ -111,7 +111,7 @@ export class PullRequestRecordsInMemory implements PullRequestRecordRepository {
     const key = keyOf(record.workspaceId, record.pullRequest);
 
     if (this.held.get(key)?.version !== record.version) {
-      throw new PullRequestRecordMovedOnError(record.pullRequest.value);
+      throw new PullRequestRecordVersionConflictError(record.pullRequest.value);
     }
     this.held.delete(key);
   }
@@ -189,7 +189,7 @@ export class TaskChangeShapesInMemory implements TaskChangeShapeRepository {
 
   async add(shape: TaskChangeShape): Promise<void> {
     if (this.held.has(shape.taskId.value)) {
-      throw new TaskChangeShapeMovedOnError(shape.taskId.value);
+      throw new TaskChangeShapeVersionConflictError(shape.taskId.value);
     }
     this.held.set(shape.taskId.value, shape);
   }
@@ -198,7 +198,7 @@ export class TaskChangeShapesInMemory implements TaskChangeShapeRepository {
     const held = this.held.get(shape.taskId.value);
 
     if (!held || held.version !== shape.version) {
-      throw new TaskChangeShapeMovedOnError(shape.taskId.value);
+      throw new TaskChangeShapeVersionConflictError(shape.taskId.value);
     }
     this.held.set(
       shape.taskId.value,

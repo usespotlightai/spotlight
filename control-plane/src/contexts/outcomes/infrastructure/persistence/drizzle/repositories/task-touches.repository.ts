@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { TaskTouches } from '@outcomes/domain/aggregates/task-touches.aggregate';
-import { TaskTouchesMovedOnError } from '@outcomes/domain/exceptions/task-touches-moved-on.error';
+import { TaskTouchesVersionConflictError } from '@outcomes/domain/exceptions/task-touches-version-conflict.error';
 import type { TaskTouchesRepository } from '@outcomes/domain/repositories/task-touches.repository';
 import { InboxAsk } from '@outcomes/domain/value-objects/inbox-ask.vo';
 import { PersonTouch } from '@outcomes/domain/value-objects/person-touch.vo';
@@ -96,7 +96,7 @@ export class DrizzleTaskTouchesRepository implements TaskTouchesRepository {
         .returning({ taskId: taskTouches.taskId });
 
       if (written.length === 0) {
-        throw new TaskTouchesMovedOnError(added.taskId.value);
+        throw new TaskTouchesVersionConflictError(added.taskId.value);
       }
 
       await this.facts.refresh({
@@ -120,7 +120,7 @@ export class DrizzleTaskTouchesRepository implements TaskTouchesRepository {
         .returning({ taskId: taskTouches.taskId });
 
       if (written.length === 0) {
-        throw new TaskTouchesMovedOnError(saved.taskId.value);
+        throw new TaskTouchesVersionConflictError(saved.taskId.value);
       }
 
       await this.facts.refresh({

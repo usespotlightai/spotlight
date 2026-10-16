@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import { HostConnection } from '@integrations/domain/aggregates/host-connection.aggregate';
 import { OAuth2ClientRegistration } from '@integrations/domain/aggregates/oauth2-client-registration.aggregate';
-import { HostConnectionMovedOnError } from '@integrations/domain/exceptions/host-connection-moved-on.error';
-import { OAuth2ClientRegistrationMovedOnError } from '@integrations/domain/exceptions/oauth2-client-registration-moved-on.error';
+import { HostConnectionVersionConflictError } from '@integrations/domain/exceptions/host-connection-version-conflict.error';
+import { OAuth2ClientRegistrationVersionConflictError } from '@integrations/domain/exceptions/oauth2-client-registration-version-conflict.error';
 import { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
 import { ConnectionHolder } from '@integrations/domain/value-objects/connection-holder.vo';
 import { HostGrant } from '@integrations/domain/value-objects/host-grant.vo';
@@ -168,7 +168,7 @@ describe('host connections kept per holder', () => {
     await connections.save(one?.claimRenewal(NOW, 30_000) as HostConnection);
     await expect(
       connections.save(other?.claimRenewal(NOW, 30_000) as HostConnection),
-    ).rejects.toBeInstanceOf(HostConnectionMovedOnError);
+    ).rejects.toBeInstanceOf(HostConnectionVersionConflictError);
 
     const claimed = await connections.of(teamId, LINEAR, alice);
     expect(claimed?.isClaimedAt(NOW)).toBe(true);
@@ -224,7 +224,7 @@ describe('OAuth client registrations', () => {
     await registrations.save(registered(teamId, 'client-1'));
     await expect(
       registrations.save(registered(teamId, 'client-2')),
-    ).rejects.toBeInstanceOf(OAuth2ClientRegistrationMovedOnError);
+    ).rejects.toBeInstanceOf(OAuth2ClientRegistrationVersionConflictError);
 
     const kept = await registrations.of(teamId, LINEAR);
     expect(kept?.clientId).toBe('client-1');

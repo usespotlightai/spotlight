@@ -1,7 +1,7 @@
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TaskAnswered } from '@work/domain/events/task-answered.event';
-import { RunMovedOnError } from '@work/domain/exceptions/run-moved-on.error';
+import { RunVersionConflictError } from '@work/domain/exceptions/run-version-conflict.error';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 
@@ -30,7 +30,10 @@ export class PausedRuns {
         await this.runs.save(run.resumed());
         return;
       } catch (error) {
-        if (!(error instanceof RunMovedOnError) || attempt >= ATTEMPTS) {
+        if (
+          !(error instanceof RunVersionConflictError) ||
+          attempt >= ATTEMPTS
+        ) {
           throw error;
         }
       }

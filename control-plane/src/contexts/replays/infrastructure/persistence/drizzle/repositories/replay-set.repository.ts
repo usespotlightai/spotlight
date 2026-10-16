@@ -6,7 +6,7 @@ import {
 } from '@platform/persistence/drizzle/violations';
 import { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
 import { ChangesGuardedElsewhereError } from '@replays/domain/exceptions/changes-guarded-elsewhere.error';
-import { ReplaySetMovedOnError } from '@replays/domain/exceptions/replay-set-moved-on.error';
+import { ReplaySetVersionConflictError } from '@replays/domain/exceptions/replay-set-version-conflict.error';
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
 import { ReplaySetEntry } from '@replays/domain/value-objects/replay-set-entry.vo';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
@@ -141,7 +141,7 @@ export class DrizzleReplaySetRepository implements ReplaySetRepository {
             });
 
       if (written.length === 0) {
-        throw new ReplaySetMovedOnError(saved.id.value);
+        throw new ReplaySetVersionConflictError(saved.id.value);
       }
 
       if (!saved.isDeleted) {

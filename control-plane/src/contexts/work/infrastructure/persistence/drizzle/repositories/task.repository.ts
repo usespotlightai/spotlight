@@ -18,7 +18,7 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { TaskNote } from '@work/domain/entities/task-note.entity';
 import { MarkWornElsewhereError } from '@work/domain/exceptions/mark-worn-elsewhere.error';
-import { TaskMovedOnError } from '@work/domain/exceptions/task-moved-on.error';
+import { TaskVersionConflictError } from '@work/domain/exceptions/task-version-conflict.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { openSetupList } from '@work/domain/services/setup-list';
@@ -296,7 +296,7 @@ export class DrizzleTaskRepository implements TaskRepository {
     );
 
     if (written.length === 0) {
-      throw new TaskMovedOnError(saved.id.value);
+      throw new TaskVersionConflictError(saved.id.value);
     }
 
     await this.writeNotes(saved);

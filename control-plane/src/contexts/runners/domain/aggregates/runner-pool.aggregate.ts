@@ -3,7 +3,7 @@ import { RunnerPoolRedefined } from '@runners/domain/events/runner-pool-redefine
 import { RunnerPoolRetired } from '@runners/domain/events/runner-pool-retired.event';
 import { InvalidRunnerPoolError } from '@runners/domain/exceptions/invalid-runner-pool.error';
 import { RunnerPoolFixedError } from '@runners/domain/exceptions/runner-pool-fixed.error';
-import { RunnerPoolMovedOnError } from '@runners/domain/exceptions/runner-pool-moved-on.error';
+import { RunnerPoolVersionConflictError } from '@runners/domain/exceptions/runner-pool-version-conflict.error';
 import type { MaxRuns } from '@runners/domain/value-objects/max-runs.vo';
 import {
   type PoolAccess,
@@ -181,9 +181,9 @@ export class RunnerPool extends EventRecorder {
     return this.hasRoomFor(standing) ? 'open' : 'full';
   }
 
-  expecting(version: number): void {
+  assertVersion(version: number): void {
     if (version !== this.version) {
-      throw new RunnerPoolMovedOnError(this.id.value);
+      throw new RunnerPoolVersionConflictError(this.id.value);
     }
   }
 

@@ -17,7 +17,7 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
 import { ChatMessage } from '@work/domain/entities/chat-message.entity';
 import { TaskProposal } from '@work/domain/entities/task-proposal.entity';
-import { ChatMovedOnError } from '@work/domain/exceptions/chat-moved-on.error';
+import { ChatVersionConflictError } from '@work/domain/exceptions/chat-version-conflict.error';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
@@ -237,7 +237,7 @@ export class DrizzleChatRepository implements ChatRepository {
       .returning({ id: chat.id });
 
     if (written.length === 0) {
-      throw new ChatMovedOnError(saved.id.value);
+      throw new ChatVersionConflictError(saved.id.value);
     }
 
     await this.writeMessages(saved);

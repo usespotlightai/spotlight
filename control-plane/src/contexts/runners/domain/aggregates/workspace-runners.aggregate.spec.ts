@@ -1,6 +1,6 @@
 import { WorkspaceRunners } from '@runners/domain/aggregates/workspace-runners.aggregate';
 import { InvalidWorkspaceRunnersError } from '@runners/domain/exceptions/invalid-workspace-runners.error';
-import { WorkspaceRunnersMovedOnError } from '@runners/domain/exceptions/workspace-runners-moved-on.error';
+import { WorkspaceRunnersVersionConflictError } from '@runners/domain/exceptions/workspace-runners-version-conflict.error';
 import { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
 import { TrustKey } from '@runners/domain/value-objects/trust-key.vo';
 import { WorkspaceRunnersId } from '@runners/domain/value-objects/workspace-runners-id.vo';
@@ -58,6 +58,8 @@ describe('WorkspaceRunners', () => {
   });
 
   it('refuses a change to a version no longer current', () => {
-    expect(() => declared().expecting(1)).toThrow(WorkspaceRunnersMovedOnError);
+    expect(() => declared().assertVersion(1)).toThrow(
+      WorkspaceRunnersVersionConflictError,
+    );
   });
 });
