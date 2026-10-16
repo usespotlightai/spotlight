@@ -11,7 +11,7 @@ const POLL_MS = 10_000;
 const provisioningPoll = (onboarding: OnboardingResponseDto | undefined) =>
   provisioningPollFor(onboarding?.provisioning);
 
-export const onboardingQuery = (teamId: string | undefined) =>
+const onboardingQuery = (teamId: string | undefined) =>
   queryOptions({
     queryKey: onboardingKeys.forTeam(teamId),
     enabled: Boolean(teamId),
