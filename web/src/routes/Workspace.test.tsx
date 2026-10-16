@@ -2,10 +2,12 @@ import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { useSettingUp } from '@/hooks/api/useSettingUp';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { Workspace } from '@/routes/Workspace';
 
 vi.mock('@/hooks/api/useWorkspace', () => ({ useWorkspace: vi.fn() }));
+vi.mock('@/hooks/api/useSettingUp', () => ({ useSettingUp: vi.fn() }));
 
 vi.mock('@/hooks/api/useLines', () => ({
   useLines: () => ({
@@ -44,6 +46,7 @@ vi.mock('@/hooks/api/useSession', () => ({
 }));
 
 const mockWorkspace = vi.mocked(useWorkspace);
+const mockSettingUp = vi.mocked(useSettingUp);
 
 const refetch = vi.fn();
 
@@ -82,6 +85,7 @@ const renderAt = (slug: string, rest = '') =>
 
 beforeEach(() => {
   mockWorkspace.mockReset();
+  mockSettingUp.mockReturnValue(false);
   refetch.mockClear();
   hosts.mockReturnValue([
     { id: 'h1', name: 'one', answering: true },
@@ -91,6 +95,31 @@ beforeEach(() => {
 });
 
 describe('Workspace', () => {
+  it('says the workspace is being set up, in place of the sidebar and page', () => {
+    loaded(acme);
+    mockSettingUp.mockReturnValue(true);
+
+    renderAt('acme-inc');
+
+    expect(
+      screen.getByRole('heading', { name: 'Setting up your workspace…' }),
+    ).toBeInTheDocument();
+    expect(screen.queryByText('section slot')).not.toBeInTheDocument();
+    expect(mockSettingUp).toHaveBeenCalledWith('acme-inc', acme);
+  });
+
+  it('keeps the settings open while the workspace is being set up', () => {
+    loaded(acme);
+    mockSettingUp.mockReturnValue(true);
+
+    renderAt('acme-inc', '/settings/runners');
+
+    expect(screen.getByText('settings slot')).toBeInTheDocument();
+    expect(
+      screen.queryByRole('heading', { name: 'Setting up your workspace…' }),
+    ).not.toBeInTheDocument();
+  });
+
   it('names the workspace at that address in the sidebar', () => {
     loaded(acme);
 

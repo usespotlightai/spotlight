@@ -3,6 +3,7 @@ import type {
   WorkspaceDto,
   WorkspaceListingDto,
 } from '@identity/application/dto/workspace.dto';
+import type { Provisioning } from '@identity/application/ports/workspace-provisioning.port';
 import type {
   WorkspaceDetail,
   WorkspaceListing,
@@ -23,13 +24,17 @@ export const WorkspaceMapper = {
     };
   },
 
-  detailToDto(detail: WorkspaceDetail): WorkspaceDetailDto {
+  detailToDto(
+    detail: WorkspaceDetail,
+    provisioning: Provisioning,
+  ): WorkspaceDetailDto {
     return {
       id: detail.id,
       name: detail.name,
       slug: detail.slug,
       teams: detail.teams.map((team) => ({ id: team.id, name: team.name })),
       role: detail.role,
+      provisioning,
     };
   },
 

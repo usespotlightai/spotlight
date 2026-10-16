@@ -2155,6 +2155,10 @@ export type SetupChatResponseDto = {
 
 export type OnboardingResponseDto = {
   /**
+   * Whether Spotlight has opened the first lines and the setup task of the team. The value is failed after Spotlight stopped its attempts.
+   */
+  provisioning: 'pending' | 'done' | 'failed';
+  /**
    * The list itself, in the order it is worked through
    */
   steps: Array<SetupStepResponseDto>;
@@ -2420,6 +2424,10 @@ export type WorkspaceResponseDto = {
    * What the caller is in this workspace.
    */
   role: 'owner' | 'admin' | 'member';
+  /**
+   * Whether Spotlight has opened the first team of the workspace. The value is failed after Spotlight stopped its attempts.
+   */
+  provisioning: 'pending' | 'done' | 'failed';
 };
 
 export type TeamReferenceResponseDto = {

@@ -46,6 +46,7 @@ export class OnboardingController {
     }
 
     return new OnboardingResponseDto(
+      read.provisioning,
       read.steps.map(
         (each) =>
           new SetupStepResponseDto(

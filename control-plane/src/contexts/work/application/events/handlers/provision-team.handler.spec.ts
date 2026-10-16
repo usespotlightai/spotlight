@@ -4,7 +4,6 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import {
-  LinesNotOpenYet,
   type NewTeam,
   ProvisionTeam,
 } from '@work/application/events/handlers/provision-team.handler';
@@ -51,7 +50,7 @@ describe('ProvisionTeam', () => {
   it('opens every line a team starts with, for that team', async () => {
     const { provision, seeded } = provisioning();
 
-    await provision.openLines(created);
+    await provision.provision(created);
 
     expect(seeded.map((line) => line.key.value)).toEqual(
       BUILT_IN_LINES.map((line) => line.key.value),
@@ -64,8 +63,8 @@ describe('ProvisionTeam', () => {
   it('opens no line twice when told again', async () => {
     const { provision, seeded } = provisioning();
 
-    await provision.openLines(created);
-    await provision.openLines(created);
+    await provision.provision(created);
+    await provision.provision(created);
 
     expect(seeded).toHaveLength(BUILT_IN_LINES.length);
   });
@@ -73,7 +72,7 @@ describe('ProvisionTeam', () => {
   it('opens every worked station on the default harness, and the rest on none', async () => {
     const { provision, seeded } = provisioning();
 
-    await provision.openLines(created);
+    await provision.provision(created);
 
     for (const line of seeded) {
       expect(
@@ -87,7 +86,7 @@ describe('ProvisionTeam', () => {
   it('opens the delivery and review lines and nothing else', async () => {
     const { provision, seeded } = provisioning();
 
-    await provision.openLines(created);
+    await provision.provision(created);
 
     expect(seeded.map((line) => line.key.value)).toEqual([
       'delivery',
@@ -98,7 +97,7 @@ describe('ProvisionTeam', () => {
   it('opens a review line that waits to be mentioned on a pull request', async () => {
     const { provision, seeded } = provisioning();
 
-    await provision.openLines(created);
+    await provision.provision(created);
 
     const review = seeded.find((line) => line.role?.equals(LineRole.REVIEW));
 
@@ -111,8 +110,7 @@ describe('ProvisionTeam', () => {
   it('welcomes whoever opened it at the first station of the delivery line, waiting on them', async () => {
     const { provision, seeded, raised } = provisioning();
 
-    await provision.openLines(created);
-    await provision.welcome(created);
+    await provision.provision(created);
 
     expect(raised[0]?.raisedBy).toEqual(UserId.of('user_1'));
     expect(raised[0]?.title.value).toBe('Set up your team');
@@ -121,18 +119,10 @@ describe('ProvisionTeam', () => {
     expect(raised[0]?.notes[0]?.body.value).toContain('2. Connect a host.');
   });
 
-  it('waits to welcome a team until its lines are open', async () => {
-    const { provision } = provisioning();
-
-    await expect(provision.welcome(created)).rejects.toBeInstanceOf(
-      LinesNotOpenYet,
-    );
-  });
-
   it('welcomes a team only once', async () => {
     const { provision, raised } = provisioning({ setup: true });
 
-    await provision.welcome(created);
+    await provision.provision(created);
 
     expect(raised).toHaveLength(0);
   });

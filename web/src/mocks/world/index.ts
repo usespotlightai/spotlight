@@ -35,6 +35,7 @@ export const WORKSPACE: WorkspaceResponseDto = {
     { id: PLATFORM_ID, name: 'Platform' },
     { id: GROWTH_ID, name: 'Growth' },
   ],
+  provisioning: 'done',
 };
 
 export type WorldKind = 'full' | 'empty';

@@ -9,4 +9,5 @@ export const WORKSPACE: WorkspaceResponseDto = {
   slug: SLUG,
   teams: [{ id: TEAM_ID, name: 'Platform' }],
   role: 'owner',
+  provisioning: 'done',
 };

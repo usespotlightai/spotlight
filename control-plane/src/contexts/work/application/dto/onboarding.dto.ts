@@ -1,3 +1,4 @@
+import type { Provisioning } from '@work/application/ports/team-provisioning.port';
 import {
   SETUP_STEPS,
   type SetupStepKey,
@@ -19,6 +20,7 @@ interface SetupChatDto {
 }
 
 export interface OnboardingDto {
+  readonly provisioning: Provisioning;
   readonly steps: readonly SetupStepDto[];
   readonly canSetUp: boolean;
   readonly setupChat: SetupChatDto | null;

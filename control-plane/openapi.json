@@ -28230,6 +28230,16 @@
       "OnboardingResponseDto": {
         "type": "object",
         "properties": {
+          "provisioning": {
+            "type": "string",
+            "description": "Whether Spotlight has opened the first lines and the setup task of the team. The value is failed after Spotlight stopped its attempts.",
+            "enum": [
+              "pending",
+              "done",
+              "failed"
+            ],
+            "example": "done"
+          },
           "steps": {
             "description": "The list itself, in the order it is worked through",
             "type": "array",
@@ -28253,6 +28263,7 @@
           }
         },
         "required": [
+          "provisioning",
           "steps",
           "canSetUp",
           "setupChat"
@@ -28813,6 +28824,16 @@
               "admin",
               "member"
             ]
+          },
+          "provisioning": {
+            "type": "string",
+            "description": "Whether Spotlight has opened the first team of the workspace. The value is failed after Spotlight stopped its attempts.",
+            "enum": [
+              "pending",
+              "done",
+              "failed"
+            ],
+            "example": "done"
           }
         },
         "required": [
@@ -28820,7 +28841,8 @@
           "name",
           "slug",
           "teams",
-          "role"
+          "role",
+          "provisioning"
         ]
       },
       "TeamReferenceResponseDto": {

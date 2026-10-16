@@ -30,6 +30,7 @@ export const WorkspaceHttpMapper = {
       dto.slug,
       teamsOf(dto),
       dto.role,
+      dto.provisioning,
     );
   },
 

@@ -1,5 +1,9 @@
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import type { SetupChatView } from '@work/application/ports/chat-reader.port';
+import type {
+  Provisioning,
+  TeamProvisioningPort,
+} from '@work/application/ports/team-provisioning.port';
 import { OnboardingHandler } from '@work/application/queries/handlers/onboarding.handler';
 import { OnboardingQuery } from '@work/application/queries/onboarding.query';
 import type { SetupStanding } from '@work/application/services/setup-standing.service';
@@ -11,6 +15,7 @@ type Given = {
   state?: Partial<SetupState>;
   hostsSandboxes?: boolean;
   chat?: SetupChatView | null;
+  provisioning?: Provisioning;
 };
 
 const nothing: SetupState = {
@@ -41,7 +46,11 @@ const handler = (given: Given = {}) => {
     }),
   } as unknown as SetupStanding;
 
-  return new OnboardingHandler(workspaces, setup);
+  const provisioning: TeamProvisioningPort = {
+    of: vi.fn().mockResolvedValue(given.provisioning ?? 'done'),
+  };
+
+  return new OnboardingHandler(workspaces, setup, provisioning);
 };
 
 const read = (given: Given = {}) =>
@@ -53,6 +62,13 @@ const step = (of: Awaited<ReturnType<typeof read>>, key: string) =>
 describe('OnboardingHandler', () => {
   it('answers with nothing where the team is not the caller’s', async () => {
     await expect(read({ member: false })).resolves.toBeNull();
+  });
+
+  it('tells whether Spotlight has set the team up yet', async () => {
+    await expect(read()).resolves.toMatchObject({ provisioning: 'done' });
+    await expect(read({ provisioning: 'pending' })).resolves.toMatchObject({
+      provisioning: 'pending',
+    });
   });
 
   it('offers the list as the things it names', async () => {

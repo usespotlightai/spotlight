@@ -69,6 +69,7 @@ import { TEAM_HOLDINGS } from '@identity/application/ports/team-holdings.port';
 import { TOKEN_TRUST_CONFIGURATION } from '@identity/application/ports/token-trust-configuration.port';
 import { WORKSPACE_ACCESS } from '@identity/application/ports/workspace-access.port';
 import { WORKSPACE_HOLDINGS } from '@identity/application/ports/workspace-holdings.port';
+import { WORKSPACE_PROVISIONING } from '@identity/application/ports/workspace-provisioning.port';
 import { WORKSPACE_READER } from '@identity/application/ports/workspace-reader.port';
 import { GetWorkspaceQuery } from '@identity/application/queries/get-workspace.query';
 import { GetWorkspaceHandler } from '@identity/application/queries/handlers/get-workspace.handler';
@@ -130,6 +131,7 @@ import { WorkspaceAccess } from '@identity/application/services/workspace-access
 import { WorkspaceAdministration } from '@identity/application/services/workspace-administration.service';
 import { IDENTITY_EVENT_TYPES } from '@identity/domain/event-types';
 import { IdentityDefinitions } from '@identity/infrastructure/definitions/identity-definitions';
+import { OutboxWorkspaceProvisioning } from '@identity/infrastructure/events/outbox-workspace-provisioning';
 import { InviteByMail } from '@identity/infrastructure/mail/invite.mail';
 import type { MailTransport } from '@identity/infrastructure/mail/mail.transport';
 import { SmtpMail } from '@identity/infrastructure/mail/smtp.transport';
@@ -220,6 +222,7 @@ const adapters: Provider[] = [
   DrizzleWorkspaceTokenTrustRepository,
   DrizzleViewableWorkspaces,
   { provide: WORKSPACE_READER, useClass: DrizzleWorkspaceReader },
+  { provide: WORKSPACE_PROVISIONING, useClass: OutboxWorkspaceProvisioning },
   { provide: PERSON_READER, useClass: DrizzlePersonReader },
   { provide: MEMBER_READER, useClass: DrizzleMemberReader },
   { provide: MEMBER_DIRECTORY, useClass: DrizzleMemberDirectory },
@@ -308,6 +311,7 @@ const handlers: Provider[] = [
   ]),
   ...bindQueryHandler(GetWorkspaceQuery, GetWorkspaceHandler, [
     WORKSPACE_READER,
+    WORKSPACE_PROVISIONING,
   ]),
   ...bindQueryHandler(ListMembersQuery, ListMembersHandler, [MEMBER_READER]),
   ...bindQueryHandler(ListWorkspaceMembersQuery, ListWorkspaceMembersHandler, [

@@ -1,9 +1,13 @@
 import { api, json, notFound } from '@/mocks/http';
 import { scenario } from '@/mocks/scenario';
 import { world } from '@/mocks/world';
+import { settingsWorld } from '@/mocks/world/settings';
 
 const workspaceAs = () => ({
   ...world().workspace,
+  provisioning: settingsWorld().settingUp.includes(world().workspace.id)
+    ? ('pending' as const)
+    : ('done' as const),
   role:
     scenario().account === 'member'
       ? ('member' as const)

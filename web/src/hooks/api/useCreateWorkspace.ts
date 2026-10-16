@@ -1,4 +1,5 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { workspaceQuery } from '@/hooks/api/useWorkspace';
 import { workspaceKeys } from '@/hooks/api/useWorkspaces';
 import { openWorkspace } from '@/lib/api';
 import { messageOf } from '@/lib/error';
@@ -29,7 +30,10 @@ export function useCreateWorkspace() {
           : messageOf(error, 'Sorry, the workspace couldn’t be created.'),
       );
     },
-    onSuccess: () =>
-      queryClient.invalidateQueries({ queryKey: workspaceKeys.all }),
+    onSuccess: (workspace) =>
+      Promise.all([
+        queryClient.invalidateQueries({ queryKey: workspaceKeys.all }),
+        queryClient.prefetchQuery(workspaceQuery(workspace.slug)),
+      ]),
   });
 }

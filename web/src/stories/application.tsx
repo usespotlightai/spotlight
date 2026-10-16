@@ -35,6 +35,7 @@ type PageStory<Extra> = {
   readonly argTypes?: Partial<ArgTypes<Extra>>;
   readonly script?: (args: PageArgs & Extra) => Script | undefined;
   readonly states?: readonly PageState[];
+  readonly world?: (args: PageArgs & Extra) => void;
 };
 
 const SIGNED_OUT = {
@@ -114,6 +115,7 @@ export const pageStory = <Extra extends object = object>({
   argTypes,
   script,
   states = PAGE_STATES,
+  world,
 }: PageStory<Extra>) => ({
   args: {
     state: 'data',
@@ -141,6 +143,7 @@ export const pageStory = <Extra extends object = object>({
       scope: typeof scope === 'function' ? scope(all) : scope,
     });
     signIn(account);
+    world?.(all);
 
     const start = typeof at === 'function' ? at(all) : at;
     const where = resumed(start);

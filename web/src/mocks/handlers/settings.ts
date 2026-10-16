@@ -70,6 +70,7 @@ const setupChatOf = (teamId: string): OnboardingResponseDto['setupChat'] => {
 };
 
 const onboarding = (teamId: string): OnboardingResponseDto => ({
+  provisioning: settingsWorld().settingUp.includes(teamId) ? 'pending' : 'done',
   steps: [
     {
       key: 'github',
