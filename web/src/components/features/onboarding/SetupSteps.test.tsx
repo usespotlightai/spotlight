@@ -244,11 +244,11 @@ describe('SetupSteps', () => {
 
     expect(screen.queryByText('Choose the config home')).toBeNull();
     expect(
-      screen.getByText(/The setup chat needs the GitHub App and a host\./),
+      screen.getByText(/The setup chat needs the GitHub App and egress\./),
     ).toBeInTheDocument();
   });
 
-  it('waits on a host where only a push pool runs', () => {
+  it('waits on egress where no host or push pool with egress runs', () => {
     onboardingState.data = onboarding({ canSetUp: false }, [
       'github',
       'harness',
@@ -257,7 +257,7 @@ describe('SetupSteps', () => {
 
     expect(screen.queryByText('Choose the config home')).toBeNull();
     expect(
-      screen.getByText(/Push pools can’t run a setup chat\./),
+      screen.getByText(/name an egress in a push pool\./),
     ).toBeInTheDocument();
   });
 

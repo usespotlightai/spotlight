@@ -13,6 +13,7 @@ import { placed } from '@/lib/task';
 import { api, json, noContent, notFound, problem } from '@/mocks/http';
 import { perWorld, world } from '@/mocks/world';
 import { SAM } from '@/mocks/world/people';
+import { runNetworkOf } from '@/mocks/world/run-network';
 import {
   changeStacksOf,
   conversationOf,
@@ -268,6 +269,11 @@ export const workHandlers: RequestHandler[] = [
   api.get('/teams/:teamId/tasks/:taskId/trace', ({ params }) => {
     const task = readableTask(String(params.teamId), String(params.taskId));
     return task ? json(taskTraceOf(task.id)) : notFound();
+  }),
+
+  api.get('/teams/:teamId/runs/:runId/network', ({ params }) => {
+    const network = runNetworkOf(String(params.runId));
+    return network ? json(network) : notFound();
   }),
 
   api.get('/teams/:teamId/traces', ({ params, request }) =>

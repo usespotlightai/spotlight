@@ -20,6 +20,7 @@ import {
   teamOfPastTask,
 } from '@/mocks/world/past-work';
 import { SAM } from '@/mocks/world/people';
+import { egressOf, wentWrongIn } from '@/mocks/world/run-network';
 import {
   changeStacksOf,
   endOf,
@@ -243,6 +244,43 @@ const stepNodes = (
     }),
   );
 
+const connectionNodes = (
+  run: TaskRunResponseDto,
+  from: number,
+): TraceNodeResponseDto[] =>
+  wentWrongIn(run.id).map((connection, index) =>
+    node({
+      id: `${run.id}:connection:${index}`,
+      kind: 'connection',
+      name: connection.host,
+      tone: 'failed',
+      startedAt: from + index * SECOND,
+      ms: connection.times * 200,
+      connection,
+    }),
+  );
+
+const withConnections = (
+  run: TaskRunResponseDto,
+  steps: TraceNodeResponseDto[],
+): TraceNodeResponseDto[] => {
+  const [first, ...rest] = steps;
+
+  if (!first) {
+    return steps;
+  }
+
+  const startedAt = Date.parse(first.startedAt);
+
+  return [
+    {
+      ...first,
+      children: [...first.children, ...connectionNodes(run, startedAt)],
+    },
+    ...rest,
+  ];
+};
+
 const runNode = (run: TaskRunResponseDto): TraceNodeResponseDto => {
   const story = storyOf(run.id);
   const from = Date.parse(run.startedAt);
@@ -262,6 +300,7 @@ const runNode = (run: TaskRunResponseDto): TraceNodeResponseDto => {
     tone: run.state === 'failed' ? 'failed' : 'agent',
     cost,
     currency,
+    egress: egressOf(run.id),
     children: [
       node({
         id: `${run.id}:prepare`,
@@ -277,7 +316,7 @@ const runNode = (run: TaskRunResponseDto): TraceNodeResponseDto => {
         ms: turnMs,
         cost,
         currency,
-        children: stepNodes(run, story),
+        children: withConnections(run, stepNodes(run, story)),
       }),
       ...(done
         ? [
