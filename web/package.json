@@ -40,7 +40,7 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lexical": "^0.52.0",
-    "lucide-react": "^1.55.0",
+    "lucide-react": "^1.56.0",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "react-router": "^8.4.0",
@@ -55,10 +55,10 @@
     "@biomejs/biome": "^2.5.15",
     "@hey-api/openapi-ts": "0.0.0-next-20260819153534",
     "@sentry/vite-plugin": "^5.4.1",
-    "@storybook/react-vite": "10.6.1",
+    "@storybook/react-vite": "10.6.2",
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.3",
-    "@testing-library/user-event": "^14.6.7",
+    "@testing-library/user-event": "^14.6.8",
     "@types/node": "^26.6.5",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
@@ -67,11 +67,11 @@
     "knip": "^6.41.0",
     "msw": "^3.0.3",
     "msw-storybook-addon": "^3.0.3",
-    "react-doctor": "0.9.17",
-    "storybook": "10.6.1",
+    "react-doctor": "0.9.18",
+    "storybook": "10.6.2",
     "typescript": "~7.0.2",
     "vite": "^8.3.4",
-    "vitest": "^5.0.3"
+    "vitest": "^5.0.4"
   },
   "msw": {
     "workerDirectory": [
