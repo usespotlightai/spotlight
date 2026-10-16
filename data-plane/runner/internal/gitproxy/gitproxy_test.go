@@ -40,7 +40,7 @@ func TestCarriesTheRunnerTokenTheWorkspaceNeverSees(t *testing.T) {
 	control := upstream(t, seen)
 	defer control.Close()
 
-	served, err := gitproxy.Serve(control.URL, "runner-token", "run_1", false)
+	served, err := gitproxy.Serve(control.URL, "runner-token", "run_1", false, nil)
 	if err != nil {
 		t.Fatalf("serve: %v", err)
 	}
@@ -71,7 +71,7 @@ func TestRefusesAnotherRunsPath(t *testing.T) {
 	control := upstream(t, seen)
 	defer control.Close()
 
-	served, err := gitproxy.Serve(control.URL, "runner-token", "run_1", false)
+	served, err := gitproxy.Serve(control.URL, "runner-token", "run_1", false, nil)
 	if err != nil {
 		t.Fatalf("serve: %v", err)
 	}
@@ -98,7 +98,7 @@ func TestCarriesAPackBothWays(t *testing.T) {
 	control := upstream(t, seen)
 	defer control.Close()
 
-	served, err := gitproxy.Serve(control.URL, "runner-token", "run_1", false)
+	served, err := gitproxy.Serve(control.URL, "runner-token", "run_1", false, nil)
 	if err != nil {
 		t.Fatalf("serve: %v", err)
 	}
@@ -132,7 +132,7 @@ func TestStopsAnsweringWhenTheRunIsOver(t *testing.T) {
 	control := upstream(t, seen)
 	defer control.Close()
 
-	served, err := gitproxy.Serve(control.URL, "runner-token", "run_1", false)
+	served, err := gitproxy.Serve(control.URL, "runner-token", "run_1", false, nil)
 	if err != nil {
 		t.Fatalf("serve: %v", err)
 	}
@@ -152,7 +152,7 @@ func TestAFetchOnlyRunFetchesButNeverPushes(t *testing.T) {
 	control := upstream(t, seen)
 	defer control.Close()
 
-	served, err := gitproxy.Serve(control.URL, "runner-token", "run_1", true)
+	served, err := gitproxy.Serve(control.URL, "runner-token", "run_1", true, nil)
 	if err != nil {
 		t.Fatalf("serve: %v", err)
 	}

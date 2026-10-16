@@ -18,9 +18,9 @@ import (
 	"testing"
 	"time"
 
-	"usespotlight.ai/data-plane/egress/internal/authority"
-	"usespotlight.ai/data-plane/egress/internal/guard"
-	"usespotlight.ai/data-plane/egress/internal/wear"
+	"usespotlight.ai/data-plane/egressing/authority"
+	"usespotlight.ai/data-plane/egressing/guard"
+	"usespotlight.ai/data-plane/egressing/wear"
 	"usespotlight.ai/data-plane/protocol"
 	"usespotlight.ai/data-plane/reach"
 )

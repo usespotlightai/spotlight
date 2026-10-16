@@ -14,9 +14,13 @@ import (
 	"usespotlight.ai/data-plane/protocol"
 )
 
-var storage = &http.Client{Timeout: 30 * time.Minute}
+const transferTimeout = 30 * time.Minute
 
-func Upload(ctx context.Context, grant protocol.ArchiveGrant, packed *Packed) error {
+func storage(transport http.RoundTripper) *http.Client {
+	return &http.Client{Timeout: transferTimeout, Transport: transport}
+}
+
+func Upload(ctx context.Context, transport http.RoundTripper, grant protocol.ArchiveGrant, packed *Packed) error {
 	file, err := os.Open(packed.Path)
 	if err != nil {
 		return err
@@ -32,7 +36,7 @@ func Upload(ctx context.Context, grant protocol.ArchiveGrant, packed *Packed) er
 		request.Header.Set(name, value)
 	}
 
-	response, err := storage.Do(request)
+	response, err := storage(transport).Do(request)
 	if err != nil {
 		return fmt.Errorf("upload the workspace: %w", err)
 	}
@@ -61,13 +65,13 @@ func (f *Fetched) Remove() error {
 	return os.Remove(f.file.Name())
 }
 
-func Fetch(ctx context.Context, held protocol.HeldArchive, scratch string) (*Fetched, error) {
+func Fetch(ctx context.Context, transport http.RoundTripper, held protocol.HeldArchive, scratch string) (*Fetched, error) {
 	request, err := http.NewRequestWithContext(ctx, http.MethodGet, held.URL, nil)
 	if err != nil {
 		return nil, fmt.Errorf("fetch the workspace: %w", err)
 	}
 
-	response, err := storage.Do(request)
+	response, err := storage(transport).Do(request)
 	if err != nil {
 		return nil, fmt.Errorf("fetch the workspace: %w", err)
 	}

@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -19,6 +20,7 @@ import (
 	"usespotlight.ai/data-plane/runner/internal/session"
 	"usespotlight.ai/data-plane/runner/internal/stackcheck"
 	"usespotlight.ai/data-plane/runner/internal/trust"
+	"usespotlight.ai/data-plane/runner/internal/wayout"
 	"usespotlight.ai/data-plane/telemetry"
 )
 
@@ -79,7 +81,14 @@ func run(args []string, version string) error {
 		return err
 	}
 
-	handed, err := given(ctx, cfg, version, log)
+	var egress *wayout.Egress
+	if cfg.Egress.Given() {
+		if egress, err = wayout.To(cfg.Egress.URL, cfg.Egress.Credential, nil); err != nil {
+			return err
+		}
+	}
+
+	handed, err := given(ctx, cfg, version, egress, log)
 	if err != nil {
 		return err
 	}
@@ -94,6 +103,18 @@ func run(args []string, version string) error {
 	}
 
 	r := runner{cfg: cfg, agentUser: agentUser, log: log.With("runner", client.RunnerID())}
+	if egress != nil {
+		r.transport = egress.Transport(nil)
+		client.Through(r.transport)
+
+		way, err := r.openWayOut(ctx, egress)
+		if err != nil {
+			r.unready = err
+		} else {
+			defer way.close()
+			r.wayOut = way.env
+		}
+	}
 	r.serve(ctx, client, handed.Work)
 
 	r.log.Info("runner stopped")
@@ -104,6 +125,9 @@ type runner struct {
 	cfg       config.Config
 	agentUser *account.User
 	log       *slog.Logger
+	transport http.RoundTripper
+	wayOut    map[string]string
+	unready   error
 }
 
 func (r runner) serve(ctx context.Context, client *control.Client, work protocol.Claimed) {
@@ -120,6 +144,10 @@ func (r runner) serve(ctx context.Context, client *control.Client, work protocol
 			ControlPlane: r.cfg.URL,
 			Token:        client.Token(),
 			AnswerWait:   r.cfg.AnswerWait,
+			Transport:    r.transport,
+			WayOut:       r.wayOut,
+			Enforced:     r.enforced(),
+			Unready:      r.unready,
 		}); err != nil {
 			r.log.Error("run failed", "run", work.Run.ID, "error", err)
 		}
@@ -134,7 +162,15 @@ func (r runner) check(ctx context.Context, client *control.Client, claimed proto
 	log := r.log.With("stack", claimed.StackID, "run", claimed.RunID)
 	log.Info("checking a change stack")
 
-	serving, err := gitproxy.Serve(r.cfg.URL, client.Token(), claimed.RunID, true)
+	if r.unready != nil {
+		log.Error("could not check, because the way out through egress did not open", "error", r.unready)
+		if err := client.RecordChangeStackCheck(ctx, claimed.RunID, claimed.StackID, claimed.Recheck, unready(r.unready)); err != nil {
+			log.Warn("could not report a change stack check", "error", err)
+		}
+		return
+	}
+
+	serving, err := gitproxy.Serve(r.cfg.URL, client.Token(), claimed.RunID, true, r.transport)
 	if err != nil {
 		log.Warn("could not serve git for a check", "error", err)
 		return
@@ -150,6 +186,42 @@ func (r runner) check(ctx context.Context, client *control.Client, claimed proto
 		Remote:  serving.Remote,
 		Mirrors: os.Getenv("SPOTLIGHT_MIRRORS"),
 		RunAs:   r.agentUser,
+		Env:     r.wayOut,
 		Log:     log,
 	})
+}
+
+type opened struct {
+	env   map[string]string
+	close func()
+}
+
+func (r runner) openWayOut(ctx context.Context, egress *wayout.Egress) (opened, error) {
+	way, err := wayout.Open(ctx, egress, wayout.Options{Direct: r.cfg.Egress.Direct, Log: r.log})
+	if err != nil {
+		r.log.Error("could not open the way out through egress, so the work fails", "error", err)
+		return opened{}, fmt.Errorf("the way out through egress did not open, so the agent cannot go out with its run's secrets: %w", err)
+	}
+
+	if err := trust.Trust(way.PEM(), protocol.SandboxAuthority, protocol.SandboxBundle); err != nil {
+		r.log.Warn("could not trust the way out's authority, so TLS through it may fail", "error", err)
+	}
+
+	return opened{env: way.Env(), close: func() {
+		if err := way.Close(); err != nil {
+			r.log.Warn("could not close the way out", "error", err)
+		}
+	}}, nil
+}
+
+func unready(err error) protocol.StackChecked {
+	return protocol.StackChecked{Skipped: &protocol.SkippedCheck{Code: protocol.SkipSetupFailed, Detail: err.Error()}}
+}
+
+func (r runner) enforced() func(ctx context.Context) bool {
+	if !r.cfg.Egress.Given() {
+		return nil
+	}
+
+	return func(ctx context.Context) bool { return wayout.Enforced(ctx, r.cfg.URL) }
 }

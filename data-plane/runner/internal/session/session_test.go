@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
 	"os"
@@ -440,6 +441,8 @@ type runOptions struct {
 	replay      *protocol.Replay
 	search      *protocol.SearchSpec
 	checkouts   []protocol.Checkout
+	wayOut      map[string]string
+	enforced    func(context.Context) bool
 }
 
 func run(t *testing.T, executable string, over ...func(*runOptions)) *journal {
@@ -491,6 +494,8 @@ func run(t *testing.T, executable string, over ...func(*runOptions)) *journal {
 		AgentUser:  settings.agentUser,
 		AnswerWait: settings.answerWait,
 		Heartbeat:  settings.heartbeat,
+		WayOut:     settings.wayOut,
+		Enforced:   settings.enforced,
 	})
 	if err != nil {
 		t.Fatalf("execute: %v", err)
@@ -646,6 +651,29 @@ func TestARunThatCannotStartIsStillReported(t *testing.T) {
 	}
 	if written.done == nil || !written.done.Failed {
 		t.Fatalf("completion %+v", written.done)
+	}
+}
+
+func TestARunWithoutItsWayOutFailsBeforeTheAgentStarts(t *testing.T) {
+	written := &journal{}
+	err := session.Execute(context.Background(), protocol.Run{
+		ID:   "run_1",
+		Spec: protocol.Spec{Command: protocol.Command{Executable: harness(t, `said = "went out";`, "end_turn")}},
+	}, session.Options{
+		Workspace: t.TempDir(),
+		Journal:   written,
+		Log:       slog.New(slog.NewTextHandler(io.Discard, nil)),
+		Unready:   errors.New("the way out through egress did not open"),
+	})
+
+	if err == nil || written.done == nil || !written.done.Failed || !written.done.Unprepared {
+		t.Fatalf("completion %+v: %v", written.done, err)
+	}
+	if !strings.Contains(written.done.Message, "the way out through egress did not open") {
+		t.Errorf("said %q", written.done.Message)
+	}
+	if said(t, written) != "" {
+		t.Error("the agent started")
 	}
 }
 
@@ -824,6 +852,35 @@ func TestExpandsTheStateDirectoryIntoWhatTheHarnessIsTold(t *testing.T) {
 	want := filepath.Join(root, workspace.StatePath, "somewhere")
 	if got := said(t, written); got != want {
 		t.Errorf("the harness was told %q, wanted %q", got, want)
+	}
+}
+
+func TestTheHarnessGoesOutThroughTheWayOut(t *testing.T) {
+	written := run(t, harness(t, `said = [process.env.HTTPS_PROXY, process.env.NODE_USE_ENV_PROXY].join(" ");`, "end_turn"),
+		func(o *runOptions) {
+			o.env = map[string]string{"HTTPS_PROXY": "http://elsewhere:8080"}
+			o.wayOut = map[string]string{"HTTPS_PROXY": "http://127.0.0.1:3128", "NODE_USE_ENV_PROXY": "1"}
+		})
+
+	if got := said(t, written); got != "http://127.0.0.1:3128 1" {
+		t.Errorf("the harness was told %q", got)
+	}
+}
+
+func TestJournalsWhetherEgressIsEnforcedBeforeTheHarnessStarts(t *testing.T) {
+	for _, enforced := range []bool{true, false} {
+		written := run(t, harness(t, `said = "worked";`, "end_turn"), func(o *runOptions) {
+			o.enforced = func(context.Context) bool { return enforced }
+		})
+
+		checked := written.typed(protocol.EventEgressChecked)
+		if len(checked) != 1 || string(checked[0].Data) != fmt.Sprintf(`{"enforced":%t}`, enforced) {
+			t.Errorf("journalled %+v", checked)
+		}
+	}
+
+	if checked := run(t, harness(t, `said = "worked";`, "end_turn")).typed(protocol.EventEgressChecked); len(checked) != 0 {
+		t.Errorf("journalled a check without egress: %+v", checked)
 	}
 }
 
