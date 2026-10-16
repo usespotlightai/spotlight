@@ -11,6 +11,32 @@ export const TURN_USAGE = 'usage';
 
 export const TOOL_REFUSED = 'tool.refused';
 
+export const EGRESS_CHECKED = 'egress.checked';
+
+export type EgressEnforcement = 'enforced' | 'not-enforced';
+
+export const enforcementTold = (
+  data: string | null | undefined,
+): EgressEnforcement | null => {
+  if (!data) {
+    return null;
+  }
+
+  try {
+    const told = JSON.parse(Buffer.from(data, 'base64').toString('utf8')) as {
+      enforced?: unknown;
+    };
+
+    if (typeof told.enforced !== 'boolean') {
+      return null;
+    }
+
+    return told.enforced ? 'enforced' : 'not-enforced';
+  } catch {
+    return null;
+  }
+};
+
 export const ASIDE_SEQ = -1_000_000;
 
 export const isAside = (seq: number): boolean => seq <= ASIDE_SEQ;
@@ -77,6 +103,7 @@ export interface RunJournal {
   readonly ms: number | null;
   readonly marks: RunMarks;
   readonly spent: RunSpent | null;
+  readonly egress: EgressEnforcement | null;
 }
 
 export interface RunChanges {

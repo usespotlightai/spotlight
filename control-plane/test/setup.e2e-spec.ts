@@ -201,10 +201,14 @@ describe('the inbox item a setup list stands as', () => {
 
 describe('whether a workspace is ready to run', () => {
   const runners = () =>
-    new DrizzleRunnerReader(db, {
-      now: () => NOW,
-      sleep: async () => {},
-    });
+    new DrizzleRunnerReader(
+      db,
+      {
+        now: () => NOW,
+        sleep: async () => {},
+      },
+      true,
+    );
 
   const pooled = async (workspaceId: WorkspaceId, mode: 'pull' | 'push') => {
     const id = randomUUID();

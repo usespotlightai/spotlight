@@ -13,7 +13,7 @@ import { describe, expect, it, vi } from 'vitest';
 type Given = {
   member?: boolean;
   state?: Partial<SetupState>;
-  hostsSandboxes?: boolean;
+  hasAWayOut?: boolean;
   chat?: SetupChatView | null;
   provisioning?: Provisioning;
 };
@@ -41,7 +41,7 @@ const handler = (given: Given = {}) => {
   const setup = {
     of: vi.fn().mockResolvedValue({
       state: { ...nothing, ...given.state },
-      hostsSandboxes: given.hostsSandboxes ?? false,
+      hasAWayOut: given.hasAWayOut ?? false,
       chat: given.chat ?? null,
     }),
   } as unknown as SetupStanding;
@@ -87,12 +87,12 @@ describe('OnboardingHandler', () => {
 
   it('offers a setup chat once the GitHub App is installed and a host runs sandboxes', async () => {
     await expect(
-      read({ state: { connectedToGitHub: true }, hostsSandboxes: true }),
+      read({ state: { connectedToGitHub: true }, hasAWayOut: true }),
     ).resolves.toMatchObject({ canSetUp: true });
     await expect(
       read({
         state: { connectedToGitHub: true, hasHarness: true },
-        hostsSandboxes: false,
+        hasAWayOut: false,
       }),
     ).resolves.toMatchObject({ canSetUp: false });
   });

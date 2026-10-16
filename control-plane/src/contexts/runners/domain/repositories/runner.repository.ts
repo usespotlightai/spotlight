@@ -15,6 +15,8 @@ export interface RunnerRepository {
 
   findByEgressTokenHash(hash: TokenHash): Promise<Runner | null>;
 
+  findByProxyCredentialHash(hash: TokenHash): Promise<Runner | null>;
+
   standingIn(poolId: RunnerPoolId, now: Date): Promise<readonly Runner[]>;
 
   holding(work: RunnerWork): Promise<readonly Runner[]>;

@@ -63,6 +63,7 @@ interface Neighbours {
   readonly sources: ReadonlySet<string>;
   readonly trusts: ReadonlySet<string>;
   readonly pools: ReadonlySet<string>;
+  readonly egresses: ReadonlyMap<string, string>;
   readonly secrets: ReadonlySet<string>;
 }
 
@@ -89,15 +90,18 @@ const PLACE: Readonly<Record<HeldResourceDto['kind'], number>> = {
   secret: 1,
   'workspace-token-trust': 2,
   'runner-trust': 3,
-  'runner-pool': 4,
-  'workspace-runners': 5,
-  team: 6,
-  line: 7,
-  skill: 8,
-  integration: 9,
-  hook: 10,
-  'harness-profile': 11,
+  egress: 4,
+  'runner-pool': 5,
+  'workspace-runners': 6,
+  team: 7,
+  line: 8,
+  skill: 9,
+  integration: 10,
+  hook: 11,
+  'harness-profile': 12,
 };
+
+const PLATFORM_EGRESS = 'spotlight';
 
 const teamOf = (held: HeldResourceDto): string => {
   if (held.kind === 'team') {
@@ -180,6 +184,11 @@ const neighboursIn = (configuration: HeldConfigurationDto): Neighbours => {
     sources: of('integration', (each) => inTeam(each.teamKey, each.source)),
     trusts: of('runner-trust', (each) => each.key),
     pools: of('runner-pool', (each) => each.key),
+    egresses: new Map(
+      configuration.resources
+        .filter((each): each is HeldBy<'egress'> => each.kind === 'egress')
+        .map((each) => [each.id, each.key]),
+    ),
     secrets: of('secret', (each) => each.name),
   };
 };
@@ -246,6 +255,14 @@ const References = (neighbours: Neighbours) => ({
     return neighbours.pools.has(key)
       ? referenceTo('runner-pool', nameOf(key), 'key')
       : key;
+  },
+
+  egress(named: string): HclValue {
+    const key = neighbours.egresses.get(named);
+
+    return named !== PLATFORM_EGRESS && key !== undefined
+      ? referenceTo('egress', nameOf(key), 'id')
+      : named;
   },
 
   secret(name: string): HclExpression | null {
@@ -765,6 +782,12 @@ const pool = (
               ...(provision.secretVersion === null
                 ? {}
                 : { secret_version: provision.secretVersion }),
+              ...(provision.egress === null
+                ? {}
+                : { egress: refer.egress(provision.egress) }),
+              ...(provision.egressTraffic === 'bound'
+                ? { egress_traffic: 'bound' }
+                : {}),
             }),
           ]
         : [
@@ -787,6 +810,38 @@ const pool = (
               `The token the runner pool ${held.key} claims with; left null, Spotlight issues one when it creates the pool`,
               true,
             ),
+      ],
+    },
+  );
+};
+
+const egress = (
+  held: HeldBy<'egress'>,
+  importedAs: string,
+  refer: Referring,
+): Rendered => {
+  const token = `egress_${held.key}_token`;
+
+  return adopted(
+    held,
+    nameOf(held.key),
+    importedAs,
+    [
+      ...refer.owner(held),
+      attribute('key', held.key),
+      attribute('url', held.url),
+      attribute('token', HclExpression.traversal('var', token)),
+      ...(held.tokenVersion === null
+        ? []
+        : [attribute('token_version', held.tokenVersion)]),
+    ],
+    {
+      variables: [
+        variable(
+          token,
+          `The token the egress ${held.key} calls Spotlight with; left null, Spotlight issues one when it creates the egress`,
+          true,
+        ),
       ],
     },
   );
@@ -849,6 +904,8 @@ const rendered = (
       ]);
     case 'runner-pool':
       return pool(held, importedAs, refer);
+    case 'egress':
+      return egress(held, importedAs, refer);
     case 'line':
       return line(held, importedAs, refer);
     case 'skill':

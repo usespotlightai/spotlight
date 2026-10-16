@@ -111,6 +111,7 @@ import { RepositorySetup } from '@work/domain/value-objects/repository-setup.vo'
 import { RestoredArchive } from '@work/domain/value-objects/restored-archive.vo';
 import { ReviewPolicy } from '@work/domain/value-objects/review-policy.vo';
 import { RunAttempt } from '@work/domain/value-objects/run-attempt.vo';
+import { RunConnection } from '@work/domain/value-objects/run-connection.vo';
 import { RunFailure } from '@work/domain/value-objects/run-failure.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
@@ -223,6 +224,7 @@ export const WORK_EVENT_TYPES = [
   Reaction,
   Remark,
   RunAttempt,
+  RunConnection,
   RunOutcome,
   RunFailure,
   TaskFailure,

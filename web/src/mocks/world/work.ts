@@ -220,6 +220,8 @@ const node = (
   currency: null,
   step: null,
   span: null,
+  connection: null,
+  egress: null,
   children: [],
   ...over,
   startedAt: new Date(over.startedAt).toISOString(),

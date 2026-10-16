@@ -60,6 +60,7 @@ export const runGrants = pgTable(
     workspaceId: text('workspace_id').notNull(),
     attempt: integer('attempt').notNull(),
     recipient: text('recipient'),
+    redeemedThrough: text('redeemed_through'),
     holdLost: boolean('hold_lost').notNull().default(false),
     endedAt: timestamp('ended_at'),
     version: integer('version').notNull().default(1),

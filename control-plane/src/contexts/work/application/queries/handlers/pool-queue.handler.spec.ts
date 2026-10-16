@@ -18,6 +18,7 @@ const POOL: PoolAtWork = {
   workspaceId: WorkspaceId.of('ws_1'),
   key: 'burst',
   labels: RunnerTerms.of(['linux', 'gpu']),
+  egress: false,
 };
 
 const queueOf = (

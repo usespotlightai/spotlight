@@ -111,6 +111,20 @@ const DEFINITION = ApiBody({
             ...WRITE_ONLY_VERSION,
             description: 'Changed to rotate the secret',
           },
+          egress: {
+            type: 'string',
+            nullable: true,
+            example: 'spotlight',
+            description:
+              'The egress the pool’s runners send their traffic through: spotlight for the platform egress, or the id of an egress in the workspace. Left out, the runners have no egress, and runs that use secrets or the Spotlight API do not go to the pool',
+          },
+          egressTraffic: {
+            type: 'string',
+            enum: ['all', 'bound'],
+            default: 'all',
+            description:
+              'Which traffic of a run goes through the egress. all: every connection, so egress records every host and its allow-list applies to all of them. bound: only the traffic to hosts that a secret of the run is bound to; other traffic goes directly. Only with egress',
+          },
         },
       },
     },

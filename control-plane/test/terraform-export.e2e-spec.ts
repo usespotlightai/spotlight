@@ -34,6 +34,8 @@ const VALUE = 'lin_api_exported_never_7c1f';
 
 const POOL_TOKEN = `pool${randomUUID().replaceAll('-', '')}`;
 
+const EGRESS_TOKEN = `egress${randomUUID().replaceAll('-', '')}`;
+
 const PROVISION_SECRET = `whsec_${Buffer.from('s'.repeat(32)).toString('base64')}`;
 
 const HOOK_SECRET = `whsec_${Buffer.from('h'.repeat(32)).toString('base64')}`;
@@ -575,7 +577,10 @@ describe('a workspace exported as Terraform (e2e)', () => {
   );
 });
 
-const bodyOf = (held: HeldResourceDto): object => {
+const bodyOf = (
+  held: HeldResourceDto,
+  egresses: ReadonlyMap<string, string> = new Map(),
+): object => {
   switch (held.kind) {
     case 'workspace':
       return { slug: held.slug, name: held.name };
@@ -624,9 +629,26 @@ const bodyOf = (held: HeldResourceDto): object => {
                 url: held.provision.url,
                 secret: PROVISION_SECRET,
                 secretVersion: held.provision.secretVersion,
+                ...(held.provision.egress
+                  ? {
+                      egress:
+                        egresses.get(held.provision.egress) ??
+                        held.provision.egress,
+                    }
+                  : {}),
+                ...(held.provision.egressTraffic === 'bound'
+                  ? { egressTraffic: 'bound' }
+                  : {}),
               },
             }
           : { token: POOL_TOKEN, tokenVersion: held.tokenVersion }),
+      };
+    case 'egress':
+      return {
+        key: held.key,
+        url: held.url,
+        token: EGRESS_TOKEN,
+        tokenVersion: held.tokenVersion,
       };
     case 'workspace-runners':
       return { trusts: held.trusts, pools: held.pools };
@@ -668,6 +690,7 @@ const COLLECTIONS: Readonly<
   secret: 'secrets',
   'workspace-token-trust': 'token-trusts',
   'runner-trust': 'runner-trusts',
+  egress: 'egresses',
   'runner-pool': 'runner-pools',
   'workspace-runners': 'workspace-runners',
   team: 'teams',
@@ -752,6 +775,8 @@ describe('the configuration the export spec renders (e2e)', () => {
           CREATION_ORDER.indexOf(one.kind) - CREATION_ORDER.indexOf(other.kind),
       );
 
+    const egresses = new Map<string, string>();
+
     for (const each of creating) {
       const owner =
         each.heldBy === 'team'
@@ -761,7 +786,7 @@ describe('the configuration the export spec renders (e2e)', () => {
         .post(`/api/resources/${owner}/${COLLECTIONS[each.kind]}`)
         .set(TEST_USER_HEADER, seat.owner)
         .set('Idempotency-Key', randomUUID())
-        .send(bodyOf(each));
+        .send(bodyOf(each, egresses));
 
       expect(
         created.status,
@@ -770,6 +795,10 @@ describe('the configuration the export spec renders (e2e)', () => {
 
       if (each.kind === 'team') {
         teams.set(each.key, created.body.id);
+      }
+
+      if (each.kind === 'egress') {
+        egresses.set(each.id, created.body.id);
       }
     }
 

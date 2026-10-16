@@ -13,6 +13,7 @@ export const CONFIGURED_RESOURCES = [
   'workspace-token-trust',
   'runner-trust',
   'runner-pool',
+  'egress',
   'workspace-runners',
   'replay-candidate',
   'replay',

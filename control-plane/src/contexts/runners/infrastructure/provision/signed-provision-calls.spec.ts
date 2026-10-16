@@ -30,6 +30,7 @@ const calling = (
   runnerId: 'runner_1',
   token: 'one-run-token',
   claimBy: new Date('2026-09-24T10:05:00.000Z'),
+  egress: null,
 });
 
 const calls = (
@@ -82,7 +83,7 @@ describe('SignedProvisionCalls', () => {
         pool: 'sandboxes',
         labels: ['sandbox'],
         image: 'ghcr.io/acme/widgets:1',
-        runner: { id: 'runner_1', token: 'one-run-token' },
+        runner: { id: 'runner_1', token: 'one-run-token', egress: null },
         spotlightUrl: 'https://app.usespotlight.ai',
         claimBy: '2026-09-24T10:05:00.000Z',
       },
@@ -127,6 +128,36 @@ describe('SignedProvisionCalls', () => {
     ];
 
     expect(JSON.parse(sent.body).data.image).toBeNull();
+  });
+
+  it('gives the runner the egress to go out through and its proxy credential', async () => {
+    const { fetch, provision } = calls(
+      async () => new Response(null, { status: 202 }),
+    );
+
+    await provision.call({
+      ...calling(),
+      egress: {
+        url: 'https://egress.example.com',
+        credential: 'proxy-credential',
+        traffic: 'bound',
+      },
+    });
+
+    const [, sent] = fetch.mock.calls[0] as unknown as [
+      string,
+      RequestInit & { body: string },
+    ];
+
+    expect(JSON.parse(sent.body).data.runner).toEqual({
+      id: 'runner_1',
+      token: 'one-run-token',
+      egress: {
+        url: 'https://egress.example.com',
+        credential: 'proxy-credential',
+        traffic: 'bound',
+      },
+    });
   });
 
   it('says what the endpoint answered when it refuses', async () => {

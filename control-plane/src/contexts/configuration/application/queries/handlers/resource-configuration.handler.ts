@@ -103,6 +103,8 @@ export class ResourceConfigurationHandler
         return workspaceOfHeld(await this.runners.trustWithId(id));
       case 'runner-pool':
         return workspaceOfHeld(await this.runners.poolWithId(id));
+      case 'egress':
+        return workspaceOfHeld(await this.runners.egressWithId(id));
       case 'workspace-runners':
         return workspaceOfHeld(await this.runners.declaredWithId(id));
     }

@@ -30,7 +30,17 @@ const bodyOf = (call: ProvisionCall, spotlightUrl: string): string =>
       pool: call.pool,
       labels: call.labels,
       image: call.image,
-      runner: { id: call.runnerId, token: call.token },
+      runner: {
+        id: call.runnerId,
+        token: call.token,
+        egress: call.egress
+          ? {
+              url: call.egress.url,
+              credential: call.egress.credential,
+              traffic: call.egress.traffic,
+            }
+          : null,
+      },
       spotlightUrl,
       claimBy: call.claimBy.toISOString(),
     },

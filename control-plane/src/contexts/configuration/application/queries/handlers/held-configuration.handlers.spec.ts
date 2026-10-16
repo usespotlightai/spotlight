@@ -289,10 +289,12 @@ const handlers = (over: { cleared?: boolean } = {}) => {
     in: vi.fn(async () => ({
       trusts: [TRUST],
       pools: [POOL],
+      egresses: [],
       declared: DECLARED,
     })),
     trustWithId: vi.fn(async (id: string) => (id === TRUST.id ? TRUST : null)),
     poolWithId: vi.fn(async (id: string) => (id === POOL.id ? POOL : null)),
+    egressWithId: vi.fn(async () => null),
     declaredWithId: vi.fn(async (id: string) =>
       id === DECLARED.id ? DECLARED : null,
     ),

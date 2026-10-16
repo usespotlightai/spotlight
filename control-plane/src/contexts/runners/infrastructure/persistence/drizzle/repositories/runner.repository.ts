@@ -73,6 +73,10 @@ const toRunner = (row: Row): Runner =>
     tokenHash: TokenHash.of(row.tokenHash),
     egressTokenHash:
       row.egressTokenHash === null ? null : TokenHash.of(row.egressTokenHash),
+    proxyCredentialHash:
+      row.proxyCredentialHash === null
+        ? null
+        : TokenHash.of(row.proxyCredentialHash),
     installed: row.harnesses.map((id) =>
       InstalledHarness.of(
         HarnessId.of(id),
@@ -132,6 +136,7 @@ export class DrizzleRunnerRepository implements RunnerRepository {
         labels: [...added.labels.values],
         tokenHash: added.tokenHash.value,
         egressTokenHash: added.egressTokenHash?.value ?? null,
+        proxyCredentialHash: added.proxyCredentialHash?.value ?? null,
         image: added.running?.image.value ?? null,
         usual: added.running?.usual ?? false,
         claimBy: added.claimBy,
@@ -194,6 +199,16 @@ export class DrizzleRunnerRepository implements RunnerRepository {
       .select()
       .from(runner)
       .where(eq(runner.egressTokenHash, hash.value))
+      .limit(1);
+
+    return found ? toRunner(found) : null;
+  }
+
+  async findByProxyCredentialHash(hash: TokenHash): Promise<Runner | null> {
+    const [found] = await this.context.db
+      .select()
+      .from(runner)
+      .where(eq(runner.proxyCredentialHash, hash.value))
       .limit(1);
 
     return found ? toRunner(found) : null;

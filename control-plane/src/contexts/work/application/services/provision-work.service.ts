@@ -44,6 +44,7 @@ interface Then {
 
 interface Provisionable {
   readonly placement: RunnerPlacement;
+  readonly needsEgress: boolean;
   readonly on: (pool: OfferedPool, last: boolean) => Promise<Provisioned>;
 }
 
@@ -137,7 +138,12 @@ export class ProvisionWork {
       fitting: readonly OfferedPool[];
     }[] = [];
     const place = (provisionable: Provisionable): void => {
-      const fitting = poolChoiceFor(provisionable.placement, pools, room);
+      const fitting = poolChoiceFor(
+        provisionable.placement,
+        pools,
+        room,
+        provisionable.needsEgress,
+      );
       const [chosen] = fitting;
 
       if (chosen && placed.length < MOST_AT_ONCE) {
@@ -152,6 +158,7 @@ export class ProvisionWork {
           .awaitingProvision(first.workspaceId, this.clock.now(), {
             skip,
             most: PAGE,
+            withSecrets: pools.some((offered) => offered.egress),
           })
           .then((runs) => runs.map((run) => this.provisionableRun(run))),
       (skip: number) =>
@@ -227,6 +234,7 @@ export class ProvisionWork {
   private provisionableRun(queued: Run): Provisionable {
     return {
       placement: queued.placement,
+      needsEgress: queued.wearsSecrets,
       on: (pool, last) => this.runOn(queued, pool, last),
     };
   }
@@ -234,6 +242,7 @@ export class ProvisionWork {
   private provisionableCheck(check: WaitingCheck): Provisionable {
     return {
       placement: check.placement,
+      needsEgress: false,
       on: (pool, last) => this.checkOn(check, pool, last),
     };
   }
@@ -245,12 +254,17 @@ export class ProvisionWork {
   ): Promise<Provisioned> {
     const current = await this.runs.findById(queued.id);
 
-    if (!current?.provisionableAt(this.clock.now())) {
+    if (!current?.provisionableAt(this.clock.now(), pool.egress)) {
       return 'settled';
     }
 
     const runnerId = RunnerId.of(this.ids.generate());
-    const reserved = current.reservedFor(runnerId, pool.pool, this.clock.now());
+    const reserved = current.reservedFor(
+      runnerId,
+      pool.pool,
+      this.clock.now(),
+      pool.egress,
+    );
     const { reservation } = reserved;
 
     if (!reservation) {
@@ -274,6 +288,7 @@ export class ProvisionWork {
           runId: reserved.id.value,
           taskId: reserved.taskId?.value ?? null,
           placement: reserved.placement,
+          needsEgress: reserved.wearsSecrets,
           claimBy: reservation.until,
         }),
       {
@@ -314,6 +329,7 @@ export class ProvisionWork {
           runId: check.runId,
           taskId: null,
           placement: check.placement,
+          needsEgress: false,
           claimBy: until,
         }),
       {
@@ -338,6 +354,7 @@ export class ProvisionWork {
       readonly runId: string;
       readonly taskId: string | null;
       readonly placement: RunnerPlacement;
+      readonly needsEgress: boolean;
       readonly claimBy: Date;
     },
   ): Promise<ProvisionedRunner> {
@@ -350,6 +367,7 @@ export class ProvisionWork {
         taskId: reserved.taskId,
         labels: reserved.placement.selectors,
         image: reserved.placement.image?.value ?? null,
+        needsEgress: reserved.needsEgress,
         claimBy: reserved.claimBy,
       },
       this.clock.now(),

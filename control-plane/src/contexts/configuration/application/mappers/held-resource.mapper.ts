@@ -7,6 +7,7 @@ import type { TeamProfile } from '@identity/application/ports/team-directory.por
 import type { ConfiguredTokenTrust } from '@identity/application/ports/token-trust-configuration.port';
 import type { WorkspaceProfile } from '@identity/application/ports/workspace-reader.port';
 import type {
+  ConfiguredEgress,
   ConfiguredRunnerPool,
   ConfiguredRunnerTrust,
   ConfiguredWorkspaceRunners,
@@ -92,6 +93,18 @@ export const HeldResourceMapper = {
       maxRuns: pool.maxRuns,
       tokenVersion: pool.tokenVersion,
       provision: pool.provision ? { ...pool.provision } : null,
+    };
+  },
+
+  egress(egress: ConfiguredEgress): HeldResourceDto {
+    return {
+      kind: 'egress',
+      heldBy: 'workspace',
+      id: egress.id,
+      address: egress.address,
+      key: egress.key,
+      url: egress.url,
+      tokenVersion: egress.tokenVersion,
     };
   },
 

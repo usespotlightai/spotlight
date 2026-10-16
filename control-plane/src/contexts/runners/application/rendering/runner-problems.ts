@@ -1,3 +1,7 @@
+import type { EgressKeyFixedError } from '@runners/domain/exceptions/egress-key-fixed.error';
+import type { EgressTokenSpentError } from '@runners/domain/exceptions/egress-token-spent.error';
+import type { EgressTokenTakenError } from '@runners/domain/exceptions/egress-token-taken.error';
+import type { InvalidEgressError } from '@runners/domain/exceptions/invalid-egress.error';
 import type { InvalidRunnerPoolError } from '@runners/domain/exceptions/invalid-runner-pool.error';
 import type { InvalidWorkspaceRunnersError } from '@runners/domain/exceptions/invalid-workspace-runners.error';
 import type { PoolTokenSpentError } from '@runners/domain/exceptions/pool-token-spent.error';
@@ -12,6 +16,8 @@ export const RUNNER_TRUST = 'runner-trust';
 export const RUNNER_POOL = 'runner-pool';
 
 export const WORKSPACE_RUNNERS = 'workspace-runners';
+
+export const EGRESS = 'egress';
 
 export const RunnerProblems = {
   keyFixed(error: RunnerTrustKeyFixedError): ConfigurationProblem {
@@ -33,6 +39,30 @@ export const RunnerProblems = {
       path: RUNNER_POOL,
       at: FieldPath.of(error.field.split('.')),
       reason: error.because,
+    });
+  },
+
+  egressRefused(
+    error:
+      | EgressKeyFixedError
+      | EgressTokenTakenError
+      | EgressTokenSpentError
+      | InvalidEgressError,
+  ): ConfigurationProblem {
+    return ConfigurationProblem.of({
+      path: EGRESS,
+      at: FieldPath.of(error.field.split('.')),
+      reason: error.because,
+    });
+  },
+
+  egressInTheClear(): ConfigurationProblem {
+    return ConfigurationProblem.of({
+      path: EGRESS,
+      at: FieldPath.of(['url']),
+      reason:
+        'is not https. Runners send their proxy credential to it. A production deployment refuses to provision runners that use it',
+      severity: 'warning',
     });
   },
 

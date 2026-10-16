@@ -136,7 +136,7 @@ export const resourceApi = (resource: ResourceKind) => {
         forbidden,
         ApiProblemResponse(
           HttpStatus.CONFLICT,
-          `There is already a ${resource.kind} at that address`,
+          `A ${resource.kind} already exists at that address`,
         ),
         ApiProblemResponse(
           HttpStatus.UNPROCESSABLE_ENTITY,

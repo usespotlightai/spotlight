@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { ResourceResponseDto } from '@platform/http/dto/resource.response.dto';
 import type {
+  EgressResourceDto,
   RunnerPoolResourceDto,
   RunnerTrustResourceDto,
   WorkspaceRunnersResourceDto,
@@ -79,9 +80,33 @@ export class PoolProvisionResponseDto {
   })
   readonly secretVersion: number | null;
 
-  constructor(url: string, secretVersion: number | null) {
+  @ApiProperty({
+    type: String,
+    nullable: true,
+    example: 'spotlight',
+    description:
+      'The egress the pool’s runners send their traffic through: spotlight for the platform egress, the id of an egress in the workspace, or null for none',
+  })
+  readonly egress: string | null;
+
+  @ApiProperty({
+    enum: ['all', 'bound'],
+    example: 'all',
+    description:
+      'Which traffic of a run goes through the egress: all, or only the traffic to bound hosts. all when the pool names no egress',
+  })
+  readonly egressTraffic: 'all' | 'bound';
+
+  constructor(
+    url: string,
+    secretVersion: number | null,
+    egress: string | null,
+    egressTraffic: 'all' | 'bound',
+  ) {
     this.url = url;
     this.secretVersion = secretVersion;
+    this.egress = egress;
+    this.egressTraffic = egressTraffic;
   }
 }
 
@@ -142,6 +167,8 @@ export class RunnerPoolResourceResponseDto extends ResourceResponseDto {
       ? new PoolProvisionResponseDto(
           pool.provision.url,
           pool.provision.secretVersion,
+          pool.provision.egress,
+          pool.provision.egressTraffic,
         )
       : null;
   }
@@ -172,5 +199,40 @@ export class WorkspaceRunnersResourceResponseDto extends ResourceResponseDto {
     this.workspaceId = declared.workspaceId;
     this.trusts = declared.trusts;
     this.pools = declared.pools;
+  }
+}
+
+export class EgressResourceResponseDto extends ResourceResponseDto {
+  @ApiProperty(WORKSPACE_ID)
+  readonly workspaceId: string;
+
+  @ApiProperty({
+    example: 'shared',
+    description: 'Names the egress, and is its address; fixed for its life',
+  })
+  readonly key: string;
+
+  @ApiProperty({
+    example: 'https://egress.example.com',
+    description:
+      'Where the runners of a pool that names this egress send their traffic',
+  })
+  readonly url: string;
+
+  @ApiProperty({
+    type: 'integer',
+    nullable: true,
+    example: 1,
+    description:
+      'Changed, with a new token, to rotate the egress token, which is write-only and never answered',
+  })
+  readonly tokenVersion: number | null;
+
+  constructor(egress: EgressResourceDto) {
+    super(egress);
+    this.workspaceId = egress.workspaceId;
+    this.key = egress.key;
+    this.url = egress.url;
+    this.tokenVersion = egress.tokenVersion;
   }
 }

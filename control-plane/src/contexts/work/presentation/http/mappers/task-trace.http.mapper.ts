@@ -4,6 +4,7 @@ import type {
 } from '@work/application/dto/task-trace.dto';
 import {
   TaskTraceResponseDto,
+  TraceConnectionResponseDto,
   TraceNodeResponseDto,
 } from '@work/presentation/http/dto/task-trace.response.dto';
 import {
@@ -23,6 +24,8 @@ const nodeToResponse = (node: TraceNodeDto): TraceNodeResponseDto =>
     node.currency,
     node.step && stepToResponse(node.step),
     node.span && spanToResponse(node.span),
+    node.connection && new TraceConnectionResponseDto(node.connection),
+    node.egress,
     node.children.map(nodeToResponse),
   );
 

@@ -1,6 +1,4 @@
-import type { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
-
 export const carriesRunTokens = (
-  url: ProvisionUrl,
+  url: { readonly isSecure: boolean },
   insecureAllowed: boolean,
 ): boolean => url.isSecure || insecureAllowed;

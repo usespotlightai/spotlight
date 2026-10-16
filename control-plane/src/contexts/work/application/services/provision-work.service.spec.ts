@@ -42,6 +42,7 @@ const waiting = (
   placement: string[] = [],
   workspace = 'ws_1',
   image: RunnerImage | null = null,
+  wears: string[] = [],
 ) =>
   Run.enqueue({
     id: RunId.of(id),
@@ -53,6 +54,7 @@ const waiting = (
       briefing: 'do the thing',
       handover: { options: [], noteLimit: 4_000 },
       continuity: { key: 'task:station' },
+      ...(wears.length > 0 ? { wears } : {}),
     }),
     placement: RunnerPlacement.of(placement).in(image),
   });
@@ -71,11 +73,16 @@ const WIDGETS = RunnerImage.of('ghcr.io/acme/widgets:1');
 
 type BoundedPool = PoolAtWork & { readonly maxRuns: number | null };
 
-const aPool = (key: string, labels: string[] = []): BoundedPool => ({
+const aPool = (
+  key: string,
+  labels: string[] = [],
+  egress = false,
+): BoundedPool => ({
   poolId: `pool_${key}`,
   workspaceId: WorkspaceId.of('ws_1'),
   key,
   labels: RunnerTerms.of(labels),
+  egress,
   maxRuns: null,
 });
 
@@ -96,12 +103,17 @@ const provisioning = (
     async (
       workspaceId: WorkspaceId,
       at: Date,
-      page: { readonly skip: number; readonly most: number },
+      page: {
+        readonly skip: number;
+        readonly most: number;
+        readonly withSecrets: boolean;
+      },
     ) =>
       [...held.values()]
         .filter(
           (each) =>
-            each.workspaceId.equals(workspaceId) && each.provisionableAt(at),
+            each.workspaceId.equals(workspaceId) &&
+            each.provisionableAt(at, page.withSecrets),
         )
         .slice(page.skip, page.skip + page.most),
   );
@@ -322,6 +334,7 @@ describe('ProvisionWork', () => {
         taskId: 'task_1',
         labels: ['gpu'],
         image: null,
+        needsEgress: false,
         claimBy: LATER,
       },
       NOON,
@@ -507,6 +520,43 @@ describe('ProvisionWork', () => {
     expect(run('run_1').provisioning.failures).toBe(0);
   });
 
+  it('gives a run that wears secrets only to a pool that names an egress', async () => {
+    const { provisioner, provision, run, awaitingProvision } = provisioning(
+      [waiting('run_1', [], 'ws_1', null, ['LINEAR_API_KEY'])],
+      [aPool('burst'), aPool('shared', [], true)],
+    );
+
+    await provisioner.due();
+
+    expect(awaitingProvision).toHaveBeenCalledWith(
+      WorkspaceId.of('ws_1'),
+      NOON,
+      expect.objectContaining({ withSecrets: true }),
+    );
+    expect(provision).toHaveBeenCalledTimes(1);
+    expect(provision).toHaveBeenCalledWith(
+      expect.objectContaining({ poolId: 'pool_shared' }),
+      NOON,
+    );
+    expect(run('run_1').reservation?.pool.value).toBe('pool_shared');
+  });
+
+  it('leaves alone a run that wears secrets where no pool names an egress', async () => {
+    const { provisioner, provision, awaitingProvision } = provisioning(
+      [waiting('run_1', [], 'ws_1', null, ['LINEAR_API_KEY'])],
+      [aPool('burst')],
+    );
+
+    await provisioner.due();
+
+    expect(awaitingProvision).toHaveBeenCalledWith(
+      WorkspaceId.of('ws_1'),
+      NOON,
+      expect.objectContaining({ withSecrets: false }),
+    );
+    expect(provision).not.toHaveBeenCalled();
+  });
+
   it('leaves alone a run no pool that provisions could take', async () => {
     const { provisioner, provision, run } = provisioning(
       [waiting('run_1', ['vpc-internal'])],
@@ -604,6 +654,7 @@ describe('ProvisionWork', () => {
           taskId: null,
           labels: ['gpu'],
           image: null,
+          needsEgress: false,
           claimBy: LATER,
         },
         NOON,

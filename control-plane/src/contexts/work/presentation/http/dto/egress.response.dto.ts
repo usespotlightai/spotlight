@@ -133,6 +133,14 @@ export class EgressRedemptionResponseDto {
   })
   readonly reaches: readonly string[];
 
+  @ApiProperty({
+    type: [String],
+    example: ['mcp.linear.app'],
+    description:
+      'The hosts the secrets are bound to. Egress decrypts only these hosts, and also the control plane host when spotlightApi is set',
+  })
+  readonly bound: readonly string[];
+
   @ApiProperty({ type: [RedeemedSecretResponseDto] })
   readonly secrets: readonly RedeemedSecretResponseDto[];
 
@@ -153,14 +161,73 @@ export class EgressRedemptionResponseDto {
   constructor(
     runId: string | null,
     reaches: readonly string[],
+    bound: readonly string[],
     secrets: readonly RedeemedSecretResponseDto[],
     withheld: readonly WithheldSecretResponseDto[],
     spotlightApi: SpotlightApiResponseDto | null,
   ) {
     this.runId = runId;
     this.reaches = reaches;
+    this.bound = bound;
     this.secrets = secrets;
     this.withheld = withheld;
     this.spotlightApi = spotlightApi;
+  }
+}
+
+export class EgressAdmissionResponseDto {
+  @ApiProperty({ example: 'runner_1' })
+  readonly runnerId: string;
+
+  @ApiProperty({ example: 'ws_1' })
+  readonly workspaceId: string;
+
+  @ApiProperty({
+    example: 'app.usespotlight.ai',
+    description:
+      'The host of the control plane URL the runner was handed. Before the runner has a run, egress lets it reach only this host',
+  })
+  readonly controlPlaneHost: string;
+
+  @ApiProperty({
+    example: 443,
+    description:
+      'The port of the control plane URL the runner was handed. Egress lets a sandbox reach the control plane host only on this port',
+  })
+  readonly controlPlanePort: number;
+
+  @ApiProperty({
+    type: [String],
+    example: ['storage.example.com'],
+    description:
+      'Hosts every sandbox must reach besides the control plane, whatever else the egress allows',
+  })
+  readonly reaches: readonly string[];
+
+  constructor(
+    runnerId: string,
+    workspaceId: string,
+    controlPlaneHost: string,
+    controlPlanePort: number,
+    reaches: readonly string[],
+  ) {
+    this.runnerId = runnerId;
+    this.workspaceId = workspaceId;
+    this.controlPlaneHost = controlPlaneHost;
+    this.controlPlanePort = controlPlanePort;
+    this.reaches = reaches;
+  }
+}
+
+export class EgressHoldsResponseDto {
+  @ApiProperty({
+    type: [String],
+    description:
+      'The proxy credentials whose runner still holds its work. Egress forgets every other run',
+  })
+  readonly held: readonly string[];
+
+  constructor(held: readonly string[]) {
+    this.held = held;
   }
 }

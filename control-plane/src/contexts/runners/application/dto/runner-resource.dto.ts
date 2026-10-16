@@ -26,7 +26,15 @@ export interface RunnerPoolResourceDto extends ResourceDto {
   readonly provision: {
     readonly url: string;
     readonly secretVersion: number | null;
+    readonly egress: string | null;
+    readonly egressTraffic: 'all' | 'bound';
   } | null;
+}
+
+export interface EgressResourceDto extends ResourceDto {
+  readonly key: string;
+  readonly url: string;
+  readonly tokenVersion: number | null;
 }
 
 export interface WorkspaceRunnersResourceDto extends ResourceDto {
@@ -35,6 +43,11 @@ export interface WorkspaceRunnersResourceDto extends ResourceDto {
 }
 
 export interface RunnerPoolCreatedDto {
+  readonly created: ResourceCreated;
+  readonly token: string | null;
+}
+
+export interface EgressCreatedDto {
   readonly created: ResourceCreated;
   readonly token: string | null;
 }

@@ -12,12 +12,10 @@ import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-p
 import { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
 import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
 
-const atWork = (pool: KeptPool): PoolAtWork => ({
-  poolId: pool.id,
-  workspaceId: pool.workspaceId,
-  key: pool.key,
-  labels: RunnerTerms.of(pool.labels),
-});
+const PLATFORM = 'spotlight';
+
+const goesOut = (egress: string | null, platform: boolean): boolean =>
+  egress !== null && (egress !== PLATFORM || platform);
 
 export class RunnerPools implements RunnerPoolsPort {
   constructor(
@@ -25,6 +23,7 @@ export class RunnerPools implements RunnerPoolsPort {
     private readonly runners: RunnerRepository,
     private readonly resources: RunnerResourcesPort,
     private readonly admissions: RunnerAdmissionsPort,
+    private readonly platform: boolean,
   ) {}
 
   async pulledWith(
@@ -51,12 +50,15 @@ export class RunnerPools implements RunnerPoolsPort {
           workspaceId: pool.workspaceId,
           key: pool.key.value,
           labels: RunnerTerms.of(pool.labels.values),
+          egress: goesOut(pool.egress?.value ?? null, this.platform),
         }
       : null;
   }
 
   async provisioning(): Promise<readonly PoolAtWork[]> {
-    return (await this.resources.provisioningPools()).map(atWork);
+    return (await this.resources.provisioningPools()).map((pool) =>
+      this.atWork(pool),
+    );
   }
 
   async running(poolId: string, now: Date): Promise<number> {
@@ -70,5 +72,15 @@ export class RunnerPools implements RunnerPoolsPort {
     return pool
       ? pool.roomFor((await this.runners.standingIn(id, now)).length)
       : 0;
+  }
+
+  private atWork(pool: KeptPool): PoolAtWork {
+    return {
+      poolId: pool.id,
+      workspaceId: pool.workspaceId,
+      key: pool.key,
+      labels: RunnerTerms.of(pool.labels),
+      egress: goesOut(pool.provision?.egress ?? null, this.platform),
+    };
   }
 }

@@ -1,7 +1,9 @@
 import { AbandonWorkspaceRunners } from '@runners/application/services/abandon-workspace-runners.service';
+import { anEgress } from '@runners/domain/aggregates/egress.fake-spec';
 import { aPullPool } from '@runners/domain/aggregates/runner-pool.fake-spec';
 import { RunnerTrust } from '@runners/domain/aggregates/runner-trust.aggregate';
 import { WorkspaceRunners } from '@runners/domain/aggregates/workspace-runners.aggregate';
+import type { EgressRepository } from '@runners/domain/repositories/egress.repository';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
 import type { RunnerTrustRepository } from '@runners/domain/repositories/runner-trust.repository';
 import type { WorkspaceRunnersRepository } from '@runners/domain/repositories/workspace-runners.repository';
@@ -42,6 +44,9 @@ const declared = WorkspaceRunners.rehydrate({
 const pool = aPullPool();
 pool.pullEvents();
 
+const egress = anEgress({ workspaceId: WORKSPACE });
+egress.pullEvents();
+
 const abandoning = () => {
   const saved: { pullEvents(): DomainEvent[] }[] = [];
   const save = vi.fn(async (each: (typeof saved)[number]) => {
@@ -60,6 +65,10 @@ const abandoning = () => {
       inWorkspace: async () => [pool],
       save,
     } as unknown as RunnerPoolRepository,
+    {
+      inWorkspace: async () => [egress],
+      save,
+    } as unknown as EgressRepository,
     { run: (work: () => Promise<unknown>) => work() } as TransactionPort,
   );
 
@@ -87,6 +96,14 @@ describe('AbandonWorkspaceRunners', () => {
     await service.poolsOf(WORKSPACE);
 
     expect(changes()).toEqual([['runner-pool', 'deleted', null]]);
+  });
+
+  it('retires the egresses a closed workspace still has once no pool names them, as Spotlight', async () => {
+    const { service, changes } = abandoning();
+
+    await service.egressesOf(WORKSPACE);
+
+    expect(changes()).toEqual([['egress', 'deleted', null]]);
   });
 
   it('drops what a closed workspace declared of its runners, as Spotlight', async () => {

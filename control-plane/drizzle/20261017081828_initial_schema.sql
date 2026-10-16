@@ -1230,6 +1230,23 @@ CREATE TABLE "replay_set_entry" (
 	CONSTRAINT "replay_set_entry_set_id_run_id_pk" PRIMARY KEY("set_id","run_id")
 );
 --> statement-breakpoint
+CREATE TABLE "egress" (
+	"id" text PRIMARY KEY NOT NULL,
+	"workspace_id" text NOT NULL,
+	"key" text NOT NULL,
+	"url" text NOT NULL,
+	"token_hash" text NOT NULL,
+	"token_version" integer,
+	"version" integer DEFAULT 0 NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "egress_token" (
+	"token_hash" text PRIMARY KEY NOT NULL,
+	"egress_id" text NOT NULL,
+	"given_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "pool_token" (
 	"token_hash" text PRIMARY KEY NOT NULL,
 	"pool_id" text NOT NULL,
@@ -1245,6 +1262,7 @@ CREATE TABLE "runner" (
 	"labels" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"token_hash" text NOT NULL,
 	"egress_token_hash" text,
+	"proxy_credential_hash" text,
 	"harnesses" jsonb DEFAULT '[]'::jsonb NOT NULL,
 	"advertised_models" jsonb DEFAULT '{}'::jsonb NOT NULL,
 	"harness_versions" jsonb DEFAULT '{}'::jsonb NOT NULL,
@@ -1291,9 +1309,12 @@ CREATE TABLE "runner_pool" (
 	"provision_url" text,
 	"provision_secret" text,
 	"provision_secret_version" integer,
+	"provision_egress" text,
+	"provision_egress_traffic" text,
 	"version" integer DEFAULT 0 NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
-	CONSTRAINT "runner_pool_one_mode" CHECK (("runner_pool"."token_hash" is null) <> ("runner_pool"."provision_url" is null) and ("runner_pool"."provision_url" is null) = ("runner_pool"."provision_secret" is null))
+	CONSTRAINT "runner_pool_one_mode" CHECK (("runner_pool"."token_hash" is null) <> ("runner_pool"."provision_url" is null) and ("runner_pool"."provision_url" is null) = ("runner_pool"."provision_secret" is null)),
+	CONSTRAINT "runner_pool_egress_pushes" CHECK ("runner_pool"."provision_egress" is null or "runner_pool"."provision_url" is not null)
 );
 --> statement-breakpoint
 CREATE TABLE "runner_trust" (
@@ -1321,6 +1342,7 @@ CREATE TABLE "run_grants" (
 	"workspace_id" text NOT NULL,
 	"attempt" integer NOT NULL,
 	"recipient" text,
+	"redeemed_through" text,
 	"hold_lost" boolean DEFAULT false NOT NULL,
 	"ended_at" timestamp,
 	"version" integer DEFAULT 1 NOT NULL
@@ -1545,6 +1567,21 @@ CREATE TABLE "replay_run_claim" (
 	"refusal" text,
 	"reason" text,
 	"claimed_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "run_connection" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"run_id" text NOT NULL,
+	"attempt" integer NOT NULL,
+	"host" text NOT NULL,
+	"port" integer NOT NULL,
+	"bytes_out" bigint NOT NULL,
+	"bytes_in" bigint NOT NULL,
+	"ms" integer NOT NULL,
+	"outcome" text NOT NULL,
+	"status" integer,
+	"reason" text,
+	"at" timestamp NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE "run" (
@@ -1773,6 +1810,7 @@ ALTER TABLE "station_route" ADD CONSTRAINT "station_route_station_id_station_id_
 ALTER TABLE "station_route" ADD CONSTRAINT "station_route_to_station_id_station_id_fk" FOREIGN KEY ("to_station_id") REFERENCES "public"."station"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "station_skill" ADD CONSTRAINT "station_skill_station_id_station_id_fk" FOREIGN KEY ("station_id") REFERENCES "public"."station"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "station_tool" ADD CONSTRAINT "station_tool_station_id_station_id_fk" FOREIGN KEY ("station_id") REFERENCES "public"."station"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "run_connection" ADD CONSTRAINT "run_connection_run_id_run_id_fk" FOREIGN KEY ("run_id") REFERENCES "public"."run"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "run" ADD CONSTRAINT "run_replay_of_run_id_run_id_fk" FOREIGN KEY ("replay_of_run_id") REFERENCES "public"."run"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "run" ADD CONSTRAINT "run_station_id_station_id_fk" FOREIGN KEY ("station_id") REFERENCES "public"."station"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "run_digest" ADD CONSTRAINT "run_digest_run_id_run_id_fk" FOREIGN KEY ("run_id") REFERENCES "public"."run"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -1908,8 +1946,11 @@ CREATE INDEX "replay_set_station_idx" ON "replay_set" USING btree ("station_id")
 CREATE INDEX "replay_set_team_idx" ON "replay_set" USING btree ("team_id");--> statement-breakpoint
 CREATE INDEX "replay_set_line_idx" ON "replay_set" USING btree ("line_id");--> statement-breakpoint
 CREATE UNIQUE INDEX "replay_set_guards_changes_idx" ON "replay_set" USING btree ("station_id") WHERE "replay_set"."guards_changes";--> statement-breakpoint
+CREATE UNIQUE INDEX "egress_workspace_key_idx" ON "egress" USING btree ("workspace_id","key");--> statement-breakpoint
+CREATE UNIQUE INDEX "egress_token_hash_idx" ON "egress" USING btree ("token_hash");--> statement-breakpoint
 CREATE UNIQUE INDEX "runner_token_hash_idx" ON "runner" USING btree ("token_hash");--> statement-breakpoint
 CREATE UNIQUE INDEX "runner_egress_token_hash_idx" ON "runner" USING btree ("egress_token_hash");--> statement-breakpoint
+CREATE UNIQUE INDEX "runner_proxy_credential_hash_idx" ON "runner" USING btree ("proxy_credential_hash");--> statement-breakpoint
 CREATE INDEX "runner_pool_standing_idx" ON "runner" USING btree ("pool_id") WHERE "runner"."ended_at" is null;--> statement-breakpoint
 CREATE INDEX "runner_work_idx" ON "runner" USING btree ("work_kind","work_id") WHERE "runner"."ended_at" is null;--> statement-breakpoint
 CREATE INDEX "runner_workspace_standing_idx" ON "runner" USING btree ("workspace_id") WHERE "runner"."ended_at" is null;--> statement-breakpoint
@@ -1946,6 +1987,8 @@ CREATE INDEX "network_call_lapsed_idx" ON "network_call" USING btree ("state","l
 CREATE UNIQUE INDEX "notice_subject_idx" ON "notice" USING btree ("addressee_id","form","subject");--> statement-breakpoint
 CREATE INDEX "notice_addressee_idx" ON "notice" USING btree ("workspace_id","addressee_id");--> statement-breakpoint
 CREATE INDEX "notice_team_idx" ON "notice" USING btree ("team_id");--> statement-breakpoint
+CREATE INDEX "run_connection_run_idx" ON "run_connection" USING btree ("run_id","at");--> statement-breakpoint
+CREATE INDEX "run_connection_at_idx" ON "run_connection" USING btree ("at");--> statement-breakpoint
 CREATE INDEX "run_queue_idx" ON "run" USING btree ("harness","state","priority","created_at");--> statement-breakpoint
 CREATE INDEX "run_lease_idx" ON "run" USING btree ("lease_expires_at");--> statement-breakpoint
 CREATE INDEX "run_workspace_idx" ON "run" USING btree ("workspace_id");--> statement-breakpoint
