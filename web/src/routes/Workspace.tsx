@@ -5,11 +5,13 @@ import { PageNotice } from '@/components/shared/PageNotice';
 import { DashboardLayout } from '@/components/shell/layout/DashboardLayout';
 import { PageOutlet } from '@/components/shell/layout/PageOutlet';
 import { SettingsSidebar } from '@/components/shell/layout/SettingsSidebar';
+import { SidebarSlide } from '@/components/shell/layout/SidebarSlide';
 import { WorkspaceSidebar } from '@/components/shell/layout/WorkspaceSidebar';
 import { buttonVariants } from '@/components/ui/button-variants';
 import { useSettingUp } from '@/hooks/api/useSettingUp';
 import { useWorkspace } from '@/hooks/api/useWorkspace';
 import { useLastPlace } from '@/hooks/useLastPlace';
+import { useSlideFrom } from '@/hooks/useSlideFrom';
 import { failed, loading } from '@/lib/query';
 import { cn } from '@/lib/utils';
 import { WORKSPACE_URL_PREFIX, workspacePath } from '@/lib/workspace';
@@ -20,6 +22,7 @@ export function Workspace() {
   const inSettings = Boolean(useMatch('/w/:slug/settings/*'));
   const leftAt = useLastPlace(!inSettings);
   const settingUp = useSettingUp(slug, workspace.data);
+  const slideFrom = useSlideFrom(inSettings);
 
   if (!slug) {
     return null;
@@ -77,15 +80,17 @@ export function Workspace() {
   return (
     <DashboardLayout
       sidebar={
-        inSettings ? (
-          <SettingsSidebar
-            slug={slug}
-            back={leftAt ?? workspacePath(slug)}
-            workspace={workspace.data}
-          />
-        ) : (
-          <WorkspaceSidebar slug={slug} workspace={workspace.data} />
-        )
+        <SidebarSlide key={inSettings ? 'settings' : 'app'} from={slideFrom}>
+          {inSettings ? (
+            <SettingsSidebar
+              slug={slug}
+              back={leftAt ?? workspacePath(slug)}
+              workspace={workspace.data}
+            />
+          ) : (
+            <WorkspaceSidebar slug={slug} workspace={workspace.data} />
+          )}
+        </SidebarSlide>
       }
     >
       <PageOutlet />
