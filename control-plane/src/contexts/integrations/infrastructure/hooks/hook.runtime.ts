@@ -83,11 +83,11 @@ const within = <T>(
   late: Error,
 ): Promise<T> => {
   let timer: ReturnType<typeof setTimeout> | undefined;
-  const lapsed = new Promise<never>((_, reject) => {
+  const timedOut = new Promise<never>((_, reject) => {
     timer = setTimeout(() => reject(late), Math.max(ms, 0));
   });
 
-  return Promise.race([working, lapsed]).finally(() => clearTimeout(timer));
+  return Promise.race([working, timedOut]).finally(() => clearTimeout(timer));
 };
 
 const reasoned = (error: unknown): string =>

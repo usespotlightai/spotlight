@@ -88,23 +88,23 @@ const claimed = async (
     .put(`/api/hosts/${HOST}`)
     .set('Authorization', `Bearer ${POOL_TOKEN}`)
     .send({
-      session: 'session_1',
+      bootId: 'boot_1',
       name: 'build-box',
       release: '0.1.0',
-      executor: 'docker',
+      containerRuntime: 'docker',
       capacity: 8,
       running: [],
       images: [
         {
           image: IMAGE,
-          usual: true,
+          isDefault: true,
           harnesses: [{ id: 'claude-code', models: [] }],
         },
       ],
     })
     .expect(200);
 
-  const handed = (
+  const assignment = (
     await http()
       .post('/api/hosts/claim')
       .set('Authorization', `Bearer ${POOL_TOKEN}`)
@@ -112,9 +112,9 @@ const claimed = async (
       .expect(200)
   ).body as { token: string; work: { run: Claimed } };
 
-  expect(handed.work.run.id).toBe(runId);
+  expect(assignment.work.run.id).toBe(runId);
 
-  return { token: handed.token, run: handed.work.run };
+  return { token: assignment.token, run: assignment.work.run };
 };
 
 const aClaimedSearch = async (over: Partial<SearchOrder> = {}) => {
@@ -395,7 +395,7 @@ afterAll(async () => {
 });
 
 describe('a search run claimed by a runner', () => {
-  it('is handed only the briefing it was dispatched with: nothing to check out, no tools, skills, attachments or memories', async () => {
+  it('receives only the briefing it was dispatched with: nothing to check out, no tools, skills, attachments or memories', async () => {
     const {
       order: asked,
       runId,
@@ -747,14 +747,14 @@ describe('a search run ending', () => {
     expect(endedEvent?.payload).toMatchObject({ asked: true });
   });
 
-  it('is withdrawn before a runner takes it up, still saying so as a search’s end', async () => {
+  it('is cancelled before a runner claims it, still saying so as a search’s end', async () => {
     const asked = order();
     const dispatch = app.get<SearchDispatchPort>(SEARCH_DISPATCH);
 
     await dispatch.enqueue(asked);
-    await dispatch.withdraw(asked.id);
+    await dispatch.cancel(asked.id);
 
-    expect((await runRow(asked.id))?.state).toBe('superseded');
+    expect((await runRow(asked.id))?.state).toBe('cancelled');
     await eventually(
       async () =>
         (await published('work.search-run-ended.v1', asked.id)).length === 1,

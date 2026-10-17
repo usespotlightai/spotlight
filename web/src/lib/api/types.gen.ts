@@ -67,7 +67,7 @@ export type StationAlertResponseDto = {
 export type StationResponseDto = {
   id: string;
   /**
-   * What the station is called in its line definition, and what a run hands a task on to it by
+   * What the station is called in its line definition, and what a run passes a task to it by
    */
   key: string;
   name: string;
@@ -253,7 +253,7 @@ export type EnqueueRunRequestDto = {
    */
   harness: string;
   /**
-   * Handed to the runner untouched: checkouts, briefing, handover and continuity. The command is filled in from the harness, so it is not given here.
+   * Sent to the runner unchanged: checkouts, briefing, handover and continuity. The command is filled in from the harness, so it is not given here.
    */
   spec: {
     [key: string]: unknown;
@@ -414,7 +414,7 @@ export type JournalStepResponseDto = {
    */
   given: string | null;
   /**
-   * What it handed back, unread
+   * What it returned, unread
    */
   returned: string | null;
   change: StepChangeResponseDto | null;
@@ -583,7 +583,7 @@ export type PersonActResponseDto = {
 };
 
 export type RunTurnedOutResponseDto = {
-  ending: 'completed' | 'failed' | 'stopped' | 'abandoned' | 'withdrawn' | 'superseded';
+  ending: 'completed' | 'failed' | 'stopped' | 'exhausted' | 'cancelled' | 'superseded';
   failure: string | null;
   /**
    * How many runs this station has taken on the task, this one included
@@ -732,7 +732,7 @@ export type StartedCheckoutRequestDto = {
 
 export type RecordStartingPointRequestDto = {
   /**
-   * The attempt of the run the runner was handed, as the claim named it
+   * The attempt of the run assigned to the runner, as the claim named it
    */
   attempt: number;
   /**
@@ -811,7 +811,7 @@ export type AskPermissionRequestDto = {
 
 export type PermissionAnswerResponseDto = {
   /**
-   * allow or reject answers the harness now; asked means a person was asked in their inbox, so the run should end its turn and let the task go
+   * allow or reject answers the harness now; asked means a person was asked in their inbox, so the run should end its turn and release the task
    */
   decision: 'allow' | 'reject' | 'asked';
 };
@@ -847,7 +847,7 @@ export type CompleteRunRequestDto = {
    */
   unprepared?: boolean;
   /**
-   * With failed: its host stopped it for running past its time; the run is then treated as a runner that went silent, as Work would after its lease lapsed
+   * With failed: its host stopped it for running past its time; the run is then treated as a runner that went silent, as Work would after its lease expired
    */
   timedOut?: boolean;
   message?: string;
@@ -868,7 +868,7 @@ export type CompleteRunRequestDto = {
 
 export type RunCompletionResponseDto = {
   /**
-   * Whether the turn ended by asking a person, so the run now waits for their answer instead of ending. The runner keeps its sandbox for the grace period, then parks the run.
+   * Whether the turn ended by asking a person, so the run now waits for their answer instead of ending. The runner keeps its sandbox for the grace period, then suspends the run.
    */
   waiting: boolean;
 };
@@ -880,18 +880,18 @@ export type TurnAsksAPersonResponseDto = {
   asks: boolean;
 };
 
-export type ParkRunRequestDto = {
+export type SuspendRunRequestDto = {
   /**
    * The harness has already closed, so an answer that arrived first cannot be delivered warm: the run goes back on the queue from its archive instead of staying with this runner.
    */
-  cold?: boolean;
+  requeue?: boolean;
 };
 
-export type RunParkingResponseDto = {
+export type RunSuspensionResponseDto = {
   /**
-   * Whether the run is parked (or, if a stop was asked for, ended) and no longer leased by this runner. False when the answer arrived first: the run is working again, and the answer waits in its messages.
+   * Whether the run is suspended (or, if a stop was asked for, ended) and no longer leased by this runner. False when the answer arrived first: the run is working again, and the answer waits in its messages.
    */
-  parked: boolean;
+  suspended: boolean;
 };
 
 export type StoredArchiveResponseDto = {
@@ -968,7 +968,7 @@ export type HostRequirementsResponseDto = {
 
 export type ClaimHostWorkRequestDto = {
   /**
-   * The host claiming, as it names itself in its presence
+   * The host claiming, as it names itself in its heartbeat
    */
   host: string;
   /**
@@ -995,7 +995,7 @@ export type HostClaimResponseDto = {
 
 export type ClaimHostCallRequestDto = {
   /**
-   * The host claiming, as it names itself in its presence
+   * The host claiming, as it names itself in its heartbeat
    */
   host: string;
 };
@@ -1682,7 +1682,7 @@ export type RunReviewResponseDto = {
 
 export type TeamRunResponseDto = {
   id: string;
-  state: 'queued' | 'claimed' | 'waiting' | 'parked' | 'completed' | 'failed' | 'superseded';
+  state: 'queued' | 'claimed' | 'waiting' | 'suspended' | 'completed' | 'failed' | 'cancelled' | 'superseded';
   attempt: number;
   exitCode: number | null;
   startedAt: string;
@@ -1746,7 +1746,7 @@ export type TeamTraceResponseDto = {
    */
   stations: Array<TraceStationResponseDto>;
   harness: string;
-  state: 'queued' | 'claimed' | 'waiting' | 'parked' | 'completed' | 'failed' | 'superseded';
+  state: 'queued' | 'claimed' | 'waiting' | 'suspended' | 'completed' | 'failed' | 'cancelled' | 'superseded';
   startedAt: string;
   /**
    * How many runs worked the task
@@ -1757,7 +1757,7 @@ export type TeamTraceResponseDto = {
    */
   input: string | null;
   /**
-   * What it said when it handed the task on
+   * What it said when it passed the task on
    */
   output: string | null;
   ms: number | null;
@@ -1924,7 +1924,7 @@ export type SayToRunRequestDto = {
 
 export type TaskRunResponseDto = {
   id: string;
-  state: 'queued' | 'claimed' | 'waiting' | 'parked' | 'completed' | 'failed' | 'superseded';
+  state: 'queued' | 'claimed' | 'waiting' | 'suspended' | 'completed' | 'failed' | 'cancelled' | 'superseded';
   attempt: number;
   exitCode: number | null;
   startedAt: string;
@@ -1995,7 +1995,7 @@ export type RunAgentResponseDto = {
 
 export type ReplayRunResponseDto = {
   id: string;
-  state: 'queued' | 'claimed' | 'waiting' | 'parked' | 'completed' | 'failed' | 'superseded';
+  state: 'queued' | 'claimed' | 'waiting' | 'suspended' | 'completed' | 'failed' | 'cancelled' | 'superseded';
   attempt: number;
   exitCode: number | null;
   startedAt: string;
@@ -2054,7 +2054,7 @@ export type SearchRunSpentResponseDto = {
 
 export type SearchRunResponseDto = {
   id: string;
-  state: 'queued' | 'claimed' | 'waiting' | 'parked' | 'completed' | 'failed' | 'superseded';
+  state: 'queued' | 'claimed' | 'waiting' | 'suspended' | 'completed' | 'failed' | 'cancelled' | 'superseded';
   attempt: number;
   exitCode: number | null;
   startedAt: string;
@@ -2924,11 +2924,11 @@ export type ConnectGitHubRequestDto = {
   installationId: string;
 };
 
-export type HostPresenceRequestDto = {
+export type HostHeartbeatRequestDto = {
   /**
    * New each time the host starts, so a restart shows as one
    */
-  session: string;
+  bootId: string;
   /**
    * What the host calls itself, usually its hostname
    */
@@ -2940,7 +2940,7 @@ export type HostPresenceRequestDto = {
   /**
    * The container runtime its sandboxes run in
    */
-  executor: string;
+  containerRuntime: string;
   /**
    * How many sandboxes it runs at once
    */
@@ -2984,7 +2984,7 @@ export type HostImageResponseDto = {
   /**
    * Runs every line that names no image
    */
-  usual: boolean;
+  isDefault: boolean;
   /**
    * The release of the runner inside
    */
@@ -3004,7 +3004,7 @@ export type HostResponseDto = {
    * The spotlight release
    */
   release: string;
-  executor: string;
+  containerRuntime: string;
   /**
    * How many sandboxes it runs at once
    */
@@ -3017,16 +3017,16 @@ export type HostResponseDto = {
    * The runner images it serves or cannot use, and what each contains
    */
   images: Array<HostImageResponseDto>;
-  firstSeenAt: string;
+  firstHeartbeatAt: string;
   /**
-   * When it last came up: started, or answered again after going quiet
+   * When it last came online: it started, or sent a heartbeat again after it was offline
    */
-  upSince: string;
-  lastSeenAt: string;
+  onlineSince: string;
+  lastHeartbeatAt: string;
   /**
-   * Heard from recently enough to be counted on
+   * It sent a heartbeat recently enough to count as online
    */
-  answering: boolean;
+  online: boolean;
 };
 
 export type LiveRunnerResponseDto = {
@@ -3042,7 +3042,7 @@ export type LiveRunnerResponseDto = {
   image: string | null;
   harnesses: Array<string>;
   startedAt: string;
-  lastSeenAt: string | null;
+  lastHeartbeatAt: string | null;
 };
 
 export type RunnerFleetResponseDto = {
@@ -4642,9 +4642,9 @@ export type NextActResponseDto = {
   at: string;
 };
 
-export type HandedOnResponseDto = {
+export type StationPassResponseDto = {
   /**
-   * The station the run moved its task on to
+   * The station the run passed its task to
    */
   to: string;
   at: string;
@@ -4654,7 +4654,7 @@ export type StationRunOutcomeResponseDto = {
   runId: string;
   taskId: string;
   endedAt: string;
-  ending: 'completed' | 'failed' | 'stopped' | 'abandoned' | 'withdrawn' | 'superseded';
+  ending: 'completed' | 'failed' | 'stopped' | 'exhausted' | 'cancelled' | 'superseded';
   /**
    * Why it failed, where it did
    */
@@ -4673,9 +4673,9 @@ export type StationRunOutcomeResponseDto = {
    */
   next: NextActResponseDto | null;
   /**
-   * Where the run moved its task on to, if it did
+   * The station the run passed its task to, if it did
    */
-  handedOn: HandedOnResponseDto | null;
+  passed: StationPassResponseDto | null;
   /**
    * The status of the task’s pull request, if it opened one
    */
@@ -4693,9 +4693,9 @@ export type RunTallyResponseDto = {
    */
   runs: number;
   /**
-   * Runs withdrawn from the queue before they ran
+   * Runs cancelled before they ran
    */
-  withdrawn: number;
+  cancelled: number;
   failed: number;
   /**
    * Failed runs as a share of the runs; none where none ran
@@ -4716,9 +4716,9 @@ export type RunTallyResponseDto = {
    */
   sentBack: number;
   /**
-   * Runs that moved their task on to another station
+   * Runs that passed their task to another station
    */
-  handedOn: number;
+  passed: number;
   /**
    * Tasks among these runs whose pull request merged
    */
@@ -4770,7 +4770,7 @@ export type FingerprintGroupResponseDto = {
    */
   fingerprint: string | null;
   /**
-   * Whether the group’s config is one the station ran: false for runs meant for a config other than the one in force that never ran it (never started, failed to provision or withdrawn), which are kept apart from the group in force
+   * Whether the group’s config is one the station ran: false for runs meant for a config other than the one in force that never ran it (never started, failed to provision or cancelled), which are kept apart from the group in force
    */
   ran: boolean;
   config: StationConfigResponseDto | null;
@@ -4808,7 +4808,7 @@ export type ConfigInForceResponseDto = {
 export type StationOutcomesResponseDto = {
   stationId: string;
   /**
-   * The station’s latest-started runs in groups, the newest first, in the order the runs started: a new group starts at every run that ran a config other than the station’s run before it that ran one, listed or not; a run meant for another config than the one in force that never ran it (never started, failed to provision or withdrawn) starts or joins a group of that config that never ran, and the group in force starts again after it; a run with no config joins the group in force
+   * The station’s latest-started runs in groups, the newest first, in the order the runs started: a new group starts at every run that ran a config other than the station’s run before it that ran one, listed or not; a run meant for another config than the one in force that never ran it (never started, failed to provision or cancelled) starts or joins a group of that config that never ran, and the group in force starts again after it; a run with no config joins the group in force
    */
   groups: Array<FingerprintGroupResponseDto>;
   /**
@@ -5568,9 +5568,9 @@ export type TallyCountedResponseDto = {
   checksFailed: boolean;
   accepted: boolean;
   sentBack: boolean;
-  handedOn: boolean;
+  passed: boolean;
   merged: boolean;
-  withdrawn: boolean;
+  cancelled: boolean;
 };
 
 export type DayTallyResponseDto = {
@@ -6202,9 +6202,9 @@ export type SetupOutcomesResponseDto = {
    */
   sent_back: number | null;
   /**
-   * Share of runs that moved their task on to another station
+   * Share of runs that passed their task to another station
    */
-  handed_on: number | null;
+  passed: number | null;
   /**
    * Share of checked runs whose checks passed
    */
@@ -6242,7 +6242,7 @@ export type SetupOutcomeResponseDto = {
   /**
    * The outcomes this setup sits on the cost frontier for: no other setup with enough runs did as well or better for less
    */
-  frontier: Array<'accepted' | 'sent_back' | 'handed_on' | 'checks_passed' | 'merged' | 'judge'>;
+  frontier: Array<'accepted' | 'sent_back' | 'passed' | 'checks_passed' | 'merged' | 'judge'>;
 };
 
 export type InsightsSetupsResponseDto = {
@@ -6256,7 +6256,7 @@ export type InsightsSetupsResponseDto = {
    */
   size: 'small' | 'medium' | 'large' | null;
   /**
-   * How a run’s size is told: by the lines its changes took out and put in, or by its steps where it changed none
+   * How a run’s size is told: by the lines its changes removed and added, or by its steps where it changed none
    */
   sizes: Array<SizeBoundResponseDto>;
   /**
@@ -6586,7 +6586,7 @@ export type InsightsPullRequestsResponseDto = {
    */
   types: Array<TypeShareResponseDto>;
   /**
-   * How many review rounds merged pull requests took, Spotlight’s against people’s, in the same repositories
+   * How many review rounds merged pull requests needed, Spotlight’s against people’s, in the same repositories
    */
   depth: Array<RoundsShareResponseDto>;
 };
@@ -6711,7 +6711,7 @@ export type DepthWeekResponseDto = {
    */
   merged: number;
   /**
-   * How many of them took each number of review rounds
+   * How many of them needed each number of review rounds
    */
   rounds: Array<RoundsCountResponseDto>;
 };
@@ -6987,7 +6987,7 @@ export type InsightsRunResponseDto = {
   openedBy: string | null;
   queuedAt: string | null;
   /**
-   * When a runner first took it; none if none did
+   * When a runner first claimed it; none if none did
    */
   startedAt: string | null;
   endedAt: string;
@@ -7002,11 +7002,11 @@ export type InsightsRunResponseDto = {
    * None until its digest is in
    */
   tokens: TokenCountsResponseDto | null;
-  ending: 'completed' | 'failed' | 'stopped' | 'abandoned' | 'withdrawn' | 'superseded';
+  ending: 'completed' | 'failed' | 'stopped' | 'exhausted' | 'cancelled' | 'superseded';
   failure: string | null;
   checks: 'passed' | 'failed' | 'skipped' | null;
   next: NextActResponseDto | null;
-  handedOn: HandedOnResponseDto | null;
+  passed: StationPassResponseDto | null;
   delivery: 'open' | 'merged' | 'closed' | null;
 };
 
@@ -7386,14 +7386,14 @@ export type ReplaySetEntryResponseDto = {
   /**
    * Why the run can no longer be replayed; null while it can
    */
-  unreplayableReason: 'unknown-run' | 'not-a-task-run' | 'task-gone' | 'still-running' | 'no-starting-point' | 'no-briefing' | 'archive-gone' | 'attachments-gone' | 'answer-gone' | 'repository-gone' | 'not-at-the-station' | 'candidate-unfit' | 'cannot-start' | 'unchecked' | 'forgone' | 'dispatch-failed' | null;
+  unreplayableReason: 'unknown-run' | 'not-a-task-run' | 'task-gone' | 'still-running' | 'no-starting-point' | 'no-briefing' | 'archive-gone' | 'attachments-gone' | 'answer-gone' | 'repository-gone' | 'not-at-the-station' | 'candidate-unfit' | 'cannot-start' | 'unchecked' | 'cancelled' | 'dispatch-failed' | null;
   reason: string | null;
   /**
    * How the original run turned out: asked when what a person did next was decide an approval it asked for; else accepted or sent back by what a person did next; else failed; else asked when it ended waiting on a person or a person answered it; else other
    */
   outcome: 'accepted' | 'sent-back' | 'asked' | 'failed' | 'other';
   /**
-   * Where its task came from: person when a person raised it at this station, the integration whose happening opened it here, as in slack or github, or station when another station handed it on; null once the task is deleted
+   * Where its task came from: person when a person raised it at this station, the integration whose happening opened it here, as in slack or github, or station when another station passed it on; null once the task is deleted
    */
   origin: string | null;
 };
@@ -7436,7 +7436,7 @@ export type ReplayableRunResponseDto = {
   /**
    * Why it cannot be replayed; null when it can
    */
-  unreplayableReason: 'unknown-run' | 'not-a-task-run' | 'task-gone' | 'still-running' | 'no-starting-point' | 'no-briefing' | 'archive-gone' | 'attachments-gone' | 'answer-gone' | 'repository-gone' | 'not-at-the-station' | 'candidate-unfit' | 'cannot-start' | 'unchecked' | 'forgone' | 'dispatch-failed' | null;
+  unreplayableReason: 'unknown-run' | 'not-a-task-run' | 'task-gone' | 'still-running' | 'no-starting-point' | 'no-briefing' | 'archive-gone' | 'attachments-gone' | 'answer-gone' | 'repository-gone' | 'not-at-the-station' | 'candidate-unfit' | 'cannot-start' | 'unchecked' | 'cancelled' | 'dispatch-failed' | null;
   reason: string | null;
 };
 
@@ -7449,7 +7449,7 @@ export type SuggestedRunResponseDto = {
   /**
    * Why it cannot be replayed; null when it can
    */
-  unreplayableReason: 'unknown-run' | 'not-a-task-run' | 'task-gone' | 'still-running' | 'no-starting-point' | 'no-briefing' | 'archive-gone' | 'attachments-gone' | 'answer-gone' | 'repository-gone' | 'not-at-the-station' | 'candidate-unfit' | 'cannot-start' | 'unchecked' | 'forgone' | 'dispatch-failed' | null;
+  unreplayableReason: 'unknown-run' | 'not-a-task-run' | 'task-gone' | 'still-running' | 'no-starting-point' | 'no-briefing' | 'archive-gone' | 'attachments-gone' | 'answer-gone' | 'repository-gone' | 'not-at-the-station' | 'candidate-unfit' | 'cannot-start' | 'unchecked' | 'cancelled' | 'dispatch-failed' | null;
   reason: string | null;
   /**
    * How the run turned out
@@ -7757,11 +7757,11 @@ export type ReplayEntryResponseDto = {
   fingerprint: string | null;
   phase: 'waiting' | 'dispatched' | 'ended';
   ending: 'completed' | 'failed' | 'stopped' | 'asked' | 'unreplayable' | 'not-run' | null;
-  unreplayableReason: 'unknown-run' | 'not-a-task-run' | 'task-gone' | 'still-running' | 'no-starting-point' | 'no-briefing' | 'archive-gone' | 'attachments-gone' | 'answer-gone' | 'repository-gone' | 'not-at-the-station' | 'candidate-unfit' | 'cannot-start' | 'unchecked' | 'forgone' | 'dispatch-failed' | null;
+  unreplayableReason: 'unknown-run' | 'not-a-task-run' | 'task-gone' | 'still-running' | 'no-starting-point' | 'no-briefing' | 'archive-gone' | 'attachments-gone' | 'answer-gone' | 'repository-gone' | 'not-at-the-station' | 'candidate-unfit' | 'cannot-start' | 'unchecked' | 'cancelled' | 'dispatch-failed' | null;
   /**
-   * How its run failed: exited, refused and timed-out (it ran past its host’s time limit) count against the candidate; unprepared, unprovisioned, hooks-unanswered, runner-lost and superseded were down to what ran it, and leave the entry unscored
+   * How its run failed: exited, refused and timed-out (it ran past its host’s time limit) count against the candidate; unprepared, unprovisioned, hooks-unanswered, runner-lost, superseded and cancelled were down to what ran it, and leave the entry unscored
    */
-  failure: 'exited' | 'unprepared' | 'refused' | 'unprovisioned' | 'hooks-unanswered' | 'runner-lost' | 'timed-out' | 'superseded' | null;
+  failure: 'exited' | 'unprepared' | 'refused' | 'unprovisioned' | 'hooks-unanswered' | 'runner-lost' | 'timed-out' | 'cancelled' | 'superseded' | null;
   /**
    * Where its handover would have sent the task
    */
@@ -9774,7 +9774,7 @@ export type InstallableHarnessesData = {
 
 export type InstallableHarnessesErrors = {
   /**
-   * Missing, spent or wrong runner token
+   * Missing, no longer valid or wrong runner token
    */
   401: unknown;
 };
@@ -9794,7 +9794,7 @@ export type ClaimRunData = {
 
 export type ClaimRunErrors = {
   /**
-   * Missing, spent or wrong runner token
+   * Missing, no longer valid or wrong runner token
    */
   401: unknown;
 };
@@ -9820,7 +9820,7 @@ export type PendingMessagesData = {
 
 export type PendingMessagesErrors = {
   /**
-   * Missing, spent or wrong runner token
+   * Missing, no longer valid or wrong runner token
    */
   401: unknown;
   /**
@@ -9847,7 +9847,7 @@ export type ReadRunAttachmentData = {
 
 export type ReadRunAttachmentErrors = {
   /**
-   * Missing, spent or wrong runner token
+   * Missing, no longer valid or wrong runner token
    */
   401: unknown;
   /**
@@ -9875,7 +9875,7 @@ export type ReadRunTraceData = {
 
 export type ReadRunTraceErrors = {
   /**
-   * Missing, spent or wrong runner token
+   * Missing, no longer valid or wrong runner token
    */
   401: unknown;
   /**
@@ -9908,7 +9908,7 @@ export type ReadRunHistoryData = {
 
 export type ReadRunHistoryErrors = {
   /**
-   * Missing, spent or wrong runner token
+   * Missing, no longer valid or wrong runner token
    */
   401: unknown;
   /**
@@ -9938,7 +9938,7 @@ export type DeliverSaidData = {
 
 export type DeliverSaidErrors = {
   /**
-   * Missing, spent or wrong runner token
+   * Missing, no longer valid or wrong runner token
    */
   401: unknown;
   /**
@@ -9964,11 +9964,11 @@ export type RenewLeaseData = {
 
 export type RenewLeaseErrors = {
   /**
-   * Missing, spent or wrong runner token
+   * Missing, no longer valid or wrong runner token
    */
   401: unknown;
   /**
-   * The run is no longer leased by this runner: it ended, was parked, or its task let it go. The runner lets its sandbox go.
+   * The run is no longer leased by this runner: it ended, was suspended, or its task cancelled it. The runner releases its sandbox.
    */
   404: unknown;
   /**
@@ -10000,7 +10000,7 @@ export type RenewCheckLeaseData = {
 
 export type RenewCheckLeaseErrors = {
   /**
-   * Missing, spent or wrong runner token
+   * Missing, no longer valid or wrong runner token
    */
   401: unknown;
   /**
@@ -10030,7 +10030,7 @@ export type RecordRunImageData = {
 
 export type RecordRunImageErrors = {
   /**
-   * Missing, spent or wrong runner token
+   * Missing, no longer valid or wrong runner token
    */
   401: unknown;
   /**
@@ -10056,7 +10056,7 @@ export type RecordStartingPointData = {
 
 export type RecordStartingPointErrors = {
   /**
-   * Missing, spent or wrong runner token
+   * Missing, no longer valid or wrong runner token
    */
   401: unknown;
   /**
@@ -10090,7 +10090,7 @@ export type AppendRunEventsData = {
 
 export type AppendRunEventsErrors = {
   /**
-   * Missing, spent or wrong runner token
+   * Missing, no longer valid or wrong runner token
    */
   401: unknown;
   /**
@@ -10119,7 +10119,7 @@ export type UseToolData = {
 
 export type UseToolErrors = {
   /**
-   * Missing, spent or wrong runner token
+   * Missing, no longer valid or wrong runner token
    */
   401: unknown;
   /**
@@ -10161,7 +10161,7 @@ export type AskPermissionData = {
 
 export type AskPermissionErrors = {
   /**
-   * Missing, spent or wrong runner token
+   * Missing, no longer valid or wrong runner token
    */
   401: unknown;
   /**
@@ -10187,7 +10187,7 @@ export type AnswerRemarkData = {
 
 export type AnswerRemarkErrors = {
   /**
-   * Missing, spent or wrong runner token
+   * Missing, no longer valid or wrong runner token
    */
   401: unknown;
 };
@@ -10209,7 +10209,7 @@ export type CompleteRunData = {
 
 export type CompleteRunErrors = {
   /**
-   * Missing, spent or wrong runner token
+   * Missing, no longer valid or wrong runner token
    */
   401: unknown;
 };
@@ -10231,7 +10231,7 @@ export type TurnAsksAPersonData = {
 
 export type TurnAsksAPersonErrors = {
   /**
-   * Missing, spent or wrong runner token
+   * Missing, no longer valid or wrong runner token
    */
   401: unknown;
   /**
@@ -10246,18 +10246,18 @@ export type TurnAsksAPersonResponses = {
 
 export type TurnAsksAPersonResponse = TurnAsksAPersonResponses[keyof TurnAsksAPersonResponses];
 
-export type ParkRunData = {
-  body: ParkRunRequestDto;
+export type SuspendRunData = {
+  body: SuspendRunRequestDto;
   path: {
     runId: string;
   };
   query?: never;
-  url: '/runs/{runId}/parked';
+  url: '/runs/{runId}/suspended';
 };
 
-export type ParkRunErrors = {
+export type SuspendRunErrors = {
   /**
-   * Missing, spent or wrong runner token
+   * Missing, no longer valid or wrong runner token
    */
   401: unknown;
   /**
@@ -10266,11 +10266,11 @@ export type ParkRunErrors = {
   409: unknown;
 };
 
-export type ParkRunResponses = {
-  200: RunParkingResponseDto;
+export type SuspendRunResponses = {
+  200: RunSuspensionResponseDto;
 };
 
-export type ParkRunResponse = ParkRunResponses[keyof ParkRunResponses];
+export type SuspendRunResponse = SuspendRunResponses[keyof SuspendRunResponses];
 
 export type ReadWorkspaceArchiveData = {
   body?: never;
@@ -10283,7 +10283,7 @@ export type ReadWorkspaceArchiveData = {
 
 export type ReadWorkspaceArchiveErrors = {
   /**
-   * Missing, spent or wrong runner token
+   * Missing, no longer valid or wrong runner token
    */
   401: unknown;
   /**
@@ -10313,7 +10313,7 @@ export type GrantWorkspaceArchiveData = {
 
 export type GrantWorkspaceArchiveErrors = {
   /**
-   * Missing, spent or wrong runner token
+   * Missing, no longer valid or wrong runner token
    */
   401: unknown;
   /**
@@ -10344,7 +10344,7 @@ export type SealWorkspaceArchiveData = {
 
 export type SealWorkspaceArchiveErrors = {
   /**
-   * Missing, spent or wrong runner token
+   * Missing, no longer valid or wrong runner token
    */
   401: unknown;
   /**
@@ -10504,7 +10504,7 @@ export type AnswerHostCallErrors = {
    */
   404: unknown;
   /**
-   * The call was already answered, lapsed before it was answered, or was never claimed (`call-completed`), or another host claimed it (`not-this-hosts-call`)
+   * The call was already answered, expired before it was answered, or was never claimed (`call-completed`), or another host claimed it (`not-this-hosts-call`)
    */
   409: unknown;
 };
@@ -14044,7 +14044,7 @@ export type ConnectGitHubResponses = {
 
 export type ConnectGitHubResponse = ConnectGitHubResponses[keyof ConnectGitHubResponses];
 
-export type LeaveAsHostData = {
+export type DeregisterHostData = {
   body?: never;
   headers?: {
     /**
@@ -14059,24 +14059,24 @@ export type LeaveAsHostData = {
   url: '/hosts/{hostId}';
 };
 
-export type LeaveAsHostErrors = {
+export type DeregisterHostErrors = {
   /**
    * Pool token is missing, rotated or unknown, or no trust admits this workload.
    */
   401: unknown;
 };
 
-export type LeaveAsHostResponses = {
+export type DeregisterHostResponses = {
   /**
-   * Gone
+   * Deregistered
    */
   204: void;
 };
 
-export type LeaveAsHostResponse = LeaveAsHostResponses[keyof LeaveAsHostResponses];
+export type DeregisterHostResponse = DeregisterHostResponses[keyof DeregisterHostResponses];
 
-export type ReportHostPresenceData = {
-  body: HostPresenceRequestDto;
+export type HostHeartbeatData = {
+  body: HostHeartbeatRequestDto;
   headers?: {
     /**
      * The runner trust to claim through; the bearer is then the workload’s token
@@ -14090,22 +14090,22 @@ export type ReportHostPresenceData = {
   url: '/hosts/{hostId}';
 };
 
-export type ReportHostPresenceErrors = {
+export type HostHeartbeatErrors = {
   /**
    * Pool token is missing, rotated or unknown, or no trust admits this workload.
    */
   401: unknown;
   /**
-   * The host id serves another pool or trust
+   * The host id is in use by another pool or trust
    */
   409: unknown;
 };
 
-export type ReportHostPresenceResponses = {
+export type HostHeartbeatResponses = {
   200: HostHeartbeatResponseDto;
 };
 
-export type ReportHostPresenceResponse = ReportHostPresenceResponses[keyof ReportHostPresenceResponses];
+export type HostHeartbeatResponse = HostHeartbeatResponses[keyof HostHeartbeatResponses];
 
 export type ListRunnersData = {
   body?: never;
@@ -14142,7 +14142,7 @@ export type RegisterRunnerData = {
 
 export type RegisterRunnerErrors = {
   /**
-   * Missing, spent or wrong runner token
+   * Missing, no longer valid or wrong runner token
    */
   401: unknown;
 };
@@ -16594,7 +16594,7 @@ export type DraftChangeStackData = {
 
 export type DraftChangeStackErrors = {
   /**
-   * Missing, spent or wrong runner token
+   * Missing, no longer valid or wrong runner token
    */
   401: unknown;
   /**
@@ -16630,7 +16630,7 @@ export type RecordChangeStackCheckData = {
 
 export type RecordChangeStackCheckErrors = {
   /**
-   * Missing, spent or wrong runner token
+   * Missing, no longer valid or wrong runner token
    */
   401: unknown;
   /**
@@ -18042,7 +18042,7 @@ export type RecallMemoriesData = {
 
 export type RecallMemoriesErrors = {
   /**
-   * Missing, spent or wrong runner token
+   * Missing, no longer valid or wrong runner token
    */
   401: unknown;
   /**
@@ -18077,7 +18077,7 @@ export type RecallMemoryData = {
 
 export type RecallMemoryErrors = {
   /**
-   * Missing, spent or wrong runner token
+   * Missing, no longer valid or wrong runner token
    */
   401: unknown;
   /**
@@ -18111,7 +18111,7 @@ export type RememberData = {
 
 export type RememberErrors = {
   /**
-   * Missing, spent or wrong runner token
+   * Missing, no longer valid or wrong runner token
    */
   401: unknown;
   /**
@@ -18145,7 +18145,7 @@ export type ReadMemoryFilesData = {
 
 export type ReadMemoryFilesErrors = {
   /**
-   * Missing, spent or wrong runner token
+   * Missing, no longer valid or wrong runner token
    */
   401: unknown;
   /**
@@ -18535,7 +18535,7 @@ export type ReadInsightsSetupsData = {
   };
   query?: {
     /**
-     * Only runs of this size, told by the lines their changes took out and put in, or by their steps where they changed none
+     * Only runs of this size, told by the lines their changes removed and added, or by their steps where they changed none
      */
     size?: 'small' | 'medium' | 'large';
     /**
@@ -18722,7 +18722,7 @@ export type ListInsightsPullRequestsData = {
      */
     page?: number;
     /**
-     * Only pull requests that took this many review rounds
+     * Only pull requests that needed this many review rounds
      */
     rounds?: '0' | '1' | '2' | '3+';
     /**
@@ -18865,7 +18865,7 @@ export type ListInsightsRunsData = {
      */
     repository?: string;
     /**
-     * Only runs with this model; ~default for runs that named none and took the harness’s own
+     * Only runs with this model; ~default for runs that named none and used the harness’s own
      */
     model?: string;
     /**
@@ -18875,7 +18875,7 @@ export type ListInsightsRunsData = {
     /**
      * Only runs that ended this way
      */
-    outcome?: 'completed' | 'failed' | 'stopped' | 'abandoned' | 'withdrawn' | 'superseded';
+    outcome?: 'completed' | 'failed' | 'stopped' | 'exhausted' | 'cancelled' | 'superseded';
     /**
      * Only runs at this station
      */
@@ -20511,7 +20511,7 @@ export type ProposeSearchCandidateData = {
 
 export type ProposeSearchCandidateErrors = {
   /**
-   * Missing, spent or wrong runner token
+   * Missing, no longer valid or wrong runner token
    */
   401: unknown;
   /**
@@ -20519,7 +20519,7 @@ export type ProposeSearchCandidateErrors = {
    */
   404: ProblemResponseDto;
   /**
-   * The iteration proposed all the candidates it may, or tried too often, or another iteration took the name
+   * The iteration proposed all the candidates it may, or tried too often, or another iteration uses the name already
    */
   409: ProblemResponseDto;
   /**
@@ -20547,7 +20547,7 @@ export type RecordSearchCauseData = {
 
 export type RecordSearchCauseErrors = {
   /**
-   * Missing, spent or wrong runner token
+   * Missing, no longer valid or wrong runner token
    */
   401: unknown;
   /**

@@ -12,8 +12,8 @@ export type ReplayEnding = (typeof REPLAY_ENDINGS)[number];
 export const RUN_OUTCOMES = [
   'completed',
   'failed',
-  'abandoned',
-  'withdrawn',
+  'exhausted',
+  'cancelled',
 ] as const;
 
 export type RunOutcome = (typeof RUN_OUTCOMES)[number];

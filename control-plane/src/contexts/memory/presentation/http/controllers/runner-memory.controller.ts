@@ -47,7 +47,7 @@ const optional = (value: unknown): string | null =>
 
 @ApiTags('runners')
 @ApiUnauthorizedResponse({
-  description: 'Missing, spent or wrong runner token',
+  description: 'Missing, no longer valid or wrong runner token',
 })
 @ApiParam({ name: 'runId', type: String })
 @ApiNotFoundResponse({ description: 'No such run leased by this runner' })

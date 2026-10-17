@@ -464,12 +464,12 @@ export const claimed = async (): Promise<Claimed | null> => {
 
   expect(answer.status).toBe(200);
 
-  const handed = answer.body as {
+  const assignment = answer.body as {
     token: string;
     work: { run: { id: string } };
   };
 
-  return { token: handed.token, runId: handed.work.run.id };
+  return { token: assignment.token, runId: assignment.work.run.id };
 };
 
 export const judged = async () => {
@@ -539,21 +539,21 @@ export const drained = async (plan: Plan): Promise<void> => {
       return;
     }
 
-    const handed = await claimed();
+    const assignment = await claimed();
 
-    if (!handed) {
+    if (!assignment) {
       continue;
     }
 
-    const entry = await entryOf(handed.runId);
+    const entry = await entryOf(assignment.runId);
 
     if (!entry) {
-      throw new Error(`claimed ${handed.runId}, which is no replay run`);
+      throw new Error(`claimed ${assignment.runId}, which is no replay run`);
     }
 
     const { score, cost } = plan(entry.replayId);
 
-    await finished(handed, score, cost);
+    await finished(assignment, score, cost);
     await judged();
   }
 
@@ -581,15 +581,15 @@ export const leasedSearchRun = async (
     );
   }, WITHIN);
 
-  const handed = await claimed();
+  const assignment = await claimed();
   const [row] = await db
     .select()
     .from(schema.run)
-    .where(eq(schema.run.id, handed?.runId ?? ''));
+    .where(eq(schema.run.id, assignment?.runId ?? ''));
 
   expect(row?.searchId).toBe(searchId);
 
-  return handed as Claimed;
+  return assignment as Claimed;
 };
 
 export const endedSearchRun = async (
@@ -636,9 +636,9 @@ export const liveBlock = async () => {
   return live.station;
 };
 
-export const proposing = (handed: Claimed, body: object) =>
-  bearing(handed.token).post(
-    `/api/runs/${handed.runId}/search-candidates`,
+export const proposing = (assignment: Claimed, body: object) =>
+  bearing(assignment.token).post(
+    `/api/runs/${assignment.runId}/search-candidates`,
     body,
   );
 
@@ -801,16 +801,16 @@ export const openSearchFlow = (): void => {
       .put(`/api/hosts/${HOST}`)
       .set('Authorization', `Bearer ${POOL_TOKEN}`)
       .send({
-        session: 'session_1',
+        bootId: 'boot_1',
         name: 'search-box',
         release: '0.1.0',
-        executor: 'docker',
+        containerRuntime: 'docker',
         capacity: 64,
         running: [],
         images: [
           {
             image: IMAGE,
-            usual: true,
+            isDefault: true,
             harnesses: [{ id: 'claude-code', models: [] }],
           },
         ],

@@ -106,7 +106,7 @@ export class MoveTaskHandler
           ? await this.dispatch.runIdFor({ task: moved, line })
           : null;
 
-      const placed = runId ? moved.handedTo(runId, line) : moved;
+      const placed = runId ? moved.assignRun(runId, line) : moved;
 
       await this.tasks.save(placed);
 

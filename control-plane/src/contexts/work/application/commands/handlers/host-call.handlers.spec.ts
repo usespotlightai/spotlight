@@ -38,7 +38,7 @@ const queued = (workspace = 'ws_1') =>
       body: new TextEncoder().encode('{"hook":"core/audit"}'),
       timeoutMs: 10_000,
     }),
-    lapsesAt: later(15_000),
+    expiresAt: later(15_000),
     now: NOW,
   });
 
@@ -148,11 +148,11 @@ describe('ClaimHostCallHandler', () => {
     );
   });
 
-  it('answers a host that never reported through this way in as a stranger', async () => {
+  it('answers a host that never reported through this way in as host-unreported', async () => {
     const { claim, calls, runners } = hosting({ reported: false });
 
     expect(await claim.execute(new ClaimHostCallCommand(POOL, HOST))).toEqual({
-      outcome: 'stranger',
+      outcome: 'host-unreported',
     });
     expect(runners.reports).toHaveBeenCalledWith(
       { kind: 'pool', id: 'pool_1' },

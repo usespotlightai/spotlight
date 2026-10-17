@@ -62,7 +62,7 @@ describe('setting a team up as code (e2e)', () => {
       setup: ConfigHome.of({ repository: 'acme/infra', folder: 'spotlight' }),
       now: NOW,
       newId: () => randomUUID(),
-    }).handedTo(RunId.of(runId), NOW);
+    }).assignRun(RunId.of(runId), NOW);
 
   const starting = (setup: unknown) =>
     served(app)

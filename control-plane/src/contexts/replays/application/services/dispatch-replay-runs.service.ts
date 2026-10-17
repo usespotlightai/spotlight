@@ -68,11 +68,11 @@ export class DispatchReplayRuns implements OwedWorkPort {
 
   private resolve(replay: Replay, entry: ReplayEntry): Promise<void> {
     if (!replay.isDispatching) {
-      return this.forgo(replay, entry, false);
+      return this.cancel(replay, entry, false);
     }
 
-    return entry.isGivenUp
-      ? this.forgo(replay, entry, true)
+    return entry.isExhausted
+      ? this.cancel(replay, entry, true)
       : this.queue(replay, entry);
   }
 
@@ -85,7 +85,7 @@ export class DispatchReplayRuns implements OwedWorkPort {
     }
 
     if (!candidate) {
-      return this.forgo(replay, entry, false, (fresh, now) =>
+      return this.cancel(replay, entry, false, (fresh, now) =>
         fresh.unreplayable(run, 'candidate-unfit', now),
       );
     }
@@ -108,11 +108,11 @@ export class DispatchReplayRuns implements OwedWorkPort {
     );
 
     if (queued.queued && updated && !updated.isDispatching) {
-      await this.work.forgo(run, false);
+      await this.work.cancel(run, false);
     }
   }
 
-  private async forgo(
+  private async cancel(
     replay: Replay,
     entry: ReplayEntry,
     keep: boolean,
@@ -124,17 +124,17 @@ export class DispatchReplayRuns implements OwedWorkPort {
       return;
     }
 
-    const forgone = await this.work.forgo(run, keep);
+    const cancelled = await this.work.cancel(run, keep);
 
     await this.changed(replay, (fresh, now) => {
-      if (forgone.queued) {
-        return fresh.confirm(run, forgone.fingerprint, now);
+      if (cancelled.queued) {
+        return fresh.confirm(run, cancelled.fingerprint, now);
       }
       if (neverQueued) {
         return neverQueued(fresh, now);
       }
 
-      return keep ? fresh.gaveUp(run, now) : fresh.forgo(run, now);
+      return keep ? fresh.exhaust(run, now) : fresh.cancel(run, now);
     });
   }
 

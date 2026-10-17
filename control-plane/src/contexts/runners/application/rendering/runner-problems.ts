@@ -1,11 +1,11 @@
 import type { EgressKeyFixedError } from '@runners/domain/exceptions/egress-key-fixed.error';
-import type { EgressTokenSpentError } from '@runners/domain/exceptions/egress-token-spent.error';
-import type { EgressTokenTakenError } from '@runners/domain/exceptions/egress-token-taken.error';
+import type { EgressTokenAlreadyUsedError } from '@runners/domain/exceptions/egress-token-already-used.error';
+import type { EgressTokenInUseError } from '@runners/domain/exceptions/egress-token-in-use.error';
 import type { InvalidEgressError } from '@runners/domain/exceptions/invalid-egress.error';
 import type { InvalidRunnerPoolError } from '@runners/domain/exceptions/invalid-runner-pool.error';
 import type { InvalidWorkspaceRunnersError } from '@runners/domain/exceptions/invalid-workspace-runners.error';
-import type { PoolTokenSpentError } from '@runners/domain/exceptions/pool-token-spent.error';
-import type { PoolTokenTakenError } from '@runners/domain/exceptions/pool-token-taken.error';
+import type { PoolTokenAlreadyUsedError } from '@runners/domain/exceptions/pool-token-already-used.error';
+import type { PoolTokenInUseError } from '@runners/domain/exceptions/pool-token-in-use.error';
 import type { RunnerPoolFixedError } from '@runners/domain/exceptions/runner-pool-fixed.error';
 import type { RunnerTrustKeyFixedError } from '@runners/domain/exceptions/runner-trust-key-fixed.error';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
@@ -31,8 +31,8 @@ export const RunnerProblems = {
   poolInvalid(
     error:
       | RunnerPoolFixedError
-      | PoolTokenTakenError
-      | PoolTokenSpentError
+      | PoolTokenInUseError
+      | PoolTokenAlreadyUsedError
       | InvalidRunnerPoolError,
   ): ConfigurationProblem {
     return ConfigurationProblem.of({
@@ -45,8 +45,8 @@ export const RunnerProblems = {
   egressInvalid(
     error:
       | EgressKeyFixedError
-      | EgressTokenTakenError
-      | EgressTokenSpentError
+      | EgressTokenInUseError
+      | EgressTokenAlreadyUsedError
       | InvalidEgressError,
   ): ConfigurationProblem {
     return ConfigurationProblem.of({

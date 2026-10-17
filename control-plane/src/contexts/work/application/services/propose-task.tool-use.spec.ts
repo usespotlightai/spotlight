@@ -62,7 +62,7 @@ const using = () => {
     body: ChatMessageBody.of('Plan the retries.'),
     now: NOW,
     newId: () => 'chat_1',
-  }).handedTo(RunId.of('run_1'), NOW);
+  }).assignRun(RunId.of('run_1'), NOW);
   chat.pullEvents();
 
   const dispatch = vi.fn(async (_events: readonly unknown[]) => undefined);

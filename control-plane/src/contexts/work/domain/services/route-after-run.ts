@@ -7,7 +7,7 @@ import type { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
 export type RunRouting =
   | { readonly kind: 'finish'; readonly line: Line }
   | { readonly kind: 'ask'; readonly failure: TaskFailure | null }
-  | { readonly kind: 'let-go'; readonly failure: TaskFailure | null }
+  | { readonly kind: 'detach'; readonly failure: TaskFailure | null }
   | {
       readonly kind: 'advance';
       readonly to: Station;
@@ -48,7 +48,7 @@ export const routeAfterRun = (
   }
 
   if (task.awaitingReview) {
-    return { kind: 'let-go', failure: failureOf(handover) };
+    return { kind: 'detach', failure: failureOf(handover) };
   }
 
   if (handover.kind === 'done' && line) {

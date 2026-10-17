@@ -28,7 +28,7 @@ export interface RunRepository {
 
   findById(id: RunId): Promise<Run | null>;
 
-  lapsedClaims(now: Date): Promise<readonly Run[]>;
+  expiredLeases(now: Date): Promise<readonly Run[]>;
 
   claimedBy(runner: RunnerId): Promise<readonly Run[]>;
 
@@ -44,7 +44,7 @@ export interface RunRepository {
     },
   ): Promise<readonly Run[]>;
 
-  withLapsedReservations(now: Date): Promise<readonly Run[]>;
+  withExpiredReservations(now: Date): Promise<readonly Run[]>;
 
   save(run: Run): Promise<void>;
 }

@@ -17,18 +17,18 @@ import {
 } from '@work/domain/entities/task-note.entity';
 import { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
 import { PullRequestReviewTaken } from '@work/domain/events/pull-request-review-taken.event';
+import { RunDetached } from '@work/domain/events/run-detached.event';
 import { TaskActedOn } from '@work/domain/events/task-acted-on.event';
 import { TaskAnswered } from '@work/domain/events/task-answered.event';
 import { TaskAsked } from '@work/domain/events/task-asked.event';
 import { TaskDeleted } from '@work/domain/events/task-deleted.event';
+import { TaskDispatched } from '@work/domain/events/task-dispatched.event';
 import { TaskFailed } from '@work/domain/events/task-failed.event';
 import { TaskFinished } from '@work/domain/events/task-finished.event';
-import { TaskHandedOn } from '@work/domain/events/task-handed-on.event';
-import { TaskHandedToRun } from '@work/domain/events/task-handed-to-run.event';
-import { TaskLetGoOfRun } from '@work/domain/events/task-let-go-of-run.event';
 import { TaskMarkTaken } from '@work/domain/events/task-mark-taken.event';
 import { TaskMoved } from '@work/domain/events/task-moved.event';
 import { TaskOpened } from '@work/domain/events/task-opened.event';
+import { TaskPassed } from '@work/domain/events/task-passed.event';
 import { InvalidApprovalAnswerError } from '@work/domain/exceptions/invalid-approval-answer.error';
 import { InvalidTaskTransitionError } from '@work/domain/exceptions/invalid-task-transition.error';
 import { MoveDeniedError } from '@work/domain/exceptions/move-denied.error';
@@ -296,7 +296,7 @@ export class Task extends EventRecorder {
     this.assertHandMoveAllowed(line, to);
 
     const into = Task.stationOn(line, to);
-    const moved = this.relocated(line, to, rank, saying, handMove).lettingGoOf(
+    const moved = this.relocated(line, to, rank, saying, handMove).detachRun(
       this.currentRunId,
     );
 
@@ -404,7 +404,7 @@ export class Task extends EventRecorder {
     );
 
     moved.record(
-      new TaskHandedOn(
+      new TaskPassed(
         this.id,
         this.workspaceId,
         by,
@@ -468,7 +468,7 @@ export class Task extends EventRecorder {
       finishedAt: into.isCompleted ? saying.at : null,
       ...(takesOwnership ? { assignee: handMove.mover } : {}),
       revision: this.revision.next(),
-    }).handedOnAt(saying.at);
+    }).deliverNotesAt(saying.at);
 
     moved.record(
       new TaskMoved(moved.id, moved.workspaceId, from.key, into.key, saying.at),
@@ -702,7 +702,7 @@ export class Task extends EventRecorder {
     const passed = this.relocated(line, into.id, rank, saying, null);
 
     passed.record(
-      new TaskHandedOn(
+      new TaskPassed(
         this.id,
         this.workspaceId,
         by,
@@ -729,7 +729,7 @@ export class Task extends EventRecorder {
       ...this.spoke(saying, 'passed'),
       finishedAt: saying.at,
       revision: this.revision.next(),
-    }).handedOnAt(saying.at);
+    }).deliverNotesAt(saying.at);
 
     finished.record(
       new TaskFinished(
@@ -743,7 +743,7 @@ export class Task extends EventRecorder {
     return finished;
   }
 
-  handedTo(runId: RunId, line: Line): Task {
+  assignRun(runId: RunId, line: Line): Task {
     if (this.currentRunId) {
       throw new InvalidTaskTransitionError(
         `Task ${this.id.value} is already being worked by a run.`,
@@ -756,11 +756,11 @@ export class Task extends EventRecorder {
       );
     }
 
-    const handed = this.with({ currentRunId: runId });
+    const assigned = this.with({ currentRunId: runId });
 
-    handed.record(new TaskHandedToRun(this.id, this.workspaceId, runId));
+    assigned.record(new TaskDispatched(this.id, this.workspaceId, runId));
 
-    return handed;
+    return assigned;
   }
 
   wantsRun(line: Line): boolean {
@@ -773,11 +773,11 @@ export class Task extends EventRecorder {
 
   leaveRun(runId: RunId, at: Date): Task {
     return this.hasCurrentRun(runId)
-      ? this.with({ currentRunId: null }).handedOnAt(at)
+      ? this.with({ currentRunId: null }).deliverNotesAt(at)
       : this;
   }
 
-  private handedOnAt(at: Date): Task {
+  private deliverNotesAt(at: Date): Task {
     return this.notes.length === 0
       ? this
       : this.markDeliveredUpTo(NotePosition.of(this.notes.length - 1), at);
@@ -976,7 +976,9 @@ export class Task extends EventRecorder {
       ...this.spoke(saying, 'asked'),
     });
     const asked =
-      waiting === null && this.running ? spoken.handedOnAt(saying.at) : spoken;
+      waiting === null && this.running
+        ? spoken.deliverNotesAt(saying.at)
+        : spoken;
 
     asked.record(
       new TaskAsked(
@@ -1033,7 +1035,7 @@ export class Task extends EventRecorder {
           },
           null,
         )
-        .lettingGoOf(this.currentRunId);
+        .detachRun(this.currentRunId);
     }
 
     const free = by ? this : this.stopped(saying.at);
@@ -1093,8 +1095,8 @@ export class Task extends EventRecorder {
   private stopped(at: Date): Task {
     return this.running
       ? this.with({ currentRunId: null })
-          .handedOnAt(at)
-          .lettingGoOf(this.currentRunId)
+          .deliverNotesAt(at)
+          .detachRun(this.currentRunId)
       : this;
   }
 
@@ -1276,7 +1278,7 @@ export class Task extends EventRecorder {
         'answered',
       ),
     );
-    const answered = spoken.running ? spoken : spoken.handedOnAt(saying.at);
+    const answered = spoken.running ? spoken : spoken.deliverNotesAt(saying.at);
 
     if (this.currentRunId) {
       answered.record(
@@ -1331,9 +1333,9 @@ export class Task extends EventRecorder {
     });
   }
 
-  private lettingGoOf(runId: RunId | null): Task {
+  private detachRun(runId: RunId | null): Task {
     if (runId) {
-      this.record(new TaskLetGoOfRun(this.id, this.workspaceId, runId));
+      this.record(new RunDetached(this.id, this.workspaceId, runId));
     }
 
     return this;
@@ -1441,9 +1443,7 @@ export class Task extends EventRecorder {
   }
 
   deleted(): Task {
-    const gone = this.with({ currentRunId: null }).lettingGoOf(
-      this.currentRunId,
-    );
+    const gone = this.with({ currentRunId: null }).detachRun(this.currentRunId);
 
     gone.record(new TaskDeleted(this.id, this.workspaceId));
 

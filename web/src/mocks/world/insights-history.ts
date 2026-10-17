@@ -209,7 +209,7 @@ const callsOf = (draw: Draw, profile: Profile): ServerCalls[] =>
     });
 
 type Outcome =
-  | { readonly kind: 'hand-on'; readonly to: string }
+  | { readonly kind: 'pass'; readonly to: string }
   | { readonly kind: 'ask'; readonly to: string | null };
 
 type Ran = {
@@ -288,7 +288,7 @@ const makeRun = (
             at: new Date(answeredAt).toISOString(),
           }
         : null,
-    handedOn:
+    passed:
       onward && outcome.to
         ? {
             to: outcome.to,
@@ -439,7 +439,7 @@ const tasksThatDay = (draw: Draw, line: LineShape, back: number): number => {
 const deliverySteps: readonly Step[] = [
   {
     stationId: 'station_triage',
-    outcome: { kind: 'hand-on', to: 'station_spec' },
+    outcome: { kind: 'pass', to: 'station_spec' },
   },
   {
     stationId: 'station_spec',
@@ -809,7 +809,7 @@ const worldRuns = (
           answeredAt === null
             ? null
             : { act: 'closed', at: new Date(answeredAt).toISOString() },
-        handedOn:
+        passed:
           each.state === 'completed' && later?.station
             ? { to: later.station.id, at: later.startedAt }
             : null,
@@ -879,8 +879,8 @@ const namedRunOf = (
         : past.shape === 'sent-back'
           ? { act: 'sent-back', at: later(1.5) }
           : null,
-    handedOn:
-      past.shape === 'accepted' || past.shape === 'handed'
+    passed:
+      past.shape === 'accepted' || past.shape === 'passed'
         ? {
             to: 'station_review',
             at: reviewAt(past.shape === 'accepted' ? 0.6 : 0.4),
@@ -923,7 +923,7 @@ const namedHistory = (): History => {
         ...runs.map((run) => Date.parse(run.startedAt ?? '')),
       );
       const shipped = runs.find((run) => run.next?.act === 'closed');
-      const delivered = runs.some((run) => run.handedOn || run.next);
+      const delivered = runs.some((run) => run.passed || run.next);
       const pullRequest: PullRequestRecord | null = delivered
         ? {
             repository: 'acme/api',

@@ -431,7 +431,7 @@ describe('compileLine', () => {
     });
   });
 
-  it('places a problem with how a station hands on at that station', () => {
+  it('places a problem with how a station passes on at that station', () => {
     expect(
       problemsOf(
         withStation(0, {

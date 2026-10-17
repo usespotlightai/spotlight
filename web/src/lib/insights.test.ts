@@ -506,7 +506,7 @@ describe('pages of runs', () => {
 const teamTally = (over: Partial<RunTallyResponseDto>): RunTallyResponseDto =>
   ({
     runs: 10,
-    withdrawn: 0,
+    cancelled: 0,
     failed: 2,
     failedShare: 0.2,
     stopped: 0,
@@ -514,7 +514,7 @@ const teamTally = (over: Partial<RunTallyResponseDto>): RunTallyResponseDto =>
     checksFailed: 0,
     accepted: 4,
     sentBack: 0,
-    handedOn: 0,
+    passed: 0,
     merged: 0,
     cost: { amount: 5, currency: 'USD' },
     unpriced: 0,

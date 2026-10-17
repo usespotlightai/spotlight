@@ -48,7 +48,7 @@ export class HostImageResponseDto {
     example: true,
     description: 'Runs every line that names no image',
   })
-  readonly usual: boolean;
+  readonly isDefault: boolean;
 
   @ApiProperty({
     type: String,
@@ -72,7 +72,7 @@ export class HostImageResponseDto {
   constructor(fields: HostImageResponseDto) {
     this.image = fields.image;
     this.digest = fields.digest;
-    this.usual = fields.usual;
+    this.isDefault = fields.isDefault;
     this.release = fields.release;
     this.harnesses = fields.harnesses.map(
       (each) => new HostHarnessResponseDto(each),
@@ -95,7 +95,7 @@ export class HostResponseDto {
   readonly release: string;
 
   @ApiProperty({ example: 'Docker Engine - Community 27.3.1 (linux/amd64)' })
-  readonly executor: string;
+  readonly containerRuntime: string;
 
   @ApiProperty({
     example: 4,
@@ -118,37 +118,37 @@ export class HostResponseDto {
   readonly images: readonly HostImageResponseDto[];
 
   @ApiProperty({ example: '2026-09-25T11:00:00.000Z' })
-  readonly firstSeenAt: string;
+  readonly firstHeartbeatAt: string;
 
   @ApiProperty({
     example: '2026-09-25T11:30:00.000Z',
     description:
-      'When it last came up: started, or answered again after going quiet',
+      'When it last came online: it started, or sent a heartbeat again after it was offline',
   })
-  readonly upSince: string;
+  readonly onlineSince: string;
 
   @ApiProperty({ example: '2026-09-25T12:00:00.000Z' })
-  readonly lastSeenAt: string;
+  readonly lastHeartbeatAt: string;
 
   @ApiProperty({
     example: true,
-    description: 'Heard from recently enough to be counted on',
+    description: 'It sent a heartbeat recently enough to count as online',
   })
-  readonly answering: boolean;
+  readonly online: boolean;
 
   constructor(fields: Omit<HostResponseDto, never>) {
     this.id = fields.id;
     this.name = fields.name;
     this.through = fields.through;
     this.release = fields.release;
-    this.executor = fields.executor;
+    this.containerRuntime = fields.containerRuntime;
     this.capacity = fields.capacity;
     this.running = fields.running;
     this.images = fields.images.map((each) => new HostImageResponseDto(each));
-    this.firstSeenAt = fields.firstSeenAt;
-    this.upSince = fields.upSince;
-    this.lastSeenAt = fields.lastSeenAt;
-    this.answering = fields.answering;
+    this.firstHeartbeatAt = fields.firstHeartbeatAt;
+    this.onlineSince = fields.onlineSince;
+    this.lastHeartbeatAt = fields.lastHeartbeatAt;
+    this.online = fields.online;
   }
 }
 
@@ -187,7 +187,7 @@ export class LiveRunnerResponseDto {
     nullable: true,
     example: '2026-09-25T11:05:00.000Z',
   })
-  readonly lastSeenAt: string | null;
+  readonly lastHeartbeatAt: string | null;
 
   constructor(fields: Omit<LiveRunnerResponseDto, never>) {
     this.id = fields.id;
@@ -196,7 +196,7 @@ export class LiveRunnerResponseDto {
     this.image = fields.image;
     this.harnesses = fields.harnesses;
     this.startedAt = fields.startedAt;
-    this.lastSeenAt = fields.lastSeenAt;
+    this.lastHeartbeatAt = fields.lastHeartbeatAt;
   }
 }
 

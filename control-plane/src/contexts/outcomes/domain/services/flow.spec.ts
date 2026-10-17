@@ -46,7 +46,7 @@ describe('flowFrom the counts of flowCountsOf', () => {
           queuedAt: at(11),
           startedAt: null,
           endedAt: at(11, 1),
-          ending: 'withdrawn',
+          ending: 'cancelled',
         }),
       ],
     });

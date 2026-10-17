@@ -88,9 +88,9 @@ beforeEach(() => {
   mockSettingUp.mockReturnValue(false);
   refetch.mockClear();
   hosts.mockReturnValue([
-    { id: 'h1', name: 'one', answering: true },
-    { id: 'h2', name: 'two', answering: true },
-    { id: 'h3', name: 'three', answering: false },
+    { id: 'h1', name: 'one', online: true },
+    { id: 'h2', name: 'two', online: true },
+    { id: 'h3', name: 'three', online: false },
   ]);
 });
 
@@ -153,24 +153,24 @@ describe('Workspace', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('flags the settings when no host is answering', () => {
+  it('flags the settings when no host is online', () => {
     loaded(acme);
-    hosts.mockReturnValue([{ id: 'h1', name: 'one', answering: false }]);
+    hosts.mockReturnValue([{ id: 'h1', name: 'one', online: false }]);
 
     renderAt('acme-inc');
 
     expect(
-      screen.getByRole('img', { name: 'No host is answering' }),
+      screen.getByRole('img', { name: 'No host is online' }),
     ).toBeInTheDocument();
   });
 
-  it('leaves the settings unflagged while a host still answers', () => {
+  it('leaves the settings unflagged while a host is online', () => {
     loaded(acme);
 
     renderAt('acme-inc');
 
     expect(
-      screen.queryByRole('img', { name: 'No host is answering' }),
+      screen.queryByRole('img', { name: 'No host is online' }),
     ).not.toBeInTheDocument();
   });
 

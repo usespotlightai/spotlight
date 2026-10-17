@@ -88,7 +88,7 @@ describe('what a leased run has yet to be told', () => {
     expect(pending?.map((each) => each.body)).toEqual(['Pin it to a version.']);
   });
 
-  it('keeps what was said from a run the task has let go of', async () => {
+  it('keeps what was said from a run the task has detached', async () => {
     const { taskId, runId } = await taskRun();
 
     await db

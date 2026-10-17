@@ -495,9 +495,9 @@ const COUNTED = [
   'checksFailed',
   'accepted',
   'sentBack',
-  'handedOn',
+  'passed',
   'merged',
-  'withdrawn',
+  'cancelled',
 ] as const;
 
 export const stationsOf = (

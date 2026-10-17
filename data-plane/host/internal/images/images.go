@@ -8,8 +8,8 @@ import (
 )
 
 type Wanted struct {
-	Image string
-	Usual bool
+	Image     string
+	IsDefault bool
 }
 
 type Allowed struct {
@@ -54,7 +54,7 @@ func (a Allowed) Admits(image string) bool {
 }
 
 func (a Allowed) Wanted(named []string) []Wanted {
-	wanted := []Wanted{{Image: a.Default, Usual: true}}
+	wanted := []Wanted{{Image: a.Default, IsDefault: true}}
 
 	for _, image := range named {
 		if image == a.Default || !a.Admits(image) {

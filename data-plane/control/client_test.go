@@ -438,7 +438,7 @@ func TestAskPermissionPostsWhatWasAskedAndReadsTheDecision(t *testing.T) {
 	if carried != want {
 		t.Errorf("carried %s, want %s", carried, want)
 	}
-	if answer.Decision != protocol.PermissionPutToPerson {
+	if answer.Decision != protocol.PermissionEscalated {
 		t.Errorf("decision %q", answer.Decision)
 	}
 }
@@ -582,12 +582,12 @@ func TestSaysWhyTheWorkspaceCannotBeKept(t *testing.T) {
 func TestARejectionCarriesTheReasonTheControlPlaneGave(t *testing.T) {
 	client := serve(t, func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusConflict)
-		_, _ = w.Write([]byte(`{"reason":"host-taken","message":"serving elsewhere"}`))
+		_, _ = w.Write([]byte(`{"reason":"host-in-use","message":"serving elsewhere"}`))
 	})
 
 	_, err := client.Request(context.Background(), http.MethodPut, "/api/hosts/x", nil, nil)
 
-	if !control.HasReason(err, "host-taken") || control.HasReason(err, "host-unreported") {
+	if !control.HasReason(err, "host-in-use") || control.HasReason(err, "host-unreported") {
 		t.Fatalf("got %v", err)
 	}
 	if errors.Is(err, control.ErrUnauthorized) {
@@ -622,7 +622,7 @@ func TestClaimCallNamesTheHostAndTakesTheCall(t *testing.T) {
 		t.Errorf("asked %s with %q for %+v", path, auth, asked)
 	}
 	if call.ID != "call_1" || call.URL != "https://audit.acme.internal/" || call.TimeoutMs != 10000 {
-		t.Errorf("took %+v", call)
+		t.Errorf("claimed %+v", call)
 	}
 }
 
@@ -680,7 +680,7 @@ func TestClaimCallRejectsACallWithNoAddress(t *testing.T) {
 	})
 
 	if _, err := client.ClaimCall(context.Background(), "host_1"); err == nil {
-		t.Fatal("took a call with nowhere to send it")
+		t.Fatal("claimed a call with nowhere to send it")
 	}
 }
 
@@ -825,33 +825,33 @@ func TestCompleteHearsThatTheRunEnded(t *testing.T) {
 	}
 }
 
-func TestParkHearsWhetherTheRunWasLetGo(t *testing.T) {
+func TestSuspendHearsWhetherTheRunWasSuspended(t *testing.T) {
 	for _, answer := range []bool{true, false} {
 		var asked string
 		client := serve(t, func(w http.ResponseWriter, r *http.Request) {
 			asked = r.Method + " " + r.URL.Path
-			_ = json.NewEncoder(w).Encode(protocol.Parking{Parked: answer})
+			_ = json.NewEncoder(w).Encode(protocol.Suspension{Suspended: answer})
 		})
 
-		parking, err := client.Park(context.Background(), "run_1", false)
+		suspension, err := client.Suspend(context.Background(), "run_1", false)
 		if err != nil {
-			t.Fatalf("park: %v", err)
+			t.Fatalf("suspend: %v", err)
 		}
-		if parking.Parked != answer {
-			t.Errorf("the control plane said parked %t, the runner heard %t", answer, parking.Parked)
+		if suspension.Suspended != answer {
+			t.Errorf("the control plane said suspended %t, the runner heard %t", answer, suspension.Suspended)
 		}
-		if asked != "POST /api/runs/run_1/parked" {
+		if asked != "POST /api/runs/run_1/suspended" {
 			t.Errorf("asked %q", asked)
 		}
 	}
 }
 
-func TestParkSaysWhyItCouldNotPark(t *testing.T) {
+func TestSuspendSaysWhyItCouldNotSuspend(t *testing.T) {
 	client := serve(t, func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "run is not waiting", http.StatusConflict)
 	})
 
-	if _, err := client.Park(context.Background(), "run_1", false); err == nil || !strings.Contains(err.Error(), "409") {
+	if _, err := client.Suspend(context.Background(), "run_1", false); err == nil || !strings.Contains(err.Error(), "409") {
 		t.Fatalf("got %v", err)
 	}
 }
@@ -881,18 +881,18 @@ func TestAsksHearsWhetherTheTurnWouldWaitForAPerson(t *testing.T) {
 	}
 }
 
-func TestParkColdAsksForTheRunToGoBackOnTheQueue(t *testing.T) {
-	var sent protocol.ParkRequest
+func TestSuspendWithRequeueAsksForTheRunToGoBackOnTheQueue(t *testing.T) {
+	var sent protocol.SuspendRequest
 	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewDecoder(r.Body).Decode(&sent)
-		_ = json.NewEncoder(w).Encode(protocol.Parking{Parked: true})
+		_ = json.NewEncoder(w).Encode(protocol.Suspension{Suspended: true})
 	})
 
-	if _, err := client.Park(context.Background(), "run_1", true); err != nil {
-		t.Fatalf("park: %v", err)
+	if _, err := client.Suspend(context.Background(), "run_1", true); err != nil {
+		t.Fatalf("suspend: %v", err)
 	}
-	if !sent.Cold {
-		t.Errorf("asked to park %+v", sent)
+	if !sent.Requeue {
+		t.Errorf("asked to suspend %+v", sent)
 	}
 }
 

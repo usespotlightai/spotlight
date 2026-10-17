@@ -24,7 +24,7 @@ const setup = (over: Partial<SetupOutcome>): SetupOutcome =>
     outcomes: {
       accepted: 0.5,
       sent_back: 0.2,
-      handed_on: null,
+      passed: null,
       checks_passed: null,
       merged: null,
       judge: null,

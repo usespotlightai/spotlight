@@ -19,13 +19,13 @@ export interface NetworkAnswer {
 export type NetworkCallState =
   | { readonly kind: 'waiting' }
   | { readonly kind: 'answered'; readonly answer: NetworkAnswer }
-  | { readonly kind: 'lapsed' };
+  | { readonly kind: 'expired' };
 
 export interface NetworkCallsPort {
   queue(
     workspaceId: string,
     request: NetworkRequest,
-    lapsesAt: Date,
+    expiresAt: Date,
   ): Promise<string>;
 
   stateOf(callId: string): Promise<NetworkCallState>;

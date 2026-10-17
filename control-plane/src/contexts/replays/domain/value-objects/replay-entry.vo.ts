@@ -457,7 +457,7 @@ export class ReplayEntry {
     return this.with({ queueAttempts: this.state.queueAttempts + 1 });
   }
 
-  get isGivenUp(): boolean {
+  get isExhausted(): boolean {
     return (
       this.occupiesARunner &&
       !this.state.queued &&
@@ -465,11 +465,11 @@ export class ReplayEntry {
     );
   }
 
-  gaveUp(): ReplayEntry {
-    return this.isGivenUp ? this.unreplayable('dispatch-failed') : this;
+  exhaust(): ReplayEntry {
+    return this.isExhausted ? this.unreplayable('dispatch-failed') : this;
   }
 
-  forgone(): ReplayEntry {
+  cancelled(): ReplayEntry {
     return this.state.run !== null && !this.state.queued && !this.hasEnded
       ? this.with({ notRun: true })
       : this;

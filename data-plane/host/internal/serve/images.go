@@ -18,9 +18,9 @@ import (
 const notAdmitted = "The host's SPOTLIGHT_RUNNER_IMAGE doesn't admit this image."
 
 type served struct {
-	image string
-	usual bool
-	stop  context.CancelFunc
+	image     string
+	isDefault bool
+	stop      context.CancelFunc
 
 	examining sync.Mutex
 
@@ -34,7 +34,7 @@ type served struct {
 
 type examined struct {
 	image             string
-	usual             bool
+	isDefault         bool
 	id                string
 	digest            string
 	release           string
@@ -73,7 +73,7 @@ func (h *Host) refresh(ctx, claiming, serving context.Context, stop func(error))
 			}
 			continue
 		}
-		each := &served{image: want.Image, usual: want.Usual}
+		each := &served{image: want.Image, isDefault: want.IsDefault}
 		h.served[want.Image] = each
 		fresh = append(fresh, each)
 	}
@@ -95,7 +95,7 @@ func (h *Host) refresh(ctx, claiming, serving context.Context, stop func(error))
 			h.log.Warn("could not get the runner image", "image", each.image, "error", err)
 		}
 
-		if _, err := h.pool.Present(ctx, h.presence()); err != nil {
+		if _, err := h.pool.Heartbeat(ctx, h.heartbeat()); err != nil {
 			h.log.Warn("could not report what it serves", "error", err)
 		}
 
@@ -105,7 +105,7 @@ func (h *Host) refresh(ctx, claiming, serving context.Context, stop func(error))
 	}
 
 	if len(fresh)+len(stale) == 0 {
-		if _, err := h.pool.Present(ctx, h.presence()); err != nil {
+		if _, err := h.pool.Heartbeat(ctx, h.heartbeat()); err != nil {
 			h.log.Warn("could not report what it serves", "error", err)
 		}
 	}
@@ -192,7 +192,7 @@ func (h *Host) snapshot(each *served) examined {
 func examinedOf(each *served) examined {
 	return examined{
 		image:             each.image,
-		usual:             each.usual,
+		isDefault:         each.isDefault,
 		id:                each.id,
 		digest:            each.digest,
 		release:           each.release,
@@ -301,7 +301,7 @@ func (h *Host) reportedImages() []protocol.HostImage {
 		reported = append(reported, protocol.HostImage{
 			Image:             each.image,
 			Digest:            each.digest,
-			Usual:             each.usual,
+			IsDefault:         each.isDefault,
 			Release:           each.release,
 			Harnesses:         slices.Clone(each.harnesses),
 			UnavailableReason: each.unavailableReason,
@@ -312,8 +312,8 @@ func (h *Host) reportedImages() []protocol.HostImage {
 	}
 
 	slices.SortFunc(reported, func(a, b protocol.HostImage) int {
-		if a.Usual != b.Usual {
-			if a.Usual {
+		if a.IsDefault != b.IsDefault {
+			if a.IsDefault {
 				return -1
 			}
 			return 1

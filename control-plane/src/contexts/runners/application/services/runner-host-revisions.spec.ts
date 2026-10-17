@@ -15,13 +15,13 @@ const reported = (host: ReturnType<typeof aHost>) =>
   host.reportThrough({
     admission: host.admission,
     workspaceId: host.workspaceId,
-    session: host.session,
+    bootId: host.bootId,
     report: aHostReport(['runner_1']),
     at: LATER,
   });
 
 describe('reviseHost', () => {
-  it('adds a host it has never seen', async () => {
+  it('adds a host it does not know yet', async () => {
     const { stored, hosts } = storedHosts();
 
     await reviseHost(hosts, HOST_ID, (known) => known ?? aHost());
@@ -38,7 +38,7 @@ describe('reviseHost', () => {
 
     expect(hosts.save).toHaveBeenCalledTimes(1);
     expect(stored.get(HOST_ID.value)?.version).toBe(1);
-    expect(stored.get(HOST_ID.value)?.lastSeenAt).toEqual(LATER);
+    expect(stored.get(HOST_ID.value)?.lastHeartbeatAt).toEqual(LATER);
   });
 
   it('writes nothing when a report leaves the host as it was', async () => {
@@ -65,11 +65,11 @@ describe('reviseHost', () => {
     });
 
     expect(seen).toEqual([null, 0]);
-    expect(revised.lastSeenAt).toEqual(LATER);
+    expect(revised.lastHeartbeatAt).toEqual(LATER);
     expect(stored.get(HOST_ID.value)?.version).toBe(1);
   });
 
-  it('gives up after three tries, answering that the host changed', async () => {
+  it('stops after three tries, and reports that the host changed', async () => {
     const { hosts } = storedHosts(aHost());
 
     hosts.save.mockImplementation(async (host) => {

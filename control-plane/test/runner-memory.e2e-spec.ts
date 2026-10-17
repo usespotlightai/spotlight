@@ -111,14 +111,18 @@ const claimed = async (): Promise<string> => {
     .put(`/api/hosts/${HOST}`)
     .set('Authorization', `Bearer ${POOL_TOKEN}`)
     .send({
-      session: 'session_1',
+      bootId: 'boot_1',
       name: 'build-box',
       release: '0.1.0',
-      executor: 'docker',
+      containerRuntime: 'docker',
       capacity: 1,
       running: [],
       images: [
-        { image: IMAGE, usual: true, harnesses: [{ id: 'dev', models: [] }] },
+        {
+          image: IMAGE,
+          isDefault: true,
+          harnesses: [{ id: 'dev', models: [] }],
+        },
       ],
     })
     .expect(200);
@@ -233,7 +237,7 @@ describe('recalling what the team remembers from inside a run', () => {
       body: 'Uploads retry in the request, never from a queue.',
     });
     const retired = await writing(team.teamId.value, team.owner.value, {
-      body: 'Uploads retry twice before giving up.',
+      body: 'Uploads retry twice before they fail.',
     });
     await http()
       .post(`/api/teams/${team.teamId.value}/memories/${retired.id}/retire`)

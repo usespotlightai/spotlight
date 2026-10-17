@@ -323,7 +323,7 @@ describe('a search for a better station config, when it stalls or loses its stat
     expect(await replayEnded(seedReplayId)).not.toBe('running');
   }, 120_000);
 
-  it('is abandoned with its team, withdrawing its active agent run', async () => {
+  it('is abandoned with its team, cancelling its active agent run', async () => {
     const setId = await openSet('Disbanded', fiveTasks);
     const { id, seedReplayId } = await startSearch(setId, {
       iterations: 2,

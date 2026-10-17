@@ -20,7 +20,7 @@ const dto: TaskDto = {
   note: {
     position: 0,
     station: 'Implementation',
-    body: 'Given up on after 3 attempts.',
+    body: 'The run did not finish after 3 attempts.',
   },
 };
 
@@ -43,7 +43,7 @@ describe('TaskHttpMapper', () => {
     expect(response.note).toEqual({
       position: 0,
       station: 'Implementation',
-      body: 'Given up on after 3 attempts.',
+      body: 'The run did not finish after 3 attempts.',
     });
   });
 

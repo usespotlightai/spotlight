@@ -8,7 +8,7 @@ import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo'
 const PRUNED_AT_ONCE = 100;
 
 export class MintedTokens {
-  readonly name = 'Letting go of tokens minted through a trust';
+  readonly name = 'Revoking and pruning tokens minted through a trust';
 
   constructor(
     private readonly tokens: WorkspaceTokenRepository,

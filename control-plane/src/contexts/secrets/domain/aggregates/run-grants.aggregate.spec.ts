@@ -151,7 +151,7 @@ describe('RunGrants', () => {
     expect(later.loseLease(FIRST)).toBe(later);
   });
 
-  it('lets every grant go once its run ends, and grants and fetches nothing after, whatever the lease', () => {
+  it('releases every grant once its run ends, and grants and fetches nothing after, whatever the lease', () => {
     const ended = begun()
       .grant(FIRST, [grant()])
       .recordFetch(FIRST, SIDECAR)

@@ -4,10 +4,10 @@ import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { RunLapsed } from '@work/domain/events/run-lapsed.event';
-import { RunParked } from '@work/domain/events/run-parked.event';
+import { RunCancelled } from '@work/domain/events/run-cancelled.event';
+import { RunLeaseExpired } from '@work/domain/events/run-lease-expired.event';
 import { RunReservationDropped } from '@work/domain/events/run-reservation-dropped.event';
-import { RunWithdrawn } from '@work/domain/events/run-withdrawn.event';
+import { RunSuspended } from '@work/domain/events/run-suspended.event';
 import { SetupPullRequestOpened } from '@work/domain/events/setup-pull-request-opened.event';
 import { TaskAnswered } from '@work/domain/events/task-answered.event';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
@@ -24,13 +24,13 @@ describe('workSubscribers', () => {
     );
 
     await ending?.handle(
-      new RunWithdrawn(RunId.of('run_1'), WorkspaceId.of('ws_1'), null, 2),
+      new RunCancelled(RunId.of('run_1'), WorkspaceId.of('ws_1'), null, 2),
     );
 
     expect(ending?.kinds).toEqual([
       'run.completed',
-      'run.abandoned',
-      'run.withdrawn',
+      'run.exhausted',
+      'run.cancelled',
     ]);
     expect(endedFor).toHaveBeenCalledWith({
       workspaceId: 'ws_1',
@@ -39,7 +39,7 @@ describe('workSubscribers', () => {
     });
   });
 
-  it('tells Secrets the lease of an attempt that lapsed is lost', async () => {
+  it('tells Secrets that the lease of an attempt is lost when it expires', async () => {
     const leaseLost = vi.fn(async () => undefined);
     const losing = workSubscribers({
       runGrants: { leaseLost: leaseLost },
@@ -50,7 +50,7 @@ describe('workSubscribers', () => {
     const workspace = WorkspaceId.of('ws_1');
 
     await losing?.handle(
-      new RunLapsed(
+      new RunLeaseExpired(
         run,
         workspace,
         RunnerId.of('runner_1'),
@@ -60,7 +60,7 @@ describe('workSubscribers', () => {
     );
 
     await losing?.handle(
-      new RunParked(
+      new RunSuspended(
         run,
         workspace,
         RunnerId.of('runner_1'),
@@ -69,14 +69,14 @@ describe('workSubscribers', () => {
       ),
     );
 
-    expect(losing?.kinds).toEqual(['run.lapsed', 'run.parked']);
+    expect(losing?.kinds).toEqual(['run.lease-expired', 'run.suspended']);
     expect(leaseLost.mock.calls).toEqual([
       [{ workspaceId: 'ws_1', runId: 'run_1', attempt: 1 }],
       [{ workspaceId: 'ws_1', runId: 'run_1', attempt: 2 }],
     ]);
   });
 
-  it('revokes every token minted for a run once it ends, and an attempt’s once it lapses or parks', async () => {
+  it('revokes every token minted for a run once it ends, and an attempt’s once its lease expires or the run is suspended', async () => {
     const revokeFor = vi.fn(async () => undefined);
     const subscribers = workSubscribers({
       runTokens: { revokeFor },
@@ -87,10 +87,10 @@ describe('workSubscribers', () => {
     const workspace = WorkspaceId.of('ws_1');
 
     await named('work.revoke-tokens-of-ended-run')?.handle(
-      new RunWithdrawn(run, workspace, null, 2),
+      new RunCancelled(run, workspace, null, 2),
     );
     await named('work.revoke-tokens-of-ended-attempt')?.handle(
-      new RunParked(
+      new RunSuspended(
         run,
         workspace,
         RunnerId.of('runner_1'),
@@ -101,12 +101,12 @@ describe('workSubscribers', () => {
 
     expect(named('work.revoke-tokens-of-ended-run')?.kinds).toEqual([
       'run.completed',
-      'run.abandoned',
-      'run.withdrawn',
+      'run.exhausted',
+      'run.cancelled',
     ]);
     expect(named('work.revoke-tokens-of-ended-attempt')?.kinds).toEqual([
-      'run.lapsed',
-      'run.parked',
+      'run.lease-expired',
+      'run.suspended',
     ]);
     expect(revokeFor.mock.calls).toEqual([
       ['ws_1', 'run_1', null],
@@ -136,7 +136,7 @@ describe('workSubscribers', () => {
     expect(forTeam).toHaveBeenCalledWith(TeamId.of('team_1'));
   });
 
-  it('tells Runners of the runner a run lapsed on, parked from, or no longer waits for', async () => {
+  it('tells Runners of the runner whose lease expired, the runner that suspended a run, and the runner a run no longer waits for', async () => {
     const runners = {
       runLeft: vi.fn(async () => {}),
       reservationDropped: vi.fn(async () => {}),
@@ -151,13 +151,13 @@ describe('workSubscribers', () => {
     const runner = RunnerId.of('runner_1');
     const at = new Date('2026-09-27T09:00:00.000Z');
 
-    await named('work.let-go-of-runner-that-left-its-run')?.handle(
-      new RunLapsed(run, workspace, runner, at, 1),
+    await named('work.release-runner-that-left-its-run')?.handle(
+      new RunLeaseExpired(run, workspace, runner, at, 1),
     );
-    await named('work.let-go-of-runner-that-left-its-run')?.handle(
-      new RunParked(run, workspace, RunnerId.of('runner_2'), at, 2),
+    await named('work.release-runner-that-left-its-run')?.handle(
+      new RunSuspended(run, workspace, RunnerId.of('runner_2'), at, 2),
     );
-    await named('work.let-go-of-reserved-runner')?.handle(
+    await named('work.release-reserved-runner')?.handle(
       new RunReservationDropped(run, workspace, runner),
     );
 

@@ -9,7 +9,6 @@ import {
   earliestBounds,
   type StretchBound,
 } from '@outcomes/domain/services/config-stretches';
-import { HandedOn } from '@outcomes/domain/value-objects/handed-on.vo';
 import {
   NEXT_ACTS,
   NextAct,
@@ -22,6 +21,7 @@ import { RunMemories } from '@outcomes/domain/value-objects/run-memories.vo';
 import { RunPlace } from '@outcomes/domain/value-objects/run-place.vo';
 import { RunSetup } from '@outcomes/domain/value-objects/run-setup.vo';
 import { RunTools } from '@outcomes/domain/value-objects/run-tools.vo';
+import { StationPass } from '@outcomes/domain/value-objects/station-pass.vo';
 import { DrizzleRunFactProjection } from '@outcomes/infrastructure/persistence/drizzle/projections/run-fact.projection';
 import {
   ranAConfig,
@@ -202,16 +202,16 @@ const memoriesOf = (row: RecordRow): RunMemories =>
     recalled: row.memories.recalled,
   });
 
-const handedOnOf = (row: RecordRow): HandedOn | null => {
-  if ((row.handedOnTo === null) !== (row.handedOnAt === null)) {
+const passOf = (row: RecordRow): StationPass | null => {
+  if ((row.passedTo === null) !== (row.passedAt === null)) {
     throw new InconsistentStateError(
       'run record',
-      'was handed on without saying where or when',
+      'was passed on without saying where or when',
     );
   }
 
-  return row.handedOnTo && row.handedOnAt
-    ? HandedOn.of(row.handedOnTo, row.handedOnAt)
+  return row.passedTo && row.passedAt
+    ? StationPass.of(row.passedTo, row.passedAt)
     : null;
 };
 
@@ -227,7 +227,7 @@ const toRecord = (row: RecordRow): RunRecord =>
     next: nextOf(row),
     approvalAnsweredAt: row.approvalAnsweredAt,
     cost: costOf(row),
-    handedOn: handedOnOf(row),
+    passed: passOf(row),
     tools: toolsOf(row),
     refusals: refusalsOf(row),
     memories: memoriesOf(row),
@@ -262,8 +262,8 @@ const columnsOf = (record: RunRecord) => {
     nextAct: nextActColumnOf(record.next),
     nextAt: record.next?.at ?? null,
     approvalAnsweredAt: record.approvalAnsweredAt,
-    handedOnTo: record.handedOn?.to ?? null,
-    handedOnAt: record.handedOn?.at ?? null,
+    passedTo: record.passed?.to ?? null,
+    passedAt: record.passed?.at ?? null,
     digested: record.cost !== null,
     ms: record.cost?.ms ?? null,
     steps: record.cost?.steps ?? null,
@@ -450,7 +450,7 @@ export class DrizzleRunRecordRepository implements RunRecordRepository {
         and(
           eq(runRecord.taskId, taskId.value),
           eq(runRecord.stationId, stationId),
-          ne(runRecord.ending, 'withdrawn'),
+          ne(runRecord.ending, 'cancelled'),
           lte(runRecord.endedAt, by),
         ),
       )

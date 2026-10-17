@@ -36,7 +36,7 @@ describe('RunEnd', () => {
     expect(endOf({ startedAt: null }).runningMs).toBeNull();
   });
 
-  it('ran its config only once it started and unless it was withdrawn', () => {
+  it('ran its config only once it started and unless it was cancelled', () => {
     const started = new Date('2026-09-30T09:02:00.000Z');
 
     expect(endOf({ startedAt: started }).ranItsConfig).toBe(true);
@@ -47,7 +47,7 @@ describe('RunEnd', () => {
       false,
     );
     expect(
-      endOf({ startedAt: started, ending: 'withdrawn' }).ranItsConfig,
+      endOf({ startedAt: started, ending: 'cancelled' }).ranItsConfig,
     ).toBe(false);
   });
 });

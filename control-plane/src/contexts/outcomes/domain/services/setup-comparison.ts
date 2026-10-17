@@ -26,7 +26,7 @@ import type { Window } from '@outcomes/domain/value-objects/insights-period.vo';
 export const OUTCOME_MEASURES = [
   'accepted',
   'sent_back',
-  'handed_on',
+  'passed',
   'checks_passed',
   'merged',
   'judge',
@@ -146,7 +146,7 @@ export const setupCountsOf = (
           ...group.setup,
           counts: groupCountsOf(group.records, deliveries),
           answered: group.records.filter(
-            (each) => each.next !== null || each.handedOn !== null,
+            (each) => each.next !== null || each.passed !== null,
           ).length,
           rubrics: rubricsOf(group.records, byRun),
         }),
@@ -162,7 +162,7 @@ const outcomesOf = (
 ): Record<OutcomeMeasure, number | null> => ({
   accepted: rateOf(tally.accepted, counts.measured.acted),
   sent_back: rateOf(tally.sentBack, counts.measured.acted),
-  handed_on: rateOf(tally.handedOn, answered),
+  passed: rateOf(tally.passed, answered),
   checks_passed: rateOf(
     tally.checksPassed,
     tally.checksPassed + tally.checksFailed,

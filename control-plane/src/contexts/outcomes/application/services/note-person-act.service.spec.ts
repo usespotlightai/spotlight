@@ -137,10 +137,10 @@ describe('noting what a person did after a run', () => {
     expect(await noted.next('run_2')).toBeNull();
   });
 
-  it('gives no act to a run withdrawn before it ran', async () => {
+  it('gives no act to a run cancelled before it ran', async () => {
     const noted = await acting(
       ['run_1', 9],
-      ['run_2', 10, { ending: 'withdrawn' }],
+      ['run_2', 10, { ending: 'cancelled' }],
     );
 
     await noted.acted('closed', 11);

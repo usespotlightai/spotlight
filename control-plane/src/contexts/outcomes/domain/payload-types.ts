@@ -15,7 +15,6 @@ import { AlertId } from '@outcomes/domain/value-objects/alert-id.vo';
 import { AlertRule } from '@outcomes/domain/value-objects/alert-rule.vo';
 import { Citation } from '@outcomes/domain/value-objects/citation.vo';
 import { FailureOccurrence } from '@outcomes/domain/value-objects/failure-occurrence.vo';
-import { HandedOn } from '@outcomes/domain/value-objects/handed-on.vo';
 import { InboxAsk } from '@outcomes/domain/value-objects/inbox-ask.vo';
 import { InsightsPeriod } from '@outcomes/domain/value-objects/insights-period.vo';
 import { JudgeCriteria } from '@outcomes/domain/value-objects/judge-criteria.vo';
@@ -35,10 +34,11 @@ import { RunTools } from '@outcomes/domain/value-objects/run-tools.vo';
 import { ScoreId } from '@outcomes/domain/value-objects/score-id.vo';
 import { ScoreScale } from '@outcomes/domain/value-objects/score-scale.vo';
 import { SeenEvidence } from '@outcomes/domain/value-objects/seen-evidence.vo';
+import { StationPass } from '@outcomes/domain/value-objects/station-pass.vo';
 import { TaskOpening } from '@outcomes/domain/value-objects/task-opening.vo';
 export const OUTCOMES_PAYLOAD_TYPES = [
   FailureOccurrence,
-  HandedOn,
+  StationPass,
   InboxAsk,
   InsightsPeriod,
   PersonTouch,

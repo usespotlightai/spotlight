@@ -31,8 +31,8 @@ const aRun = (input: {
     hasEnded: false,
     replayOf: input.replayOf ? RunId.of(input.replayOf) : null,
     configuredAs: { fingerprint: 'f'.repeat(64) },
-    withdrawn: () => ({ ...run, state: 'withdrawn', hasEnded: true }),
-    letGo: () => ({ ...run, stopRequested: true }),
+    cancelQueued: () => ({ ...run, state: 'cancelled', hasEnded: true }),
+    cancel: () => ({ ...run, stopRequested: true }),
   };
 
   return run as unknown as Run;
@@ -129,37 +129,37 @@ describe('ReplayRuns', () => {
       unreplayableReason: 'unknown-run',
     });
     expect(claims.get(REPLAY)?.claimedAs).toBe('unreplayable');
-    expect(await replayRuns().forgo(REPLAY, false)).toEqual({
+    expect(await replayRuns().cancel(REPLAY, false)).toEqual({
       outcome: 'never-queued',
     });
     expect(enqueued).toEqual([]);
   });
 
-  it('leaves a tombstone when it forgoes a run never queued, so a later queueing of it is unreplayable', async () => {
-    expect(await replayRuns().forgo(REPLAY, false)).toEqual({
+  it('leaves a tombstone when it cancels a run never queued, so a later queueing of it is unreplayable', async () => {
+    expect(await replayRuns().cancel(REPLAY, false)).toEqual({
       outcome: 'never-queued',
     });
     expect(await replayRuns().enqueue(order())).toMatchObject({
       outcome: 'unreplayable',
-      unreplayableReason: 'forgone',
+      unreplayableReason: 'cancelled',
     });
     expect(enqueued).toEqual([]);
   });
 
-  it('stops a queued run it forgoes, saying it was queued and under which fingerprint', async () => {
+  it('stops a queued run it cancels, saying it was queued and under which fingerprint', async () => {
     await replayRuns().enqueue(order());
 
-    expect(await replayRuns().forgo(REPLAY, false)).toEqual({
+    expect(await replayRuns().cancel(REPLAY, false)).toEqual({
       outcome: 'queued',
       fingerprint: 'f'.repeat(64),
     });
-    expect(saved).toEqual([`${REPLAY}:withdrawn`]);
+    expect(saved).toEqual([`${REPLAY}:cancelled`]);
   });
 
   it('keeps a queued run it is asked to keep, only saying it was queued', async () => {
     await replayRuns().enqueue(order());
 
-    expect(await replayRuns().forgo(REPLAY, true)).toMatchObject({
+    expect(await replayRuns().cancel(REPLAY, true)).toMatchObject({
       outcome: 'queued',
     });
     expect(saved).toEqual([]);
@@ -168,11 +168,11 @@ describe('ReplayRuns', () => {
   it('takes a claim left by a queueing that failed as never queued, and tombstones it', async () => {
     claims.set(REPLAY, ReplayRunClaim.toQueue(RunId.of(REPLAY)));
 
-    expect(await replayRuns().forgo(REPLAY, false)).toEqual({
+    expect(await replayRuns().cancel(REPLAY, false)).toEqual({
       outcome: 'never-queued',
     });
     expect(await replayRuns().enqueue(order())).toMatchObject({
-      unreplayableReason: 'forgone',
+      unreplayableReason: 'cancelled',
     });
   });
 });

@@ -137,7 +137,7 @@ export class HookFiring extends EventRecorder {
     return new HookFiring({ ...state, event: frozenEvent(state.event) });
   }
 
-  static leaseLapsedBefore(now: Date): Date {
+  static leaseExpiredBefore(now: Date): Date {
     return new Date(now.getTime() - LEASE_MS);
   }
 
@@ -251,12 +251,12 @@ export class HookFiring extends EventRecorder {
     const { progress } = this.state;
     const due =
       progress.kind === 'pending' && progress.dueAt.getTime() <= now.getTime();
-    const lapsed =
+    const leaseExpired =
       progress.kind === 'working' &&
       progress.claimedAt.getTime() <
-        HookFiring.leaseLapsedBefore(now).getTime();
+        HookFiring.leaseExpiredBefore(now).getTime();
 
-    if (!due && !lapsed) {
+    if (!due && !leaseExpired) {
       throw new InvalidHookFiringTransitionError(
         progress.kind === 'working'
           ? 'is still claimed'

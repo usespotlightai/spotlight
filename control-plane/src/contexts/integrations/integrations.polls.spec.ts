@@ -286,7 +286,7 @@ describe('ProcessDuePolls', () => {
     expect(react).toHaveBeenCalledTimes(1);
   });
 
-  it('will not move the cursor back when a later poll took the turn', async () => {
+  it('will not move the cursor back when a later poll got the turn', async () => {
     const cursors = new FakeIntegrationCursors();
     const later = new Date(NOW.getTime() + 90_000);
     const react = vi.fn(async () => undefined);

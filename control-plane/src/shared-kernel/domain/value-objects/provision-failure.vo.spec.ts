@@ -9,7 +9,7 @@ describe('ProvisionFailure', () => {
   it.each([
     ['unreachable', true],
     ['http-error', true],
-    ['lapsed', true],
+    ['expired', true],
     ['not-allowed', false],
     ['unusable', false],
     ['harness-missing', false],
@@ -21,7 +21,7 @@ describe('ProvisionFailure', () => {
     expect(Object.keys(PROVISION_FAILURES).sort()).toEqual(
       [
         'harness-missing',
-        'lapsed',
+        'expired',
         'not-allowed',
         'http-error',
         'unreachable',
@@ -51,13 +51,13 @@ describe('ProvisionFailure', () => {
     ).toHaveLength(1_000);
   });
 
-  it('says when a reservation lapsed without a claim', () => {
-    const lapsed = ProvisionFailure.lapsed(
+  it('says when a reservation expired without a claim', () => {
+    const expired = ProvisionFailure.expired(
       new Date('2026-09-24T12:05:00.000Z'),
     );
 
-    expect(lapsed.kind).toBe('lapsed');
-    expect(lapsed.detail).toBe(
+    expect(expired.kind).toBe('expired');
+    expect(expired.detail).toBe(
       'The pool accepted the work. No runner claimed it by 2026-09-24T12:05:00.000Z.',
     );
   });

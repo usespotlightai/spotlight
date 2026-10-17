@@ -91,10 +91,10 @@ export class ClaimHostWorkCommand {
   ) {}
 }
 
-export class ParkRunCommand {
+export class SuspendRunCommand {
   constructor(
     readonly runId: string,
     readonly runnerId: string,
-    readonly cold: boolean = false,
+    readonly requeue: boolean = false,
   ) {}
 }

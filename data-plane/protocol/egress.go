@@ -3,7 +3,7 @@ package protocol
 import "time"
 
 const (
-	EgressHandedPath = "/run/spotlight/egress.json"
+	EgressConfigPath = "/run/spotlight/egress.json"
 	EgressAuthority  = "/run/spotlight/egress/authority.pem"
 	EgressPort       = 3128
 
@@ -11,7 +11,7 @@ const (
 	SandboxBundle    = "/etc/spotlight/egress/bundle.pem"
 )
 
-type EgressHanded struct {
+type EgressConfig struct {
 	URL         string       `json:"url"`
 	Token       string       `json:"token,omitempty"`
 	Credential  string       `json:"credential"`

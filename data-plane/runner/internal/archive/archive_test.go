@@ -178,7 +178,7 @@ func TestFingerprintChangesOnlyWithTheWorkspace(t *testing.T) {
 	}
 	again, _ := archive.Fingerprint(dir, nil)
 	if before != again {
-		t.Error("the same workspace took two fingerprints")
+		t.Error("the same workspace got two fingerprints")
 	}
 
 	write(t, filepath.Join(dir, "notes.md"), "finished\n", 0o644)

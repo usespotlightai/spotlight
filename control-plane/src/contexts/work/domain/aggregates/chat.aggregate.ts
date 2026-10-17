@@ -12,7 +12,7 @@ import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { ChatMessage } from '@work/domain/entities/chat-message.entity';
 import type { TaskProposal } from '@work/domain/entities/task-proposal.entity';
-import { ChatHandedToRun } from '@work/domain/events/chat-handed-to-run.event';
+import { ChatDispatched } from '@work/domain/events/chat-dispatched.event';
 import { ChatStarted } from '@work/domain/events/chat-started.event';
 import { ProposalAccepted } from '@work/domain/events/proposal-accepted.event';
 import { ProposalDismissed } from '@work/domain/events/proposal-dismissed.event';
@@ -308,27 +308,27 @@ export class Chat extends EventRecorder {
     return opened;
   }
 
-  handedTo(runId: RunId, at: Date): Chat {
+  assignRun(runId: RunId, at: Date): Chat {
     if (this.running) {
       throw new InvalidChatTransitionError(
         `Chat ${this.id.value} is already being worked by a run.`,
       );
     }
 
-    const handed = this.with({
+    const assigned = this.with({
       currentRunId: runId,
       messages: this.messages.map((message) => message.delivered(runId, at)),
     });
 
-    handed.record(
-      new ChatHandedToRun(
+    assigned.record(
+      new ChatDispatched(
         this.id,
         runId,
         this.undelivered.map((message) => message.position),
       ),
     );
 
-    return handed;
+    return assigned;
   }
 
   runKeptNothing(runId: RunId): Chat {

@@ -137,8 +137,8 @@ describe('where a run started', () => {
 
   it('keeps where its first attempt started when a later attempt starts elsewhere', () => {
     const first = claimed().startsFrom(on(), RUNNER, restored(), NOW);
-    const lapsed = first.requeue(first.leaseExpiresAt as Date);
-    const retried = lapsed
+    const expired = first.expireLease(first.leaseExpiresAt as Date);
+    const retried = expired
       .claim(OTHER, later(120_000))
       .startsFrom(
         on(2),
@@ -153,8 +153,8 @@ describe('where a run started', () => {
   });
 
   it('rejects a report from an attempt that is over', () => {
-    const lapsed = claimed().requeue(later(60_000));
-    const retried = lapsed.claim(RUNNER, later(120_000));
+    const expired = claimed().expireLease(later(60_000));
+    const retried = expired.claim(RUNNER, later(120_000));
 
     expect(() =>
       retried.startsFrom(on(1), RUNNER, restored(), later(120_000)),

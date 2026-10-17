@@ -23,7 +23,7 @@ const declared = (tool: string, over: Partial<ToolDeclaration> = {}) => ({
 const offering = async (declarations: readonly ToolDeclaration[]) => {
   const learned = new InMemoryLearnedOutputs();
 
-  for (const tool of ['linear.comment', 'linear.unoffered']) {
+  for (const tool of ['linear.comment', 'linear.unlisted']) {
     await learned.save(
       LearnedOutput.first({
         teamId: TEAM,

@@ -8,12 +8,12 @@ import {
   endOf,
   WORKSPACE,
 } from '@outcomes/domain/outcomes.fake-spec';
-import { HandedOn } from '@outcomes/domain/value-objects/handed-on.vo';
 import { NextAct } from '@outcomes/domain/value-objects/next-act.vo';
 import { Refusal } from '@outcomes/domain/value-objects/refusal.vo';
 import type { RunCost } from '@outcomes/domain/value-objects/run-cost.vo';
 import { RunMemories } from '@outcomes/domain/value-objects/run-memories.vo';
 import { RunTools } from '@outcomes/domain/value-objects/run-tools.vo';
+import { StationPass } from '@outcomes/domain/value-objects/station-pass.vo';
 import { LatencyHistogram } from '@shared-kernel/domain/value-objects/latency-histogram.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -207,7 +207,7 @@ describe('RunRecord', () => {
         next: NextAct.of('approved', AT),
         approvalAnsweredAt: null,
         cost: null,
-        handedOn: null,
+        passed: null,
         tools: null,
         refusals: [],
         memories: RunMemories.NONE,
@@ -237,7 +237,7 @@ describe('RunRecord', () => {
       next: null,
       approvalAnsweredAt: null,
       cost: null,
-      handedOn: null,
+      passed: null,
       tools: null,
       refusals: [],
       memories: RunMemories.NONE,
@@ -262,11 +262,12 @@ describe('RunRecord', () => {
     ).toBe('task_3');
   });
 
-  it('did not run when it was withdrawn from the queue, even once superseded', () => {
-    const withdrawn = endedRecord('run_1', { ending: 'withdrawn' });
+  it('did not run when it was cancelled before it ran, and stays cancelled once superseded', () => {
+    const cancelled = endedRecord('run_1', { ending: 'cancelled' });
 
-    expect(withdrawn.ran).toBe(false);
-    expect(withdrawn.supersededByItsTask(HEARD_AT).ran).toBe(false);
+    expect(cancelled.ran).toBe(false);
+    expect(cancelled.supersededByItsTask(HEARD_AT).ran).toBe(false);
+    expect(cancelled.supersededByItsTask(HEARD_AT).ending).toBe('cancelled');
     expect(endedRecord('run_2', { ending: 'failed' }).ran).toBe(true);
     expect(RunRecord.heardOf(RUN, WORKSPACE).ran).toBe(false);
   });
@@ -292,7 +293,7 @@ describe('RunRecord', () => {
         next: null,
         approvalAnsweredAt: null,
         cost: null,
-        handedOn: null,
+        passed: null,
         tools: null,
         refusals: [],
         memories: RunMemories.NONE,
@@ -314,13 +315,11 @@ describe('RunRecord', () => {
     );
   });
 
-  it('keeps the first station it handed its task on to', () => {
-    const handed = endedRecord('run_1').handedOnTo(
-      HandedOn.of('station_2', AT),
-    );
+  it('keeps the first station it passed its task to', () => {
+    const passed = endedRecord('run_1').passTo(StationPass.of('station_2', AT));
 
-    expect(handed.handedOnTo(HandedOn.of('station_3', LATER))).toBe(handed);
-    expect(handed.handedOn?.to).toBe('station_2');
+    expect(passed.passTo(StationPass.of('station_3', LATER))).toBe(passed);
+    expect(passed.passed?.to).toBe('station_2');
   });
 
   it('keeps the tools it used with the first digest it hears of', () => {
@@ -355,7 +354,7 @@ describe('RunRecord', () => {
         next: null,
         approvalAnsweredAt: null,
         cost,
-        handedOn: null,
+        passed: null,
         tools,
         refusals: [],
         memories: RunMemories.NONE,

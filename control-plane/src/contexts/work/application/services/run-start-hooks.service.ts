@@ -20,7 +20,7 @@ type Heard =
   | HookVerdict
   | { readonly kind: 'unheard'; readonly because: string };
 
-export type RunStart = 'starts' | 'denied' | 'handed-back';
+export type RunStart = 'starts' | 'denied' | 'requeued';
 
 export class RunStartHooks {
   constructor(
@@ -50,9 +50,9 @@ export class RunStartHooks {
     }
 
     await this.revised(run, runner, (current) =>
-      current.handedBack(runner, this.clock.now(), verdict.because),
+      current.requeue(runner, this.clock.now(), verdict.because),
     );
-    return 'handed-back';
+    return 'requeued';
   }
 
   private async verdictOn(run: Run, pollUntil: Date): Promise<Heard> {
@@ -75,7 +75,7 @@ export class RunStartHooks {
 
       this.logger.warn(
         { runId: run.id.value, taskId: run.taskId.value, error: because },
-        'The hooks could not be asked before a run started, so it was handed back to be claimed again',
+        'The hooks could not be asked before a run started, so it was requeued to be claimed again',
       );
 
       return { kind: 'unheard', because };

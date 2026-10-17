@@ -87,8 +87,8 @@ export class RunOutcome {
     );
   }
 
-  static superseded(reason: string): RunOutcome {
-    return RunOutcome.failedWith('superseded', reason);
+  static cancelled(reason: string): RunOutcome {
+    return RunOutcome.failedWith('cancelled', reason);
   }
 
   static stopped(exitCode: number): RunOutcome {
@@ -111,12 +111,16 @@ export class RunOutcome {
     return !this.failed;
   }
 
+  get cancelled(): boolean {
+    return this.failure?.cancelled ?? false;
+  }
+
   get superseded(): boolean {
     return this.failure?.superseded ?? false;
   }
 
   supersede(): RunOutcome {
-    return this.failed && !this.superseded
+    return this.failed && !this.superseded && !this.cancelled
       ? new RunOutcome(
           this.exitCode,
           RunFailure.of('superseded'),

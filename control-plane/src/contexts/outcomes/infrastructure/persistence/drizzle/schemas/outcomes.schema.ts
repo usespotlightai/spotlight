@@ -130,7 +130,7 @@ export const startOrderColumns = (table: StartedColumns): SQL[] => [
 ];
 
 export const ranAConfig = (table: StartedColumns): SQL =>
-  sql`${table.startedAt} is not null and ${table.endedAt} is not null and ${table.fingerprint} is not null and ${table.ending} <> 'withdrawn'`;
+  sql`${table.startedAt} is not null and ${table.endedAt} is not null and ${table.fingerprint} is not null and ${table.ending} <> 'cancelled'`;
 
 export const runRecord = pgTable(
   'run_record',
@@ -161,8 +161,8 @@ export const runRecord = pgTable(
     nextAct: runRecordAct('next_act'),
     nextAt: timestamp('next_at'),
     approvalAnsweredAt: timestamp('approval_answered_at'),
-    handedOnTo: text('handed_on_to'),
-    handedOnAt: timestamp('handed_on_at'),
+    passedTo: text('passed_to'),
+    passedAt: timestamp('passed_at'),
     digested: boolean('digested').notNull().default(false),
     ms: integer('ms'),
     steps: integer('steps'),
@@ -237,8 +237,8 @@ export const runFact = pgTable(
     nextAct: runRecordAct('next_act'),
     nextAt: timestamp('next_at'),
     approvalAnsweredAt: timestamp('approval_answered_at'),
-    handedOnTo: text('handed_on_to'),
-    handedOnAt: timestamp('handed_on_at'),
+    passedTo: text('passed_to'),
+    passedAt: timestamp('passed_at'),
     digested: boolean('digested').notNull(),
     ms: integer('ms'),
     steps: integer('steps'),

@@ -13,4 +13,4 @@ export type UnreplayableReasonCode =
   | 'candidate-unfit'
   | 'cannot-start'
   | 'unchecked'
-  | 'forgone';
+  | 'cancelled';

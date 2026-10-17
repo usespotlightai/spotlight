@@ -102,7 +102,7 @@ export class ProvisionWork {
   ) {}
 
   async due(): Promise<void> {
-    await this.lapsed();
+    await this.expired();
 
     await awaitAll(
       [...byWorkspace(await this.pools.provisioning()).values()].map((pools) =>
@@ -205,27 +205,27 @@ export class ProvisionWork {
     );
   }
 
-  private async lapsed(): Promise<void> {
+  private async expired(): Promise<void> {
     const now = this.clock.now();
 
-    for (const run of await this.runs.withLapsedReservations(now)) {
+    for (const run of await this.runs.withExpiredReservations(now)) {
       const { reservation } = run;
 
-      if (reservation && run.reservationLapsedAt(now)) {
+      if (reservation && run.reservationExpiredAt(now)) {
         await this.failures.failed(
           run.id,
           reservation.runner,
-          ProvisionFailure.lapsed(reservation.until),
+          ProvisionFailure.expired(reservation.until),
           now,
         );
       }
     }
 
-    for (const check of await this.checks.lapsed(now)) {
+    for (const check of await this.checks.expired(now)) {
       await this.checks.failed(
         check.stackId,
         check.runner,
-        ProvisionFailure.lapsed(check.until),
+        ProvisionFailure.expired(check.until),
         now,
       );
     }

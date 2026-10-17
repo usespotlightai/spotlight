@@ -14,8 +14,8 @@ import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { Station } from '@work/domain/entities/station.entity';
-import type { RunAbandoned } from '@work/domain/events/run-abandoned.event';
 import { RunCompleted } from '@work/domain/events/run-completed.event';
+import type { RunExhausted } from '@work/domain/events/run-exhausted.event';
 import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
@@ -102,7 +102,7 @@ const task = (runId = 'run_1') =>
     raisedBy: UserId.of('user_1'),
     now: NOW,
     newId: () => 'task_1',
-  }).handedTo(RunId.of(runId), line());
+  }).assignRun(RunId.of(runId), line());
 
 const LATER = new Date(NOW.getTime() + 120_000);
 
@@ -135,12 +135,12 @@ const stoppedRun = () => {
   return queued().claim(runner, NOW).complete(runner, RunOutcome.stopped(0));
 };
 
-const givenUp = () => {
+const exhausted = () => {
   const runner = RunnerId.of('runner_1');
   let ended = queued();
   for (let attempt = 0; attempt < 3; attempt += 1) {
     ended.pullEvents();
-    ended = ended.claim(runner, NOW).requeue(LATER);
+    ended = ended.claim(runner, NOW).expireLease(LATER);
   }
   return ended;
 };
@@ -152,7 +152,7 @@ const timedOut = () => {
     ended.pullEvents();
     ended =
       attempt < 2
-        ? ended.claim(runner, NOW).requeue(LATER)
+        ? ended.claim(runner, NOW).expireLease(LATER)
         : ended.claim(runner, NOW).timedOut(runner, NOW);
   }
   return ended;
@@ -218,7 +218,7 @@ const handOver = (ended = run(false), stored: TaskRepository = tasks()) => {
 
   return raised instanceof RunCompleted
     ? handler.onRunCompleted(raised)
-    : handler.onRunAbandoned(raised as RunAbandoned);
+    : handler.onRunExhausted(raised as RunExhausted);
 };
 
 beforeEach(() => {
@@ -350,14 +350,14 @@ describe('HandOver', () => {
   });
 
   it('asks a person about a run nobody ever finished', async () => {
-    await handOver(givenUp());
+    await handOver(exhausted());
 
     expect(saved?.awaitingReview).toBe(true);
     expect(saved?.notes[0]?.body.value).toContain('3 attempts');
     expect(saved?.notes[0]?.failure?.code).toBe('runner-lost');
   });
 
-  it('names the run’s last failure when it was given up on after timing out', async () => {
+  it('names the run’s last failure when it used all its attempts after timing out', async () => {
     await handOver(timedOut());
 
     expect(saved?.notes[0]?.body.value).toContain('3 attempts');
@@ -394,7 +394,7 @@ describe('HandOver', () => {
         voice: Voice.station(RunId.of('run_1')),
       });
 
-    it('lets go of the task, still asked, when the waiting run is stopped', async () => {
+    it('releases the task, still asked, when the waiting run is stopped', async () => {
       await handOver(stoppedRun(), tasks(asked()));
 
       expect(saved?.currentRunId).toBeNull();
@@ -454,7 +454,7 @@ describe('HandOver', () => {
       },
     );
 
-    it('adds a failure to the open question, letting go of the task', async () => {
+    it('adds a failure to the open question, and detaches the task from its run', async () => {
       await handOver(run(true), tasks(asked()));
 
       expect(saved?.currentRunId).toBeNull();
@@ -485,7 +485,7 @@ describe('HandOver', () => {
       ['says the work is done', () => declaring('done'), 'words'],
       ['fails', () => run(true), 'failure'],
       ['is stopped', stoppedRun, 'words'],
-      ['is never finished', givenUp, 'failure'],
+      ['is never finished', exhausted, 'failure'],
     ];
 
     const MOVED =

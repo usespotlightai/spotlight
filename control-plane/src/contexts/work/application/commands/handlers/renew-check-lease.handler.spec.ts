@@ -1,4 +1,4 @@
-import type { RunnerPresencePort } from '@runners/application/ports/runner-presence.port';
+import type { RunnerHeartbeatsPort } from '@runners/application/ports/runner-heartbeats.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -37,7 +37,7 @@ const renewing = (
 
   const handler = new RenewCheckLeaseHandler(
     { renewLease } as unknown as CheckWorkPort,
-    { seen } satisfies RunnerPresencePort,
+    { heartbeat: seen } satisfies RunnerHeartbeatsPort,
     { now: () => NOW } as ClockPort,
   );
 

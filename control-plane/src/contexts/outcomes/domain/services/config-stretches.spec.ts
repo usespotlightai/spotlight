@@ -15,7 +15,7 @@ const ranAt = (
   change: {
     endedAt?: number;
     stationId?: string;
-    ending?: 'withdrawn' | 'failed';
+    ending?: 'cancelled' | 'failed';
   } = {},
 ) =>
   endedRecord(runId, {
@@ -63,16 +63,16 @@ describe('configChangesAlong', () => {
     ]);
   });
 
-  it('passes over withdrawn runs, runs that never started and runs with no config', () => {
+  it('passes over cancelled runs, runs that never started and runs with no config', () => {
     expect(
       startsOf([
         ranAt('run_1', FIRST_CONFIG, 1),
-        ranAt('run_withdrawn', SECOND_CONFIG, null, {
+        ranAt('run_cancelled', SECOND_CONFIG, null, {
           endedAt: 2,
-          ending: 'withdrawn',
+          ending: 'cancelled',
         }),
-        ranAt('run_withdrawn_started', SECOND_CONFIG, 2, {
-          ending: 'withdrawn',
+        ranAt('run_cancelled_started', SECOND_CONFIG, 2, {
+          ending: 'cancelled',
         }),
         ranAt('run_none', null, 3),
         ranAt('run_2', FIRST_CONFIG, 4),

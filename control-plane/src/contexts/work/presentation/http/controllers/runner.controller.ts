@@ -37,11 +37,11 @@ import {
   AppendRunJournalCommand,
   ClaimRunCommand,
   CompleteRunCommand,
-  ParkRunCommand,
   RecordRunImageCommand,
   RecordStartingPointCommand,
   RenewCheckLeaseCommand,
   RenewLeaseCommand,
+  SuspendRunCommand,
 } from '@work/application/commands/runner.commands';
 import { UseToolCommand } from '@work/application/commands/use-tool.command';
 import type { HarnessDto } from '@work/application/dto/harness.dto';
@@ -50,7 +50,7 @@ import type { PermissionAnswerDto } from '@work/application/dto/permission-answe
 import type { ClaimedWorkDto } from '@work/application/dto/run.dto';
 import type {
   RunCompletionDto,
-  RunParkingDto,
+  RunSuspensionDto,
 } from '@work/application/dto/run-completion.dto';
 import type { RunnerHistoryAnswer } from '@work/application/dto/runner-history.dto';
 import type { TaskTraceDto } from '@work/application/dto/task-trace.dto';
@@ -71,11 +71,11 @@ import {
   AskPermissionRequestDto,
   CompleteRunRequestDto,
   DeliverSaidRequestDto,
-  ParkRunRequestDto,
   PendingMessageResponseDto,
   RecordRunImageRequestDto,
   RecordStartingPointRequestDto,
   RunAttachmentResponseDto,
+  SuspendRunRequestDto,
 } from '@work/presentation/http/dto/runner.request.dto';
 import {
   ClaimedWorkResponseDto,
@@ -83,7 +83,7 @@ import {
   RenewCheckLeaseResponseDto,
   RenewLeaseResponseDto,
   RunCompletionResponseDto,
-  RunParkingResponseDto,
+  RunSuspensionResponseDto,
   ToolActingAsResponseDto,
   ToolAnswerResponseDto,
   TurnAsksAPersonResponseDto,
@@ -114,7 +114,7 @@ interface Answerable {
 
 @ApiTags('runners')
 @ApiUnauthorizedResponse({
-  description: 'Missing, spent or wrong runner token',
+  description: 'Missing, no longer valid or wrong runner token',
 })
 @RunnerOnly()
 @Controller()
@@ -345,7 +345,7 @@ export class RunnerController {
   @ApiOkResponse({ type: RenewLeaseResponseDto })
   @ApiNotFoundResponse({
     description:
-      'The run is no longer leased by this runner: it ended, was parked, or its task let it go. The runner lets its sandbox go.',
+      'The run is no longer leased by this runner: it ended, was suspended, or its task cancelled it. The runner releases its sandbox.',
   })
   @ApiConflictResponse({
     description:
@@ -371,7 +371,7 @@ export class RunnerController {
     summary: 'Say the check of a change stack is still being worked on',
     description:
       'The runner with the lease on a check renews that lease while the check runs, ' +
-      'so a long check is not handed to a second runner. The answer ' +
+      'so a second runner does not claim a long check. The answer ' +
       'carries back whether the runner should stop checking.',
   })
   @ApiQuery({
@@ -652,26 +652,27 @@ export class RunnerController {
     return new TurnAsksAPersonResponseDto(asks);
   }
 
-  @Post('runs/:runId/parked')
+  @Post('runs/:runId/suspended')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    operationId: 'parkRun',
-    summary: 'Park a run whose person did not answer within the grace period',
+    operationId: 'suspendRun',
+    summary:
+      'Suspend a run whose person did not answer within the grace period',
     description:
-      'The runner has sealed the workspace archive and lets its sandbox go. A later answer requeues the same run, and any runner takes it up from the archive. If the answer arrived first, the run is not parked: it is working again, and the runner delivers the answer to the live session.',
+      'The runner has sealed the workspace archive and releases its sandbox. A later answer requeues the same run, and any runner claims it and restores it from the archive. If the answer arrived first, the run is not suspended: it is working again, and the runner delivers the answer to the live session.',
   })
-  @ApiOkResponse({ type: RunParkingResponseDto })
+  @ApiOkResponse({ type: RunSuspensionResponseDto })
   @ApiConflictResponse({ description: 'The run is not leased by this runner' })
-  async park(
+  async suspend(
     @Param('runId') runId: string,
     @CurrentRunner() runnerId: string,
-    @Body() body: ParkRunRequestDto,
-  ): Promise<RunParkingResponseDto> {
-    const parking = await this.commandBus.execute<
-      ParkRunCommand,
-      RunParkingDto
-    >(new ParkRunCommand(runId, runnerId, body?.cold ?? false));
+    @Body() body: SuspendRunRequestDto,
+  ): Promise<RunSuspensionResponseDto> {
+    const suspension = await this.commandBus.execute<
+      SuspendRunCommand,
+      RunSuspensionDto
+    >(new SuspendRunCommand(runId, runnerId, body?.requeue ?? false));
 
-    return new RunParkingResponseDto(parking.parked);
+    return new RunSuspensionResponseDto(suspension.suspended);
   }
 }

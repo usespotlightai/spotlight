@@ -17,6 +17,7 @@ export const RUN_FAILURES = {
   }),
   'runner-lost': Retry.backoff({ max: 3, firstMs: 0, longestMs: 0 }),
   'timed-out': Retry.backoff({ max: 3, firstMs: 0, longestMs: 0 }),
+  cancelled: Retry.never(),
   superseded: Retry.never(),
 } as const satisfies Record<RunFailureCode, Retry>;
 
@@ -33,6 +34,10 @@ export class RunFailure {
 
   get retry(): Retry {
     return RUN_FAILURES[this.code];
+  }
+
+  get cancelled(): boolean {
+    return this.code === 'cancelled';
   }
 
   get superseded(): boolean {

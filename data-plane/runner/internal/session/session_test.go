@@ -38,12 +38,12 @@ type journal struct {
 	calls            []string
 	lostWhileWaiting bool
 	conflictsWaiting int
-	coldParks        int
+	requeueSuspends  int
 	saysNoWait       bool
 	paused           bool
 	answers          [][]protocol.Said
-	parking          []bool
-	parks            int
+	suspending       []bool
+	suspends         int
 	stopAfter        int
 	stopWhileWaiting bool
 	said             [][]protocol.Said
@@ -130,20 +130,20 @@ func (j *journal) Complete(_ context.Context, _ string, done protocol.Completion
 	return protocol.Completed{Waiting: j.paused}, nil
 }
 
-func (j *journal) Park(_ context.Context, _ string, cold bool) (protocol.Parking, error) {
+func (j *journal) Suspend(_ context.Context, _ string, requeue bool) (protocol.Suspension, error) {
 	j.mu.Lock()
 	defer j.mu.Unlock()
-	j.parks++
-	if cold {
-		j.coldParks++
-		return protocol.Parking{Parked: true}, nil
+	j.suspends++
+	if requeue {
+		j.requeueSuspends++
+		return protocol.Suspension{Suspended: true}, nil
 	}
 
-	parked := len(j.parking) == 0 || j.parking[0]
-	if len(j.parking) > 0 {
-		j.parking = j.parking[1:]
+	suspended := len(j.suspending) == 0 || j.suspending[0]
+	if len(j.suspending) > 0 {
+		j.suspending = j.suspending[1:]
 	}
-	return protocol.Parking{Parked: parked}, nil
+	return protocol.Suspension{Suspended: suspended}, nil
 }
 
 func (j *journal) UseTool(
@@ -412,7 +412,7 @@ type runOptions struct {
 	said        [][]protocol.Said
 	waits       []bool
 	answers     [][]protocol.Said
-	parking     []bool
+	suspending  []bool
 	answerWait  time.Duration
 	heartbeat   time.Duration
 	stopWaiting bool
@@ -457,7 +457,7 @@ func run(t *testing.T, executable string, over ...func(*runOptions)) *journal {
 		said:             settings.said,
 		waits:            settings.waits,
 		answers:          settings.answers,
-		parking:          settings.parking,
+		suspending:       settings.suspending,
 		stopWhileWaiting: settings.stopWaiting,
 		lostWhileWaiting: settings.lostWaiting,
 		conflictsWaiting: settings.conflicts,
@@ -1213,7 +1213,7 @@ process.stdin.on("data", (chunk) => {
       } else {
         send({ jsonrpc: "2.0", method: "session/update",
                params: { update: { sessionUpdate: "agent_message_chunk",
-                                   content: { type: "text", text: "took up: " + msg.params.prompt[0].text } } } });
+                                   content: { type: "text", text: "got: " + msg.params.prompt[0].text } } } });
         send({ jsonrpc: "2.0", id: msg.id, result: { stopReason: "end_turn" } });
       }
     }
@@ -1249,7 +1249,7 @@ func TestWhatWasSaidIsSaidAgainWhereTheHarnessLetsItGoUnread(t *testing.T) {
 	}
 
 	for _, event := range written.typed(protocol.EventOutput) {
-		if strings.Contains(string(event.Data), "took up: actually, do this instead") {
+		if strings.Contains(string(event.Data), "got: actually, do this instead") {
 			return
 		}
 	}
@@ -1414,10 +1414,10 @@ func refusedCalls(t *testing.T, written *journal) []string {
 	return refused
 }
 
-func TestAPermissionPutToAPersonEndsTheTurnWhileNobodyHasAnswered(t *testing.T) {
+func TestAPermissionEscalatedToAPersonEndsTheTurnWhileNobodyHasAnswered(t *testing.T) {
 	written := run(t, permitting(t), func(o *runOptions) {
 		o.setup = protocol.HarnessSetup{Asks: []string{"execute"}}
-		o.decision = protocol.PermissionPutToPerson
+		o.decision = protocol.PermissionEscalated
 	})
 
 	if heard := said(t, written); heard != "cancelled" {

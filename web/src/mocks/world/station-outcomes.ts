@@ -74,7 +74,7 @@ const outcomeOf = (run: HistoryRun): StationRunOutcomeResponseDto => ({
   cost: costOf(run),
   checks: run.checks,
   next: run.next,
-  handedOn: run.handedOn,
+  passed: run.passed,
   delivery: run.delivery,
 });
 
@@ -144,7 +144,7 @@ const tallyOf = (
 
   return {
     runs: runs.length,
-    withdrawn: 0,
+    cancelled: 0,
     failed,
     failedShare: rateOf(failed, runs.length),
     stopped: count((run) => run.ending === 'stopped'),
@@ -152,7 +152,7 @@ const tallyOf = (
     checksFailed: count((run) => run.checks === 'failed'),
     accepted: count((run) => run.next?.act === 'closed'),
     sentBack: count((run) => run.next?.act === 'sent-back'),
-    handedOn: count((run) => run.handedOn !== null),
+    passed: count((run) => run.passed !== null),
     merged: new Set(
       runs.filter((run) => run.delivery === 'merged').map((run) => run.taskId),
     ).size,

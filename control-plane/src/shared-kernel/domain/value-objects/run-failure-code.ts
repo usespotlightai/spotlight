@@ -6,6 +6,7 @@ export const RUN_FAILURE_CODES = [
   'hooks-unanswered',
   'runner-lost',
   'timed-out',
+  'cancelled',
   'superseded',
 ] as const;
 

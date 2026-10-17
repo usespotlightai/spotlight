@@ -59,12 +59,12 @@ func Perform(ctx context.Context, client Control, check protocol.StackCheck, opt
 	checking, stop := context.WithTimeout(ctx, opts.or(opts.Total, defaultTotal))
 	defer stop()
 
-	leased, letGo := context.WithCancelCause(checking)
-	renewing := opts.renew(leased, client, check, letGo)
+	leased, release := context.WithCancelCause(checking)
+	renewing := opts.renew(leased, client, check, release)
 
 	checked := opts.perform(leased, check)
 	lost := errors.Is(context.Cause(leased), errNoLongerLeased)
-	letGo(nil)
+	release(nil)
 	<-renewing
 
 	if lost {
@@ -78,7 +78,7 @@ func Perform(ctx context.Context, client Control, check protocol.StackCheck, opt
 }
 
 func (o Options) renew(
-	ctx context.Context, client Control, check protocol.StackCheck, letGo context.CancelCauseFunc,
+	ctx context.Context, client Control, check protocol.StackCheck, release context.CancelCauseFunc,
 ) <-chan struct{} {
 	done := make(chan struct{})
 
@@ -96,11 +96,11 @@ func (o Options) renew(
 				switch {
 				case err == nil && stop:
 					o.Log.Info("told to stop checking a change stack", "stack", check.StackID)
-					letGo(errNoLongerLeased)
+					release(errNoLongerLeased)
 					return
 				case err != nil && control.CheckLeaseLost(err):
 					o.Log.Warn("lost the lease of a change stack check", "stack", check.StackID, "error", err)
-					letGo(errNoLongerLeased)
+					release(errNoLongerLeased)
 					return
 				case err != nil && ctx.Err() == nil:
 					o.Log.Warn("could not renew the lease of a change stack check", "stack", check.StackID, "error", err)

@@ -42,7 +42,7 @@ export class RunOutcomes implements RunOutcomesPort {
         const {
           taskId: _taskId,
           cost: _cost,
-          handedOn: _handedOn,
+          passed: _passed,
           ...shape
         } = outcome;
 

@@ -12,8 +12,8 @@ import {
   tallySeenOf,
   tallySharesOf,
 } from '@outcomes/domain/services/run-tally';
-import { HandedOn } from '@outcomes/domain/value-objects/handed-on.vo';
 import { NextAct } from '@outcomes/domain/value-objects/next-act.vo';
+import { StationPass } from '@outcomes/domain/value-objects/station-pass.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -53,7 +53,7 @@ describe('runTally', () => {
 
     expect(tally).toMatchObject({
       runs: 5,
-      withdrawn: 0,
+      cancelled: 0,
       failed: 1,
       failedShare: 0.2,
       stopped: 1,
@@ -61,31 +61,31 @@ describe('runTally', () => {
       checksFailed: 1,
       accepted: 1,
       sentBack: 1,
-      handedOn: 0,
+      passed: 0,
       merged: 0,
     });
   });
 
-  it('counts the runs that moved their task on to another station', () => {
+  it('counts the runs that passed their task to another station', () => {
     const tally = runTally(
       [
-        endedRecord('run_1').handedOnTo(HandedOn.of('station_2', AT)),
-        endedRecord('run_2').handedOnTo(HandedOn.of('station_3', AT)),
+        endedRecord('run_1').passTo(StationPass.of('station_2', AT)),
+        endedRecord('run_2').passTo(StationPass.of('station_3', AT)),
         endedRecord('run_3'),
-        endedRecord('run_4', { ending: 'withdrawn' }).handedOnTo(
-          HandedOn.of('station_2', AT),
+        endedRecord('run_4', { ending: 'cancelled' }).passTo(
+          StationPass.of('station_2', AT),
         ),
       ],
       [],
     );
 
-    expect(tally.handedOn).toBe(2);
+    expect(tally.passed).toBe(2);
   });
 
-  it('counts withdrawn runs apart, and leaves them out of everything else', () => {
+  it('counts cancelled runs apart, and leaves them out of everything else', () => {
     const tally = runTally(
       [
-        costedRecord('run_1', { ending: 'withdrawn', ms: 1, amount: 9 })
+        costedRecord('run_1', { ending: 'cancelled', ms: 1, amount: 9 })
           .supersededByItsTask(HEARD_AT)
           .recordAction(NextAct.of('closed', AT)),
         costedRecord('run_2', { ending: 'failed', ms: 40_000, amount: 0.5 }),
@@ -95,7 +95,7 @@ describe('runTally', () => {
 
     expect(tally).toMatchObject({
       runs: 1,
-      withdrawn: 1,
+      cancelled: 1,
       failed: 1,
       accepted: 0,
       cost: { amount: 0.5, currency: 'USD' },
@@ -104,7 +104,7 @@ describe('runTally', () => {
     });
   });
 
-  it('counts each task whose pull request merged once, however many runs it took', () => {
+  it('counts each task whose pull request merged once, however many runs it needed', () => {
     const tally = runTally(
       [
         endedRecord('run_1', { taskId: 'task_1' }),
@@ -175,7 +175,7 @@ describe('runTally', () => {
   it('tallies nothing without runs', () => {
     expect(runTally([], [])).toEqual({
       runs: 0,
-      withdrawn: 0,
+      cancelled: 0,
       failed: 0,
       failedShare: null,
       stopped: 0,
@@ -183,7 +183,7 @@ describe('runTally', () => {
       checksFailed: 0,
       accepted: 0,
       sentBack: 0,
-      handedOn: 0,
+      passed: 0,
       merged: 0,
       cost: null,
       unpriced: 0,
@@ -296,9 +296,9 @@ describe('tallyCountedOf', () => {
       checksFailed: false,
       accepted: false,
       sentBack: true,
-      handedOn: false,
+      passed: false,
       merged: false,
-      withdrawn: false,
+      cancelled: false,
     });
   });
 });

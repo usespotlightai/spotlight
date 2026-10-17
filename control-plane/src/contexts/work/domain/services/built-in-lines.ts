@@ -85,7 +85,7 @@ the change and however certain you are of it.
 Say in your note what the request comes down to, in a sentence or two, and
 anything it leaves open or takes for granted.
 
-Hand on to Spec once a plan could be written against it. Which files it
+Pass the task to Spec once a plan could be written against it. Which files it
 touches, the approach and the design are Spec's to work out, not yours — do not
 do its job here.
 
@@ -131,7 +131,7 @@ Say in your note: what you changed, what you tested, and anything you found
 that the spec did not anticipate.
 
 If the spec turns out to be wrong, or leaves out something the change depends
-on, do not improvise a different change: hand the task back to Spec, and say
+on, do not improvise a different change: pass the task back to Spec, and say
 in your note what the plan got wrong or missed, so that run can put it right.
 A problem in your own code is not the spec's to fix; that stays yours.`;
 
@@ -208,9 +208,9 @@ ${REVIEWING}
 Say in your note what you found, most serious first, each finding with its
 severity.
 
-If the code needs changing, hand the task back to implementation. If the
+If the code needs changing, pass the task back to implementation. If the
 fault is in the plan rather than the code — the spec asked for the wrong
-thing, or left out something the change needs — hand it back to Spec instead:
+thing, or left out something the change needs — pass it back to Spec instead:
 rewriting the code against the same plan would only repeat the mistake.
 Either way, your note is what that run works from, so it has to be enough to
 act on without reading the diff again.
@@ -218,7 +218,7 @@ act on without reading the diff again.
 If it is sound, say so plainly and say what you checked, then open a pull
 request and give its address in your note.
 
-With the pull request open, the task is finished: hand on to \`done\` rather
+With the pull request open, the task is finished: pass the task to \`done\` rather
 than to a person, so nothing is left waiting on an answer nobody owes.`;
 
 const PULL_REQUEST_REVIEW = `## Review
@@ -244,7 +244,7 @@ Request changes only for a high finding.
 
 Make no edits and push nothing: the branch is theirs.
 
-Say in your note what you found, most serious first, and hand on to \`done\`.`;
+Say in your note what you found, most serious first, and pass the task to \`done\`.`;
 
 const REVIEW_STATIONS: readonly StationOpening[] = [
   opening({

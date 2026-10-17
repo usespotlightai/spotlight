@@ -6,7 +6,7 @@ import {
 } from '@platform/persistence/drizzle/violations';
 import { Egress } from '@runners/domain/aggregates/egress.aggregate';
 import { EgressAlreadyDefinedError } from '@runners/domain/exceptions/egress-already-defined.error';
-import { EgressTokenTakenError } from '@runners/domain/exceptions/egress-token-taken.error';
+import { EgressTokenInUseError } from '@runners/domain/exceptions/egress-token-in-use.error';
 import { EgressVersionConflictError } from '@runners/domain/exceptions/egress-version-conflict.error';
 import type { EgressRepository } from '@runners/domain/repositories/egress.repository';
 import { EgressId } from '@runners/domain/value-objects/egress-id.vo';
@@ -47,7 +47,7 @@ const domainErrorOf = (error: unknown, key: string): unknown => {
   }
 
   if (violates(error, UNIQUE_VIOLATION, 'egress_token_hash')) {
-    return new EgressTokenTakenError();
+    return new EgressTokenInUseError();
   }
 
   return error;

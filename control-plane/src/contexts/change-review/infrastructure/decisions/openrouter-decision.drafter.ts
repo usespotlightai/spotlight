@@ -37,7 +37,7 @@ const DECISIONS = new JsonShape(
   }),
 );
 
-const SYSTEM = `You read how a coding agent reasoned while it changed a codebase, and pick out the decisions a reviewer of its pull request should know about. The diff shows what changed; you record why, and what the agent knowingly gave up or left undone.
+const SYSTEM = `You read how a coding agent reasoned while it changed a codebase, and pick out the decisions a reviewer of its pull request should know about. The diff shows what changed; you record why, and what the agent knowingly traded away or left undone.
 
 Each decision is one of these kinds:
 

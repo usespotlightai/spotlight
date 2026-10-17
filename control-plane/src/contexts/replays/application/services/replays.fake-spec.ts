@@ -9,18 +9,18 @@ import type {
 import type { PeoplePort } from '@replays/application/ports/people.port';
 import type {
   AgentProblem,
+  CancelledRun,
   ExaminedCandidate,
   LeasedSearchRun,
   OracleAnswerAsked,
   ReplayRunOrder,
   ReplayRunQueued,
-  RunForgone,
   RunReplayability,
   SearchRunOrder,
   SearchRunQueued,
   SearchRunStatus,
   StationView,
-  UnclaimedWithdrawal,
+  UnclaimedCancellation,
   WorkPort,
 } from '@replays/application/ports/work.port';
 import { LiveSnapshots } from '@replays/application/services/live-snapshots.service';
@@ -320,7 +320,7 @@ export class InMemoryReplays {
 export class FakeWork implements WorkPort {
   readonly replayables = new Map<string, RunReplayability>();
   readonly dispatched: ReplayRunOrder[] = [];
-  readonly withdrawn: string[] = [];
+  readonly cancelledQueued: string[] = [];
   readonly startingPointHolds = new Map<string, readonly string[]>();
   unqueued: ReplayRunQueued | null = null;
 
@@ -351,12 +351,12 @@ export class FakeWork implements WorkPort {
 
   recentAt = async () => [];
 
-  forgone: { run: string; keep: boolean }[] = [];
+  cancelled: { run: string; keep: boolean }[] = [];
 
   queuedRuns = new Set<string>();
 
-  forgo = async (run: RunId, keep: boolean): Promise<RunForgone> => {
-    this.forgone.push({ run: run.value, keep });
+  cancel = async (run: RunId, keep: boolean): Promise<CancelledRun> => {
+    this.cancelled.push({ run: run.value, keep });
     return this.queuedRuns.has(run.value)
       ? { queued: true, fingerprint: FINGERPRINT }
       : { queued: false };
@@ -402,8 +402,8 @@ export class FakeWork implements WorkPort {
     return this.unqueued ?? { queued: true, fingerprint: FINGERPRINT };
   };
 
-  withdraw = async (runs: readonly RunId[]) => {
-    this.withdrawn.push(...runs.map((each) => each.value));
+  cancelQueued = async (runs: readonly RunId[]) => {
+    this.cancelledQueued.push(...runs.map((each) => each.value));
   };
 
   readonly durationsOf = new Map<string, number>();
@@ -431,10 +431,10 @@ export class FakeWork implements WorkPort {
       : { queued: false, reason: this.searchProblem };
   };
 
-  readonly searchesWithdrawn: string[] = [];
+  readonly cancelledSearchRuns: string[] = [];
 
-  withdrawSearch = async (run: RunId) => {
-    this.searchesWithdrawn.push(run.value);
+  cancelSearchRun = async (run: RunId) => {
+    this.cancelledSearchRuns.push(run.value);
   };
 
   readonly leasedSearchRuns = new Map<string, LeasedSearchRun>();
@@ -442,15 +442,15 @@ export class FakeWork implements WorkPort {
   leasedSearchRun = async (run: RunId) =>
     this.leasedSearchRuns.get(run.value) ?? null;
 
-  unclaimed: UnclaimedWithdrawal = { outcome: 'withdrawn', started: false };
+  unclaimed: UnclaimedCancellation = { outcome: 'cancelled', started: false };
 
-  readonly unclaimedWithdrawn: string[] = [];
+  readonly cancelledUnclaimed: string[] = [];
 
-  withdrawUnclaimedSearch = async (
+  cancelUnclaimedSearchRun = async (
     run: RunId,
-  ): Promise<UnclaimedWithdrawal> => {
-    if (this.unclaimed.outcome === 'withdrawn') {
-      this.unclaimedWithdrawn.push(run.value);
+  ): Promise<UnclaimedCancellation> => {
+    if (this.unclaimed.outcome === 'cancelled') {
+      this.cancelledUnclaimed.push(run.value);
     }
     return this.unclaimed;
   };

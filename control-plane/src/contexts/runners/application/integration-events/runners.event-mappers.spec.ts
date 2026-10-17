@@ -6,9 +6,9 @@ import {
   aTrust,
 } from '@runners/domain/aggregates/runner-pool.fake-spec';
 import { Admission } from '@runners/domain/value-objects/admission.vo';
+import { BootId } from '@runners/domain/value-objects/boot-id.vo';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import { HostReport } from '@runners/domain/value-objects/host-report.vo';
-import { HostSession } from '@runners/domain/value-objects/host-session.vo';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { attributedIn } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -36,21 +36,21 @@ describe('RUNNERS_EVENT_MAPPERS', () => {
   });
 
   it('publishes a host that starts serving a harness to its workspace', () => {
-    const host = RunnerHost.present({
+    const host = RunnerHost.fromHeartbeat({
       id: HostId.of('01J8ZQ4Y7N3K5V2W9X6RTBHCDE'),
       workspaceId: WorkspaceId.of('ws_1'),
       admission: Admission.of('pool', 'pool_1'),
-      session: HostSession.of('session_1'),
+      bootId: BootId.of('boot_1'),
       report: HostReport.of({
         name: 'build-box',
         release: '0.9.0',
-        executor: 'docker',
+        containerRuntime: 'docker',
         capacity: 1,
         running: [],
         images: [
           {
             image: 'ghcr.io/usespotlightai/spotlight-runner:1.0.0',
-            usual: true,
+            isDefault: true,
             harnesses: [{ id: 'claude-code', models: [] }],
           },
         ],

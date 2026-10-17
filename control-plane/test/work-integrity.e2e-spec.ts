@@ -258,7 +258,7 @@ describe('a file handed over twice', () => {
   });
 });
 
-describe('a chat handed to a run', () => {
+describe('a chat dispatched to a run', () => {
   it('remembers the run each message went to, until it is taken back', async () => {
     const { workspaceId, teamId, owner } = await openTeam(
       db,
@@ -279,12 +279,12 @@ describe('a chat handed to a run', () => {
     await chats.add(started);
 
     const run = RunId.of(randomUUID());
-    await chats.save(started.handedTo(run, NOW));
-    const handed = (await chats.find(started.id)) as Chat;
+    await chats.save(started.assignRun(run, NOW));
+    const dispatched = (await chats.find(started.id)) as Chat;
 
-    expect(handed.messages[0]?.wasDeliveredTo(run)).toBe(true);
+    expect(dispatched.messages[0]?.wasDeliveredTo(run)).toBe(true);
 
-    await chats.save(handed.runKeptNothing(run));
+    await chats.save(dispatched.runKeptNothing(run));
     const back = (await chats.find(started.id)) as Chat;
 
     expect(back.running).toBe(false);

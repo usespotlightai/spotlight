@@ -66,9 +66,9 @@ describe('fingerprintGroupsNewestFirst', () => {
     expect(
       shapeOf([
         ranAt('run_1', FIRST_CONFIG, 1),
-        ranAt('run_withdrawn', FIRST_CONFIG, null, {
+        ranAt('run_cancelled', FIRST_CONFIG, null, {
           endedAt: 2,
-          ending: 'withdrawn',
+          ending: 'cancelled',
         }),
         ranAt('run_unstarted', FIRST_CONFIG, null, {
           endedAt: 3,
@@ -86,7 +86,7 @@ describe('fingerprintGroupsNewestFirst', () => {
           'run_2',
           'run_unfingerprinted',
           'run_unstarted',
-          'run_withdrawn',
+          'run_cancelled',
           'run_1',
         ],
       ],
@@ -101,9 +101,9 @@ describe('fingerprintGroupsNewestFirst', () => {
           endedAt: 2,
           ending: 'failed',
         }),
-        ranAt('run_b_withdrawn', SECOND_CONFIG, null, {
+        ranAt('run_b_cancelled', SECOND_CONFIG, null, {
           endedAt: 3,
-          ending: 'withdrawn',
+          ending: 'cancelled',
         }),
         ranAt('run_2', FIRST_CONFIG, 4),
         ranAt('run_3', SECOND_CONFIG, 5),
@@ -111,7 +111,7 @@ describe('fingerprintGroupsNewestFirst', () => {
     ).toEqual([
       ['run_3', 'A>B', true, ['run_3']],
       ['run_2', 'A>A', true, ['run_2']],
-      ['run_b_unstarted', 'A>B', false, ['run_b_withdrawn', 'run_b_unstarted']],
+      ['run_b_unstarted', 'A>B', false, ['run_b_cancelled', 'run_b_unstarted']],
       ['run_1', 'null>A', true, ['run_1']],
     ]);
   });
@@ -146,9 +146,9 @@ describe('fingerprintGroupsNewestFirst', () => {
   it('gathers runs before any config run, with none before them, into a group of no config, keeping those meant for a config apart', () => {
     expect(
       shapeOf([
-        ranAt('run_withdrawn', SECOND_CONFIG, null, {
+        ranAt('run_cancelled', SECOND_CONFIG, null, {
           endedAt: 1,
-          ending: 'withdrawn',
+          ending: 'cancelled',
         }),
         ranAt('run_unfingerprinted', null, 2),
         ranAt('run_1', FIRST_CONFIG, 3),
@@ -156,7 +156,7 @@ describe('fingerprintGroupsNewestFirst', () => {
     ).toEqual([
       ['run_1', 'null>A', true, ['run_1']],
       ['run_unfingerprinted', 'null>null', true, ['run_unfingerprinted']],
-      ['run_withdrawn', 'null>B', false, ['run_withdrawn']],
+      ['run_cancelled', 'null>B', false, ['run_cancelled']],
     ]);
   });
 
@@ -166,9 +166,9 @@ describe('fingerprintGroupsNewestFirst', () => {
     expect(
       shapeOf(
         [
-          ranAt('run_withdrawn', FIRST_CONFIG, null, {
+          ranAt('run_cancelled', FIRST_CONFIG, null, {
             endedAt: 1,
-            ending: 'withdrawn',
+            ending: 'cancelled',
           }),
           ranAt('run_1', FIRST_CONFIG, 2),
           ranAt('run_2', SECOND_CONFIG, 3),
@@ -177,7 +177,7 @@ describe('fingerprintGroupsNewestFirst', () => {
       ),
     ).toEqual([
       ['run_2', 'A>B', true, ['run_2']],
-      ['run_withdrawn', 'A>A', true, ['run_1', 'run_withdrawn']],
+      ['run_cancelled', 'A>A', true, ['run_1', 'run_cancelled']],
     ]);
     expect(
       shapeOf(
@@ -288,7 +288,7 @@ describe('configInForce', () => {
     expect(
       inForceOf([
         ...forty.slice(0, 3),
-        ranAtMinute('run_x_unstarted', SECOND_CONFIG, 5, 'withdrawn'),
+        ranAtMinute('run_x_unstarted', SECOND_CONFIG, 5, 'cancelled'),
       ]),
     ).toEqual({ config: 'A', firstRunId: 'run_a00', runs: 3 });
   });

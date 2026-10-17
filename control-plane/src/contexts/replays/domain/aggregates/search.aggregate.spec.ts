@@ -13,7 +13,7 @@ import { SearchCandidateNameTakenError } from '@replays/domain/exceptions/search
 import { SearchEndedError } from '@replays/domain/exceptions/search-ended.error';
 import { SearchIterationClosedError } from '@replays/domain/exceptions/search-iteration-closed.error';
 import { SearchNotReflectingError } from '@replays/domain/exceptions/search-not-reflecting.error';
-import { SearchProposalsSpentError } from '@replays/domain/exceptions/search-proposals-spent.error';
+import { SearchProposalsExhaustedError } from '@replays/domain/exceptions/search-proposals-exhausted.error';
 import { SearchReflectingError } from '@replays/domain/exceptions/search-reflecting.error';
 import { UnknownSearchTaskError } from '@replays/domain/exceptions/unknown-search-task.error';
 import {
@@ -375,7 +375,7 @@ describe('Search', () => {
       const full = proposing(searching(), 1, ['one', 'two']);
 
       expect(() => full.admitted(run(1), admission('three'))).toThrow(
-        SearchProposalsSpentError,
+        SearchProposalsExhaustedError,
       );
     });
 
@@ -388,10 +388,10 @@ describe('Search', () => {
 
       expect(search.iterations[0]?.attempts).toBe(6);
       expect(() => search.admitted(run(1), admission('late'))).toThrow(
-        SearchProposalsSpentError,
+        SearchProposalsExhaustedError,
       );
       expect(() => search.proposalRejected(run(1))).toThrow(
-        SearchProposalsSpentError,
+        SearchProposalsExhaustedError,
       );
     });
 
@@ -413,7 +413,7 @@ describe('Search', () => {
       );
     });
 
-    it('rejects a name it took already, in any iteration', () => {
+    it('rejects a name it used already, in any iteration', () => {
       const runIds = searchRunIds();
       const first = iterated(
         searching(aSearch(), runIds),
@@ -531,15 +531,15 @@ describe('Search', () => {
 
     it('closes an iteration whose run never started without waiting for a spend', () => {
       const runIds = searchRunIds();
-      const withdrawn = searching(aSearch(), runIds).recordRunEnd(
+      const cancelled = searching(aSearch(), runIds).recordRunEnd(
         run(1),
         { failed: true, started: false },
         later(1),
         runIds,
       );
 
-      expect(withdrawn.activeRun).toEqual(run(2));
-      expect(withdrawn.iterations[0]?.agentSpent?.unpriced).toBe(0);
+      expect(cancelled.activeRun).toEqual(run(2));
+      expect(cancelled.iterations[0]?.agentSpent?.unpriced).toBe(0);
     });
 
     it('charges an unpriced or foreign agent run its whole allotment, and searches on while that fits', () => {
@@ -1367,7 +1367,7 @@ describe('Search', () => {
   });
 
   describe('ending early', () => {
-    it('stops on request, withdrawing its run and stopping its replays underway', () => {
+    it('stops on request, cancels its run and stops its replays underway', () => {
       const search = proposing(searching(), 1, ['one']);
       const stopped = search.stop(later(5), BY);
 

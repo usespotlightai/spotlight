@@ -25,8 +25,8 @@ export type SearchDispatched =
   | { readonly outcome: 'queued' }
   | { readonly outcome: 'unstartable'; readonly reason: string };
 
-export type UnclaimedWithdrawal =
-  | { readonly outcome: 'withdrawn'; readonly started: boolean }
+export type UnclaimedCancellation =
+  | { readonly outcome: 'cancelled'; readonly started: boolean }
   | { readonly outcome: 'claimed' }
   | { readonly outcome: 'ended' };
 
@@ -35,7 +35,7 @@ export interface SearchDispatchPort {
 
   enqueue(order: SearchOrder): Promise<SearchDispatched>;
 
-  withdraw(runId: string): Promise<void>;
+  cancel(runId: string): Promise<void>;
 
-  withdrawUnclaimed(runId: string): Promise<UnclaimedWithdrawal>;
+  cancelUnclaimed(runId: string): Promise<UnclaimedCancellation>;
 }

@@ -108,8 +108,8 @@ export const RUN_ENDINGS: readonly RunEnding[] = [
   'completed',
   'failed',
   'stopped',
-  'abandoned',
-  'withdrawn',
+  'exhausted',
+  'cancelled',
   'superseded',
 ];
 

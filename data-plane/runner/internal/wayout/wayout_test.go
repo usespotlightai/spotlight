@@ -249,7 +249,7 @@ func TestTellsWhetherTheSandboxCanGoAroundEgress(t *testing.T) {
 func TestRejectsAnEgressWithoutAnAddressOrCredential(t *testing.T) {
 	for _, given := range [][2]string{{"egress.example.com", "credential"}, {"https://egress.example.com", ""}} {
 		if _, err := wayout.To(given[0], given[1], nil); err == nil {
-			t.Errorf("took %q", given)
+			t.Errorf("accepted %q", given)
 		}
 	}
 }

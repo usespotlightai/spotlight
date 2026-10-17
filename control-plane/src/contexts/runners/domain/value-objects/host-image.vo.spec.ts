@@ -10,7 +10,7 @@ const DIGEST = `ghcr.io/acme/widgets@sha256:${'b'.repeat(64)}`;
 const reported = (over: Partial<ReportedImage> = {}) =>
   HostImage.reported({
     image: 'ghcr.io/acme/widgets:main',
-    usual: false,
+    isDefault: false,
     harnesses: [
       { id: 'claude-code', models: ['claude-sonnet-5'], version: '2.1.0' },
     ],
@@ -31,7 +31,7 @@ describe('HostImage', () => {
   it('keeps an image a host says it can run, with the harnesses it carries', () => {
     const image = reported({
       digest: ` ${DIGEST} `,
-      usual: true,
+      isDefault: true,
       release: ' 0.9.0 ',
     });
 
@@ -39,7 +39,7 @@ describe('HostImage', () => {
     expect(image.digest?.value).toBe(DIGEST);
     expect(image.running.serves(image.image)).toBe(true);
     expect(image.running.serves(null)).toBe(true);
-    expect(image.usual).toBe(true);
+    expect(image.isDefault).toBe(true);
     expect(image.release).toBe('0.9.0');
     expect(image.harnesses.map((each) => each.id.value)).toEqual([
       'claude-code',

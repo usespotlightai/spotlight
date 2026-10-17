@@ -98,7 +98,7 @@ export function OutcomeGroup({
         >
           {summary.note ? <Noted note={summary.note}>{name}</Noted> : name}
           {!group.ran && (
-            <Noted note="No run started on this config. Its runs failed before starting or were withdrawn.">
+            <Noted note="No run started on this config. Its runs failed before starting or were cancelled.">
               <span className="inline-flex shrink-0">
                 <Pill className={cn(COMPACT_PILL, 'text-foreground')}>
                   Never started

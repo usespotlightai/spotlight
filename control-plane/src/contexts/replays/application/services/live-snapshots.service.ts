@@ -68,7 +68,7 @@ export class LiveSnapshots {
     return config.digests.scoring;
   }
 
-  async letGo(live: Candidate | null): Promise<void> {
+  async release(live: Candidate | null): Promise<void> {
     if (!live) {
       return;
     }
@@ -80,7 +80,7 @@ export class LiveSnapshots {
     } catch (error) {
       this.logger.warn(
         { candidateId: live.id.value, error },
-        'A live snapshot nothing used could not be let go of; it stays unused',
+        'A live snapshot nothing used could not be released; it stays unused',
       );
     }
   }

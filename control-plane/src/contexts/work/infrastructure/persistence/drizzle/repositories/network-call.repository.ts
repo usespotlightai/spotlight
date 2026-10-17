@@ -32,15 +32,15 @@ const progressOf = (row: Row): NetworkCallProgress => {
     return { kind: 'waiting' };
   }
 
-  if (row.state === 'lapsed' || row.state === 'given-up') {
-    if (!row.lapsedAt) {
+  if (row.state === 'expired' || row.state === 'cancelled') {
+    if (!row.expiredAt) {
       throw new InconsistentStateError(
         'network call',
         `was completed at no time (${row.id})`,
       );
     }
 
-    return { kind: row.state, at: row.lapsedAt };
+    return { kind: row.state, at: row.expiredAt };
   }
 
   if (!row.claimedBy || !row.claimedAt) {
@@ -95,7 +95,7 @@ const toCall = (row: Row): NetworkCall =>
       timeoutMs: row.timeoutMs,
     }),
     queuedAt: row.queuedAt,
-    lapsesAt: row.lapsesAt,
+    expiresAt: row.expiresAt,
     progress: progressOf(row),
     version: row.version,
   });
@@ -105,8 +105,8 @@ const progressColumns = (progress: NetworkCallProgress) => {
     return { state: 'waiting', claimedBy: null, claimedAt: null };
   }
 
-  if (progress.kind === 'lapsed' || progress.kind === 'given-up') {
-    return { state: progress.kind, lapsedAt: progress.at };
+  if (progress.kind === 'expired' || progress.kind === 'cancelled') {
+    return { state: progress.kind, expiredAt: progress.at };
   }
 
   if (progress.kind === 'claimed') {
@@ -149,7 +149,7 @@ export class DrizzleNetworkCallRepository implements NetworkCallRepository {
         body: base64Of(added.request.body),
         timeoutMs: added.request.timeoutMs,
         queuedAt: added.queuedAt,
-        lapsesAt: added.lapsesAt,
+        expiresAt: added.expiresAt,
         ...progressColumns(added.progress),
         version: added.version,
       });
@@ -198,17 +198,17 @@ export class DrizzleNetworkCallRepository implements NetworkCallRepository {
     return row ? toCall(row) : null;
   }
 
-  async lapsingBy(now: Date, max: number): Promise<readonly NetworkCall[]> {
+  async expiringBy(now: Date, max: number): Promise<readonly NetworkCall[]> {
     const rows = await this.context.db
       .select()
       .from(networkCall)
       .where(
         and(
           inArray(networkCall.state, ['waiting', 'claimed']),
-          lte(networkCall.lapsesAt, now),
+          lte(networkCall.expiresAt, now),
         ),
       )
-      .orderBy(asc(networkCall.lapsesAt))
+      .orderBy(asc(networkCall.expiresAt))
       .limit(max);
 
     return rows.map(toCall);
@@ -225,8 +225,8 @@ export class DrizzleNetworkCallRepository implements NetworkCallRepository {
             lte(networkCall.answeredAt, at),
           ),
           and(
-            inArray(networkCall.state, ['lapsed', 'given-up']),
-            lte(networkCall.lapsedAt, at),
+            inArray(networkCall.state, ['expired', 'cancelled']),
+            lte(networkCall.expiredAt, at),
           ),
         ),
       )
@@ -248,7 +248,7 @@ export class DrizzleNetworkCallRepository implements NetworkCallRepository {
           and(
             eq(networkCall.workspaceId, workspaceId.value),
             eq(networkCall.state, 'waiting'),
-            gt(networkCall.lapsesAt, now),
+            gt(networkCall.expiresAt, now),
           ),
         )
         .orderBy(asc(networkCall.queuedAt))

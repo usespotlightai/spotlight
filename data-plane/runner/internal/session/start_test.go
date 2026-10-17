@@ -54,7 +54,7 @@ func TestRecordsTheArchiveRestoredAndTheCommitEachCheckoutIsAt(t *testing.T) {
 	}
 	told := to.told[0]
 	if told.Attempt != 2 {
-		t.Errorf("told attempt %d, want the one the run was handed on", told.Attempt)
+		t.Errorf("told attempt %d, want the attempt of the run", told.Attempt)
 	}
 	if told.ArchiveID == nil || *told.ArchiveID != "archive_1" {
 		t.Errorf("told archive %v, want archive_1", told.ArchiveID)

@@ -19,7 +19,7 @@ const imageServed = (image: SQLWrapper, terms: RunnerTerms): SQL => {
     return sql`TRUE`;
   }
 
-  return running.usual
+  return running.isDefault
     ? sql`(${image} IS NULL OR ${image} = ${running.image.value})`
     : sql`${image} = ${running.image.value}`;
 };

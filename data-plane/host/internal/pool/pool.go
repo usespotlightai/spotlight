@@ -27,8 +27,8 @@ func New(baseURL string, credential control.Credential, host string) (*Client, e
 	return &Client{control: client, base: baseURL, host: host}, nil
 }
 
-func (c *Client) Seat(handed protocol.Handed) (serve.Worker, error) {
-	return control.Seated(c.base, handed)
+func (c *Client) ForRun(assignment protocol.Assignment) (serve.RunClient, error) {
+	return control.ForRun(c.base, assignment)
 }
 
 func (c *Client) Requirements(ctx context.Context) (protocol.HostRequirements, error) {
@@ -40,24 +40,24 @@ func (c *Client) Requirements(ctx context.Context) (protocol.HostRequirements, e
 	return out, nil
 }
 
-func (c *Client) Claim(ctx context.Context, offer protocol.HostClaim) (*protocol.Handed, error) {
+func (c *Client) Claim(ctx context.Context, offer protocol.HostClaim) (*protocol.Assignment, error) {
 	ctx, cancel := context.WithTimeout(ctx, control.PollTimeout+15*time.Second)
 	defer cancel()
 
-	var handed protocol.Handed
+	var assignment protocol.Assignment
 	offer.Host = c.host
-	status, err := c.control.Request(ctx, http.MethodPost, "/api/hosts/claim", offer, &handed)
+	status, err := c.control.Request(ctx, http.MethodPost, "/api/hosts/claim", offer, &assignment)
 	if err != nil {
 		return nil, fmt.Errorf("claim: %w", err)
 	}
 	if status == http.StatusNoContent {
 		return nil, nil
 	}
-	if handed.Token == "" || handed.RunnerID == "" {
-		return nil, fmt.Errorf("claim: the control plane handed no one-run credential")
+	if assignment.Token == "" || assignment.RunnerID == "" {
+		return nil, fmt.Errorf("claim: the assignment has no one-run credential")
 	}
 
-	return &handed, nil
+	return &assignment, nil
 }
 
 func (c *Client) ClaimCall(ctx context.Context) (*protocol.HostCall, error) {
@@ -69,18 +69,18 @@ func (c *Client) AnswerCall(ctx context.Context, id string, answer protocol.Host
 	return c.control.AnswerCall(ctx, id, answer)
 }
 
-func (c *Client) Present(ctx context.Context, presence protocol.HostPresence) (protocol.HeartbeatResponse, error) {
+func (c *Client) Heartbeat(ctx context.Context, heartbeat protocol.HostHeartbeat) (protocol.HeartbeatResponse, error) {
 	var response protocol.HeartbeatResponse
-	if _, err := c.control.Request(ctx, http.MethodPut, c.path(), presence, &response); err != nil {
-		return protocol.HeartbeatResponse{}, fmt.Errorf("report presence: %w", err)
+	if _, err := c.control.Request(ctx, http.MethodPut, c.path(), heartbeat, &response); err != nil {
+		return protocol.HeartbeatResponse{}, fmt.Errorf("send a heartbeat: %w", err)
 	}
 
 	return response, nil
 }
 
-func (c *Client) Leave(ctx context.Context) error {
+func (c *Client) Deregister(ctx context.Context) error {
 	if _, err := c.control.Request(ctx, http.MethodDelete, c.path(), nil, nil); err != nil {
-		return fmt.Errorf("say it is leaving: %w", err)
+		return fmt.Errorf("deregister: %w", err)
 	}
 
 	return nil

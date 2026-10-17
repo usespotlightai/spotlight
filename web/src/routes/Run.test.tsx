@@ -670,8 +670,8 @@ describe('Run', () => {
       ).toBeInTheDocument();
     });
 
-    it('still waits for you once it is parked, pointing at the inbox without a conversation to name', () => {
-      runs.mockReturnValue([run({ state: 'parked' })]);
+    it('still waits for you once it is suspended, pointing at the inbox without a conversation to name', () => {
+      runs.mockReturnValue([run({ state: 'suspended' })]);
 
       const { container } = renderRun();
 

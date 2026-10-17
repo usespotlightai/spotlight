@@ -16,7 +16,7 @@ describe('HarnessSession', () => {
     expect(one.equals(HarnessSession.of('session_2'))).toBe(false);
   });
 
-  it('needs something to hand back', () => {
+  it('rejects a blank session', () => {
     expect(() => HarnessSession.of('  ')).toThrow(InvalidHarnessSessionError);
   });
 

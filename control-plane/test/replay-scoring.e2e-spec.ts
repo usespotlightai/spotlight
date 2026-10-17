@@ -342,7 +342,7 @@ interface Claimed {
 }
 
 const claimed = async (): Promise<Claimed> => {
-  const handed = (
+  const assignment = (
     await http()
       .post('/api/hosts/claim')
       .set('Authorization', `Bearer ${POOL_TOKEN}`)
@@ -358,10 +358,10 @@ const claimed = async (): Promise<Claimed> => {
   };
 
   return {
-    token: handed.token,
-    kind: handed.work.kind,
-    runId: handed.work.run?.id ?? handed.work.check?.runId ?? '',
-    stackId: handed.work.check?.stackId ?? null,
+    token: assignment.token,
+    kind: assignment.work.kind,
+    runId: assignment.work.run?.id ?? assignment.work.check?.runId ?? '',
+    stackId: assignment.work.check?.stackId ?? null,
   };
 };
 
@@ -482,16 +482,16 @@ beforeAll(async () => {
     .put(`/api/hosts/${HOST}`)
     .set('Authorization', `Bearer ${POOL_TOKEN}`)
     .send({
-      session: 'session_1',
+      bootId: 'boot_1',
       name: 'scoring-box',
       release: '0.1.0',
-      executor: 'docker',
+      containerRuntime: 'docker',
       capacity: 8,
       running: [],
       images: [
         {
           image: IMAGE,
-          usual: true,
+          isDefault: true,
           harnesses: [{ id: 'claude-code', models: [] }],
         },
       ],
@@ -545,24 +545,24 @@ describe('a replay at a station that checks and judges', () => {
     const both = [id, baselineId];
     const reported = new Set<string>();
 
-    const finish = async (handed: Claimed) => {
-      const entry = await entryOf(handed.runId);
+    const finish = async (assignment: Claimed) => {
+      const entry = await entryOf(assignment.runId);
       const { score } = plan(entry?.replayId ?? '', entry?.originalRunId ?? '');
 
-      await bearing(handed.token)
-        .post(`/api/runs/${handed.runId}/events`, {
+      await bearing(assignment.token)
+        .post(`/api/runs/${assignment.runId}/events`, {
           events: changing(1, `Drained it: score(${score}).`, 'drain()'),
         })
         .expect(204);
-      await bearing(handed.token)
-        .post(`/api/runs/${handed.runId}/change-stacks`, {
+      await bearing(assignment.token)
+        .post(`/api/runs/${assignment.runId}/change-stacks`, {
           diff: diffOf('drain()'),
           repository: 'api',
           base: COMMIT,
         })
         .expect(204);
-      await bearing(handed.token)
-        .post(`/api/runs/${handed.runId}/completion`, {
+      await bearing(assignment.token)
+        .post(`/api/runs/${assignment.runId}/completion`, {
           exitCode: 0,
           failed: false,
           outcome: { next: 'ship', note: 'Drained.' },
@@ -572,8 +572,8 @@ describe('a replay at a station that checks and judges', () => {
         .expect(200);
     };
 
-    const check = async (handed: Claimed) => {
-      const entry = await entryOf(handed.runId);
+    const check = async (assignment: Claimed) => {
+      const entry = await entryOf(assignment.runId);
       const { passes } = plan(
         entry?.replayId ?? '',
         entry?.originalRunId ?? '',
@@ -582,9 +582,9 @@ describe('a replay at a station that checks and judges', () => {
       expect(entry?.succeeded).toBeNull();
       expect(await replayState(entry?.replayId ?? '')).toBe('running');
 
-      await bearing(handed.token)
+      await bearing(assignment.token)
         .post(
-          `/api/runs/${handed.runId}/change-stack-checks/${handed.stackId}`,
+          `/api/runs/${assignment.runId}/change-stack-checks/${assignment.stackId}`,
           {
             steps: [
               {
@@ -597,7 +597,7 @@ describe('a replay at a station that checks and judges', () => {
           },
         )
         .expect(204);
-      reported.add(handed.stackId ?? '');
+      reported.add(assignment.stackId ?? '');
     };
 
     const replayRunIds = async () =>
@@ -652,9 +652,11 @@ describe('a replay at a station that checks and judges', () => {
       await worked();
 
       if (await workWaiting()) {
-        const handed = await claimed();
+        const assignment = await claimed();
 
-        await (handed.kind === 'run' ? finish(handed) : check(handed));
+        await (assignment.kind === 'run'
+          ? finish(assignment)
+          : check(assignment));
       }
 
       return allScored();

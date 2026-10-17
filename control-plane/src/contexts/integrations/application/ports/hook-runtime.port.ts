@@ -34,7 +34,7 @@ export interface StepTaken {
   readonly trace: HookCall | null;
 }
 
-export type Waiting = 'until-answered' | 'hand-back';
+export type Waiting = 'until-answered' | 'suspend';
 
 export interface StepAsked {
   readonly hook: ListeningHook;

@@ -111,7 +111,7 @@ describe('HookFiring', () => {
       expect(waiting.claimed(later(2_000)).progress.kind).toBe('working');
     });
 
-    it('is not claimed from a worker that still has the lease, only once its lease lapses', () => {
+    it('is not claimed from a worker that still has the lease, only once its lease expires', () => {
       const leased = kept(working());
 
       expect(() => leased.claimed(later(10 * 60_000))).toThrow(

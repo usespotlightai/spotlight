@@ -1,4 +1,4 @@
-import type { RunnerPresencePort } from '@runners/application/ports/runner-presence.port';
+import type { RunnerHeartbeatsPort } from '@runners/application/ports/runner-heartbeats.port';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
@@ -24,7 +24,7 @@ export class ClaimRunHandler
   constructor(
     private readonly runs: RunRepository,
     private readonly leases: RunLeases,
-    private readonly presence: RunnerPresencePort,
+    private readonly heartbeats: RunnerHeartbeatsPort,
     private readonly clock: ClockPort,
     private readonly checks: CheckWorkPort,
     private readonly taken: ClaimsTaken,
@@ -37,23 +37,26 @@ export class ClaimRunHandler
     try {
       const runnerId = RunnerId.of(command.runnerId);
 
-      const seen = await this.presence.seen(runnerId, this.clock.now());
-      if (!seen) {
+      const heartbeat = await this.heartbeats.heartbeat(
+        runnerId,
+        this.clock.now(),
+      );
+      if (!heartbeat) {
         throw new UnknownRunnerError(command.runnerId);
       }
 
-      if (seen.claims === 'nothing') {
+      if (heartbeat.claims === 'nothing') {
         return null;
       }
 
-      await this.leases.requeueLapsed(this.clock.now());
+      await this.leases.expireLeases(this.clock.now());
 
       const claimant: Claimant = {
         runner: runnerId,
-        workspaceId: seen.workspaceId,
-        harnesses: seen.harnesses,
-        terms: seen.terms,
-        claims: seen.claims,
+        workspaceId: heartbeat.workspaceId,
+        harnesses: heartbeat.harnesses,
+        terms: heartbeat.terms,
+        claims: heartbeat.claims,
       };
 
       return await this.reserved(claimant);
@@ -82,14 +85,14 @@ export class ClaimRunHandler
 
     const until = this.polls.deadline();
 
-    const found = await this.polls.polled<ClaimedWorkDto | 'handed-back'>(
+    const found = await this.polls.polled<ClaimedWorkDto | 'requeued'>(
       async () => {
         const claimed = await this.runs.claimNext(claimant, this.clock.now());
         const start = claimed
           ? await this.starting.mayStart(claimed, claimant.runner, until)
           : null;
 
-        if (start === 'handed-back') {
+        if (start === 'requeued') {
           return start;
         }
 
@@ -116,6 +119,6 @@ export class ClaimRunHandler
       until,
     );
 
-    return found === 'handed-back' ? null : found;
+    return found === 'requeued' ? null : found;
   }
 }

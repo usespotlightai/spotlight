@@ -388,7 +388,7 @@ describe('Line', () => {
       ).toThrow(InvalidStationLayoutError);
     });
 
-    it('rejects a station that hands on to itself', () => {
+    it('rejects a station that passes to itself', () => {
       expect(() =>
         lineOf([at(1, 'Triage', { passesTo: ['station_1'] })]),
       ).toThrow(InvalidStationLayoutError);
@@ -656,7 +656,7 @@ describe('Line, the stations it names by key', () => {
   });
 });
 
-describe('Line, where work may be handed on to', () => {
+describe('Line, where work may be passed on to', () => {
   const running = () =>
     opened().runsOn(
       HarnessId.of('claude-code'),

@@ -10,7 +10,7 @@ import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import {
   CompleteRunCommand,
-  ParkRunCommand,
+  SuspendRunCommand,
 } from '@work/application/commands/runner.commands';
 import type { Happened } from '@work/application/contracts/happenings.contract';
 import {
@@ -123,7 +123,7 @@ const workingAt = async (
   const task = await found(added.id);
 
   if (!task.currentRunId) {
-    throw new Error('the move handed the task to no run');
+    throw new Error('the move dispatched the task to no run');
   }
 
   const runId = task.currentRunId;
@@ -163,7 +163,7 @@ const claimed = async (runId: RunId) => {
   await runs.save((await runOf(runId)).claim(RUNNER, new Date()));
 };
 
-const endedHandingOverTo = async (runId: RunId, next: string) => {
+const endedPassingTo = async (runId: RunId, next: string) => {
   await runs.save(
     (await runOf(runId)).complete(
       RUNNER,
@@ -195,11 +195,11 @@ const pausedAsking = async (runId: RunId) => {
   expect((await runOf(runId)).state).toBe('waiting');
 };
 
-const parked = async (runId: RunId) => {
+const suspended = async (runId: RunId) => {
   await app
     .get(CommandBus)
-    .execute(new ParkRunCommand(runId.value, RUNNER.value));
-  expect((await runOf(runId)).state).toBe('parked');
+    .execute(new SuspendRunCommand(runId.value, RUNNER.value));
+  expect((await runOf(runId)).state).toBe('suspended');
 };
 
 const answered = (task: Task, from: number, body: string, approve?: boolean) =>
@@ -310,7 +310,7 @@ describe('a happening that would move a task while a run works on it (e2e)', () 
     await claimed(runId);
     await changesRequested(task);
 
-    await endedHandingOverTo(runId, 'implementation');
+    await endedPassingTo(runId, 'implementation');
 
     const passed = await atStation(task, 'implementation');
     expect(passed.deferredMoveTo).toBeNull();
@@ -322,7 +322,7 @@ describe('a happening that would move a task while a run works on it (e2e)', () 
     await claimed(runId);
     await changesRequested(task);
 
-    await endedHandingOverTo(runId, 'review');
+    await endedPassingTo(runId, 'review');
 
     const moved = await atStation(task, 'code-review');
     expect(moved.awaitingReview).toBe(false);
@@ -336,11 +336,11 @@ describe('a happening that would move a task while a run works on it (e2e)', () 
 
     await movedByHand(await found(task.id), 'backlog');
 
-    const withdrawn = await eventually(async () => {
+    const cancelled = await eventually(async () => {
       const run = await runOf(runId);
       return run.hasEnded && run;
     });
-    expect(withdrawn.outcome?.superseded).toBe(true);
+    expect(cancelled.outcome?.cancelled).toBe(true);
   });
 });
 
@@ -348,7 +348,7 @@ describe('a pull request merged while a run works on the task (e2e)', () => {
   const question =
     'The pull request was merged while Implementation was working. Close the task, or reply to carry on.';
 
-  it('withdraws a queued run and asks the person who took the task up', async () => {
+  it('cancels a queued run and asks the person the task is assigned to', async () => {
     const { task, runId } = await workingAt('implementation');
 
     await merged(task);
@@ -361,11 +361,11 @@ describe('a pull request merged while a run works on the task (e2e)', () => {
     expect(asked.assignee).toEqual(team.owner);
     expect(asked.notes[asked.notes.length - 1]?.body.value).toBe(question);
 
-    const withdrawn = await eventually(async () => {
+    const cancelled = await eventually(async () => {
       const run = await runOf(runId);
       return run.hasEnded && run;
     });
-    expect(withdrawn.outcome?.superseded).toBe(true);
+    expect(cancelled.outcome?.cancelled).toBe(true);
   });
 
   it('asks a working run to stop', async () => {
@@ -416,7 +416,7 @@ describe('a pull request merged while a run works on the task (e2e)', () => {
   it('finishes a task once its run has ended, as before', async () => {
     const { task, runId } = await workingAt('implementation');
     await claimed(runId);
-    await endedHandingOverTo(runId, 'review');
+    await endedPassingTo(runId, 'review');
     await eventually(async () => (await found(task.id)).awaitingReview);
 
     await merged(task);
@@ -438,7 +438,7 @@ describe('a happening while the current run of the task waits on a person (e2e)'
 
   it.each([
     ['warm', async (_: RunId) => {}],
-    ['parked', parked],
+    ['suspended', suspended],
   ])(
     'defers the move beside the question while the run waits %s',
     async (state, waits) => {
@@ -459,7 +459,7 @@ describe('a happening while the current run of the task waits on a person (e2e)'
         ['said', DEFERRED_MOVE_TO_CODE_REVIEW],
       ]);
       expect((await runOf(runId)).state).toBe(
-        state === 'warm' ? 'waiting' : 'parked',
+        state === 'warm' ? 'waiting' : 'suspended',
       );
     },
   );
@@ -470,7 +470,7 @@ describe('a happening while the current run of the task waits on a person (e2e)'
 
     await answered(task, task.notes.length - 1, 'The default one.');
     await eventually(async () => (await runOf(runId)).state === 'claimed');
-    await endedHandingOverTo(runId, 'review');
+    await endedPassingTo(runId, 'review');
 
     const moved = await atStation(task, 'code-review');
     expect(moved.awaitingReview).toBe(false);
@@ -479,7 +479,7 @@ describe('a happening while the current run of the task waits on a person (e2e)'
 
   it.each([
     ['warm', async (_: RunId) => {}],
-    ['parked', parked],
+    ['suspended', suspended],
   ])(
     'adds a merge to the open question while the run waits %s, asking nothing again and leaving the run as it is',
     async (state, waits) => {
@@ -501,7 +501,7 @@ describe('a happening while the current run of the task waits on a person (e2e)'
       );
 
       const run = await runOf(runId);
-      expect(run.state).toBe(state === 'warm' ? 'waiting' : 'parked');
+      expect(run.state).toBe(state === 'warm' ? 'waiting' : 'suspended');
       expect(run.stopRequested).toBe(false);
     },
   );
@@ -540,7 +540,7 @@ describe('a deferred move and what ends the run (e2e)', () => {
     expect((await found(task.id)).deferredMoveTo).toEqual(
       stationKeyed('code-review').id,
     );
-    await endedHandingOverTo(runId, 'done');
+    await endedPassingTo(runId, 'done');
 
     const moved = await atStation(task, 'code-review');
     expect(moved.awaitingReview).toBe(false);
@@ -578,7 +578,7 @@ describe('a deferred move and what ends the run (e2e)', () => {
     await merged(task);
     expect((await found(task.id)).deferredMoveTo).toBeNull();
 
-    await runs.save((await runOf(runId)).letGo(new Date()));
+    await runs.save((await runOf(runId)).cancel(new Date()));
 
     const left = await eventually(async () => {
       const each = await found(task.id);
@@ -590,7 +590,7 @@ describe('a deferred move and what ends the run (e2e)', () => {
 });
 
 describe('a reply to an interrupted working run (e2e)', () => {
-  it('queues a new run at the station that no runner takes until the stopped run has ended', async () => {
+  it('queues a new run at the station that no runner claims until the stopped run has ended', async () => {
     const { task, runId } = await workingAt('implementation');
     await claimed(runId);
     await merged(task);

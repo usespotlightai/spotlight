@@ -194,7 +194,7 @@ export class DrizzleRunDigests
       .select({
         id: run.id,
         attempt: run.attempt,
-        parked: run.parkedAttempts,
+        suspended: run.suspendedAttempts,
       })
       .from(run)
       .leftJoin(
@@ -218,7 +218,7 @@ export class DrizzleRunDigests
     owed: readonly {
       id: string;
       attempt: number;
-      parked: readonly number[];
+      suspended: readonly number[];
     }[],
   ): Promise<void> {
     const told = await this.db
@@ -233,10 +233,10 @@ export class DrizzleRunDigests
       .from(runJournalEntry)
       .where(
         or(
-          ...owed.map(({ id, attempt, parked }) =>
+          ...owed.map(({ id, attempt, suspended }) =>
             and(
               eq(runJournalEntry.runId, id),
-              inArray(runJournalEntry.attempt, [...parked, attempt]),
+              inArray(runJournalEntry.attempt, [...suspended, attempt]),
             ),
           ),
         ),
@@ -255,8 +255,8 @@ export class DrizzleRunDigests
     }
 
     const homes = this.launch.skillHomes();
-    const rows = owed.map(({ id, attempt, parked }) => {
-      const kept = [...parked, attempt]
+    const rows = owed.map(({ id, attempt, suspended }) => {
+      const kept = [...suspended, attempt]
         .sort((one, other) => one - other)
         .map((each) => readings.get(`${id}:${each}`) ?? new Told());
       const spent = spentAcross(kept);

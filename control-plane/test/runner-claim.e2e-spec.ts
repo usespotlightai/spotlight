@@ -119,8 +119,8 @@ describe('claiming a run', () => {
   });
 });
 
-describe('claiming a run handed back', () => {
-  it('hands out another waiting run while one handed back waits out its back-off, and keeps what it was handed back for', async () => {
+describe('claiming a requeued run', () => {
+  it('hands out another waiting run while a requeued one waits out its back-off, and counts the requeue without a new attempt', async () => {
     const workspaceId = randomUUID();
     const first = await queue(workspaceId);
     const runner = RunnerId.of(randomUUID());
@@ -134,7 +134,7 @@ describe('claiming a run handed back', () => {
       (claimed as NonNullable<typeof claimed>).id,
     );
     await runs.save(
-      (stored as NonNullable<typeof stored>).handedBack(
+      (stored as NonNullable<typeof stored>).requeue(
         runner,
         NOW,
         'connect ECONNREFUSED',
@@ -153,7 +153,7 @@ describe('claiming a run handed back', () => {
     );
     expect(again?.id.value).toBe(first);
     expect(again?.attempt).toBe(1);
-    expect(again?.handBacks.count).toBe(1);
+    expect(again?.requeueCount.count).toBe(1);
   });
 });
 
@@ -212,7 +212,7 @@ describe('claiming a run reserved for a provisioned runner', () => {
     expect(claimed?.reservation).toBeNull();
   });
 
-  it('lets any runner take it once the reservation has lapsed', async () => {
+  it('lets any runner claim it once the reservation has expired', async () => {
     const workspaceId = randomUUID();
     const runId = await queue(workspaceId);
     await reserve(runId, RunnerId.of(randomUUID()), NOW);
@@ -274,7 +274,7 @@ describe('claiming a check reserved for a provisioned runner', () => {
     ).toBe(stackId);
   });
 
-  it('lets any runner take it once the reservation has lapsed', async () => {
+  it('lets any runner claim it once the reservation has expired', async () => {
     const workspaceId = randomUUID();
     const stackId = await awaitingCheck(workspaceId, []);
     await reserveCheck(stackId, RunnerId.of(randomUUID()), NOW);
@@ -305,7 +305,7 @@ describe('forgetting the checks of a deleted task', () => {
       now: NOW,
     });
 
-  it('finds every check of the task and removes each, letting go of its reserved runner', async () => {
+  it('finds every check of the task and removes each, and releases its reserved runner', async () => {
     const repository = forgetting();
     const task = TaskId.of(randomUUID());
     const runner = RunnerId.of(randomUUID());
@@ -364,7 +364,7 @@ describe('a runner reaching git for a run whose check it leases', () => {
       now: NOW,
     });
 
-  it('leases the check only while its lease runs and only to the runner that took it', async () => {
+  it('leases the check only while its lease runs and only to the runner that claimed it', async () => {
     const runId = RunId.of(randomUUID());
     const runner = RunnerId.of(randomUUID());
     const waiting = checkOf(runId);
@@ -373,7 +373,9 @@ describe('a runner reaching git for a run whose check it leases', () => {
     const claimed = waiting.claimedFor(runner, RunnerTerms.none(), NOW);
     await checks.save(claimed);
     const access = new CheckAccess(checks);
-    const lapsed = new Date((claimed.claim.leaseExpiresAt?.getTime() ?? 0) + 1);
+    const expired = new Date(
+      (claimed.claim.leaseExpiresAt?.getTime() ?? 0) + 1,
+    );
 
     await expect(access.isCheckOfRunLeasedBy(runId, runner, NOW)).resolves.toBe(
       true,
@@ -385,7 +387,7 @@ describe('a runner reaching git for a run whose check it leases', () => {
       access.isCheckOfRunLeasedBy(RunId.of(randomUUID()), runner, NOW),
     ).resolves.toBe(false);
     await expect(
-      access.isCheckOfRunLeasedBy(runId, runner, lapsed),
+      access.isCheckOfRunLeasedBy(runId, runner, expired),
     ).resolves.toBe(false);
   });
 });

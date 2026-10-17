@@ -26,7 +26,7 @@ const RUN: ListedRun = {
   failure: 'timed-out',
   checks: 'passed',
   next: { act: 'sent-back', at: new Date('2026-10-01T09:00:00.000Z') },
-  handedOn: { to: 'station_2', at: new Date('2026-10-01T09:30:00.000Z') },
+  passed: { to: 'station_2', at: new Date('2026-10-01T09:30:00.000Z') },
   delivery: 'merged',
 };
 
@@ -56,7 +56,7 @@ describe('insightsRunOf', () => {
       failure: 'timed-out',
       checks: 'passed',
       next: { act: 'sent-back', at: '2026-10-01T09:00:00.000Z' },
-      handedOn: { to: 'station_2', at: '2026-10-01T09:30:00.000Z' },
+      passed: { to: 'station_2', at: '2026-10-01T09:30:00.000Z' },
       delivery: 'merged',
     });
   });
@@ -68,13 +68,13 @@ describe('insightsRunOf', () => {
         queuedAt: null,
         startedAt: null,
         next: null,
-        handedOn: null,
+        passed: null,
       }),
     ).toMatchObject({
       queuedAt: null,
       startedAt: null,
       next: null,
-      handedOn: null,
+      passed: null,
     });
   });
 });

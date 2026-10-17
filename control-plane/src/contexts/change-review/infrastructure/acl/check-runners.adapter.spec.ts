@@ -15,7 +15,7 @@ describe('CheckRunners', () => {
     expect(checkEnded).toHaveBeenCalledWith('stack_1');
   });
 
-  it('tells Work to let go of a runner whose reservation was dropped', async () => {
+  it('tells Work to release a runner whose reservation was dropped', async () => {
     const reservationDropped = vi.fn(async () => {});
 
     await new CheckRunners({

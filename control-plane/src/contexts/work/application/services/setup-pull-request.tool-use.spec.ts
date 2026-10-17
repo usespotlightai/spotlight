@@ -43,7 +43,7 @@ const using = (given: { setup?: boolean } = {}) => {
         : ConfigHome.of({ repository: 'acme/infra', folder: 'spotlight' }),
     now: NOW,
     newId: () => 'chat_1',
-  }).handedTo(RunId.of('run_1'), NOW);
+  }).assignRun(RunId.of('run_1'), NOW);
   chat.pullEvents();
 
   const events: unknown[] = [];

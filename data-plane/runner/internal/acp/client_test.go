@@ -23,7 +23,7 @@ func pretend(t *testing.T, script string) string {
 	return path
 }
 
-const answering = `
+const responsiveHarness = `
 const send = (m) => process.stdout.write(JSON.stringify(m) + "\n");
 let buffered = "";
 process.stdin.on("data", (chunk) => {
@@ -65,7 +65,7 @@ func start(t *testing.T, script string, answer acp.Permission) (*acp.Client, str
 }
 
 func TestOpensASessionAndReportsWhatWasSaid(t *testing.T) {
-	client, _ := start(t, answering, nil)
+	client, _ := start(t, responsiveHarness, nil)
 
 	ctx, stop := context.WithTimeout(context.Background(), 10*time.Second)
 	defer stop()

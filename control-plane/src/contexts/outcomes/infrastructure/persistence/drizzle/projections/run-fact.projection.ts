@@ -125,7 +125,7 @@ const projected = (db: DrizzleDatabase, where: SQL) =>
       ending: sql<
         typeof runRecord.$inferSelect.ending & string
       >`${runRecord.ending}`.as('ending'),
-      ran: sql<boolean>`${runRecord.ending} <> 'withdrawn'`.as('ran'),
+      ran: sql<boolean>`${runRecord.ending} <> 'cancelled'`.as('ran'),
       failure: runRecord.failure,
       round: nonNull<number>(runRecord.round).as('round'),
       asked: runRecord.asked,
@@ -135,8 +135,8 @@ const projected = (db: DrizzleDatabase, where: SQL) =>
       nextAct: runRecord.nextAct,
       nextAt: runRecord.nextAt,
       approvalAnsweredAt: runRecord.approvalAnsweredAt,
-      handedOnTo: runRecord.handedOnTo,
-      handedOnAt: runRecord.handedOnAt,
+      passedTo: runRecord.passedTo,
+      passedAt: runRecord.passedAt,
       digested: runRecord.digested,
       ms: runRecord.ms,
       steps: runRecord.steps,

@@ -10,8 +10,8 @@ const answering = (...terms: string[]) => RunnerTerms.of(terms);
 const widgets = RunnerImage.of('ghcr.io/acme/widgets:1');
 const gadgets = RunnerImage.of('ghcr.io/acme/gadgets:1');
 
-const runningIn = (image: RunnerImage, usual = false, ...terms: string[]) =>
-  answering(...terms).runningIn(RunningImage.of(image, usual));
+const runningIn = (image: RunnerImage, isDefault = false, ...terms: string[]) =>
+  answering(...terms).runningIn(RunningImage.of(image, isDefault));
 
 describe('RunnerPlacement', () => {
   it('admits every runner when it names none', () => {
@@ -75,7 +75,7 @@ describe('RunnerPlacement', () => {
     expect(placed.admits(runningIn(widgets, false))).toBe(false);
   });
 
-  it('admits, when it asks for no image, only a runner running the usual one', () => {
+  it('admits, when it asks for no image, only a runner running the default one', () => {
     const placed = RunnerPlacement.anywhere();
 
     expect(placed.admits(runningIn(widgets, true))).toBe(true);
@@ -170,7 +170,7 @@ describe('RunnerTerms', () => {
     expect(RunnerTerms.none().serves(null)).toBe(true);
   });
 
-  it('serves the image it runs, and no image only when that is the usual one', () => {
+  it('serves the image it runs, and no image only when that is the default one', () => {
     expect(runningIn(widgets).serves(widgets)).toBe(true);
     expect(runningIn(widgets).serves(gadgets)).toBe(false);
     expect(runningIn(widgets).serves(null)).toBe(false);

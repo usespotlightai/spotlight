@@ -53,7 +53,7 @@ const traced: Traced = {
   currency: 'USD',
 };
 
-function Handed() {
+function HandedOver() {
   const { state } = useLocation();
 
   return <pre>{JSON.stringify(state.traces)}</pre>;
@@ -67,7 +67,7 @@ const showing = () =>
           path="/w/acme/team/team_1/insights"
           element={<TraceList slug="acme" teamId="team_1" range="7d" />}
         />
-        <Route path="/w/acme/team/team_1/agent" element={<Handed />} />
+        <Route path="/w/acme/team/team_1/agent" element={<HandedOver />} />
       </Routes>
     </MemoryRouter>,
   );

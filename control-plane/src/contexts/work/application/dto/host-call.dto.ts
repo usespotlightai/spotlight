@@ -10,7 +10,7 @@ interface HostCallDto {
 export type HostCallClaimDto =
   | { readonly outcome: 'unauthorized' }
   | { readonly outcome: 'nothing' }
-  | { readonly outcome: 'stranger' }
+  | { readonly outcome: 'host-unreported' }
   | { readonly outcome: 'claimed'; readonly call: HostCallDto };
 
 export type HostCallAnswerDto =

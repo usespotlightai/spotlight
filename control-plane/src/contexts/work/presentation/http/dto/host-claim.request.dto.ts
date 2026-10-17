@@ -3,7 +3,7 @@ import { ApiProperty } from '@nestjs/swagger';
 export class ClaimHostWorkRequestDto {
   @ApiProperty({
     example: 'K7Q2M4ZC3VYH6N5RB8WX1TDJ9P',
-    description: 'The host claiming, as it names itself in its presence',
+    description: 'The host claiming, as it names itself in its heartbeat',
   })
   readonly host!: string;
 

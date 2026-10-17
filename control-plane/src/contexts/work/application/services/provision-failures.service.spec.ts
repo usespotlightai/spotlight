@@ -183,7 +183,7 @@ describe('ProvisionFailures', () => {
     expect(runs.save).not.toHaveBeenCalled();
   });
 
-  it('keeps a reservation another runner lets go of', async () => {
+  it('keeps a reservation another runner drops', async () => {
     const { failures, runs, current } = failing(reserved());
 
     await failures.unreserved(RunId.of('run_1'), RunnerId.of('pooled_2'));

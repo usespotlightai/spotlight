@@ -932,7 +932,7 @@ export class ReplayEntryResponseDto {
     enum: [...RUN_FAILURE_CODES, null],
     type: String,
     description:
-      'How its run failed: exited, refused and timed-out (it ran past its host’s time limit) count against the candidate; unprepared, unprovisioned, hooks-unanswered, runner-lost and superseded were down to what ran it, and leave the entry unscored',
+      'How its run failed: exited, refused and timed-out (it ran past its host’s time limit) count against the candidate; unprepared, unprovisioned, hooks-unanswered, runner-lost, superseded and cancelled were down to what ran it, and leave the entry unscored',
   })
   readonly failure: string | null;
 

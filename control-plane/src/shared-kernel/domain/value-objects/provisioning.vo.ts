@@ -27,7 +27,7 @@ export class Provisioning {
     return this.nextAt === null || this.nextAt.getTime() <= now.getTime();
   }
 
-  failedAt(failure: ProvisionFailure, now: Date): Provisioning {
+  recordFailure(failure: ProvisionFailure, now: Date): Provisioning {
     const failures = this.failures + 1;
     const next = failure.retry.after(failures, now);
 

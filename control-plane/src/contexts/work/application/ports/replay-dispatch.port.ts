@@ -23,7 +23,7 @@ export type ReplayDispatched =
       readonly reason: string;
     };
 
-export type ReplayForgone =
+export type CancelledReplayRun =
   | { readonly outcome: 'never-queued' }
   | { readonly outcome: 'queued'; readonly fingerprint: string | null };
 
@@ -37,7 +37,7 @@ export interface ReplayDispatchPort {
 
   answerable(asked: readonly AnswerAsked[]): Promise<readonly string[]>;
 
-  withdraw(runIds: readonly string[]): Promise<void>;
+  cancelQueued(runIds: readonly string[]): Promise<void>;
 
-  forgo(runId: string, keep: boolean): Promise<ReplayForgone>;
+  cancel(runId: string, keep: boolean): Promise<CancelledReplayRun>;
 }

@@ -232,7 +232,7 @@ describe('listing how a station’s runs turned out', () => {
     });
   });
 
-  it('shows withdrawn runs of the config in force in the group in force, but tallies them apart', async () => {
+  it('shows cancelled runs of the config in force in the group in force, but tallies them apart', async () => {
     const listed = await listing();
     await listed.records.add(
       endedRecord('run_1', { startedAt: at(1), endedAt: at(1) }),
@@ -241,7 +241,7 @@ describe('listing how a station’s runs turned out', () => {
       endedRecord('run_2', {
         fingerprint: FIRST_CONFIG,
         endedAt: at(2),
-        ending: 'withdrawn',
+        ending: 'cancelled',
       }),
     );
 
@@ -254,10 +254,10 @@ describe('listing how a station’s runs turned out', () => {
     expect(group?.ran).toBe(true);
 
     expect(group?.runs.map((each) => each.ending)).toEqual([
-      'withdrawn',
+      'cancelled',
       'completed',
     ]);
-    expect(group?.tally).toMatchObject({ runs: 1, withdrawn: 1 });
+    expect(group?.tally).toMatchObject({ runs: 1, cancelled: 1 });
   });
 
   it('keeps runs meant for a config that never ran apart from the group in force, set against it, and shows the group in force again after them, A, B never ran, A', async () => {
@@ -406,7 +406,7 @@ describe('listing how a station’s runs turned out', () => {
     expect(outcomes.inForce).toEqual({
       tally: expect.objectContaining({
         runs: 3,
-        withdrawn: 0,
+        cancelled: 0,
         failed: 0,
         merged: 1,
         cost: { amount: 1.5, currency: 'USD' },
@@ -586,10 +586,10 @@ describe('listing how a station’s runs turned out', () => {
       }),
     );
     await listed.records.add(
-      endedRecord('run_withdrawn', {
+      endedRecord('run_cancelled', {
         fingerprint: FIRST_CONFIG,
         endedAt: at(2),
-        ending: 'withdrawn',
+        ending: 'cancelled',
       }),
     );
     await listed.records.add(
@@ -624,11 +624,11 @@ describe('listing how a station’s runs turned out', () => {
         runs: ['run_2', 'run_1'],
       },
       {
-        firstRunId: 'run_withdrawn',
+        firstRunId: 'run_cancelled',
         fingerprint: FIRST_CONFIG,
         model: 'sonnet',
         changes: [],
-        runs: ['run_withdrawn'],
+        runs: ['run_cancelled'],
       },
     ]);
     expect(shapeOf(await listed.list(2))).toEqual([

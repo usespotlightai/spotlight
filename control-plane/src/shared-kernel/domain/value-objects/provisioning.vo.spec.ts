@@ -11,7 +11,7 @@ const unreachable = ProvisionFailure.of('unreachable', 'connection refused');
 const failed = (times: number, failure = unreachable) => {
   let provisioning = Provisioning.none();
   for (let each = 0; each < times; each += 1) {
-    provisioning = provisioning.failedAt(failure, noon);
+    provisioning = provisioning.recordFailure(failure, noon);
   }
   return provisioning;
 };
@@ -39,7 +39,7 @@ describe('Provisioning', () => {
   it('never waits longer than two minutes', () => {
     expect(failed(5 - 1).nextAt).toEqual(later(40_000));
     expect(
-      Provisioning.rehydrate(8, null).failedAt(unreachable, noon).nextAt,
+      Provisioning.rehydrate(8, null).recordFailure(unreachable, noon).nextAt,
     ).toBeNull();
   });
 

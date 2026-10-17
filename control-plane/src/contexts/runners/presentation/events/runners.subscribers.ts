@@ -1,5 +1,5 @@
 import type { AbandonWorkspaceRunners } from '@runners/application/services/abandon-workspace-runners.service';
-import type { ForgetHosts } from '@runners/application/services/forget-hosts.service';
+import type { PruneStaleHosts } from '@runners/application/services/prune-stale-hosts.service';
 import type { RunnerPoolRetired } from '@runners/domain/events/runner-pool-retired.event';
 import type { RunnerTrustWithdrawn } from '@runners/domain/events/runner-trust-withdrawn.event';
 import {
@@ -14,7 +14,7 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 
 export const runnersSubscribers = (reactions: {
   abandoning: AbandonWorkspaceRunners;
-  forgetting: ForgetHosts;
+  forgetting: PruneStaleHosts;
 }): readonly DomainEventSubscriber[] => [
   subscribing<RunnerPoolRetired>(
     'runners.forget-hosts-of-retired-pool',

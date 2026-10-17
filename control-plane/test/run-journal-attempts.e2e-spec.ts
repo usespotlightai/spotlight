@@ -182,7 +182,7 @@ describe('digesting a run that paused for a person', () => {
     });
     await db
       .update(schema.run)
-      .set({ attempt: 2, parkedAttempts: [1], state: 'claimed' })
+      .set({ attempt: 2, suspendedAttempts: [1], state: 'claimed' })
       .where(eq(schema.run.id, runId.value));
     await journal.append(RunAttempt.of(runId, 2), [
       spoken(1, 50),
@@ -198,7 +198,7 @@ describe('digesting a run that paused for a person', () => {
   });
 });
 
-describe('digesting the tokens a run took', () => {
+describe('digesting the tokens a run used', () => {
   const turned = (seq: number, usage: Record<string, number>) => ({
     seq,
     type: 'usage',
@@ -220,7 +220,7 @@ describe('digesting the tokens a run took', () => {
     ]);
     await db
       .update(schema.run)
-      .set({ attempt: 2, parkedAttempts: [1], state: 'claimed' })
+      .set({ attempt: 2, suspendedAttempts: [1], state: 'claimed' })
       .where(eq(schema.run.id, runId.value));
     await journal.append(RunAttempt.of(runId, 2), [
       turned(1, {

@@ -91,7 +91,7 @@ func TestInjectsEachSecretOnlyForItsOwnHost(t *testing.T) {
 		t.Errorf("injected %v", header)
 	}
 	if header.Get("Accept") != "application/json" {
-		t.Errorf("took away a header it does not inject: %v", header)
+		t.Errorf("removed a header it does not inject: %v", header)
 	}
 
 	unbound := http.Header{"Authorization": {"Bearer mine"}}
@@ -136,7 +136,7 @@ func TestInjectsARunSecretOnlyByReplacingItsStandIn(t *testing.T) {
 		t.Errorf("sent on a stand-in it has no value for: %v", unknown)
 	}
 	if !strings.Contains(logged.String(), "X-Other") {
-		t.Errorf("did not say it took a stand-in off: %s", logged)
+		t.Errorf("did not say it removed a stand-in: %s", logged)
 	}
 	for _, value := range []string{"lin_api_1", "acme"} {
 		if strings.Contains(logged.String(), value) {
@@ -366,7 +366,7 @@ func TestHandsBackTheStandInWhereverTheHostEchoesASecret(t *testing.T) {
 	head.ContentLength = 42
 	injector.Redact("api.example.com", head)
 	if head.Header.Get("Content-Length") != "42" {
-		t.Errorf("took the length off an answer with no body to change: %v", head.Header)
+		t.Errorf("removed the length from an answer with no body to change: %v", head.Header)
 	}
 
 	binary := answered("image/png", "tok/1+2")

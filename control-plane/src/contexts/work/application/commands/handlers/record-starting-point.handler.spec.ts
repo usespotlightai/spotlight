@@ -55,7 +55,7 @@ const setUp = async (
       runs,
       archives,
       {
-        seen: async () =>
+        heartbeat: async () =>
           known
             ? {
                 workspaceId: WorkspaceId.of('ws_1'),

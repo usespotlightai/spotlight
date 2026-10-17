@@ -229,7 +229,7 @@ export interface InsightsRunDto {
   readonly failure: string | null;
   readonly checks: CheckVerdict | null;
   readonly next: { readonly act: string; readonly at: string } | null;
-  readonly handedOn: { readonly to: string; readonly at: string } | null;
+  readonly passed: { readonly to: string; readonly at: string } | null;
   readonly delivery: DeliveryState | null;
 }
 
@@ -338,8 +338,8 @@ export const insightsRunOf = (run: ListedRun): InsightsRunDto => ({
   failure: run.failure,
   checks: run.checks,
   next: run.next ? { act: run.next.act, at: run.next.at.toISOString() } : null,
-  handedOn: run.handedOn
-    ? { to: run.handedOn.to, at: run.handedOn.at.toISOString() }
+  passed: run.passed
+    ? { to: run.passed.to, at: run.passed.at.toISOString() }
     : null,
   delivery: run.delivery,
 });

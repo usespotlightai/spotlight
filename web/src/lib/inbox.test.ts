@@ -329,7 +329,7 @@ describe('workedOn', () => {
     expect(workedOn(worked, notes, 'run_1')[0]?.ms).toBe(30_000);
   });
 
-  it('keeps each attempt of a parked run on its own side of the answer', () => {
+  it('keeps each attempt of a suspended run on its own side of the answer', () => {
     const worked = [
       journal(1, [step('before', 1)], 0),
       journal(2, [step('after', 20)], 15),

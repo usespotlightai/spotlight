@@ -29,7 +29,7 @@ export interface CheckStatus {
   readonly lease: CheckLease;
 }
 
-const waitedOutAt = (check: CheckStatus, now: Date): boolean =>
+const waitExpiredAt = (check: CheckStatus, now: Date): boolean =>
   now.getTime() - check.waitingSince.getTime() > WAITING_LIMIT_MS &&
   !isLeaseActiveAt(check.lease, now);
 
@@ -39,7 +39,7 @@ export const checkStateAt = (
 ): StackCheckState => {
   switch (check.phase) {
     case 'waiting':
-      return waitedOutAt(check, now) ? 'skipped' : 'waiting';
+      return waitExpiredAt(check, now) ? 'skipped' : 'waiting';
     case 'reordering':
       return 'waiting';
     default:

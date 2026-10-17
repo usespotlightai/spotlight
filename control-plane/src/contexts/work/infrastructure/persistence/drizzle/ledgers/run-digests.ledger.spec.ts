@@ -25,7 +25,7 @@ describe('digestOf', () => {
     expect(digest.faults).toBe(2);
   });
 
-  it('counts the lines its changes took out and put in', () => {
+  it('counts the lines its changes removed and added', () => {
     const digest = digestOf({
       ms: null,
       statuses: ['completed', 'completed'],

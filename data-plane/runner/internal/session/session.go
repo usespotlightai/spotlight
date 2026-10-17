@@ -34,7 +34,7 @@ type Journal interface {
 	RenewLease(ctx context.Context, runID string) (bool, error)
 	Complete(ctx context.Context, runID string, done protocol.Completion) (protocol.Completed, error)
 	Asks(ctx context.Context, runID string, turn protocol.Completion) (bool, error)
-	Park(ctx context.Context, runID string, cold bool) (protocol.Parking, error)
+	Suspend(ctx context.Context, runID string, requeue bool) (protocol.Suspension, error)
 	UseTool(ctx context.Context, runID, name string, input json.RawMessage) (json.RawMessage, error)
 	DraftChangeStack(ctx context.Context, runID, repository, diff, base string) error
 	AnswerRemark(ctx context.Context, runID string, said protocol.Remark) error
@@ -283,7 +283,7 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 		}
 	}()
 
-	var putToPerson atomic.Bool
+	var escalated atomic.Bool
 
 	opts.checkEgress(ctx, journal)
 
@@ -296,7 +296,7 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 		Env:        env,
 		Root:       cwd,
 		RunAs:      opts.AgentUser,
-		Answer:     answering(run, opts.Journal, journal, &putToPerson, log),
+		Answer:     answerPermissions(run, opts.Journal, journal, &escalated, log),
 		Session:    run.Spec.HarnessSetup.Session,
 		McpServers: serversOf(run.Spec.HarnessSetup.McpServers),
 	})
@@ -339,19 +339,19 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 		attached: func(ctx context.Context, attachment protocol.Attachment) error {
 			return fetch(ctx, opts.Journal, run.ID, space, opts.AgentUser, attachment)
 		},
-		putToPerson: &putToPerson,
-		handOver:    handingOver(opts, run, space.Dir, bases, log),
-		heartbeat:   opts.heartbeat(),
-		answerWait:  opts.AnswerWait,
-		log:         log,
-		stopped:     make(chan struct{}),
-		lost:        make(chan struct{}),
+		escalated:  &escalated,
+		handOver:   handingOver(opts, run, space.Dir, bases, log),
+		heartbeat:  opts.heartbeat(),
+		answerWait: opts.AnswerWait,
+		log:        log,
+		stopped:    make(chan struct{}),
+		lost:       make(chan struct{}),
 	}
 
-	parked, err := talk.work(ctx, talk.opening(ctx))
+	suspended, err := talk.work(ctx, talk.opening(ctx))
 	_ = harness.Close()
-	if parked {
-		log.Info("run parked", "state", lifecycle.state)
+	if suspended {
+		log.Info("run suspended", "state", lifecycle.state)
 		return nil
 	}
 	if err != nil {
@@ -457,13 +457,13 @@ func open(ctx context.Context, harness *acp.Client, previous string, log *slog.L
 	return sessionID, nil
 }
 
-func answering(
-	run protocol.Run, lease Journal, journal *journalWriter, putToPerson *atomic.Bool, log *slog.Logger,
+func answerPermissions(
+	run protocol.Run, lease Journal, journal *journalWriter, escalated *atomic.Bool, log *slog.Logger,
 ) acp.Permission {
 	asks := run.Spec.HarnessSetup.Asks
 
 	return func(ctx context.Context, asked acp.Asked) acp.Verdict {
-		verdict := decide(ctx, run, asks, lease, putToPerson, log, asked)
+		verdict := decide(ctx, run, asks, lease, escalated, log, asked)
 		if verdict != acp.Allow && asked.ToolCallID != "" {
 			journal.append(protocol.Event{Type: protocol.EventToolRefused, Data: refusedCall(asked.ToolCallID)})
 		}
@@ -479,13 +479,13 @@ func refusedCall(toolCallID string) []byte {
 }
 
 func decide(
-	ctx context.Context, run protocol.Run, asks []string, lease Journal, putToPerson *atomic.Bool, log *slog.Logger, asked acp.Asked,
+	ctx context.Context, run protocol.Run, asks []string, lease Journal, escalated *atomic.Bool, log *slog.Logger, asked acp.Asked,
 ) acp.Verdict {
 	if !slices.Contains(asks, asked.Kind) {
 		return acp.Allow
 	}
 
-	if putToPerson.Load() {
+	if escalated.Load() {
 		return acp.Cancel
 	}
 
@@ -503,8 +503,8 @@ func decide(
 	switch answer.Decision {
 	case protocol.PermissionAllow:
 		return acp.Allow
-	case protocol.PermissionPutToPerson:
-		putToPerson.Store(true)
+	case protocol.PermissionEscalated:
+		escalated.Store(true)
 		return acp.Cancel
 	default:
 		return acp.Reject

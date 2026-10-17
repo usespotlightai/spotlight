@@ -98,7 +98,7 @@ describe('drafting the decisions a run made', () => {
   it('records the decisions its reasoning grounds', async () => {
     const worked = working(REASONED, async () => [
       DECIDED,
-      { ...DECIDED, title: 'Cites a step it never took', steps: [4] },
+      { ...DECIDED, title: 'Cites a step the run does not have', steps: [4] },
     ]);
 
     await worked.tick();

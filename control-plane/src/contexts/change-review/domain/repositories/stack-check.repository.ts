@@ -31,7 +31,7 @@ export interface StackCheckRepository {
 
   reservedTo(runner: RunnerId, now: Date): Promise<StackCheck | null>;
 
-  overdue(now: Date, max: number): Promise<readonly StackCheck[]>;
+  withExpiredWait(now: Date, max: number): Promise<readonly StackCheck[]>;
 
   awaitingProvision(
     workspaceId: WorkspaceId,
@@ -39,7 +39,7 @@ export interface StackCheckRepository {
     page: { readonly skip: number; readonly max: number },
   ): Promise<readonly StackCheck[]>;
 
-  withLapsedReservations(now: Date): Promise<readonly StackCheck[]>;
+  withExpiredReservations(now: Date): Promise<readonly StackCheck[]>;
 
   waitingIn(
     workspaceId: WorkspaceId,

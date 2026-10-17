@@ -13,7 +13,7 @@ export interface LiveRunnerSummary {
   readonly image: string | null;
   readonly harnesses: readonly string[];
   readonly startedAt: Date;
-  readonly lastSeenAt: Date | null;
+  readonly lastHeartbeatAt: Date | null;
 }
 
 interface HostHarnessSummary {
@@ -24,7 +24,7 @@ interface HostHarnessSummary {
 interface HostImageSummary {
   readonly image: string;
   readonly digest: string | null;
-  readonly usual: boolean;
+  readonly isDefault: boolean;
   readonly release: string | null;
   readonly harnesses: readonly HostHarnessSummary[];
   readonly unavailableReason: string | null;
@@ -35,13 +35,13 @@ export interface HostSummary {
   readonly name: string;
   readonly through: AdmittedThrough;
   readonly release: string;
-  readonly executor: string;
+  readonly containerRuntime: string;
   readonly capacity: number;
   readonly running: readonly string[];
   readonly images: readonly HostImageSummary[];
-  readonly firstSeenAt: Date;
-  readonly upSince: Date;
-  readonly lastSeenAt: Date;
+  readonly firstHeartbeatAt: Date;
+  readonly onlineSince: Date;
+  readonly lastHeartbeatAt: Date;
 }
 
 export const RUNNER_READER = Symbol('RUNNER_READER');

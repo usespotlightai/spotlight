@@ -31,7 +31,7 @@ export class ClaimHostCallHandler
       const host = CallingHost.of(command.host);
 
       if (!(await this.runners.reports(admitted.way, host.value))) {
-        return { outcome: 'stranger' };
+        return { outcome: 'host-unreported' };
       }
 
       const claimed = await this.polls.polled(() =>

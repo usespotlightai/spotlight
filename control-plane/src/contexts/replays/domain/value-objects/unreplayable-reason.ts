@@ -13,7 +13,7 @@ export const UNREPLAYABLE_REASONS = [
   'candidate-unfit',
   'cannot-start',
   'unchecked',
-  'forgone',
+  'cancelled',
   'dispatch-failed',
 ] as const;
 

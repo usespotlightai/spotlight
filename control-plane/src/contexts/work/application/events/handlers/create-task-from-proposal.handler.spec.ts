@@ -75,7 +75,7 @@ const accepted = () =>
     now: NOW,
     newId: () => 'chat_1',
   })
-    .handedTo(RunId.of('run_1'), NOW)
+    .assignRun(RunId.of('run_1'), NOW)
     .propose({
       runId: RunId.of('run_1'),
       placement: PLACED,

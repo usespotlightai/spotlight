@@ -7,7 +7,7 @@ import {
   STARTED_AT,
   TRUST_ID,
 } from '@runners/domain/aggregates/runner-pool.fake-spec';
-import { RunnerSpentError } from '@runners/domain/exceptions/runner-spent.error';
+import { RunnerAlreadyClaimedError } from '@runners/domain/exceptions/runner-already-claimed.error';
 import { Admission } from '@runners/domain/value-objects/admission.vo';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import { InstalledHarness } from '@runners/domain/value-objects/installed-harness.vo';
@@ -31,16 +31,16 @@ describe('Runner', () => {
     expect(runner.terms.values).toEqual(['linux']);
   });
 
-  it('serves only work asking for the image it runs, or for none when that image is the usual one', () => {
+  it('serves only work asking for the image it runs, or for none when that image is the default one', () => {
     const widgets = RunnerImage.of('ghcr.io/acme/widgets:1');
     const gadgets = RunnerImage.of('ghcr.io/acme/gadgets:1');
     const runner = aRunner({ running: RunningImage.of(widgets, false) });
-    const usual = aRunner({ running: RunningImage.of(widgets, true) });
+    const onDefault = aRunner({ running: RunningImage.of(widgets, true) });
 
     expect(runner.terms.serves(widgets)).toBe(true);
     expect(runner.terms.serves(gadgets)).toBe(false);
     expect(runner.terms.serves(null)).toBe(false);
-    expect(usual.terms.serves(null)).toBe(true);
+    expect(onDefault.terms.serves(null)).toBe(true);
   });
 
   it('serves any image while provisioned without one it names', () => {
@@ -51,21 +51,23 @@ describe('Runner', () => {
     ).toBe(true);
   });
 
-  it('is alive only until it must claim, unless it has taken its work', () => {
+  it('is alive only until it must claim, unless it has claimed its work', () => {
     const waiting = aRunner({ claimWithinMs: 1_000 });
 
     expect(waiting.isAlive(later(999))).toBe(true);
     expect(waiting.isAlive(later(1_000))).toBe(false);
-    expect(waiting.took(RUN, later(10)).isAlive(later(60_000))).toBe(true);
+    expect(waiting.claim(RUN, later(10)).isAlive(later(60_000))).toBe(true);
   });
 
-  it('is no longer alive once it has gone unseen longer than the work it leases allows', () => {
-    const running = aRunner().took(RUN, later(0));
-    const checking = aRunner().took(RunnerWork.check('stack_1'), later(0));
+  it('is no longer alive once it has sent no heartbeat for longer than the work it leases allows', () => {
+    const running = aRunner().claim(RUN, later(0));
+    const checking = aRunner().claim(RunnerWork.check('stack_1'), later(0));
 
     expect(running.isAlive(later(179_000))).toBe(true);
     expect(running.isAlive(later(180_000))).toBe(false);
-    expect(running.seen(later(120_000)).isAlive(later(240_000))).toBe(true);
+    expect(running.heartbeat(later(120_000)).isAlive(later(240_000))).toBe(
+      true,
+    );
     expect(checking.isAlive(later(11 * 60_000))).toBe(true);
     expect(checking.isAlive(later(12 * 60_000))).toBe(false);
   });
@@ -74,49 +76,49 @@ describe('Runner', () => {
     const waiting = aRunner();
 
     expect(waiting.claimsAt(later(1))).toBe('reserved');
-    expect(waiting.took(RUN, later(1)).claimsAt(later(2))).toBe('nothing');
+    expect(waiting.claim(RUN, later(1)).claimsAt(later(2))).toBe('nothing');
   });
 
-  it('takes one piece of work, ever', () => {
-    const working = aRunner().took(RUN, later(1));
+  it('claims one piece of work, ever', () => {
+    const working = aRunner().claim(RUN, later(1));
 
-    expect(() => working.took(RunnerWork.check('stack_1'), later(2))).toThrow(
-      RunnerSpentError,
+    expect(() => working.claim(RunnerWork.check('stack_1'), later(2))).toThrow(
+      RunnerAlreadyClaimedError,
     );
-    expect(() => aRunner({ claimWithinMs: 1 }).took(RUN, later(5))).toThrow(
-      RunnerSpentError,
+    expect(() => aRunner({ claimWithinMs: 1 }).claim(RUN, later(5))).toThrow(
+      RunnerAlreadyClaimedError,
     );
   });
 
   it('ends with its work, and then is no longer alive', () => {
-    const ended = aRunner().took(RUN, later(1)).ended(later(2));
+    const ended = aRunner().claim(RUN, later(1)).ended(later(2));
 
     expect(ended.hasEnded).toBe(true);
     expect(ended.isAlive(later(3))).toBe(false);
     expect(ended.ended(later(4))).toBe(ended);
-    expect(() => ended.seen(later(5))).toThrow(RunnerSpentError);
+    expect(() => ended.heartbeat(later(5))).toThrow(RunnerAlreadyClaimedError);
   });
 
-  it('is discarded when let go before it took anything, and ended after', () => {
-    expect(aRunner().letGo(later(1)).isDiscarded).toBe(true);
+  it('is discarded when released before it claimed anything, and ended after', () => {
+    expect(aRunner().release(later(1)).isDiscarded).toBe(true);
 
-    const working = aRunner().took(RUN, later(1)).letGo(later(2));
+    const working = aRunner().claim(RUN, later(1)).release(later(2));
 
     expect(working.isDiscarded).toBe(false);
     expect(working.hasEnded).toBe(true);
   });
 
-  it('is discarded when a reservation it never took up is dropped, but keeps the work it took instead', () => {
+  it('is discarded when a reservation it never claimed is dropped, but keeps the work it claimed instead', () => {
     expect(aRunner().reservationDropped(later(1)).isDiscarded).toBe(true);
 
-    const working = aRunner().took(RUN, later(1));
+    const working = aRunner().claim(RUN, later(1));
 
     expect(working.reservationDropped(later(2))).toBe(working);
   });
 
   it('lets its egress act only for the work it leases, while it is alive', () => {
     const waiting = aRunner();
-    const working = waiting.took(RUN, later(1));
+    const working = waiting.claim(RUN, later(1));
 
     expect(waiting.workEgressActsFor(later(2))).toBeNull();
     expect(working.workEgressActsFor(later(2))?.equals(RUN)).toBe(true);
@@ -126,7 +128,7 @@ describe('Runner', () => {
 
   it('lets an egress record for its work while it is alive, and for two minutes after it ends', () => {
     const waiting = aRunner();
-    const working = waiting.took(RUN, later(1));
+    const working = waiting.claim(RUN, later(1));
     const ended = working.ended(later(3));
 
     expect(waiting.workEgressRecordsFor(later(2))).toBeNull();
@@ -139,14 +141,14 @@ describe('Runner', () => {
   });
 
   it('has no egress when a pool provisioned it, since no host runs beside it', () => {
-    const provisioned = aRunner({ host: null }).took(RUN, later(1));
+    const provisioned = aRunner({ host: null }).claim(RUN, later(1));
 
     expect(provisioned.egressTokenHash).toBeNull();
     expect(provisioned.workEgressActsFor(later(2))).toBeNull();
   });
 
   it('knows the work it leases', () => {
-    const working = aRunner().took(RUN, later(1));
+    const working = aRunner().claim(RUN, later(1));
 
     expect(working.hasLeaseOn(RunnerWork.run('run_1'))).toBe(true);
     expect(working.hasLeaseOn(RunnerWork.check('run_1'))).toBe(false);
@@ -182,9 +184,9 @@ describe('Runner', () => {
     expect(() => aRunner({ claimWithinMs: 0 })).toThrow(InconsistentStateError);
   });
 
-  it('is remembered for a day after it ended', () => {
+  it('is retained for a day after it ended', () => {
     const DAY = 24 * 60 * 60_000;
 
-    expect(Runner.rememberedEndingSince(later(DAY))).toEqual(STARTED_AT);
+    expect(Runner.endedRetentionSince(later(DAY))).toEqual(STARTED_AT);
   });
 });

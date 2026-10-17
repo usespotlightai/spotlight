@@ -248,7 +248,7 @@ export class StackCheck extends EventRecorder {
   claimedFor(runner: RunnerId, terms: RunnerTerms, now: Date): StackCheck {
     if (!this.claimableAt(now, runner)) {
       throw InvalidChangeStackError.because(
-        'has no check waiting for a runner to take up',
+        'has no check waiting for a runner to claim',
       );
     }
     if (!this.request.placement.admits(terms)) {
@@ -289,7 +289,7 @@ export class StackCheck extends EventRecorder {
     return this.reservation?.isActiveAt(now) ?? false;
   }
 
-  reservationLapsedAt(now: Date): boolean {
+  reservationExpiredAt(now: Date): boolean {
     return (
       this.phase === 'waiting' &&
       this.reservation !== null &&
@@ -334,7 +334,7 @@ export class StackCheck extends EventRecorder {
       return this.unreservedFor(runner);
     }
 
-    const provisioning = this.provisioning.failedAt(failure, now);
+    const provisioning = this.provisioning.recordFailure(failure, now);
     const failed = this.droppingReservation().with({ provisioning });
 
     if (!provisioning.exhausted) {
@@ -353,14 +353,14 @@ export class StackCheck extends EventRecorder {
     );
   }
 
-  overdueAt(now: Date): boolean {
+  waitExpiredAt(now: Date): boolean {
     return this.phase === 'waiting' && this.stateAt(now) === 'skipped';
   }
 
-  expireOverdue(now: Date): StackCheck {
-    if (!this.overdueAt(now)) {
+  expireWait(now: Date): StackCheck {
+    if (!this.waitExpiredAt(now)) {
       throw InvalidChangeStackError.because(
-        'is not overdue, so nobody failed to check it yet',
+        'has not waited past its limit, so nobody failed to check it yet',
       );
     }
 

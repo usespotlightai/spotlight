@@ -330,7 +330,10 @@ export class DrizzleStackCheckRepository implements StackCheckRepository {
     return rows.map(toStackCheck);
   }
 
-  async overdue(now: Date, max: number): Promise<readonly StackCheck[]> {
+  async withExpiredWait(
+    now: Date,
+    max: number,
+  ): Promise<readonly StackCheck[]> {
     const rows = await this.context.db
       .select()
       .from(stackCheck)
@@ -354,7 +357,7 @@ export class DrizzleStackCheckRepository implements StackCheckRepository {
     return rows.map(toStackCheck);
   }
 
-  async withLapsedReservations(now: Date): Promise<readonly StackCheck[]> {
+  async withExpiredReservations(now: Date): Promise<readonly StackCheck[]> {
     const rows = await this.context.db
       .select()
       .from(stackCheck)

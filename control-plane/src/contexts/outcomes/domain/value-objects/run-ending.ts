@@ -2,14 +2,14 @@ export const RUN_ENDINGS = [
   'completed',
   'failed',
   'stopped',
-  'abandoned',
-  'withdrawn',
+  'exhausted',
+  'cancelled',
   'superseded',
 ] as const;
 
 export type RunEnding = (typeof RUN_ENDINGS)[number];
 
-const OUTCOMES = ['completed', 'failed', 'abandoned', 'withdrawn'] as const;
+const OUTCOMES = ['completed', 'failed', 'exhausted', 'cancelled'] as const;
 
 type RunOutcome = (typeof OUTCOMES)[number];
 
@@ -26,7 +26,7 @@ export const endingOf = (input: {
   if (!outcome) {
     return null;
   }
-  if (input.failure === 'superseded') {
+  if (input.failure === 'superseded' && outcome !== 'cancelled') {
     return 'superseded';
   }
   if (input.stopped && outcome === 'completed') {

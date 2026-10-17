@@ -90,7 +90,7 @@ describe('ForgetTaskAcrossAggregates', () => {
     ]);
   });
 
-  it('lets go of the runner reserved for a check it forgets', async () => {
+  it('releases the runner reserved for a check it forgets', async () => {
     const reserved = checkOf('stack_1').reservedFor(
       RunnerId.of('pooled_1'),
       PoolId.of('pool_1'),

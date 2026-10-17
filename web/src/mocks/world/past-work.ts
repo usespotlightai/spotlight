@@ -110,7 +110,7 @@ const shownRunOf = (run: HistoryRun): TaskRunResponseDto => ({
 
 const finalStationOf = (runs: readonly HistoryRun[]): string => {
   const last = runs.at(-1);
-  return last?.handedOn?.to ?? last?.stationId ?? '';
+  return last?.passed?.to ?? last?.stationId ?? '';
 };
 
 const shownTaskOf = (task: HistoryTask): TaskResponseDto => ({

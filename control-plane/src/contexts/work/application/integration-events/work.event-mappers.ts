@@ -60,17 +60,13 @@ import {
   type TaskDeletedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/task-deleted.integration-event';
 import {
+  TASK_DISPATCHED,
+  type TaskDispatchedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/task-dispatched.integration-event';
+import {
   TASK_FAILED,
   type TaskFailedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/task-failed.integration-event';
-import {
-  TASK_HANDED_ON,
-  type TaskHandedOnIntegrationEvent,
-} from '@shared-kernel/application/integration-events/task-handed-on.integration-event';
-import {
-  TASK_HANDED_TO_RUN,
-  type TaskHandedToRunIntegrationEvent,
-} from '@shared-kernel/application/integration-events/task-handed-to-run.integration-event';
 import {
   TASK_MOVED,
   type TaskMovedIntegrationEvent,
@@ -79,6 +75,10 @@ import {
   TASK_OPENED,
   type TaskOpenedIntegrationEvent,
 } from '@shared-kernel/application/integration-events/task-opened.integration-event';
+import {
+  TASK_PASSED,
+  type TaskPassedIntegrationEvent,
+} from '@shared-kernel/application/integration-events/task-passed.integration-event';
 import { mapping } from '@shared-kernel/application/ports/integration-event-mapper.port';
 import type { ChatStarted } from '@work/domain/events/chat-started.event';
 import type { LineRedefined } from '@work/domain/events/line-redefined.event';
@@ -86,21 +86,21 @@ import type { LineRetired } from '@work/domain/events/line-retired.event';
 import type { PullRequestOpened } from '@work/domain/events/pull-request-opened.event';
 import type { PullRequestReviewTaken } from '@work/domain/events/pull-request-review-taken.event';
 import type { ReplayDigested } from '@work/domain/events/replay-digested.event';
-import type { RunAbandoned } from '@work/domain/events/run-abandoned.event';
 import type { RunBriefed } from '@work/domain/events/run-briefed.event';
+import type { RunCancelled } from '@work/domain/events/run-cancelled.event';
 import type { RunCompleted } from '@work/domain/events/run-completed.event';
 import type { RunDigested } from '@work/domain/events/run-digested.event';
+import type { RunExhausted } from '@work/domain/events/run-exhausted.event';
 import type { RunSuperseded } from '@work/domain/events/run-superseded.event';
-import type { RunWithdrawn } from '@work/domain/events/run-withdrawn.event';
 import type { SearchDigested } from '@work/domain/events/search-digested.event';
 import type { TaskActedOn } from '@work/domain/events/task-acted-on.event';
 import type { TaskAsked } from '@work/domain/events/task-asked.event';
 import type { TaskDeleted } from '@work/domain/events/task-deleted.event';
+import type { TaskDispatched } from '@work/domain/events/task-dispatched.event';
 import type { TaskFailed } from '@work/domain/events/task-failed.event';
-import type { TaskHandedOn } from '@work/domain/events/task-handed-on.event';
-import type { TaskHandedToRun } from '@work/domain/events/task-handed-to-run.event';
 import type { TaskMoved } from '@work/domain/events/task-moved.event';
 import type { TaskOpened } from '@work/domain/events/task-opened.event';
+import type { TaskPassed } from '@work/domain/events/task-passed.event';
 import type { Declaration } from '@work/domain/value-objects/declaration.vo';
 
 interface Ending {
@@ -123,7 +123,7 @@ type Ended =
   | SearchRunEndedIntegrationEvent;
 
 const ended = (
-  event: RunCompleted | RunAbandoned | RunWithdrawn,
+  event: RunCompleted | RunExhausted | RunCancelled,
   at: Date,
   outcome: RunEnding,
   ending: Ending = UNSAID,
@@ -171,7 +171,7 @@ const ended = (
       failure: ending.failure,
       asked: ending.asked,
       stopped: ending.stopped,
-      started: outcome !== 'withdrawn' || event.attempt > 1,
+      started: outcome !== 'cancelled' || event.attempt > 1,
       endedAt: at.toISOString(),
     }),
   });
@@ -226,10 +226,10 @@ export const WORK_EVENT_MAPPERS = [
       workspaceId: event.workspaceId.value,
     }),
   ),
-  mapping<TaskHandedToRun>(
-    'task.handed-to-run',
-    (event): TaskHandedToRunIntegrationEvent => ({
-      kind: TASK_HANDED_TO_RUN,
+  mapping<TaskDispatched>(
+    'task.dispatched',
+    (event): TaskDispatchedIntegrationEvent => ({
+      kind: TASK_DISPATCHED,
       taskId: event.taskId.value,
       workspaceId: event.workspaceId.value,
       runId: event.runId.value,
@@ -267,15 +267,15 @@ export const WORK_EVENT_MAPPERS = [
       declared: event.declared,
     }),
   ),
-  mapping<RunAbandoned>('run.abandoned', (event, at) =>
-    ended(event, at, 'abandoned', {
+  mapping<RunExhausted>('run.exhausted', (event, at) =>
+    ended(event, at, 'exhausted', {
       ...UNSAID,
       failure: event.failure,
       asked: event.asked === true,
     }),
   ),
-  mapping<RunWithdrawn>('run.withdrawn', (event, at) =>
-    ended(event, at, 'withdrawn', { ...UNSAID, asked: event.asked === true }),
+  mapping<RunCancelled>('run.cancelled', (event, at) =>
+    ended(event, at, 'cancelled', { ...UNSAID, asked: event.asked === true }),
   ),
   mapping<RunSuperseded>(
     'run.superseded',
@@ -368,10 +368,10 @@ export const WORK_EVENT_MAPPERS = [
       cacheWriteTokens: event.tokens.cacheWrite,
     }),
   ),
-  mapping<TaskHandedOn>(
-    'task.handed-on',
-    (event): TaskHandedOnIntegrationEvent => ({
-      kind: TASK_HANDED_ON,
+  mapping<TaskPassed>(
+    'task.passed',
+    (event): TaskPassedIntegrationEvent => ({
+      kind: TASK_PASSED,
       taskId: event.taskId.value,
       workspaceId: event.workspaceId.value,
       runId: event.runId.value,

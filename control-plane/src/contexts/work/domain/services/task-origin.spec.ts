@@ -24,7 +24,7 @@ describe('originOfRun', () => {
     ).toBe('slack');
   });
 
-  it('came from a station when the task was raised elsewhere and handed on', () => {
+  it('came from a station when the task was raised elsewhere and passed on', () => {
     expect(
       originOfRun({
         openedFrom: TaskOrigin.person(),

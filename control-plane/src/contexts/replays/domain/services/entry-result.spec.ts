@@ -304,14 +304,14 @@ describe('whether a replayed task succeeded', () => {
     }
   });
 
-  it('blames an abandoned run on the candidate only when it hung past its time', () => {
+  it('blames an exhausted run on the candidate only when it hung past its time', () => {
     for (const [failure, succeeded] of [
       ['runner-lost', null],
       [null, null],
       ['timed-out', false],
     ] as const) {
       expect(
-        resultOf(completed({ end: endOf('abandoned', { failure }) }), JUDGED),
+        resultOf(completed({ end: endOf('exhausted', { failure }) }), JUDGED),
         String(failure),
       ).toMatchObject({ succeeded, concluded: true });
     }

@@ -44,7 +44,7 @@ interface Answerable {
 
 @ApiTags('runners')
 @ApiUnauthorizedResponse({
-  description: 'Missing, spent or wrong runner token',
+  description: 'Missing, no longer valid or wrong runner token',
 })
 @RunnerOnly()
 @Controller('runs/:runId/workspace-archive')

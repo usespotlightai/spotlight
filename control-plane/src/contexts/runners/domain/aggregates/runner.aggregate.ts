@@ -1,6 +1,6 @@
 import { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregate';
 import type { RunnerTrust } from '@runners/domain/aggregates/runner-trust.aggregate';
-import { RunnerSpentError } from '@runners/domain/exceptions/runner-spent.error';
+import { RunnerAlreadyClaimedError } from '@runners/domain/exceptions/runner-already-claimed.error';
 import { Admission } from '@runners/domain/value-objects/admission.vo';
 import type { HostId } from '@runners/domain/value-objects/host-id.vo';
 import type { InstalledHarness } from '@runners/domain/value-objects/installed-harness.vo';
@@ -20,14 +20,16 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 
 export type RunnerClaims = 'reserved' | 'nothing';
 
-const LEASE_UNSEEN_MS: Readonly<Record<RunnerWorkKind, number>> = {
+const HEARTBEAT_TIMEOUT_MS: Readonly<Record<RunnerWorkKind, number>> = {
   run: 3 * 60_000,
   check: 12 * 60_000,
 };
 
-const LONGEST_LEASE_UNSEEN_MS = Math.max(...Object.values(LEASE_UNSEEN_MS));
+const MAX_HEARTBEAT_TIMEOUT_MS = Math.max(
+  ...Object.values(HEARTBEAT_TIMEOUT_MS),
+);
 
-const REMEMBERED_AFTER_ENDING_MS = 24 * 60 * 60_000;
+const ENDED_RETENTION_MS = 24 * 60 * 60_000;
 
 const RECORDS_AFTER_ENDING_MS = 2 * 60_000;
 
@@ -45,7 +47,7 @@ interface State {
   readonly work: RunnerWork | null;
   readonly claimBy: Date;
   readonly startedAt: Date;
-  readonly lastSeenAt: Date | null;
+  readonly lastHeartbeatAt: Date | null;
   readonly endedAt: Date | null;
   readonly version: number;
 }
@@ -113,7 +115,7 @@ export class Runner extends EventRecorder {
         work: null,
         claimBy: input.claimBy,
         startedAt: input.at,
-        lastSeenAt: null,
+        lastHeartbeatAt: null,
         endedAt: null,
         version: 0,
       },
@@ -188,8 +190,8 @@ export class Runner extends EventRecorder {
     return this.state.startedAt;
   }
 
-  get lastSeenAt(): Date | null {
-    return this.state.lastSeenAt;
+  get lastHeartbeatAt(): Date | null {
+    return this.state.lastHeartbeatAt;
   }
 
   get endedAt(): Date | null {
@@ -219,19 +221,19 @@ export class Runner extends EventRecorder {
   }
 
   private get leaseExpiresAt(): Date {
-    const { work, lastSeenAt, claimBy } = this.state;
+    const { work, lastHeartbeatAt, claimBy } = this.state;
 
-    return work !== null && lastSeenAt
-      ? new Date(lastSeenAt.getTime() + LEASE_UNSEEN_MS[work.kind])
+    return work !== null && lastHeartbeatAt
+      ? new Date(lastHeartbeatAt.getTime() + HEARTBEAT_TIMEOUT_MS[work.kind])
       : claimBy;
   }
 
-  static unseenSinceLongestLease(now: Date): Date {
-    return new Date(now.getTime() - LONGEST_LEASE_UNSEEN_MS);
+  static heartbeatTimedOutBefore(now: Date): Date {
+    return new Date(now.getTime() - MAX_HEARTBEAT_TIMEOUT_MS);
   }
 
-  static rememberedEndingSince(now: Date): Date {
-    return new Date(now.getTime() - REMEMBERED_AFTER_ENDING_MS);
+  static endedRetentionSince(now: Date): Date {
+    return new Date(now.getTime() - ENDED_RETENTION_MS);
   }
 
   workEgressActsFor(now: Date): RunnerWork | null {
@@ -259,21 +261,21 @@ export class Runner extends EventRecorder {
   register(installed: readonly InstalledHarness[], at: Date): Runner {
     this.assertNotEnded();
 
-    return this.with({ installed: [...installed], lastSeenAt: at });
+    return this.with({ installed: [...installed], lastHeartbeatAt: at });
   }
 
-  seen(at: Date): Runner {
+  heartbeat(at: Date): Runner {
     this.assertNotEnded();
 
-    return this.with({ lastSeenAt: at });
+    return this.with({ lastHeartbeatAt: at });
   }
 
-  took(work: RunnerWork, at: Date): Runner {
+  claim(work: RunnerWork, at: Date): Runner {
     if (this.state.work !== null || !this.isAlive(at)) {
-      throw new RunnerSpentError(this.state.id.value);
+      throw new RunnerAlreadyClaimedError(this.state.id.value);
     }
 
-    return this.with({ work, lastSeenAt: at });
+    return this.with({ work, lastHeartbeatAt: at });
   }
 
   hasLeaseOn(work: RunnerWork): boolean {
@@ -288,7 +290,7 @@ export class Runner extends EventRecorder {
     return this.with({ endedAt: at });
   }
 
-  letGo(at: Date): Runner {
+  release(at: Date): Runner {
     if (this.state.work !== null) {
       return this.ended(at);
     }
@@ -300,12 +302,12 @@ export class Runner extends EventRecorder {
   }
 
   reservationDropped(at: Date): Runner {
-    return this.state.work === null ? this.letGo(at) : this;
+    return this.state.work === null ? this.release(at) : this;
   }
 
   private assertNotEnded(): void {
     if (this.hasEnded) {
-      throw new RunnerSpentError(this.state.id.value);
+      throw new RunnerAlreadyClaimedError(this.state.id.value);
     }
   }
 

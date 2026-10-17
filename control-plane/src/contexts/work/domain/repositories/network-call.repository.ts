@@ -10,7 +10,7 @@ export interface NetworkCallRepository {
 
   find(id: NetworkCallId): Promise<NetworkCall | null>;
 
-  lapsingBy(now: Date, max: number): Promise<readonly NetworkCall[]>;
+  expiringBy(now: Date, max: number): Promise<readonly NetworkCall[]>;
 
   completedBy(at: Date, max: number): Promise<readonly NetworkCall[]>;
 

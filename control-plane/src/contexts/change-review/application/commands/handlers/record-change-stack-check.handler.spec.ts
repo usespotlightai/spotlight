@@ -112,9 +112,9 @@ const recording = (stack: ChangeStack | null, check: StackCheck | null) => {
     remove: async () => undefined,
     dueForCheck: async () => null,
     reservedTo: async () => null,
-    overdue: async () => [],
+    withExpiredWait: async () => [],
     awaitingProvision: async () => [],
-    withLapsedReservations: async () => [],
+    withExpiredReservations: async () => [],
     waitingIn: async () => [],
   };
 

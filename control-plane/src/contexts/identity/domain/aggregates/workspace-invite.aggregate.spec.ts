@@ -133,7 +133,7 @@ describe('WorkspaceInvite', () => {
     );
   });
 
-  it('is revoked once however often it is asked, and says so once, naming who took it back', () => {
+  it('is revoked once however often it is asked, and says so once, naming who revoked it', () => {
     const revoked = offered().revoke(ada, LATER);
 
     expect(revoked.revoke(asker, AFTER_IT_RUNS_OUT)).toBe(revoked);

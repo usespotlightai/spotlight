@@ -118,7 +118,7 @@ const handed = () =>
     raisedBy: UserId.of('user_1'),
     now: NOW,
     newId: () => 'task_1',
-  }).handedTo(RUN, line);
+  }).assignRun(RUN, line);
 
 const approvalAsked = () =>
   handed().clearFor(

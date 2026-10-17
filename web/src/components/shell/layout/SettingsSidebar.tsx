@@ -14,7 +14,7 @@ import { SidebarLink } from '@/components/shell/layout/SidebarLink';
 import { useRunners } from '@/hooks/api/useRunners';
 import { membersPath } from '@/lib/members';
 import { administers, type Role } from '@/lib/role';
-import { answeringCount, runnersPath } from '@/lib/runner';
+import { onlineCount, runnersPath } from '@/lib/runner';
 import {
   TEAM_SETTINGS_PAGES,
   type TeamSettingsPageId,
@@ -83,7 +83,7 @@ export function SettingsSidebar({
               to={runnersPath(slug)}
               icon={Server}
               trailing={
-                <p className="text-xs">{fleet && answeringCount(fleet)}</p>
+                <p className="text-xs">{fleet && onlineCount(fleet)}</p>
               }
             >
               Runners

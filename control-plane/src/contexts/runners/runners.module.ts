@@ -4,8 +4,8 @@ import { INSTALLER_ASSETS } from '@runners/application/ports/installer-assets.po
 import { RUNNER_ADMISSIONS } from '@runners/application/ports/runner-admissions.port';
 import { RUNNER_CONFIGURATION } from '@runners/application/ports/runner-configuration.port';
 import { RUNNER_EGRESS } from '@runners/application/ports/runner-egress.port';
+import { RUNNER_HEARTBEATS } from '@runners/application/ports/runner-heartbeats.port';
 import { RUNNER_POOLS } from '@runners/application/ports/runner-pools.port';
-import { RUNNER_PRESENCE } from '@runners/application/ports/runner-presence.port';
 import { RUNNER_READER } from '@runners/application/ports/runner-reader.port';
 import { RUNNERS } from '@runners/application/ports/runners.port';
 import {
@@ -21,7 +21,7 @@ import { RUNNER_IDENTITY } from '@shared-kernel/application/ports/runner-identit
   providers: [...RUNNERS_PROVIDERS],
   exports: [
     RUNNER_IDENTITY,
-    RUNNER_PRESENCE,
+    RUNNER_HEARTBEATS,
     RUNNER_READER,
     INSTALLER_ASSETS,
     RUNNER_CONFIGURATION,

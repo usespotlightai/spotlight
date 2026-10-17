@@ -126,14 +126,18 @@ describe('egress fetching a run’s secrets (e2e)', () => {
       .put(`/api/hosts/${HOST}`)
       .set('Authorization', `Bearer ${TOKEN}`)
       .send({
-        session: 'session_1',
+        bootId: 'boot_1',
         name: 'build-box',
         release: '0.1.0',
-        executor: 'docker',
+        containerRuntime: 'docker',
         capacity: 1,
         running: [],
         images: [
-          { image: IMAGE, usual: true, harnesses: [{ id: 'dev', models: [] }] },
+          {
+            image: IMAGE,
+            isDefault: true,
+            harnesses: [{ id: 'dev', models: [] }],
+          },
         ],
       })
       .expect(200);
@@ -304,7 +308,7 @@ describe('egress fetching a run’s secrets (e2e)', () => {
     await fetchSecrets(work.egressToken, recipient().written).expect(409);
   });
 
-  it('fetches again for the run’s next attempt once its lease lapses, sealed to that attempt’s own egress alone', async () => {
+  it('fetches again for the run’s next attempt once its lease expires, sealed to that attempt’s own egress alone', async () => {
     const runId = await queue(['LINEAR_API_KEY']);
     const first = await claimed();
     await fetchSecrets(first.egressToken, recipient().written).expect(200);

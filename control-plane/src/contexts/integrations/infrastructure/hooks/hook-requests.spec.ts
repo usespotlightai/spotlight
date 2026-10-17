@@ -344,7 +344,7 @@ describe('HookRequests', () => {
     });
   });
 
-  it('hands back a request a host sends after an event, and picks it up again', async () => {
+  it('suspends a request a host sends after an event, and resumes it', async () => {
     const calls = network();
     const { requests: sending } = requests(
       async () => new Response('{}'),
@@ -352,7 +352,7 @@ describe('HookRequests', () => {
     );
 
     const first = await sending.sent(
-      asked({ fromNetwork: true, waiting: 'hand-back' }),
+      asked({ fromNetwork: true, waiting: 'suspend' }),
       NOW,
     );
 
@@ -378,7 +378,7 @@ describe('HookRequests', () => {
       sending.sent(
         asked({
           fromNetwork: true,
-          waiting: 'hand-back',
+          waiting: 'suspend',
           resuming: first.outcome,
         }),
         NOW,
@@ -391,7 +391,7 @@ describe('HookRequests', () => {
 
   it('fails a request no host answered in time', async () => {
     const calls = network();
-    vi.mocked(calls.answered).mockResolvedValueOnce({ kind: 'lapsed' });
+    vi.mocked(calls.answered).mockResolvedValueOnce({ kind: 'expired' });
     const { requests: sending } = requests(
       async () => new Response('{}'),
       calls,

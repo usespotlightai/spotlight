@@ -52,7 +52,7 @@ const change = (
   }) as ChangeMemberRoleCommand;
 
 describe('ChangeMemberRoleHandler', () => {
-  it('saves the workspace the rule handed back', async () => {
+  it('saves the workspace the rule returns', async () => {
     const { handler, save } = changing();
 
     await expect(handler.execute(change())).resolves.toBe(true);

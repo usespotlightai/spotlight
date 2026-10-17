@@ -142,7 +142,7 @@ describe('ClaimChangeStackCheck', () => {
   });
 
   describe('for a runner started for a reserved check', () => {
-    it('claims the check reserved for it and lets the reservation go', async () => {
+    it('claims the check reserved for it and drops the reservation', async () => {
       const { service, saved, reservedTo } = claimingReserved(
         reservedFor(RUNNER),
       );
@@ -231,7 +231,7 @@ describe('ClaimChangeStackCheck', () => {
       expect(saved).toEqual([]);
     });
 
-    it('lets go of the runner reserved for it as it forgets it', async () => {
+    it('releases the runner reserved for it as it forgets it', async () => {
       const { service, removed } = orphaned(reservedFor(RUNNER));
 
       await expect(
@@ -339,11 +339,11 @@ describe('ClaimChangeStackCheck', () => {
 
     it('renews the lease of the runner on the check past the first lease period', async () => {
       const check = leased();
-      const nearlyLapsed = new Date(leaseOf(check) - 1000);
+      const nearlyExpired = new Date(leaseOf(check) - 1000);
       const { service, saved } = renewing(check);
 
       await expect(
-        service.renewLease(RUN, 'stack_1', false, RUNNER, nearlyLapsed),
+        service.renewLease(RUN, 'stack_1', false, RUNNER, nearlyExpired),
       ).resolves.toBe('renewed');
       expect(
         saved[0]?.beingCheckedBy(RUNNER, new Date(leaseOf(check) + 1000)),
@@ -397,17 +397,17 @@ describe('ClaimChangeStackCheck', () => {
       expect(saved).toEqual([]);
     });
 
-    it('tells the runner to stop once the check ended, or its lease lapsed past the hour', async () => {
+    it('tells the runner to stop once the check ended, or its lease expired past the hour', async () => {
       const skipped = renewing(
         leased().skip(RUNNER, skipOf('no-room', null), NOW),
       );
-      const overdue = renewing(leased());
+      const expired = renewing(leased());
 
       await expect(
         skipped.service.renewLease(RUN, 'stack_1', false, RUNNER, NOW),
       ).resolves.toBe('stop');
       await expect(
-        overdue.service.renewLease(
+        expired.service.renewLease(
           RUN,
           'stack_1',
           false,
@@ -416,14 +416,14 @@ describe('ClaimChangeStackCheck', () => {
         ),
       ).resolves.toBe('stop');
       expect(skipped.saved).toEqual([]);
-      expect(overdue.saved).toEqual([]);
+      expect(expired.saved).toEqual([]);
     });
 
     it('answers a runner without the lease on the check as it answers one naming no check at all', async () => {
       const check = leased();
-      const lapsed = new Date(leaseOf(check) + 1000);
+      const expired = new Date(leaseOf(check) + 1000);
       const elsewhere = renewing(check);
-      const lapsing = renewing(check);
+      const expiring = renewing(check);
       const missing = renewing(null);
 
       await expect(
@@ -436,7 +436,7 @@ describe('ClaimChangeStackCheck', () => {
         ),
       ).resolves.toBe('stop');
       await expect(
-        lapsing.service.renewLease(RUN, 'stack_1', false, RUNNER, lapsed),
+        expiring.service.renewLease(RUN, 'stack_1', false, RUNNER, expired),
       ).resolves.toBe('stop');
       await expect(
         missing.service.renewLease(
@@ -447,7 +447,7 @@ describe('ClaimChangeStackCheck', () => {
           NOW,
         ),
       ).resolves.toBe('stop');
-      expect([...elsewhere.saved, ...lapsing.saved]).toEqual([]);
+      expect([...elsewhere.saved, ...expiring.saved]).toEqual([]);
     });
 
     it('tells a runner that kept renewing past the most a check may be leased to stop', async () => {

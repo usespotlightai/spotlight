@@ -6,9 +6,9 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { Station } from '@work/domain/entities/station.entity';
+import { RunDetached } from '@work/domain/events/run-detached.event';
 import { TaskAnswered } from '@work/domain/events/task-answered.event';
 import { TaskAsked } from '@work/domain/events/task-asked.event';
-import { TaskLetGoOfRun } from '@work/domain/events/task-let-go-of-run.event';
 import { InvalidTaskTransitionError } from '@work/domain/exceptions/invalid-task-transition.error';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
@@ -74,7 +74,7 @@ const said = (body: string, voice: Voice) => ({
   voice,
 });
 
-const handed = () =>
+const assigned = () =>
   Task.add({
     line,
     at: BUILD,
@@ -83,10 +83,10 @@ const handed = () =>
     raisedBy: UserId.of('user_1'),
     now: NOW,
     newId: () => 'task_1',
-  }).handedTo(RUN, line);
+  }).assignRun(RUN, line);
 
 const paused = () =>
-  handed().putToAPerson(
+  assigned().putToAPerson(
     RUN,
     said('Which queue should I drain?', Voice.station(RUN)),
   );
@@ -118,7 +118,7 @@ describe('a task put to a person by its current run', () => {
 
   it('is put to a person only by its current run, and only once at a time', () => {
     expect(() =>
-      handed().putToAPerson(
+      assigned().putToAPerson(
         RunId.of('run_2'),
         said('Which?', Voice.station(RunId.of('run_2'))),
       ),
@@ -146,7 +146,7 @@ describe('a task put to a person by its current run', () => {
   });
 
   it('hands an answer to the next run’s briefing where the task has no current run', () => {
-    const asked = handed().askedAbout(
+    const asked = assigned().askedAbout(
       said('Which queue should I drain?', Voice.station(RUN)),
       RUN,
     );
@@ -167,7 +167,7 @@ describe('a task put to a person by its current run', () => {
     expect(again.openConversation?.from).toBe(0);
   });
 
-  it('is let go by its run when that run ends while the person is still asked', () => {
+  it('is left by its run when that run ends while the person is still asked', () => {
     const task = paused().leaveRun(RUN, NOW);
 
     expect(task.running).toBe(false);
@@ -192,7 +192,7 @@ describe('a task put to a person by its current run', () => {
   });
 
   it('takes words to a run waiting on an approval as something said, leaving the approval to be decided', () => {
-    const approving = handed().clearFor(
+    const approving = assigned().clearFor(
       ApprovalSubject.toolCall(
         ToolCall.of(Tool.of('linear.comment'), ToolInputs.of({ body: 'x' })),
       ),
@@ -217,7 +217,7 @@ describe('a task put to a person by its current run', () => {
   });
 
   it('takes a person speaking to a working run as something said to it, answering nothing', () => {
-    const spoken = handed().spokenTo(
+    const spoken = assigned().spokenTo(
       RUN,
       said('Use the staging queue.', Voice.person(UserId.of('user_1'))),
       BUILD,
@@ -239,7 +239,7 @@ describe('a task put to a person by its current run', () => {
     expect(paused().takesUp(RUN)).toBe(false);
   });
 
-  it('hands an answer its run never heard on to the next run’s briefing once it lets go', () => {
+  it('passes an answer its run never heard to the next run’s briefing once it leaves its run', () => {
     const answered = answer(paused());
 
     expect(answered.leaveRun(RUN, NOW).undelivered).toEqual([]);
@@ -258,7 +258,7 @@ describe('a task put to a person by its current run', () => {
     ).toEqual([]);
   });
 
-  it('lets go of its waiting run when a person parks it in the backlog, so the run ends', () => {
+  it('detaches its waiting run when a person parks it in the backlog, so the run ends', () => {
     const task = paused();
     task.pullEvents();
 
@@ -272,7 +272,7 @@ describe('a task put to a person by its current run', () => {
 
     expect(moved.running).toBe(false);
     expect(moved.pullEvents()).toContainEqual(
-      new TaskLetGoOfRun(moved.id, moved.workspaceId, RUN),
+      new RunDetached(moved.id, moved.workspaceId, RUN),
     );
   });
 });

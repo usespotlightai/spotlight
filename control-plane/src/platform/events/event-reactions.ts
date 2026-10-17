@@ -8,7 +8,7 @@ import { and, eq, isNull, sql } from 'drizzle-orm';
 
 export interface OwedReactions {
   readonly owed: number;
-  readonly givenUp: number;
+  readonly deadLettered: number;
 }
 
 @Injectable()
@@ -20,7 +20,7 @@ export class EventReactions {
     matching: Readonly<Record<string, string>>,
   ): Promise<OwedReactions> {
     const owed = await this.context.db
-      .select({ failedAt: eventDelivery.failedAt })
+      .select({ deadLetteredAt: eventDelivery.deadLetteredAt })
       .from(eventDelivery)
       .innerJoin(eventOutbox, eq(eventOutbox.id, eventDelivery.eventId))
       .where(
@@ -36,7 +36,7 @@ export class EventReactions {
 
     return {
       owed: owed.length,
-      givenUp: owed.filter((each) => each.failedAt !== null).length,
+      deadLettered: owed.filter((each) => each.deadLetteredAt !== null).length,
     };
   }
 }

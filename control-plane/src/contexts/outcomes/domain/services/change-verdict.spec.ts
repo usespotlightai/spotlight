@@ -187,17 +187,17 @@ describe('verdictsFrom', () => {
     ).toMatchObject({ verdict: 'insufficient', change: null });
   });
 
-  it('measures only the runs that ran, whatever a withdrawn run on its side was given', () => {
-    const withdrawn = costedRecord('a_withdrawn', {
-      taskId: 'task_withdrawn',
-      ending: 'withdrawn',
+  it('measures only the runs that ran, whatever a cancelled run on its side was given', () => {
+    const cancelled = costedRecord('a_cancelled', {
+      taskId: 'task_cancelled',
+      ending: 'cancelled',
       endedAt: at(10),
     }).recordAction(NextAct.of('closed', at(10)));
     const verdicts = changeVerdictOf(
       runs('b', FIVE_CLOSED),
-      [...runs('a', FIVE_CLOSED), withdrawn],
+      [...runs('a', FIVE_CLOSED), cancelled],
       [
-        deliveredOf('task_withdrawn', {
+        deliveredOf('task_cancelled', {
           openedAt: at(9),
           closedAt: at(11),
           merged: true,

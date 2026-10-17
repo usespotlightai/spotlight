@@ -1,8 +1,8 @@
 export type HostHeartbeatDto =
-  | { readonly outcome: 'present'; readonly workspaceId: string }
-  | { readonly outcome: 'taken' }
+  | { readonly outcome: 'accepted'; readonly workspaceId: string }
+  | { readonly outcome: 'host-in-use' }
   | { readonly outcome: 'unauthorized' };
 
-export type HostLeftDto =
-  | { readonly outcome: 'left' }
+export type HostDeregisteredDto =
+  | { readonly outcome: 'deregistered' }
   | { readonly outcome: 'unauthorized' };

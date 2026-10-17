@@ -30,13 +30,13 @@ func turns(t *testing.T, written *journal) []heardTurn {
 	return heard
 }
 
-func putToAPerson(o *runOptions) {
+func escalatesToAPerson(o *runOptions) {
 	o.briefing = "review the queue"
 	o.waits = []bool{true}
 }
 
 func TestAnAnswerWithinTheGraceIsSaidIntoTheSameLiveSession(t *testing.T) {
-	written := run(t, harness(t, eachTurn, "end_turn"), putToAPerson, func(o *runOptions) {
+	written := run(t, harness(t, eachTurn, "end_turn"), escalatesToAPerson, func(o *runOptions) {
 		o.answers = [][]protocol.Said{{{Position: 4, Body: "yes, go ahead"}}}
 		o.answerWait = time.Minute
 		o.heartbeat = 10 * time.Millisecond
@@ -52,22 +52,22 @@ func TestAnAnswerWithinTheGraceIsSaidIntoTheSameLiveSession(t *testing.T) {
 	if !slices.Equal(written.delivered, []int{4}) {
 		t.Errorf("marked delivered %v, wanted [4]", written.delivered)
 	}
-	if written.parks != 0 {
-		t.Errorf("parked %d times a run that was answered in time", written.parks)
+	if written.suspends != 0 {
+		t.Errorf("suspended %d times a run that was answered in time", written.suspends)
 	}
 	if len(written.completions) != 2 || written.done.Failed || written.done.Stopped {
 		t.Errorf("completions %+v", written.completions)
 	}
 }
 
-func TestNobodyAnsweringInTimeParksTheRunAndCompletesItNoMore(t *testing.T) {
-	written := run(t, harness(t, eachTurn, "end_turn"), putToAPerson, func(o *runOptions) {
+func TestARunNobodyAnswersInTimeIsSuspendedAndCompletesNoMore(t *testing.T) {
+	written := run(t, harness(t, eachTurn, "end_turn"), escalatesToAPerson, func(o *runOptions) {
 		o.answerWait = 30 * time.Millisecond
 		o.heartbeat = 5 * time.Millisecond
 	})
 
-	if written.parks != 1 {
-		t.Errorf("parked %d times, wanted once", written.parks)
+	if written.suspends != 1 {
+		t.Errorf("suspended %d times, wanted once", written.suspends)
 	}
 	if len(written.completions) != 1 {
 		t.Errorf("completed %d times, wanted the turn's one: %+v", len(written.completions), written.completions)
@@ -77,20 +77,20 @@ func TestNobodyAnsweringInTimeParksTheRunAndCompletesItNoMore(t *testing.T) {
 	}
 }
 
-func TestAGraceOfNothingParksAtOnce(t *testing.T) {
-	written := run(t, harness(t, eachTurn, "end_turn"), putToAPerson, func(o *runOptions) {
+func TestAGraceOfNothingSuspendsAtOnce(t *testing.T) {
+	written := run(t, harness(t, eachTurn, "end_turn"), escalatesToAPerson, func(o *runOptions) {
 		o.answerWait = 0
 		o.heartbeat = time.Hour
 	})
 
-	if written.parks != 1 || len(written.completions) != 1 {
-		t.Errorf("parked %d times after %d completions", written.parks, len(written.completions))
+	if written.suspends != 1 || len(written.completions) != 1 {
+		t.Errorf("suspended %d times after %d completions", written.suspends, len(written.completions))
 	}
 }
 
-func TestAnAnswerThatArrivesWhileParkingIsSaidIntoTheLiveSession(t *testing.T) {
-	written := run(t, harness(t, eachTurn, "end_turn"), putToAPerson, func(o *runOptions) {
-		o.parking = []bool{false}
+func TestAnAnswerThatArrivesWhileSuspendingIsSaidIntoTheLiveSession(t *testing.T) {
+	written := run(t, harness(t, eachTurn, "end_turn"), escalatesToAPerson, func(o *runOptions) {
+		o.suspending = []bool{false}
 		o.answers = [][]protocol.Said{{{Position: 5, Body: "just in time"}}}
 		o.answerWait = 10 * time.Millisecond
 		o.heartbeat = time.Hour
@@ -103,13 +103,13 @@ func TestAnAnswerThatArrivesWhileParkingIsSaidIntoTheLiveSession(t *testing.T) {
 	if !slices.Equal(written.delivered, []int{5}) {
 		t.Errorf("marked delivered %v, wanted [5]", written.delivered)
 	}
-	if written.parks != 1 || len(written.completions) != 2 {
-		t.Errorf("parked %d times, completed %d times", written.parks, len(written.completions))
+	if written.suspends != 1 || len(written.completions) != 2 {
+		t.Errorf("suspended %d times, completed %d times", written.suspends, len(written.completions))
 	}
 }
 
 func TestAStopWhileWaitingCompletesTheRunAsStopped(t *testing.T) {
-	written := run(t, harness(t, eachTurn, "end_turn"), putToAPerson, func(o *runOptions) {
+	written := run(t, harness(t, eachTurn, "end_turn"), escalatesToAPerson, func(o *runOptions) {
 		o.stopWaiting = true
 		o.answerWait = time.Minute
 		o.heartbeat = 10 * time.Millisecond
@@ -121,15 +121,15 @@ func TestAStopWhileWaitingCompletesTheRunAsStopped(t *testing.T) {
 	if last := written.completions[1]; !last.Stopped || last.Failed {
 		t.Errorf("a run stopped while it waited completed as %+v", last)
 	}
-	if written.parks != 0 {
-		t.Errorf("parked %d times a run that was stopped", written.parks)
+	if written.suspends != 0 {
+		t.Errorf("suspended %d times a run that was stopped", written.suspends)
 	}
 }
 
-func TestAPermissionPutToAPersonIsAskedForAgainOnceAnswered(t *testing.T) {
-	written := run(t, permitting(t), putToAPerson, func(o *runOptions) {
+func TestAPermissionEscalatedToAPersonIsAskedForAgainOnceAnswered(t *testing.T) {
+	written := run(t, permitting(t), escalatesToAPerson, func(o *runOptions) {
 		o.setup = protocol.HarnessSetup{Asks: []string{"execute"}}
-		o.decision = protocol.PermissionPutToPerson
+		o.decision = protocol.PermissionEscalated
 		o.answers = [][]protocol.Said{{{Position: 2, Body: "go ahead"}}}
 		o.answerWait = time.Minute
 		o.heartbeat = 10 * time.Millisecond
@@ -153,7 +153,7 @@ func TestEachTurnReportsOnlyWhatItDeclared(t *testing.T) {
       }).then(() => process.exit(0));
     '` + "`" + `); said = "turn " + globalThis.turns;`
 
-	written := run(t, harness(t, declaringFirst, "end_turn"), putToAPerson, func(o *runOptions) {
+	written := run(t, harness(t, declaringFirst, "end_turn"), escalatesToAPerson, func(o *runOptions) {
 		o.handover = []string{"review"}
 		o.answers = [][]protocol.Said{{{Position: 1, Body: "yes"}}}
 		o.answerWait = time.Minute
@@ -176,7 +176,7 @@ func TestTheWorkspaceIsKeptBeforeEachTurnIsReportedAndOnlyWhenItChanged(t *testi
 
 	written := run(t, harness(t, `if ((globalThis.turns = (globalThis.turns ?? 0) + 1) === 1)
   require("node:fs").writeFileSync("notes.md", "asked");
-said = "turn " + globalThis.turns;`, "end_turn"), putToAPerson, func(o *runOptions) {
+said = "turn " + globalThis.turns;`, "end_turn"), escalatesToAPerson, func(o *runOptions) {
 		o.archives = kept
 		o.continuity = protocol.Continuity{Key: carriedOn}
 		o.answers = [][]protocol.Said{{{Position: 1, Body: "carry on"}}}
@@ -192,7 +192,7 @@ said = "turn " + globalThis.turns;`, "end_turn"), putToAPerson, func(o *runOptio
 	}
 }
 
-func TestAResumedRunIsToldFirstWhatWasSaidSinceItWasParked(t *testing.T) {
+func TestAResumedRunIsToldFirstWhatWasSaidSinceItWasSuspended(t *testing.T) {
 	written := run(t, harness(t, `said = msg.params.prompt[0].text;`, "end_turn"), func(o *runOptions) {
 		o.briefing = "review the queue"
 		o.continuity = protocol.Continuity{SessionID: "session_known", Resumes: true}
@@ -237,7 +237,7 @@ func TestAPermissionAnsweredBeforeTheTurnEndsIsSaidAtOnceWithoutWaiting(t *testi
 	written := run(t, permitting(t), func(o *runOptions) {
 		o.briefing = "push the fix"
 		o.setup = protocol.HarnessSetup{Asks: []string{"execute"}}
-		o.decision = protocol.PermissionPutToPerson
+		o.decision = protocol.PermissionEscalated
 		o.said = [][]protocol.Said{{{Position: 2, Body: "go ahead"}}}
 		o.answerWait = time.Minute
 		o.heartbeat = time.Hour
@@ -249,8 +249,8 @@ func TestAPermissionAnsweredBeforeTheTurnEndsIsSaidAtOnceWithoutWaiting(t *testi
 	if len(written.asked) != 2 {
 		t.Errorf("asked the control plane %d times, wanted again once answered", len(written.asked))
 	}
-	if len(written.completions) != 1 || written.parks != 0 {
-		t.Errorf("completed %d times and parked %d times", len(written.completions), written.parks)
+	if len(written.completions) != 1 || written.suspends != 0 {
+		t.Errorf("completed %d times and suspended %d times", len(written.completions), written.suspends)
 	}
 }
 
@@ -290,44 +290,44 @@ func TestATurnAsksWhetherItWaitsBeforeItKeepsTheWorkspace(t *testing.T) {
 	}
 }
 
-func TestAWaitingRunItsTaskLetGoOfLetsTheSandboxGoWithoutCompletingAgain(t *testing.T) {
-	written := run(t, harness(t, eachTurn, "end_turn"), putToAPerson, func(o *runOptions) {
+func TestAWaitingRunItNoLongerLeasesReleasesTheSandboxWithoutCompletingAgain(t *testing.T) {
+	written := run(t, harness(t, eachTurn, "end_turn"), escalatesToAPerson, func(o *runOptions) {
 		o.lostWaiting = true
 		o.answerWait = time.Minute
 		o.heartbeat = 10 * time.Millisecond
 	})
 
-	if len(written.completions) != 1 || written.parks != 0 {
-		t.Errorf("completed %d times and parked %d times a run it no longer leased", len(written.completions), written.parks)
+	if len(written.completions) != 1 || written.suspends != 0 {
+		t.Errorf("completed %d times and suspended %d times a run it no longer leased", len(written.completions), written.suspends)
 	}
 }
 
-func TestAnAnswerNeverThereWhileParkingLetsTheRunGoAfterAFewTries(t *testing.T) {
-	written := run(t, harness(t, eachTurn, "end_turn"), putToAPerson, func(o *runOptions) {
-		o.parking = []bool{false, false, false, false}
+func TestAnAnswerNeverThereWhileSuspendingReleasesTheRunAfterAFewTries(t *testing.T) {
+	written := run(t, harness(t, eachTurn, "end_turn"), escalatesToAPerson, func(o *runOptions) {
+		o.suspending = []bool{false, false, false, false}
 		o.answerWait = 5 * time.Millisecond
 		o.heartbeat = 5 * time.Millisecond
 	})
 
-	if written.parks != 3 {
-		t.Errorf("parked %d times, wanted to give up after 3", written.parks)
+	if written.suspends != 3 {
+		t.Errorf("suspended %d times, wanted to stop after 3", written.suspends)
 	}
 	if len(written.completions) != 1 {
 		t.Errorf("completions %+v", written.completions)
 	}
 }
 
-func TestAPausedRunsWorkspaceIsRestoredForTheRunnerThatTakesItUp(t *testing.T) {
+func TestAPausedRunsWorkspaceIsRestoredForTheRunnerThatClaimsIt(t *testing.T) {
 	kept := newKeptArchives(t)
 
-	paused := run(t, harness(t, `require("node:fs").writeFileSync("notes.md", "asked"); said = "asked";`, "end_turn"), putToAPerson, func(o *runOptions) {
+	paused := run(t, harness(t, `require("node:fs").writeFileSync("notes.md", "asked"); said = "asked";`, "end_turn"), escalatesToAPerson, func(o *runOptions) {
 		o.archives = kept
 		o.continuity = protocol.Continuity{Key: carriedOn}
 		o.answerWait = 0
 		o.heartbeat = time.Hour
 	})
-	if paused.parks != 1 || !paused.done.Kept {
-		t.Fatalf("parked %d times, kept %v", paused.parks, paused.done.Kept)
+	if paused.suspends != 1 || !paused.done.Kept {
+		t.Fatalf("suspended %d times, kept %v", paused.suspends, paused.done.Kept)
 	}
 
 	resumed := run(t, harness(t, `said = require("node:fs").readFileSync("notes.md", "utf8") + " | " + msg.params.prompt[0].text;`, "end_turn"), func(o *runOptions) {
@@ -337,32 +337,32 @@ func TestAPausedRunsWorkspaceIsRestoredForTheRunnerThatTakesItUp(t *testing.T) {
 	})
 
 	if got := said(t, resumed); got != "asked | go ahead" {
-		t.Errorf("the runner that took it up found %q", got)
+		t.Errorf("the runner that claimed it found %q", got)
 	}
 }
 
 func TestARenewalThatConflictsWhileWaitingKeepsTheRunAndItsAnswer(t *testing.T) {
-	written := run(t, harness(t, eachTurn, "end_turn"), putToAPerson, func(o *runOptions) {
+	written := run(t, harness(t, eachTurn, "end_turn"), escalatesToAPerson, func(o *runOptions) {
 		o.conflicts = 3
 		o.answers = [][]protocol.Said{nil, nil, nil, nil, {{Position: 4, Body: "go ahead"}}}
 		o.answerWait = time.Minute
 		o.heartbeat = 10 * time.Millisecond
 	})
 
-	if !slices.Equal(written.delivered, []int{4}) || written.parks != 0 {
-		t.Errorf("delivered %v and parked %d times", written.delivered, written.parks)
+	if !slices.Equal(written.delivered, []int{4}) || written.suspends != 0 {
+		t.Errorf("delivered %v and suspended %d times", written.delivered, written.suspends)
 	}
 }
 
-func TestAnAnswerThatBeatsParkingAClosedHarnessSendsTheRunBackOnTheQueue(t *testing.T) {
-	written := run(t, harness(t, eachTurn, "end_turn"), putToAPerson, func(o *runOptions) {
+func TestAnAnswerThatBeatsSuspendingAClosedHarnessRequeuesTheRun(t *testing.T) {
+	written := run(t, harness(t, eachTurn, "end_turn"), escalatesToAPerson, func(o *runOptions) {
 		o.saysNoWait = true
-		o.parking = []bool{false}
+		o.suspending = []bool{false}
 		o.answerWait = time.Minute
 		o.heartbeat = time.Hour
 	})
 
-	if written.coldParks != 1 || len(written.delivered) != 0 {
-		t.Errorf("parked cold %d times and delivered %v", written.coldParks, written.delivered)
+	if written.requeueSuspends != 1 || len(written.delivered) != 0 {
+		t.Errorf("suspended with requeue %d times and delivered %v", written.requeueSuspends, written.delivered)
 	}
 }

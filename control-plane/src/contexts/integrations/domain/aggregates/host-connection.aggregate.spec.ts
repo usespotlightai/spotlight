@@ -222,7 +222,7 @@ describe('HostConnection', () => {
     ).toThrow();
   });
 
-  it('lets go of the claim once renewed, failed or released', () => {
+  it('drops the claim once renewed, failed or released', () => {
     const claimed = rehydrated().claimRenewal(NOW, 30_000);
 
     expect(claimed.renewedWith(grant()).isClaimedAt(NOW)).toBe(false);

@@ -210,12 +210,12 @@ describe('StationWatch', () => {
     const raised = begun().check([rising(1, 0.6, 0.3)], atRun(1), next);
     raised.pullEvents();
 
-    const withdrawn = raised.check([], atRun(2), next);
+    const recovered = raised.check([], atRun(2), next);
 
-    expect(withdrawn.open).toEqual([]);
-    expect(kinds(withdrawn)).toEqual(['station-alert.recovered']);
+    expect(recovered.open).toEqual([]);
+    expect(kinds(recovered)).toEqual(['station-alert.recovered']);
 
-    const back = withdrawn.check([rising(3, 0.6, 0.3)], atRun(3), next);
+    const back = recovered.check([rising(3, 0.6, 0.3)], atRun(3), next);
 
     expect(back.open.map((each) => each.id.value)).toEqual(['alert_2']);
   });

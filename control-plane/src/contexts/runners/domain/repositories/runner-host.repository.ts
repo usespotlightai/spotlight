@@ -13,5 +13,5 @@ export interface RunnerHostRepository {
 
   removeThrough(admission: Admission): Promise<void>;
 
-  removeUnseenSince(since: Date): Promise<number>;
+  removeStaleBefore(cutoff: Date): Promise<number>;
 }

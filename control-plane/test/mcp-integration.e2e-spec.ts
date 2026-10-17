@@ -213,19 +213,23 @@ const aClaimedRun = async (): Promise<{
     .put(`/api/hosts/${HOST}`)
     .set('Authorization', `Bearer ${POOL_TOKEN}`)
     .send({
-      session: 'session_1',
+      bootId: 'boot_1',
       name: 'build-box',
       release: '0.1.0',
-      executor: 'docker',
+      containerRuntime: 'docker',
       capacity: 4,
       running: [],
       images: [
-        { image: IMAGE, usual: true, harnesses: [{ id: 'dev', models: [] }] },
+        {
+          image: IMAGE,
+          isDefault: true,
+          harnesses: [{ id: 'dev', models: [] }],
+        },
       ],
     })
     .expect(200);
 
-  const handed = (
+  const assignment = (
     await http()
       .post('/api/hosts/claim')
       .set('Authorization', `Bearer ${POOL_TOKEN}`)
@@ -233,9 +237,9 @@ const aClaimedRun = async (): Promise<{
       .expect(200)
   ).body as { token: string; work: { run: { id: string } } };
 
-  expect(handed.work.run.id).toBe(runId);
+  expect(assignment.work.run.id).toBe(runId);
 
-  return { taskId, runId, token: handed.token };
+  return { taskId, runId, token: assignment.token };
 };
 
 const toolsUsed = async (runId: string) =>

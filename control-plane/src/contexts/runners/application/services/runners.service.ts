@@ -106,13 +106,13 @@ export class Runners implements RunnersPort {
     const serving = await this.hosts.find(hostId);
 
     if (!serving?.servesThrough(Admission.of(way.kind, way.id))) {
-      return { outcome: 'stranger' };
+      return { outcome: 'host-unreported' };
     }
 
     const offered = serving.offering(RunnerImage.of(image));
 
     if (!offered) {
-      return { outcome: 'unoffered' };
+      return { outcome: 'image-unreported' };
     }
 
     const runnerId = RunnerId.of(this.ids.generate());
@@ -190,7 +190,7 @@ export class Runners implements RunnersPort {
     }
 
     if (request.needsEgress && !began.through.egress) {
-      await this.letGo(request.runnerId, at);
+      await this.release(request.runnerId, at);
 
       return {
         outcome: 'failed',
@@ -212,24 +212,24 @@ export class Runners implements RunnersPort {
       return { outcome: 'provisioned' };
     }
 
-    await this.letGo(request.runnerId, at).catch((error: unknown) => {
+    await this.release(request.runnerId, at).catch((error: unknown) => {
       this.logger.error(
         { err: error, runner: request.runnerId.value },
-        'Letting go of a runner whose provision call failed',
+        'Releasing a runner whose provision call failed',
       );
     });
 
     return { outcome: 'failed', kind: answer.outcome, detail: answer.detail };
   }
 
-  async took(runnerId: RunnerId, work: LeasedWork, at: Date): Promise<void> {
+  async claim(runnerId: RunnerId, work: LeasedWork, at: Date): Promise<void> {
     await reviseRunner(this.runners, runnerId, (runner) =>
-      runner.took(RunnerWork.of(work.kind, work.id), at),
+      runner.claim(RunnerWork.of(work.kind, work.id), at),
     );
   }
 
-  async letGo(runnerId: RunnerId, at: Date): Promise<void> {
-    await reviseRunner(this.runners, runnerId, (runner) => runner.letGo(at));
+  async release(runnerId: RunnerId, at: Date): Promise<void> {
+    await reviseRunner(this.runners, runnerId, (runner) => runner.release(at));
   }
 
   async reservationDropped(runnerId: RunnerId, at: Date): Promise<void> {
@@ -378,7 +378,7 @@ export class Runners implements RunnersPort {
     return this.transaction.inTransaction(async () => {
       const trust = await this.trusts.find(id);
 
-      if (trust?.startVerdict(mode) !== 'open') {
+      if (trust?.capacity(mode) !== 'open') {
         return { outcome: 'gone' };
       }
 
@@ -402,10 +402,10 @@ export class Runners implements RunnersPort {
       }
 
       const alive = await this.runners.aliveIn(pool.id, at);
-      const verdict = pool.startVerdict(mode, alive.length);
+      const capacity = pool.capacity(mode, alive.length);
 
-      if (verdict !== 'open') {
-        return { outcome: verdict };
+      if (capacity !== 'open') {
+        return { outcome: capacity };
       }
 
       await this.runners.add(starting(pool));

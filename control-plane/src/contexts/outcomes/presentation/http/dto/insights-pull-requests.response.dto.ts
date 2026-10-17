@@ -366,7 +366,7 @@ export class InsightsPullRequestsResponseDto {
     type: RoundsShareResponseDto,
     isArray: true,
     description:
-      'How many review rounds merged pull requests took, Spotlight’s against people’s, in the same repositories',
+      'How many review rounds merged pull requests needed, Spotlight’s against people’s, in the same repositories',
   })
   readonly depth: readonly RoundsShareResponseDto[];
 

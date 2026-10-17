@@ -778,7 +778,7 @@ describe('FireHooks.workOne, guarding against loops', () => {
     );
   });
 
-  it('reports nothing when another worker took the firing before its stop was kept', async () => {
+  it('reports nothing when another worker claimed the firing before its stop was kept', async () => {
     const { hooked, firings, notes } = setUp(
       [hookNamed('audit', ['a'])],
       () => done('a'),

@@ -28,7 +28,7 @@ export const eventDelivery = pgTable(
     attempts: integer('attempts').notNull().default(0),
     dueAt: timestamp('due_at').defaultNow().notNull(),
     deliveredAt: timestamp('delivered_at'),
-    failedAt: timestamp('failed_at'),
+    deadLetteredAt: timestamp('dead_lettered_at'),
     lastError: text('last_error'),
   },
   (table) => [

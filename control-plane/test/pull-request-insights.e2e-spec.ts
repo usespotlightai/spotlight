@@ -489,7 +489,7 @@ describe('what GitHub said, kept in order and forgotten in time (e2e)', () => {
     ).not.toBeNull();
   });
 
-  it('records nothing heard late through an installation its workspace let go of', async () => {
+  it('records nothing heard late through an installation its workspace removed', async () => {
     await deliverThrough(ELSEWHERE_INSTALLATION, 'pull_request', {
       action: 'edited',
       pull_request: pullRequest(94, { updated_at: ago(0) }),

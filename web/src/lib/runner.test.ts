@@ -1,14 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { HostResponseDto, LiveRunnerResponseDto } from '@/lib/api';
 import {
-  answeringCount,
   formatRun,
   type Host,
+  heartbeatAt,
   hiddenFromViewer,
   hostStatus,
   leasedRunPath,
+  onlineCount,
   runnerStatus,
-  seenAt,
   through,
   withActivity,
 } from '@/lib/runner';
@@ -20,14 +20,14 @@ const host = (over: Partial<HostResponseDto> = {}): HostResponseDto => ({
   name: 'build-box-1',
   through: { kind: 'pool', key: 'build-farm' },
   release: 'v1.4.0',
-  executor: 'Docker Engine 27.3.1 (linux/amd64)',
+  containerRuntime: 'Docker Engine 27.3.1 (linux/amd64)',
   capacity: 4,
   running: [],
   images: [],
-  firstSeenAt: '2026-08-30T09:00:00.000Z',
-  upSince: '2026-08-30T11:00:00.000Z',
-  lastSeenAt: '2026-08-30T11:30:00.000Z',
-  answering: true,
+  firstHeartbeatAt: '2026-08-30T09:00:00.000Z',
+  onlineSince: '2026-08-30T11:00:00.000Z',
+  lastHeartbeatAt: '2026-08-30T11:30:00.000Z',
+  online: true,
   ...over,
 });
 
@@ -45,11 +45,11 @@ const runner = (
   image: null,
   harnesses: [],
   startedAt: '2026-08-30T11:00:00.000Z',
-  lastSeenAt: null,
+  lastHeartbeatAt: null,
   ...over,
 });
 
-describe('seenAt', () => {
+describe('heartbeatAt', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(NOW);
@@ -57,12 +57,14 @@ describe('seenAt', () => {
 
   afterEach(() => vi.useRealTimers());
 
-  it('says how long an answering host has been up since it last came up', () => {
-    expect(seenAt(hosted())).toBe('Up since 1h ago');
+  it('says when an online host came online', () => {
+    expect(heartbeatAt(hosted())).toBe('Online since 1h ago');
   });
 
-  it('says when a silent host was last heard from', () => {
-    expect(seenAt(hosted({ answering: false }))).toBe('Last seen 30m ago');
+  it('says when an offline host sent its last heartbeat', () => {
+    expect(heartbeatAt(hosted({ online: false }))).toBe(
+      'Last heartbeat 30m ago',
+    );
   });
 });
 
@@ -72,9 +74,9 @@ describe('hostStatus', () => {
       'Running 1 of 4',
     );
     expect(hostStatus(hosted())).toBe('Idle');
-    expect(
-      hostStatus(hosted({ answering: false, running: ['runner_1'] })),
-    ).toBe('Not answering');
+    expect(hostStatus(hosted({ online: false, running: ['runner_1'] }))).toBe(
+      'Offline',
+    );
   });
 });
 
@@ -204,11 +206,11 @@ describe('leasedRunPath', () => {
   });
 });
 
-describe('answeringCount', () => {
-  it('counts only the hosts still answering', () => {
+describe('onlineCount', () => {
+  it('counts only the hosts still online', () => {
     expect(
-      answeringCount({
-        hosts: [hosted(), hosted({ answering: false })],
+      onlineCount({
+        hosts: [hosted(), hosted({ online: false })],
         pools: [],
       }),
     ).toBe(1);

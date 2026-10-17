@@ -166,7 +166,7 @@ export class HookedTasks implements HookedTasksPort, TaskNotesFromHooksPort {
         ? await this.dispatch.runIdFor({ task: failed, line })
         : null;
 
-      await this.tasks.save(runId ? failed.handedTo(runId, line) : failed);
+      await this.tasks.save(runId ? failed.assignRun(runId, line) : failed);
 
       return 'reported';
     });

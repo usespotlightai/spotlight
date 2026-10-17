@@ -12,7 +12,7 @@ import type {
   SearchDispatched,
   SearchDispatchPort,
   SearchOrder,
-  UnclaimedWithdrawal,
+  UnclaimedCancellation,
 } from '@work/application/ports/search-dispatch.port';
 import type { TraceParentPort } from '@work/application/ports/trace-parent.port';
 import { Run } from '@work/domain/aggregates/run.aggregate';
@@ -29,14 +29,14 @@ import { StationId } from '@work/domain/value-objects/station-id.vo';
 
 const QUEUED: SearchDispatched = { outcome: 'queued' };
 
-const STOPPED = 'Search stopped before a runner took the run.';
+const STOPPED = 'Search stopped before a runner claimed the run.';
 
 const LEFT_UNCLAIMED =
-  'No runner took the run in time. Its search released it.';
+  'No runner claimed the run in time. Its search cancelled it.';
 
-const ENDED: UnclaimedWithdrawal = { outcome: 'ended' };
+const ENDED: UnclaimedCancellation = { outcome: 'ended' };
 
-const CLAIMED: UnclaimedWithdrawal = { outcome: 'claimed' };
+const CLAIMED: UnclaimedCancellation = { outcome: 'claimed' };
 
 const MAX_MODEL = 60;
 
@@ -149,7 +149,7 @@ export class DispatchSearch implements SearchDispatchPort {
     });
   }
 
-  withdraw(runId: string): Promise<void> {
+  cancel(runId: string): Promise<void> {
     return this.transaction.inTransaction(async () => {
       const run = await this.runs.findById(RunId.of(runId));
 
@@ -159,8 +159,8 @@ export class DispatchSearch implements SearchDispatchPort {
 
       const changed =
         run.state === 'queued'
-          ? run.withdrawn(STOPPED)
-          : run.letGo(this.clock.now());
+          ? run.cancelQueued(STOPPED)
+          : run.cancel(this.clock.now());
 
       if (changed !== run) {
         await this.runs.save(changed);
@@ -168,7 +168,7 @@ export class DispatchSearch implements SearchDispatchPort {
     });
   }
 
-  withdrawUnclaimed(runId: string): Promise<UnclaimedWithdrawal> {
+  cancelUnclaimed(runId: string): Promise<UnclaimedCancellation> {
     return this.transaction.inTransaction(async () => {
       const run = await this.runs.findById(RunId.of(runId));
 
@@ -179,9 +179,9 @@ export class DispatchSearch implements SearchDispatchPort {
         return CLAIMED;
       }
 
-      await this.runs.save(run.withdrawn(LEFT_UNCLAIMED));
+      await this.runs.save(run.cancelQueued(LEFT_UNCLAIMED));
 
-      return { outcome: 'withdrawn', started: run.attempt > 1 } as const;
+      return { outcome: 'cancelled', started: run.attempt > 1 } as const;
     });
   }
 

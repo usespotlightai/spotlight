@@ -74,15 +74,15 @@ export const addHostPath = (slug: string) => `${runnersPath(slug)}/new`;
 export const installCommand = (token: string) =>
   `curl -fsSL ${window.location.origin}/api/install.sh | SPOTLIGHT_TOKEN=${token} sh`;
 
-export const answeringCount = (fleet: Fleet) =>
-  fleet.hosts.filter((host) => host.answering).length;
+export const onlineCount = (fleet: Fleet) =>
+  fleet.hosts.filter((host) => host.online).length;
 
-export const noneAnswering = (fleet: Fleet): boolean =>
-  fleet.hosts.length > 0 && answeringCount(fleet) === 0;
+export const noneOnline = (fleet: Fleet): boolean =>
+  fleet.hosts.length > 0 && onlineCount(fleet) === 0;
 
 export const hostStatus = (host: Host): string => {
-  if (!host.answering) {
-    return 'Not answering';
+  if (!host.online) {
+    return 'Offline';
   }
 
   return host.running.length > 0
@@ -95,10 +95,10 @@ export const through = (way: AdmittedThroughResponseDto): string => {
   return way.key === null ? `${kind} no longer defined` : `${kind} ${way.key}`;
 };
 
-export const seenAt = (host: Host): string =>
-  host.answering
-    ? `Up since ${since(host.upSince)}`
-    : `Last seen ${since(host.lastSeenAt)}`;
+export const heartbeatAt = (host: Host): string =>
+  host.online
+    ? `Online since ${since(host.onlineSince)}`
+    : `Last heartbeat ${since(host.lastHeartbeatAt)}`;
 
 export type NamedHarness = {
   readonly id: string;
@@ -154,7 +154,7 @@ export const RUNNER_FILTERS = [
   { id: 'all', label: 'All' },
   { id: 'running', label: 'Running' },
   { id: 'idle', label: 'Idle' },
-  { id: 'not-answering', label: 'Not answering' },
+  { id: 'offline', label: 'Offline' },
 ] as const;
 
 export type RunnerFilter = (typeof RUNNER_FILTERS)[number]['id'];
@@ -171,11 +171,11 @@ export const hostInFilter = (filter: RunnerFilter, host: Host): boolean => {
     case 'all':
       return true;
     case 'running':
-      return host.answering && host.running.length > 0;
+      return host.online && host.running.length > 0;
     case 'idle':
-      return host.answering && host.running.length === 0;
-    case 'not-answering':
-      return !host.answering;
+      return host.online && host.running.length === 0;
+    case 'offline':
+      return !host.online;
   }
 };
 
@@ -251,7 +251,7 @@ export const leasedRunPath = (
 export const NONE_IN_FILTER: Record<Exclude<RunnerFilter, 'all'>, string> = {
   running: 'No runs in progress.',
   idle: 'No idle hosts.',
-  'not-answering': 'All hosts are answering.',
+  offline: 'All hosts are online.',
 };
 
 export const connectedIn = (
@@ -260,9 +260,7 @@ export const connectedIn = (
 ): Host | undefined =>
   fleet?.hosts.find(
     (host) =>
-      host.answering &&
-      host.through.kind === 'pool' &&
-      host.through.key === pool,
+      host.online && host.through.kind === 'pool' && host.through.key === pool,
   );
 
 const SUGGESTED_POOL = 'my-computer';

@@ -135,7 +135,7 @@ const endedWithin = (window: Window | null): SQL | undefined =>
 const containing = (column: SQLWrapper, value: unknown): SQL =>
   sql`${column} @> ${JSON.stringify(value)}::jsonb`;
 
-const ranWhere = sql`${runRecord.ending}::text <> 'withdrawn'`;
+const ranWhere = sql`${runRecord.ending}::text <> 'cancelled'`;
 
 const refusedServerOf = (server: Narrowing): { server?: string | null } => {
   if (server.kind === 'any') {

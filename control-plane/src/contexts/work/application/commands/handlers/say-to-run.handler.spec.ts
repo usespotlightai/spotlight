@@ -100,7 +100,7 @@ const handed = () =>
     raisedBy: OWNER,
     now: NOW,
     newId: () => 'task_1',
-  }).handedTo(RUN, line);
+  }).assignRun(RUN, line);
 
 const finished = () =>
   handed().finishHere(RUN, line, stationSaid('Opened the pull request.'));

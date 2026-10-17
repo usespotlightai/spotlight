@@ -27,21 +27,21 @@ func serve(t *testing.T, handle http.HandlerFunc) *pool.Client {
 	return client
 }
 
-func TestClaimOffersTheImagesHarnessesAndTakesTheHandedWork(t *testing.T) {
+func TestClaimOffersTheImagesHarnessesAndGetsTheAssignment(t *testing.T) {
 	var asked protocol.HostClaim
 	var path, auth string
 
 	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
 		path, auth = r.URL.Path, r.Header.Get("Authorization")
 		_ = json.NewDecoder(r.Body).Decode(&asked)
-		_ = json.NewEncoder(w).Encode(protocol.Handed{
+		_ = json.NewEncoder(w).Encode(protocol.Assignment{
 			RunnerID: "runner_1",
 			Token:    "one-run",
 			Work:     protocol.Claimed{Kind: protocol.ClaimedRun, Run: &protocol.Run{ID: "run_1"}},
 		})
 	})
 
-	handed, err := client.Claim(context.Background(), protocol.HostClaim{Image: "ghcr.io/acme/api-runner:main"})
+	assignment, err := client.Claim(context.Background(), protocol.HostClaim{Image: "ghcr.io/acme/api-runner:main"})
 	if err != nil {
 		t.Fatalf("claim: %v", err)
 	}
@@ -52,8 +52,8 @@ func TestClaimOffersTheImagesHarnessesAndTakesTheHandedWork(t *testing.T) {
 	if asked.Host != "host_1" || asked.Image != "ghcr.io/acme/api-runner:main" {
 		t.Errorf("offered %+v", asked)
 	}
-	if handed.RunnerID != "runner_1" || handed.Token != "one-run" || handed.Work.Run.ID != "run_1" {
-		t.Errorf("handed %+v", handed)
+	if assignment.RunnerID != "runner_1" || assignment.Token != "one-run" || assignment.Work.Run.ID != "run_1" {
+		t.Errorf("assignment %+v", assignment)
 	}
 }
 
@@ -62,15 +62,15 @@ func TestClaimTreatsAnEmptyQueueAsOrdinary(t *testing.T) {
 		w.WriteHeader(http.StatusNoContent)
 	})
 
-	handed, err := client.Claim(context.Background(), protocol.HostClaim{})
-	if err != nil || handed != nil {
-		t.Fatalf("got %+v, %v", handed, err)
+	assignment, err := client.Claim(context.Background(), protocol.HostClaim{})
+	if err != nil || assignment != nil {
+		t.Fatalf("got %+v, %v", assignment, err)
 	}
 }
 
 func TestClaimRejectsWorkWithNoCredential(t *testing.T) {
 	client := serve(t, func(w http.ResponseWriter, _ *http.Request) {
-		_ = json.NewEncoder(w).Encode(protocol.Handed{Work: protocol.Claimed{Kind: protocol.ClaimedRun}})
+		_ = json.NewEncoder(w).Encode(protocol.Assignment{Work: protocol.Claimed{Kind: protocol.ClaimedRun}})
 	})
 
 	if _, err := client.Claim(context.Background(), protocol.HostClaim{}); err == nil {
@@ -88,9 +88,9 @@ func TestAnUnauthorizedCredentialSaysSo(t *testing.T) {
 	}
 }
 
-func TestPresenceIsReportedUnderTheHostAndAnswersItsWorkspace(t *testing.T) {
+func TestHeartbeatIsSentUnderTheHostAndAnswersItsWorkspace(t *testing.T) {
 	var method, path string
-	var reported protocol.HostPresence
+	var reported protocol.HostHeartbeat
 
 	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
 		method, path = r.Method, r.URL.Path
@@ -98,15 +98,15 @@ func TestPresenceIsReportedUnderTheHostAndAnswersItsWorkspace(t *testing.T) {
 		_ = json.NewEncoder(w).Encode(protocol.HeartbeatResponse{Workspace: "workspace_1"})
 	})
 
-	heartbeat, err := client.Present(context.Background(), protocol.HostPresence{
+	heartbeat, err := client.Heartbeat(context.Background(), protocol.HostHeartbeat{
 		Name: "build-box", Capacity: 2, Running: []string{"runner_1"},
 	})
 	if err != nil {
-		t.Fatalf("present: %v", err)
+		t.Fatalf("heartbeat: %v", err)
 	}
 
 	if method != http.MethodPut || path != "/api/hosts/host_1" {
-		t.Errorf("reported with %s %s", method, path)
+		t.Errorf("sent the heartbeat with %s %s", method, path)
 	}
 	if reported.Name != "build-box" || reported.Capacity != 2 || len(reported.Running) != 1 {
 		t.Errorf("reported %+v", reported)
@@ -116,18 +116,18 @@ func TestPresenceIsReportedUnderTheHostAndAnswersItsWorkspace(t *testing.T) {
 	}
 }
 
-func TestLeavingIsSaidUnderTheHost(t *testing.T) {
+func TestDeregisterIsSentUnderTheHost(t *testing.T) {
 	var method, path string
 	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
 		method, path = r.Method, r.URL.Path
 		w.WriteHeader(http.StatusNoContent)
 	})
 
-	if err := client.Leave(context.Background()); err != nil {
-		t.Fatalf("leave: %v", err)
+	if err := client.Deregister(context.Background()); err != nil {
+		t.Fatalf("deregister: %v", err)
 	}
 	if method != http.MethodDelete || path != "/api/hosts/host_1" {
-		t.Errorf("left with %s %s", method, path)
+		t.Errorf("deregistered with %s %s", method, path)
 	}
 }
 

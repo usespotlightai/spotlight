@@ -6,11 +6,11 @@ import type { AskForPairJudging } from '@replays/application/services/ask-for-pa
 import type { AskForReplayJudging } from '@replays/application/services/ask-for-replay-judging.service';
 import type { AskForReplayRecheck } from '@replays/application/services/ask-for-replay-recheck.service';
 import type { AskForReplayRejudging } from '@replays/application/services/ask-for-replay-rejudging.service';
+import type { CancelReplayRuns } from '@replays/application/services/cancel-replay-runs.service';
+import type { CancelSearch } from '@replays/application/services/cancel-search.service';
 import type { DispatchSearchIteration } from '@replays/application/services/dispatch-search-iteration.service';
 import type { HoldOutSearch } from '@replays/application/services/hold-out-search.service';
 import type { HoldSetStartingPoints } from '@replays/application/services/hold-set-starting-points.service';
-import type { LetReplayRunsGo } from '@replays/application/services/let-replay-runs-go.service';
-import type { LetSearchGo } from '@replays/application/services/let-search-go.service';
 import type { NoteLineRedefined } from '@replays/application/services/note-line-redefined.service';
 import type { NoteReplayChangeReviewed } from '@replays/application/services/note-replay-change-reviewed.service';
 import type { NoteReplayDigested } from '@replays/application/services/note-replay-digested.service';
@@ -124,7 +124,7 @@ export interface ReplaysReactions {
   readonly askingPair: AskForPairJudging;
   readonly paired: NoteReplayPaired;
   readonly startingPointHolds: HoldSetStartingPoints;
-  readonly lettingGo: LetReplayRunsGo;
+  readonly cancellingRuns: CancelReplayRuns;
   readonly abandoning: AbandonReplays;
   readonly redefining: NoteLineRedefined;
   readonly baselines: StartWantedBaseline;
@@ -132,7 +132,7 @@ export interface ReplaysReactions {
   readonly searching: NoteSearchProgress;
   readonly iterating: DispatchSearchIteration;
   readonly holdingOut: HoldOutSearch;
-  readonly lettingSearchesGo: LetSearchGo;
+  readonly cancellingSearches: CancelSearch;
   readonly abandoningSearches: AbandonSearches;
   readonly abandoningChecks: AbandonReplayChecks;
   readonly abandoningPullRequests: AbandonConfigPullRequests;
@@ -341,12 +341,12 @@ export const replaysSubscribers = (
   subscribing<ReplayStopped>(
     'replays.stop-runs-of-stopped-replay',
     ['replay.stopped'],
-    (event) => reactions.lettingGo.stopped(event.runs),
+    (event) => reactions.cancellingRuns.stopped(event.runs),
   ),
   subscribing<ReplayOverBudget>(
-    'replays.withdraw-runs-of-replay-over-budget',
+    'replays.cancel-runs-of-replay-over-budget',
     ['replay.over-budget'],
-    (event) => reactions.lettingGo.overBudget(event.runs),
+    (event) => reactions.cancellingRuns.overBudget(event.runs),
   ),
   subscribing<TeamDisbandedIntegrationEvent>(
     'replays.abandon-replays-of-disbanded-team',
@@ -439,9 +439,9 @@ export const replaysSubscribers = (
     (event) => reactions.noticingReflections.stalledUnreflected(event),
   ),
   subscribing<SearchEnded>(
-    'replays.let-ended-search-go',
+    'replays.cancel-ended-search',
     ['replays.search-ended'],
-    (event) => reactions.lettingSearchesGo.ended(event),
+    (event) => reactions.cancellingSearches.ended(event),
   ),
   subscribing<TeamDisbandedIntegrationEvent>(
     'replays.abandon-searches-of-disbanded-team',

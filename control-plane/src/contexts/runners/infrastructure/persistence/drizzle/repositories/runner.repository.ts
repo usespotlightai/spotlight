@@ -89,11 +89,11 @@ const toRunner = (row: Row): Runner =>
     running:
       row.image === null
         ? null
-        : RunningImage.of(RunnerImage.of(row.image), row.usual),
+        : RunningImage.of(RunnerImage.of(row.image), row.isDefault),
     work: workOf(row),
     claimBy: row.claimBy,
     startedAt: row.startedAt,
-    lastSeenAt: row.lastSeenAt,
+    lastHeartbeatAt: row.lastHeartbeatAt,
     endedAt: row.endedAt,
     version: row.version,
   });
@@ -113,7 +113,7 @@ const columnsOf = (runner: Runner) => ({
   ),
   workKind: runner.work?.kind ?? null,
   workId: runner.work?.id ?? null,
-  lastSeenAt: runner.lastSeenAt,
+  lastHeartbeatAt: runner.lastHeartbeatAt,
   endedAt: runner.endedAt,
 });
 
@@ -138,7 +138,7 @@ export class DrizzleRunnerRepository implements RunnerRepository {
         egressTokenHash: added.egressTokenHash?.value ?? null,
         proxyCredentialHash: added.proxyCredentialHash?.value ?? null,
         image: added.running?.image.value ?? null,
-        usual: added.running?.usual ?? false,
+        isDefault: added.running?.isDefault ?? false,
         claimBy: added.claimBy,
         startedAt: added.startedAt,
         ...columnsOf(added),
@@ -225,7 +225,7 @@ export class DrizzleRunnerRepository implements RunnerRepository {
           or(
             and(
               isNotNull(runner.workId),
-              gt(runner.lastSeenAt, Runner.unseenSinceLongestLease(now)),
+              gt(runner.lastHeartbeatAt, Runner.heartbeatTimedOutBefore(now)),
             ),
             and(isNull(runner.workId), gt(runner.claimBy, now)),
           ),

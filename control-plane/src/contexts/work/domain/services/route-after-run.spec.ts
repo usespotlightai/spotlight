@@ -139,14 +139,14 @@ describe('routeAfterRun', () => {
       },
     );
 
-    it('lets go of the task, still asked, with nothing deferred', () => {
+    it('detaches the task, still asked, with nothing deferred', () => {
       expect(routeAfterRun(Handover.done(said), LINE, waiting(null))).toEqual({
-        kind: 'let-go',
+        kind: 'detach',
         failure: null,
       });
       expect(
         routeAfterRun(Handover.failed(said, FAILURE), LINE, waiting(null)),
-      ).toEqual({ kind: 'let-go', failure: FAILURE });
+      ).toEqual({ kind: 'detach', failure: FAILURE });
     });
 
     it('never passes the task on where the run passed it', () => {
@@ -156,7 +156,7 @@ describe('routeAfterRun', () => {
           LINE,
           waiting(null),
         ),
-      ).toEqual({ kind: 'let-go', failure: null });
+      ).toEqual({ kind: 'detach', failure: null });
       expect(
         routeAfterRun(
           Handover.pass(StationId.of('station_2'), said),

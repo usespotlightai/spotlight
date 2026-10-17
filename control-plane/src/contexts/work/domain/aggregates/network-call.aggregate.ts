@@ -19,8 +19,8 @@ export type NetworkCallProgress =
       readonly at: Date;
       readonly answer: NetworkAnswer;
     }
-  | { readonly kind: 'lapsed'; readonly at: Date }
-  | { readonly kind: 'given-up'; readonly at: Date };
+  | { readonly kind: 'expired'; readonly at: Date }
+  | { readonly kind: 'cancelled'; readonly at: Date };
 
 export type NetworkCallState = NetworkCallProgress['kind'];
 
@@ -29,15 +29,15 @@ interface State {
   readonly workspaceId: WorkspaceId;
   readonly request: NetworkRequest;
   readonly queuedAt: Date;
-  readonly lapsesAt: Date;
+  readonly expiresAt: Date;
   readonly progress: NetworkCallProgress;
   readonly version: number;
 }
 
 const RETENTION_MS = 7 * 24 * 60 * 60_000;
 
-const givenUp = (id: string): string =>
-  `Network call ${id} was given up. The hook stopped waiting for it.`;
+const cancelledMessage = (id: string): string =>
+  `Network call ${id} was cancelled. The hook stopped waiting for it.`;
 
 export class NetworkCall extends EventRecorder {
   private constructor(
@@ -51,12 +51,12 @@ export class NetworkCall extends EventRecorder {
     id: NetworkCallId;
     workspaceId: WorkspaceId;
     request: NetworkRequest;
-    lapsesAt: Date;
+    expiresAt: Date;
     now: Date;
   }): NetworkCall {
-    if (input.lapsesAt.getTime() <= input.now.getTime()) {
+    if (input.expiresAt.getTime() <= input.now.getTime()) {
       throw new InvalidNetworkCallError(
-        'must give a host time to send it before it lapses',
+        'must give a host time to send it before it expires',
       );
     }
 
@@ -65,7 +65,7 @@ export class NetworkCall extends EventRecorder {
       workspaceId: input.workspaceId,
       request: input.request,
       queuedAt: input.now,
-      lapsesAt: input.lapsesAt,
+      expiresAt: input.expiresAt,
       progress: { kind: 'waiting' },
       version: 0,
     });
@@ -90,10 +90,10 @@ export class NetworkCall extends EventRecorder {
       );
     }
 
-    if (state.lapsesAt < state.queuedAt) {
+    if (state.expiresAt < state.queuedAt) {
       throw new InconsistentStateError(
         'network call',
-        'lapses before it was queued',
+        'expires before it was queued',
       );
     }
 
@@ -116,8 +116,8 @@ export class NetworkCall extends EventRecorder {
     return this.state.queuedAt;
   }
 
-  get lapsesAt(): Date {
-    return this.state.lapsesAt;
+  get expiresAt(): Date {
+    return this.state.expiresAt;
   }
 
   get progress(): NetworkCallProgress {
@@ -137,8 +137,8 @@ export class NetworkCall extends EventRecorder {
   stateAt(now: Date): NetworkCallState {
     const { kind } = this.state.progress;
 
-    return (kind === 'waiting' || kind === 'claimed') && this.lapsedAt(now)
-      ? 'lapsed'
+    return (kind === 'waiting' || kind === 'claimed') && this.isExpiredAt(now)
+      ? 'expired'
       : kind;
   }
 
@@ -187,8 +187,10 @@ export class NetworkCall extends EventRecorder {
   claimedBy(host: CallingHost, now: Date): NetworkCall {
     const phase = this.stateAt(now);
 
-    if (phase === 'given-up') {
-      throw new InvalidNetworkCallTransitionError(givenUp(this.state.id.value));
+    if (phase === 'cancelled') {
+      throw new InvalidNetworkCallTransitionError(
+        cancelledMessage(this.state.id.value),
+      );
     }
 
     if (phase !== 'waiting') {
@@ -210,13 +212,15 @@ export class NetworkCall extends EventRecorder {
       );
     }
 
-    if (phase === 'given-up') {
-      throw new InvalidNetworkCallTransitionError(givenUp(this.state.id.value));
+    if (phase === 'cancelled') {
+      throw new InvalidNetworkCallTransitionError(
+        cancelledMessage(this.state.id.value),
+      );
     }
 
-    if (phase === 'lapsed') {
+    if (phase === 'expired') {
       throw new InvalidNetworkCallTransitionError(
-        `Network call ${this.state.id.value} lapsed before it was answered.`,
+        `Network call ${this.state.id.value} expired before it was answered.`,
       );
     }
 
@@ -242,36 +246,36 @@ export class NetworkCall extends EventRecorder {
     });
   }
 
-  lapsed(now: Date): NetworkCall {
+  expire(now: Date): NetworkCall {
     if (this.isCompleted) {
       return this;
     }
 
-    if (!this.lapsedAt(now)) {
+    if (!this.isExpiredAt(now)) {
       throw new InvalidNetworkCallTransitionError(
-        `Network call ${this.state.id.value} cannot lapse before its time is up.`,
+        `Network call ${this.state.id.value} cannot expire before its time is up.`,
       );
     }
 
     return this.with({
       request: this.state.request.spent(),
-      progress: { kind: 'lapsed', at: now },
+      progress: { kind: 'expired', at: now },
     });
   }
 
-  givenUp(now: Date): NetworkCall {
+  cancel(now: Date): NetworkCall {
     if (this.isCompleted) {
       return this;
     }
 
     return this.with({
       request: this.state.request.spent(),
-      progress: { kind: 'given-up', at: now },
+      progress: { kind: 'cancelled', at: now },
     });
   }
 
-  private lapsedAt(now: Date): boolean {
-    return now.getTime() >= this.state.lapsesAt.getTime();
+  private isExpiredAt(now: Date): boolean {
+    return now.getTime() >= this.state.expiresAt.getTime();
   }
 
   private with(part: Partial<State>): NetworkCall {

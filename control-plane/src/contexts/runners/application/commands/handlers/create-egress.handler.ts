@@ -3,14 +3,14 @@ import type { CreateEgressCommand } from '@runners/application/commands/runner-r
 import type { EgressCreatedDto } from '@runners/application/dto/runner-resource.dto';
 import type { RunnerDefinitionsPort } from '@runners/application/ports/runner-definitions.port';
 import { RunnerProblems } from '@runners/application/rendering/runner-problems';
-import { giveEgressToken } from '@runners/application/services/give-egress-token';
+import { recordEgressTokenUse } from '@runners/application/services/record-egress-token-use';
 import { Egress } from '@runners/domain/aggregates/egress.aggregate';
 import { EgressAlreadyDefinedError } from '@runners/domain/exceptions/egress-already-defined.error';
-import { EgressTokenSpentError } from '@runners/domain/exceptions/egress-token-spent.error';
-import { EgressTokenTakenError } from '@runners/domain/exceptions/egress-token-taken.error';
+import { EgressTokenAlreadyUsedError } from '@runners/domain/exceptions/egress-token-already-used.error';
+import { EgressTokenInUseError } from '@runners/domain/exceptions/egress-token-in-use.error';
 import { InvalidEgressError } from '@runners/domain/exceptions/invalid-egress.error';
 import type { EgressRepository } from '@runners/domain/repositories/egress.repository';
-import type { GivenEgressTokensRepository } from '@runners/domain/repositories/given-egress-tokens.repository';
+import type { UsedEgressTokensRepository } from '@runners/domain/repositories/used-egress-tokens.repository';
 import { EgressId } from '@runners/domain/value-objects/egress-id.vo';
 import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
@@ -35,7 +35,7 @@ export class CreateEgressHandler
     private readonly access: WorkspaceAccessPort,
     private readonly definitions: RunnerDefinitionsPort,
     private readonly egresses: EgressRepository,
-    private readonly given: GivenEgressTokensRepository,
+    private readonly usedTokens: UsedEgressTokensRepository,
     private readonly creates: IdempotentCreatesPort,
     private readonly ids: IdGeneratorPort,
     private readonly tokens: TokenMintPort,
@@ -101,7 +101,12 @@ export class CreateEgressHandler
             });
 
             await this.egresses.add(defined);
-            await giveEgressToken(this.given, this.egresses, defined, null);
+            await recordEgressTokenUse(
+              this.usedTokens,
+              this.egresses,
+              defined,
+              null,
+            );
 
             return defined.id.value;
           }),
@@ -123,8 +128,8 @@ export class CreateEgressHandler
         }
 
         if (
-          error instanceof EgressTokenTakenError ||
-          error instanceof EgressTokenSpentError ||
+          error instanceof EgressTokenInUseError ||
+          error instanceof EgressTokenAlreadyUsedError ||
           error instanceof InvalidEgressError
         ) {
           return {

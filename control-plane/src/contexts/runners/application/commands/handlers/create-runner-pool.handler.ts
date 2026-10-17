@@ -6,19 +6,19 @@ import type { ProvisionSecretsPort } from '@runners/application/ports/provision-
 import type { RunnerDefinitionsPort } from '@runners/application/ports/runner-definitions.port';
 import { RunnerProblems } from '@runners/application/rendering/runner-problems';
 import { assertKnownEgress } from '@runners/application/services/assert-known-egress';
-import { givePoolToken } from '@runners/application/services/give-pool-token';
 import {
   givenAccess,
   issuedTo,
 } from '@runners/application/services/pool-access-given';
+import { recordPoolTokenUse } from '@runners/application/services/record-pool-token-use';
 import { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregate';
 import { InvalidRunnerPoolError } from '@runners/domain/exceptions/invalid-runner-pool.error';
-import { PoolTokenSpentError } from '@runners/domain/exceptions/pool-token-spent.error';
-import { PoolTokenTakenError } from '@runners/domain/exceptions/pool-token-taken.error';
+import { PoolTokenAlreadyUsedError } from '@runners/domain/exceptions/pool-token-already-used.error';
+import { PoolTokenInUseError } from '@runners/domain/exceptions/pool-token-in-use.error';
 import { RunnerPoolAlreadyDefinedError } from '@runners/domain/exceptions/runner-pool-already-defined.error';
 import type { EgressRepository } from '@runners/domain/repositories/egress.repository';
-import type { GivenPoolTokensRepository } from '@runners/domain/repositories/given-pool-tokens.repository';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
+import type { UsedPoolTokensRepository } from '@runners/domain/repositories/used-pool-tokens.repository';
 import { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
 import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
@@ -43,7 +43,7 @@ export class CreateRunnerPoolHandler
     private readonly access: WorkspaceAccessPort,
     private readonly definitions: RunnerDefinitionsPort,
     private readonly pools: RunnerPoolRepository,
-    private readonly given: GivenPoolTokensRepository,
+    private readonly usedTokens: UsedPoolTokensRepository,
     private readonly secrets: ProvisionSecretsPort,
     private readonly egresses: EgressRepository,
     private readonly platform: PlatformEgressSettings | null,
@@ -142,7 +142,12 @@ export class CreateRunnerPoolHandler
             });
 
             await this.pools.add(defined);
-            await givePoolToken(this.given, this.pools, defined, null);
+            await recordPoolTokenUse(
+              this.usedTokens,
+              this.pools,
+              defined,
+              null,
+            );
 
             return defined.id.value;
           }),
@@ -164,8 +169,8 @@ export class CreateRunnerPoolHandler
         }
 
         if (
-          error instanceof PoolTokenTakenError ||
-          error instanceof PoolTokenSpentError ||
+          error instanceof PoolTokenInUseError ||
+          error instanceof PoolTokenAlreadyUsedError ||
           error instanceof InvalidRunnerPoolError
         ) {
           return {

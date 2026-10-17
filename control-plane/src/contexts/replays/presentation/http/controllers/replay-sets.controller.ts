@@ -260,7 +260,7 @@ export class ReplaySetsController {
   @ApiOperation({
     operationId: 'deleteReplaySet',
     summary:
-      'Delete a replay set and its replays, letting go of the archives it kept',
+      'Delete a replay set and its replays, and release the archives it kept',
   })
   @ApiParam({ name: 'setId', type: String })
   @ApiNoContentResponse({ description: 'Deleted' })

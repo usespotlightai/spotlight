@@ -2,7 +2,7 @@ import type {
   HostCredential,
   RunnerAdmissionsPort,
 } from '@runners/application/ports/runner-admissions.port';
-import type { RunnerPresencePort } from '@runners/application/ports/runner-presence.port';
+import type { RunnerHeartbeatsPort } from '@runners/application/ports/runner-heartbeats.port';
 import type {
   RunnersPort,
   StartedRunner,
@@ -85,12 +85,12 @@ const pulling = (
       async (): Promise<StartedRunner> =>
         (answers.length > 1 ? answers.shift() : answers[0]) as StartedRunner,
     ),
-    took: vi.fn(async () => {
+    claim: vi.fn(async () => {
       if (over.tookFails) {
         throw new Error('pooled_1 is spent');
       }
     }),
-    letGo: vi.fn(async () => {}),
+    release: vi.fn(async () => {}),
   };
   const claimNext = vi.fn(async () =>
     over.run === undefined ? null : over.run,
@@ -109,8 +109,8 @@ const pulling = (
           },
     ),
   };
-  const presence = {
-    seen: vi.fn(async () => ({
+  const heartbeats = {
+    heartbeat: vi.fn(async () => ({
       workspaceId: WorkspaceId.of('ws_1'),
       harnesses: [HarnessId.of('claude-code')],
       terms: RunnerTerms.of(['linux']),
@@ -136,9 +136,9 @@ const pulling = (
   const handler = new ClaimHostWorkHandler(
     admissions as RunnerAdmissionsPort,
     runners as unknown as RunnersPort,
-    presence as RunnerPresencePort,
+    heartbeats as RunnerHeartbeatsPort,
     runs,
-    { requeueLapsed: vi.fn(async () => []) } as unknown as RunLeases,
+    { expireLeases: vi.fn(async () => []) } as unknown as RunLeases,
     checks,
     clock,
     { mayStart: mayStart } as unknown as RunStartHooks,
@@ -234,22 +234,26 @@ describe('ClaimHostWorkHandler', () => {
     );
   });
 
-  it('answers a host that never reported through this way in as a stranger, without waiting', async () => {
+  it('answers a host that never reported through this way in as host-unreported, without waiting', async () => {
     const { handler, runners, claimNext } = pulling({
-      started: { outcome: 'stranger' },
+      started: { outcome: 'host-unreported' },
     });
 
-    expect(await handler.execute(pull())).toEqual({ outcome: 'stranger' });
+    expect(await handler.execute(pull())).toEqual({
+      outcome: 'host-unreported',
+    });
     expect(runners.start).toHaveBeenCalledTimes(1);
     expect(claimNext).not.toHaveBeenCalled();
   });
 
-  it('answers a claim for an image the host did not report serving as unoffered', async () => {
+  it('answers a claim for an image the host did not report serving as image-unreported', async () => {
     const { handler, claimNext } = pulling({
-      started: { outcome: 'unoffered' },
+      started: { outcome: 'image-unreported' },
     });
 
-    expect(await handler.execute(pull())).toEqual({ outcome: 'unoffered' });
+    expect(await handler.execute(pull())).toEqual({
+      outcome: 'image-unreported',
+    });
     expect(claimNext).not.toHaveBeenCalled();
   });
 
@@ -267,7 +271,7 @@ describe('ClaimHostWorkHandler', () => {
     );
   });
 
-  it('hands over a run with the runner it started and its one-run token, leaving the runner’s record to the run it took', async () => {
+  it('hands over a run with the runner it started and its one-run token, leaving the runner’s record to the run it claimed', async () => {
     const { handler, runners, claimNext } = pulling({ run: taken() });
 
     const claimed = await handler.execute(pull());
@@ -283,7 +287,7 @@ describe('ClaimHostWorkHandler', () => {
       expect.objectContaining({ runner: POOLED, claims: 'any' }),
       NOW,
     );
-    expect(runners.took).toHaveBeenCalledWith(
+    expect(runners.claim).toHaveBeenCalledWith(
       POOLED,
       { kind: 'run', id: 'run_1' },
       NOW,
@@ -300,14 +304,14 @@ describe('ClaimHostWorkHandler', () => {
       runnerId: 'pooled_1',
       work: { kind: 'check', check: aCheck },
     });
-    expect(runners.took).toHaveBeenCalledWith(
+    expect(runners.claim).toHaveBeenCalledWith(
       POOLED,
       { kind: 'check', id: 'stack_1' },
       NOW,
     );
   });
 
-  it('puts the run back on the queue, uncounted, and lets the runner go, when the runner cannot take it', async () => {
+  it('puts the run back on the queue, uncounted, and releases the runner, when the runner cannot take it', async () => {
     const { handler, runners, saved } = pulling({
       run: taken(),
       tookFails: true,
@@ -318,7 +322,7 @@ describe('ClaimHostWorkHandler', () => {
     expect(saved[0]?.state).toBe('queued');
     expect(saved[0]?.claimedBy).toBeNull();
     expect(saved[0]?.attempt).toBe(taken().attempt);
-    expect(runners.letGo).toHaveBeenCalledWith(POOLED, NOW);
+    expect(runners.release).toHaveBeenCalledWith(POOLED, NOW);
   });
 
   it('puts the check back, uncounted, when the runner cannot take it', async () => {
@@ -331,19 +335,19 @@ describe('ClaimHostWorkHandler', () => {
     expect(unclaim).toHaveBeenCalledWith('stack_1', false, POOLED, NOW);
   });
 
-  it('lets the runner go when nothing turned up while it waited', async () => {
+  it('releases the runner when nothing turned up while it waited', async () => {
     const { handler, runners, claimNext } = pulling();
 
     expect(await handler.execute(pull())).toEqual({ outcome: 'nothing' });
     expect(claimNext.mock.calls.length).toBeGreaterThan(1);
-    expect(runners.took).not.toHaveBeenCalled();
-    expect(runners.letGo).toHaveBeenCalledWith(
+    expect(runners.claim).not.toHaveBeenCalled();
+    expect(runners.release).toHaveBeenCalledWith(
       POOLED,
       new Date(NOW.getTime() + 10_000),
     );
   });
 
-  it('hands over no run whose start a hook denied, and takes up a check instead', async () => {
+  it('assigns no run whose start a hook denied, and takes up a check instead', async () => {
     const { handler, runners, mayStart } = pulling({
       run: taken(),
       check: aCheck,
@@ -361,7 +365,7 @@ describe('ClaimHostWorkHandler', () => {
       outcome: 'claimed',
       work: { kind: 'check', check: aCheck },
     });
-    expect(runners.took).not.toHaveBeenCalledWith(
+    expect(runners.claim).not.toHaveBeenCalledWith(
       POOLED,
       { kind: 'run', id: 'run_1' },
       expect.anything(),
@@ -375,16 +379,16 @@ describe('ClaimHostWorkHandler', () => {
     expect(claimNext.mock.calls.length).toBeGreaterThan(1);
   });
 
-  it('stops polling at once, taking up no check, when a run had to be handed back', async () => {
+  it('stops polling at once, taking up no check, when a run had to be requeued', async () => {
     const { handler, claimNext, claimCheck, runners } = pulling({
       run: taken(),
       check: aCheck,
-      starts: 'handed-back',
+      starts: 'requeued',
     });
 
     expect(await handler.execute(pull())).toEqual({ outcome: 'nothing' });
     expect(claimNext).toHaveBeenCalledTimes(1);
     expect(claimCheck).not.toHaveBeenCalled();
-    expect(runners.letGo).toHaveBeenCalledWith(POOLED, NOW);
+    expect(runners.release).toHaveBeenCalledWith(POOLED, NOW);
   });
 });

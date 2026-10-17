@@ -89,7 +89,7 @@ describe('ReplaySet', () => {
     ).toThrow(UnreplayableEntryError);
   });
 
-  it('lets a run go, and rejects letting go of one it never contained', () => {
+  it('removes a run, and rejects removing one it never contained', () => {
     const set = aSet(2);
     set.pullEvents();
 

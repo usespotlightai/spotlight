@@ -33,12 +33,12 @@ export class NetworkCallsWorker implements OnModuleDestroy {
 
   private async tended(): Promise<void> {
     try {
-      await this.calls.lapseOverdue();
+      await this.calls.expireDue();
       await this.calls.forgetCompleted();
     } catch (error) {
       this.logger.error(
         { err: error },
-        'Lapsing or forgetting network calls failed',
+        'Expiring or forgetting network calls failed',
       );
     }
   }

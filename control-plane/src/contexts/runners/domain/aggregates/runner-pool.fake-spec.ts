@@ -5,12 +5,12 @@ import { RunnerTrust } from '@runners/domain/aggregates/runner-trust.aggregate';
 import { RunnerHostVersionConflictError } from '@runners/domain/exceptions/runner-host-version-conflict.error';
 import type { RunnerHostRepository } from '@runners/domain/repositories/runner-host.repository';
 import { Admission } from '@runners/domain/value-objects/admission.vo';
+import { BootId } from '@runners/domain/value-objects/boot-id.vo';
 import type { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
 import type { EgressTraffic } from '@runners/domain/value-objects/egress-traffic.vo';
 import { EncryptedProvisionSecret } from '@runners/domain/value-objects/encrypted-provision-secret.vo';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import { HostReport } from '@runners/domain/value-objects/host-report.vo';
-import { HostSession } from '@runners/domain/value-objects/host-session.vo';
 import type { InstalledHarness } from '@runners/domain/value-objects/installed-harness.vo';
 import { MaxRuns } from '@runners/domain/value-objects/max-runs.vo';
 import { PoolKey } from '@runners/domain/value-objects/pool-key.vo';
@@ -139,19 +139,19 @@ export const aHostReport = (running: string[] = []): HostReport =>
   HostReport.of({
     name: 'build-box',
     release: '0.9.0',
-    executor: 'docker',
+    containerRuntime: 'docker',
     capacity: 4,
     running,
     images: [
       {
         image: 'ghcr.io/acme/runner:main',
-        usual: true,
+        isDefault: true,
         harnesses: [{ id: 'claude-code', models: [], version: '2.1.0' }],
       },
-      { image: 'ghcr.io/acme/widgets:1', usual: false, harnesses: [] },
+      { image: 'ghcr.io/acme/widgets:1', isDefault: false, harnesses: [] },
       {
         image: 'ghcr.io/acme/old:1',
-        usual: false,
+        isDefault: false,
         harnesses: [],
         unavailableReason:
           "Runner doesn't report its release number. Minimum version required: 20260925-01",
@@ -164,11 +164,11 @@ export const aHost = (
 ): RunnerHost => {
   const through = input.through ?? aPullPool();
 
-  return RunnerHost.present({
+  return RunnerHost.fromHeartbeat({
     id: input.id ?? HOST_ID,
     workspaceId: through.workspaceId,
     admission: Admission.through(through.id),
-    session: HostSession.of('session_1'),
+    bootId: BootId.of('boot_1'),
     report: aHostReport(),
     at: input.at ?? STARTED_AT,
   });
@@ -194,11 +194,11 @@ export const storedHosts = (...known: RunnerHost[]) => {
           id: host.id,
           workspaceId: host.workspaceId,
           admission: host.admission,
-          session: host.session,
+          bootId: host.bootId,
           report: host.report,
-          firstSeenAt: host.firstSeenAt,
-          upSince: host.upSince,
-          lastSeenAt: host.lastSeenAt,
+          firstHeartbeatAt: host.firstHeartbeatAt,
+          onlineSince: host.onlineSince,
+          lastHeartbeatAt: host.lastHeartbeatAt,
           version: host.version + 1,
         }),
       );
@@ -209,10 +209,10 @@ export const storedHosts = (...known: RunnerHost[]) => {
       }
       stored.delete(host.id.value);
     }),
-    removeUnseenSince: vi.fn(async (since: Date) => {
+    removeStaleBefore: vi.fn(async (cutoff: Date) => {
       let removed = 0;
       for (const [id, host] of stored) {
-        if (host.lastSeenAt <= since) {
+        if (host.lastHeartbeatAt <= cutoff) {
           stored.delete(id);
           removed++;
         }

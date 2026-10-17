@@ -36,7 +36,7 @@ const register = new RegisterRunnerCommand(ID, [
 ]);
 
 describe('RegisterRunnerHandler', () => {
-  it('registers the runner with what it found installed, answering its id', async () => {
+  it('registers the runner with what it found installed, and returns its id', async () => {
     const { handler, save } = registering();
 
     await expect(handler.execute(register)).resolves.toEqual({ runnerId: ID });
@@ -53,7 +53,7 @@ describe('RegisterRunnerHandler', () => {
 
     await handler.execute(register);
 
-    expect(save.mock.calls[0]?.[0]).toMatchObject({ lastSeenAt: NOW });
+    expect(save.mock.calls[0]?.[0]).toMatchObject({ lastHeartbeatAt: NOW });
   });
 
   it('records the models each harness reported', async () => {
@@ -79,7 +79,7 @@ describe('RegisterRunnerHandler', () => {
   it('rejects a runner that has ended', async () => {
     const { handler, save } = registering({
       runner: () =>
-        aRunner({ id: ID }).took(RunnerWork.run('run_1'), NOW).ended(NOW),
+        aRunner({ id: ID }).claim(RunnerWork.run('run_1'), NOW).ended(NOW),
     });
 
     await expect(handler.execute(register)).rejects.toThrow(ApplicationError);

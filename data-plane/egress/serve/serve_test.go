@@ -545,7 +545,7 @@ func TestForgetsARunAfterTwoMinutesWithoutUse(t *testing.T) {
 		t.Error("still keeps the unused run")
 	}
 	if _, ok := r.egress.runs["two"]; !ok {
-		t.Error("let go of a run in use")
+		t.Error("evicted a run in use")
 	}
 }
 

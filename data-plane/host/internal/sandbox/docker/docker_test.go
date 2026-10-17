@@ -74,9 +74,9 @@ func TestASandboxRunsWithItsFilesAndIsGoneAfterwards(t *testing.T) {
 
 	id, err := engine.Start(ctx, sandbox.Spec{
 		Image:  image,
-		Args:   []string{"sh", "-c", "cat /run/spotlight/handed.json; stat -c %a /run/spotlight/handed.json;"},
+		Args:   []string{"sh", "-c", "cat /run/spotlight/assignment.json; stat -c %a /run/spotlight/assignment.json;"},
 		Labels: map[string]string{"ai.usespotlight.test": "sandbox"},
-		Files:  []sandbox.File{{Path: "/run/spotlight/handed.json", Mode: 0o400, Body: []byte("handed\n")}},
+		Files:  []sandbox.File{{Path: "/run/spotlight/assignment.json", Mode: 0o400, Body: []byte("assignment\n")}},
 	})
 	if id != "" {
 		defer func() { _ = engine.Destroy(context.Background(), id) }()
@@ -94,7 +94,7 @@ func TestASandboxRunsWithItsFilesAndIsGoneAfterwards(t *testing.T) {
 	if err := engine.Follow(ctx, id, &out); err != nil {
 		t.Fatalf("follow: %v", err)
 	}
-	if !strings.Contains(out.String(), "handed") || !strings.Contains(out.String(), "400") {
+	if !strings.Contains(out.String(), "assignment") || !strings.Contains(out.String(), "400") {
 		t.Errorf("said %q", out.String())
 	}
 
@@ -135,7 +135,7 @@ func TestLayingAFileLeavesItsParentsAsTheImageHasThem(t *testing.T) {
 	id, err := engine.Start(ctx, sandbox.Spec{
 		Image: image,
 		Args:  []string{"stat", "-c", "%a", "/etc"},
-		Files: []sandbox.File{{Path: "/etc/spotlight/handed.json", Mode: 0o400, Body: []byte("handed")}},
+		Files: []sandbox.File{{Path: "/etc/spotlight/assignment.json", Mode: 0o400, Body: []byte("assignment")}},
 	})
 	if id != "" {
 		defer func() { _ = engine.Destroy(context.Background(), id) }()

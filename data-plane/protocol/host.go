@@ -22,20 +22,20 @@ type HostClaim struct {
 type HostImage struct {
 	Image             string          `json:"image"`
 	Digest            string          `json:"digest,omitempty"`
-	Usual             bool            `json:"usual"`
+	IsDefault         bool            `json:"isDefault"`
 	Release           string          `json:"release,omitempty"`
 	Harnesses         []HarnessReport `json:"harnesses"`
 	UnavailableReason string          `json:"unavailableReason,omitempty"`
 }
 
-type HostPresence struct {
-	Session  string      `json:"session"`
-	Name     string      `json:"name"`
-	Release  string      `json:"release"`
-	Executor string      `json:"executor"`
-	Capacity int         `json:"capacity"`
-	Running  []string    `json:"running"`
-	Images   []HostImage `json:"images"`
+type HostHeartbeat struct {
+	BootID           string      `json:"bootId"`
+	Name             string      `json:"name"`
+	Release          string      `json:"release"`
+	ContainerRuntime string      `json:"containerRuntime"`
+	Capacity         int         `json:"capacity"`
+	Running          []string    `json:"running"`
+	Images           []HostImage `json:"images"`
 }
 
 type HeartbeatResponse struct {

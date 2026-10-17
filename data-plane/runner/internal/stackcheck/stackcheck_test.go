@@ -414,7 +414,7 @@ func TestPerformKeepsCheckingThroughARenewalRejectedForAWhile(t *testing.T) {
 			stackcheck.Perform(context.Background(), told, check, options)
 
 			if renewed := told.renewed(); renewed < 2 {
-				t.Errorf("gave up renewing after %d tries", renewed)
+				t.Errorf("stopped renewing after %d tries", renewed)
 			}
 			if steps := told.only().Steps; len(steps) != 1 || !steps[0].Passed {
 				t.Fatalf("steps %+v", steps)

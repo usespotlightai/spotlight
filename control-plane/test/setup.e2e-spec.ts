@@ -240,7 +240,7 @@ describe('whether a workspace is ready to run', () => {
 
   const SERVING = {
     image: 'ghcr.io/usespotlightai/spotlight-runner:1.0.0',
-    usual: true,
+    isDefault: true,
     harnesses: [{ id: 'claude-code', models: [] }],
   };
 
@@ -248,22 +248,22 @@ describe('whether a workspace is ready to run', () => {
     workspaceId: WorkspaceId,
     over: {
       images?: (typeof schema.runnerHost.$inferInsert)['images'];
-      lastSeenAt?: Date;
+      lastHeartbeatAt?: Date;
     } = {},
   ) =>
     db.insert(schema.runnerHost).values({
       id: randomUUID(),
       workspaceId: workspaceId.value,
       poolId: await pooled(workspaceId, 'pull'),
-      session: 'session_1',
+      bootId: 'boot_1',
       name: 'build-box',
       release: '1.0.0',
-      executor: 'docker',
+      containerRuntime: 'docker',
       capacity: 1,
       images: over.images ?? [SERVING],
-      firstSeenAt: over.lastSeenAt ?? NOW,
-      upSince: over.lastSeenAt ?? NOW,
-      lastSeenAt: over.lastSeenAt ?? NOW,
+      firstHeartbeatAt: over.lastHeartbeatAt ?? NOW,
+      onlineSince: over.lastHeartbeatAt ?? NOW,
+      lastHeartbeatAt: over.lastHeartbeatAt ?? NOW,
     });
 
   afterEach(async () => {
@@ -278,7 +278,7 @@ describe('whether a workspace is ready to run', () => {
     ).resolves.toBe(false);
   });
 
-  it('is not ready with only a pull pool or a runner trust, before any host reports in', async () => {
+  it('is not ready with only a pull pool or a runner trust, before any host sends a heartbeat', async () => {
     const workspace = WorkspaceId.of(randomUUID());
 
     await pooled(workspace, 'pull');
@@ -295,7 +295,7 @@ describe('whether a workspace is ready to run', () => {
     await expect(runners().readyToRun(workspace)).resolves.toBe(true);
   });
 
-  it('is ready once a host reports in serving a harness', async () => {
+  it('is ready once a host sends a heartbeat that reports a harness', async () => {
     const workspace = WorkspaceId.of(randomUUID());
 
     await hosted(workspace);
@@ -312,7 +312,7 @@ describe('whether a workspace is ready to run', () => {
         {
           ...SERVING,
           image: 'ghcr.io/acme/bare:1',
-          usual: false,
+          isDefault: false,
           harnesses: [],
         },
       ],
@@ -321,11 +321,11 @@ describe('whether a workspace is ready to run', () => {
     await expect(runners().readyToRun(workspace)).resolves.toBe(false);
   });
 
-  it('is not ready with a host last seen more than a day ago', async () => {
+  it('is not ready with a host whose last heartbeat is more than a day old', async () => {
     const workspace = WorkspaceId.of(randomUUID());
 
     await hosted(workspace, {
-      lastSeenAt: new Date(NOW.getTime() - 24 * 60 * 60_000),
+      lastHeartbeatAt: new Date(NOW.getTime() - 24 * 60 * 60_000),
     });
 
     await expect(runners().readyToRun(workspace)).resolves.toBe(false);

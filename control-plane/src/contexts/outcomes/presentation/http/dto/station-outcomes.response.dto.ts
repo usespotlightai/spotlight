@@ -69,19 +69,19 @@ export class NextActResponseDto {
   }
 }
 
-export class HandedOnResponseDto {
+export class StationPassResponseDto {
   @ApiProperty({
     example: 'd41f0a2c-8b7e-4f19-9d3a-6c5e2b1a4f80',
-    description: 'The station the run moved its task on to',
+    description: 'The station the run passed its task to',
   })
   readonly to: string;
 
   @ApiProperty({ example: '2026-09-30T10:05:00.000Z' })
   readonly at: string;
 
-  constructor(handedOn: { to: string; at: string }) {
-    this.to = handedOn.to;
-    this.at = handedOn.at;
+  constructor(pass: { to: string; at: string }) {
+    this.to = pass.to;
+    this.at = pass.at;
   }
 }
 
@@ -131,11 +131,11 @@ export class StationRunOutcomeResponseDto {
   readonly next: NextActResponseDto | null;
 
   @ApiProperty({
-    type: HandedOnResponseDto,
+    type: StationPassResponseDto,
     nullable: true,
-    description: 'Where the run moved its task on to, if it did',
+    description: 'The station the run passed its task to, if it did',
   })
-  readonly handedOn: HandedOnResponseDto | null;
+  readonly passed: StationPassResponseDto | null;
 
   @ApiProperty({
     enum: [...DELIVERY_STATES, null],
@@ -154,8 +154,8 @@ export class StationRunOutcomeResponseDto {
     this.cost = outcome.cost ? new RunCostResponseDto(outcome.cost) : null;
     this.checks = outcome.checks;
     this.next = outcome.next ? new NextActResponseDto(outcome.next) : null;
-    this.handedOn = outcome.handedOn
-      ? new HandedOnResponseDto(outcome.handedOn)
+    this.passed = outcome.passed
+      ? new StationPassResponseDto(outcome.passed)
       : null;
     this.delivery = outcome.delivery;
   }
@@ -183,9 +183,9 @@ export class RunTallyResponseDto {
 
   @ApiProperty({
     example: 1,
-    description: 'Runs withdrawn from the queue before they ran',
+    description: 'Runs cancelled before they ran',
   })
-  readonly withdrawn: number;
+  readonly cancelled: number;
 
   @ApiProperty({ example: 2 })
   readonly failed: number;
@@ -221,9 +221,9 @@ export class RunTallyResponseDto {
 
   @ApiProperty({
     example: 2,
-    description: 'Runs that moved their task on to another station',
+    description: 'Runs that passed their task to another station',
   })
-  readonly handedOn: number;
+  readonly passed: number;
 
   @ApiProperty({
     example: 4,
@@ -269,7 +269,7 @@ export class RunTallyResponseDto {
 
   constructor(tally: RunTally) {
     this.runs = tally.runs;
-    this.withdrawn = tally.withdrawn;
+    this.cancelled = tally.cancelled;
     this.failed = tally.failed;
     this.failedShare = tally.failedShare;
     this.stopped = tally.stopped;
@@ -277,7 +277,7 @@ export class RunTallyResponseDto {
     this.checksFailed = tally.checksFailed;
     this.accepted = tally.accepted;
     this.sentBack = tally.sentBack;
-    this.handedOn = tally.handedOn;
+    this.passed = tally.passed;
     this.merged = tally.merged;
     this.cost = tally.cost ? new SpendResponseDto(tally.cost) : null;
     this.unpriced = tally.unpriced;
@@ -351,7 +351,7 @@ export class FingerprintGroupResponseDto {
 
   @ApiProperty({
     description:
-      'Whether the group’s config is one the station ran: false for runs meant for a config other than the one in force that never ran it (never started, failed to provision or withdrawn), which are kept apart from the group in force',
+      'Whether the group’s config is one the station ran: false for runs meant for a config other than the one in force that never ran it (never started, failed to provision or cancelled), which are kept apart from the group in force',
   })
   readonly ran: boolean;
 
@@ -448,7 +448,7 @@ export class StationOutcomesResponseDto {
     type: FingerprintGroupResponseDto,
     isArray: true,
     description:
-      'The station’s latest-started runs in groups, the newest first, in the order the runs started: a new group starts at every run that ran a config other than the station’s run before it that ran one, listed or not; a run meant for another config than the one in force that never ran it (never started, failed to provision or withdrawn) starts or joins a group of that config that never ran, and the group in force starts again after it; a run with no config joins the group in force',
+      'The station’s latest-started runs in groups, the newest first, in the order the runs started: a new group starts at every run that ran a config other than the station’s run before it that ran one, listed or not; a run meant for another config than the one in force that never ran it (never started, failed to provision or cancelled) starts or joins a group of that config that never ran, and the group in force starts again after it; a run with no config joins the group in force',
   })
   readonly groups: readonly FingerprintGroupResponseDto[];
 

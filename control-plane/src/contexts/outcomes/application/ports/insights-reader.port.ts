@@ -77,7 +77,7 @@ export interface ListedRun {
   readonly failure: string | null;
   readonly checks: CheckVerdict | null;
   readonly next: { readonly act: PersonAct; readonly at: Date } | null;
-  readonly handedOn: { readonly to: string; readonly at: Date } | null;
+  readonly passed: { readonly to: string; readonly at: Date } | null;
   readonly delivery: DeliveryState | null;
 }
 

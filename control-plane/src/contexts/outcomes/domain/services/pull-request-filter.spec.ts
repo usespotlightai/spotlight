@@ -115,7 +115,7 @@ describe('the pull request list', () => {
     ]);
   });
 
-  it('narrows to what closed in a week, what was reverted and how many rounds it took', () => {
+  it('narrows to what closed in a week, what was reverted and how many rounds it needed', () => {
     expect(numbers({ week: '2026-09-21' })).toEqual([1]);
     expect(numbers({ reverted: 'true' })).toEqual([2]);
     expect(numbers({ rounds: '3+' })).toEqual([2]);

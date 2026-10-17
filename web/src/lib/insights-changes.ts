@@ -48,7 +48,7 @@ export const OUTCOME_MEASURES: readonly {
 }[] = [
   { id: 'accepted', label: 'Accepted', lowerIsBetter: false },
   { id: 'sent_back', label: 'Sent back', lowerIsBetter: true },
-  { id: 'handed_on', label: 'Handed on', lowerIsBetter: false },
+  { id: 'passed', label: 'Passed', lowerIsBetter: false },
   { id: 'checks_passed', label: 'Checks passed', lowerIsBetter: false },
   { id: 'merged', label: 'Merged', lowerIsBetter: false },
   { id: 'judge', label: 'Judge score', lowerIsBetter: false },

@@ -108,7 +108,7 @@ func (h *Host) sent(ctx context.Context, call protocol.HostCall, log *slog.Logge
 
 	container, err := h.startEgress(sending, image, "call-"+call.ID,
 		map[string]string{LabelHost: h.opts.HostID, LabelCall: call.ID},
-		protocol.EgressHanded{
+		protocol.EgressConfig{
 			URL:         h.opts.SandboxURL,
 			Credential:  rand.Text(),
 			Allow:       h.opts.Egress.Allow,

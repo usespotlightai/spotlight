@@ -7,9 +7,9 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { Run } from '@work/domain/aggregates/run.aggregate';
-import { RunAbandoned } from '@work/domain/events/run-abandoned.event';
 import { RunBriefed } from '@work/domain/events/run-briefed.event';
 import { RunCompleted } from '@work/domain/events/run-completed.event';
+import { RunExhausted } from '@work/domain/events/run-exhausted.event';
 import { InvalidRunTransitionError } from '@work/domain/exceptions/invalid-run-transition.error';
 import { KeptFromReplaysError } from '@work/domain/exceptions/kept-from-replays.error';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
@@ -207,16 +207,16 @@ describe('a replay', () => {
     ).toBe(false);
   });
 
-  it('gives up rather than going back on the queue once it has asked a person', () => {
+  it('is exhausted rather than going back on the queue once it has asked a person', () => {
     const asked = claimed().askedAPersonBy(RUNNER);
-    const lapsed = asked.requeue(new Date(NOW.getTime() + 120_000));
-    const [abandoned] = lapsed
+    const expired = asked.expireLease(new Date(NOW.getTime() + 120_000));
+    const [exhausted] = expired
       .pullEvents()
-      .filter((each): each is RunAbandoned => each instanceof RunAbandoned);
+      .filter((each): each is RunExhausted => each instanceof RunExhausted);
 
-    expect(lapsed.hasEnded).toBe(true);
-    expect(abandoned?.asked).toBe(true);
-    expect(claimed().requeue(new Date(NOW.getTime() + 120_000)).state).toBe(
+    expect(expired.hasEnded).toBe(true);
+    expect(exhausted?.asked).toBe(true);
+    expect(claimed().expireLease(new Date(NOW.getTime() + 120_000)).state).toBe(
       'queued',
     );
   });

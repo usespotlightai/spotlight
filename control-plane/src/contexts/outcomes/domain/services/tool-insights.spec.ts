@@ -49,7 +49,7 @@ const ran = (
     skills?: readonly string[];
     read?: readonly string[];
     servers?: readonly ServerCalls[];
-    ending?: 'completed' | 'failed' | 'withdrawn';
+    ending?: 'completed' | 'failed' | 'cancelled';
   } = {},
 ) =>
   costedRecord(runId, {
@@ -95,7 +95,7 @@ describe('toolInsightsFrom', () => {
     ]);
   });
 
-  it('marks a skill spreading across the team and at each station that took it up', () => {
+  it('marks a skill spreading across the team and at each station that started to use it', () => {
     const records = [
       ...['a', 'b', 'c', 'd', 'e'].map((each, at) =>
         ran(`early_${each}`, day(`2026-09-0${8 + (at % 2)}`), {
@@ -242,10 +242,10 @@ describe('toolInsightsFrom', () => {
     ]);
   });
 
-  it('leaves out runs withdrawn before they ran', () => {
+  it('leaves out runs cancelled before they ran', () => {
     const insights = insightsOf(
       [
-        endedRecord('run_1', { ending: 'withdrawn', skills: ['grafana'] }),
+        endedRecord('run_1', { ending: 'cancelled', skills: ['grafana'] }),
         ran('run_2', day('2026-09-29')),
       ],
       WEEKS,
@@ -269,7 +269,7 @@ describe('toolCountsOf', () => {
           ran('run_2', day('2026-09-13'), { stationId: 'build' }),
           ran('run_3', day('2026-09-14'), {
             stationId: 'build',
-            ending: 'withdrawn',
+            ending: 'cancelled',
           }),
           ran('run_4', day('2026-09-29'), { stationId: 'build' }),
         ],

@@ -85,7 +85,7 @@ beforeEach(async () => {
 });
 
 describe('StartReplayHandler', () => {
-  it('answers why it could not start, though letting go of the live snapshot fails too', async () => {
+  it('answers why it could not start, though releasing the live snapshot fails too', async () => {
     memory.candidateRepository.save = async () => {
       throw new Error('the database went away');
     };
@@ -280,7 +280,7 @@ describe('StartReplayHandler', () => {
     });
   });
 
-  it('lets go of the live config it took for a baseline the set no longer needed once it looked again', async () => {
+  it('releases the live snapshot it made for a baseline the set no longer needed once it looked again', async () => {
     const ofSet = memory.replayRepository.ofSet;
     let looked = 0;
     memory.replayRepository.ofSet = async (setId) => {
@@ -306,7 +306,7 @@ describe('StartReplayHandler', () => {
     ).toHaveLength(0);
   });
 
-  it('lets go of the live config it took when the replay cannot start after all', async () => {
+  it('releases the live snapshot it made when the replay cannot start after all', async () => {
     memory.setRepository.locked = async () => aSet(0);
 
     for (const candidate of ['live', 'candidate_proposed']) {

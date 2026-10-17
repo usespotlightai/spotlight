@@ -122,7 +122,7 @@ const workedByTheRun = () =>
     raisedBy: UserId.of('user_1'),
     now: NOW,
     newId: () => 'task_1',
-  }).handedTo(RunId.of('run_1'), line());
+  }).assignRun(RunId.of('run_1'), line());
 
 const completing = (
   save: (run: Run) => Promise<void>,
@@ -221,7 +221,7 @@ describe('CompleteRunHandler', () => {
       });
     });
 
-    it('ends the run as before when the turn hands the task on to a station', async () => {
+    it('ends the run as before when the turn passes the task to a station', async () => {
       const saved: Run[] = [];
 
       const answered = await completing(
@@ -425,7 +425,7 @@ describe('CompleteRunHandler', () => {
         .timedOut(RUNNER, NOW)
         .claim(RUNNER, NOW);
 
-    it('goes back on the queue, as a lapsed run does', async () => {
+    it('goes back on the queue, as a run whose lease expired does', async () => {
       const saved: Run[] = [];
 
       await completing(async (run) => void saved.push(run)).execute(timedOut);
@@ -433,7 +433,7 @@ describe('CompleteRunHandler', () => {
       expect(saved[0]?.state).toBe('queued');
     });
 
-    it('is given up on as timed out at its last attempt', async () => {
+    it('is exhausted as timed out at its last attempt', async () => {
       const saved: Run[] = [];
 
       await completing(async (run) => void saved.push(run), undefined, null, {

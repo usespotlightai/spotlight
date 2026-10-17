@@ -3,8 +3,8 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { OutboxTeamProvisioning } from '@work/infrastructure/events/outbox-team-provisioning';
 import { describe, expect, it, vi } from 'vitest';
 
-const provisioning = (owed: number, givenUp: number) => {
-  const owedBy = vi.fn().mockResolvedValue({ owed, givenUp });
+const provisioning = (owed: number, deadLettered: number) => {
+  const owedBy = vi.fn().mockResolvedValue({ owed, deadLettered });
 
   return {
     owedBy,
@@ -23,7 +23,7 @@ describe('OutboxTeamProvisioning', () => {
     await expect(provisioning(1, 0).read).resolves.toBe('pending');
   });
 
-  it('reads as failed once Spotlight gave up', async () => {
+  it('reads as failed once a delivery is dead-lettered', async () => {
     await expect(provisioning(1, 1).read).resolves.toBe('failed');
   });
 

@@ -55,41 +55,41 @@ func TestGoesOutInjectingNothingWhenTheControlPlaneDoesNotAccept(t *testing.T) {
 	}
 }
 
-func TestReadsWhatTheHostHandedItOnceAndLeavesNoCopy(t *testing.T) {
+func TestReadsItsConfigOnceAndLeavesNoCopy(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "egress.json")
 	if err := os.WriteFile(path, []byte(`{"url":"http://control-plane:3000","token":"egress-token","credential":"proxy","allow":["api.example.com"],"secretAllow":["sentry-*"]}`), 0o400); err != nil {
 		t.Fatal(err)
 	}
 
-	handed, err := handedTo(path)
-	if err != nil || handed.Token != "egress-token" || handed.URL != "http://control-plane:3000" ||
-		handed.Credential != "proxy" || len(handed.Allow) != 1 || len(handed.SecretAllow) != 1 {
-		t.Fatalf("handed %+v: %v", handed, err)
+	config, err := readConfig(path)
+	if err != nil || config.Token != "egress-token" || config.URL != "http://control-plane:3000" ||
+		config.Credential != "proxy" || len(config.Allow) != 1 || len(config.SecretAllow) != 1 {
+		t.Fatalf("config %+v: %v", config, err)
 	}
 	if _, err := os.Stat(path); !errors.Is(err, os.ErrNotExist) {
-		t.Errorf("the handed file is still there: %v", err)
+		t.Errorf("the config file is still there: %v", err)
 	}
 }
 
-func TestRejectsAHandingWithNoControlPlaneOrProxyCredential(t *testing.T) {
-	for _, handed := range []string{
+func TestRejectsAConfigWithNoControlPlaneOrProxyCredential(t *testing.T) {
+	for _, config := range []string{
 		`{"credential":"proxy"}`,
 		`{"url":"http://control-plane:3000","token":"egress-token"}`,
 	} {
 		path := filepath.Join(t.TempDir(), "egress.json")
-		if err := os.WriteFile(path, []byte(handed), 0o400); err != nil {
+		if err := os.WriteFile(path, []byte(config), 0o400); err != nil {
 			t.Fatal(err)
 		}
 
-		if _, err := handedTo(path); err == nil {
-			t.Errorf("took %s", handed)
+		if _, err := readConfig(path); err == nil {
+			t.Errorf("accepted %s", config)
 		}
 	}
 }
 
 func TestFetchesNothingWithoutAToken(t *testing.T) {
 	connected := false
-	fetched, err := fetchSecretsFor(context.Background(), protocol.EgressHanded{URL: "http://control-plane:3000"}, "key",
+	fetched, err := fetchSecretsFor(context.Background(), protocol.EgressConfig{URL: "http://control-plane:3000"}, "key",
 		func(string, string) (SecretFetcher, error) {
 			connected = true
 			return &fakeFetcher{}, nil

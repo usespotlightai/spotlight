@@ -444,7 +444,7 @@ describe('Replay', () => {
   });
 
   describe('abandoning', () => {
-    it('lets go of its runs in flight unless it was stopped already', () => {
+    it('cancels its runs in flight unless it was stopped already', () => {
       const underway = reserved(aReplay({ count: 2 }), 1);
       const abandoned = underway.abandon();
 
@@ -477,10 +477,10 @@ describe('Replay', () => {
       expect(replay.occupying).toHaveLength(1);
 
       replay = replay.recordQueueFailure(run(0), NOW);
-      expect(replay.entries[0]?.isGivenUp).toBe(true);
+      expect(replay.entries[0]?.isExhausted).toBe(true);
       expect(replay.occupying).toHaveLength(1);
 
-      replay = replay.gaveUp(run(0), NOW);
+      replay = replay.exhaust(run(0), NOW);
       expect(replay.entries[0]?.unreplayableReason).toBe('dispatch-failed');
       expect(replay.occupying).toEqual([]);
     });
@@ -506,10 +506,10 @@ describe('Replay', () => {
       ).toBe(false);
     });
 
-    it('ends the entry of a withdrawn run without awaiting a digest, as stopped', () => {
+    it('ends the entry of a cancelled run without awaiting a digest, as stopped', () => {
       const replay = reserved(aReplay({ count: 2 }), 1).recordRunEnd(
         run(0),
-        endOf('withdrawn'),
+        endOf('cancelled'),
       );
 
       expect(replay.entries[0]?.hasEnded).toBe(true);
@@ -520,7 +520,7 @@ describe('Replay', () => {
       expect(endOf('completed', { asked: true }).ending).toBe('asked');
       expect(endOf('completed', { stopped: true }).ending).toBe('stopped');
       expect(endOf('failed').ending).toBe('failed');
-      expect(endOf('abandoned').ending).toBe('failed');
+      expect(endOf('exhausted').ending).toBe('failed');
     });
 
     it('finishes once every entry has a result', () => {
@@ -555,7 +555,7 @@ describe('Replay', () => {
       expect(replay.spent.equals(Spend.of(1.5, 'USD'))).toBe(true);
     });
 
-    it('stops dispatching once it has spent its ceiling, letting go of the runs still queued, while those running finish', () => {
+    it('stops dispatching once it has spent its ceiling, and cancels the runs still queued, while those running finish', () => {
       let replay = reserved(aReplay({ count: 4, ceiling: 2 }), 2)
         .confirm(run(0), FINGERPRINT, NOW)
         .confirm(run(1), FINGERPRINT, NOW);
@@ -601,8 +601,8 @@ describe('Replay', () => {
         'not-run',
       ]);
       expect(replay.occupying).toHaveLength(2);
-      expect(replay.forgo(run(1), NOW).occupying).toHaveLength(1);
-      expect(replay.forgo(run(0), NOW).occupying).toHaveLength(2);
+      expect(replay.cancel(run(1), NOW).occupying).toHaveLength(1);
+      expect(replay.cancel(run(0), NOW).occupying).toHaveLength(2);
       expect(replay.pullEvents()).toEqual([
         new ReplayStopped(replay.id, replay.workspaceId, [run(0), run(1)]),
         new ReplayEnded(replay.id, replay.workspaceId, null, 'stopped'),

@@ -115,7 +115,7 @@ const destination = (outcome: Outcome) =>
     ? outcome.to.id
     : null;
 
-const handed = (stationId: string) => taskAt(stationId).handedTo(RUN, LINE);
+const handed = (stationId: string) => taskAt(stationId).assignRun(RUN, LINE);
 
 const paused = (stationId: string) =>
   handed(stationId).putToAPerson(RUN, {
@@ -253,7 +253,7 @@ describe('ReactionFor.happened', () => {
       rank: TaskRank.of('i'),
       now: NOW,
       newId: () => 'task_9',
-    }).handedTo(RUN, elsewhere);
+    }).assignRun(RUN, elsewhere);
 
     const outcome = reaction(task, merged);
 

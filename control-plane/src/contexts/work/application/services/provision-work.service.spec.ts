@@ -21,7 +21,7 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type {
   CheckProvisioningPort,
-  LapsedCheck,
+  ExpiredCheck,
   WaitingCheck,
 } from '@work/application/ports/check-provisioning.port';
 import { ProvisionFailures } from '@work/application/services/provision-failures.service';
@@ -94,7 +94,7 @@ const provisioning = (
   running = 0,
   waitingChecks: {
     readonly awaiting?: readonly WaitingCheck[];
-    readonly lapsed?: readonly LapsedCheck[];
+    readonly expired?: readonly ExpiredCheck[];
     readonly reserves?: boolean;
   } = {},
 ) => {
@@ -125,14 +125,14 @@ const provisioning = (
       stored.set(run.id.value, run);
     },
     awaitingProvision,
-    withLapsedReservations: async (at: Date) =>
-      [...stored.values()].filter((each) => each.reservationLapsedAt(at)),
+    withExpiredReservations: async (at: Date) =>
+      [...stored.values()].filter((each) => each.reservationExpiredAt(at)),
   } as unknown as RunRepository;
   const provision = vi.fn(
     async (request: ProvisionRequest): Promise<ProvisionedRunner> =>
       answers[request.poolId] ?? { outcome: 'provisioned' },
   );
-  const letGo = vi.fn(async () => {});
+  const release = vi.fn(async () => {});
   const checks = {
     awaiting: vi.fn(async (_workspaceId: WorkspaceId, _at: Date, page) =>
       page.skip === 0 ? (waitingChecks.awaiting ?? []) : [],
@@ -144,7 +144,7 @@ const provisioning = (
     ),
     unreserve: vi.fn(async () => {}),
     failed: vi.fn(async () => {}),
-    lapsed: vi.fn(async () => waitingChecks.lapsed ?? []),
+    expired: vi.fn(async () => waitingChecks.expired ?? []),
   } satisfies CheckProvisioningPort;
   let generated = 0;
   const failures = new ProvisionFailures(
@@ -155,7 +155,7 @@ const provisioning = (
 
   return {
     provision,
-    letGo,
+    release,
     recorded,
     checks,
     awaitingProvision,
@@ -172,7 +172,7 @@ const provisioning = (
           return maxRuns === null ? null : Math.max(0, maxRuns - running);
         },
       } as unknown as RunnerPoolsPort,
-      { provision, letGo } as unknown as RunnersPort,
+      { provision, release } as unknown as RunnersPort,
       failures,
       {
         generate: () => {
@@ -580,14 +580,14 @@ describe('ProvisionWork', () => {
     expect(provision).not.toHaveBeenCalled();
   });
 
-  it('fails a reservation nobody claimed in time, saving that its runner is to be let go', async () => {
-    const lapsing = waiting('run_1').reservedFor(
+  it('fails a reservation nobody claimed in time, saving that its runner is to be released', async () => {
+    const expiring = waiting('run_1').reservedFor(
       RunnerId.of('pooled_9'),
       PoolId.of('pool_burst'),
       NOON,
     );
-    const { provisioner, provision, letGo, recorded, run } = provisioning(
-      [lapsing],
+    const { provisioner, provision, release, recorded, run } = provisioning(
+      [expiring],
       [],
       {},
       LATER,
@@ -604,12 +604,12 @@ describe('ProvisionWork', () => {
         RunnerId.of('pooled_9'),
       ),
     );
-    expect(letGo).not.toHaveBeenCalled();
+    expect(release).not.toHaveBeenCalled();
     expect(provision).not.toHaveBeenCalled();
   });
 
   it('keeps a reservation that is still active', async () => {
-    const { provisioner, letGo, run } = provisioning(
+    const { provisioner, release, run } = provisioning(
       [
         waiting('run_1').reservedFor(
           RunnerId.of('pooled_9'),
@@ -622,7 +622,7 @@ describe('ProvisionWork', () => {
 
     await provisioner.due();
 
-    expect(letGo).not.toHaveBeenCalled();
+    expect(release).not.toHaveBeenCalled();
     expect(run('run_1').reservation?.runner.value).toBe('pooled_9');
   });
 
@@ -845,7 +845,7 @@ describe('ProvisionWork', () => {
       );
     });
 
-    it('lets the reservation go and tries the next fitting pool when the first is full', async () => {
+    it('drops the reservation and tries the next fitting pool when the first is full', async () => {
       const { provisioner, provision, checks } = provisioning(
         [],
         [aPool('b-spare'), aPool('a-burst')],
@@ -874,14 +874,14 @@ describe('ProvisionWork', () => {
     });
 
     it('fails a check reservation nobody claimed in time', async () => {
-      const { provisioner, checks, letGo } = provisioning(
+      const { provisioner, checks, release } = provisioning(
         [],
         [],
         {},
         LATER,
         0,
         {
-          lapsed: [
+          expired: [
             {
               stackId: 'stack_1',
               runner: RunnerId.of('pooled_9'),
@@ -896,10 +896,10 @@ describe('ProvisionWork', () => {
       expect(checks.failed).toHaveBeenCalledWith(
         'stack_1',
         RunnerId.of('pooled_9'),
-        ProvisionFailure.lapsed(LATER),
+        ProvisionFailure.expired(LATER),
         LATER,
       );
-      expect(letGo).not.toHaveBeenCalled();
+      expect(release).not.toHaveBeenCalled();
     });
   });
 });

@@ -59,11 +59,11 @@ import { RunnerGuard } from '@platform/http/guards/runner.guard';
 import { CryptoIdGenerator } from '@platform/ids/crypto-id.generator';
 import { RUNNER_ADMISSIONS } from '@runners/application/ports/runner-admissions.port';
 import { RUNNER_EGRESS } from '@runners/application/ports/runner-egress.port';
+import { RUNNER_HEARTBEATS } from '@runners/application/ports/runner-heartbeats.port';
 import {
   RUNNER_POOLS,
   type RunnerPoolsPort,
 } from '@runners/application/ports/runner-pools.port';
-import { RUNNER_PRESENCE } from '@runners/application/ports/runner-presence.port';
 import {
   RUNNER_READER,
   type RunnerReaderPort,
@@ -151,7 +151,6 @@ import { FetchSharedRunSecretsHandler } from '@work/application/commands/handler
 import { GrantAttachmentUploadHandler } from '@work/application/commands/handlers/grant-attachment-upload.handler';
 import { GrantWorkspaceArchiveHandler } from '@work/application/commands/handlers/grant-workspace-archive.handler';
 import { MoveTaskHandler } from '@work/application/commands/handlers/move-task.handler';
-import { ParkRunHandler } from '@work/application/commands/handlers/park-run.handler';
 import { ReadInboxAsideHandler } from '@work/application/commands/handlers/read-inbox-aside.handler';
 import { ReadInboxItemHandler } from '@work/application/commands/handlers/read-inbox-item.handler';
 import { RecordEgressConnectionsHandler } from '@work/application/commands/handlers/record-egress-connections.handler';
@@ -166,6 +165,7 @@ import { SealWorkspaceArchiveHandler } from '@work/application/commands/handlers
 import { StartChatHandler } from '@work/application/commands/handlers/start-chat.handler';
 import { StopChatHandler } from '@work/application/commands/handlers/stop-chat.handler';
 import { StopRunHandler } from '@work/application/commands/handlers/stop-run.handler';
+import { SuspendRunHandler } from '@work/application/commands/handlers/suspend-run.handler';
 import { UpdateLineHandler } from '@work/application/commands/handlers/update-line.handler';
 import { UseToolHandler } from '@work/application/commands/handlers/use-tool.handler';
 import {
@@ -182,11 +182,11 @@ import {
   ClaimRunCommand,
   CompleteRunCommand,
   EnqueueRunCommand,
-  ParkRunCommand,
   RecordRunImageCommand,
   RecordStartingPointCommand,
   RenewCheckLeaseCommand,
   RenewLeaseCommand,
+  SuspendRunCommand,
 } from '@work/application/commands/runner.commands';
 import { SayToRunCommand } from '@work/application/commands/say-to-run.command';
 import { StopRunCommand } from '@work/application/commands/stop-run.command';
@@ -197,6 +197,7 @@ import {
   SealWorkspaceArchiveCommand,
 } from '@work/application/commands/workspace-archive.commands';
 import { AbandonTeamLines } from '@work/application/events/handlers/abandon-team-lines.handler';
+import { CancelDetachedRun } from '@work/application/events/handlers/cancel-detached-run.handler';
 import { ChatOutcomes } from '@work/application/events/handlers/chat-outcomes.handler';
 import { CreateTaskFromProposal } from '@work/application/events/handlers/create-task-from-proposal.handler';
 import { DigestRun } from '@work/application/events/handlers/digest-run.handler';
@@ -205,7 +206,6 @@ import { EnqueueTaskRun } from '@work/application/events/handlers/enqueue-task-r
 import { HandOver } from '@work/application/events/handlers/hand-over.handler';
 import { NotifyOutsideTools } from '@work/application/events/handlers/notify-outside-tools.handler';
 import { ProvisionTeam } from '@work/application/events/handlers/provision-team.handler';
-import { StopLetGoRun } from '@work/application/events/handlers/stop-let-go-run.handler';
 import { WORK_EVENT_MAPPERS } from '@work/application/integration-events/work.event-mappers';
 import type { ArchiveReferencesPort } from '@work/application/ports/archive-references.port';
 import { ARCHIVE_REFERENCES } from '@work/application/ports/archive-references.port';
@@ -1704,7 +1704,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
           acceptances,
           outsideTools: new NotifyOutsideTools(tasks, notifier, transaction),
           taskRuns: new EnqueueTaskRun(tasks, lines, runs, taskDispatch),
-          letGoRuns: new StopLetGoRun(runs, clock),
+          detachedRuns: new CancelDetachedRun(runs, clock),
           chatRuns: new EnqueueChatRun(chats, runs, chatDispatch),
           setup,
           abandoning: new AbandonTeamLines(lines, tallies, transaction, logger),
@@ -1804,7 +1804,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     [
       DrizzleRunRepository,
       DrizzleWorkspaceArchiveRepository,
-      RUNNER_PRESENCE,
+      RUNNER_HEARTBEATS,
       CLOCK,
     ],
   ),
@@ -2282,7 +2282,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   ...bindCommandHandler(ClaimRunCommand, ClaimRunHandler, [
     DrizzleRunRepository,
     RunLeases,
-    RUNNER_PRESENCE,
+    RUNNER_HEARTBEATS,
     CLOCK,
     CHECK_WORK,
     ClaimsTaken,
@@ -2294,7 +2294,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   ...bindCommandHandler(ClaimHostWorkCommand, ClaimHostWorkHandler, [
     RUNNER_ADMISSIONS,
     RUNNERS,
-    RUNNER_PRESENCE,
+    RUNNER_HEARTBEATS,
     DrizzleRunRepository,
     RunLeases,
     CHECK_WORK,
@@ -2418,11 +2418,11 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   ...bindCommandHandler(RenewLeaseCommand, RenewLeaseHandler, [
     DrizzleRunRepository,
-    RUNNER_PRESENCE,
+    RUNNER_HEARTBEATS,
     CLOCK,
   ]),
 
-  ...bindCommandHandler(ParkRunCommand, ParkRunHandler, [
+  ...bindCommandHandler(SuspendRunCommand, SuspendRunHandler, [
     DrizzleRunRepository,
     TRANSACTION,
     CLOCK,
@@ -2430,13 +2430,13 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   ...bindCommandHandler(RenewCheckLeaseCommand, RenewCheckLeaseHandler, [
     CHECK_WORK,
-    RUNNER_PRESENCE,
+    RUNNER_HEARTBEATS,
     CLOCK,
   ]),
 
   ...bindCommandHandler(RecordRunImageCommand, RecordRunImageHandler, [
     DrizzleRunRepository,
-    RUNNER_PRESENCE,
+    RUNNER_HEARTBEATS,
     CLOCK,
   ]),
 

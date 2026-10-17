@@ -25,7 +25,7 @@ const leased = Run.enqueue({
   }),
 })
   .claim(RunnerId.of('runner_1'), NOW)
-  .requeue(new Date(NOW.getTime() + 60_000))
+  .expireLease(new Date(NOW.getTime() + 60_000))
   .claim(RunnerId.of('runner_1'), NOW);
 
 const journalling = () => {

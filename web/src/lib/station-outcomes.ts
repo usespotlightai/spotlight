@@ -25,15 +25,15 @@ const ENDINGS: Record<Ending, string> = {
   completed: 'Completed',
   failed: 'Failed',
   stopped: 'Stopped',
-  abandoned: 'Abandoned',
-  withdrawn: 'Withdrawn',
+  exhausted: 'Exhausted',
+  cancelled: 'Cancelled',
   superseded: 'Superseded',
 };
 
 export const formatEnding = (ending: Ending): string => ENDINGS[ending];
 
 export const endedBadly = (ending: Ending): boolean =>
-  ending === 'failed' || ending === 'abandoned';
+  ending === 'failed' || ending === 'exhausted';
 
 const CHECKS: Record<NonNullable<StationRunOutcome['checks']>, string> = {
   passed: 'Checks passed',
@@ -104,9 +104,9 @@ const TALLY_COLUMNS: readonly TallyColumn[] = [
   countColumn('Checks failed', 'checksFailed'),
   countColumn('Accepted', 'accepted'),
   countColumn('Sent back', 'sentBack'),
-  countColumn('Handed on', 'handedOn'),
+  countColumn('Passed', 'passed'),
   countColumn('Merged', 'merged'),
-  countColumn('Withdrawn', 'withdrawn'),
+  countColumn('Cancelled', 'cancelled'),
   { label: 'Cost', render: (tally) => formatCost(tally.cost) },
   { label: 'Median', render: (tally) => formatTook(tally.medianMs) },
   { label: 'p90', render: (tally) => formatTook(tally.p90Ms) },

@@ -70,21 +70,21 @@ const runner = (token: string) => ({
       .send(body ?? {}),
 });
 
-const presentHost = async () => {
+const heartbeat = async () => {
   await http()
     .put(`/api/hosts/${HOST}`)
     .set('Authorization', `Bearer ${POOL_TOKEN}`)
     .send({
-      session: 'session_1',
+      bootId: 'boot_1',
       name: 'build-box',
       release: '0.1.0',
-      executor: 'docker',
+      containerRuntime: 'docker',
       capacity: 4,
       running: [],
       images: [
         {
           image: IMAGE,
-          usual: true,
+          isDefault: true,
           harnesses: [
             { id: 'dev', models: [] },
             { id: 'claude-code', models: [] },
@@ -96,9 +96,9 @@ const presentHost = async () => {
 };
 
 const claimed = async (runId: string): Promise<string> => {
-  await presentHost();
+  await heartbeat();
 
-  const handed = (
+  const assignment = (
     await http()
       .post('/api/hosts/claim')
       .set('Authorization', `Bearer ${POOL_TOKEN}`)
@@ -106,9 +106,9 @@ const claimed = async (runId: string): Promise<string> => {
       .expect(200)
   ).body as { token: string; work: { run: { id: string } } };
 
-  expect(handed.work.run.id).toBe(runId);
+  expect(assignment.work.run.id).toBe(runId);
 
-  return handed.token;
+  return assignment.token;
 };
 
 const aTaskWithLeasedRun = async (
@@ -329,7 +329,7 @@ describe('a run that asks a person', () => {
     expect(renewed.body).toEqual({ stop: false });
   });
 
-  it('delivers an answer given while it waits warm into the same run, which parking then leaves working', async () => {
+  it('delivers an answer given while it waits warm into the same run, which a suspend request then leaves working', async () => {
     const { taskId, runId } = await aTaskWithLeasedRun();
     const token = await claimed(runId);
     await runner(token)
@@ -347,10 +347,10 @@ describe('a run that asks a person', () => {
     ).body as Said[];
     expect(pending.map((each) => each.body)).toEqual(['The default one.']);
 
-    const parking = await runner(token)
-      .post(`/api/runs/${runId}/parked`)
+    const suspension = await runner(token)
+      .post(`/api/runs/${runId}/suspended`)
       .expect(200);
-    expect(parking.body).toEqual({ parked: false });
+    expect(suspension.body).toEqual({ suspended: false });
 
     await runner(token)
       .post(`/api/runs/${runId}/messages/delivered`, {
@@ -380,7 +380,7 @@ describe('a run that asks a person', () => {
     expect(runs.filter((each) => each.id === runId)).toHaveLength(1);
   });
 
-  it('parks after the grace period, and an answer requeues the same run as a new attempt that restores the archive', async () => {
+  it('suspends after the grace period, and an answer requeues the same run as a new attempt that restores the archive', async () => {
     const { taskId, runId } = await aTaskWithLeasedRun();
     const first = await claimed(runId);
 
@@ -400,15 +400,15 @@ describe('a run that asks a person', () => {
       .post(`/api/runs/${runId}/completion`, askingForReview)
       .expect(200);
 
-    const parking = await runner(first)
-      .post(`/api/runs/${runId}/parked`)
+    const suspension = await runner(first)
+      .post(`/api/runs/${runId}/suspended`)
       .expect(200);
-    expect(parking.body).toEqual({ parked: true });
+    expect(suspension.body).toEqual({ suspended: true });
 
-    const parked = await runRow(runId);
-    expect(parked?.state).toBe('parked');
-    expect(parked?.claimedBy).toBeNull();
-    expect(parked?.parkedAttempts).toEqual([1]);
+    const suspended = await runRow(runId);
+    expect(suspended?.state).toBe('suspended');
+    expect(suspended?.claimedBy).toBeNull();
+    expect(suspended?.suspendedAttempts).toEqual([1]);
     await runner(first).get(`/api/runs/${runId}/messages`).expect(404);
 
     await answered(taskId, 'The default one.');
@@ -452,13 +452,13 @@ describe('a run that asks a person', () => {
     ).toEqual([1, 2]);
   });
 
-  it('ends a parked run as its turn ended when a person parks its task back in the backlog', async () => {
+  it('ends a suspended run as its turn ended when a person parks its task back in the backlog', async () => {
     const { taskId, runId } = await aTaskWithLeasedRun();
     const token = await claimed(runId);
     await runner(token)
       .post(`/api/runs/${runId}/completion`, askingForReview)
       .expect(200);
-    await runner(token).post(`/api/runs/${runId}/parked`).expect(200);
+    await runner(token).post(`/api/runs/${runId}/suspended`).expect(200);
     await inboxItemOf(taskId);
 
     await http()
@@ -475,7 +475,7 @@ describe('a run that asks a person', () => {
     expect((await taskRow(taskId))?.currentRunId).not.toBe(runId);
   });
 
-  it('ends a run waiting warm as its turn ended when a person parks its task back in the backlog, so its runner lets the sandbox go', async () => {
+  it('ends a run waiting warm as its turn ended when a person parks its task back in the backlog, so its runner releases the sandbox', async () => {
     const { taskId, runId } = await aTaskWithLeasedRun();
     const token = await claimed(runId);
     await runner(token)
@@ -563,7 +563,7 @@ describe('a run that asks a person', () => {
     );
   });
 
-  it('writes only one of an answer and a parking read from the same waiting run', async () => {
+  it('writes only one of an answer and a suspension read from the same waiting run', async () => {
     const { runId } = await aTaskWithLeasedRun();
     const token = await claimed(runId);
     await runner(token)
@@ -582,12 +582,12 @@ describe('a run that asks a person', () => {
       throw new Error('no runner has a lease on the waiting run');
     }
 
-    await runs.save(read.park(leasedBy, new Date()));
+    await runs.save(read.suspend(leasedBy, new Date()));
 
     await expect(runs.save(read.resumed())).rejects.toBeInstanceOf(
       RunVersionConflictError,
     );
-    expect((await runRow(runId))?.state).toBe('parked');
+    expect((await runRow(runId))?.state).toBe('suspended');
   });
 });
 

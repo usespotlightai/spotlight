@@ -11,6 +11,7 @@ describe('RunFailure', () => {
     ['unprepared', false, 1],
     ['refused', false, 1],
     ['unprovisioned', false, 1],
+    ['cancelled', false, 1],
     ['superseded', false, 1],
     ['hooks-unanswered', true, 6],
     ['runner-lost', true, 3],
@@ -28,6 +29,7 @@ describe('RunFailure', () => {
   it('states a retry for every code it knows', () => {
     expect(Object.keys(RUN_FAILURES).sort()).toEqual(
       [
+        'cancelled',
         'exited',
         'hooks-unanswered',
         'refused',

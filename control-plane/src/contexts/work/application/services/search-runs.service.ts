@@ -17,7 +17,7 @@ import {
 
 const isRunning = (state: RunState): boolean =>
   (LEASED_RUN_STATES as readonly RunState[]).includes(state) ||
-  state === 'parked';
+  state === 'suspended';
 
 const statusOf = (fact: SearchRunFact): SearchRunStatus => ({
   runId: fact.runId,

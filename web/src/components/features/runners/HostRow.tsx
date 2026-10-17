@@ -9,8 +9,8 @@ import { HostStatus } from '@/components/features/runners/HostStatus';
 import { RunnerChildren } from '@/components/features/runners/RunnerChildren';
 import {
   type Host,
+  heartbeatAt,
   type NamedHarness,
-  seenAt,
   servedBy,
   through,
 } from '@/lib/runner';
@@ -43,7 +43,7 @@ export function HostRow({ slug, host, harnesses }: HostRowProps) {
         </span>
 
         <span className="truncate text-right text-muted-foreground text-xs tabular-nums">
-          {seenAt(host)}
+          {heartbeatAt(host)}
         </span>
       </div>
 

@@ -98,9 +98,9 @@ describe('RunnerTrust', () => {
   });
 
   it('lets runners start through it only by pulling, and only while it is not withdrawn', () => {
-    expect(persisted().startVerdict('pull')).toBe('open');
-    expect(persisted().startVerdict('push')).toBe('gone');
-    expect(persisted().withdraw(BY).startVerdict('pull')).toBe('gone');
+    expect(persisted().capacity('pull')).toBe('open');
+    expect(persisted().capacity('push')).toBe('gone');
+    expect(persisted().withdraw(BY).capacity('pull')).toBe('gone');
   });
 
   it('takes another workload and labels under the same key', () => {

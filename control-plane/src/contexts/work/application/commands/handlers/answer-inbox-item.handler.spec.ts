@@ -112,7 +112,7 @@ const asking = () =>
     now: NOW,
     newId: () => 'task_1',
   })
-    .handedTo(RunId.of('run_1'), line())
+    .assignRun(RunId.of('run_1'), line())
     .clearFor(
       ApprovalSubject.toolCall(
         ToolCall.of(

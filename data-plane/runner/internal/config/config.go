@@ -14,14 +14,14 @@ import (
 )
 
 type Config struct {
-	URL        string
-	Token      string
-	Handed     string
-	Workspace  string
-	AgentUser  string
-	Author     prepare.Author
-	AnswerWait time.Duration
-	Egress     Egress
+	URL            string
+	Token          string
+	AssignmentFile string
+	Workspace      string
+	AgentUser      string
+	Author         prepare.Author
+	AnswerWait     time.Duration
+	Egress         Egress
 }
 
 type Egress struct {
@@ -32,7 +32,7 @@ type Egress struct {
 
 func (e Egress) Given() bool { return e.URL != "" }
 
-func (c Config) WasHanded() bool { return c.Handed != "" }
+func (c Config) HasAssignmentFile() bool { return c.AssignmentFile != "" }
 
 const (
 	DefaultWorkspace   = "/workspace"
@@ -45,7 +45,7 @@ const usage = "usage: spotlight runner [harnesses <json>]"
 const (
 	envURL             = "SPOTLIGHT_URL"
 	envToken           = "SPOTLIGHT_TOKEN"
-	envHanded          = "SPOTLIGHT_HANDED"
+	envAssignmentFile  = "SPOTLIGHT_ASSIGNMENT_FILE"
 	envWorkspace       = "SPOTLIGHT_WORKSPACE"
 	envAgentUser       = "SPOTLIGHT_AGENT_USER"
 	envAuthorName      = "SPOTLIGHT_GIT_AUTHOR_NAME"
@@ -73,11 +73,11 @@ func Load(args []string) (Config, error) {
 	get := func(key string) string { return strings.TrimSpace(os.Getenv(key)) }
 
 	cfg := Config{
-		URL:       get(envURL),
-		Token:     get(envToken),
-		Handed:    get(envHanded),
-		Workspace: get(envWorkspace),
-		AgentUser: get(envAgentUser),
+		URL:            get(envURL),
+		Token:          get(envToken),
+		AssignmentFile: get(envAssignmentFile),
+		Workspace:      get(envWorkspace),
+		AgentUser:      get(envAgentUser),
 		Author: prepare.Author{
 			Name:  or(get(envAuthorName), defaultAuthorName),
 			Email: or(get(envAuthorEmail), defaultAuthorEmail),
@@ -89,12 +89,12 @@ func Load(args []string) (Config, error) {
 	}
 
 	switch {
-	case cfg.Token != "" && cfg.Handed != "":
-		note(fmt.Errorf("%s and %s are different ways to be given work; give one", envToken, envHanded))
-	case cfg.Token == "" && cfg.Handed == "":
+	case cfg.Token != "" && cfg.AssignmentFile != "":
+		note(fmt.Errorf("%s and %s are different ways to get work; give one", envToken, envAssignmentFile))
+	case cfg.Token == "" && cfg.AssignmentFile == "":
 		note(fmt.Errorf(
-			"%s names the work a host handed this runner, or %s is the one-run credential a push pool provisioned it with",
-			envHanded, envToken,
+			"%s names the file with the work a host assigned to this runner, or %s is the one-run credential a push pool provisioned it with",
+			envAssignmentFile, envToken,
 		))
 	}
 
@@ -115,7 +115,7 @@ func Load(args []string) (Config, error) {
 	if raw := get(envAnswerWait); raw != "" {
 		wait, err := time.ParseDuration(raw)
 		if err != nil || wait < 0 {
-			note(fmt.Errorf("%s: %q is not a duration such as 5m, or 0 to park at once", envAnswerWait, raw))
+			note(fmt.Errorf("%s: %q is not a duration such as 5m, or 0 to suspend at once", envAnswerWait, raw))
 		} else {
 			cfg.AnswerWait = wait
 		}

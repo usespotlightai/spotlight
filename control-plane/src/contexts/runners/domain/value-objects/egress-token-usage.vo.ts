@@ -1,10 +1,10 @@
 export class EgressTokenUsage {
   private constructor(
-    readonly given: boolean,
+    readonly used: boolean,
     readonly inUse: boolean,
   ) {}
 
-  static of(input: { given: boolean; inUse: boolean }): EgressTokenUsage {
-    return new EgressTokenUsage(input.given, input.inUse);
+  static of(input: { used: boolean; inUse: boolean }): EgressTokenUsage {
+    return new EgressTokenUsage(input.used, input.inUse);
   }
 }
