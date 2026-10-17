@@ -11,7 +11,7 @@ export interface ChangeJudgingRepository {
 
   of(runId: RunId, round: JudgingRound): Promise<ChangeJudging | null>;
 
-  dueForWork(now: Date): Promise<ChangeJudging | null>;
+  nextDueJob(now: Date): Promise<ChangeJudging | null>;
 
   removeForTeam(workspaceId: WorkspaceId, teamId: TeamId): Promise<void>;
 

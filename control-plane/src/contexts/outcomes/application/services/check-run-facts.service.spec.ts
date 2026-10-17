@@ -40,7 +40,7 @@ describe('CheckRunFacts', () => {
   it('checks the runs that ended in the last three days', async () => {
     const { check, facts } = setUp();
 
-    await check.workDue();
+    await check.processDue();
 
     expect(facts.repairEndedSince).toHaveBeenCalledWith(
       new Date(new Date('2026-10-14T12:00:00Z').getTime() - 3 * DAY),
@@ -50,11 +50,11 @@ describe('CheckRunFacts', () => {
   it('checks again only after six hours', async () => {
     const { check, facts, later } = setUp();
 
-    await check.workDue();
+    await check.processDue();
     later(5 * HOUR);
-    await check.workDue();
+    await check.processDue();
     later(HOUR);
-    await check.workDue();
+    await check.processDue();
 
     expect(facts.repairEndedSince).toHaveBeenCalledTimes(2);
   });
@@ -62,7 +62,7 @@ describe('CheckRunFacts', () => {
   it('says nothing when every fact matches its run', async () => {
     const { check, logger } = setUp();
 
-    await check.workDue();
+    await check.processDue();
 
     expect(logger.warn).not.toHaveBeenCalled();
   });
@@ -70,7 +70,7 @@ describe('CheckRunFacts', () => {
   it('warns with the repaired runs when facts had drifted', async () => {
     const { check, logger } = setUp({ checked: 9, repaired: ['r1', 'r2'] });
 
-    await check.workDue();
+    await check.processDue();
 
     expect(logger.warn).toHaveBeenCalledWith(
       { checked: 9, repaired: 2, runIds: ['r1', 'r2'] },

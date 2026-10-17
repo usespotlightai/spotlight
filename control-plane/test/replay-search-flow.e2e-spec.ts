@@ -328,7 +328,7 @@ describe('a search for a better station config', () => {
         .where(eq(schema.replayCandidate.searchId, id)),
     ).toHaveLength(2);
 
-    await app.get(DispatchReplayRuns).workDue();
+    await app.get(DispatchReplayRuns).processDue();
     const bystander = await claimed();
 
     if (!bystander) {
@@ -473,7 +473,7 @@ describe('a search for a better station config', () => {
 
     await endedSearchRun(second);
     await eventually(async () => {
-      await app.get(AdvanceSearches).workDue();
+      await app.get(AdvanceSearches).processDue();
       return (await searchRow(id))?.heldOut.length === 1;
     }, WITHIN);
 

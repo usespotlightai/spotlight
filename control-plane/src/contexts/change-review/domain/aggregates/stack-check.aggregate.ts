@@ -301,7 +301,7 @@ export class StackCheck extends EventRecorder {
     return (
       this.claimableAt(now) &&
       this.reservation === null &&
-      this.provisioning.dueAt(now)
+      this.provisioning.isDue(now)
     );
   }
 
@@ -344,7 +344,7 @@ export class StackCheck extends EventRecorder {
     return failed.found(
       {
         state: 'skipped',
-        skip: unprovisioned(failure, provisioning.failures),
+        skip: unprovisioned(failure, provisioning.attempts),
         whole: null,
         layers: [],
         checkedAt: now,

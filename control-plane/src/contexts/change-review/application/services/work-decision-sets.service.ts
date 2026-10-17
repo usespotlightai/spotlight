@@ -8,17 +8,17 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { ErrorReportsPort } from '@shared-kernel/application/ports/error-reports.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
-import type { OwedWorkPort } from '@shared-kernel/application/ports/owed-work.port';
+import type { PendingJobsPort } from '@shared-kernel/application/ports/pending-jobs.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { OwedWorkPool } from '@shared-kernel/application/services/owed-work-pool';
+import { JobLoop } from '@shared-kernel/application/services/job-loop';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 
 const MAX_SETS_AT_ONCE = 4;
 
-export class WorkDecisionSets implements OwedWorkPort {
+export class WorkDecisionSets implements PendingJobsPort {
   readonly name = 'Drafting decisions';
 
-  readonly #pool: OwedWorkPool<DecisionSet, TaskId>;
+  readonly #loop: JobLoop<DecisionSet, TaskId>;
 
   constructor(
     private readonly sets: DecisionSetRepository,
@@ -30,11 +30,11 @@ export class WorkDecisionSets implements OwedWorkPort {
     logger: LoggerPort,
     reports: ErrorReportsPort,
   ) {
-    this.#pool = new OwedWorkPool<DecisionSet, TaskId>(
+    this.#loop = new JobLoop<DecisionSet, TaskId>(
       {
         name: this.name,
-        maxAtOnce: MAX_SETS_AT_ONCE,
-        due: (now) => this.sets.dueForWork(now),
+        batchSize: MAX_SETS_AT_ONCE,
+        due: (now) => this.sets.nextDueJob(now),
         find: (taskId) => this.sets.forTask(taskId),
         save: (set) => this.sets.save(set),
         keyOf: (set) => set.taskId,
@@ -44,9 +44,9 @@ export class WorkDecisionSets implements OwedWorkPort {
           runId: set.draft?.runId.value,
         }),
         about: (set) => ({
-          attempts: set.draft?.work.attempts,
+          attempts: set.draft?.job.attempts,
         }),
-        worked: (set) => this.drafted(set),
+        process: (set) => this.drafted(set),
         stale: (error) => error instanceof DecisionSetVersionConflictError,
       },
       transaction,
@@ -56,12 +56,12 @@ export class WorkDecisionSets implements OwedWorkPort {
     );
   }
 
-  workDue(): Promise<void> {
-    return this.#pool.workDue();
+  processDue(): Promise<void> {
+    return this.#loop.processDue();
   }
 
   idle(): Promise<void> {
-    return this.#pool.idle();
+    return this.#loop.idle();
   }
 
   private async drafted(set: DecisionSet): Promise<DecisionSet> {
@@ -73,7 +73,7 @@ export class WorkDecisionSets implements OwedWorkPort {
     const reasoning = await this.work.reasoning(runId);
 
     if (!reasoning) {
-      return set.gaveUp();
+      return set.deadLetter();
     }
 
     const proposed =

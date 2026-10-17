@@ -162,7 +162,7 @@ export const GROWTH_RUNS: Record<string, TaskRunResponseDto[]> = {
       stationId: 'station_design',
       startedHoursAgo: 2,
       tookHours: 0.3,
-      review: { state: 'owed', conversationId: 'task_onboarding_copy:0' },
+      review: { state: 'pending', conversationId: 'task_onboarding_copy:0' },
     }),
   ],
   task_pricing_toggle: [

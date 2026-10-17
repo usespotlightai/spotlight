@@ -634,10 +634,10 @@ export class Task extends EventRecorder {
     const answering =
       this.hasCurrentRun(by) ||
       (!this.running && at !== null && this.stationId.equals(at));
-    const owed = answering ? this.owedConversation : null;
+    const pending = answering ? this.pendingConversation : null;
 
-    if (owed && !this.owesADecision) {
-      return this.answer(NotePosition.of(owed.from), saying);
+    if (pending && !this.decisionPending) {
+      return this.answer(NotePosition.of(pending.from), saying);
     }
 
     const heard = this.heard(saying, at);
@@ -661,10 +661,10 @@ export class Task extends EventRecorder {
   }
 
   get awaitsAnAnswer(): boolean {
-    return this.running && this.awaitingReview && !this.owesADecision;
+    return this.running && this.awaitingReview && !this.decisionPending;
   }
 
-  get owesADecision(): boolean {
+  get decisionPending(): boolean {
     const asked = [...this.notes]
       .reverse()
       .find((note) => note.kind === 'asked');
@@ -804,8 +804,8 @@ export class Task extends EventRecorder {
     return Trail.of(this.notes);
   }
 
-  get owedConversation(): Conversation | null {
-    return this.trail.owed;
+  get pendingConversation(): Conversation | null {
+    return this.trail.pending;
   }
 
   get openConversation(): Conversation | null {
@@ -964,7 +964,7 @@ export class Task extends EventRecorder {
   ): Task {
     this.assertNoOtherRun(by, 'put it to a person');
 
-    if (this.awaitingReview && !(overAnApproval && this.owesADecision)) {
+    if (this.awaitingReview && !(overAnApproval && this.decisionPending)) {
       throw new InvalidTaskTransitionError(
         `Task ${this.id.value} is already waiting on a person.`,
       );

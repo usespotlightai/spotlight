@@ -208,7 +208,7 @@ describe('a task put to a person by its current run', () => {
       BUILD,
     );
 
-    expect(approving.owesADecision).toBe(true);
+    expect(approving.decisionPending).toBe(true);
     expect(spoken.awaitingReview).toBe(true);
     expect(spoken.notes[1]?.kind).toBe('said');
     expect(

@@ -334,7 +334,7 @@ describe('a search for a better station config, when it stalls or loses its stat
     await drained(() => ({ score: 4, cost: 0.1 }));
     expect(await replayEnded(seedReplayId)).toBe('finished');
     await eventually(async () => {
-      await app.get(AdvanceSearches).workDue();
+      await app.get(AdvanceSearches).processDue();
       return (await searchRunsOf(id)).some((each) => each.state === 'queued');
     }, WITHIN);
 

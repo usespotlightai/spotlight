@@ -40,13 +40,13 @@ import {
   costPerRunOf,
   mergedIn,
   moneyOf,
-  owedAsks,
   peopleNamed,
   profilesOfTeam,
   pullRequestsClosedIn,
   runsIn,
   spendOf,
   tallyOf,
+  unansweredAsks,
   versionChangesOf,
 } from '@/mocks/world/insights-tally';
 import { PEOPLE } from '@/mocks/world/people';
@@ -284,7 +284,7 @@ export const overviewOf = (
 const flowStationsOf = (teamId: string, span: Span) => {
   const now = runsIn(teamId, span.now);
   const before = runsIn(teamId, span.before);
-  const owed = owedAsks(teamId);
+  const unansweredTasks = unansweredAsks(teamId);
 
   return profilesOfTeam(teamId).flatMap((profile) => {
     const runs = now.filter((run) => run.stationId === profile.stationId);
@@ -300,7 +300,7 @@ const flowStationsOf = (teamId: string, span: Span) => {
     const answered = runs.flatMap((run) =>
       run.next ? [Date.parse(run.next.at) - run.at] : [],
     );
-    const unanswered = owed.filter(
+    const unanswered = unansweredTasks.filter(
       (task) => task.stationId === profile.stationId,
     ).length;
 
@@ -551,12 +551,12 @@ const CHATS: Record<string, number> = {
   user_4: 1,
 };
 
-const loadOf = (teamId: string, window: Window, owed: number) => {
+const loadOf = (teamId: string, window: Window, unanswered: number) => {
   const runs = runsIn(teamId, window);
   const asked = runs.filter((run) => run.next !== null);
   const tasks = distinct(runs.map((run) => run.taskId));
   const sentBack = asked.filter((run) => run.next?.act === 'sent-back').length;
-  const asks = asked.length + owed;
+  const asks = asked.length + unanswered;
 
   return {
     asks,
@@ -565,7 +565,7 @@ const loadOf = (teamId: string, window: Window, owed: number) => {
     toAnswer: spreadOf(
       asked.map((run) => Date.parse(run.next?.at ?? '') - run.at),
     ),
-    unanswered: owed,
+    unanswered,
     sentBack,
     sentBackRate: shareOf(sentBack, runs.length),
     refused: runs.filter((run) => run.calls.some((call) => call.refused))
@@ -595,8 +595,8 @@ export const peopleOf = (
   const span = spanOf(name);
   const now = runsIn(teamId, span.now);
   const tasks = tasksOfTeam(teamId);
-  const owed = owedAsks(teamId).length;
-  const load = loadOf(teamId, span.now, owed);
+  const unanswered = unansweredAsks(teamId).length;
+  const load = loadOf(teamId, span.now, unanswered);
   const before = loadOf(teamId, span.before, 0);
   const activeIn = (window: Window) =>
     distinct(runsIn(teamId, window).map((run) => run.openedBy ?? '')).filter(

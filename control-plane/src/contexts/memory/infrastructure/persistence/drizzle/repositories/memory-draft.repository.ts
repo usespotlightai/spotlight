@@ -22,7 +22,7 @@ import {
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import { OwedWork } from '@shared-kernel/domain/value-objects/owed-work.vo';
+import { PendingJob } from '@shared-kernel/domain/value-objects/pending-job.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -48,9 +48,9 @@ const draftingOf = (row: DraftRow): MemoryDrafting | null => {
   return MemoryDrafting.rehydrate({
     runId: RunId.of(row.draftingRunId),
     askedAt: row.draftingAskedAt,
-    work: OwedWork.rehydrate({
-      attempts: row.workAttempts,
-      dueAt: row.workDueAt,
+    job: PendingJob.rehydrate({
+      attempts: row.jobAttempts,
+      nextAttemptAt: row.jobDueAt,
     }),
   });
 };
@@ -121,8 +121,8 @@ const toDraft = (
 const columnsOf = (draft: MemoryDraft) => ({
   draftingRunId: draft.drafting?.runId.value ?? null,
   draftingAskedAt: draft.drafting?.askedAt ?? null,
-  workAttempts: draft.drafting?.work.attempts ?? 0,
-  workDueAt: draft.drafting?.work.dueAt ?? null,
+  jobAttempts: draft.drafting?.job.attempts ?? 0,
+  jobDueAt: draft.drafting?.job.nextAttemptAt ?? null,
   draftedIn: draft.draftedIn?.value ?? null,
   notesRead: draft.notesRead,
   failure: draft.failure?.code ?? null,
@@ -229,14 +229,14 @@ export class DrizzleMemoryDraftRepository implements MemoryDraftRepository {
     return row ? this.withProposals(row) : null;
   }
 
-  async dueForWork(now: Date): Promise<MemoryDraft | null> {
+  async nextDueJob(now: Date): Promise<MemoryDraft | null> {
     const [row] = await this.context.db
       .select()
       .from(memoryDraft)
       .where(
         and(
           isNotNull(memoryDraft.draftingRunId),
-          or(isNull(memoryDraft.workDueAt), lte(memoryDraft.workDueAt, now)),
+          or(isNull(memoryDraft.jobDueAt), lte(memoryDraft.jobDueAt, now)),
         ),
       )
       .orderBy(asc(memoryDraft.draftingAskedAt))

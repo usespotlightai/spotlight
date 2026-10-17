@@ -42,7 +42,7 @@ export const conversationsOf = (
   return cut;
 };
 
-export type ReviewState = 'owed' | 'answered';
+export type ReviewState = 'pending' | 'answered';
 
 export interface Review {
   readonly from: number;
@@ -78,7 +78,7 @@ export const reviewsIn = <
     if (conversation) {
       reviews.set(note.runId, {
         from: conversation.from,
-        state: answeredAfter(notes, at) ? 'answered' : 'owed',
+        state: answeredAfter(notes, at) ? 'answered' : 'pending',
       });
     }
   });
@@ -100,7 +100,7 @@ export const awaitsAPerson = <T extends { kind: TaskNoteKind }>(
   return asked !== -1 && !answeredAfter(notes, asked);
 };
 
-export const owedIn = <T extends { kind: TaskNoteKind }>(
+export const pendingIn = <T extends { kind: TaskNoteKind }>(
   notes: readonly T[],
 ): Conversation | null => {
   if (!awaitsAPerson(notes)) {

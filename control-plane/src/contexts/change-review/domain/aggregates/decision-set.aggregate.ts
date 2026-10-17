@@ -21,7 +21,7 @@ import { DecisionStatus } from '@change-review/domain/value-objects/decision-sta
 import type { FilePath } from '@change-review/domain/value-objects/file-path.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import type { OwesWork } from '@shared-kernel/domain/owes-work';
+import type { HasPendingJob } from '@shared-kernel/domain/has-pending-job';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -29,7 +29,7 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 
 export class DecisionSet
   extends EventRecorder
-  implements OwesWork<DecisionSet>
+  implements HasPendingJob<DecisionSet>
 {
   private constructor(
     readonly id: DecisionSetId,
@@ -103,12 +103,12 @@ export class DecisionSet
     );
   }
 
-  get owesWork(): boolean {
+  get hasPendingJob(): boolean {
     return this.draft !== null;
   }
 
-  get workExhausted(): boolean {
-    return this.draft?.work.exhausted ?? false;
+  get jobExhausted(): boolean {
+    return this.draft?.job.exhausted ?? false;
   }
 
   asked(runId: RunId, now: Date): DecisionSet {
@@ -125,32 +125,32 @@ export class DecisionSet
     return asked;
   }
 
-  leased(now: Date): DecisionSet {
+  leaseJob(now: Date): DecisionSet {
     if (!this.draft) {
       throw InvalidDecisionError.ofSet('has no run to draft decisions from');
     }
-    if (!this.draft.work.dueBy(now) || this.draft.work.exhausted) {
+    if (!this.draft.job.isDue(now) || this.draft.job.exhausted) {
       throw InvalidDecisionError.ofSet('cannot be drafted again yet');
     }
 
     return this.with({
-      draft: this.draft.withWork(this.draft.work.leased(now)),
+      draft: this.draft.withJob(this.draft.job.lease(now)),
     });
   }
 
-  triedAgainLater(now: Date): DecisionSet {
+  scheduleRetry(now: Date): DecisionSet {
     if (!this.draft) {
       return this;
     }
 
-    return this.draft.work.exhausted
-      ? this.gaveUp()
+    return this.draft.job.exhausted
+      ? this.deadLetter()
       : this.with({
-          draft: this.draft.withWork(this.draft.work.backedOff(now)),
+          draft: this.draft.withJob(this.draft.job.scheduleRetry(now)),
         });
   }
 
-  gaveUp(): DecisionSet {
+  deadLetter(): DecisionSet {
     if (!this.draft) {
       return this;
     }

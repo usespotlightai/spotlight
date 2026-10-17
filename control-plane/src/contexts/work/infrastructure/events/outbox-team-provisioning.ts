@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { EventReactions } from '@platform/events/event-reactions';
+import { DeliveryBacklog } from '@platform/events/delivery-backlog';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { PROVISION_TEAM } from '@work/application/events/handlers/provision-team.handler';
 import type {
@@ -9,18 +9,21 @@ import type {
 
 @Injectable()
 export class OutboxTeamProvisioning implements TeamProvisioningPort {
-  constructor(private readonly reactions: EventReactions) {}
+  constructor(private readonly backlog: DeliveryBacklog) {}
 
   async of(teamId: TeamId): Promise<Provisioning> {
-    const { owed, deadLettered } = await this.reactions.owedBy(PROVISION_TEAM, {
-      teamId: teamId.value,
-      origin: 'sign-up',
-    });
+    const { pending, deadLettered } = await this.backlog.pendingDeliveriesFor(
+      PROVISION_TEAM,
+      {
+        teamId: teamId.value,
+        origin: 'sign-up',
+      },
+    );
 
     if (deadLettered > 0) {
       return 'failed';
     }
 
-    return owed > 0 ? 'pending' : 'done';
+    return pending > 0 ? 'pending' : 'done';
   }
 }

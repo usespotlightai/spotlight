@@ -94,7 +94,7 @@ import { bindQueryHandler } from '@platform/cqrs/bind-query-handler';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import { IntegrationEventMappers } from '@platform/events/integration-event-mappers';
 import { PayloadTypes } from '@platform/events/payload-types';
-import { OwedWorkWorker } from '@platform/workers/owed-work.worker';
+import { PendingJobWorker } from '@platform/workers/pending-job.worker';
 import {
   CLOCK,
   type ClockPort,
@@ -412,10 +412,10 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
       ),
   },
   {
-    provide: OwedWorkWorker,
+    provide: PendingJobWorker,
     inject: [WorkMemoryDrafts, LOGGER],
     useFactory: (drafts: WorkMemoryDrafts, logger: LoggerPort) =>
-      new OwedWorkWorker([drafts], logger),
+      new PendingJobWorker([drafts], logger),
   },
   {
     provide: MEMORY_EVENTS,

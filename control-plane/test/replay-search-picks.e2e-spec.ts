@@ -129,7 +129,7 @@ describe('a search for a better station config, ranking and picking its candidat
     await drained(plan);
     await endedSearchRun(await leasedSearchRun(started.id, 2));
     await eventually(async () => {
-      await app.get(AdvanceSearches).workDue();
+      await app.get(AdvanceSearches).processDue();
       return (await searchRow(started.id))?.heldOut.length === 1;
     }, WITHIN);
     await drained(plan);
@@ -219,7 +219,7 @@ describe('a search for a better station config, ranking and picking its candidat
     const pullRequestPath = `${teamPath()}/config-pull-requests/${one.body.id}`;
     const attempted = () =>
       eventually(async () => {
-        await app.get(OpenConfigPullRequests).workDue();
+        await app.get(OpenConfigPullRequests).processDue();
         const read = (await owner().get(pullRequestPath).expect(200)).body as {
           state: string;
         };
@@ -251,7 +251,7 @@ describe('a search for a better station config, ranking and picking its candidat
       reason: null,
     });
     await owner().post(pickPath(proposed.candidateId)).expect(200);
-    await app.get(OpenConfigPullRequests).workDue();
+    await app.get(OpenConfigPullRequests).processDue();
 
     expect(github.opened).toHaveLength(1);
     expect(github.opened[0]).toMatchObject({

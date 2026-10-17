@@ -84,8 +84,8 @@ const toStackCheck = (row: Row): StackCheck =>
           )
         : null,
     provisioning: Provisioning.rehydrate(
-      row.provisionFailures,
-      row.nextProvisionAt,
+      row.provisionAttempts,
+      row.nextProvisionAttemptAt,
     ),
     version: row.version,
   });
@@ -112,8 +112,8 @@ const valuesOf = (check: StackCheck) => ({
   reservedFor: check.reservation?.runner.value ?? null,
   reservedPool: check.reservation?.pool.value ?? null,
   reservedUntil: check.reservation?.until ?? null,
-  provisionFailures: check.provisioning.failures,
-  nextProvisionAt: check.provisioning.nextAt,
+  provisionAttempts: check.provisioning.attempts,
+  nextProvisionAttemptAt: check.provisioning.nextAttemptAt,
 });
 
 @Injectable()
@@ -314,8 +314,8 @@ export class DrizzleStackCheckRepository implements StackCheckRepository {
           ),
           lt(stackCheck.attempts, MAX_CHECK_ATTEMPTS),
           or(
-            isNull(stackCheck.nextProvisionAt),
-            lte(stackCheck.nextProvisionAt, now),
+            isNull(stackCheck.nextProvisionAttemptAt),
+            lte(stackCheck.nextProvisionAttemptAt, now),
           ),
         ),
       )

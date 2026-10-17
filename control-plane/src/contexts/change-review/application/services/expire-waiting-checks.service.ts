@@ -2,11 +2,11 @@ import { StackCheckVersionConflictError } from '@change-review/domain/exceptions
 import type { StackCheckRepository } from '@change-review/domain/repositories/stack-check.repository';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
-import type { OwedWorkPort } from '@shared-kernel/application/ports/owed-work.port';
+import type { PendingJobsPort } from '@shared-kernel/application/ports/pending-jobs.port';
 
 const MAX_AT_ONCE = 50;
 
-export class ExpireWaitingChecks implements OwedWorkPort {
+export class ExpireWaitingChecks implements PendingJobsPort {
   readonly name = 'Expiring change stack checks nobody claimed in time';
 
   constructor(
@@ -15,7 +15,7 @@ export class ExpireWaitingChecks implements OwedWorkPort {
     private readonly logger: LoggerPort,
   ) {}
 
-  async workDue(): Promise<void> {
+  async processDue(): Promise<void> {
     const now = this.clock.now();
 
     for (const check of await this.checks.withExpiredWait(now, MAX_AT_ONCE)) {

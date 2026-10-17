@@ -34,12 +34,12 @@ import {
 } from '@change-review/domain/value-objects/stack-progress.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import type { OwesWork } from '@shared-kernel/domain/owes-work';
+import type { HasPendingJob } from '@shared-kernel/domain/has-pending-job';
 import {
   type ModelCall,
   ModelUsage,
 } from '@shared-kernel/domain/value-objects/model-usage.vo';
-import { OwedWork } from '@shared-kernel/domain/value-objects/owed-work.vo';
+import { PendingJob } from '@shared-kernel/domain/value-objects/pending-job.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -123,7 +123,7 @@ const assertKeptToItsRun = (stack: {
 
 export class ChangeStack
   extends EventRecorder
-  implements OwesWork<ChangeStack>
+  implements HasPendingJob<ChangeStack>
 {
   private constructor(
     readonly id: ChangeStackId,
@@ -137,7 +137,7 @@ export class ChangeStack
     readonly facts: StackFacts,
     readonly cohorts: readonly StackCohort[],
     readonly progress: StackProgress,
-    readonly work: OwedWork,
+    readonly job: PendingJob,
     readonly request: CheckRequest | null,
     readonly reordering: boolean,
     readonly spent: ModelUsage,
@@ -178,7 +178,7 @@ export class ChangeStack
       input.facts,
       [],
       StackProgress.drafting(input.now),
-      OwedWork.fresh(),
+      PendingJob.fresh(),
       input.request,
       false,
       ModelUsage.none(),
@@ -202,7 +202,7 @@ export class ChangeStack
     facts: StackFacts;
     cohorts: readonly StackCohort[];
     progress: StackProgress;
-    work: OwedWork;
+    job: PendingJob;
     request: CheckRequest | null;
     reordering: boolean;
     spent: ModelUsage;
@@ -223,7 +223,7 @@ export class ChangeStack
       input.facts,
       input.cohorts,
       input.progress,
-      input.work,
+      input.job,
       input.request,
       input.reordering,
       input.spent,
@@ -251,12 +251,12 @@ export class ChangeStack
     return reachesBeyondSpotlight(this);
   }
 
-  get owesWork(): boolean {
+  get hasPendingJob(): boolean {
     return this.state === 'drafting' || this.reordering;
   }
 
-  get workExhausted(): boolean {
-    return this.work.exhausted;
+  get jobExhausted(): boolean {
+    return this.job.exhausted;
   }
 
   entries(): readonly CheckEntry[] {
@@ -285,37 +285,39 @@ export class ChangeStack
 
   askedToReorder(): ChangeStack {
     return this.state === 'ready' && !this.reordering
-      ? this.with({ reordering: true, work: OwedWork.fresh() })
+      ? this.with({ reordering: true, job: PendingJob.fresh() })
       : this;
   }
 
-  leased(now: Date): ChangeStack {
-    if (!this.owesWork) {
+  leaseJob(now: Date): ChangeStack {
+    if (!this.hasPendingJob) {
       throw InvalidChangeStackError.because('has nothing to draft or reorder');
     }
-    if (!this.work.dueBy(now) || this.work.exhausted) {
-      throw InvalidChangeStackError.because('cannot be worked on again yet');
+    if (!this.job.isDue(now) || this.job.exhausted) {
+      throw InvalidChangeStackError.because(
+        'cannot be drafted or reordered again yet',
+      );
     }
 
-    return this.with({ work: this.work.leased(now) });
+    return this.with({ job: this.job.lease(now) });
   }
 
-  triedAgainLater(now: Date): ChangeStack {
-    if (!this.owesWork) {
+  scheduleRetry(now: Date): ChangeStack {
+    if (!this.hasPendingJob) {
       return this;
     }
 
-    return this.work.exhausted
-      ? this.gaveUp(now)
-      : this.with({ work: this.work.backedOff(now) });
+    return this.job.exhausted
+      ? this.deadLetter(now)
+      : this.with({ job: this.job.scheduleRetry(now) });
   }
 
-  gaveUp(now: Date): ChangeStack {
+  deadLetter(now: Date): ChangeStack {
     if (this.state === 'drafting') {
       return this.fail(NOT_DRAFTED, now);
     }
 
-    return this.gaveUpReordering();
+    return this.stopReordering();
   }
 
   reordered(cohorts: readonly ProposedCohort[], now: Date): ChangeStack {
@@ -345,7 +347,7 @@ export class ChangeStack
     const reordered = this.with({
       cohorts: ready,
       progress: this.progress.complete('ready', now),
-      work: OwedWork.fresh(),
+      job: PendingJob.fresh(),
       reordering: false,
     });
 
@@ -354,12 +356,12 @@ export class ChangeStack
     return reordered;
   }
 
-  gaveUpReordering(): ChangeStack {
+  stopReordering(): ChangeStack {
     if (!this.reordering) {
       return this;
     }
 
-    const kept = this.with({ reordering: false, work: OwedWork.fresh() });
+    const kept = this.with({ reordering: false, job: PendingJob.fresh() });
     kept.record(new ChangeStackReorderingEnded(this.id, this.runId));
     return kept;
   }
@@ -376,7 +378,7 @@ export class ChangeStack
     const completed = this.with({
       cohorts: ready,
       progress: this.progress.complete('ready', now),
-      work: OwedWork.fresh(),
+      job: PendingJob.fresh(),
     });
 
     completed.record(
@@ -423,7 +425,7 @@ export class ChangeStack
 
     const failed = this.with({
       progress: this.progress.complete('failed', now, { failure }),
-      work: OwedWork.fresh(),
+      job: PendingJob.fresh(),
     });
 
     failed.record(new ChangeStackFailed(this.id, this.runId, failure));
@@ -441,7 +443,7 @@ export class ChangeStack
   private with(change: {
     cohorts?: readonly StackCohort[];
     progress?: StackProgress;
-    work?: OwedWork;
+    job?: PendingJob;
     reordering?: boolean;
     spent?: ModelUsage;
   }): ChangeStack {
@@ -457,7 +459,7 @@ export class ChangeStack
       this.facts,
       change.cohorts ?? this.cohorts,
       change.progress ?? this.progress,
-      change.work ?? this.work,
+      change.job ?? this.job,
       this.request,
       change.reordering ?? this.reordering,
       change.spent ?? this.spent,

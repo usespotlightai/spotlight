@@ -120,11 +120,11 @@ export const ReactionFor = {
       }
     }
 
-    const owed = input.task.owedConversation;
-    if (here && owed && input.payload.spoken && input.said) {
+    const pending = input.task.pendingConversation;
+    if (here && pending && input.payload.spoken && input.said) {
       return {
         kind: 'answers',
-        to: NotePosition.of(owed.from),
+        to: NotePosition.of(pending.from),
         ...note(here.name),
       };
     }

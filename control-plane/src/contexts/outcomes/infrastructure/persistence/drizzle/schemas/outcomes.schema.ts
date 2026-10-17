@@ -526,16 +526,16 @@ export const judging = pgTable(
     passShare: doublePrecision('pass_share').notNull(),
     rubricVersion: text('rubric_version').notNull(),
     askedAt: timestamp('asked_at').notNull(),
-    owed: boolean('owed').notNull(),
-    workAttempts: integer('work_attempts').notNull().default(0),
-    workDueAt: timestamp('work_due_at'),
+    pending: boolean('pending').notNull(),
+    jobAttempts: integer('job_attempts').notNull().default(0),
+    jobDueAt: timestamp('job_due_at'),
     judgedAt: timestamp('judged_at'),
     failure: judgingFailure('failure'),
     failedAt: timestamp('failed_at'),
     version: integer('version').notNull().default(0),
   },
   (table) => [
-    index('judging_owed_idx').on(table.askedAt).where(sql`${table.owed}`),
+    index('judging_pending_idx').on(table.askedAt).where(sql`${table.pending}`),
     index('judging_task_idx').on(table.taskId),
     index('judging_workspace_idx').on(table.workspaceId, table.teamId),
   ],
@@ -565,9 +565,9 @@ export const changeJudging = pgTable(
     referenceRunId: text('reference_run_id'),
     spent: jsonb('spent').$type<StoredModelSpend>().notNull(),
     askedAt: timestamp('asked_at').notNull(),
-    owed: boolean('owed').notNull(),
-    workAttempts: integer('work_attempts').notNull().default(0),
-    workDueAt: timestamp('work_due_at'),
+    pending: boolean('pending').notNull(),
+    jobAttempts: integer('job_attempts').notNull().default(0),
+    jobDueAt: timestamp('job_due_at'),
     judgedAt: timestamp('judged_at'),
     failure: judgingFailure('failure'),
     failedAt: timestamp('failed_at'),
@@ -575,9 +575,9 @@ export const changeJudging = pgTable(
   },
   (table) => [
     primaryKey({ columns: [table.runId, table.round] }),
-    index('change_judging_owed_idx')
+    index('change_judging_pending_idx')
       .on(table.askedAt)
-      .where(sql`${table.owed}`),
+      .where(sql`${table.pending}`),
     index('change_judging_workspace_idx').on(table.workspaceId, table.teamId),
   ],
 );
@@ -597,9 +597,9 @@ export const pairJudging = pgTable(
     shownOrder: pairOrder('shown_order').notNull(),
     spent: jsonb('spent').$type<StoredModelSpend>().notNull(),
     askedAt: timestamp('asked_at').notNull(),
-    owed: boolean('owed').notNull(),
-    workAttempts: integer('work_attempts').notNull().default(0),
-    workDueAt: timestamp('work_due_at'),
+    pending: boolean('pending').notNull(),
+    jobAttempts: integer('job_attempts').notNull().default(0),
+    jobDueAt: timestamp('job_due_at'),
     judgedAt: timestamp('judged_at'),
     failure: judgingFailure('failure'),
     failedAt: timestamp('failed_at'),
@@ -607,7 +607,9 @@ export const pairJudging = pgTable(
   },
   (table) => [
     primaryKey({ columns: [table.runId, table.againstRunId] }),
-    index('pair_judging_owed_idx').on(table.askedAt).where(sql`${table.owed}`),
+    index('pair_judging_pending_idx')
+      .on(table.askedAt)
+      .where(sql`${table.pending}`),
     index('pair_judging_workspace_idx').on(table.workspaceId, table.teamId),
   ],
 );

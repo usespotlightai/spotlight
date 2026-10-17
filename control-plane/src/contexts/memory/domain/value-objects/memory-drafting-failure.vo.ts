@@ -1,12 +1,20 @@
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
 import { Retry } from '@shared-kernel/domain/value-objects/retry.vo';
 
-const AGAIN = Retry.backoff({ max: 4, firstMs: 30_000, longestMs: 600_000 });
+const AGAIN = Retry.backoff({
+  maxAttempts: 4,
+  initialDelayMs: 30_000,
+  maxDelayMs: 600_000,
+});
 
 export const MEMORY_DRAFTING_FAILURES = {
   'no-evidence': Retry.never(),
   'request-failed': AGAIN,
-  unreadable: Retry.backoff({ max: 3, firstMs: 30_000, longestMs: 300_000 }),
+  unreadable: Retry.backoff({
+    maxAttempts: 3,
+    initialDelayMs: 30_000,
+    maxDelayMs: 300_000,
+  }),
   errored: AGAIN,
   interrupted: Retry.never(),
 } as const satisfies Record<string, Retry>;

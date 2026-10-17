@@ -202,5 +202,5 @@ export const peopleNamed = (
       name: PEOPLE.find((person) => person.id === id)?.name ?? null,
     }));
 
-export const owedAsks = (teamId: string) =>
+export const unansweredAsks = (teamId: string) =>
   (world().tasks[teamId] ?? []).filter((task) => task.awaitingReview !== null);

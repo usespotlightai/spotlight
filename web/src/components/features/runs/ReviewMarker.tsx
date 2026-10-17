@@ -19,7 +19,7 @@ export function ReviewMarker({ slug, review, runId, at }: ReviewMarkerProps) {
         to={slug ? inboxItemPath(slug, review.conversationId, runId) : ''}
         className={cn(
           'flex h-9 min-w-0 items-center gap-2 rounded-md px-2 text-sm outline-none transition-colors hover:bg-accent',
-          review.state === 'owed'
+          review.state === 'pending'
             ? 'text-muted-foreground'
             : 'text-faint opacity-70',
         )}
@@ -27,7 +27,7 @@ export function ReviewMarker({ slug, review, runId, at }: ReviewMarkerProps) {
         <Inbox className="size-4 shrink-0" aria-hidden />
 
         <span className="truncate">
-          {review.state === 'owed' ? 'Waiting for you' : 'Answered'}
+          {review.state === 'pending' ? 'Waiting for you' : 'Answered'}
         </span>
 
         <span className="ml-auto shrink-0 text-xs tabular-nums">

@@ -3,7 +3,7 @@ import {
   awaitsAPerson,
   conversationsOf,
   notesIn,
-  owedIn,
+  pendingIn,
   reviewsIn,
   stillOpen,
   turnOf,
@@ -69,12 +69,12 @@ describe('notesIn', () => {
   });
 });
 
-describe('owedIn', () => {
+describe('pendingIn', () => {
   const said = (kind: TaskNoteKind) => ({ kind });
 
   it('finds the one a person has not answered yet', () => {
     expect(
-      owedIn(
+      pendingIn(
         ['passed', 'asked', 'said'].map((kind) => said(kind as TaskNoteKind)),
       ),
     ).toEqual({
@@ -83,20 +83,22 @@ describe('owedIn', () => {
     });
   });
 
-  it('owes nothing where the person already answered', () => {
+  it('finds nothing pending where the person already answered', () => {
     expect(
-      owedIn(['asked', 'answered'].map((kind) => said(kind as TaskNoteKind))),
+      pendingIn(
+        ['asked', 'answered'].map((kind) => said(kind as TaskNoteKind)),
+      ),
     ).toBeNull();
   });
 
-  it('owes nothing where the task has moved on since', () => {
+  it('finds nothing pending where the task has moved on since', () => {
     expect(
-      owedIn(['asked', 'passed'].map((kind) => said(kind as TaskNoteKind))),
+      pendingIn(['asked', 'passed'].map((kind) => said(kind as TaskNoteKind))),
     ).toBeNull();
   });
 
-  it('owes nothing where nobody was ever asked', () => {
-    expect(owedIn([said('passed')])).toBeNull();
+  it('finds nothing pending where nobody was ever asked', () => {
+    expect(pendingIn([said('passed')])).toBeNull();
   });
 });
 
@@ -106,9 +108,9 @@ describe('reviewsIn', () => {
     runId,
   });
 
-  it('owes an answer where nobody has given one', () => {
+  it('keeps the answer pending where nobody has given one', () => {
     expect([...reviewsIn([said('asked', 'run_1')])]).toEqual([
-      ['run_1', { from: 0, state: 'owed' }],
+      ['run_1', { from: 0, state: 'pending' }],
     ]);
   });
 
@@ -121,7 +123,7 @@ describe('reviewsIn', () => {
       ]),
     ]).toEqual([
       ['run_1', { from: 0, state: 'answered' }],
-      ['run_2', { from: 0, state: 'owed' }],
+      ['run_2', { from: 0, state: 'pending' }],
     ]);
   });
 
@@ -134,7 +136,7 @@ describe('reviewsIn', () => {
       ]),
     ]).toEqual([
       ['run_1', { from: 0, state: 'answered' }],
-      ['run_2', { from: 2, state: 'owed' }],
+      ['run_2', { from: 2, state: 'pending' }],
     ]);
   });
 
@@ -159,7 +161,7 @@ describe('reviewsIn', () => {
     ]);
 
     expect(reviews.get('run_1')?.state).toBe('answered');
-    expect(reviews.get('run_3')).toEqual({ from: 3, state: 'owed' });
+    expect(reviews.get('run_3')).toEqual({ from: 3, state: 'pending' });
   });
 
   it('finds nothing where no run asked', () => {

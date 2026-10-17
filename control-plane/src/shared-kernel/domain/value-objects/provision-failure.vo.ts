@@ -2,9 +2,9 @@ import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsi
 import { Retry } from '@shared-kernel/domain/value-objects/retry.vo';
 
 const BACKING_OFF = Retry.backoff({
-  max: 5,
-  firstMs: 5_000,
-  longestMs: 120_000,
+  maxAttempts: 5,
+  initialDelayMs: 5_000,
+  maxDelayMs: 120_000,
 });
 
 export const PROVISION_FAILURES = {

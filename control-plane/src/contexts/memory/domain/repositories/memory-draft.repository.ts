@@ -8,7 +8,7 @@ export interface MemoryDraftRepository {
 
   forTask(taskId: TaskId): Promise<MemoryDraft | null>;
 
-  dueForWork(now: Date): Promise<MemoryDraft | null>;
+  nextDueJob(now: Date): Promise<MemoryDraft | null>;
 
   removeForTask(taskId: TaskId): Promise<void>;
 }

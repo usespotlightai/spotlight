@@ -58,8 +58,8 @@ export const run = pgTable(
     reservedFor: text('reserved_for'),
     reservedPool: text('reserved_pool'),
     reservedUntil: timestamp('reserved_until'),
-    provisionFailures: integer('provision_failures').notNull().default(0),
-    nextProvisionAt: timestamp('next_provision_at'),
+    provisionAttempts: integer('provision_attempts').notNull().default(0),
+    nextProvisionAttemptAt: timestamp('next_provision_attempt_at'),
     requeueCount: integer('requeue_count').notNull().default(0),
     suspendedAttempts: integer('suspended_attempts')
       .array()

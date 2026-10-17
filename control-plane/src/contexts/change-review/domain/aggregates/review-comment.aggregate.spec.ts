@@ -199,7 +199,7 @@ describe('ReviewComment', () => {
     ]);
   });
 
-  it('owes GitHub nothing where a comment on its way never got there', () => {
+  it('has nothing to send to GitHub where a comment on its way never got there', () => {
     const withdrawn = drafted()
       .submittedIn(ReviewId.of('review_1'))
       .removed(ADA)
@@ -280,7 +280,7 @@ describe('ReviewComment', () => {
     expect(posted.deletedOnGitHub().visibleTo(ADA)).toBe(false);
   });
 
-  it('owes GitHub an edit until one carrying its latest words is sent', () => {
+  it('has an edit to send to GitHub until one carrying its latest words is sent', () => {
     const posted = drafted()
       .submittedIn(ReviewId.of('review_1'))
       .postedAs({ id: 42, url: 'https://github.com/c/42' });
@@ -327,14 +327,14 @@ describe('ReviewComment', () => {
     );
   });
 
-  it('ignores an edit made on GitHub while its own is still owed', () => {
-    const owed = drafted()
+  it('ignores an edit made on GitHub while its own is still pending', () => {
+    const pending = drafted()
       .submittedIn(ReviewId.of('review_1'))
       .postedAs({ id: 42, url: 'https://github.com/c/42' })
       .rewritten('Mine', ADA, NOW);
 
-    expect(owed.editedOnGitHub('Theirs', NOW).body).toBe('Mine');
-    expect(owed.editNotSent().editedOnGitHub('Theirs', NOW).body).toBe(
+    expect(pending.editedOnGitHub('Theirs', NOW).body).toBe('Mine');
+    expect(pending.editNotSent().editedOnGitHub('Theirs', NOW).body).toBe(
       'Theirs',
     );
   });

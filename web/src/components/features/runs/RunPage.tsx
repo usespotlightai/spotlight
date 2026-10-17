@@ -10,7 +10,7 @@ import { Breadcrumbs } from '@/components/shell/layout/Breadcrumbs';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { useRunDeciding } from '@/hooks/useRunDeciding';
 import { useRunTrail } from '@/hooks/useRunTrail';
-import { decisionOwed, type RunJournal, workedOn } from '@/lib/inbox';
+import { decisionPending, type RunJournal, workedOn } from '@/lib/inbox';
 import { type TeamRun, working } from '@/lib/run';
 import {
   type RunConversation as Said,
@@ -39,7 +39,7 @@ export function RunPage({
   const { trail, forward } = useTrail(base, 2);
 
   const notes = said?.notes ?? [];
-  const deciding = decisionOwed(notes);
+  const deciding = decisionPending(notes);
   const decide = useRunDeciding(slug, run);
   const ran = workedOn(worked, notes, run.id);
 

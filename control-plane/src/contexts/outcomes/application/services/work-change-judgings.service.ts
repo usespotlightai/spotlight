@@ -10,9 +10,9 @@ import type { JudgingRound } from '@outcomes/domain/value-objects/judging-round'
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { ErrorReportsPort } from '@shared-kernel/application/ports/error-reports.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
-import type { OwedWorkPort } from '@shared-kernel/application/ports/owed-work.port';
+import type { PendingJobsPort } from '@shared-kernel/application/ports/pending-jobs.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { OwedWorkPool } from '@shared-kernel/application/services/owed-work-pool';
+import { JobLoop } from '@shared-kernel/application/services/job-loop';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
 interface JudgingKey {
@@ -22,10 +22,10 @@ interface JudgingKey {
 
 const MAX_JUDGED_AT_ONCE = 4;
 
-export class WorkChangeJudgings implements OwedWorkPort {
+export class WorkChangeJudgings implements PendingJobsPort {
   readonly name = 'Judging changes';
 
-  readonly #pool: OwedWorkPool<ChangeJudging, JudgingKey>;
+  readonly #loop: JobLoop<ChangeJudging, JudgingKey>;
 
   constructor(
     private readonly judgings: ChangeJudgingRepository,
@@ -36,11 +36,11 @@ export class WorkChangeJudgings implements OwedWorkPort {
     logger: LoggerPort,
     reports: ErrorReportsPort,
   ) {
-    this.#pool = new OwedWorkPool<ChangeJudging, JudgingKey>(
+    this.#loop = new JobLoop<ChangeJudging, JudgingKey>(
       {
         name: this.name,
-        maxAtOnce: MAX_JUDGED_AT_ONCE,
-        due: (now) => this.judgings.dueForWork(now),
+        batchSize: MAX_JUDGED_AT_ONCE,
+        due: (now) => this.judgings.nextDueJob(now),
         find: (key) => this.judgings.of(key.runId, key.round),
         save: (judging) => this.judgings.save(judging),
         keyOf: (judging) => ({ runId: judging.runId, round: judging.round }),
@@ -51,9 +51,9 @@ export class WorkChangeJudgings implements OwedWorkPort {
         }),
         about: (judging) => ({
           round: judging.round,
-          attempts: judging.work?.attempts,
+          attempts: judging.job?.attempts,
         }),
-        worked: (judging) => this.judged(judging),
+        process: (judging) => this.judged(judging),
         stale: (error) => error instanceof ChangeJudgingVersionConflictError,
       },
       transaction,
@@ -63,12 +63,12 @@ export class WorkChangeJudgings implements OwedWorkPort {
     );
   }
 
-  workDue(): Promise<void> {
-    return this.#pool.workDue();
+  processDue(): Promise<void> {
+    return this.#loop.processDue();
   }
 
   idle(): Promise<void> {
-    return this.#pool.idle();
+    return this.#loop.idle();
   }
 
   private async judged(judging: ChangeJudging): Promise<ChangeJudging> {

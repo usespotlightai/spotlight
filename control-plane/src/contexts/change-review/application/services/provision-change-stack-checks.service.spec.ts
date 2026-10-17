@@ -70,13 +70,13 @@ const provisioning = (
 
 describe('ProvisionChangeStackChecks', () => {
   it('offers only the checks still waiting for a runner to be provisioned', async () => {
-    const backedOff = waiting('stack_3')
+    const retryScheduled = waiting('stack_3')
       .reservedFor(RUNNER, PoolId.of('pool_burst'), NOW)
       .provisionFailed(RUNNER, HTTP_ERROR, NOW);
     const { service, awaitingProvision } = provisioning([
       waiting('stack_1', ['gpu']),
       waiting('stack_2').reservedFor(RUNNER, PoolId.of('pool_burst'), NOW),
-      backedOff,
+      retryScheduled,
       waiting('stack_4')
         .claimedFor(OTHER, RunnerTerms.none(), NOW)
         .skip(OTHER, skipOf('no-room', null), NOW),
@@ -177,7 +177,7 @@ describe('ProvisionChangeStackChecks', () => {
     expect(check('stack_1').reservation).toBeNull();
   });
 
-  it('records a failed provision on the check and backs off', async () => {
+  it('records a failed provision on the check and schedules a retry', async () => {
     const { service, check } = provisioning(
       [waiting('stack_1').reservedFor(RUNNER, PoolId.of('pool_burst'), NOW)],
       1,
@@ -186,7 +186,7 @@ describe('ProvisionChangeStackChecks', () => {
     await service.failed('stack_1', RUNNER, HTTP_ERROR, NOW);
 
     expect(check('stack_1').reservation).toBeNull();
-    expect(check('stack_1').provisioning.failures).toBe(1);
+    expect(check('stack_1').provisioning.attempts).toBe(1);
     expect(check('stack_1').provisionableAt(NOW)).toBe(false);
   });
 
@@ -222,7 +222,7 @@ describe('ProvisionChangeStackChecks', () => {
     await service.failed('stack_1', OTHER, HTTP_ERROR, NOW);
 
     expect(save).not.toHaveBeenCalled();
-    expect(check('stack_1').provisioning.failures).toBe(0);
+    expect(check('stack_1').provisioning.attempts).toBe(0);
   });
 
   it('lists only the reservations that expired, with the runner each was for', async () => {

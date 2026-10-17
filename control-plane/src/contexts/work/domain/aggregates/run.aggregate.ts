@@ -434,7 +434,7 @@ export class Run extends EventRecorder {
       this.state === 'queued' &&
       this.reservation === null &&
       (withEgress || !this.injectsSecrets) &&
-      this.provisioning.dueAt(now) &&
+      this.provisioning.isDue(now) &&
       this.requeueCount.claimableAt(now)
     );
   }
@@ -487,7 +487,7 @@ export class Run extends EventRecorder {
       return retried;
     }
 
-    const outcome = RunOutcome.unprovisioned(failure, provisioning.failures);
+    const outcome = RunOutcome.unprovisioned(failure, provisioning.attempts);
     const failed = this.with({
       state: endingIn(outcome),
       reservation: null,

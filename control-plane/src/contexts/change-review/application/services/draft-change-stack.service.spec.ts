@@ -165,7 +165,7 @@ const drafting = (
     },
     find: async (id) =>
       [...saved].reverse().find((each) => each.id.equals(id)) ?? null,
-    dueForWork: async () => null,
+    nextDueJob: async () => null,
     removeForTask: async () => undefined,
     ofRun: async () => [],
   };
@@ -289,7 +289,7 @@ describe('DraftChangeStack', () => {
     expect(saved[saved.length - 1]?.spent.calls).toBe(2);
   });
 
-  it('leaves the draft to be tried again where the drafter cannot answer', async () => {
+  it('leaves the draft to be retried where the drafter cannot answer', async () => {
     const { service } = drafting({ answers: [new Error('overloaded')] });
     const stack = await service.begin(RUN, {
       diff: DIFF,
@@ -655,7 +655,7 @@ describe('ReorderChangeStack', () => {
     expect(kept.cohorts[0]?.layers).toHaveLength(2);
   });
 
-  it('leaves the reordering to be tried again where the model cannot answer', async () => {
+  it('leaves the reordering to be retried where the model cannot answer', async () => {
     const { service, reordering, check } = await failedCheck([
       new Error('overloaded'),
     ]);

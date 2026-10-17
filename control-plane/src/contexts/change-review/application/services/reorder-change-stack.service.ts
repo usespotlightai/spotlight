@@ -21,7 +21,7 @@ export class ReorderChangeStack {
 
   async reordered(stack: ChangeStack, check: StackCheck): Promise<ChangeStack> {
     if (check.failedLayers().length === 0) {
-      return stack.gaveUpReordering();
+      return stack.stopReordering();
     }
 
     const { diff, facts } = stack;
@@ -40,11 +40,11 @@ export class ReorderChangeStack {
       if (!attempt.drafted) {
         this.logger.error(
           { changeStackId: stack.id.value, error: attempt.error },
-          'Reordering a change stack failed; trying again later',
+          'Reordering a change stack failed; scheduling a retry',
         );
         return reordering
           .recordModel(attempt.usage)
-          .triedAgainLater(this.clock.now());
+          .scheduleRetry(this.clock.now());
       }
 
       const { cohorts, usage } = attempt.answer;
@@ -68,6 +68,6 @@ export class ReorderChangeStack {
       'A reordered change stack kept breaking its rules; keeping the checked one',
     );
 
-    return reordering.gaveUpReordering();
+    return reordering.stopReordering();
   }
 }

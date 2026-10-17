@@ -12,7 +12,7 @@ import type {
 } from '@work/application/ports/inbox-reader.port';
 import type { RunReview } from '@work/application/ports/run-reader.port';
 import type { TaskNoteKind } from '@work/domain/entities/task-note.entity';
-import { owedIn, reviewsIn } from '@work/domain/services/conversations';
+import { pendingIn, reviewsIn } from '@work/domain/services/conversations';
 import { ConversationId } from '@work/domain/value-objects/conversation-id.vo';
 import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import {
@@ -282,12 +282,13 @@ export const awaitedReviewsFor = async (
   }
 
   for (const [taskId, trail] of trails) {
-    const owed = owedIn(trail);
+    const pending = pendingIn(trail);
 
-    if (owed) {
+    if (pending) {
       awaited.set(
         taskId,
-        ConversationId.of({ taskId: TaskId.of(taskId), from: owed.from }).value,
+        ConversationId.of({ taskId: TaskId.of(taskId), from: pending.from })
+          .value,
       );
     }
   }

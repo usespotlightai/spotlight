@@ -12,12 +12,12 @@ import type { JudgingRound } from '@outcomes/domain/value-objects/judging-round'
 import type { ScoreScale } from '@outcomes/domain/value-objects/score-scale.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import type { OwesWork } from '@shared-kernel/domain/owes-work';
+import type { HasPendingJob } from '@shared-kernel/domain/has-pending-job';
 import {
   type ModelCall,
   ModelUsage,
 } from '@shared-kernel/domain/value-objects/model-usage.vo';
-import { OwedWork } from '@shared-kernel/domain/value-objects/owed-work.vo';
+import { PendingJob } from '@shared-kernel/domain/value-objects/pending-job.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -30,7 +30,7 @@ interface State {
   readonly criteria: JudgeCriteria;
   readonly reference: RunId | null;
   readonly askedAt: Date;
-  readonly work: OwedWork | null;
+  readonly job: PendingJob | null;
   readonly judgedAt: Date | null;
   readonly failure: JudgingFailure | null;
   readonly spent: ModelUsage;
@@ -39,7 +39,7 @@ interface State {
 
 export class ChangeJudging
   extends EventRecorder
-  implements OwesWork<ChangeJudging>
+  implements HasPendingJob<ChangeJudging>
 {
   private constructor(private readonly state: State) {
     super();
@@ -67,7 +67,7 @@ export class ChangeJudging
       criteria: input.criteria,
       reference: input.reference,
       askedAt: input.now,
-      work: OwedWork.fresh(),
+      job: PendingJob.fresh(),
       judgedAt: null,
       failure: null,
       spent: ModelUsage.none(),
@@ -76,14 +76,14 @@ export class ChangeJudging
   }
 
   static rehydrate(state: State): ChangeJudging {
-    const outcomes = [state.work, state.judgedAt, state.failure].filter(
+    const outcomes = [state.job, state.judgedAt, state.failure].filter(
       (each) => each !== null,
     );
 
     if (outcomes.length !== 1) {
       throw new InconsistentStateError(
         'change judging',
-        'is either still owed, judged or failed, and only one of these',
+        'is either pending, judged or failed, and only one of these',
       );
     }
 
@@ -122,8 +122,8 @@ export class ChangeJudging
     return this.state.askedAt;
   }
 
-  get work(): OwedWork | null {
-    return this.state.work;
+  get job(): PendingJob | null {
+    return this.state.job;
   }
 
   get judgedAt(): Date | null {
@@ -153,7 +153,7 @@ export class ChangeJudging
       ...this.state,
       round: 2,
       askedAt: now,
-      work: OwedWork.fresh(),
+      job: PendingJob.fresh(),
       judgedAt: null,
       failure: null,
       spent: ModelUsage.none(),
@@ -161,51 +161,51 @@ export class ChangeJudging
     });
   }
 
-  get owesWork(): boolean {
-    return this.state.work !== null;
+  get hasPendingJob(): boolean {
+    return this.state.job !== null;
   }
 
-  get workExhausted(): boolean {
-    return this.state.work?.exhausted ?? false;
+  get jobExhausted(): boolean {
+    return this.state.job?.exhausted ?? false;
   }
 
-  leased(now: Date): ChangeJudging {
-    const work = this.state.work;
+  leaseJob(now: Date): ChangeJudging {
+    const job = this.state.job;
 
-    if (!work) {
+    if (!job) {
       throw InvalidScoreError.ofJudging('is already done');
     }
-    if (!work.dueBy(now) || work.exhausted) {
+    if (!job.isDue(now) || job.exhausted) {
       throw InvalidScoreError.ofJudging('cannot be retried yet');
     }
 
-    return this.with({ work: work.leased(now) });
+    return this.with({ job: job.lease(now) });
   }
 
-  triedAgainLater(now: Date): ChangeJudging {
+  scheduleRetry(now: Date): ChangeJudging {
     return this.failed(JudgingFailure.of('errored', now));
   }
 
-  gaveUp(now: Date): ChangeJudging {
+  deadLetter(now: Date): ChangeJudging {
     return this.ended(JudgingFailure.of('interrupted', now));
   }
 
   failed(failure: JudgingFailure): ChangeJudging {
-    const work = this.state.work;
+    const job = this.state.job;
 
-    if (!work) {
+    if (!job) {
       return this;
     }
 
-    const next = failure.retry.after(work.attempts, failure.at);
+    const next = failure.retry.nextAttemptAt(job.attempts, failure.at);
 
     return next
-      ? this.with({ work: work.waitingUntil(next) })
+      ? this.with({ job: job.scheduleRetryAt(next) })
       : this.ended(failure);
   }
 
   recordModel(usage: ModelCall | null): ChangeJudging {
-    return usage && this.state.work
+    return usage && this.state.job
       ? this.with({ spent: this.state.spent.with(usage) })
       : this;
   }
@@ -217,7 +217,7 @@ export class ChangeJudging
     model: string;
     now: Date;
   }): ChangeJudging {
-    if (!this.state.work) {
+    if (!this.state.job) {
       return this;
     }
 
@@ -237,7 +237,7 @@ export class ChangeJudging
     }
 
     const judged = spending.with({
-      work: null,
+      job: null,
       judgedAt: input.now,
       failure: null,
     });
@@ -262,11 +262,11 @@ export class ChangeJudging
   }
 
   private ended(failure: JudgingFailure): ChangeJudging {
-    if (!this.state.work) {
+    if (!this.state.job) {
       return this;
     }
 
-    const ended = this.with({ work: null, failure });
+    const ended = this.with({ job: null, failure });
     ended.record(
       new ChangeJudgingFailed(
         this.state.runId,

@@ -76,7 +76,7 @@ const working = async (
     { report: () => undefined },
   );
 
-  await work.workDue();
+  await work.processDue();
   await work.idle();
 
   return {
@@ -101,13 +101,13 @@ describe('WorkJudgings', () => {
     expect(asked[0]?.hunks.map((each) => each.id)).toEqual([
       'api/src/uploads.ts#1',
     ]);
-    expect(judging?.owesWork).toBe(false);
+    expect(judging?.hasPendingJob).toBe(false);
     const [event] = judgings.events as RunJudged[];
     expect(event?.kind).toBe('judging.judged');
     expect(event?.model).toBe('some/model');
   });
 
-  it('gives up where the run’s evidence is gone', async () => {
+  it('fails where the run’s evidence is gone', async () => {
     const { asked, judging } = await working(
       async () => ({ value: true, reasons: [] }),
       null,
@@ -117,22 +117,24 @@ describe('WorkJudgings', () => {
     expect(judging?.failure?.code).toBe('no-evidence');
   });
 
-  it('tries again later when the request to the provider fails', async () => {
+  it('retries later when the request to the provider fails', async () => {
     const { judging } = await working(async () => {
       throw new JudgingError('request-failed', 'no credits', null);
     });
 
-    expect(judging?.owesWork).toBe(true);
-    expect(judging?.work?.dueAt?.getTime()).toBeGreaterThan(NOW.getTime());
+    expect(judging?.hasPendingJob).toBe(true);
+    expect(judging?.job?.nextAttemptAt?.getTime()).toBeGreaterThan(
+      NOW.getTime(),
+    );
   });
 
-  it('tries again later when no reason cites what the judge read', async () => {
+  it('retries later when no reason cites what the judge read', async () => {
     const { judging, judgings } = await working(async () => ({
       value: false,
       reasons: [{ text: 'Made up.', steps: [40], hunks: [] }],
     }));
 
-    expect(judging?.owesWork).toBe(true);
+    expect(judging?.hasPendingJob).toBe(true);
     expect(judgings.events).toEqual([]);
   });
 });

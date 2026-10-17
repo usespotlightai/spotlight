@@ -1,12 +1,16 @@
 import { InvalidScoreError } from '@outcomes/domain/exceptions/invalid-score.error';
 import { Retry } from '@shared-kernel/domain/value-objects/retry.vo';
 
-const AGAIN = Retry.backoff({ max: 4, firstMs: 30_000, longestMs: 600_000 });
+const AGAIN = Retry.backoff({
+  maxAttempts: 4,
+  initialDelayMs: 30_000,
+  maxDelayMs: 600_000,
+});
 
 const ONCE_MORE = Retry.backoff({
-  max: 3,
-  firstMs: 30_000,
-  longestMs: 300_000,
+  maxAttempts: 3,
+  initialDelayMs: 30_000,
+  maxDelayMs: 300_000,
 });
 
 export const JUDGING_FAILURES = {

@@ -1,16 +1,20 @@
 import { Inbox } from 'lucide-react';
 import { Pill } from '@/components/shared/Pill';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
-import { owesYou, type Run } from '@/lib/run';
+import { type Run, waitsForYou } from '@/lib/run';
 
-type RunOwedMarkerProps = {
+type RunPendingMarkerProps = {
   run: Run;
   reviewTo?: string;
   inTrail?: boolean;
 };
 
-export function RunOwedMarker({ run, reviewTo, inTrail }: RunOwedMarkerProps) {
-  if (!owesYou(run) || (inTrail && run.review)) {
+export function RunPendingMarker({
+  run,
+  reviewTo,
+  inTrail,
+}: RunPendingMarkerProps) {
+  if (!waitsForYou(run) || (inTrail && run.review)) {
     return null;
   }
 

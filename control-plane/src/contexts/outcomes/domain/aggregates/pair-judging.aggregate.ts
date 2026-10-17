@@ -20,12 +20,12 @@ import {
 import type { PairReason } from '@outcomes/domain/value-objects/pair-reason.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import type { OwesWork } from '@shared-kernel/domain/owes-work';
+import type { HasPendingJob } from '@shared-kernel/domain/has-pending-job';
 import {
   type ModelCall,
   ModelUsage,
 } from '@shared-kernel/domain/value-objects/model-usage.vo';
-import { OwedWork } from '@shared-kernel/domain/value-objects/owed-work.vo';
+import { PendingJob } from '@shared-kernel/domain/value-objects/pending-job.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -86,7 +86,7 @@ interface State {
   readonly maxAttempts: number;
   readonly order: PairOrder;
   readonly askedAt: Date;
-  readonly work: OwedWork | null;
+  readonly job: PendingJob | null;
   readonly judgedAt: Date | null;
   readonly failure: JudgingFailure | null;
   readonly spent: ModelUsage;
@@ -95,7 +95,7 @@ interface State {
 
 export class PairJudging
   extends EventRecorder
-  implements OwesWork<PairJudging>
+  implements HasPendingJob<PairJudging>
 {
   private constructor(private readonly state: State) {
     super();
@@ -130,7 +130,7 @@ export class PairJudging
       ...input,
       order: pairOrderOf(input.runId, input.against),
       askedAt: input.now,
-      work: OwedWork.fresh(),
+      job: PendingJob.fresh(),
       judgedAt: null,
       failure: null,
       spent: ModelUsage.none(),
@@ -139,14 +139,14 @@ export class PairJudging
   }
 
   static rehydrate(state: State): PairJudging {
-    const outcomes = [state.work, state.judgedAt, state.failure].filter(
+    const outcomes = [state.job, state.judgedAt, state.failure].filter(
       (each) => each !== null,
     );
 
     if (outcomes.length !== 1) {
       throw new InconsistentStateError(
         'pair judging',
-        'is either still owed, judged or failed, and only one of these',
+        'is either pending, judged or failed, and only one of these',
       );
     }
     if (state.order !== pairOrderOf(state.runId, state.against)) {
@@ -195,8 +195,8 @@ export class PairJudging
     return this.state.askedAt;
   }
 
-  get work(): OwedWork | null {
-    return this.state.work;
+  get job(): PendingJob | null {
+    return this.state.job;
   }
 
   get judgedAt(): Date | null {
@@ -215,54 +215,54 @@ export class PairJudging
     return this.state.version;
   }
 
-  get owesWork(): boolean {
-    return this.state.work !== null;
+  get hasPendingJob(): boolean {
+    return this.state.job !== null;
   }
 
-  get workExhausted(): boolean {
-    return this.state.work?.exhausted ?? false;
+  get jobExhausted(): boolean {
+    return this.state.job?.exhausted ?? false;
   }
 
-  leased(now: Date): PairJudging {
-    const work = this.state.work;
+  leaseJob(now: Date): PairJudging {
+    const job = this.state.job;
 
-    if (!work) {
+    if (!job) {
       throw InvalidScoreError.ofJudging('is already done');
     }
-    if (!work.dueBy(now) || work.exhausted) {
+    if (!job.isDue(now) || job.exhausted) {
       throw InvalidScoreError.ofJudging('cannot be retried yet');
     }
 
-    return this.with({ work: work.leased(now) });
+    return this.with({ job: job.lease(now) });
   }
 
-  triedAgainLater(now: Date): PairJudging {
+  scheduleRetry(now: Date): PairJudging {
     return this.failed(JudgingFailure.of('errored', now));
   }
 
-  gaveUp(now: Date): PairJudging {
+  deadLetter(now: Date): PairJudging {
     return this.ended(JudgingFailure.of('interrupted', now));
   }
 
   failed(failure: JudgingFailure): PairJudging {
-    const work = this.state.work;
+    const job = this.state.job;
 
-    if (!work) {
+    if (!job) {
       return this;
     }
 
     const next =
-      work.attempts < this.state.maxAttempts
-        ? failure.retry.after(work.attempts, failure.at)
+      job.attempts < this.state.maxAttempts
+        ? failure.retry.nextAttemptAt(job.attempts, failure.at)
         : null;
 
     return next
-      ? this.with({ work: work.waitingUntil(next) })
+      ? this.with({ job: job.scheduleRetryAt(next) })
       : this.ended(failure);
   }
 
   recordModel(usage: ModelCall | null): PairJudging {
-    return usage && this.state.work
+    return usage && this.state.job
       ? this.with({ spent: this.state.spent.with(usage) })
       : this;
   }
@@ -276,7 +276,7 @@ export class PairJudging
     model: string;
     now: Date;
   }): PairJudging {
-    if (!this.state.work) {
+    if (!this.state.job) {
       return this;
     }
     if (
@@ -308,7 +308,7 @@ export class PairJudging
 
     const [first, second] = readings as [PairReading, PairReading];
     const judged = this.with({
-      work: null,
+      job: null,
       judgedAt: input.now,
       failure: null,
     });
@@ -328,11 +328,11 @@ export class PairJudging
   }
 
   private ended(failure: JudgingFailure): PairJudging {
-    if (!this.state.work) {
+    if (!this.state.job) {
       return this;
     }
 
-    const ended = this.with({ work: null, failure });
+    const ended = this.with({ job: null, failure });
     ended.record(
       new PairJudgingFailed(
         this.state.runId,

@@ -1,25 +1,27 @@
-import type { EventReactions } from '@platform/events/event-reactions';
+import type { DeliveryBacklog } from '@platform/events/delivery-backlog';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { OutboxTeamProvisioning } from '@work/infrastructure/events/outbox-team-provisioning';
 import { describe, expect, it, vi } from 'vitest';
 
-const provisioning = (owed: number, deadLettered: number) => {
-  const owedBy = vi.fn().mockResolvedValue({ owed, deadLettered });
+const provisioning = (pending: number, deadLettered: number) => {
+  const pendingDeliveriesFor = vi
+    .fn()
+    .mockResolvedValue({ pending, deadLettered });
 
   return {
-    owedBy,
+    pendingDeliveriesFor,
     read: new OutboxTeamProvisioning({
-      owedBy,
-    } as unknown as EventReactions).of(TeamId.of('team_1')),
+      pendingDeliveriesFor,
+    } as unknown as DeliveryBacklog).of(TeamId.of('team_1')),
   };
 };
 
 describe('OutboxTeamProvisioning', () => {
-  it('reads as done once nothing is owed', async () => {
+  it('reads as done once no delivery is pending', async () => {
     await expect(provisioning(0, 0).read).resolves.toBe('done');
   });
 
-  it('reads as pending while the setup is owed, retries included', async () => {
+  it('reads as pending while the setup still has pending deliveries, retries included', async () => {
     await expect(provisioning(1, 0).read).resolves.toBe('pending');
   });
 
@@ -28,11 +30,11 @@ describe('OutboxTeamProvisioning', () => {
   });
 
   it('asks only about a team a person signed up with', async () => {
-    const { owedBy, read } = provisioning(0, 0);
+    const { pendingDeliveriesFor, read } = provisioning(0, 0);
 
     await read;
 
-    expect(owedBy).toHaveBeenCalledWith('work.provision-team', {
+    expect(pendingDeliveriesFor).toHaveBeenCalledWith('work.provision-team', {
       teamId: 'team_1',
       origin: 'sign-up',
     });

@@ -190,7 +190,7 @@ export class DrizzleRunDigests
   }
 
   private async write(only?: SQL): Promise<void> {
-    const owed = await this.db
+    const pending = await this.db
       .select({
         id: run.id,
         attempt: run.attempt,
@@ -209,13 +209,13 @@ export class DrizzleRunDigests
         ),
       );
 
-    for (const batch of chunked(owed, AT_A_TIME)) {
+    for (const batch of chunked(pending, AT_A_TIME)) {
       await this.digest(batch);
     }
   }
 
   private async digest(
-    owed: readonly {
+    pending: readonly {
       id: string;
       attempt: number;
       suspended: readonly number[];
@@ -233,7 +233,7 @@ export class DrizzleRunDigests
       .from(runJournalEntry)
       .where(
         or(
-          ...owed.map(({ id, attempt, suspended }) =>
+          ...pending.map(({ id, attempt, suspended }) =>
             and(
               eq(runJournalEntry.runId, id),
               inArray(runJournalEntry.attempt, [...suspended, attempt]),
@@ -255,7 +255,7 @@ export class DrizzleRunDigests
     }
 
     const homes = this.launch.skillHomes();
-    const rows = owed.map(({ id, attempt, suspended }) => {
+    const rows = pending.map(({ id, attempt, suspended }) => {
       const kept = [...suspended, attempt]
         .sort((one, other) => one - other)
         .map((each) => readings.get(`${id}:${each}`) ?? new Told());

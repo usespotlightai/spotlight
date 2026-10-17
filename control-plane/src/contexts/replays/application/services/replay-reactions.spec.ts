@@ -123,7 +123,7 @@ describe('DispatchReplayRuns', () => {
       aReplay({ id: 'replay_b', count: 3, at: later(1) }),
     );
 
-    await dispatching().workDue();
+    await dispatching().processDue();
 
     expect(work.dispatched).toHaveLength(REPLAY_RUNS_AT_ONCE);
     expect(work.dispatched.map((each) => each.original.value)).toEqual([
@@ -135,7 +135,7 @@ describe('DispatchReplayRuns', () => {
     expect(memory.replays.get('replay_a')?.unconfirmed).toEqual([]);
     expect(memory.replays.get('replay_b')?.current).toBe('queued');
 
-    await dispatching().workDue();
+    await dispatching().processDue();
     expect(work.dispatched).toHaveLength(REPLAY_RUNS_AT_ONCE);
   });
 
@@ -149,8 +149,8 @@ describe('DispatchReplayRuns', () => {
     await memory.candidateRepository.add(oracle);
     await memory.replayRepository.add(replay);
 
-    await dispatching().workDue();
-    await dispatching().workDue();
+    await dispatching().processDue();
+    await dispatching().processDue();
 
     expect(
       work.dispatched.map((each) => [each.original.value, each.answer]),
@@ -164,7 +164,7 @@ describe('DispatchReplayRuns', () => {
     await memory.replayRepository.add(aReplay({ count: 2 }));
     work.unqueued = { queued: false, unreplayableReason: 'archive-gone' };
 
-    await dispatching().workDue();
+    await dispatching().processDue();
 
     expect(
       memory.replays
@@ -183,7 +183,7 @@ describe('DispatchReplayRuns', () => {
       aReplay({ id: 'replay_search', count: 5, searchId: search.id }),
     );
 
-    await dispatching().workDue();
+    await dispatching().processDue();
 
     const queued = (id: string) =>
       memory.replays.get(id)?.entries.filter((each) => each.run !== null)
@@ -196,7 +196,7 @@ describe('DispatchReplayRuns', () => {
     await memory.replayRepository.add(
       aReplay({ id: 'replay_late', count: 2, searchId: search.id }),
     );
-    await dispatching().workDue();
+    await dispatching().processDue();
 
     expect(queued('replay_late')).toBe(0);
   });
@@ -215,7 +215,7 @@ describe('DispatchReplayRuns when Work fails', () => {
       return dispatch(order);
     };
 
-    await dispatching().workDue();
+    await dispatching().processDue();
 
     const [first, second] = memory.replays.get('replay_1')?.entries ?? [];
     expect(first?.queueAttempts).toBe(1);
@@ -229,7 +229,7 @@ describe('DispatchReplayRuns when Work fails', () => {
     work.dispatch = async () => {
       throw new Error('down');
     };
-    await dispatching().workDue();
+    await dispatching().processDue();
     const replay = memory.replays.get('replay_1');
     await memory.replayRepository.save(
       (replay as NonNullable<typeof replay>).stop(later(1), BY),
@@ -237,7 +237,7 @@ describe('DispatchReplayRuns when Work fails', () => {
     const kept = memory.replays.get('replay_1')?.entries[0]?.run?.value ?? '';
     work.queuedRuns.add(kept);
 
-    await dispatching().workDue();
+    await dispatching().processDue();
 
     expect(work.cancelled.map((each) => each.keep)).toEqual([false, false]);
     const after = memory.replays.get('replay_1');
@@ -252,7 +252,7 @@ describe('DispatchReplayRuns when Work fails', () => {
     };
 
     for (let turn = 0; turn < MAX_QUEUE_ATTEMPTS; turn += 1) {
-      await dispatching().workDue();
+      await dispatching().processDue();
     }
     expect(work.cancelled).toEqual([]);
     expect(memory.replays.get('replay_1')?.occupying).toHaveLength(2);
@@ -260,7 +260,7 @@ describe('DispatchReplayRuns when Work fails', () => {
     work.queuedRuns.add(
       memory.replays.get('replay_1')?.entries[1]?.run?.value ?? '',
     );
-    await dispatching().workDue();
+    await dispatching().processDue();
 
     expect(work.cancelled.map((each) => each.keep)).toEqual([true, true]);
     const [first, second] = memory.replays.get('replay_1')?.entries ?? [];
@@ -275,8 +275,8 @@ describe('DispatchReplayRuns without the candidate', () => {
     await memory.replayRepository.add(aReplay({ count: 1 }));
     memory.candidates.clear();
 
-    await dispatching().workDue();
-    await dispatching().workDue();
+    await dispatching().processDue();
+    await dispatching().processDue();
 
     const replay = memory.replays.get('replay_1');
     expect(work.cancelled.map((each) => each.keep)).toEqual([false]);
@@ -350,7 +350,7 @@ describe('NoteLineRedefined', () => {
 describe('NoteReplayEnded and NoteReplayDigested', () => {
   it('record a replay run’s end and digest on its entry, whichever comes first', async () => {
     await memory.replayRepository.add(aReplay({ count: 1 }));
-    await dispatching().workDue();
+    await dispatching().processDue();
     const run = memory.replays.get('replay_1')?.entries[0]?.run?.value ?? '';
 
     await new NoteReplayDigested(
@@ -459,7 +459,7 @@ describe('AbandonReplays', () => {
     const set = aSet(2);
     await memory.setRepository.add(set);
     await memory.replayRepository.add(aReplay({ count: 2 }));
-    await dispatching().workDue();
+    await dispatching().processDue();
     memory.events.length = 0;
 
     await abandoning().replay(ReplayId.of('replay_1'));

@@ -16,9 +16,9 @@ import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import { HunkId } from '@change-review/domain/value-objects/stack-ids';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import {
-  MAX_WORK_ATTEMPTS,
-  WORK_LEASE_MS,
-} from '@shared-kernel/domain/value-objects/owed-work.vo';
+  JOB_LEASE_MS,
+  MAX_JOB_ATTEMPTS,
+} from '@shared-kernel/domain/value-objects/pending-job.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -113,8 +113,8 @@ const working = (
     save: async (stack: ChangeStack) => {
       stored = stack;
     },
-    dueForWork: async (at: Date) =>
-      stored.owesWork && stored.work.dueBy(at) ? stored : null,
+    nextDueJob: async (at: Date) =>
+      stored.hasPendingJob && stored.job.isDue(at) ? stored : null,
   } as unknown as ChangeStackRepository;
   const drafter: ChangeStackDrafterPort = {
     available,
@@ -149,7 +149,7 @@ const working = (
 
   const tick = async (at: Date) => {
     now = at;
-    await service.workDue();
+    await service.processDue();
     await service.idle();
   };
 
@@ -166,18 +166,18 @@ describe('WorkChangeStacks', () => {
       false,
     );
 
-    for (let day = 0; day < MAX_WORK_ATTEMPTS; day += 1) {
+    for (let day = 0; day < MAX_JOB_ATTEMPTS; day += 1) {
       await worked.tick(new Date(NOW.getTime() + day * DAY));
     }
 
-    expect(worked.draft).toHaveBeenCalledTimes(MAX_WORK_ATTEMPTS);
+    expect(worked.draft).toHaveBeenCalledTimes(MAX_JOB_ATTEMPTS);
     expect(worked.stored().state).toBe('failed');
   });
 
   it('drafts a stack that is drafting, leasing it while it does', async () => {
     let leasedWhileDrafting = false;
     const worked = working(drafting(), async () => {
-      leasedWhileDrafting = !worked.stored().work.dueBy(NOW);
+      leasedWhileDrafting = !worked.stored().job.isDue(NOW);
       return layered([['h1'], ['h2']]);
     });
 
@@ -185,10 +185,10 @@ describe('WorkChangeStacks', () => {
 
     expect(leasedWhileDrafting).toBe(true);
     expect(worked.stored().state).toBe('ready');
-    expect(worked.stored().owesWork).toBe(false);
+    expect(worked.stored().hasPendingJob).toBe(false);
   });
 
-  it('tries a failed draft again later rather than at once, then gives up', async () => {
+  it('retries a failed draft later rather than at once, then dead-letters it', async () => {
     const worked = working(drafting(), async () => {
       throw new Error('overloaded');
     });
@@ -199,40 +199,40 @@ describe('WorkChangeStacks', () => {
     expect(worked.draft).toHaveBeenCalledTimes(1);
     expect(worked.stored().state).toBe('drafting');
 
-    for (let day = 1; day < MAX_WORK_ATTEMPTS; day += 1) {
+    for (let day = 1; day < MAX_JOB_ATTEMPTS; day += 1) {
       await worked.tick(new Date(NOW.getTime() + day * DAY));
     }
 
-    expect(worked.draft).toHaveBeenCalledTimes(MAX_WORK_ATTEMPTS);
+    expect(worked.draft).toHaveBeenCalledTimes(MAX_JOB_ATTEMPTS);
     expect(worked.stored().state).toBe('failed');
   });
 
   it('takes up a draft a restart interrupted once its lease runs out', async () => {
-    const worked = working(drafting().leased(NOW), async () =>
+    const worked = working(drafting().leaseJob(NOW), async () =>
       layered([['h1', 'h2']]),
     );
 
     await worked.tick(new Date(NOW.getTime() + 60_000));
     expect(worked.draft).not.toHaveBeenCalled();
 
-    await worked.tick(new Date(NOW.getTime() + WORK_LEASE_MS + 1));
+    await worked.tick(new Date(NOW.getTime() + JOB_LEASE_MS + 1));
     expect(worked.stored().state).toBe('ready');
   });
 
-  it('gives up without asking again on work interrupted every time', async () => {
+  it('dead-letters a job interrupted every time without asking again', async () => {
     let interrupted = drafting();
-    for (let day = 0; day < MAX_WORK_ATTEMPTS; day += 1) {
-      interrupted = interrupted.leased(new Date(NOW.getTime() + day * DAY));
+    for (let day = 0; day < MAX_JOB_ATTEMPTS; day += 1) {
+      interrupted = interrupted.leaseJob(new Date(NOW.getTime() + day * DAY));
     }
     const worked = working(interrupted, async () => layered([['h1', 'h2']]));
 
-    await worked.tick(new Date(NOW.getTime() + MAX_WORK_ATTEMPTS * DAY));
+    await worked.tick(new Date(NOW.getTime() + MAX_JOB_ATTEMPTS * DAY));
 
     expect(worked.draft).not.toHaveBeenCalled();
     expect(worked.stored().state).toBe('failed');
   });
 
-  it('gives up reordering a stack whose check has gone', async () => {
+  it('stops reordering a stack whose check has gone', async () => {
     const reordering = drafting()
       .propose(layered([['h1'], ['h2']]), NOW)
       .askedToReorder();
@@ -241,6 +241,6 @@ describe('WorkChangeStacks', () => {
     await worked.tick(NOW);
 
     expect(worked.stored().reordering).toBe(false);
-    expect(worked.stored().owesWork).toBe(false);
+    expect(worked.stored().hasPendingJob).toBe(false);
   });
 });

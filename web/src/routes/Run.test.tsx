@@ -588,10 +588,10 @@ describe('Run', () => {
   });
 
   describe('while it waits on a person', () => {
-    const OWED = { state: 'owed', conversationId: 'task_1:0' };
+    const PENDING = { state: 'pending', conversationId: 'task_1:0' };
 
     it('says it is waiting for you where it paused, and leads to where to answer', () => {
-      runs.mockReturnValue([run({ state: 'waiting', review: OWED })]);
+      runs.mockReturnValue([run({ state: 'waiting', review: PENDING })]);
 
       const { container } = renderRun();
 
@@ -604,7 +604,7 @@ describe('Run', () => {
     });
 
     it('does not claim the agent is working, nor offer to stop it', () => {
-      runs.mockReturnValue([run({ state: 'waiting', review: OWED })]);
+      runs.mockReturnValue([run({ state: 'waiting', review: PENDING })]);
 
       renderRun();
 
@@ -617,7 +617,7 @@ describe('Run', () => {
     });
 
     it('offers to answer the question right here, so the run carries on', () => {
-      runs.mockReturnValue([run({ state: 'waiting', review: OWED })]);
+      runs.mockReturnValue([run({ state: 'waiting', review: PENDING })]);
 
       renderRun();
 
@@ -630,7 +630,7 @@ describe('Run', () => {
     });
 
     it('lets an approval be decided right here, through its inbox conversation', async () => {
-      runs.mockReturnValue([run({ state: 'waiting', review: OWED })]);
+      runs.mockReturnValue([run({ state: 'waiting', review: PENDING })]);
       const approval = said().notes.map((note) => ({
         ...note,
         form: 'approval',
@@ -698,12 +698,12 @@ describe('Run', () => {
     it('catches up on its work once it goes back to it', () => {
       const client = new QueryClient();
       const invalidated = vi.spyOn(client, 'invalidateQueries');
-      runs.mockReturnValue([run({ state: 'waiting', review: OWED })]);
+      runs.mockReturnValue([run({ state: 'waiting', review: PENDING })]);
 
       const { rerender } = renderRun(client);
       invalidated.mockClear();
 
-      runs.mockReturnValue([run({ state: 'claimed', review: OWED })]);
+      runs.mockReturnValue([run({ state: 'claimed', review: PENDING })]);
       rerender(
         <QueryClientProvider client={client}>
           <MemoryRouter initialEntries={['/w/acme/team/team_1/runs/run_1']}>

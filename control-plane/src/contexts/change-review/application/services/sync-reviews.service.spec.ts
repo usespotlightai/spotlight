@@ -315,7 +315,7 @@ describe('SyncReviews', () => {
     ]);
   });
 
-  it('tries again later where GitHub answers with an error, then gives up', async () => {
+  it('retries later where GitHub answers with an error, then gives up', async () => {
     const { review, comments } = submitted();
     const failing = {
       submit: vi.fn(async () => {
@@ -454,7 +454,7 @@ describe('SyncReviews', () => {
     expect(tired.comments.get('comment_2')?.state).toBe('failed');
   });
 
-  it('posts a review with its comments on lines, and owes each comment on a whole file a post of its own', async () => {
+  it('posts a review with its comments on lines, and sends each comment on a whole file in a post of its own', async () => {
     const onFile = ReviewComment.draft({
       id: ReviewCommentId.of('comment_3'),
       workspaceId: WORKSPACE,
@@ -665,7 +665,7 @@ describe('SyncReviews', () => {
     );
   });
 
-  it('remembers the edit it sent, and still owes one made while sending it', async () => {
+  it('remembers the edit it sent, and still has to send one made while sending it', async () => {
     const posted = draft('comment_1', 3)
       .submittedIn(ReviewId.of('review_1'))
       .postedAs({ id: 77, url: 'https://github.com/c/77' })
@@ -692,14 +692,14 @@ describe('SyncReviews', () => {
     expect(kept?.editsAwaitingEcho).toEqual(['First']);
   });
 
-  it('stops owing an edit GitHub would never take', async () => {
-    const owed = draft('comment_1', 3)
+  it('drops a pending edit GitHub would never take', async () => {
+    const pending = draft('comment_1', 3)
       .submittedIn(ReviewId.of('review_1'))
       .postedAs({ id: 77, url: 'https://github.com/c/77' })
       .rewritten('Clearer', ADA, NOW);
     const synced = syncing({
       sync: { kind: 'edit', subjectId: 'comment_1', attempts: MAX_ATTEMPTS },
-      comments: [owed],
+      comments: [pending],
       github: {
         edit: vi.fn(async () => {
           throw new UpstreamError('edit the review comment', '422');

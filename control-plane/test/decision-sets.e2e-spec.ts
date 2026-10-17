@@ -106,7 +106,7 @@ describe('storing a task’s decisions', () => {
     const read = await sets.forTask(set.taskId);
 
     expect(read?.decidedIn?.equals(FIRST)).toBe(true);
-    expect(read?.owesWork).toBe(false);
+    expect(read?.hasPendingJob).toBe(false);
     expect(
       read?.decisions.map((each) => [each.kind, each.title, each.steps]),
     ).toEqual([
@@ -142,21 +142,21 @@ describe('storing a task’s decisions', () => {
     ]);
   });
 
-  it('hands out a set owing a draft once its lease runs out, and none while the lease runs', async () => {
+  it('hands out a set with a pending job once its lease runs out, and none while the lease runs', async () => {
     await database.db.execute(sql`delete from decision_set`);
     const set = opened().asked(FIRST, NOW);
     await sets.add(set);
 
-    const due = await sets.dueForWork(NOW);
+    const due = await sets.nextDueJob(NOW);
     expect(due?.id.equals(set.id)).toBe(true);
 
     if (!due) throw new Error('not due');
-    await sets.save(due.leased(NOW));
+    await sets.save(due.leaseJob(NOW));
 
-    expect(await sets.dueForWork(NOW)).toBeNull();
+    expect(await sets.nextDueJob(NOW)).toBeNull();
     expect(
       (
-        await sets.dueForWork(new Date(NOW.getTime() + 31 * 60 * 1000))
+        await sets.nextDueJob(new Date(NOW.getTime() + 31 * 60 * 1000))
       )?.id.equals(set.id),
     ).toBe(true);
   });

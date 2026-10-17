@@ -10,7 +10,7 @@ export interface PairJudgingRepository {
 
   of(runId: RunId, against: RunId): Promise<PairJudging | null>;
 
-  dueForWork(now: Date): Promise<PairJudging | null>;
+  nextDueJob(now: Date): Promise<PairJudging | null>;
 
   removeForTeam(workspaceId: WorkspaceId, teamId: TeamId): Promise<void>;
 

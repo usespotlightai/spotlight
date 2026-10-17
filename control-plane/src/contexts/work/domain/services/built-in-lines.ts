@@ -219,7 +219,7 @@ If it is sound, say so plainly and say what you checked, then open a pull
 request and give its address in your note.
 
 With the pull request open, the task is finished: pass the task to \`done\` rather
-than to a person, so nothing is left waiting on an answer nobody owes.`;
+than to a person, so nothing is left waiting on an answer that nobody will give.`;
 
 const PULL_REQUEST_REVIEW = `## Review
 

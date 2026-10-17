@@ -27,7 +27,7 @@ import {
   type DomainEventDispatcher,
 } from '@shared-kernel/application/ports/domain-event-dispatcher.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import { OwedWork } from '@shared-kernel/domain/value-objects/owed-work.vo';
+import { PendingJob } from '@shared-kernel/domain/value-objects/pending-job.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -54,9 +54,9 @@ const draftOf = (row: DecisionSetRow): DecisionDraft | null => {
   return DecisionDraft.rehydrate({
     runId: RunId.of(runId),
     askedAt: row.draftAskedAt,
-    work: OwedWork.rehydrate({
-      attempts: row.workAttempts,
-      dueAt: row.workDueAt,
+    job: PendingJob.rehydrate({
+      attempts: row.jobAttempts,
+      nextAttemptAt: row.jobDueAt,
     }),
   });
 };
@@ -123,8 +123,8 @@ const columnsOf = (set: DecisionSet) => ({
   decidedIn: set.decidedIn?.value ?? null,
   draftRunId: set.draft?.runId.value ?? null,
   draftAskedAt: set.draft?.askedAt ?? null,
-  workAttempts: set.draft?.work.attempts ?? 0,
-  workDueAt: set.draft?.work.dueAt ?? null,
+  jobAttempts: set.draft?.job.attempts ?? 0,
+  jobDueAt: set.draft?.job.nextAttemptAt ?? null,
   status: set.status.state,
   mergedRepository: set.status.merge?.repository.value ?? null,
   mergedCommit: set.status.merge?.commit ?? null,
@@ -252,14 +252,14 @@ export class DrizzleDecisionSetRepository implements DecisionSetRepository {
     return row ? this.withDecisions(row) : null;
   }
 
-  async dueForWork(now: Date): Promise<DecisionSet | null> {
+  async nextDueJob(now: Date): Promise<DecisionSet | null> {
     const [row] = await this.context.db
       .select()
       .from(decisionSet)
       .where(
         and(
           isNotNull(decisionSet.draftRunId),
-          or(isNull(decisionSet.workDueAt), lte(decisionSet.workDueAt, now)),
+          or(isNull(decisionSet.jobDueAt), lte(decisionSet.jobDueAt, now)),
         ),
       )
       .orderBy(asc(decisionSet.draftAskedAt))

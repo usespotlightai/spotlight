@@ -34,7 +34,7 @@ export class RequeueCount {
   requeuedAt(now: Date): RequeueCount {
     const count = this.count + 1;
 
-    return new RequeueCount(count, UNANSWERED.after(count, now) ?? now);
+    return new RequeueCount(count, UNANSWERED.nextAttemptAt(count, now) ?? now);
   }
 
   get exhausted(): boolean {

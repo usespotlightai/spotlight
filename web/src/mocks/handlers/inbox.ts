@@ -151,11 +151,11 @@ const conversationHandlers = [
       }
 
       const said = (await request.json()) as AnswerInboxItemRequestDto;
-      const owesDecision =
+      const decisionPending =
         item.notes.findLast((note) => note.kind === 'asked')?.form ===
         'approval';
 
-      if (said.approve !== undefined && !owesDecision) {
+      if (said.approve !== undefined && !decisionPending) {
         return problem(400, 'Nothing here waits for an approval.');
       }
 

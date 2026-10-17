@@ -4,11 +4,11 @@ import { CqrsModule } from '@nestjs/cqrs';
 import { ConfigModule } from '@platform/config/config.module';
 import { SentryErrorReports } from '@platform/errors/sentry-error-reports';
 import { AmbientCausation } from '@platform/events/ambient-causation';
+import { DeliveryBacklog } from '@platform/events/delivery-backlog';
 import { EventDelivery } from '@platform/events/event-delivery';
 import { EventDeliveryWorker } from '@platform/events/event-delivery.worker';
 import { EventOutbox } from '@platform/events/event-outbox';
 import { EventProjections } from '@platform/events/event-projections';
-import { EventReactions } from '@platform/events/event-reactions';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import { IntegrationEventMappers } from '@platform/events/integration-event-mappers';
 import { PayloadTypes } from '@platform/events/payload-types';
@@ -80,7 +80,7 @@ import { SHARED_KERNEL_PAYLOAD_TYPES } from '@shared-kernel/domain/payload-types
     { provide: DOMAIN_EVENT_DISPATCHER, useExisting: EventOutbox },
     EventDelivery,
     EventDeliveryWorker,
-    EventReactions,
+    DeliveryBacklog,
     { provide: ID_GENERATOR, useClass: CryptoIdGenerator },
     { provide: CLOCK, useClass: SystemClock },
     { provide: ERROR_REPORTS, useClass: SentryErrorReports },
@@ -109,7 +109,7 @@ import { SHARED_KERNEL_PAYLOAD_TYPES } from '@shared-kernel/domain/payload-types
     EventOutbox,
     DOMAIN_EVENT_DISPATCHER,
     EventDelivery,
-    EventReactions,
+    DeliveryBacklog,
     ID_GENERATOR,
     CLOCK,
     EXPRESSION_ENGINE,

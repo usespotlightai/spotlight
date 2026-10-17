@@ -234,8 +234,8 @@ describe('picking a search candidate', () => {
     });
     expect(again).toMatchObject({ outcome: 'already' });
 
-    await opening().workDue();
-    await opening().workDue();
+    await opening().processDue();
+    await opening().processDue();
 
     expect(only()).toMatchObject({
       current: 'opened',
@@ -296,7 +296,7 @@ describe('picking a search candidate', () => {
       }),
     };
     await pick();
-    await opening().workDue();
+    await opening().processDue();
 
     expect(only()).toMatchObject({ current: 'failed', attempts: 1 });
     expect(only().reason).toMatchObject({
@@ -310,7 +310,7 @@ describe('picking a search candidate', () => {
       outcome: 'picked',
       pullRequest: { state: 'opening', attempts: 2, reason: null },
     });
-    await opening().workDue();
+    await opening().processDue();
 
     expect(only().current).toBe('opened');
     expect(configs.openings[0]?.body).toContain('## Not checked');
@@ -323,7 +323,7 @@ describe('picking a search candidate', () => {
       'not installed',
     );
     await pick();
-    await opening().workDue();
+    await opening().processDue();
 
     expect(only().reason).toMatchObject({
       code: 'repository-unreachable',
@@ -333,12 +333,12 @@ describe('picking a search candidate', () => {
     configs.failing = null;
     configs.hasFile = false;
     await pick();
-    await opening().workDue();
+    await opening().processDue();
 
     expect(only().reason?.code).toBe('file-missing');
   });
 
-  it('gives up at once on what GitHub rejects for good, and writes over only its own branch on a new attempt', async () => {
+  it('fails at once on what GitHub rejects for good, and writes over only its own branch on a new attempt', async () => {
     configs.failing = null;
     await pick();
     const opened = configs.opened.bind(configs);
@@ -349,7 +349,7 @@ describe('picking a search candidate', () => {
         'Resource not accessible by integration',
       );
     };
-    await opening().workDue();
+    await opening().processDue();
 
     expect(only()).toMatchObject({
       current: 'failed',
@@ -363,7 +363,7 @@ describe('picking a search candidate', () => {
 
     configs.opened = opened;
     await pick();
-    await opening().workDue();
+    await opening().processDue();
 
     expect(configs.commits[1]?.replacing).toBe('commit_1');
     expect(only()).toMatchObject({ current: 'opened', lastCommit: 'commit_2' });
@@ -377,13 +377,13 @@ describe('picking a search candidate', () => {
       await opened(...args);
       throw new Error('socket hang up');
     };
-    await opening().workDue();
+    await opening().processDue();
 
     expect(only()).toMatchObject({ current: 'opening', tries: 1 });
 
     configs.opened = opened;
     now = new Date(now.getTime() + 60 * 60_000);
-    await opening().workDue();
+    await opening().processDue();
 
     expect(only()).toMatchObject({
       current: 'opened',
@@ -393,18 +393,18 @@ describe('picking a search candidate', () => {
     expect(configs.commits[1]?.replacing).toBe('commit_1');
   });
 
-  it('tries again later when GitHub fails, and gives up after the last try', async () => {
+  it('retries later when GitHub fails, and fails after the last try', async () => {
     configs.failing = new Error('GitHub is down');
     await pick();
-    await opening().workDue();
+    await opening().processDue();
 
     expect(only()).toMatchObject({ current: 'opening', tries: 1 });
-    await opening().workDue();
+    await opening().processDue();
     expect(only().tries).toBe(1);
 
     for (let tries = 1; tries < MAX_TRIES; tries += 1) {
       now = new Date(now.getTime() + 24 * 60 * 60_000);
-      await opening().workDue();
+      await opening().processDue();
     }
 
     expect(only()).toMatchObject({ current: 'failed' });
@@ -417,7 +417,7 @@ describe('picking a search candidate', () => {
   it('fails at once when the line names no source', async () => {
     work.station = async () => ({ ...STATION_VIEW, source: null });
     await pick();
-    await opening().workDue();
+    await opening().processDue();
 
     expect(only().reason?.code).toBe('no-source');
     expect(editor.asked).toEqual([]);
@@ -442,7 +442,7 @@ describe('picking a search candidate', () => {
     }
 
     await pick();
-    await opening().workDue();
+    await opening().processDue();
 
     expect(configs.openings[0]?.body).toContain(
       'Its held-out replay had not finished when this pull request opened',

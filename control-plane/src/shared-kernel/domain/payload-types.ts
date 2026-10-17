@@ -11,7 +11,7 @@ import { IdempotencyKey } from '@shared-kernel/domain/value-objects/idempotency-
 import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
 import { LatencyHistogram } from '@shared-kernel/domain/value-objects/latency-histogram.vo';
 import { ModelUsage } from '@shared-kernel/domain/value-objects/model-usage.vo';
-import { OwedWork } from '@shared-kernel/domain/value-objects/owed-work.vo';
+import { PendingJob } from '@shared-kernel/domain/value-objects/pending-job.vo';
 import { PoolId } from '@shared-kernel/domain/value-objects/pool-id.vo';
 import {
   PersonPrincipal,
@@ -56,7 +56,7 @@ export const SHARED_KERNEL_PAYLOAD_TYPES = [
   InputSchema,
   LatencyHistogram,
   ModelUsage,
-  OwedWork,
+  PendingJob,
   PersonPrincipal,
   PullRequestUrl,
   Repository,

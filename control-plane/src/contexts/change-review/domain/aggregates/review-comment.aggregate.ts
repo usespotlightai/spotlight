@@ -183,7 +183,7 @@ export class ReviewComment extends EventRecorder {
     if (input.editPending && !input.github) {
       throw new InconsistentStateError(
         'review comment',
-        'owes GitHub an edit without being on GitHub',
+        'has an edit to send to GitHub but is not on GitHub',
       );
     }
 

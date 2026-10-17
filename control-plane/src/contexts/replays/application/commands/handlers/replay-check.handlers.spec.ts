@@ -555,7 +555,7 @@ describe('EnsureCheckBaselines', () => {
       CLOCK,
       TRANSACTION,
       QUIET,
-    ).workDue();
+    ).processDue();
 
   const baselines = () =>
     [...memory.replays.values()].filter((each) => each.baseline);

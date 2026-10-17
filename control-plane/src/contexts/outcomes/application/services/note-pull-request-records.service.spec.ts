@@ -282,13 +282,13 @@ describe('dropping what GitHub forgot long ago', () => {
     });
     await forgotten.forgetPullRequest(WORKSPACE, PULL, { updatedAt: SEEN_AT });
 
-    await dropping.workDue();
+    await dropping.processDue();
 
     expect(await forgotten.tombstoneOf(WORKSPACE, PULL)).toBeNull();
 
     await forgotten.forgetPullRequest(WORKSPACE, PULL, { updatedAt: SEEN_AT });
     now = new Date(now.getTime() + 30 * 60_000);
-    await dropping.workDue();
+    await dropping.processDue();
 
     expect(await forgotten.tombstoneOf(WORKSPACE, PULL)).not.toBeNull();
   });
@@ -300,7 +300,7 @@ describe('dropping what GitHub forgot long ago', () => {
     await new DropExpiredTombstones(forgotten, {
       now: () => new Date(SEEN_AT.getTime() + 190 * DAY_MS),
       sleep: async () => {},
-    }).workDue();
+    }).processDue();
 
     expect(await forgotten.tombstoneOf(WORKSPACE, PULL)).not.toBeNull();
   });

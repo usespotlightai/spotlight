@@ -1,5 +1,5 @@
 {
-  "id": "1b8043d5-ba56-4195-bfe9-bb77477faa3f",
+  "id": "3d10d9fe-293d-4407-accb-33cad98b0da3",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -69,8 +69,8 @@
           "method": "btree",
           "with": {}
         },
-        "event_delivery_owed_idx": {
-          "name": "event_delivery_owed_idx",
+        "event_delivery_pending_idx": {
+          "name": "event_delivery_pending_idx",
           "columns": [
             {
               "expression": "subscriber",
@@ -454,15 +454,15 @@
           "primaryKey": false,
           "notNull": true
         },
-        "work_attempts": {
-          "name": "work_attempts",
+        "job_attempts": {
+          "name": "job_attempts",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "default": 0
         },
-        "work_due_at": {
-          "name": "work_due_at",
+        "job_due_at": {
+          "name": "job_due_at",
           "type": "timestamp",
           "primaryKey": false,
           "notNull": false
@@ -764,15 +764,15 @@
           "primaryKey": false,
           "notNull": false
         },
-        "work_attempts": {
-          "name": "work_attempts",
+        "job_attempts": {
+          "name": "job_attempts",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "default": 0
         },
-        "work_due_at": {
-          "name": "work_due_at",
+        "job_due_at": {
+          "name": "job_due_at",
           "type": "timestamp",
           "primaryKey": false,
           "notNull": false
@@ -1462,15 +1462,15 @@
           "primaryKey": false,
           "notNull": false
         },
-        "provision_failures": {
-          "name": "provision_failures",
+        "provision_attempts": {
+          "name": "provision_attempts",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "default": 0
         },
-        "next_provision_at": {
-          "name": "next_provision_at",
+        "next_provision_attempt_at": {
+          "name": "next_provision_attempt_at",
           "type": "timestamp",
           "primaryKey": false,
           "notNull": false
@@ -4865,15 +4865,15 @@
           "primaryKey": false,
           "notNull": false
         },
-        "work_attempts": {
-          "name": "work_attempts",
+        "job_attempts": {
+          "name": "job_attempts",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "default": 0
         },
-        "work_due_at": {
-          "name": "work_due_at",
+        "job_due_at": {
+          "name": "job_due_at",
           "type": "timestamp",
           "primaryKey": false,
           "notNull": false
@@ -5305,21 +5305,21 @@
           "primaryKey": false,
           "notNull": true
         },
-        "owed": {
-          "name": "owed",
+        "pending": {
+          "name": "pending",
           "type": "boolean",
           "primaryKey": false,
           "notNull": true
         },
-        "work_attempts": {
-          "name": "work_attempts",
+        "job_attempts": {
+          "name": "job_attempts",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "default": 0
         },
-        "work_due_at": {
-          "name": "work_due_at",
+        "job_due_at": {
+          "name": "job_due_at",
           "type": "timestamp",
           "primaryKey": false,
           "notNull": false
@@ -5352,8 +5352,8 @@
         }
       },
       "indexes": {
-        "change_judging_owed_idx": {
-          "name": "change_judging_owed_idx",
+        "change_judging_pending_idx": {
+          "name": "change_judging_pending_idx",
           "columns": [
             {
               "expression": "asked_at",
@@ -5363,7 +5363,7 @@
             }
           ],
           "isUnique": false,
-          "where": "\"change_judging\".\"owed\"",
+          "where": "\"change_judging\".\"pending\"",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -5716,21 +5716,21 @@
           "primaryKey": false,
           "notNull": true
         },
-        "owed": {
-          "name": "owed",
+        "pending": {
+          "name": "pending",
           "type": "boolean",
           "primaryKey": false,
           "notNull": true
         },
-        "work_attempts": {
-          "name": "work_attempts",
+        "job_attempts": {
+          "name": "job_attempts",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "default": 0
         },
-        "work_due_at": {
-          "name": "work_due_at",
+        "job_due_at": {
+          "name": "job_due_at",
           "type": "timestamp",
           "primaryKey": false,
           "notNull": false
@@ -5763,8 +5763,8 @@
         }
       },
       "indexes": {
-        "judging_owed_idx": {
-          "name": "judging_owed_idx",
+        "judging_pending_idx": {
+          "name": "judging_pending_idx",
           "columns": [
             {
               "expression": "asked_at",
@@ -5774,7 +5774,7 @@
             }
           ],
           "isUnique": false,
-          "where": "\"judging\".\"owed\"",
+          "where": "\"judging\".\"pending\"",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -5900,21 +5900,21 @@
           "primaryKey": false,
           "notNull": true
         },
-        "owed": {
-          "name": "owed",
+        "pending": {
+          "name": "pending",
           "type": "boolean",
           "primaryKey": false,
           "notNull": true
         },
-        "work_attempts": {
-          "name": "work_attempts",
+        "job_attempts": {
+          "name": "job_attempts",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "default": 0
         },
-        "work_due_at": {
-          "name": "work_due_at",
+        "job_due_at": {
+          "name": "job_due_at",
           "type": "timestamp",
           "primaryKey": false,
           "notNull": false
@@ -5947,8 +5947,8 @@
         }
       },
       "indexes": {
-        "pair_judging_owed_idx": {
-          "name": "pair_judging_owed_idx",
+        "pair_judging_pending_idx": {
+          "name": "pair_judging_pending_idx",
           "columns": [
             {
               "expression": "asked_at",
@@ -5958,7 +5958,7 @@
             }
           ],
           "isUnique": false,
-          "where": "\"pair_judging\".\"owed\"",
+          "where": "\"pair_judging\".\"pending\"",
           "concurrently": false,
           "method": "btree",
           "with": {}
@@ -13313,15 +13313,15 @@
           "primaryKey": false,
           "notNull": false
         },
-        "provision_failures": {
-          "name": "provision_failures",
+        "provision_attempts": {
+          "name": "provision_attempts",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,
           "default": 0
         },
-        "next_provision_at": {
-          "name": "next_provision_at",
+        "next_provision_attempt_at": {
+          "name": "next_provision_attempt_at",
           "type": "timestamp",
           "primaryKey": false,
           "notNull": false

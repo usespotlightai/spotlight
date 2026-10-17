@@ -24,8 +24,8 @@ export const idleNoteOf = (run: Pick<Run, 'state'>): string =>
 export const waitsOnPerson = (run: Pick<Run, 'state'>): boolean =>
   run.state === 'waiting' || run.state === 'suspended';
 
-export const owesYou = (run: Pick<Run, 'state' | 'review'>): boolean =>
-  waitsOnPerson(run) || run.review?.state === 'owed';
+export const waitsForYou = (run: Pick<Run, 'state' | 'review'>): boolean =>
+  waitsOnPerson(run) || run.review?.state === 'pending';
 
 export const runStatus = (run: Run): string | null => {
   if (waitsOnPerson(run)) {
@@ -113,4 +113,4 @@ export const asRunFilter = (raw: string): RunFilter =>
 export const inRunFilter = (
   filter: RunFilter,
   run: Pick<TeamRun, 'state' | 'review'>,
-): boolean => filter === 'all' || owesYou(run);
+): boolean => filter === 'all' || waitsForYou(run);

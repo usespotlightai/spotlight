@@ -3,10 +3,10 @@ import { DrizzleConfigurationAudit } from '@identity/infrastructure/persistence/
 import { configurationChange } from '@identity/infrastructure/persistence/drizzle/schemas/configuration-change.schema';
 import { identityProjections } from '@identity/presentation/events/identity.projections';
 import { AmbientCausation } from '@platform/events/ambient-causation';
+import { DeliveryBacklog } from '@platform/events/delivery-backlog';
 import { EventDelivery, MAX_ATTEMPTS } from '@platform/events/event-delivery';
 import { EventOutbox } from '@platform/events/event-outbox';
 import { EventProjections } from '@platform/events/event-projections';
-import { EventReactions } from '@platform/events/event-reactions';
 import { EventSubscribers } from '@platform/events/event-subscribers';
 import { IntegrationEventMappers } from '@platform/events/integration-event-mappers';
 import { PayloadTypes } from '@platform/events/payload-types';
@@ -252,7 +252,7 @@ describe('the event outbox', () => {
     expect(heard).toContain('published string plain');
   });
 
-  it('tries a failing subscriber again later, without troubling the others', async () => {
+  it('retries a failing subscriber later, without troubling the others', async () => {
     heard.length = 0;
     failing = 1;
     const { outbox, delivery } = outboxWith();
@@ -269,7 +269,7 @@ describe('the event outbox', () => {
     expect(heard).toContain('flaky two');
   });
 
-  it('gives up on a subscriber that keeps failing, and reports only the last failure', async () => {
+  it('dead-letters the delivery to a subscriber that keeps failing, and reports only the last failure', async () => {
     failing = MAX_ATTEMPTS + 5;
     const { outbox, delivery, reports } = outboxWith();
 
@@ -299,46 +299,48 @@ describe('the event outbox', () => {
     failing = 0;
   });
 
-  it('counts what a subscriber still owes for the events about one thing', async () => {
+  it('counts the pending deliveries of a subscriber for the events about one thing', async () => {
     const { outbox, delivery } = outboxWith();
-    const owed = (marker: string) =>
-      new EventReactions(context).owedBy('test.hear-published', { marker });
+    const pending = (marker: string) =>
+      new DeliveryBacklog(context).pendingDeliveriesFor('test.hear-published', {
+        marker,
+      });
 
     await outbox.record([new Rang(Marker.of('tracked'))]);
 
-    await expect(owed('tracked')).resolves.toEqual({
-      owed: 1,
+    await expect(pending('tracked')).resolves.toEqual({
+      pending: 1,
       deadLettered: 0,
     });
-    await expect(owed('never-rang')).resolves.toEqual({
-      owed: 0,
+    await expect(pending('never-rang')).resolves.toEqual({
+      pending: 0,
       deadLettered: 0,
     });
 
     await delivery.processDue();
 
-    await expect(owed('tracked')).resolves.toEqual({
-      owed: 0,
+    await expect(pending('tracked')).resolves.toEqual({
+      pending: 0,
       deadLettered: 0,
     });
   });
 
   it('matches every field it is given', async () => {
     const { outbox } = outboxWith();
-    const owed = (kind: string) =>
-      new EventReactions(context).owedBy('test.hear-published', {
+    const pending = (kind: string) =>
+      new DeliveryBacklog(context).pendingDeliveriesFor('test.hear-published', {
         marker: 'two-fields',
         kind,
       });
 
     await outbox.record([new Rang(Marker.of('two-fields'))]);
 
-    await expect(owed('bell.published-rang.v1')).resolves.toEqual({
-      owed: 1,
+    await expect(pending('bell.published-rang.v1')).resolves.toEqual({
+      pending: 1,
       deadLettered: 0,
     });
-    await expect(owed('bell.other')).resolves.toEqual({
-      owed: 0,
+    await expect(pending('bell.other')).resolves.toEqual({
+      pending: 0,
       deadLettered: 0,
     });
   });
@@ -349,27 +351,29 @@ describe('the event outbox', () => {
     await outbox.record([new Rang(Marker.of('nested'))]);
 
     await expect(
-      new EventReactions(context).owedBy('test.answer', { marker: 'nested' }),
-    ).resolves.toEqual({ owed: 1, deadLettered: 0 });
+      new DeliveryBacklog(context).pendingDeliveriesFor('test.answer', {
+        marker: 'nested',
+      }),
+    ).resolves.toEqual({ pending: 1, deadLettered: 0 });
   });
 
-  it('counts what a subscriber dead-lettered, and not what it still tries again', async () => {
+  it('counts what a subscriber dead-lettered, and not what it still retries', async () => {
     const { outbox, delivery } = outboxWith();
-    const owed = () =>
-      new EventReactions(context).owedBy('test.fail-published', {
+    const pending = () =>
+      new DeliveryBacklog(context).pendingDeliveriesFor('test.fail-published', {
         marker: 'failing',
       });
 
     await outbox.record([new Rang(Marker.of('failing'))]);
     await delivery.processDue();
 
-    await expect(owed()).resolves.toEqual({ owed: 1, deadLettered: 0 });
+    await expect(pending()).resolves.toEqual({ pending: 1, deadLettered: 0 });
 
     for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
       now = new Date(now.getTime() + 2 * 60 * 60 * 1000);
       await delivery.processDue();
     }
 
-    await expect(owed()).resolves.toEqual({ owed: 1, deadLettered: 1 });
+    await expect(pending()).resolves.toEqual({ pending: 1, deadLettered: 1 });
   });
 });

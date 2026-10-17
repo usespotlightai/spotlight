@@ -34,7 +34,7 @@ export const eventDelivery = pgTable(
   (table) => [
     primaryKey({ columns: [table.eventId, table.subscriber] }),
     index('event_delivery_due_idx').on(table.dueAt),
-    index('event_delivery_owed_idx')
+    index('event_delivery_pending_idx')
       .on(table.subscriber)
       .where(sql`${table.deliveredAt} is null`),
   ],

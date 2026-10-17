@@ -40,7 +40,7 @@ const ASK = {
 };
 
 describe('AskChangeJudging', () => {
-  it('owes a judging of the change, once however often it is asked', async () => {
+  it('creates one pending judging of the change, however often it is asked', async () => {
     const { judgings, service } = asking();
 
     expect(await service.ask(ASK)).toBe('asked');
@@ -113,12 +113,12 @@ const judgedAs = async (
   value: boolean,
 ): Promise<void> => {
   const run = RunId.of('replay_1');
-  const owed = await judgings.of(run, round);
+  const judging = await judgings.of(run, round);
 
-  if (!owed) {
-    throw new Error('no judging was owed');
+  if (!judging) {
+    throw new Error('no judging is pending');
   }
-  await judgings.save(owed.leased(NOW));
+  await judgings.save(judging.leaseJob(NOW));
 
   const leased = await judgings.of(run, round);
 
@@ -165,7 +165,7 @@ describe('AskChangeJudging, asked again', () => {
     return asked;
   };
 
-  it('owes a second judging of a change judged once, with the first one’s rubric and reference, once however often it is asked', async () => {
+  it('creates one pending second judging with the first rubric and reference, however often it is asked', async () => {
     const { judgings, service } = await judgedOnce();
 
     expect(await service.askAgain('replay_1')).toBe('asked');
@@ -174,7 +174,7 @@ describe('AskChangeJudging, asked again', () => {
     const second = await judgings.of(RunId.of('replay_1'), 2);
     expect(judgings.stored.size).toBe(2);
     expect(second?.round).toBe(2);
-    expect(second?.owesWork).toBe(true);
+    expect(second?.hasPendingJob).toBe(true);
     expect(second?.criteria.rubric).toBe(ASK.rubric);
     expect(second?.reference?.value).toBe('original_1');
     expect((await judgings.of(RunId.of('replay_1'), 1))?.judgedAt).toEqual(NOW);

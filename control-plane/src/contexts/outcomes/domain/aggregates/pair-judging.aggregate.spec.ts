@@ -64,7 +64,7 @@ const preferring = (
     evidence: evidenceIn(order),
   }));
 
-const leased = () => asked().leased(NOW);
+const leasedJudging = () => asked().leaseJob(NOW);
 
 describe('PairJudging', () => {
   it('sets two different runs beside a third, accepted before', () => {
@@ -92,11 +92,11 @@ describe('PairJudging', () => {
         now: NOW,
       }),
     ).toThrow(InvalidScoreError);
-    expect(asked().owesWork).toBe(true);
+    expect(asked().hasPendingJob).toBe(true);
   });
 
   it('reads the pair once in the order drawn and once the other way round', () => {
-    const judging = leased();
+    const judging = leasedJudging();
 
     expect(judging.orders).toEqual([
       judging.order,
@@ -105,7 +105,7 @@ describe('PairJudging', () => {
   });
 
   it('names the winner by its run when both readings agree, whatever label it was shown under, keeping both readings', () => {
-    const judging = leased().recordModel({
+    const judging = leasedJudging().recordModel({
       inputTokens: 100,
       outputTokens: 10,
       cost: { amount: 0.02, currency: 'USD' },
@@ -117,7 +117,7 @@ describe('PairJudging', () => {
     });
     const [event] = judged.pullEvents() as PairJudged[];
 
-    expect(judged.owesWork).toBe(false);
+    expect(judged.hasPendingJob).toBe(false);
     expect(event?.winner).toBe('run');
     expect(event?.readings.map((each) => each.winner)).toEqual(['run', 'run']);
     expect(event?.readings.map((each) => each.runShownFirst)).toEqual([
@@ -129,7 +129,7 @@ describe('PairJudging', () => {
   });
 
   it('calls the pair a tie where the two readings disagree, as when the judge always prefers what it saw first', () => {
-    const judging = leased();
+    const judging = leasedJudging();
     const [event] = judging
       .recordVerdict({
         readings: preferring(judging, () => 'A'),
@@ -145,8 +145,8 @@ describe('PairJudging', () => {
     ]);
   });
 
-  it('tries again later when either reading rests on nothing shown, or gives no reason', () => {
-    const judging = leased();
+  it('retries later when either reading rests on nothing shown, or gives no reason', () => {
+    const judging = leasedJudging();
 
     for (const reasons of [
       () => [],
@@ -158,13 +158,13 @@ describe('PairJudging', () => {
         now: NOW,
       });
 
-      expect(tried.owesWork).toBe(true);
+      expect(tried.hasPendingJob).toBe(true);
       expect(tried.pullEvents()).toEqual([]);
     }
   });
 
   it('is judged only on its own two runs’ changes, shown both ways round', () => {
-    const judging = leased();
+    const judging = leasedJudging();
     const [first] = preferring(judging, runLabelIn);
 
     expect(() =>
@@ -184,10 +184,12 @@ describe('PairJudging', () => {
   });
 
   it('says it failed for good, with what it spent, once it can try no more', () => {
-    const failed = leased().failed(JudgingFailure.of('no-evidence', NOW));
+    const failed = leasedJudging().failed(
+      JudgingFailure.of('no-evidence', NOW),
+    );
     const [event] = failed.pullEvents() as PairJudgingFailed[];
 
-    expect(failed.owesWork).toBe(false);
+    expect(failed.hasPendingJob).toBe(false);
     expect(event?.failure.code).toBe('no-evidence');
     expect(event?.against.equals(AGAINST)).toBe(true);
   });
@@ -202,13 +204,13 @@ describe('PairJudging', () => {
       reference: RunId.of('original_1'),
       maxAttempts: 1,
       now: NOW,
-    }).leased(NOW);
+    }).leaseJob(NOW);
 
     const failed = once.failed(JudgingFailure.of('errored', NOW));
 
-    expect(failed.owesWork).toBe(false);
-    expect(leased().failed(JudgingFailure.of('errored', NOW)).owesWork).toBe(
-      true,
-    );
+    expect(failed.hasPendingJob).toBe(false);
+    expect(
+      leasedJudging().failed(JudgingFailure.of('errored', NOW)).hasPendingJob,
+    ).toBe(true);
   });
 });

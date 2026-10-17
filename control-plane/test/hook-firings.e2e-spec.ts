@@ -142,7 +142,7 @@ describe('hook firings, kept in the database (e2e)', () => {
     });
   });
 
-  it('forgets finished firings once they are old, and nothing still owed', async () => {
+  it('forgets finished firings once they are old, and nothing still pending', async () => {
     await firings.add(firing('occurrence_3'));
     await firings.add(firing('occurrence_4'));
     const finished = await claimed();

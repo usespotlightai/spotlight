@@ -1040,7 +1040,7 @@ describe('Run', () => {
     const failure = ProvisionFailure.of('http-error', 'the pool said no');
     const pooled = runner('pooled_1');
     const failedAgain = (run: Run) => {
-      const due = run.provisioning.nextAt ?? noon;
+      const due = run.provisioning.nextAttemptAt ?? noon;
 
       return run
         .reservedFor(pooled, PoolId.of('burst'), due)
@@ -1052,8 +1052,8 @@ describe('Run', () => {
 
       expect(run.state).toBe('queued');
       expect(run.reservation).toBeNull();
-      expect(run.provisioning.failures).toBe(1);
-      expect(run.provisioning.nextAt).toEqual(later(5_000));
+      expect(run.provisioning.attempts).toBe(1);
+      expect(run.provisioning.nextAttemptAt).toEqual(later(5_000));
       expect(run.provisionableAt(later(4_999))).toBe(false);
       expect(run.provisionableAt(later(5_000))).toBe(true);
     });
@@ -1061,7 +1061,7 @@ describe('Run', () => {
     it('backs off longer after each failure', () => {
       const twice = failedAgain(failedAgain(queued()));
 
-      expect(twice.provisioning.nextAt).toEqual(later(15_000));
+      expect(twice.provisioning.nextAttemptAt).toEqual(later(15_000));
     });
 
     it('fails for good after five failures, saying why', () => {
@@ -1135,8 +1135,8 @@ describe('Run', () => {
         .claim(runner(), later(5_000))
         .expireLease(later(10 * 60_000));
 
-      expect(again.provisioning.failures).toBe(0);
-      expect(again.provisioning.nextAt).toBeNull();
+      expect(again.provisioning.attempts).toBe(0);
+      expect(again.provisioning.nextAttemptAt).toBeNull();
       expect(again.reservation).toBeNull();
       expect(again.provisionableAt(later(10 * 60_000))).toBe(true);
     });

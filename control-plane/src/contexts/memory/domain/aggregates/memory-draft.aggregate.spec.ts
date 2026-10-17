@@ -21,7 +21,7 @@ import { MemoryGrounds } from '@memory/domain/value-objects/memory-grounds.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import { MAX_WORK_ATTEMPTS } from '@shared-kernel/domain/value-objects/owed-work.vo';
+import { MAX_JOB_ATTEMPTS } from '@shared-kernel/domain/value-objects/pending-job.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -122,10 +122,10 @@ const rejected = (id: string) =>
 
 describe('MemoryDraft', () => {
   describe('being asked to draft', () => {
-    it('owes a draft of the run that ended', () => {
+    it('has a pending job to draft the run that ended', () => {
       const asked = opened().asked(FIRST, NOW);
 
-      expect(asked.owesWork).toBe(true);
+      expect(asked.hasPendingJob).toBe(true);
       expect(asked.drafting?.isFor(FIRST)).toBe(true);
       expect(asked.pullEvents()).toEqual([
         new MemoryDraftingAsked(asked.id, TASK, FIRST),
@@ -148,7 +148,7 @@ describe('MemoryDraft', () => {
     it('is not asked again for a run it already drafted', () => {
       const drafted = drafting(opened().asked(FIRST, NOW), FIRST, []);
 
-      expect(drafted.asked(FIRST, LATER).owesWork).toBe(false);
+      expect(drafted.asked(FIRST, LATER).hasPendingJob).toBe(false);
     });
   });
 
@@ -161,7 +161,7 @@ describe('MemoryDraft', () => {
         remembered({ kind: 'gossip' }),
       ]);
 
-      expect(drafted.owesWork).toBe(false);
+      expect(drafted.hasPendingJob).toBe(false);
       expect(drafted.draftedIn?.equals(FIRST)).toBe(true);
       expect(drafted.proposals).toHaveLength(1);
       expect(drafted.proposals[0]?.proposed).toBe(true);
@@ -247,7 +247,7 @@ describe('MemoryDraft', () => {
       ).toThrow(InvalidMemoryError);
     });
 
-    it('ignores a draft of a run it no longer owes', () => {
+    it('ignores a draft of a run that it no longer waits for', () => {
       const asked = opened().asked(SECOND, NOW);
 
       expect(drafting(asked, FIRST, [remembered()])).toBe(asked);
@@ -278,15 +278,15 @@ describe('MemoryDraft', () => {
   });
 
   describe('failing', () => {
-    it('tries again later where the failure allows another attempt', () => {
-      const leased = opened().asked(FIRST, NOW).leased(NOW);
+    it('is retried later where the failure allows another attempt', () => {
+      const leased = opened().asked(FIRST, NOW).leaseJob(NOW);
 
       const failed = leased.failed(
         MemoryDraftingFailure.of('request-failed', NOW),
       );
 
-      expect(failed.owesWork).toBe(true);
-      expect(failed.drafting?.work.dueAt?.getTime()).toBe(
+      expect(failed.hasPendingJob).toBe(true);
+      expect(failed.drafting?.job.nextAttemptAt?.getTime()).toBe(
         NOW.getTime() + 30_000,
       );
       expect(failed.pullEvents()).not.toContainEqual(
@@ -295,12 +295,12 @@ describe('MemoryDraft', () => {
     });
 
     it('keeps nothing and says why when the failure allows no other attempt', () => {
-      const leased = opened().asked(FIRST, NOW).leased(NOW);
+      const leased = opened().asked(FIRST, NOW).leaseJob(NOW);
       const failure = MemoryDraftingFailure.of('no-evidence', NOW);
 
       const failed = leased.failed(failure);
 
-      expect(failed.owesWork).toBe(false);
+      expect(failed.hasPendingJob).toBe(false);
       expect(failed.proposals).toEqual([]);
       expect(failed.failure?.code).toBe('no-evidence');
       expect(failed.pullEvents().slice(-1)[0]).toEqual(
@@ -308,42 +308,42 @@ describe('MemoryDraft', () => {
       );
     });
 
-    it('gives up once a failure has used every attempt it allows', () => {
+    it('ends with the failure once it has used every attempt the failure allows', () => {
       let draft = opened().asked(FIRST, NOW);
       let at = NOW;
 
       for (let attempt = 1; attempt < 3; attempt += 1) {
         draft = draft
-          .leased(at)
+          .leaseJob(at)
           .failed(MemoryDraftingFailure.of('unreadable', at));
-        at = draft.drafting?.work.dueAt ?? at;
+        at = draft.drafting?.job.nextAttemptAt ?? at;
       }
 
       const failed = draft
-        .leased(at)
+        .leaseJob(at)
         .failed(MemoryDraftingFailure.of('unreadable', at));
 
-      expect(failed.owesWork).toBe(false);
+      expect(failed.hasPendingJob).toBe(false);
       expect(failed.failure?.code).toBe('unreadable');
     });
 
-    it('gives up as interrupted when its leases keep running out', () => {
+    it('is dead-lettered as interrupted when its leases keep running out', () => {
       let draft = opened().asked(FIRST, NOW);
       let at = NOW;
 
-      for (let attempt = 0; attempt < MAX_WORK_ATTEMPTS; attempt += 1) {
-        draft = draft.leased(at);
-        at = draft.drafting?.work.dueAt ?? at;
+      for (let attempt = 0; attempt < MAX_JOB_ATTEMPTS; attempt += 1) {
+        draft = draft.leaseJob(at);
+        at = draft.drafting?.job.nextAttemptAt ?? at;
       }
 
-      expect(draft.workExhausted).toBe(true);
-      expect(draft.gaveUp(LATER).failure?.code).toBe('interrupted');
+      expect(draft.jobExhausted).toBe(true);
+      expect(draft.deadLetter(LATER).failure?.code).toBe('interrupted');
     });
 
     it('clears a failure once a later draft succeeds', () => {
       const failed = opened()
         .asked(FIRST, NOW)
-        .leased(NOW)
+        .leaseJob(NOW)
         .failed(MemoryDraftingFailure.of('no-evidence', NOW));
 
       const drafted = drafting(failed.asked(SECOND, LATER), SECOND, []);
@@ -354,10 +354,10 @@ describe('MemoryDraft', () => {
     it('cannot be leased before it is due', () => {
       const waiting = opened()
         .asked(FIRST, NOW)
-        .leased(NOW)
+        .leaseJob(NOW)
         .failed(MemoryDraftingFailure.of('request-failed', NOW));
 
-      expect(() => waiting.leased(NOW)).toThrow(InvalidMemoryError);
+      expect(() => waiting.leaseJob(NOW)).toThrow(InvalidMemoryError);
     });
   });
 

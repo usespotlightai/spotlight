@@ -11,11 +11,11 @@ import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
-import type { OwedWorkPort } from '@shared-kernel/application/ports/owed-work.port';
+import type { PendingJobsPort } from '@shared-kernel/application/ports/pending-jobs.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
 
-export class EnsureCheckBaselines implements OwedWorkPort {
+export class EnsureCheckBaselines implements PendingJobsPort {
   readonly name = 'EnsureCheckBaselines';
 
   constructor(
@@ -31,14 +31,14 @@ export class EnsureCheckBaselines implements OwedWorkPort {
     private readonly logger: LoggerPort,
   ) {}
 
-  async workDue(): Promise<void> {
+  async processDue(): Promise<void> {
     for (const check of await this.checks.awaitingBaseline()) {
       try {
         await this.ensure(check);
       } catch (error) {
         this.logger.warn(
           { checkId: check.id.value, error },
-          'A replay check’s baseline could not be ensured; it is tried again',
+          'A replay check’s baseline could not be ensured; Spotlight retries it later',
         );
       }
     }

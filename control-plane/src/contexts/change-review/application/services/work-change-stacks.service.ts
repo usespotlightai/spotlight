@@ -8,16 +8,16 @@ import type { ChangeStackId } from '@change-review/domain/value-objects/change-s
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { ErrorReportsPort } from '@shared-kernel/application/ports/error-reports.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
-import type { OwedWorkPort } from '@shared-kernel/application/ports/owed-work.port';
+import type { PendingJobsPort } from '@shared-kernel/application/ports/pending-jobs.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import { OwedWorkPool } from '@shared-kernel/application/services/owed-work-pool';
+import { JobLoop } from '@shared-kernel/application/services/job-loop';
 
 const MAX_STACKS_AT_ONCE = 4;
 
-export class WorkChangeStacks implements OwedWorkPort {
+export class WorkChangeStacks implements PendingJobsPort {
   readonly name = 'Drafting and reordering change stacks';
 
-  readonly #pool: OwedWorkPool<ChangeStack, ChangeStackId>;
+  readonly #loop: JobLoop<ChangeStack, ChangeStackId>;
 
   constructor(
     private readonly stacks: ChangeStackRepository,
@@ -29,11 +29,11 @@ export class WorkChangeStacks implements OwedWorkPort {
     logger: LoggerPort,
     reports: ErrorReportsPort,
   ) {
-    this.#pool = new OwedWorkPool<ChangeStack, ChangeStackId>(
+    this.#loop = new JobLoop<ChangeStack, ChangeStackId>(
       {
         name: this.name,
-        maxAtOnce: MAX_STACKS_AT_ONCE,
-        due: (now) => this.stacks.dueForWork(now),
+        batchSize: MAX_STACKS_AT_ONCE,
+        due: (now) => this.stacks.nextDueJob(now),
         find: (id) => this.stacks.find(id),
         save: (stack) => this.stacks.save(stack),
         keyOf: (stack) => stack.id,
@@ -45,9 +45,9 @@ export class WorkChangeStacks implements OwedWorkPort {
         about: (stack) => ({
           changeStackId: stack.id.value,
           state: stack.state,
-          attempts: stack.work.attempts,
+          attempts: stack.job.attempts,
         }),
-        worked: (stack) => this.worked(stack),
+        process: (stack) => this.processed(stack),
         stale: (error) => error instanceof ChangeStackVersionConflictError,
       },
       transaction,
@@ -57,15 +57,15 @@ export class WorkChangeStacks implements OwedWorkPort {
     );
   }
 
-  workDue(): Promise<void> {
-    return this.#pool.workDue();
+  processDue(): Promise<void> {
+    return this.#loop.processDue();
   }
 
   idle(): Promise<void> {
-    return this.#pool.idle();
+    return this.#loop.idle();
   }
 
-  private async worked(stack: ChangeStack): Promise<ChangeStack> {
+  private async processed(stack: ChangeStack): Promise<ChangeStack> {
     if (stack.state === 'drafting') {
       return this.drafting.drafted(stack);
     }
@@ -74,6 +74,6 @@ export class WorkChangeStacks implements OwedWorkPort {
 
     return check
       ? this.reordering.reordered(stack, check)
-      : stack.gaveUpReordering();
+      : stack.stopReordering();
   }
 }

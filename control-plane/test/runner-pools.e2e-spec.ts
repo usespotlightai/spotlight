@@ -1044,7 +1044,7 @@ describe('runner pools (e2e)', () => {
       const failed = await eventually(async () => {
         await db
           .update(schema.run)
-          .set({ nextProvisionAt: null })
+          .set({ nextProvisionAttemptAt: null })
           .where(and(eq(schema.run.id, runId), eq(schema.run.state, 'queued')));
 
         const [row] = await db
@@ -1065,7 +1065,7 @@ describe('runner pools (e2e)', () => {
       });
 
       expect(failed.message).toContain('unreachable');
-      expect(failed.provisionFailures).toBe(5);
+      expect(failed.provisionAttempts).toBe(5);
       expect(steps.map((each) => [each.type, each.message, each.seq])).toEqual(
         [-1, -2, -3, -4, -5].map((seq) => [
           'provision.failed',
@@ -1149,7 +1149,7 @@ describe('runner pools (e2e)', () => {
       const skipped = await eventually(async () => {
         await db
           .update(schema.stackCheck)
-          .set({ nextProvisionAt: null })
+          .set({ nextProvisionAttemptAt: null })
           .where(
             and(
               eq(schema.stackCheck.stackId, stackId),
@@ -1165,7 +1165,7 @@ describe('runner pools (e2e)', () => {
         return row?.phase === 'skipped' ? row : null;
       }, 25_000);
 
-      expect(skipped.provisionFailures).toBe(5);
+      expect(skipped.provisionAttempts).toBe(5);
       expect(skipped.outcome?.skip).toMatchObject({ code: 'unprovisioned' });
       expect(skipped.outcome?.skip?.detail).toContain('unreachable');
       expect(await checkReadFor(skipped.runId)).toMatchObject({

@@ -30,7 +30,7 @@ export class AbandonTeamIntegrations {
     await this.policies.forgetTeam(teamId);
   }
 
-  async owed(
+  async pendingAbandonments(
     teamId: TeamId,
     workspaceId: WorkspaceId,
   ): Promise<readonly DomainEvent[]> {

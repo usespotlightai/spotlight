@@ -326,7 +326,7 @@ export const PLATFORM_RUNS: Record<string, TaskRunResponseDto[]> = {
       stationId: 'station_spec',
       startedHoursAgo: 3,
       tookHours: 0.4,
-      review: { state: 'owed', conversationId: 'task_rate_limits:0' },
+      review: { state: 'pending', conversationId: 'task_rate_limits:0' },
     }),
     run(DELIVERY, {
       id: 'run_rate_limits_1',
@@ -375,7 +375,7 @@ export const PLATFORM_RUNS: Record<string, TaskRunResponseDto[]> = {
       harness: 'codex',
       startedHoursAgo: 8,
       tookHours: 0.3,
-      review: { state: 'owed', conversationId: 'task_postgres:0' },
+      review: { state: 'pending', conversationId: 'task_postgres:0' },
     }),
     run(DELIVERY, {
       id: 'run_postgres_2',

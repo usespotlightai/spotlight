@@ -155,8 +155,8 @@ const working = (input: {
       save: async (saved: MemoryDraft) => {
         stored = saved;
       },
-      dueForWork: async (at: Date) =>
-        stored.drafting?.work.dueBy(at) ? stored : null,
+      nextDueJob: async (at: Date) =>
+        stored.drafting?.job.isDue(at) ? stored : null,
     } as unknown as MemoryDraftRepository,
     {
       run: async () => null,
@@ -203,7 +203,7 @@ const working = (input: {
   );
 
   const tick = async () => {
-    await service.workDue();
+    await service.processDue();
     await service.idle();
   };
 
@@ -217,7 +217,7 @@ describe('drafting what a run should leave the team remembering', () => {
     await worked.tick();
 
     const [proposal] = worked.stored().proposals;
-    expect(worked.stored().owesWork).toBe(false);
+    expect(worked.stored().hasPendingJob).toBe(false);
     expect(proposal?.body.value).toBe(
       'Never retry an upload the bucket rejected with a 403.',
     );
@@ -300,12 +300,12 @@ describe('drafting what a run should leave the team remembering', () => {
 
     await worked.tick();
 
-    expect(worked.stored().owesWork).toBe(false);
+    expect(worked.stored().hasPendingJob).toBe(false);
     expect(worked.stored().failure?.code).toBe('no-evidence');
     expect(worked.stored().proposals).toEqual([]);
   });
 
-  it('tries again later when the request to the model provider fails', async () => {
+  it('retries later when the request to the model provider fails', async () => {
     const worked = working({
       answer: async () => {
         throw new MemoryDraftingError('request-failed', '503');
@@ -314,14 +314,14 @@ describe('drafting what a run should leave the team remembering', () => {
 
     await worked.tick();
 
-    expect(worked.stored().owesWork).toBe(true);
-    expect(worked.stored().drafting?.work.dueAt).toEqual(
+    expect(worked.stored().hasPendingJob).toBe(true);
+    expect(worked.stored().drafting?.job.nextAttemptAt).toEqual(
       new Date(NOW.getTime() + 30_000),
     );
     expect(worked.stored().proposals).toEqual([]);
   });
 
-  it('tries again later on anything it did not expect', async () => {
+  it('retries later on anything it did not expect', async () => {
     const worked = working({
       answer: async () => {
         throw new Error('connection reset');
@@ -330,7 +330,7 @@ describe('drafting what a run should leave the team remembering', () => {
 
     await worked.tick();
 
-    expect(worked.stored().owesWork).toBe(true);
-    expect(worked.stored().drafting?.work.attempts).toBe(1);
+    expect(worked.stored().hasPendingJob).toBe(true);
+    expect(worked.stored().drafting?.job.attempts).toBe(1);
   });
 });

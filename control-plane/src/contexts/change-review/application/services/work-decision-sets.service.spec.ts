@@ -9,7 +9,7 @@ import type { ProposedDecision } from '@change-review/domain/entities/decision.e
 import type { DecisionSetRepository } from '@change-review/domain/repositories/decision-set.repository';
 import { DecisionSetId } from '@change-review/domain/value-objects/decision-set-id.vo';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
-import { MAX_WORK_ATTEMPTS } from '@shared-kernel/domain/value-objects/owed-work.vo';
+import { MAX_JOB_ATTEMPTS } from '@shared-kernel/domain/value-objects/pending-job.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -65,8 +65,8 @@ const working = (
     save: async (set: DecisionSet) => {
       stored = set;
     },
-    dueForWork: async (at: Date) =>
-      stored.draft?.work.dueBy(at) ? stored : null,
+    nextDueJob: async (at: Date) =>
+      stored.draft?.job.isDue(at) ? stored : null,
   } as unknown as DecisionSetRepository;
 
   const service = new WorkDecisionSets(
@@ -87,7 +87,7 @@ const working = (
 
   const tick = async (at: Date = now) => {
     now = at;
-    await service.workDue();
+    await service.processDue();
     await service.idle();
   };
 
@@ -107,7 +107,7 @@ describe('drafting the decisions a run made', () => {
     expect(worked.stored().decisions.map((each) => each.title)).toEqual([
       'Retries uploads in the request',
     ]);
-    expect(worked.stored().owesWork).toBe(false);
+    expect(worked.stored().hasPendingJob).toBe(false);
   });
 
   it('records none, asking no model, where the run changed nothing', async () => {
@@ -120,40 +120,40 @@ describe('drafting the decisions a run made', () => {
     expect(worked.stored().decidedIn?.equals(RUN)).toBe(true);
   });
 
-  it('gives up on a run whose journal cannot be read', async () => {
+  it('dead-letters the job for a run whose journal cannot be read', async () => {
     const worked = working(null, async () => [DECIDED]);
 
     await worked.tick();
 
-    expect(worked.stored().owesWork).toBe(false);
+    expect(worked.stored().hasPendingJob).toBe(false);
     expect(worked.stored().decidedIn).toBeNull();
   });
 
-  it('tries again later when drafting fails, then gives up', async () => {
+  it('retries later when drafting fails, then dead-letters the job', async () => {
     const worked = working(REASONED, async () => {
       throw new Error('OpenRouter failed to draft: 503');
     });
 
-    for (let day = 0; day <= MAX_WORK_ATTEMPTS; day += 1) {
+    for (let day = 0; day <= MAX_JOB_ATTEMPTS; day += 1) {
       await worked.tick(new Date(NOW.getTime() + day * DAY));
     }
 
-    expect(worked.draft).toHaveBeenCalledTimes(MAX_WORK_ATTEMPTS);
-    expect(worked.stored().owesWork).toBe(false);
+    expect(worked.draft).toHaveBeenCalledTimes(MAX_JOB_ATTEMPTS);
+    expect(worked.stored().hasPendingJob).toBe(false);
   });
 
-  it('says so when it cannot read a set it claimed', async () => {
+  it('says so when it cannot read a set it leased', async () => {
     const error = vi.fn();
-    const claimed = DecisionSet.open({
+    const leased = DecisionSet.open({
       id: DecisionSetId.of('set_1'),
       taskId: TaskId.of('task_1'),
       workspaceId: WorkspaceId.of('ws_1'),
     }).asked(RUN, NOW);
-    let due: DecisionSet | null = claimed;
+    let due: DecisionSet | null = leased;
 
     const service = new WorkDecisionSets(
       {
-        dueForWork: async () => {
+        nextDueJob: async () => {
           const found = due;
           due = null;
           return found;
@@ -172,12 +172,12 @@ describe('drafting the decisions a run made', () => {
       { report: () => undefined },
     );
 
-    await service.workDue();
+    await service.processDue();
     await service.idle();
 
     expect(error).toHaveBeenCalledWith(
       expect.objectContaining({ err: expect.any(Error) }),
-      'Drafting decisions: reading claimed work',
+      'Drafting decisions: reading a leased job',
     );
   });
 });

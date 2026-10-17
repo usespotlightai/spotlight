@@ -8,12 +8,12 @@ import type { ReplayEntry } from '@replays/domain/value-objects/replay-entry.vo'
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
-import type { OwedWorkPort } from '@shared-kernel/application/ports/owed-work.port';
+import type { PendingJobsPort } from '@shared-kernel/application/ports/pending-jobs.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
-export class DispatchReplayRuns implements OwedWorkPort {
+export class DispatchReplayRuns implements PendingJobsPort {
   readonly name = 'Dispatching replay runs';
 
   constructor(
@@ -27,7 +27,7 @@ export class DispatchReplayRuns implements OwedWorkPort {
     private readonly logger: LoggerPort,
   ) {}
 
-  async workDue(): Promise<void> {
+  async processDue(): Promise<void> {
     for (const team of await this.replays.teamsDispatching()) {
       await this.reserveFor(team).catch((error: unknown) =>
         this.logger.warn(

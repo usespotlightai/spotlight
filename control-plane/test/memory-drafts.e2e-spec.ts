@@ -120,7 +120,7 @@ describe('storing a task’s memory draft', () => {
 
     const read = await stored(draft);
     const [proposal] = read.proposals;
-    expect(read.owesWork).toBe(false);
+    expect(read.hasPendingJob).toBe(false);
     expect(read.draftedIn?.equals(FIRST)).toBe(true);
     expect(read.notesRead).toBe(5);
     expect(proposal?.kind).toBe('correction');
@@ -170,7 +170,7 @@ describe('storing a task’s memory draft', () => {
   it('keeps a failure that allows no other attempt, and the draft it ended', async () => {
     const draft = opened().asked(FIRST, NOW);
     await drafts.add(draft);
-    const leased = (await stored(draft)).leased(NOW);
+    const leased = (await stored(draft)).leaseJob(NOW);
     await drafts.save(leased);
 
     await drafts.save(
@@ -180,7 +180,7 @@ describe('storing a task’s memory draft', () => {
     );
 
     const read = await stored(draft);
-    expect(read.owesWork).toBe(false);
+    expect(read.hasPendingJob).toBe(false);
     expect(read.failure?.code).toBe('no-evidence');
     expect(read.failure?.at).toEqual(LATER);
   });
@@ -189,9 +189,9 @@ describe('storing a task’s memory draft', () => {
     const draft = opened().asked(FIRST, NOW);
     await drafts.add(draft);
     const read = await stored(draft);
-    await drafts.save(read.leased(NOW));
+    await drafts.save(read.leaseJob(NOW));
 
-    await expect(drafts.save(read.leased(NOW))).rejects.toBeInstanceOf(
+    await expect(drafts.save(read.leaseJob(NOW))).rejects.toBeInstanceOf(
       MemoryDraftVersionConflictError,
     );
   });
@@ -204,14 +204,14 @@ describe('storing a task’s memory draft', () => {
     await drafts.add(due);
     await drafts.save(
       (await stored(waiting))
-        .leased(NOW)
+        .leaseJob(NOW)
         .failed(MemoryDraftingFailure.of('request-failed', NOW)),
     );
 
     const handed = await database.db.transaction(async (tx) =>
       new DrizzleMemoryDraftRepository(new DrizzleContext(tx), {
         dispatch: async () => {},
-      } as unknown as DomainEventDispatcher).dueForWork(NOW),
+      } as unknown as DomainEventDispatcher).nextDueJob(NOW),
     );
 
     expect(handed?.id.equals(due.id)).toBe(true);

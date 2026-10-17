@@ -29,8 +29,8 @@ export const decisionSet = pgTable(
     decidedIn: text('decided_in'),
     draftRunId: text('draft_run_id'),
     draftAskedAt: timestamp('draft_asked_at'),
-    workAttempts: integer('work_attempts').notNull().default(0),
-    workDueAt: timestamp('work_due_at'),
+    jobAttempts: integer('job_attempts').notNull().default(0),
+    jobDueAt: timestamp('job_due_at'),
     status: decisionStatus('status')
       .$type<DecisionStatusValue>()
       .notNull()

@@ -6,20 +6,20 @@ import {
 } from '@platform/persistence/drizzle/schemas/event.schema';
 import { and, eq, isNull, sql } from 'drizzle-orm';
 
-export interface OwedReactions {
-  readonly owed: number;
+export interface PendingDeliveries {
+  readonly pending: number;
   readonly deadLettered: number;
 }
 
 @Injectable()
-export class EventReactions {
+export class DeliveryBacklog {
   constructor(private readonly context: DrizzleContext) {}
 
-  async owedBy(
+  async pendingDeliveriesFor(
     subscriber: string,
     matching: Readonly<Record<string, string>>,
-  ): Promise<OwedReactions> {
-    const owed = await this.context.db
+  ): Promise<PendingDeliveries> {
+    const undelivered = await this.context.db
       .select({ deadLetteredAt: eventDelivery.deadLetteredAt })
       .from(eventDelivery)
       .innerJoin(eventOutbox, eq(eventOutbox.id, eventDelivery.eventId))
@@ -35,8 +35,9 @@ export class EventReactions {
       );
 
     return {
-      owed: owed.length,
-      deadLettered: owed.filter((each) => each.deadLetteredAt !== null).length,
+      pending: undelivered.length,
+      deadLettered: undelivered.filter((each) => each.deadLetteredAt !== null)
+        .length,
     };
   }
 }
