@@ -9,7 +9,7 @@ interface CatalogToolInputShape {
   readonly description: string | null;
   readonly required: boolean;
   readonly defaulted: boolean;
-  readonly piped: boolean;
+  readonly stdin: boolean;
 }
 
 export interface CatalogToolEntitled {

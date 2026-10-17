@@ -2,7 +2,7 @@ import { InvalidCatalogEntryError } from '@catalog/domain/exceptions/invalid-cat
 import { CatalogName } from '@catalog/domain/value-objects/catalog-name.vo';
 import { CatalogVersion } from '@catalog/domain/value-objects/catalog-version.vo';
 import {
-  CATALOG_SOURCE,
+  CATALOG_INTEGRATION,
   catalogReferenceParts,
   isCatalogReference,
 } from '@shared-kernel/domain/value-objects/identifier-shapes';
@@ -23,7 +23,7 @@ export class CatalogItemId {
     if (!isCatalogReference(trimmed)) {
       throw new InvalidCatalogEntryError(
         'name',
-        `Catalog name "${trimmed}" must be a catalog id, such as ${CATALOG_SOURCE}.web-search@1.4.0.`,
+        `Catalog name "${trimmed}" must be a catalog id, such as ${CATALOG_INTEGRATION}.web-search@1.4.0.`,
       );
     }
 
@@ -33,7 +33,7 @@ export class CatalogItemId {
   }
 
   get value(): string {
-    return `${CATALOG_SOURCE}.${this.name.value}@${this.version.value}`;
+    return `${CATALOG_INTEGRATION}.${this.name.value}@${this.version.value}`;
   }
 
   equals(other: CatalogItemId): boolean {

@@ -54,7 +54,7 @@ const schedule = (headers = '') => `
 integration: linear
 schedule:
   cron: 0 * * * *
-  do: digest
+  action: digest
 actions:
   digest:
     request:

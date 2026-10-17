@@ -9,13 +9,13 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { CompleteRunHandler } from '@work/application/commands/handlers/complete-run.handler';
 import { CompleteRunCommand } from '@work/application/commands/runner.commands';
 import type {
-  HookedTaskDto,
-  HookedTasksPort,
-} from '@work/application/ports/hooked-tasks.port';
-import type {
-  BeforeMoment,
-  HookVerdict,
+  BeforeHookEvent,
+  HookDecision,
 } from '@work/application/ports/lifecycle-hooks.port';
+import type {
+  TaskViewDto,
+  TaskViewsPort,
+} from '@work/application/ports/task-views.port';
 import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
@@ -67,7 +67,7 @@ const leased = () =>
     }),
   }).claim(RunnerId.of('runner_1'), NOW);
 
-const HOOKED = { taskId: 'task_1', runId: 'run_1' } as HookedTaskDto;
+const TASK_VIEW = { taskId: 'task_1', runId: 'run_1' } as TaskViewDto;
 
 const line = () =>
   Line.rehydrate({
@@ -126,11 +126,11 @@ const workedByTheRun = () =>
 
 const completing = (
   save: (run: Run) => Promise<void>,
-  verdict: HookVerdict = { kind: 'allowed' },
+  decision: HookDecision = { kind: 'allowed' },
   task: Task | (() => Task) | null = null,
   stored: { tasks: Task[]; run?: () => Run } = { tasks: [] },
 ) => {
-  const hookCalls: BeforeMoment[] = [];
+  const hookCalls: BeforeHookEvent[] = [];
   const handler = new CompleteRunHandler(
     {
       findById: async () => (stored.run ? stored.run() : leased()),
@@ -144,12 +144,12 @@ const completing = (
     {
       inTransaction: (work: () => Promise<unknown>) => work(),
     } as TransactionPort,
-    { of: async () => HOOKED } as unknown as HookedTasksPort,
+    { of: async () => TASK_VIEW } as unknown as TaskViewsPort,
     {
       listens: async () => true,
-      before: async (_task, moment) => {
-        hookCalls.push(moment);
-        return verdict;
+      before: async (_task, event) => {
+        hookCalls.push(event);
+        return decision;
       },
       after: async () => {},
     },

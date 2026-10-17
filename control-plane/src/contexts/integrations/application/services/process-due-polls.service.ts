@@ -52,8 +52,8 @@ export class ProcessDuePolls {
     poll: Poll,
     now: Date,
   ): Promise<void> {
-    const source = integration.source.value;
-    const state = await this.cursors.read(teamId, source);
+    const integrationKey = integration.key.value;
+    const state = await this.cursors.read(teamId, integrationKey);
 
     if (!poll.isDue(state.ranAt, now)) {
       return;
@@ -65,7 +65,7 @@ export class ProcessDuePolls {
       return;
     }
 
-    if (!(await this.cursors.claimTurn(teamId, source, state, now))) {
+    if (!(await this.cursors.claimTurn(teamId, integrationKey, state, now))) {
       return;
     }
 
@@ -79,8 +79,12 @@ export class ProcessDuePolls {
 
       if (polled.kind === 'failed') {
         this.log.warn(
-          { team: teamId.value, source, error: polled.error },
-          'A host answered a poll with an error',
+          {
+            team: teamId.value,
+            integration: integrationKey,
+            error: polled.error,
+          },
+          'A service answered a poll with an error',
         );
         return;
       }
@@ -91,19 +95,26 @@ export class ProcessDuePolls {
         polled.happenings,
         polled.cursor === null
           ? null
-          : `poll:${source}:${teamId.value}:${state.cursor ?? ''}`,
+          : `poll:${integrationKey}:${teamId.value}:${state.cursor ?? ''}`,
       );
 
-      if (!(await this.cursors.advance(teamId, source, polled.cursor, now))) {
+      if (
+        !(await this.cursors.advance(
+          teamId,
+          integrationKey,
+          polled.cursor,
+          now,
+        ))
+      ) {
         this.log.warn(
-          { team: teamId.value, source },
+          { team: teamId.value, integration: integrationKey },
           'A later poll got the turn before this one stored its cursor',
         );
       }
     } catch (error) {
       this.log.warn(
-        { err: error, team: teamId.value, source },
-        'Polling a host',
+        { err: error, team: teamId.value, integration: integrationKey },
+        'Polling a service',
       );
     }
   }

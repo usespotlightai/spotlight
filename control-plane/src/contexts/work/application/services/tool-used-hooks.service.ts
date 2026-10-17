@@ -1,25 +1,25 @@
-import type { HookedTasksPort } from '@work/application/ports/hooked-tasks.port';
 import type { LifecycleHooksPort } from '@work/application/ports/lifecycle-hooks.port';
+import type { TaskViewsPort } from '@work/application/ports/task-views.port';
 import type { ToolUsed } from '@work/domain/events/tool-used.event';
 
 export class ToolUsedHooks {
   constructor(
-    private readonly hookedTasks: HookedTasksPort,
+    private readonly taskViews: TaskViewsPort,
     private readonly hooks: LifecycleHooksPort,
   ) {}
 
   async on(event: ToolUsed): Promise<void> {
-    const hooked = await this.hookedTasks.of(
+    const taskView = await this.taskViews.of(
       event.taskId.value,
       event.runId.value,
     );
 
-    if (!hooked) {
+    if (!taskView) {
       return;
     }
 
     await this.hooks.after(
-      hooked,
+      taskView,
       {
         on: 'tool.used',
         tool: event.tool.value,

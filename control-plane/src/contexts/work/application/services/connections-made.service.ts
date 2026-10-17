@@ -11,7 +11,7 @@ const ATTEMPTS = 3;
 
 export interface ConnectionMade {
   readonly teamId: TeamId;
-  readonly source: string;
+  readonly integration: string;
   readonly personId: UserId;
 }
 
@@ -25,7 +25,7 @@ export class ConnectionsMade {
     const waiting = await this.tasks.awaitingConnection(
       made.teamId,
       made.personId,
-      made.source,
+      made.integration,
     );
 
     for (const task of waiting) {
@@ -41,10 +41,10 @@ export class ConnectionsMade {
         : undefined;
       const answered =
         task && asked
-          ? task.connectionMade(made.teamId, made.source, made.personId, {
+          ? task.connectionMade(made.teamId, made.integration, made.personId, {
               station: asked.station,
               body: TaskNoteBody.of(
-                `Connected ${asked.connectionAsk?.integration ?? made.source}.`,
+                `Connected ${asked.connectionAsk?.integrationName ?? made.integration}.`,
               ),
               at: this.clock.now(),
               voice: Voice.person(made.personId),

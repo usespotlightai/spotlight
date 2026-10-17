@@ -32,7 +32,9 @@ describe('IntegrationReader', () => {
       operationsContaining(),
     ).read([defined(WHOLE)]);
 
-    expect(read.integrations.map((each) => each.source)).toEqual(['linear']);
+    expect(read.integrations.map((each) => each.integration)).toEqual([
+      'linear',
+    ]);
     expect(read.integrations[0]?.path).toBe('integrations/linear');
     expect(read.problems).toEqual([]);
   });
@@ -48,14 +50,14 @@ describe('IntegrationReader', () => {
           'integration: petstore\nopenapi:\n  url: https://petstore3.swagger.io/api/v3/openapi.json\n',
           {
             hash: 'a'.repeat(64),
-            offers: ['petstore.add-pet', 'petstore.find-pets'],
+            tools: ['petstore.add-pet', 'petstore.find-pets'],
           },
         ),
-        reading: { readAt, problem: null, passedOver: [] },
+        reading: { readAt, problem: null, skipped: [] },
       },
     ]);
 
-    expect(read.integrations[0]?.described).toEqual({
+    expect(read.integrations[0]?.spec).toEqual({
       kind: 'openapi',
       tools: 2,
       readAt,
@@ -78,7 +80,9 @@ describe('IntegrationReader', () => {
       operationsContaining(),
     ).read([defined('integration: sentry'), defined(WHOLE)]);
 
-    expect(read.integrations.map((each) => each.source)).toEqual(['linear']);
+    expect(read.integrations.map((each) => each.integration)).toEqual([
+      'linear',
+    ]);
     expect(read.problems[0]?.path).toBe('integrations/sentry');
   });
 

@@ -79,7 +79,10 @@ const repositorySchema = z.object({
 const reactionSchema = z.object({
   happening: z
     .string()
-    .regex(HAPPENING, 'names its source first, as in github.checks.failed'),
+    .regex(
+      HAPPENING,
+      'names its integration first, as in github.checks.failed',
+    ),
   from: identifier(StationKey.of).optional(),
   to: identifier(StationKey.of),
 });

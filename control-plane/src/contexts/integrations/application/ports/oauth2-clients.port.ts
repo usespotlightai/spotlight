@@ -1,5 +1,5 @@
 import type { AuthorizationServer } from '@integrations/domain/value-objects/authorization-server.vo';
-import type { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
+import type { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 export const OAUTH2_CLIENTS = Symbol('OAUTH2_CLIENTS');
@@ -12,14 +12,14 @@ export interface OAuth2Client {
 export interface OAuth2ClientsPort {
   clientFor(
     teamId: TeamId,
-    source: SourceKey,
+    integration: IntegrationKey,
     registration: string | null,
     server: AuthorizationServer | null,
   ): Promise<OAuth2Client | null>;
 
   existingFor(
     teamId: TeamId,
-    source: SourceKey,
+    integration: IntegrationKey,
     server: AuthorizationServer | null,
   ): Promise<OAuth2Client | null>;
 }

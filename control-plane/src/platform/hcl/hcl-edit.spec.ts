@@ -51,7 +51,7 @@ resource "spotlight_line" "core_delivery" {
     harness   = "claude-code" // the harness we trust
     model     = "sonnet"
     prompt    = file("\${path.module}/prompts/shared.md")
-    tools     = ["\${spotlight_integration.core_linear.source}.comment", "github.comment"]
+    tools     = ["\${spotlight_integration.core_linear.integration}.comment", "github.comment"]
     skills    = [spotlight_skill.core_grafana.key]
     check     = "npm test"
     passes_to = ["completed"]
@@ -95,7 +95,7 @@ const SKILLS: HclReferenceRule = {
 
 const TOOLS: HclReferenceRule = {
   type: 'spotlight_integration',
-  attribute: 'source',
+  attribute: 'integration',
   storedAt: 'definition.integration',
   tool: true,
 };
@@ -405,7 +405,7 @@ describe('editedHclBlock', () => {
 
     expect(main).toContain(
       // biome-ignore lint/suspicious/noTemplateCurlyInString: a Terraform expression
-      '    tools     = ["github.comment", "${spotlight_integration.core_linear.source}.create", "${spotlight_integration.core_linear.source}.comment"]\n',
+      '    tools     = ["github.comment", "${spotlight_integration.core_linear.integration}.create", "${spotlight_integration.core_linear.integration}.comment"]\n',
     );
     expect(main).toContain(
       '    skills    = [spotlight_skill.core_grafana.key, spotlight_skill.core_oncall.key, "catalog.research@1.0.0"]\n',

@@ -1,11 +1,11 @@
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
 import type { OAuth2ClientsPort } from '@integrations/application/ports/oauth2-clients.port';
-import { DescribedDocument } from '@integrations/domain/aggregates/described-document.aggregate';
 import { PersonToolPolicy } from '@integrations/domain/aggregates/person-tool-policy.aggregate';
+import { SpecDocument } from '@integrations/domain/aggregates/spec-document.aggregate';
 import { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
-import { DescribedOperation } from '@integrations/domain/value-objects/described-operation.vo';
+import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { PersonToolRule } from '@integrations/domain/value-objects/person-tool-rule.vo';
-import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
+import { SpecOperation } from '@integrations/domain/value-objects/spec-operation.vo';
 import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import { IntegrationToolCalls } from '@integrations/infrastructure/acl/integration-tool-calls.adapter';
 import { CompiledIntegrationRuntime } from '@integrations/infrastructure/integrations/compiled-integration.runtime';
@@ -19,9 +19,9 @@ import { clientsFrom } from '@integrations/integrations.clients.fake-spec';
 import { defined } from '@integrations/integrations.definitions.fake-spec';
 import { operationsContaining } from '@integrations/integrations.documents.fake-spec';
 import {
-  InMemoryLearnedOutputs,
-  learningInto,
-} from '@integrations/integrations.learned.fake-spec';
+  InMemoryInferredOutputSchemas,
+  inferringInto,
+} from '@integrations/integrations.inferred.fake-spec';
 import {
   callingNoServer,
   discoveringNothing,
@@ -40,7 +40,7 @@ import { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { ToolInputValues } from '@work/application/contracts/tools.contract';
-import type { BoundTaskDto } from '@work/application/dto/bound-task.dto';
+import type { IntegrationTaskViewDto } from '@work/application/dto/integration-task-view.dto';
 import type {
   IntegrationTool,
   RunAttemptDto,
@@ -80,7 +80,7 @@ actions:
         url: '\${{ response.url }}'
 tools:
   comment:
-    does: comment
+    action: comment
     description: Comment on the Linear issue this task came from.
     inputs:
       issue:
@@ -88,13 +88,13 @@ tools:
         required: true
       body:
         required: true
-        piped: true
+        stdin: true
       count:
         type: number
     output: '\${{ capture.url }}'
 `;
 
-const task = (marked = true): BoundTaskDto => ({
+const task = (marked = true): IntegrationTaskViewDto => ({
   taskId: 'task_1',
   workspaceId: 'ws_1',
   teamId: 'team_1',
@@ -114,14 +114,14 @@ const using = (
   },
   over: {
     file?: string;
-    learned?: InMemoryLearnedOutputs;
+    schemas?: InMemoryInferredOutputSchemas;
     policies?: InMemoryPersonToolPolicies;
   } = {},
 ) => {
   const run = vi.fn(
     async (_action: unknown, _against: Record<string, unknown>) => reply,
   );
-  const learned = over.learned ?? new InMemoryLearnedOutputs();
+  const schemas = over.schemas ?? new InMemoryInferredOutputSchemas();
 
   const tools = new IntegrationToolCalls(
     {
@@ -129,7 +129,7 @@ const using = (
     } as unknown as DefinedIntegrationsPort,
     runtimeWith({ run } as unknown as HttpOutbound),
     callAuthFor(),
-    learningInto(learned),
+    inferringInto(schemas),
     personRulesFrom(over.policies),
   );
 
@@ -145,14 +145,14 @@ const using = (
     return resolved.call(inputs);
   };
 
-  return { resolving, run, comment, learned, tools };
+  return { resolving, run, comment, schemas, tools };
 };
 
 const usingApproved = () =>
   using(undefined, {
     file: LINEAR.replace(
-      '    does: comment\n',
-      '    does: comment\n    approval:\n      because: It posts publicly, under the team’s name.\n',
+      '    action: comment\n',
+      '    action: comment\n    approval:\n      because: It posts publicly, under the team’s name.\n',
     ),
   });
 
@@ -231,7 +231,7 @@ describe('IntegrationToolCalls', () => {
         } as unknown as DefinedIntegrationsPort,
         runtimeWith(new HttpOutbound(allowed, fetch)),
         callAuthFor(secrets.injection),
-        learningInto(),
+        inferringInto(),
         personRulesFrom(),
       );
 
@@ -318,13 +318,13 @@ describe('IntegrationToolCalls', () => {
     expect(against).not.toHaveProperty('secret');
   });
 
-  it('learns what the tool answered, and only from a call that succeeded', async () => {
-    const { comment, learned } = using();
+  it('infers what the tool answered, and only from a call that succeeded', async () => {
+    const { comment, schemas } = using();
 
     await comment({ body: 'Fixed.' });
 
     const output = await vi.waitFor(async () => {
-      const [stored] = await learned.ofTools(TeamId.of('team_1'), [
+      const [stored] = await schemas.ofTools(TeamId.of('team_1'), [
         'linear.comment',
       ]);
       expect(stored).toBeDefined();
@@ -333,26 +333,26 @@ describe('IntegrationToolCalls', () => {
     expect(output?.tool.value).toBe('linear.comment');
     expect(output?.shape.schema).toEqual({ type: 'string' });
 
-    const failingHost = using({
+    const failingService = using({
       ok: false,
       status: 500,
       response: null,
       capture: {},
     });
-    await expect(failingHost.comment({ body: 'Fixed.' })).rejects.toThrow();
+    await expect(failingService.comment({ body: 'Fixed.' })).rejects.toThrow();
     expect(
-      await failingHost.learned.ofTools(TeamId.of('team_1'), [
+      await failingService.schemas.ofTools(TeamId.of('team_1'), [
         'linear.comment',
       ]),
     ).toEqual([]);
   });
 
-  it('answers the call even when what it answered cannot be learned', async () => {
-    const learned = new InMemoryLearnedOutputs();
-    vi.spyOn(learned, 'save').mockRejectedValue(new Error('database gone'));
+  it('answers the call even when what it answered cannot be inferred', async () => {
+    const schemas = new InMemoryInferredOutputSchemas();
+    vi.spyOn(schemas, 'save').mockRejectedValue(new Error('database gone'));
 
     await expect(
-      using(undefined, { learned }).comment({ body: 'Fixed.' }),
+      using(undefined, { schemas: schemas }).comment({ body: 'Fixed.' }),
     ).resolves.toBe('https://linear.app/acme/issue/ENG-12#comment-1');
   });
 
@@ -362,7 +362,7 @@ describe('IntegrationToolCalls', () => {
       PersonToolPolicy.none({
         teamId: TeamId.of('team_1'),
         personId: UserId.of('user_alice'),
-        source: SourceKey.of('linear'),
+        integration: IntegrationKey.of('linear'),
       }).set(ToolName.of('linear.comment'), PersonToolRule.of('blocked')),
     );
     const { tools } = using(undefined, { policies });
@@ -384,7 +384,7 @@ describe('IntegrationToolCalls', () => {
     expect(resolved.defaultFor('issue')).toBe('ENG-12');
   });
 
-  it('says what error the host answered with', async () => {
+  it('says what error the service answered with', async () => {
     const { comment } = using({
       ok: false,
       status: 400,
@@ -419,7 +419,7 @@ describe('IntegrationToolCalls', () => {
     expect(answered).toBe(long);
   });
 
-  describe('a tool generated from an API description', () => {
+  describe('a tool generated from an API spec', () => {
     const HASH = ContentHash.of('f'.repeat(64));
 
     const PETSTORE = `integration: petstore
@@ -435,7 +435,7 @@ graphql:
   url: https://api.linear.app/graphql
 `;
 
-    const ADD_PET = DescribedOperation.of({
+    const ADD_PET = SpecOperation.of({
       name: 'add-pet',
       upstream: 'addPet',
       description: 'Add a new pet to the store.',
@@ -462,7 +462,7 @@ graphql:
       },
     });
 
-    const ISSUE = DescribedOperation.of({
+    const ISSUE = SpecOperation.of({
       name: 'issue',
       upstream: 'issue',
       description: 'Find one issue.',
@@ -487,7 +487,7 @@ graphql:
 
     const generated = (
       text: string,
-      operation: DescribedOperation,
+      operation: SpecOperation,
       answering: Response,
     ) => {
       const fetch = vi.fn(async () => answering);
@@ -498,13 +498,13 @@ graphql:
           value: 'special-key',
         },
       });
-      const source = String(parseYaml(text).integration);
+      const integration = String(parseYaml(text).integration);
       const tools = new IntegrationToolCalls(
         {
           ofTeam: vi.fn(async () => [
             defined(text, {
               hash: HASH.value,
-              offers: [`${source}.${operation.name}`],
+              tools: [`${integration}.${operation.name}`],
             }),
           ]),
         } as unknown as DefinedIntegrationsPort,
@@ -512,11 +512,11 @@ graphql:
           new IntegrationReader(
             expressions,
             operationsContaining(
-              DescribedDocument.read({
+              SpecDocument.read({
                 hash: HASH,
                 kind: 'openapi',
                 operations: [operation],
-                passedOver: [],
+                skipped: [],
                 readAt: new Date('2026-10-05T12:00:00.000Z'),
               }),
             ),
@@ -528,7 +528,7 @@ graphql:
           callingNoServer(),
         ),
         callAuthFor(secrets.injection),
-        learningInto(),
+        inferringInto(),
         personRulesFrom(),
       );
 
@@ -560,15 +560,15 @@ graphql:
             description: null,
             required: true,
             defaulted: false,
-            piped: false,
+            stdin: false,
           },
         ],
         approval: { because: 'It changes data in Petstore.' },
-        learnedOutput: null,
+        inferredOutput: null,
       });
     });
 
-    it('makes the call the operation describes, and injects the description’s secrets', async () => {
+    it('makes the call the operation describes, and injects the spec’s secrets', async () => {
       const { fetch, resolving } = generated(
         PETSTORE,
         ADD_PET,
@@ -632,7 +632,7 @@ graphql:
       );
     });
 
-    it('resolves nothing the stored reading does not offer', async () => {
+    it('resolves nothing the stored fetch does not offer', async () => {
       await expect(
         generated(PETSTORE, ADD_PET, new Response('{}')).resolving(
           'petstore.delete-pet',

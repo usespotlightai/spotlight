@@ -1,6 +1,6 @@
 import type {
-  ParsedSkill,
   SkillCompilerPort,
+  SkillParseResult,
 } from '@configuration/application/ports/skill-compiler.port';
 import {
   SKILLS,
@@ -33,7 +33,7 @@ const skillSchema = z.object({
   files: z.record(filePath, z.string()),
 });
 
-export const compileSkill = (input: unknown): ParsedSkill => {
+export const compileSkill = (input: unknown): SkillParseResult => {
   const read = skillSchema.safeParse(input);
 
   if (!read.success) {
@@ -41,7 +41,7 @@ export const compileSkill = (input: unknown): ParsedSkill => {
   }
 
   const { key, files } = read.data;
-  const invalid = (at: FieldPath, reason: string): ParsedSkill => ({
+  const invalid = (at: FieldPath, reason: string): SkillParseResult => ({
     ok: false,
     problems: [ConfigurationProblem.of({ path: skillAt(key), at, reason })],
   });
@@ -75,7 +75,7 @@ export const compileSkill = (input: unknown): ParsedSkill => {
 };
 
 export class SkillCompiler implements SkillCompilerPort {
-  compile(input: unknown): ParsedSkill {
+  compile(input: unknown): SkillParseResult {
     return compileSkill(input);
   }
 }

@@ -33,7 +33,7 @@ const rehydrated = (row: Row): HarnessProfile =>
     id: HarnessProfileId.of(row.id),
     teamId: TeamId.of(row.teamId),
     key: ProfileKey.of(row.key),
-    settings: ProfileSettings.written(row),
+    settings: ProfileSettings.fromRaw(row),
     version: row.version,
   });
 

@@ -29,19 +29,19 @@ interface State extends Props {
   readonly deleted: boolean;
 }
 
-export interface ReadProfile {
+export interface ParsedProfile {
   readonly key: ProfileKey;
   readonly settings: ProfileSettings;
 }
 
 const rejectMissing = (
-  read: ReadProfile,
+  parsed: ParsedProfile,
   existing: readonly SecretName[],
 ): void => {
-  const missing = missingSecrets(read.settings, existing);
+  const missing = missingSecrets(parsed.settings, existing);
 
   if (missing.length > 0) {
-    throw new MissingSecretsError(read.key.value, missing);
+    throw new MissingSecretsError(parsed.key.value, missing);
   }
 };
 
@@ -51,7 +51,7 @@ export class HarnessProfile extends EventRecorder {
   }
 
   static create(
-    input: ReadProfile & {
+    input: ParsedProfile & {
       id: HarnessProfileId;
       teamId: TeamId;
       by: Attribution;
@@ -99,14 +99,14 @@ export class HarnessProfile extends EventRecorder {
   }
 
   update(
-    read: ReadProfile,
+    parsed: ParsedProfile,
     by: Attribution,
     existingSecrets: readonly SecretName[],
   ): HarnessProfile {
     this.guardLive();
 
-    if (!read.key.equals(this.key)) {
-      const because = `cannot be renamed to ${read.key.value}. Please replace it instead`;
+    if (!parsed.key.equals(this.key)) {
+      const because = `cannot be renamed to ${parsed.key.value}. Please replace it instead`;
 
       throw new ImmutableFieldError(
         'key',
@@ -115,9 +115,9 @@ export class HarnessProfile extends EventRecorder {
       );
     }
 
-    rejectMissing(read, existingSecrets);
+    rejectMissing(parsed, existingSecrets);
 
-    const updated = this.with({ settings: read.settings });
+    const updated = this.with({ settings: parsed.settings });
 
     updated.record(
       new HarnessProfileUpdated(

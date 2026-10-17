@@ -16,7 +16,7 @@ var commenting = protocol.ToolManifest{
 	Description: "Comment on the Linear issue this task came from.",
 	Inputs: []protocol.ToolInputManifest{
 		{Name: "issue", Schema: json.RawMessage(`{"type":"string"}`), Defaulted: true},
-		{Name: "body", Schema: json.RawMessage(`{"type":"string"}`), Description: "What to say", Required: true, Piped: true},
+		{Name: "body", Schema: json.RawMessage(`{"type":"string"}`), Description: "What to say", Required: true, Stdin: true},
 		{Name: "notify", Schema: json.RawMessage(`{"type":"boolean"}`)},
 	},
 }
@@ -143,7 +143,7 @@ func TestRejectsAToolUseMissingWhatItRequires(t *testing.T) {
 	}
 }
 
-func TestReadsAPipedInputFromStandardInputWhenNamed(t *testing.T) {
+func TestReadsTheStdinInputWhenNamedAsStandardInput(t *testing.T) {
 	for _, named := range []string{"/dev/stdin", "-"} {
 		t.Run(named, func(t *testing.T) {
 			_, carried := withTools(t, `{}`)
@@ -187,7 +187,7 @@ func TestReadsTheJSONObjectFromStandardInput(t *testing.T) {
 	}
 }
 
-func TestRejectsAPipedInputNamedWhenStandardInputCarriesTheJSON(t *testing.T) {
+func TestRejectsTheStdinInputNamedWhenStandardInputCarriesTheJSON(t *testing.T) {
 	withTools(t, `{}`)
 
 	args := []string{"linear", "comment", "--json", "-", "--body", "-"}
@@ -326,7 +326,7 @@ func TestRejectsAToolsCommandThereIsNot(t *testing.T) {
 }
 
 func TestPrintsOnlyTheOutputOfAnAnswerThatSaysWhoItActedAs(t *testing.T) {
-	output := readable(`{"output":{"id":"ENG-1"},"actingAs":{"holder":"user_1","personId":"user_1"}}`)
+	output := readable(`{"output":{"id":"ENG-1"},"actingAs":{"actsAs":"requester","personId":"user_1"}}`)
 
 	if output != "{\n  \"id\": \"ENG-1\"\n}" {
 		t.Errorf("output %s, want only the output", output)

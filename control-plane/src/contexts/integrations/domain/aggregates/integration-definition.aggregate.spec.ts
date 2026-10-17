@@ -2,19 +2,19 @@ import { IntegrationDefinition } from '@integrations/domain/aggregates/integrati
 import { Integration } from '@integrations/domain/entities/integration.entity';
 import { IntegrationCreated } from '@integrations/domain/events/integration-created.event';
 import { IntegrationDeleted } from '@integrations/domain/events/integration-deleted.event';
-import { IntegrationReread } from '@integrations/domain/events/integration-reread.event';
+import { IntegrationSpecRefreshed } from '@integrations/domain/events/integration-spec-refreshed.event';
 import { IntegrationUpdated } from '@integrations/domain/events/integration-updated.event';
 import { IntegrationDefinitionVersionConflictError } from '@integrations/domain/exceptions/integration-definition-version-conflict.error';
 import { IntegrationToolsInUseError } from '@integrations/domain/exceptions/integration-tools-in-use.error';
+import { ApiSpec } from '@integrations/domain/value-objects/api-spec.vo';
 import { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
 import { DefinedActions } from '@integrations/domain/value-objects/defined-actions.vo';
 import { DefinitionDocument } from '@integrations/domain/value-objects/definition-document.vo';
-import { DescribedSource } from '@integrations/domain/value-objects/described-source.vo';
 import { IntegrationDefinitionId } from '@integrations/domain/value-objects/integration-definition-id.vo';
-import { OfferedTool } from '@integrations/domain/value-objects/offered-tool.vo';
-import { RereadDetail } from '@integrations/domain/value-objects/reread-detail.vo';
-import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
-import { SourceReading } from '@integrations/domain/value-objects/source-reading.vo';
+import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
+import { ProvidedTool } from '@integrations/domain/value-objects/provided-tool.vo';
+import { SpecFetchResult } from '@integrations/domain/value-objects/spec-fetch-result.vo';
+import { SpecRefreshDetail } from '@integrations/domain/value-objects/spec-refresh-detail.vo';
 import { ToolBacking } from '@integrations/domain/value-objects/tool-backing.vo';
 import { ToolUses } from '@integrations/domain/value-objects/tool-uses.vo';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
@@ -32,7 +32,7 @@ const HASH = ContentHash.of('a'.repeat(64));
 
 const OTHER_HASH = ContentHash.of('b'.repeat(64));
 
-const DESCRIBED = DescribedSource.of({
+const SPEC = ApiSpec.of({
   kind: 'graphql',
   url: 'https://api.linear.app/graphql',
   fingerprint: 'linear-graphql',
@@ -42,54 +42,54 @@ const READ_AT = new Date('2026-10-05T12:00:00.000Z');
 
 const readingOf = (hash: ContentHash | null = HASH) =>
   hash
-    ? SourceReading.read({ source: DESCRIBED, hash, readAt: READ_AT })
-    : SourceReading.failed({
-        source: DESCRIBED,
+    ? SpecFetchResult.read({ spec: SPEC, hash, readAt: READ_AT })
+    : SpecFetchResult.failed({
+        spec: SPEC,
         readAt: READ_AT,
         problem: 'could not be read: api.linear.app answered 401',
       });
 
 const compiled = (
-  source: string,
+  integration: string,
   {
-    named = source,
-    offers = [] as string[],
+    named = integration,
+    tools = [] as string[],
     generated = [] as string[],
     from = HASH,
-    described = false,
+    withSpec = false,
   } = {},
 ) => {
-  const key = SourceKey.of(source);
+  const key = IntegrationKey.of(integration);
   const tool = (name: string, backing: ToolBacking) =>
-    OfferedTool.of({ source: key, name, description: name, backing });
+    ProvidedTool.of({ integration: key, name, description: name, backing });
 
   return {
     integration: Integration.of({
-      source: key,
+      key,
       actions: DefinedActions.of(['comment']),
-      offers: [
-        ...offers.map((name) => tool(name, ToolBacking.action('comment'))),
+      tools: [
+        ...tools.map((name) => tool(name, ToolBacking.action('comment'))),
         ...generated.map((name) =>
           tool(name, ToolBacking.operation(from, name)),
         ),
       ],
     }),
     document: DefinitionDocument.of({ integration: named, name: 'Linear' }),
-    source: described || generated.length > 0 ? DESCRIBED : null,
+    spec: withSpec || generated.length > 0 ? SPEC : null,
   };
 };
 
 const rehydrated = (
-  offers: string[] = [],
+  tools: string[] = [],
   version = 3,
-  reading: SourceReading | null = null,
+  reading: SpecFetchResult | null = null,
 ) =>
   IntegrationDefinition.rehydrate({
     id: ID,
     teamId: TEAM,
-    source: SourceKey.of('linear'),
+    integration: IntegrationKey.of('linear'),
     document: DefinitionDocument.of({ integration: 'linear', name: 'Linear' }),
-    offers,
+    tools,
     reading,
     version,
   });
@@ -107,30 +107,30 @@ const ENABLED = ToolUses.of([
 ]);
 
 describe('IntegrationDefinition', () => {
-  it('is created for the host its compiled integration names, and says so', () => {
+  it('is created for the integration its compiled definition names, and says so', () => {
     const created = IntegrationDefinition.create({
-      ...compiled('linear', { offers: ['comment'] }),
+      ...compiled('linear', { tools: ['comment'] }),
       id: ID,
       teamId: TEAM,
       reading: null,
       by: BY,
     });
 
-    expect(created.source).toEqual(SourceKey.of('linear'));
-    expect(created.offers).toEqual(['linear.comment']);
+    expect(created.integration).toEqual(IntegrationKey.of('linear'));
+    expect(created.tools).toEqual(['linear.comment']);
     expect(created.isNew).toBe(true);
     expect(created.pullEvents()).toEqual([
       new IntegrationCreated(
         ID,
         TEAM,
-        SourceKey.of('linear'),
+        IntegrationKey.of('linear'),
         ['linear.comment'],
         ConfigurationChange.created(LINEAR, BY),
       ),
     ]);
   });
 
-  it('rejects a definition compiled for another host', () => {
+  it('rejects a definition compiled for another integration', () => {
     expect(() =>
       IntegrationDefinition.create({
         ...compiled('linear', { named: 'slack' }),
@@ -139,12 +139,12 @@ describe('IntegrationDefinition', () => {
         reading: null,
         by: BY,
       }),
-    ).toThrow(/compiled for another host/);
+    ).toThrow(/compiled for another integration/);
   });
 
-  it('takes a new definition of its own host, keeping its id and version', () => {
+  it('takes a new definition of its own integration, keeping its id and version', () => {
     const updated = rehydrated().update(
-      compiled('linear', { offers: ['comment'] }),
+      compiled('linear', { tools: ['comment'] }),
       null,
       ToolUses.none(),
       BY,
@@ -152,20 +152,20 @@ describe('IntegrationDefinition', () => {
 
     expect(updated.id).toEqual(ID);
     expect(updated.version).toBe(3);
-    expect(updated.offers).toEqual(['linear.comment']);
+    expect(updated.tools).toEqual(['linear.comment']);
     expect(updated.document.hasValue('name', 'Linear')).toBe(true);
     expect(updated.pullEvents()).toEqual([
       new IntegrationUpdated(
         ID,
         TEAM,
-        SourceKey.of('linear'),
+        IntegrationKey.of('linear'),
         ['linear.comment'],
         ConfigurationChange.updated(LINEAR, BY),
       ),
     ]);
   });
 
-  it('keeps the host it was created for, pointing at the field that tried to move it', () => {
+  it('keeps the integration name it was created for, pointing at the field that tried to move it', () => {
     const moved = () =>
       rehydrated().update(compiled('slack'), null, ToolUses.none(), BY);
 
@@ -184,7 +184,7 @@ describe('IntegrationDefinition', () => {
     ).toThrow(IntegrationToolsInUseError);
     expect(() =>
       rehydrated(['linear.comment']).update(
-        compiled('linear', { offers: ['comment'] }),
+        compiled('linear', { tools: ['comment'] }),
         null,
         ENABLED,
         BY,
@@ -204,7 +204,7 @@ describe('IntegrationDefinition', () => {
       new IntegrationDeleted(
         ID,
         TEAM,
-        SourceKey.of('linear'),
+        IntegrationKey.of('linear'),
         ['linear.comment'],
         ConfigurationChange.deleted(LINEAR, BY),
       ),
@@ -229,25 +229,25 @@ describe('IntegrationDefinition', () => {
     );
   });
 
-  it('will not be read back without a version, or under a host it does not define', () => {
+  it('will not be read back without a version, or under an integration name it does not define', () => {
     expect(() => rehydrated([], 0)).toThrow(/without a version/);
     expect(() =>
       IntegrationDefinition.rehydrate({
         id: ID,
         teamId: TEAM,
-        source: SourceKey.of('linear'),
+        integration: IntegrationKey.of('linear'),
         document: DefinitionDocument.of({ integration: 'slack' }),
-        offers: [],
+        tools: [],
         reading: null,
         version: 1,
       }),
     ).toThrow(/does not define/);
   });
 
-  it('keeps the reading of the description it names, and the tools generated from it', () => {
+  it('keeps the fetched spec it names, and the tools generated from it', () => {
     const created = IntegrationDefinition.create({
       ...compiled('linear', {
-        offers: ['comment'],
+        tools: ['comment'],
         generated: ['issue-create'],
       }),
       id: ID,
@@ -256,12 +256,12 @@ describe('IntegrationDefinition', () => {
       by: BY,
     });
 
-    expect(created.offers).toEqual(['linear.comment', 'linear.issue-create']);
+    expect(created.tools).toEqual(['linear.comment', 'linear.issue-create']);
     expect(created.reading?.hash).toEqual(HASH);
   });
 
-  it('will not be created without a reading of the description it names', () => {
-    const naming = compiled('linear', { described: true });
+  it('will not be created without a fetch of the spec it names', () => {
+    const naming = compiled('linear', { withSpec: true });
 
     expect(() =>
       IntegrationDefinition.create({
@@ -271,7 +271,7 @@ describe('IntegrationDefinition', () => {
         reading: null,
         by: BY,
       }),
-    ).toThrow(/did not receive a reading of it/);
+    ).toThrow(/did not receive a fetched spec/);
     expect(() =>
       IntegrationDefinition.create({
         ...compiled('linear'),
@@ -283,7 +283,7 @@ describe('IntegrationDefinition', () => {
     ).toThrow(/does not name/);
   });
 
-  it('rejects tools generated from another reading than the one it stores', () => {
+  it('rejects tools generated from another fetch than the one it stores', () => {
     expect(() =>
       IntegrationDefinition.create({
         ...compiled('linear', {
@@ -295,58 +295,58 @@ describe('IntegrationDefinition', () => {
         reading: readingOf(),
         by: BY,
       }),
-    ).toThrow(/another reading/);
+    ).toThrow(/another fetch/);
   });
 
-  it('keeps a description that could not be read, offering nothing from it', () => {
+  it('keeps a spec that could not be fetched, and provides nothing from it', () => {
     const created = IntegrationDefinition.create({
-      ...compiled('linear', { described: true }),
+      ...compiled('linear', { withSpec: true }),
       id: ID,
       teamId: TEAM,
       reading: readingOf(null),
       by: BY,
     });
 
-    expect(created.offers).toEqual([]);
+    expect(created.tools).toEqual([]);
     expect(created.reading?.problem).toMatch(/401/);
   });
 
-  it('is reread from upstream, stranding the tools upstream no longer offers', () => {
+  it('refreshes its spec from upstream, and orphans the tools upstream no longer provides', () => {
     const existing = rehydrated(
       ['linear.issue-create', 'linear.issue-delete'],
       3,
       readingOf(),
     );
-    const again = SourceReading.read({
-      source: DESCRIBED,
+    const again = SpecFetchResult.read({
+      spec: SPEC,
       hash: OTHER_HASH,
       readAt: READ_AT,
     });
 
-    expect(existing.rereads(readingOf())).toBe(false);
-    expect(existing.rereads(again)).toBe(true);
+    expect(existing.changesSpec(readingOf())).toBe(false);
+    expect(existing.changesSpec(again)).toBe(true);
 
-    const reread = existing.reread(
+    const refreshed = existing.refreshSpec(
       compiled('linear', { generated: ['issue-create'], from: OTHER_HASH }),
       again,
       BY,
     );
 
-    expect(reread.offers).toEqual(['linear.issue-create']);
-    expect(reread.pullEvents()).toEqual([
-      new IntegrationReread(
+    expect(refreshed.tools).toEqual(['linear.issue-create']);
+    expect(refreshed.pullEvents()).toEqual([
+      new IntegrationSpecRefreshed(
         ID,
         TEAM,
-        SourceKey.of('linear'),
+        IntegrationKey.of('linear'),
         ['linear.issue-create'],
         ['linear.issue-delete'],
         ConfigurationChange.updated(
           LINEAR,
           BY,
-          RereadDetail.of({
+          SpecRefreshDetail.of({
             hash: OTHER_HASH.value,
             problem: null,
-            stranded: ['linear.issue-delete'],
+            orphanedTools: ['linear.issue-delete'],
           }),
         ),
       ),
@@ -359,31 +359,31 @@ describe('IntegrationDefinition', () => {
       'could not be read: api.linear.app: ENOTFOUND',
     );
 
-    expect(existing.rereads(failed)).toBe(true);
+    expect(existing.changesSpec(failed)).toBe(true);
 
-    const reread = existing.reread(
+    const refreshed = existing.refreshSpec(
       compiled('linear', { generated: ['issue-create'] }),
       failed,
       BY,
     );
 
-    expect(reread.offers).toEqual(['linear.issue-create']);
-    expect(reread.reading?.problem).toMatch(/ENOTFOUND/);
-    expect(reread.pullEvents()).toEqual([
-      expect.objectContaining({ stranded: [] }),
+    expect(refreshed.tools).toEqual(['linear.issue-create']);
+    expect(refreshed.reading?.problem).toMatch(/ENOTFOUND/);
+    expect(refreshed.pullEvents()).toEqual([
+      expect.objectContaining({ orphanedTools: [] }),
     ]);
   });
 
-  it('is reread only from the definition it stores', () => {
+  it('refreshes its spec only from the definition it stores', () => {
     expect(() =>
-      rehydrated([], 3, readingOf()).reread(
+      rehydrated([], 3, readingOf()).refreshSpec(
         compiled('linear', { named: 'linear', generated: ['issue-create'] }),
         readingOf(),
         BY,
       ),
     ).not.toThrow();
     expect(() =>
-      rehydrated([], 3, readingOf()).reread(
+      rehydrated([], 3, readingOf()).refreshSpec(
         {
           ...compiled('linear', { generated: ['issue-create'] }),
           document: DefinitionDocument.of({ integration: 'linear', name: 'X' }),
@@ -402,7 +402,7 @@ describe('IntegrationDefinition', () => {
       new IntegrationDeleted(
         ID,
         TEAM,
-        SourceKey.of('linear'),
+        IntegrationKey.of('linear'),
         ['linear.comment'],
         ConfigurationChange.deleted(LINEAR, BY),
       ),

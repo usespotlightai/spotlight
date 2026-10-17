@@ -14,33 +14,36 @@ export class FakeIntegrationCursors implements IntegrationCursorsPort {
     private readonly beforeRead: () => Promise<void> = async () => {},
   ) {}
 
-  stateOf(teamId: TeamId, source: string): PollState | undefined {
-    return this.stored.get(this.key(teamId, source));
+  stateOf(teamId: TeamId, integration: string): PollState | undefined {
+    return this.stored.get(this.key(teamId, integration));
   }
 
-  setState(teamId: TeamId, source: string, state: PollState): void {
-    this.stored.set(this.key(teamId, source), state);
+  setState(teamId: TeamId, integration: string, state: PollState): void {
+    this.stored.set(this.key(teamId, integration), state);
   }
 
-  async read(teamId: TeamId, source: string): Promise<PollState> {
-    const state = this.stateOf(teamId, source) ?? { cursor: null, ranAt: null };
+  async read(teamId: TeamId, integration: string): Promise<PollState> {
+    const state = this.stateOf(teamId, integration) ?? {
+      cursor: null,
+      ranAt: null,
+    };
     await this.beforeRead();
     return state;
   }
 
   async claimTurn(
     teamId: TeamId,
-    source: string,
+    integration: string,
     seen: PollState,
     at: Date,
   ): Promise<boolean> {
-    const current = this.stateOf(teamId, source);
+    const current = this.stateOf(teamId, integration);
 
     if (current && !same(current.ranAt, seen.ranAt)) {
       return false;
     }
 
-    this.setState(teamId, source, {
+    this.setState(teamId, integration, {
       cursor: current ? current.cursor : seen.cursor,
       ranAt: at,
     });
@@ -50,22 +53,22 @@ export class FakeIntegrationCursors implements IntegrationCursorsPort {
 
   async advance(
     teamId: TeamId,
-    source: string,
+    integration: string,
     cursor: string | null,
     claimedAt: Date,
   ): Promise<boolean> {
-    const current = this.stateOf(teamId, source);
+    const current = this.stateOf(teamId, integration);
 
     if (!current || !same(current.ranAt, claimedAt)) {
       return false;
     }
 
-    this.setState(teamId, source, { cursor, ranAt: claimedAt });
+    this.setState(teamId, integration, { cursor, ranAt: claimedAt });
 
     return true;
   }
 
-  private key(teamId: TeamId, source: string): string {
-    return `${teamId.value}:${source}`;
+  private key(teamId: TeamId, integration: string): string {
+    return `${teamId.value}:${integration}`;
   }
 }

@@ -15,7 +15,7 @@ export type Ruled =
   | { readonly kind: 'blocked'; readonly by: string };
 
 const approvalReason = (declared: DeclaredTool, person: PersonRule): string =>
-  `${person.personName || 'The person'} wants to approve each call made with their ${declared.offeredBy ?? 'integration'} connection.`;
+  `${person.personName || 'The person'} wants to approve each call made with their ${declared.providedBy ?? 'integration'} connection.`;
 
 export const StricterRule = {
   of(declared: DeclaredTool, person: PersonRule | null): Ruled {

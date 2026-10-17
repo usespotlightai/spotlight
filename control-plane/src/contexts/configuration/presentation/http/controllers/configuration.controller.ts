@@ -31,7 +31,7 @@ export class ConfigurationController {
   @Get()
   @ApiOperation({
     operationId: 'readConfiguration',
-    summary: 'What this team listens to',
+    summary: 'The integrations of this team and their connection status',
   })
   @ApiParam({ name: 'teamId', example: 'team_1' })
   @ApiOkResponse({ type: ConfigurationResponseDto })

@@ -37,8 +37,8 @@ export interface ReviewPayload {
 }
 
 interface OpensPayload {
-  readonly onto: string;
-  readonly at: string | null;
+  readonly lineRole: string;
+  readonly station: string | null;
   readonly title: string;
   readonly description: string | null;
   readonly assignEmail: string | null;

@@ -17,39 +17,39 @@ const DEFINED = {
   id: integrationDefinition.id,
   version: integrationDefinition.version,
   teamId: integrationDefinition.teamId,
-  source: integrationDefinition.source,
+  integration: integrationDefinition.integration,
   definition: integrationDefinition.definition,
-  offers: integrationDefinition.offers,
-  generatedFrom: integrationDefinition.sourceHash,
-  readAt: integrationDefinition.sourceReadAt,
-  problem: integrationDefinition.sourceProblem,
-  passedOver: integrationDefinition.sourcePassedOver,
+  tools: integrationDefinition.tools,
+  generatedFrom: integrationDefinition.specHash,
+  readAt: integrationDefinition.specReadAt,
+  problem: integrationDefinition.specProblem,
+  skipped: integrationDefinition.specSkipped,
 };
 
 interface DefinedRow {
   readonly id: string;
   readonly version: number;
-  readonly source: string;
+  readonly integration: string;
   readonly definition: Record<string, unknown>;
-  readonly offers: string[];
+  readonly tools: string[];
   readonly generatedFrom: string | null;
   readonly readAt: Date | null;
   readonly problem: string | null;
-  readonly passedOver: string[] | null;
+  readonly skipped: string[] | null;
 }
 
 const definedOf = (row: DefinedRow): DefinedIntegration => ({
   id: row.id,
   version: row.version,
-  source: row.source,
+  integration: row.integration,
   definition: row.definition,
-  offers: row.offers,
+  tools: row.tools,
   generatedFrom: row.generatedFrom,
   reading: row.readAt
     ? {
         readAt: row.readAt,
         problem: row.problem,
-        passedOver: row.passedOver ?? [],
+        skipped: row.skipped ?? [],
       }
     : null,
 });
@@ -70,7 +70,7 @@ export class DrizzleDefinedIntegrations
       .select(DEFINED)
       .from(integrationDefinition)
       .where(eq(integrationDefinition.teamId, teamId.value))
-      .orderBy(asc(integrationDefinition.source));
+      .orderBy(asc(integrationDefinition.integration));
 
     return found.map((each) => recordOf(each, teamId));
   }
@@ -81,7 +81,7 @@ export class DrizzleDefinedIntegrations
       .from(integrationDefinition)
       .orderBy(
         asc(integrationDefinition.teamId),
-        asc(integrationDefinition.source),
+        asc(integrationDefinition.integration),
       );
     const teams = new Map<string, DefinedIntegration[]>();
 
@@ -99,11 +99,11 @@ export class DrizzleDefinedIntegrations
     return this.findOne(eq(integrationDefinition.id, id));
   }
 
-  at(teamId: TeamId, source: string): Promise<IntegrationRecord | null> {
+  at(teamId: TeamId, integration: string): Promise<IntegrationRecord | null> {
     return this.findOne(
       and(
         eq(integrationDefinition.teamId, teamId.value),
-        eq(integrationDefinition.source, source),
+        eq(integrationDefinition.integration, integration),
       ),
     );
   }

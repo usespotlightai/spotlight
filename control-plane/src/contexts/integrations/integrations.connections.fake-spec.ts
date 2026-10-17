@@ -1,39 +1,44 @@
-import { HostConnection } from '@integrations/domain/aggregates/host-connection.aggregate';
-import { HostConnectionVersionConflictError } from '@integrations/domain/exceptions/host-connection-version-conflict.error';
-import type { HostConnectionRepository } from '@integrations/domain/repositories/host-connection.repository';
-import type { ConnectionHolder } from '@integrations/domain/value-objects/connection-holder.vo';
-import type { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
+import { IntegrationConnection } from '@integrations/domain/aggregates/integration-connection.aggregate';
+import { IntegrationConnectionVersionConflictError } from '@integrations/domain/exceptions/integration-connection-version-conflict.error';
+import type { IntegrationConnectionRepository } from '@integrations/domain/repositories/integration-connection.repository';
+import type { ConnectionOwner } from '@integrations/domain/value-objects/connection-owner.vo';
+import type { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
-const keyOf = (teamId: TeamId, source: SourceKey, holder: ConnectionHolder) =>
-  `${teamId.value}:${source.value}:${holder.key}`;
+const keyOf = (
+  teamId: TeamId,
+  integration: IntegrationKey,
+  owner: ConnectionOwner,
+) => `${teamId.value}:${integration.value}:${owner.key}`;
 
-const storedAs = (connection: HostConnection, version: number) =>
-  HostConnection.rehydrate({
+const storedAs = (connection: IntegrationConnection, version: number) =>
+  IntegrationConnection.rehydrate({
     workspaceId: connection.workspaceId,
     teamId: connection.teamId,
-    source: connection.source,
-    holder: connection.holder,
+    integration: connection.integration,
+    owner: connection.owner,
     accessToken: connection.accessToken,
     refreshToken: connection.refreshToken,
     expiresAt: connection.expiresAt,
     scopes: connection.scopes,
-    handle: connection.handle,
+    linkedAccount: connection.linkedAccount,
     refreshFailedAt: connection.refreshFailedAt,
-    renewalClaim: connection.renewalClaim,
+    refreshClaim: connection.refreshClaim,
     version,
   });
 
-export class InMemoryHostConnections implements HostConnectionRepository {
-  readonly #stored = new Map<string, HostConnection>();
-  readonly saved: HostConnection[] = [];
+export class InMemoryIntegrationConnections
+  implements IntegrationConnectionRepository
+{
+  readonly #stored = new Map<string, IntegrationConnection>();
+  readonly saved: IntegrationConnection[] = [];
   readonly events: DomainEvent[] = [];
   #conflicts = 0;
 
-  add(connection: HostConnection): void {
+  add(connection: IntegrationConnection): void {
     this.#stored.set(
-      keyOf(connection.teamId, connection.source, connection.holder),
+      keyOf(connection.teamId, connection.integration, connection.owner),
       storedAs(connection, Math.max(connection.version, 1)),
     );
   }
@@ -42,8 +47,12 @@ export class InMemoryHostConnections implements HostConnectionRepository {
     this.#conflicts = times;
   }
 
-  bump(teamId: TeamId, source: SourceKey, holder: ConnectionHolder): void {
-    const key = keyOf(teamId, source, holder);
+  bump(
+    teamId: TeamId,
+    integration: IntegrationKey,
+    owner: ConnectionOwner,
+  ): void {
+    const key = keyOf(teamId, integration, owner);
     const stored = this.#stored.get(key);
 
     if (stored) {
@@ -53,14 +62,18 @@ export class InMemoryHostConnections implements HostConnectionRepository {
 
   async of(
     teamId: TeamId,
-    source: SourceKey,
-    holder: ConnectionHolder,
-  ): Promise<HostConnection | null> {
-    return this.#stored.get(keyOf(teamId, source, holder)) ?? null;
+    integration: IntegrationKey,
+    owner: ConnectionOwner,
+  ): Promise<IntegrationConnection | null> {
+    return this.#stored.get(keyOf(teamId, integration, owner)) ?? null;
   }
 
-  async save(connection: HostConnection): Promise<void> {
-    const key = keyOf(connection.teamId, connection.source, connection.holder);
+  async save(connection: IntegrationConnection): Promise<void> {
+    const key = keyOf(
+      connection.teamId,
+      connection.integration,
+      connection.owner,
+    );
     const stored = this.#stored.get(key);
 
     if (this.#conflicts > 0) {
@@ -68,11 +81,15 @@ export class InMemoryHostConnections implements HostConnectionRepository {
       if (stored) {
         this.#stored.set(key, storedAs(stored, stored.version + 1));
       }
-      throw new HostConnectionVersionConflictError(connection.source.value);
+      throw new IntegrationConnectionVersionConflictError(
+        connection.integration.value,
+      );
     }
 
     if (!connection.isNew && stored?.version !== connection.version) {
-      throw new HostConnectionVersionConflictError(connection.source.value);
+      throw new IntegrationConnectionVersionConflictError(
+        connection.integration.value,
+      );
     }
 
     this.#stored.set(key, storedAs(connection, (stored?.version ?? 0) + 1));
@@ -80,14 +97,16 @@ export class InMemoryHostConnections implements HostConnectionRepository {
     this.events.push(...connection.pullEvents());
   }
 
-  async remove(connection: HostConnection): Promise<void> {
+  async remove(connection: IntegrationConnection): Promise<void> {
     this.#stored.delete(
-      keyOf(connection.teamId, connection.source, connection.holder),
+      keyOf(connection.teamId, connection.integration, connection.owner),
     );
     this.events.push(...connection.pullEvents());
   }
 
-  async expiringBefore(horizon: Date): Promise<readonly HostConnection[]> {
+  async expiringBefore(
+    horizon: Date,
+  ): Promise<readonly IntegrationConnection[]> {
     return [...this.#stored.values()].filter(
       (each) =>
         each.refreshToken !== null &&

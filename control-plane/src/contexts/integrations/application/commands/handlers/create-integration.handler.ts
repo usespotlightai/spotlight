@@ -1,7 +1,7 @@
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type { CreateIntegrationCommand } from '@integrations/application/commands/create-integration.command';
-import type { IntegrationSources } from '@integrations/application/services/integration-sources.service';
+import type { IntegrationSpecs } from '@integrations/application/services/integration-specs.service';
 import { IntegrationDefinition } from '@integrations/domain/aggregates/integration-definition.aggregate';
 import { IntegrationAlreadyExistsError } from '@integrations/domain/exceptions/integration-already-exists.error';
 import type { IntegrationDefinitionRepository } from '@integrations/domain/repositories/integration-definition.repository';
@@ -34,7 +34,7 @@ export class CreateIntegrationHandler
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly teams: TeamDirectoryPort,
-    private readonly sources: IntegrationSources,
+    private readonly specs: IntegrationSpecs,
     private readonly definitions: IntegrationDefinitionRepository,
     private readonly creates: IdempotentCreatesPort,
     private readonly recalls: IdempotentRecallsPort,
@@ -79,7 +79,7 @@ export class CreateIntegrationHandler
         return earlier;
       }
 
-      const { compiled, reading } = await this.sources.compiled({
+      const { compiled, reading } = await this.specs.compiled({
         definition: command.definition,
         teamId: permissions.teamId,
         current: null,
@@ -89,10 +89,7 @@ export class CreateIntegrationHandler
         return { outcome: 'invalid', problems: compiled.problems };
       }
 
-      const address = IntegrationAddress.of(
-        team.key,
-        compiled.integration.source,
-      );
+      const address = IntegrationAddress.of(team.key, compiled.integration.key);
 
       try {
         return await this.transaction.inTransaction(() =>

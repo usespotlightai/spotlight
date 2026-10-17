@@ -1,5 +1,5 @@
 import type {
-  ExpressionAlsoSees,
+  ExpressionAddedVariable,
   ExpressionReturns,
 } from '@integrations/application/dto/expression-check.dto';
 import {
@@ -35,7 +35,7 @@ export class ExpressionPosition {
     readonly position: FieldPath,
     readonly scope: Scope,
     readonly returns: ExpressionReturns | null,
-    readonly alsoSees: readonly ExpressionAlsoSees[],
+    readonly addedVariables: readonly ExpressionAddedVariable[],
   ) {}
 
   seen(additions: Additions): Scope {
@@ -49,7 +49,7 @@ export class ExpressionPosition {
       more.response = { schema: additions.response };
     }
 
-    if (this.seesItem(additions)) {
+    if (this.addsItem(additions)) {
       more[ITEM] = OUTSIDE;
     }
 
@@ -57,7 +57,7 @@ export class ExpressionPosition {
       more[captured.name] = OUTSIDE;
     }
 
-    if (additions.inputs && this.alsoSees.includes('inputs')) {
+    if (additions.inputs && this.addedVariables.includes('inputs')) {
       more.inputs = { schema: { ...additions.inputs } };
     }
 
@@ -76,7 +76,7 @@ export class ExpressionPosition {
     return this.capturesIn(additions).filter(
       (captured) =>
         captured.name in this.scope.declared ||
-        (captured.name === ITEM && this.seesItem(additions)),
+        (captured.name === ITEM && this.addsItem(additions)),
     );
   }
 
@@ -90,11 +90,13 @@ export class ExpressionPosition {
     return fits ? null : `must return a ${this.returns}, not a ${type}`;
   }
 
-  private seesItem(additions: Additions): boolean {
-    return additions.iterates === true && this.alsoSees.includes('item');
+  private addsItem(additions: Additions): boolean {
+    return additions.iterates === true && this.addedVariables.includes('item');
   }
 
   private capturesIn(additions: Additions): readonly Captured[] {
-    return this.alsoSees.includes('captures') ? (additions.captured ?? []) : [];
+    return this.addedVariables.includes('captures')
+      ? (additions.captured ?? [])
+      : [];
   }
 }

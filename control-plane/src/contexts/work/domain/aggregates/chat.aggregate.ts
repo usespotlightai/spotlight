@@ -268,7 +268,7 @@ export class Chat extends EventRecorder {
       );
     }
 
-    if (branch.isSpotlights) {
+    if (branch.isReserved) {
       throw new InvalidSetupBranchError(branch.value);
     }
 

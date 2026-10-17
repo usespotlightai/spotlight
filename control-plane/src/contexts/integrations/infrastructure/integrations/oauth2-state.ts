@@ -2,24 +2,24 @@ import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 
 const LIVES_MS = 10 * 60 * 1000;
 
-type OAuth2Holder = 'team' | 'person';
+type ConnectionOwnerKind = 'team' | 'person';
 
 interface Payload {
   readonly teamId: string;
-  readonly source: string;
+  readonly integration: string;
   readonly by: string;
-  readonly holder: OAuth2Holder;
-  readonly back: string | null;
+  readonly owner: ConnectionOwnerKind;
+  readonly returnTo: string | null;
   readonly nonce: string;
   readonly exp: number;
 }
 
 export interface OAuth2Intent {
   readonly teamId: string;
-  readonly source: string;
+  readonly integration: string;
   readonly by: string;
-  readonly holder: OAuth2Holder;
-  readonly back: string | null;
+  readonly owner: ConnectionOwnerKind;
+  readonly returnTo: string | null;
   readonly nonce: string;
 }
 
@@ -41,10 +41,10 @@ export class OAuth2State {
   sign(intent: OAuth2Intent): SignedOAuth2State {
     const payload: Payload = {
       teamId: intent.teamId,
-      source: intent.source,
+      integration: intent.integration,
       by: intent.by,
-      holder: intent.holder,
-      back: intent.back,
+      owner: intent.owner,
+      returnTo: intent.returnTo,
       nonce: intent.nonce,
       exp: this.now() + LIVES_MS,
     };
@@ -77,18 +77,18 @@ export class OAuth2State {
       payload.exp < this.now() ||
       typeof payload.nonce !== 'string' ||
       payload.nonce.length === 0 ||
-      (payload.holder !== 'team' && payload.holder !== 'person') ||
-      (payload.back !== null && typeof payload.back !== 'string')
+      (payload.owner !== 'team' && payload.owner !== 'person') ||
+      (payload.returnTo !== null && typeof payload.returnTo !== 'string')
     ) {
       return null;
     }
 
     return {
       teamId: payload.teamId,
-      source: payload.source,
+      integration: payload.integration,
       by: payload.by,
-      holder: payload.holder,
-      back: payload.back,
+      owner: payload.owner,
+      returnTo: payload.returnTo,
       nonce: payload.nonce,
       expiresAt: new Date(payload.exp),
     };

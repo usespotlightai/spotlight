@@ -5,7 +5,7 @@ describe('Binding', () => {
   it('binds an event Spotlight raises to an action', () => {
     const binding = Binding.of({
       event: 'task.asked',
-      does: 'post',
+      action: 'post',
       known: ['task.asked'],
     });
 
@@ -15,7 +15,11 @@ describe('Binding', () => {
 
   it('rejects an event Spotlight never raises', () => {
     expect(() =>
-      Binding.of({ event: 'task.moved', does: 'post', known: ['task.asked'] }),
+      Binding.of({
+        event: 'task.moved',
+        action: 'post',
+        known: ['task.asked'],
+      }),
     ).toThrow(/must be one of task.asked/);
   });
 });

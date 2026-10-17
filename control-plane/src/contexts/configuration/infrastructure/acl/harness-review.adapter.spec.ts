@@ -4,9 +4,9 @@ import { HarnessReviewOfWork } from '@configuration/infrastructure/acl/harness-r
 import type { HarnessNote } from '@work/application/contracts/harness-profile.contract';
 import { describe, expect, it } from 'vitest';
 
-const READ = {
+const PARSED = {
   key: ProfileKey.of('careful'),
-  settings: ProfileSettings.written({
+  settings: ProfileSettings.fromRaw({
     permissions: {
       allow: ['read', 'execute(npm test *)'],
       ask: ['execute(git push *)'],
@@ -20,7 +20,7 @@ const READ = {
 const reviewing = (warnings: readonly HarnessNote[]) =>
   new HarnessReviewOfWork({
     review: () => ({ problems: [], warnings }),
-  }).review(READ).warnings;
+  }).review(PARSED).warnings;
 
 describe('what Work says of a harness profile, in Configuration’s fields', () => {
   it('addresses a rule where the profile wrote it', () => {

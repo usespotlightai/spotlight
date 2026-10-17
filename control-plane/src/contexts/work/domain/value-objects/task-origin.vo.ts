@@ -15,7 +15,7 @@ export class TaskOrigin {
   }
 
   static receivedFrom(happening: Happening): TaskOrigin {
-    return TaskOrigin.of(happening.source);
+    return TaskOrigin.of(happening.integration);
   }
 
   static of(raw: string): TaskOrigin {

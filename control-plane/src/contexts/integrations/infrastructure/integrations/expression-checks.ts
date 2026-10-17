@@ -52,8 +52,8 @@ const POSITIONS: readonly ExpressionPositionDto[] = EXPRESSION_POSITIONS.map(
   (position) => ({
     position: position.position,
     returns: position.returns,
-    sees: declarationsOf(position.scope.declared),
-    alsoSees: position.alsoSees,
+    variables: declarationsOf(position.scope.declared),
+    addedVariables: position.addedVariables,
   }),
 );
 
@@ -91,14 +91,14 @@ export class ExpressionChecks implements ExpressionChecksPort {
       return found;
     }
 
-    const verdict = found.place.checked(this.expressions, expression);
+    const result = found.place.checked(this.expressions, expression);
 
     return {
       outcome: 'checked',
       check: {
-        type: verdict.type,
-        errors: verdict.errors,
-        warnings: verdict.warnings.map((warning) => ({
+        type: result.type,
+        errors: result.errors,
+        warnings: result.warnings.map((warning) => ({
           position: positionAt(warning.field),
           message: warning.message,
         })),

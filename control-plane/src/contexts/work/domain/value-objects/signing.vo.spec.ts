@@ -26,12 +26,12 @@ describe('Signing', () => {
     );
   });
 
-  it('writes the digest as hex unless the host requests otherwise', () => {
+  it('writes the digest as hex unless the service requests otherwise', () => {
     expect(signing().encoding).toBe('hex');
     expect(signing({ encoding: 'base64' }).encoding).toBe('base64');
   });
 
-  it('carries whatever the host writes in front of the digest', () => {
+  it('carries whatever the service writes in front of the digest', () => {
     expect(signing().prefix).toBe('');
     expect(signing({ prefix: 'sha256=' }).prefix).toBe('sha256=');
   });

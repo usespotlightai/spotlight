@@ -1,23 +1,23 @@
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
 import type {
-  DescribedSourceDto,
+  ApiSpecDto,
   IntegrationResourceDto,
 } from '@integrations/application/dto/integration-resource.dto';
 import type { IntegrationCompilerPort } from '@integrations/application/ports/integration-compiler.port';
 import type { IntegrationRecord } from '@integrations/application/ports/integration-resources.port';
 import { integrationAt } from '@integrations/application/rendering/integration-problems';
-import type { DescribedSource } from '@integrations/domain/value-objects/described-source.vo';
+import type { ApiSpec } from '@integrations/domain/value-objects/api-spec.vo';
 import { IntegrationAddress } from '@integrations/domain/value-objects/integration-address.vo';
-import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
+import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 
 const readingWarnings = (
   record: IntegrationRecord,
-  source: DescribedSource,
+  spec: ApiSpec,
 ): readonly ConfigurationProblem[] => {
   const reading = record.reading;
-  const path = integrationAt(record.source);
+  const path = integrationAt(record.integration);
   const warned = (at: FieldPath, reason: string) =>
     ConfigurationProblem.of({ path, at, reason, severity: 'warning' });
 
@@ -29,14 +29,12 @@ const readingWarnings = (
     ...(reading.problem
       ? [
           warned(
-            FieldPath.of([source.kind, source.readsUrl ? 'url' : 'document']),
+            FieldPath.of([spec.kind, spec.readsUrl ? 'url' : 'document']),
             reading.problem,
           ),
         ]
       : []),
-    ...reading.passedOver.map((each) =>
-      warned(FieldPath.of([source.kind]), each),
-    ),
+    ...reading.skipped.map((each) => warned(FieldPath.of([spec.kind]), each)),
   ];
 };
 
@@ -54,18 +52,18 @@ export class IntegrationViews {
 
   onTeam(record: IntegrationRecord, teamKey: string): IntegrationResourceDto {
     const compiled = this.compiler.compile(record.definition);
-    const source = compiled.ok ? compiled.source : null;
+    const spec = compiled.ok ? compiled.spec : null;
     const handWritten = compiled.ok
-      ? compiled.integration.offers.map((each) => each.tool)
+      ? compiled.integration.tools.map((each) => each.tool)
       : [];
-    const described: DescribedSourceDto | null =
-      source && record.reading
+    const apiSpec: ApiSpecDto | null =
+      spec && record.reading
         ? {
-            kind: source.kind,
+            kind: spec.kind,
             hash: record.generatedFrom,
             readAt: record.reading.readAt.toISOString(),
             problem: record.reading.problem,
-            tools: record.offers.filter((each) => !handWritten.includes(each))
+            tools: record.tools.filter((each) => !handWritten.includes(each))
               .length,
           }
         : null;
@@ -75,20 +73,17 @@ export class IntegrationViews {
       version: record.version,
       address: IntegrationAddress.of(
         teamKey,
-        SourceKey.of(record.source),
+        IntegrationKey.of(record.integration),
       ).toString(),
       teamId: record.teamId.value,
-      source: record.source,
+      integration: record.integration,
       definition: record.definition,
       tools: Object.fromEntries(
-        record.offers.map((tool) => [tool.slice(tool.indexOf('.') + 1), tool]),
+        record.tools.map((tool) => [tool.slice(tool.indexOf('.') + 1), tool]),
       ),
-      described,
+      spec: apiSpec,
       warnings: compiled.ok
-        ? [
-            ...compiled.warnings,
-            ...(source ? readingWarnings(record, source) : []),
-          ]
+        ? [...compiled.warnings, ...(spec ? readingWarnings(record, spec) : [])]
         : compiled.problems,
     };
   }

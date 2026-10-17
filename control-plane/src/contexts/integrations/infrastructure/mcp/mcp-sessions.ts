@@ -8,12 +8,12 @@ import {
 } from '@integrations/infrastructure/mcp/mcp-failures';
 import { cappedReply } from '@integrations/infrastructure/outbound/capped-body';
 import { sameHost } from '@integrations/infrastructure/outbound/followed-redirects';
+import {
+  type GuardedFetch,
+  guardedFetch,
+} from '@integrations/infrastructure/outbound/guarded-fetch';
 import { MAX_ANSWER_BYTES } from '@integrations/infrastructure/outbound/http-outbound';
 import type { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
-import {
-  type PolicedFetch,
-  policedFetch,
-} from '@integrations/infrastructure/outbound/policed-fetch';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import {
@@ -79,14 +79,14 @@ export class McpSessions implements OnModuleDestroy {
   readonly #idle = new Map<string, Session[]>();
   readonly #busy = new Set<Session>();
   readonly #injected = new AsyncLocalStorage<InjectedSession>();
-  readonly #fetch: PolicedFetch;
+  readonly #fetch: GuardedFetch;
 
   constructor(
     policy: OutboundPolicy,
     fetch: Fetch = globalThis.fetch,
     private readonly idleMs = IDLE_MS,
   ) {
-    const policed = policedFetch(fetch, policy, (hop, request) =>
+    const guarded = guardedFetch(fetch, policy, (hop, request) =>
       this.inject(hop.url, request),
     );
 
@@ -97,7 +97,7 @@ export class McpSessions implements OnModuleDestroy {
         return new Response(null, { status: NO_STREAM });
       }
 
-      const reply = await policed(url, init);
+      const reply = await guarded(url, init);
 
       return cappedReply(
         reply,

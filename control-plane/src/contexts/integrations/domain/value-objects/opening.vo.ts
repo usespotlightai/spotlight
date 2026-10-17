@@ -6,28 +6,28 @@ import {
 
 export class Opening {
   private constructor(
-    readonly onto: string,
-    readonly at: string | null,
+    readonly lineRole: string,
+    readonly station: string | null,
   ) {}
 
-  static of(input: { onto: string; at?: string | null }): Opening {
-    const onto = input.onto.trim();
-    const at = input.at?.trim() || null;
+  static of(input: { lineRole: string; station?: string | null }): Opening {
+    const lineRole = input.lineRole.trim();
+    const station = input.station?.trim() || null;
 
-    if (!isSlug(onto)) {
+    if (!isSlug(lineRole)) {
       throw new InvalidIdentifierError(
         'line role',
         `is lowercase words joined by dashes, at most ${MAX_SLUG_LENGTH} characters, as in delivery`,
       );
     }
 
-    if (at !== null && !isSlug(at)) {
+    if (station !== null && !isSlug(station)) {
       throw new InvalidIdentifierError(
         'station key',
         `is lowercase words joined by dashes, at most ${MAX_SLUG_LENGTH} characters, as in code-review`,
       );
     }
 
-    return new Opening(onto, at);
+    return new Opening(lineRole, station);
   }
 }

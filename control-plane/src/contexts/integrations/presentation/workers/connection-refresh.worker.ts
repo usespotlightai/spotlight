@@ -30,7 +30,7 @@ export class ConnectionRefreshWorker implements OnModuleDestroy {
     try {
       await this.connections.refresh();
     } catch (error) {
-      this.logger.error({ err: error }, 'Renewing connections');
+      this.logger.error({ err: error }, 'Refreshing connections');
     } finally {
       this.#ticking = false;
     }

@@ -4,14 +4,14 @@ import type {
   WorkspaceAccessPort,
 } from '@identity/application/ports/workspace-access.port';
 import { CallAuthResolver } from '@integrations/application/services/call-auth-resolver.service';
-import type { ConnectionRenewal } from '@integrations/application/services/connection-renewal.service';
-import { HostConnection } from '@integrations/domain/aggregates/host-connection.aggregate';
+import type { ConnectionRefresh } from '@integrations/application/services/connection-refresh.service';
+import { IntegrationConnection } from '@integrations/domain/aggregates/integration-connection.aggregate';
 import { Integration } from '@integrations/domain/entities/integration.entity';
-import type { HostConnectionRepository } from '@integrations/domain/repositories/host-connection.repository';
+import type { IntegrationConnectionRepository } from '@integrations/domain/repositories/integration-connection.repository';
 import { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
-import { ConnectionHolder } from '@integrations/domain/value-objects/connection-holder.vo';
-import { ConnectionHolderRule } from '@integrations/domain/value-objects/connection-holder-rule.vo';
-import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
+import { ActsAs } from '@integrations/domain/value-objects/acts-as.vo';
+import { ConnectionOwner } from '@integrations/domain/value-objects/connection-owner.vo';
+import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { injecting } from '@integrations/integrations.secrets.fake-spec';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -21,13 +21,13 @@ import { describe, expect, it, vi } from 'vitest';
 const TEAM = TeamId.of('team_1');
 
 const integration = (
-  connects: boolean,
-  holderRule: ConnectionHolderRule = ConnectionHolderRule.team(),
+  requiresConnection: boolean,
+  actsAs: ActsAs = ActsAs.team(),
 ) =>
   Integration.of({
-    source: SourceKey.of('slack'),
-    connects,
-    holderRule,
+    key: IntegrationKey.of('slack'),
+    requiresConnection,
+    actsAs,
   });
 
 const ALICE = UserId.of('user_alice');
@@ -36,19 +36,19 @@ const BOUND = {
   SLACK_BOT_TOKEN: { host: 'slack.com', prefix: 'Bearer ', value: 'xoxb-1' },
 };
 
-const connected = (token: string, holder: ConnectionHolder) =>
-  HostConnection.rehydrate({
+const connected = (token: string, owner: ConnectionOwner) =>
+  IntegrationConnection.rehydrate({
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TEAM,
-    source: SourceKey.of('slack'),
-    holder,
+    integration: IntegrationKey.of('slack'),
+    owner,
     accessToken: AccessToken.of(token),
     refreshToken: AccessToken.of('xoxe-1'),
     expiresAt: null,
     scopes: [],
-    handle: '@alice',
+    linkedAccount: '@alice',
     refreshFailedAt: null,
-    renewalClaim: null,
+    refreshClaim: null,
     version: 1,
   });
 
@@ -58,13 +58,13 @@ const resolving = (
   over: { member?: boolean } = {},
 ) => {
   const of = vi.fn(
-    async (_teamId: TeamId, _source: SourceKey, holder: ConnectionHolder) =>
-      token ? connected(token, holder) : null,
+    async (_teamId: TeamId, _source: IntegrationKey, owner: ConnectionOwner) =>
+      token ? connected(token, owner) : null,
   );
   const onTeam = vi.fn(async () =>
     over.member === false ? null : ({} as TeamMembership),
   );
-  const afterUnauthorized = vi.fn(async () => AccessToken.of('xoxp-renewed'));
+  const afterUnauthorized = vi.fn(async () => AccessToken.of('xoxp-refreshed'));
   const find = vi.fn(async () =>
     inWorkspace
       ? {
@@ -80,11 +80,11 @@ const resolving = (
 
   return {
     resolver: new CallAuthResolver(
-      { of } as unknown as HostConnectionRepository,
+      { of } as unknown as IntegrationConnectionRepository,
       { find, inWorkspace: vi.fn() } satisfies TeamDirectoryPort,
       { onTeam } as unknown as WorkspaceAccessPort,
       secrets.injection,
-      { afterUnauthorized } as unknown as ConnectionRenewal,
+      { afterUnauthorized } as unknown as ConnectionRefresh,
     ),
     of,
     find,
@@ -122,42 +122,39 @@ describe('CallAuthResolver', () => {
     const callAuth = await resolver.of(TEAM, integration(true));
 
     expect(callAuth.connection?.token.value).toBe('xoxp-2');
-    expect(callAuth.connection?.holder).toEqual(ConnectionHolder.team());
+    expect(callAuth.connection?.owner).toEqual(ConnectionOwner.team());
     expect(of).toHaveBeenCalledWith(
       TEAM,
-      SourceKey.of('slack'),
-      ConnectionHolder.team(),
+      IntegrationKey.of('slack'),
+      ConnectionOwner.team(),
     );
   });
 
   it('uses the team’s connection for polls, schedules and posts even where tools act as each person', async () => {
     const { resolver, of } = resolving('xoxp-2');
 
-    await resolver.of(
-      TEAM,
-      integration(true, ConnectionHolderRule.requester()),
-    );
+    await resolver.of(TEAM, integration(true, ActsAs.requester()));
 
     expect(of).toHaveBeenCalledWith(
       TEAM,
-      SourceKey.of('slack'),
-      ConnectionHolder.team(),
+      IntegrationKey.of('slack'),
+      ConnectionOwner.team(),
     );
   });
 
-  it('renews through the single renewal when the host does not accept the token', async () => {
+  it('refreshes through the single refresh when the service does not accept the token', async () => {
     const { resolver, afterUnauthorized } = resolving('xoxp-2');
 
     const callAuth = await resolver.of(TEAM, integration(true));
-    const renewed = await callAuth.connection?.unauthorized(
+    const refreshed = await callAuth.connection?.unauthorized(
       AccessToken.of('xoxp-2'),
     );
 
-    expect(renewed?.value).toBe('xoxp-renewed');
+    expect(refreshed?.value).toBe('xoxp-refreshed');
     expect(afterUnauthorized).toHaveBeenCalledWith(
       TEAM,
-      SourceKey.of('slack'),
-      ConnectionHolder.team(),
+      IntegrationKey.of('slack'),
+      ConnectionOwner.team(),
       AccessToken.of('xoxp-2'),
     );
   });
@@ -168,19 +165,19 @@ describe('CallAuthResolver', () => {
 
       const found = await resolver.connectionFor(
         TEAM,
-        integration(true, ConnectionHolderRule.requester()),
+        integration(true, ActsAs.requester()),
         ALICE,
       );
 
-      expect(found.kind === 'chosen' && found.holder.personId).toEqual(ALICE);
-      expect(found.kind === 'chosen' && found.connection?.handle).toBe(
+      expect(found.kind === 'chosen' && found.owner.personId).toEqual(ALICE);
+      expect(found.kind === 'chosen' && found.connection?.linkedAccount).toBe(
         '@alice',
       );
       expect(onTeam).toHaveBeenCalledWith('team_1', ALICE);
       expect(of).toHaveBeenCalledWith(
         TEAM,
-        SourceKey.of('slack'),
-        ConnectionHolder.person(ALICE),
+        IntegrationKey.of('slack'),
+        ConnectionOwner.person(ALICE),
       );
     });
 
@@ -189,11 +186,11 @@ describe('CallAuthResolver', () => {
 
       const found = await resolver.connectionFor(
         TEAM,
-        integration(true, ConnectionHolderRule.requester()),
+        integration(true, ActsAs.requester()),
         ALICE,
       );
 
-      expect(found.kind === 'wanted' && found.wanted.because).toBe(
+      expect(found.kind === 'missing' && found.missing.because).toBe(
         'not-connected',
       );
       expect(of).toHaveBeenCalledTimes(1);
@@ -204,11 +201,11 @@ describe('CallAuthResolver', () => {
 
       const found = await resolver.connectionFor(
         TEAM,
-        integration(true, ConnectionHolderRule.requester()),
+        integration(true, ActsAs.requester()),
         ALICE,
       );
 
-      expect(found.kind === 'wanted' && found.wanted.because).toBe(
+      expect(found.kind === 'missing' && found.missing.because).toBe(
         'not-a-member',
       );
       expect(of).not.toHaveBeenCalled();
@@ -223,8 +220,8 @@ describe('CallAuthResolver', () => {
         ALICE,
       );
 
-      expect(found.kind === 'chosen' && found.holder).toEqual(
-        ConnectionHolder.team(),
+      expect(found.kind === 'chosen' && found.owner).toEqual(
+        ConnectionOwner.team(),
       );
       expect(onTeam).not.toHaveBeenCalled();
     });
@@ -269,7 +266,7 @@ describe('CallAuthResolver', () => {
     ).rejects.toThrow(/which no workspace has/);
   });
 
-  it('grants the run’s current attempt the secrets that it injects before it calls the host', async () => {
+  it('grants the run’s current attempt the secrets that it injects before it calls the service', async () => {
     const { resolver, grant, forRun } = resolving(null);
 
     const callAuth = await resolver.forRun(

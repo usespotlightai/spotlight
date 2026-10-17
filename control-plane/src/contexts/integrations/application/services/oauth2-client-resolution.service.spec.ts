@@ -4,7 +4,7 @@ import { OAuth2ClientResolution } from '@integrations/application/services/oauth
 import type { OAuth2ClientRegistration } from '@integrations/domain/aggregates/oauth2-client-registration.aggregate';
 import type { OAuth2ClientRegistrationRepository } from '@integrations/domain/repositories/oauth2-client-registration.repository';
 import { AuthorizationServer } from '@integrations/domain/value-objects/authorization-server.vo';
-import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
+import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { OAuth2Clients } from '@integrations/infrastructure/integrations/oauth2-clients';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -12,7 +12,7 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { describe, expect, it, vi } from 'vitest';
 
 const TEAM = TeamId.of('team_1');
-const TRACKER = SourceKey.of('tracker');
+const TRACKER = IntegrationKey.of('tracker');
 const REGISTRATION = 'https://auth.tracker.example/register';
 
 const server = (token = 'https://auth.tracker.example/token') =>

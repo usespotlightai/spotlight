@@ -4,16 +4,16 @@ import { ToolActingAs } from '@work/domain/value-objects/tool-acting-as.vo';
 
 export const ToolActingAsMapper = {
   toActingAs(dto: ToolActingAsDto): ToolActingAs {
-    return dto.holder === 'person' && dto.personId
-      ? ToolActingAs.person(UserId.of(dto.personId), dto.handle)
-      : ToolActingAs.team(dto.handle);
+    return dto.actsAs === 'requester' && dto.personId
+      ? ToolActingAs.person(UserId.of(dto.personId), dto.linkedAccount)
+      : ToolActingAs.team(dto.linkedAccount);
   },
 
   toDto(actingAs: ToolActingAs): ToolActingAsDto {
     return {
-      holder: actingAs.holder,
+      actsAs: actingAs.actsAs,
       personId: actingAs.personId?.value ?? null,
-      handle: actingAs.handle,
+      linkedAccount: actingAs.linkedAccount,
     };
   },
 };

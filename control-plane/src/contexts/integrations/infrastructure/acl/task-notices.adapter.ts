@@ -1,16 +1,16 @@
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
 import type { InboxLinksPort } from '@integrations/application/ports/inbox-links.port';
 import type {
-  BoundTask,
   IntegrationRuntimePort,
+  IntegrationTaskView,
   TaskPayload,
 } from '@integrations/application/ports/integration-runtime.port';
 import type { CallAuthResolver } from '@integrations/application/services/call-auth-resolver.service';
-import { BoundTaskMapper } from '@integrations/infrastructure/acl/bound-task.mapper';
+import { IntegrationTaskViewMapper } from '@integrations/infrastructure/acl/integration-task-view.mapper';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { TaskMark } from '@work/application/contracts/happenings.contract';
-import type { BoundTaskDto } from '@work/application/dto/bound-task.dto';
+import type { IntegrationTaskViewDto } from '@work/application/dto/integration-task-view.dto';
 import type { TaskNoticesPort } from '@work/application/ports/task-notices.port';
 
 const waiting = (station: string, link: string | null): string => {
@@ -34,7 +34,7 @@ export class TaskNotices implements TaskNoticesPort {
   ) {}
 
   async notify(
-    task: BoundTaskDto,
+    task: IntegrationTaskViewDto,
     event: string,
   ): Promise<readonly TaskMark[]> {
     const teamId = TeamId.of(task.teamId);
@@ -47,8 +47,8 @@ export class TaskNotices implements TaskNoticesPort {
       return [];
     }
 
-    const bound = BoundTaskMapper.toBound(task);
-    const payload: TaskPayload = { task: bound, ask: await this.asking(bound) };
+    const view = IntegrationTaskViewMapper.toView(task);
+    const payload: TaskPayload = { task: view, ask: await this.asking(view) };
     const addedMarks: TaskMark[] = [];
 
     for (const integration of posting) {
@@ -73,13 +73,13 @@ export class TaskNotices implements TaskNoticesPort {
               target: posted.target,
               marks: task.marks,
             },
-            'A host answered a task’s word with an error',
+            'A service answered a task’s word with an error',
           );
         }
       } catch (error) {
         this.log.warn(
           { err: error, task: task.taskId },
-          'Posting a task’s word to a host',
+          'Posting a task’s word to a service',
         );
       }
     }
@@ -87,7 +87,7 @@ export class TaskNotices implements TaskNoticesPort {
     return addedMarks;
   }
 
-  private async asking(task: BoundTask): Promise<TaskPayload['ask']> {
+  private async asking(task: IntegrationTaskView): Promise<TaskPayload['ask']> {
     const { station, waiting: open } = task;
 
     if (!open) {

@@ -83,8 +83,8 @@ const requested = (
   ReactionFor.reviewRequested({
     lines: [delivery, review],
     opens: {
-      onto: LineRole.REVIEW,
-      at: null,
+      lineRole: LineRole.REVIEW,
+      station: null,
       title: 'Retry uploads',
       description: null,
       assignEmail: null,

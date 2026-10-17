@@ -99,7 +99,7 @@ const LINEAR = {
   tools: {
     comment: {
       description: 'Comment on an issue.\nSay what you did.\n',
-      does: 'comment',
+      action: 'comment',
     },
   },
 };
@@ -329,7 +329,7 @@ describe('a workspace exported as Terraform (e2e)', () => {
       'team_id = spotlight_team.team.id',
       'skills    = [spotlight_skill.team_grafana.key]',
       // biome-ignore lint/suspicious/noTemplateCurlyInString: HCL interpolation, written literally
-      'tools     = ["${spotlight_integration.team_linear.source}.comment"]',
+      'tools     = ["${spotlight_integration.team_linear.integration}.comment"]',
       'profile   = spotlight_harness_profile.team_careful.key',
       'runners = ["build-1", "vpc-internal"]',
       '  repository {\n    name  = "acme/api"\n    image = "ghcr.io/acme/api:main"\n    setup = "npm ci"\n  }\n',

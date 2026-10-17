@@ -6,14 +6,14 @@ import type {
 } from '@integrations/application/ports/integration-compiler.port';
 import type { CallAuthResolver } from '@integrations/application/services/call-auth-resolver.service';
 import type { EnabledTools } from '@integrations/application/services/enabled-tools.service';
-import { IntegrationSources } from '@integrations/application/services/integration-sources.service';
+import { IntegrationSpecs } from '@integrations/application/services/integration-specs.service';
 import { IntegrationDefinition } from '@integrations/domain/aggregates/integration-definition.aggregate';
 import { Integration } from '@integrations/domain/entities/integration.entity';
 import type { IntegrationDefinitionRepository } from '@integrations/domain/repositories/integration-definition.repository';
 import { DefinedActions } from '@integrations/domain/value-objects/defined-actions.vo';
 import { DefinitionDocument } from '@integrations/domain/value-objects/definition-document.vo';
 import { IntegrationDefinitionId } from '@integrations/domain/value-objects/integration-definition-id.vo';
-import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
+import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import { ToolUses } from '@integrations/domain/value-objects/tool-uses.vo';
 import { documentsContaining } from '@integrations/integrations.documents.fake-spec';
 import type {
@@ -37,15 +37,15 @@ export const LINEAR = { integration: 'linear', name: 'Linear' };
 
 export const SLACK = { integration: 'slack', name: 'Slack' };
 
-const compiledFor = (source: string, raw: object): ParsedIntegration => ({
+const compiledFor = (integration: string, raw: object): ParsedIntegration => ({
   ok: true,
   integration: Integration.of({
-    source: SourceKey.of(source),
+    key: IntegrationKey.of(integration),
     actions: DefinedActions.of(['comment']),
   }),
   document: DefinitionDocument.of(raw),
-  source: null,
-  passedOver: [],
+  spec: null,
+  skipped: [],
   warnings: [],
 });
 
@@ -69,14 +69,14 @@ const compiler: IntegrationCompilerPort = {
 
 export const storedAt = (
   version: number,
-  offers: string[] = [],
+  tools: string[] = [],
 ): IntegrationDefinition =>
   IntegrationDefinition.rehydrate({
     id: IntegrationDefinitionId.of('integration_1'),
     teamId: TEAM,
-    source: SourceKey.of('linear'),
+    integration: IntegrationKey.of('linear'),
     document: DefinitionDocument.of({ integration: 'linear' }),
-    offers,
+    tools,
     reading: null,
     version,
   });
@@ -94,7 +94,7 @@ export const teams = (): TeamDirectoryPort => ({
   inWorkspace: vi.fn(async () => []),
 });
 
-export const sources = new IntegrationSources(
+export const specs = new IntegrationSpecs(
   compiler,
   documentsContaining(),
   {

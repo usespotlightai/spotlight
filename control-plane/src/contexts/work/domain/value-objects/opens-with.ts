@@ -4,8 +4,8 @@ import type { ReviewRequest } from '@work/domain/value-objects/review-request.vo
 import type { StationKey } from '@work/domain/value-objects/station-key.vo';
 
 export interface OpensWith {
-  readonly onto: LineRole;
-  readonly at: StationKey | null;
+  readonly lineRole: LineRole;
+  readonly station: StationKey | null;
   readonly title: string;
   readonly description: string | null;
   readonly assignEmail: string | null;

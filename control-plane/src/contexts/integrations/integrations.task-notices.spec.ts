@@ -24,7 +24,7 @@ import {
 import { WebInboxLinks } from '@integrations/presentation/http/web-inbox-links';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import type { SecretInjectionPort } from '@secrets/application/ports/secret-injection.port';
-import type { BoundTaskDto } from '@work/application/dto/bound-task.dto';
+import type { IntegrationTaskViewDto } from '@work/application/dto/integration-task-view.dto';
 import { describe, expect, it, vi } from 'vitest';
 
 const expressions = new CelExpressionEngine();
@@ -66,14 +66,14 @@ ${headers}      body: '\${{ {"channel": target.channel, "thread_ts": target.thre
         success: '\${{ response.ok }}'
 on:
   task.opened:
-    do: acknowledge
+    action: acknowledge
     to:
       channel: '\${{ task.marks["slack.channel"] }}'
       thread: '\${{ task.marks["slack.thread"] }}'
     routes:
       delivery: C0DELIVERY
   task.asked:
-    do: post-message
+    action: post-message
     to:
       channel: '\${{ task.marks["slack.channel"] }}'
       thread: '\${{ task.marks["slack.thread"] }}'
@@ -91,7 +91,7 @@ const READS_A_SECRET = `      auth:
 const asked = (
   marks: Record<string, string> = {},
   awaitsApproval = false,
-): BoundTaskDto => ({
+): IntegrationTaskViewDto => ({
   taskId: 'task_1',
   workspaceId: 'ws_1',
   teamId: 'team_1',
@@ -156,7 +156,7 @@ describe('TaskNotices', () => {
     expect(action.ask.link).toContain('/w/acme/inbox/task_1:');
   });
 
-  it('tells a host where to approve or reject a tool call, since it cannot be decided there', async () => {
+  it('tells the service where to approve or reject a tool call, since it cannot be decided there', async () => {
     const { notifier, run } = notifying();
 
     await notifier.notify(asked({}, true), 'task.asked');
@@ -192,7 +192,7 @@ describe('TaskNotices', () => {
     );
   });
 
-  it('stores no marks where the host answers the post with an error', async () => {
+  it('stores no marks where the service answers the post with an error', async () => {
     const { notifier } = notifying({
       ok: false,
       status: 200,

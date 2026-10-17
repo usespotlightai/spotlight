@@ -57,7 +57,7 @@ const MIGRATIONS = {
   failure: 'block',
 };
 
-const moment = (event: Record<string, unknown>) => ({
+const instance = (event: Record<string, unknown>) => ({
   event: { at: '2026-09-26T10:00:00.000Z', ...event },
   task: {
     id: 't',
@@ -132,7 +132,7 @@ describe('compileHook', () => {
       compiled.ir.conditions.every((condition) =>
         isTrue(
           condition,
-          moment({ tool, inputs: {}, output: null, failed: false }),
+          instance({ tool, inputs: {}, output: null, failed: false }),
         ),
       );
 
@@ -148,7 +148,7 @@ describe('compileHook', () => {
       compiled.ir.conditions.every((condition) =>
         isTrue(
           condition,
-          moment({
+          instance({
             repository: 'acme/api',
             branch: 'b',
             title: 'Add a column',

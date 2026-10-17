@@ -2,12 +2,12 @@ import type {
   FireHooks,
   Happened,
 } from '@integrations/application/services/fire-hooks.service';
-import { HookVerdict } from '@integrations/domain/value-objects/hook-verdict.vo';
+import { HookDecision } from '@integrations/domain/value-objects/hook-decision.vo';
 import { LifecycleHooks } from '@integrations/infrastructure/acl/lifecycle-hooks.adapter';
-import type { HookedTaskDto } from '@work/application/ports/hooked-tasks.port';
+import type { TaskViewDto } from '@work/application/ports/task-views.port';
 import { describe, expect, it, vi } from 'vitest';
 
-const TASK: HookedTaskDto = {
+const TASK: TaskViewDto = {
   taskId: 'task_1',
   workspaceId: 'workspace_1',
   teamId: 'team_1',
@@ -45,8 +45,8 @@ describe('LifecycleHooks', () => {
   it('answers Work in its own words for what the hooks decided', async () => {
     const before = vi
       .fn()
-      .mockResolvedValueOnce(HookVerdict.allowed())
-      .mockResolvedValueOnce(HookVerdict.denied('The hook dba says no'));
+      .mockResolvedValueOnce(HookDecision.allowed())
+      .mockResolvedValueOnce(HookDecision.denied('The hook dba says no'));
     const hooks = new LifecycleHooks({ before } as unknown as FireHooks);
     const starting = { on: 'run.starting' as const };
 

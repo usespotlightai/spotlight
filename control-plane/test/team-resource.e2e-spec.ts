@@ -216,9 +216,9 @@ describe('a team, created through the resource API (e2e)', () => {
     await db.insert(schema.integrationDefinition).values({
       id: randomUUID(),
       teamId,
-      source: 'linear',
+      integration: 'linear',
       definition: { integration: 'linear' },
-      offers: [],
+      tools: [],
     });
     await db.insert(schema.harnessProfile).values({
       id: randomUUID(),
@@ -243,7 +243,7 @@ describe('a team, created through the resource API (e2e)', () => {
         .from(schema.skillDefinition)
         .where(eq(schema.skillDefinition.teamId, teamId))),
       ...(await db
-        .select({ key: schema.integrationDefinition.source })
+        .select({ key: schema.integrationDefinition.integration })
         .from(schema.integrationDefinition)
         .where(eq(schema.integrationDefinition.teamId, teamId))),
       ...(await db

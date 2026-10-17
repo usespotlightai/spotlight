@@ -1,13 +1,13 @@
-import type { RereadIntegrationSourceHandler } from '@integrations/application/commands/handlers/reread-integration-source.handler';
-import { RereadIntegrationSourceCommand } from '@integrations/application/commands/reread-integration-source.command';
+import type { RefreshIntegrationSpecHandler } from '@integrations/application/commands/handlers/refresh-integration-spec.handler';
+import { RefreshIntegrationSpecCommand } from '@integrations/application/commands/refresh-integration-spec.command';
 import type { DeleteTeamIntegrations } from '@integrations/application/services/delete-team-integrations.service';
-import type { HookedHappenings } from '@integrations/application/services/hooked-happenings.service';
+import type { LifecycleHookTriggers } from '@integrations/application/services/lifecycle-hook-triggers.service';
 import type { HookDeletionRequested } from '@integrations/domain/events/hook-deletion-requested.event';
-import type { HostConnected } from '@integrations/domain/events/host-connected.event';
+import type { IntegrationConnected } from '@integrations/domain/events/integration-connected.event';
 import type { IntegrationDeleted } from '@integrations/domain/events/integration-deleted.event';
 import type { IntegrationDeletionRequested } from '@integrations/domain/events/integration-deletion-requested.event';
 import type { IntegrationUpdated } from '@integrations/domain/events/integration-updated.event';
-import type { LearnedOutputRepository } from '@integrations/domain/repositories/learned-output.repository';
+import type { InferredOutputSchemaRepository } from '@integrations/domain/repositories/inferred-output-schema.repository';
 import {
   PULL_REQUEST_CLOSED,
   type PullRequestClosedIntegrationEvent,
@@ -37,9 +37,9 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 
 export const integrationsSubscribers = (
   deleting: DeleteTeamIntegrations,
-  hooked: HookedHappenings,
-  rereading: RereadIntegrationSourceHandler,
-  learned: LearnedOutputRepository,
+  hookTriggers: LifecycleHookTriggers,
+  refreshingSpec: RefreshIntegrationSpecHandler,
+  schemas: InferredOutputSchemaRepository,
 ): readonly DomainEventSubscriber[] => [
   subscribing<TeamDeletedIntegrationEvent>(
     'integrations.delete-integrations-of-deleted-team',
@@ -65,41 +65,41 @@ export const integrationsSubscribers = (
     ['integrations.integration-deletion-requested'],
     (event) => deleting.deleteIntegration(event.id, event.workspaceId),
   ),
-  subscribing<HostConnected>(
-    'integrations.reread-source-when-a-host-connected',
-    ['integrations.host-connected'],
+  subscribing<IntegrationConnected>(
+    'integrations.refresh-spec-when-an-integration-connected',
+    ['integrations.integration-connected'],
     async (event) =>
-      event.changesWhatDescriptionsAreReadWith &&
-      rereading.execute(
-        new RereadIntegrationSourceCommand(
+      event.changesSpecFetch &&
+      refreshingSpec.execute(
+        new RefreshIntegrationSpecCommand(
           event.teamId.value,
-          event.source.value,
+          event.integration.value,
         ),
       ),
   ),
   subscribing<IntegrationUpdated | IntegrationDeleted>(
-    'integrations.delete-learned-outputs-of-a-changed-integration',
+    'integrations.delete-inferred-output-schemas-of-a-changed-integration',
     ['integrations.integration-updated', 'integrations.integration-deleted'],
-    (event) => learned.deleteForSource(event.teamId, event.source),
+    (event) => schemas.deleteForIntegration(event.teamId, event.integration),
   ),
   subscribing<RunEndedIntegrationEvent>(
     'integrations.fire-hooks-when-a-run-ended',
     [RUN_ENDED],
-    (event) => hooked.runEnded(event),
+    (event) => hookTriggers.runEnded(event),
   ),
   subscribing<TaskOpenedIntegrationEvent>(
     'integrations.fire-hooks-when-a-task-opened',
     [TASK_OPENED],
-    (event) => hooked.taskOpened(event),
+    (event) => hookTriggers.taskOpened(event),
   ),
   subscribing<TaskMovedIntegrationEvent>(
     'integrations.fire-hooks-when-a-task-moved',
     [TASK_MOVED],
-    (event) => hooked.taskMoved(event),
+    (event) => hookTriggers.taskMoved(event),
   ),
   subscribing<PullRequestClosedIntegrationEvent>(
     'integrations.fire-hooks-when-a-pull-request-merged',
     [PULL_REQUEST_CLOSED],
-    (event) => hooked.pullRequestClosed(event),
+    (event) => hookTriggers.pullRequestClosed(event),
   ),
 ];

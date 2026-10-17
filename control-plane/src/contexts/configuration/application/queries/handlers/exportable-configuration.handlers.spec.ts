@@ -143,13 +143,13 @@ const handlers = (over: { permitted?: boolean } = {}) => {
   const integrationOf = (
     id: string,
     team: TeamProfile,
-    source: string,
+    integration: string,
     definition: Readonly<Record<string, unknown>> = {},
   ) => ({
     id,
-    address: `${team.key}/${source}`,
+    address: `${team.key}/${integration}`,
     teamId: team.id,
-    source,
+    integration,
     definition,
     secretReferences: [],
   });

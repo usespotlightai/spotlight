@@ -1,10 +1,10 @@
 import type { DefinedIntegration } from '@integrations/application/ports/defined-integrations.port';
 import type { Integration } from '@integrations/domain/entities/integration.entity';
 import type { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
-import type { ConnectionHolder } from '@integrations/domain/value-objects/connection-holder.vo';
-import type { HostGrant } from '@integrations/domain/value-objects/host-grant.vo';
-import type { OfferedTool } from '@integrations/domain/value-objects/offered-tool.vo';
-import type { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
+import type { ConnectionOwner } from '@integrations/domain/value-objects/connection-owner.vo';
+import type { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
+import type { OAuthTokens } from '@integrations/domain/value-objects/oauth-tokens.vo';
+import type { ProvidedTool } from '@integrations/domain/value-objects/provided-tool.vo';
 import type { InjectedSecrets } from '@secrets/application/contracts/injected-secrets.contract';
 import type { VerifyingSecret } from '@secrets/application/contracts/verifying-secret.contract';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -17,13 +17,13 @@ import type {
   ToolInputValues,
 } from '@work/application/contracts/tools.contract';
 
-interface BoundTaskWaiting {
+interface IntegrationTaskViewWaiting {
   readonly conversationId: string;
   readonly body: string;
   readonly awaitsApproval: boolean;
 }
 
-export interface BoundTask {
+export interface IntegrationTaskView {
   readonly taskId: string;
   readonly workspaceId: string;
   readonly teamId: string;
@@ -31,7 +31,7 @@ export interface BoundTask {
   readonly station: string;
   readonly stationKey: string;
   readonly marks: Readonly<Record<string, string>>;
-  readonly waiting: BoundTaskWaiting | null;
+  readonly waiting: IntegrationTaskViewWaiting | null;
 }
 
 export const INTEGRATION_RUNTIME = Symbol('INTEGRATION_RUNTIME');
@@ -49,8 +49,8 @@ export interface SigningSecrets {
 
 export interface ActiveConnection {
   readonly token: AccessToken;
-  readonly holder: ConnectionHolder;
-  readonly handle: string | null;
+  readonly owner: ConnectionOwner;
+  readonly linkedAccount: string | null;
   unauthorized(token: AccessToken): Promise<AccessToken | null>;
 }
 
@@ -59,7 +59,7 @@ export interface CallAuth {
   readonly credentials: Credentials;
 }
 
-export interface HostError {
+export interface ServiceError {
   readonly status: number;
   readonly output: string;
 }
@@ -72,21 +72,21 @@ export type ToolOutput =
   | readonly ToolOutput[]
   | { readonly [field: string]: ToolOutput };
 
-export type Polled =
+export type PollResult =
   | {
       readonly kind: 'read';
       readonly cursor: string | null;
       readonly happenings: readonly Happened[];
     }
-  | { readonly kind: 'failed'; readonly error: HostError };
+  | { readonly kind: 'failed'; readonly error: ServiceError };
 
-export type Acted =
+export type ActionResult =
   | { readonly kind: 'done' }
-  | { readonly kind: 'failed'; readonly error: HostError }
+  | { readonly kind: 'failed'; readonly error: ServiceError }
   | { readonly kind: 'nothing-to-do' };
 
 export interface TaskPayload {
-  readonly task: BoundTask;
+  readonly task: IntegrationTaskView;
   readonly ask: {
     readonly body: string;
     readonly link: string | null;
@@ -94,23 +94,23 @@ export interface TaskPayload {
   };
 }
 
-export type Posted =
+export type PostResult =
   | { readonly kind: 'posted'; readonly marks: readonly TaskMark[] }
   | { readonly kind: 'unaddressed' }
   | {
       readonly kind: 'failed';
-      readonly error: HostError;
+      readonly error: ServiceError;
       readonly target: Readonly<Record<string, string>>;
     };
 
-export type Renewed =
-  | { readonly kind: 'renewed'; readonly grant: HostGrant }
+export type RefreshResult =
+  | { readonly kind: 'refreshed'; readonly tokens: OAuthTokens }
   | { readonly kind: 'failed' }
-  | { readonly kind: 'unrenewable' };
+  | { readonly kind: 'not-refreshable' };
 
 export interface ResolvedTool {
   readonly integration: Integration;
-  readonly offered: OfferedTool;
+  readonly provided: ProvidedTool;
   readonly declared: ToolDeclaration;
   readonly injectedSecrets: readonly string[];
   defaultFor(input: string): unknown;
@@ -127,13 +127,13 @@ export interface IntegrationRuntimePort {
     integration: Integration,
     cursor: string | null,
     callAuth: CallAuth,
-  ): Promise<Polled>;
+  ): Promise<PollResult>;
 
   runSchedule(
     definitions: readonly DefinedIntegration[],
     integration: Integration,
     callAuth: CallAuth,
-  ): Promise<Acted>;
+  ): Promise<ActionResult>;
 
   post(
     definitions: readonly DefinedIntegration[],
@@ -141,18 +141,18 @@ export interface IntegrationRuntimePort {
     event: string,
     payload: TaskPayload,
     callAuth: CallAuth,
-  ): Promise<Posted>;
+  ): Promise<PostResult>;
 
   tool(
     definitions: readonly DefinedIntegration[],
     tool: string,
-    task: BoundTask,
+    task: IntegrationTaskView,
   ): Promise<ResolvedTool | null>;
 
-  renew(
+  refresh(
     definitions: readonly DefinedIntegration[],
     teamId: TeamId,
-    source: SourceKey,
+    integration: IntegrationKey,
     refreshToken: AccessToken,
-  ): Promise<Renewed>;
+  ): Promise<RefreshResult>;
 }

@@ -24,7 +24,7 @@ export const hookDefinition = pgTable(
     signingSecret: text('signing_secret'),
     signingSecretVersion: integer('signing_secret_version'),
     version: integer('version').notNull().default(1),
-    definedAt: timestamp('defined_at')
+    updatedAt: timestamp('updated_at')
       .defaultNow()
       .$onUpdate(() => new Date())
       .notNull(),

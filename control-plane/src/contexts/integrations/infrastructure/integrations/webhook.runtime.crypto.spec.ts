@@ -88,7 +88,7 @@ ${EVENT}`;
     };
   };
 
-  it('takes one the host really signed', async () => {
+  it('takes one the service really signed', async () => {
     expect(await runtime().verifies(signed({ type: 1 }))).toBe(true);
   });
 
@@ -133,7 +133,7 @@ ${EVENT}`;
 
   const runtime = () => runtimeOf(compiled(RSA));
 
-  it('takes one the host really signed over the raw body', async () => {
+  it('takes one the service really signed over the raw body', async () => {
     const body = { hello: 'world' };
     const signature = sign('sha256', raw(body), privateKey).toString('base64');
 

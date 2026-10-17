@@ -28,15 +28,15 @@ interface State extends Props {
   readonly deleted: boolean;
 }
 
-export interface ReadSkill {
+export interface ParsedSkill {
   readonly skill: Skill;
   readonly files: SkillFiles;
 }
 
-const guardDefinedHere = (read: ReadSkill): void => {
-  if (read.skill.isShipped) {
+const guardDefinedHere = (parsed: ParsedSkill): void => {
+  if (parsed.skill.isBuiltIn) {
     throw new InvalidSkillError(
-      read.skill.key.value,
+      parsed.skill.key.value,
       'is built in and cannot be defined by a team',
     );
   }
@@ -48,7 +48,7 @@ export class SkillDefinition extends EventRecorder {
   }
 
   static create(
-    input: ReadSkill & {
+    input: ParsedSkill & {
       id: SkillDefinitionId;
       teamId: TeamId;
       by: Attribution;
@@ -94,12 +94,12 @@ export class SkillDefinition extends EventRecorder {
     }
   }
 
-  update(read: ReadSkill, by: Attribution): SkillDefinition {
+  update(parsed: ParsedSkill, by: Attribution): SkillDefinition {
     this.guardLive();
-    guardDefinedHere(read);
+    guardDefinedHere(parsed);
 
-    if (!read.skill.key.equals(this.key)) {
-      const because = `cannot be renamed to ${read.skill.key.value}. Please replace it instead`;
+    if (!parsed.skill.key.equals(this.key)) {
+      const because = `cannot be renamed to ${parsed.skill.key.value}. Please replace it instead`;
 
       throw new ImmutableFieldError(
         'key',
@@ -108,7 +108,7 @@ export class SkillDefinition extends EventRecorder {
       );
     }
 
-    const updated = this.with({ files: read.files });
+    const updated = this.with({ files: parsed.files });
 
     updated.record(
       new SkillUpdated(

@@ -156,7 +156,7 @@ describe('GitHubReviewComments', () => {
     ).rejects.toThrow(InvalidPullRequestError);
   });
 
-  it('carries back the host error, so the agent can read it', async () => {
+  it('carries back the error from GitHub, so the agent can read it', async () => {
     replies = [
       { errors: [{ message: 'Resource not accessible by integration' }] },
     ];

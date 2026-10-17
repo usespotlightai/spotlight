@@ -56,13 +56,13 @@ const LINEAR = {
   tools: {
     comment: {
       description: 'Comment on an issue',
-      does: 'comment',
+      action: 'comment',
       inputs: { issue: { type: 'string' }, urgent: { type: 'boolean' } },
     },
   },
   on: {
     'task.opened': {
-      do: 'comment',
+      action: 'comment',
       to: { thread: e('task.marks["slack.thread"] + ask.bdoy') },
     },
   },
@@ -249,7 +249,7 @@ describe('a definition that is not valid', () => {
     ).toEqual([
       {
         at: 'webhook.events[0].raise.happening',
-        reason: 'names its source first, as in slack.app_mention',
+        reason: 'names its integration first, as in slack.app_mention',
       },
       {
         at: 'actions.broken.request.method',
@@ -266,9 +266,11 @@ describe('a definition that is not valid', () => {
     expect(
       problemsOf(THREAD, 'ask.body', {
         ...LINEAR,
-        on: { 'task.opened': { ...LINEAR.on['task.opened'], do: 'missing' } },
+        on: {
+          'task.opened': { ...LINEAR.on['task.opened'], action: 'missing' },
+        },
       }).map((each) => each.at),
-    ).toEqual(['on["task.opened"].do']);
+    ).toEqual(['on["task.opened"].action']);
   });
 
   it('is still checked where it only warns', () => {
@@ -320,10 +322,10 @@ describe('the check and the compiler', () => {
   it.each([
     ['a plain definition', LINEAR],
     ['a hinted definition', HINTED],
-  ])('return the same verdict on every expression in %s', (_, definition) => {
+  ])('return the same result for every expression in %s', (_, definition) => {
     const compiled = placesOf(definition);
     const warnings = compiled.warnings;
-    const verdicts = new Map<string, string[]>();
+    const results = new Map<string, string[]>();
     const shadowed = new Set<string>();
 
     for (const place of compiled.places.values()) {
@@ -337,8 +339,8 @@ describe('the check and the compiler', () => {
         );
         const key = place.field.rendered;
 
-        verdicts.set(key, [
-          ...(verdicts.get(key) ?? []),
+        results.set(key, [
+          ...(results.get(key) ?? []),
           ...check.errors.map((each) => doubted(each.message, each.suggestion)),
         ]);
 
@@ -357,9 +359,9 @@ describe('the check and the compiler', () => {
     }
 
     expect(compiler.size).toBeGreaterThan(0);
-    expect(
-      new Map([...verdicts].filter(([, each]) => each.length > 0)),
-    ).toEqual(compiler);
+    expect(new Map([...results].filter(([, each]) => each.length > 0))).toEqual(
+      compiler,
+    );
     expect(shadowed).toEqual(
       new Set(
         warnings
@@ -374,12 +376,12 @@ describe('the positions an expression is written at', () => {
   const listed = (written: string) =>
     checks.positions().find((each) => each.position.rendered === written);
 
-  it('names what each sees, returns and also sees from the definition', () => {
+  it('names the variables of each, what it returns and the variables that the definition adds', () => {
     expect(listed('integration.webhook.events[*].when')).toEqual({
       position: expect.anything(),
       returns: 'bool',
-      alsoSees: ['item'],
-      sees: [
+      addedVariables: ['item'],
+      variables: [
         { name: 'body', type: 'dyn', fields: [] },
         { name: 'headers', type: 'dyn', fields: [] },
         { name: 'raw', type: 'string', fields: [] },
@@ -389,7 +391,7 @@ describe('the positions an expression is written at', () => {
 
   it('describes the fields Spotlight shapes', () => {
     expect(
-      listed('integration.on[*].to[*]')?.sees.find(
+      listed('integration.on[*].to[*]')?.variables.find(
         (each) => each.name === 'ask',
       ),
     ).toEqual({
@@ -443,14 +445,14 @@ describe('the positions an expression is written at', () => {
         happening,
         message: NOPE,
         opens: {
-          onto: 'core',
+          lineRole: 'core',
           title: NOPE,
           description: NOPE,
           assignBy: { email: NOPE },
         },
         branch: NOPE,
         marks: [{ kind: 'kitchen.mark', value: NOPE }],
-        attaches: {
+        attachments: {
           each: NOPE,
           name: NOPE,
           type: NOPE,
@@ -472,7 +474,7 @@ describe('the positions an expression is written at', () => {
       webhook: {
         verify,
         respond: { when: NOPE, body: NOPE },
-        mine: NOPE,
+        ignoreWhen: NOPE,
         route: { by: NOPE },
         delivery: NOPE,
         events: [event('kitchen.hooked')],
@@ -486,7 +488,7 @@ describe('the positions an expression is written at', () => {
       actions: { k: { request } },
       tools: {
         k: {
-          does: 'k',
+          action: 'k',
           description: 'Everything at once',
           inputs: { k: { default: NOPE } },
           output: NOPE,
@@ -494,7 +496,7 @@ describe('the positions an expression is written at', () => {
       },
       on: {
         'task.opened': {
-          do: 'k',
+          action: 'k',
           to: { k: NOPE },
           mark: [{ kind: 'kitchen.mark', value: NOPE }],
         },

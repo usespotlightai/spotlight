@@ -89,7 +89,7 @@ func signature(tool protocol.ToolManifest) string {
 		if input.Kind() == "boolean" {
 			written = "--" + input.Name
 		}
-		if input.Piped {
+		if input.Stdin {
 			written += " (or piped in)"
 		}
 		if !input.Required || input.Defaulted {
@@ -280,7 +280,7 @@ func useTool(args []string, in io.Reader, out io.Writer) error {
 	}
 
 	for _, input := range tool.Inputs {
-		if !input.Piped {
+		if !input.Stdin {
 			continue
 		}
 		value, set := inputs[input.Name]

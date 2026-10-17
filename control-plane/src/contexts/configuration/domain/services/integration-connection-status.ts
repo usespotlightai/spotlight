@@ -1,19 +1,19 @@
 export const INTEGRATION_CONNECTION_STATUSES = [
-  'listens',
-  'unlinked',
-  'linked',
+  'not-required',
+  'disconnected',
+  'connected',
 ] as const;
 
 export type IntegrationConnectionStatus =
   (typeof INTEGRATION_CONNECTION_STATUSES)[number];
 
 export const connectionStatusOf = (
-  connectable: boolean,
-  linked: boolean,
+  requiresConnection: boolean,
+  connected: boolean,
 ): IntegrationConnectionStatus => {
-  if (!connectable) {
-    return 'listens';
+  if (!requiresConnection) {
+    return 'not-required';
   }
 
-  return linked ? 'linked' : 'unlinked';
+  return connected ? 'connected' : 'disconnected';
 };

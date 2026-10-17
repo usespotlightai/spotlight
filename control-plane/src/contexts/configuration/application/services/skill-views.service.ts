@@ -17,7 +17,7 @@ export class SkillViews {
   }
 
   onTeam(record: SkillRecord, teamKey: string): SkillResourceDto {
-    const read = this.compiler.compile({
+    const parsed = this.compiler.compile({
       key: record.key,
       files: record.files,
     });
@@ -29,15 +29,15 @@ export class SkillViews {
       teamId: record.teamId.value,
       key: record.key,
       files: record.files,
-      description: read.ok ? read.skill.description : '',
-      secrets: read.ok
-        ? read.skill.secrets.map((each) => ({
+      description: parsed.ok ? parsed.skill.description : '',
+      secrets: parsed.ok
+        ? parsed.skill.secrets.map((each) => ({
             name: each.name.value,
             description: each.description,
           }))
         : [],
-      tools: read.ok ? read.skill.tools.map((each) => each.value) : [],
-      warnings: read.ok ? [] : read.problems,
+      tools: parsed.ok ? parsed.skill.tools.map((each) => each.value) : [],
+      warnings: parsed.ok ? [] : parsed.problems,
     };
   }
 }

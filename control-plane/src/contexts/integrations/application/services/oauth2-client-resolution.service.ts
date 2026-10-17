@@ -13,7 +13,7 @@ import { OAuth2ClientRegistrationVersionConflictError } from '@integrations/doma
 import type { OAuth2ClientRegistrationRepository } from '@integrations/domain/repositories/oauth2-client-registration.repository';
 import { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
 import type { AuthorizationServer } from '@integrations/domain/value-objects/authorization-server.vo';
-import type { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
+import type { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
@@ -42,16 +42,16 @@ export class OAuth2ClientResolution implements OAuth2ClientsPort {
 
   async existingFor(
     teamId: TeamId,
-    source: SourceKey,
+    integration: IntegrationKey,
     server: AuthorizationServer | null,
   ): Promise<OAuth2Client | null> {
-    const configured = this.configured.of(source.value);
+    const configured = this.configured.of(integration.value);
 
     if (configured) {
       return configuredFor(configured, server);
     }
 
-    const existing = await this.registrations.of(teamId, source);
+    const existing = await this.registrations.of(teamId, integration);
 
     return existing?.liveAt(this.clock.now()) && existing.servedBy(server)
       ? clientOf(existing)
@@ -60,11 +60,11 @@ export class OAuth2ClientResolution implements OAuth2ClientsPort {
 
   async clientFor(
     teamId: TeamId,
-    source: SourceKey,
+    integration: IntegrationKey,
     registration: string | null,
     server: AuthorizationServer | null,
   ): Promise<OAuth2Client | null> {
-    const configured = this.configured.of(source.value);
+    const configured = this.configured.of(integration.value);
 
     if (configured) {
       return configuredFor(configured, server);
@@ -79,7 +79,7 @@ export class OAuth2ClientResolution implements OAuth2ClientsPort {
       redirectUri: this.callback,
       server,
     };
-    const existing = await this.registrations.of(teamId, source);
+    const existing = await this.registrations.of(teamId, integration);
 
     if (existing?.fits(wanted, this.clock.now())) {
       return clientOf(existing);
@@ -97,7 +97,7 @@ export class OAuth2ClientResolution implements OAuth2ClientsPort {
     const registered = OAuth2ClientRegistration.register({
       workspaceId: team.workspaceId,
       teamId,
-      source,
+      integration,
       ...wanted,
       clientId: answered.clientId,
       clientSecret: AccessToken.maybe(answered.clientSecret),
@@ -113,7 +113,7 @@ export class OAuth2ClientResolution implements OAuth2ClientsPort {
         throw error;
       }
 
-      const winner = await this.registrations.of(teamId, source);
+      const winner = await this.registrations.of(teamId, integration);
 
       return winner?.servedBy(server) ? clientOf(winner) : null;
     }

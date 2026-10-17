@@ -183,7 +183,7 @@ export const ExportableResourceMapper = {
       id: integration.id,
       address: integration.address,
       teamKey,
-      source: integration.source,
+      integration: integration.integration,
       definition: integration.definition,
       secretReferences: integration.secretReferences.map((each) => ({
         path: each.path,

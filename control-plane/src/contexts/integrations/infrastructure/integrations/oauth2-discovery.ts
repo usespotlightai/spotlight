@@ -3,11 +3,11 @@ import type {
   OAuth2Endpoints,
   OAuth2IR,
 } from '@integrations/infrastructure/integrations/integration.compile';
-import type { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
 import {
-  type PolicedFetch,
-  policedFetch,
-} from '@integrations/infrastructure/outbound/policed-fetch';
+  type GuardedFetch,
+  guardedFetch,
+} from '@integrations/infrastructure/outbound/guarded-fetch';
+import type { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-policy';
 import {
   discoverOAuthServerInfo,
   extractWWWAuthenticateParams,
@@ -64,17 +64,17 @@ export class OAuth2Discovery {
     string,
     { readonly discovered: Discovered; readonly until: number }
   >();
-  readonly #fetch: PolicedFetch;
+  readonly #fetch: GuardedFetch;
 
   constructor(
     policy: OutboundPolicy,
     private readonly clock: ClockPort,
     fetch: Fetch = globalThis.fetch,
   ) {
-    const policed = policedFetch(fetch, policy);
+    const guarded = guardedFetch(fetch, policy);
 
     this.#fetch = (url, init) =>
-      policed(url, {
+      guarded(url, {
         ...init,
         signal: init?.signal ?? AbortSignal.timeout(ANSWERS_WITHIN_MS),
       });

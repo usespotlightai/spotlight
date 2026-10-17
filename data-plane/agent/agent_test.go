@@ -209,7 +209,7 @@ var pullRequesting = protocol.ToolManifest{
 	Description: "Open a pull request for the branch this task was worked on.",
 	Inputs: []protocol.ToolInputManifest{
 		{Name: "title", Schema: json.RawMessage(`{"type":"string"}`), Description: "What it does", Required: true},
-		{Name: "body", Schema: json.RawMessage(`{"type":"string"}`), Description: "The detail, as Markdown", Piped: true},
+		{Name: "body", Schema: json.RawMessage(`{"type":"string"}`), Description: "The detail, as Markdown", Stdin: true},
 		{Name: "repository", Schema: json.RawMessage(`{"type":"string"}`), Description: "Which of the line’s repositories, where it works several"},
 	},
 }

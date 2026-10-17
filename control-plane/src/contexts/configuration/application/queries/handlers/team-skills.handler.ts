@@ -1,6 +1,6 @@
 import type { TeamSkillsDto } from '@configuration/application/dto/skills.dto';
-import type { AppliedConfigurationPort } from '@configuration/application/ports/applied-configuration.port';
 import type { SkillReaderPort } from '@configuration/application/ports/skill-reader.port';
+import type { TeamSkillFilesPort } from '@configuration/application/ports/team-skill-files.port';
 import type { TeamsPort } from '@configuration/application/ports/teams.port';
 import type { TeamSkillsQuery } from '@configuration/application/queries/team-skills.query';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
@@ -12,7 +12,7 @@ export class TeamSkillsHandler
 {
   constructor(
     private readonly teams: TeamsPort,
-    private readonly applied: AppliedConfigurationPort,
+    private readonly teamSkillFiles: TeamSkillFilesPort,
     private readonly reader: SkillReaderPort,
   ) {}
 
@@ -27,8 +27,8 @@ export class TeamSkillsHandler
         return null;
       }
 
-      const applied = await this.applied.of(member.teamId);
-      const { skills } = this.reader.read(applied.skills);
+      const teamSkillFiles = await this.teamSkillFiles.of(member.teamId);
+      const { skills } = this.reader.parse(teamSkillFiles.skills);
 
       return {
         skills: skills.map(({ skill }) => ({

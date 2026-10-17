@@ -3,7 +3,7 @@ export class UnknownHappeningError extends Error {
 
   constructor(happening: string) {
     super(
-      `No source raises happening ${happening}. A wait on it would never end.`,
+      `No integration raises happening ${happening}. A wait on it would never end.`,
     );
     this.name = 'UnknownHappeningError';
   }

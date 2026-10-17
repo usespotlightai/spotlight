@@ -172,7 +172,7 @@ func catalogChangeOf(change resourceChange) *catalogChange {
 		changed.key, _ = values["key"].(string)
 	case integrationType:
 		changed.kind = "integration"
-		changed.key, _ = values["source"].(string)
+		changed.key, _ = values["integration"].(string)
 	case hookType:
 		changed.kind = "hook"
 		changed.key = "*"

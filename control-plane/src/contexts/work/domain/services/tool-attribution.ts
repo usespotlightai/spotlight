@@ -3,7 +3,7 @@ import {
   SLUG_SHAPE,
 } from '@shared-kernel/domain/value-objects/identifier-shapes';
 import { LatencyHistogram } from '@shared-kernel/domain/value-objects/latency-histogram.vo';
-import { BUILT_IN_SKILL_KEYS } from '@work/domain/services/built-in-skills';
+import { BUILT_IN_SKILL_KEY_LIST } from '@work/domain/services/built-in-skills';
 import {
   type ServerCalls,
   ToolUse,
@@ -20,7 +20,7 @@ export interface CalledStep {
   readonly ending: CallEnding;
 }
 
-const BUILT_IN = new Set(BUILT_IN_SKILL_KEYS.map((each) => each.value));
+const BUILT_IN = new Set(BUILT_IN_SKILL_KEY_LIST.map((each) => each.value));
 
 const escaped = (text: string): string =>
   text.replace(/[.*+?^${}()|[\]\\]/g, (found) => `\\${found}`);

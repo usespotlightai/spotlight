@@ -11,16 +11,16 @@ export const enabledIntegrations = (
   const counted = new Map<string, EnabledIntegration>();
 
   for (const each of described) {
-    const source = each.tool.integration;
+    const integration = each.tool.integration;
 
-    if (source === null) {
+    if (integration === null) {
       continue;
     }
 
-    const existing = counted.get(source);
+    const existing = counted.get(integration);
 
-    counted.set(source, {
-      name: existing?.name ?? each.offeredBy ?? source,
+    counted.set(integration, {
+      name: existing?.name ?? each.providedBy ?? integration,
       tools: (existing?.tools ?? 0) + 1,
     });
   }

@@ -27,7 +27,7 @@ export interface ToolInput {
   readonly description: string | null;
   readonly required: boolean;
   readonly defaulted: boolean;
-  readonly piped: boolean;
+  readonly stdin: boolean;
 }
 
 const absent = (read: unknown): boolean =>
@@ -49,8 +49,8 @@ export class DeclaredTool {
     readonly description: string,
     readonly inputs: readonly ToolInput[],
     readonly approval: ApprovalNeeded | null,
-    readonly offeredBy: string | null,
-    readonly learnedOutput: JsonObject | null,
+    readonly providedBy: string | null,
+    readonly inferredOutput: JsonObject | null,
   ) {}
 
   static of(input: {
@@ -58,8 +58,8 @@ export class DeclaredTool {
     description: string;
     inputs?: readonly ToolInput[];
     approval?: ApprovalNeeded | null;
-    offeredBy?: string | null;
-    learnedOutput?: JsonObject | null;
+    providedBy?: string | null;
+    inferredOutput?: JsonObject | null;
   }): DeclaredTool {
     const description = input.description.trim();
     const inputs = input.inputs ?? [];
@@ -97,16 +97,16 @@ export class DeclaredTool {
       );
     }
 
-    const piped = inputs.filter((each) => each.piped);
+    const stdinInputs = inputs.filter((each) => each.stdin);
 
-    if (piped.length > 1) {
+    if (stdinInputs.length > 1) {
       throw new InvalidToolError(
         input.tool.value,
         'can pipe in only one input',
       );
     }
 
-    if (piped.some((each) => !each.schema.takesText)) {
+    if (stdinInputs.some((each) => !each.schema.takesText)) {
       throw new InvalidToolError(
         input.tool.value,
         'can pipe in only a text input',
@@ -118,8 +118,8 @@ export class DeclaredTool {
       description,
       inputs,
       input.approval ?? null,
-      input.offeredBy?.trim() || null,
-      input.learnedOutput ?? null,
+      input.providedBy?.trim() || null,
+      input.inferredOutput ?? null,
     );
   }
 
@@ -129,8 +129,8 @@ export class DeclaredTool {
       this.description,
       this.inputs,
       needed,
-      this.offeredBy,
-      this.learnedOutput,
+      this.providedBy,
+      this.inferredOutput,
     );
   }
 

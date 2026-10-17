@@ -30,18 +30,21 @@ export class ConfigurationHandler
 
       return {
         integrations: view.integrations.map((each) => ({
-          source: each.source,
+          integration: each.integration,
           path: each.path,
           name: each.name,
-          connectionStatus: connectionStatusOf(each.connectable, each.linked),
-          holderRule: each.holderRule,
-          handle: each.handle,
-          described: each.described
+          connectionStatus: connectionStatusOf(
+            each.requiresConnection,
+            each.connected,
+          ),
+          actsAs: each.actsAs,
+          linkedAccount: each.linkedAccount,
+          spec: each.spec
             ? {
-                kind: each.described.kind,
-                tools: each.described.tools,
-                readAt: each.described.readAt.toISOString(),
-                problem: each.described.problem,
+                kind: each.spec.kind,
+                tools: each.spec.tools,
+                readAt: each.spec.readAt.toISOString(),
+                problem: each.spec.problem,
               }
             : null,
         })),

@@ -1,4 +1,4 @@
-import type { ReadProfile } from '@configuration/domain/aggregates/harness-profile.aggregate';
+import type { ParsedProfile } from '@configuration/domain/aggregates/harness-profile.aggregate';
 import type { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 
 export const HARNESS_REVIEW = Symbol('HARNESS_REVIEW');
@@ -14,5 +14,5 @@ export interface HarnessReview {
 }
 
 export interface HarnessReviewPort {
-  review(read: ReadProfile): HarnessReview;
+  review(parsed: ParsedProfile): HarnessReview;
 }

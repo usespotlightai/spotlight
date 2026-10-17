@@ -37,8 +37,8 @@ export interface InboxApprovalDto {
 }
 
 export interface InboxConnectionDto {
-  readonly source: string;
   readonly integration: string;
+  readonly integrationName: string;
   readonly personId: string;
   readonly personName: string;
   readonly met: boolean;

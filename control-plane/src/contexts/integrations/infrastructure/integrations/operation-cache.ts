@@ -1,18 +1,15 @@
-import type { DescribedDocumentRepository } from '@integrations/domain/repositories/described-document.repository';
+import type { SpecDocumentRepository } from '@integrations/domain/repositories/spec-document.repository';
 import type { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
-import type { DescribedOperation } from '@integrations/domain/value-objects/described-operation.vo';
+import type { SpecOperation } from '@integrations/domain/value-objects/spec-operation.vo';
 
 const MAX_ENTRIES = 2000;
 
 export class OperationCache {
-  readonly #entries = new Map<string, DescribedOperation>();
+  readonly #entries = new Map<string, SpecOperation>();
 
-  constructor(private readonly documents: DescribedDocumentRepository) {}
+  constructor(private readonly documents: SpecDocumentRepository) {}
 
-  async of(
-    hash: ContentHash,
-    name: string,
-  ): Promise<DescribedOperation | null> {
+  async of(hash: ContentHash, name: string): Promise<SpecOperation | null> {
     const key = `${hash.value}:${name}`;
     const cached = this.#entries.get(key);
 

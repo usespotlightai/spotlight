@@ -1,6 +1,6 @@
 import type { NotedByCallback } from '@integrations/application/commands/handlers/note-by-callback.handler';
 import { NoteByCallbackCommand } from '@integrations/application/commands/note-by-callback.command';
-import type { CallbackTaskDto } from '@integrations/application/dto/callback-task.dto';
+import type { CallbackTaskView } from '@integrations/application/dto/callback-task-view.dto';
 import { CallbackTaskQuery } from '@integrations/application/queries/callback-task.query';
 import { CallbackNoteRequestDto } from '@integrations/presentation/http/dto/callback-note.request.dto';
 import { CallbackTaskResponseDto } from '@integrations/presentation/http/dto/callback-task.response.dto';
@@ -55,7 +55,7 @@ export class HookCallbackController {
   ): Promise<CallbackTaskResponseDto> {
     const task = await this.queryBus.execute<
       CallbackTaskQuery,
-      CallbackTaskDto | null
+      CallbackTaskView | null
     >(new CallbackTaskQuery(bearerIn(authorization) ?? ''));
 
     if (!task) {

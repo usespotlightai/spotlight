@@ -92,7 +92,11 @@ const WRITTEN = {
       [
         attribute('tools', [
           HclExpression.template(
-            HclExpression.traversal('example_source', 'main_feed', 'source'),
+            HclExpression.traversal(
+              'example_integration',
+              'main_feed',
+              'integration',
+            ),
             // biome-ignore lint/suspicious/noTemplateCurlyInString: HCL interpolation, written literally
             '.comment "${x}"',
           ),
@@ -205,7 +209,7 @@ describe('formatHcl', () => {
   it('interpolates an expression into text, escaping the text around it', () => {
     expect(WRITTEN.template).toContain(
       // biome-ignore lint/suspicious/noTemplateCurlyInString: HCL interpolation, written literally
-      'tools = ["${example_source.main_feed.source}.comment \\"$${x}\\""]',
+      'tools = ["${example_integration.main_feed.integration}.comment \\"$${x}\\""]',
     );
   });
 

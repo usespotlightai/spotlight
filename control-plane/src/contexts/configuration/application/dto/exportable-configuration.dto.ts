@@ -127,7 +127,7 @@ export type ExportableResourceDto =
     })
   | (TeamOwned & {
       readonly kind: 'integration';
-      readonly source: string;
+      readonly integration: string;
       readonly definition: Readonly<Record<string, unknown>>;
       readonly secretReferences: readonly SecretReferenceAt[];
     })

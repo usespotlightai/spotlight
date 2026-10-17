@@ -64,14 +64,14 @@ export type SigningSecretChange =
   | { readonly kind: 'none' };
 
 export interface HookAllowances {
-  readonly offered: readonly string[];
+  readonly provided: readonly string[];
   readonly signsTokens: boolean;
   allowsHost(host: string): boolean;
 }
 
 const guardAllowed = (hook: Hook, allowances: HookAllowances): void => {
   const missing = hook.matchedTools.filter(
-    (tool) => !allowances.offered.includes(tool.value),
+    (tool) => !allowances.provided.includes(tool.value),
   );
 
   if (missing.length > 0) {
@@ -82,7 +82,10 @@ const guardAllowed = (hook: Hook, allowances: HookAllowances): void => {
   }
 
   hook.steps.forEach((step, index) => {
-    if (step.kind === 'call' && !allowances.offered.includes(step.tool.value)) {
+    if (
+      step.kind === 'call' &&
+      !allowances.provided.includes(step.tool.value)
+    ) {
       throw new InvalidHookError(
         FieldPath.of(['steps', index, 'call']),
         `names tool ${step.tool.value}, which no team integration offers`,

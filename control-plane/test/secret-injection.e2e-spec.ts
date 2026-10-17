@@ -1,12 +1,12 @@
 import { randomUUID } from 'node:crypto';
-import { HostConnection } from '@integrations/domain/aggregates/host-connection.aggregate';
+import { IntegrationConnection } from '@integrations/domain/aggregates/integration-connection.aggregate';
 import {
-  HOST_CONNECTIONS,
-  type HostConnectionRepository,
-} from '@integrations/domain/repositories/host-connection.repository';
-import { ConnectionHolder } from '@integrations/domain/value-objects/connection-holder.vo';
-import { HostGrant } from '@integrations/domain/value-objects/host-grant.vo';
-import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
+  INTEGRATION_CONNECTIONS,
+  type IntegrationConnectionRepository,
+} from '@integrations/domain/repositories/integration-connection.repository';
+import { ConnectionOwner } from '@integrations/domain/value-objects/connection-owner.vo';
+import { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
+import { OAuthTokens } from '@integrations/domain/value-objects/oauth-tokens.vo';
 import type { INestApplication } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
@@ -16,7 +16,7 @@ import {
 } from '@secrets/application/ports/run-grants.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import type { BoundTaskDto } from '@work/application/dto/bound-task.dto';
+import type { IntegrationTaskViewDto } from '@work/application/dto/integration-task-view.dto';
 import {
   INTEGRATION_TOOL_CALLS,
   type IntegrationTool,
@@ -61,7 +61,7 @@ const LINEAR = {
   },
   tools: {
     comment: {
-      does: 'comment',
+      action: 'comment',
       description: 'Comment on the Linear issue',
       inputs: { body: { required: true } },
       // biome-ignore lint/suspicious/noTemplateCurlyInString: the file's own expression syntax
@@ -97,7 +97,7 @@ describe('a secret injected into a tool call that the control plane makes (e2e)'
       .set('Idempotency-Key', randomUUID())
       .send(body);
 
-  const task = (): BoundTaskDto => ({
+  const task = (): IntegrationTaskViewDto => ({
     taskId: 'task_1',
     workspaceId,
     teamId: workspaceId,
@@ -165,11 +165,11 @@ describe('a secret injected into a tool call that the control plane makes (e2e)'
       .delete(schema.integrationDefinition)
       .where(eq(schema.integrationDefinition.teamId, workspaceId));
     await db
-      .delete(schema.hostConnection)
-      .where(eq(schema.hostConnection.teamId, workspaceId));
+      .delete(schema.integrationConnection)
+      .where(eq(schema.integrationConnection.teamId, workspaceId));
     await db
-      .delete(schema.learnedOutput)
-      .where(eq(schema.learnedOutput.teamId, workspaceId));
+      .delete(schema.inferredOutputSchema)
+      .where(eq(schema.inferredOutputSchema.teamId, workspaceId));
     await db
       .delete(schema.secret)
       .where(eq(schema.secret.workspaceId, workspaceId));
@@ -224,7 +224,7 @@ describe('a secret injected into a tool call that the control plane makes (e2e)'
     ).toBeUndefined();
   });
 
-  it('learns what the tool answered, without its values, for the next run’s manifest', async () => {
+  it('infers an output schema from what the tool answered, without its values, for the next run’s manifest', async () => {
     await post(
       `/api/resources/workspaces/${workspaceId}/secrets`,
       secretBoundTo('api.linear.app'),
@@ -235,17 +235,17 @@ describe('a secret injected into a tool call that the control plane makes (e2e)'
     const [stored] = await eventually(() =>
       db
         .select()
-        .from(schema.learnedOutput)
-        .where(eq(schema.learnedOutput.teamId, workspaceId))
+        .from(schema.inferredOutputSchema)
+        .where(eq(schema.inferredOutputSchema.teamId, workspaceId))
         .then((rows) => (rows.length > 0 ? rows : null)),
     );
     expect(stored?.tool).toBe('linear.comment');
     expect(JSON.stringify(stored?.shape)).not.toContain('linear.app');
 
-    const [offered] = await app
+    const [provided] = await app
       .get<TeamIntegrationsPort>(TEAM_INTEGRATIONS)
-      .offered(TeamId.of(workspaceId), ['linear.comment']);
-    expect(offered?.learnedOutput).toEqual({ type: 'string' });
+      .provided(TeamId.of(workspaceId), ['linear.comment']);
+    expect(provided?.inferredOutput).toEqual({ type: 'string' });
   });
 
   it('grants the run the secret for its host alone', async () => {
@@ -344,16 +344,18 @@ describe('a secret injected into a tool call that the control plane makes (e2e)'
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it('encrypts the tokens of a host connection under the data key of the workspace', async () => {
-    const connections = app.get<HostConnectionRepository>(HOST_CONNECTIONS);
+  it('encrypts the tokens of an integration connection under the data key of the workspace', async () => {
+    const connections = app.get<IntegrationConnectionRepository>(
+      INTEGRATION_CONNECTIONS,
+    );
 
     await connections.save(
-      HostConnection.linkFrom({
+      IntegrationConnection.connectFrom({
         workspaceId: WorkspaceId.of(workspaceId),
         teamId: TeamId.of(workspaceId),
-        source: SourceKey.of('slack'),
-        holder: ConnectionHolder.team(),
-        grant: HostGrant.of({
+        integration: IntegrationKey.of('slack'),
+        owner: ConnectionOwner.team(),
+        tokens: OAuthTokens.of({
           accessToken: 'xoxb-encrypted-1',
           refreshToken: 'xoxe-encrypted-1',
         }),
@@ -362,17 +364,17 @@ describe('a secret injected into a tool call that the control plane makes (e2e)'
 
     const [row] = await db
       .select()
-      .from(schema.hostConnection)
+      .from(schema.integrationConnection)
       .where(
         and(
-          eq(schema.hostConnection.teamId, workspaceId),
-          eq(schema.hostConnection.source, 'slack'),
+          eq(schema.integrationConnection.teamId, workspaceId),
+          eq(schema.integrationConnection.integration, 'slack'),
         ),
       );
     const read = await connections.of(
       TeamId.of(workspaceId),
-      SourceKey.of('slack'),
-      ConnectionHolder.team(),
+      IntegrationKey.of('slack'),
+      ConnectionOwner.team(),
     );
 
     expect(row?.accessToken).not.toContain('xoxb-encrypted-1');

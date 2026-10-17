@@ -1,15 +1,15 @@
 import { createHash } from 'node:crypto';
 import { CAUSE_HEADER } from '@integrations/application/ports/hook-firing-history.port';
 import type {
-  HookMoment,
+  HookEventInstance,
   ListeningHook,
   StepOutcome,
-  StepTaken,
-  Waiting,
+  StepResult,
+  WaitMode,
 } from '@integrations/application/ports/hook-runtime.port';
 import type { HookSigningSecretsPort } from '@integrations/application/ports/hook-signing-secrets.port';
 import type { HookTokensPort } from '@integrations/application/ports/hook-tokens.port';
-import type { HookCallbackGrants } from '@integrations/application/services/hook-callback-grants.service';
+import type { HookCallbackTokens } from '@integrations/application/services/hook-callback-tokens.service';
 import { HookFailure } from '@integrations/domain/value-objects/hook-failure.vo';
 import { HookReply } from '@integrations/domain/value-objects/hook-reply.vo';
 import type { HookSigningIR } from '@integrations/infrastructure/hooks/hook.compile';
@@ -24,13 +24,13 @@ import type {
 
 type Fetch = typeof globalThis.fetch;
 
-const NETWORK_PATIENCE_MS = 2 * 60 * 1000;
+const NETWORK_TIMEOUT_MS = 2 * 60 * 1000;
 
 const MAX_STORED_BYTES = 16 * 1024;
 
 export interface HookRequest {
   readonly hook: ListeningHook;
-  readonly moment: HookMoment;
+  readonly instance: HookEventInstance;
   readonly step: string;
   readonly url: string;
   readonly headers: Readonly<Record<string, string>>;
@@ -38,7 +38,7 @@ export interface HookRequest {
   readonly fromNetwork: boolean;
   readonly signing: HookSigningIR | null;
   readonly deadline: Date;
-  readonly waiting: Waiting;
+  readonly waitMode: WaitMode;
   readonly resuming: StepOutcome | null;
 }
 
@@ -148,14 +148,14 @@ export class HookRequests {
     private readonly settings: HookRequestSettings,
     private readonly secrets: HookSigningSecretsPort,
     private readonly tokens: HookTokensPort,
-    private readonly callbacks: HookCallbackGrants,
+    private readonly callbacks: HookCallbackTokens,
     private readonly network: NetworkCallsPort,
     private readonly fetch: Fetch = globalThis.fetch,
   ) {
     this.policy = new OutboundPolicy(settings.allowed);
   }
 
-  async sent(request: HookRequest, now: Date): Promise<StepTaken> {
+  async sent(request: HookRequest, now: Date): Promise<StepResult> {
     const started = now;
 
     if (request.resuming?.status === 'waiting') {
@@ -212,7 +212,7 @@ export class HookRequests {
       answered = UNANSWERED(described(error));
     }
 
-    return this.taken(request, headers, answered, started, new Date());
+    return this.resultOf(request, headers, answered, started, new Date());
   }
 
   private async headers(
@@ -221,15 +221,15 @@ export class HookRequests {
   ): Promise<Record<string, string>> {
     const id = messageId(
       request.hook.id,
-      request.moment.occurrence,
+      request.instance.occurrence,
       request.step,
     );
     const timestamp = Math.floor(at.getTime() / 1000);
     const callback = await this.callbacks.issued({
-      workspaceId: request.moment.task.workspaceId,
-      taskId: request.moment.task.taskId,
+      workspaceId: request.instance.task.workspaceId,
+      taskId: request.instance.task.taskId,
       hook: request.hook.key,
-      firing: request.moment.firing,
+      firing: request.instance.firing,
     });
     const signed: Record<string, string> = {
       ...request.headers,
@@ -240,8 +240,8 @@ export class HookRequests {
       'spotlight-hook': request.hook.key,
       'spotlight-callback-url': `${this.settings.publicUrl}/${API_PREFIX}/${HOOK_CALLBACKS}`,
       'spotlight-callback-token': callback,
-      ...(request.moment.firing
-        ? { [CAUSE_HEADER]: request.moment.firing }
+      ...(request.instance.firing
+        ? { [CAUSE_HEADER]: request.instance.firing }
         : {}),
     };
 
@@ -265,8 +265,8 @@ export class HookRequests {
     if (request.signing?.kind === 'oidc') {
       signed.authorization = `Bearer ${await this.tokens.signed({
         audience: request.signing.audience,
-        subject: `hook:${request.moment.task.workspaceId}/${request.hook.teamId}/${request.hook.key}`,
-        occurrence: request.moment.occurrence,
+        subject: `hook:${request.instance.task.workspaceId}/${request.hook.teamId}/${request.hook.key}`,
+        occurrence: request.instance.occurrence,
         message: id,
         bodyDigest: createHash('sha256')
           .update(request.body)
@@ -281,11 +281,11 @@ export class HookRequests {
     request: HookRequest,
     headers: Record<string, string>,
     started: Date,
-  ): Promise<StepTaken> {
-    const patience =
-      request.waiting === 'until-answered'
+  ): Promise<StepResult> {
+    const timeout =
+      request.waitMode === 'wait'
         ? request.deadline
-        : new Date(started.getTime() + NETWORK_PATIENCE_MS);
+        : new Date(started.getTime() + NETWORK_TIMEOUT_MS);
     const networkRequest: NetworkRequest = {
       method: 'POST',
       url: request.url,
@@ -294,41 +294,41 @@ export class HookRequests {
       timeoutMs: Math.max(
         Math.min(
           request.deadline.getTime() - started.getTime(),
-          patience.getTime() - started.getTime(),
+          timeout.getTime() - started.getTime(),
         ),
         1_000,
       ),
     };
     const call = await this.network.queue(
-      request.moment.task.workspaceId,
+      request.instance.task.workspaceId,
       networkRequest,
-      patience,
+      timeout,
     );
 
-    if (request.waiting === 'suspend') {
+    if (request.waitMode === 'suspend') {
       return {
         outcome: {
           name: request.step,
           status: 'waiting',
           call,
-          until: patience.toISOString(),
+          until: timeout.toISOString(),
         },
         denyReason: null,
         trace: null,
       };
     }
 
-    const state = await this.network.answered(call, patience);
+    const state = await this.network.answered(call, timeout);
 
     return state.kind === 'answered'
-      ? this.taken(
+      ? this.resultOf(
           request,
           headers,
           fromAnswer(state.answer),
           started,
           new Date(),
         )
-      : this.taken(
+      : this.resultOf(
           request,
           headers,
           UNANSWERED('no host of the workspace answered in time'),
@@ -341,7 +341,7 @@ export class HookRequests {
     request: HookRequest,
     waiting: Extract<StepOutcome, { status: 'waiting' }>,
     now: Date,
-  ): Promise<StepTaken> {
+  ): Promise<StepResult> {
     const state = await this.network.stateOf(waiting.call);
 
     if (state.kind === 'waiting' && new Date(waiting.until) > now) {
@@ -354,16 +354,22 @@ export class HookRequests {
         : UNANSWERED('no host of the workspace answered in time');
     const ms = state.kind === 'answered' ? state.answer.ms : 0;
 
-    return this.taken(request, {}, answered, new Date(now.getTime() - ms), now);
+    return this.resultOf(
+      request,
+      {},
+      answered,
+      new Date(now.getTime() - ms),
+      now,
+    );
   }
 
-  private taken(
+  private resultOf(
     request: HookRequest,
     headers: Record<string, string>,
     answered: Answered,
     started: Date,
     ended: Date,
-  ): StepTaken {
+  ): StepResult {
     const { reply } = answered;
     const reason = answered.error
       ? `could not reach ${request.url}: ${answered.error}`
@@ -409,7 +415,7 @@ export class HookRequests {
     request: HookRequest,
     failure: HookFailure,
     started: Date,
-  ): StepTaken {
+  ): StepResult {
     return {
       outcome: {
         name: request.step,

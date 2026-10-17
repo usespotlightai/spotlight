@@ -2,23 +2,23 @@ import type { PullRequestPort } from '@github/application/ports/pull-request.por
 import type { HookCallsPort } from '@integrations/application/ports/hook-calls.port';
 import type { HookFiringHistoryPort } from '@integrations/application/ports/hook-firing-history.port';
 import type {
-  HookMoment,
+  HookEventInstance,
   HookRuntimePort,
   ListeningHook,
   StepOutcome,
   StepRequest,
-  StepTaken,
+  StepResult,
 } from '@integrations/application/ports/hook-runtime.port';
 import type {
-  HookedTask,
   TasksForHooksPort,
+  TaskView,
 } from '@integrations/application/ports/tasks-for-hooks.port';
 import { HookFiring } from '@integrations/domain/aggregates/hook-firing.aggregate';
 import { HookFiringVersionConflictError } from '@integrations/domain/exceptions/hook-firing-version-conflict.error';
 import type { HookFiringRepository } from '@integrations/domain/repositories/hook-firing.repository';
+import { HookDecision } from '@integrations/domain/value-objects/hook-decision.vo';
 import type { HookEventName } from '@integrations/domain/value-objects/hook-event.vo';
 import { HookFailure } from '@integrations/domain/value-objects/hook-failure.vo';
-import { HookVerdict } from '@integrations/domain/value-objects/hook-verdict.vo';
 import type { CausationPort } from '@shared-kernel/application/ports/causation.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
@@ -38,7 +38,7 @@ export interface Happened {
   readonly on: HookEventName;
   readonly occurrence: string;
   readonly change: string;
-  readonly task: HookedTask;
+  readonly task: TaskView;
   readonly event: Readonly<Record<string, unknown>>;
   readonly matchedLater?: boolean;
 }
@@ -50,7 +50,7 @@ interface LeasedFiring {
 const because = (error: unknown): string =>
   error instanceof Error ? error.message : String(error);
 
-const failed = (name: string, reason: string): StepTaken => ({
+const failed = (name: string, reason: string): StepResult => ({
   outcome: { name, status: 'failed', code: 'errored', reason, output: null },
   denyReason: null,
   trace: null,
@@ -101,12 +101,12 @@ export class FireHooks {
   }
 
   async before(
-    task: HookedTask,
+    task: TaskView,
     on: HookEventName,
     event: Readonly<Record<string, unknown>>,
     until: Date | null = null,
-  ): Promise<HookVerdict> {
-    const moment: HookMoment = {
+  ): Promise<HookDecision> {
+    const instance: HookEventInstance = {
       on,
       occurrence: this.ids.generate(),
       at: this.clock.now(),
@@ -118,7 +118,7 @@ export class FireHooks {
     const budget = new Date(
       Math.min(
         until?.getTime() ?? Number.POSITIVE_INFINITY,
-        moment.at.getTime() + BEFORE_BUDGET_MS,
+        instance.at.getTime() + BEFORE_BUDGET_MS,
       ),
     );
 
@@ -129,36 +129,36 @@ export class FireHooks {
           'A hook no longer reads as it was written',
         );
 
-        const verdict = HookVerdict.onBrokenHook(
+        const decision = HookDecision.onBrokenHook(
           hook.key,
           hook.broken,
           hook.blocks,
         );
 
-        if (verdict.denies) {
-          return verdict;
+        if (decision.denies) {
+          return decision;
         }
 
         continue;
       }
 
-      if (!this.runtime.matches(hook, moment)) {
+      if (!this.runtime.matches(hook, instance)) {
         continue;
       }
 
-      const verdict = await this.ranBefore(hook, moment, budget);
+      const decision = await this.ranBefore(hook, instance, budget);
 
-      if (verdict.denies) {
-        return verdict;
+      if (decision.denies) {
+        return decision;
       }
     }
 
-    return HookVerdict.allowed();
+    return HookDecision.allowed();
   }
 
   async happened(happened: Happened): Promise<number> {
     const at = this.clock.now();
-    const moment: HookMoment = {
+    const instance: HookEventInstance = {
       on: happened.on,
       occurrence: happened.occurrence,
       task: happened.task,
@@ -187,7 +187,7 @@ export class FireHooks {
         continue;
       }
 
-      if (!matchedLater && !this.runtime.matches(hook, moment)) {
+      if (!matchedLater && !this.runtime.matches(hook, instance)) {
         continue;
       }
 
@@ -338,52 +338,54 @@ export class FireHooks {
 
   private async ranBefore(
     hook: ListeningHook,
-    moment: HookMoment,
+    instance: HookEventInstance,
     until: Date,
-  ): Promise<HookVerdict> {
+  ): Promise<HookDecision> {
     const own = this.clock.now().getTime() + hook.timeoutSeconds * 1000;
     const deadline = new Date(Math.min(own, until.getTime()));
     const earlier: StepOutcome[] = [];
 
     for (const step of hook.steps) {
-      const taken = await this.taken({
+      const stepResult = await this.takeStep({
         hook,
         step,
-        moment,
+        instance: instance,
         earlier,
         resuming: null,
         deadline,
-        waiting: 'until-answered',
+        waitMode: 'wait',
       });
 
-      await this.traced(moment, taken);
-      earlier.push(taken.outcome);
+      await this.traced(instance, stepResult);
+      earlier.push(stepResult.outcome);
 
       const failedBecause =
-        taken.outcome.status === 'done' ? null : reasonOf(taken.outcome);
+        stepResult.outcome.status === 'done'
+          ? null
+          : reasonOf(stepResult.outcome);
 
-      if (failedBecause !== null && taken.denyReason === null) {
+      if (failedBecause !== null && stepResult.denyReason === null) {
         this.logger.warn(
           { hook: hook.key, step, reason: failedBecause },
           'A hook before an event failed',
         );
       }
 
-      const verdict =
-        hook.written?.verdictOn(step, {
-          denyReason: taken.denyReason,
+      const decision =
+        hook.written?.decisionOn(step, {
+          denyReason: stepResult.denyReason,
           failedBecause,
         }) ?? null;
 
-      if (verdict) {
-        return verdict;
+      if (decision) {
+        return decision;
       }
     }
 
-    return HookVerdict.allowed();
+    return HookDecision.allowed();
   }
 
-  private async taken(stepRequest: StepRequest): Promise<StepTaken> {
+  private async takeStep(stepRequest: StepRequest): Promise<StepResult> {
     try {
       return await this.runtime.step(stepRequest);
     } catch (error) {
@@ -394,13 +396,13 @@ export class FireHooks {
   private async saved(firing: HookFiring): Promise<HookFiring> {
     await this.firings.save(firing);
 
-    const reread = await this.firings.withId(firing.id);
+    const reloaded = await this.firings.withId(firing.id);
 
-    if (!reread) {
+    if (!reloaded) {
       throw new HookFiringVersionConflictError(firing.id);
     }
 
-    return reread;
+    return reloaded;
   }
 
   private async delivered(leased: LeasedFiring): Promise<void> {
@@ -442,15 +444,15 @@ export class FireHooks {
       return;
     }
 
-    const moment = await this.momentOf(firing, task);
+    const instance = await this.eventInstanceOf(firing, task);
 
     if (!firing.matched) {
-      if (!this.runtime.matches(hook, moment)) {
+      if (!this.runtime.matches(hook, instance)) {
         await this.firings.save(firing.worked(this.clock.now()));
         return;
       }
 
-      leased.firing = await this.saved(firing.recordMatch(moment.event));
+      leased.firing = await this.saved(firing.recordMatch(instance.event));
     }
 
     const loop = leased.firing.loopStop(
@@ -474,21 +476,21 @@ export class FireHooks {
         continue;
       }
 
-      const taken = await this.taken({
+      const stepResult = await this.takeStep({
         hook,
         step,
-        moment,
+        instance: instance,
         earlier,
         resuming: before?.status === 'waiting' ? before : null,
         deadline: new Date(
           this.clock.now().getTime() + hook.timeoutSeconds * 1000,
         ),
-        waiting: 'suspend',
+        waitMode: 'suspend',
       });
 
-      if (taken.outcome.status === 'waiting') {
+      if (stepResult.outcome.status === 'waiting') {
         const waiting = await this.saved(
-          leased.firing.recordStep([...earlier, taken.outcome]),
+          leased.firing.recordStep([...earlier, stepResult.outcome]),
         );
 
         await this.firings.save(
@@ -499,31 +501,31 @@ export class FireHooks {
         return;
       }
 
-      await this.traced(moment, taken);
+      await this.traced(instance, stepResult);
 
-      if (taken.outcome.status === 'failed') {
+      if (stepResult.outcome.status === 'failed') {
         leased.firing = await this.saved(
-          leased.firing.recordStep([...earlier, taken.outcome]),
+          leased.firing.recordStep([...earlier, stepResult.outcome]),
         );
         throw new StepFailed(
           hook.key,
           step,
-          HookFailure.of(taken.outcome.code, taken.outcome.reason),
+          HookFailure.of(stepResult.outcome.code, stepResult.outcome.reason),
         );
       }
 
-      earlier.push(taken.outcome);
+      earlier.push(stepResult.outcome);
       leased.firing = await this.saved(leased.firing.recordStep(earlier));
     }
 
     await this.firings.save(leased.firing.worked(this.clock.now()));
   }
 
-  private async momentOf(
+  private async eventInstanceOf(
     firing: HookFiring,
-    task: HookedTask,
-  ): Promise<HookMoment> {
-    const moment: HookMoment = {
+    task: TaskView,
+  ): Promise<HookEventInstance> {
+    const instance: HookEventInstance = {
       on: firing.on,
       occurrence: firing.occurrence,
       at: firing.firedAt,
@@ -533,14 +535,14 @@ export class FireHooks {
     };
 
     if (firing.matched || firing.on !== 'pull-request.merged') {
-      return moment;
+      return instance;
     }
 
     const url = String(firing.event.url ?? '');
     const repository = String(firing.event.repository ?? '');
 
     return {
-      ...moment,
+      ...instance,
       event: {
         ...firing.event,
         changed: await this.pullRequests.changedIn(
@@ -552,16 +554,19 @@ export class FireHooks {
     };
   }
 
-  private async traced(moment: HookMoment, taken: StepTaken): Promise<void> {
-    if (!taken.trace || !moment.task.runId) {
+  private async traced(
+    instance: HookEventInstance,
+    stepResult: StepResult,
+  ): Promise<void> {
+    if (!stepResult.trace || !instance.task.runId) {
       return;
     }
 
     try {
-      await this.calls.record(moment.task.runId, taken.trace);
+      await this.calls.record(instance.task.runId, stepResult.trace);
     } catch (error) {
       this.logger.warn(
-        { err: error, run: moment.task.runId },
+        { err: error, run: instance.task.runId },
         'Could not trace a hook call',
       );
     }

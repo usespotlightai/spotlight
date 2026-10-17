@@ -5,7 +5,7 @@ export class HappeningResponseDto {
   readonly happening: string;
 
   @ApiProperty({ example: 'github' })
-  readonly source: string;
+  readonly integration: string;
 
   @ApiProperty({ example: 'Pull request commented on' })
   readonly label: string;
@@ -15,12 +15,12 @@ export class HappeningResponseDto {
 
   constructor(
     happening: string,
-    source: string,
+    integration: string,
     label: string,
     summary: string,
   ) {
     this.happening = happening;
-    this.source = source;
+    this.integration = integration;
     this.label = label;
     this.summary = summary;
   }

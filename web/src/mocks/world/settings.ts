@@ -65,42 +65,42 @@ export const REPOSITORIES = [
 ];
 
 const integration = (
-  source: string,
+  key: string,
   name: string,
   over: Partial<IntegrationViewResponseDto> = {},
 ): IntegrationViewResponseDto => ({
-  source,
+  integration: key,
   name,
-  path: `integrations/${source}`,
-  connectionStatus: 'linked',
-  holderRule: 'team',
-  handle: null,
-  described: null,
+  path: `integrations/${key}`,
+  connectionStatus: 'connected',
+  actsAs: 'team',
+  linkedAccount: null,
+  spec: null,
   ...over,
 });
 
 const LINEAR = integration('linear', 'Linear', {
-  holderRule: 'requester',
-  handle: '@acme-bot',
+  actsAs: 'requester',
+  linkedAccount: '@acme-bot',
 });
 
 const SENTRY = integration('sentry', 'Sentry', {
-  holderRule: 'requester',
-  handle: 'acme',
+  actsAs: 'requester',
+  linkedAccount: 'acme',
 });
 
-const SLACK = integration('slack', 'Slack', { handle: 'Acme' });
+const SLACK = integration('slack', 'Slack', { linkedAccount: 'Acme' });
 
 const INTEGRATIONS: Record<string, IntegrationViewResponseDto[]> = {
   [PLATFORM_ID]: [
     LINEAR,
     SENTRY,
     SLACK,
-    integration('grafana', 'Grafana', { handle: 'acme.grafana.net' }),
-    integration('pagerduty', 'PagerDuty', { connectionStatus: 'listens' }),
+    integration('grafana', 'Grafana', { linkedAccount: 'acme.grafana.net' }),
+    integration('pagerduty', 'PagerDuty', { connectionStatus: 'not-required' }),
     integration('payments-api', 'Payments API', {
-      connectionStatus: 'listens',
-      described: {
+      connectionStatus: 'not-required',
+      spec: {
         kind: 'openapi',
         tools: 14,
         readAt: hoursAgo(3),
@@ -108,7 +108,7 @@ const INTEGRATIONS: Record<string, IntegrationViewResponseDto[]> = {
       },
     }),
     integration('billing', 'Billing API', {
-      described: {
+      spec: {
         kind: 'graphql',
         tools: 1,
         readAt: hoursAgo(0.2),
@@ -116,8 +116,8 @@ const INTEGRATIONS: Record<string, IntegrationViewResponseDto[]> = {
       },
     }),
     integration('honeycomb', 'Honeycomb', {
-      handle: 'acme-production',
-      described: {
+      linkedAccount: 'acme-production',
+      spec: {
         kind: 'mcp',
         tools: 24,
         readAt: hoursAgo(0.1),
@@ -125,8 +125,8 @@ const INTEGRATIONS: Record<string, IntegrationViewResponseDto[]> = {
       },
     }),
     integration('statuspage', 'Statuspage', {
-      connectionStatus: 'unlinked',
-      described: {
+      connectionStatus: 'disconnected',
+      spec: {
         kind: 'mcp',
         tools: 0,
         readAt: hoursAgo(0.1),
@@ -137,7 +137,7 @@ const INTEGRATIONS: Record<string, IntegrationViewResponseDto[]> = {
   [GROWTH_ID]: [
     LINEAR,
     SLACK,
-    integration('posthog', 'PostHog', { handle: 'acme-growth' }),
+    integration('posthog', 'PostHog', { linkedAccount: 'acme-growth' }),
   ],
 };
 
@@ -147,10 +147,10 @@ const TOOLS_OF: Record<string, string[]> = {
 };
 
 export const toolRules = (
-  source: string,
+  integration: string,
   rule: ConnectionToolRuleResponseDto['rule'] = 'allowed',
 ): ConnectionToolRuleResponseDto[] =>
-  (TOOLS_OF[source] ?? []).map((tool) => ({ tool, rule }));
+  (TOOLS_OF[integration] ?? []).map((tool) => ({ tool, rule }));
 
 export type TeamConnections = {
   mine: MyConnectionResponseDto[];
@@ -158,15 +158,15 @@ export type TeamConnections = {
 };
 
 const person = (
-  source: string,
+  integration: string,
   who: typeof SAM,
-  handle: string,
+  linkedAccount: string,
   connectedDaysAgo: number,
 ): PersonConnectionResponseDto => ({
-  source,
+  integration,
   personId: who.id,
   name: who.name,
-  handle,
+  linkedAccount,
   connectedAt: daysAgo(connectedDaysAgo),
 });
 
@@ -174,8 +174,8 @@ const CONNECTIONS: Record<string, TeamConnections> = {
   [PLATFORM_ID]: {
     mine: [
       {
-        source: 'linear',
-        handle: '@sam',
+        integration: 'linear',
+        linkedAccount: '@sam',
         connectedAt: daysAgo(6),
         tools: [
           { tool: 'linear.issue', rule: 'allowed' },
@@ -194,8 +194,8 @@ const CONNECTIONS: Record<string, TeamConnections> = {
   [GROWTH_ID]: {
     mine: [
       {
-        source: 'linear',
-        handle: '@sam',
+        integration: 'linear',
+        linkedAccount: '@sam',
         connectedAt: daysAgo(6),
         tools: toolRules('linear'),
       },

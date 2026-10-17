@@ -1,13 +1,13 @@
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
 import type { IntegrationRuntimePort } from '@integrations/application/ports/integration-runtime.port';
 import type { CallAuthResolver } from '@integrations/application/services/call-auth-resolver.service';
-import type { LearnOutputShapes } from '@integrations/application/services/learn-output-shapes.service';
+import type { InferOutputSchemas } from '@integrations/application/services/infer-output-schemas.service';
 import type { PersonToolRules } from '@integrations/application/services/person-tool-rules.service';
-import { BoundTaskMapper } from '@integrations/infrastructure/acl/bound-task.mapper';
+import { IntegrationTaskViewMapper } from '@integrations/infrastructure/acl/integration-task-view.mapper';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
-import type { BoundTaskDto } from '@work/application/dto/bound-task.dto';
+import type { IntegrationTaskViewDto } from '@work/application/dto/integration-task-view.dto';
 import type {
   IntegrationTool,
   IntegrationToolCallsPort,
@@ -19,13 +19,13 @@ export class IntegrationToolCalls implements IntegrationToolCallsPort {
     private readonly defined: DefinedIntegrationsPort,
     private readonly runtime: IntegrationRuntimePort,
     private readonly callAuthResolver: CallAuthResolver,
-    private readonly learning: LearnOutputShapes,
+    private readonly inferring: InferOutputSchemas,
     private readonly personRules: PersonToolRules,
   ) {}
 
   async resolve(
     tool: string,
-    task: BoundTaskDto,
+    task: IntegrationTaskViewDto,
     run: RunAttemptDto,
     requester: string | null,
   ): Promise<IntegrationTool | null> {
@@ -34,7 +34,7 @@ export class IntegrationToolCalls implements IntegrationToolCallsPort {
     const resolved = await this.runtime.tool(
       definitions,
       tool,
-      BoundTaskMapper.toBound(task),
+      IntegrationTaskViewMapper.toView(task),
     );
 
     if (!resolved) {
@@ -47,16 +47,16 @@ export class IntegrationToolCalls implements IntegrationToolCallsPort {
       requester ? UserId.of(requester) : null,
     );
 
-    if (found.kind === 'wanted') {
+    if (found.kind === 'missing') {
       return {
         declared: resolved.declared,
         actingAs: null,
         personRule: null,
-        wants: {
-          source: found.wanted.source.value,
-          integration: found.wanted.integrationName,
-          personId: found.wanted.personId?.value ?? null,
-          because: found.wanted.because,
+        missing: {
+          integration: found.missing.integration.value,
+          integrationName: found.missing.integrationName,
+          personId: found.missing.personId?.value ?? null,
+          because: found.missing.because,
         },
         defaultFor: (input) => resolved.defaultFor(input),
         call: async () => {
@@ -70,8 +70,8 @@ export class IntegrationToolCalls implements IntegrationToolCallsPort {
 
     const personRule = await this.personRules.ruleFor(
       teamId,
-      resolved.integration.source,
-      found.holder,
+      resolved.integration.key,
+      found.owner,
       tool,
     );
 
@@ -84,14 +84,14 @@ export class IntegrationToolCalls implements IntegrationToolCallsPort {
             personName: personRule.personName,
           }
         : null,
-      actingAs: resolved.integration.connects
+      actingAs: resolved.integration.requiresConnection
         ? {
-            holder: found.holder.isPerson ? 'person' : 'team',
-            personId: found.holder.personId?.value ?? null,
-            handle: found.connection?.handle ?? null,
+            actsAs: found.owner.isPerson ? 'requester' : 'team',
+            personId: found.owner.personId?.value ?? null,
+            linkedAccount: found.connection?.linkedAccount ?? null,
           }
         : null,
-      wants: null,
+      missing: null,
       defaultFor: (input) => resolved.defaultFor(input),
       call: async (inputs) => {
         const answer = await resolved.call(
@@ -107,7 +107,7 @@ export class IntegrationToolCalls implements IntegrationToolCallsPort {
             found.connection,
           ),
         );
-        void this.learning.learn(teamId, tool, answer);
+        void this.inferring.infer(teamId, tool, answer);
 
         return answer;
       },

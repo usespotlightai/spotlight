@@ -11,19 +11,19 @@ const BODY = {
   description: null,
   required: true,
   defaulted: false,
-  piped: false,
+  stdin: false,
 };
 
 const tool = (
   approval: ApprovalNeeded | null,
-  offeredBy: string | null = null,
+  providedBy: string | null = null,
 ) =>
   DeclaredTool.of({
     tool: Tool.of('linear.comment'),
     description: 'Comment on the issue.',
     inputs: [BODY],
     approval,
-    offeredBy,
+    providedBy,
   });
 
 describe('toolManifestOf', () => {
@@ -50,14 +50,14 @@ describe('toolManifestOf', () => {
   });
 
   it('says what the tool answered before', () => {
-    const learnedOutput = { type: 'string' };
-    const learned = DeclaredTool.of({
+    const inferredOutput = { type: 'string' };
+    const inferred = DeclaredTool.of({
       tool: Tool.of('linear.comment'),
       description: 'Comment on the issue.',
-      learnedOutput,
+      inferredOutput,
     });
 
-    expect(toolManifestOf(learned).output).toEqual(learnedOutput);
+    expect(toolManifestOf(inferred).output).toEqual(inferredOutput);
     expect(toolManifestOf(tool(null))).not.toHaveProperty('output');
   });
 

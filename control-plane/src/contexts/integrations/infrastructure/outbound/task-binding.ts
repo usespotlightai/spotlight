@@ -1,7 +1,7 @@
-import type { BoundTask } from '@integrations/application/ports/integration-runtime.port';
+import type { IntegrationTaskView } from '@integrations/application/ports/integration-runtime.port';
 
 export const taskBinding = (
-  task: BoundTask,
+  task: IntegrationTaskView,
 ): {
   line: string;
   station: string;

@@ -10,14 +10,14 @@ export class Happening {
     if (!isDottedName(trimmed)) {
       throw new InvalidIdentifierError(
         'happening',
-        'must be a source and a name, as in github.pull_request.merged',
+        'must be an integration and a name, as in github.pull_request.merged',
       );
     }
 
     return new Happening(trimmed);
   }
 
-  get source(): string {
+  get integration(): string {
     return this.value.slice(0, this.value.indexOf('.'));
   }
 

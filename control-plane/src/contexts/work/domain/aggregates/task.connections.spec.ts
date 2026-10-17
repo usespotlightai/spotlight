@@ -75,8 +75,8 @@ const working = () =>
 const ask = (personId = ALICE) =>
   ConnectionAsk.of({
     teamId: TEAM,
-    source: 'linear',
-    integration: 'Linear',
+    integration: 'linear',
+    integrationName: 'Linear',
     personId,
   });
 
@@ -136,8 +136,8 @@ describe('Task connection asks', () => {
         asking,
         ConnectionAsk.of({
           teamId: TEAM,
-          source: 'notion',
-          integration: 'Notion',
+          integration: 'notion',
+          integrationName: 'Notion',
           personId: ALICE,
         }),
       ).asked,

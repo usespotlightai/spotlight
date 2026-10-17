@@ -1,17 +1,17 @@
 import {
+  type ApiSpecView,
+  CONFIGURED_INTEGRATION_ACTS_AS,
   CONFIGURED_INTEGRATION_CONNECTION_STATUSES,
-  CONFIGURED_INTEGRATION_HOLDER_RULES,
-  type DescriptionView,
   type IntegrationView,
 } from '@configuration/application/dto/configuration.dto';
 import { ApiProperty } from '@nestjs/swagger';
 
-export class DescriptionViewResponseDto {
+export class ApiSpecViewResponseDto {
   @ApiProperty({
     enum: ['openapi', 'graphql', 'mcp'],
     example: 'openapi',
     description:
-      'The kind of API description, or the MCP server, its tools are generated from',
+      'The kind of API spec that its tools are generated from: an OpenAPI document, a GraphQL schema or an MCP server',
   })
   readonly kind: string;
 
@@ -25,7 +25,7 @@ export class DescriptionViewResponseDto {
   @ApiProperty({
     format: 'date-time',
     example: '2026-10-05T12:00:00.000Z',
-    description: 'When it was last read',
+    description: 'When Spotlight last fetched the spec',
   })
   readonly readAt: string;
 
@@ -34,21 +34,24 @@ export class DescriptionViewResponseDto {
     nullable: true,
     example: null,
     description:
-      'Why it could not be read when it was last requested; the tools from the last good read stay offered',
+      'Why it could not be read when it was last requested. The tools from the last good read stay available',
   })
   readonly problem: string | null;
 
-  constructor(described: DescriptionView) {
-    this.kind = described.kind;
-    this.tools = described.tools;
-    this.readAt = described.readAt;
-    this.problem = described.problem;
+  constructor(spec: ApiSpecView) {
+    this.kind = spec.kind;
+    this.tools = spec.tools;
+    this.readAt = spec.readAt;
+    this.problem = spec.problem;
   }
 }
 
 export class IntegrationViewResponseDto {
-  @ApiProperty({ example: 'linear' })
-  readonly source: string;
+  @ApiProperty({
+    description: 'The name of the integration, as in slack',
+    example: 'linear',
+  })
+  readonly integration: string;
 
   @ApiProperty({ example: 'Linear' })
   readonly name: string;
@@ -61,45 +64,46 @@ export class IntegrationViewResponseDto {
 
   @ApiProperty({
     description:
-      'Whether the team is linked to the host: it only listens, it links by authorizing and has not, or it has',
+      'Whether the team is connected to the integration. The integration needs no connection, is disconnected, or is connected.',
     enum: CONFIGURED_INTEGRATION_CONNECTION_STATUSES,
-    example: 'linked',
+    example: 'connected',
   })
   readonly connectionStatus: IntegrationView['connectionStatus'];
 
   @ApiProperty({
     description:
       'Whose connection its tools act with: the team’s, or that of the person who started the task',
-    enum: CONFIGURED_INTEGRATION_HOLDER_RULES,
+    enum: CONFIGURED_INTEGRATION_ACTS_AS,
     example: 'team',
   })
-  readonly holderRule: IntegrationView['holderRule'];
+  readonly actsAs: IntegrationView['actsAs'];
 
   @ApiProperty({
-    description: 'What the host calls the team once linked, where it says',
+    description:
+      'The account name of the team on the service once connected, where the service gives one',
     example: 'Acme',
     nullable: true,
     type: String,
   })
-  readonly handle: string | null;
+  readonly linkedAccount: string | null;
 
   @ApiProperty({
     description:
-      'The API description its tools are generated from, as last read; null where it names none',
-    type: DescriptionViewResponseDto,
+      'The API spec that its tools are generated from, as last read. Null where it names none',
+    type: ApiSpecViewResponseDto,
     nullable: true,
   })
-  readonly described: DescriptionViewResponseDto | null;
+  readonly spec: ApiSpecViewResponseDto | null;
 
   constructor(integration: IntegrationView) {
-    this.source = integration.source;
+    this.integration = integration.integration;
     this.name = integration.name;
     this.path = integration.path;
     this.connectionStatus = integration.connectionStatus;
-    this.holderRule = integration.holderRule;
-    this.handle = integration.handle;
-    this.described = integration.described
-      ? new DescriptionViewResponseDto(integration.described)
+    this.actsAs = integration.actsAs;
+    this.linkedAccount = integration.linkedAccount;
+    this.spec = integration.spec
+      ? new ApiSpecViewResponseDto(integration.spec)
       : null;
   }
 }

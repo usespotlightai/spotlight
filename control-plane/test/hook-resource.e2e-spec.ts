@@ -29,7 +29,7 @@ const GRAFANA = {
     },
   },
   tools: {
-    search: { description: 'Search dashboards', does: 'search' },
+    search: { description: 'Search dashboards', action: 'search' },
   },
 };
 
@@ -59,9 +59,9 @@ const seated = async (app: INestApplication): Promise<ResourceFixture> => {
   await db.insert(schema.integrationDefinition).values({
     id: randomUUID(),
     teamId: workspaceId,
-    source: 'grafana',
+    integration: 'grafana',
     definition: GRAFANA,
-    offers: ['grafana.search'],
+    tools: ['grafana.search'],
   });
 
   return {
@@ -145,7 +145,7 @@ describe('a hook, created through the resource API (e2e)', () => {
     expect(row?.signingSecret).toEqual(expect.any(String));
   });
 
-  it('rejects a tool no integration of the team offers, pointing at it', async () => {
+  it('rejects a tool no integration of the team provides, pointing at it', async () => {
     const made = await create({
       ...GRAFANA_READS,
       match: { tools: ['grafana.dashboard'] },

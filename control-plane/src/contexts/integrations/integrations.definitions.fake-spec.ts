@@ -7,20 +7,20 @@ const expressions = new CelExpressionEngine();
 
 export const defined = (
   text: string,
-  generated: { hash: string; offers: readonly string[] } | null = null,
+  generated: { hash: string; tools: readonly string[] } | null = null,
 ): DefinedIntegration => {
   const definition = parseYaml(text);
   const compiled = compileIntegration(definition, expressions);
   const handWritten = compiled.ok
-    ? compiled.readable.integration.offers.map((each) => each.tool)
+    ? compiled.readable.integration.tools.map((each) => each.tool)
     : [];
 
   return {
     id: `integration-${String(definition?.integration ?? '')}`,
     version: 1,
-    source: String(definition?.integration ?? ''),
+    integration: String(definition?.integration ?? ''),
     definition,
-    offers: [...handWritten, ...(generated?.offers ?? [])],
+    tools: [...handWritten, ...(generated?.tools ?? [])],
     generatedFrom: generated?.hash ?? null,
     reading: null,
   };

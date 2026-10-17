@@ -1,6 +1,10 @@
 import type { Bindings } from '@platform/expressions/bindings';
 import type { Expression } from '@platform/expressions/expression-engine.port';
-import { reads, required, requiredText } from '@platform/expressions/readings';
+import {
+  evaluateText,
+  required,
+  requiredText,
+} from '@platform/expressions/readings';
 
 export interface Templated {
   readonly parts: readonly (string | Expression)[];
@@ -56,8 +60,8 @@ export const textOf = (
   const only = lone(template);
 
   return only
-    ? reads(only, against)
-    : joined(template, (each) => reads(each, against));
+    ? evaluateText(only, against)
+    : joined(template, (each) => evaluateText(each, against));
 };
 
 export const requiredValueOf = (

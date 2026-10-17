@@ -195,10 +195,10 @@ export class InboxFailureResponseDto {
 
 export class InboxConnectionResponseDto {
   @ApiProperty({ example: 'linear' })
-  readonly source: string;
+  readonly integration: string;
 
   @ApiProperty({ example: 'Linear' })
-  readonly integration: string;
+  readonly integrationName: string;
 
   @ApiProperty({
     example: 'user_1',
@@ -214,8 +214,8 @@ export class InboxConnectionResponseDto {
   readonly met: boolean;
 
   constructor(connection: InboxConnectionDto) {
-    this.source = connection.source;
     this.integration = connection.integration;
+    this.integrationName = connection.integrationName;
     this.personId = connection.personId;
     this.personName = connection.personName;
     this.met = connection.met;

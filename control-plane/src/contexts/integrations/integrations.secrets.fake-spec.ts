@@ -5,10 +5,10 @@ import type {
   SigningSecrets,
 } from '@integrations/application/ports/integration-runtime.port';
 import { CallAuthResolver } from '@integrations/application/services/call-auth-resolver.service';
-import type { ConnectionRenewal } from '@integrations/application/services/connection-renewal.service';
+import type { ConnectionRefresh } from '@integrations/application/services/connection-refresh.service';
 import { SpotlightCredentials } from '@integrations/application/services/spotlight-credentials';
 import { SpotlightSigningSecrets } from '@integrations/application/services/spotlight-signing-secrets';
-import type { HostConnectionRepository } from '@integrations/domain/repositories/host-connection.repository';
+import type { IntegrationConnectionRepository } from '@integrations/domain/repositories/integration-connection.repository';
 import { InjectedSecrets } from '@secrets/application/contracts/injected-secrets.contract';
 import { VerifyingSecret } from '@secrets/application/contracts/verifying-secret.contract';
 import type {
@@ -130,7 +130,7 @@ export const callAuthFor = (
   injection: SecretInjectionPort = injecting().injection,
 ): CallAuthResolver =>
   new CallAuthResolver(
-    { of: async () => null } as unknown as HostConnectionRepository,
+    { of: async () => null } as unknown as IntegrationConnectionRepository,
     {
       find: async (id) => ({
         id,
@@ -143,5 +143,5 @@ export const callAuthFor = (
     } satisfies TeamDirectoryPort,
     { onTeam: async () => null } as unknown as WorkspaceAccessPort,
     injection,
-    { afterUnauthorized: async () => null } as unknown as ConnectionRenewal,
+    { afterUnauthorized: async () => null } as unknown as ConnectionRefresh,
   );

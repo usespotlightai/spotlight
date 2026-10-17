@@ -13,8 +13,8 @@ import type {
   Delivered,
   HappeningDeclaration,
   WebhookHeaders,
-  WebhookSourcePort,
-} from '@integrations/application/ports/webhook-source.port';
+  WebhookProviderPort,
+} from '@integrations/application/ports/webhook-provider.port';
 import type { DeclaredHappening } from '@integrations/domain/value-objects/declared-happening.vo';
 import { readEvents } from '@integrations/infrastructure/integrations/happenings';
 import type {
@@ -30,7 +30,7 @@ import {
 import type { HttpOutbound } from '@integrations/infrastructure/outbound/http-outbound';
 import { type Bindings, bound } from '@platform/expressions/bindings';
 import { ExpressionFailedError } from '@platform/expressions/expression.errors';
-import { isTrue, reads, value } from '@platform/expressions/readings';
+import { evaluateText, isTrue, value } from '@platform/expressions/readings';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { Happened } from '@work/application/contracts/happenings.contract';
 
@@ -44,7 +44,7 @@ const headed = (headers: WebhookHeaders, name: string): string | undefined => {
 
 const DIGEST = { sha256: 'sha256', sha1: 'sha1', sha512: 'sha512' } as const;
 
-export class WebhookRuntime implements WebhookSourcePort {
+export class WebhookRuntime implements WebhookProviderPort {
   constructor(
     private readonly readable: ReadableIntegration,
     private readonly workspaceId: WorkspaceId,
@@ -56,7 +56,7 @@ export class WebhookRuntime implements WebhookSourcePort {
   ) {}
 
   get key(): string {
-    return this.readable.integration.source.value;
+    return this.readable.integration.key.value;
   }
 
   get happenings(): readonly HappeningDeclaration[] {
@@ -125,7 +125,7 @@ export class WebhookRuntime implements WebhookSourcePort {
     const secret = (await this.signing.named(auth.secret)).revealed();
 
     const material = auth.signed
-      ? Buffer.from(reads(auth.signed, this.bindings(delivered)) ?? '')
+      ? Buffer.from(evaluateText(auth.signed, this.bindings(delivered)) ?? '')
       : Buffer.from(delivered.raw as Uint8Array);
 
     const expected =
@@ -149,7 +149,7 @@ export class WebhookRuntime implements WebhookSourcePort {
     }
 
     const message = auth.signed
-      ? Buffer.from(reads(auth.signed, this.bindings(delivered)) ?? '')
+      ? Buffer.from(evaluateText(auth.signed, this.bindings(delivered)) ?? '')
       : Buffer.from(delivered.raw as Uint8Array);
     const signature = Buffer.from(received, auth.encoding);
 
@@ -245,7 +245,7 @@ export class WebhookRuntime implements WebhookSourcePort {
     }
 
     const at = Number.parseInt(
-      reads(freshness.at, this.bindings(delivered)) ?? '',
+      evaluateText(freshness.at, this.bindings(delivered)) ?? '',
       10,
     );
 
@@ -269,13 +269,15 @@ export class WebhookRuntime implements WebhookSourcePort {
 
     const against = this.bindings(delivered);
 
-    return isTrue(respond.when, against) ? reads(respond.body, against) : null;
+    return isTrue(respond.when, against)
+      ? evaluateText(respond.body, against)
+      : null;
   }
 
   delivery(delivered: Delivered): string {
     const named =
       this.readable.webhook?.delivery &&
-      reads(this.readable.webhook.delivery, this.bindings(delivered));
+      evaluateText(this.readable.webhook.delivery, this.bindings(delivered));
 
     return (
       named ??
@@ -290,13 +292,13 @@ export class WebhookRuntime implements WebhookSourcePort {
   }
 
   async read(delivered: Delivered): Promise<readonly Happened[]> {
-    const mine = this.readable.webhook?.mine;
+    const ignoreWhen = this.readable.webhook?.ignoreWhen;
 
     return readEvents(
       this.readable.webhook?.events ?? [],
       (happening) => this.declaring(happening),
       this.bindings(delivered),
-      (against) => (mine ? isTrue(mine, against) : false),
+      (against) => (ignoreWhen ? isTrue(ignoreWhen, against) : false),
       (event, against) => this.enriched(event, against),
       (request, against) =>
         this.outbound.bytes(request, against, this.credentials),

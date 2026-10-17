@@ -56,7 +56,7 @@ interface HookExpressionError {
   readonly suggestion: string | null;
 }
 
-export interface HookVerdict {
+export interface HookCheckResult {
   readonly type: string | null;
   readonly errors: readonly HookExpressionError[];
 }
@@ -239,15 +239,15 @@ class HookCompiler {
     }
 
     const source = isExpression(raw) ? written(raw) : raw;
-    const verdict = checkedAgainst(this.expressions, source, scope, returns);
+    const result = checkedAgainst(this.expressions, source, scope, returns);
 
     this.places.set(at.rendered, { scope, returns });
 
-    for (const error of verdict.errors) {
+    for (const error of result.errors) {
       this.problem(at, error.message);
     }
 
-    if (verdict.errors.length > 0) {
+    if (result.errors.length > 0) {
       return null;
     }
 
@@ -374,7 +374,7 @@ export const checkedAgainst = (
   source: string,
   scope: Scope,
   returns: Returns,
-): HookVerdict => {
+): HookCheckResult => {
   const checked = expressions.check(source, scope);
 
   if (!checked.valid) {

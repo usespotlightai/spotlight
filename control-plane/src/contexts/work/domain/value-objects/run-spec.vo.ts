@@ -37,7 +37,7 @@ export interface RunToolInput {
   readonly description?: string;
   readonly required: boolean;
   readonly defaulted: boolean;
-  readonly piped: boolean;
+  readonly stdin: boolean;
 }
 
 export interface RunToolApproval {
@@ -194,7 +194,7 @@ const copied = (parts: RunSpecParts): RunSpecParts => ({
               : {}),
             required: input.required,
             defaulted: input.defaulted,
-            piped: input.piped,
+            stdin: input.stdin,
           })),
           approval: each.approval ? { because: each.approval.because } : null,
           ...(each.integration !== undefined

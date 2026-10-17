@@ -137,24 +137,24 @@ const runner = (token: string) => ({
       .send(body ?? {}),
 });
 
-const integrationNamed = async (source: string) =>
+const integrationNamed = async (integration: string) =>
   (
     (
       await asOwner
         .get(`/api/resources/workspaces/${team.workspaceId.value}/integrations`)
         .expect(200)
     ).body.items as {
-      source: string;
+      integration: string;
       version: number;
       tools: Record<string, string>;
-      described: {
+      spec: {
         kind: string;
         problem: string | null;
         tools: number;
         readAt: string;
       };
     }[]
-  ).find((each) => each.source === source);
+  ).find((each) => each.integration === integration);
 
 const createIntegration = (body: object) =>
   asOwner.post(`/api/resources/teams/${team.teamId.value}/integrations`, body);
@@ -333,7 +333,7 @@ afterAll(async () => {
 });
 
 describe('an integration naming a remote MCP server (e2e)', () => {
-  it('offers the tools the server lists, asking approval for those that may write', async () => {
+  it('provides the tools the server lists, asking approval for those that may write', async () => {
     const integration = await integrationNamed('tracker');
 
     expect(integration?.tools).toEqual({
@@ -342,18 +342,18 @@ describe('an integration naming a remote MCP server (e2e)', () => {
       'check-policy': 'tracker.check-policy',
       'ask-first': 'tracker.ask-first',
     });
-    expect(integration?.described).toMatchObject({
+    expect(integration?.spec).toMatchObject({
       kind: 'mcp',
       problem: null,
       tools: 4,
     });
 
-    const offered = await app
+    const provided = await app
       .get<TeamIntegrationsPort>(TEAM_INTEGRATIONS)
-      .offered(team.teamId, ['tracker.search-issues', 'tracker.delete-issue']);
+      .provided(team.teamId, ['tracker.search-issues', 'tracker.delete-issue']);
 
     expect(
-      offered.map((each) => [
+      provided.map((each) => [
         each.tool,
         each.integrationName,
         each.approval?.because ?? null,
@@ -377,7 +377,7 @@ describe('an integration naming a remote MCP server (e2e)', () => {
       ],
     ]);
 
-    const declared = offered.map((each) =>
+    const declared = provided.map((each) =>
       ToolDeclarationMapper.toDeclared(each),
     );
 
@@ -410,14 +410,14 @@ describe('an integration naming a remote MCP server (e2e)', () => {
     ]);
     const claimed = [...one, ...other]
       .filter((each) => each.teamId.equals(team.teamId))
-      .map((each) => each.source.value);
+      .map((each) => each.integration.value);
 
     expect(claimed).toEqual(['tracker']);
 
     const after = await integrationNamed('tracker');
 
     expect(after?.version).toBe(before?.version);
-    expect(after?.described.readAt).toBe(at.toISOString());
+    expect(after?.spec.readAt).toBe(at.toISOString());
   });
 
   it('runs a tool that only reads for a station, and journals it', async () => {
@@ -445,16 +445,16 @@ describe('an integration naming a remote MCP server (e2e)', () => {
 
     expect(JSON.stringify(journalled)).toContain('tracker.search-issues');
 
-    const learned = await eventually(async () => {
+    const inferred = await eventually(async () => {
       const [found] = await app
         .get<TeamIntegrationsPort>(TEAM_INTEGRATIONS)
-        .offered(team.teamId, ['tracker.search-issues']);
+        .provided(team.teamId, ['tracker.search-issues']);
 
-      return found?.learnedOutput ?? null;
+      return found?.inferredOutput ?? null;
     });
 
-    expect(JSON.stringify(learned)).not.toContain('Queue stuck');
-    expect(learned).toMatchObject({
+    expect(JSON.stringify(inferred)).not.toContain('Queue stuck');
+    expect(inferred).toMatchObject({
       properties: { issues: { type: 'array' } },
     });
   });
@@ -560,7 +560,7 @@ describe('an integration naming a remote MCP server (e2e)', () => {
     });
 
     expect(made.status).toBe(201);
-    expect(made.body.described.problem).toMatch(/answered 401/);
+    expect(made.body.spec.problem).toMatch(/answered 401/);
 
     const begun = await asOwner.post(
       `/api/teams/${team.teamId.value}/integrations/secure/connect`,
@@ -597,13 +597,13 @@ describe('an integration naming a remote MCP server (e2e)', () => {
     expect(exchanged?.form.get('resource')).toBe(guarded.url);
     expect(exchanged?.form.get('code_verifier')).toEqual(expect.any(String));
 
-    const reread = await eventually(async () => {
+    const refreshed = await eventually(async () => {
       const secure = await integrationNamed('secure');
 
-      return secure?.described.tools === 4 ? secure : null;
+      return secure?.spec.tools === 4 ? secure : null;
     });
 
-    expect(reread.described.problem).toBeNull();
+    expect(refreshed.spec.problem).toBeNull();
     expect(
       guarded.received.some(
         (each) =>

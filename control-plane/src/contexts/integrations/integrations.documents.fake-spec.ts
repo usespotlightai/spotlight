@@ -1,10 +1,10 @@
-import type { DescribedDocument } from '@integrations/domain/aggregates/described-document.aggregate';
-import type { DescribedDocumentRepository } from '@integrations/domain/repositories/described-document.repository';
+import type { SpecDocument } from '@integrations/domain/aggregates/spec-document.aggregate';
+import type { SpecDocumentRepository } from '@integrations/domain/repositories/spec-document.repository';
 import { OperationCache } from '@integrations/infrastructure/integrations/operation-cache';
 
 export const documentsContaining = (
-  ...documents: DescribedDocument[]
-): DescribedDocumentRepository & { readonly stored: DescribedDocument[] } => {
+  ...documents: SpecDocument[]
+): SpecDocumentRepository & { readonly stored: SpecDocument[] } => {
   const stored = [...documents];
   const withHash = (hash: string) =>
     stored.find((each) => each.hash.value === hash) ?? null;
@@ -23,5 +23,5 @@ export const documentsContaining = (
 };
 
 export const operationsContaining = (
-  ...documents: DescribedDocument[]
+  ...documents: SpecDocument[]
 ): OperationCache => new OperationCache(documentsContaining(...documents));

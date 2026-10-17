@@ -1,17 +1,17 @@
 import type { Integration } from '@integrations/domain/entities/integration.entity';
 import { IntegrationCreated } from '@integrations/domain/events/integration-created.event';
 import { IntegrationDeleted } from '@integrations/domain/events/integration-deleted.event';
-import { IntegrationReread } from '@integrations/domain/events/integration-reread.event';
+import { IntegrationSpecRefreshed } from '@integrations/domain/events/integration-spec-refreshed.event';
 import { IntegrationUpdated } from '@integrations/domain/events/integration-updated.event';
 import { IntegrationDefinitionVersionConflictError } from '@integrations/domain/exceptions/integration-definition-version-conflict.error';
 import { IntegrationToolsInUseError } from '@integrations/domain/exceptions/integration-tools-in-use.error';
 import { InvalidIntegrationError } from '@integrations/domain/exceptions/invalid-integration.error';
+import type { ApiSpec } from '@integrations/domain/value-objects/api-spec.vo';
 import type { DefinitionDocument } from '@integrations/domain/value-objects/definition-document.vo';
-import type { DescribedSource } from '@integrations/domain/value-objects/described-source.vo';
 import type { IntegrationDefinitionId } from '@integrations/domain/value-objects/integration-definition-id.vo';
-import { RereadDetail } from '@integrations/domain/value-objects/reread-detail.vo';
-import type { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
-import type { SourceReading } from '@integrations/domain/value-objects/source-reading.vo';
+import type { IntegrationKey } from '@integrations/domain/value-objects/integration-key.vo';
+import type { SpecFetchResult } from '@integrations/domain/value-objects/spec-fetch-result.vo';
+import { SpecRefreshDetail } from '@integrations/domain/value-objects/spec-refresh-detail.vo';
 import type { ToolUses } from '@integrations/domain/value-objects/tool-uses.vo';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import { ImmutableFieldError } from '@shared-kernel/domain/exceptions/immutable-field.error';
@@ -23,10 +23,10 @@ import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 interface Props {
   readonly id: IntegrationDefinitionId;
   readonly teamId: TeamId;
-  readonly source: SourceKey;
+  readonly integration: IntegrationKey;
   readonly document: DefinitionDocument;
-  readonly offers: readonly string[];
-  readonly reading: SourceReading | null;
+  readonly tools: readonly string[];
+  readonly reading: SpecFetchResult | null;
   readonly version: number;
 }
 
@@ -37,51 +37,57 @@ interface State extends Props {
 interface Compiled {
   readonly integration: Integration;
   readonly document: DefinitionDocument;
-  readonly source: DescribedSource | null;
+  readonly spec: ApiSpec | null;
 }
 
-const SOURCE_FIELD = 'integration';
+const INTEGRATION_FIELD = 'integration';
 
 const guardDescribes = (compiled: Compiled): void => {
-  const source = compiled.integration.source.value;
+  const integration = compiled.integration.key.value;
 
-  if (!compiled.document.hasValue(SOURCE_FIELD, source)) {
-    throw new InvalidIntegrationError(source, 'was compiled for another host');
+  if (!compiled.document.hasValue(INTEGRATION_FIELD, integration)) {
+    throw new InvalidIntegrationError(
+      integration,
+      'was compiled for another integration',
+    );
   }
 };
 
-const guardRead = (compiled: Compiled, reading: SourceReading | null): void => {
-  const source = compiled.integration.source.value;
+const guardRead = (
+  compiled: Compiled,
+  reading: SpecFetchResult | null,
+): void => {
+  const integration = compiled.integration.key.value;
   const generatedFrom = compiled.integration.generatedFrom;
 
-  if (!compiled.source) {
+  if (!compiled.spec) {
     if (reading || generatedFrom) {
       throw new InvalidIntegrationError(
-        source,
-        'received a reading of a description it does not name',
+        integration,
+        'received a fetched spec that it does not name',
       );
     }
 
     return;
   }
 
-  if (!reading?.isOf(compiled.source)) {
+  if (!reading?.isOf(compiled.spec)) {
     throw new InvalidIntegrationError(
-      source,
-      `names its ${compiled.source.described} and did not receive a reading of it`,
+      integration,
+      `names its ${compiled.spec.label} and did not receive a fetched spec`,
     );
   }
 
   if (generatedFrom && !reading.hash?.equals(generatedFrom)) {
     throw new InvalidIntegrationError(
-      source,
-      `offers tools from another reading of its ${compiled.source.described} than the one it stores`,
+      integration,
+      `provides tools from another fetch of its ${compiled.spec.label} than the one it stores`,
     );
   }
 };
 
-const offeredBy = (compiled: Compiled): readonly string[] =>
-  compiled.integration.offers.map((each) => each.tool);
+const providedBy = (compiled: Compiled): readonly string[] =>
+  compiled.integration.tools.map((each) => each.tool);
 
 export class IntegrationDefinition extends EventRecorder {
   private constructor(private readonly state: State) {
@@ -92,7 +98,7 @@ export class IntegrationDefinition extends EventRecorder {
     input: Compiled & {
       id: IntegrationDefinitionId;
       teamId: TeamId;
-      reading: SourceReading | null;
+      reading: SpecFetchResult | null;
       by: Attribution;
     },
   ): IntegrationDefinition {
@@ -102,9 +108,9 @@ export class IntegrationDefinition extends EventRecorder {
     const created = new IntegrationDefinition({
       id: input.id,
       teamId: input.teamId,
-      source: input.integration.source,
+      integration: input.integration.key,
       document: input.document,
-      offers: offeredBy(input),
+      tools: providedBy(input),
       reading: input.reading,
       version: 0,
       deleted: false,
@@ -114,8 +120,8 @@ export class IntegrationDefinition extends EventRecorder {
       new IntegrationCreated(
         created.id,
         created.teamId,
-        created.source,
-        created.offers,
+        created.integration,
+        created.tools,
         ConfigurationChange.created(created.whatChanged, input.by),
       ),
     );
@@ -131,10 +137,10 @@ export class IntegrationDefinition extends EventRecorder {
       );
     }
 
-    if (!input.document.hasValue(SOURCE_FIELD, input.source.value)) {
+    if (!input.document.hasValue(INTEGRATION_FIELD, input.integration.value)) {
       throw new InconsistentStateError(
         'integration definition',
-        'was stored under a host it does not define',
+        'was stored under an integration name it does not define',
       );
     }
 
@@ -143,13 +149,15 @@ export class IntegrationDefinition extends EventRecorder {
 
   assertVersion(version: number): void {
     if (version !== this.version) {
-      throw new IntegrationDefinitionVersionConflictError(this.source.value);
+      throw new IntegrationDefinitionVersionConflictError(
+        this.integration.value,
+      );
     }
   }
 
   update(
     compiled: Compiled,
-    reading: SourceReading | null,
+    reading: SpecFetchResult | null,
     enabled: ToolUses,
     by: Attribution,
   ): IntegrationDefinition {
@@ -157,26 +165,26 @@ export class IntegrationDefinition extends EventRecorder {
     guardDescribes(compiled);
     guardRead(compiled, reading);
 
-    if (!compiled.integration.source.equals(this.source)) {
-      const because = `cannot change its host to ${compiled.integration.source.value}`;
+    if (!compiled.integration.key.equals(this.integration)) {
+      const because = `cannot change its integration name to ${compiled.integration.key.value}`;
 
       throw new ImmutableFieldError(
         'integration',
         because,
-        `Integration ${this.source.value} ${because}.`,
+        `Integration ${this.integration.value} ${because}.`,
       );
     }
 
-    const offers = offeredBy(compiled);
+    const tools = providedBy(compiled);
 
     this.guardUnused(
       enabled,
-      this.offers.filter((each) => !offers.includes(each)),
+      this.tools.filter((each) => !tools.includes(each)),
     );
 
     const updated = this.with({
       document: compiled.document,
-      offers,
+      tools,
       reading,
     });
 
@@ -184,8 +192,8 @@ export class IntegrationDefinition extends EventRecorder {
       new IntegrationUpdated(
         this.id,
         this.teamId,
-        this.source,
-        offers,
+        this.integration,
+        tools,
         ConfigurationChange.updated(this.whatChanged, by),
       ),
     );
@@ -193,7 +201,7 @@ export class IntegrationDefinition extends EventRecorder {
     return updated;
   }
 
-  rereads(reading: SourceReading): boolean {
+  changesSpec(reading: SpecFetchResult): boolean {
     const current = this.state.reading;
 
     return (
@@ -204,9 +212,9 @@ export class IntegrationDefinition extends EventRecorder {
     );
   }
 
-  reread(
+  refreshSpec(
     compiled: Compiled,
-    reading: SourceReading,
+    reading: SpecFetchResult,
     by: Attribution,
   ): IntegrationDefinition {
     this.guardLive();
@@ -215,40 +223,40 @@ export class IntegrationDefinition extends EventRecorder {
 
     if (!compiled.document.equals(this.document)) {
       throw new InvalidIntegrationError(
-        this.source.value,
-        'was reread from a definition other than the one it stores',
+        this.integration.value,
+        'refreshed its spec from a definition other than the one it stores',
       );
     }
 
-    const offers = offeredBy(compiled);
-    const stranded = this.offers.filter((each) => !offers.includes(each));
-    const reread = this.with({ offers, reading });
+    const tools = providedBy(compiled);
+    const orphanedTools = this.tools.filter((each) => !tools.includes(each));
+    const refreshed = this.with({ tools, reading });
 
-    reread.record(
-      new IntegrationReread(
+    refreshed.record(
+      new IntegrationSpecRefreshed(
         this.id,
         this.teamId,
-        this.source,
-        offers,
-        stranded,
+        this.integration,
+        tools,
+        orphanedTools,
         ConfigurationChange.updated(
           this.whatChanged,
           by,
-          RereadDetail.of({
+          SpecRefreshDetail.of({
             hash: reading.hash?.value ?? null,
             problem: reading.problem,
-            stranded,
+            orphanedTools,
           }),
         ),
       ),
     );
 
-    return reread;
+    return refreshed;
   }
 
   delete(enabled: ToolUses, by: Attribution): IntegrationDefinition {
     this.guardLive();
-    this.guardUnused(enabled, this.offers);
+    this.guardUnused(enabled, this.tools);
 
     const deleted = this.with({ deleted: true });
 
@@ -271,8 +279,8 @@ export class IntegrationDefinition extends EventRecorder {
     return new IntegrationDeleted(
       this.id,
       this.teamId,
-      this.source,
-      this.offers,
+      this.integration,
+      this.tools,
       ConfigurationChange.deleted(this.whatChanged, by),
     );
   }
@@ -281,7 +289,7 @@ export class IntegrationDefinition extends EventRecorder {
     return {
       resource: 'integration' as const,
       id: this.id.value,
-      key: this.source.value,
+      key: this.integration.value,
     };
   }
 
@@ -293,19 +301,19 @@ export class IntegrationDefinition extends EventRecorder {
     return this.state.teamId;
   }
 
-  get source(): SourceKey {
-    return this.state.source;
+  get integration(): IntegrationKey {
+    return this.state.integration;
   }
 
   get document(): DefinitionDocument {
     return this.state.document;
   }
 
-  get offers(): readonly string[] {
-    return this.state.offers;
+  get tools(): readonly string[] {
+    return this.state.tools;
   }
 
-  get reading(): SourceReading | null {
+  get reading(): SpecFetchResult | null {
     return this.state.reading;
   }
 
@@ -339,10 +347,10 @@ export class IntegrationDefinition extends EventRecorder {
   }
 
   private guardUnused(enabled: ToolUses, removed: readonly string[]): void {
-    const stranded = enabled.ofAny(removed);
+    const orphaned = enabled.ofAny(removed);
 
-    if (!stranded.isEmpty) {
-      throw new IntegrationToolsInUseError(this.source.value, stranded);
+    if (!orphaned.isEmpty) {
+      throw new IntegrationToolsInUseError(this.integration.value, orphaned);
     }
   }
 }

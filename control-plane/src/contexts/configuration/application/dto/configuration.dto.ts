@@ -6,25 +6,22 @@ import {
 export const CONFIGURED_INTEGRATION_CONNECTION_STATUSES =
   INTEGRATION_CONNECTION_STATUSES;
 
-export interface DescriptionView {
+export interface ApiSpecView {
   readonly kind: string;
   readonly tools: number;
   readonly readAt: string;
   readonly problem: string | null;
 }
-export const CONFIGURED_INTEGRATION_HOLDER_RULES = [
-  'team',
-  'requester',
-] as const;
+export const CONFIGURED_INTEGRATION_ACTS_AS = ['team', 'requester'] as const;
 
 export interface IntegrationView {
-  readonly source: string;
+  readonly integration: string;
   readonly name: string;
   readonly path: string;
   readonly connectionStatus: IntegrationConnectionStatus;
-  readonly holderRule: (typeof CONFIGURED_INTEGRATION_HOLDER_RULES)[number];
-  readonly handle: string | null;
-  readonly described: DescriptionView | null;
+  readonly actsAs: (typeof CONFIGURED_INTEGRATION_ACTS_AS)[number];
+  readonly linkedAccount: string | null;
+  readonly spec: ApiSpecView | null;
 }
 
 export interface ConfigurationDto {

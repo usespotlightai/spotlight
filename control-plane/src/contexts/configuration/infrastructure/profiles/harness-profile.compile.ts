@@ -1,6 +1,6 @@
 import type {
   HarnessProfileCompilerPort,
-  ParsedProfile,
+  ProfileParseResult,
 } from '@configuration/application/ports/harness-profile-compiler.port';
 import type {
   HarnessReviewPort,
@@ -10,7 +10,7 @@ import {
   HARNESS_PROFILES,
   profileAt,
 } from '@configuration/application/rendering/harness-profile-problems';
-import type { ReadProfile } from '@configuration/domain/aggregates/harness-profile.aggregate';
+import type { ParsedProfile } from '@configuration/domain/aggregates/harness-profile.aggregate';
 import { InvalidHarnessProfileError } from '@configuration/domain/exceptions/invalid-harness-profile.error';
 import { ProfileKey } from '@configuration/domain/value-objects/profile-key.vo';
 import { ProfileSettings } from '@configuration/domain/value-objects/profile-settings.vo';
@@ -57,21 +57,21 @@ const problemOf = (
 export class HarnessProfileCompiler implements HarnessProfileCompilerPort {
   constructor(private readonly harnesses: HarnessReviewPort) {}
 
-  compile(input: unknown): ParsedProfile {
-    const read = this.read(input);
+  compile(input: unknown): ProfileParseResult {
+    const parsed = this.parse(input);
 
-    if (!read.ok) {
-      return read;
+    if (!parsed.ok) {
+      return parsed;
     }
 
     const problems = this.harnesses
-      .review(read)
-      .problems.map((note) => problemOf(read.key.value, note, 'error'));
+      .review(parsed)
+      .problems.map((note) => problemOf(parsed.key.value, note, 'error'));
 
-    return problems.length > 0 ? { ok: false, problems } : read;
+    return problems.length > 0 ? { ok: false, problems } : parsed;
   }
 
-  read(input: unknown): ParsedProfile {
+  parse(input: unknown): ProfileParseResult {
     const read = profileSchema.safeParse(input);
 
     if (!read.success) {
@@ -79,12 +79,12 @@ export class HarnessProfileCompiler implements HarnessProfileCompilerPort {
     }
 
     const definition = read.data;
-    let profile: ReadProfile;
+    let profile: ParsedProfile;
 
     try {
       profile = {
         key: ProfileKey.of(definition.key),
-        settings: ProfileSettings.written(definition),
+        settings: ProfileSettings.fromRaw(definition),
       };
     } catch (error) {
       if (error instanceof InvalidHarnessProfileError) {
@@ -106,9 +106,9 @@ export class HarnessProfileCompiler implements HarnessProfileCompilerPort {
     return { ok: true, ...profile };
   }
 
-  warningsOf(read: ReadProfile): readonly ConfigurationProblem[] {
+  warningsOf(parsed: ParsedProfile): readonly ConfigurationProblem[] {
     return this.harnesses
-      .review(read)
-      .warnings.map((note) => problemOf(read.key.value, note, 'warning'));
+      .review(parsed)
+      .warnings.map((note) => problemOf(parsed.key.value, note, 'warning'));
   }
 }
