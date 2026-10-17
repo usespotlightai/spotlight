@@ -66,7 +66,7 @@ export class TouchedFiles {
     } catch (error) {
       this.logger.warn(
         { err: error, taskId: task.id.value },
-        'Briefing without the pull request’s files, which GitHub did not give',
+        'Briefing without the pull request’s files, which GitHub did not send',
       );
       return [];
     } finally {

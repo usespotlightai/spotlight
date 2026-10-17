@@ -1,4 +1,4 @@
-import type { HostCredential } from '@runners/application/ports/runner-admissions.port';
+import type { HostCredentials } from '@runners/application/ports/runner-authenticator.port';
 
 export interface SentHostCallAnswer {
   readonly host: unknown;
@@ -11,14 +11,14 @@ export interface SentHostCallAnswer {
 
 export class ClaimHostCallCommand {
   constructor(
-    readonly credential: HostCredential,
+    readonly credential: HostCredentials,
     readonly host: string,
   ) {}
 }
 
 export class AnswerHostCallCommand {
   constructor(
-    readonly credential: HostCredential,
+    readonly credential: HostCredentials,
     readonly callId: string,
     readonly answer: SentHostCallAnswer,
   ) {}

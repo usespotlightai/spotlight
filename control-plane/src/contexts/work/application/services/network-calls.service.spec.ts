@@ -152,7 +152,7 @@ describe('NetworkCalls', () => {
     expect(stored()?.request.body.byteLength).toBe(0);
   });
 
-  it('only reads a call when asked for its state, even once its time is up', async () => {
+  it('only reads a call when requested for its state, even once its time is up', async () => {
     const watching = calling();
     const { calls, clock } = watching;
     await calls.queue('ws_1', REQUEST, later(1_000));

@@ -209,7 +209,7 @@ func searchTools(args []string, out io.Writer) error {
 
 	ranked := search(tools, query, *limit)
 	if len(ranked) == 0 {
-		fmt.Fprintf(out, "No tool this run was given matches %q. Try other words, or run spotlight tools.\n", query)
+		fmt.Fprintf(out, "No tool enabled for this run matches %q. Try other words, or run spotlight tools.\n", query)
 		return nil
 	}
 

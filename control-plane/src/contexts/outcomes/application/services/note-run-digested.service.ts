@@ -11,7 +11,7 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-interface ServerCallsHeard {
+interface ServerCallsReceived {
   readonly server: string;
   readonly calls: number;
   readonly failed: number;
@@ -19,7 +19,7 @@ interface ServerCallsHeard {
   readonly lastCallFailed: boolean;
 }
 
-export interface RunDigestHeard {
+export interface RunDigestReceived {
   readonly runId: string;
   readonly workspaceId: string;
   readonly taskId: string | null;
@@ -35,7 +35,7 @@ export interface RunDigestHeard {
   readonly outputTokens: number | null;
   readonly cacheReadTokens: number | null;
   readonly cacheWriteTokens: number | null;
-  readonly servers: readonly ServerCallsHeard[];
+  readonly servers: readonly ServerCallsReceived[];
   readonly skillsRead: readonly string[];
 }
 
@@ -47,40 +47,40 @@ export class NoteRunDigested {
     private readonly transaction: TransactionPort,
   ) {}
 
-  async digested(heard: RunDigestHeard): Promise<void> {
+  async digested(event: RunDigestReceived): Promise<void> {
     const cost = RunCost.of({
-      ms: heard.ms,
-      steps: heard.steps,
-      faults: heard.faults,
-      changedLines: heard.changedLines,
-      used: heard.used,
-      size: heard.size,
-      amount: heard.cost,
-      currency: heard.currency,
+      ms: event.ms,
+      steps: event.steps,
+      faults: event.faults,
+      changedLines: event.changedLines,
+      used: event.used,
+      size: event.size,
+      amount: event.cost,
+      currency: event.currency,
       tokens: {
-        input: heard.inputTokens,
-        output: heard.outputTokens,
-        cacheRead: heard.cacheReadTokens,
-        cacheWrite: heard.cacheWriteTokens,
+        input: event.inputTokens,
+        output: event.outputTokens,
+        cacheRead: event.cacheReadTokens,
+        cacheWrite: event.cacheWriteTokens,
       },
     });
 
     const tools = RunTools.of({
-      servers: heard.servers.map((each) => ({
+      servers: event.servers.map((each) => ({
         ...each,
         latency: LatencyHistogram.of(each.latency),
       })),
-      skillsRead: heard.skillsRead,
+      skillsRead: event.skillsRead,
     });
 
-    const workspaceId = WorkspaceId.of(heard.workspaceId);
-    const taskId = heard.taskId ? TaskId.of(heard.taskId) : null;
-    const run = await this.work.endedRun(heard.runId);
+    const workspaceId = WorkspaceId.of(event.workspaceId);
+    const taskId = event.taskId ? TaskId.of(event.taskId) : null;
+    const run = await this.work.endedRun(event.runId);
     const teamId = run ? TeamId.of(run.teamId) : null;
 
     await this.transaction.inTransaction(async () => {
       await this.deletions.lockDeletion(workspaceId, taskId, teamId);
-      const runId = RunId.of(heard.runId);
+      const runId = RunId.of(event.runId);
       const existing = await this.records.of(runId);
 
       if (await this.deletions.isDeleted(workspaceId, taskId, teamId)) {
@@ -92,10 +92,7 @@ export class NoteRunDigested {
 
       if (!existing) {
         await this.records.add(
-          RunRecord.heardOf(runId, workspaceId, taskId).recordDigest(
-            cost,
-            tools,
-          ),
+          RunRecord.empty(runId, workspaceId, taskId).recordDigest(cost, tools),
         );
         return;
       }

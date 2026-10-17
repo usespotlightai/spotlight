@@ -18,8 +18,8 @@ const EVIDENCE = JudgeEvidence.of({
       kind: 'message',
       tool: null,
       text: 'Retrying.',
-      given: null,
-      returned: null,
+      input: null,
+      output: null,
     },
   ],
   hunks: [

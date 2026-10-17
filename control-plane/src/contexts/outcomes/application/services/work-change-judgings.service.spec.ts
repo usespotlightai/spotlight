@@ -1,6 +1,6 @@
 import { JudgingError } from '@outcomes/application/errors/judging.error';
 import type { RunEvidence } from '@outcomes/application/ports/evidence.port';
-import type { JudgeAsk } from '@outcomes/application/ports/judge.port';
+import type { JudgeRequest } from '@outcomes/application/ports/judge.port';
 import { WorkChangeJudgings } from '@outcomes/application/services/work-change-judgings.service';
 import { ChangeJudging } from '@outcomes/domain/aggregates/change-judging.aggregate';
 import type { ChangeJudged } from '@outcomes/domain/events/change-judged.event';
@@ -30,8 +30,8 @@ const evidenceOf = (runId: string, line: string): RunEvidence => ({
       kind: 'message',
       tool: null,
       text: 'Draining it in order.',
-      given: null,
-      returned: null,
+      input: null,
+      output: null,
     },
   ],
   hunks: [
@@ -52,13 +52,13 @@ const logger: LoggerPort = {
 };
 
 const working = async (
-  answer: (ask: JudgeAsk) => Promise<Verdict>,
+  answer: (request: JudgeRequest) => Promise<Verdict>,
   reference: string | null = 'original_1',
   available = true,
 ) => {
   const judgings = new ChangeJudgingsInMemory();
   await judgings.add(
-    ChangeJudging.asked({
+    ChangeJudging.requested({
       runId: RunId.of('replay_1'),
       workspaceId: WorkspaceId.of('ws_1'),
       teamId: TeamId.of('team_1'),
@@ -68,7 +68,7 @@ const working = async (
     }),
   );
   judgings.events.length = 0;
-  const asked: JudgeAsk[] = [];
+  const requests: JudgeRequest[] = [];
   const evidence: Record<string, RunEvidence> = {
     replay_1: evidenceOf('replay_1', '+drain()'),
     original_1: evidenceOf('original_1', '+drainInOrder()'),
@@ -84,10 +84,10 @@ const working = async (
     {
       available,
       model: 'some/model',
-      judge: async (ask) => {
-        asked.push(ask);
+      judge: async (request) => {
+        requests.push(request);
         return {
-          verdict: await answer(ask),
+          verdict: await answer(request),
           usage: {
             inputTokens: 900,
             outputTokens: 80,
@@ -106,7 +106,7 @@ const working = async (
   await work.idle();
 
   return {
-    asked,
+    requests,
     judgings,
     judging: await judgings.of(RunId.of('replay_1'), 1),
   };
@@ -116,7 +116,7 @@ describe('WorkChangeJudgings', () => {
   it('judges a change claim by claim, saying which claims it met and the share met', async () => {
     const judgings = new ChangeJudgingsInMemory();
     await judgings.add(
-      ChangeJudging.asked({
+      ChangeJudging.requested({
         runId: RunId.of('replay_1'),
         workspaceId: WorkspaceId.of('ws_1'),
         teamId: TeamId.of('team_1'),
@@ -130,7 +130,7 @@ describe('WorkChangeJudgings', () => {
       }),
     );
     judgings.events.length = 0;
-    const asked: JudgeAsk[] = [];
+    const requests: JudgeRequest[] = [];
     const work = new WorkChangeJudgings(
       judgings,
       {
@@ -142,11 +142,11 @@ describe('WorkChangeJudgings', () => {
       {
         available: true,
         model: 'some/model',
-        judge: async (ask) => {
-          asked.push(ask);
+        judge: async (request) => {
+          requests.push(request);
           return {
             verdict: {
-              claims: ask.claims.map((_, index) => ({
+              claims: request.claims.map((_, index) => ({
                 index,
                 met: index === 0,
                 reasons: [
@@ -172,7 +172,7 @@ describe('WorkChangeJudgings', () => {
     await work.idle();
 
     const [event] = judgings.events as ChangeJudged[];
-    expect(asked[0]).toMatchObject({
+    expect(requests[0]).toMatchObject({
       scale: 'claims',
       rubric: null,
       claims: ['It drains.', 'It keeps the order.'],
@@ -184,7 +184,7 @@ describe('WorkChangeJudgings', () => {
   });
 
   it('judges the change against the rubric and the reference, citing only its own steps and hunks', async () => {
-    const { asked, judgings } = await working(async () => ({
+    const { requests, judgings } = await working(async () => ({
       value: 4,
       reasons: [
         { text: 'It drains.', steps: [2], hunks: ['api/src/queue.ts#1'] },
@@ -197,8 +197,8 @@ describe('WorkChangeJudgings', () => {
       ],
     }));
 
-    expect(asked[0]?.scale).toBe('number');
-    expect(asked[0]?.reference?.hunks).toEqual([
+    expect(requests[0]?.scale).toBe('number');
+    expect(requests[0]?.reference?.hunks).toEqual([
       {
         id: 'reference:api/src/queue.ts#1',
         path: 'api/src/queue.ts',
@@ -219,7 +219,7 @@ describe('WorkChangeJudgings', () => {
   });
 
   it('judges on the rubric alone without a reference, and says so', async () => {
-    const { asked, judgings } = await working(
+    const { requests, judgings } = await working(
       async () => ({
         value: 5,
         reasons: [{ text: 'It drains.', steps: [2], hunks: [] }],
@@ -227,13 +227,13 @@ describe('WorkChangeJudgings', () => {
       null,
     );
 
-    expect(asked[0]?.reference).toBeNull();
+    expect(requests[0]?.reference).toBeNull();
     expect((judgings.events as ChangeJudged[])[0]?.referenced).toBe(false);
   });
 
   it('says it failed for good once it can try no more', async () => {
     const judgings = new ChangeJudgingsInMemory();
-    const asked = ChangeJudging.asked({
+    const requested = ChangeJudging.requested({
       runId: RunId.of('replay_1'),
       workspaceId: WorkspaceId.of('ws_1'),
       teamId: TeamId.of('team_1'),
@@ -241,9 +241,9 @@ describe('WorkChangeJudgings', () => {
       reference: null,
       now: NOW,
     });
-    await judgings.add(asked);
+    await judgings.add(requested);
 
-    await judgings.save(asked.deadLetter(NOW));
+    await judgings.save(requested.deadLetter(NOW));
 
     const [event] = judgings.events as ChangeJudgingFailed[];
     expect(event?.kind).toBe('change-judging.failed');
@@ -251,13 +251,13 @@ describe('WorkChangeJudgings', () => {
   });
 
   it('fails a judging for good once the judge is gone, rather than leaving it pending', async () => {
-    const { asked, judging, judgings } = await working(
+    const { requests, judging, judgings } = await working(
       async () => ({ value: 5, reasons: [] }),
       null,
       false,
     );
 
-    expect(asked).toEqual([]);
+    expect(requests).toEqual([]);
     expect(judging?.hasPendingJob).toBe(false);
     expect(judging?.failure?.code).toBe('unavailable');
     expect((judgings.events as ChangeJudgingFailed[])[0]?.failure.code).toBe(

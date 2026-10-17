@@ -13,7 +13,7 @@ import {
   ApiTags,
   getSchemaPath,
 } from '@nestjs/swagger';
-import { AdmitsWorkspaceTokens } from '@platform/http/decorators/admits-workspace-tokens.decorator';
+import { AllowWorkspaceTokens } from '@platform/http/decorators/allow-workspace-tokens.decorator';
 import { ProblemResponseDto } from '@platform/http/dto/problem.response.dto';
 import { ProblemFilter } from '@platform/http/resources/problem.filter';
 import { ResourceInterceptor } from '@platform/http/resources/resource.interceptor';
@@ -51,7 +51,7 @@ export const ConventionalApiController = (path: string, tag: string) =>
     ApiExtraModels(ProblemResponseDto),
     UseFilters(ProblemFilter),
     UseInterceptors(ResourceInterceptor),
-    AdmitsWorkspaceTokens(),
+    AllowWorkspaceTokens(),
     ApiBearerAuth(),
     ApiHeader({
       name: API_VERSION_HEADER,
@@ -73,7 +73,7 @@ export const ConventionalApiController = (path: string, tag: string) =>
     }),
     ApiProblemResponse(
       HttpStatus.BAD_REQUEST,
-      'Malformed, or asking for an API version this server does not serve',
+      'Malformed, or requests an API version this server does not serve',
     ),
     ApiProblemResponse(HttpStatus.UNAUTHORIZED, 'No valid credentials'),
   );

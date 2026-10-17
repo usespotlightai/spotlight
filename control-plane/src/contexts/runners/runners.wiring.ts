@@ -64,7 +64,7 @@ import {
   PROVISION_SECRETS,
   type ProvisionSecretsPort,
 } from '@runners/application/ports/provision-secrets.port';
-import { RUNNER_ADMISSIONS } from '@runners/application/ports/runner-admissions.port';
+import { RUNNER_AUTHENTICATOR } from '@runners/application/ports/runner-authenticator.port';
 import { RUNNER_CONFIGURATION } from '@runners/application/ports/runner-configuration.port';
 import { RUNNER_DEFINITIONS } from '@runners/application/ports/runner-definitions.port';
 import { RUNNER_EGRESS } from '@runners/application/ports/runner-egress.port';
@@ -106,7 +106,7 @@ import {
 } from '@runners/application/queries/runner-resource.queries';
 import { DeleteRunnersOfDeletedWorkspace } from '@runners/application/services/delete-runners-of-deleted-workspace.service';
 import { PurgeStaleHosts } from '@runners/application/services/purge-stale-hosts.service';
-import { RunnerAdmissions } from '@runners/application/services/runner-admissions.service';
+import { RunnerAuthenticator } from '@runners/application/services/runner-authenticator.service';
 import { RunnerConfiguration } from '@runners/application/services/runner-configuration.service';
 import { RunnerDependents } from '@runners/application/services/runner-dependents.service';
 import { RunnerEgress } from '@runners/application/services/runner-egress.service';
@@ -328,7 +328,7 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
       new RunnerHeartbeats(runners),
   },
   {
-    provide: RunnerAdmissions,
+    provide: RunnerAuthenticator,
     inject: [
       DrizzleRunnerPoolRepository,
       DrizzleRunnerTrustRepository,
@@ -342,9 +342,9 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
       workloads: WorkloadTokensPort,
       workspaces: WorkspaceReaderPort,
       tokens: TokenIssuer,
-    ) => new RunnerAdmissions(pools, trusts, workloads, workspaces, tokens),
+    ) => new RunnerAuthenticator(pools, trusts, workloads, workspaces, tokens),
   },
-  { provide: RUNNER_ADMISSIONS, useExisting: RunnerAdmissions },
+  { provide: RUNNER_AUTHENTICATOR, useExisting: RunnerAuthenticator },
   {
     provide: PROVISION_CALLS,
     inject: [ENV],
@@ -408,17 +408,23 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
       DrizzleRunnerPoolRepository,
       DrizzleRunnerRepository,
       RUNNER_RESOURCES,
-      RunnerAdmissions,
+      RunnerAuthenticator,
       PLATFORM_EGRESS,
     ],
     useFactory: (
       pools: DrizzleRunnerPoolRepository,
       runners: DrizzleRunnerRepository,
       resources: RunnerResourcesPort,
-      admissions: RunnerAdmissions,
+      authenticator: RunnerAuthenticator,
       platform: PlatformEgressSettings | null,
     ) =>
-      new RunnerPools(pools, runners, resources, admissions, platform !== null),
+      new RunnerPools(
+        pools,
+        runners,
+        resources,
+        authenticator,
+        platform !== null,
+      ),
   },
   { provide: INSTALLER_ASSETS, useClass: InstallerAssets },
 
@@ -457,12 +463,12 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
   ]),
 
   ...bindCommandHandler(HostHeartbeatCommand, HostHeartbeatHandler, [
-    RUNNER_ADMISSIONS,
+    RUNNER_AUTHENTICATOR,
     DrizzleRunnerHostRepository,
     CLOCK,
   ]),
   ...bindCommandHandler(DeregisterHostCommand, DeregisterHostHandler, [
-    RUNNER_ADMISSIONS,
+    RUNNER_AUTHENTICATOR,
     DrizzleRunnerHostRepository,
   ]),
 

@@ -4,7 +4,7 @@ import type {
 } from '@integrations/application/ports/defined-integrations.port';
 import type { IntegrationCursorsPort } from '@integrations/application/ports/integration-cursors.port';
 import type { IntegrationRuntimePort } from '@integrations/application/ports/integration-runtime.port';
-import type { HostReach } from '@integrations/application/services/host-reach.service';
+import type { CallAuthResolver } from '@integrations/application/services/call-auth-resolver.service';
 import type { Integration } from '@integrations/domain/entities/integration.entity';
 import type { Schedule } from '@integrations/domain/value-objects/schedule.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -15,7 +15,7 @@ export class RunSchedules {
   constructor(
     private readonly defined: DefinedIntegrationsPort,
     private readonly runtime: IntegrationRuntimePort,
-    private readonly reach: HostReach,
+    private readonly callAuthResolver: CallAuthResolver,
     private readonly cursors: IntegrationCursorsPort,
     private readonly clock: ClockPort,
     private readonly log: LoggerPort,
@@ -68,7 +68,7 @@ export class RunSchedules {
       const acted = await this.runtime.runSchedule(
         definitions,
         integration,
-        await this.reach.of(teamId, integration),
+        await this.callAuthResolver.of(teamId, integration),
       );
 
       if (acted.kind === 'failed') {

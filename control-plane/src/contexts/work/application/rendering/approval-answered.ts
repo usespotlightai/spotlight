@@ -20,8 +20,8 @@ export const ApprovalAnswered = {
     return changed
       ? [
           words,
-          'I changed what it runs with. Call it again as you asked and it runs with these instead:',
-          ...changed.given.map((each) =>
+          'I changed what it runs with. Call it again as before and it runs with these instead:',
+          ...changed.writtenInputs.map((each) =>
             written(each.name, shortened(each.value)),
           ),
         ].join('\n\n')

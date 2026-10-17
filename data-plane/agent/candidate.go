@@ -87,10 +87,10 @@ func candidateCmd(args []string, in io.Reader, out io.Writer) error {
 	return nil
 }
 
-func hypothesisOf(given string) (string, error) {
-	file, found := strings.CutPrefix(given, "@")
+func hypothesisOf(value string) (string, error) {
+	file, found := strings.CutPrefix(value, "@")
 	if !found {
-		return strings.TrimSpace(given), nil
+		return strings.TrimSpace(value), nil
 	}
 
 	read, err := os.ReadFile(file)
@@ -108,7 +108,7 @@ func hypothesisOf(given string) (string, error) {
 
 func stationBlock(path string, in io.Reader) (json.RawMessage, error) {
 	if ext := strings.ToLower(filepath.Ext(path)); ext == ".tf" || ext == ".hcl" {
-		return nil, fmt.Errorf("%s is HCL; give the station block as JSON, as the line resource contains a station", path)
+		return nil, fmt.Errorf("%s is HCL; supply the station block as JSON, as the line resource contains a station", path)
 	}
 
 	var read []byte

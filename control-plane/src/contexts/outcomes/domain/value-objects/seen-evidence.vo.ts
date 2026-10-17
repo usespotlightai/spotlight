@@ -14,37 +14,37 @@ export interface SeenHunk {
   readonly lines: readonly string[];
 }
 
-const MAX_TEXT_KEPT = 2_000;
+const MAX_TEXT_CHARS = 2_000;
 
-const MAX_LINES_KEPT = 20;
+const MAX_LINES = 20;
 
-const MAX_LINE_KEPT = 200;
+const MAX_LINE_CHARS = 200;
 
-const MAX_NAME_KEPT = 100;
+const MAX_NAME_CHARS = 100;
 
-const MAX_PATH_KEPT = 500;
+const MAX_PATH_CHARS = 500;
 
-const MAX_HEADER_KEPT = 200;
+const MAX_HEADER_CHARS = 200;
 
 const ITEM_OVERHEAD = 64;
 
 const clipped = (text: string, max: number): string =>
   text.length > max ? `${text.slice(0, max)} …` : text;
 
-const keptStep = (seen: SeenStep): SeenStep => ({
+const clippedStep = (seen: SeenStep): SeenStep => ({
   index: seen.index,
-  kind: clipped(seen.kind, MAX_NAME_KEPT),
-  tool: seen.tool === null ? null : clipped(seen.tool, MAX_NAME_KEPT),
-  text: clipped(seen.text, MAX_TEXT_KEPT),
+  kind: clipped(seen.kind, MAX_NAME_CHARS),
+  tool: seen.tool === null ? null : clipped(seen.tool, MAX_NAME_CHARS),
+  text: clipped(seen.text, MAX_TEXT_CHARS),
 });
 
-const keptHunk = (seen: SeenHunk): SeenHunk => ({
+const clippedHunk = (seen: SeenHunk): SeenHunk => ({
   id: seen.id,
-  path: clipped(seen.path, MAX_PATH_KEPT),
-  header: clipped(seen.header, MAX_HEADER_KEPT),
+  path: clipped(seen.path, MAX_PATH_CHARS),
+  header: clipped(seen.header, MAX_HEADER_CHARS),
   lines: seen.lines
-    .slice(0, MAX_LINES_KEPT)
-    .map((line) => clipped(line, MAX_LINE_KEPT)),
+    .slice(0, MAX_LINES)
+    .map((line) => clipped(line, MAX_LINE_CHARS)),
 });
 
 const sizeOfStep = (step: SeenStep): number =>
@@ -79,8 +79,8 @@ export class SeenEvidence {
     hunks: readonly SeenHunk[];
   }): SeenEvidence {
     return new SeenEvidence(
-      unique(input.steps, (each) => String(each.index)).map(keptStep),
-      unique(input.hunks, (each) => each.id).map(keptHunk),
+      unique(input.steps, (each) => String(each.index)).map(clippedStep),
+      unique(input.hunks, (each) => each.id).map(clippedHunk),
     );
   }
 

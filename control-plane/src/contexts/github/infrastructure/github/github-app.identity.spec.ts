@@ -40,7 +40,7 @@ describe('GitHubAppIdentity', () => {
     expect(init.headers.authorization).toMatch(/^Bearer ey/);
   });
 
-  it('asks once and remembers', async () => {
+  it('requests once and remembers', async () => {
     const fetching = answering({ slug: 'spotlight-dev' });
     vi.stubGlobal('fetch', fetching);
 

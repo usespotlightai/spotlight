@@ -1,6 +1,6 @@
 import type {
-  CatalogGiving,
   CatalogNamed,
+  EntitledItems,
 } from '@catalog/application/contracts/catalog.contract';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
@@ -134,7 +134,7 @@ const launch: HarnessLaunchPort = {
                     value,
                   })),
                 })),
-                asks: ['execute'],
+                askKinds: ['execute'],
               }
             : null,
         }
@@ -155,7 +155,7 @@ const at = (
   position: number,
   harness?: HarnessId,
   passesTo: string[] = [],
-  gives: { tools?: string[]; skills?: SkillKey[] } = {},
+  enables: { tools?: string[]; skills?: SkillKey[] } = {},
 ) =>
   Station.of({
     id: StationId.of(id),
@@ -167,8 +167,8 @@ const at = (
     wayOut: WayOut.of({ stations: passesTo.map(StationId.of) }),
     kind:
       position === 0 ? 'backlog' : name === 'Completed' ? 'completed' : 'work',
-    tools: (gives.tools ?? []).map((each) => Tool.of(each)),
-    skills: gives.skills ?? [],
+    tools: (enables.tools ?? []).map((each) => Tool.of(each)),
+    skills: enables.skills ?? [],
   });
 
 const stations = [
@@ -178,8 +178,8 @@ const stations = [
   at('station_4', 'Completed', 3),
 ];
 
-const triage = (gives: { tools?: string[]; skills?: SkillKey[] }) =>
-  at('station_2', 'Triage', 1, DEV.id, ['station_3'], gives);
+const triage = (enables: { tools?: string[]; skills?: SkillKey[] }) =>
+  at('station_2', 'Triage', 1, DEV.id, ['station_3'], enables);
 
 const task = (stationId: string, title = 'Fix the queue') =>
   Task.add({
@@ -193,12 +193,12 @@ const task = (stationId: string, title = 'Fix the queue') =>
   });
 
 let queued: Run[] = [];
-let kept: RunExtras[] = [];
+let extras: RunExtras[] = [];
 
 const runs = {
   add: async (run: Run, alongside: RunExtras = {}) => {
     queued.push(run);
-    kept.push(alongside);
+    extras.push(alongside);
   },
 } as unknown as RunRepository;
 
@@ -263,25 +263,25 @@ const SHIPPED: BuiltInSkillsPort = {
 };
 
 let offeredTools: DeclaredTool[] = [];
-let offeredAsked: string[] = [];
+let offeredRequested: string[] = [];
 
 const integrations = {
   offered: async (_line: unknown, tools: readonly Tool[]) => {
-    offeredAsked = tools.map((each) => each.value);
+    offeredRequested = tools.map((each) => each.value);
     return offeredTools;
   },
 } as unknown as TeamIntegrations;
 
-let keptSkills: ReadySkillFolder[] = [];
+let readySkills: ReadySkillFolder[] = [];
 
 const teamSkills = {
   readyAt: async (_line: Line, station: Station) =>
-    keptSkills.filter((each) =>
+    readySkills.filter((each) =>
       station.skills.some((key) => key.value === each.skill.key),
     ),
 } as unknown as StationSkills;
 
-const toolsGiven = (run?: Run) =>
+const enabledTools = (run?: Run) =>
   (run ? (RunSpecContract.toWire(run.spec).manifest ?? []) : []).map(
     (each) => each.name,
   );
@@ -295,13 +295,13 @@ const tracing = {
     `trace:${searchId.value}:${runId.value}`,
 };
 
-let catalogGiving: CatalogGiving = { tools: [], skills: [], denied: [] };
-let catalogAsked: CatalogNamed[] = [];
+let entitledItems: EntitledItems = { tools: [], skills: [], denied: [] };
+let catalogRequested: CatalogNamed[] = [];
 
 const catalog = new StationCatalog({
-  givenTo: async (_workspace, named) => {
-    catalogAsked.push(named);
-    return catalogGiving;
+  entitledTo: async (_workspace, named) => {
+    catalogRequested.push(named);
+    return entitledItems;
   },
   call: async () => ({ kind: 'answered', output: null }),
 });
@@ -328,7 +328,7 @@ let memoryFails = false;
 
 const dispatch = async (
   station: Station,
-  given?: Task,
+  existing?: Task,
   repositories?: readonly Worked[],
 ) => {
   const service = new DispatchTask(
@@ -362,7 +362,7 @@ const dispatch = async (
     { inSavepoint: (work) => work() },
     new Sha256ContentDigest(),
   );
-  const working = given ?? task(station.id.value);
+  const working = existing ?? task(station.id.value);
   const line = lineWith(station, repositories);
   const runId = await service.runIdFor({ task: working, line });
 
@@ -383,13 +383,13 @@ describe('DispatchTask', () => {
     remembered = { briefed: [], cut: [], folder: null };
     touchedOnTask = [];
     queued = [];
-    kept = [];
-    catalogGiving = { tools: [], skills: [], denied: [] };
-    catalogAsked = [];
+    extras = [];
+    entitledItems = { tools: [], skills: [], denied: [] };
+    catalogRequested = [];
   });
 
-  describe('what it gives from the catalog', () => {
-    it('asks the catalog only for what the station names from it', async () => {
+  describe('what it enables from the catalog', () => {
+    it('requests from the catalog only what the station names from it', async () => {
       await dispatch(
         triage({
           tools: ['pull-request', 'catalog.web-search@1.1.0'],
@@ -397,7 +397,7 @@ describe('DispatchTask', () => {
         }),
       );
 
-      expect(catalogAsked).toEqual([
+      expect(catalogRequested).toEqual([
         {
           tools: ['catalog.web-search@1.1.0'],
           skills: ['catalog.research@1.0.0'],
@@ -405,24 +405,24 @@ describe('DispatchTask', () => {
       ]);
     });
 
-    it('asks it nothing where the station names nothing from it', async () => {
+    it('requests nothing from it where the station names nothing from it', async () => {
       await dispatch(triage({ tools: ['pull-request'] }));
 
-      expect(catalogAsked).toEqual([]);
+      expect(catalogRequested).toEqual([]);
     });
 
     it('names a catalog tool without its version, and pins the version in the run', async () => {
-      catalogGiving = { tools: [WEB_SEARCH], skills: [], denied: [] };
+      entitledItems = { tools: [WEB_SEARCH], skills: [], denied: [] };
 
       await dispatch(triage({ tools: ['catalog.web-search@1.1.0'] }));
 
-      expect(toolsGiven(queued[0])).toEqual(['catalog.web-search']);
+      expect(enabledTools(queued[0])).toEqual(['catalog.web-search']);
       expect(written(queued[0]).catalog).toEqual(['catalog.web-search@1.1.0']);
       expect(queued[0]?.state).toBe('queued');
     });
 
-    it('lays a catalog skill in its own folder and gives the tools it brings', async () => {
-      catalogGiving = {
+    it('lays a catalog skill in its own folder and enables the tools it brings', async () => {
+      entitledItems = {
         tools: [WEB_SEARCH],
         skills: [
           {
@@ -442,11 +442,11 @@ describe('DispatchTask', () => {
       expect(written(queued[0]).skills?.map((each) => each.path)).toContain(
         '.claude/skills/spotlight-catalog-research/SKILL.md',
       );
-      expect(toolsGiven(queued[0])).toEqual(['catalog.web-search']);
+      expect(enabledTools(queued[0])).toEqual(['catalog.web-search']);
     });
 
     it('fails the run as entitlement_lapsed, rather than running without it, when the plan has lapsed', async () => {
-      catalogGiving = {
+      entitledItems = {
         tools: [],
         skills: [],
         denied: [
@@ -478,7 +478,7 @@ describe('DispatchTask', () => {
       ['not-entitled', 'not_entitled'],
       ['lapsed', 'entitlement_lapsed'],
     ] as const)('names a refusal for %s as %s', async (reason, code) => {
-      catalogGiving = {
+      entitledItems = {
         tools: [],
         skills: [],
         denied: [{ id: WEB_SEARCH.id, reason, because: 'denied here' }],
@@ -490,7 +490,7 @@ describe('DispatchTask', () => {
     });
 
     it('names every refusal, each by its own reason', async () => {
-      catalogGiving = {
+      entitledItems = {
         tools: [],
         skills: [],
         denied: [
@@ -628,7 +628,7 @@ describe('DispatchTask', () => {
       expect(queued[0]?.placement.clauses).toEqual([]);
     });
 
-    it('asks for no checkout where the line works no repository', async () => {
+    it('requests no checkout where the line works no repository', async () => {
       await dispatch(stations[1] as Station);
 
       expect(written(queued[0]).checkouts).toEqual([]);
@@ -665,7 +665,7 @@ describe('DispatchTask', () => {
       expect(written(queued[0]).harnessSetup).toEqual({
         files: [{ path: 'dev/settings.json', text: 'careful' }],
         mcpServers: [],
-        asks: ['execute'],
+        askKinds: ['execute'],
       });
     });
 
@@ -737,16 +737,16 @@ describe('DispatchTask', () => {
     expect(queued[0]?.harness.value).toBe(DEV.id.value);
   });
 
-  it('hands the run what its station may reach for', async () => {
+  it('hands the run what its station enables', async () => {
     await dispatch(triage({ tools: ['pull-request'] }));
 
-    expect(toolsGiven(queued[0])).toEqual(['pull-request']);
+    expect(enabledTools(queued[0])).toEqual(['pull-request']);
   });
 
   it('hands a station with no tools none', async () => {
     await dispatch(stations[1] as Station);
 
-    expect(toolsGiven(queued[0])).toEqual([]);
+    expect(enabledTools(queued[0])).toEqual([]);
   });
 
   it('queues nothing for a station nothing works', async () => {
@@ -802,7 +802,7 @@ describe('DispatchTask', () => {
     expect(spec.command.args).toEqual([...DEV_ARGS]);
   });
 
-  it('briefs the agent in the same words it gives the runner', async () => {
+  it('briefs the agent in the same words that it sends the runner', async () => {
     await dispatch(stations[1] as Station);
 
     const spec = written(queued[0]);
@@ -820,12 +820,12 @@ describe('DispatchTask', () => {
 
     const run = queued[0] as Run;
 
-    expect(kept[0]?.briefed?.equals(worked.briefed)).toBe(true);
-    expect(kept[0]?.briefed?.title).toBe('Drain the queue');
+    expect(extras[0]?.briefed?.equals(worked.briefed)).toBe(true);
+    expect(extras[0]?.briefed?.title).toBe('Drain the queue');
     expect(written(run).briefing).toContain('## Drain the queue');
   });
 
-  it('asks the runner to say where the run started', async () => {
+  it('requests the runner to say where the run started', async () => {
     await dispatch(stations[1] as Station);
 
     expect(written(queued[0]).startingPoint).toBe(true);
@@ -877,7 +877,7 @@ describe('DispatchTask', () => {
       ]);
     });
 
-    it('asks for the conversation the task was last worked in', async () => {
+    it('requests the conversation the task was last worked in', async () => {
       const station = stations[1] as Station;
 
       await dispatch(station, worked(station));
@@ -885,7 +885,7 @@ describe('DispatchTask', () => {
       expect(continuityOf(0).sessionId).toBe('session_1');
     });
 
-    it('asks for no conversation when there is nothing to resume', async () => {
+    it('requests no conversation when there is nothing to resume', async () => {
       const station = stations[1] as Station;
 
       await dispatch(station);
@@ -895,14 +895,14 @@ describe('DispatchTask', () => {
   });
 });
 
-describe('DispatchTask, the skills a run is given', () => {
+describe('DispatchTask, the skills a station enables for a run', () => {
   const laid = () => (written(queued[0]).skills ?? []).map((each) => each.path);
 
   beforeEach(() => {
     queued = [];
-    kept = [];
+    extras = [];
     skillsHome = { directory: '.claude/skills', readByHarness: true };
-    keptSkills = [];
+    readySkills = [];
   });
 
   it('lays the handover skill where the harness reads skills, and lists none', async () => {
@@ -915,7 +915,7 @@ describe('DispatchTask, the skills a run is given', () => {
     expect(written(queued[0]).briefing).not.toContain('## Skills');
   });
 
-  it('lays a tool’s skill only for a station given the tool', async () => {
+  it('lays a tool’s skill only for a station that enables the tool', async () => {
     await dispatch(triage({ tools: ['pull-request'] }));
 
     expect(laid()).toEqual([
@@ -941,7 +941,7 @@ describe('DispatchTask, the skills a run is given', () => {
       '.claude/skills/spotlight-tools/SKILL.md',
     ]);
     expect(written(queued[0]).briefing).toContain(
-      'You were given tools from Linear (1).',
+      'Your station enables tools from Linear (1).',
     );
   });
 
@@ -972,11 +972,11 @@ describe('DispatchTask, the team’s own skills', () => {
 
   beforeEach(() => {
     queued = [];
-    kept = [];
+    extras = [];
     skillsHome = { directory: '.claude/skills', readByHarness: true };
     offeredTools = [];
-    offeredAsked = [];
-    keptSkills = [
+    offeredRequested = [];
+    readySkills = [
       {
         skill: {
           key: OURS.value,
@@ -1001,8 +1001,8 @@ describe('DispatchTask, the team’s own skills', () => {
     ]);
   });
 
-  it('gives the run the tools a skill it lays brings, and the skill of each of Spotlight’s', async () => {
-    keptSkills = [
+  it('enables the tools that a skill it lays brings, and the skill of each of Spotlight’s', async () => {
+    readySkills = [
       {
         skill: {
           key: OURS.value,
@@ -1021,7 +1021,7 @@ describe('DispatchTask, the team’s own skills', () => {
 
     await dispatch(triage({ skills: [OURS] }));
 
-    expect(toolsGiven(queued[0])).toEqual(['grafana.search', 'pull-request']);
+    expect(enabledTools(queued[0])).toEqual(['grafana.search', 'pull-request']);
     expect(
       (written(queued[0]).manifest ?? []).map((each) => each.name),
     ).toEqual(['grafana.search', 'pull-request']);
@@ -1033,8 +1033,8 @@ describe('DispatchTask, the team’s own skills', () => {
     ]);
   });
 
-  it('leaves out one the team no longer keeps', async () => {
-    keptSkills = [];
+  it('leaves out one the team no longer has', async () => {
+    readySkills = [];
 
     await dispatch(triage({ skills: [OURS] }));
 
@@ -1047,9 +1047,9 @@ describe('DispatchTask, the tools a run is told about', () => {
 
   beforeEach(() => {
     queued = [];
-    kept = [];
+    extras = [];
     offeredTools = [];
-    offeredAsked = [];
+    offeredRequested = [];
   });
 
   it('describes Spotlight’s own tools, and what they take, without reading the team’s', async () => {
@@ -1061,7 +1061,7 @@ describe('DispatchTask, the tools a run is told about', () => {
       'body',
       'repository',
     ]);
-    expect(offeredAsked).toEqual(['pull-request']);
+    expect(offeredRequested).toEqual(['pull-request']);
   });
 
   it('describes a tool a team’s integration offers, where the station names it', async () => {
@@ -1112,11 +1112,11 @@ describe('DispatchTask, the tools a run is told about', () => {
     await dispatch(triage({ tools: ['linear.missing'] }));
 
     expect(manifest()).toEqual([]);
-    expect(toolsGiven(queued[0])).toEqual([]);
+    expect(enabledTools(queued[0])).toEqual([]);
   });
 
   describe('what the team has learned', () => {
-    it('briefs the run with the memories that reach its place, and records them on it', async () => {
+    it('briefs the run with the memories that apply to its place, and records them on it', async () => {
       const station = stations[1] as Station;
       remembered = {
         briefed: [
@@ -1183,7 +1183,7 @@ describe('DispatchTask, the tools a run is told about', () => {
       repositories?: readonly Worked[],
     ) => {
       queued = [];
-      kept = [];
+      extras = [];
       await dispatch(station, task(station.id.value, title), repositories);
       const config = queued[0]?.configuredAs;
 

@@ -30,7 +30,7 @@ const NO_TASK_COUNTS: ReadonlyMap<string, number> = new Map();
 export interface StationInLine {
   readonly line: Line;
   readonly station: Station;
-  readonly kept: LineRecord;
+  readonly record: LineRecord;
 }
 
 export type CandidateLine =
@@ -81,33 +81,37 @@ export class CandidateLines {
   async live(lineId: string, stationId: string): Promise<StationInLine | null> {
     const line = await this.lines.find(LineId.of(lineId));
     const station = line?.stationAt(StationId.of(stationId));
-    const kept = station ? await this.resources.withId(lineId) : null;
+    const record = station ? await this.resources.withId(lineId) : null;
 
-    return line && station && kept ? { line, station, kept } : null;
+    return line && station && record ? { line, station, record } : null;
   }
 
   async keyed(lineId: string, key: string): Promise<StationInLine | null> {
     const line = await this.lines.find(LineId.of(lineId));
     const parsed = StationKey.parsed(key);
     const station = line && parsed ? line.stationKeyed(parsed) : null;
-    const kept = station ? await this.resources.withId(lineId) : null;
+    const record = station ? await this.resources.withId(lineId) : null;
 
-    return line && station && kept ? { line, station, kept } : null;
+    return line && station && record ? { line, station, record } : null;
   }
 
-  liveBlockOf({ station, kept }: StationInLine): LineDefinitionStation | null {
+  liveBlockOf({
+    station,
+    record,
+  }: StationInLine): LineDefinitionStation | null {
     return (
-      kept.definition.stations.find((each) => each.key === station.key.value) ??
-      null
+      record.definition.stations.find(
+        (each) => each.key === station.key.value,
+      ) ?? null
     );
   }
 
   async withStation(
-    { line, station, kept }: StationInLine,
+    { line, station, record }: StationInLine,
     block: unknown,
     repositories?: unknown,
   ): Promise<CandidateLine> {
-    const place = kept.definition.stations.findIndex(
+    const place = record.definition.stations.findIndex(
       (each) => each.key === station.key.value,
     );
 
@@ -132,9 +136,9 @@ export class CandidateLines {
     }
 
     const compiled = this.compiler.compile({
-      ...kept.definition,
+      ...record.definition,
       ...(repositories === undefined ? {} : { repositories }),
-      stations: kept.definition.stations.map((each, at) =>
+      stations: record.definition.stations.map((each, at) =>
         at === place ? block : each,
       ),
     });

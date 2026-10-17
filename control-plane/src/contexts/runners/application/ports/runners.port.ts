@@ -1,4 +1,4 @@
-import type { AdmittedWay } from '@runners/application/ports/runner-admissions.port';
+import type { CredentialSourceRef } from '@runners/application/ports/runner-authenticator.port';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 
 export const RUNNERS = Symbol('RUNNERS');
@@ -50,14 +50,14 @@ export type ProvisionedRunner =
 
 export interface RunnersPort {
   start(
-    way: AdmittedWay,
+    source: CredentialSourceRef,
     host: string,
     image: string,
     at: Date,
     claimBy: Date,
   ): Promise<StartedRunner>;
 
-  reports(way: AdmittedWay, host: string): Promise<boolean>;
+  reports(source: CredentialSourceRef, host: string): Promise<boolean>;
 
   provision(request: ProvisionRequest, at: Date): Promise<ProvisionedRunner>;
 

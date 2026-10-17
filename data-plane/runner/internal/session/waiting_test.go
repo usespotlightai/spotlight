@@ -47,7 +47,7 @@ func TestAnAnswerWithinTheGraceIsSentIntoTheSameLiveSession(t *testing.T) {
 		t.Fatalf("the agent got %+v", got)
 	}
 	if got[1].number != "2" || got[1].process != got[0].process || got[1].session != got[0].session {
-		t.Errorf("the answer reached another harness or session: %+v", got)
+		t.Errorf("the answer went to another harness or session: %+v", got)
 	}
 	if !slices.Equal(written.acked, []int{4}) {
 		t.Errorf("acknowledged %v, wanted [4]", written.acked)
@@ -128,7 +128,7 @@ func TestAStopWhileWaitingCompletesTheRunAsStopped(t *testing.T) {
 
 func TestAPermissionEscalatedToAPersonIsAskedForAgainOnceAnswered(t *testing.T) {
 	written := run(t, permitting(t), escalatesToAPerson, func(o *runOptions) {
-		o.setup = protocol.HarnessSetup{Asks: []string{"execute"}}
+		o.setup = protocol.HarnessSetup{AskKinds: []string{"execute"}}
 		o.decision = protocol.PermissionEscalated
 		o.answers = [][]protocol.Message{{{Position: 2, Body: "go ahead"}}}
 		o.answerWait = time.Minute
@@ -136,7 +136,7 @@ func TestAPermissionEscalatedToAPersonIsAskedForAgainOnceAnswered(t *testing.T) 
 	})
 
 	if len(written.asked) != 2 {
-		t.Errorf("asked the control plane %d times, wanted once a turn", len(written.asked))
+		t.Errorf("asked for permission %d times, wanted once a turn", len(written.asked))
 	}
 	if len(written.completions) != 2 || written.done.Failed {
 		t.Errorf("completions %+v", written.completions)
@@ -171,13 +171,13 @@ func TestEachTurnReportsOnlyWhatItHandedOver(t *testing.T) {
 	}
 }
 
-func TestTheWorkspaceIsKeptBeforeEachTurnIsReportedAndOnlyWhenItChanged(t *testing.T) {
-	kept := newKeptArchives(t)
+func TestTheWorkspaceIsArchivedBeforeEachTurnIsReportedAndOnlyWhenItChanged(t *testing.T) {
+	archives := newArchives(t)
 
 	written := run(t, harness(t, `if ((globalThis.turns = (globalThis.turns ?? 0) + 1) === 1)
   require("node:fs").writeFileSync("notes.md", "asked");
 output = "turn " + globalThis.turns;`, "end_turn"), escalatesToAPerson, func(o *runOptions) {
-		o.archives = kept
+		o.archives = archives
 		o.continuity = protocol.Continuity{Key: carriedOn}
 		o.answers = [][]protocol.Message{{{Position: 1, Body: "carry on"}}}
 		o.answerWait = time.Minute
@@ -188,7 +188,7 @@ output = "turn " + globalThis.turns;`, "end_turn"), escalatesToAPerson, func(o *
 		t.Errorf("archives sealed by each completion %v, wanted [1 1]", written.sealedBy)
 	}
 	if got := step(t, written, "archive"); !strings.HasPrefix(got, "Captured the workspace") {
-		t.Errorf("the asking turn said %q about keeping its workspace", got)
+		t.Errorf("the asking turn said %q about archiving its workspace", got)
 	}
 }
 
@@ -236,7 +236,7 @@ func TestAResumedRunWithNoMessageCarriesOnRatherThanBeingBriefedAgain(t *testing
 func TestAPermissionAnsweredBeforeTheTurnEndsIsSentAtOnceWithoutWaiting(t *testing.T) {
 	written := run(t, permitting(t), func(o *runOptions) {
 		o.briefing = "push the fix"
-		o.setup = protocol.HarnessSetup{Asks: []string{"execute"}}
+		o.setup = protocol.HarnessSetup{AskKinds: []string{"execute"}}
 		o.decision = protocol.PermissionEscalated
 		o.messages = [][]protocol.Message{{{Position: 2, Body: "go ahead"}}}
 		o.answerWait = time.Minute
@@ -247,7 +247,7 @@ func TestAPermissionAnsweredBeforeTheTurnEndsIsSentAtOnceWithoutWaiting(t *testi
 		t.Errorf("acknowledged %v, wanted [2]", written.acked)
 	}
 	if len(written.asked) != 2 {
-		t.Errorf("asked the control plane %d times, wanted again once answered", len(written.asked))
+		t.Errorf("asked for permission %d times, wanted again once answered", len(written.asked))
 	}
 	if len(written.completions) != 1 || written.suspends != 0 {
 		t.Errorf("completed %d times and suspended %d times", len(written.completions), written.suspends)
@@ -265,27 +265,27 @@ func TestAResumedRunInAFreshSessionWithNoMessageIsBriefed(t *testing.T) {
 	}
 }
 
-func TestATurnSaysWhetherItsWorkspaceIsKept(t *testing.T) {
-	kept := run(t, harness(t, eachTurn, "end_turn"), func(o *runOptions) {
-		o.archives = newKeptArchives(t)
+func TestATurnSaysWhetherItsWorkspaceIsArchived(t *testing.T) {
+	archived := run(t, harness(t, eachTurn, "end_turn"), func(o *runOptions) {
+		o.archives = newArchives(t)
 		o.continuity = protocol.Continuity{Key: carriedOn}
 	})
-	unkept := run(t, harness(t, eachTurn, "end_turn"), func(o *runOptions) {
+	unarchived := run(t, harness(t, eachTurn, "end_turn"), func(o *runOptions) {
 		o.continuity = protocol.Continuity{Key: carriedOn}
 	})
 
-	if !kept.done.Kept || unkept.done.Kept {
-		t.Errorf("reported kept %v with somewhere to keep it and %v without", kept.done.Kept, unkept.done.Kept)
+	if !archived.done.Archived || unarchived.done.Archived {
+		t.Errorf("reported archived %v with somewhere to store it and %v without", archived.done.Archived, unarchived.done.Archived)
 	}
 }
 
-func TestATurnAsksWhetherItWaitsBeforeItKeepsTheWorkspace(t *testing.T) {
+func TestATurnReadsWhetherItWaitsBeforeItArchivesTheWorkspace(t *testing.T) {
 	written := run(t, harness(t, eachTurn, "end_turn"), func(o *runOptions) {
-		o.archives = newKeptArchives(t)
+		o.archives = newArchives(t)
 		o.continuity = protocol.Continuity{Key: carriedOn}
 	})
 
-	if !slices.Equal(written.calls, []string{"asks", "archive", "complete"}) {
+	if !slices.Equal(written.calls, []string{"awaits-person", "archive", "complete"}) {
 		t.Errorf("the turn end went %v", written.calls)
 	}
 }
@@ -318,20 +318,20 @@ func TestAnAnswerNeverThereWhileSuspendingReleasesTheRunAfterAFewTries(t *testin
 }
 
 func TestAPausedRunsWorkspaceIsRestoredForTheRunnerThatClaimsIt(t *testing.T) {
-	kept := newKeptArchives(t)
+	archives := newArchives(t)
 
 	paused := run(t, harness(t, `require("node:fs").writeFileSync("notes.md", "asked"); output = "asked";`, "end_turn"), escalatesToAPerson, func(o *runOptions) {
-		o.archives = kept
+		o.archives = archives
 		o.continuity = protocol.Continuity{Key: carriedOn}
 		o.answerWait = 0
 		o.heartbeat = time.Hour
 	})
-	if paused.suspends != 1 || !paused.done.Kept {
-		t.Fatalf("suspended %d times, kept %v", paused.suspends, paused.done.Kept)
+	if paused.suspends != 1 || !paused.done.Archived {
+		t.Fatalf("suspended %d times, archived %v", paused.suspends, paused.done.Archived)
 	}
 
 	resumed := run(t, harness(t, `output = require("node:fs").readFileSync("notes.md", "utf8") + " | " + msg.params.prompt[0].text;`, "end_turn"), func(o *runOptions) {
-		o.archives = kept
+		o.archives = archives
 		o.continuity = protocol.Continuity{Key: carriedOn, SessionID: "session_known", Resumes: true}
 		o.messages = [][]protocol.Message{{{Position: 3, Body: "go ahead"}}}
 	})

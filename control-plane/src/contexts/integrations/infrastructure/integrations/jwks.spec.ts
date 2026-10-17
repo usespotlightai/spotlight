@@ -41,7 +41,7 @@ describe('JwksCache', () => {
     expect(fetch).toHaveBeenCalledTimes(2);
   });
 
-  it('fails where the host is unreachable, and asks again next time', async () => {
+  it('fails where the host is unreachable, and requests again next time', async () => {
     const fetch = vi
       .fn<typeof globalThis.fetch>()
       .mockRejectedValueOnce(new Error('unreachable'))

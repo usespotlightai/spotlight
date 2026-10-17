@@ -14,8 +14,8 @@ describe('ReviewCommentHandle', () => {
   });
 
   it('rejects what names no review comment', () => {
-    for (const given of ['', '3', 'c', 'cx', 'c-1', 'c3x']) {
-      expect(() => ReviewCommentHandle.of(given)).toThrow(
+    for (const raw of ['', '3', 'c', 'cx', 'c-1', 'c3x']) {
+      expect(() => ReviewCommentHandle.of(raw)).toThrow(
         InvalidNotePositionError,
       );
     }

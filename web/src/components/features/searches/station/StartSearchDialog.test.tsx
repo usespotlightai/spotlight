@@ -328,7 +328,7 @@ describe('StartSearchDialog', () => {
     );
   });
 
-  it('shows the aim a saturated set takes before the estimate arrives, without asking for it', () => {
+  it('shows the aim a saturated set takes before the estimate arrives, without requesting it', () => {
     const big = setOf('big', 'Billing work', 7);
     renderDialog([
       {

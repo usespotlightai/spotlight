@@ -34,7 +34,7 @@ describe('PlannedLine', () => {
     }
   });
 
-  it('rejects a line too long to keep', () => {
+  it('rejects a line too long to store', () => {
     expect(() =>
       PlannedLine.of({
         repositories: [{ name: 'acme/api', setup: 'x'.repeat(70_000) }],

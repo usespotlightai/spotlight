@@ -1,6 +1,6 @@
 import type { WorkPort } from '@replays/application/ports/work.port';
 import type { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
-import { ReplaySetStationCheckDue } from '@replays/domain/events/replay-set-station-check-due.event';
+import { ReplaySetStationCheckRequested } from '@replays/domain/events/replay-set-station-check-requested.event';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
@@ -23,7 +23,9 @@ export class NoteLineChanged {
   async changed(lineId: string): Promise<readonly DomainEvent[]> {
     return (await this.sets.ofLine(lineId))
       .filter((each) => !each.isAtGoneStation)
-      .map((each) => new ReplaySetStationCheckDue(each.id, each.workspaceId));
+      .map(
+        (each) => new ReplaySetStationCheckRequested(each.id, each.workspaceId),
+      );
   }
 
   async check(setId: ReplaySetId): Promise<void> {

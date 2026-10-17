@@ -26,7 +26,7 @@ const rejectRepeated = <K extends { readonly value: string }>(
       throw new InvalidWorkspaceRunnersError(
         field,
         at,
-        `gives ${key.value} twice`,
+        `names ${key.value} twice`,
       );
     }
   }

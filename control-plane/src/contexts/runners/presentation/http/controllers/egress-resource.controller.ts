@@ -70,7 +70,7 @@ const DEFINITION = ApiBody({
         minLength: 32,
         maxLength: 255,
         description:
-          'Write-only: the token the egress calls Spotlight with, kept only as a hash and never answered. Left out on create, Spotlight issues one and answers it once in Spotlight-Egress-Token',
+          'Write-only: the token the egress calls Spotlight with, stored only as a hash and never answered. Left out on create, Spotlight issues one and answers it once in Spotlight-Egress-Token',
       },
       tokenVersion: {
         type: 'integer',

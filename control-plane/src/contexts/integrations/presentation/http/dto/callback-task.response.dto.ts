@@ -17,7 +17,7 @@ export class CallbackTaskResponseDto {
   @ApiProperty({ type: String, nullable: true })
   readonly pullRequest: string | null;
 
-  @ApiProperty({ description: 'The hook the token was given to' })
+  @ApiProperty({ description: 'The hook that the token was issued to' })
   readonly hook: string;
 
   constructor(task: CallbackTaskDto) {

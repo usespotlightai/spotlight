@@ -63,7 +63,7 @@ describe('ReplaySet', () => {
     ).toThrow(ReplaySetEntryElsewhereError);
   });
 
-  it('rejects a run that cannot be replayed, with the reason Work gave', () => {
+  it('rejects a run that cannot be replayed, with the reason Work returned', () => {
     try {
       aSet().withEntry(
         {
@@ -102,7 +102,7 @@ describe('ReplaySet', () => {
     );
   });
 
-  it('is renamed, and stays as it is when given the same name', () => {
+  it('is renamed, and stays as it is when it gets the same name', () => {
     const set = aSet();
 
     expect(set.rename(ReplaySetName.of('Queue fixes'))).toBe(set);

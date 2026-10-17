@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { extname, join } from 'node:path';
 import { Worker } from 'node:worker_threads';
-import type { Reach } from '@integrations/application/ports/integration-runtime.port';
+import type { CallAuth } from '@integrations/application/ports/integration-runtime.port';
 import type {
   SourceRead,
   SourceReaderPort,
@@ -12,7 +12,7 @@ import { ContentHash } from '@integrations/domain/value-objects/content-hash.vo'
 import type { DescribedSource } from '@integrations/domain/value-objects/described-source.vo';
 import type {
   DescriptionAnswered,
-  DescriptionAsked,
+  DescriptionInput,
 } from '@integrations/infrastructure/sources/described-operations';
 import {
   DescriptionUnreadable,
@@ -57,7 +57,7 @@ const hostOf = (url: string | null): string | null =>
 export class ThreadedSourceReader implements SourceReaderPort {
   constructor(private readonly fetching: SourceFetch) {}
 
-  async read(source: DescribedSource, reach: Reach): Promise<SourceRead> {
+  async read(source: DescribedSource, callAuth: CallAuth): Promise<SourceRead> {
     const kind = source.kind;
 
     if (kind === 'mcp') {
@@ -68,7 +68,7 @@ export class ThreadedSourceReader implements SourceReaderPort {
     }
 
     try {
-      const text = await this.textOf(source, reach);
+      const text = await this.textOf(source, callAuth);
       const answered = await SLOTS.within(
         Date.now() + READ_WITHIN_MS,
         () => new DescriptionUnreadable(TOO_SLOW),
@@ -105,15 +105,18 @@ export class ThreadedSourceReader implements SourceReaderPort {
     }
   }
 
-  private async textOf(source: DescribedSource, reach: Reach): Promise<string> {
+  private async textOf(
+    source: DescribedSource,
+    callAuth: CallAuth,
+  ): Promise<string> {
     if (source.document !== null) {
       return source.document;
     }
 
-    const connection = source.connected ? reach.connection : null;
+    const connection = source.connected ? callAuth.connection : null;
 
     try {
-      return await this.fetched(source, reach, connection?.token ?? null);
+      return await this.fetched(source, callAuth, connection?.token ?? null);
     } catch (error) {
       if (!(error instanceof DescriptionUnauthorized) || !connection) {
         throw error;
@@ -125,13 +128,13 @@ export class ThreadedSourceReader implements SourceReaderPort {
         throw error;
       }
 
-      return this.fetched(source, reach, renewed);
+      return this.fetched(source, callAuth, renewed);
     }
   }
 
   private fetched(
     source: DescribedSource,
-    reach: Reach,
+    callAuth: CallAuth,
     connection: AccessToken | null,
   ): Promise<string> {
     const url = source.url ?? '';
@@ -139,7 +142,7 @@ export class ThreadedSourceReader implements SourceReaderPort {
       apiHost: hostOf(source.kind === 'graphql' ? url : source.baseUrl),
       secrets: source.injectedSecrets.map((each) => each.value),
       connection: connection?.value ?? null,
-      credentials: reach.credentials,
+      credentials: callAuth.credentials,
     };
 
     return source.kind === 'graphql'
@@ -189,12 +192,12 @@ export class ThreadedSourceReader implements SourceReaderPort {
   }
 
   private inWorker(
-    asked: DescriptionAsked,
+    input: DescriptionInput,
     left: number,
   ): Promise<DescriptionAnswered> {
     return new Promise((resolve, reject) => {
       const worker = new Worker(WORKER, {
-        workerData: asked,
+        workerData: input,
         ...(FROM_SOURCE ? FROM_SOURCE_WITH : {}),
         resourceLimits: { maxOldGenerationSizeMb: MAX_HEAP_MB },
       });

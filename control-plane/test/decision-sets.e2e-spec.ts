@@ -88,8 +88,8 @@ afterAll(async () => {
 });
 
 describe('storing a task’s decisions', () => {
-  it('keeps the decisions a run grounds, in order, and the run it drafted them from', async () => {
-    const set = opened().asked(FIRST, NOW);
+  it('stores the decisions a run grounds, in order, and the run it drafted them from', async () => {
+    const set = opened().requestDraft(FIRST, NOW);
     await sets.add(set);
 
     await sets.save(
@@ -117,13 +117,13 @@ describe('storing a task’s decisions', () => {
   });
 
   it('replaces what an earlier run decided with what the latest decided', async () => {
-    const set = opened().asked(FIRST, NOW);
+    const set = opened().requestDraft(FIRST, NOW);
     await sets.add(set);
     await sets.save(
       drafting(set, FIRST, [decided(), decided({ title: 'Second' })]),
     );
 
-    const again = (await sets.forTask(set.taskId))?.asked(SECOND, NOW);
+    const again = (await sets.forTask(set.taskId))?.requestDraft(SECOND, NOW);
     if (!again) throw new Error('not stored');
     await sets.save(again);
     const read = await sets.forTask(set.taskId);
@@ -144,7 +144,7 @@ describe('storing a task’s decisions', () => {
 
   it('hands out a set with a pending job once its lease runs out, and none while the lease runs', async () => {
     await database.db.execute(sql`delete from decision_set`);
-    const set = opened().asked(FIRST, NOW);
+    const set = opened().requestDraft(FIRST, NOW);
     await sets.add(set);
 
     const due = await sets.nextDueJob(NOW);
@@ -161,7 +161,7 @@ describe('storing a task’s decisions', () => {
     ).toBe(true);
   });
 
-  it('keeps the merge of its decisions', async () => {
+  it('stores the merge of its decisions', async () => {
     const set = opened();
     await sets.add(set);
 
@@ -177,15 +177,15 @@ describe('storing a task’s decisions', () => {
   it('does not write over a set that changed since it was read', async () => {
     const set = opened();
     await sets.add(set);
-    await sets.save(set.asked(FIRST, NOW));
+    await sets.save(set.requestDraft(FIRST, NOW));
 
-    await expect(sets.save(set.asked(SECOND, NOW))).rejects.toThrow(
+    await expect(sets.save(set.requestDraft(SECOND, NOW))).rejects.toThrow(
       DecisionSetVersionConflictError,
     );
   });
 
   it('deletes a task’s decisions with the task', async () => {
-    const set = opened().asked(FIRST, NOW);
+    const set = opened().requestDraft(FIRST, NOW);
     await sets.add(set);
     await sets.save(drafting(set, FIRST, [decided()]));
 
@@ -201,7 +201,7 @@ describe('storing a task’s decisions', () => {
   });
 
   it('removes a set discarded when its pull request closed unmerged', async () => {
-    const set = opened().asked(FIRST, NOW);
+    const set = opened().requestDraft(FIRST, NOW);
     await sets.add(set);
     await sets.save(drafting(set, FIRST, [decided()]));
 
@@ -215,15 +215,15 @@ describe('storing a task’s decisions', () => {
   it('does not discard a set that changed since it was read', async () => {
     const set = opened();
     await sets.add(set);
-    await sets.save(set.asked(FIRST, NOW));
+    await sets.save(set.requestDraft(FIRST, NOW));
 
     await expect(sets.save(set.closeUnmerged())).rejects.toThrow(
       DecisionSetVersionConflictError,
     );
   });
 
-  it('keeps who disputed a decision, and drops it with the decisions a later run replaces', async () => {
-    const set = opened().asked(FIRST, NOW);
+  it('stores who disputed a decision, and drops it with the decisions a later run replaces', async () => {
+    const set = opened().requestDraft(FIRST, NOW);
     await sets.add(set);
     await sets.save(
       drafting(set, FIRST, [decided(), decided({ title: 'Second' })]),
@@ -265,8 +265,8 @@ describe('storing a task’s decisions', () => {
     ]);
 
     if (!disputed) throw new Error('not stored');
-    const asked = disputed.asked(SECOND, NOW);
-    await sets.save(asked);
+    const requested = disputed.requestDraft(SECOND, NOW);
+    await sets.save(requested);
     const again = await sets.forTask(set.taskId);
     if (!again) throw new Error('not stored');
     await sets.save(drafting(again, SECOND, [decided()]));
@@ -279,7 +279,7 @@ describe('storing a task’s decisions', () => {
   });
 
   it('reads a task’s decisions deviations and limitations first', async () => {
-    const set = opened().asked(FIRST, NOW);
+    const set = opened().requestDraft(FIRST, NOW);
     await sets.add(set);
     await sets.save(
       drafting(set, FIRST, [
@@ -318,7 +318,7 @@ describe('reading the decisions that shipped', () => {
       id: DecisionSetId.of(`shipped_${next}`),
       taskId: TaskId.of(`shipped_task_${next}`),
       workspaceId: WORKSPACE,
-    }).asked(FIRST, NOW);
+    }).requestDraft(FIRST, NOW);
     await sets.add(set);
     await sets.save(
       drafting(
@@ -365,7 +365,7 @@ describe('reading the decisions that shipped', () => {
       [decided({ title: 'Polls every second', paths: ['web/src/poll.ts'] })],
       ['web/src/poll.ts'],
     );
-    const proposed = opened().asked(FIRST, NOW);
+    const proposed = opened().requestDraft(FIRST, NOW);
     await sets.add(proposed);
   });
 

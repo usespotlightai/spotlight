@@ -74,7 +74,7 @@ describe('whether an expression is true', () => {
     expect(isTrue(compile('nothing.at.all'), delivery)).toBe(false);
   });
 
-  it('lets a person ask whether a field is there at all', () => {
+  it('lets a person check whether a field is there at all', () => {
     expect(isTrue(compile('has(body.data)'), delivery)).toBe(true);
     expect(isTrue(compile('has(body.nothing)'), delivery)).toBe(false);
   });
@@ -121,7 +121,7 @@ describe('binding a delivery', () => {
     expect((value.b as Record<string, unknown>).c).toBe('x');
   });
 
-  it('drops the names that reach past a plain object', () => {
+  it('drops the names that go past a plain object', () => {
     const value = bound(
       JSON.parse('{"__proto__":{"polluted":true},"ok":1}'),
     ) as Record<string, unknown>;

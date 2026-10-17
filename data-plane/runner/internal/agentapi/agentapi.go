@@ -27,9 +27,9 @@ type ReviewCommentReplier func(ctx context.Context, reply protocol.ReviewComment
 
 type Tracer func(ctx context.Context, taskID string) (json.RawMessage, error)
 
-type Historian func(ctx context.Context, asked protocol.HistoryRequest) (json.RawMessage, error)
+type Historian func(ctx context.Context, request protocol.HistoryRequest) (json.RawMessage, error)
 
-type Recaller func(ctx context.Context, asked protocol.RecallRequest) (json.RawMessage, error)
+type Recaller func(ctx context.Context, request protocol.RecallRequest) (json.RawMessage, error)
 
 type Rememberer func(ctx context.Context, remembered protocol.Remembering) (json.RawMessage, error)
 
@@ -260,7 +260,7 @@ func (s *Server) ServeHTTP(writer http.ResponseWriter, request *http.Request) {
 func (s *Server) tool(writer http.ResponseWriter, request *http.Request, name string) {
 	if s.use == nil || !slices.Contains(s.granted, name) {
 		fail(writer, http.StatusForbidden, fmt.Sprintf(
-			"this run was not given %q; it was given: %s", name, given(s.granted),
+			"this run has no tool %q enabled; it has: %s", name, toolList(s.granted),
 		))
 
 		return
@@ -297,7 +297,7 @@ func (s *Server) describe(writer http.ResponseWriter) {
 	_ = json.NewEncoder(writer).Encode(shown)
 }
 
-func given(tools []string) string {
+func toolList(tools []string) string {
 	if len(tools) == 0 {
 		return "nothing"
 	}
@@ -349,18 +349,18 @@ func (s *Server) traceOf(writer http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	var asked protocol.TraceRequest
-	if err := json.NewDecoder(request.Body).Decode(&asked); err != nil {
+	var body protocol.TraceRequest
+	if err := json.NewDecoder(request.Body).Decode(&body); err != nil {
 		fail(writer, http.StatusBadRequest, "unreadable trace request")
 		return
 	}
 
-	if strings.TrimSpace(asked.Task) == "" {
+	if strings.TrimSpace(body.Task) == "" {
 		fail(writer, http.StatusUnprocessableEntity, "say which task")
 		return
 	}
 
-	trace, err := s.trace(request.Context(), asked.Task)
+	trace, err := s.trace(request.Context(), body.Task)
 	if err != nil {
 		fail(writer, http.StatusBadGateway, err.Error())
 		return
@@ -377,18 +377,18 @@ func (s *Server) historyOf(writer http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	var asked protocol.HistoryRequest
-	if err := json.NewDecoder(io.LimitReader(request.Body, maxInput)).Decode(&asked); err != nil {
+	var body protocol.HistoryRequest
+	if err := json.NewDecoder(io.LimitReader(request.Body, maxInput)).Decode(&body); err != nil {
 		fail(writer, http.StatusBadRequest, "unreadable history request")
 		return
 	}
 
-	if strings.TrimSpace(asked.Station) == "" {
+	if strings.TrimSpace(body.Station) == "" {
 		fail(writer, http.StatusUnprocessableEntity, "say which station")
 		return
 	}
 
-	s.answered(writer, func() (json.RawMessage, error) { return s.history(request.Context(), asked) })
+	s.answered(writer, func() (json.RawMessage, error) { return s.history(request.Context(), body) })
 }
 
 func (s *Server) recalled(writer http.ResponseWriter, request *http.Request) {
@@ -397,18 +397,18 @@ func (s *Server) recalled(writer http.ResponseWriter, request *http.Request) {
 		return
 	}
 
-	var asked protocol.RecallRequest
-	if err := json.NewDecoder(io.LimitReader(request.Body, maxInput)).Decode(&asked); err != nil {
+	var body protocol.RecallRequest
+	if err := json.NewDecoder(io.LimitReader(request.Body, maxInput)).Decode(&body); err != nil {
 		fail(writer, http.StatusBadRequest, "unreadable recall")
 		return
 	}
 
-	if strings.TrimSpace(asked.Words) == "" && strings.TrimSpace(asked.Handle) == "" {
+	if strings.TrimSpace(body.Words) == "" && strings.TrimSpace(body.Handle) == "" {
 		fail(writer, http.StatusUnprocessableEntity, "say what to look for, or which memory, like M-12")
 		return
 	}
 
-	s.answered(writer, func() (json.RawMessage, error) { return s.recall(request.Context(), asked) })
+	s.answered(writer, func() (json.RawMessage, error) { return s.recall(request.Context(), body) })
 }
 
 func (s *Server) remembered(writer http.ResponseWriter, request *http.Request) {
@@ -512,8 +512,8 @@ func jsonObject(raw json.RawMessage) bool {
 	return json.Unmarshal(raw, &object) == nil && object != nil
 }
 
-func (s *Server) answered(writer http.ResponseWriter, asking func() (json.RawMessage, error)) {
-	answer, err := asking()
+func (s *Server) answered(writer http.ResponseWriter, call func() (json.RawMessage, error)) {
+	answer, err := call()
 	if err != nil {
 		var rejected messageError
 		if errors.As(err, &rejected) {

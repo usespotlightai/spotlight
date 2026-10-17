@@ -328,7 +328,7 @@ const finishing = (next: string) => ({
   failed: false,
   handover: { next, note: 'Done here.' },
   sessionId: 'session_1',
-  kept: true,
+  archived: true,
 });
 
 beforeAll(async () => {
@@ -400,7 +400,7 @@ beforeAll(async () => {
   });
 
   memoryId = randomUUID();
-  const [kept] = await db
+  const [stored] = await db
     .insert(schema.memory)
     .values({
       id: memoryId,
@@ -415,7 +415,7 @@ beforeAll(async () => {
       approvedAt: new Date(),
     })
     .returning({ handle: schema.memory.handle });
-  memoryHandle = kept?.handle ?? 0;
+  memoryHandle = stored?.handle ?? 0;
 
   await http()
     .post(`/api/resources/workspaces/${team.workspaceId.value}/runner-pools`)
@@ -496,7 +496,7 @@ describe('a replay claimed by a runner', () => {
     expect(archive.body.id).toBe(original.archiveId);
   });
 
-  it('keeps no workspace of its own, and says nothing of where it started', async () => {
+  it('archives no workspace of its own, and says nothing of where it started', async () => {
     const { replayId, token } = await aClaimedReplay();
 
     await runner(token)
@@ -584,10 +584,13 @@ describe('a replay ending', () => {
     expect(
       (
         await runner(token)
-          .post(`/api/runs/${replayId}/completion/asks`, finishing('ship'))
+          .post(
+            `/api/runs/${replayId}/completion/awaits-person`,
+            finishing('ship'),
+          )
           .expect(200)
       ).body,
-    ).toEqual({ asks: false });
+    ).toEqual({ awaitsPerson: false });
     expect(
       (
         await runner(token)

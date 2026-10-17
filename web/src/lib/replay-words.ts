@@ -42,8 +42,8 @@ const UNREPLAYABLE_REASONS: Record<UnreplayableReason, string> = {
   'task-gone': 'Task was deleted',
   'still-running': 'Run hasn’t ended yet',
   'no-starting-point': 'Run recorded no starting point',
-  'no-briefing': 'Task briefing wasn’t kept',
-  'archive-gone': 'Starting workspace is no longer kept',
+  'no-briefing': 'Task briefing wasn’t stored',
+  'archive-gone': 'Starting workspace is no longer stored',
   'attachments-gone': 'Briefing files are gone',
   'answer-gone': 'Its answer is gone',
   'repository-gone': 'Repository has left the line',
@@ -483,7 +483,7 @@ const noiseReading = (
 const MEASURED_WITH_ANSWER =
   'If the set’s runs were accepted or sent back, Spotlight measures this with the answer after a replay of the whole set.';
 
-const ANSWER_GIVEN =
+const ANSWER_DEFINITION =
   'Answer: the change people accepted, or what they said when they sent the run back.';
 
 type OracleReading = NonNullable<SetHealth['oracle']>;
@@ -536,7 +536,7 @@ const roomReading = (
       ...base,
       text: 'Measuring with the answer',
       tone: 'pending',
-      advice: `Spotlight replays the live config with each run’s answer. ${ANSWER_GIVEN}`,
+      advice: `Spotlight replays the live config with each run’s answer. ${ANSWER_DEFINITION}`,
     };
   }
   if (oracleLost(oracle)) {
@@ -556,7 +556,7 @@ const roomReading = (
       ...base,
       text: `Too few runs to tell: ${counted(oracle.answered, 'run', 'runs')} with an answer`,
       tone: 'unknown',
-      advice: `Spotlight needs 5 runs that were accepted or sent back to measure room. Please add some to the set. ${ANSWER_GIVEN}`,
+      advice: `Spotlight needs 5 runs that were accepted or sent back to measure room. Please add some to the set. ${ANSWER_DEFINITION}`,
     };
   }
 
@@ -567,13 +567,13 @@ const roomReading = (
         ...base,
         text: `Up to ${formatGain(oracle.gain)} with the answer`,
         tone: 'good',
-        advice: `${rates} A better config can gain up to this much. ${ANSWER_GIVEN}`,
+        advice: `${rates} A better config can gain up to this much. ${ANSWER_DEFINITION}`,
       }
     : {
         ...base,
         text: `Little: ${formatGain(oracle.gain)} with the answer`,
         tone: 'bad',
-        advice: `${rates} Even the answer barely helps. Add tasks that the live config fails, or search for the same success at less cost. ${ANSWER_GIVEN}`,
+        advice: `${rates} Even the answer barely helps. Add tasks that the live config fails, or search for the same success at less cost. ${ANSWER_DEFINITION}`,
       };
 };
 
@@ -635,7 +635,7 @@ const checksReading = (checks: SetHealth['checks']): HealthReading => {
       text: NOT_CHECKED,
       tone: 'unknown',
       advice:
-        'The first baseline of the live config runs the station’s check twice on each change to measure this. It shows whether the check gives the same answer.',
+        'The first baseline of the live config runs the station’s check twice on each change to measure this. It shows whether the check returns the same answer.',
     };
   }
 
@@ -755,7 +755,7 @@ export const OTHER_RUN = 'The other run';
 
 export const READINGS_LABEL = 'Both readings';
 
-export const PAIR_ASKED =
+export const PAIR_REQUESTED =
   'The judge hasn’t compared the changes side by side yet. It compares them when the replay finishes.';
 
 export const PAIRING_SPEND_LABEL = 'Side by side';

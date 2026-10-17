@@ -84,7 +84,7 @@ const finished = async (runId: RunId) => {
 };
 
 describe('journalling a run that was tried again', () => {
-  it('keeps every attempt, even where their entries share a place', async () => {
+  it('stores every attempt, even where their entries share a place', async () => {
     const { runId } = await chatRun();
 
     await journal.append(RunAttempt.of(runId, 1), hooks('one-a', 'one-b'));
@@ -92,7 +92,7 @@ describe('journalling a run that was tried again', () => {
     await journal.append(RunAttempt.of(runId, 2), hooks('two-a'));
     await journal.append(RunAttempt.of(runId, 2), hooks('again'));
 
-    const kept = await db
+    const stored = await db
       .select({
         attempt: schema.runJournalEntry.attempt,
         seq: schema.runJournalEntry.seq,
@@ -102,14 +102,14 @@ describe('journalling a run that was tried again', () => {
       .where(eq(schema.runJournalEntry.runId, runId.value))
       .orderBy(schema.runJournalEntry.attempt, schema.runJournalEntry.seq);
 
-    expect(kept).toEqual([
+    expect(stored).toEqual([
       { attempt: 1, seq: 1, message: 'one-a' },
       { attempt: 1, seq: 2, message: 'one-b' },
       { attempt: 2, seq: 1, message: 'two-a' },
     ]);
   });
 
-  it('replays the stream from the attempt asked for', async () => {
+  it('replays the stream from the attempt requested', async () => {
     const { runId } = await chatRun();
 
     await journal.append(RunAttempt.of(runId, 1), hooks('one-a', 'one-b'));
@@ -171,7 +171,7 @@ describe('digesting a run that paused for a person', () => {
     ).toString('base64'),
   });
 
-  it('counts every attempt it kept, and none of the time it waited', async () => {
+  it('counts every attempt it stored, and none of the time it waited', async () => {
     const { runId } = await chatRun();
 
     await journal.append(RunAttempt.of(runId, 1), [
@@ -209,7 +209,7 @@ describe('digesting the tokens a run used', () => {
     data: Buffer.from(JSON.stringify(usage)).toString('base64'),
   });
 
-  it('adds up the turns of every attempt it kept, count by count', async () => {
+  it('adds up the turns of every attempt it stored, count by count', async () => {
     const { runId } = await chatRun();
 
     await journal.append(RunAttempt.of(runId, 1), [
@@ -299,14 +299,14 @@ describe('journalling aside what happened around a run', () => {
     expect(Math.max(...placed)).toBe(-1_000_000);
     expect(Math.min(...placed)).toBe(-1_000_003);
 
-    const kept = await db
+    const stored = await db
       .select({ seq: schema.runJournalEntry.seq })
       .from(schema.runJournalEntry)
       .where(eq(schema.runJournalEntry.runId, runId.value));
-    expect(kept).toHaveLength(5);
+    expect(stored).toHaveLength(5);
   });
 
-  it('replays what was kept aside whatever the cursor, in time among the runner’s entries', async () => {
+  it('replays what was set aside whatever the cursor, in time among the runner’s entries', async () => {
     const { runId } = await chatRun();
     const attempt = RunAttempt.of(runId, 1);
 
@@ -327,7 +327,7 @@ describe('journalling aside what happened around a run', () => {
     ]);
   });
 
-  it('replays the newest of what was kept aside on a long run', async () => {
+  it('replays the newest of what was set aside on a long run', async () => {
     const { runId } = await chatRun();
     await db.insert(schema.runJournalEntry).values(
       Array.from({ length: 205 }, (_, each) => ({

@@ -79,7 +79,7 @@ describe('memory files', () => {
         'Uploads retry in the request,\nnot from a queue.',
         '',
         '- Applies to: Delivery › Build · acme/api: src/uploads',
-        '- Kept: from a run on task task_1, approved by Ada on 2026-09-21',
+        '- Source: from a run on task task_1, approved by Ada on 2026-09-21',
         '- Replaced M-7, which said: Uploads retry from a queue.',
         '- Read the task it came from with: spotlight trace --task task_1',
         '',
@@ -96,7 +96,7 @@ describe('memory files', () => {
 
     expect(file?.path).toBe('.spotlight/memory/team/M-7.md');
     expect(file?.body).toContain('- Applies to: the whole team');
-    expect(file?.body).toContain('- Kept: written by someone on 2026-09-21');
+    expect(file?.body).toContain('- Source: written by someone on 2026-09-21');
     expect(file?.body).not.toContain('spotlight trace');
   });
 });

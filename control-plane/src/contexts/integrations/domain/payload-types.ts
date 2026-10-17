@@ -1,13 +1,13 @@
 import { HookCreated } from '@integrations/domain/events/hook-created.event';
 import { HookDeleted } from '@integrations/domain/events/hook-deleted.event';
-import { HookDeletionDue } from '@integrations/domain/events/hook-deletion-due.event';
+import { HookDeletionRequested } from '@integrations/domain/events/hook-deletion-requested.event';
 import { HookUpdated } from '@integrations/domain/events/hook-updated.event';
 import { HostConnected } from '@integrations/domain/events/host-connected.event';
 import { HostDisconnected } from '@integrations/domain/events/host-disconnected.event';
 import { HostRefreshFailed } from '@integrations/domain/events/host-refresh-failed.event';
 import { IntegrationCreated } from '@integrations/domain/events/integration-created.event';
 import { IntegrationDeleted } from '@integrations/domain/events/integration-deleted.event';
-import { IntegrationDeletionDue } from '@integrations/domain/events/integration-deletion-due.event';
+import { IntegrationDeletionRequested } from '@integrations/domain/events/integration-deletion-requested.event';
 import { IntegrationReread } from '@integrations/domain/events/integration-reread.event';
 import { IntegrationUpdated } from '@integrations/domain/events/integration-updated.event';
 import { ApprovalNeeded } from '@integrations/domain/value-objects/approval-needed.vo';
@@ -92,14 +92,14 @@ export const INTEGRATIONS_PAYLOAD_TYPES = [
   ToolName,
   ToolUses,
   Webhook,
-  HookDeletionDue,
+  HookDeletionRequested,
   HookCreated,
   HookUpdated,
   HookDeleted,
   HostConnected,
   HostDisconnected,
   HostRefreshFailed,
-  IntegrationDeletionDue,
+  IntegrationDeletionRequested,
   IntegrationCreated,
   IntegrationUpdated,
   IntegrationReread,

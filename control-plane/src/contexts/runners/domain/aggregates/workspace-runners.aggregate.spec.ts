@@ -41,7 +41,7 @@ describe('WorkspaceRunners', () => {
         pools: [],
         by: BY,
       }),
-    ).toThrow('trusts[1] gives production twice');
+    ).toThrow('trusts[1] names production twice');
     expect(() =>
       created().update(
         {

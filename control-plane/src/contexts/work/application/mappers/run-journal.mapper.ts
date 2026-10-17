@@ -23,8 +23,8 @@ export const stepToDto = (step: JournalStep): JournalStepDto => ({
     path: where.path,
     line: where.line,
   })),
-  given: step.given,
-  returned: step.returned,
+  input: step.input,
+  output: step.output,
   change: step.change && {
     path: step.change.path,
     before: step.change.before,

@@ -186,7 +186,7 @@ describe('TaskBriefing', () => {
     );
   });
 
-  it('lists the decisions an earlier run recorded, asking that they still apply', () => {
+  it('lists the decisions an earlier run recorded, and requests a check that they still apply', () => {
     const briefing = brief(triage(), undefined, [
       {
         kind: 'rejected-approach',
@@ -206,7 +206,7 @@ describe('TaskBriefing', () => {
     );
   });
 
-  it('asks a station that records decisions to say them as it works', () => {
+  it('tells a station that records decisions to say them as it works', () => {
     const deciding = Station.of({
       id: StationId.of('station_1'),
       key: StationKey.of('implementation'),
@@ -224,7 +224,7 @@ describe('TaskBriefing', () => {
     expect(briefing).toContain('- a limitation or gap you leave in place;');
   });
 
-  it('asks nothing of the kind where the station records no decisions', () => {
+  it('requests nothing of the kind where the station records no decisions', () => {
     expect(brief(triage())).not.toContain('Say what you decide');
   });
 
@@ -346,8 +346,8 @@ describe('TaskBriefing', () => {
     expect(briefing).toContain('put the question in the note');
   });
 
-  describe('the tools a run is given', () => {
-    const given = (tool: string, offeredBy: string) =>
+  describe('the tools a station enables for a run', () => {
+    const enabled = (tool: string, offeredBy: string) =>
       DeclaredTool.of({
         tool: Tool.of(tool),
         description: 'Does it.',
@@ -356,19 +356,19 @@ describe('TaskBriefing', () => {
 
     it('names the integrations its tools come from, and how to find and call one', () => {
       const briefing = brief(triage(), undefined, [], [], null, [
-        given('linear.issue-create', 'Linear'),
-        given('linear.comment', 'Linear'),
-        given('petstore.pet-add', 'Petstore'),
+        enabled('linear.issue-create', 'Linear'),
+        enabled('linear.comment', 'Linear'),
+        enabled('petstore.pet-add', 'Petstore'),
       ]);
 
       expect(briefing).toContain(
-        '## Tools\n\nYou were given tools from Linear (2) and Petstore (1).',
+        '## Tools\n\nYour station enables tools from Linear (2) and Petstore (1).',
       );
       expect(briefing).toContain('`spotlight tools search "<words>"`');
       expect(briefing).toContain('`spotlight tools describe <tool>`');
     });
 
-    it('says nothing of tools where it was given only Spotlight’s own', () => {
+    it('says nothing of tools where it has only Spotlight’s own enabled', () => {
       const pullRequest = builtInTool(Tool.of('pull-request'))?.declared;
 
       expect(
@@ -389,7 +389,7 @@ describe('TaskBriefing', () => {
     expect(brief(triage())).toContain('puts the task in front of a person');
   });
 
-  describe('the skills a run is given', () => {
+  describe('the skills a station enables for a run', () => {
     const listed = (station: Station) =>
       TaskBriefing.brief({
         task: task(station.id.value).briefed,
@@ -433,7 +433,7 @@ describe('TaskBriefing', () => {
   });
 
   describe('the review comments that wait for a reply', () => {
-    const heard = (body: string, named: string | null) =>
+    const received = (body: string, named: string | null) =>
       TaskNote.of({
         position: NotePosition.of(0),
         station: StationName.of('Code Review'),
@@ -454,8 +454,8 @@ describe('TaskBriefing', () => {
     const reviewed = () =>
       withNotes(
         task('station_1'),
-        heard('The pull request was merged.', null),
-        heard(
+        received('The pull request was merged.', null),
+        received(
           'The pull request was commented on.\n\ncompose.yml:22\npin this.',
           'PRRC_kwDO',
         ),
@@ -489,7 +489,7 @@ describe('TaskBriefing', () => {
   });
 
   describe('what the team has learned', () => {
-    it('gives the memories the team keeps, each by its handle', () => {
+    it('lists the memories that the team approved, each by its handle', () => {
       const briefing = brief(
         triage(),
         undefined,
@@ -510,7 +510,7 @@ describe('TaskBriefing', () => {
       );
     });
 
-    it('says nothing of memory when the team keeps none that bear on it', () => {
+    it('says nothing of memory when the team has approved none that bear on it', () => {
       expect(brief(triage())).not.toContain('What the team has learned');
     });
 
@@ -601,7 +601,7 @@ describe('TaskBriefing', () => {
       expect(briefing).not.toContain('acme/api');
     });
 
-    it('says the workspace is kept from one run and station to the next', () => {
+    it('says the workspace persists from one run and station to the next', () => {
       expect(briefed(task('station_1'))).toContain(
         'The task keeps this workspace from one run and station to the next',
       );

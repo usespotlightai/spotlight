@@ -60,15 +60,15 @@ const signingOf = (value: unknown): HookConfigSigning | null => {
     : null;
 };
 
-const configOf = (teamKey: string, kept: HookRecord): HookConfig => {
-  const definition = kept.definition;
+const configOf = (teamKey: string, record: HookRecord): HookConfig => {
+  const definition = record.definition;
   const match = fieldsIn(definition.match);
 
   return {
-    id: kept.id,
-    address: HookAddress.of(teamKey, HookKey.of(kept.key)).toString(),
-    teamId: kept.teamId,
-    key: kept.key,
+    id: record.id,
+    address: HookAddress.of(teamKey, HookKey.of(record.key)).toString(),
+    teamId: record.teamId,
+    key: record.key,
     on: String(definition.on ?? ''),
     match: {
       tools: textsIn(match.tools),
@@ -98,10 +98,10 @@ export class HookConfigs implements HookConfigsPort {
   ) {}
 
   async withId(id: string): Promise<HookConfig | null> {
-    const kept = await this.resources.withId(id);
-    const team = kept && (await this.teams.find(kept.teamId));
+    const record = await this.resources.withId(id);
+    const team = record && (await this.teams.find(record.teamId));
 
-    return kept && team ? configOf(team.key, kept) : null;
+    return record && team ? configOf(team.key, record) : null;
   }
 
   async ofTeam(teamId: TeamId): Promise<readonly HookConfig[]> {

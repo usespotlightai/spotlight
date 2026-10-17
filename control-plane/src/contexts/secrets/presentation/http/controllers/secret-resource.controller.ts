@@ -87,7 +87,7 @@ const DEFINITION = ApiBody({
         type: 'string',
         writeOnly: true,
         description:
-          'The value to keep; accepted on create and whenever valueWoVersion changes, and never answered',
+          'The value to store; accepted on create and whenever valueWoVersion changes, and never answered',
       },
       valueWoVersion: {
         type: 'integer',

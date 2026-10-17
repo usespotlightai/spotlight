@@ -5,16 +5,16 @@ import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 const MAX_CITED = 20;
 
 const cited = (raw: readonly number[], what: string): number[] => {
-  const kept = [...new Set(raw)].sort((a, b) => a - b);
+  const unique = [...new Set(raw)].sort((a, b) => a - b);
 
   if (
-    kept.length > MAX_CITED ||
-    kept.some((each) => !Number.isInteger(each) || each < 0)
+    unique.length > MAX_CITED ||
+    unique.some((each) => !Number.isInteger(each) || each < 0)
   ) {
     throw new InvalidMemoryError(`cites at most ${MAX_CITED} ${what}`);
   }
 
-  return kept;
+  return unique;
 };
 
 export class MemoryGrounds {

@@ -23,7 +23,7 @@ const (
 	workKind        = "work"
 )
 
-var errStreamingLog = errors.New("this is the log `terraform plan -json` streams, which contains no station blocks; save the plan with `" + planOutCommand + "`, then give this the output of `" + showCommand + "`")
+var errStreamingLog = errors.New("this is the log `terraform plan -json` streams, which contains no station blocks; save the plan with `" + planOutCommand + "`, then pass this the output of `" + showCommand + "`")
 
 type plannedStation struct {
 	Resource  string
@@ -110,7 +110,7 @@ func readPlan(in io.Reader) (planned, error) {
 
 	var first map[string]any
 	if err := decoder.Decode(&first); err != nil {
-		return planned{}, fmt.Errorf("the plan is not JSON; give this the output of `%s`", showCommand)
+		return planned{}, fmt.Errorf("the plan is not JSON; pass this the output of `%s`", showCommand)
 	}
 
 	_, logged := first["@level"]
@@ -122,7 +122,7 @@ func readPlan(in io.Reader) (planned, error) {
 	strict := json.NewDecoder(bytes.NewReader(read))
 	strict.UseNumber()
 	if err := strict.Decode(&shown); err != nil || shown.FormatVersion == "" {
-		return planned{}, fmt.Errorf("this is not a saved plan shown as JSON; give this the output of `%s`", showCommand)
+		return planned{}, fmt.Errorf("this is not a saved plan shown as JSON; pass this the output of `%s`", showCommand)
 	}
 
 	var lines []resourceChange
@@ -269,7 +269,7 @@ func (p *planned) add(change resourceChange, catalog []catalogChange) {
 	var removed []string
 	if actions == "update" {
 		for _, key := range sortedKeys(was) {
-			if _, kept := now[key]; !kept {
+			if _, present := now[key]; !present {
 				p.note("%s removes station %s, which leaves nothing to replay", change.Address, key)
 				if kind, _ := was[key].values["kind"].(string); kind == workKind {
 					removed = append(removed, key)
@@ -560,8 +560,8 @@ func normalised(node any) any {
 	case map[string]any:
 		out := map[string]any{}
 		for key, each := range value {
-			if kept := normalised(each); kept != nil {
-				out[key] = kept
+			if normal := normalised(each); normal != nil {
+				out[key] = normal
 			}
 		}
 		if len(out) == 0 {

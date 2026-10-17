@@ -93,17 +93,17 @@ const onGitHub = (githubId: number, body = 'Earlier') =>
   });
 
 describe('ReceiveReviewComment', () => {
-  it('keeps a comment made on GitHub, on its line', async () => {
+  it('stores a comment made on GitHub, on its line', async () => {
     const { service, comments } = receiving();
 
     await service.receive(noticed({ side: 'old' }));
 
-    const [kept] = [...comments.values()];
-    expect(kept?.state).toBe('posted');
-    expect(kept?.anchor.lines?.side).toBe('old');
-    expect(kept?.anchor.lines?.line).toBe(12);
-    expect(kept?.author.equals(ReviewAuthor.onGitHub('octocat'))).toBe(true);
-    expect(kept?.github?.id).toBe(300);
+    const [stored] = [...comments.values()];
+    expect(stored?.state).toBe('posted');
+    expect(stored?.anchor.lines?.side).toBe('old');
+    expect(stored?.anchor.lines?.line).toBe(12);
+    expect(stored?.author.equals(ReviewAuthor.onGitHub('octocat'))).toBe(true);
+    expect(stored?.github?.id).toBe(300);
   });
 
   it('threads a reply under the comment it answers', async () => {
@@ -114,7 +114,7 @@ describe('ReceiveReviewComment', () => {
     expect(comments.get('comment_new_1')?.replyTo?.value).toBe('comment_200');
   });
 
-  it('keeps nothing twice', async () => {
+  it('stores nothing twice', async () => {
     const { service, comments } = receiving([onGitHub(300)]);
 
     await service.receive(noticed());
@@ -195,13 +195,13 @@ describe('ReceiveReviewComment', () => {
     expect(comments.get('comment_mine')?.editPending).toBe(true);
   });
 
-  it('keeps a comment made on GitHub on the whole file', async () => {
+  it('stores a comment made on GitHub on the whole file', async () => {
     const { service, comments } = receiving();
 
     await service.receive(noticed({ subject: 'file' }));
 
-    const [kept] = [...comments.values()];
-    expect(kept?.anchor.wholeFile).toBe(true);
+    const [stored] = [...comments.values()];
+    expect(stored?.anchor.wholeFile).toBe(true);
   });
 
   it('never takes a comment on lines GitHub no longer places for one on the whole file', async () => {

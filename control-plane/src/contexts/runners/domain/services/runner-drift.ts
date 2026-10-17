@@ -1,4 +1,4 @@
-export interface WaysIn {
+export interface CredentialSourceKeys {
   readonly trusts: readonly string[];
   readonly pools: readonly string[];
 }
@@ -15,8 +15,10 @@ export interface RunnerDrift {
 
 export const driftBetween = (
   declared: DeclaredRunners,
-  waysIn: WaysIn,
+  existing: CredentialSourceKeys,
 ): RunnerDrift => ({
-  unknownTrusts: declared.trusts.filter((key) => !waysIn.trusts.includes(key)),
-  unknownPools: declared.pools.filter((key) => !waysIn.pools.includes(key)),
+  unknownTrusts: declared.trusts.filter(
+    (key) => !existing.trusts.includes(key),
+  ),
+  unknownPools: declared.pools.filter((key) => !existing.pools.includes(key)),
 });

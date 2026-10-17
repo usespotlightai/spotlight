@@ -190,7 +190,7 @@ describe('TaskAside', () => {
       ).toBe(false);
     });
 
-    it('needs only the access its form asks for', () => {
+    it('needs only the access its form requires', () => {
       expect(TaskAside.requiredAccess('memories')).toBe('seesTeam');
       expect(TaskAside.requiredAccess('grade')).toBe('readsTeamOutcomes');
       expect(TaskAside.requiredAccess('alert')).toBe('readsTeamOutcomes');

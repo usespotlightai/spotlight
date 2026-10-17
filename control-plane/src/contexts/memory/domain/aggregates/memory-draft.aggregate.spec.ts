@@ -5,8 +5,8 @@ import {
 } from '@memory/domain/entities/memory-proposal.entity';
 import { MemoriesProposed } from '@memory/domain/events/memories-proposed.event';
 import { MemoryApproved } from '@memory/domain/events/memory-approved.event';
-import { MemoryDraftingAsked } from '@memory/domain/events/memory-drafting-asked.event';
 import { MemoryDraftingFailed } from '@memory/domain/events/memory-drafting-failed.event';
+import { MemoryDraftingRequested } from '@memory/domain/events/memory-drafting-requested.event';
 import { MemoryReviewResolved } from '@memory/domain/events/memory-review-resolved.event';
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
 import { MemoryAlreadyDecidedError } from '@memory/domain/exceptions/memory-already-decided.error';
@@ -68,7 +68,7 @@ const evidence = (
 const remembered = (change: Partial<ProposedMemory> = {}): ProposedMemory => ({
   kind: 'rejected-approach',
   body: 'Retrying uploads from a queue needs a worker the service does not run.',
-  reach: 'station',
+  scope: 'station',
   repository: 'acme/api',
   paths: ['src/uploads.ts'],
   steps: [5],
@@ -125,40 +125,46 @@ const rejected = (id: string) =>
   });
 
 describe('MemoryDraft', () => {
-  describe('being asked to draft', () => {
+  describe('a drafting request', () => {
     it('has a pending job to draft the run that ended', () => {
-      const asked = created().asked(FIRST, NOW);
+      const requested = created().requestDrafting(FIRST, NOW);
 
-      expect(asked.hasPendingJob).toBe(true);
-      expect(asked.drafting?.isFor(FIRST)).toBe(true);
-      expect(asked.pullEvents()).toEqual([
-        new MemoryDraftingAsked(asked.id, TASK, FIRST),
+      expect(requested.hasPendingJob).toBe(true);
+      expect(requested.drafting?.isFor(FIRST)).toBe(true);
+      expect(requested.pullEvents()).toEqual([
+        new MemoryDraftingRequested(requested.id, TASK, FIRST),
       ]);
     });
 
-    it('is asked once for a run, however often its ending is heard', () => {
-      const asked = created().asked(FIRST, NOW);
-      asked.pullEvents();
+    it('is requested once for a run, however often its ending arrives', () => {
+      const requested = created().requestDrafting(FIRST, NOW);
+      requested.pullEvents();
 
-      expect(asked.asked(FIRST, LATER)).toBe(asked);
+      expect(requested.requestDrafting(FIRST, LATER)).toBe(requested);
     });
 
     it('drafts the latest run when a later one ends before the earlier is drafted', () => {
-      const asked = created().asked(FIRST, NOW).asked(SECOND, LATER);
+      const requested = created()
+        .requestDrafting(FIRST, NOW)
+        .requestDrafting(SECOND, LATER);
 
-      expect(asked.drafting?.isFor(SECOND)).toBe(true);
+      expect(requested.drafting?.isFor(SECOND)).toBe(true);
     });
 
-    it('is not asked again for a run it already drafted', () => {
-      const drafted = drafting(created().asked(FIRST, NOW), FIRST, []);
+    it('is not requested again for a run it already drafted', () => {
+      const drafted = drafting(
+        created().requestDrafting(FIRST, NOW),
+        FIRST,
+        [],
+      );
 
-      expect(drafted.asked(FIRST, LATER).hasPendingJob).toBe(false);
+      expect(drafted.requestDrafting(FIRST, LATER).hasPendingJob).toBe(false);
     });
   });
 
   describe('drafting', () => {
     it('proposes what the evidence grounds and drops what it does not', () => {
-      const drafted = drafting(created().asked(FIRST, NOW), FIRST, [
+      const drafted = drafting(created().requestDrafting(FIRST, NOW), FIRST, [
         remembered(),
         remembered({ steps: [9] }),
         remembered({ paths: ['src/elsewhere.ts'] }),
@@ -175,7 +181,7 @@ describe('MemoryDraft', () => {
     });
 
     it('replaces the proposals an earlier run left and keeps the rejected ones', () => {
-      const first = drafting(created().asked(FIRST, NOW), FIRST, [
+      const first = drafting(created().requestDrafting(FIRST, NOW), FIRST, [
         remembered(),
         remembered({ body: 'The staging bucket rejects uploads over 5 GB.' }),
       ]);
@@ -191,7 +197,7 @@ describe('MemoryDraft', () => {
         version: 1,
       });
 
-      const second = drafting(existing.asked(SECOND, LATER), SECOND, [
+      const second = drafting(existing.requestDrafting(SECOND, LATER), SECOND, [
         remembered({ kind: 'environment', body: 'CI has no network.' }),
       ]);
 
@@ -205,11 +211,11 @@ describe('MemoryDraft', () => {
     });
 
     it('keeps the proposals still waiting for a person when a later run brought nothing to read', () => {
-      const first = drafting(created().asked(FIRST, NOW), FIRST, [
+      const first = drafting(created().requestDrafting(FIRST, NOW), FIRST, [
         remembered(),
       ]);
 
-      const quiet = first.asked(SECOND, LATER).recordDraft({
+      const quiet = first.requestDrafting(SECOND, LATER).recordDraft({
         runId: SECOND,
         proposed: [],
         evidence: DraftEvidence.of({
@@ -240,10 +246,10 @@ describe('MemoryDraft', () => {
     });
 
     it('does not draft from the evidence of another task or run', () => {
-      const asked = created().asked(FIRST, NOW);
+      const requested = created().requestDrafting(FIRST, NOW);
 
       expect(() =>
-        asked.recordDraft({
+        requested.recordDraft({
           runId: FIRST,
           proposed: [remembered()],
           evidence: evidence(SECOND),
@@ -254,14 +260,14 @@ describe('MemoryDraft', () => {
     });
 
     it('ignores a draft of a run that it no longer waits for', () => {
-      const asked = created().asked(SECOND, NOW);
+      const requested = created().requestDrafting(SECOND, NOW);
 
-      expect(drafting(asked, FIRST, [remembered()])).toBe(asked);
+      expect(drafting(requested, FIRST, [remembered()])).toBe(requested);
     });
 
     it('reads a note once, unless a proposal still waiting for a person cites it', () => {
       const drafted = drafting(
-        created().asked(FIRST, NOW),
+        created().requestDrafting(FIRST, NOW),
         FIRST,
         [remembered({ steps: [], notes: [4] })],
         [
@@ -277,7 +283,12 @@ describe('MemoryDraft', () => {
     });
 
     it('keeps its place in the notes when a run brought none', () => {
-      const drafted = drafting(created().asked(FIRST, NOW), FIRST, [], []);
+      const drafted = drafting(
+        created().requestDrafting(FIRST, NOW),
+        FIRST,
+        [],
+        [],
+      );
 
       expect(drafted.notesRead).toBe(0);
     });
@@ -285,7 +296,7 @@ describe('MemoryDraft', () => {
 
   describe('failing', () => {
     it('is retried later where the failure allows another attempt', () => {
-      const leased = created().asked(FIRST, NOW).leaseJob(NOW);
+      const leased = created().requestDrafting(FIRST, NOW).leaseJob(NOW);
 
       const failed = leased.failed(
         MemoryDraftingFailure.of('request-failed', NOW),
@@ -301,7 +312,7 @@ describe('MemoryDraft', () => {
     });
 
     it('keeps nothing and says why when the failure allows no other attempt', () => {
-      const leased = created().asked(FIRST, NOW).leaseJob(NOW);
+      const leased = created().requestDrafting(FIRST, NOW).leaseJob(NOW);
       const failure = MemoryDraftingFailure.of('no-evidence', NOW);
 
       const failed = leased.failed(failure);
@@ -315,7 +326,7 @@ describe('MemoryDraft', () => {
     });
 
     it('ends with the failure once it has used every attempt the failure allows', () => {
-      let draft = created().asked(FIRST, NOW);
+      let draft = created().requestDrafting(FIRST, NOW);
       let at = NOW;
 
       for (let attempt = 1; attempt < 3; attempt += 1) {
@@ -334,7 +345,7 @@ describe('MemoryDraft', () => {
     });
 
     it('is dead-lettered as interrupted when its leases keep running out', () => {
-      let draft = created().asked(FIRST, NOW);
+      let draft = created().requestDrafting(FIRST, NOW);
       let at = NOW;
 
       for (let attempt = 0; attempt < MAX_JOB_ATTEMPTS; attempt += 1) {
@@ -348,18 +359,22 @@ describe('MemoryDraft', () => {
 
     it('clears a failure once a later draft succeeds', () => {
       const failed = created()
-        .asked(FIRST, NOW)
+        .requestDrafting(FIRST, NOW)
         .leaseJob(NOW)
         .failed(MemoryDraftingFailure.of('no-evidence', NOW));
 
-      const drafted = drafting(failed.asked(SECOND, LATER), SECOND, []);
+      const drafted = drafting(
+        failed.requestDrafting(SECOND, LATER),
+        SECOND,
+        [],
+      );
 
       expect(drafted.failure).toBeNull();
     });
 
     it('cannot be leased before it is due', () => {
       const waiting = created()
-        .asked(FIRST, NOW)
+        .requestDrafting(FIRST, NOW)
         .leaseJob(NOW)
         .failed(MemoryDraftingFailure.of('request-failed', NOW));
 
@@ -371,7 +386,7 @@ describe('MemoryDraft', () => {
     const ADA = MemoryDecision.of({ by: UserId.of('user_ada'), at: LATER });
 
     const three = () => {
-      const draft = drafting(created().asked(FIRST, NOW), FIRST, [
+      const draft = drafting(created().requestDrafting(FIRST, NOW), FIRST, [
         remembered({ body: 'First.' }),
         remembered({ body: 'Second.' }),
         remembered({ body: 'Third.' }),
@@ -382,7 +397,7 @@ describe('MemoryDraft', () => {
 
     const outside = () => {
       const draft = created()
-        .asked(FIRST, NOW)
+        .requestDrafting(FIRST, NOW)
         .recordDraft({
           runId: FIRST,
           proposed: [
@@ -491,7 +506,7 @@ describe('MemoryDraft', () => {
       ).toBe('approved');
     });
 
-    it('rejects a memory and keeps it, announcing nothing to keep', () => {
+    it('rejects a memory and stores it, announcing no approval', () => {
       const draft = three();
 
       const rejected = draft.reject({
@@ -574,7 +589,7 @@ describe('MemoryDraft', () => {
     it('resolves an earlier run’s review when a later run replaces what it left undecided', () => {
       const draft = three();
 
-      const later = drafting(draft.asked(SECOND, LATER), SECOND, [
+      const later = drafting(draft.requestDrafting(SECOND, LATER), SECOND, [
         remembered({ body: 'Later.' }),
       ]);
 
@@ -596,7 +611,11 @@ describe('MemoryDraft', () => {
         })
         .reject({ runId: FIRST, id: idOf(draft, 1), decision: ADA });
 
-      const later = drafting(decided.asked(SECOND, LATER), SECOND, []);
+      const later = drafting(
+        decided.requestDrafting(SECOND, LATER),
+        SECOND,
+        [],
+      );
 
       expect(later.proposals.map((each) => each.state)).toEqual([
         'approved',
@@ -606,10 +625,10 @@ describe('MemoryDraft', () => {
   });
 
   describe('remembering', () => {
-    const asked = (
+    const proposedByRun = (
       runId: RunId,
       body = 'Uploads retry in the request, not from a queue.',
-      id = 'memory_asked',
+      id = 'memory_remembered',
     ) =>
       Remembering.of({
         taskId: TASK,
@@ -621,7 +640,7 @@ describe('MemoryDraft', () => {
         remembered: {
           kind: 'rationale',
           body,
-          reach: null,
+          scope: null,
           paths: [],
           supersedes: null,
         },
@@ -639,11 +658,11 @@ describe('MemoryDraft', () => {
         now: NOW,
       });
 
-    it('takes in what a run asked to remember and puts it to a person', () => {
-      const draft = created().remember(asked(FIRST));
+    it('takes in what a run proposed to remember and puts it to a person', () => {
+      const draft = created().remember(proposedByRun(FIRST));
 
       expect(draft.proposals.map((each) => each.id.value)).toEqual([
-        'memory_asked',
+        'memory_remembered',
       ]);
       expect(draft.stepsRemembered(FIRST)).toEqual([3]);
       expect(draft.pullEvents()).toEqual([
@@ -652,16 +671,16 @@ describe('MemoryDraft', () => {
     });
 
     it('takes in the same memory from the same run only once', () => {
-      const draft = created().remember(asked(FIRST));
+      const draft = created().remember(proposedByRun(FIRST));
       draft.pullEvents();
-      const again = asked(FIRST, undefined, 'memory_again');
+      const again = proposedByRun(FIRST, undefined, 'memory_again');
 
       expect(draft.remember(again)).toBe(draft);
-      expect(draft.findProposal(again)?.id.value).toBe('memory_asked');
+      expect(draft.findProposal(again)?.id.value).toBe('memory_remembered');
     });
 
     it('rejects a drafted proposal, or one of another task', () => {
-      const [drafted] = drafting(created().asked(FIRST, NOW), FIRST, [
+      const [drafted] = drafting(created().requestDrafting(FIRST, NOW), FIRST, [
         remembered(),
       ]).proposals;
       if (!drafted) {
@@ -674,14 +693,14 @@ describe('MemoryDraft', () => {
           id: MemoryDraftId.of('draft_2'),
           taskId: TaskId.of('task_other'),
           workspaceId: WorkspaceId.of('ws_1'),
-        }).remember(asked(FIRST)),
+        }).remember(proposedByRun(FIRST)),
       ).toThrow(InvalidMemoryError);
     });
 
-    it('drafts nothing the run already asked to remember in the same words', () => {
+    it('drafts nothing the run already proposed to remember in the same words', () => {
       const draft = created()
-        .remember(asked(FIRST, remembered().body))
-        .asked(FIRST, NOW);
+        .remember(proposedByRun(FIRST, remembered().body))
+        .requestDrafting(FIRST, NOW);
       draft.pullEvents();
 
       const drafted = drafting(draft, FIRST, [
@@ -695,10 +714,10 @@ describe('MemoryDraft', () => {
 
     it('keeps what a run remembered when a later draft replaces the rest', () => {
       const draft = drafting(
-        created().remember(asked(FIRST)).asked(FIRST, NOW),
+        created().remember(proposedByRun(FIRST)).requestDrafting(FIRST, NOW),
         FIRST,
         [remembered()],
-      ).asked(SECOND, LATER);
+      ).requestDrafting(SECOND, LATER);
       draft.pullEvents();
 
       const redrafted = drafting(draft, SECOND, [remembered()]);

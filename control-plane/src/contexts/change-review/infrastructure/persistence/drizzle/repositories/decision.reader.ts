@@ -82,11 +82,11 @@ const decisionsIn = (
   set: DecisionSetRow,
   decisions: readonly DecisionRow[],
   disputes: readonly DisputeRow[],
-  kept: (row: DecisionRow) => boolean = () => true,
+  included: (row: DecisionRow) => boolean = () => true,
 ): DecisionDto[] =>
   ranked(
     decisions
-      .filter((each) => each.setId === set.id && kept(each))
+      .filter((each) => each.setId === set.id && included(each))
       .map((each) => toDecision(each, disputes)),
   );
 

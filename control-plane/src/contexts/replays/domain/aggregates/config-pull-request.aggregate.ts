@@ -1,6 +1,6 @@
 import type { ReplayedStation } from '@replays/domain/aggregates/replay-set.aggregate';
 import { ConfigPullRequestOpened } from '@replays/domain/events/config-pull-request-opened.event';
-import { ConfigPullRequestWanted } from '@replays/domain/events/config-pull-request-wanted.event';
+import { ConfigPullRequestRequested } from '@replays/domain/events/config-pull-request-requested.event';
 import type { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { ConfigPullRequestDetail } from '@replays/domain/value-objects/config-pull-request-detail.vo';
 import type { ConfigPullRequestId } from '@replays/domain/value-objects/config-pull-request-id.vo';
@@ -377,7 +377,7 @@ export class ConfigPullRequest extends EventRecorder {
   private wanted(
     action: 'created' | 'updated',
     by: Attribution,
-  ): ConfigPullRequestWanted {
+  ): ConfigPullRequestRequested {
     const changed = {
       resource: 'config-pull-request' as const,
       id: this.state.id.value,
@@ -390,7 +390,7 @@ export class ConfigPullRequest extends EventRecorder {
       attempt: this.state.attempts,
     });
 
-    return new ConfigPullRequestWanted(
+    return new ConfigPullRequestRequested(
       this.state.id,
       this.teamId,
       this.state.attempts,

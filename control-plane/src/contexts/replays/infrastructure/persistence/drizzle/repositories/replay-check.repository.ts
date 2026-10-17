@@ -42,7 +42,7 @@ const scoringFieldOf = (raw: string): ScoringField => {
   if (!field) {
     throw new InconsistentStateError(
       'replay check',
-      `kept a part of the live station no longer known, ${raw}`,
+      `pinned a part of the live station no longer known, ${raw}`,
     );
   }
 
@@ -85,7 +85,7 @@ const toCheck = (row: CheckRow): ReplayCheck =>
       minGain: row.minGain,
     }),
     repeats: row.repeats,
-    keptLive: row.keptLive.map(scoringFieldOf),
+    scoringPinnedToLive: row.scoringPinnedToLive.map(scoringFieldOf),
     baseline: row.baseline,
     createdAt: row.createdAt,
   });
@@ -202,7 +202,7 @@ export class DrizzleReplayCheckRepository implements ReplayCheckRepository {
           ceilingCurrency: added.threshold.ceiling.currency,
           minGain: added.threshold.minGain,
           repeats: added.repeats,
-          keptLive: [...added.keptLive],
+          scoringPinnedToLive: [...added.scoringPinnedToLive],
           baseline: added.baseline,
           createdAt: added.createdAt,
         })

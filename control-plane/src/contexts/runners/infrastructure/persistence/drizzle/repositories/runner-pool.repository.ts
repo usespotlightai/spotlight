@@ -77,7 +77,7 @@ const accessOf = (row: Row): PoolAccess => {
 
   throw new InconsistentStateError(
     'runner pool',
-    'was kept neither pulled from nor provisioning',
+    'is neither pulled from nor provisioning',
   );
 };
 

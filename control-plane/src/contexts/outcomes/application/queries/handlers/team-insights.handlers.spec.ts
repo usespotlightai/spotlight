@@ -28,7 +28,7 @@ import {
   TaskDeliveriesInMemory,
   WORKSPACE,
 } from '@outcomes/domain/outcomes.fake-spec';
-import type { RunFilterAsked } from '@outcomes/domain/services/run-filter';
+import type { RunFilterQuery } from '@outcomes/domain/services/run-filter';
 import { RunTools } from '@outcomes/domain/value-objects/run-tools.vo';
 import { LatencyHistogram } from '@shared-kernel/domain/value-objects/latency-histogram.vo';
 import {
@@ -53,7 +53,7 @@ const READ_TOKEN = TokenPrincipal.of({
 
 const STRANGER = PersonPrincipal.of(UserId.of('user_eve'));
 
-const ANY: RunFilterAsked = {
+const ANY: RunFilterQuery = {
   lineId: null,
   stationId: null,
   outcome: null,
@@ -66,7 +66,7 @@ const ANY: RunFilterAsked = {
   personId: null,
   day: null,
   week: null,
-  skillGiven: null,
+  skillEnabled: null,
   skillUsed: null,
   server: null,
   serverFailed: null,
@@ -262,13 +262,13 @@ describe('the team’s insights', () => {
 
   it('reads which skills and servers the period’s runs used from what each run was digested with', async () => {
     const { scopes, reader, records } = await insights();
-    const asked: string[] = [];
+    const requested: string[] = [];
     const work: WorkPort = {
       endedRun: async () => null,
       configsInOrder: async () => [],
       teamRepositories: async () => [],
       teamSkillKeys: async (teamId) => {
-        asked.push(teamId);
+        requested.push(teamId);
         return ['grafana', 'release-notes'];
       },
       alertsAt: async () => null,
@@ -299,7 +299,7 @@ describe('the team’s insights', () => {
       work,
     ).execute(new ReadInsightsToolsQuery('team_1', READ_TOKEN, '7d'));
 
-    expect(asked).toEqual(['team_1']);
+    expect(requested).toEqual(['team_1']);
     expect(tools.runs).toBe(4);
     expect(tools.weeks).toEqual(['2026-09-21', '2026-09-28']);
     expect(tools.trendRule).toEqual({

@@ -26,8 +26,8 @@ func remembering(t *testing.T, remember agentapi.Rememberer) (*agentapi.Server, 
 	server := serve(t)
 	var recalled []protocol.RecallRequest
 	server.Memories(
-		func(_ context.Context, asked protocol.RecallRequest) (json.RawMessage, error) {
-			recalled = append(recalled, asked)
+		func(_ context.Context, received protocol.RecallRequest) (json.RawMessage, error) {
+			recalled = append(recalled, received)
 			return json.RawMessage(`[{"handle":"M-1"}]`), nil
 		},
 		remember,
@@ -61,8 +61,8 @@ func TestRejectsARecallOfNothing(t *testing.T) {
 
 func TestCarriesAMemoryToSpotlight(t *testing.T) {
 	var got protocol.Remembering
-	server, _ := remembering(t, func(_ context.Context, asked protocol.Remembering) (json.RawMessage, error) {
-		got = asked
+	server, _ := remembering(t, func(_ context.Context, received protocol.Remembering) (json.RawMessage, error) {
+		got = received
 		return json.RawMessage(`{"kind":"rationale"}`), nil
 	})
 

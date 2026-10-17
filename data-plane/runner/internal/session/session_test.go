@@ -52,7 +52,7 @@ type journal struct {
 	drafted          []drafted
 	decision         string
 	asked            []protocol.PermissionAsked
-	archives         *keptArchives
+	archives         *archives
 	remembered       []remembered
 	memory           []protocol.MemoryFile
 	memoryErr        error
@@ -63,8 +63,8 @@ type journal struct {
 }
 
 type remembered struct {
-	asked   protocol.Remembering
-	journal []protocol.Event
+	received protocol.Remembering
+	journal  []protocol.Event
 }
 
 func (j *journal) AppendEvents(_ context.Context, _ string, events []protocol.Event) error {
@@ -91,10 +91,10 @@ func (j *journal) RenewLease(context.Context, string) (bool, error) {
 	return (j.stopAfter > 0 && j.renewals >= j.stopAfter) || (j.stopWhileWaiting && j.paused), nil
 }
 
-func (j *journal) Asks(_ context.Context, _ string, _ protocol.Completion) (bool, error) {
+func (j *journal) AwaitsPerson(_ context.Context, _ string, _ protocol.Completion) (bool, error) {
 	j.mu.Lock()
 	defer j.mu.Unlock()
-	j.calls = append(j.calls, "asks")
+	j.calls = append(j.calls, "awaits-person")
 	return !j.noWait && len(j.waits) > 0 && j.waits[0], nil
 }
 
@@ -193,12 +193,12 @@ func (j *journal) RecallMemory(
 }
 
 func (j *journal) Remember(
-	_ context.Context, _ string, asked protocol.Remembering,
+	_ context.Context, _ string, received protocol.Remembering,
 ) (json.RawMessage, error) {
 	j.mu.Lock()
 	defer j.mu.Unlock()
-	j.remembered = append(j.remembered, remembered{asked: asked, journal: slices.Clone(j.events)})
-	return json.Marshal(map[string]string{"kind": asked.Kind, "body": asked.Body})
+	j.remembered = append(j.remembered, remembered{received: received, journal: slices.Clone(j.events)})
+	return json.Marshal(map[string]string{"kind": received.Kind, "body": received.Body})
 }
 
 func (j *journal) ProposeCandidate(
@@ -291,7 +291,7 @@ func (j *journal) GrantArchive(
 	j.calls = append(j.calls, "archive")
 	j.mu.Unlock()
 	if j.archives == nil {
-		return protocol.ArchiveGrant{}, errors.New("422 Unprocessable Entity: nowhere to keep one")
+		return protocol.ArchiveGrant{}, errors.New("422 Unprocessable Entity: nowhere to store one")
 	}
 	return j.archives.grant(size, sha256), nil
 }
@@ -433,7 +433,7 @@ type runOptions struct {
 	files       map[string]string
 	setup       protocol.HarnessSetup
 	decision    string
-	archives    *keptArchives
+	archives    *archives
 	memory      []protocol.MemoryFile
 	memoryErr   error
 	starting    bool
@@ -520,7 +520,7 @@ func agentOutput(t *testing.T, written *journal) string {
 			} `json:"update"`
 		}
 		if err := json.Unmarshal(event.Data, &update); err != nil {
-			t.Fatalf("the journal kept something that is not an update: %v", err)
+			t.Fatalf("the journal recorded something that is not an update: %v", err)
 		}
 		output.WriteString(update.Update.Content.Text)
 	}
@@ -542,12 +542,12 @@ func TestTakesARunFromNothingToAnOutcome(t *testing.T) {
 	}
 }
 
-func TestKeepsTheAgentsOutputAsItWasWritten(t *testing.T) {
+func TestRecordsTheAgentsOutputAsItWasWritten(t *testing.T) {
 	written := run(t, harness(t, `output = "structured";`, "end_turn"))
 
 	output := written.typed(protocol.EventOutput)
 	if len(output) == 0 {
-		t.Fatal("nothing was kept")
+		t.Fatal("nothing was recorded")
 	}
 
 	var update map[string]any
@@ -555,11 +555,11 @@ func TestKeepsTheAgentsOutputAsItWasWritten(t *testing.T) {
 		t.Fatalf("not readable as an update: %v", err)
 	}
 	if _, ok := update["update"]; !ok {
-		t.Errorf("kept %v, which is not a session update", update)
+		t.Errorf("recorded %v, which is not a session update", update)
 	}
 }
 
-func TestWhatATurnUsedIsKeptAsTheHarnessReportedIt(t *testing.T) {
+func TestWhatATurnUsedIsRecordedAsTheHarnessReportedIt(t *testing.T) {
 	written := run(t, harness(t, `output = "cached"; usage = { totalTokens: 20, inputTokens: 3, outputTokens: 5, cachedReadTokens: 12 };`, "end_turn"))
 
 	used := written.typed(protocol.EventUsage)
@@ -572,18 +572,18 @@ func TestWhatATurnUsedIsKeptAsTheHarnessReportedIt(t *testing.T) {
 		t.Fatalf("not readable as usage: %v", err)
 	}
 	if usage["cachedReadTokens"] != float64(12) {
-		t.Errorf("kept %v", usage)
+		t.Errorf("recorded %v", usage)
 	}
 	if _, found := usage["cachedWriteTokens"]; found {
-		t.Errorf("kept a cache write the harness never reported: %v", usage)
+		t.Errorf("recorded a cache write the harness never reported: %v", usage)
 	}
 }
 
-func TestATurnThatReportsNoUsageKeepsNone(t *testing.T) {
+func TestATurnThatReportsNoUsageRecordsNone(t *testing.T) {
 	written := run(t, harness(t, `output = "quiet";`, "end_turn"))
 
 	if used := written.typed(protocol.EventUsage); len(used) != 0 {
-		t.Errorf("kept usage nobody reported: %v", used)
+		t.Errorf("recorded usage nobody reported: %v", used)
 	}
 }
 
@@ -677,7 +677,7 @@ func TestARunWithoutItsWayOutFailsBeforeTheAgentStarts(t *testing.T) {
 	}
 }
 
-func TestTheAgentIsGivenItsOwnAccount(t *testing.T) {
+func TestTheAgentGetsItsOwnAccount(t *testing.T) {
 	if os.Getuid() != 0 {
 		t.Skip("dropping to another user needs root")
 	}
@@ -707,7 +707,7 @@ func TestTheAgentIsGivenItsOwnAccount(t *testing.T) {
 	}
 }
 
-func TestWhatTheAgentHandsOverReachesTheCompletion(t *testing.T) {
+func TestWhatTheAgentHandsOverGoesIntoTheCompletion(t *testing.T) {
 	handingOver := `execSync(` + "`" +
 		`${process.env.SPOTLIGHT_AGENT_API_URL ? "" : "no url"} node -e '
       const body = JSON.stringify({ next: "Spec", note: "needs a spec" });
@@ -748,18 +748,18 @@ func TestTheAgentRemembersThroughItsRunAfterItsStepsAreJournalled(t *testing.T) 
 	if len(written.remembered) != 1 {
 		t.Fatalf("remembered %+v", written.remembered)
 	}
-	if got := written.remembered[0].asked; got.Kind != "rationale" || got.Body != "Retry in the request." {
+	if got := written.remembered[0].received; got.Kind != "rationale" || got.Body != "Retry in the request." {
 		t.Errorf("remembered %+v", got)
 	}
 	stepped := slices.ContainsFunc(written.remembered[0].journal, func(event protocol.Event) bool {
 		return strings.Contains(string(event.Data), "toolu_remember")
 	})
 	if !stepped {
-		t.Error("the step the agent remembered from should reach the journal before the memory does")
+		t.Error("the step the agent remembered from should be in the journal before the memory is")
 	}
 }
 
-func TestARecallReachesSpotlightAndTheTraceAsASpan(t *testing.T) {
+func TestARecallGoesToSpotlightAndToTheTraceAsASpan(t *testing.T) {
 	recalling := `execSync(` + "`" +
 		`node -e '
       fetch(process.env.SPOTLIGHT_AGENT_API_URL + "recall", {
@@ -778,12 +778,12 @@ func TestARecallReachesSpotlightAndTheTraceAsASpan(t *testing.T) {
 	}
 }
 
-func TestTheBriefingReachesTheAgent(t *testing.T) {
+func TestTheBriefingGoesToTheAgent(t *testing.T) {
 	written := run(t, harness(t, `output = msg.params.prompt[0].text;`, "end_turn"),
 		func(o *runOptions) { o.briefing = "## Fix the queue" })
 
 	if output := agentOutput(t, written); output != "## Fix the queue" {
-		t.Errorf("the agent was asked %q", output)
+		t.Errorf("the agent was prompted with %q", output)
 	}
 }
 
@@ -796,7 +796,7 @@ func TestTheWorkspaceGoesWithTheRun(t *testing.T) {
 	}
 }
 
-func TestTakesUpTheSessionItWasGiven(t *testing.T) {
+func TestTakesUpTheSessionInTheSpec(t *testing.T) {
 	written := run(t, harness(t, `output = sessionId;`, "end_turn"), func(o *runOptions) {
 		o.continuity = protocol.Continuity{SessionID: "session_known"}
 	})
@@ -840,7 +840,7 @@ func TestDisposesOfTheWorkspaceAfterTheRun(t *testing.T) {
 	}
 }
 
-func TestExpandsTheStateDirectoryIntoWhatTheHarnessIsGiven(t *testing.T) {
+func TestExpandsTheStateDirectoryIntoWhatTheHarnessGets(t *testing.T) {
 	root := t.TempDir()
 
 	written := run(t, harness(t, `output = process.env.HARNESS_STATE_DIR ?? "unset";`, "end_turn"), func(o *runOptions) {
@@ -884,7 +884,7 @@ func TestJournalsWhetherEgressIsEnforcedBeforeTheHarnessStarts(t *testing.T) {
 	}
 }
 
-func TestWhatAPersonSaysReachesTheAgentAsAnotherTurn(t *testing.T) {
+func TestWhatAPersonSaysGoesToTheAgentAsAnotherTurn(t *testing.T) {
 	written := run(t, harness(t, `output = JSON.stringify(msg.params.prompt);`, "end_turn"),
 		func(o *runOptions) {
 			o.briefing = "the first thing"
@@ -1079,7 +1079,7 @@ func TestAMemoryFileThatWouldLeaveTheFolderIsLeftOut(t *testing.T) {
 	}
 }
 
-func TestARestoredWorkspaceHasOnlyTheSkillsThisRunWasGiven(t *testing.T) {
+func TestARestoredWorkspaceHasOnlyTheSkillsEnabledForThisRun(t *testing.T) {
 	root := t.TempDir()
 
 	handingOver := protocol.SkillFile{Path: ".claude/skills/spotlight-handover/SKILL.md", Text: "how to hand over"}
@@ -1106,7 +1106,7 @@ output = JSON.stringify([
 	}
 }
 
-func TestARestoredWorkspaceHasNoSkillsOfAnEarlierStationWhenThisRunWasGivenNone(t *testing.T) {
+func TestARestoredWorkspaceHasNoSkillsOfAnEarlierStationWhenThisRunHasNoneEnabled(t *testing.T) {
 	root := t.TempDir()
 
 	leaveSkills(t, root,
@@ -1131,7 +1131,7 @@ output = JSON.stringify([
 	}
 }
 
-func TestARestoredWorkspaceHasOnlyTheHarnessSettingsThisRunWasGiven(t *testing.T) {
+func TestARestoredWorkspaceHasOnlyTheHarnessSettingsOfThisRun(t *testing.T) {
 	root := t.TempDir()
 
 	leaveSkills(t, root,
@@ -1253,7 +1253,7 @@ func TestAMessageIsSentAgainWhereTheHarnessLetsItGoUnread(t *testing.T) {
 			return
 		}
 	}
-	t.Fatal("the message that the person sent never reached the agent")
+	t.Fatal("the message that the person sent never got to the agent")
 }
 
 func TestHarnessFilesAreLaidInTheStateDirectory(t *testing.T) {
@@ -1349,7 +1349,7 @@ process.stdin.on("data", (chunk) => {
 func TestAPermissionIsAnsweredAsTheControlPlaneDecides(t *testing.T) {
 	for _, expected := range []struct {
 		name     string
-		asks     []string
+		askKinds []string
 		decision string
 		answer   string
 		asked    int
@@ -1362,7 +1362,7 @@ func TestAPermissionIsAnsweredAsTheControlPlaneDecides(t *testing.T) {
 		{"unreachable", []string{"execute"}, "", "refused", 1, []string{"toolu_1"}},
 	} {
 		written := run(t, permitting(t), func(o *runOptions) {
-			o.setup = protocol.HarnessSetup{Asks: expected.asks}
+			o.setup = protocol.HarnessSetup{AskKinds: expected.askKinds}
 			o.decision = expected.decision
 		})
 
@@ -1370,7 +1370,7 @@ func TestAPermissionIsAnsweredAsTheControlPlaneDecides(t *testing.T) {
 			t.Errorf("%s: the agent got %q, wanted %q", expected.name, output, expected.answer)
 		}
 		if len(written.asked) != expected.asked {
-			t.Fatalf("%s: asked the control plane %d times, wanted %d", expected.name, len(written.asked), expected.asked)
+			t.Fatalf("%s: asked for permission %d times, wanted %d", expected.name, len(written.asked), expected.asked)
 		}
 		if got := refusedCalls(t, written); !slices.Equal(got, expected.refused) {
 			t.Errorf("%s: journalled refusals %v, wanted %v", expected.name, got, expected.refused)
@@ -1416,7 +1416,7 @@ func refusedCalls(t *testing.T, written *journal) []string {
 
 func TestAPermissionEscalatedToAPersonEndsTheTurnWhileNobodyHasAnswered(t *testing.T) {
 	written := run(t, permitting(t), func(o *runOptions) {
-		o.setup = protocol.HarnessSetup{Asks: []string{"execute"}}
+		o.setup = protocol.HarnessSetup{AskKinds: []string{"execute"}}
 		o.decision = protocol.PermissionEscalated
 	})
 

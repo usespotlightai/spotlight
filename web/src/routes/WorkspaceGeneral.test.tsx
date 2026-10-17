@@ -64,7 +64,7 @@ describe('WorkspaceGeneral', () => {
     ).toBeInTheDocument();
   });
 
-  it('says the settings could not be loaded, and tries again when asked', async () => {
+  it('says the settings could not be loaded, and tries again on request', async () => {
     workspace.mockReturnValue(undefined);
     failing.mockReturnValue(true);
 

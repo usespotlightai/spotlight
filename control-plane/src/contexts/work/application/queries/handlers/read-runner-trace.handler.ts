@@ -18,7 +18,7 @@ import {
   traceOf,
   type WorkedRun,
 } from '@work/application/read-models/trace-of';
-import { KeptFromReplaysError } from '@work/domain/exceptions/kept-from-replays.error';
+import { NotAllowedInReplayError } from '@work/domain/exceptions/not-allowed-in-replay.error';
 import { TraceAccess } from '@work/domain/services/trace-access';
 import { HarnessName } from '@work/domain/value-objects/harness-name.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
@@ -45,7 +45,7 @@ export class ReadRunnerTraceHandler
       ]);
 
       if (leased?.replaysFrom) {
-        throw new KeptFromReplaysError('read a task’s trace');
+        throw new NotAllowedInReplayError('read a task’s trace');
       }
 
       if (!TraceAccess.sameTeam(leased?.teamId ?? null, theirs)) {

@@ -98,7 +98,7 @@ export interface StackSkip {
 export const skipOf = (code: string, detail: string | null): StackSkip => {
   if (!REPORTED_SKIPS.includes(code as ReportedSkip)) {
     throw InvalidChangeStackError.because(
-      `was skipped for ${code}, which is not a reason a runner can give`,
+      `was skipped for ${code}, which is not a reason a runner can report`,
     );
   }
 
@@ -107,7 +107,10 @@ export const skipOf = (code: string, detail: string | null): StackSkip => {
   return { code: code as ReportedSkip, detail: trimmed ? trimmed : null };
 };
 
-export const keptSkipOf = (code: string, detail: string | null): StackSkip => {
+export const storedSkipOf = (
+  code: string,
+  detail: string | null,
+): StackSkip => {
   switch (code) {
     case UNPROVISIONED:
       return { code: UNPROVISIONED, detail };

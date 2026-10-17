@@ -15,7 +15,7 @@ export class DrizzleAppliedSkills implements AppliedConfigurationPort {
   constructor(private readonly context: DrizzleContext) {}
 
   async of(teamId: TeamId): Promise<Applied> {
-    const kept = await this.context.db
+    const rows = await this.context.db
       .select({ key: skillDefinition.key, files: skillDefinition.files })
       .from(skillDefinition)
       .where(eq(skillDefinition.teamId, teamId.value))
@@ -23,7 +23,7 @@ export class DrizzleAppliedSkills implements AppliedConfigurationPort {
 
     return {
       teamId,
-      skills: kept.flatMap(({ key, files }) =>
+      skills: rows.flatMap(({ key, files }) =>
         Object.entries(files).map(([path, text]) =>
           ConfigurationFile.of(`${SKILLS_UNDER}/${key}/${path}`, text),
         ),

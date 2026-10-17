@@ -109,16 +109,16 @@ describe('a secret injected into a tool call that the control plane makes (e2e)'
   });
 
   const comment = async (runId = 'run_1', attempt = 1) => {
-    const reached = (await app
+    const resolved = (await app
       .get<IntegrationToolCallsPort>(INTEGRATION_TOOL_CALLS)
-      .reach(
+      .resolve(
         'linear.comment',
         task(),
         { runId, attempt },
         null,
       )) as IntegrationTool;
 
-    return reached.call({ body: 'Fixed in the queue worker.' });
+    return resolved.call({ body: 'Fixed in the queue worker.' });
   };
 
   const passedOn = globalThis.fetch;
@@ -232,15 +232,15 @@ describe('a secret injected into a tool call that the control plane makes (e2e)'
 
     await comment();
 
-    const [kept] = await eventually(() =>
+    const [stored] = await eventually(() =>
       db
         .select()
         .from(schema.learnedOutput)
         .where(eq(schema.learnedOutput.teamId, workspaceId))
         .then((rows) => (rows.length > 0 ? rows : null)),
     );
-    expect(kept?.tool).toBe('linear.comment');
-    expect(JSON.stringify(kept?.shape)).not.toContain('linear.app');
+    expect(stored?.tool).toBe('linear.comment');
+    expect(JSON.stringify(stored?.shape)).not.toContain('linear.app');
 
     const [offered] = await app
       .get<TeamIntegrationsPort>(TEAM_INTEGRATIONS)
@@ -284,15 +284,15 @@ describe('a secret injected into a tool call that the control plane makes (e2e)'
     await expect(comment('run_8', 1)).rejects.toThrow(/for attempt 1 is over/);
     expect(fetch).toHaveBeenCalledTimes(2);
 
-    const [kept] = await db
+    const [stored] = await db
       .select({ attempt: schema.runGrants.attempt })
       .from(schema.runGrants)
       .where(eq(schema.runGrants.runId, 'run_8'));
 
-    expect(kept?.attempt).toBe(2);
+    expect(stored?.attempt).toBe(2);
   });
 
-  it('sends nothing for an attempt once its lost lease is heard, and grants the next attempt afresh', async () => {
+  it('sends nothing for an attempt once its lost lease is received, and grants the next attempt afresh', async () => {
     const grants = app.get<RunGrantsPort>(RUN_GRANTS);
 
     await post(
@@ -308,7 +308,7 @@ describe('a secret injected into a tool call that the control plane makes (e2e)'
     expect(fetch).toHaveBeenCalledTimes(2);
   });
 
-  it('sends nothing for a run whose end was heard before anything was granted to it', async () => {
+  it('sends nothing for a run whose end was received before anything was granted to it', async () => {
     await post(
       `/api/resources/workspaces/${workspaceId}/secrets`,
       secretBoundTo('api.linear.app'),
@@ -321,12 +321,12 @@ describe('a secret injected into a tool call that the control plane makes (e2e)'
     await expect(comment('run_10', 1)).rejects.toThrow(/has ended/);
     expect(fetch).not.toHaveBeenCalled();
 
-    const [kept] = await db
+    const [stored] = await db
       .select({ endedAt: schema.runGrants.endedAt })
       .from(schema.runGrants)
       .where(eq(schema.runGrants.runId, 'run_10'));
 
-    expect(kept?.endedAt).toBeInstanceOf(Date);
+    expect(stored?.endedAt).toBeInstanceOf(Date);
   });
 
   it('sends nothing where the secret is bound to another host', async () => {

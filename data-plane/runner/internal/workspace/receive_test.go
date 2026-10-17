@@ -19,7 +19,7 @@ func writing(content string) func(io.Writer) error {
 	}
 }
 
-func TestReceivePlacesTheFileWhereItWasAsked(t *testing.T) {
+func TestReceivePlacesTheFileWhereItWasRequested(t *testing.T) {
 	space, err := workspace.Open(t.TempDir())
 	if err != nil {
 		t.Fatalf("create: %v", err)
@@ -109,8 +109,8 @@ func TestReceiveLeavesAFileAlreadyThereAlone(t *testing.T) {
 	if fetched {
 		t.Error("a file already there was fetched again")
 	}
-	if kept, _ := os.ReadFile(path); string(kept) != "kept" {
-		t.Errorf("the file was replaced with %q", kept)
+	if content, _ := os.ReadFile(path); string(content) != "kept" {
+		t.Errorf("the file was replaced with %q", content)
 	}
 }
 
@@ -143,9 +143,9 @@ func TestReceiveNeverShowsHalfAFile(t *testing.T) {
 	}
 }
 
-func TestReceiveGivesWhatItMakesToTheAgent(t *testing.T) {
+func TestReceiveChownsWhatItMakesToTheAgent(t *testing.T) {
 	if os.Getuid() != 0 {
-		t.Skip("giving files to another account needs root")
+		t.Skip("changing the owner of files to another account needs root")
 	}
 
 	space, err := workspace.Open(t.TempDir())

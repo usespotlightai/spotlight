@@ -4,19 +4,19 @@ import { OperationCache } from '@integrations/infrastructure/integrations/operat
 
 export const documentsContaining = (
   ...documents: DescribedDocument[]
-): DescribedDocumentRepository & { readonly kept: DescribedDocument[] } => {
-  const kept = [...documents];
+): DescribedDocumentRepository & { readonly stored: DescribedDocument[] } => {
+  const stored = [...documents];
   const withHash = (hash: string) =>
-    kept.find((each) => each.hash.value === hash) ?? null;
+    stored.find((each) => each.hash.value === hash) ?? null;
 
   return {
-    kept,
+    stored,
     withHash: async (hash) => withHash(hash.value),
     operation: async (hash, name) =>
       withHash(hash.value)?.operation(name) ?? null,
-    keep: async (document) => {
+    save: async (document) => {
       if (!withHash(document.hash.value)) {
-        kept.push(document);
+        stored.push(document);
       }
     },
   };

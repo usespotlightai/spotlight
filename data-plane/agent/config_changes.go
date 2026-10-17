@@ -67,7 +67,7 @@ func configChanges(was, now protocol.StationConfig) []string {
 		}
 	}
 	for _, repository := range was.Repositories {
-		if _, kept := nowSetup[repository.Name]; !kept {
+		if _, present := nowSetup[repository.Name]; !present {
 			changed("repository %s removed", repository.Name)
 		}
 	}
@@ -88,7 +88,7 @@ func configChanges(was, now protocol.StationConfig) []string {
 		}
 	}
 	for _, skill := range was.Skills {
-		if _, kept := nowDigest[skill.Key]; !kept {
+		if _, present := nowDigest[skill.Key]; !present {
 			changed("skill %s removed", skill.Key)
 		}
 	}

@@ -27,7 +27,7 @@ const chatOnOpus = () =>
     harness: HarnessId.of('claude-code'),
     model: HarnessModel.of('opus'),
     effort: Effort.of('high'),
-    body: ChatMessageBody.given('Plan the retries.'),
+    body: ChatMessageBody.fromInput('Plan the retries.'),
     now: NOW,
     newId: () => 'chat_1',
   });

@@ -9,20 +9,20 @@ const linking = (
   accounts: readonly { id: string; providerId: string }[],
   getAccessToken: () => Promise<{ accessToken?: string }>,
 ) => {
-  const asked = vi.fn(getAccessToken);
+  const getToken = vi.fn(getAccessToken);
   const auth = {
     $context: Promise.resolve({
       internalAdapter: { findAccounts: vi.fn(async () => accounts) },
     }),
-    api: { getAccessToken: asked },
+    api: { getAccessToken: getToken },
   } as unknown as AppAuth;
 
-  return { linked: new BetterAuthLinkedAccounts(auth), asked };
+  return { linked: new BetterAuthLinkedAccounts(auth), getToken };
 };
 
 describe('BetterAuthLinkedAccounts', () => {
-  it('asks better-auth for a live token on the account linked to that provider', async () => {
-    const { linked, asked } = linking(
+  it('requests a live token from better-auth for the account linked to that provider', async () => {
+    const { linked, getToken } = linking(
       [
         { id: 'acc_other', providerId: 'google' },
         { id: 'acc_gh', providerId: 'github' },
@@ -31,18 +31,18 @@ describe('BetterAuthLinkedAccounts', () => {
     );
 
     expect(await linked.tokenFor(LEON, 'github')).toBe('gho_live');
-    expect(asked).toHaveBeenCalledWith({
+    expect(getToken).toHaveBeenCalledWith({
       body: { accountId: 'acc_gh', userId: 'user_leon' },
     });
   });
 
   it('has nothing for somebody who never linked that provider', async () => {
-    const { linked, asked } = linking([], async () => ({
+    const { linked, getToken } = linking([], async () => ({
       accessToken: 'x',
     }));
 
     expect(await linked.tokenFor(LEON, 'github')).toBeNull();
-    expect(asked).not.toHaveBeenCalled();
+    expect(getToken).not.toHaveBeenCalled();
   });
 
   it('has nothing where the token could not be refreshed', async () => {

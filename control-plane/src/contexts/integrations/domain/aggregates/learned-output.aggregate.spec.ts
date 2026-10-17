@@ -36,7 +36,7 @@ describe('LearnedOutput', () => {
     expect(learned.shape.schema).toMatchObject({ required: ['url'] });
   });
 
-  it('is never kept without a version or a call', () => {
+  it('is never stored without a version or a call', () => {
     expect(() =>
       LearnedOutput.rehydrate({
         teamId: TeamId.of('team_1'),

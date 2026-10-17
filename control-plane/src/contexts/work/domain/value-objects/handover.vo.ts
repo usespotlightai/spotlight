@@ -24,7 +24,7 @@ export class Handover {
     return this.next.toLowerCase() === DONE;
   }
 
-  asksForReview(): boolean {
+  requestsReview(): boolean {
     return this.next === '' || this.next.toLowerCase() === REVIEW;
   }
 

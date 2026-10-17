@@ -265,7 +265,7 @@ describe('Workspace', () => {
     );
   });
 
-  it('asks by the slug in the address', () => {
+  it('requests the workspace by the slug in the address', () => {
     loaded(acme);
 
     renderAt('acme-inc');
@@ -301,7 +301,7 @@ describe('Workspace', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('says the workspace could not be loaded, and tries again when asked', async () => {
+  it('says the workspace could not be loaded, and tries again on request', async () => {
     const person = userEvent.setup();
     answered({ errorUpdateCount: 1 });
 
@@ -332,7 +332,7 @@ describe('Workspace', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument();
   });
 
-  it('counts every host the control plane can still hear from', () => {
+  it('counts every host that still reports to the control plane', () => {
     loaded(acme);
 
     renderAt('acme-inc', '/settings/general');

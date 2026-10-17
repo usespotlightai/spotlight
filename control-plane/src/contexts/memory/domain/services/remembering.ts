@@ -1,18 +1,18 @@
 import type { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import { MemoryProposal } from '@memory/domain/entities/memory-proposal.entity';
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
-import { KeptFromReplaysError } from '@memory/domain/exceptions/kept-from-replays.error';
-import { keptFromSearches } from '@memory/domain/services/search-reach';
+import { NotAllowedInReplayError } from '@memory/domain/exceptions/not-allowed-in-replay.error';
+import { notAllowedInSearch } from '@memory/domain/services/search-memory-access';
 import { MemoryBody } from '@memory/domain/value-objects/memory-body';
 import { MemoryGrounds } from '@memory/domain/value-objects/memory-grounds.vo';
 import type { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { parseMemoryKind } from '@memory/domain/value-objects/memory-kind';
 import { MemoryPath } from '@memory/domain/value-objects/memory-path.vo';
-import {
-  type MemoryReach,
-  parseMemoryReach,
-} from '@memory/domain/value-objects/memory-reach';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
+import {
+  type MemoryScopeLevel,
+  parseMemoryScopeLevel,
+} from '@memory/domain/value-objects/memory-scope-level';
 import type { StationSite } from '@memory/domain/value-objects/run-site';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -20,7 +20,7 @@ import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 
 const REMEMBERING_STEP = 'remember';
 
-const UNSAID_REACH: MemoryReach = 'line';
+const DEFAULT_SCOPE: MemoryScopeLevel = 'line';
 
 export interface RememberedStep {
   readonly index: number;
@@ -30,7 +30,7 @@ export interface RememberedStep {
 export interface Remembered {
   readonly kind: string;
   readonly body: string;
-  readonly reach: string | null;
+  readonly scope: string | null;
   readonly paths: readonly string[];
   readonly supersedes: Memory | null;
 }
@@ -88,7 +88,9 @@ const located = (raw: string, site: StationSite): Located => {
 };
 
 const scopeOf = (remembered: Remembered, site: StationSite): MemoryScope => {
-  const reach = parseMemoryReach(remembered.reach?.trim() || UNSAID_REACH);
+  const level = parseMemoryScopeLevel(
+    remembered.scope?.trim() || DEFAULT_SCOPE,
+  );
   const places = remembered.paths
     .filter((each) => each.trim())
     .map((each) => located(each, site));
@@ -103,8 +105,8 @@ const scopeOf = (remembered: Remembered, site: StationSite): MemoryScope => {
 
   return MemoryScope.of({
     teamId: site.teamId,
-    lineId: reach === 'team' ? null : site.lineId,
-    stationId: reach === 'station' ? site.stationId : null,
+    lineId: level === 'team' ? null : site.lineId,
+    stationId: level === 'station' ? site.stationId : null,
     repository,
     paths: places.flatMap((each) => (each.path ? [each.path] : [])),
   });
@@ -122,10 +124,10 @@ export class Remembering {
     replay: boolean;
     isSearch: boolean;
   }): Remembering {
-    keptFromSearches(input, 'remember anything for the team');
+    notAllowedInSearch(input, 'remember anything for the team');
 
     if (input.replay) {
-      throw new KeptFromReplaysError('remember anything for the team');
+      throw new NotAllowedInReplayError('remember anything for the team');
     }
 
     if (!input.taskId) {

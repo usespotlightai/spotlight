@@ -5,7 +5,7 @@ import type {
 } from '@memory/application/ports/memory-drafter.port';
 import type { RejectedMemoriesPort } from '@memory/application/ports/rejected-memories.port';
 import type { WorkPort } from '@memory/application/ports/work.port';
-import type { MemoriesInReach } from '@memory/application/services/memories-in-reach.service';
+import type { ApplicableMemories } from '@memory/application/services/applicable-memories.service';
 import type { MemoryDraft } from '@memory/domain/aggregates/memory-draft.aggregate';
 import type { ProposedMemory } from '@memory/domain/entities/memory-proposal.entity';
 import { MemoryDraftVersionConflictError } from '@memory/domain/exceptions/memory-draft-version-conflict.error';
@@ -48,7 +48,7 @@ export class WorkMemoryDrafts implements PendingJobsPort {
   constructor(
     private readonly drafts: MemoryDraftRepository,
     private readonly work: WorkPort,
-    private readonly inReach: MemoriesInReach,
+    private readonly applicable: ApplicableMemories,
     private readonly rejections: RejectedMemoriesPort,
     private readonly drafter: MemoryDrafterPort,
     private readonly ids: IdGeneratorPort,
@@ -112,7 +112,7 @@ export class WorkMemoryDrafts implements PendingJobsPort {
     }
 
     const [candidates, rejected] = await Promise.all([
-      this.inReach.at(site),
+      this.applicable.at(site),
       this.rejections.rejectedOnTeam(
         site.teamId,
         rejectionsHeededSince(this.clock.now()),

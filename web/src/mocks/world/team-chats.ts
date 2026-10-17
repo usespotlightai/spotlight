@@ -37,8 +37,8 @@ const journalStep = (
   detail: null,
   ms: draft.kind === 'tool' ? 1_800 : 0,
   locations: [],
-  given: null,
-  returned: null,
+  input: null,
+  output: null,
   change: null,
   ...draft,
   startedAt,
@@ -156,8 +156,8 @@ const chatOf = (
 });
 
 const retriesChat = (): ChatRecord => {
-  const asked = hoursAgo(31);
-  const first = chatTurn('run_chat_retries_1', asked, [
+  const sentAt = hoursAgo(31);
+  const first = chatTurn('run_chat_retries_1', sentAt, [
     {
       kind: 'thought',
       text: 'The retry schedule and the queue consumers both live in the worker.',
@@ -191,14 +191,14 @@ const retriesChat = (): ChatRecord => {
       model: 'claude-opus-5',
       effort: 'high',
       repositories: ['acme/worker'],
-      createdAt: asked,
+      createdAt: sentAt,
       updatedAt: turnEndsAt(second),
       messages: [
         messageBy(
           SAM,
           0,
           'Why do retries pile up? Webhook deliveries have been failing since Friday’s deploy.',
-          asked,
+          sentAt,
         ),
         proposed(
           1,
@@ -246,11 +246,11 @@ const retriesChat = (): ChatRecord => {
 };
 
 const implementationChat = (): ChatRecord => {
-  const asked = hoursAgo(5);
-  const answer = chatTurn('run_chat_small_prs_1', asked, [
+  const sentAt = hoursAgo(5);
+  const answer = chatTurn('run_chat_small_prs_1', sentAt, [
     {
       kind: 'thought',
-      text: 'The station was asked to study its recent runs, so I start with the reviews that sent work back.',
+      text: 'The chat is about the station’s recent runs, so I start with the reviews that sent work back.',
     },
     {
       kind: 'tool',
@@ -264,7 +264,7 @@ const implementationChat = (): ChatRecord => {
     },
     {
       kind: 'message',
-      text: 'Two of the last runs were sent back for size, and the Postgres driver upgrade mixed a migration that rewrites 1.3M invoice rows into the same pull request.\n\nI would add this to the Implementation prompt:\n\n> Before opening a pull request, count the changed lines. Above 400, split the work into a stack, and always put migrations in a pull request of their own.\n\nThat matches what the team already asks for in memory M-47.',
+      text: 'Two of the last runs were sent back for size, and the Postgres driver upgrade mixed a migration that rewrites 1.3M invoice rows into the same pull request.\n\nI would add this to the Implementation prompt:\n\n> Before opening a pull request, count the changed lines. Above 400, split the work into a stack, and always put migrations in a pull request of their own.\n\nThat matches what the team already requires in memory M-47.',
     },
   ]);
 
@@ -281,14 +281,14 @@ const implementationChat = (): ChatRecord => {
         stationKey: 'implementation',
         stationName: 'Implementation',
       },
-      createdAt: asked,
+      createdAt: sentAt,
       updatedAt: turnEndsAt(answer),
       messages: [
         messageBy(
           SAM,
           0,
           'Its last runs were sent back twice for sprawling diffs. What should it do better?',
-          asked,
+          sentAt,
         ),
       ],
     }),
@@ -297,8 +297,8 @@ const implementationChat = (): ChatRecord => {
 };
 
 const rateLimitsChat = (): ChatRecord => {
-  const asked = hoursAgo(52);
-  const answer = chatTurn('run_chat_rate_limits_1', asked, [
+  const sentAt = hoursAgo(52);
+  const answer = chatTurn('run_chat_rate_limits_1', sentAt, [
     { kind: 'tool', tool: 'read', text: 'src/http/middleware/index.ts' },
     {
       kind: 'message',
@@ -312,14 +312,14 @@ const rateLimitsChat = (): ChatRecord => {
       id: 'chat_rate_limits',
       title: 'Rate limiting for the public API',
       repositories: ['acme/api'],
-      createdAt: asked,
+      createdAt: sentAt,
       updatedAt: secondsAfter(proposedAt, 2),
       messages: [
         messageBy(
           SAM,
           0,
           'Partners hit the public API in bursts. How should we limit them without breaking the dashboard?',
-          asked,
+          sentAt,
         ),
         proposed(
           1,
@@ -350,8 +350,8 @@ const rateLimitsChat = (): ChatRecord => {
 };
 
 const quarterChat = (): ChatRecord => {
-  const asked = hoursAgo(98);
-  const answer = chatTurn('run_chat_quarter_1', asked, [
+  const sentAt = hoursAgo(98);
+  const answer = chatTurn('run_chat_quarter_1', sentAt, [
     {
       kind: 'tool',
       tool: 'bash',
@@ -368,14 +368,14 @@ const quarterChat = (): ChatRecord => {
       id: 'chat_quarter',
       title: 'What should the platform team take on next quarter?',
       harness: 'codex',
-      createdAt: asked,
+      createdAt: sentAt,
       updatedAt: turnEndsAt(answer),
       messages: [
         messageBy(
           SAM,
           0,
           'What should the platform team take on next quarter?',
-          asked,
+          sentAt,
         ),
       ],
     }),
@@ -384,8 +384,8 @@ const quarterChat = (): ChatRecord => {
 };
 
 const onboardingChat = (): ChatRecord => {
-  const asked = hoursAgo(22);
-  const answer = chatTurn('run_chat_onboarding_1', asked, [
+  const sentAt = hoursAgo(22);
+  const answer = chatTurn('run_chat_onboarding_1', sentAt, [
     { kind: 'tool', tool: 'read', text: 'src/onboarding/Checklist.tsx' },
     {
       kind: 'message',
@@ -399,14 +399,14 @@ const onboardingChat = (): ChatRecord => {
       id: 'chat_onboarding',
       title: 'Shorten the onboarding checklist',
       repositories: ['acme/web'],
-      createdAt: asked,
+      createdAt: sentAt,
       updatedAt: proposedAt,
       messages: [
         messageBy(
           PRIYA,
           0,
           'New workspaces drop off during onboarding. Where would you cut?',
-          asked,
+          sentAt,
         ),
         proposed(
           1,
@@ -429,8 +429,8 @@ const onboardingChat = (): ChatRecord => {
 const SETUP_PULL_REQUEST = 'https://github.com/acme/infra/pull/12';
 
 const setupChat = (): ChatRecord => {
-  const asked = hoursAgo(4300);
-  const answer = chatTurn('run_chat_setup_1', asked, [
+  const sentAt = hoursAgo(4300);
+  const answer = chatTurn('run_chat_setup_1', sentAt, [
     { kind: 'tool', tool: 'read', text: 'api/.github/workflows/ci.yml' },
     { kind: 'tool', tool: 'bash', text: 'spotlight linear.labels' },
     {
@@ -450,14 +450,14 @@ const setupChat = (): ChatRecord => {
         folder: 'spotlight',
         pullRequest: SETUP_PULL_REQUEST,
       },
-      createdAt: asked,
+      createdAt: sentAt,
       updatedAt: turnEndsAt(answer),
       messages: [
         messageBy(
           SAM,
           0,
           'Set up our configuration as code in acme/infra, under spotlight/.',
-          asked,
+          sentAt,
         ),
       ],
     }),

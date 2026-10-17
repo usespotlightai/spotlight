@@ -90,8 +90,8 @@ const ready = (request = CheckRequest.of('npx tsc --noEmit', null)) => {
 const kinds = (stack: ChangeStack) =>
   stack.pullEvents().map((event) => event.kind);
 
-describe('ChangeStack, on the check it asks for', () => {
-  it('carries what the station asked of it', () => {
+describe('ChangeStack, on the check it requests', () => {
+  it('carries what the station requested of it', () => {
     expect(ready().request?.command).toBe('npx tsc --noEmit');
     expect(ready(CheckRequest.of('npm test', 'npm ci')).request?.setup).toBe(
       'npm ci',
@@ -116,14 +116,14 @@ describe('ChangeStack, on the check it asks for', () => {
   });
 
   it('takes up reordering only once, and only once it is ready', () => {
-    const asked = ready().askedToReorder();
+    const requested = ready().requestReorder();
 
-    expect(asked.reordering).toBe(true);
-    expect(asked.hasPendingJob).toBe(true);
-    expect(asked.askedToReorder()).toBe(asked);
+    expect(requested.reordering).toBe(true);
+    expect(requested.hasPendingJob).toBe(true);
+    expect(requested.requestReorder()).toBe(requested);
   });
 
-  it('is not reordered before it is asked', () => {
+  it('is not reordered before it is requested', () => {
     expect(() => ready().reordered([cohort('All', [['h1']])], LATER)).toThrow(
       InvalidChangeStackError,
     );
@@ -131,7 +131,7 @@ describe('ChangeStack, on the check it asks for', () => {
 
   it('says it was reordered, and has no pending job any more', () => {
     const reordered = ready()
-      .askedToReorder()
+      .requestReorder()
       .reordered(
         [
           cohort('Invitations', [['h2'], ['h1', 'h3']]),
@@ -150,20 +150,20 @@ describe('ChangeStack, on the check it asks for', () => {
   });
 
   it('says reordering ended when reordering stops', () => {
-    const kept = ready().askedToReorder().stopReordering();
+    const ended = ready().requestReorder().stopReordering();
 
-    expect(kept.reordering).toBe(false);
-    expect(kinds(kept)).toEqual(['change-stack.reordering-ended']);
+    expect(ended.reordering).toBe(false);
+    expect(kinds(ended)).toEqual(['change-stack.reordering-ended']);
   });
 
   it('stops reordering once its job is dead-lettered', () => {
-    const kept = ready().askedToReorder().deadLetter(LATER);
+    const ended = ready().requestReorder().deadLetter(LATER);
 
-    expect(kept.hasPendingJob).toBe(false);
-    expect(kinds(kept)).toEqual(['change-stack.reordering-ended']);
+    expect(ended.hasPendingJob).toBe(false);
+    expect(kinds(ended)).toEqual(['change-stack.reordering-ended']);
   });
 
-  it('keeps the events of every step it takes', () => {
+  it('records the events of every step it takes', () => {
     const stack = ChangeStack.draft({
       id: ChangeStackId.of('stack-3'),
       runId: RunId.of('run-1'),

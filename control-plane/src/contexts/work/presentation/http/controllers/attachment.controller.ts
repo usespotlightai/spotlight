@@ -47,14 +47,14 @@ export class AttachmentController {
     operationId: 'grantAttachmentUpload',
     summary: 'Somewhere to upload one file, before attaching it',
     description:
-      'The bytes go straight to where files are kept, not through here. ' +
+      'The bytes go straight to where files are stored, not through here. ' +
       'The upload is only an upload: the file joins a task when its id is ' +
       'sent with one.',
   })
   @ApiCreatedResponse({ type: AttachmentUploadResponseDto })
   @ApiNotFoundResponse({ description: 'No such workspace for this caller' })
   @ApiUnprocessableEntityResponse({
-    description: 'Too large to attach, or nowhere to keep it',
+    description: 'Too large to attach, or nowhere to store it',
   })
   async grant(
     @Param('slug') slug: string,
@@ -88,7 +88,7 @@ export class AttachmentController {
   @Get(':attachmentId')
   @ApiOperation({
     operationId: 'readAttachment',
-    summary: 'Open a file a task was given',
+    summary: 'Open a file attached to a task',
   })
   @ApiParam({ name: 'attachmentId', type: String })
   @ApiQuery({

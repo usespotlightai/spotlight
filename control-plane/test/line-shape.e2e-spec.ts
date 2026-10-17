@@ -75,7 +75,7 @@ describe('a line, created and read back (e2e)', () => {
     await app.close();
   });
 
-  it('keeps every station, its ways out and what it waits for, as its definition says', async () => {
+  it('stores every station, its ways out and what it waits for, as its definition says', async () => {
     const result = await commands.execute<
       CreateLineCommand,
       ResourceCreated | null

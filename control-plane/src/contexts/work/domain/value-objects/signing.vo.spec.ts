@@ -26,7 +26,7 @@ describe('Signing', () => {
     );
   });
 
-  it('writes the digest as hex unless the host asks otherwise', () => {
+  it('writes the digest as hex unless the host requests otherwise', () => {
     expect(signing().encoding).toBe('hex');
     expect(signing({ encoding: 'base64' }).encoding).toBe('base64');
   });

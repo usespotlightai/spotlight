@@ -16,9 +16,9 @@ const PAST_THE_POLL_MS = 5_000;
 
 const MAX_HOOK_MS = 12_000;
 
-type Heard =
+type HookOutcome =
   | HookVerdict
-  | { readonly kind: 'unheard'; readonly because: string };
+  | { readonly kind: 'no-reply'; readonly because: string };
 
 export type RunStart = 'starts' | 'denied' | 'requeued';
 
@@ -55,8 +55,8 @@ export class RunStartHooks {
     return 'requeued';
   }
 
-  private async verdictOn(run: Run, pollUntil: Date): Promise<Heard> {
-    if (!run.hearsHooks || !run.taskId) {
+  private async verdictOn(run: Run, pollUntil: Date): Promise<HookOutcome> {
+    if (!run.firesHooks || !run.taskId) {
       return { kind: 'allowed' };
     }
 
@@ -75,10 +75,10 @@ export class RunStartHooks {
 
       this.logger.warn(
         { runId: run.id.value, taskId: run.taskId.value, error: because },
-        'The hooks could not be asked before a run started, so it was requeued to be claimed again',
+        'The hooks could not be called before a run started, so it was requeued to be claimed again',
       );
 
-      return { kind: 'unheard', because };
+      return { kind: 'no-reply', because };
     }
   }
 

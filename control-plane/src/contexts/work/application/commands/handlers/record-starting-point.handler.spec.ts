@@ -172,7 +172,7 @@ describe('RecordStartingPointHandler', () => {
     ).rejects.toBeInstanceOf(ApplicationError);
   });
 
-  it('rejects checkouts other than the ones the run was given', async () => {
+  it('rejects checkouts other than the ones of the run', async () => {
     const { record } = await setUp();
 
     await expect(

@@ -4,8 +4,8 @@ import { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregate';
 import { RunnerTrust } from '@runners/domain/aggregates/runner-trust.aggregate';
 import { RunnerHostVersionConflictError } from '@runners/domain/exceptions/runner-host-version-conflict.error';
 import type { RunnerHostRepository } from '@runners/domain/repositories/runner-host.repository';
-import { Admission } from '@runners/domain/value-objects/admission.vo';
 import { BootId } from '@runners/domain/value-objects/boot-id.vo';
+import { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
 import type { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
 import type { EgressTraffic } from '@runners/domain/value-objects/egress-traffic.vo';
 import { EncryptedProvisionSecret } from '@runners/domain/value-objects/encrypted-provision-secret.vo';
@@ -167,7 +167,7 @@ export const aHost = (
   return RunnerHost.fromHeartbeat({
     id: input.id ?? HOST_ID,
     workspaceId: through.workspaceId,
-    admission: Admission.through(through.id),
+    source: CredentialSource.ofId(through.id),
     bootId: BootId.of('boot_1'),
     report: aHostReport(),
     at: input.at ?? STARTED_AT,
@@ -193,7 +193,7 @@ export const storedHosts = (...known: RunnerHost[]) => {
         RunnerHost.rehydrate({
           id: host.id,
           workspaceId: host.workspaceId,
-          admission: host.admission,
+          source: host.source,
           bootId: host.bootId,
           report: host.report,
           firstHeartbeatAt: host.firstHeartbeatAt,
@@ -219,9 +219,9 @@ export const storedHosts = (...known: RunnerHost[]) => {
       }
       return removed;
     }),
-    removeThrough: vi.fn(async (admission: Admission) => {
+    removeThrough: vi.fn(async (source: CredentialSource) => {
       for (const [id, host] of stored) {
-        if (host.servesThrough(admission)) {
+        if (host.servesThrough(source)) {
           stored.delete(id);
         }
       }

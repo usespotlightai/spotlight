@@ -61,7 +61,7 @@ const noteProblems = (
   if (required) {
     for (const path of touched) {
       if (!noted.has(path)) {
-        problems.push(`${at} gives no note on ${path}`);
+        problems.push(`${at} has no note on ${path}`);
       }
     }
   }

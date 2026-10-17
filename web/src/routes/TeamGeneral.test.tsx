@@ -211,7 +211,7 @@ describe('TeamGeneral', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('shows a role as plain text where none may be given', () => {
+  it('shows a role as plain text where none may be assigned', () => {
     members.mockReturnValue([
       {
         id: 'user_2',
@@ -229,7 +229,7 @@ describe('TeamGeneral', () => {
     expect(screen.getByText('Member')).toBeInTheDocument();
   });
 
-  it('offers only the roles it was told may be given', async () => {
+  it('offers only the roles it was told may be assigned', async () => {
     members.mockReturnValue([
       {
         id: 'user_2',
@@ -286,7 +286,7 @@ describe('TeamGeneral', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('says the team’s settings could not be loaded, and tries again when asked', async () => {
+  it('says the team’s settings could not be loaded, and tries again on request', async () => {
     workspace.mockReturnValue(undefined);
     settingsFailing.mockReturnValue(true);
     showing();
@@ -301,7 +301,7 @@ describe('TeamGeneral', () => {
     expect(refetchSettings).toHaveBeenCalled();
   });
 
-  it('says the members could not be loaded, rather than that there are none, and tries again when asked', async () => {
+  it('says the members could not be loaded, rather than that there are none, and tries again on request', async () => {
     members.mockReturnValue(undefined);
     membersFailing.mockReturnValue(true);
     showing();

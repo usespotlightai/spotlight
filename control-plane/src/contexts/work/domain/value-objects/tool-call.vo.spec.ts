@@ -26,8 +26,8 @@ const CALL = ToolCall.of(
 );
 
 describe('ToolCall', () => {
-  it('shows what it was given, structured values as JSON', () => {
-    expect(CALL.given).toEqual([
+  it('shows its inputs, structured values as JSON', () => {
+    expect(CALL.writtenInputs).toEqual([
       { name: 'draft', value: 'false' },
       { name: 'first', value: '3' },
       {
@@ -82,11 +82,16 @@ describe('ToolCall', () => {
     ).toEqual({ problem: 'input.labelIds[0] is not text' });
   });
 
-  it('keeps the shapes it was asked with through its parts', () => {
-    const kept = ToolCall.rehydrate(CALL.parts);
+  it('keeps the input shapes through its parts', () => {
+    const stored = ToolCall.rehydrate(CALL.parts);
 
     expect(
-      kept.editedTo({ input: '{}', first: '3', draft: 'false', teamId: 'ENG' }),
+      stored.editedTo({
+        input: '{}',
+        first: '3',
+        draft: 'false',
+        teamId: 'ENG',
+      }),
     ).toEqual({ problem: 'input needs title' });
   });
 

@@ -54,7 +54,7 @@ export interface ActiveConnection {
   unauthorized(token: AccessToken): Promise<AccessToken | null>;
 }
 
-export interface Reach {
+export interface CallAuth {
   readonly connection: ActiveConnection | null;
   readonly credentials: Credentials;
 }
@@ -108,13 +108,13 @@ export type Renewed =
   | { readonly kind: 'failed' }
   | { readonly kind: 'unrenewable' };
 
-export interface ReachableTool {
+export interface ResolvedTool {
   readonly integration: Integration;
   readonly offered: OfferedTool;
   readonly declared: ToolDeclaration;
   readonly injectedSecrets: readonly string[];
   defaultFor(input: string): unknown;
-  call(inputs: ToolInputValues, reach: Reach): Promise<ToolOutput>;
+  call(inputs: ToolInputValues, callAuth: CallAuth): Promise<ToolOutput>;
 }
 
 export interface IntegrationRuntimePort {
@@ -126,13 +126,13 @@ export interface IntegrationRuntimePort {
     definitions: readonly DefinedIntegration[],
     integration: Integration,
     cursor: string | null,
-    reach: Reach,
+    callAuth: CallAuth,
   ): Promise<Polled>;
 
   runSchedule(
     definitions: readonly DefinedIntegration[],
     integration: Integration,
-    reach: Reach,
+    callAuth: CallAuth,
   ): Promise<Acted>;
 
   post(
@@ -140,14 +140,14 @@ export interface IntegrationRuntimePort {
     integration: Integration,
     event: string,
     payload: TaskPayload,
-    reach: Reach,
+    callAuth: CallAuth,
   ): Promise<Posted>;
 
   tool(
     definitions: readonly DefinedIntegration[],
     tool: string,
     task: BoundTask,
-  ): Promise<ReachableTool | null>;
+  ): Promise<ResolvedTool | null>;
 
   renew(
     definitions: readonly DefinedIntegration[],

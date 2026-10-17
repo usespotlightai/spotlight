@@ -11,14 +11,14 @@ export const NOW = new Date('2026-10-16T12:00:00.000Z');
 export const SHARED_TOKEN = 'shared-token';
 
 export const sharedEgress = (
-  admitted: Record<string, SharedEgressFor>,
-  recording: Record<string, SharedEgressFor> = admitted,
+  authorized: Record<string, SharedEgressFor>,
+  recording: Record<string, SharedEgressFor> = authorized,
 ): RunnerEgressPort => ({
-  admit: async () => null,
+  authenticate: async () => null,
   sharedWith: async (token) =>
     token === SHARED_TOKEN ? { egressId: 'egress_1' } : null,
-  admitThrough: async (egress, credential) =>
-    egress.egressId === 'egress_1' ? (admitted[credential] ?? null) : null,
+  authorizeRunner: async (egress, credential) =>
+    egress.egressId === 'egress_1' ? (authorized[credential] ?? null) : null,
   recordsThrough: async (egress, credential) =>
     egress.egressId === 'egress_1' ? (recording[credential] ?? null) : null,
 });

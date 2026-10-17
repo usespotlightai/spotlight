@@ -108,7 +108,7 @@ describe('an integration, created through the resource API (e2e)', () => {
         .set('If-Match', `"${version}"`),
   });
 
-  const giveOnAStation = async (tool: string) => {
+  const enableOnAStation = async (tool: string) => {
     const db = app.get<DrizzleDatabase>(DRIZZLE);
     const [team] = await db
       .select()
@@ -198,10 +198,10 @@ describe('an integration, created through the resource API (e2e)', () => {
     ]);
   });
 
-  it('will not be deleted, or stop offering a tool, while a station gives it', async () => {
+  it('will not be deleted, or stop offering a tool, while a station enables it', async () => {
     const made = await create(LINEAR);
 
-    await giveOnAStation('linear.comment');
+    await enableOnAStation('linear.comment');
 
     const stripped = await as().put(
       made.body.id,

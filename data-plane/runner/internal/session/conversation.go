@@ -19,7 +19,7 @@ type conversation struct {
 	sessionID    string
 	journal      *journalWriter
 	control      Journal
-	keeper       *keeper
+	archiver     *archiver
 	lifecycle    *progress
 	takeHandover func() *protocol.Handover
 	attached     func(context.Context, protocol.Attachment) error
@@ -35,7 +35,7 @@ type conversation struct {
 	losing  sync.Once
 }
 
-const maxUnheardAnswers = 3
+const maxUnreadAnswers = 3
 
 const carryOn = "The runner working on this was lost before your turn ended. Carry on where you left off."
 
@@ -186,15 +186,15 @@ func (c *conversation) complete(ctx context.Context, exitCode int) (waiting bool
 		SessionID: c.sessionID,
 	}
 
-	asks, err := c.control.Asks(ctx, c.run.ID, turn)
+	awaits, err := c.control.AwaitsPerson(ctx, c.run.ID, turn)
 	if err != nil {
-		c.log.Warn("could not ask whether the turn waits for a person; ending it as the run ends", "error", err)
+		c.log.Warn("could not read whether the turn waits for a person; ending it as the run ends", "error", err)
 	}
-	if !asks {
+	if !awaits {
 		c.close()
 	}
 
-	turn.Kept = c.keeper.keep(ctx)
+	turn.Archived = c.archiver.archive(ctx)
 	c.journal.flush(ctx)
 
 	if c.handOver != nil && !stopped {
@@ -272,7 +272,7 @@ func (c *conversation) await(ctx context.Context) (string, wake) {
 			if message, received := c.pollMessages(ctx); received {
 				return message, answered
 			}
-			if unread++; unread >= maxUnheardAnswers {
+			if unread++; unread >= maxUnreadAnswers {
 				c.log.Warn("the run works again, but no message is there to read; releasing it")
 				return "", released
 			}
@@ -381,7 +381,7 @@ func renew(
 				continue
 			}
 			if stop {
-				log.Info("a person asked the run to stop")
+				log.Info("a person requested a stop")
 				onStop()
 				return
 			}

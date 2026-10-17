@@ -40,7 +40,7 @@ func withTools(t *testing.T, answer string) (*channel, *map[string]any) {
 	carried := map[string]any{}
 	server.Tools([]string{"linear.comment", "linear.search"}, func(_ context.Context, name string, input json.RawMessage) (json.RawMessage, error) {
 		if name != "linear.comment" && name != "linear.search" {
-			t.Errorf("reached for %q", name)
+			t.Errorf("called %q", name)
 		}
 		if err := json.Unmarshal(input, &carried); err != nil {
 			t.Errorf("carried %s: %v", input, err)
@@ -56,7 +56,7 @@ func withTools(t *testing.T, answer string) (*channel, *map[string]any) {
 	return server, &carried
 }
 
-func TestListsTheToolsTheRunWasGiven(t *testing.T) {
+func TestListsTheToolsEnabledForTheRun(t *testing.T) {
 	withTools(t, `{}`)
 	out := new(bytes.Buffer)
 
@@ -76,7 +76,7 @@ func TestListsTheToolsTheRunWasGiven(t *testing.T) {
 		}
 	}
 	if strings.Contains(listed, "linear close") {
-		t.Errorf("listed a tool the run was not given: %q", listed)
+		t.Errorf("listed a tool not enabled for the run: %q", listed)
 	}
 }
 
@@ -93,7 +93,7 @@ func TestUsesAToolTypedAsTwoWords(t *testing.T) {
 		t.Errorf("carried %v", *carried)
 	}
 	if _, left := (*carried)["issue"]; left {
-		t.Errorf("carried an issue nobody gave, which the task is left to say: %v", *carried)
+		t.Errorf("carried an issue nobody supplied, which the task is left to say: %v", *carried)
 	}
 	if strings.TrimSpace(out.String()) != `"https://linear.app/acme/issue/ENG-12#comment-1"` {
 		t.Errorf("output %q, want the tool's output as JSON", out.String())
@@ -125,12 +125,12 @@ func TestRejectsAFlagTheToolDoesNotTake(t *testing.T) {
 	}
 }
 
-func TestSaysWhichToolsThereAreForOneTheRunWasNotGiven(t *testing.T) {
+func TestSaysWhichToolsThereAreForOneNotEnabledForTheRun(t *testing.T) {
 	withTools(t, `{}`)
 
 	err := run([]string{"linear", "close"}, strings.NewReader(""), new(bytes.Buffer))
 	if err == nil || !strings.Contains(err.Error(), "This run's tools:\nspotlight linear comment") {
-		t.Fatalf("err = %v, want the tools it was given", err)
+		t.Fatalf("err = %v, want the tools enabled for it", err)
 	}
 }
 
@@ -139,7 +139,7 @@ func TestRejectsAToolUseMissingWhatItRequires(t *testing.T) {
 
 	err := run([]string{"linear", "comment", "--notify"}, strings.NewReader(""), new(bytes.Buffer))
 	if err == nil || !strings.Contains(err.Error(), "--body is required") {
-		t.Fatalf("err = %v, want it to ask for the body", err)
+		t.Fatalf("err = %v, want it to require the body", err)
 	}
 }
 
@@ -210,7 +210,7 @@ func TestAFlagOverridesTheJSONObjectsField(t *testing.T) {
 	}
 }
 
-func TestCarriesFlagsAsTheTextGiven(t *testing.T) {
+func TestCarriesFlagsAsTheTextTyped(t *testing.T) {
 	_, carried := withTools(t, `{}`)
 
 	args := []string{"linear", "search", "--team_id", "ENG", "--first", "10", "--filter", `{"state":"open"}`}
@@ -219,18 +219,18 @@ func TestCarriesFlagsAsTheTextGiven(t *testing.T) {
 	}
 
 	if (*carried)["first"] != "10" || (*carried)["filter"] != `{"state":"open"}` {
-		t.Errorf("carried %v, want the number and the object as the text given", *carried)
+		t.Errorf("carried %v, want the number and the object as the text typed", *carried)
 	}
 }
 
 func TestRejectsJSONThatIsNotAnObject(t *testing.T) {
-	for _, given := range []string{`["ENG"]`, `null`, `{"team_id":`} {
-		t.Run(given, func(t *testing.T) {
+	for _, input := range []string{`["ENG"]`, `null`, `{"team_id":`} {
+		t.Run(input, func(t *testing.T) {
 			withTools(t, `{}`)
 
-			err := run([]string{"linear", "search", "--json", given}, strings.NewReader(""), new(bytes.Buffer))
+			err := run([]string{"linear", "search", "--json", input}, strings.NewReader(""), new(bytes.Buffer))
 			if err == nil || !strings.Contains(err.Error(), "--json takes one JSON object") {
-				t.Fatalf("err = %v, want it to ask for a JSON object", err)
+				t.Fatalf("err = %v, want it to require a JSON object", err)
 			}
 		})
 	}
@@ -287,7 +287,7 @@ func TestSummarisesMoreThanThirtyToolsByIntegration(t *testing.T) {
 	listed := listing(manyTools(31))
 
 	for _, want := range []string{
-		"This run was given 31 tools, too many to list:",
+		"This run has 31 tools enabled, too many to list:",
 		"  Petstore  11\n",
 		"  Linear  20\n",
 		`spotlight tools search "<words>"`,

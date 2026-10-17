@@ -4,8 +4,8 @@ import type {
 } from '@memory/domain/entities/memory-proposal.entity';
 import { MemoriesProposed } from '@memory/domain/events/memories-proposed.event';
 import { MemoryApproved } from '@memory/domain/events/memory-approved.event';
-import { MemoryDraftingAsked } from '@memory/domain/events/memory-drafting-asked.event';
 import { MemoryDraftingFailed } from '@memory/domain/events/memory-drafting-failed.event';
+import { MemoryDraftingRequested } from '@memory/domain/events/memory-drafting-requested.event';
 import { MemoryReviewResolved } from '@memory/domain/events/memory-review-resolved.event';
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
 import { UnknownMemoryError } from '@memory/domain/exceptions/unknown-memory.error';
@@ -130,14 +130,16 @@ export class MemoryDraft
     );
   }
 
-  asked(runId: RunId, now: Date): MemoryDraft {
+  requestDrafting(runId: RunId, now: Date): MemoryDraft {
     if (this.drafting?.isFor(runId) || this.draftedIn?.equals(runId)) {
       return this;
     }
 
-    const asked = this.with({ drafting: MemoryDrafting.asked(runId, now) });
-    asked.record(new MemoryDraftingAsked(this.id, this.taskId, runId));
-    return asked;
+    const requested = this.with({
+      drafting: MemoryDrafting.requested(runId, now),
+    });
+    requested.record(new MemoryDraftingRequested(this.id, this.taskId, runId));
+    return requested;
   }
 
   leaseJob(now: Date): MemoryDraft {
@@ -213,7 +215,7 @@ export class MemoryDraft
         throw error;
       }
     });
-    const kept = valid.filter(
+    const remaining = valid.filter(
       (each) => !this.stillRemembered.some((one) => one.matches(each)),
     );
     const replaced = input.evidence.isEmpty
@@ -230,7 +232,7 @@ export class MemoryDraft
           : Math.max(this.notesRead, through + 1),
       proposals: [
         ...this.proposals.filter((each) => !replaced.includes(each)),
-        ...kept,
+        ...remaining,
       ],
       failure: null,
     });
@@ -244,8 +246,8 @@ export class MemoryDraft
         this.id,
         this.taskId,
         input.runId,
-        kept.length,
-        input.proposed.length - kept.length,
+        remaining.length,
+        input.proposed.length - remaining.length,
         replaced.length,
       ),
     );

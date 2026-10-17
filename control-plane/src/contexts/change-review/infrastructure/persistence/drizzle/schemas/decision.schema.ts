@@ -28,7 +28,7 @@ export const decisionSet = pgTable(
     workspaceId: text('workspace_id').notNull(),
     decidedIn: text('decided_in'),
     draftRunId: text('draft_run_id'),
-    draftAskedAt: timestamp('draft_asked_at'),
+    draftRequestedAt: timestamp('draft_requested_at'),
     jobAttempts: integer('job_attempts').notNull().default(0),
     jobDueAt: timestamp('job_due_at'),
     status: decisionStatus('status')
@@ -42,7 +42,7 @@ export const decisionSet = pgTable(
   },
   (table) => [
     uniqueIndex('decision_set_task_idx').on(table.taskId),
-    index('decision_set_draft_idx').on(table.draftAskedAt),
+    index('decision_set_draft_idx').on(table.draftRequestedAt),
     index('decision_set_merged_idx').on(
       table.workspaceId,
       table.mergedRepository,

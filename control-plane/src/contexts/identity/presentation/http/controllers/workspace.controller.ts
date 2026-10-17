@@ -156,12 +156,12 @@ export class WorkspaceController {
     operationId: 'changeMemberRole',
     summary: 'Set what somebody is in this workspace',
     description:
-      'Roles are given downwards: an owner may set anyone’s, an admin only those of people they outrank, and nobody may hand out a rank they do not have. The last owner keeps the workspace.',
+      'Roles are assigned downwards: an owner may set anyone’s, an admin only those of people they outrank, and nobody may hand out a rank they do not have. The last owner keeps the workspace.',
   })
   @ApiParam({ name: 'slug', example: 'acme-inc' })
   @ApiParam({ name: 'userId' })
   @ApiNoContentResponse({ description: 'That is what they are now' })
-  @ApiForbiddenResponse({ description: 'Not yours to give' })
+  @ApiForbiddenResponse({ description: 'You cannot assign this role' })
   @ApiConflictResponse({ description: 'It would leave nobody who owns it' })
   @ApiNotFoundResponse({ description: 'No such workspace for this caller' })
   @ApiUnprocessableEntityResponse({ description: 'No such role' })

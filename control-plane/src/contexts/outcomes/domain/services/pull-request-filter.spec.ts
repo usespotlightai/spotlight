@@ -2,7 +2,7 @@ import { InvalidPullRequestFilterError } from '@outcomes/domain/exceptions/inval
 import { teamPullRequestOf } from '@outcomes/domain/pull-requests.fake-spec';
 import {
   filteredPullRequests,
-  type PullRequestFilterAsked,
+  type PullRequestFilterQuery,
   pullRequestFilterOf,
 } from '@outcomes/domain/services/pull-request-filter';
 import type { Window } from '@outcomes/domain/value-objects/insights-period.vo';
@@ -13,7 +13,7 @@ const WINDOW: Window = {
   to: new Date('2026-10-02T00:00:00.000Z'),
 };
 
-const NOTHING: PullRequestFilterAsked = {
+const NOTHING: PullRequestFilterQuery = {
   repository: null,
   author: null,
   type: null,
@@ -67,10 +67,10 @@ const PULL_REQUESTS = [
   }),
 ];
 
-const numbers = (asked: Partial<PullRequestFilterAsked>) =>
+const numbers = (query: Partial<PullRequestFilterQuery>) =>
   filteredPullRequests(
     PULL_REQUESTS,
-    pullRequestFilterOf({ ...NOTHING, ...asked }),
+    pullRequestFilterOf({ ...NOTHING, ...query }),
     WINDOW,
   ).map((each) => each.seen.number);
 
@@ -144,7 +144,7 @@ describe('the pull request list', () => {
   });
 
   it('rejects more than one value for a filter that takes one', () => {
-    for (const asked of [
+    for (const query of [
       { author: ['spotlight', 'people'] },
       { type: ['fix', 'chore'] },
       { state: ['open', 'merged'] },
@@ -153,7 +153,7 @@ describe('the pull request list', () => {
       { rounds: ['1', '2'] },
       { compared: ['true', 'false'] },
     ]) {
-      expect(() => pullRequestFilterOf({ ...NOTHING, ...asked })).toThrow(
+      expect(() => pullRequestFilterOf({ ...NOTHING, ...query })).toThrow(
         InvalidPullRequestFilterError,
       );
     }

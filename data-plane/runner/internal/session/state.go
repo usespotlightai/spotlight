@@ -88,7 +88,7 @@ func (s State) LogValue() slog.Value {
 func (t Trigger) String() string {
 	switch t {
 	case WorkspaceReady:
-		return "given a workspace"
+		return "prepared"
 	case AgentStarted:
 		return "started"
 	case PersonAsked:

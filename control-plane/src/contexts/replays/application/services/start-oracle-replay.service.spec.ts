@@ -97,17 +97,17 @@ describe('StartOracleReplay', () => {
   it('starts nothing when the live config moves on while it is starting', async () => {
     turnouts.accepted.add('original_0');
     const live = work.live;
-    let asked = 0;
+    let calls = 0;
     work.live = async () => {
-      asked += 1;
-      return asked === 1
+      calls += 1;
+      return calls === 1
         ? live()
         : { ...(await live()), fingerprint: LIVE_FINGERPRINT };
     };
 
     await oracles().baselineEnded(await finishedLive());
 
-    expect(asked).toBe(2);
+    expect(calls).toBe(2);
     expect(oracleReplays()).toEqual([]);
   });
 

@@ -21,14 +21,14 @@ const queried = (data: unknown, errorUpdateCount = 0): Queried => ({
   refetch: vi.fn(),
 });
 
-const answer: { memory: Queried; asked: unknown[] } = {
+const answer: { memory: Queried; requested: unknown[] } = {
   memory: queried(undefined),
-  asked: [],
+  requested: [],
 };
 
 vi.mock('@/hooks/api/useInsightsMemory', () => ({
   useInsightsMemory: (teamId: string, period: string) => {
-    answer.asked.push({ teamId, period });
+    answer.requested.push({ teamId, period });
     return answer.memory;
   },
 }));
@@ -95,14 +95,14 @@ const showing = () =>
 
 beforeEach(() => {
   answer.memory = queried(MEMORY);
-  answer.asked = [];
+  answer.requested = [];
 });
 
 describe('memory in Insights', () => {
   it('reads the team’s memory over the period', () => {
     showing();
 
-    expect(answer.asked).toContainEqual({ teamId: 'team_1', period: '7d' });
+    expect(answer.requested).toContainEqual({ teamId: 'team_1', period: '7d' });
   });
 
   it('shows a faithful skeleton while it loads', () => {
@@ -125,7 +125,7 @@ describe('memory in Insights', () => {
     expect(answer.memory.refetch).toHaveBeenCalled();
   });
 
-  it('leads to the team’s memory where it keeps none', () => {
+  it('leads to the team’s memory where it has none', () => {
     answer.memory = queried({
       ...MEMORY,
       activeCount: 0,

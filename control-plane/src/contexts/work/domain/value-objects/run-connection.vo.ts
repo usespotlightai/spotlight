@@ -159,7 +159,7 @@ export class RunConnection {
     if (parts.status !== null && outcome !== 'injected') {
       throw new InvalidRunConnectionError(
         'status',
-        'can be given only for an injected request',
+        'can be set only for an injected request',
       );
     }
 
@@ -171,7 +171,7 @@ export class RunConnection {
         'reason',
         REASONS_OF[outcome].length > 0
           ? `of a ${outcome} connection must be one of ${REASONS_OF[outcome].join(', ')}`
-          : `can be given only for a blocked or failed connection`,
+          : `can be set only for a blocked or failed connection`,
       );
     }
 

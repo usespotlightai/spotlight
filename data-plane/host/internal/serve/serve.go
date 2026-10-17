@@ -121,7 +121,7 @@ type Host struct {
 
 	mu           sync.Mutex
 	served       map[string]*served
-	unadmitted   []string
+	disallowed   []string
 	required     protocol.HostRequirements
 	running      map[string]string
 	claimBackoff map[string]time.Time
@@ -187,7 +187,7 @@ func (h *Host) Serve(ctx context.Context) error {
 	}()
 	reporting.Go(func() { h.report(claiming, stop) })
 
-	if err := retried(claiming, h.log, "could not ask what to serve, still trying", func() error {
+	if err := retried(claiming, h.log, "could not read what to serve, still trying", func() error {
 		return h.refresh(claiming, claiming, ctx, stop)
 	}); err != nil {
 		if final(err) {
@@ -278,7 +278,7 @@ func (h *Host) watch(claiming, serving context.Context, stop func(error)) {
 				return
 			}
 			if claiming.Err() == nil {
-				h.log.Warn("could not ask what to serve", "error", err)
+				h.log.Warn("could not read what to serve", "error", err)
 			}
 		}
 	}
@@ -360,7 +360,7 @@ func (h *Host) claim(ctx, serving context.Context, image string) error {
 			continue
 		}
 
-		asked := time.Now()
+		claimedAt := time.Now()
 		assignment, err := h.pool.Claim(ctx, protocol.HostClaim{Image: image})
 		if err != nil || assignment == nil {
 			<-h.slots
@@ -377,7 +377,7 @@ func (h *Host) claim(ctx, serving context.Context, image string) error {
 					return nil
 				}
 				backoff = min(backoff*2, retryCeiling)
-			} else if time.Since(asked) < quickAnswer && !sleep(ctx, jitter(retryFloor)) {
+			} else if time.Since(claimedAt) < quickAnswer && !sleep(ctx, jitter(retryFloor)) {
 				return nil
 			}
 			continue

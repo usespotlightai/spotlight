@@ -38,7 +38,7 @@ export interface ChatToolContext {
 
 export type ToolContext = TaskToolContext | ChatToolContext;
 
-export interface ReachableTool {
+export interface ResolvedTool {
   readonly declared: DeclaredTool;
   readonly actingAs: ToolActingAs | null;
   readonly wants: ConnectionWantedDto | null;
@@ -48,10 +48,10 @@ export interface ReachableTool {
 }
 
 export interface IntegrationToolsPort {
-  reach(
+  resolve(
     tool: Tool,
     context: ToolContext,
     attempt: RunAttempt,
     runnerId: string,
-  ): Promise<ReachableTool | null>;
+  ): Promise<ResolvedTool | null>;
 }

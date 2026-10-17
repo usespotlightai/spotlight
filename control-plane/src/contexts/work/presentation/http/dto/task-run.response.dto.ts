@@ -138,7 +138,7 @@ export class RunConversationResponseDto {
   @ApiProperty({ example: '2026-08-28T16:32:47.877Z' })
   readonly createdAt: string;
 
-  @ApiProperty({ description: 'What the run was given, word for word' })
+  @ApiProperty({ description: 'The briefing of the run, word for word' })
   readonly briefing: string;
 
   @ApiProperty({ example: false, description: 'A run is on the task now' })
@@ -185,7 +185,7 @@ export class SendMessageRequestDto {
   @ApiProperty({
     example: 'Cap the retries at 500 while you are in there.',
     description:
-      'Reaches the agent when its current turn ends. May be empty where files are attached.',
+      'Goes to the agent when its current turn ends. May be empty where files are attached.',
   })
   readonly body!: string;
 
@@ -278,7 +278,7 @@ export class TeamRunResponseDto extends TaskRunResponseDto {
   @ApiProperty({
     nullable: true,
     type: String,
-    description: 'What was asked for, shown before a run has written a note',
+    description: 'What was requested, shown before a run has written a note',
   })
   readonly taskDescription: string | null;
 

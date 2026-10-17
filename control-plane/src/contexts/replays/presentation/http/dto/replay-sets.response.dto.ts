@@ -216,20 +216,20 @@ export class ReplaySetResponseDto {
 
   @ApiProperty({
     description:
-      'Its station is gone from its line: it takes no more runs, starts no replays and keeps no archives; it may still be renamed, have runs taken out, or be deleted',
+      'Its station is gone from its line: it takes no more runs, starts no replays and holds no archives; it may still be renamed, have runs taken out, or be deleted',
   })
   readonly stationGone: boolean;
 
   @ApiProperty({
     description:
-      'Planned changes of its station are checked against it, as `spotlight replay check` asks; a station has at most one such set',
+      'Planned changes of its station are checked against it, as `spotlight replay check` requests; a station has at most one such set',
   })
   readonly guardsChanges: boolean;
 
   @ApiProperty({
     type: SetHealthResponseDto,
     description:
-      'Whether the set can tell candidates apart, read for the live config as it is now: its noise, how much of it the live config passes already, whether its judge and check give the same answer twice, and how much better the live config does when handed each run’s answer',
+      'Whether the set can tell candidates apart, read for the live config as it is now: its noise, how much of it the live config passes already, whether its judge and check return the same answer twice, and how much better the live config does when handed each run’s answer',
   })
   readonly health: SetHealthResponseDto;
 

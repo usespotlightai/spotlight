@@ -110,7 +110,7 @@ const anOriginal = async (
   input: {
     stationId?: string;
     startedFrom?: boolean;
-    heardFrom?: string;
+    openedFrom?: string;
     raisedAt?: string;
   } = {},
 ): Promise<Original> => {
@@ -123,13 +123,13 @@ const anOriginal = async (
 
   await db.insert(schema.task).values({
     id: taskId,
-    openedFrom: input.heardFrom ?? 'person',
+    openedFrom: input.openedFrom ?? 'person',
     workspaceId: team.workspaceId.value,
     stationId: taskAt,
     title: `Drain queue ${runId.slice(0, 4)}`,
     description: 'It stalls on restart.',
     raisedAtStationId: input.raisedAt ?? taskAt,
-    raisedById: input.heardFrom ? null : team.owner.value,
+    raisedById: input.openedFrom ? null : team.owner.value,
     assigneeId: team.owner.value,
     finishedAt: at,
   });
@@ -329,7 +329,7 @@ const finishes = async (
       failed,
       handover: failed ? undefined : { next: 'ship', note: 'Done here.' },
       sessionId: 'session_1',
-      kept: true,
+      archived: true,
     })
     .expect(200);
 };
@@ -594,10 +594,10 @@ describe('a replay set', () => {
   });
 
   it('shows a run whose task was deleted as one that can no longer be replayed', async () => {
-    const kept = await anOriginal();
-    const setId = await createSet('Deleted later', kept);
+    const original = await anOriginal();
+    const setId = await createSet('Deleted later', original);
 
-    await db.delete(schema.task).where(eq(schema.task.id, kept.taskId));
+    await db.delete(schema.task).where(eq(schema.task.id, original.taskId));
 
     const sets = (await owner().get(`${stationPath()}/replay-sets`).expect(200))
       .body as {
@@ -653,8 +653,8 @@ describe('a replay set', () => {
       await turnedOut(failed, { ending: 'failed', next: null });
       failures.push(failed);
     }
-    const heard = await anOriginal({ heardFrom: 'slack' });
-    await turnedOut(heard, { ending: 'failed', next: null });
+    const fromSlack = await anOriginal({ openedFrom: 'slack' });
+    await turnedOut(fromSlack, { ending: 'failed', next: null });
     const passedOn = await anOriginal({ raisedAt: SHIP });
     await turnedOut(passedOn, { ending: 'failed', next: null });
     const accepted = await anOriginal();
@@ -662,7 +662,7 @@ describe('a replay set', () => {
     const setId = await createSet(
       'Lopsided',
       ...failures,
-      heard,
+      fromSlack,
       passedOn,
       accepted,
     );
@@ -713,7 +713,7 @@ describe('a replay set', () => {
     expect(set?.composition.oldest).not.toBeNull();
     expect(set?.composition.newest).not.toBeNull();
     expect(
-      set?.entries.find((each) => each.runId === heard.runId),
+      set?.entries.find((each) => each.runId === fromSlack.runId),
     ).toMatchObject({ outcome: 'failed', origin: 'slack' });
     expect(
       set?.entries.find((each) => each.runId === passedOn.runId)?.origin,
@@ -1194,7 +1194,7 @@ describe('a replay', () => {
     await eventually(async () => (await replayRow(id)) === undefined);
   });
 
-  it('replays each run as many times as asked, rating each task by the mean of its copies with an interval, and measures the set’s noise', async () => {
+  it('replays each run as many times as requested, rating each task by the mean of its copies with an interval, and measures the set’s noise', async () => {
     const first = await anOriginal();
     const second = await anOriginal();
     const setId = await createSet('Repeated', first, second);

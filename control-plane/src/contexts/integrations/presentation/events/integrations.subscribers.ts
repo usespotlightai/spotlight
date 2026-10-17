@@ -2,10 +2,10 @@ import type { RereadIntegrationSourceHandler } from '@integrations/application/c
 import { RereadIntegrationSourceCommand } from '@integrations/application/commands/reread-integration-source.command';
 import type { DeleteTeamIntegrations } from '@integrations/application/services/delete-team-integrations.service';
 import type { HookedHappenings } from '@integrations/application/services/hooked-happenings.service';
-import type { HookDeletionDue } from '@integrations/domain/events/hook-deletion-due.event';
+import type { HookDeletionRequested } from '@integrations/domain/events/hook-deletion-requested.event';
 import type { HostConnected } from '@integrations/domain/events/host-connected.event';
 import type { IntegrationDeleted } from '@integrations/domain/events/integration-deleted.event';
-import type { IntegrationDeletionDue } from '@integrations/domain/events/integration-deletion-due.event';
+import type { IntegrationDeletionRequested } from '@integrations/domain/events/integration-deletion-requested.event';
 import type { IntegrationUpdated } from '@integrations/domain/events/integration-updated.event';
 import type { LearnedOutputRepository } from '@integrations/domain/repositories/learned-output.repository';
 import {
@@ -55,14 +55,14 @@ export const integrationsSubscribers = (
     [TEAM_DELETED],
     (event) => deleting.deleteConnectionsForTeam(TeamId.of(event.teamId)),
   ),
-  subscribing<HookDeletionDue>(
+  subscribing<HookDeletionRequested>(
     'integrations.delete-hook-of-deleted-team',
-    ['integrations.hook-deletion-due'],
+    ['integrations.hook-deletion-requested'],
     (event) => deleting.deleteHook(event.id, event.workspaceId),
   ),
-  subscribing<IntegrationDeletionDue>(
+  subscribing<IntegrationDeletionRequested>(
     'integrations.delete-integration-of-deleted-team',
-    ['integrations.integration-deletion-due'],
+    ['integrations.integration-deletion-requested'],
     (event) => deleting.deleteIntegration(event.id, event.workspaceId),
   ),
   subscribing<HostConnected>(

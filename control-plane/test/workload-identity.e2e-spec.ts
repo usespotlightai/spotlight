@@ -261,7 +261,7 @@ describe('a host claiming through a runner trust, as a platform workload with no
     expect((await claim(trust.id, await workload())).status).toBe(401);
   });
 
-  it('lets a host through a trust send a heartbeat with what it has and what it runs, and ask what it should serve', async () => {
+  it('lets a host through a trust send a heartbeat with what it has and what it runs, and request what it should serve', async () => {
     const trust = await trusted();
 
     const answered = await heartbeat(trust.id, await workload(), ['run-1']);

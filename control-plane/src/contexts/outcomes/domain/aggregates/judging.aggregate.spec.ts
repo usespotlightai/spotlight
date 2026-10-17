@@ -1,7 +1,7 @@
 import type { Judging } from '@outcomes/domain/aggregates/judging.aggregate';
 import type { RunJudged } from '@outcomes/domain/events/run-judged.event';
 import { InvalidScoreError } from '@outcomes/domain/exceptions/invalid-score.error';
-import { askedJudging, rubricOf } from '@outcomes/domain/judging.fake-spec';
+import { queuedJudging, rubricOf } from '@outcomes/domain/judging.fake-spec';
 import { JudgeEvidence } from '@outcomes/domain/services/judge-evidence';
 import { JudgingFailure } from '@outcomes/domain/value-objects/judging-failure.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -20,8 +20,8 @@ const evidenceFor = (runId = 'run_1') =>
         kind: 'message',
         tool: null,
         text: 'Retrying in the request.',
-        given: null,
-        returned: null,
+        input: null,
+        output: null,
       },
     ],
     hunks: [],
@@ -43,14 +43,14 @@ const judged = (
 
 describe('Judging', () => {
   it('has a pending job until it is judged', () => {
-    const asked = askedJudging();
+    const queued = queuedJudging();
 
-    expect(asked.hasPendingJob).toBe(true);
-    expect(asked.pullEvents()).toEqual([]);
+    expect(queued.hasPendingJob).toBe(true);
+    expect(queued.pullEvents()).toEqual([]);
   });
 
   it('records the judge’s grounded verdict on the rubric’s scale', () => {
-    const done = judged(askedJudging(), true);
+    const done = judged(queuedJudging(), true);
     const [event] = done.pullEvents() as RunJudged[];
 
     expect(done.hasPendingJob).toBe(false);
@@ -62,7 +62,7 @@ describe('Judging', () => {
 
   it('reads a number verdict on a 1 to 5 rubric', () => {
     const done = judged(
-      askedJudging('run_1', rubricOf('scores: 1-5\nHow well?')),
+      queuedJudging('run_1', rubricOf('scores: 1-5\nHow well?')),
       4,
     );
 
@@ -70,11 +70,11 @@ describe('Judging', () => {
   });
 
   it('records a live run’s verdict claim by claim on a judge of claims, a score like any other', () => {
-    const asked = askedJudging(
+    const queued = queuedJudging(
       'run_1',
       rubricOf(null, undefined, ['It retries.', 'It adds a test.'], 0.5),
     );
-    const done = asked.recordVerdict({
+    const done = queued.recordVerdict({
       verdict: {
         claims: [
           { index: 0, met: true, reasons: GROUNDED },
@@ -94,7 +94,7 @@ describe('Judging', () => {
   });
 
   it('retries later when every reason cites what is not there', () => {
-    const done = judged(askedJudging(), true, [
+    const done = judged(queuedJudging(), true, [
       { text: 'Made up.', steps: [99], hunks: [] },
     ]);
 
@@ -104,11 +104,11 @@ describe('Judging', () => {
   });
 
   it('retries later unless most of its reasons cite what the judge read', () => {
-    const half = judged(askedJudging(), true, [
+    const half = judged(queuedJudging(), true, [
       ...GROUNDED,
       { text: 'Made up.', steps: [99], hunks: [] },
     ]);
-    const mostlyGrounded = judged(askedJudging(), true, [
+    const mostlyGrounded = judged(queuedJudging(), true, [
       ...GROUNDED,
       ...GROUNDED,
       { text: 'Made up.', steps: [99], hunks: [] },
@@ -122,7 +122,7 @@ describe('Judging', () => {
   });
 
   it('keeps what each cited step said, as the judge read it', () => {
-    const event = judged(askedJudging(), true).pullEvents()[0] as RunJudged;
+    const event = judged(queuedJudging(), true).pullEvents()[0] as RunJudged;
     const [citation] = event.reasons[0]?.citations ?? [];
 
     expect(event.seen.stepAt(citation?.step ?? -1)?.text).toBe(
@@ -132,7 +132,7 @@ describe('Judging', () => {
 
   it('retries later when the verdict gives more than five reasons', () => {
     const done = judged(
-      askedJudging(),
+      queuedJudging(),
       true,
       Array.from({ length: 6 }, () => GROUNDED[0] as (typeof GROUNDED)[0]),
     );
@@ -141,7 +141,7 @@ describe('Judging', () => {
   });
 
   it('retries later when the verdict is off the rubric’s scale', () => {
-    const done = judged(askedJudging(), 3);
+    const done = judged(queuedJudging(), 3);
 
     expect(done.hasPendingJob).toBe(true);
     expect(done.pullEvents()).toEqual([]);
@@ -149,7 +149,7 @@ describe('Judging', () => {
 
   it('is judged only on its own run’s evidence', () => {
     expect(() =>
-      askedJudging().recordVerdict({
+      queuedJudging().recordVerdict({
         verdict: { value: true, reasons: GROUNDED },
         evidence: evidenceFor('run_2'),
         model: 'some/model',
@@ -159,7 +159,7 @@ describe('Judging', () => {
   });
 
   it('fails where there is nothing to judge', () => {
-    const done = askedJudging()
+    const done = queuedJudging()
       .leaseJob(NOW)
       .failed(JudgingFailure.of('no-evidence', NOW));
 
@@ -168,7 +168,7 @@ describe('Judging', () => {
   });
 
   it('is leased while it is worked on, and is dead-lettered once it keeps being interrupted', () => {
-    let judging = askedJudging();
+    let judging = queuedJudging();
 
     for (let attempt = 0; attempt < 4; attempt += 1) {
       judging = judging.leaseJob(new Date(NOW.getTime() + attempt * 3_600_000));
@@ -179,7 +179,7 @@ describe('Judging', () => {
   });
 
   it('ignores a verdict once it is done', () => {
-    const done = judged(askedJudging(), true);
+    const done = judged(queuedJudging(), true);
     done.pullEvents();
 
     expect(judged(done, false)).toBe(done);

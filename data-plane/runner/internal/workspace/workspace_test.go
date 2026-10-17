@@ -59,7 +59,7 @@ func TestStateMakesADirectoryInsideTheWorkspace(t *testing.T) {
 	}
 }
 
-func TestClearKeepsOnlyWhatItIsAskedToKeep(t *testing.T) {
+func TestClearPreservesOnlyWhatItIsToldToPreserve(t *testing.T) {
 	dir := t.TempDir()
 	lay(t, filepath.Join(dir, "acme", "api", "main.go"), "tracked")
 	lay(t, filepath.Join(dir, "acme", "api", "node_modules", "left-pad", "index.js"), "installed")
@@ -76,7 +76,7 @@ func TestClearKeepsOnlyWhatItIsAskedToKeep(t *testing.T) {
 	}
 
 	if _, err := os.Stat(filepath.Join(dir, "acme", "api", "node_modules", "left-pad", "index.js")); err != nil {
-		t.Errorf("what was kept is gone: %v", err)
+		t.Errorf("what was preserved is gone: %v", err)
 	}
 	for _, gone := range []string{"acme/api/main.go", "acme/web", ".spotlight"} {
 		if _, err := os.Stat(filepath.Join(dir, gone)); !os.IsNotExist(err) {

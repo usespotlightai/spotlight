@@ -31,7 +31,7 @@ const answering = (...replies: Response[]) => {
     const reply = replies.shift();
 
     if (!reply) {
-      throw new Error('asked once too often');
+      throw new Error('called once too often');
     }
 
     return reply;
@@ -155,7 +155,7 @@ describe('SourceFetch', () => {
     await expect(fetching.text(GET, injection())).rejects.toThrow(/plain http/);
   });
 
-  it('asks again without the body after a 303', async () => {
+  it('requests again without the body after a 303', async () => {
     const { fetching, fetch } = answering(
       new Response(null, {
         status: 303,
@@ -190,7 +190,7 @@ describe('SourceFetch', () => {
     );
   });
 
-  it('blocks a host the deployment does not allow before asking it anything', async () => {
+  it('blocks a host the deployment does not allow before it sends it anything', async () => {
     const { fetching, fetch } = answering();
 
     await expect(

@@ -40,8 +40,8 @@ export class Evidence implements EvidencePort {
           kind: each.kind,
           tool: each.tool,
           text: each.text,
-          given: each.given,
-          returned: each.returned,
+          input: each.input,
+          output: each.output,
         })),
         hunks: run.hunks.map((each) => ({
           id: each.id,

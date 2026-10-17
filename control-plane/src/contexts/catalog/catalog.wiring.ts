@@ -17,7 +17,7 @@ import {
 } from '@catalog/application/ports/workspace-plans.port';
 import { ResolveCatalogItemHandler } from '@catalog/application/queries/handlers/resolve-catalog-item.handler';
 import { ResolveCatalogItemQuery } from '@catalog/application/queries/resolve-catalog-item.query';
-import { CatalogGivings } from '@catalog/application/services/catalog-givings.service';
+import { CatalogEntitlements } from '@catalog/application/services/catalog-entitlements.service';
 import { CATALOG_ITEMS } from '@catalog/infrastructure/catalog/catalog-items';
 import { SeededCatalog } from '@catalog/infrastructure/catalog/seeded-catalog';
 import { DrizzleMeteredCalls } from '@catalog/infrastructure/persistence/drizzle/ledgers/metered-calls.ledger';
@@ -78,7 +78,7 @@ export const CATALOG_PROVIDERS: readonly Provider[] = [
       meter: CallMeterPort,
       service: CatalogServicePort,
       clock: ClockPort,
-    ) => new CatalogGivings(catalog, plans, meter, service, clock),
+    ) => new CatalogEntitlements(catalog, plans, meter, service, clock),
   },
 
   {

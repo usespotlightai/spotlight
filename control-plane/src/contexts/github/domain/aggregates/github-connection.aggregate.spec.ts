@@ -29,7 +29,7 @@ const connected = () =>
   });
 
 describe('GitHubConnection', () => {
-  it('reaches no installation until somebody connects one', () => {
+  it('has no installation until somebody connects one', () => {
     expect(none().installation).toBeNull();
     expect(none().isConnected).toBe(false);
   });
@@ -53,7 +53,7 @@ describe('GitHubConnection', () => {
     expect(connected().connectTo(REINSTALLED, allowed).version).toBe(3);
   });
 
-  it('leaves the connection it was asked of unchanged', () => {
+  it('leaves the connection it was queried for unchanged', () => {
     const connection = none();
     connection.connectTo(INSTALLED, allowed);
 

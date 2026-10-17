@@ -9,7 +9,7 @@ import type {
   RunWork,
 } from '@work/application/services/run-work';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
-import { KeptFromReplaysError } from '@work/domain/exceptions/kept-from-replays.error';
+import { NotAllowedInReplayError } from '@work/domain/exceptions/not-allowed-in-replay.error';
 import { UnknownRunError } from '@work/domain/exceptions/unknown-run.error';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
@@ -30,10 +30,10 @@ export class ReplayRunWork implements RunWork {
   }
 
   async acknowledgeUpTo(): Promise<void> {
-    throw new KeptFromReplaysError('acknowledge the messages of a person');
+    throw new NotAllowedInReplayError('acknowledge the messages of a person');
   }
 
-  gave(attachmentId: string): Attachment | null {
+  attachment(attachmentId: string): Attachment | null {
     return (
       this.briefed?.allAttachments.find(
         (each) => each.id.value === attachmentId,
@@ -46,14 +46,14 @@ export class ReplayRunWork implements RunWork {
     service: GitService,
   ): Promise<Repository | null> {
     if (service !== 'git-upload-pack') {
-      throw new KeptFromReplaysError(`push to ${name}`);
+      throw new NotAllowedInReplayError(`push to ${name}`);
     }
 
     return this.run.replayedRepository(name);
   }
 
   async toolContext(): Promise<ToolContext> {
-    throw new KeptFromReplaysError('use a tool');
+    throw new NotAllowedInReplayError('use a tool');
   }
 
   async clearFor(): Promise<Cleared> {

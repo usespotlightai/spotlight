@@ -1,7 +1,7 @@
 import { RunnerHostStartedServing } from '@runners/domain/events/runner-host-started-serving.event';
 import { HostInUseError } from '@runners/domain/exceptions/host-in-use.error';
-import type { Admission } from '@runners/domain/value-objects/admission.vo';
 import type { BootId } from '@runners/domain/value-objects/boot-id.vo';
+import type { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
 import type { HostId } from '@runners/domain/value-objects/host-id.vo';
 import type { HostImage } from '@runners/domain/value-objects/host-image.vo';
 import type { HostReport } from '@runners/domain/value-objects/host-report.vo';
@@ -17,7 +17,7 @@ const HOST_RETENTION_MS = 24 * 60 * 60_000;
 interface State {
   readonly id: HostId;
   readonly workspaceId: WorkspaceId;
-  readonly admission: Admission;
+  readonly source: CredentialSource;
   readonly bootId: BootId;
   readonly report: HostReport;
   readonly firstHeartbeatAt: Date;
@@ -34,7 +34,7 @@ export class RunnerHost extends EventRecorder {
   static fromHeartbeat(input: {
     id: HostId;
     workspaceId: WorkspaceId;
-    admission: Admission;
+    source: CredentialSource;
     bootId: BootId;
     report: HostReport;
     at: Date;
@@ -42,7 +42,7 @@ export class RunnerHost extends EventRecorder {
     return new RunnerHost({
       id: input.id,
       workspaceId: input.workspaceId,
-      admission: input.admission,
+      source: input.source,
       bootId: input.bootId,
       report: input.report,
       firstHeartbeatAt: input.at,
@@ -86,8 +86,8 @@ export class RunnerHost extends EventRecorder {
     return this.state.workspaceId;
   }
 
-  get admission(): Admission {
-    return this.state.admission;
+  get source(): CredentialSource {
+    return this.state.source;
   }
 
   get bootId(): BootId {
@@ -114,8 +114,8 @@ export class RunnerHost extends EventRecorder {
     return this.state.report.offering(image);
   }
 
-  servesThrough(admission: Admission): boolean {
-    return this.state.admission.equals(admission);
+  servesThrough(source: CredentialSource): boolean {
+    return this.state.source.equals(source);
   }
 
   isOnlineAt(now: Date): boolean {
@@ -139,13 +139,13 @@ export class RunnerHost extends EventRecorder {
   }
 
   reportThrough(input: {
-    admission: Admission;
+    source: CredentialSource;
     workspaceId: WorkspaceId;
     bootId: BootId;
     report: HostReport;
     at: Date;
   }): RunnerHost {
-    if (this.servesThrough(input.admission)) {
+    if (this.servesThrough(input.source)) {
       if (input.at <= this.state.lastHeartbeatAt) {
         return this;
       }
@@ -171,7 +171,7 @@ export class RunnerHost extends EventRecorder {
     return new RunnerHost({
       ...this.state,
       workspaceId: input.workspaceId,
-      admission: input.admission,
+      source: input.source,
       bootId: input.bootId,
       report: input.report,
       firstHeartbeatAt: input.at,

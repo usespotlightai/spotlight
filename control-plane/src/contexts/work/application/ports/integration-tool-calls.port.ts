@@ -44,7 +44,7 @@ export interface IntegrationTool {
 }
 
 export interface IntegrationToolCallsPort {
-  reach(
+  resolve(
     tool: string,
     task: BoundTaskDto,
     run: RunAttemptDto,

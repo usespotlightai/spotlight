@@ -317,7 +317,7 @@ describe('ProvisionWork', () => {
     ]);
   });
 
-  it('reserves a waiting run for a new runner and asks a fitting pool to start it', async () => {
+  it('reserves a waiting run for a new runner and requests a fitting pool to start it', async () => {
     const { provisioner, provision, run } = provisioning(
       [waiting('run_1', ['gpu'])],
       [aPool('burst', ['gpu'])],
@@ -343,7 +343,7 @@ describe('ProvisionWork', () => {
     expect(run('run_1').reservation?.pool.value).toBe('pool_burst');
   });
 
-  it('asks the pool to start its runner in the image the run is placed in', async () => {
+  it('requests the pool to start its runner in the image the run is placed in', async () => {
     const { provisioner, provision } = provisioning(
       [waiting('run_1', ['gpu'], 'ws_1', WIDGETS)],
       [aPool('burst', ['gpu'])],
@@ -520,7 +520,7 @@ describe('ProvisionWork', () => {
     expect(run('run_1').provisioning.attempts).toBe(0);
   });
 
-  it('gives a run with injected secrets only to a pool that names an egress', async () => {
+  it('hands a run with injected secrets only to a pool that names an egress', async () => {
     const { provisioner, provision, run, awaitingProvision } = provisioning(
       [waiting('run_1', [], 'ws_1', null, ['LINEAR_API_KEY'])],
       [aPool('burst'), aPool('shared', [], true)],
@@ -627,7 +627,7 @@ describe('ProvisionWork', () => {
   });
 
   describe('for change-stack checks', () => {
-    it('reserves a waiting check for a new runner and asks a fitting pool to start it for that check', async () => {
+    it('reserves a waiting check for a new runner and requests a fitting pool to start it for that check', async () => {
       const { provisioner, provision, checks } = provisioning(
         [],
         [aPool('burst', ['gpu'])],
@@ -663,7 +663,7 @@ describe('ProvisionWork', () => {
       expect(checks.unreserve).not.toHaveBeenCalled();
     });
 
-    it('asks the pool to start its runner in the image the check is placed in', async () => {
+    it('requests the pool to start its runner in the image the check is placed in', async () => {
       const { provisioner, provision } = provisioning(
         [],
         [aPool('burst', ['gpu'])],
@@ -684,7 +684,7 @@ describe('ProvisionWork', () => {
       );
     });
 
-    it('asks only for checks in a workspace whose pools provision', async () => {
+    it('requests only checks in a workspace whose pools provision', async () => {
       const { provisioner, checks } = provisioning(
         [],
         [aPool('burst')],

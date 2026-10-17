@@ -51,7 +51,7 @@ const issued = (over: Parameters<typeof terms>[0] = {}) =>
     by: BY,
   });
 
-const kept = (version = 2) =>
+const stored = (version = 2) =>
   WorkspaceToken.rehydrate({
     ...terms(),
     id: ID,
@@ -95,23 +95,23 @@ describe('WorkspaceToken', () => {
     );
   });
 
-  it('admits until it expires, and for ever when it never does', () => {
-    expect(kept().admitsAt(NOW)).toBe(true);
-    expect(kept().admitsAt(LATER)).toBe(false);
-    expect(issued({ expiresAt: null }).admitsAt(new Date('2999-01-01'))).toBe(
+  it('is active until it expires, and for ever when it never does', () => {
+    expect(stored().isActiveAt(NOW)).toBe(true);
+    expect(stored().isActiveAt(LATER)).toBe(false);
+    expect(issued({ expiresAt: null }).isActiveAt(new Date('2999-01-01'))).toBe(
       true,
     );
   });
 
   it('names its expiry only when it has one', () => {
-    expect(kept().expiry()).toEqual(LATER);
+    expect(stored().expiry()).toEqual(LATER);
     expect(() => issued({ expiresAt: null }).expiry()).toThrow(
       InconsistentStateError,
     );
   });
 
   it('takes a new description, and says so', () => {
-    const updated = kept().update(
+    const updated = stored().update(
       terms({ description: 'Applies from main' }),
       BY,
     );
@@ -132,22 +132,22 @@ describe('WorkspaceToken', () => {
     ['scopes', terms({ scopes: ['plan', 'secrets'] })],
     ['expiresAt', terms({ expiresAt: null })],
   ])('keeps its %s as issued', (field, changed) => {
-    expect(() => kept().update(changed, BY)).toThrow(
+    expect(() => stored().update(changed, BY)).toThrow(
       expect.objectContaining({ field }),
     );
-    expect(() => kept().update(changed, BY)).toThrow(ImmutableFieldError);
+    expect(() => stored().update(changed, BY)).toThrow(ImmutableFieldError);
   });
 
   it('rejects a change made against another version', () => {
-    expect(() => kept(2).assertVersion(1)).toThrow(
+    expect(() => stored(2).assertVersion(1)).toThrow(
       WorkspaceTokenVersionConflictError,
     );
   });
 
-  it('admits nobody once revoked, and cannot change after', () => {
-    const revoked = kept().revoke(BY);
+  it('is not active once revoked, and cannot change after', () => {
+    const revoked = stored().revoke(BY);
 
-    expect(revoked.admitsAt(NOW)).toBe(false);
+    expect(revoked.isActiveAt(NOW)).toBe(false);
     expect(revoked.pullEvents()).toEqual([
       new WorkspaceTokenRevoked(
         ID,
@@ -182,7 +182,7 @@ describe('WorkspaceToken', () => {
       expect(token.runId?.value).toBe('run_1');
       expect(token.issuedByTrustId).toBeNull();
       expect(token.isIssuedBySpotlight).toBe(true);
-      expect(token.admitsAt(NOW)).toBe(true);
+      expect(token.isActiveAt(NOW)).toBe(true);
     });
 
     it('records Spotlight issuing it, with the run and when it ends', () => {
@@ -220,7 +220,7 @@ describe('WorkspaceToken', () => {
     it('expires once it ends', () => {
       const token = forRun();
 
-      expect(token.admitsAt(new Date(HOUR_LATER.getTime() + 1))).toBe(false);
+      expect(token.isActiveAt(new Date(HOUR_LATER.getTime() + 1))).toBe(false);
     });
   });
 });

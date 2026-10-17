@@ -10,7 +10,7 @@ export interface CauseLink {
   readonly description: string;
 }
 
-const MAX_KEPT = 32;
+const MAX_LINKS = 32;
 
 const MAX_KEY = 500;
 
@@ -86,7 +86,7 @@ export class CausalChain {
 
   followedBy(link: CauseLink): CausalChain {
     return new CausalChain(
-      [...this.links, CausalChain.linkOf(link)].slice(-MAX_KEPT),
+      [...this.links, CausalChain.linkOf(link)].slice(-MAX_LINKS),
       this.depth + 1,
     );
   }

@@ -2,17 +2,17 @@ import type {
   ReplayedStation,
   ReplaySet,
 } from '@replays/domain/aggregates/replay-set.aggregate';
-import { ReplayBaselineWanted } from '@replays/domain/events/replay-baseline-wanted.event';
+import { ReplayBaselineRequested } from '@replays/domain/events/replay-baseline-requested.event';
 import { ReplayEnded } from '@replays/domain/events/replay-ended.event';
 import { ReplayEntryConcluded } from '@replays/domain/events/replay-entry-concluded.event';
-import { ReplayJudgingWanted } from '@replays/domain/events/replay-judging-wanted.event';
+import { ReplayJudgingRequested } from '@replays/domain/events/replay-judging-requested.event';
 import { ReplayOverBudget } from '@replays/domain/events/replay-over-budget.event';
-import { ReplayPairJudgingWanted } from '@replays/domain/events/replay-pair-judging-wanted.event';
-import { ReplayPairingDue } from '@replays/domain/events/replay-pairing-due.event';
-import { ReplayRecheckWanted } from '@replays/domain/events/replay-recheck-wanted.event';
-import { ReplayRejudgingWanted } from '@replays/domain/events/replay-rejudging-wanted.event';
+import { ReplayPairJudgingRequested } from '@replays/domain/events/replay-pair-judging-requested.event';
+import { ReplayPairingRequested } from '@replays/domain/events/replay-pairing-requested.event';
+import { ReplayRecheckRequested } from '@replays/domain/events/replay-recheck-requested.event';
+import { ReplayRejudgingRequested } from '@replays/domain/events/replay-rejudging-requested.event';
 import { ReplayStarted } from '@replays/domain/events/replay-started.event';
-import { ReplayStopAsked } from '@replays/domain/events/replay-stop-asked.event';
+import { ReplayStopRequested } from '@replays/domain/events/replay-stop-requested.event';
 import { ReplayStopped } from '@replays/domain/events/replay-stopped.event';
 import { InvalidReplayError } from '@replays/domain/exceptions/invalid-replay.error';
 import { ReplayEndedError } from '@replays/domain/exceptions/replay-ended.error';
@@ -314,7 +314,7 @@ export class Replay extends EventRecorder {
 
     if (wanting) {
       started.record(
-        new ReplayBaselineWanted(
+        new ReplayBaselineRequested(
           input.id,
           set.workspaceId,
           set.id,
@@ -500,7 +500,7 @@ export class Replay extends EventRecorder {
 
       reserved = expected;
       wanted.push({ run, against, original: entry.original });
-      return entry.pairingAsked(against);
+      return entry.pairingRequested(against);
     });
     const resulting =
       outstanding.length === 0 && wanted.length === 0
@@ -517,11 +517,11 @@ export class Replay extends EventRecorder {
       return this;
     }
 
-    const asked = this.with({ entries: resulting });
+    const requested = this.with({ entries: resulting });
 
     for (const each of wanted) {
-      asked.record(
-        new ReplayPairJudgingWanted(
+      requested.record(
+        new ReplayPairJudgingRequested(
           this.id,
           this.workspaceId,
           this.state.candidateId,
@@ -532,7 +532,7 @@ export class Replay extends EventRecorder {
       );
     }
 
-    return asked;
+    return requested;
   }
 
   pair(
@@ -564,7 +564,7 @@ export class Replay extends EventRecorder {
       return changed;
     }
 
-    changed.record(new ReplayPairingDue(this.id, this.workspaceId));
+    changed.record(new ReplayPairingRequested(this.id, this.workspaceId));
 
     return changed;
   }
@@ -923,7 +923,7 @@ export class Replay extends EventRecorder {
       stopped.record(this.endedAs('stopped'));
     }
     stopped.record(
-      new ReplayStopAsked(
+      new ReplayStopRequested(
         this.id,
         this.teamId,
         ConfigurationChange.updated(this.whatChanged, by),
@@ -1014,7 +1014,7 @@ export class Replay extends EventRecorder {
 
     for (const entry of wanted) {
       changed.record(
-        new ReplayJudgingWanted(
+        new ReplayJudgingRequested(
           this.id,
           this.workspaceId,
           this.state.candidateId,
@@ -1043,7 +1043,7 @@ export class Replay extends EventRecorder {
         .scored(scoring);
     } else {
       wanted = true;
-      entry = changed.judgingAsked().scored(scoring);
+      entry = changed.judgingRequested().scored(scoring);
     }
 
     return {
@@ -1057,7 +1057,7 @@ export class Replay extends EventRecorder {
   }
 
   private overBudgetAt(at: Date): Replay {
-    if (!this.isDispatching || !this.charged.reaches(this.state.ceiling)) {
+    if (!this.isDispatching || !this.charged.meets(this.state.ceiling)) {
       return this;
     }
 
@@ -1096,7 +1096,7 @@ export class Replay extends EventRecorder {
   private probedAgain(): Replay {
     let reserved = this.charged;
     const entries = this.state.entries.map((entry) => {
-      const rechecked = entry.recheckAsked();
+      const rechecked = entry.recheckRequested();
 
       if (!entry.wantsRejudging) {
         return rechecked;
@@ -1111,9 +1111,9 @@ export class Replay extends EventRecorder {
       }
 
       reserved = expected;
-      return rechecked.rejudgingAsked();
+      return rechecked.rejudgingRequested();
     });
-    const asked = this.with({ entries });
+    const requested = this.with({ entries });
 
     for (const [place, entry] of this.state.entries.entries()) {
       const now = entries[place];
@@ -1123,14 +1123,18 @@ export class Replay extends EventRecorder {
         continue;
       }
       if (!entry.secondJudging && now.secondJudging) {
-        asked.record(new ReplayRejudgingWanted(this.id, this.workspaceId, run));
+        requested.record(
+          new ReplayRejudgingRequested(this.id, this.workspaceId, run),
+        );
       }
       if (!entry.recheck && now.recheck) {
-        asked.record(new ReplayRecheckWanted(this.id, this.workspaceId, run));
+        requested.record(
+          new ReplayRecheckRequested(this.id, this.workspaceId, run),
+        );
       }
     }
 
-    return asked;
+    return requested;
   }
 
   private with(part: Partial<State>): Replay {

@@ -10,7 +10,7 @@ export const validateEgress = (
   input: {
     readonly workspaceId: WorkspaceId;
     readonly named: Egress | null;
-    readonly platformKept: boolean;
+    readonly platformStored: boolean;
   },
 ): void => {
   if (!reference) {
@@ -18,7 +18,7 @@ export const validateEgress = (
   }
 
   if (reference.isPlatform) {
-    if (!input.platformKept) {
+    if (!input.platformStored) {
       throw new InvalidRunnerPoolError(
         EGRESS_FIELD,
         `names ${reference.value}. This deployment has no platform egress. Please name an egress of this workspace, or leave provision.egress out`,

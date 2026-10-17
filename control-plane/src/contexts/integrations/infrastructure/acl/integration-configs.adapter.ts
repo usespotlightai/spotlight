@@ -14,14 +14,17 @@ import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 const configOf = (
   teamKey: string,
-  kept: IntegrationRecord,
+  record: IntegrationRecord,
 ): IntegrationConfig => ({
-  id: kept.id,
-  address: IntegrationAddress.of(teamKey, SourceKey.of(kept.source)).toString(),
-  teamId: kept.teamId,
-  source: kept.source,
-  definition: kept.definition,
-  secretReferences: secretReferencesIn(kept.definition),
+  id: record.id,
+  address: IntegrationAddress.of(
+    teamKey,
+    SourceKey.of(record.source),
+  ).toString(),
+  teamId: record.teamId,
+  source: record.source,
+  definition: record.definition,
+  secretReferences: secretReferencesIn(record.definition),
 });
 
 export class IntegrationConfigs implements IntegrationConfigsPort {
@@ -31,10 +34,10 @@ export class IntegrationConfigs implements IntegrationConfigsPort {
   ) {}
 
   async withId(id: string): Promise<IntegrationConfig | null> {
-    const kept = await this.resources.withId(id);
-    const team = kept && (await this.teams.find(kept.teamId));
+    const record = await this.resources.withId(id);
+    const team = record && (await this.teams.find(record.teamId));
 
-    return kept && team ? configOf(team.key, kept) : null;
+    return record && team ? configOf(team.key, record) : null;
   }
 
   async ofTeam(teamId: TeamId): Promise<readonly IntegrationConfig[]> {

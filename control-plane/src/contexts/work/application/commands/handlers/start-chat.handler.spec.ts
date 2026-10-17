@@ -5,8 +5,8 @@ import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-genera
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { StartChatCommand } from '@work/application/commands/chat.commands';
 import { StartChatHandler } from '@work/application/commands/handlers/start-chat.handler';
+import type { AccessibleRepositoriesPort } from '@work/application/ports/accessible-repositories.port';
 import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.port';
-import type { ReachableRepositoriesPort } from '@work/application/ports/reachable-repositories.port';
 import type { ChatDispatching } from '@work/application/services/chat-dispatch';
 import type { FilesLoader } from '@work/application/services/files-loader.service';
 import type { TracesLoader } from '@work/application/services/traces-loader.service';
@@ -18,10 +18,10 @@ import { describe, expect, it, vi } from 'vitest';
 const NOW = new Date('2026-10-11T09:00:00.000Z');
 
 const starting = ({
-  reached = ['acme/infra'],
+  accessible = ['acme/infra'],
   hosted = true,
 }: {
-  reached?: readonly string[];
+  accessible?: readonly string[];
   hosted?: boolean;
 } = {}) => {
   const added: Chat[] = [];
@@ -52,10 +52,10 @@ const starting = ({
       catalogue: () => [{ id: 'claude-code' }],
     } as unknown as HarnessLaunchPort,
     {
-      reaches: vi.fn(async (_, repository) =>
-        reached.includes(repository.value),
+      isAccessible: vi.fn(async (_, repository) =>
+        accessible.includes(repository.value),
       ),
-    } satisfies ReachableRepositoriesPort,
+    } satisfies AccessibleRepositoriesPort,
     {
       hasAWayOut: vi.fn(async () => hosted),
     } as unknown as RunnerReaderPort,
@@ -85,7 +85,7 @@ const settingUp = (repository: string) =>
   );
 
 describe('StartChatHandler', () => {
-  it('starts a setup chat in a repository the GitHub App reaches', async () => {
+  it('starts a setup chat in a repository that the GitHub App can access', async () => {
     const { handler, added } = starting();
 
     await expect(handler.execute(settingUp('acme/infra'))).resolves.toBe(
@@ -94,11 +94,11 @@ describe('StartChatHandler', () => {
     expect(added[0]?.setup?.repository.value).toBe('acme/infra');
   });
 
-  it('rejects a setup chat in a repository the GitHub App does not reach', async () => {
+  it('rejects a setup chat in a repository that the GitHub App cannot access', async () => {
     const { handler, added } = starting();
 
     await expect(handler.execute(settingUp('acme/example'))).rejects.toThrow(
-      "The GitHub App can't reach acme/example.",
+      "The GitHub App can't access acme/example.",
     );
     expect(added).toEqual([]);
   });

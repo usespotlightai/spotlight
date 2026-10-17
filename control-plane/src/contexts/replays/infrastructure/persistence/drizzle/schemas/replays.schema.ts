@@ -479,7 +479,9 @@ export const replayCheck = pgTable(
     ceilingAmount: doublePrecision('ceiling_amount').notNull(),
     ceilingCurrency: text('ceiling_currency').notNull(),
     repeats: integer('repeats').notNull(),
-    keptLive: jsonb('kept_live').$type<string[]>().notNull(),
+    scoringPinnedToLive: jsonb('scoring_pinned_to_live')
+      .$type<string[]>()
+      .notNull(),
     baseline: replayCheckBaseline('baseline').notNull(),
     createdAt: timestamp('created_at').notNull(),
   },

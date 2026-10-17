@@ -30,11 +30,11 @@ describe('ToolOutput', () => {
     );
   });
 
-  it('keeps no reference to what it was given', () => {
-    const given = { pages: [1] };
-    const output = ToolOutput.answered(given);
+  it('keeps no reference to what it was value', () => {
+    const value = { pages: [1] };
+    const output = ToolOutput.answered(value);
 
-    given.pages.push(2);
+    value.pages.push(2);
 
     expect(output.answer).toEqual({ pages: [1] });
   });

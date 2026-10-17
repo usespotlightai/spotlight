@@ -15,7 +15,7 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { describe, expect, it } from 'vitest';
 
-const HEARD_AT = new Date('2026-09-30T12:00:00.000Z');
+const RECEIVED_AT = new Date('2026-09-30T12:00:00.000Z');
 
 const AT = new Date('2026-09-30T11:00:00.000Z');
 
@@ -25,10 +25,10 @@ describe('RunOutcomes', () => {
     const deliveries = new TaskDeliveriesInMemory();
     await records.add(
       endedRecord('run_1', { round: 2 })
-        .recordCheck('passed', HEARD_AT)
+        .recordCheck('passed', RECEIVED_AT)
         .recordAction(NextAct.of('closed', AT)),
     );
-    await records.add(RunRecord.heardOf(RunId.of('run_2'), WORKSPACE));
+    await records.add(RunRecord.empty(RunId.of('run_2'), WORKSPACE));
     await deliveries.add(
       TaskDelivery.open({
         taskId: TaskId.of('task_1'),
@@ -58,7 +58,7 @@ describe('RunOutcomes', () => {
     });
   });
 
-  it('tells nothing when asked of no runs', async () => {
+  it('tells nothing for a query of no runs', async () => {
     const outcomes = await new RunOutcomes(
       new RunRecordsInMemory(),
       new TaskDeliveriesInMemory(),

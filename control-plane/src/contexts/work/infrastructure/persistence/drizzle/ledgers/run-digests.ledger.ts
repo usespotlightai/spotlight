@@ -259,12 +259,12 @@ export class DrizzleRunDigests
 
     const homes = this.launch.skillHomes();
     const rows = pending.map(({ id, attempt, suspended }) => {
-      const kept = [...suspended, attempt]
+      const attempts = [...suspended, attempt]
         .sort((one, other) => one - other)
         .map((each) => readings.get(`${id}:${each}`) ?? new JournalBuilder());
-      const spent = spentAcross(kept);
-      const steps = kept.flatMap((reading) => reading.steps());
-      const took = kept
+      const spent = spentAcross(attempts);
+      const steps = attempts.flatMap((reading) => reading.steps());
+      const took = attempts
         .map((reading) => reading.ms())
         .filter((each) => each !== null);
 
@@ -275,10 +275,10 @@ export class DrizzleRunDigests
         used: spent?.used ?? null,
         size: spent?.size ?? null,
         cost: spent?.cost ?? null,
-        tokens: tokensAcross(kept),
+        tokens: tokensAcross(attempts),
       });
       const tools = toolUseOf(
-        kept.flatMap((reading) => reading.calls()),
+        attempts.flatMap((reading) => reading.calls()),
         homes,
       );
 

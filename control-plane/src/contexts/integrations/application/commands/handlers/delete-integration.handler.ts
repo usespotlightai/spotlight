@@ -1,6 +1,6 @@
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type { DeleteIntegrationCommand } from '@integrations/application/commands/delete-integration.command';
-import type { ToolsGiven } from '@integrations/application/services/tools-given.service';
+import type { EnabledTools } from '@integrations/application/services/enabled-tools.service';
 import { IntegrationDefinitionVersionConflictError } from '@integrations/domain/exceptions/integration-definition-version-conflict.error';
 import { IntegrationToolsInUseError } from '@integrations/domain/exceptions/integration-tools-in-use.error';
 import type { IntegrationDefinitionRepository } from '@integrations/domain/repositories/integration-definition.repository';
@@ -21,7 +21,7 @@ export class DeleteIntegrationHandler
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly definitions: IntegrationDefinitionRepository,
-    private readonly given: ToolsGiven,
+    private readonly enabledTools: EnabledTools,
     private readonly transaction: TransactionPort,
   ) {}
 
@@ -49,12 +49,12 @@ export class DeleteIntegrationHandler
 
       existing.assertVersion(command.expectedVersion);
 
-      const given = await this.given.onTeam(existing.teamId);
+      const enabled = await this.enabledTools.onTeam(existing.teamId);
 
       await this.transaction.inTransaction(() =>
         this.definitions.save(
           existing.delete(
-            given,
+            enabled,
             Attribution.of(command.actor, permissions.workspaceId),
           ),
         ),

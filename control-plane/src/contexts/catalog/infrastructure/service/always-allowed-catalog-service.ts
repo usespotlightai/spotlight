@@ -30,7 +30,7 @@ export class AlwaysAllowedCatalogService implements CatalogServicePort {
     inputs: CatalogInputValues,
     on: CatalogCallFor,
   ): Promise<unknown> {
-    const asking = `calling ${tool.id.value}`;
+    const operation = `calling ${tool.id.value}`;
     const address = new URL(
       `tools/${tool.listing.name.value}/${tool.listing.version.value}`,
       this.spotlightsCatalog,
@@ -52,7 +52,7 @@ export class AlwaysAllowedCatalogService implements CatalogServicePort {
       });
     } catch (error) {
       throw new UpstreamError(
-        asking,
+        operation,
         error instanceof Error ? error.message : String(error),
       );
     }
@@ -62,7 +62,10 @@ export class AlwaysAllowedCatalogService implements CatalogServicePort {
     } | null;
 
     if (!reply.ok || !answered || !('output' in answered)) {
-      throw new UpstreamError(asking, `the catalog answered ${reply.status}`);
+      throw new UpstreamError(
+        operation,
+        `the catalog answered ${reply.status}`,
+      );
     }
 
     return answered.output;

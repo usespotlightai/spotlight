@@ -42,12 +42,12 @@ type EgressSecretsRequest struct {
 }
 
 type EgressSecrets struct {
-	RunID        string          `json:"runId,omitempty"`
-	Reaches      []string        `json:"reaches"`
-	Secrets      []FetchedSecret `json:"secrets"`
-	Denied       []DeniedSecret  `json:"denied"`
-	SpotlightAPI *SpotlightAPI   `json:"spotlightApi,omitempty"`
-	Bound        []string        `json:"bound,omitempty"`
+	RunID             string          `json:"runId,omitempty"`
+	ExtraAllowedHosts []string        `json:"extraAllowedHosts"`
+	Secrets           []FetchedSecret `json:"secrets"`
+	Denied            []DeniedSecret  `json:"denied"`
+	SpotlightAPI      *SpotlightAPI   `json:"spotlightApi,omitempty"`
+	Bound             []string        `json:"bound,omitempty"`
 }
 
 type SpotlightAPI struct {
@@ -92,16 +92,16 @@ const (
 	EgressProxyUser          = "sandbox"
 )
 
-type EgressAdmit struct {
+type EgressAuthorizeRequest struct {
 	ProxyCredential string `json:"proxyCredential"`
 }
 
-type EgressAdmitted struct {
-	RunnerID         string   `json:"runnerId"`
-	WorkspaceID      string   `json:"workspaceId"`
-	ControlPlaneHost string   `json:"controlPlaneHost"`
-	ControlPlanePort int      `json:"controlPlanePort"`
-	Reaches          []string `json:"reaches"`
+type EgressAuthorizeResponse struct {
+	RunnerID          string   `json:"runnerId"`
+	WorkspaceID       string   `json:"workspaceId"`
+	ControlPlaneHost  string   `json:"controlPlaneHost"`
+	ControlPlanePort  int      `json:"controlPlanePort"`
+	ExtraAllowedHosts []string `json:"extraAllowedHosts"`
 }
 
 const (

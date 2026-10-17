@@ -175,7 +175,7 @@ export const runner = pgTable(
       sql`(${table.workKind} is null) = (${table.workId} is null)`,
     ),
     check(
-      'runner_one_admission',
+      'runner_one_credential_source',
       sql`(${table.poolId} is null) <> (${table.trustId} is null)`,
     ),
   ],
@@ -206,7 +206,7 @@ export const runnerHost = pgTable(
     index('runner_host_trust_idx').on(table.trustId),
     index('runner_host_last_heartbeat_idx').on(table.lastHeartbeatAt),
     check(
-      'runner_host_one_admission',
+      'runner_host_one_credential_source',
       sql`(${table.poolId} is null) <> (${table.trustId} is null)`,
     ),
   ],

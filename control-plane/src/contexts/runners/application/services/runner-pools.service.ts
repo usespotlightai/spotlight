@@ -1,4 +1,4 @@
-import type { RunnerAdmissionsPort } from '@runners/application/ports/runner-admissions.port';
+import type { RunnerAuthenticatorPort } from '@runners/application/ports/runner-authenticator.port';
 import type {
   PoolAtWork,
   RunnerPoolsPort,
@@ -22,7 +22,7 @@ export class RunnerPools implements RunnerPoolsPort {
     private readonly pools: RunnerPoolRepository,
     private readonly runners: RunnerRepository,
     private readonly resources: RunnerResourcesPort,
-    private readonly admissions: RunnerAdmissionsPort,
+    private readonly authenticator: RunnerAuthenticatorPort,
     private readonly platform: boolean,
   ) {}
 
@@ -30,16 +30,16 @@ export class RunnerPools implements RunnerPoolsPort {
     token: string | undefined,
     poolId: string,
   ): Promise<PoolAtWork | null> {
-    const admitted = await this.admissions.admit({
+    const authenticated = await this.authenticator.authenticate({
       bearer: token,
       trust: undefined,
     });
 
-    if (admitted?.way.kind !== 'pool') {
+    if (authenticated?.source.kind !== 'pool') {
       return null;
     }
 
-    const id = RunnerPoolId.of(admitted.way.id);
+    const id = RunnerPoolId.of(authenticated.source.id);
     const pool = id.equals(RunnerPoolId.of(poolId))
       ? await this.pools.find(id)
       : null;

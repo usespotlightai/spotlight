@@ -65,7 +65,7 @@ const ran = (
   });
 
 describe('toolInsightsFrom', () => {
-  it('counts per week the runs given a skill and the runs that read it', () => {
+  it('counts per week the runs with a skill enabled and the runs that read it', () => {
     const insights = insightsOf(
       [
         ran('run_1', day('2026-09-08'), { skills: ['grafana'] }),
@@ -83,13 +83,13 @@ describe('toolInsightsFrom', () => {
       expect.objectContaining({
         key: 'grafana',
         defined: true,
-        given: 2,
+        enabled: 2,
         used: 2,
         weeks: [
-          { week: '2026-09-07', runs: 2, given: 2, used: 1, usedShare: 0.5 },
-          { week: '2026-09-14', runs: 0, given: 0, used: 0, usedShare: null },
-          { week: '2026-09-21', runs: 0, given: 0, used: 0, usedShare: null },
-          { week: '2026-09-28', runs: 1, given: 0, used: 1, usedShare: 1 },
+          { week: '2026-09-07', runs: 2, enabled: 2, used: 1, usedShare: 0.5 },
+          { week: '2026-09-14', runs: 0, enabled: 0, used: 0, usedShare: null },
+          { week: '2026-09-21', runs: 0, enabled: 0, used: 0, usedShare: null },
+          { week: '2026-09-28', runs: 1, enabled: 0, used: 1, usedShare: 1 },
         ],
       }),
     ]);
@@ -119,14 +119,14 @@ describe('toolInsightsFrom', () => {
         lineId: 'line_1',
         stationId: 'station_review',
         runs: 10,
-        given: 0,
+        enabled: 0,
         used: 5,
         trend: 'spreading',
       },
     ]);
   });
 
-  it('lists defined skills no run read as unused, even ones runs were given', () => {
+  it('lists defined skills no run read as unused, even ones that stations enabled', () => {
     const insights = insightsOf(
       [
         ran('run_1', day('2026-09-29'), {
@@ -291,20 +291,20 @@ describe('toolCountsOf', () => {
       'review',
     ]);
     expect(counts.skills).toEqual([
-      { key: 'grafana', stationId: null, week: null, given: 1, used: 0 },
+      { key: 'grafana', stationId: null, week: null, enabled: 1, used: 0 },
       {
         key: 'grafana',
         stationId: null,
         week: '2026-09-14',
-        given: 1,
+        enabled: 1,
         used: 0,
       },
-      { key: 'grafana', stationId: 'review', week: null, given: 1, used: 0 },
+      { key: 'grafana', stationId: 'review', week: null, enabled: 1, used: 0 },
       {
         key: 'grafana',
         stationId: 'review',
         week: '2026-09-14',
-        given: 1,
+        enabled: 1,
         used: 0,
       },
     ]);

@@ -32,7 +32,7 @@ export const memoryPath = (
 ): string =>
   `${teamSectionPath(slug, teamId, 'memory')}?${FOCUS_PARAM}=${encodeURIComponent(memoryId)}`;
 
-export const givenMemories = (memories: RunMemories): TeamMemory[] => {
+export const suppliedMemories = (memories: RunMemories): TeamMemory[] => {
   const briefed = new Set(memories.briefed.map((memory) => memory.id));
 
   return [
@@ -42,7 +42,7 @@ export const givenMemories = (memories: RunMemories): TeamMemory[] => {
 };
 
 export const rememberedNothing = (memories: RunMemories): boolean =>
-  givenMemories(memories).length === 0 && memories.proposed.length === 0;
+  suppliedMemories(memories).length === 0 && memories.proposed.length === 0;
 
 export type MemoryGround = Pick<
   ProposedMemoryResponseDto,
@@ -77,7 +77,7 @@ export const KIND_DESCRIPTIONS: Record<MemoryKind, string> = {
   correction: 'A person correcting the agent, and what is right instead.',
 };
 
-const REACH_LABELS: Record<ProposedMemory['reach'], string> = {
+const SCOPE_LABELS: Record<ProposedMemory['scope'], string> = {
   team: 'the whole team',
   line: 'this line',
   station: 'this station',
@@ -97,10 +97,10 @@ export const authorOf = (note: MemoryGroundNote): string => {
 export const citesAnything = (grounds: MemoryGround): boolean =>
   grounds.steps.length + grounds.notes.length > 0;
 
-type Scoped = Pick<ProposedMemory, 'reach' | 'repository' | 'paths'>;
+type Scoped = Pick<ProposedMemory, 'scope' | 'repository' | 'paths'>;
 
 export const appliesTo = (memory: Scoped): string => {
-  const where = REACH_LABELS[memory.reach];
+  const where = SCOPE_LABELS[memory.scope];
 
   return `${where.charAt(0).toUpperCase()}${where.slice(1)}`;
 };
@@ -227,7 +227,7 @@ export interface RememberedCount {
 
 export const rememberedCounts = (memories: RunMemories): RememberedCount[] =>
   [
-    { what: 'Given', count: givenMemories(memories).length },
+    { what: 'Supplied', count: suppliedMemories(memories).length },
     { what: 'Proposed', count: memories.proposed.length },
   ].filter((each) => each.count > 0);
 
@@ -237,7 +237,7 @@ export const proposalStateOf = (proposal: RunProposal): string => {
   }
 
   if (proposal.state === 'approved') {
-    return proposal.status === 'retired' ? 'Kept, now retired' : 'Kept';
+    return proposal.status === 'retired' ? 'Approved, now retired' : 'Approved';
   }
 
   return 'Waiting for you';

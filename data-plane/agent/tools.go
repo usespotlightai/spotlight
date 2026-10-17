@@ -13,17 +13,17 @@ import (
 	"usespotlight.ai/data-plane/protocol"
 )
 
-func reach() (string, string, error) {
+func agentAPI() (string, string, error) {
 	endpoint, token := os.Getenv(protocol.AgentAPIURLVar), os.Getenv(protocol.AgentAPITokenVar)
 	if endpoint == "" || token == "" {
-		return "", "", fmt.Errorf("no run to reach for tools in: spotlight runs inside a Spotlight workspace")
+		return "", "", fmt.Errorf("no run to get tools from: spotlight runs inside a Spotlight workspace")
 	}
 
 	return strings.TrimSuffix(endpoint, "/"), token, nil
 }
 
 func manifest() ([]protocol.ToolManifest, error) {
-	endpoint, token, err := reach()
+	endpoint, token, err := agentAPI()
 	if err != nil {
 		return nil, err
 	}
@@ -108,7 +108,7 @@ const toolsListedAtMost = 30
 
 func listing(tools []protocol.ToolManifest) string {
 	if len(tools) == 0 {
-		return "This run was given no tools."
+		return "This run has no tools enabled."
 	}
 	if len(tools) > toolsListedAtMost {
 		return summary(tools)
@@ -145,7 +145,7 @@ func summary(tools []protocol.ToolManifest) string {
 	}
 
 	var written strings.Builder
-	fmt.Fprintf(&written, "This run was given %d tools, too many to list:\n", len(tools))
+	fmt.Fprintf(&written, "This run has %d tools enabled, too many to list:\n", len(tools))
 	for _, from := range order {
 		fmt.Fprintf(&written, "  %s  %d\n", from, counted[from])
 	}
@@ -240,19 +240,19 @@ func useTool(args []string, in io.Reader, out io.Writer) error {
 		return fmt.Errorf("%s: %q is not a flag\nusage: %s", command(tool.Name), stray, signature(tool))
 	}
 
-	wholeGiven := false
+	wholeSet := false
 	byFlag := map[string]bool{}
 	flags.Visit(func(set *flag.Flag) {
 		if set.Name == whole {
-			wholeGiven = true
+			wholeSet = true
 			return
 		}
 		byFlag[set.Name] = true
 	})
 
-	given := map[string]any{}
+	inputs := map[string]any{}
 	stdinTaken := false
-	if wholeGiven {
+	if wholeSet {
 		text := *object
 		if text == "-" || text == "/dev/stdin" {
 			read, err := io.ReadAll(in)
@@ -267,23 +267,23 @@ func useTool(args []string, in io.Reader, out io.Writer) error {
 			return fmt.Errorf("--json takes one JSON object, as --json '{\"name\": \"value\"}'\nusage: %s", signature(tool))
 		}
 		for name, value := range fields {
-			given[name] = value
+			inputs[name] = value
 		}
 	}
 
 	for name := range byFlag {
 		if value, ok := switches[name]; ok {
-			given[name] = *value
+			inputs[name] = *value
 			continue
 		}
-		given[name] = *texts[name]
+		inputs[name] = *texts[name]
 	}
 
 	for _, input := range tool.Inputs {
 		if !input.Piped {
 			continue
 		}
-		value, set := given[input.Name]
+		value, set := inputs[input.Name]
 		named := byFlag[input.Name] && (value == "-" || value == "/dev/stdin")
 		if set && !named {
 			continue
@@ -303,29 +303,29 @@ func useTool(args []string, in io.Reader, out io.Writer) error {
 			return fmt.Errorf("read what was piped in: %w", err)
 		}
 		if piped != "" {
-			given[input.Name] = piped
+			inputs[input.Name] = piped
 		} else {
-			delete(given, input.Name)
+			delete(inputs, input.Name)
 		}
 	}
 
 	for _, input := range tool.Inputs {
-		if _, set := given[input.Name]; !set && input.Required && !input.Defaulted {
+		if _, set := inputs[input.Name]; !set && input.Required && !input.Defaulted {
 			return fmt.Errorf("--%s is required\nusage: %s", input.Name, signature(tool))
 		}
 	}
 
-	asked, err := json.Marshal(given)
+	body, err := json.Marshal(inputs)
 	if err != nil {
 		return err
 	}
 
-	endpoint, token, err := reach()
+	endpoint, token, err := agentAPI()
 	if err != nil {
 		return err
 	}
 
-	answered, err := post(endpoint+protocol.AgentAPIToolsPath+tool.Name, token, asked)
+	answered, err := post(endpoint+protocol.AgentAPIToolsPath+tool.Name, token, body)
 	if err != nil {
 		return err
 	}

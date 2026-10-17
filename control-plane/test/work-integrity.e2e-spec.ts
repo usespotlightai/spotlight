@@ -208,22 +208,22 @@ describe('a mark that one task has and another task claims', () => {
 });
 
 describe('a file handed over twice', () => {
-  it('stays with the task it was first given to', async () => {
+  it('stays with the task it was first attached to', async () => {
     const { line, stationId } = await createTeam(
       db,
       tasks,
       `a-${randomUUID()}`,
     );
-    const given = file();
-    const first = added(line, stationId, { attachments: [given] });
+    const attachment = file();
+    const first = added(line, stationId, { attachments: [attachment] });
     await tasks.add(first);
 
     await expect(
-      tasks.add(added(line, stationId, { attachments: [given] })),
+      tasks.add(added(line, stationId, { attachments: [attachment] })),
     ).rejects.toBeInstanceOf(InvalidAttachmentError);
     await expect(
-      new DrizzleAttachmentReader(db).find(given.id.value),
-    ).resolves.toMatchObject({ id: given.id.value });
+      new DrizzleAttachmentReader(db).find(attachment.id.value),
+    ).resolves.toMatchObject({ id: attachment.id.value });
   });
 
   it('lets its holder be written again', async () => {
@@ -240,14 +240,14 @@ describe('a file handed over twice', () => {
     await expect(tasks.save(again.assign(owner))).resolves.toBeUndefined();
   });
 
-  it('cannot be given to a chat once a task has it', async () => {
+  it('cannot be attached to a chat once a task has it', async () => {
     const { line, stationId, workspaceId, teamId, owner } = await createTeam(
       db,
       tasks,
       `c-${randomUUID()}`,
     );
-    const given = file();
-    await tasks.add(added(line, stationId, { attachments: [given] }));
+    const attachment = file();
+    await tasks.add(added(line, stationId, { attachments: [attachment] }));
 
     const chat = Chat.start({
       workspaceId,
@@ -255,7 +255,7 @@ describe('a file handed over twice', () => {
       startedBy: owner,
       harness: HarnessId.of('dev'),
       body: ChatMessageBody.of('Plan the queue.'),
-      attachments: [given],
+      attachments: [attachment],
       now: NOW,
       newId: () => randomUUID(),
     });
@@ -292,7 +292,7 @@ describe('a chat dispatched to a run', () => {
 
     expect(dispatched.messages[0]?.wasAcknowledgedBy(run)).toBe(true);
 
-    await chats.save(dispatched.runKeptNothing(run));
+    await chats.save(dispatched.runEndedWithoutSession(run));
     const back = (await chats.find(started.id)) as Chat;
 
     expect(back.running).toBe(false);

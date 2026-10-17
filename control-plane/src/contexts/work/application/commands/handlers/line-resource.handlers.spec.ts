@@ -87,7 +87,7 @@ const NEEDS_TEAM = (id: string) =>
   `${id} needs the Team plan, and this workspace is on the Free plan`;
 
 const catalog = new StationCatalog({
-  givenTo: async (_workspace, named) => ({
+  entitledTo: async (_workspace, named) => ({
     tools: [],
     skills: named.skills
       .filter((each) => each.startsWith('catalog.research@'))
@@ -113,7 +113,7 @@ const catalog = new StationCatalog({
   },
 });
 
-const giving = (tools: string[], skills: string[] = []) => ({
+const enabling = (tools: string[], skills: string[] = []) => ({
   ...DELIVERY,
   stations: DELIVERY.stations.map((each, at) =>
     at === 1 ? { ...each, tools, skills } : each,
@@ -201,7 +201,7 @@ describe('CreateLineHandler', () => {
   it('denies a catalog item the workspace’s plan does not include, pointing at where the station names it', async () => {
     const { create, apply } = creating();
     const rejected = await create(
-      giving(['pull-request', 'catalog.web-search@1.1.0']),
+      enabling(['pull-request', 'catalog.web-search@1.1.0']),
     );
 
     expect(rejected).toEqual({
@@ -221,7 +221,7 @@ describe('CreateLineHandler', () => {
 
   it('denies a catalog skill at the skill, where a tool it brings is not included', async () => {
     const rejected = await creating().create(
-      giving([], ['catalog.research@1.0.0']),
+      enabling([], ['catalog.research@1.0.0']),
     );
 
     expect(
@@ -266,10 +266,10 @@ describe('UpdateLineHandler', () => {
   const updating = (
     over: { administers?: boolean; throwing?: Error; thenAt?: Line } = {},
   ) => {
-    const kept = lines(lineAt(3));
+    const stored = lines(lineAt(3));
     const reconcile = vi.fn(async (line: Line) => {
       if (over.throwing) {
-        kept.find.mockResolvedValue(over.thenAt ?? line);
+        stored.find.mockResolvedValue(over.thenAt ?? line);
         throw over.throwing;
       }
 
@@ -278,7 +278,7 @@ describe('UpdateLineHandler', () => {
     const handler = new UpdateLineHandler(
       access(over.administers),
       new LineCompiler(),
-      kept,
+      stored,
       { reconcile } as unknown as ApplyLines,
       transaction,
       catalog,
@@ -298,7 +298,7 @@ describe('UpdateLineHandler', () => {
     };
   };
 
-  it('reconciles the version it was asked to with its definition', async () => {
+  it('reconciles the requested version with its definition', async () => {
     const { update, reconcile } = updating();
 
     expect(await update(DELIVERY)).toEqual({
@@ -327,7 +327,7 @@ describe('UpdateLineHandler', () => {
   it('denies a change to a catalog item the plan does not include, and reconciles nothing', async () => {
     const { update, reconcile } = updating();
 
-    expect(await update(giving(['catalog.web-search@1.1.0']))).toMatchObject({
+    expect(await update(enabling(['catalog.web-search@1.1.0']))).toMatchObject({
       outcome: 'invalid',
     });
     expect(reconcile).not.toHaveBeenCalled();
@@ -356,7 +356,7 @@ describe('UpdateLineHandler', () => {
 describe('DeleteLineHandler', () => {
   const deleting = (tasks: Record<string, number> = {}) => {
     const existing = lineAt(3);
-    const kept = lines(existing, null);
+    const stored = lines(existing, null);
     const tallies = {
       taskCountsAt: vi.fn(),
       lockedTaskCountsAt: vi.fn(
@@ -369,33 +369,38 @@ describe('DeleteLineHandler', () => {
           ),
       ),
     } satisfies StationTalliesPort;
-    const handler = new DeleteLineHandler(access(), kept, tallies, transaction);
+    const handler = new DeleteLineHandler(
+      access(),
+      stored,
+      tallies,
+      transaction,
+    );
 
     return {
       remove: (version = 3) =>
         handler.execute(
           new DeleteLineCommand('line_1', actorFor('user_1'), version),
         ),
-      kept,
+      stored,
       existing,
     };
   };
 
   it('deletes a line that has no tasks', async () => {
-    const { remove, kept } = deleting();
+    const { remove, stored } = deleting();
 
     expect(await remove()).toEqual({ outcome: 'deleted' });
-    expect((kept.save.mock.calls[0] as [Line])[0].isDeleted).toBe(true);
+    expect((stored.save.mock.calls[0] as [Line])[0].isDeleted).toBe(true);
   });
 
   it('will not delete a line while a task is on it', async () => {
-    const { remove, kept, existing } = deleting();
+    const { remove, stored, existing } = deleting();
     const [, working] = existing.stations;
     const busy = deleting({ [working?.key.value ?? '']: 1 });
 
     expect(await busy.remove()).toMatchObject({ outcome: 'in-use' });
-    expect(busy.kept.save).not.toHaveBeenCalled();
-    expect(kept.save).not.toHaveBeenCalled();
+    expect(busy.stored.save).not.toHaveBeenCalled();
+    expect(stored.save).not.toHaveBeenCalled();
     expect(await remove(2)).toEqual({
       outcome: 'version-conflict',
       currentVersion: 3,

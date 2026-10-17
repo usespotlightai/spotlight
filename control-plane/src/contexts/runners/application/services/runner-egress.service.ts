@@ -27,7 +27,10 @@ export class RunnerEgress implements RunnerEgressPort {
     private readonly platform: PlatformEgressSettings | null,
   ) {}
 
-  async admit(token: string | undefined, at: Date): Promise<EgressFor | null> {
+  async authenticate(
+    token: string | undefined,
+    at: Date,
+  ): Promise<EgressFor | null> {
     if (!token) {
       return null;
     }
@@ -66,7 +69,7 @@ export class RunnerEgress implements RunnerEgressPort {
       : null;
   }
 
-  admitThrough(
+  authorizeRunner(
     egress: SharedEgress,
     proxyCredential: string,
     at: Date,
@@ -101,7 +104,7 @@ export class RunnerEgress implements RunnerEgressPort {
       TokenHash.of(this.tokens.hash(proxyCredential)),
     );
     const acting = runner ? actsFor(runner) : null;
-    const poolId = acting ? runner?.admission.poolId : null;
+    const poolId = acting ? runner?.source.poolId : null;
     const pool = poolId ? await this.pools.find(poolId) : null;
     const through = EgressReference.of(egress.egressId);
 

@@ -34,7 +34,7 @@ export class DescriptionViewResponseDto {
     nullable: true,
     example: null,
     description:
-      'Why it could not be read when it was last asked for; the tools from the last good read stay offered',
+      'Why it could not be read when it was last requested; the tools from the last good read stay offered',
   })
   readonly problem: string | null;
 

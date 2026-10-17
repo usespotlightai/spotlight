@@ -53,7 +53,7 @@ export class Outcomes implements OutcomesPort {
   }
 
   judge(order: JudgingOrder): Promise<JudgingOrdered> {
-    return this.judging.ask({
+    return this.judging.request({
       runId: order.run.value,
       workspaceId: order.workspaceId.value,
       teamId: order.teamId.value,
@@ -65,11 +65,11 @@ export class Outcomes implements OutcomesPort {
   }
 
   judgeAgain(run: RunId): Promise<JudgingAgainOrdered> {
-    return this.judging.askAgain(run.value);
+    return this.judging.requeue(run.value);
   }
 
   judgePair(order: PairJudgingOrder): Promise<JudgingOrdered> {
-    return this.pairs.ask({
+    return this.pairs.request({
       runId: order.run.value,
       against: order.against.value,
       workspaceId: order.workspaceId.value,

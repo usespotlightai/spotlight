@@ -1,7 +1,7 @@
 import { RunnerHost } from '@runners/domain/aggregates/runner-host.aggregate';
 import { HostInUseError } from '@runners/domain/exceptions/host-in-use.error';
-import { Admission } from '@runners/domain/value-objects/admission.vo';
 import { BootId } from '@runners/domain/value-objects/boot-id.vo';
+import { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import { HostReport } from '@runners/domain/value-objects/host-report.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
@@ -14,9 +14,9 @@ const later = (ms: number): Date => new Date(FIRST_HEARTBEAT.getTime() + ms);
 
 const HOST = HostId.of('01J8ZQ4Y7N3K5V2W9X6RTBHCDE');
 
-const THROUGH_POOL = Admission.of('pool', 'pool_1');
+const THROUGH_POOL = CredentialSource.of('pool', 'pool_1');
 
-const THROUGH_TRUST = Admission.of('trust', 'trust_1');
+const THROUGH_TRUST = CredentialSource.of('trust', 'trust_1');
 
 const CLAUDE_CODE = { id: 'claude-code', models: [] };
 
@@ -48,7 +48,7 @@ const firstHeartbeat = (images: Images = []) =>
   RunnerHost.fromHeartbeat({
     id: HOST,
     workspaceId: WorkspaceId.of('ws_1'),
-    admission: THROUGH_POOL,
+    source: THROUGH_POOL,
     bootId: FIRST_BOOT,
     report: reportOf([], images),
     at: FIRST_HEARTBEAT,
@@ -68,7 +68,7 @@ const rehydrated = (
   RunnerHost.rehydrate({
     id: HOST,
     workspaceId: WorkspaceId.of('ws_1'),
-    admission: THROUGH_POOL,
+    source: THROUGH_POOL,
     bootId: FIRST_BOOT,
     report: reportOf(),
     firstHeartbeatAt: over.firstHeartbeatAt ?? FIRST_HEARTBEAT,
@@ -79,14 +79,14 @@ const rehydrated = (
 
 const reportedThrough = (
   host: RunnerHost,
-  admission: Admission,
+  source: CredentialSource,
   at: Date,
   running: string[] = [],
   workspaceId = WorkspaceId.of('ws_1'),
   images: Images = [],
 ) =>
   host.reportThrough({
-    admission,
+    source,
     workspaceId,
     bootId: FIRST_BOOT,
     report: reportOf(running, images),
@@ -95,15 +95,18 @@ const reportedThrough = (
 
 const reportedIn = (host: RunnerHost, bootId: BootId, at: Date) =>
   host.reportThrough({
-    admission: THROUGH_POOL,
+    source: THROUGH_POOL,
     workspaceId: WorkspaceId.of('ws_1'),
     bootId,
     report: reportOf(),
     at,
   });
 
-const reportedServing = (host: RunnerHost, admission: Admission, at: Date) =>
-  reportedThrough(host, admission, at, [], WorkspaceId.of('ws_1'), SERVING);
+const reportedServing = (
+  host: RunnerHost,
+  source: CredentialSource,
+  at: Date,
+) => reportedThrough(host, source, at, [], WorkspaceId.of('ws_1'), SERVING);
 
 describe('RunnerHost', () => {
   it('has its first and last heartbeat when it first reports, at its first version', () => {
@@ -221,13 +224,13 @@ describe('RunnerHost', () => {
     ).toBe(3);
   });
 
-  it('is in use while it is still online through another way in', () => {
+  it('is in use while it is still online through another pool or trust', () => {
     expect(() =>
       reportedThrough(firstHeartbeat(), THROUGH_TRUST, later(89_999)),
     ).toThrow(HostInUseError);
   });
 
-  it('is re-homed through another way in of its workspace once it is offline there', () => {
+  it('is re-homed through another pool or trust of its workspace once it is offline there', () => {
     const rehomed = reportedThrough(
       firstHeartbeat(),
       THROUGH_TRUST,
@@ -279,12 +282,18 @@ describe('RunnerHost', () => {
     expect(RunnerHost.isOnline(FIRST_HEARTBEAT, later(90_000))).toBe(false);
   });
 
-  it('serves only through the way it first came in', () => {
+  it('serves only through the pool or trust it first came in through', () => {
     const host = firstHeartbeat();
 
-    expect(host.servesThrough(Admission.of('pool', 'pool_1'))).toBe(true);
-    expect(host.servesThrough(Admission.of('pool', 'pool_2'))).toBe(false);
-    expect(host.servesThrough(Admission.of('trust', 'pool_1'))).toBe(false);
+    expect(host.servesThrough(CredentialSource.of('pool', 'pool_1'))).toBe(
+      true,
+    );
+    expect(host.servesThrough(CredentialSource.of('pool', 'pool_2'))).toBe(
+      false,
+    );
+    expect(host.servesThrough(CredentialSource.of('trust', 'pool_1'))).toBe(
+      false,
+    );
   });
 
   it('starts serving when it first reports an image with a harness', () => {
@@ -325,7 +334,7 @@ describe('RunnerHost', () => {
     );
   });
 
-  it('starts serving again once re-homed through another way in', () => {
+  it('starts serving again once re-homed through another pool or trust', () => {
     const host = firstHeartbeat(SERVING);
     kindsOf(host);
 

@@ -1,6 +1,6 @@
 import type { RecallMemoriesCommand } from '@memory/application/commands/recall-memories.command';
 import type { TeamMemoryDto } from '@memory/application/dto/team-memory.dto';
-import type { MemoriesInReach } from '@memory/application/services/memories-in-reach.service';
+import type { ApplicableMemories } from '@memory/application/services/applicable-memories.service';
 import type { RunnerMemoryLoader } from '@memory/application/services/runner-memory-loader.service';
 import type { TeamMemoryViews } from '@memory/application/services/team-memory-views.service';
 import { RecallWords } from '@memory/domain/value-objects/recall-words.vo';
@@ -14,7 +14,7 @@ export class RecallMemoriesHandler
 {
   constructor(
     private readonly loader: RunnerMemoryLoader,
-    private readonly inReach: MemoriesInReach,
+    private readonly applicable: ApplicableMemories,
     private readonly views: TeamMemoryViews,
   ) {}
 
@@ -23,7 +23,7 @@ export class RecallMemoriesHandler
       const words = RecallWords.of(command.words);
       const run = await this.loader.recalling(command.runId, command.runnerId);
 
-      const recalled = await this.inReach.recalled(
+      const recalled = await this.applicable.recalled(
         run.teamId,
         words,
         MAX_RECALLED,

@@ -112,7 +112,7 @@ describe('a run that asks a person', () => {
       ).toThrow(InvalidRunTransitionError);
     });
 
-    it('does not wait once a person asked it to stop', () => {
+    it('does not wait once a person requested it to stop', () => {
       expect(() =>
         claimed().requestStop(NOW).paused(RUNNER, CLEAN, ASKED, NOW),
       ).toThrow(InvalidRunTransitionError);
@@ -196,7 +196,7 @@ describe('a run that asks a person', () => {
       );
     });
 
-    it('ends stopped instead when a person asked it to stop while it waited', () => {
+    it('ends stopped instead when a person requested it to stop while it waited', () => {
       const run = waiting().requestStop(NOW).suspend(RUNNER, later(60_000));
 
       expect(run.state).toBe('completed');
@@ -277,7 +277,7 @@ describe('a run that asks a person', () => {
     expect(lastEvent(run)).toBeInstanceOf(RunSuspended);
   });
 
-  it('ends stopped rather than go back on the queue when a stop was asked for before it was suspended to be requeued', () => {
+  it('ends stopped rather than go back on the queue when a stop was requested before it was suspended to be requeued', () => {
     const run = waiting()
       .resumed()
       .requestStop(NOW)
@@ -318,7 +318,7 @@ describe('a run that asks a person', () => {
   });
 
   describe('when a person stops it while it waits', () => {
-    it('is asked to stop while warm, so its runner ends it stopped', () => {
+    it('gets a stop request while warm, so its runner ends it stopped', () => {
       const run = waiting().requestStop(NOW);
 
       expect(run.stopRequested).toBe(true);
@@ -349,7 +349,7 @@ describe('a run that asks a person', () => {
       }
     });
 
-    it('asks a working run to stop, and cancels one still queued', () => {
+    it('requests a working run to stop, and cancels one still queued', () => {
       expect(claimed().cancel(NOW).stopRequested).toBe(true);
       expect(
         Run.enqueue({

@@ -46,13 +46,13 @@ const COHORTS = [
 ];
 
 const answering = (status: number, body: unknown) => {
-  const asked: { url: string; init: RequestInit }[] = [];
+  const requests: { url: string; init: RequestInit }[] = [];
   const fetch = (async (url: string, init: RequestInit) => {
-    asked.push({ url, init });
+    requests.push({ url, init });
     return new Response(JSON.stringify(body), { status });
   }) as unknown as typeof globalThis.fetch;
 
-  return { asked, fetch };
+  return { requests, fetch };
 };
 
 const draft = (drafter: OpenRouterChangeStackDrafter) =>
@@ -74,7 +74,7 @@ describe('describeProblem', () => {
         message: 'cohort 1 joins changes the code does not connect (h1 | h2)',
       }),
     ).toBe(
-      'cohort 1 joins changes the code does not connect (h1 | h2); split it, or give joinedBecause',
+      'cohort 1 joins changes the code does not connect (h1 | h2); split it, or set joinedBecause',
     );
   });
 });
@@ -87,8 +87,8 @@ describe('OpenRouterChangeStackDrafter', () => {
     await expect(draft(drafter)).rejects.toThrow('No OpenRouter API key');
   });
 
-  it('asks the model for a stack in the stack’s own shape, from providers that keep to it', async () => {
-    const { asked, fetch } = answering(200, {
+  it('requests a stack in the stack’s own shape from the model, from providers that follow it', async () => {
+    const { requests, fetch } = answering(200, {
       choices: [
         {
           finish_reason: 'stop',
@@ -122,13 +122,15 @@ describe('OpenRouterChangeStackDrafter', () => {
         ],
       },
     ]);
-    expect(asked[0]?.url).toBe('https://openrouter.ai/api/v1/chat/completions');
+    expect(requests[0]?.url).toBe(
+      'https://openrouter.ai/api/v1/chat/completions',
+    );
     expect(
-      (asked[0]?.init.headers as Record<string, string> | undefined)
+      (requests[0]?.init.headers as Record<string, string> | undefined)
         ?.Authorization,
     ).toBe('Bearer or-key');
 
-    const body = JSON.parse(String(asked[0]?.init.body));
+    const body = JSON.parse(String(requests[0]?.init.body));
     expect(body.model).toBe('google/gemini-3.8-flash');
     expect(body.provider).toEqual({ require_parameters: true });
     expect(body.response_format.json_schema.strict).toBe(true);
@@ -194,12 +196,12 @@ describe('OpenRouterChangeStackDrafter', () => {
 
     await expect(
       draft(new OpenRouterChangeStackDrafter('or-key', DEFAULT_MODEL, fetch)),
-    ).rejects.toThrow('OpenRouter gave no usable answer. Reason: length');
+    ).rejects.toThrow('OpenRouter returned no usable answer. Reason: length');
   });
 });
 
 describe('revised', () => {
-  it('asks for the few changes a failing layer needs to move, with what the check printed and where the named files sit', () => {
+  it('requests the few changes a failing layer needs to move, with what the check printed and where the named files sit', () => {
     const text = revised({
       command: 'npx tsc --noEmit',
       stack: [

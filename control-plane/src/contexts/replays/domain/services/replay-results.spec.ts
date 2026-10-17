@@ -157,7 +157,7 @@ describe('totalsOf', () => {
     expect(totals.successRate).toBeCloseTo(2 / 3);
   });
 
-  it('totals only the runs it is given, when given some', () => {
+  it('totals only the runs it receives, when it receives some', () => {
     const replay = ran(
       'replay_1',
       ['passed', 'failed-run', 'passed', 'failed-check'],
@@ -316,7 +316,7 @@ describe('comparedWith', () => {
     expect(totalsOf(unreplayable).unscored).toBe(1);
   });
 
-  it('compares only the runs it is given, when given some', () => {
+  it('compares only the runs it receives, when it receives some', () => {
     const baseline = ran('baseline', ['passed', 'passed', 'passed'], [], true);
     const candidate = ran(
       'candidate',

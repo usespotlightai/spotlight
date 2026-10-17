@@ -30,7 +30,7 @@ export class ReplyToReviewCommentHandler
         command.runnerId,
       );
 
-      run.mayReachBeyondItself('reply to a review comment');
+      run.mayActBeyondItself('reply to a review comment');
 
       if (!task) {
         throw new NoRepositoryError();

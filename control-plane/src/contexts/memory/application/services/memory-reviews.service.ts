@@ -35,7 +35,7 @@ export class MemoryReviews {
           source: proposal.source,
           origin: proposal.origin,
           state: proposal.state,
-          reach: proposal.scope.reach,
+          scope: proposal.scope.level,
           repository: proposal.scope.repository?.value ?? null,
           paths: proposal.scope.paths.map((each) => each.value),
           supersedes: proposal.supersedes?.value ?? null,

@@ -67,7 +67,7 @@ describe('replay words', () => {
 
   it('says why a run cannot be replayed in plain words', () => {
     expect(formatUnreplayableReason('archive-gone')).toBe(
-      'Starting workspace is no longer kept',
+      'Starting workspace is no longer stored',
     );
     expect(formatUnreplayableReason('unchecked')).toBe(
       'Couldn’t be checked just now',

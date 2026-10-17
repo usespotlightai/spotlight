@@ -20,7 +20,7 @@ const read = (...data: (string | null)[]) => {
   return builder;
 };
 
-const nowhere = { locations: [], given: null, returned: null, change: null };
+const nowhere = { locations: [], input: null, output: null, change: null };
 
 const withoutTime = (builder: JournalBuilder) =>
   builder.steps().map(({ ms, startedAt, ...step }) => step);
@@ -221,7 +221,7 @@ describe('JournalBuilder', () => {
     expect(builder.steps()[0]?.detail).toHaveLength(4_000);
   });
 
-  it('keeps where a tool reached, down to the line', () => {
+  it('keeps the locations a tool touched, down to the line', () => {
     const builder = read(
       sent({
         sessionUpdate: 'tool_call',
@@ -241,7 +241,7 @@ describe('JournalBuilder', () => {
     ]);
   });
 
-  it('keeps what a tool was asked for and what it returned', () => {
+  it('keeps the input and the output of a tool', () => {
     const builder = read(
       sent({
         sessionUpdate: 'tool_call',
@@ -257,8 +257,8 @@ describe('JournalBuilder', () => {
     );
 
     const step = builder.steps()[0];
-    expect(step?.given).toBe('{\n  "pattern": "queue",\n  "path": "src"\n}');
-    expect(step?.returned).toBe('{\n  "matches": 3\n}');
+    expect(step?.input).toBe('{\n  "pattern": "queue",\n  "path": "src"\n}');
+    expect(step?.output).toBe('{\n  "matches": 3\n}');
   });
 
   it('keeps a rewrite as what the file was and what it became', () => {
@@ -513,12 +513,12 @@ describe('JournalBuilder', () => {
           ms: 250,
           startedAt: clock(3),
           locations: [],
-          given: JSON.stringify(
+          input: JSON.stringify(
             { channel: 'C1', text: 'Searched Grafana' },
             null,
             2,
           ),
-          returned: JSON.stringify({ ok: true }, null, 2),
+          output: JSON.stringify({ ok: true }, null, 2),
           change: null,
         },
       ]);
@@ -539,7 +539,7 @@ describe('JournalBuilder', () => {
 
       const [called] = builder.steps();
       expect(called?.status).toBe('failed');
-      expect(called?.returned).toBe('Bad Gateway');
+      expect(called?.output).toBe('Bad Gateway');
     });
 
     it('puts a hook call where it happened among what the agent did', () => {
@@ -655,7 +655,7 @@ describe('JournalBuilder', () => {
         {
           server: 'linear',
           tool: 'get_issue',
-          skillAskedFor: null,
+          requestedSkill: null,
           paths: [],
           ms: 2_000,
           ending: 'failed',
@@ -663,7 +663,7 @@ describe('JournalBuilder', () => {
         {
           server: null,
           tool: 'Read',
-          skillAskedFor: null,
+          requestedSkill: null,
           paths: ['/workspace/.claude/skills/grafana/SKILL.md'],
           ms: 0,
           ending: 'completed',
@@ -906,7 +906,7 @@ describe('JournalBuilder', () => {
       });
     });
 
-    it('reads the skill the harness’s skill tool was asked for', () => {
+    it('reads the skill that the harness’s skill tool requested', () => {
       const builder = read(
         sent({
           sessionUpdate: 'tool_call',
@@ -918,10 +918,10 @@ describe('JournalBuilder', () => {
         }),
       );
 
-      expect(builder.calls()[0]?.skillAskedFor).toBe('our-migrations');
+      expect(builder.calls()[0]?.requestedSkill).toBe('our-migrations');
     });
 
-    it('offers only what a read, search or command reached as read', () => {
+    it('offers only the paths of a read, search or command as read', () => {
       const builder = read(
         sent({
           sessionUpdate: 'tool_call',

@@ -34,8 +34,8 @@ import { beforeEach, describe, expect, it } from 'vitest';
 let memory: InMemoryReplays;
 let work: FakeWork;
 
-const errorOf = async (asked: Promise<unknown>) =>
-  asked.then(
+const errorOf = async (call: Promise<unknown>) =>
+  call.then(
     () => {
       throw new Error('it was allowed');
     },

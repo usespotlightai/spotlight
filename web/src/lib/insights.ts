@@ -145,7 +145,7 @@ const RUN_FILTER_KEYS = [
   'personId',
   'day',
   'week',
-  'skillGiven',
+  'skillEnabled',
   'skillUsed',
   'server',
   'serverFailed',
@@ -187,8 +187,8 @@ const filterKeysOf = (tab: InsightsTab): readonly (keyof InsightsFilter)[] => {
 };
 
 const pageOf = (raw: string | null): number => {
-  const asked = Number(raw);
-  return Number.isInteger(asked) && asked > 1 ? asked : 1;
+  const requested = Number(raw);
+  return Number.isInteger(requested) && requested > 1 ? requested : 1;
 };
 
 const runFilterOf = (params: URLSearchParams): RunFilter =>
@@ -831,7 +831,7 @@ const FILTER_LABELS: Record<RunFilterKey, string> = {
   personId: 'Person',
   day: 'Day',
   week: 'Week of',
-  skillGiven: 'Given skill',
+  skillEnabled: 'Enabled skill',
   skillUsed: 'Read skill',
   server: 'Called',
   serverFailed: 'A call failed on',
@@ -1009,5 +1009,5 @@ export const signalHeadings = (
   { label: 'Flagged above', numeric: true, size: SPREAD },
 ];
 
-export const signalAsk = (reading: SignalReading): string =>
+export const signalPrompt = (reading: SignalReading): string =>
   `${formatSignal(reading)}. What should change at this station?`;

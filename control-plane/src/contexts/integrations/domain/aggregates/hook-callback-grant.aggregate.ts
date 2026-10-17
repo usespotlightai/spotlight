@@ -83,7 +83,7 @@ export class HookCallbackGrant {
     return this.granted.workspaceId.equals(workspaceId);
   }
 
-  noteHeardAs(idempotencyKey: string | null): string | null {
+  noteIdempotencyKey(idempotencyKey: string | null): string | null {
     const { taskId, firing, hook } = this.granted;
 
     return idempotencyKey

@@ -24,9 +24,9 @@ export interface PairJudgingOrder {
   readonly maxAttempts: number;
 }
 
-export type JudgingOrdered = 'asked' | 'unavailable' | 'unreadable-rubric';
+export type JudgingOrdered = 'requested' | 'unavailable' | 'unreadable-rubric';
 
-export type JudgingAgainOrdered = 'asked' | 'unavailable' | 'unjudged';
+export type JudgingAgainOrdered = 'requested' | 'unavailable' | 'unjudged';
 
 export interface OutcomesPort {
   acceptedAfter(run: RunId): Promise<boolean>;

@@ -35,7 +35,7 @@ describe('chartedAs', () => {
     expect(chartedAs(reading({ cost: null }), 'USD')).toBe('unpriced');
   });
 
-  it('keeps an unscored point off the chart before asking for its cost', () => {
+  it('keeps an unscored point off the chart before it requests its cost', () => {
     expect(chartedAs(reading({ success: null, cost: null }), 'USD')).toBe(
       'unscored',
     );

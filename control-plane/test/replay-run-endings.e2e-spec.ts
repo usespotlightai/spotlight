@@ -79,12 +79,12 @@ const replayRun = (id = 'run_1') =>
     ),
   });
 
-const heardBy = async (
+const receivedBy = async (
   events: readonly DomainEvent[],
 ): Promise<ReplayRunEnded> => {
-  const heard: ReplayRunEnded[] = [];
+  const received: ReplayRunEnded[] = [];
   const subscribers = replaysSubscribers({
-    ending: { ended: async (ended: ReplayRunEnded) => heard.push(ended) },
+    ending: { ended: async (ended: ReplayRunEnded) => received.push(ended) },
   } as unknown as ReplaysReactions);
   const published = events.flatMap((event) =>
     WORK_EVENT_MAPPERS.filter((each) => each.from === event.kind).map((each) =>
@@ -100,10 +100,10 @@ const heardBy = async (
     }
   }
 
-  const [ended] = heard;
+  const [ended] = received;
 
   if (!ended) {
-    throw new Error('Replays never heard the run end');
+    throw new Error('Replays never received the run end');
   }
 
   return ended;
@@ -122,7 +122,7 @@ const scored = (ended: ReplayRunEnded) =>
     { judges: false, checks: false },
   );
 
-describe('how a replay run’s ending reaches its score, from Work’s events to Replays (e2e)', () => {
+describe('how a replay run’s ending becomes its score, from Work’s events to Replays (e2e)', () => {
   it('leaves unscored a replay run no runner finished, after Work used all its attempts', async () => {
     let run = replayRun();
     for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -131,7 +131,7 @@ describe('how a replay run’s ending reaches its score, from Work’s events to
         .expireLease(new Date(NOW.getTime() + (attempt + 1) * 600_000));
     }
 
-    const ended = await heardBy(run.pullEvents());
+    const ended = await receivedBy(run.pullEvents());
 
     expect(ended).toMatchObject({
       outcome: 'exhausted',
@@ -151,7 +151,7 @@ describe('how a replay run’s ending reaches its score, from Work’s events to
         RunOutcome.of({ exitCode: -1, failed: true, unprepared: true }),
       );
 
-    const ended = await heardBy(run.pullEvents());
+    const ended = await receivedBy(run.pullEvents());
 
     expect(ended).toMatchObject({ outcome: 'failed', failure: 'unprepared' });
     expect(scored(ended).succeeded).toBeNull();
@@ -162,7 +162,7 @@ describe('how a replay run’s ending reaches its score, from Work’s events to
       .claim(RUNNER, NOW)
       .complete(RUNNER, RunOutcome.of({ exitCode: 1, failed: true }));
 
-    const ended = await heardBy(run.pullEvents());
+    const ended = await receivedBy(run.pullEvents());
 
     expect(ended).toMatchObject({ outcome: 'failed', failure: 'exited' });
     expect(scored(ended).succeeded).toBe(false);

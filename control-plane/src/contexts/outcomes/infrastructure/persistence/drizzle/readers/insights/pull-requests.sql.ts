@@ -70,7 +70,7 @@ export const inLowerCase = (
 export const atIn = (column: SQL, window: Window): SQL =>
   sql`${column} >= ${iso(window.from)}::timestamp and ${column} < ${iso(window.to)}::timestamp`;
 
-const reachOf = (
+const coverageOf = (
   team: TeamInPeriod,
   repositories: readonly string[],
   from: Date,
@@ -89,7 +89,7 @@ const reachOf = (
 
 const newestFirst = sql`${pullRequestRecord.openedAt} desc, ${pullRequestRecord.pullRequest} collate "C" desc`;
 
-export const reachedPullRequests = (
+export const coveredPullRequests = (
   team: TeamInPeriod,
   repositories: readonly string[],
   from: Date,
@@ -123,7 +123,7 @@ export const reachedPullRequests = (
   from ${pullRequestRecord}
   left join ${taskChangeShape} on ${taskChangeShape.taskId} = ${pullRequestRecord.ownerTaskId}
   left join lateral ${spent} on true
-  where ${reachOf(team, repositories, from)}`;
+  where ${coverageOf(team, repositories, from)}`;
 
 const teamPullRequestsWhere = async (
   db: DrizzleDatabase,

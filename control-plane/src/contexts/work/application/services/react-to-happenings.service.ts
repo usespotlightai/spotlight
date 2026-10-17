@@ -11,11 +11,11 @@ import type {
 } from '@work/application/contracts/happenings.contract';
 import {
   HappenedMapper,
-  type Heard,
+  type ReceivedHappening,
 } from '@work/application/mappers/happened.mapper';
 import type { AttachmentStorePort } from '@work/application/ports/attachment-store.port';
 import type { HappeningReactionsPort } from '@work/application/ports/happening-reactions.port';
-import type { HeardHappeningsPort } from '@work/application/ports/heard-happenings.port';
+import type { ProcessedEventsPort } from '@work/application/ports/processed-events.port';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
 import type { TaskDispatching } from '@work/application/services/task-dispatch';
 import { takeTaskMarks } from '@work/application/services/task-marks';
@@ -34,17 +34,17 @@ import { Anchor } from '@work/domain/value-objects/anchor.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { Concerns } from '@work/domain/value-objects/concerns.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
-import type { ReviewRequest } from '@work/domain/value-objects/review-asked.vo';
+import type { ReviewRequest } from '@work/domain/value-objects/review-request.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
 import { Voice } from '@work/domain/value-objects/voice.vo';
 
 const anchorOf = (
-  happened: Heard,
+  happened: ReceivedHappening,
   attachments: readonly Attachment[],
 ): Anchor | null =>
   happened.anchor ??
   (attachments.length > 0
-    ? Anchor.of({ body: TaskNoteBody.given('', attachments).value })
+    ? Anchor.of({ body: TaskNoteBody.fromInput('', attachments).value })
     : null);
 
 const identityOf = (happened: Happened): string =>
@@ -69,7 +69,7 @@ export class ReactToHappenings implements HappeningReactionsPort {
     private readonly ids: IdGeneratorPort,
     private readonly members: MemberDirectoryPort,
     private readonly files: AttachmentStorePort,
-    private readonly heardBefore: HeardHappeningsPort,
+    private readonly processed: ProcessedEventsPort,
     private readonly logger: LoggerPort,
   ) {}
 
@@ -77,26 +77,33 @@ export class ReactToHappenings implements HappeningReactionsPort {
     workspaceId: WorkspaceId,
     teamId: TeamId | null,
     happenings: readonly Happened[],
-    heardAs: string | null,
+    receivedAs: string | null,
   ): Promise<void> {
     for (const arrived of happenings) {
-      const key = heardAs ? `${heardAs}\n${identityOf(arrived)}` : null;
-      const happened = this.heard(workspaceId, arrived);
+      const key = receivedAs ? `${receivedAs}\n${identityOf(arrived)}` : null;
+      const happened = this.received(workspaceId, arrived);
 
       if (
         !happened ||
-        (key && (await this.heardBefore.heard(workspaceId, key)))
+        (key && (await this.processed.wasProcessed(workspaceId, key)))
       ) {
         continue;
       }
 
       // Fetch outside the transaction, so that a slow host does not lock the task during the download.
-      const attachments = await this.kept(workspaceId, happened.attachments);
+      const attachments = await this.storedAttachments(
+        workspaceId,
+        happened.attachments,
+      );
 
       await this.transaction.inTransaction(async () => {
         if (
           !key ||
-          (await this.heardBefore.hearing(workspaceId, key, this.clock.now()))
+          (await this.processed.markProcessed(
+            workspaceId,
+            key,
+            this.clock.now(),
+          ))
         ) {
           await this.reactTo(workspaceId, teamId, happened, attachments);
         }
@@ -104,9 +111,12 @@ export class ReactToHappenings implements HappeningReactionsPort {
     }
   }
 
-  private heard(workspaceId: WorkspaceId, happened: Happened): Heard | null {
+  private received(
+    workspaceId: WorkspaceId,
+    happened: Happened,
+  ): ReceivedHappening | null {
     try {
-      return HappenedMapper.toHeard(happened);
+      return HappenedMapper.toReceivedHappening(happened);
     } catch (error) {
       this.logger.warn(
         {
@@ -121,11 +131,11 @@ export class ReactToHappenings implements HappeningReactionsPort {
     }
   }
 
-  private async kept(
+  private async storedAttachments(
     workspaceId: WorkspaceId,
     arriving: readonly Arriving[],
   ): Promise<Attachment[]> {
-    const kept: Attachment[] = [];
+    const stored: Attachment[] = [];
 
     for (const each of arriving) {
       try {
@@ -142,8 +152,8 @@ export class ReactToHappenings implements HappeningReactionsPort {
           size: bytes.byteLength,
         });
 
-        await this.files.keep(workspaceId, file, bytes);
-        kept.push(file);
+        await this.files.save(workspaceId, file, bytes);
+        stored.push(file);
       } catch (error) {
         this.logger.warn(
           {
@@ -156,17 +166,17 @@ export class ReactToHappenings implements HappeningReactionsPort {
       }
     }
 
-    return kept;
+    return stored;
   }
 
   private async reactTo(
     workspaceId: WorkspaceId,
     teamId: TeamId | null,
-    happened: Heard,
+    happened: ReceivedHappening,
     attachments: readonly Attachment[],
   ): Promise<void> {
     if (happened.opens?.review) {
-      await this.reviewAsked(
+      await this.reviewRequested(
         workspaceId,
         teamId,
         happened,
@@ -185,12 +195,12 @@ export class ReactToHappenings implements HappeningReactionsPort {
       return;
     }
 
-    await this.heardBy(task, happened, attachments);
+    await this.receivedBy(task, happened, attachments);
   }
 
-  private async heardBy(
+  private async receivedBy(
     task: Task,
-    happened: Heard,
+    happened: ReceivedHappening,
     attachments: readonly Attachment[],
   ): Promise<void> {
     const line = await this.lines.findByStation(task.stationId);
@@ -199,7 +209,7 @@ export class ReactToHappenings implements HappeningReactionsPort {
       return;
     }
 
-    const heard = await this.applied(
+    const updated = await this.applied(
       ReactionFor.happened({
         task,
         line,
@@ -211,21 +221,21 @@ export class ReactToHappenings implements HappeningReactionsPort {
       attachments,
     );
 
-    if (!heard) {
+    if (!updated) {
       return;
     }
 
-    const runId = heard.wantsRun(line)
-      ? await this.dispatch.runIdFor({ task: heard, line })
+    const runId = updated.wantsRun(line)
+      ? await this.dispatch.runIdFor({ task: updated, line })
       : null;
 
-    await this.tasks.save(runId ? heard.assignRun(runId, line) : heard);
+    await this.tasks.save(runId ? updated.assignRun(runId, line) : updated);
   }
 
-  private async reviewAsked(
+  private async reviewRequested(
     workspaceId: WorkspaceId,
     teamId: TeamId | null,
-    happened: Heard,
+    happened: ReceivedHappening,
     request: ReviewRequest,
     attachments: readonly Attachment[],
   ): Promise<void> {
@@ -233,7 +243,7 @@ export class ReactToHappenings implements HappeningReactionsPort {
       return;
     }
 
-    const answer = ReactionFor.reviewAsked({
+    const answer = ReactionFor.reviewRequested({
       lines: await this.linesOf(workspaceId, teamId),
       opens: happened.opens,
       request,
@@ -245,8 +255,8 @@ export class ReactToHappenings implements HappeningReactionsPort {
       reviewTask: await this.tasks.findByMarks(workspaceId, happened.concerns),
     });
 
-    if (answer.kind === 'heard') {
-      await this.heardBy(answer.by, happened, attachments);
+    if (answer.kind === 'received') {
+      await this.receivedBy(answer.by, happened, attachments);
     }
 
     if (answer.kind === 'opens') {
@@ -277,7 +287,7 @@ export class ReactToHappenings implements HappeningReactionsPort {
   private async opened(
     workspaceId: WorkspaceId,
     teamId: TeamId | null,
-    happened: Heard,
+    happened: ReceivedHappening,
     attachments: readonly Attachment[],
   ): Promise<void> {
     if (!happened.opens) {
@@ -305,7 +315,7 @@ export class ReactToHappenings implements HappeningReactionsPort {
   private async openOn(
     workspaceId: WorkspaceId,
     { line, opening }: OpenedOn,
-    happened: Heard,
+    happened: ReceivedHappening,
     attachments: readonly Attachment[],
     shaped: (task: Task) => Task,
   ): Promise<void> {
@@ -322,7 +332,7 @@ export class ReactToHappenings implements HappeningReactionsPort {
           title: opening.title,
           description: opening.description,
           attachments,
-          heardFrom: happened.payload.happening,
+          receivedFrom: happened.payload.happening,
           rank: Placement.atTheBack(
             (await this.placements.placementsAt(opening.at.id)).map(
               (each) => each.rank,

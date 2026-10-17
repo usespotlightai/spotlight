@@ -47,7 +47,7 @@ interface Props {
 
 interface State extends Props {
   readonly deleted: boolean;
-  readonly keeping: SecretValue | null;
+  readonly valueToStore: SecretValue | null;
   readonly deletingValue: boolean;
 }
 
@@ -84,11 +84,11 @@ export class Secret extends EventRecorder {
       at: Date;
     },
   ): Secret {
-    const keeping = definition.source.isBuiltIn
-      ? valueFor(definition, 'is required for a secret kept by Spotlight')
+    const valueToStore = definition.source.isBuiltIn
+      ? valueFor(definition, 'is required for a secret stored by Spotlight')
       : null;
 
-    if (definition.value && !keeping) {
+    if (definition.value && !valueToStore) {
       assertValueAllowedFor(definition.source);
     }
 
@@ -102,7 +102,7 @@ export class Secret extends EventRecorder {
       rotatedAt: input.at,
       version: 0,
       deleted: false,
-      keeping,
+      valueToStore,
       deletingValue: false,
     });
 
@@ -127,13 +127,16 @@ export class Secret extends EventRecorder {
 
   static rehydrate(input: Props): Secret {
     if (input.version < 1) {
-      throw new InconsistentStateError('secret', 'was kept without a version');
+      throw new InconsistentStateError(
+        'secret',
+        'was stored without a version',
+      );
     }
 
     return new Secret({
       ...input,
       deleted: false,
-      keeping: null,
+      valueToStore: null,
       deletingValue: false,
     });
   }
@@ -165,13 +168,13 @@ export class Secret extends EventRecorder {
       assertValueAllowedFor(definition.source);
     }
 
-    const keeping =
+    const valueToStore =
       definition.source.isBuiltIn && (rotating || becomingBuiltIn)
         ? valueFor(
             definition,
             rotating
               ? 'is required when valueWoVersion changes'
-              : 'is required once Spotlight keeps the secret',
+              : 'is required once Spotlight stores the secret',
           )
         : null;
 
@@ -183,13 +186,13 @@ export class Secret extends EventRecorder {
       source: definition.source,
       bindings: definition.bindings,
       valueVersion: definition.valueVersion,
-      rotatedAt: keeping || rotating ? at : this.rotatedAt,
-      keeping,
+      rotatedAt: valueToStore || rotating ? at : this.rotatedAt,
+      valueToStore,
       deletingValue: this.source.isBuiltIn && !definition.source.isBuiltIn,
     });
 
     const moved = SecretChangeDetail.updated({
-      valueMoved: keeping !== null || rotating,
+      valueMoved: valueToStore !== null || rotating,
       valueVersion: definition.valueVersion,
       rebound,
       boundTo: definition.bindings.hosts,
@@ -273,7 +276,7 @@ export class Secret extends EventRecorder {
     if (!grant.secretId.equals(this.id)) {
       throw new InconsistentStateError(
         'secret',
-        'was asked to honour a grant of another secret',
+        'received a grant for another secret',
       );
     }
 
@@ -343,8 +346,8 @@ export class Secret extends EventRecorder {
     return this.state.deleted;
   }
 
-  get keeping(): SecretValue | null {
-    return this.state.keeping;
+  get valueToStore(): SecretValue | null {
+    return this.state.valueToStore;
   }
 
   get deletesValue(): boolean {
@@ -370,7 +373,7 @@ export class Secret extends EventRecorder {
   private removed(): Secret {
     return this.with({
       deleted: true,
-      keeping: null,
+      valueToStore: null,
       deletingValue: this.source.isBuiltIn,
     });
   }

@@ -13,7 +13,10 @@ import {
   windowOf,
 } from '@outcomes/application/services/team-scopes.service';
 import { runFilterOf } from '@outcomes/domain/services/run-filter';
-import { pageAskedOf, pageWithin } from '@outcomes/domain/services/run-page';
+import {
+  pageWithin,
+  requestedPageOf,
+} from '@outcomes/domain/services/run-page';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
@@ -35,7 +38,7 @@ export class ListInsightsRunsHandler
       );
       const filter = runFilterOf(query.filter, period.current);
       const size = sizeOf(query.size);
-      const page = pageAskedOf(pageOf(query.page));
+      const page = requestedPageOf(pageOf(query.page));
       const listed = await this.reader.runPage({
         window: windowOf(access, period.current),
         filter,

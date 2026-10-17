@@ -11,12 +11,12 @@ export class TeamIntegrations {
     line: Line,
     tools: readonly Tool[],
   ): Promise<readonly DeclaredTool[]> {
-    const asked = tools
+    const integrationTools = tools
       .filter((each) => each.origin === 'integration')
       .map((each) => each.value);
 
-    return asked.length > 0
-      ? (await this.integrations.offered(line.teamId, asked)).map(
+    return integrationTools.length > 0
+      ? (await this.integrations.offered(line.teamId, integrationTools)).map(
           ToolDeclarationMapper.toDeclared,
         )
       : [];

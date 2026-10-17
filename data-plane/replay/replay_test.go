@@ -18,7 +18,7 @@ import (
 
 const token = "q3Vd0n8yXbT2c4kPzR7mW1sLhA9eJ5gUfN6oYiC0xEw"
 
-type asked struct {
+type receivedRequest struct {
 	method  string
 	path    string
 	headers http.Header
@@ -28,7 +28,7 @@ type asked struct {
 type spotlight struct {
 	t        *testing.T
 	mu       sync.Mutex
-	asked    []asked
+	received []receivedRequest
 	replays  []string
 	answers  map[string]string
 	statuses map[string]int
@@ -135,7 +135,7 @@ func (s *spotlight) handle(w http.ResponseWriter, r *http.Request) {
 	if read, _ := io.ReadAll(r.Body); len(read) > 0 {
 		_ = json.Unmarshal(read, &body)
 	}
-	s.asked = append(s.asked, asked{method: r.Method, path: r.URL.RequestURI(), headers: r.Header.Clone(), body: body})
+	s.received = append(s.received, receivedRequest{method: r.Method, path: r.URL.RequestURI(), headers: r.Header.Clone(), body: body})
 
 	if r.Header.Get("Authorization") != "Bearer "+token || r.Header.Get(clientHeader) != "cli/test" {
 		w.WriteHeader(http.StatusUnauthorized)
@@ -173,19 +173,19 @@ func (s *spotlight) handle(w http.ResponseWriter, r *http.Request) {
 	_, _ = w.Write([]byte(answer))
 }
 
-func (s *spotlight) last(method, path string) asked {
+func (s *spotlight) last(method, path string) receivedRequest {
 	s.t.Helper()
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	for at := len(s.asked) - 1; at >= 0; at-- {
-		if s.asked[at].method == method && strings.HasPrefix(s.asked[at].path, path) {
-			return s.asked[at]
+	for at := len(s.received) - 1; at >= 0; at-- {
+		if s.received[at].method == method && strings.HasPrefix(s.received[at].path, path) {
+			return s.received[at]
 		}
 	}
 
-	s.t.Fatalf("Spotlight was never asked %s %s; it was asked %v", method, path, s.asked)
-	return asked{}
+	s.t.Fatalf("Spotlight never received %s %s; it received %v", method, path, s.received)
+	return receivedRequest{}
 }
 
 func replaying(args ...string) (string, error) {
@@ -365,7 +365,7 @@ func TestStartReplaysASetUnderACandidateNamedWithinACeiling(t *testing.T) {
 	}
 }
 
-func TestStartReplaysEachRunAsOftenAsAsked(t *testing.T) {
+func TestStartReplaysEachRunAsOftenAsRequested(t *testing.T) {
 	spotlight := serve(t)
 
 	output, err := replaying("start", "--station", "core/delivery/build", "--set", "Queue fixes", "--candidate", "live", "--ceiling", "5", "--repeats", "3")
@@ -383,7 +383,7 @@ func TestStartReplaysEachRunAsOftenAsAsked(t *testing.T) {
 	}
 }
 
-func TestStatusGivesEachRateItsIntervalAndSaysWhenTheGainIsWithinNoise(t *testing.T) {
+func TestStatusShowsEachRateWithItsIntervalAndSaysWhenTheGainIsWithinNoise(t *testing.T) {
 	spotlight := serve(t)
 	spotlight.replays = []string{strings.Replace(
 		strings.Replace(replayOf("finished", false), `"totals":{"entries":2,`, `"repeats":2,"againstBaseline":{"gain":-0.5,"low":-1,"high":0,"verdict":"within-noise","minGain":0.05,"tasks":2},"totals":{"interval":{"rate":0.5,"low":0,"high":1},"tasks":2,"tasksScored":2,"entries":2,`, 1),
@@ -460,7 +460,7 @@ func TestStatusOfACandidateThatDidNotRegressExitsCleanly(t *testing.T) {
 	}
 }
 
-func TestWatchAsksUntilTheReplayAndTheReplayItIsComparedWithEnd(t *testing.T) {
+func TestWatchReadsUntilTheReplayAndTheReplayItIsComparedWithEnd(t *testing.T) {
 	spotlight := serve(t)
 	spotlight.replays = []string{replayOf("running", false), replayOf("running", false), replayOf("finished", true)}
 	out := new(bytes.Buffer)
@@ -551,7 +551,7 @@ func TestWatchGivesUpOnAClientErrorAtOnceAndOnTroubleThatLasts(t *testing.T) {
 	}
 }
 
-func TestWatchAsksAtMostOnceASecond(t *testing.T) {
+func TestWatchReadsAtMostOnceASecond(t *testing.T) {
 	serve(t)
 
 	for _, every := range []string{"0s", "-1s", "500ms"} {
@@ -571,7 +571,7 @@ func TestProposeTriesOnceMoreUnderTheSameKey(t *testing.T) {
 	}
 
 	keys := []string{}
-	for _, each := range spotlight.asked {
+	for _, each := range spotlight.received {
 		if each.method+" "+strings.Split(each.path, "?")[0] == route {
 			keys = append(keys, each.headers.Get(idempotencyHeader))
 		}
@@ -639,9 +639,9 @@ func TestStatusNamesTheReplayItIsComparedWithAndFollowsIt(t *testing.T) {
 				}
 			}
 			spotlight.last(http.MethodGet, "/api/teams/team_1/replays/"+each.against)
-			for _, asked := range spotlight.asked {
-				if each.against != "replay_base" && asked.path == "/api/teams/team_1/replays/replay_base" {
-					t.Fatalf("asked for the baseline, not the replay it is compared with")
+			for _, received := range spotlight.received {
+				if each.against != "replay_base" && received.path == "/api/teams/team_1/replays/replay_base" {
+					t.Fatalf("requested the baseline, not the replay it is compared with")
 				}
 			}
 		})
@@ -691,9 +691,9 @@ func TestStatusOfTheBaselineComparesItWithNothing(t *testing.T) {
 	if !strings.Contains(output, "It is the set's baseline.\n") || strings.Contains(output, "Compared with") {
 		t.Fatalf("output %q", output)
 	}
-	for _, asked := range spotlight.asked {
-		if asked.path == "/api/teams/team_1/replays/replay_base" {
-			t.Fatalf("asked for another replay")
+	for _, received := range spotlight.received {
+		if received.path == "/api/teams/team_1/replays/replay_base" {
+			t.Fatalf("requested another replay")
 		}
 	}
 }

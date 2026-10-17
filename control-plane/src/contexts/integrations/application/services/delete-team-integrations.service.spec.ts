@@ -1,8 +1,8 @@
 import { DeleteTeamIntegrations } from '@integrations/application/services/delete-team-integrations.service';
 import type { HookDefinition } from '@integrations/domain/aggregates/hook-definition.aggregate';
 import type { IntegrationDefinition } from '@integrations/domain/aggregates/integration-definition.aggregate';
-import { HookDeletionDue } from '@integrations/domain/events/hook-deletion-due.event';
-import { IntegrationDeletionDue } from '@integrations/domain/events/integration-deletion-due.event';
+import { HookDeletionRequested } from '@integrations/domain/events/hook-deletion-requested.event';
+import { IntegrationDeletionRequested } from '@integrations/domain/events/integration-deletion-requested.event';
 import type { HookDefinitionRepository } from '@integrations/domain/repositories/hook-definition.repository';
 import type { HostConnectionRepository } from '@integrations/domain/repositories/host-connection.repository';
 import type { IntegrationDefinitionRepository } from '@integrations/domain/repositories/integration-definition.repository';
@@ -69,8 +69,8 @@ describe('DeleteTeamIntegrations', () => {
     const { deleting, hooks, definitions } = setUp();
 
     await expect(deleting.pendingDeletions(TEAM, WORKSPACE)).resolves.toEqual([
-      new HookDeletionDue(HOOK_ID, WORKSPACE),
-      new IntegrationDeletionDue(INTEGRATION_ID, WORKSPACE),
+      new HookDeletionRequested(HOOK_ID, WORKSPACE),
+      new IntegrationDeletionRequested(INTEGRATION_ID, WORKSPACE),
     ]);
     expect(hooks.save).not.toHaveBeenCalled();
     expect(definitions.save).not.toHaveBeenCalled();
@@ -98,7 +98,7 @@ describe('DeleteTeamIntegrations', () => {
     expect(definitions.save).toHaveBeenCalledWith('deleted integration');
   });
 
-  it('does nothing for what is already gone, so a deletion heard twice is harmless', async () => {
+  it('does nothing for what is already gone, so a deletion received twice is harmless', async () => {
     const { deleting, hooks, definitions } = setUp({ gone: true });
 
     await deleting.deleteHook(HOOK_ID, WORKSPACE);

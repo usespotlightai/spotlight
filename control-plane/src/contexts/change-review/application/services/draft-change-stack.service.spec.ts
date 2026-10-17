@@ -151,7 +151,7 @@ const drafting = (
 ) => {
   const saved: ChangeStack[] = [];
   const dispatched: DomainEvent[] = [];
-  const asked: ChangeStackDraft[] = [];
+  const requests: ChangeStackDraft[] = [];
   const answers = [...(over.answers ?? [[cohort(['h1', 'h2'])]])];
 
   const stacks: ChangeStackRepository = {
@@ -173,11 +173,11 @@ const drafting = (
   const drafter: ChangeStackDrafterPort = {
     available: over.available ?? true,
     draft: async (draft) => {
-      asked.push(draft);
+      requests.push(draft);
       const answer = answers.shift();
 
       if (!answer || answer instanceof Error) {
-        throw answer ?? new Error('Asked too often');
+        throw answer ?? new Error('Requested too often');
       }
       return {
         cohorts: answer,
@@ -212,12 +212,12 @@ const drafting = (
     return stack;
   };
 
-  return { service, saved, asked, stacks, drafter, dispatched, drafted };
+  return { service, saved, requests, stacks, drafter, dispatched, drafted };
 };
 
 describe('DraftChangeStack', () => {
-  it('drafts no stack for a search run, keeping nothing and asking no model', async () => {
-    const { service, saved, asked } = drafting();
+  it('drafts no stack for a search run, storing nothing and calling no model', async () => {
+    const { service, saved, requests } = drafting();
 
     await expect(
       service.begin(
@@ -226,11 +226,11 @@ describe('DraftChangeStack', () => {
       ),
     ).rejects.toThrow(NoStackForSearchesError);
     expect(saved).toEqual([]);
-    expect(asked).toEqual([]);
+    expect(requests).toEqual([]);
   });
 
-  it('keeps the draft, then completes it as ready once the drafter places every change', async () => {
-    const { service, saved, dispatched, asked, stacks } = drafting();
+  it('stores the draft, then completes it as ready once the drafter places every change', async () => {
+    const { service, saved, dispatched, requests, stacks } = drafting();
 
     const stack = await service.begin(RUN, {
       diff: DIFF,
@@ -241,7 +241,7 @@ describe('DraftChangeStack', () => {
 
     expect(stack.state).toBe('drafting');
     expect(stack.diff.hunks).toHaveLength(2);
-    expect(asked).toEqual([]);
+    expect(requests).toEqual([]);
     expect(dispatched.map((each) => each.kind)).toEqual([
       'change-stack.drafting-began',
     ]);
@@ -257,15 +257,15 @@ describe('DraftChangeStack', () => {
     expect(saved[1]?.cohorts[0]?.layers[0]?.ranges).toHaveLength(2);
   });
 
-  it('asks again with what was wrong, where the first stack broke the rules', async () => {
-    const { drafted, saved, asked } = drafting({
+  it('requests again with what was wrong, where the first stack broke the rules', async () => {
+    const { drafted, saved, requests } = drafting({
       answers: [[cohort(['h1'])], [cohort(['h1', 'h2'])]],
     });
 
     await drafted({ diff: DIFF, repository: null, base: null, request: null });
 
     expect(
-      asked.map((each) => each.problems.map((problem) => problem.message)),
+      requests.map((each) => each.problems.map((problem) => problem.message)),
     ).toEqual([[], ['leaves h2 out']]);
     expect(saved[saved.length - 1]?.state).toBe('ready');
     expect(saved[saved.length - 1]?.spent).toMatchObject({
@@ -304,7 +304,7 @@ describe('DraftChangeStack', () => {
     expect(left.spent.calls).toBe(0);
   });
 
-  it('keeps what every attempt spent when a later one fails, an unreadable answer included', async () => {
+  it('records what every attempt spent when a later one fails, an unreadable answer included', async () => {
     const { service } = drafting({
       answers: [
         [cohort(['h1'])],
@@ -345,7 +345,7 @@ describe('DraftChangeStack', () => {
     ).rejects.toThrow(ChangeStacksUnavailableError);
   });
 
-  it('rejects text that is not a diff, keeping nothing', async () => {
+  it('rejects text that is not a diff, storing nothing', async () => {
     const { service, saved } = drafting();
 
     await expect(
@@ -382,7 +382,7 @@ describe('DraftChangeStack', () => {
     ];
 
     it('hands the drafter the facts, and sets incidental changes aside itself', async () => {
-      const { drafted, saved, asked } = drafting({
+      const { drafted, saved, requests } = drafting({
         answers: [[cohort(['h1', 'h2'], LINKED_PATHS)]],
       });
 
@@ -393,7 +393,7 @@ describe('DraftChangeStack', () => {
         request: null,
       });
 
-      expect(asked[0]?.facts.links).toEqual([
+      expect(requests[0]?.facts.links).toEqual([
         {
           kind: 'uses',
           from: HunkId.of('h2'),
@@ -413,8 +413,10 @@ describe('DraftChangeStack', () => {
       ).toEqual(['h3']);
     });
 
-    it('asks again where the stack splits what the code ties together, then gives up rather than keep it', async () => {
-      const { drafted, saved, asked } = drafting({ answers: [apart, apart] });
+    it('requests again where the stack splits what the code ties together, then gives up rather than store it', async () => {
+      const { drafted, saved, requests } = drafting({
+        answers: [apart, apart],
+      });
 
       await drafted({
         diff: LINKED,
@@ -423,7 +425,7 @@ describe('DraftChangeStack', () => {
         request: null,
       });
 
-      expect(asked[1]?.problems).toEqual([
+      expect(requests[1]?.problems).toEqual([
         {
           code: 'uses',
           message:
@@ -473,7 +475,7 @@ describe('DraftChangeStack', () => {
           },
         ],
       };
-      const { drafted, asked } = drafting({
+      const { drafted, requests } = drafting({
         index: async (sources) => {
           read.push(...sources.map((each) => `${each.side}:${each.path}`));
           return index;
@@ -493,7 +495,7 @@ describe('DraftChangeStack', () => {
         'before:api.ts',
         'after:api.ts',
       ]);
-      expect(asked[0]?.facts.links).toEqual([
+      expect(requests[0]?.facts.links).toEqual([
         {
           kind: 'uses',
           from: HunkId.of('h2'),
@@ -504,7 +506,7 @@ describe('DraftChangeStack', () => {
     });
 
     it('drafts from the diff alone where the code cannot be parsed', async () => {
-      const { drafted, saved, asked } = drafting({
+      const { drafted, saved, requests } = drafting({
         answers: [[cohort(['h1', 'h2'], LINKED_PATHS)]],
         index: async () => {
           throw new Error('no grammar');
@@ -518,13 +520,13 @@ describe('DraftChangeStack', () => {
         request: null,
       });
 
-      expect(asked[0]?.facts.links).toHaveLength(1);
+      expect(requests[0]?.facts.links).toHaveLength(1);
       expect(saved[saved.length - 1]?.state).toBe('ready');
     });
 
-    it('drafts a diff of nothing but incidental changes without asking the model', async () => {
+    it('drafts a diff of nothing but incidental changes without calling the model', async () => {
       const lockfileOnly = written(LOCKFILE);
-      const { drafted, saved, asked } = drafting({ answers: [] });
+      const { drafted, saved, requests } = drafting({ answers: [] });
 
       await drafted({
         diff: lockfileOnly,
@@ -533,7 +535,7 @@ describe('DraftChangeStack', () => {
         request: null,
       });
 
-      expect(asked).toEqual([]);
+      expect(requests).toEqual([]);
       expect(saved[saved.length - 1]?.cohorts[0]?.kind).toBe('incidental');
     });
   });
@@ -601,7 +603,7 @@ describe('ReorderChangeStack', () => {
         ],
         new Date('2026-09-16T10:00:00Z'),
       );
-    const reordering = ready.askedToReorder();
+    const reordering = ready.requestReorder();
 
     drafted.saved.push(reordering);
 
@@ -617,21 +619,21 @@ describe('ReorderChangeStack', () => {
     return { ...drafted, reordering, check, service };
   };
 
-  it('asks for the layers again with what the check found, and takes the reordered stack', async () => {
+  it('requests the layers again with what the check found, and takes the reordered stack', async () => {
     const [table, endpoint] = twoLayers.layers;
     const moved: ProposedCohort = {
       ...twoLayers,
       layers: [endpoint, table].flatMap((layer) => (layer ? [layer] : [])),
     };
-    const { service, saved, asked, reordering, check } = await failedCheck([
+    const { service, saved, requests, reordering, check } = await failedCheck([
       [moved],
     ]);
 
     saved.push(await service.reordered(reordering, check));
 
-    expect(asked[1]?.problems).toEqual([]);
+    expect(requests[1]?.problems).toEqual([]);
     expect(
-      asked[1]?.reordering?.failed.map((each) => [each.cohort, each.layer]),
+      requests[1]?.reordering?.failed.map((each) => [each.cohort, each.layer]),
     ).toEqual([[0, 0]]);
 
     const reordered = saved[saved.length - 1];
@@ -643,16 +645,16 @@ describe('ReorderChangeStack', () => {
     expect(reordered?.reordering).toBe(false);
   });
 
-  it('keeps the checked layers where the reordered stack keeps breaking the rules', async () => {
+  it('retains the checked layers where the reordered stack keeps breaking the rules', async () => {
     const { service, reordering, check } = await failedCheck([
       [cohort(['h1'])],
       [cohort(['h2'])],
     ]);
 
-    const kept = await service.reordered(reordering, check);
+    const reordered = await service.reordered(reordering, check);
 
-    expect(kept.reordering).toBe(false);
-    expect(kept.cohorts[0]?.layers).toHaveLength(2);
+    expect(reordered.reordering).toBe(false);
+    expect(reordered.cohorts[0]?.layers).toHaveLength(2);
   });
 
   it('leaves the reordering to be retried where the model cannot answer', async () => {

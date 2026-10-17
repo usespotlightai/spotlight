@@ -232,7 +232,7 @@ export const touchesOf = (
     acts?: readonly (readonly [PersonAct, string, string, Date])[];
   } = {},
 ): TaskTouches => {
-  const opened = TaskTouches.heardOf(TaskId.of(taskId), WORKSPACE).recordOpen(
+  const opened = TaskTouches.empty(TaskId.of(taskId), WORKSPACE).recordOpen(
     TaskOpening.of({
       teamId: TEAM,
       lineId: touched.lineId ?? 'line_1',
@@ -280,7 +280,7 @@ export const failuresOf = (
           at: each.at,
         }),
       ),
-    TaskFailures.heardOf(TaskId.of(taskId), WORKSPACE, TEAM),
+    TaskFailures.empty(TaskId.of(taskId), WORKSPACE, TEAM),
   );
 
 export const chatOf = (chatId: string, by: string, at: Date): ChatRecord =>

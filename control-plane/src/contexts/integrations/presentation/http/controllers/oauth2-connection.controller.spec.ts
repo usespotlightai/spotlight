@@ -119,7 +119,7 @@ describe('OAuth2ConnectionController', () => {
     expect(redirect).toHaveBeenCalledWith(FAILED_REDIRECT);
   });
 
-  it('connects the team unless asked to connect the caller', async () => {
+  it('connects the team unless requested to connect the caller', async () => {
     const { controller, execute } = controlling();
 
     await controller.connect('team_1', 'slack', ADMIN, answering().response);

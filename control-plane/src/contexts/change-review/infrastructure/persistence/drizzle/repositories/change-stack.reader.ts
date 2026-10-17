@@ -10,8 +10,8 @@ import { checkReasonOf } from '@change-review/application/rendering/check-reason
 import { tallyOf } from '@change-review/domain/value-objects/diff.vo';
 import {
   checkStateAt,
-  keptSkipOf,
   nobodyChecked,
+  storedSkipOf,
 } from '@change-review/domain/value-objects/stack-check.vo';
 import {
   checkedStepOf,
@@ -62,7 +62,7 @@ const checkOf = (row: CheckRow | null, now: Date): StackCheckDto | null => {
   const skipped =
     state === 'skipped'
       ? row.outcome?.skip
-        ? keptSkipOf(row.outcome.skip.code, row.outcome.skip.detail)
+        ? storedSkipOf(row.outcome.skip.code, row.outcome.skip.detail)
         : nobodyChecked()
       : null;
 

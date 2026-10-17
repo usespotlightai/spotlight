@@ -100,7 +100,7 @@ describe('judgeReportOf', () => {
 });
 
 describe('calibrationIn', () => {
-  it('trusts a judge that agrees with people as often as the station asks', () => {
+  it('trusts a judge that agrees with people as often as the station requests', () => {
     expect(calibrationIn(reportOf(12, 12), CURRENT)).toMatchObject({
       trusted: true,
       measure: 'kappa',

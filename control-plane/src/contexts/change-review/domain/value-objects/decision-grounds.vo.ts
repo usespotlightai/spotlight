@@ -21,7 +21,7 @@ export class DecisionGrounds {
     );
   }
 
-  admits(decision: Decision): boolean {
+  allows(decision: Decision): boolean {
     return (
       decision.steps.every((each) => this.steps.has(each)) &&
       decision.paths.every((each) => this.changed.has(each.value))

@@ -20,7 +20,7 @@ export const takeTaskMarks = async (
     }
   }
 
-  for (const given of marksTakenFrom(markedTasks, taker)) {
-    await tasks.save(given);
+  for (const marked of marksTakenFrom(markedTasks, taker)) {
+    await tasks.save(marked);
   }
 };

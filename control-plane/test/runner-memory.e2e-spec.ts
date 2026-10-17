@@ -33,7 +33,7 @@ interface Proposed {
   readonly body: string;
   readonly origin: string;
   readonly state: string;
-  readonly reach: string;
+  readonly scope: string;
   readonly repository: string | null;
   readonly paths: readonly string[];
   readonly steps: readonly { readonly index: number; readonly kind: string }[];
@@ -266,14 +266,14 @@ describe('recalling what the team remembers from inside a run', () => {
         taskId: team.list.id,
         workspaceId: team.workspaceId,
       })
-        .asked(proposedIn, new Date())
+        .requestDrafting(proposedIn, new Date())
         .recordDraft({
           runId: proposedIn,
           proposed: [
             {
               kind: 'failure',
               body: 'Uploads time out behind the proxy.',
-              reach: 'team',
+              scope: 'team',
               repository: null,
               paths: [],
               steps: [1],
@@ -390,7 +390,7 @@ describe('recalling what the team remembers from inside a run', () => {
 });
 
 describe('remembering from inside a run', () => {
-  it('proposes a memory grounded in the step it was asked from, beside the run in the inbox', async () => {
+  it('proposes a memory grounded in the step it was requested from, beside the run in the inbox', async () => {
     const proposed = await remember({
       body: 'Uploads retry in the request.',
       paths: ['api/src/uploads'],
@@ -402,7 +402,7 @@ describe('remembering from inside a run', () => {
       body: 'Uploads retry in the request.',
       origin: 'remembered',
       state: 'proposed',
-      reach: 'line',
+      scope: 'line',
       repository: 'acme/api',
       paths: ['src/uploads'],
     });
@@ -435,7 +435,7 @@ describe('remembering from inside a run', () => {
     });
   });
 
-  it('proposes the same memory once, however often it is asked', async () => {
+  it('proposes the same memory once, however often it is requested', async () => {
     const first = await remember({ body: 'Staging needs a restart.' });
     const again = await remember({ body: 'Staging needs a restart.' });
 

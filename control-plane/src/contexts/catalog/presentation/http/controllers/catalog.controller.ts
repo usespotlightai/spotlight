@@ -20,7 +20,7 @@ const TOOL = 'catalog-tool';
 
 const SKILL = 'catalog-skill';
 
-const asking = (example: string): readonly DataSourceQuery[] => [
+const exampleQuery = (example: string): readonly DataSourceQuery[] => [
   { name: 'name', description: 'Its name in the catalog', example },
   {
     name: 'version',
@@ -34,14 +34,14 @@ const CatalogTools = dataSourceApi({
   kind: TOOL,
   tag: 'catalog',
   representation: CatalogToolResponseDto,
-  query: asking('web-search'),
+  query: exampleQuery('web-search'),
 });
 
 const CatalogSkills = dataSourceApi({
   kind: SKILL,
   tag: 'catalog',
   representation: CatalogSkillResponseDto,
-  query: asking('research'),
+  query: exampleQuery('research'),
 });
 
 const WORKSPACE = ApiParam({

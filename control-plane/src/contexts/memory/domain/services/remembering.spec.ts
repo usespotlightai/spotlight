@@ -1,7 +1,7 @@
 import { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
-import { KeptFromReplaysError } from '@memory/domain/exceptions/kept-from-replays.error';
-import { KeptFromSearchesError } from '@memory/domain/exceptions/kept-from-searches.error';
+import { NotAllowedInReplayError } from '@memory/domain/exceptions/not-allowed-in-replay.error';
+import { NotAllowedInSearchError } from '@memory/domain/exceptions/not-allowed-in-search.error';
 import {
   type Remembered,
   type RememberedAt,
@@ -47,10 +47,10 @@ const at = (
   fromOutside: change.fromOutside ?? false,
 });
 
-const asked = (change: Partial<Remembered> = {}): Remembered => ({
+const remembered = (change: Partial<Remembered> = {}): Remembered => ({
   kind: 'rationale',
   body: 'Uploads retry in the request, not from a queue.',
-  reach: null,
+  scope: null,
   paths: [],
   supersedes: null,
   ...change,
@@ -79,12 +79,12 @@ const proposed = (
     isSearch: false,
   }).proposalOf({
     id: MemoryId.of('memory_1'),
-    remembered: asked(change),
+    remembered: remembered(change),
     at: at(over),
     now: NOW,
   });
 
-describe('Remembering, what an agent asks its team to keep', () => {
+describe('Remembering, what an agent proposes for its team to approve', () => {
   it('is only for a task’s run, sending a chat to the person instead', () => {
     expect(() =>
       Remembering.of({
@@ -104,7 +104,7 @@ describe('Remembering, what an agent asks its team to keep', () => {
         replay: true,
         isSearch: false,
       }),
-    ).toThrow(KeptFromReplaysError);
+    ).toThrow(NotAllowedInReplayError);
   });
 
   it('is never for a search, which what the team remembers stays out of', () => {
@@ -115,7 +115,7 @@ describe('Remembering, what an agent asks its team to keep', () => {
         replay: false,
         isSearch: true,
       }),
-    ).toThrow(KeptFromSearchesError);
+    ).toThrow(NotAllowedInSearchError);
   });
 
   it('rests on the step the agent remembered it from, as the run’s own', () => {
@@ -159,11 +159,11 @@ describe('Remembering, what an agent asks its team to keep', () => {
       lineId: 'line_1',
       stationId: null,
     });
-    expect(proposed({ reach: 'station' }).scope).toMatchObject({
+    expect(proposed({ scope: 'station' }).scope).toMatchObject({
       lineId: 'line_1',
       stationId: 'station_1',
     });
-    expect(proposed({ reach: 'team' }).scope).toMatchObject({
+    expect(proposed({ scope: 'team' }).scope).toMatchObject({
       lineId: null,
       stationId: null,
     });
@@ -185,11 +185,11 @@ describe('Remembering, what an agent asks its team to keep', () => {
     });
   });
 
-  it('rejects a kind or a reach it does not know, naming the ones it does', () => {
+  it('rejects a kind or a scope it does not know, naming the ones it does', () => {
     expect(() => proposed({ kind: 'gossip' })).toThrow(
       /one of rationale, rejected-approach, failure, environment, preference, correction, not gossip/,
     );
-    expect(() => proposed({ reach: 'world' })).toThrow(
+    expect(() => proposed({ scope: 'world' })).toThrow(
       /one of team, line, station, not world/,
     );
   });

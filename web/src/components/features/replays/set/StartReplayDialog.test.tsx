@@ -105,7 +105,7 @@ describe('StartReplayDialog', () => {
     ).toBeInTheDocument();
   });
 
-  it('says a new baseline starts when the set’s baseline copied each run fewer times than asked', async () => {
+  it('says a new baseline starts when the set’s baseline copied each run fewer times than requested', async () => {
     await openDialog(1);
 
     const repeats = screen.getByRole('textbox', { name: 'Repeats' });
@@ -161,7 +161,7 @@ describe('StartReplayDialog', () => {
     );
   });
 
-  it('replays each run as many times as asked, from 1 to 5', async () => {
+  it('replays each run as many times as requested, from 1 to 5', async () => {
     await openDialog(1);
 
     const repeats = screen.getByRole('textbox', { name: 'Repeats' });

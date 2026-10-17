@@ -31,7 +31,7 @@ describe('JudgeVerdict', () => {
     expect(() => verdict('stars', 1)).toThrow(InvalidReplayError);
   });
 
-  it('passes claims by the share met, against the share the judge asks', () => {
+  it('passes claims by the share met, against the share the judge requires', () => {
     const claims = (marks: boolean[], passShare: number) =>
       JudgeVerdict.of({
         scale: 'claims',
@@ -52,7 +52,7 @@ describe('JudgeVerdict', () => {
     expect(claims([true, false], 1).claims).toEqual(['Claim 0.', 'Claim 1.']);
   });
 
-  it('has marks only on claims, and a score that is the share they give', () => {
+  it('has marks only on claims, and a score that is the share they meet', () => {
     const base = {
       model: 'judge/model',
       referenced: false,

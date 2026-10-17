@@ -13,8 +13,8 @@ const listing = (over: { mayView?: boolean } = {}) => {
   const sought: MergedSought[] = [];
   const reader: DecisionReaderPort = {
     ofTask: async () => null,
-    merged: async (asked) => {
-      sought.push(asked);
+    merged: async (query) => {
+      sought.push(query);
       return [
         {
           taskId: 'task_1',
@@ -83,7 +83,7 @@ const listing = (over: { mayView?: boolean } = {}) => {
 };
 
 describe('listing the decisions that shipped', () => {
-  it('asks about paths as the workspace stores them, from the repository’s checkout', async () => {
+  it('queries paths as the workspace stores them, from the repository’s checkout', async () => {
     const { list, sought } = listing();
 
     await list('acme/api', ['src/uploads.ts', '/src/retry/'], '2026-09-01');

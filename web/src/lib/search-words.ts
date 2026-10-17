@@ -71,7 +71,7 @@ const PULL_REQUEST_STATES: Record<PullRequestState, string> = {
 const REASONS: Record<ReasonCode, string> = {
   'no-source': 'Line names no repository for its Terraform',
   'repository-unreachable':
-    'Spotlight’s GitHub App can’t reach the line’s repository',
+    'Spotlight’s GitHub App can’t access the line’s repository',
   'file-missing': 'Line’s Terraform file isn’t in its repository',
   'file-unparsable': 'Line’s Terraform file couldn’t be read',
   'block-not-found': 'Station’s block isn’t in the file',
@@ -254,9 +254,9 @@ const CAUSE_TITLES: Record<CauseKind, string> = {
 };
 
 const CAUSE_MEANINGS: Record<CauseKind, string> = {
-  task: 'The task is unclear, out of date, or can’t be done as asked. No config would get it right.',
+  task: 'The task is unclear, out of date, or can’t be done as written. No config would get it right.',
   judge:
-    'The work can be fine, but the judge scored it wrong. The judge’s rubric asks for the wrong thing.',
+    'The work can be fine, but the judge scored it wrong. The judge’s rubric requires the wrong thing.',
   check:
     'The check failed for a reason that the change didn’t cause, such as a broken or flaky test.',
   infra:

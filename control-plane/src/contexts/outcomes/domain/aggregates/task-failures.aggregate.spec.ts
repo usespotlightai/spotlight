@@ -16,7 +16,7 @@ describe('TaskFailures', () => {
     expect(failures.lastAt).toEqual(day('2026-09-29', 11));
   });
 
-  it('keeps a failure heard twice once', () => {
+  it('keeps a failure received twice once', () => {
     const failures = failuresOf('task_1', [{ at: day('2026-09-29') }]);
 
     expect(

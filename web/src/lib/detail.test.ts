@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { TraceNodeResponseDto } from '@/lib/api';
-import { answeredBy, askedOf, contentsOf, restOf, shaped } from '@/lib/detail';
+import { answeredBy, contentsOf, inputOf, restOf, shaped } from '@/lib/detail';
 
 const node = (
   part: Partial<TraceNodeResponseDto> & { id: string; name: string },
@@ -29,8 +29,8 @@ const step = (part: Record<string, unknown>) =>
     ms: 1_000,
     startedAt: '2026-08-29T12:00:00.000Z',
     locations: [],
-    given: null,
-    returned: null,
+    input: null,
+    output: null,
     change: null,
     ...part,
   }) as TraceNodeResponseDto['step'];
@@ -59,15 +59,15 @@ describe('shaped', () => {
   });
 });
 
-describe('askedOf and answeredBy', () => {
+describe('inputOf and answeredBy', () => {
   it('reads a tool by what it was given and what it returned', () => {
     const call = node({
       id: 'a',
       name: 'npm test',
-      step: step({ given: '{"cmd":"npm test"}', detail: 'ok' }),
+      step: step({ input: '{"cmd":"npm test"}', detail: 'ok' }),
     });
 
-    expect(askedOf(call)?.body).toBe('{"cmd":"npm test"}');
+    expect(inputOf(call)?.body).toBe('{"cmd":"npm test"}');
     expect(answeredBy(call)?.body).toBe('ok');
   });
 
@@ -88,7 +88,7 @@ describe('askedOf and answeredBy', () => {
   it('has nothing to say about a row that recorded nothing', () => {
     const call = node({ id: 'c', name: 'Prepare', kind: 'phase' });
 
-    expect(askedOf(call)).toBeNull();
+    expect(inputOf(call)).toBeNull();
     expect(answeredBy(call)).toBeNull();
   });
 });

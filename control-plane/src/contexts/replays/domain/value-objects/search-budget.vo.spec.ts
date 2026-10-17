@@ -162,7 +162,7 @@ describe('SearchBudget', () => {
     expect(checked).toBeGreaterThan(1000);
   });
 
-  it('runs every iteration it was given when each replay overshoots by no more than its margin', () => {
+  it('runs every iteration it has when each replay overshoots by no more than its margin', () => {
     for (const { budget, split } of everyBudget()) {
       const allotted = allottedOrRejected(budget, split);
 
@@ -199,7 +199,7 @@ describe('SearchBudget', () => {
     expect(budget.allowsIteration(overspent, split)).toBe(false);
   });
 
-  it('rejects a ceiling too low to give each replay run a cent', () => {
+  it('rejects a ceiling too low to allot each replay run a cent', () => {
     expect(() =>
       aBudget({ iterations: 10, perIteration: 5, ceiling: 1 }).allot(
         splitOf(50),

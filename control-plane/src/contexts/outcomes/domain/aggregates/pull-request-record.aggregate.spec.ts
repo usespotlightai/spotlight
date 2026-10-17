@@ -28,7 +28,7 @@ describe('PullRequestRecord', () => {
     ).toBe('Newest');
   });
 
-  it('is Spotlight’s once a task owns it, whenever that is heard', () => {
+  it('is Spotlight’s once a task owns it, whenever that is received', () => {
     const owned = noted().assignOwner(OWNER).seenAs(seenOf());
 
     expect(owned.owner).toEqual(OWNER);
@@ -53,32 +53,34 @@ describe('PullRequestRecord', () => {
     ).not.toBeNull();
   });
 
-  it('hears GitHub anew from its first version once GitHub purged it and recorded it again later', () => {
-    const kept = noted()
+  it('reads GitHub anew from its first version once GitHub purged it and recorded it again later', () => {
+    const record = noted()
       .assignOwner(OWNER)
       .seenAs(seenOf({ version: 6 }))
       .purgedByGitHub(SEEN_AT);
-    const back = kept?.seenAs(
+    const back = record?.seenAs(
       seenOf({ title: 'Back', version: 1, updatedAt: LATER }),
     );
 
-    expect(kept?.githubPurgedAt).toEqual(SEEN_AT);
+    expect(record?.githubPurgedAt).toEqual(SEEN_AT);
     expect(back?.seen?.title).toBe('Back');
     expect(back?.githubPurgedAt).toBeNull();
   });
 
   it('turns away what GitHub said no later than when it purged the pull request', () => {
-    const kept = noted()
+    const record = noted()
       .assignOwner(OWNER)
       .seenAs(seenOf({ version: 6 }))
       .purgedByGitHub(SEEN_AT);
 
     expect(
-      kept?.seenAs(seenOf({ title: 'Stale', version: 7, updatedAt: SEEN_AT })),
-    ).toBe(kept);
+      record?.seenAs(
+        seenOf({ title: 'Stale', version: 7, updatedAt: SEEN_AT }),
+      ),
+    ).toBe(record);
   });
 
-  it('ignores GitHub purging an older record of a pull request it has heard of since', () => {
+  it('ignores GitHub purging an older record of a pull request it has received since', () => {
     const owned = noted()
       .assignOwner(OWNER)
       .seenAs(seenOf({ updatedAt: LATER }));
@@ -89,10 +91,10 @@ describe('PullRequestRecord', () => {
   });
 
   it('keeps the latest time GitHub purged it', () => {
-    const kept = noted().assignOwner(OWNER).purgedByGitHub(LATER);
+    const record = noted().assignOwner(OWNER).purgedByGitHub(LATER);
 
-    expect(kept?.purgedByGitHub(SEEN_AT)).toBe(kept);
-    expect(kept?.purgedByGitHub(LATER)).toBe(kept);
+    expect(record?.purgedByGitHub(SEEN_AT)).toBe(record);
+    expect(record?.purgedByGitHub(LATER)).toBe(record);
   });
 
   it('lets go of a task, and of itself once nothing refers to it and GitHub purged it', () => {

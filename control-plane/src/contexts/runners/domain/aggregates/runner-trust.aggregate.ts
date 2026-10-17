@@ -89,8 +89,8 @@ export class RunnerTrust extends EventRecorder {
     );
   }
 
-  admits(claims: WorkloadClaims): boolean {
-    return !this.isDeleted && this.workload.admits(claims);
+  matches(claims: WorkloadClaims): boolean {
+    return !this.isDeleted && this.workload.matches(claims);
   }
 
   capacity(mode: PoolMode): Exclude<PoolCapacity, 'full'> {

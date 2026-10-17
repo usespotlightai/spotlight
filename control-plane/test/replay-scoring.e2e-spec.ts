@@ -7,8 +7,8 @@ import { WorkChangeStacks } from '@change-review/application/services/work-chang
 import type { INestApplication } from '@nestjs/common';
 import {
   JUDGE,
-  type JudgeAsk,
   type JudgePort,
+  type JudgeRequest,
 } from '@outcomes/application/ports/judge.port';
 import { DeleteOutcomes } from '@outcomes/application/services/delete-outcomes.service';
 import { WorkChangeJudgings } from '@outcomes/application/services/work-change-judgings.service';
@@ -106,14 +106,14 @@ const drafter: ChangeStackDrafterPort = {
 
 const SCORED = /score\((\d)\)/;
 
-const asked: JudgeAsk[] = [];
+const requests: JudgeRequest[] = [];
 
 const judge: JudgePort = {
   available: true,
   model: 'stub/judge',
-  judge: async (ask) => {
-    asked.push(ask);
-    const scoredStep = ask.steps.find((each) => SCORED.test(each.text));
+  judge: async (request) => {
+    requests.push(request);
+    const scoredStep = request.steps.find((each) => SCORED.test(each.text));
     const value = Number(SCORED.exec(scoredStep?.text ?? '')?.[1] ?? 1);
 
     return {
@@ -128,7 +128,7 @@ const judge: JudgePort = {
           {
             text: `It drains the queue as a ${value}.`,
             steps: scoredStep ? [scoredStep.index] : [],
-            hunks: ask.hunks.slice(0, 1).map((each) => each.id),
+            hunks: request.hunks.slice(0, 1).map((each) => each.id),
           },
         ],
       },
@@ -305,7 +305,7 @@ const anOriginal = async (accepted: boolean): Promise<Original> => {
     await app
       .get(DrizzleRunRecordRepository)
       .add(
-        RunRecord.heardOf(
+        RunRecord.empty(
           RunId.of(runId),
           team.workspaceId,
           TaskId.of(taskId),
@@ -567,7 +567,7 @@ describe('a replay at a station that checks and judges', () => {
           failed: false,
           handover: { next: 'ship', note: 'Drained.' },
           sessionId: 'session_1',
-          kept: true,
+          archived: true,
         })
         .expect(200);
     };
@@ -718,12 +718,12 @@ describe('a replay at a station that checks and judges', () => {
       [first.runId, false, 1, 'succeeded', 'succeeded'],
     ]);
 
-    const [regressed, kept] = detail.comparison;
-    expect(kept?.candidate[0]?.draftingSpent).toEqual({
+    const [regressed, steady] = detail.comparison;
+    expect(steady?.candidate[0]?.draftingSpent).toEqual({
       spends: [{ amount: 0.02, currency: 'USD' }],
       unpriced: 0,
     });
-    expect(kept?.candidate[0]?.judgingSpent).toEqual({
+    expect(steady?.candidate[0]?.judgingSpent).toEqual({
       spends: [{ amount: 0.01, currency: 'USD' }],
       unpriced: 0,
     });
@@ -741,15 +741,15 @@ describe('a replay at a station that checks and judges', () => {
       'check-failed',
       'judge-failed',
     ]);
-    expect(kept?.candidate[0]?.judge).toMatchObject({
+    expect(steady?.candidate[0]?.judge).toMatchObject({
       score: 5,
       passed: true,
       referenced: true,
     });
 
-    const referenced = asked.find((each) => each.reference !== null);
+    const referenced = requests.find((each) => each.reference !== null);
     expect(referenced?.reference?.hunks[0]?.lines).toContain('+drainInOrder()');
-    expect(asked.every((each) => each.rubric === RUBRIC)).toBe(true);
+    expect(requests.every((each) => each.rubric === RUBRIC)).toBe(true);
 
     const replayRuns = (
       await db

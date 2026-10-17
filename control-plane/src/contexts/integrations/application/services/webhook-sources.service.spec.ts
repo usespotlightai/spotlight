@@ -26,29 +26,29 @@ describe('WebhookSources', () => {
     expect(WebhookSources.of([source('github')]).find('')).toBeNull();
   });
 
-  it('asks for its sources no sooner than it is asked itself', () => {
-    let asked = 0;
+  it('reads its sources no sooner than it is called itself', () => {
+    let reads = 0;
     const sources = new WebhookSources(() => {
-      asked += 1;
+      reads += 1;
       return [source('github')];
     });
 
-    expect(asked).toBe(0);
+    expect(reads).toBe(0);
     expect(sources.find('github')?.key).toBe('github');
-    expect(asked).toBe(1);
+    expect(reads).toBe(1);
   });
 
-  it('asks for them once, however often it is asked', () => {
-    let asked = 0;
+  it('reads them once, however often it is called', () => {
+    let reads = 0;
     const sources = new WebhookSources(() => {
-      asked += 1;
+      reads += 1;
       return [source('github')];
     });
 
     sources.find('github');
     sources.find('github');
     expect(sources.all).toHaveLength(1);
-    expect(asked).toBe(1);
+    expect(reads).toBe(1);
   });
 
   it('contains every source registered', () => {

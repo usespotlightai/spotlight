@@ -1,7 +1,7 @@
-import type { WayInKind } from '@runners/application/ports/runner-admissions.port';
+import type { CredentialSourceKind } from '@runners/application/ports/runner-authenticator.port';
 
-export interface AdmittedThroughDto {
-  readonly kind: WayInKind;
+export interface CredentialSourceDto {
+  readonly kind: CredentialSourceKind;
   readonly key: string | null;
 }
 
@@ -22,7 +22,7 @@ interface HostImageDto {
 export interface HostDto {
   readonly id: string;
   readonly name: string;
-  readonly through: AdmittedThroughDto;
+  readonly source: CredentialSourceDto;
   readonly release: string;
   readonly containerRuntime: string;
   readonly capacity: number;
@@ -36,7 +36,7 @@ export interface HostDto {
 
 export interface LiveRunnerDto {
   readonly id: string;
-  readonly through: AdmittedThroughDto;
+  readonly source: CredentialSourceDto;
   readonly hostId: string | null;
   readonly image: string | null;
   readonly harnesses: readonly string[];

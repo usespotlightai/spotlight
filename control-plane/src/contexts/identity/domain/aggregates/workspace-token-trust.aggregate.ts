@@ -4,7 +4,7 @@ import { WorkspaceTokenTrustDeleted } from '@identity/domain/events/workspace-to
 import { WorkspaceTokenTrustUpdated } from '@identity/domain/events/workspace-token-trust-updated.event';
 import { TokenTrustBeyondGrantorError } from '@identity/domain/exceptions/token-trust-beyond-grantor.error';
 import { TokenTrustVersionConflictError } from '@identity/domain/exceptions/token-trust-version-conflict.error';
-import { WorkloadNotAdmittedError } from '@identity/domain/exceptions/workload-not-admitted.error';
+import { WorkloadNotMatchedError } from '@identity/domain/exceptions/workload-not-matched.error';
 import type { Grantor } from '@identity/domain/value-objects/grantor.vo';
 import type { TokenLifetime } from '@identity/domain/value-objects/token-lifetime.vo';
 import { TokenName } from '@identity/domain/value-objects/token-name.vo';
@@ -163,8 +163,8 @@ export class WorkspaceTokenTrust extends EventRecorder {
     return deleted;
   }
 
-  admits(workload: WorkloadClaims): boolean {
-    return !this.isDeleted && this.workload.admits(workload);
+  matches(workload: WorkloadClaims): boolean {
+    return !this.isDeleted && this.workload.matches(workload);
   }
 
   issueFor(
@@ -176,8 +176,8 @@ export class WorkspaceTokenTrust extends EventRecorder {
       client: Client;
     },
   ): WorkspaceToken {
-    if (!this.admits(workload)) {
-      throw new WorkloadNotAdmittedError(this.key.value);
+    if (!this.matches(workload)) {
+      throw new WorkloadNotMatchedError(this.key.value);
     }
 
     return WorkspaceToken.issueByTrust({

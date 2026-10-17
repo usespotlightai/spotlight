@@ -125,7 +125,7 @@ describe('SecretInjection', () => {
       ).rejects.toThrow(SecretTargetConflictError);
     });
 
-    it('reads a secret that AWS Secrets Manager keeps when it is injected', async () => {
+    it('reads a secret that AWS Secrets Manager stores when it is injected', async () => {
       const { injection } = await setUp();
 
       expect(
@@ -322,7 +322,7 @@ describe('SecretInjection', () => {
       ).rejects.toThrow(SecretNotGrantedError);
     });
 
-    it('grants nothing to a run whose end was heard before anything was granted to it', async () => {
+    it('grants nothing to a run whose end was received before anything was granted to it', async () => {
       const { injection, grants } = await setUp();
 
       await new RunGrantEndings(
@@ -346,7 +346,7 @@ describe('SecretInjection', () => {
       expect(grants.all).toEqual([]);
     });
 
-    it('grants nothing to an attempt whose lost lease was heard before anything was granted to it, and grants the next attempt', async () => {
+    it('grants nothing to an attempt whose lost lease was received before anything was granted to it, and grants the next attempt', async () => {
       const { injection, grants } = await setUp();
       const granting = (attempt: number) =>
         injection.grant({
@@ -373,7 +373,7 @@ describe('SecretInjection', () => {
 
     it('injects only what the current attempt of the run was granted', async () => {
       const { injection } = await setUp();
-      const asking = (attempt: number) =>
+      const injecting = (attempt: number) =>
         injection.forRun({
           workspaceId: WORKSPACE.value,
           runId: 'run_1',
@@ -389,7 +389,7 @@ describe('SecretInjection', () => {
         secrets: ['LINEAR_API_KEY'],
       });
 
-      await expect(asking(2)).rejects.toThrow(SecretNotGrantedError);
+      await expect(injecting(2)).rejects.toThrow(SecretNotGrantedError);
 
       await injection.grant({
         workspaceId: WORKSPACE.value,
@@ -398,10 +398,10 @@ describe('SecretInjection', () => {
         secrets: ['LINEAR_API_KEY'],
       });
 
-      expect(await headersOf(asking(2))).toEqual({
+      expect(await headersOf(injecting(2))).toEqual({
         authorization: 'Bearer lin_api_1',
       });
-      await expect(asking(1)).rejects.toThrow(SecretNotGrantedError);
+      await expect(injecting(1)).rejects.toThrow(SecretNotGrantedError);
     });
 
     it('injects nothing for a host it was rebound away from since the grant', async () => {

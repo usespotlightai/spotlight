@@ -125,18 +125,18 @@ export class DrizzleHookDefinitions
   }
 
   private async encrypted(definition: HookDefinition) {
-    const given = definition.givenSecret;
+    const secret = definition.secretInput;
 
     if (definition.signing === null) {
       return { signingSecret: null, signingSecretVersion: null };
     }
 
-    return given
+    return secret
       ? {
           signingSecret: await this.encryption.encrypt(
             definition.workspaceId.value,
             secretLabel(definition.id.value),
-            Credential.of(given.revealed()),
+            Credential.of(secret.revealed()),
           ),
           signingSecretVersion: definition.signing.version,
         }

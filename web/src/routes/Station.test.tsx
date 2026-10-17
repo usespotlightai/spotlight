@@ -289,7 +289,7 @@ function HandedOver() {
   return (
     <>
       <pre data-slot="handed-over">{JSON.stringify(state?.improving)}</pre>
-      <pre data-slot="handed-ask">{state?.ask ?? ''}</pre>
+      <pre data-slot="handed-prompt">{state?.prompt ?? ''}</pre>
     </>
   );
 }
@@ -418,7 +418,7 @@ describe('Station', () => {
     ).not.toHaveTextContent('Latest runs on this config');
   });
 
-  it('says the station could not be loaded, and tries again when asked', async () => {
+  it('says the station could not be loaded, and tries again on request', async () => {
     const user = userEvent.setup();
     lines.mockReturnValue(undefined);
     failing.mockReturnValue(true);
@@ -724,7 +724,7 @@ describe('Station', () => {
       ).toBeInTheDocument();
     });
 
-    it('says its runs could not be loaded, and tries again when asked', async () => {
+    it('says its runs could not be loaded, and tries again on request', async () => {
       const user = userEvent.setup();
       outcomes.mockReturnValue(undefined);
       outcomesFailing.mockReturnValue(true);
@@ -821,7 +821,7 @@ describe('Station', () => {
       ).toEqual([expect.stringMatching(/^Sent back 30%/)]);
     });
 
-    it('asks the agent about one signal, handing over the station and what needs attention', async () => {
+    it('opens a chat with the agent about one signal, handing over the station and what needs attention', async () => {
       const user = userEvent.setup();
       worthImproving.mockReturnValue([
         {
@@ -856,7 +856,7 @@ describe('Station', () => {
         screen.queryByRole('link', { name: 'Review with the agent' }),
       ).not.toBeInTheDocument();
       expect(
-        document.querySelector('[data-slot="handed-ask"]'),
+        document.querySelector('[data-slot="handed-prompt"]'),
       ).toHaveTextContent(
         /^Sent back 30%.*What should change at this station\?$/,
       );
@@ -887,7 +887,7 @@ describe('Station', () => {
       );
 
       expect(
-        document.querySelector('[data-slot="handed-ask"]'),
+        document.querySelector('[data-slot="handed-prompt"]'),
       ).toBeEmptyDOMElement();
 
       expect(
@@ -924,7 +924,7 @@ describe('Station', () => {
       ).toBeInTheDocument();
     });
 
-    it('says the replay sets could not be loaded, and tries again when asked', async () => {
+    it('says the replay sets could not be loaded, and tries again on request', async () => {
       const user = userEvent.setup();
       sets.mockReturnValue(undefined);
       setsFailing.mockReturnValue(true);
@@ -973,7 +973,7 @@ describe('Station', () => {
       ).toHaveTextContent('No agent');
     });
 
-    it('shows the skills the station gives its runs', () => {
+    it('shows the skills the station enables for its runs', () => {
       renderAt('station_2');
 
       expect(
@@ -983,7 +983,7 @@ describe('Station', () => {
       ).toEqual(['our-migrations', 'grafana-dashboards']);
     });
 
-    it('lists no skills where a station gives none', () => {
+    it('lists no skills where a station enables none', () => {
       renderAt('station_1');
 
       expect(
@@ -1022,7 +1022,7 @@ describe('Station', () => {
       ).toBeInTheDocument();
     });
 
-    it('keeps the rubric folded away until asked, then shows it without letting it be written', async () => {
+    it('keeps the rubric folded away until requested, then shows it without letting it be written', async () => {
       const user = userEvent.setup();
       renderAt('station_2');
 

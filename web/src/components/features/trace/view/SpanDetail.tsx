@@ -9,9 +9,9 @@ import { CodeDiff } from '@/components/shared/CodeDiff';
 import { type PaneConfig, SidePane } from '@/components/shared/SidePane';
 import {
   answeredBy,
-  askedOf,
   contentsOf,
   type Field,
+  inputOf,
   restOf,
 } from '@/lib/detail';
 import { describeConnection } from '@/lib/run-network';
@@ -42,7 +42,7 @@ export function SpanDetail({
   const runId = runIdOf(node);
 
   const cause = describeConnection(node);
-  const asked = askedOf(node);
+  const input = inputOf(node);
   const answered = answeredBy(node);
   const contents = contentsOf(node);
   const rest = restOf(node);
@@ -68,7 +68,7 @@ export function SpanDetail({
         {runId && <RunNetwork teamId={teamId} runId={runId} />}
 
         {cause && <DetailDescription description={cause} />}
-        {asked && <DetailDescription description={asked} />}
+        {input && <DetailDescription description={input} />}
         {answered && <DetailDescription description={answered} />}
 
         {step?.change && (

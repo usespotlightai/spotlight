@@ -82,7 +82,7 @@ describe('AddRunsDialog', () => {
     failing.mockReturnValue(false);
   });
 
-  it('suggests runs that even the mix, saying how each turned out, and adds one only when asked', async () => {
+  it('suggests runs that even the mix, saying how each turned out, and adds one only on request', async () => {
     suggested.mockReturnValue([SUGGESTION]);
     renderDialog();
 

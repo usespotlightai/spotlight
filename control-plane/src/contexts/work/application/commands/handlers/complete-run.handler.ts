@@ -75,7 +75,7 @@ export class CompleteRunHandler
       });
 
       return await this.retrying(() =>
-        this.ended(runId, runnerId, outcome, report, command.kept),
+        this.ended(runId, runnerId, outcome, report, command.archived),
       );
     } catch (error) {
       rethrowAsApplicationError(error);
@@ -116,7 +116,7 @@ export class CompleteRunHandler
     by: RunnerId,
     outcome: RunOutcome,
     report: HandoverReport,
-    kept: boolean,
+    archived: boolean,
   ): Promise<RunCompletionDto> {
     const run = await this.runs.findById(runId);
 
@@ -133,7 +133,7 @@ export class CompleteRunHandler
       line,
       outcome,
       report,
-      kept,
+      archived: archived,
       now: this.clock.now(),
     });
 
@@ -156,7 +156,7 @@ export class CompleteRunHandler
     const run = await this.runs.findById(runId);
 
     if (
-      !run?.hearsHooks ||
+      !run?.firesHooks ||
       !run.taskId ||
       run.hasEnded ||
       !run.wasWorkedBy(runnerId) ||
@@ -172,7 +172,7 @@ export class CompleteRunHandler
     }
 
     const verdict = await this.hooks.before(hooked, {
-      on: 'handover.giving',
+      on: 'handover.submitting',
       to: handover.next === '' ? null : handover.next,
       note: handover.note,
     });

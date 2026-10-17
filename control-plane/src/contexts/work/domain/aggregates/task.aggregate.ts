@@ -156,14 +156,14 @@ export class Task extends EventRecorder {
     attachments?: readonly Attachment[];
     rank: TaskRank;
     raisedBy?: UserId | null;
-    heardFrom?: Happening | null;
+    receivedFrom?: Happening | null;
     proposedIn?: ProposalOrigin | null;
     now: Date;
     newId: () => string;
   }): Task {
     const station = Task.stationOn(input.line, input.at);
     const raisedBy = input.raisedBy ?? null;
-    const heardFrom = input.heardFrom ?? null;
+    const receivedFrom = input.receivedFrom ?? null;
 
     const task = new Task(
       TaskId.of(input.newId()),
@@ -179,7 +179,9 @@ export class Task extends EventRecorder {
       input.now,
       station.id,
       raisedBy,
-      heardFrom ? TaskOrigin.heardFrom(heardFrom) : TaskOrigin.person(),
+      receivedFrom
+        ? TaskOrigin.receivedFrom(receivedFrom)
+        : TaskOrigin.person(),
       null,
       [],
       null,
@@ -196,7 +198,7 @@ export class Task extends EventRecorder {
         task.stationId,
         raisedBy,
         input.now,
-        heardFrom !== null,
+        receivedFrom !== null,
         input.proposedIn ?? null,
       ),
     );
@@ -594,12 +596,12 @@ export class Task extends EventRecorder {
       return this;
     }
 
-    const given = this.with({
+    const marked = this.with({
       marks: this.marks.filter((each) => !each.equals(mark)),
     });
-    given.record(new TaskMarkTaken(this.id, this.workspaceId, mark, taker));
+    marked.record(new TaskMarkTaken(this.id, this.workspaceId, mark, taker));
 
-    return given;
+    return marked;
   }
 
   get running(): boolean {
@@ -1137,7 +1139,7 @@ export class Task extends EventRecorder {
       return {
         task: this.withApprovalAt(current.at, (note) => note.approvalClaimed()),
         check: {
-          kind: 'given',
+          kind: 'granted',
           claimed: current.at,
           edited: current.approval.goesAheadWith,
         },

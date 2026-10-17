@@ -34,7 +34,7 @@ import type { EgressRepository } from '@runners/domain/repositories/egress.repos
 import type { RunnerRepository } from '@runners/domain/repositories/runner.repository';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
 import type { RunnerTrustRepository } from '@runners/domain/repositories/runner-trust.repository';
-import { Admission } from '@runners/domain/value-objects/admission.vo';
+import { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
 import { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
 import { EgressTraffic } from '@runners/domain/value-objects/egress-traffic.vo';
 import { EgressUrl } from '@runners/domain/value-objects/egress-url.vo';
@@ -66,7 +66,7 @@ const PLATFORM: PlatformEgressSettings = {
 
 const running = (
   pool: RunnerPool | null,
-  given: {
+  input: {
     alive?: readonly Runner[];
     existing?: Runner | null;
     answer?: ProvisionAnswer;
@@ -79,7 +79,7 @@ const running = (
     platform?: PlatformEgressSettings | null;
   } = {},
 ) => {
-  const known = given.host === undefined ? aHost() : given.host;
+  const known = input.host === undefined ? aHost() : input.host;
   const { hosts } = known ? storedHosts(known) : storedHosts();
   const added: Runner[] = [];
   const logged: unknown[] = [];
@@ -91,46 +91,46 @@ const running = (
       findForStart: vi.fn(async () => pool),
     } as unknown as RunnerPoolRepository,
     {
-      find: vi.fn(async () => given.trust ?? null),
+      find: vi.fn(async () => input.trust ?? null),
     } as unknown as RunnerTrustRepository,
     hosts,
     {
-      aliveIn: vi.fn(async () => given.alive ?? []),
+      aliveIn: vi.fn(async () => input.alive ?? []),
       add: vi.fn(async (runner: Runner) => {
         added.push(runner);
       }),
       find: vi.fn(
-        async () => given.existing ?? added[added.length - 1] ?? null,
+        async () => input.existing ?? added[added.length - 1] ?? null,
       ),
       save: vi.fn(async (runner: Runner) => {
-        if (given.unsaved) {
-          throw given.unsaved;
+        if (input.unsaved) {
+          throw input.unsaved;
         }
         saved.push(runner);
       }),
-      findByWork: vi.fn(async () => (given.existing ? [given.existing] : [])),
+      findByWork: vi.fn(async () => (input.existing ? [input.existing] : [])),
     } as unknown as RunnerRepository,
     {
-      find: vi.fn(async () => given.egress ?? null),
+      find: vi.fn(async () => input.egress ?? null),
     } as unknown as EgressRepository,
     {
       call: vi.fn(async (call: ProvisionCall) => {
         called.push(call);
-        return given.answer ?? { outcome: 'accepted' };
+        return input.answer ?? { outcome: 'accepted' };
       }),
     } as ProvisionCallsPort,
     {
       encrypt: vi.fn(),
       decrypt: vi.fn(async () => {
-        if (given.decryptionFails) {
+        if (input.decryptionFails) {
           throw new ProvisionSecretDecryptionFailedError(POOL_ID.value);
         }
         return secretOf('s');
       }),
     } satisfies ProvisionSecretsPort,
     {
-      insecureAllowed: given.insecureAllowed ?? false,
-      platformEgress: given.platform ?? null,
+      insecureAllowed: input.insecureAllowed ?? false,
+      platformEgress: input.platform ?? null,
     },
     {
       issue: () =>
@@ -170,13 +170,15 @@ describe('Runners', () => {
       expect(added[0]?.running?.image.value).toBe(IMAGE);
       expect(added[0]?.running?.isDefault).toBe(true);
       expect(added[0]?.installed[0]?.version?.value).toBe('2.1.0');
-      expect(added[0]?.admission.equals(Admission.through(POOL_ID))).toBe(true);
+      expect(added[0]?.source.equals(CredentialSource.ofId(POOL_ID))).toBe(
+        true,
+      );
       expect(added[0]?.hostId?.value).toBe(HOST);
       expect(added[0]?.tokenHash.value).toBe('c'.repeat(64));
       expect(added[0]?.egressTokenHash?.value).toBe('e'.repeat(64));
     });
 
-    it('starts one that takes only work asking for the image it runs', async () => {
+    it('starts one that takes only work that requests the image it runs', async () => {
       const { service, added } = running(aPullPool());
 
       await service.start(
@@ -250,7 +252,7 @@ describe('Runners', () => {
       expect(added).toEqual([]);
     });
 
-    it('starts none for a host that reports through another way in', async () => {
+    it('starts none for a host that reports through another pool or trust', async () => {
       const { service, added } = running(aPullPool(), {
         trust: aTrust(),
         host: aHost({ through: aTrust() }),
@@ -272,14 +274,14 @@ describe('Runners', () => {
     });
   });
 
-  describe('saying whether a host reports through a way in', () => {
+  describe('saying whether a host reports through a pool or trust', () => {
     it('says so for a host that reported through that pool', async () => {
       await expect(
         running(aPullPool()).service.reports(THROUGH_POOL, HOST),
       ).resolves.toBe(true);
     });
 
-    it('says not for a host that never reported, or through another way in', async () => {
+    it('says not for a host that never reported, or through another pool or trust', async () => {
       await expect(
         running(aPullPool(), { host: null }).service.reports(
           THROUGH_POOL,
@@ -315,7 +317,7 @@ describe('Runners', () => {
       });
       expect(added[0]?.terms.values).toEqual(['vpc-internal']);
       expect(added[0]?.terms.running?.image.value).toBe(IMAGE);
-      expect(added[0]?.admission.equals(Admission.through(TRUST_ID))).toBe(
+      expect(added[0]?.source.equals(CredentialSource.ofId(TRUST_ID))).toBe(
         true,
       );
     });
@@ -442,13 +444,13 @@ describe('Runners', () => {
     });
 
     it('fails as unusable, calling nobody and releasing the runner, when the egress the pool names is not there', async () => {
-      for (const given of [
+      for (const input of [
         { egress: null },
         { egress: anEgress({ workspaceId: WorkspaceId.of('ws_other') }) },
       ]) {
         const { service, saved, called } = running(
           aPushPool({ egress: EgressReference.to(EGRESS_ID) }),
-          given,
+          input,
         );
 
         await expect(

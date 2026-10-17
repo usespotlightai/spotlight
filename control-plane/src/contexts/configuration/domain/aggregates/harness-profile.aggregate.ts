@@ -85,7 +85,7 @@ export class HarnessProfile extends EventRecorder {
     if (input.version < 1) {
       throw new InconsistentStateError(
         'harness profile',
-        'was kept without a version',
+        'was stored without a version',
       );
     }
 

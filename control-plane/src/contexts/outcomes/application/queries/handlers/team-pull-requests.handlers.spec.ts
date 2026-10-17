@@ -30,7 +30,7 @@ import {
   seenOf,
   TaskChangeShapesInMemory,
 } from '@outcomes/domain/pull-requests.fake-spec';
-import type { PullRequestFilterAsked } from '@outcomes/domain/services/pull-request-filter';
+import type { PullRequestFilterQuery } from '@outcomes/domain/services/pull-request-filter';
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import {
   PersonPrincipal,
@@ -56,7 +56,7 @@ const READ_TOKEN = TokenPrincipal.of({
 
 const STRANGER = PersonPrincipal.of(UserId.of('user_eve'));
 
-const ANY: PullRequestFilterAsked = {
+const ANY: PullRequestFilterQuery = {
   repository: null,
   author: null,
   type: null,
@@ -154,7 +154,7 @@ const team = async () => {
   await records.add(costedRecord('run_1', { taskId: 'task_1', amount: 1.25 }));
   await records.add(costedRecord('run_2', { taskId: 'task_1', amount: 0.75 }));
   await records.add(
-    RunRecord.heardOf(
+    RunRecord.empty(
       RunId.of('run_still_working'),
       WORKSPACE,
       TaskId.of('task_1'),
@@ -269,7 +269,7 @@ describe('the team’s pull requests', () => {
     expect(bots.pullRequests.map((each) => each.number)).toEqual([5]);
   });
 
-  it('lists only what merged where Spotlight merged when asked for the compared repositories', async () => {
+  it('lists only what merged where Spotlight merged when the query names the compared repositories', async () => {
     const { service, pullRequests } = await team();
     await pullRequests.add(
       PullRequestRecord.noted(WORKSPACE, pull('acme/web', 6))
@@ -352,7 +352,7 @@ describe('the team’s pull requests', () => {
 });
 
 describe('what the agents ship', () => {
-  it('reaches back into the previous period for the rolling days and the comparison, keeping the period’s numbers to the period', async () => {
+  it('looks back into the previous period for the rolling days and the comparison, keeping the period’s numbers to the period', async () => {
     const { service, pullRequests, touches } = await team();
     await touches.add(
       touchesOf('task_1', { openedAt: new Date('2026-09-28T09:00:00.000Z') }),

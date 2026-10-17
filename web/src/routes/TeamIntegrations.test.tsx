@@ -182,7 +182,7 @@ describe('TeamIntegrations', () => {
     ).toBeInTheDocument();
   });
 
-  it('says the integrations could not be loaded, and tries again when asked', async () => {
+  it('says the integrations could not be loaded, and tries again on request', async () => {
     configuration.mockReturnValue(undefined);
     failing.mockReturnValue(true);
     showing();
@@ -221,37 +221,37 @@ describe('TeamIntegrations', () => {
     ).toBeInTheDocument();
   });
 
-  it('says which repositories the App reaches, and keeps managing it in the opened row', async () => {
+  it('says which repositories the App can access, and keeps managing it in the opened row', async () => {
     showing();
 
-    expect(screen.getByText('Reaches 2 repositories')).toBeInTheDocument();
+    expect(screen.getByText('Can access 2 repositories')).toBeInTheDocument();
     expect(
       head('GitHub').queryByRole('link', { name: 'Manage on GitHub' }),
     ).not.toBeInTheDocument();
 
     const opened = await opening('GitHub');
 
-    expect(fact(opened, 'Reaches')).toHaveTextContent('acme/api, acme/web');
+    expect(fact(opened, 'Can access')).toHaveTextContent('acme/api, acme/web');
     expect(fact(opened, 'Lines use')).toHaveTextContent('acme/api');
     expect(
       within(opened).getByRole('link', { name: 'Manage on GitHub' }),
     ).toHaveAttribute('href', INSTALL);
   });
 
-  it('marks a repository the team’s lines use that the App cannot reach', async () => {
+  it('marks a repository the team’s lines use that the App cannot access', async () => {
     lines.mockReturnValue([
       { id: 'line_1', repositories: ['acme/api', 'acme/infra'] },
     ]);
     showing();
 
     expect(
-      head('GitHub').getByRole('img', { name: 'Repositories not reached' }),
-    ).toHaveAccessibleDescription('The App can’t reach acme/infra.');
+      head('GitHub').getByRole('img', { name: 'Repositories not accessible' }),
+    ).toHaveAccessibleDescription('The App can’t access acme/infra.');
 
     const used = fact(await opening('GitHub'), 'Lines use');
 
     expect(
-      within(used).getByRole('img', { name: 'Not reached' }),
+      within(used).getByRole('img', { name: 'Not accessible' }),
     ).toBeInTheDocument();
   });
 

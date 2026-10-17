@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 
-export class AdmittedThroughResponseDto {
+export class CredentialSourceResponseDto {
   @ApiProperty({ enum: ['pool', 'trust'], example: 'pool' })
   readonly kind: 'pool' | 'trust';
 
@@ -88,8 +88,8 @@ export class HostResponseDto {
   @ApiProperty({ example: 'build-box-1' })
   readonly name: string;
 
-  @ApiProperty({ type: AdmittedThroughResponseDto })
-  readonly through: AdmittedThroughResponseDto;
+  @ApiProperty({ type: CredentialSourceResponseDto })
+  readonly source: CredentialSourceResponseDto;
 
   @ApiProperty({ example: 'v1.4.0', description: 'The spotlight release' })
   readonly release: string;
@@ -139,7 +139,7 @@ export class HostResponseDto {
   constructor(fields: Omit<HostResponseDto, never>) {
     this.id = fields.id;
     this.name = fields.name;
-    this.through = fields.through;
+    this.source = fields.source;
     this.release = fields.release;
     this.containerRuntime = fields.containerRuntime;
     this.capacity = fields.capacity;
@@ -156,8 +156,8 @@ export class LiveRunnerResponseDto {
   @ApiProperty({ example: '8a1d4e0b-6c72-4f35-9b8a-1e5d3c7f2a49' })
   readonly id: string;
 
-  @ApiProperty({ type: AdmittedThroughResponseDto })
-  readonly through: AdmittedThroughResponseDto;
+  @ApiProperty({ type: CredentialSourceResponseDto })
+  readonly source: CredentialSourceResponseDto;
 
   @ApiProperty({
     type: String,
@@ -191,7 +191,7 @@ export class LiveRunnerResponseDto {
 
   constructor(fields: Omit<LiveRunnerResponseDto, never>) {
     this.id = fields.id;
-    this.through = fields.through;
+    this.source = fields.source;
     this.hostId = fields.hostId;
     this.image = fields.image;
     this.harnesses = fields.harnesses;

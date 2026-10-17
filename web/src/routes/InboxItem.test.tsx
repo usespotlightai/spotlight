@@ -462,7 +462,7 @@ describe('InboxItem', () => {
         note({ body: 'Triage wrote this.' }),
         note({
           position: 1,
-          body: 'A person asked this.',
+          body: 'A person wrote this.',
           voice: 'person',
           author: { id: 'user_2', name: 'Leon', image: null },
         }),
@@ -575,8 +575,8 @@ describe('InboxItem', () => {
       ms: 1_000,
       startedAt,
       locations: [],
-      given: null,
-      returned: null,
+      input: null,
+      output: null,
       change: null,
     });
 

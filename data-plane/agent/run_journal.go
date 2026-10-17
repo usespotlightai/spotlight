@@ -90,11 +90,11 @@ func writeStep(out *strings.Builder, step *protocol.TraceStep) {
 			}
 		}
 	}
-	if step.Given != nil {
-		writeBlock(out, "Given", "", *step.Given)
+	if step.Input != nil {
+		writeBlock(out, "Input", "", *step.Input)
 	}
-	if step.Returned != nil {
-		writeBlock(out, "Returned", "", *step.Returned)
+	if step.Output != nil {
+		writeBlock(out, "Output", "", *step.Output)
 	}
 	if change := step.Change; change != nil {
 		path := shown(change.Path)

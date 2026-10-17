@@ -8,7 +8,7 @@ import type { WorkPort } from '@outcomes/application/ports/work.port';
 import type { ListStationOutcomesQuery } from '@outcomes/application/queries/list-station-outcomes.query';
 import {
   configChangesOf,
-  fingerprintsAsked,
+  fingerprintsToRead,
 } from '@outcomes/application/services/config-changes';
 import type { OutcomesAccess } from '@outcomes/application/services/outcomes-access.service';
 import type { RunRecordRepository } from '@outcomes/domain/repositories/run-record.repository';
@@ -25,9 +25,9 @@ import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-ha
 const DEFAULT_LAST = 50;
 const MAX_LAST = 200;
 
-const lastOf = (asked: number | null): number =>
-  asked !== null && Number.isInteger(asked) && asked > 0
-    ? Math.min(asked, MAX_LAST)
+const lastOf = (requested: number | null): number =>
+  requested !== null && Number.isInteger(requested) && requested > 0
+    ? Math.min(requested, MAX_LAST)
     : DEFAULT_LAST;
 
 export class ListStationOutcomesHandler
@@ -70,7 +70,9 @@ export class ListStationOutcomesHandler
         next: group.fingerprint,
       }));
       const configs = configChangesOf(
-        await this.work.configsInOrder(fingerprintsAsked([...pairs].reverse())),
+        await this.work.configsInOrder(
+          fingerprintsToRead([...pairs].reverse()),
+        ),
       );
       const pullRequests = await this.pullRequests.newestFor(
         {

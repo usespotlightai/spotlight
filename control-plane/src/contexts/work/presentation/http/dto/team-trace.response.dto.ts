@@ -158,7 +158,7 @@ export class TeamTracesResponseDto {
 
   @ApiProperty({
     example: '2026-08-29T12:00:00.000Z',
-    description: 'Where the range ends: when it was asked',
+    description: 'Where the range ends: when it was requested',
   })
   readonly to: string;
 
@@ -166,7 +166,7 @@ export class TeamTracesResponseDto {
     type: TraceVolumeBucketResponseDto,
     isArray: true,
     description:
-      'Every trace in the range, counted into evenly long bars from start to end, empty bars kept',
+      'Every trace in the range, counted into evenly long bars from start to end, empty bars included',
   })
   readonly volume: readonly TraceVolumeBucketResponseDto[];
 

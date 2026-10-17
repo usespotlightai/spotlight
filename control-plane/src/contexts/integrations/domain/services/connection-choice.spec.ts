@@ -33,7 +33,7 @@ const connected = (holder: ConnectionHolder) =>
 
 describe('ConnectionChoice', () => {
   describe('choose', () => {
-    it('takes the team’s connection for an integration that acts as the team, whoever asked', () => {
+    it('takes the team’s connection for an integration that acts as the team, whoever requested it', () => {
       for (const personId of [ALICE, null]) {
         expect(
           ConnectionChoice.choose(integration(ConnectionHolderRule.team()), {

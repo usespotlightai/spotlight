@@ -84,12 +84,12 @@ const stackWith = (request: CheckRequest | null) =>
 const reacting = (stack: ChangeStack | null, check: StackCheck | null) => {
   const added: StackCheck[] = [];
   const saved: StackCheck[] = [];
-  const kept: ChangeStack[] = [];
+  const savedStacks: ChangeStack[] = [];
 
   const stacks = {
     find: async () => stack,
     save: async (each: ChangeStack) => {
-      kept.push(each);
+      savedStacks.push(each);
     },
   } as unknown as ChangeStackRepository;
 
@@ -110,7 +110,7 @@ const reacting = (stack: ChangeStack | null, check: StackCheck | null) => {
     }),
     added,
     saved,
-    kept,
+    savedStacks,
   };
 };
 
@@ -127,7 +127,7 @@ const checkFor = (stack: ChangeStack) =>
   });
 
 describe('StackCheckReactions', () => {
-  it('begins a check once a stack that asked for one completes', async () => {
+  it('begins a check once a stack that requested one completes', async () => {
     const stack = stackWith(CheckRequest.of('npm test', 'npm ci'));
     const { reactions, added } = reacting(stack, null);
 
@@ -141,7 +141,7 @@ describe('StackCheckReactions', () => {
     expect(added[0]?.stateAt(LATER)).toBe('waiting');
   });
 
-  it('begins no check for a stack that asked for none', async () => {
+  it('begins no check for a stack that requested none', async () => {
     const stack = stackWith(null);
     const { reactions, added } = reacting(stack, null);
 
@@ -152,13 +152,13 @@ describe('StackCheckReactions', () => {
     expect(added).toEqual([]);
   });
 
-  it('asks the stack to reorder once its layers fail', async () => {
+  it('requests the stack to reorder once its layers fail', async () => {
     const stack = stackWith(CheckRequest.of('npm test', null));
-    const { reactions, kept } = reacting(stack, null);
+    const { reactions, savedStacks } = reacting(stack, null);
 
     await reactions.onLayersFailed(STACK);
 
-    expect(kept[0]?.reordering).toBe(true);
+    expect(savedStacks[0]?.reordering).toBe(true);
   });
 
   it('hands the reordered layers to the check', async () => {
@@ -182,7 +182,7 @@ describe('StackCheckReactions', () => {
     expect(saved[0]?.rounds).toBe(1);
   });
 
-  it('keeps the checked layers once reordering ends', async () => {
+  it('retains the checked layers once reordering ends', async () => {
     const stack = stackWith(CheckRequest.of('npm test', null));
     const reordering = checkFor(stack)
       .claimedFor(CHECKER, RunnerTerms.none(), LATER)

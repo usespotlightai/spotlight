@@ -1271,7 +1271,7 @@ export const SEARCH_SEEDS: readonly SearchSeed[] = [
         candidate: SEEDED.designMetric,
         iteration: 1,
         hypothesis:
-          'Designs fail the judge when they name a metric without today’s reading. Asking for the reading first should fix that.',
+          'Designs fail the judge when they name a metric without today’s reading. Requiring the reading first should fix that.',
         changes: [changed('prompt')],
         replayId: 'replay_sde_metric_first',
         heldOutReplayId: 'replay_sde_metric_first_held_out',
@@ -1287,7 +1287,7 @@ export const SEARCH_SEEDS: readonly SearchSeed[] = [
         candidate: SEEDED.designBriefs,
         iteration: 1,
         hypothesis:
-          'The experiment-briefs skill already says how to set a stop rule. Giving it outright should stop the missing ones.',
+          'The experiment-briefs skill already says how to set a stop rule. Enabling it outright should stop the missing ones.',
         changes: [added('skill', 'experiment-briefs')],
         replayId: 'replay_sde_briefs',
       }),

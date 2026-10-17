@@ -91,8 +91,10 @@ const RANGES = new Set<string>([
 ]);
 
 const rangeFrom = (url: string): TeamTracesResponseDto['range'] => {
-  const asked = new URL(url).searchParams.get('range') ?? '30d';
-  return (RANGES.has(asked) ? asked : '30d') as TeamTracesResponseDto['range'];
+  const requested = new URL(url).searchParams.get('range') ?? '30d';
+  return (
+    RANGES.has(requested) ? requested : '30d'
+  ) as TeamTracesResponseDto['range'];
 };
 
 export const workHandlers: RequestHandler[] = [

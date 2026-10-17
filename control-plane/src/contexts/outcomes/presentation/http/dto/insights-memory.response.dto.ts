@@ -77,7 +77,10 @@ export class InsightsMemoryResponseDto {
   @ApiProperty({ type: InsightsPeriodResponseDto })
   readonly period: InsightsPeriodResponseDto;
 
-  @ApiProperty({ example: 14, description: 'Memories the team keeps now' })
+  @ApiProperty({
+    example: 14,
+    description: 'Approved memories the team has now',
+  })
   readonly activeCount: number;
 
   @ApiProperty({

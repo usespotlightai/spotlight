@@ -36,7 +36,7 @@ export interface StepTaken {
 
 export type Waiting = 'until-answered' | 'suspend';
 
-export interface StepAsked {
+export interface StepRequest {
   readonly hook: ListeningHook;
   readonly step: string;
   readonly moment: HookMoment;
@@ -56,5 +56,5 @@ export interface HookRuntimePort {
 
   matches(hook: ListeningHook, moment: HookMoment): boolean;
 
-  step(asked: StepAsked): Promise<StepTaken>;
+  step(request: StepRequest): Promise<StepTaken>;
 }

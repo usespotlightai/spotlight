@@ -109,7 +109,7 @@ const aTaskRun = (): Run =>
   });
 
 describe('a task run’s starting point', () => {
-  it('keeps the task as it was briefed, read apart from the run', async () => {
+  it('stores the task as it was briefed, read apart from the run', async () => {
     const run = aTaskRun();
     await runs.add(run, { briefed });
 

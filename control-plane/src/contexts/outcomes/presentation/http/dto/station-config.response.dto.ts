@@ -12,7 +12,7 @@ export class ConfigProfileResponseDto {
     type: 'object',
     additionalProperties: true,
     nullable: true,
-    description: 'The settings the profile gave the harness',
+    description: 'The settings that the profile applies to the harness',
   })
   readonly settings: unknown;
 
@@ -41,7 +41,8 @@ export class ConfigSkillResponseDto {
 
   @ApiProperty({
     example: '9f2c1e…',
-    description: 'The digest of the skill’s content the run was given',
+    description:
+      'The digest of the skill’s content that the station enabled for the run',
   })
   readonly digest: string;
 
@@ -104,7 +105,9 @@ export class StationConfigResponseDto {
   @ApiProperty({ description: 'Whether its runs record their decisions' })
   readonly decisions: boolean;
 
-  @ApiProperty({ description: 'Whether its runs keep memories' })
+  @ApiProperty({
+    description: 'Whether Spotlight drafts memories after its runs',
+  })
   readonly memories: boolean;
 
   @ApiProperty({ type: ConfigJudgeResponseDto, nullable: true })

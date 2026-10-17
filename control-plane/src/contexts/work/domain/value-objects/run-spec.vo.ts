@@ -69,7 +69,7 @@ export interface RunHarnessSetup {
   readonly files: readonly RunFile[];
   readonly session?: Readonly<Record<string, unknown>>;
   readonly mcpServers: readonly RunMcpServer[];
-  readonly asks: readonly string[];
+  readonly askKinds: readonly string[];
 }
 
 export interface RunAttachment {
@@ -144,7 +144,7 @@ const setupCopied = (setup: RunHarnessSetup): RunHarnessSetup => ({
     args: [...server.args],
     env: server.env.map(({ name, value }) => ({ name, value })),
   })),
-  asks: [...setup.asks],
+  askKinds: [...setup.askKinds],
 });
 
 const copied = (parts: RunSpecParts): RunSpecParts => ({
@@ -251,7 +251,7 @@ const replayProblem = (parts: RunSpecParts): string | null => {
     (parts.catalog?.length ?? 0) > 0 ||
     (parts.harnessSetup?.mcpServers.length ?? 0) > 0
   ) {
-    return 'must give a replay no tools, MCP servers or secrets';
+    return 'must enable no tools, MCP servers or secrets for a replay';
   }
 
   if (parts.startingPoint) {
@@ -294,7 +294,7 @@ const searchProblem = (parts: RunSpecParts): string | null => {
   }
 
   if ((parts.checkouts?.length ?? 0) > 0) {
-    return 'must give a search no checkouts';
+    return 'must have no checkouts for a search';
   }
 
   if (
@@ -303,11 +303,11 @@ const searchProblem = (parts: RunSpecParts): string | null => {
     (parts.catalog?.length ?? 0) > 0 ||
     (parts.harnessSetup?.mcpServers.length ?? 0) > 0
   ) {
-    return 'must give a search no tools, MCP servers or secrets';
+    return 'must enable no tools, MCP servers or secrets for a search';
   }
 
   if ((parts.attachments?.length ?? 0) > 0) {
-    return 'must give a search no attachments';
+    return 'must have no attachments for a search';
   }
 
   if (
@@ -316,7 +316,7 @@ const searchProblem = (parts: RunSpecParts): string | null => {
     (parts.settingFiles?.length ?? 0) > 0 ||
     parts.harnessSetup
   ) {
-    return 'must give a search no skills or harness settings';
+    return 'must have no skills or harness settings for a search';
   }
 
   if (parts.diffs || parts.check !== undefined) {
@@ -324,7 +324,7 @@ const searchProblem = (parts: RunSpecParts): string | null => {
   }
 
   if (parts.handover.options.length > 0 || parts.handover.noteLimit > 0) {
-    return 'must give a search nothing to hand over to';
+    return 'must have no handover options for a search';
   }
 
   if (parts.startingPoint) {
@@ -389,26 +389,26 @@ export class RunSpec {
         throw new InvalidRunSpecError('must say where a checkout comes from');
       }
       if (checkout.path !== undefined && outside(checkout.path)) {
-        throw new InvalidRunSpecError('must keep a checkout in the workspace');
+        throw new InvalidRunSpecError('must put a checkout in the workspace');
       }
     }
 
     for (const skill of parts.skills ?? []) {
       if (!skill.path || outside(skill.path)) {
-        throw new InvalidRunSpecError('must keep a skill in the workspace');
+        throw new InvalidRunSpecError('must put a skill in the workspace');
       }
     }
 
     for (const home of parts.skillHomes ?? []) {
       if (!home || outside(home)) {
-        throw new InvalidRunSpecError('must keep skills in the workspace');
+        throw new InvalidRunSpecError('must put skills in the workspace');
       }
     }
 
     for (const file of parts.harnessSetup?.files ?? []) {
       if (!file.path || outside(file.path)) {
         throw new InvalidRunSpecError(
-          'must keep a harness setting in the state directory',
+          'must put a harness setting in the state directory',
         );
       }
     }
@@ -416,7 +416,7 @@ export class RunSpec {
     for (const path of parts.settingFiles ?? []) {
       if (!path || outside(path)) {
         throw new InvalidRunSpecError(
-          'must keep a harness setting in the state directory',
+          'must put a harness setting in the state directory',
         );
       }
     }
@@ -432,7 +432,7 @@ export class RunSpec {
     for (const attachment of parts.attachments ?? []) {
       if (!attachment.path || outside(attachment.path)) {
         throw new InvalidRunSpecError(
-          'must keep an attachment in the workspace',
+          'must put an attachment in the workspace',
         );
       }
     }
@@ -466,7 +466,7 @@ export class RunSpec {
     return this.parts.briefing;
   }
 
-  gives(tool: Tool): boolean {
+  enables(tool: Tool): boolean {
     return (this.parts.manifest ?? []).some((each) => each.name === tool.value);
   }
 

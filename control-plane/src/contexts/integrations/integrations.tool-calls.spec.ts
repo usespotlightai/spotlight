@@ -23,16 +23,16 @@ import {
   learningInto,
 } from '@integrations/integrations.learned.fake-spec';
 import {
+  callingNoServer,
   discoveringNothing,
-  reachingNoServer,
 } from '@integrations/integrations.mcp.fake-spec';
 import {
   InMemoryPersonToolPolicies,
   personRulesFrom,
 } from '@integrations/integrations.policies.fake-spec';
 import {
+  callAuthFor,
   injecting,
-  reachFor,
 } from '@integrations/integrations.secrets.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
@@ -63,7 +63,7 @@ const runtimeWith = (
     clients,
     exchange as OAuth2Exchange,
     discoveringNothing(),
-    reachingNoServer(),
+    callingNoServer(),
   );
 
 const LINEAR = `integration: linear
@@ -128,24 +128,24 @@ const using = (
       ofTeam: vi.fn(async () => [defined(over.file ?? LINEAR)]),
     } as unknown as DefinedIntegrationsPort,
     runtimeWith({ run } as unknown as HttpOutbound),
-    reachFor(),
+    callAuthFor(),
     learningInto(learned),
     personRulesFrom(over.policies),
   );
 
-  const reaching = (tool: string, marked = true) =>
-    tools.reach(tool, task(marked), ATTEMPT, null);
+  const resolving = (tool: string, marked = true) =>
+    tools.resolve(tool, task(marked), ATTEMPT, null);
 
   const comment = async (inputs: ToolInputValues, marked = true) => {
-    const reached = (await reaching(
+    const resolved = (await resolving(
       'linear.comment',
       marked,
     )) as IntegrationTool;
 
-    return reached.call(inputs);
+    return resolved.call(inputs);
   };
 
-  return { reaching, run, comment, learned, tools };
+  return { resolving, run, comment, learned, tools };
 };
 
 const usingApproved = () =>
@@ -157,27 +157,27 @@ const usingApproved = () =>
   });
 
 describe('IntegrationToolCalls', () => {
-  it('reaches a tool the team’s integrations declare, as they declare it', async () => {
-    const reached = await using().reaching('linear.comment');
+  it('resolves a tool the team’s integrations declare, as they declare it', async () => {
+    const resolved = await using().resolving('linear.comment');
 
-    expect(reached?.declared.tool).toBe('linear.comment');
-    expect(reached?.declared.inputs.map((each) => each.name)).toEqual([
+    expect(resolved?.declared.tool).toBe('linear.comment');
+    expect(resolved?.declared.inputs.map((each) => each.name)).toEqual([
       'issue',
       'body',
       'count',
     ]);
   });
 
-  it('carries no approval where the file asks for none', async () => {
-    const reached = await using().reaching('linear.comment');
+  it('carries no approval where the file requests none', async () => {
+    const resolved = await using().resolving('linear.comment');
 
-    expect(reached?.declared.approval).toBeNull();
+    expect(resolved?.declared.approval).toBeNull();
   });
 
   it('carries into Work the approval a tool may only be used with', async () => {
-    const reached = await usingApproved().reaching('linear.comment');
+    const resolved = await usingApproved().resolving('linear.comment');
 
-    expect(reached?.declared.approval).toEqual({
+    expect(resolved?.declared.approval).toEqual({
       because: 'It posts publicly, under the team’s name.',
     });
   });
@@ -230,20 +230,20 @@ describe('IntegrationToolCalls', () => {
           ofTeam: vi.fn(async () => [defined(INJECTS_A_SECRET)]),
         } as unknown as DefinedIntegrationsPort,
         runtimeWith(new HttpOutbound(allowed, fetch)),
-        reachFor(secrets.injection),
+        callAuthFor(secrets.injection),
         learningInto(),
         personRulesFrom(),
       );
 
       const comment = async () => {
-        const reached = (await tools.reach(
+        const resolved = (await tools.resolve(
           'linear.comment',
           task(),
           ATTEMPT,
           null,
         )) as IntegrationTool;
 
-        return reached.call({ issue: 'ENG-12', body: 'Fixed.' });
+        return resolved.call({ issue: 'ENG-12', body: 'Fixed.' });
       };
 
       return { comment, fetch, ...secrets };
@@ -253,7 +253,7 @@ describe('IntegrationToolCalls', () => {
       (fetch.mock.calls[0] as unknown as [string, RequestInit])[1]
         .headers as Record<string, string>;
 
-    it('reaches the host and injects a secret bound to it', async () => {
+    it('calls the host and injects a secret bound to it', async () => {
       const { comment, fetch } = injectingAction({
         LINEAR_API_KEY: { host: 'api.linear.app', value: 'lin_api_1' },
       });
@@ -324,11 +324,11 @@ describe('IntegrationToolCalls', () => {
     await comment({ body: 'Fixed.' });
 
     const output = await vi.waitFor(async () => {
-      const [kept] = await learned.ofTools(TeamId.of('team_1'), [
+      const [stored] = await learned.ofTools(TeamId.of('team_1'), [
         'linear.comment',
       ]);
-      expect(kept).toBeDefined();
-      return kept;
+      expect(stored).toBeDefined();
+      return stored;
     });
     expect(output?.tool.value).toBe('linear.comment');
     expect(output?.shape.schema).toEqual({ type: 'string' });
@@ -367,21 +367,21 @@ describe('IntegrationToolCalls', () => {
     );
     const { tools } = using(undefined, { policies });
 
-    const reached = await tools.reach(
+    const resolved = await tools.resolve(
       'linear.comment',
       task(),
       ATTEMPT,
       'user_alice',
     );
 
-    expect(reached?.personRule).toBeNull();
+    expect(resolved?.personRule).toBeNull();
   });
 
   it('reads an input the agent left out from the task', async () => {
-    const reached = (await using().reaching(
+    const resolved = (await using().resolving(
       'linear.comment',
     )) as IntegrationTool;
-    expect(reached.defaultFor('issue')).toBe('ENG-12');
+    expect(resolved.defaultFor('issue')).toBe('ENG-12');
   });
 
   it('says what error the host answered with', async () => {
@@ -398,11 +398,11 @@ describe('IntegrationToolCalls', () => {
     );
   });
 
-  it('reaches nothing the team’s configuration does not offer', async () => {
-    const { reaching } = using();
+  it('resolves nothing the team’s configuration does not offer', async () => {
+    const { resolving } = using();
 
-    await expect(reaching('linear.close')).resolves.toBeNull();
-    await expect(reaching('sentry.comment')).resolves.toBeNull();
+    await expect(resolving('linear.close')).resolves.toBeNull();
+    await expect(resolving('sentry.comment')).resolves.toBeNull();
   });
 
   it('hands back the whole answer, however long', async () => {
@@ -525,27 +525,27 @@ graphql:
           clientsFrom(),
           {} as OAuth2Exchange,
           discoveringNothing(),
-          reachingNoServer(),
+          callingNoServer(),
         ),
-        reachFor(secrets.injection),
+        callAuthFor(secrets.injection),
         learningInto(),
         personRulesFrom(),
       );
 
       return {
         fetch,
-        reaching: (tool: string) => tools.reach(tool, task(), ATTEMPT, null),
+        resolving: (tool: string) => tools.resolve(tool, task(), ATTEMPT, null),
       };
     };
 
     it('declares what the operation takes, needing approval because it writes', async () => {
-      const reached = await generated(
+      const resolved = await generated(
         PETSTORE,
         ADD_PET,
         new Response('{}'),
-      ).reaching('petstore.add-pet');
+      ).resolving('petstore.add-pet');
 
-      expect(reached?.declared).toEqual({
+      expect(resolved?.declared).toEqual({
         tool: 'petstore.add-pet',
         integrationName: 'Petstore',
         description: 'Add a new pet to the store.',
@@ -569,19 +569,19 @@ graphql:
     });
 
     it('makes the call the operation describes, and injects the description’s secrets', async () => {
-      const { fetch, reaching } = generated(
+      const { fetch, resolving } = generated(
         PETSTORE,
         ADD_PET,
         new Response(JSON.stringify({ id: 10, name: 'doggie' })),
       );
-      const reached = (await reaching('petstore.add-pet')) as IntegrationTool;
+      const resolved = (await resolving('petstore.add-pet')) as IntegrationTool;
 
-      await expect(reached.call({ body: { name: 'doggie' } })).resolves.toEqual(
-        {
-          id: 10,
-          name: 'doggie',
-        },
-      );
+      await expect(
+        resolved.call({ body: { name: 'doggie' } }),
+      ).resolves.toEqual({
+        id: 10,
+        name: 'doggie',
+      });
       expect(fetch).toHaveBeenCalledWith(
         'https://petstore3.swagger.io/api/v3/pet',
         expect.objectContaining({
@@ -604,11 +604,11 @@ graphql:
           JSON.stringify({ data: { issue: { id: 'i1', title: 'Broken' } } }),
         ),
       );
-      const reached = (await answered.reaching(
+      const resolved = (await answered.resolving(
         'linear.issue',
       )) as IntegrationTool;
 
-      await expect(reached.call({ id: 'i1' })).resolves.toEqual({
+      await expect(resolved.call({ id: 'i1' })).resolves.toEqual({
         id: 'i1',
         title: 'Broken',
       });
@@ -623,7 +623,7 @@ graphql:
           }),
         ),
       );
-      const failing = (await withErrors.reaching(
+      const failing = (await withErrors.resolving(
         'linear.issue',
       )) as IntegrationTool;
 
@@ -632,9 +632,9 @@ graphql:
       );
     });
 
-    it('reaches nothing the stored reading does not offer', async () => {
+    it('resolves nothing the stored reading does not offer', async () => {
       await expect(
-        generated(PETSTORE, ADD_PET, new Response('{}')).reaching(
+        generated(PETSTORE, ADD_PET, new Response('{}')).resolving(
           'petstore.delete-pet',
         ),
       ).resolves.toBeNull();

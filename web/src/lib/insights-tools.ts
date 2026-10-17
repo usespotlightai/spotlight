@@ -38,8 +38,8 @@ export const skillUsedFilter = (
   narrowed: { week?: string; stationId?: string } = {},
 ): RunFilter => ({ skillUsed: key, ...narrowed });
 
-export const skillGivenFilter = (key: string): RunFilter => ({
-  skillGiven: key,
+export const skillEnabledFilter = (key: string): RunFilter => ({
+  skillEnabled: key,
 });
 
 export const serverFilter = (server: string): RunFilter => ({ server });
@@ -71,7 +71,7 @@ export const skillHeadings = (rule: TrendRule): readonly NestedHeading[] => [
   { label: 'Skill', indent: 'outer', size: 'minmax(12rem,2fr)' },
   { label: 'Read per week', size: 'max-content' },
   { label: 'Runs', numeric: true, size: SPREAD },
-  { label: 'Given', numeric: true, size: SPREAD },
+  { label: 'Enabled', numeric: true, size: SPREAD },
   { label: 'Read', numeric: true, size: SPREAD },
   { label: 'Trend', note: formatTrendRule(rule), size: SPREAD },
 ];

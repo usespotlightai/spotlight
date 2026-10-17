@@ -42,7 +42,7 @@ interface InboxBody {
 const remembered = (body: string): ProposedMemory => ({
   kind: 'preference',
   body,
-  reach: 'team',
+  scope: 'team',
   repository: null,
   paths: [],
   steps: [5],
@@ -61,15 +61,15 @@ const proposing = async (
   const runId = RunId.of(`run_${randomUUID().slice(0, 8)}`);
   const drafts = app.get(DrizzleMemoryDraftRepository);
   const existing = await drafts.forTask(team.list.id);
-  const asked = (
+  const requested = (
     existing ??
     MemoryDraft.create({
       id: MemoryDraftId.of(randomUUID()),
       taskId: team.list.id,
       workspaceId: team.workspaceId,
     })
-  ).asked(runId, NOW);
-  const drafted = asked.recordDraft({
+  ).requestDrafting(runId, NOW);
+  const drafted = requested.recordDraft({
     runId,
     proposed: bodies.map(remembered),
     evidence: DraftEvidence.of({
@@ -152,11 +152,11 @@ describe('reviewing the memories a run proposed', () => {
   });
 
   it('makes approved memories active, edited or not, and resolves the item once all are decided', async () => {
-    const runId = await proposing(['Keep me.', 'Edit me.', 'Drop me.']);
+    const runId = await proposing(['Approve me.', 'Edit me.', 'Drop me.']);
     await eventually(async () =>
       asideFor(await inbox(team.owner.value), runId),
     );
-    const [keep, edit, drop] = (
+    const [approve, edit, drop] = (
       (
         await served(app)
           .get(reviewPath(runId))
@@ -168,7 +168,7 @@ describe('reviewing the memories a run proposed', () => {
       .post(`${reviewPath(runId)}/approve`)
       .set(TEST_USER_HEADER, team.owner.value)
       .send({
-        memories: [{ id: keep?.id }, { id: edit?.id, body: 'Edited.' }],
+        memories: [{ id: approve?.id }, { id: edit?.id, body: 'Edited.' }],
       });
     const rejected = await served(app)
       .post(`${reviewPath(runId)}/${drop?.id}/reject`)
@@ -183,7 +183,7 @@ describe('reviewing the memories a run proposed', () => {
         each.decision?.name,
       ]),
     ).toEqual([
-      ['approved', 'Keep me.', 'Ada'],
+      ['approved', 'Approve me.', 'Ada'],
       ['approved', 'Edited.', 'Ada'],
       ['rejected', 'Drop me.', 'Ada'],
     ]);
@@ -196,8 +196,8 @@ describe('reviewing the memories a run proposed', () => {
       return rows.length === 2 && rows;
     });
     expect(active.map((each) => each.body).sort()).toEqual([
+      'Approve me.',
       'Edited.',
-      'Keep me.',
     ]);
     expect(active.every((each) => each.approvedBy === team.owner.value)).toBe(
       true,
@@ -211,8 +211,8 @@ describe('reviewing the memories a run proposed', () => {
     expect(resolvedItem.resolved).toBe(true);
   });
 
-  it('never keeps a rejected memory', async () => {
-    const runId = await proposing(['Never keep me.']);
+  it('never stores a rejected memory', async () => {
+    const runId = await proposing(['Never approve me.']);
     const [only] = (
       (
         await served(app)
@@ -229,11 +229,11 @@ describe('reviewing the memories a run proposed', () => {
       return item?.resolved;
     });
 
-    const kept = await db
+    const stored = await db
       .select()
       .from(schema.memory)
       .where(eq(schema.memory.id, only?.id ?? ''));
-    expect(kept).toEqual([]);
+    expect(stored).toEqual([]);
   });
 
   it('approves a memory from outside the team only on its own', async () => {

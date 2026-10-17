@@ -29,7 +29,7 @@ interface State {
   readonly teamId: TeamId;
   readonly criteria: JudgeCriteria;
   readonly reference: RunId | null;
-  readonly askedAt: Date;
+  readonly queuedAt: Date;
   readonly job: PendingJob | null;
   readonly judgedAt: Date | null;
   readonly failure: JudgingFailure | null;
@@ -45,7 +45,7 @@ export class ChangeJudging
     super();
   }
 
-  static asked(input: {
+  static requested(input: {
     runId: RunId;
     workspaceId: WorkspaceId;
     teamId: TeamId;
@@ -66,7 +66,7 @@ export class ChangeJudging
       teamId: input.teamId,
       criteria: input.criteria,
       reference: input.reference,
-      askedAt: input.now,
+      queuedAt: input.now,
       job: PendingJob.fresh(),
       judgedAt: null,
       failure: null,
@@ -118,8 +118,8 @@ export class ChangeJudging
     return this.state.reference;
   }
 
-  get askedAt(): Date {
-    return this.state.askedAt;
+  get queuedAt(): Date {
+    return this.state.queuedAt;
   }
 
   get job(): PendingJob | null {
@@ -142,17 +142,17 @@ export class ChangeJudging
     return this.state.version;
   }
 
-  askedAgain(now: Date): ChangeJudging {
+  requeued(now: Date): ChangeJudging {
     if (this.state.round !== 1 || this.state.judgedAt === null) {
       throw InvalidScoreError.ofJudging(
-        'can be asked again only of a change judged once',
+        'can be requeued only for a change judged once',
       );
     }
 
     return new ChangeJudging({
       ...this.state,
       round: 2,
-      askedAt: now,
+      queuedAt: now,
       job: PendingJob.fresh(),
       judgedAt: null,
       failure: null,

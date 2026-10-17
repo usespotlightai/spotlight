@@ -4,13 +4,13 @@ import type { TransactionPort } from '@shared-kernel/application/ports/transacti
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import type { HeardHappeningsPort } from '@work/application/ports/heard-happenings.port';
 import type {
   HookedTaskDto,
   HookedTasksPort,
 } from '@work/application/ports/hooked-tasks.port';
+import type { ProcessedEventsPort } from '@work/application/ports/processed-events.port';
 import type {
-  HookFailureHeard,
+  HookFailureNotice,
   HookFailureReport,
   TaskNotesFromHooksPort,
 } from '@work/application/ports/task-notes-from-hooks.port';
@@ -48,7 +48,7 @@ export class HookedTasks implements HookedTasksPort, TaskNotesFromHooksPort {
     private readonly tasks: TaskRepository,
     private readonly lines: LineRepository,
     private readonly workspaces: WorkspaceReaderPort,
-    private readonly heard: HeardHappeningsPort,
+    private readonly processed: ProcessedEventsPort,
     private readonly placements: TaskPlacementsPort,
     private readonly dispatch: TaskDispatching,
     private readonly transaction: TransactionPort,
@@ -87,7 +87,7 @@ export class HookedTasks implements HookedTasksPort, TaskNotesFromHooksPort {
     taskId: string,
     body: string,
     hook: string,
-    heardAs: string | null,
+    receivedAs: string | null,
   ): Promise<boolean> {
     const noteBody = TaskNoteBody.fromHook(hook, body);
 
@@ -99,8 +99,12 @@ export class HookedTasks implements HookedTasksPort, TaskNotesFromHooksPort {
       }
 
       if (
-        heardAs &&
-        !(await this.heard.hearing(task.workspaceId, heardAs, this.clock.now()))
+        receivedAs &&
+        !(await this.processed.markProcessed(
+          task.workspaceId,
+          receivedAs,
+          this.clock.now(),
+        ))
       ) {
         return true;
       }
@@ -121,7 +125,7 @@ export class HookedTasks implements HookedTasksPort, TaskNotesFromHooksPort {
     });
   }
 
-  async failed(report: HookFailureReport): Promise<HookFailureHeard> {
+  async failed(report: HookFailureReport): Promise<HookFailureNotice> {
     return this.retried(async () => {
       const task = await this.tasks.find(TaskId.of(report.taskId));
       const line = task ? await this.lines.findByStation(task.stationId) : null;
@@ -130,7 +134,9 @@ export class HookedTasks implements HookedTasksPort, TaskNotesFromHooksPort {
         return 'gone';
       }
 
-      if (await this.heard.heard(task.workspaceId, report.heardAs)) {
+      if (
+        await this.processed.wasProcessed(task.workspaceId, report.receivedAs)
+      ) {
         return 'reported';
       }
 
@@ -141,9 +147,9 @@ export class HookedTasks implements HookedTasksPort, TaskNotesFromHooksPort {
       }
 
       if (
-        !(await this.heard.hearing(
+        !(await this.processed.markProcessed(
           task.workspaceId,
-          report.heardAs,
+          report.receivedAs,
           this.clock.now(),
         ))
       ) {

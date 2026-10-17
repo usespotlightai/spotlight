@@ -70,8 +70,8 @@ describe('chatPlacement', () => {
   it('places a chat where every line working in one of its repositories would run', () => {
     const placed = chatPlacement([API, WEB], LINES);
 
-    expect(placed?.admits(RunnerTerms.of(['vpc-internal']))).toBe(true);
-    expect(placed?.admits(RunnerTerms.of(['build-1']))).toBe(false);
+    expect(placed?.matches(RunnerTerms.of(['vpc-internal']))).toBe(true);
+    expect(placed?.matches(RunnerTerms.of(['build-1']))).toBe(false);
   });
 
   it('places a chat anywhere when its repositories are worked only by lines placed anywhere, or by none', () => {

@@ -234,7 +234,7 @@ describe('Line', () => {
   });
 
   describe('the backlog it always has', () => {
-    it('starts with one, whoever asked', () => {
+    it('starts with one, whoever requested it', () => {
       const line = created();
 
       expect(line.backlog.name.value).toBe('Backlog');
@@ -299,7 +299,7 @@ describe('Line', () => {
   });
 
   describe('the completed it always has', () => {
-    it('starts with one, whoever asked', () => {
+    it('starts with one, whoever requested it', () => {
       const line = created();
 
       expect(line.completed.name.value).toBe('Completed');
@@ -527,7 +527,7 @@ describe('Line', () => {
     });
   });
 
-  it('changes the one station it was asked about', () => {
+  it('changes the one station that the request names', () => {
     const line = lineOf([at(1, 'Triage'), at(2, 'Spec')]);
 
     const assigned = line.changeStationHarness(StationId.of('station_1'), {
@@ -894,7 +894,7 @@ describe('Line, what it records of its changes', () => {
   });
 
   describe('as a resource', () => {
-    const kept = (version = 3) => {
+    const stored = (version = 3) => {
       const line = created();
 
       return Line.rehydrate({
@@ -927,7 +927,7 @@ describe('Line, what it records of its changes', () => {
     });
 
     it('says it was updated when laid out again', () => {
-      const line = kept();
+      const line = stored();
       const updated = line.update(
         {
           key: line.key,
@@ -977,12 +977,14 @@ describe('Line, what it records of its changes', () => {
     });
 
     it('rejects a change made against another version', () => {
-      expect(() => kept(3).assertVersion(2)).toThrow(LineVersionConflictError);
-      expect(() => kept(3).assertVersion(3)).not.toThrow();
+      expect(() => stored(3).assertVersion(2)).toThrow(
+        LineVersionConflictError,
+      );
+      expect(() => stored(3).assertVersion(3)).not.toThrow();
     });
 
     it('keeps its key for its whole life', () => {
-      const line = kept();
+      const line = stored();
 
       expect(() =>
         line.update(
@@ -998,7 +1000,7 @@ describe('Line, what it records of its changes', () => {
     });
 
     it('is deleted once no task is on it, and says so', () => {
-      const line = kept();
+      const line = stored();
       const deleted = line.delete(new Map(), attributedIn());
 
       expect(deleted.isDeleted).toBe(true);
@@ -1019,7 +1021,7 @@ describe('Line, what it records of its changes', () => {
     });
 
     it('will not delete while tasks are on it, naming where', () => {
-      const line = kept();
+      const line = stored();
       const [, working] = line.stations;
 
       expect(() =>

@@ -1,4 +1,4 @@
-import type { RunnerAdmissionsPort } from '@runners/application/ports/runner-admissions.port';
+import type { RunnerAuthenticatorPort } from '@runners/application/ports/runner-authenticator.port';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
@@ -39,22 +39,24 @@ export class AnswerHostCallHandler
   implements CommandHandlerPort<AnswerHostCallCommand, HostCallAnswerDto>
 {
   constructor(
-    private readonly admissions: RunnerAdmissionsPort,
+    private readonly authenticator: RunnerAuthenticatorPort,
     private readonly calls: NetworkCallRepository,
     private readonly clock: ClockPort,
   ) {}
 
   async execute(command: AnswerHostCallCommand): Promise<HostCallAnswerDto> {
     try {
-      const admitted = await this.admissions.admit(command.credential);
+      const authenticated = await this.authenticator.authenticate(
+        command.credential,
+      );
 
-      if (!admitted) {
+      if (!authenticated) {
         return { outcome: 'unauthorized' };
       }
 
       const call = await this.calls.find(NetworkCallId.of(command.callId));
 
-      if (!call?.belongsTo(admitted.workspaceId)) {
+      if (!call?.belongsTo(authenticated.workspaceId)) {
         return { outcome: 'unknown' };
       }
 

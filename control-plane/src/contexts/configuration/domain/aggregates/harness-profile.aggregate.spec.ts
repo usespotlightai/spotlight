@@ -33,7 +33,7 @@ const read = (key = 'careful', ask: string[] = []) => ({
   settings: settings(ask),
 });
 
-const kept = (version = 3) =>
+const stored = (version = 3) =>
   HarnessProfile.rehydrate({
     id: ID,
     teamId: TEAM,
@@ -76,13 +76,13 @@ describe('HarnessProfile', () => {
   });
 
   it('rejects a change made against another version', () => {
-    expect(() => kept(3).assertVersion(2)).toThrow(
+    expect(() => stored(3).assertVersion(2)).toThrow(
       HarnessProfileVersionConflictError,
     );
   });
 
   it('takes new settings, and says so', () => {
-    const updated = kept().update(
+    const updated = stored().update(
       read('careful', ['execute(git push *)']),
       BY,
       [],
@@ -100,18 +100,20 @@ describe('HarnessProfile', () => {
   });
 
   it('keeps its key for its whole life', () => {
-    expect(() => kept().update(read('bold'), BY, [])).toThrow(
+    expect(() => stored().update(read('bold'), BY, [])).toThrow(
       ImmutableFieldError,
     );
   });
 
   it('will not be deleted while a station names it', () => {
-    expect(() => kept().delete(NAMED, BY)).toThrow(HarnessProfileInUseError);
-    expect(() => kept().delete(NAMED, BY)).toThrow(/delivery\/implementation/);
+    expect(() => stored().delete(NAMED, BY)).toThrow(HarnessProfileInUseError);
+    expect(() => stored().delete(NAMED, BY)).toThrow(
+      /delivery\/implementation/,
+    );
   });
 
   it('is deleted when no station names it, and cannot change after', () => {
-    const deleted = kept().delete(
+    const deleted = stored().delete(
       StationUses.of([{ name: 'bold', by: 'delivery/implementation' }]),
       BY,
     );
@@ -131,7 +133,7 @@ describe('HarnessProfile', () => {
   });
 
   it('is deleted with its team, whoever still names it', () => {
-    const deleted = kept().cascadeDelete(BY);
+    const deleted = stored().cascadeDelete(BY);
 
     expect(deleted.isDeleted).toBe(true);
     expect(deleted.pullEvents()).toEqual([
@@ -171,9 +173,11 @@ describe('HarnessProfile', () => {
         existingSecrets: [],
       }),
     ).toThrow(MissingSecretsError);
-    expect(() => kept().update(referring, BY, [])).toThrow(MissingSecretsError);
+    expect(() => stored().update(referring, BY, [])).toThrow(
+      MissingSecretsError,
+    );
     expect(
-      kept()
+      stored()
         .update(referring, BY, existing)
         .settings.uses(existing[0] as SecretName),
     ).toBe(true);

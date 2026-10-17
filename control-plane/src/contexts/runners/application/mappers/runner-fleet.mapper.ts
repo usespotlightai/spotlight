@@ -12,7 +12,7 @@ export const RunnerFleetMapper = {
     return {
       id: summary.id,
       name: summary.name,
-      through: summary.through,
+      source: summary.source,
       release: summary.release,
       containerRuntime: summary.containerRuntime,
       capacity: summary.capacity,
@@ -28,7 +28,7 @@ export const RunnerFleetMapper = {
   runner(summary: LiveRunnerSummary): LiveRunnerDto {
     return {
       id: summary.id,
-      through: summary.through,
+      source: summary.source,
       hostId: summary.hostId,
       image: summary.image,
       harnesses: summary.harnesses,

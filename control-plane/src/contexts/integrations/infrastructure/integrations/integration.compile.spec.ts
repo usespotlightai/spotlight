@@ -69,7 +69,7 @@ describe('compiling an integration', () => {
     ).toEqual(['LINEAR_WEBHOOK_SECRET']);
   });
 
-  it('calls it by its source where the file gives no name', () => {
+  it('calls it by its source where the file names none', () => {
     const read = compileIntegration(parseYaml(WHOLE), expressions);
 
     expect(read.ok && read.readable.integration.name).toBe('linear');
@@ -649,7 +649,7 @@ on:
       ]);
     });
 
-    it('warns about a raised word reading a name no lookup kept', () => {
+    it('warns about a raised word reading a name no lookup captured', () => {
       expect(
         warnings(
           WHOLE.replace(
@@ -848,7 +848,7 @@ tools:
     ).toHaveLength(1);
   });
 
-  it('offers a tool no approval where the file asks for none', () => {
+  it('offers a tool no approval where the file requests none', () => {
     const compiled = read(OFFERING);
 
     expect(
@@ -1336,7 +1336,7 @@ mcp:
     expect(compiled.ok && compiled.integration.connects).toBe(true);
   });
 
-  it('asks approval for a tool that writes, unless the definition says not to', () => {
+  it('requires approval for a tool that writes, unless the definition says not to', () => {
     const compiled = compileIntegration(
       parseYaml(TRACKER),
       expressions,
@@ -1364,7 +1364,7 @@ mcp:
     });
   });
 
-  it('rejects discovery of how to connect without a server to ask, or with endpoints already named', () => {
+  it('rejects discovery of how to connect without a server to query, or with endpoints already named', () => {
     expect(
       problems(
         TRACKER.replace(

@@ -52,17 +52,17 @@ func jsonLiteral(value any) string {
 }
 
 func union(parts []string) (string, bool) {
-	var kept []string
+	var distinct []string
 	for _, part := range parts {
-		if part != "" && !slices.Contains(kept, part) {
-			kept = append(kept, part)
+		if part != "" && !slices.Contains(distinct, part) {
+			distinct = append(distinct, part)
 		}
 	}
-	if len(kept) == 0 {
+	if len(distinct) == 0 {
 		return "unknown", false
 	}
 
-	return strings.Join(kept, " | "), len(kept) > 1
+	return strings.Join(distinct, " | "), len(distinct) > 1
 }
 
 func bracketed(text string, compound bool) string {
@@ -267,8 +267,8 @@ func sample(shape schema, depth int) any {
 	if examples := listed(shape, "examples"); len(examples) > 0 {
 		return examples[0]
 	}
-	if given, ok := shape["default"]; ok {
-		return given
+	if fallback, ok := shape["default"]; ok {
+		return fallback
 	}
 	if constant, ok := shape["const"]; ok {
 		return constant
@@ -331,12 +331,12 @@ func shellQuoted(text string) string {
 }
 
 func flagValue(value any) string {
-	switch given := value.(type) {
+	switch text := value.(type) {
 	case string:
-		if given == "…" {
+		if text == "…" {
 			return `"…"`
 		}
-		return shellQuoted(given)
+		return shellQuoted(text)
 	case nil:
 		return shellQuoted("")
 	}
@@ -345,28 +345,28 @@ func flagValue(value any) string {
 }
 
 func exampleCall(tool protocol.ToolManifest) string {
-	var given []protocol.ToolInputManifest
+	var required []protocol.ToolInputManifest
 	for _, input := range tool.Inputs {
 		if (input.Required && !input.Defaulted) || (input.Name == protocol.ToolIntentInput && tool.Approval != nil) {
-			given = append(given, input)
+			required = append(required, input)
 		}
 	}
 
 	scalar := true
-	for _, input := range given {
+	for _, input := range required {
 		scalar = scalar && input.Scalar()
 	}
 
 	parts := []string{command(tool.Name)}
 	if !scalar {
 		object := map[string]any{}
-		for _, input := range given {
+		for _, input := range required {
 			object[input.Name] = sample(parsed(input.Schema), 0)
 		}
 		return strings.Join(append(parts, "--json", shellQuoted(jsonLiteral(object))), " ")
 	}
 
-	for _, input := range given {
+	for _, input := range required {
 		value := sample(parsed(input.Schema), 0)
 		switch {
 		case value == true && input.Kind() == "boolean":
@@ -415,15 +415,15 @@ func describeTool(args []string, out io.Writer) error {
 
 	tool, rest, found := named(tools, args)
 	if !found || len(rest) > 0 {
-		asked := strings.Join(args, " ")
-		if near := search(tools, asked, 3); len(near) > 0 {
+		query := strings.Join(args, " ")
+		if near := search(tools, query, 3); len(near) > 0 {
 			names := make([]string, 0, len(near))
 			for _, each := range near {
 				names = append(names, each.Name)
 			}
-			return fmt.Errorf("this run was given no tool %q; the nearest are %s\n%s", asked, strings.Join(names, ", "), describeUsage)
+			return fmt.Errorf("this run has no tool %q enabled; the nearest are %s\n%s", query, strings.Join(names, ", "), describeUsage)
 		}
-		return fmt.Errorf("this run was given no tool %q\n%s", asked, describeUsage)
+		return fmt.Errorf("this run has no tool %q enabled\n%s", query, describeUsage)
 	}
 
 	fmt.Fprintln(out, describing(tool))

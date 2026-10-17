@@ -69,7 +69,7 @@ const pointOf =
     );
   };
 
-const keptToMost = (points: readonly string[]): readonly string[] =>
+const cappedAtMax = (points: readonly string[]): readonly string[] =>
   points.length > MAX_POINTS
     ? [
         ...points.slice(0, MAX_POINTS - 1),
@@ -85,7 +85,7 @@ export const ReflectionNoticeWording = {
   ): NoticeWords {
     return {
       headline: HEADLINES[notice.outcome](searchFor(stationName)),
-      points: keptToMost([
+      points: cappedAtMax([
         HAPPENINGS[notice.outcome](notice.looked),
         ...notice.fixes.map(pointOf(titles)),
       ]),

@@ -21,7 +21,7 @@ const WEB = Repository.of('acme/web');
 const TEAM = TeamId.of('team_1');
 
 let handles = 0;
-const kept = (id: string, scope: MemoryScope, at = NOW) => {
+const approved = (id: string, scope: MemoryScope, at = NOW) => {
   handles += 1;
   return Memory.write({
     id: MemoryId.of(id),
@@ -36,12 +36,12 @@ const kept = (id: string, scope: MemoryScope, at = NOW) => {
 };
 
 const KNOWN = [
-  kept('memory_old', MemoryScope.of({ teamId: TEAM, lineId: 'line_1' })),
-  kept(
+  approved('memory_old', MemoryScope.of({ teamId: TEAM, lineId: 'line_1' })),
+  approved(
     'memory_other_station',
     MemoryScope.of({ teamId: TEAM, lineId: 'line_1', stationId: 'station_9' }),
   ),
-  kept('memory_retired', MemoryScope.of({ teamId: TEAM })).retire({
+  approved('memory_retired', MemoryScope.of({ teamId: TEAM })).retire({
     by: UserId.of('user_1'),
     reason: 'Gone.',
     at: NOW,
@@ -78,7 +78,7 @@ const evidence = (fromOutside = false) =>
 const remembered = (change: Partial<ProposedMemory> = {}): ProposedMemory => ({
   kind: 'correction',
   body: 'Uploads go to the archive bucket, not the staging one.',
-  reach: 'team',
+  scope: 'team',
   repository: null,
   paths: [],
   steps: [5],
@@ -92,7 +92,7 @@ const proposalOf = (proposed: ProposedMemory, fromOutside = false) =>
 
 describe('DraftEvidence', () => {
   describe('the grounds a proposal cites', () => {
-    it('admits steps of the run and notes the drafter read', () => {
+    it('accepts steps of the run and notes the drafter read', () => {
       const proposal = proposalOf(remembered({ steps: [5, 2], notes: [3] }));
 
       expect(proposal.grounds.steps).toEqual([2, 5]);
@@ -122,7 +122,7 @@ describe('DraftEvidence', () => {
 
   describe('where a proposal applies', () => {
     it('keeps a team-wide memory to the team alone', () => {
-      const { scope } = proposalOf(remembered({ reach: 'team' }));
+      const { scope } = proposalOf(remembered({ scope: 'team' }));
 
       expect(scope.teamId.value).toBe('team_1');
       expect(scope.lineId).toBeNull();
@@ -130,20 +130,20 @@ describe('DraftEvidence', () => {
     });
 
     it('keeps a line’s memory to the run’s line', () => {
-      const { scope } = proposalOf(remembered({ reach: 'line' }));
+      const { scope } = proposalOf(remembered({ scope: 'line' }));
 
       expect(scope.lineId).toBe('line_1');
       expect(scope.stationId).toBeNull();
     });
 
     it('keeps a station’s memory to the run’s line and station', () => {
-      const { scope } = proposalOf(remembered({ reach: 'station' }));
+      const { scope } = proposalOf(remembered({ scope: 'station' }));
 
       expect([scope.lineId, scope.stationId]).toEqual(['line_1', 'station_1']);
     });
 
-    it('rejects a reach it does not know', () => {
-      expect(() => proposalOf(remembered({ reach: 'everyone' }))).toThrow(
+    it('rejects a scope it does not know', () => {
+      expect(() => proposalOf(remembered({ scope: 'everyone' }))).toThrow(
         InvalidMemoryError,
       );
     });
@@ -254,7 +254,7 @@ describe('DraftEvidence', () => {
     });
 
     it('shows the drafter only what is active where the run worked, newest first', () => {
-      const newer = kept(
+      const newer = approved(
         'memory_newer',
         MemoryScope.of({ teamId: TEAM }),
         new Date('2026-09-28T10:00:00.000Z'),
@@ -284,7 +284,7 @@ describe('DraftEvidence', () => {
     expect(evidence().notesThrough).toBe(6);
   });
 
-  describe('keeping the prompt of the drafter within its length', () => {
+  describe('limiting the prompt of the drafter to its length', () => {
     const long = (size: number) => 'x'.repeat(size);
 
     const clippedEvidence = (input: {

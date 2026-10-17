@@ -7,8 +7,8 @@ import {
 import { RunnerHost } from '@runners/domain/aggregates/runner-host.aggregate';
 import { RunnerHostVersionConflictError } from '@runners/domain/exceptions/runner-host-version-conflict.error';
 import type { RunnerHostRepository } from '@runners/domain/repositories/runner-host.repository';
-import { Admission } from '@runners/domain/value-objects/admission.vo';
 import { BootId } from '@runners/domain/value-objects/boot-id.vo';
+import { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import { HostReport } from '@runners/domain/value-objects/host-report.vo';
 import {
@@ -25,12 +25,12 @@ import { and, eq, lte } from 'drizzle-orm';
 
 type Row = typeof runnerHost.$inferSelect;
 
-const admissionOf = (row: Row): Admission => {
+const credentialSourceOf = (row: Row): CredentialSource => {
   if (row.poolId !== null) {
-    return Admission.of('pool', row.poolId);
+    return CredentialSource.of('pool', row.poolId);
   }
   if (row.trustId !== null) {
-    return Admission.of('trust', row.trustId);
+    return CredentialSource.of('trust', row.trustId);
   }
 
   throw new InconsistentStateError(
@@ -43,7 +43,7 @@ const toHost = (row: Row): RunnerHost =>
   RunnerHost.rehydrate({
     id: HostId.of(row.id),
     workspaceId: WorkspaceId.of(row.workspaceId),
-    admission: admissionOf(row),
+    source: credentialSourceOf(row),
     bootId: BootId.of(row.bootId),
     report: HostReport.of({
       name: row.name,
@@ -61,8 +61,8 @@ const toHost = (row: Row): RunnerHost =>
 
 const columnsOf = (host: RunnerHost) => ({
   workspaceId: host.workspaceId.value,
-  poolId: host.admission.poolId?.value ?? null,
-  trustId: host.admission.trustId?.value ?? null,
+  poolId: host.source.poolId?.value ?? null,
+  trustId: host.source.trustId?.value ?? null,
   bootId: host.bootId.value,
   name: host.report.name,
   release: host.report.release,
@@ -165,13 +165,13 @@ export class DrizzleRunnerHostRepository implements RunnerHostRepository {
     }
   }
 
-  async removeThrough(admission: Admission): Promise<void> {
+  async removeThrough(source: CredentialSource): Promise<void> {
     await this.context.db
       .delete(runnerHost)
       .where(
-        admission.kind === 'pool'
-          ? eq(runnerHost.poolId, admission.id)
-          : eq(runnerHost.trustId, admission.id),
+        source.kind === 'pool'
+          ? eq(runnerHost.poolId, source.id)
+          : eq(runnerHost.trustId, source.id),
       );
   }
 

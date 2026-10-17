@@ -106,7 +106,7 @@ export class ReplayCheckThresholdResponseDto {
   @ApiProperty({
     type: SpendResponseDto,
     description:
-      'The most each replay of the check may spend: the replay of the planned change and, when the set has no baseline of the live config yet, the baseline replay the check starts, each up to this ceiling on its own; a baseline already there costs the check nothing. A replay reaching its ceiling starts no more runs, though runs already going finish, so it may end a little over it',
+      'The most each replay of the check may spend: the replay of the planned change and, when the set has no baseline of the live config yet, the baseline replay the check starts, each up to this ceiling on its own; a baseline already there costs the check nothing. A replay at its ceiling starts no more runs, though runs already going finish, so it may end a little over it',
   })
   readonly ceiling: SpendResponseDto;
 
@@ -299,9 +299,9 @@ export class ReplayCheckResponseDto {
     enum: SCORING_FIELDS,
     isArray: true,
     description:
-      'What the plan changed of how runs are scored, which the check kept as the live station has it',
+      'What the plan changed of how runs are scored, which the check pinned to the live station’s values',
   })
-  readonly keptLive: string[];
+  readonly scoringPinnedToLive: string[];
 
   @ApiProperty({ type: ReplayCheckThresholdResponseDto })
   readonly threshold: ReplayCheckThresholdResponseDto;
@@ -382,7 +382,7 @@ export class ReplayCheckResponseDto {
     this.reference = new ReplayCheckReferenceResponseDto(check.reference);
     this.liveFingerprint = check.liveFingerprint;
     this.candidateFingerprint = check.candidateFingerprint;
-    this.keptLive = [...check.keptLive];
+    this.scoringPinnedToLive = [...check.scoringPinnedToLive];
     this.threshold = new ReplayCheckThresholdResponseDto(check.threshold);
     this.repeats = check.repeats;
     this.gain = gainResponse(check.gain);

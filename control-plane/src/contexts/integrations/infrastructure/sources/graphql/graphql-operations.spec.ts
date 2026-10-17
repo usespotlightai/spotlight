@@ -116,7 +116,7 @@ describe('graphqlOperations', () => {
     );
   });
 
-  it('selects deeper when asked to', () => {
+  it('selects deeper when requested', () => {
     const call = read(LINEAR_SDL, { ...AT, depth: 3 }).operations.find(
       (each) => each.name === 'issue',
     )?.call;

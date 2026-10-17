@@ -56,14 +56,14 @@ const setUp = (
   task = TASK,
   now: Date = NOW,
 ) => {
-  const kept = {
+  const repository = {
     add: vi.fn(async () => {}),
     withToken: vi.fn(async () => grant),
     purgeExpiringBefore: vi.fn(async () => {}),
   } satisfies HookCallbackGrantRepository;
   const clock = { now: () => now, sleep: async () => {} };
   const callbacks = new HookCallbackGrants(
-    kept,
+    repository,
     {
       issue: () => ({ token: 'token', hash: HASH.value }),
       hash: () => HASH.value,
@@ -92,7 +92,7 @@ const setUp = (
   return {
     tasks,
     notes,
-    kept,
+    repository,
     chains,
     reading: new CallbackTaskHandler(callbacks, tasks),
     noting: new NoteByCallbackHandler(callbacks, notes, history, causation),
@@ -100,13 +100,13 @@ const setUp = (
 };
 
 describe('hook callbacks', () => {
-  it('reads the one task the token was given for', async () => {
-    const { reading, kept } = setUp(HOLDER);
+  it('reads the one task the token was issued for', async () => {
+    const { reading, repository } = setUp(HOLDER);
 
     await expect(
       reading.execute(new CallbackTaskQuery('token')),
     ).resolves.toMatchObject({ id: 'task_1', hook: 'dba-review' });
-    expect(kept.withToken).toHaveBeenCalledWith(HASH);
+    expect(repository.withToken).toHaveBeenCalledWith(HASH);
   });
 
   it('reads nothing once the token has expired', async () => {
@@ -166,7 +166,7 @@ describe('hook callbacks', () => {
     );
   });
 
-  it('notes in the chain of causes of the firing that asked for it', async () => {
+  it('notes in the chain of causes of the firing that requested it', async () => {
     const { noting, chains } = setUp(HOLDER);
 
     await noting.execute(new NoteByCallbackCommand('token', 'Safe.', null));

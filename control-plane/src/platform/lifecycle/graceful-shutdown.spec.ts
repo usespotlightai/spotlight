@@ -45,7 +45,7 @@ describe('GracefulShutdown', () => {
     expect(closeAllConnections).toHaveBeenCalledTimes(1);
   });
 
-  it('says it is going down, and names what asked', () => {
+  it('says it is going down, and names the signal', () => {
     const { shutdown, logger } = shuttingDown({
       closeAllConnections: vi.fn(),
     });

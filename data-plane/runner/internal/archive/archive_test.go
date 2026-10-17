@@ -26,18 +26,18 @@ func write(t *testing.T, path, content string, mode os.FileMode) {
 func packed(t *testing.T, dir string) *archive.Packed {
 	t.Helper()
 
-	kept, err := archive.Pack(dir, t.TempDir(), nil)
+	archived, err := archive.Pack(dir, t.TempDir(), nil)
 	if err != nil {
 		t.Fatalf("pack: %v", err)
 	}
-	return kept
+	return archived
 }
 
-func unpacked(t *testing.T, kept *archive.Packed) string {
+func unpacked(t *testing.T, archived *archive.Packed) string {
 	t.Helper()
 
 	into := t.TempDir()
-	file, err := os.Open(kept.Path)
+	file, err := os.Open(archived.Path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -49,7 +49,7 @@ func unpacked(t *testing.T, kept *archive.Packed) string {
 	return into
 }
 
-func TestKeepsFilesFoldersModesAndLinksAsTheyWere(t *testing.T) {
+func TestPacksFilesFoldersModesAndLinksAsTheyWere(t *testing.T) {
 	dir := t.TempDir()
 	write(t, filepath.Join(dir, "repo", "main.go"), "package main\n", 0o644)
 	write(t, filepath.Join(dir, "repo", "run.sh"), "#!/bin/sh\n", 0o755)
@@ -99,14 +99,14 @@ func TestSaysWhatItPackedAndHowBig(t *testing.T) {
 	dir := t.TempDir()
 	write(t, filepath.Join(dir, "notes.md"), "halfway\n", 0o644)
 
-	kept := packed(t, dir)
-	info, err := os.Stat(kept.Path)
+	archived := packed(t, dir)
+	info, err := os.Stat(archived.Path)
 
-	if err != nil || info.Size() != kept.Size || len(kept.SHA256) != 64 {
-		t.Errorf("packed %d bytes, said %d, sha %q", info.Size(), kept.Size, kept.SHA256)
+	if err != nil || info.Size() != archived.Size || len(archived.SHA256) != 64 {
+		t.Errorf("packed %d bytes, said %d, sha %q", info.Size(), archived.Size, archived.SHA256)
 	}
 
-	if err := kept.Remove(); err != nil {
+	if err := archived.Remove(); err != nil {
 		t.Errorf("remove: %v", err)
 	}
 }
@@ -142,7 +142,7 @@ func crafted(t *testing.T, entries ...tar.Header) *bytes.Buffer {
 	return &buffer
 }
 
-func TestRejectsAnythingThatReachesOutsideTheWorkspace(t *testing.T) {
+func TestRejectsAnythingThatPointsOutsideTheWorkspace(t *testing.T) {
 	outside := t.TempDir()
 
 	cases := map[string][]tar.Header{
@@ -185,7 +185,7 @@ func TestFingerprintChangesOnlyWithTheWorkspace(t *testing.T) {
 	after, _ := archive.Fingerprint(dir, nil)
 
 	if before == after {
-		t.Error("a changed workspace kept its fingerprint")
+		t.Error("a changed workspace has the same fingerprint")
 	}
 }
 
@@ -216,7 +216,7 @@ func TestRestoresAFolderThatAllowsNoWriting(t *testing.T) {
 	}
 }
 
-func TestKeepsALinkOutOfTheWorkspaceAsALinkAndNeverWhatItPointsAt(t *testing.T) {
+func TestPacksALinkOutOfTheWorkspaceAsALinkAndNeverWhatItPointsAt(t *testing.T) {
 	secret := filepath.Join(t.TempDir(), "token")
 	write(t, secret, "do-not-pack", 0o600)
 
@@ -225,8 +225,8 @@ func TestKeepsALinkOutOfTheWorkspaceAsALinkAndNeverWhatItPointsAt(t *testing.T) 
 		t.Fatal(err)
 	}
 
-	kept := packed(t, dir)
-	file, err := os.Open(kept.Path)
+	archived := packed(t, dir)
+	file, err := os.Open(archived.Path)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -244,7 +244,7 @@ func TestKeepsALinkOutOfTheWorkspaceAsALinkAndNeverWhatItPointsAt(t *testing.T) 
 		t.Error("packed what the link points at")
 	}
 
-	into := unpacked(t, kept)
+	into := unpacked(t, archived)
 	if link, err := os.Readlink(filepath.Join(into, "token")); err != nil || link != secret {
 		t.Errorf("the link points at %q, %v", link, err)
 	}
@@ -256,11 +256,11 @@ func TestLeavesOutWhatIsRebuiltElsewhere(t *testing.T) {
 	write(t, filepath.Join(dir, "acme", "api", "node_modules", "x", "index.js"), "installed\n", 0o644)
 	write(t, filepath.Join(dir, "acme", "api", "debug.log"), "noise\n", 0o644)
 
-	kept, err := archive.Pack(dir, t.TempDir(), []string{"acme/api/node_modules", "acme/api/debug.log"})
+	archived, err := archive.Pack(dir, t.TempDir(), []string{"acme/api/node_modules", "acme/api/debug.log"})
 	if err != nil {
 		t.Fatalf("pack: %v", err)
 	}
-	into := unpacked(t, kept)
+	into := unpacked(t, archived)
 
 	if _, err := os.Stat(filepath.Join(into, "acme", "api", "main.go")); err != nil {
 		t.Errorf("the checkout was left out: %v", err)
@@ -278,7 +278,7 @@ func TestUnpacksOverWhatIsAlreadyThere(t *testing.T) {
 	if err := os.Symlink("notes.md", filepath.Join(dir, "entry")); err != nil {
 		t.Fatal(err)
 	}
-	kept := packed(t, dir)
+	archived := packed(t, dir)
 
 	into := t.TempDir()
 	write(t, filepath.Join(into, "entry"), "a file the image laid down\n", 0o644)
@@ -286,7 +286,7 @@ func TestUnpacksOverWhatIsAlreadyThere(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	file, err := os.Open(kept.Path)
+	file, err := os.Open(archived.Path)
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -115,7 +115,7 @@ describe('TraceList', () => {
     expect(screen.queryByText('No traces')).not.toBeInTheDocument();
   });
 
-  it('says the traces could not be loaded, and tries again when asked', async () => {
+  it('says the traces could not be loaded, and tries again on request', async () => {
     traces.mockReturnValue(undefined);
     failing.mockReturnValue(true);
     showing();

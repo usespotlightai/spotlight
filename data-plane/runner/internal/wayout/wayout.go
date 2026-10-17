@@ -14,10 +14,10 @@ import (
 	"strconv"
 	"time"
 
+	"usespotlight.ai/data-plane/allowlist"
 	"usespotlight.ai/data-plane/egressing/authority"
 	"usespotlight.ai/data-plane/egressing/tunnel"
 	"usespotlight.ai/data-plane/protocol"
-	"usespotlight.ai/data-plane/reach"
 )
 
 const (
@@ -58,7 +58,7 @@ func Open(ctx context.Context, egress *Egress, opts Options) (*WayOut, error) {
 
 	bound := make(map[string]bool, len(hosts))
 	for _, host := range hosts {
-		bound[reach.Normal(host)] = true
+		bound[allowlist.Normal(host)] = true
 	}
 
 	issuer, err := authority.New(time.Now(), hosts)
@@ -109,10 +109,10 @@ func boundSoon(ctx context.Context, egress *Egress, wait time.Duration, log *slo
 			return hosts, err
 		}
 
-		log.Info("egress has not fetched the run's secrets yet, asks again", "error", err, "retryIn", backoff)
+		log.Info("egress has not fetched the run's secrets yet, tries again", "error", err, "retryIn", backoff)
 		select {
 		case <-waiting.Done():
-			return nil, fmt.Errorf("egress gave no bound hosts within %s: %w", wait, err)
+			return nil, fmt.Errorf("egress sent no bound hosts within %s: %w", wait, err)
 		case <-time.After(backoff):
 		}
 		backoff = min(backoff*2, boundCeiling)
@@ -166,7 +166,7 @@ func (w *WayOut) ServeHTTP(rw http.ResponseWriter, r *http.Request) {
 	case r.URL.IsAbs():
 		w.forwardPlain(rw, r)
 	default:
-		http.Error(rw, "The way out is a proxy. Please ask it for an absolute URL, or CONNECT to a host.", http.StatusBadRequest)
+		http.Error(rw, "The way out is a proxy. Please send it an absolute URL, or CONNECT to a host.", http.StatusBadRequest)
 	}
 }
 
@@ -178,8 +178,8 @@ func (w *WayOut) connect(rw http.ResponseWriter, r *http.Request) {
 		target = net.JoinHostPort(host, port)
 	}
 
-	if port == "443" && w.bound[reach.Normal(host)] {
-		w.intercept(rw, reach.Normal(host))
+	if port == "443" && w.bound[allowlist.Normal(host)] {
+		w.intercept(rw, allowlist.Normal(host))
 		return
 	}
 

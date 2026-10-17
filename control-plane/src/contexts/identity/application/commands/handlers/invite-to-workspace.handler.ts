@@ -33,7 +33,7 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
-interface Asked {
+interface InviteInput {
   readonly workspace: Workspace;
   readonly email: EmailAddress;
   readonly terms: InviteTerms;
@@ -112,21 +112,21 @@ export class InviteToWorkspaceHandler
   }
 
   private async invited(
-    asked: Asked,
+    input: InviteInput,
     into: InviteSent,
   ): Promise<InviteOutcomeDto> {
-    const email = asked.email.value;
+    const email = input.email.value;
 
-    if (await this.members.byEmail(asked.workspace.id, email)) {
+    if (await this.members.byEmail(input.workspace.id, email)) {
       return { email, outcome: 'already-a-member' };
     }
 
-    const written = await this.written(asked).catch((error: unknown) => {
+    const written = await this.written(input).catch((error: unknown) => {
       if (
         error instanceof InviteVersionConflictError ||
         error instanceof AlreadyInvitedError
       ) {
-        return this.written(asked);
+        return this.written(input);
       }
       throw error;
     });
@@ -138,17 +138,17 @@ export class InviteToWorkspaceHandler
     return { email, outcome: written.outcome };
   }
 
-  private async written(asked: Asked): Promise<Written> {
+  private async written(input: InviteInput): Promise<Written> {
     const newToken = this.tokens.issue();
     const { invite, resent } = WorkspaceInvite.createOrResend(
-      await this.invites.notEndedTo(asked.workspace.id, asked.email),
+      await this.invites.notEndedTo(input.workspace.id, input.email),
       {
         id: InviteId.of(this.ids.generate()),
-        workspaceId: asked.workspace.id,
-        email: asked.email,
-        terms: asked.terms,
+        workspaceId: input.workspace.id,
+        email: input.email,
+        terms: input.terms,
         tokenHash: TokenHash.of(newToken.hash),
-        invitedBy: asked.by,
+        invitedBy: input.by,
         now: this.clock.now(),
       },
     );

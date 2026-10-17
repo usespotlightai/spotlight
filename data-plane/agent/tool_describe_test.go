@@ -186,11 +186,11 @@ func TestDescribesARunsToolByEitherSpelling(t *testing.T) {
 	}
 }
 
-func TestNamesTheNearestToolsForOneTheRunWasNotGiven(t *testing.T) {
+func TestNamesTheNearestToolsForOneNotEnabledForTheRun(t *testing.T) {
 	withTools(t, `{}`)
 
 	err := run([]string{"tools", "describe", "linear.comments"}, strings.NewReader(""), new(bytes.Buffer))
-	if err == nil || !strings.Contains(err.Error(), `no tool "linear.comments"; the nearest are linear.comment`) {
+	if err == nil || !strings.Contains(err.Error(), `no tool "linear.comments" enabled; the nearest are linear.comment`) {
 		t.Fatalf("err = %v", err)
 	}
 }

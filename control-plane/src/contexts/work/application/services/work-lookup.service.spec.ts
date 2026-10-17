@@ -184,11 +184,11 @@ describe('WorkLookup, looking up a run', () => {
     expect((await runAt('spec'))?.decisions).toBe(false);
   });
 
-  it('asks a check to run where its station runs', async () => {
+  it('places a check where its station runs', async () => {
     expect((await runAt('implementation'))?.placement.isAnywhere).toBe(true);
   });
 
-  it('asks a check to run where its run was placed once its station is gone', async () => {
+  it('places a check where its run was placed once its station is gone', async () => {
     expect(
       (await runAt('gone', 'completed', RunnerPlacement.of(['vpc-internal'])))
         ?.placement.clauses,
@@ -208,7 +208,7 @@ describe('WorkLookup, looking up a run', () => {
     expect(await placeAt('gone')).toBeNull();
   });
 
-  it('says the run is remembered from only where its station asks for it', async () => {
+  it('says the run is remembered from only where its station requires it', async () => {
     expect((await runAt('implementation'))?.memories).toBe(false);
   });
 
@@ -232,8 +232,8 @@ describe('WorkLookup, reading how a run reasoned', () => {
     ms: 0,
     startedAt: new Date('2026-09-21T10:00:00.000Z'),
     locations: [],
-    given: null,
-    returned: null,
+    input: null,
+    output: null,
     change: null,
     ...change,
   });

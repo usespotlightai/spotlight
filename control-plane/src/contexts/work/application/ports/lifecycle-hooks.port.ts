@@ -10,7 +10,7 @@ export type BeforeMoment =
     }
   | { readonly on: 'run.starting' }
   | {
-      readonly on: 'handover.giving';
+      readonly on: 'handover.submitting';
       readonly to: string | null;
       readonly note: string;
     }

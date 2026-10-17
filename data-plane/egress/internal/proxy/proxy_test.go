@@ -18,11 +18,11 @@ import (
 	"testing"
 	"time"
 
+	"usespotlight.ai/data-plane/allowlist"
 	"usespotlight.ai/data-plane/egressing/authority"
 	"usespotlight.ai/data-plane/egressing/guard"
 	"usespotlight.ai/data-plane/egressing/inject"
 	"usespotlight.ai/data-plane/protocol"
-	"usespotlight.ai/data-plane/reach"
 )
 
 type fakeInjector map[string]http.Header
@@ -98,7 +98,7 @@ func riggedWith(t *testing.T, allowed []string, injector Injector, interceptHost
 			return
 		case "/echo":
 			w.Header().Set("Content-Type", "application/json")
-			_, _ = io.WriteString(w, `{"asked":"`+r.URL.RawQuery+`","key":"`+r.URL.Query().Get("key")+`"}`)
+			_, _ = io.WriteString(w, `{"query":"`+r.URL.RawQuery+`","key":"`+r.URL.Query().Get("key")+`"}`)
 			return
 		}
 		_, _ = io.WriteString(w, "answered "+r.Host)
@@ -113,7 +113,7 @@ func riggedWith(t *testing.T, allowed []string, injector Injector, interceptHost
 		t.Fatal(err)
 	}
 
-	list, err := reach.Parse(allowed)
+	list, err := allowlist.Parse(allowed)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -202,7 +202,7 @@ func TestInjectsTheRealCredentialForABoundHost(t *testing.T) {
 	}
 }
 
-func TestGivesAnUnboundHostNoCredentialAndDoesNotOpenItsTraffic(t *testing.T) {
+func TestSendsAnUnboundHostNoCredentialAndDoesNotOpenItsTraffic(t *testing.T) {
 	r := rigged(t, nil, fakeInjector{"mcp.example.com": {"Authorization": {"Bearer lin_api_1"}}})
 
 	response, body := r.get(t, "https://api.example.com/user", http.Header{"Authorization": {"Bearer agents-own"}})
@@ -284,7 +284,7 @@ func TestInjectsWhatMayTravelPlainOverPlainHTTP(t *testing.T) {
 
 func TestIsNeverAWebServerOfItsOwn(t *testing.T) {
 	r := rigged(t, nil, fakeInjector{})
-	proxy := httptest.NewServer(New(reach.List{}, fakeInjector{}, r.authority, credential, slog.New(slog.NewTextHandler(io.Discard, nil))))
+	proxy := httptest.NewServer(New(allowlist.List{}, fakeInjector{}, r.authority, credential, slog.New(slog.NewTextHandler(io.Discard, nil))))
 	defer proxy.Close()
 
 	request, _ := http.NewRequest(http.MethodGet, proxy.URL+"/", nil)
@@ -333,7 +333,7 @@ func (opener) Open(sealed, _, _ string) (string, error) {
 
 func TestInjectsWhatEgressFetchedByReplacingTheStandInTheSandboxSent(t *testing.T) {
 	quiet := slog.New(slog.NewTextHandler(io.Discard, nil))
-	list, _ := reach.Parse(nil)
+	list, _ := allowlist.Parse(nil)
 	injector := inject.From(context.Background(), protocol.EgressSecrets{
 		RunID: "run_1",
 		Secrets: []protocol.FetchedSecret{
@@ -369,7 +369,7 @@ func TestInjectsWhatEgressFetchedByReplacingTheStandInTheSandboxSent(t *testing.
 
 	r.get(t, "https://mcp.example.com/", http.Header{"X-Api-Key": {"spotlight-egress:UNKNOWN"}})
 	if got := r.upstream.last().Header; got.Get("X-Api-Key") != "" || got.Get("Authorization") != "" {
-		t.Errorf("sent on a stand-in it has no value for, or injected a secret nobody asked for: %v", got)
+		t.Errorf("sent on a stand-in it has no value for, or injected a secret nobody requested: %v", got)
 	}
 
 	injector.Wipe()
@@ -410,7 +410,7 @@ func TestTellsTheDialWhetherTheListNamesTheHostOnEveryPath(t *testing.T) {
 
 func TestSaysACallFailedWithoutEchoingTheAddressItInjectedASecretIn(t *testing.T) {
 	quiet := slog.New(slog.NewTextHandler(io.Discard, nil))
-	list, _ := reach.Parse(nil)
+	list, _ := allowlist.Parse(nil)
 	injector := inject.From(context.Background(), protocol.EgressSecrets{
 		RunID: "run_1",
 		Secrets: []protocol.FetchedSecret{
@@ -438,7 +438,7 @@ func TestSaysACallFailedWithoutEchoingTheAddressItInjectedASecretIn(t *testing.T
 
 func TestHandsTheSandboxBackTheStandInWhereTheHostEchoesTheSecret(t *testing.T) {
 	quiet := slog.New(slog.NewTextHandler(io.Discard, nil))
-	list, _ := reach.Parse(nil)
+	list, _ := allowlist.Parse(nil)
 	injector := inject.From(context.Background(), protocol.EgressSecrets{
 		RunID: "run_1",
 		Secrets: []protocol.FetchedSecret{

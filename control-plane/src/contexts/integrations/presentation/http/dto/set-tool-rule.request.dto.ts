@@ -5,7 +5,7 @@ export class SetToolRuleRequestDto {
   @ApiProperty({
     enum: PERSON_TOOL_RULES,
     description:
-      'What to ask of calls made with the caller’s connection; it can only make the team’s rule stricter',
+      'What to require of calls made with the caller’s connection; it can only make the team’s rule stricter',
     example: 'needs-approval',
   })
   readonly rule!: string;

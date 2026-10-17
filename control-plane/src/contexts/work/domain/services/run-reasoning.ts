@@ -43,21 +43,21 @@ const firstIn = (text: string): ReasoningKind | null => {
 
 const commanded = (step: {
   readonly text: string;
-  readonly given?: string | null;
+  readonly input?: string | null;
 }): Reasoning | null => {
   const titled = firstIn(step.text);
   if (titled) {
     return { kind: titled, text: step.text };
   }
 
-  const given = step.given ? firstIn(step.given) : null;
-  return given && step.given ? { kind: given, text: step.given } : null;
+  const inputKind = step.input ? firstIn(step.input) : null;
+  return inputKind && step.input ? { kind: inputKind, text: step.input } : null;
 };
 
 export const reasoningIn = (step: {
   readonly kind: StepKind;
   readonly text: string;
-  readonly given?: string | null;
+  readonly input?: string | null;
 }): Reasoning | null => {
   if (!step.text.trim()) {
     return null;

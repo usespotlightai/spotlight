@@ -35,8 +35,8 @@ type TraceStep struct {
 	Ms        int             `json:"ms"`
 	StartedAt string          `json:"startedAt"`
 	Locations []TraceLocation `json:"locations"`
-	Given     *string         `json:"given"`
-	Returned  *string         `json:"returned"`
+	Input     *string         `json:"input"`
+	Output    *string         `json:"output"`
 	Change    *TraceChange    `json:"change"`
 }
 

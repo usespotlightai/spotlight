@@ -7,7 +7,7 @@ import {
   storedHosts,
   TRUST_ID,
 } from '@runners/domain/aggregates/runner-pool.fake-spec';
-import { Admission } from '@runners/domain/value-objects/admission.vo';
+import { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { describe, expect, it } from 'vitest';
@@ -38,7 +38,7 @@ describe('PurgeStaleHosts', () => {
     await purge.servingThrough(POOL_ID);
 
     expect(hosts.removeThrough).toHaveBeenCalledWith(
-      Admission.through(POOL_ID),
+      CredentialSource.ofId(POOL_ID),
     );
     expect([...stored.keys()]).toEqual([THROUGH_TRUST.value]);
   });

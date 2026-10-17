@@ -3,7 +3,7 @@ import { WorkspaceTokenExpired } from '@identity/domain/events/workspace-token-e
 import { WorkspaceTokenIssued } from '@identity/domain/events/workspace-token-issued.event';
 import { TokenTrustBeyondGrantorError } from '@identity/domain/exceptions/token-trust-beyond-grantor.error';
 import { TokenTrustVersionConflictError } from '@identity/domain/exceptions/token-trust-version-conflict.error';
-import { WorkloadNotAdmittedError } from '@identity/domain/exceptions/workload-not-admitted.error';
+import { WorkloadNotMatchedError } from '@identity/domain/exceptions/workload-not-matched.error';
 import { Grantor } from '@identity/domain/value-objects/grantor.vo';
 import { TokenLifetime } from '@identity/domain/value-objects/token-lifetime.vo';
 import { TokenTrustKey } from '@identity/domain/value-objects/token-trust-key.vo';
@@ -43,7 +43,7 @@ const terms = (
   lifetime: TokenLifetime.ofMinutes(over.minutes ?? 15),
 });
 
-const kept = (version = 2) =>
+const stored = (version = 2) =>
   WorkspaceTokenTrust.rehydrate({
     ...terms(),
     id: ID,
@@ -59,7 +59,7 @@ const workload = (subject = MAIN): WorkloadClaims => ({
   named: {},
 });
 
-const issuedToken = (trust = kept(), claims = workload()) =>
+const issuedToken = (trust = stored(), claims = workload()) =>
   trust.issueFor(claims, {
     id: WorkspaceTokenId.of('token_9'),
     hash: TokenHash.of('b'.repeat(64)),
@@ -95,8 +95,8 @@ describe('WorkspaceTokenTrust', () => {
       userId: ADMIN,
       issuedByTrustId: ID,
     });
-    expect(token.admitsAt(new Date('2026-09-25T10:14:59.000Z'))).toBe(true);
-    expect(token.admitsAt(new Date('2026-09-25T10:15:00.000Z'))).toBe(false);
+    expect(token.isActiveAt(new Date('2026-09-25T10:14:59.000Z'))).toBe(true);
+    expect(token.isActiveAt(new Date('2026-09-25T10:15:00.000Z'))).toBe(false);
   });
 
   it('records the exchange as the issued token itself, naming the trust and the workload', () => {
@@ -117,30 +117,30 @@ describe('WorkspaceTokenTrust', () => {
     });
   });
 
-  it('issues nothing for a workload it does not admit', () => {
+  it('issues nothing for a workload it does not match', () => {
     expect(() =>
-      issuedToken(kept(), workload('repo:acme/platform:pull_request')),
-    ).toThrow(WorkloadNotAdmittedError);
+      issuedToken(stored(), workload('repo:acme/platform:pull_request')),
+    ).toThrow(WorkloadNotMatchedError);
   });
 
   it('still grants a token only while it is the same as when the token was issued', () => {
-    const token = issuedToken(kept(2));
+    const token = issuedToken(stored(2));
 
     expect(token.trustVersion).toBe(2);
-    expect(kept(2).stillGrants(token)).toBe(true);
-    expect(kept(3).stillGrants(token)).toBe(false);
-    expect(kept(2).delete(Grantor.unlimited, BY).stillGrants(token)).toBe(
+    expect(stored(2).stillGrants(token)).toBe(true);
+    expect(stored(3).stillGrants(token)).toBe(false);
+    expect(stored(2).delete(Grantor.unlimited, BY).stillGrants(token)).toBe(
       false,
     );
   });
 
   it('changes nothing, and so cuts no token, when updated to what it already is', () => {
-    const trust = kept();
+    const trust = stored();
 
     expect(trust.update(terms(), Grantor.unlimited, BY)).toBe(trust);
     expect(trust.pullEvents()).toEqual([]);
     expect(
-      kept()
+      stored()
         .update(terms({ minutes: 5 }), Grantor.unlimited, BY)
         .pullEvents()
         .map((each) => each.kind),
@@ -165,14 +165,14 @@ describe('WorkspaceTokenTrust', () => {
       'configure, secrets',
     );
     expect(() =>
-      kept().update(
+      stored().update(
         terms({ scopes: ['plan'] }),
         Grantor.withScopes(TokenScopes.named(['configure', 'trusts'])),
         BY,
       ),
     ).toThrow(TokenTrustBeyondGrantorError);
     expect(
-      kept()
+      stored()
         .update(
           terms({ scopes: ['plan'] }),
           Grantor.withScopes(
@@ -186,13 +186,13 @@ describe('WorkspaceTokenTrust', () => {
 
   it('is deleted only by a grantor with every scope it grants', () => {
     expect(() =>
-      kept().delete(
+      stored().delete(
         Grantor.withScopes(TokenScopes.named(['plan', 'trusts'])),
         BY,
       ),
     ).toThrow(TokenTrustBeyondGrantorError);
     expect(
-      kept().delete(
+      stored().delete(
         Grantor.withScopes(
           TokenScopes.named(['configure', 'secrets', 'trusts']),
         ),
@@ -203,20 +203,20 @@ describe('WorkspaceTokenTrust', () => {
 
   it('keeps its key for life', () => {
     expect(() =>
-      kept().update(terms({ key: 'github-release' }), Grantor.unlimited, BY),
+      stored().update(terms({ key: 'github-release' }), Grantor.unlimited, BY),
     ).toThrow(ImmutableFieldError);
   });
 
   it('is written over only at the version it was read at', () => {
-    expect(() => kept(2).assertVersion(1)).toThrow(
+    expect(() => stored(2).assertVersion(1)).toThrow(
       TokenTrustVersionConflictError,
     );
   });
 
-  it('admits nothing, and cannot change, once deleted', () => {
-    const deleted = kept().delete(Grantor.unlimited, BY);
+  it('matches nothing, and cannot change, once deleted', () => {
+    const deleted = stored().delete(Grantor.unlimited, BY);
 
-    expect(deleted.admits(workload())).toBe(false);
+    expect(deleted.matches(workload())).toBe(false);
     expect(deleted.pullEvents().map((each) => each.kind)).toEqual([
       'workspace-token-trust.deleted',
     ]);
@@ -239,7 +239,7 @@ describe('an issued WorkspaceToken', () => {
     ]);
   });
 
-  it('does not expire while it still admits its bearer', () => {
+  it('does not expire while it is still valid', () => {
     expect(() => issuedToken().expire(NOW)).toThrow(InconsistentStateError);
   });
 

@@ -6,16 +6,16 @@ const widgets = RunnerImage.of('ghcr.io/acme/widgets:1');
 const gadgets = RunnerImage.of('ghcr.io/acme/gadgets:1');
 
 describe('RunningImage', () => {
-  it('serves work that asks for the image it runs', () => {
+  it('serves work that requests the image it runs', () => {
     expect(RunningImage.of(widgets, false).serves(widgets)).toBe(true);
     expect(RunningImage.of(widgets, true).serves(widgets)).toBe(true);
   });
 
-  it('serves no work that asks for another image', () => {
+  it('serves no work that requests another image', () => {
     expect(RunningImage.of(widgets, true).serves(gadgets)).toBe(false);
   });
 
-  it('serves work that asks for no image only when it runs the default one', () => {
+  it('serves work that requests no image only when it runs the default one', () => {
     expect(RunningImage.of(widgets, true).serves(null)).toBe(true);
     expect(RunningImage.of(widgets, false).serves(null)).toBe(false);
   });

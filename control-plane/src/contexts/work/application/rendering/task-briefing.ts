@@ -7,7 +7,7 @@ import type {
 import { Attached } from '@work/application/rendering/attached';
 import { Learned } from '@work/application/rendering/learned';
 import type { Line } from '@work/domain/aggregates/line.aggregate';
-import { givenIntegrations } from '@work/domain/services/given-integrations';
+import { enabledIntegrations } from '@work/domain/services/enabled-integrations';
 import { HANDOVER_COMMAND } from '@work/domain/services/run-reasoning';
 import { repositoriesReviewedOrAll } from '@work/domain/services/task-checkouts';
 import type {
@@ -44,7 +44,7 @@ const closing = (line: Line, stationId: StationId): string => {
     'Running nothing puts the task in front of a person.',
     'Nobody is watching this terminal. If you need a decision, a missing detail, or an answer before you can finish, do not ask here and wait: hand the task over with `--next "' +
       REVIEW +
-      '"` and put the question in the note. Asking at the terminal reaches nobody, and the task does not move until someone notices.',
+      '"` and put the question in the note. Nobody sees a question at the terminal, and the task does not move until someone notices.',
   ]
     .filter(Boolean)
     .join('\n\n');
@@ -84,7 +84,7 @@ const listing = (
   listedIn && skills.length > 0
     ? [
         '## Skills',
-        'These are in the workspace. Read one when you reach for what it is about:',
+        'These are in the workspace. Read one when you need what it is about:',
         skills
           .map(
             (each) =>
@@ -97,12 +97,12 @@ const listing = (
 const NAMED = new Intl.ListFormat('en', { type: 'conjunction' });
 
 const toolsOf = (described: readonly DeclaredTool[]): string | null => {
-  const integrations = givenIntegrations(described);
+  const integrations = enabledIntegrations(described);
 
   return integrations.length > 0
     ? [
         '## Tools',
-        `You were given tools from ${NAMED.format(integrations.map((each) => `${each.name} (${each.tools})`))}. Find the one you need with \`spotlight tools search "<words>"\`, read what it takes with \`spotlight tools describe <tool>\`, then call it. Every tool answers in JSON.`,
+        `Your station enables tools from ${NAMED.format(integrations.map((each) => `${each.name} (${each.tools})`))}. Find the one you need with \`spotlight tools search "<words>"\`, read what it takes with \`spotlight tools describe <tool>\`, then call it. Every tool answers in JSON.`,
       ].join('\n\n')
     : null;
 };
@@ -137,12 +137,12 @@ const SAYING_DECISIONS = [
     '- an assumption you rely on but have not checked;',
     '- a limitation or gap you leave in place;',
     '- an approach you weighed and set aside, and why;',
-    '- anywhere you depart from what the task, the spec or an earlier note asked.',
+    '- anywhere you depart from what the task, the spec or an earlier note requested.',
   ].join('\n'),
   'Routine choices anyone would make need no mention. Name them again in your handover note.',
 ].join('\n\n');
 
-const KEPT_WORKSPACE =
+const PERSISTENT_WORKSPACE =
   'The task keeps this workspace from one run and station to the next, so work an earlier one left, committed or not, may already be here.';
 
 const workspaceOf = (task: BriefedTask, line: Line): string | null => {
@@ -160,14 +160,14 @@ const workspaceOf = (task: BriefedTask, line: Line): string | null => {
     ? [
         '## The workspace',
         `The repository is checked out in:\n\n${listed}`,
-        KEPT_WORKSPACE,
+        PERSISTENT_WORKSPACE,
       ].join('\n\n')
     : [
         '## The workspace',
         'These repositories are checked out side by side, each in its own directory:',
         listed,
         'Work out which one (or ones) your change belongs in. When you open a pull request, name the repository with `spotlight pull-request --repository <name>`.',
-        KEPT_WORKSPACE,
+        PERSISTENT_WORKSPACE,
       ].join('\n\n');
 };
 

@@ -11,9 +11,9 @@ import {
 } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/pull-request-counts.sql';
 import {
   atIn,
+  coveredPullRequests,
   inLowerCase,
   pullRequestsNamedIn,
-  reachedPullRequests,
 } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/pull-requests.sql';
 import { iso } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/run-fact.sql';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
@@ -70,14 +70,14 @@ export const pullRequestPageIn = async (
 ): Promise<PullRequestPage> => {
   const window = team.period.current;
   const result = await db.execute<PageRow>(sql`
-    with reached as (${reachedPullRequests(team, listing.repositories, window.from)}),
+    with covered as (${coveredPullRequests(team, listing.repositories, window.from)}),
     compared as (
-      select distinct repository_key from reached
+      select distinct repository_key from covered
       where ${mergedIn(window)} and made_by = 'spotlight'
     ),
     listed as (
       select pull_request, coalesce(closed_at, opened_at) as last_at
-      from reached
+      from covered
       where ${listedOf(listing.filter, window)}
     )
     select

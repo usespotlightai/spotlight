@@ -6,7 +6,7 @@ import {
 } from '@integrations/infrastructure/sources/operation-record';
 import { parse as parseYaml } from 'yaml';
 
-export interface DescriptionAsked {
+export interface DescriptionInput {
   readonly kind: 'openapi' | 'graphql';
   readonly text: string;
   readonly url: string | null;
@@ -34,21 +34,21 @@ const parsed = (text: string): unknown => {
 };
 
 export const describedOperations = (
-  asked: DescriptionAsked,
+  input: DescriptionInput,
 ): DescriptionAnswered => {
   try {
     return {
       kind: 'read',
       read:
-        asked.kind === 'openapi'
-          ? openapiOperations(parsed(asked.text), {
-              url: asked.url,
-              baseUrl: asked.baseUrl,
-              connected: asked.connected,
+        input.kind === 'openapi'
+          ? openapiOperations(parsed(input.text), {
+              url: input.url,
+              baseUrl: input.baseUrl,
+              connected: input.connected,
             })
-          : graphqlOperations(asked.text, {
-              endpoint: asked.url ?? '',
-              depth: asked.depth,
+          : graphqlOperations(input.text, {
+              endpoint: input.url ?? '',
+              depth: input.depth,
             }),
     };
   } catch (error) {

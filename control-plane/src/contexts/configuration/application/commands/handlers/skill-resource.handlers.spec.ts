@@ -4,7 +4,7 @@ import { CreateSkillHandler } from '@configuration/application/commands/handlers
 import { DeleteSkillHandler } from '@configuration/application/commands/handlers/delete-skill.handler';
 import { UpdateSkillHandler } from '@configuration/application/commands/handlers/update-skill.handler';
 import { UpdateSkillCommand } from '@configuration/application/commands/update-skill.command';
-import type { StationGifts } from '@configuration/application/services/station-gifts.service';
+import type { StationReferences } from '@configuration/application/services/station-references.service';
 import { SkillDefinition } from '@configuration/domain/aggregates/skill-definition.aggregate';
 import { SkillAlreadyExistsError } from '@configuration/domain/exceptions/skill-already-exists.error';
 import type { SkillDefinitionRepository } from '@configuration/domain/repositories/skill-definition.repository';
@@ -77,12 +77,12 @@ const definitions = (
 
 describe('CreateSkillHandler', () => {
   const creating = (over: { administers?: boolean; throwing?: Error } = {}) => {
-    const kept = definitions({ throwing: over.throwing });
+    const repository = definitions({ throwing: over.throwing });
     const handler = new CreateSkillHandler(
       access(over.administers),
       teams,
       new SkillCompiler(),
-      kept,
+      repository,
       {
         claim: vi.fn(async () => ({ kind: 'fresh' as const })),
         created: vi.fn(async () => {}),
@@ -101,21 +101,21 @@ describe('CreateSkillHandler', () => {
             definition,
           ),
         ),
-      kept,
+      repository,
     };
   };
 
   it('creates the skill its files describe', async () => {
-    const { create, kept } = creating();
+    const { create, repository } = creating();
 
     expect(await create(GRAFANA)).toEqual({
       outcome: 'created',
       id: 'skill_new',
       replayed: false,
     });
-    expect((kept.save.mock.calls[0] as [SkillDefinition])[0].key.value).toBe(
-      'grafana',
-    );
+    expect(
+      (repository.save.mock.calls[0] as [SkillDefinition])[0].key.value,
+    ).toBe('grafana');
   });
 
   it('says a key the team already has is taken', async () => {
@@ -127,14 +127,14 @@ describe('CreateSkillHandler', () => {
   });
 
   it('says what is wrong, and creates nothing', async () => {
-    const { create, kept } = creating();
+    const { create, repository } = creating();
     const rejected = await create({ key: 'grafana', files: {} });
 
     expect(
       rejected?.outcome === 'invalid' &&
         rejected.problems.map((each) => dottedOf(each.field)),
     ).toEqual(['files']);
-    expect(kept.save).not.toHaveBeenCalled();
+    expect(repository.save).not.toHaveBeenCalled();
   });
 
   it('forbids someone on the team who does not administer it', async () => {
@@ -146,11 +146,11 @@ describe('CreateSkillHandler', () => {
 
 describe('UpdateSkillHandler', () => {
   const updating = () => {
-    const kept = definitions({ stored: storedAt(3) });
+    const repository = definitions({ stored: storedAt(3) });
     const handler = new UpdateSkillHandler(
       access(),
       new SkillCompiler(),
-      kept,
+      repository,
       transaction,
     );
 
@@ -164,12 +164,12 @@ describe('UpdateSkillHandler', () => {
             definition,
           ),
         ),
-      kept,
+      repository,
     };
   };
 
   it('replaces the skill’s files', async () => {
-    const { update, kept } = updating();
+    const { update, repository } = updating();
     const files = { ...GRAFANA.files, 'notes.md': 'More.' };
 
     expect(await update({ ...GRAFANA, files })).toEqual({
@@ -177,11 +177,11 @@ describe('UpdateSkillHandler', () => {
       id: 'skill_1',
     });
     expect(
-      (kept.save.mock.calls[0] as [SkillDefinition])[0].files.fields,
+      (repository.save.mock.calls[0] as [SkillDefinition])[0].files.fields,
     ).toEqual(files);
   });
 
-  it('points at the key when asked to change it', async () => {
+  it('points at the key when a request changes it', async () => {
     const rejected = await updating().update({
       key: 'loki',
       files: {
@@ -205,12 +205,12 @@ describe('UpdateSkillHandler', () => {
 });
 
 describe('DeleteSkillHandler', () => {
-  const deleting = (given = StationUses.none()) => {
-    const kept = definitions({ stored: storedAt(3) });
+  const deleting = (uses = StationUses.none()) => {
+    const repository = definitions({ stored: storedAt(3) });
     const handler = new DeleteSkillHandler(
       access(),
-      kept,
-      { onTeam: vi.fn(async () => given) } as unknown as StationGifts,
+      repository,
+      { onTeam: vi.fn(async () => uses) } as unknown as StationReferences,
       transaction,
     );
 
@@ -219,25 +219,25 @@ describe('DeleteSkillHandler', () => {
         handler.execute(
           new DeleteSkillCommand('skill_1', actorFor('user_1'), 3),
         ),
-      kept,
+      repository,
     };
   };
 
-  it('deletes a skill that no station gives', async () => {
-    const { remove, kept } = deleting();
+  it('deletes a skill that no station enables', async () => {
+    const { remove, repository } = deleting();
 
     expect(await remove()).toEqual({ outcome: 'deleted' });
-    expect((kept.save.mock.calls[0] as [SkillDefinition])[0].isDeleted).toBe(
-      true,
-    );
+    expect(
+      (repository.save.mock.calls[0] as [SkillDefinition])[0].isDeleted,
+    ).toBe(true);
   });
 
-  it('will not delete a skill that a station gives', async () => {
-    const { remove, kept } = deleting(
+  it('will not delete a skill that a station enables', async () => {
+    const { remove, repository } = deleting(
       StationUses.of([{ name: 'grafana', by: 'delivery/implementation' }]),
     );
 
     expect(await remove()).toMatchObject({ outcome: 'in-use' });
-    expect(kept.save).not.toHaveBeenCalled();
+    expect(repository.save).not.toHaveBeenCalled();
   });
 });

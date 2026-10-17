@@ -69,7 +69,7 @@ type StationRow = Pick<
   | 'finishes'
 >;
 
-interface Given {
+interface StationItem {
   readonly stationId: string;
   readonly name: string;
 }
@@ -84,8 +84,8 @@ export interface LineRows {
     typeof stationRoute.$inferSelect,
     'stationId' | 'toStationId'
   >[];
-  readonly tools: readonly Given[];
-  readonly skills: readonly Given[];
+  readonly tools: readonly StationItem[];
+  readonly skills: readonly StationItem[];
   readonly reactions: readonly Pick<
     typeof lineReaction.$inferSelect,
     'happening' | 'fromStationId' | 'toStationId'
@@ -102,8 +102,13 @@ const present = <K extends string, V>(
 const placed = (runners: readonly string[]): string[] | null =>
   runners.length > 0 ? [...runners] : null;
 
-const givenAt = (given: readonly Given[], stationId: string): string[] =>
-  given.filter((each) => each.stationId === stationId).map((each) => each.name);
+const enabledAt = (
+  enabled: readonly StationItem[],
+  stationId: string,
+): string[] =>
+  enabled
+    .filter((each) => each.stationId === stationId)
+    .map((each) => each.name);
 
 type ReactionRow = LineRows['reactions'][number];
 
@@ -163,8 +168,8 @@ export const renderLineRows = (rows: LineRows): Exact<Rendered<LineFields>> => {
       ...present('below', each.below),
       over: each.over,
     })),
-    tools: givenAt(rows.tools, row.id),
-    skills: givenAt(rows.skills, row.id),
+    tools: enabledAt(rows.tools, row.id),
+    skills: enabledAt(rows.skills, row.id),
     passesTo: rows.routes
       .filter((each) => each.stationId === row.id)
       .sort((one, other) => place(one.toStationId) - place(other.toStationId))

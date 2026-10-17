@@ -1,4 +1,4 @@
-import type { RunnerAdmissionsPort } from '@runners/application/ports/runner-admissions.port';
+import type { RunnerAuthenticatorPort } from '@runners/application/ports/runner-authenticator.port';
 import type { RunnersPort } from '@runners/application/ports/runners.port';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -13,7 +13,7 @@ export class ClaimHostCallHandler
   implements CommandHandlerPort<ClaimHostCallCommand, HostCallClaimDto>
 {
   constructor(
-    private readonly admissions: RunnerAdmissionsPort,
+    private readonly authenticator: RunnerAuthenticatorPort,
     private readonly runners: RunnersPort,
     private readonly calls: NetworkCallRepository,
     private readonly clock: ClockPort,
@@ -22,20 +22,22 @@ export class ClaimHostCallHandler
 
   async execute(command: ClaimHostCallCommand): Promise<HostCallClaimDto> {
     try {
-      const admitted = await this.admissions.admit(command.credential);
+      const authenticated = await this.authenticator.authenticate(
+        command.credential,
+      );
 
-      if (!admitted) {
+      if (!authenticated) {
         return { outcome: 'unauthorized' };
       }
 
       const host = CallingHost.of(command.host);
 
-      if (!(await this.runners.reports(admitted.way, host.value))) {
+      if (!(await this.runners.reports(authenticated.source, host.value))) {
         return { outcome: 'host-unreported' };
       }
 
       const claimed = await this.polls.polled(() =>
-        this.calls.claimNext(admitted.workspaceId, host, this.clock.now()),
+        this.calls.claimNext(authenticated.workspaceId, host, this.clock.now()),
       );
 
       if (!claimed) {

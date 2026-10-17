@@ -1,6 +1,6 @@
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
 import type { IntegrationRuntimePort } from '@integrations/application/ports/integration-runtime.port';
-import type { HostReach } from '@integrations/application/services/host-reach.service';
+import type { CallAuthResolver } from '@integrations/application/services/call-auth-resolver.service';
 import type { LearnOutputShapes } from '@integrations/application/services/learn-output-shapes.service';
 import type { PersonToolRules } from '@integrations/application/services/person-tool-rules.service';
 import { BoundTaskMapper } from '@integrations/infrastructure/acl/bound-task.mapper';
@@ -18,12 +18,12 @@ export class IntegrationToolCalls implements IntegrationToolCallsPort {
   constructor(
     private readonly defined: DefinedIntegrationsPort,
     private readonly runtime: IntegrationRuntimePort,
-    private readonly hosts: HostReach,
+    private readonly callAuthResolver: CallAuthResolver,
     private readonly learning: LearnOutputShapes,
     private readonly personRules: PersonToolRules,
   ) {}
 
-  async reach(
+  async resolve(
     tool: string,
     task: BoundTaskDto,
     run: RunAttemptDto,
@@ -31,25 +31,25 @@ export class IntegrationToolCalls implements IntegrationToolCallsPort {
   ): Promise<IntegrationTool | null> {
     const teamId = TeamId.of(task.teamId);
     const definitions = await this.defined.ofTeam(teamId);
-    const reachable = await this.runtime.tool(
+    const resolved = await this.runtime.tool(
       definitions,
       tool,
       BoundTaskMapper.toBound(task),
     );
 
-    if (!reachable) {
+    if (!resolved) {
       return null;
     }
 
-    const found = await this.hosts.connectionFor(
+    const found = await this.callAuthResolver.connectionFor(
       teamId,
-      reachable.integration,
+      resolved.integration,
       requester ? UserId.of(requester) : null,
     );
 
     if (found.kind === 'wanted') {
       return {
-        declared: reachable.declared,
+        declared: resolved.declared,
         actingAs: null,
         personRule: null,
         wants: {
@@ -58,7 +58,7 @@ export class IntegrationToolCalls implements IntegrationToolCallsPort {
           personId: found.wanted.personId?.value ?? null,
           because: found.wanted.because,
         },
-        defaultFor: (input) => reachable.defaultFor(input),
+        defaultFor: (input) => resolved.defaultFor(input),
         call: async () => {
           throw new InconsistentStateError(
             'integration tool',
@@ -70,13 +70,13 @@ export class IntegrationToolCalls implements IntegrationToolCallsPort {
 
     const personRule = await this.personRules.ruleFor(
       teamId,
-      reachable.integration.source,
+      resolved.integration.source,
       found.holder,
       tool,
     );
 
     return {
-      declared: reachable.declared,
+      declared: resolved.declared,
       personRule: personRule
         ? {
             rule: personRule.rule.name,
@@ -84,7 +84,7 @@ export class IntegrationToolCalls implements IntegrationToolCallsPort {
             personName: personRule.personName,
           }
         : null,
-      actingAs: reachable.integration.connects
+      actingAs: resolved.integration.connects
         ? {
             holder: found.holder.isPerson ? 'person' : 'team',
             personId: found.holder.personId?.value ?? null,
@@ -92,17 +92,17 @@ export class IntegrationToolCalls implements IntegrationToolCallsPort {
           }
         : null,
       wants: null,
-      defaultFor: (input) => reachable.defaultFor(input),
+      defaultFor: (input) => resolved.defaultFor(input),
       call: async (inputs) => {
-        const answer = await reachable.call(
+        const answer = await resolved.call(
           inputs,
-          await this.hosts.forRun(
+          await this.callAuthResolver.forRun(
             {
               teamId,
               workspaceId: task.workspaceId,
               runId: run.runId,
               attempt: run.attempt,
-              injectedSecrets: reachable.injectedSecrets,
+              injectedSecrets: resolved.injectedSecrets,
             },
             found.connection,
           ),

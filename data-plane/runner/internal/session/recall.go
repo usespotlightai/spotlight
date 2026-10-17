@@ -39,7 +39,7 @@ type recallSpan struct {
 	Status     *spanStatus     `json:"status,omitempty"`
 }
 
-func recalled(asked protocol.RecallRequest, from, to time.Time, answer json.RawMessage, err error) json.RawMessage {
+func recalled(request protocol.RecallRequest, from, to time.Time, answer json.RawMessage, err error) json.RawMessage {
 	span := recallSpan{
 		TraceID: randomHex(16),
 		SpanID:  randomHex(8),
@@ -48,10 +48,10 @@ func recalled(asked protocol.RecallRequest, from, to time.Time, answer json.RawM
 		End:     strconv.FormatInt(to.UnixNano(), 10),
 	}
 
-	if asked.Handle != "" {
-		span.Attributes = append(span.Attributes, spanAttribute{Key: "spotlight.recall.handle", Value: spanValue{StringValue: asked.Handle}})
+	if request.Handle != "" {
+		span.Attributes = append(span.Attributes, spanAttribute{Key: "spotlight.recall.handle", Value: spanValue{StringValue: request.Handle}})
 	} else {
-		span.Attributes = append(span.Attributes, spanAttribute{Key: "spotlight.recall.words", Value: spanValue{StringValue: asked.Words}})
+		span.Attributes = append(span.Attributes, spanAttribute{Key: "spotlight.recall.words", Value: spanValue{StringValue: request.Words}})
 	}
 
 	if err != nil {

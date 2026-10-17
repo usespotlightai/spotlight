@@ -16,7 +16,7 @@ const registering = (reply: Response) => {
 };
 
 describe('OAuth2Registrar', () => {
-  it('registers Spotlight’s callback and keeps the client it is given', async () => {
+  it('registers Spotlight’s callback and stores the client it receives', async () => {
     const { fetch, registrar } = registering(
       Response.json({
         client_id: 'c-1',

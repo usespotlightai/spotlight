@@ -331,7 +331,7 @@ export class Chat extends EventRecorder {
     return assigned;
   }
 
-  runKeptNothing(runId: RunId): Chat {
+  runEndedWithoutSession(runId: RunId): Chat {
     if (!this.hasCurrentRun(runId)) {
       return this;
     }
@@ -357,7 +357,7 @@ export class Chat extends EventRecorder {
     }
 
     if (!ending.session) {
-      return { chat: this.runKeptNothing(runId), followsUp: false };
+      return { chat: this.runEndedWithoutSession(runId), followsUp: false };
     }
 
     const worked = this.endRun(runId).recordSession(

@@ -15,11 +15,11 @@ import type { EgressSecretFetches } from '@work/application/services/egress-secr
 import { describe, expect, it } from 'vitest';
 
 const checker = (
-  admitted: Record<string, ReturnType<typeof runOf>[1]>,
+  authorized: Record<string, ReturnType<typeof runOf>[1]>,
   leased: readonly string[],
 ) =>
   new CheckActiveRunsHandler(
-    sharedEgress(admitted),
+    sharedEgress(authorized),
     leasing(leased) as unknown as EgressSecretFetches,
     { now: () => NOW } as ClockPort,
   );

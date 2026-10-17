@@ -239,7 +239,7 @@ describe('a task put to a person by its current run', () => {
     expect(paused().takesUp(RUN)).toBe(false);
   });
 
-  it('passes an answer its run never heard to the next run’s briefing once it leaves its run', () => {
+  it('passes an answer its run never received to the next run’s briefing once it leaves its run', () => {
     const answered = answer(paused());
 
     expect(answered.leaveRun(RUN, NOW).unacknowledged).toEqual([]);

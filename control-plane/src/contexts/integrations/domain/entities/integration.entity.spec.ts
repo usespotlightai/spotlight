@@ -42,7 +42,7 @@ describe('Integration', () => {
     );
   });
 
-  it('is called by its source where the file gives no name', () => {
+  it('is called by its source where the file names none', () => {
     expect(integration().name).toBe('linear');
     expect(Integration.of({ source: LINEAR, name: 'Linear' }).name).toBe(
       'Linear',

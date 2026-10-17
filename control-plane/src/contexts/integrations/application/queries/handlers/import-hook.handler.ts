@@ -31,11 +31,11 @@ export class ImportHookHandler
             (each) => each.key === address.teamKey,
           )
         : undefined;
-      const kept = team
+      const record = team
         ? await this.resources.at(team.id, address.key.value)
         : null;
 
-      return kept ? this.views.onTeam(kept, address.teamKey) : null;
+      return record ? this.views.onTeam(record, address.teamKey) : null;
     } catch (error) {
       rethrowAsApplicationError(error);
     }

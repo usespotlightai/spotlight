@@ -105,10 +105,10 @@ func TestAPushRunnerRegistersThenClaimsWhatWasReservedForIt(t *testing.T) {
 }
 
 func TestReportsTheHarnessesItFindsInItsImage(t *testing.T) {
-	asked := `[{"id":"sh","executable":"sh"},{"id":"absent","executable":"no-such-harness"}]`
+	received := `[{"id":"sh","executable":"sh"},{"id":"absent","executable":"no-such-harness"}]`
 	out := new(strings.Builder)
 
-	if err := report(asked, "20260925-01", out); err != nil {
+	if err := report(received, "20260925-01", out); err != nil {
 		t.Fatalf("report: %v", err)
 	}
 

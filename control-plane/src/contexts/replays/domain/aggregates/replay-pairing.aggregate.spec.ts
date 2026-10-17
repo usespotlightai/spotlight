@@ -1,7 +1,7 @@
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import { ReplayEntryConcluded } from '@replays/domain/events/replay-entry-concluded.event';
-import { ReplayPairJudgingWanted } from '@replays/domain/events/replay-pair-judging-wanted.event';
-import { ReplayPairingDue } from '@replays/domain/events/replay-pairing-due.event';
+import { ReplayPairJudgingRequested } from '@replays/domain/events/replay-pair-judging-requested.event';
+import { ReplayPairingRequested } from '@replays/domain/events/replay-pairing-requested.event';
 import { InvalidReplayError } from '@replays/domain/exceptions/invalid-replay.error';
 import {
   aReplay,
@@ -85,7 +85,7 @@ describe('Replay, set side by side with its baseline', () => {
     );
   });
 
-  it('asks a side-by-side judging for every concluded change beside the baseline’s for the same task, once', () => {
+  it('requests a side-by-side judging for every concluded change beside the baseline’s for the same task, once', () => {
     const replay = concludedAll(judging('replay_1'));
     const against = concludedAll(baseline());
 
@@ -94,7 +94,7 @@ describe('Replay, set side by side with its baseline', () => {
     expect(paired.pullEvents()).toEqual(
       [0, 1].map(
         (at) =>
-          new ReplayPairJudgingWanted(
+          new ReplayPairJudgingRequested(
             replay.id,
             replay.workspaceId,
             replay.candidateId,
@@ -128,7 +128,7 @@ describe('Replay, set side by side with its baseline', () => {
     ]);
   });
 
-  it('asks nothing for a task with no accepted change, no change on either side, or a side not yet concluded', () => {
+  it('requests nothing for a task with no accepted change, no change on either side, or a side not yet concluded', () => {
     const replay = concludedAll(judging('replay_1'));
 
     expect(
@@ -170,7 +170,7 @@ describe('Replay, set side by side with its baseline', () => {
     ).toBeNull();
   });
 
-  it('asks nothing once its spend reached its ceiling', () => {
+  it('requests nothing once its spend reached its ceiling', () => {
     const replay = concludedAll(judging('replay_1', 1, 2));
 
     expect(replay.pairAgainst(concludedAll(baseline()), everyOriginal)).toBe(
@@ -178,7 +178,7 @@ describe('Replay, set side by side with its baseline', () => {
     );
   });
 
-  it('asks only as many as its headroom allows, reserving twice each entry’s judging cost per attempt it pays for, and asks again once a verdict frees room', () => {
+  it('requests only as many as its headroom allows, reserving twice each entry’s judging cost per attempt it pays for, and requests again once a verdict frees room', () => {
     const replay = concludedAll(judging('replay_1', 1, 4), {
       judgingCost: 0.25,
     });
@@ -199,7 +199,7 @@ describe('Replay, set side by side with its baseline', () => {
     );
 
     expect(answered.pullEvents()).toContainEqual(
-      new ReplayPairingDue(answered.id, answered.workspaceId),
+      new ReplayPairingRequested(answered.id, answered.workspaceId),
     );
     expect(
       answered.pairAgainst(against, everyOriginal).entries[1]?.pairing?.pending,
@@ -246,20 +246,20 @@ describe('Replay, set side by side with its baseline', () => {
     );
   });
 
-  it('keeps what pairing spent in its charge against the ceiling, but out of what it spent on its runs', () => {
-    const asked = concludedAll(judging('replay_1')).pairAgainst(
+  it('records what pairing spent in its charge against the ceiling, but out of what it spent on its runs', () => {
+    const requested = concludedAll(judging('replay_1')).pairAgainst(
       concludedAll(baseline()),
       everyOriginal,
     );
-    const paired = asked.pair(
+    const paired = requested.pair(
       runOf('replay_1', 0),
       runOf('baseline_1', 0),
       pairVerdictOf('run'),
       ModelSpent.of([Spend.of(0.25, 'USD')], 0),
     );
 
-    expect(paired.spent.equals(asked.spent)).toBe(true);
-    expect(paired.charged.amount).toBeCloseTo(asked.charged.amount + 0.25);
+    expect(paired.spent.equals(requested.spent)).toBe(true);
+    expect(paired.charged.amount).toBeCloseTo(requested.charged.amount + 0.25);
   });
 
   it('is set beside only the replay it started paired with', () => {
@@ -301,16 +301,16 @@ describe('Replay, set side by side with its baseline', () => {
     expect(() => judging('baseline_1')).toThrow(InvalidReplayError);
   });
 
-  it('keeps the verdict and what it cost against its ceiling, without changing whether the run succeeded', () => {
-    const asked = concludedAll(judging('replay_1')).pairAgainst(
+  it('records the verdict and what it cost against its ceiling, without changing whether the run succeeded', () => {
+    const requested = concludedAll(judging('replay_1')).pairAgainst(
       concludedAll(baseline()),
       everyOriginal,
     );
     const run = runOf('replay_1', 0);
-    const succeeded = asked.entries[0]?.succeeded;
-    const chargedBefore = asked.charged.amount;
+    const succeeded = requested.entries[0]?.succeeded;
+    const chargedBefore = requested.charged.amount;
 
-    const paired = asked.pair(
+    const paired = requested.pair(
       run,
       runOf('baseline_1', 0),
       pairVerdictOf('run'),
@@ -325,7 +325,7 @@ describe('Replay, set side by side with its baseline', () => {
     ).toBe(paired);
   });
 
-  it('keeps why a side-by-side judging failed', () => {
+  it('records why a side-by-side judging failed', () => {
     const failed = concludedAll(judging('replay_1'))
       .pairAgainst(concludedAll(baseline()), everyOriginal)
       .recordPairingFailure(
@@ -345,9 +345,9 @@ const pairedAs = (
   against: Replay,
   winners: readonly ('run' | 'against' | 'tie')[],
 ): Replay => {
-  const asked = replay.pairAgainst(against, everyOriginal);
+  const requested = replay.pairAgainst(against, everyOriginal);
 
-  return asked.entries.reduce(
+  return requested.entries.reduce(
     (built, entry, at) =>
       built.pair(
         entry.run as RunId,
@@ -355,7 +355,7 @@ const pairedAs = (
         pairVerdictOf(winners[at] ?? 'tie'),
         null,
       ),
-    asked,
+    requested,
   );
 };
 

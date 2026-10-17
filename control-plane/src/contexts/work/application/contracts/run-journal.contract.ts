@@ -61,8 +61,8 @@ export interface JournalStep {
   readonly ms: number;
   readonly startedAt: Date;
   readonly locations: readonly StepLocation[];
-  readonly given: string | null;
-  readonly returned: string | null;
+  readonly input: string | null;
+  readonly output: string | null;
   readonly change: StepChange | null;
 }
 

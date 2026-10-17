@@ -166,8 +166,8 @@ const dispatch: TaskDispatching = {
 
 const store = {
   grant: vi.fn(),
-  received: vi.fn(async (_at, given: readonly AttachmentId[]) =>
-    given.map((id) =>
+  received: vi.fn(async (_at, ids: readonly AttachmentId[]) =>
+    ids.map((id) =>
       Attachment.of({
         id: id.value,
         name: 'queue.png',
@@ -176,7 +176,7 @@ const store = {
       }),
     ),
   ),
-  keep: vi.fn(),
+  save: vi.fn(),
   taken: vi.fn(),
   link: vi.fn(),
   open: vi.fn(),
@@ -286,7 +286,7 @@ describe('AnswerInboxItem', () => {
     expect(saved?.notes[saved.notes.length - 1]?.body.value).toBe(
       [
         'Approved.',
-        'I changed what it runs with. Call it again as you asked and it runs with these instead:',
+        'I changed what it runs with. Call it again as before and it runs with these instead:',
         'body: `Fixed in #41.`',
         'issue: `ENG-12`',
       ].join('\n\n'),

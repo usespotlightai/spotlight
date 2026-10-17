@@ -34,7 +34,7 @@ describe('checkStateAt', () => {
     expect(checkStateAt(checkOf({ lease }), leasedUntil)).toBe('skipped');
   });
 
-  it('counts a check leased past the ceiling as not leased, however far its lease reaches', () => {
+  it('counts a check leased past the ceiling as not leased, however far its lease goes', () => {
     const ceiling = new Date(SINCE.getTime() + MAX_LEASE_MS);
     const lease = {
       leaseExpiresAt: new Date(ceiling.getTime() + 10 * 60_000),

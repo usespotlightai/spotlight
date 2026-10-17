@@ -2,8 +2,8 @@ import { InvalidRunPageError } from '@outcomes/domain/exceptions/invalid-run-pag
 import {
   lastPageOf,
   MAX_RUN_PAGE,
-  pageAskedOf,
   pageWithin,
+  requestedPageOf,
 } from '@outcomes/domain/services/run-page';
 import { describe, expect, it } from 'vitest';
 
@@ -20,7 +20,9 @@ describe('run pages', () => {
   });
 
   it('rejects a page past the most it ever pages to before reading any runs', () => {
-    expect(pageAskedOf(MAX_RUN_PAGE)).toBe(MAX_RUN_PAGE);
-    expect(() => pageAskedOf(MAX_RUN_PAGE + 1)).toThrow(InvalidRunPageError);
+    expect(requestedPageOf(MAX_RUN_PAGE)).toBe(MAX_RUN_PAGE);
+    expect(() => requestedPageOf(MAX_RUN_PAGE + 1)).toThrow(
+      InvalidRunPageError,
+    );
   });
 });

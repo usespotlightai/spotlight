@@ -27,7 +27,7 @@ interface Discovered {
   readonly scopes: readonly string[];
 }
 
-const KEPT_FOR_MS = 10 * 60_000;
+const CACHE_TTL_MS = 10 * 60_000;
 
 const ANSWERS_WITHIN_MS = 15_000;
 
@@ -35,7 +35,7 @@ const PKCE = 'S256';
 
 const UNAUTHORIZED = 401;
 
-const ASKING = JSON.stringify({
+const OAUTH_DISCOVERY_REQUEST = JSON.stringify({
   jsonrpc: '2.0',
   id: 0,
   method: 'initialize',
@@ -119,7 +119,7 @@ export class OAuth2Discovery {
     const discovered = await this.discover(server).catch(() => null);
 
     if (discovered) {
-      this.#found.set(server, { discovered, until: now + KEPT_FOR_MS });
+      this.#found.set(server, { discovered, until: now + CACHE_TTL_MS });
     }
 
     return discovered;
@@ -164,7 +164,7 @@ export class OAuth2Discovery {
           'content-type': 'application/json',
           accept: 'application/json, text/event-stream',
         },
-        body: ASKING,
+        body: OAUTH_DISCOVERY_REQUEST,
       });
 
       await reply.body?.cancel();

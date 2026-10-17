@@ -159,7 +159,7 @@ describe('formatHcl', () => {
     );
   });
 
-  it('writes a list asked to span lines one item to a line, even where each fits on one', () => {
+  it('writes a list set to span lines one item to a line, even where each fits on one', () => {
     expect(
       formatHcl([
         block(

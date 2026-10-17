@@ -34,13 +34,16 @@ export class ResourceInterceptor implements NestInterceptor {
     const http = context.switchToHttp();
     const { headers } = http.getRequest<{ headers: RequestHeaders }>();
     const response = http.getResponse<HeaderedResponse>();
-    const asked = headerIn(headers, API_VERSION_HEADER);
+    const requested = headerIn(headers, API_VERSION_HEADER);
 
     response.setHeader(API_VERSION_HEADER, API_VERSION);
 
-    if (asked !== undefined && !SUPPORTED_API_VERSIONS.includes(asked)) {
+    if (
+      requested !== undefined &&
+      !SUPPORTED_API_VERSIONS.includes(requested)
+    ) {
       throw ProblemException.unsupportedApiVersion(
-        asked,
+        requested,
         SUPPORTED_API_VERSIONS,
       );
     }

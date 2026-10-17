@@ -14,7 +14,7 @@ export class NotifyOutsideTools {
   ) {}
 
   async on(event: TaskOpened | PullRequestOpened | TaskAsked): Promise<void> {
-    if (event.kind === 'task.opened' && !event.heard) {
+    if (event.kind === 'task.opened' && !event.fromIntegration) {
       return;
     }
 
@@ -24,9 +24,9 @@ export class NotifyOutsideTools {
       return;
     }
 
-    const kept = await this.notifier.notify(task, event.kind);
+    const notified = await this.notifier.notify(task, event.kind);
 
-    if (kept.length === 0) {
+    if (notified.length === 0) {
       return;
     }
 
@@ -37,7 +37,7 @@ export class NotifyOutsideTools {
         return;
       }
 
-      const marked = kept.reduce(
+      const marked = notified.reduce(
         (markedTask, mark) => markedTask.markedBy(mark),
         current,
       );

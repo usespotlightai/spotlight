@@ -265,10 +265,10 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
     const credential = runner.egress?.credential ?? '';
     const node = recipient();
 
-    const admitted = await asEgress('admit', {
+    const authorized = await asEgress('authorize', {
       proxyCredential: credential,
     }).expect(200);
-    expect(admitted.body).toMatchObject({
+    expect(authorized.body).toMatchObject({
       workspaceId,
       controlPlaneHost: expect.any(String),
       controlPlanePort: expect.any(Number),
@@ -329,10 +329,10 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
     const credential = runner.egress?.credential ?? '';
     await claimedBy(runner.token);
 
-    const kept = await asEgress('active-runs', {
+    const listed = await asEgress('active-runs', {
       proxyCredentials: [credential, 'unknown'],
     }).expect(200);
-    expect(kept.body.active).toEqual([credential]);
+    expect(listed.body.active).toEqual([credential]);
 
     await asEgress('connections', {
       records: [
@@ -565,7 +565,7 @@ describe('a push pool that goes out through a shared egress (e2e)', () => {
         EGRESS_TOKEN_HEADER.toLowerCase()
       ] as string;
 
-      for (const path of ['admit', 'secrets']) {
+      for (const path of ['authorize', 'secrets']) {
         await asEgress(
           path,
           { proxyCredential: credential, recipient: recipient().written },

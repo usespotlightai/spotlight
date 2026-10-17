@@ -22,7 +22,7 @@ import type { StationSkills } from '@work/application/services/station-skills.se
 import type { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Station } from '@work/domain/entities/station.entity';
 import { BUILT_IN_SKILL_KEYS } from '@work/domain/services/built-in-skills';
-import { skillsForTools } from '@work/domain/services/given-to-run';
+import { skillsForTools } from '@work/domain/services/enabled-for-run';
 import type { HarnessCatalog } from '@work/domain/services/harness-catalog';
 import {
   type OrderedAt,
@@ -131,9 +131,13 @@ export class StationOrdering {
     readying: Readying,
   ): Promise<Ordered | null> {
     const station = line.stationAt(at.stationId) ?? null;
-    const kept = station ? await this.teamSkills.readyAt(line, station) : [];
-    const catalog = station ? await this.catalog.givenAt(line, station) : null;
-    const ready = [...kept, ...(catalog?.skills ?? [])];
+    const teamSkills = station
+      ? await this.teamSkills.readyAt(line, station)
+      : [];
+    const catalog = station
+      ? await this.catalog.enabledAt(line, station)
+      : null;
+    const ready = [...teamSkills, ...(catalog?.skills ?? [])];
     const order = orderAt({
       at,
       line,
@@ -166,11 +170,11 @@ export class StationOrdering {
       prepared,
       home,
       folders: [
-        ...order.given.builtInSkills.flatMap((key) => {
+        ...order.enabled.builtInSkills.flatMap((key) => {
           const folder = this.builtInSkills.named(key.value);
           return folder ? [folder] : [];
         }),
-        ...order.given.teamSkills.flatMap((skill) =>
+        ...order.enabled.teamSkills.flatMap((skill) =>
           ready.filter((each) => each.skill.key === skill.key.value),
         ),
       ],
@@ -197,7 +201,7 @@ export class StationOrdering {
     order: RunOrder,
     readying: Readying,
   ): PreparedHarness | null {
-    const profile = order.given.profile;
+    const profile = order.enabled.profile;
 
     return this.launch.preparedFor(order.harness.id, {
       model: order.model,

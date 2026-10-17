@@ -105,22 +105,22 @@ func (e *Egress) Dial(ctx context.Context, _, address string) (net.Conn, error) 
 		conn = secured
 	}
 
-	asked := &http.Request{
+	connect := &http.Request{
 		Method: http.MethodConnect,
 		URL:    &url.URL{Opaque: address},
 		Host:   address,
 		Header: http.Header{"Proxy-Authorization": {e.authorization}},
 	}
-	if err := asked.Write(conn); err != nil {
+	if err := connect.Write(conn); err != nil {
 		conn.Close()
-		return nil, fmt.Errorf("ask egress for a tunnel: %w", err)
+		return nil, fmt.Errorf("request a tunnel from egress: %w", err)
 	}
 
 	reader := bufio.NewReader(conn)
-	answer, err := http.ReadResponse(reader, asked)
+	answer, err := http.ReadResponse(reader, connect)
 	if err != nil {
 		conn.Close()
-		return nil, fmt.Errorf("ask egress for a tunnel: %w", err)
+		return nil, fmt.Errorf("request a tunnel from egress: %w", err)
 	}
 	if answer.StatusCode != http.StatusOK {
 		text, _ := io.ReadAll(io.LimitReader(answer.Body, 4096))
@@ -147,26 +147,26 @@ func (e *Egress) Transport(target *tls.Config) *http.Transport {
 }
 
 func (e *Egress) Bound(ctx context.Context) ([]string, error) {
-	asked, err := http.NewRequestWithContext(ctx, http.MethodGet, e.url.JoinPath(protocol.EgressBoundPath).String(), nil)
+	request, err := http.NewRequestWithContext(ctx, http.MethodGet, e.url.JoinPath(protocol.EgressBoundPath).String(), nil)
 	if err != nil {
 		return nil, err
 	}
-	asked.Header.Set("Proxy-Authorization", e.authorization)
+	request.Header.Set("Proxy-Authorization", e.authorization)
 
-	answer, err := e.forward.RoundTrip(asked)
+	answer, err := e.forward.RoundTrip(request)
 	if err != nil {
-		return nil, fmt.Errorf("ask egress which hosts are bound: %w", err)
+		return nil, fmt.Errorf("read the bound hosts from egress: %w", err)
 	}
 	defer answer.Body.Close()
 
 	if answer.StatusCode != http.StatusOK {
 		text, _ := io.ReadAll(io.LimitReader(answer.Body, 4096))
-		return nil, fmt.Errorf("ask egress which hosts are bound: %w", &HTTPError{Status: answer.StatusCode, Text: strings.TrimSpace(string(text))})
+		return nil, fmt.Errorf("read the bound hosts from egress: %w", &HTTPError{Status: answer.StatusCode, Text: strings.TrimSpace(string(text))})
 	}
 
 	var bound protocol.EgressBound
 	if err := json.NewDecoder(answer.Body).Decode(&bound); err != nil {
-		return nil, fmt.Errorf("ask egress which hosts are bound: %w", err)
+		return nil, fmt.Errorf("read the bound hosts from egress: %w", err)
 	}
 
 	return bound.Hosts, nil

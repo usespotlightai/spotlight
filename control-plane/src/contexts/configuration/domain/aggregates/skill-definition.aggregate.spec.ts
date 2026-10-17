@@ -31,7 +31,7 @@ const read = (key = 'grafana', body = 'Search first.') => ({
   files: SkillFiles.of({ 'SKILL.md': body }),
 });
 
-const kept = (version = 3) =>
+const stored = (version = 3) =>
   SkillDefinition.rehydrate({
     id: ID,
     teamId: TEAM,
@@ -44,7 +44,7 @@ const BY = attributedIn();
 
 const GRAFANA = { resource: 'skill' as const, id: 'skill_1', key: 'grafana' };
 
-const GIVEN = StationUses.of([
+const ENABLED = StationUses.of([
   { name: 'grafana', by: 'delivery/implementation' },
 ]);
 
@@ -70,13 +70,13 @@ describe('SkillDefinition', () => {
   });
 
   it('rejects a change made against another version', () => {
-    expect(() => kept(3).assertVersion(2)).toThrow(
+    expect(() => stored(3).assertVersion(2)).toThrow(
       SkillDefinitionVersionConflictError,
     );
   });
 
   it('takes new files, and says so', () => {
-    const updated = kept().update(read('grafana', 'Search twice.'), BY);
+    const updated = stored().update(read('grafana', 'Search twice.'), BY);
 
     expect(updated.files.fields).toEqual({ 'SKILL.md': 'Search twice.' });
     expect(updated.pullEvents()).toEqual([
@@ -90,16 +90,20 @@ describe('SkillDefinition', () => {
   });
 
   it('keeps its key for its whole life', () => {
-    expect(() => kept().update(read('loki'), BY)).toThrow(ImmutableFieldError);
+    expect(() => stored().update(read('loki'), BY)).toThrow(
+      ImmutableFieldError,
+    );
   });
 
-  it('will not be deleted while a station gives it', () => {
-    expect(() => kept().delete(GIVEN, BY)).toThrow(SkillInUseError);
-    expect(() => kept().delete(GIVEN, BY)).toThrow(/delivery\/implementation/);
+  it('will not be deleted while a station enables it', () => {
+    expect(() => stored().delete(ENABLED, BY)).toThrow(SkillInUseError);
+    expect(() => stored().delete(ENABLED, BY)).toThrow(
+      /delivery\/implementation/,
+    );
   });
 
-  it('is deleted when no station gives it, and cannot change after', () => {
-    const deleted = kept().delete(
+  it('is deleted when no station enables it, and cannot change after', () => {
+    const deleted = stored().delete(
       StationUses.of([{ name: 'loki', by: 'delivery/implementation' }]),
       BY,
     );
@@ -116,8 +120,8 @@ describe('SkillDefinition', () => {
     expect(() => deleted.update(read(), BY)).toThrow(InconsistentStateError);
   });
 
-  it('is deleted with its team, whoever still gives it', () => {
-    const deleted = kept().cascadeDelete(BY);
+  it('is deleted with its team, whichever station still enables it', () => {
+    const deleted = stored().cascadeDelete(BY);
 
     expect(deleted.isDeleted).toBe(true);
     expect(deleted.pullEvents()).toEqual([

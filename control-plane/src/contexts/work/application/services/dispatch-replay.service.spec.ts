@@ -124,7 +124,7 @@ const launch: HarnessLaunchPort = {
                     value,
                   })),
                 })),
-                asks: ['execute'],
+                askKinds: ['execute'],
               }
             : null,
         }
@@ -275,10 +275,11 @@ let gone: string[] = [];
 let taskGone = false;
 let taskNotes: TaskNote[] = [];
 let stored: Run | null = null;
-let kept: WorkspaceArchive | null = null;
+let archive: WorkspaceArchive | null = null;
 let queued: Run[] = [];
-let askedSkills: string[] = [];
-let askedAgain: { place: BriefedPlace; briefed: readonly NamedMemory[] }[] = [];
+let requestedSkills: string[] = [];
+let requestedAgain: { place: BriefedPlace; briefed: readonly NamedMemory[] }[] =
+  [];
 
 const dispatching = () =>
   new DispatchReplay(
@@ -291,7 +292,7 @@ const dispatching = () =>
         queued.push(run);
       },
     } as unknown as RunRepository,
-    { find: async () => kept } as unknown as WorkspaceArchiveRepository,
+    { find: async () => archive } as unknown as WorkspaceArchiveRepository,
     {
       find: async () => (taskGone ? null : { notes: taskNotes }),
     } as unknown as TaskRepository,
@@ -306,13 +307,13 @@ const dispatching = () =>
     },
     {
       named: (key) => {
-        askedSkills.push(key);
+        requestedSkills.push(key);
         return null;
       },
     },
     { readyAt: async () => [] } as unknown as StationSkills,
     new StationCatalog({
-      givenTo: async () => ({
+      entitledTo: async () => ({
         tools: [],
         skills: [],
         denied: [
@@ -328,7 +329,7 @@ const dispatching = () =>
     { named: async (_team, key) => (key === 'linear' ? LINEAR : null) },
     {
       again: async (place, chosen) => {
-        askedAgain.push({ place, briefed: chosen.briefed });
+        requestedAgain.push({ place, briefed: chosen.briefed });
         return {
           briefed: [
             {
@@ -388,8 +389,8 @@ const written = (run?: Run): RunSpecShape => {
   return RunSpecContract.toWire(run.spec);
 };
 
-const unreplayableReasonOf = async (asked: Promise<unknown>) =>
-  asked.then(
+const unreplayableReasonOf = async (enqueued: Promise<unknown>) =>
+  enqueued.then(
     () => {
       throw new Error('the replay was queued');
     },
@@ -404,10 +405,10 @@ const unreplayableReasonOf = async (asked: Promise<unknown>) =>
 describe('DispatchReplay', () => {
   beforeEach(() => {
     stored = original(STARTED);
-    kept = sealed();
+    archive = sealed();
     queued = [];
-    askedSkills = [];
-    askedAgain = [];
+    requestedSkills = [];
+    requestedAgain = [];
     gone = [];
     taskGone = false;
     taskNotes = [];
@@ -514,27 +515,27 @@ describe('DispatchReplay', () => {
     expect(queued).toEqual([]);
   });
 
-  it('queues a replay even for a catalog tool that is denied to its plan, as a replay is given no tools', async () => {
+  it('queues a replay even for a catalog tool that is denied to its plan, as a replay has no tools enabled', async () => {
     await dispatching().enqueue({ original: ORIGINAL, candidate: LINE });
 
     expect(queued[0]?.hasEnded).toBe(false);
   });
 
-  it('gives the replay no tools, MCP servers or secrets, and never asks it where it started', async () => {
+  it('enables no tools, MCP servers or secrets for the replay, and never requests where it started', async () => {
     await dispatching().enqueue({ original: ORIGINAL, candidate: LINE });
 
     const spec = written(queued[0]);
 
     expect(spec.manifest).toBeUndefined();
     expect(spec.briefing).not.toContain('## Tools');
-    expect(askedSkills).not.toContain('spotlight-tools');
+    expect(requestedSkills).not.toContain('spotlight-tools');
     expect(spec.catalog).toBeUndefined();
     expect(spec.injectedSecrets).toBeUndefined();
     expect(spec.startingPoint).toBeUndefined();
     expect(spec.harnessSetup).toEqual({
       files: [{ path: 'dev/servers.json', text: '' }],
       mcpServers: [],
-      asks: ['execute'],
+      askKinds: ['execute'],
     });
   });
 
@@ -557,7 +558,7 @@ describe('DispatchReplay', () => {
   it('briefs the memories the original was briefed with, never searching afresh', async () => {
     await dispatching().enqueue({ original: ORIGINAL, candidate: LINE });
 
-    expect(askedAgain).toEqual([
+    expect(requestedAgain).toEqual([
       {
         place: {
           teamId: TeamId.of('team_1'),
@@ -596,9 +597,9 @@ describe('DispatchReplay', () => {
     expect(queued).toEqual([]);
   });
 
-  it('rejects a run whose archive is no longer kept, naming it', async () => {
+  it('rejects a run whose archive is no longer stored, naming it', async () => {
     for (const gone of [null, sealed('ws_2')]) {
-      kept = gone;
+      archive = gone;
 
       await expect(
         dispatching().enqueue({ original: ORIGINAL, candidate: LINE }),
@@ -607,7 +608,7 @@ describe('DispatchReplay', () => {
     expect(queued).toEqual([]);
   });
 
-  it('rejects a run whose briefed files are no longer kept', async () => {
+  it('rejects a run whose briefed files are no longer stored', async () => {
     gone = [SCREENSHOT.id.value];
 
     expect(
@@ -642,7 +643,7 @@ describe('DispatchReplay', () => {
     expect(queued).toEqual([]);
   });
 
-  it('queues a replay under the id it is asked for once, however often it is asked', async () => {
+  it('queues a replay under the requested id once, however often it is requested', async () => {
     const id = RunId.of('run_9');
 
     expect(

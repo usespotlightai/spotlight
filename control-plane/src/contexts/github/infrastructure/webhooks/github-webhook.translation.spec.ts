@@ -15,13 +15,13 @@ const delivered = (
   raw: null,
 });
 
-const heard = (event: string | undefined, body: Record<string, unknown>) =>
+const eventsOf = (event: string | undefined, body: Record<string, unknown>) =>
   translation.translated(
     delivered(event, { installation: { id: 42 }, ...body }),
-  ).heard;
+  ).events;
 
 const activity = (event: string | undefined, body: Record<string, unknown>) =>
-  heard(event, body).flatMap((each) =>
+  eventsOf(event, body).flatMap((each) =>
     each.kind === 'pull-request-activity' ? [each.activity] : [],
   )[0] ?? null;
 
@@ -59,7 +59,7 @@ describe('GitHubWebhookTranslation', () => {
       }
     });
 
-    it('reads a pull request labelled, with the label it was given', () => {
+    it('reads a pull request labelled, with the label it received', () => {
       expect(
         activity('pull_request', {
           action: 'labeled',
@@ -149,7 +149,7 @@ describe('GitHubWebhookTranslation', () => {
       ).toBe('COLLABORATOR');
     });
 
-    it('reads no association where GitHub gives none', () => {
+    it('reads no association where GitHub sends none', () => {
       for (const association of [undefined, 7, ' ']) {
         expect(
           activity('pull_request', {
@@ -278,7 +278,7 @@ describe('GitHubWebhookTranslation', () => {
       });
     });
 
-    it('tells a review asking for changes from one merely saying something', () => {
+    it('tells a review requesting changes from one merely saying something', () => {
       expect(
         activity('pull_request_review', {
           action: 'submitted',
@@ -301,9 +301,9 @@ describe('GitHubWebhookTranslation', () => {
       ).toMatchObject({ activity: 'commented' });
     });
 
-    it('hears a submitted review, its state, who wrote it and when', () => {
+    it('reads a submitted review, its state, who wrote it and when', () => {
       expect(
-        heard('pull_request_review', {
+        eventsOf('pull_request_review', {
           action: 'submitted',
           pull_request: pull(),
           review: {
@@ -327,10 +327,10 @@ describe('GitHubWebhookTranslation', () => {
       ]);
     });
 
-    it('hears no review that was only edited or dismissed', () => {
+    it('reads no review that was only edited or dismissed', () => {
       for (const action of ['edited', 'dismissed']) {
         expect(
-          heard('pull_request_review', {
+          eventsOf('pull_request_review', {
             action,
             pull_request: pull(),
             review: { state: 'approved', user: { login: 'ada' } },
@@ -339,10 +339,10 @@ describe('GitHubWebhookTranslation', () => {
       }
     });
 
-    it('hears no review in a state GitHub never sends, even one named like a property every object has', () => {
+    it('reads no review in a state GitHub never sends, even one named like a property every object has', () => {
       for (const state of ['constructor', 'toString', 'pending']) {
         expect(
-          heard('pull_request_review', {
+          eventsOf('pull_request_review', {
             action: 'submitted',
             pull_request: pull(),
             review: { state, user: { login: 'ada' } },
@@ -391,9 +391,9 @@ describe('GitHubWebhookTranslation', () => {
       ).toMatchObject({ byBot: true });
     });
 
-    it('says nothing of an event it was not asked to read', () => {
+    it('says nothing of an event it was not told to read', () => {
       expect(activity('push', { pull_request: pull() })).toBeNull();
-      expect(translation.translated(delivered(undefined, {})).heard).toEqual(
+      expect(translation.translated(delivered(undefined, {})).events).toEqual(
         [],
       );
     });
@@ -452,9 +452,9 @@ describe('GitHubWebhookTranslation', () => {
     });
   });
 
-  describe('hearing a pull request close', () => {
+  describe('reading a pull request close', () => {
     const closed = (over: Record<string, unknown> = {}) =>
-      heard('pull_request', {
+      eventsOf('pull_request', {
         action: 'closed',
         repository: { full_name: 'acme/api' },
         pull_request: pull({
@@ -464,7 +464,7 @@ describe('GitHubWebhookTranslation', () => {
         ...over,
       }).filter((each) => each.kind === 'pull-request-closed');
 
-    it('hears a merge, with the commit it made and when', () => {
+    it('reads a merge, with the commit it made and when', () => {
       expect(closed()).toEqual([
         {
           kind: 'pull-request-closed',
@@ -476,7 +476,7 @@ describe('GitHubWebhookTranslation', () => {
       ]);
     });
 
-    it('hears a close without a merge, naming no commit', () => {
+    it('reads a close without a merge, naming no commit', () => {
       expect(
         closed({
           pull_request: pull({
@@ -487,7 +487,7 @@ describe('GitHubWebhookTranslation', () => {
       ).toMatchObject([{ merge: null }]);
     });
 
-    it('hears nothing of a merge that names no full commit', () => {
+    it('reads nothing of a merge that names no full commit', () => {
       expect(
         closed({ pull_request: pull({ merge_commit_sha: null }) }),
       ).toEqual([]);
@@ -496,14 +496,14 @@ describe('GitHubWebhookTranslation', () => {
       ).toEqual([]);
     });
 
-    it('hears nothing of a pull request still open', () => {
+    it('reads nothing of a pull request still open', () => {
       expect(closed({ action: 'opened' })).toEqual([]);
     });
   });
 
-  describe('hearing what a pull request is', () => {
+  describe('reading what a pull request is', () => {
     const described = (body: Record<string, unknown>, event = 'pull_request') =>
-      heard(event, {
+      eventsOf(event, {
         repository: { full_name: 'acme/api' },
         ...body,
       }).flatMap((each) => (each.kind === 'pull-request' ? [each.facts] : []));
@@ -524,7 +524,7 @@ describe('GitHubWebhookTranslation', () => {
       changed_files: 2,
     };
 
-    it('hears every pull request event as what the pull request now is, whether or not a task owns it', () => {
+    it('reads every pull request event as what the pull request now is, whether or not a task owns it', () => {
       for (const action of ['opened', 'edited', 'synchronize', 'reopened']) {
         expect(described({ action, pull_request: OPEN })).toEqual([
           {
@@ -615,7 +615,7 @@ describe('GitHubWebhookTranslation', () => {
       ]);
     });
 
-    it('reads a bot author, and no size where GitHub gives none', () => {
+    it('reads a bot author, and no size where GitHub sends none', () => {
       expect(
         described({
           action: 'opened',
@@ -628,7 +628,7 @@ describe('GitHubWebhookTranslation', () => {
       ).toMatchObject([{ authorIsBot: true, size: null }]);
     });
 
-    it('hears nothing of a pull request it cannot name', () => {
+    it('reads nothing of a pull request it cannot name', () => {
       expect(
         described({
           action: 'opened',
@@ -640,7 +640,7 @@ describe('GitHubWebhookTranslation', () => {
       ).toEqual([]);
     });
 
-    it('hears nothing of a pull request whose address names another repository or number', () => {
+    it('reads nothing of a pull request whose address names another repository or number', () => {
       expect(
         described({
           action: 'opened',
@@ -660,9 +660,9 @@ describe('GitHubWebhookTranslation', () => {
       ).toHaveLength(1);
     });
 
-    it('hears a dismissed review by its id, with what the pull request is', () => {
+    it('reads a dismissed review by its id, with what the pull request is', () => {
       expect(
-        heard('pull_request_review', {
+        eventsOf('pull_request_review', {
           action: 'dismissed',
           repository: { full_name: 'acme/api' },
           pull_request: OPEN,
@@ -683,7 +683,7 @@ describe('GitHubWebhookTranslation', () => {
 
     it('carries what the pull request is along with a review, and the review’s id', () => {
       expect(
-        heard('pull_request_review', {
+        eventsOf('pull_request_review', {
           action: 'submitted',
           repository: { full_name: 'acme/api' },
           pull_request: OPEN,
@@ -704,7 +704,7 @@ describe('GitHubWebhookTranslation', () => {
 
     it('tells a bot’s review comment from a person’s', () => {
       expect(
-        heard('pull_request_review_comment', {
+        eventsOf('pull_request_review_comment', {
           action: 'created',
           repository: { full_name: 'acme/api' },
           pull_request: OPEN,
@@ -720,9 +720,9 @@ describe('GitHubWebhookTranslation', () => {
     });
   });
 
-  describe('hearing a review comment', () => {
+  describe('reading a review comment', () => {
     const commented = (action: string, comment: Record<string, unknown>) =>
-      heard('pull_request_review_comment', {
+      eventsOf('pull_request_review_comment', {
         action,
         pull_request: pull(),
         comment,
@@ -742,7 +742,7 @@ describe('GitHubWebhookTranslation', () => {
       created_at: '2026-09-16T09:00:00Z',
     };
 
-    it('hears a review comment made, changed or deleted on a pull request', () => {
+    it('reads a review comment made, changed or deleted on a pull request', () => {
       expect(commented('created', COMMENT)).toEqual([
         {
           kind: 'review-comment',
@@ -787,7 +787,7 @@ describe('GitHubWebhookTranslation', () => {
       });
     });
 
-    it('hears a comment left on the whole file as one', () => {
+    it('reads a comment left on the whole file as one', () => {
       expect(
         commented('created', {
           id: 302,
@@ -810,7 +810,7 @@ describe('GitHubWebhookTranslation', () => {
       ).not.toHaveProperty('line');
     });
 
-    it('hears what Spotlight said without the name it signed it with', () => {
+    it('reads what Spotlight said without the name it signed it with', () => {
       const signed = {
         ...COMMENT,
         body: '**Ada** via Spotlight:\n\nWhy not a constant?',
@@ -824,18 +824,19 @@ describe('GitHubWebhookTranslation', () => {
       });
     });
 
-    it('hears no review comment in any other event', () => {
+    it('reads no review comment in any other event', () => {
       expect(
-        heard('pull_request', { action: 'closed', pull_request: pull() }).map(
-          (each) => each.kind,
-        ),
+        eventsOf('pull_request', {
+          action: 'closed',
+          pull_request: pull(),
+        }).map((each) => each.kind),
       ).toEqual(['pull-request-activity']);
     });
   });
 
-  describe('hearing a conversation comment', () => {
+  describe('reading a conversation comment', () => {
     const conversed = (action: string, body: Record<string, unknown> = {}) =>
-      heard('issue_comment', {
+      eventsOf('issue_comment', {
         action,
         issue: {
           title: 'Retry failed uploads',
@@ -849,7 +850,7 @@ describe('GitHubWebhookTranslation', () => {
         ...body,
       }).filter((each) => each.kind === 'conversation-comment');
 
-    it('hears a comment made, changed or deleted on a pull request’s conversation', () => {
+    it('reads a comment made, changed or deleted on a pull request’s conversation', () => {
       expect(conversed('created')).toEqual([
         {
           kind: 'conversation-comment',
@@ -862,14 +863,14 @@ describe('GitHubWebhookTranslation', () => {
       expect(conversed('pinned')).toEqual([]);
     });
 
-    it('hears nothing of a comment on an issue that is not a pull request', () => {
+    it('reads nothing of a comment on an issue that is not a pull request', () => {
       expect(conversed('created', { issue: { title: 'Bug' } })).toEqual([]);
     });
   });
 
-  describe('hearing a review thread', () => {
+  describe('reading a review thread', () => {
     const threaded = (action: string, thread: Record<string, unknown>) =>
-      heard('pull_request_review_thread', {
+      eventsOf('pull_request_review_thread', {
         action,
         repository: { full_name: 'acme/api' },
         pull_request: pull(),
@@ -884,7 +885,7 @@ describe('GitHubWebhookTranslation', () => {
       ],
     };
 
-    it('hears a thread resolved or unresolved, and who opened it', () => {
+    it('reads a thread resolved or unresolved, and who opened it', () => {
       expect(threaded('resolved', THREAD)).toEqual([
         {
           kind: 'review-thread',
@@ -904,7 +905,7 @@ describe('GitHubWebhookTranslation', () => {
       });
     });
 
-    it('hears a thread whose comments GitHub left out, and nothing of one it cannot name', () => {
+    it('reads a thread whose comments GitHub left out, and nothing of one it cannot name', () => {
       expect(threaded('resolved', { node_id: 'PRRT_kwDOB' })[0]).toMatchObject({
         thread: { opener: null, login: null, byBot: false },
       });
@@ -913,15 +914,15 @@ describe('GitHubWebhookTranslation', () => {
     });
   });
 
-  describe('hearing an installation', () => {
-    it('hears one that was removed', () => {
-      expect(heard('installation', { action: 'deleted' })).toEqual([
+  describe('reading an installation', () => {
+    it('reads one that was removed', () => {
+      expect(eventsOf('installation', { action: 'deleted' })).toEqual([
         { kind: 'installation-removed' },
       ]);
     });
 
-    it('hears nothing of one that is still there', () => {
-      expect(heard('installation', { action: 'created' })).toEqual([]);
+    it('reads nothing of one that is still there', () => {
+      expect(eventsOf('installation', { action: 'created' })).toEqual([]);
     });
   });
 });

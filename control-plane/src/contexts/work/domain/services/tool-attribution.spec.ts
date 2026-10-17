@@ -11,7 +11,7 @@ const HOMES = ['.claude/skills'];
 const step = (over: Partial<CalledStep> = {}): CalledStep => ({
   server: null,
   tool: 'Read',
-  skillAskedFor: null,
+  requestedSkill: null,
   paths: [],
   ms: 100,
   ending: 'completed',
@@ -42,9 +42,9 @@ describe('skillsReadBy', () => {
     ).toEqual(['grafana']);
   });
 
-  it('reads a skill the harness was asked to load', () => {
+  it('reads a skill that the harness was told to load', () => {
     expect(
-      skillsReadBy(step({ skillAskedFor: 'our-migrations' }), HOMES),
+      skillsReadBy(step({ requestedSkill: 'our-migrations' }), HOMES),
     ).toEqual(['our-migrations']);
   });
 
@@ -90,11 +90,11 @@ describe('skillsReadBy', () => {
     ).toEqual([]);
   });
 
-  it('leaves out the skills Spotlight gives every run', () => {
+  it('leaves out the skills Spotlight enables for every run', () => {
     expect(
       skillsReadBy(
         step({
-          skillAskedFor: 'spotlight-handover',
+          requestedSkill: 'spotlight-handover',
           paths: ['/workspace/.claude/skills/spotlight-review/SKILL.md'],
         }),
         HOMES,

@@ -224,7 +224,7 @@ describe('WatchStations', () => {
     ]);
   });
 
-  it('takes the team and the alert’s task in hand before asking whether they were deleted', async () => {
+  it('takes the team and the alert’s task in hand before it reads whether they were deleted', async () => {
     const station = watching([
       AlertRule.of({ measure: 'sent_back_rate', above: 0.4, over: 1 }),
     ]);

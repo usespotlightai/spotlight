@@ -20,8 +20,8 @@ const RUN = RunId.of('replay_1');
 
 const AGAINST = RunId.of('replay_2');
 
-const asked = () =>
-  PairJudging.asked({
+const queued = () =>
+  PairJudging.requested({
     runId: RUN,
     against: AGAINST,
     workspaceId: WorkspaceId.of('ws_1'),
@@ -64,12 +64,12 @@ const preferring = (
     evidence: evidenceIn(order),
   }));
 
-const leasedJudging = () => asked().leaseJob(NOW);
+const leasedJudging = () => queued().leaseJob(NOW);
 
 describe('PairJudging', () => {
   it('sets two different runs beside a third, accepted before', () => {
     expect(() =>
-      PairJudging.asked({
+      PairJudging.requested({
         runId: RUN,
         against: RUN,
         workspaceId: WorkspaceId.of('ws_1'),
@@ -81,7 +81,7 @@ describe('PairJudging', () => {
       }),
     ).toThrow(InvalidScoreError);
     expect(() =>
-      PairJudging.asked({
+      PairJudging.requested({
         runId: RUN,
         against: AGAINST,
         workspaceId: WorkspaceId.of('ws_1'),
@@ -92,7 +92,7 @@ describe('PairJudging', () => {
         now: NOW,
       }),
     ).toThrow(InvalidScoreError);
-    expect(asked().hasPendingJob).toBe(true);
+    expect(queued().hasPendingJob).toBe(true);
   });
 
   it('reads the pair once in the order drawn and once the other way round', () => {
@@ -194,8 +194,8 @@ describe('PairJudging', () => {
     expect(event?.against.equals(AGAINST)).toBe(true);
   });
 
-  it('stops trying once it was tried as often as its asker pays for', () => {
-    const once = PairJudging.asked({
+  it('stops trying once it was tried as often as its requester pays for', () => {
+    const once = PairJudging.requested({
       runId: RUN,
       against: AGAINST,
       workspaceId: WorkspaceId.of('ws_1'),

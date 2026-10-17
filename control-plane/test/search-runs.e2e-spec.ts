@@ -118,15 +118,15 @@ const claimed = async (
 };
 
 const aClaimedSearch = async (over: Partial<SearchOrder> = {}) => {
-  const asked = order(over);
+  const queued = order(over);
 
   expect(
-    await app.get<SearchDispatchPort>(SEARCH_DISPATCH).enqueue(asked),
+    await app.get<SearchDispatchPort>(SEARCH_DISPATCH).enqueue(queued),
   ).toEqual({ outcome: 'queued' });
 
-  const { token, run } = await claimed(asked.id);
+  const { token, run } = await claimed(queued.id);
 
-  return { order: asked, runId: asked.id, token, run };
+  return { order: queued, runId: queued.id, token, run };
 };
 
 const aTask = async (title: string): Promise<string> => {
@@ -301,7 +301,7 @@ const finishing = (next: string) => ({
   failed: false,
   handover: { next, note: 'Proposed two candidates.' },
   sessionId: 'session_1',
-  kept: true,
+  archived: true,
 });
 
 beforeAll(async () => {
@@ -364,7 +364,7 @@ beforeAll(async () => {
     },
   ]);
 
-  const [kept] = await db
+  const [stored] = await db
     .insert(schema.memory)
     .values({
       id: randomUUID(),
@@ -379,7 +379,7 @@ beforeAll(async () => {
       approvedAt: new Date(),
     })
     .returning({ handle: schema.memory.handle });
-  memoryHandle = kept?.handle ?? 0;
+  memoryHandle = stored?.handle ?? 0;
 
   await http()
     .post(`/api/resources/workspaces/${team.workspaceId.value}/runner-pools`)
@@ -397,7 +397,7 @@ afterAll(async () => {
 describe('a search run claimed by a runner', () => {
   it('receives only the briefing it was dispatched with: nothing to check out, no tools, skills, attachments or memories', async () => {
     const {
-      order: asked,
+      order: queued,
       runId,
       run,
     } = await aClaimedSearch({
@@ -406,7 +406,7 @@ describe('a search run claimed by a runner', () => {
 
     expect(run.spec).toEqual({
       command: expect.objectContaining({ args: expect.any(Array) }),
-      briefing: asked.briefing,
+      briefing: queued.briefing,
       handover: { options: [], noteLimit: 0 },
       continuity: { key: `search-${runId}` },
       search: {},
@@ -416,7 +416,7 @@ describe('a search run claimed by a runner', () => {
 
     expect(row?.taskId).toBeNull();
     expect(row?.replayOfRunId).toBeNull();
-    expect(row?.searchId).toBe(asked.searchId);
+    expect(row?.searchId).toBe(queued.searchId);
     expect(row?.searchIteration).toBe(2);
     expect(row?.ranForTeamId).toBe(team.teamId.value);
     expect(row?.stationId).toBe(BUILD);
@@ -425,7 +425,7 @@ describe('a search run claimed by a runner', () => {
   });
 
   it('is named to the replays context by its search and iteration, only while its runner has a lease on it', async () => {
-    const { order: asked, runId } = await aClaimedSearch({ iteration: 3 });
+    const { order: queued, runId } = await aClaimedSearch({ iteration: 3 });
     const searches = app.get<SearchRunsPort>(SEARCH_RUNS);
     const [host] = await db
       .select({ claimedBy: schema.run.claimedBy })
@@ -435,13 +435,13 @@ describe('a search run claimed by a runner', () => {
     expect(
       await searches.leasedSearchRun(runId, host?.claimedBy ?? ''),
     ).toEqual({
-      searchId: asked.searchId,
+      searchId: queued.searchId,
       iteration: 3,
     });
     expect(await searches.leasedSearchRun(runId, randomUUID())).toBeNull();
   });
 
-  it('reaches no repository, uses no tool, replies to no review comment, acknowledges no message, keeps no workspace and reaches no memory', async () => {
+  it('touches no repository, uses no tool, replies to no review comment, acknowledges no message, archives no workspace and reads no memory', async () => {
     const { runId, token } = await aClaimedSearch();
 
     await runner(token)
@@ -649,7 +649,7 @@ describe('a search run reading its station’s history', () => {
 describe('a search run ending', () => {
   it('says so as a search run’s end and digest, and wakes none of what a task run’s or replay’s end wakes', async () => {
     const {
-      order: asked,
+      order: queued,
       runId,
       token,
     } = await aClaimedSearch({
@@ -666,7 +666,7 @@ describe('a search run ending', () => {
     const [endedEvent] = await published('work.search-run-ended.v1', runId);
 
     expect(endedEvent?.payload).toMatchObject({
-      searchId: asked.searchId,
+      searchId: queued.searchId,
       iteration: 4,
       teamId: team.teamId.value,
       stationId: BUILD,
@@ -688,7 +688,7 @@ describe('a search run ending', () => {
       {
         payload: expect.objectContaining({
           kind: 'work.search-run-digested.v1',
-          searchId: asked.searchId,
+          searchId: queued.searchId,
         }),
       },
     ]);
@@ -748,34 +748,34 @@ describe('a search run ending', () => {
   });
 
   it('is cancelled before a runner claims it, still saying so as a search’s end', async () => {
-    const asked = order();
+    const queued = order();
     const dispatch = app.get<SearchDispatchPort>(SEARCH_DISPATCH);
 
-    await dispatch.enqueue(asked);
-    await dispatch.cancel(asked.id);
+    await dispatch.enqueue(queued);
+    await dispatch.cancel(queued.id);
 
-    expect((await runRow(asked.id))?.state).toBe('cancelled');
+    expect((await runRow(queued.id))?.state).toBe('cancelled');
     await eventually(
       async () =>
-        (await published('work.search-run-ended.v1', asked.id)).length === 1,
+        (await published('work.search-run-ended.v1', queued.id)).length === 1,
     );
-    expect(await published('work.run-ended.v1', asked.id)).toEqual([]);
+    expect(await published('work.run-ended.v1', queued.id)).toEqual([]);
   });
 });
 
 describe('who may watch a search run', () => {
   it('is someone who reads its team, never someone outside it', async () => {
-    const asked = order();
+    const queued = order();
 
-    await app.get<SearchDispatchPort>(SEARCH_DISPATCH).enqueue(asked);
+    await app.get<SearchDispatchPort>(SEARCH_DISPATCH).enqueue(queued);
 
     const reader = app.get<RunEventReaderPort>(RUN_EVENT_READER);
 
     expect(
-      await reader.findForViewer(RunId.of(asked.id), team.owner),
+      await reader.findForViewer(RunId.of(queued.id), team.owner),
     ).not.toBeNull();
     expect(
-      await reader.findForViewer(RunId.of(asked.id), UserId.of(randomUUID())),
+      await reader.findForViewer(RunId.of(queued.id), UserId.of(randomUUID())),
     ).toBeNull();
   });
 });

@@ -8,7 +8,7 @@ import {
   TRUST_ID,
 } from '@runners/domain/aggregates/runner-pool.fake-spec';
 import { RunnerAlreadyClaimedError } from '@runners/domain/exceptions/runner-already-claimed.error';
-import { Admission } from '@runners/domain/value-objects/admission.vo';
+import { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import { InstalledHarness } from '@runners/domain/value-objects/installed-harness.vo';
 import { RunnerWork } from '@runners/domain/value-objects/runner-work.vo';
@@ -31,7 +31,7 @@ describe('Runner', () => {
     expect(runner.terms.values).toEqual(['linux']);
   });
 
-  it('serves only work asking for the image it runs, or for none when that image is the default one', () => {
+  it('serves only work that requests the image it runs, or for none when that image is the default one', () => {
     const widgets = RunnerImage.of('ghcr.io/acme/widgets:1');
     const gadgets = RunnerImage.of('ghcr.io/acme/gadgets:1');
     const runner = aRunner({ running: RunningImage.of(widgets, false) });
@@ -154,17 +154,17 @@ describe('Runner', () => {
     expect(working.hasLeaseOn(RunnerWork.check('run_1'))).toBe(false);
   });
 
-  it('is admitted through the pool or trust it started under, on the host that asked', () => {
+  it('takes the credential source of the pool or trust it started under, on the host that requested it', () => {
     const pooled = aRunner({ host: 'HOST0000000000000042' });
     const trusted = aRunner({ through: aTrust() });
 
-    expect(pooled.admission.equals(Admission.through(POOL_ID))).toBe(true);
+    expect(pooled.source.equals(CredentialSource.ofId(POOL_ID))).toBe(true);
     expect(pooled.hostId?.equals(HostId.of('HOST0000000000000042'))).toBe(true);
-    expect(trusted.admission.equals(Admission.through(TRUST_ID))).toBe(true);
+    expect(trusted.source.equals(CredentialSource.ofId(TRUST_ID))).toBe(true);
     expect(trusted.workspaceId.value).toBe('ws_1');
   });
 
-  it('answers to its trust’s labels when a trust admitted it', () => {
+  it('answers to its trust’s labels when it started through a trust', () => {
     expect(aRunner({ through: aTrust() }).terms.values).toEqual([
       'vpc-internal',
     ]);

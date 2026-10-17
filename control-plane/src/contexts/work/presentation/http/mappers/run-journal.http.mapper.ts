@@ -26,8 +26,8 @@ export const stepToResponse = (step: JournalStepDto): JournalStepResponseDto =>
     step.locations.map(
       (where) => new StepLocationResponseDto(where.path, where.line),
     ),
-    step.given,
-    step.returned,
+    step.input,
+    step.output,
     step.change
       ? new StepChangeResponseDto(
           step.change.path,

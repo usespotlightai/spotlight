@@ -71,7 +71,11 @@ class PullRequestsInMemory implements PullRequestRepository {
     );
   }
 
-  async lastHeardBefore(before: Date, after: PullRequest | null, max: number) {
+  async lastUpdatedBefore(
+    before: Date,
+    after: PullRequest | null,
+    max: number,
+  ) {
     return [...this.rows.values()]
       .filter(
         (each) =>
@@ -235,7 +239,7 @@ const recordingAt = (
 const recording = () => recordingAt(NOW);
 
 describe('RecordPullRequests', () => {
-  it('records a pull request no task owns the first time it hears of it', async () => {
+  it('records a pull request no task owns the first time it receives it', async () => {
     const { service, pullRequests } = recording();
 
     await service.described(FROM, factsOf(7));
@@ -246,7 +250,7 @@ describe('RecordPullRequests', () => {
     ]);
   });
 
-  it('records a pull request first heard of through a review on it', async () => {
+  it('records a pull request first received through a review on it', async () => {
     const { service, pullRequests } = recording();
 
     await service.reviewed(FROM, urlOf(7).value, factsOf(7), {
@@ -260,7 +264,7 @@ describe('RecordPullRequests', () => {
     expect(pullRequests.rows.get(urlOf(7).value)?.reviewRounds).toBe(1);
   });
 
-  it('waits to hear what a pull request is before recording a review comment on it', async () => {
+  it('waits to learn what a pull request is before recording a review comment on it', async () => {
     const { service, pullRequests } = recording();
 
     await service.commented(FROM, urlOf(7).value, null, {

@@ -11,9 +11,9 @@ export function useClearedParam(name: string) {
     }
 
     setParams(
-      (kept) => {
-        kept.delete(name);
-        return kept;
+      (current) => {
+        current.delete(name);
+        return current;
       },
       { replace: true },
     );

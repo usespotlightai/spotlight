@@ -17,14 +17,17 @@ export class FetchRunSecretsHandler
 
   async execute(command: FetchRunSecretsCommand): Promise<EgressSecretsDto> {
     try {
-      const admitted = await this.egress.admit(command.token, this.clock.now());
+      const authenticated = await this.egress.authenticate(
+        command.token,
+        this.clock.now(),
+      );
 
-      if (!admitted) {
+      if (!authenticated) {
         return { outcome: 'unauthorized' };
       }
 
       return await this.fetches.fetchFor(
-        { ...admitted, sharedEgress: null },
+        { ...authenticated, sharedEgress: null },
         command.recipient,
       );
     } catch (error) {

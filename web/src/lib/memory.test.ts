@@ -3,7 +3,6 @@ import {
   appliesTo,
   authorOf,
   filterOf,
-  givenMemories,
   memoryFilesOf,
   memoryPath,
   narrowed,
@@ -15,6 +14,7 @@ import {
   proposedSummary,
   type RunProposal,
   rememberedCounts,
+  suppliedMemories,
   type TeamMemory,
 } from '@/lib/memory';
 
@@ -25,7 +25,7 @@ const memory = (over: Partial<ProposedMemory> = {}): ProposedMemory => ({
   source: 'person',
   origin: 'drafted',
   state: 'proposed',
-  reach: 'team',
+  scope: 'team',
   repository: null,
   paths: [],
   supersedes: null,
@@ -42,7 +42,7 @@ describe('appliesTo and memoryFilesOf', () => {
     expect(memoryFilesOf(memory())).toBeNull();
 
     const scoped = memory({
-      reach: 'station',
+      scope: 'station',
       repository: 'acme/api',
       paths: ['src/uploads.ts'],
     });
@@ -241,13 +241,13 @@ describe('what a run remembered', () => {
     ...over,
   });
 
-  it('gives what was briefed, then what was recalled on top of it, once each', () => {
+  it('supplies what was briefed, then what was recalled on top of it, once each', () => {
     const briefed = { id: 'memory_b' } as TeamMemory;
     const both = { id: 'memory_both' } as TeamMemory;
     const recalled = { id: 'memory_r' } as TeamMemory;
 
     expect(
-      givenMemories({
+      suppliedMemories({
         briefed: [briefed, both],
         cut: [{ id: 'memory_c' } as TeamMemory],
         recalled: [both, recalled],
@@ -274,10 +274,10 @@ describe('what a run remembered', () => {
     expect(proposalStateOf(proposal({ state: 'rejected' }))).toBe('Rejected');
     expect(
       proposalStateOf(proposal({ state: 'approved', status: 'active' })),
-    ).toBe('Kept');
+    ).toBe('Approved');
     expect(
       proposalStateOf(proposal({ state: 'approved', status: 'retired' })),
-    ).toBe('Kept, now retired');
+    ).toBe('Approved, now retired');
   });
 
   it('links to one memory on the team’s memory page', () => {

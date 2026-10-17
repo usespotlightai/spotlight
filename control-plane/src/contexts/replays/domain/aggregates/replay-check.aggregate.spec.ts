@@ -42,7 +42,7 @@ const started = (more: Partial<Parameters<typeof ReplayCheck.start>[0]> = {}) =>
       minGain: 0.05,
     }),
     repeats: 1,
-    keptLive: ['diffs', 'check'],
+    scoringPinnedToLive: ['diffs', 'check'],
     createdAt: NOW,
     by: BY,
     ...more,
@@ -51,7 +51,7 @@ const started = (more: Partial<Parameters<typeof ReplayCheck.start>[0]> = {}) =>
 const SET = aSet(2);
 
 describe('ReplayCheck', () => {
-  it('records that it started, named by the change it checks, keeping what it kept live in order', () => {
+  it('records that it started, named by the change it checks, recording what it pinned to live in order', () => {
     const check = started();
     const [event] = check.pullEvents();
 
@@ -61,7 +61,7 @@ describe('ReplayCheck', () => {
       action: 'created',
       key: 'PR #42',
     });
-    expect(check.keptLive).toEqual(['check', 'diffs']);
+    expect(check.scoringPinnedToLive).toEqual(['check', 'diffs']);
   });
 
   it('checks a change to how the station runs, counting its attempts from 1', () => {
@@ -109,7 +109,7 @@ describe('ReplayCheck', () => {
     ).toBe(false);
   });
 
-  it('is reused only when it replays each run as many times as asked, and replays each from 1 to 5 times', () => {
+  it('is reused only when it replays each run as many times as requested, and replays each from 1 to 5 times', () => {
     const check = started({
       setId: SET.id,
       setEntries: 'entries_1',
@@ -165,7 +165,7 @@ describe('ReplayCheck', () => {
     ).toBe(3);
   });
 
-  it('awaits its baseline until it is found or cannot come, and then keeps that baseline status', () => {
+  it('awaits its baseline until it is found or cannot come, and then records that baseline status', () => {
     const check = started();
 
     expect(check.baseline).toBe('awaiting');

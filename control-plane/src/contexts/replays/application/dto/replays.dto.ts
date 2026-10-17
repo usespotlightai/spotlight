@@ -171,7 +171,7 @@ export interface EntryChecksDto {
 }
 
 export interface EntryJudgeDto {
-  readonly state: 'asked' | 'judged' | 'unjudged';
+  readonly state: 'requested' | 'judged' | 'unjudged';
   readonly scale: string | null;
   readonly score: number | null;
   readonly passed: boolean | null;
@@ -223,7 +223,7 @@ export interface EntryPairReadingDto {
 }
 
 export interface EntryPairDto {
-  readonly state: 'asked' | 'judged' | 'unpaired';
+  readonly state: 'requested' | 'judged' | 'unpaired';
   readonly againstRunId: string;
   readonly outcome: 'win' | 'loss' | 'tie' | null;
   readonly model: string | null;

@@ -100,7 +100,7 @@ const checkOf = (built = stack()) =>
     );
 
 describe('revisionOf', () => {
-  it('gives the state of the stack, what failed, and where the files its errors name sit', () => {
+  it('shows the state of the stack, what failed, and where the files its errors name sit', () => {
     expect(revisionOf(stack(), checkOf())).toEqual({
       command: 'npx tsc --noEmit',
       stack: [

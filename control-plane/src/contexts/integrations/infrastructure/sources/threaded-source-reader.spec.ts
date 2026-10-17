@@ -1,4 +1,4 @@
-import type { Reach } from '@integrations/application/ports/integration-runtime.port';
+import type { CallAuth } from '@integrations/application/ports/integration-runtime.port';
 import { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
 import { ConnectionHolder } from '@integrations/domain/value-objects/connection-holder.vo';
 import { DescribedSource } from '@integrations/domain/value-objects/described-source.vo';
@@ -14,7 +14,7 @@ import { credentialsFor } from '@integrations/integrations.secrets.fake-spec';
 import { describe, expect, it, vi } from 'vitest';
 import { stringify as yamlOf } from 'yaml';
 
-const REACH: Reach = { connection: null, credentials: credentialsFor() };
+const CALL_AUTH: CallAuth = { connection: null, credentials: credentialsFor() };
 
 const fetchingNothing = {
   text: vi.fn(async () => {
@@ -34,7 +34,7 @@ describe('ThreadedSourceReader', () => {
   it('reads an OpenAPI description in YAML on a thread of its own', async () => {
     const read = await new ThreadedSourceReader(fetchingNothing).read(
       openapi(yamlOf(PETSTORE)),
-      REACH,
+      CALL_AUTH,
     );
 
     expect(read.kind).toBe('read');
@@ -48,9 +48,9 @@ describe('ThreadedSourceReader', () => {
     const reader = new ThreadedSourceReader(fetchingNothing);
     const text = JSON.stringify(PETSTORE);
     const [one, again, elsewhere] = await Promise.all([
-      reader.read(openapi(text), REACH),
-      reader.read(openapi(text), REACH),
-      reader.read(openapi(text, 'https://pets.example'), REACH),
+      reader.read(openapi(text), CALL_AUTH),
+      reader.read(openapi(text), CALL_AUTH),
+      reader.read(openapi(text, 'https://pets.example'), CALL_AUTH),
     ]);
 
     expect(one.kind === 'read' && one.hash).toEqual(
@@ -71,7 +71,7 @@ describe('ThreadedSourceReader', () => {
         url: 'https://api.linear.app/graphql',
         fingerprint: 'linear',
       }),
-      REACH,
+      CALL_AUTH,
     );
 
     expect(fetching.text).toHaveBeenCalledWith(
@@ -87,7 +87,7 @@ describe('ThreadedSourceReader', () => {
     expect(
       await new ThreadedSourceReader(fetchingNothing).read(
         openapi('swagger: "2.0"\npaths: {}\n'),
-        REACH,
+        CALL_AUTH,
       ),
     ).toEqual({
       kind: 'unread',
@@ -105,11 +105,11 @@ describe('ThreadedSourceReader', () => {
         connected,
       });
 
-    const reaching = (renewed: string | null) => {
+    const callAuthWith = (renewed: string | null) => {
       const unauthorized = vi.fn(async () =>
         renewed ? AccessToken.of(renewed) : null,
       );
-      const reach: Reach = {
+      const callAuth: CallAuth = {
         connection: {
           token: AccessToken.of('lin-old'),
           holder: ConnectionHolder.team(),
@@ -119,7 +119,7 @@ describe('ThreadedSourceReader', () => {
         credentials: credentialsFor(),
       };
 
-      return { reach, unauthorized };
+      return { callAuth, unauthorized };
     };
 
     const connectionsSent = (fetching: SourceFetch) =>
@@ -131,11 +131,11 @@ describe('ThreadedSourceReader', () => {
       const fetching = {
         text: vi.fn(async () => LINEAR_SDL),
       } as unknown as SourceFetch;
-      const { reach } = reaching(null);
+      const { callAuth } = callAuthWith(null);
       const reader = new ThreadedSourceReader(fetching);
 
-      await reader.read(graphql(false), reach);
-      await reader.read(graphql(true), reach);
+      await reader.read(graphql(false), callAuth);
+      await reader.read(graphql(true), callAuth);
 
       expect(connectionsSent(fetching)).toEqual([null, 'lin-old']);
     }, 30_000);
@@ -151,11 +151,11 @@ describe('ThreadedSourceReader', () => {
           )
           .mockResolvedValueOnce(LINEAR_SDL),
       } as unknown as SourceFetch;
-      const { reach, unauthorized } = reaching('lin-new');
+      const { callAuth, unauthorized } = callAuthWith('lin-new');
 
       const read = await new ThreadedSourceReader(fetching).read(
         graphql(true),
-        reach,
+        callAuth,
       );
 
       expect(read.kind).toBe('read');
@@ -173,10 +173,10 @@ describe('ThreadedSourceReader', () => {
             ),
           ),
       } as unknown as SourceFetch;
-      const { reach } = reaching(null);
+      const { callAuth } = callAuthWith(null);
 
       expect(
-        await new ThreadedSourceReader(fetching).read(graphql(true), reach),
+        await new ThreadedSourceReader(fetching).read(graphql(true), callAuth),
       ).toEqual({
         kind: 'unread',
         problem: 'could not be read: api.linear.app answered 401',

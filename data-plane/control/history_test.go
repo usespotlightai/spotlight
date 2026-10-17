@@ -14,7 +14,7 @@ type clientError interface {
 	ClientErrorMessage() (string, bool)
 }
 
-func TestHistoryAsksForTheStationWithEscapedFilters(t *testing.T) {
+func TestHistoryRequestsTheStationWithEscapedFilters(t *testing.T) {
 	var path, query, auth string
 	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
 		path, query, auth = r.URL.EscapedPath(), r.URL.RawQuery, r.Header.Get("Authorization")
@@ -43,7 +43,7 @@ func TestHistoryAsksForTheStationWithEscapedFilters(t *testing.T) {
 	}
 }
 
-func TestHistoryLeavesOutFiltersThatWereNotGiven(t *testing.T) {
+func TestHistoryLeavesOutFiltersThatWereNotSet(t *testing.T) {
 	var query string
 	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
 		query = r.URL.RawQuery

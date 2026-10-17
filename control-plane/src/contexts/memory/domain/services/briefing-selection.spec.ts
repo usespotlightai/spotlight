@@ -20,7 +20,7 @@ const WEB = Repository.of('acme/web');
 
 let made = 0;
 
-const kept = (
+const approved = (
   scope: {
     lineId?: string;
     stationId?: string;
@@ -80,23 +80,23 @@ const bodies = (memories: readonly Memory[]) =>
   memories.map((each) => each.body.value);
 
 describe('selecting what to brief a run with', () => {
-  it('gives the memories whose scope reaches the run, and no others', () => {
+  it('briefs the memories whose scope matches the run, and no others', () => {
     const chosen = choosing(
       [
-        kept({}, 'Team-wide.'),
-        kept({ lineId: 'line_delivery' }, 'This line.'),
-        kept({ lineId: 'line_docs' }, 'Another line.'),
-        kept(
+        approved({}, 'Team-wide.'),
+        approved({ lineId: 'line_delivery' }, 'This line.'),
+        approved({ lineId: 'line_docs' }, 'Another line.'),
+        approved(
           { lineId: 'line_delivery', stationId: 'station_review' },
           'Another station.',
         ),
-        kept({ repository: WEB }, 'Another repository.'),
-        kept({ teamId: TeamId.of('team_2') }, 'Another team.'),
-        kept(
+        approved({ repository: WEB }, 'Another repository.'),
+        approved({ teamId: TeamId.of('team_2') }, 'Another team.'),
+        approved(
           { repository: API, paths: ['src/uploads'] },
           'A folder the run touches.',
         ),
-        kept(
+        approved(
           { repository: API, paths: ['src/billing.ts'] },
           'A file it does not.',
         ),
@@ -109,9 +109,12 @@ describe('selecting what to brief a run with', () => {
     );
   });
 
-  it('never gives a line’s memory to a chat, which works at no line', () => {
+  it('never briefs a line’s memory to a chat, which works at no line', () => {
     const chosen = choosing(
-      [kept({}, 'Team-wide.'), kept({ lineId: 'line_delivery' }, 'This line.')],
+      [
+        approved({}, 'Team-wide.'),
+        approved({ lineId: 'line_delivery' }, 'This line.'),
+      ],
       { ...PLACE, lineId: null, stationId: null, touched: [] },
     );
 
@@ -121,14 +124,14 @@ describe('selecting what to brief a run with', () => {
   it('ranks the most specific first, then the most recent', () => {
     const chosen = choosing(
       [
-        kept({}, 'Team, older.', new Date('2026-09-01T00:00:00.000Z')),
-        kept({}, 'Team, newer.', new Date('2026-09-10T00:00:00.000Z')),
-        kept({ lineId: 'line_delivery' }, 'Line.'),
-        kept(
+        approved({}, 'Team, older.', new Date('2026-09-01T00:00:00.000Z')),
+        approved({}, 'Team, newer.', new Date('2026-09-10T00:00:00.000Z')),
+        approved({ lineId: 'line_delivery' }, 'Line.'),
+        approved(
           { lineId: 'line_delivery', stationId: 'station_build' },
           'Station.',
         ),
-        kept({ repository: API, paths: ['src'] }, 'Paths.'),
+        approved({ repository: API, paths: ['src'] }, 'Paths.'),
       ],
       PLACE,
     );
@@ -144,21 +147,25 @@ describe('selecting what to brief a run with', () => {
 
   it('keeps to its cap on how many and how long', () => {
     const many = Array.from({ length: 30 }, (_, at) =>
-      kept({}, `Memory ${at}.`),
+      approved({}, `Memory ${at}.`),
     );
     const long = Array.from({ length: 6 }, (_, at) =>
-      kept({}, `${at}`.padEnd(900, '.')),
+      approved({}, `${at}`.padEnd(900, '.')),
     );
 
     expect(choosing(many, PLACE).briefed).toHaveLength(8);
     expect(choosing(long, PLACE).briefed).toHaveLength(3);
   });
 
-  it('keeps what the cap cut, the nearest to making it first, and never what did not reach the run', () => {
+  it('keeps what the cap cut, the nearest to making it first, and never what did not match the run', () => {
     const many = Array.from({ length: 40 }, (_, at) =>
-      kept({}, `Memory ${at}.`, new Date(Date.UTC(2026, 8, 1, 0, 0, 40 - at))),
+      approved(
+        {},
+        `Memory ${at}.`,
+        new Date(Date.UTC(2026, 8, 1, 0, 0, 40 - at)),
+      ),
     );
-    const elsewhere = kept({ lineId: 'line_docs' }, 'Another line.');
+    const elsewhere = approved({ lineId: 'line_docs' }, 'Another line.');
 
     const chosen = choosing([...many, elsewhere], PLACE);
 
@@ -169,8 +176,8 @@ describe('selecting what to brief a run with', () => {
     expect(bodies(choosing(many.slice(0, 3), PLACE).cut)).toEqual([]);
   });
 
-  it('never gives a retired memory', () => {
-    const retired = kept({}, 'Retired.').retire({
+  it('never briefs a retired memory', () => {
+    const retired = approved({}, 'Retired.').retire({
       by: UserId.of('user_1'),
       reason: 'Wrong.',
       at: new Date('2026-09-21T10:00:00.000Z'),
@@ -185,8 +192,8 @@ describe('selecting what to brief a run with', () => {
   it('ranks a memory whose words match the task above an equally scoped one that does not', () => {
     const chosen = choosing(
       [
-        kept({}, 'Name branches after the ticket.'),
-        kept({}, 'Uploads retry in the request.'),
+        approved({}, 'Name branches after the ticket.'),
+        approved({}, 'Uploads retry in the request.'),
       ],
       PLACE,
       { 'Uploads retry in the request.': 0.03 },
@@ -201,8 +208,8 @@ describe('selecting what to brief a run with', () => {
   it('lets the task’s words lift a memory past a more specific one', () => {
     const chosen = choosing(
       [
-        kept({ lineId: 'line_delivery' }, 'This line names branches.'),
-        kept({}, 'Uploads retry in the request.'),
+        approved({ lineId: 'line_delivery' }, 'This line names branches.'),
+        approved({}, 'Uploads retry in the request.'),
       ],
       PLACE,
       { 'Uploads retry in the request.': 0.1 },
@@ -214,8 +221,8 @@ describe('selecting what to brief a run with', () => {
   it('counts any rank past a strong match as a full match', () => {
     const chosen = choosing(
       [
-        kept({}, 'Ranked far past strong.', OLDER),
-        kept({}, 'Ranked just strong.'),
+        approved({}, 'Ranked far past strong.', OLDER),
+        approved({}, 'Ranked just strong.'),
       ],
       PLACE,
       { 'Ranked far past strong.': 0.9, 'Ranked just strong.': 0.1 },
@@ -227,9 +234,9 @@ describe('selecting what to brief a run with', () => {
     ]);
   });
 
-  it('reaches a memory about paths the task has not touched only when its words match', () => {
+  it('matches a memory about paths the task has not touched only when its words match', () => {
     const elsewhere = { ...PLACE, touched: [] };
-    const aboutUploads = kept(
+    const aboutUploads = approved(
       { repository: API, paths: ['src/uploads'] },
       'Uploads retry in the request.',
     );
@@ -245,7 +252,7 @@ describe('selecting what to brief a run with', () => {
   });
 
   it('never briefs a memory beside the correction replacing it', () => {
-    const old = kept({}, 'Name branches after people.');
+    const old = approved({}, 'Name branches after people.');
     const correction = old.correct({
       id: MemoryId.of('memory_correction'),
       handle: MemoryHandle.of(900),
@@ -267,8 +274,13 @@ describe('selecting what to brief a run with', () => {
   it('puts warnings ahead of preferences at the same specificity', () => {
     const chosen = choosing(
       [
-        kept({}, 'Name branches after the ticket.'),
-        kept({}, 'The worker test hangs without Redis.', undefined, 'failure'),
+        approved({}, 'Name branches after the ticket.'),
+        approved(
+          {},
+          'The worker test hangs without Redis.',
+          undefined,
+          'failure',
+        ),
       ],
       PLACE,
     );
@@ -280,7 +292,7 @@ describe('selecting what to brief a run with', () => {
 
   it('nudges up what earlier runs recalled', () => {
     const chosen = choosing(
-      [kept({}, 'Newer.'), kept({}, 'Recalled before.', OLDER)],
+      [approved({}, 'Newer.'), approved({}, 'Recalled before.', OLDER)],
       PLACE,
       {},
       { 'Recalled before.': 2 },
@@ -292,11 +304,11 @@ describe('selecting what to brief a run with', () => {
   it('never lets a weak match on a memory about untouched paths outrank a station’s warning', () => {
     const chosen = choosing(
       [
-        kept(
+        approved(
           { repository: API, paths: ['src/uploads'] },
           'Fix retries by draining the queue.',
         ),
-        kept(
+        approved(
           { lineId: 'line_delivery', stationId: 'station_build' },
           'The build needs Redis.',
           undefined,

@@ -15,7 +15,7 @@ import (
 	"usespotlight.ai/data-plane/protocol"
 )
 
-const notAdmitted = "The host's SPOTLIGHT_RUNNER_IMAGE doesn't admit this image."
+const notAllowed = "The host's SPOTLIGHT_RUNNER_IMAGE doesn't allow this image."
 
 type served struct {
 	image     string
@@ -56,7 +56,7 @@ func (h *Host) refresh(ctx, claiming, serving context.Context, stop func(error))
 
 	h.mu.Lock()
 	h.required = required
-	h.unadmitted = h.opts.Images.Disallowed(required.Images)
+	h.disallowed = h.opts.Images.Disallowed(required.Images)
 	var gone []*served
 	for image, each := range h.served {
 		if !slices.ContainsFunc(wanted, func(w images.Wanted) bool { return w.Image == image }) {
@@ -127,8 +127,8 @@ func (h *Host) serve(claiming, serving context.Context, each *served, stop func(
 }
 
 func judgedUnder(required protocol.HostRequirements) string {
-	asked, _ := json.Marshal(required.Harnesses)
-	return required.Runner.Minimum + "\x00" + string(asked)
+	harnesses, _ := json.Marshal(required.Harnesses)
+	return required.Runner.Minimum + "\x00" + string(harnesses)
 }
 
 func (h *Host) examine(ctx context.Context, each *served) (examined, error) {
@@ -239,7 +239,7 @@ func (h *Host) pulled(ctx context.Context, image string) (sandbox.Image, error) 
 }
 
 func (h *Host) found(ctx context.Context, image string, candidates []protocol.Installable) (protocol.Registration, error) {
-	asked, err := json.Marshal(candidates)
+	encoded, err := json.Marshal(candidates)
 	if err != nil {
 		return protocol.Registration{}, err
 	}
@@ -257,7 +257,7 @@ func (h *Host) found(ctx context.Context, image string, candidates []protocol.In
 
 	id, err := h.engine.Start(ctx, sandbox.Spec{
 		Image:   image,
-		Args:    []string{"harnesses", string(asked)},
+		Args:    []string{"harnesses", string(encoded)},
 		Env:     append(env, way.env()...),
 		Labels:  map[string]string{LabelHost: h.opts.HostID},
 		Files:   way.files(),
@@ -293,7 +293,7 @@ func (h *Host) reportedImages() []protocol.HostImage {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
-	reported := make([]protocol.HostImage, 0, len(h.served)+len(h.unadmitted))
+	reported := make([]protocol.HostImage, 0, len(h.served)+len(h.disallowed))
 	for _, each := range h.served {
 		if each.id == "" && each.unavailableReason == "" {
 			continue
@@ -307,8 +307,8 @@ func (h *Host) reportedImages() []protocol.HostImage {
 			UnavailableReason: each.unavailableReason,
 		})
 	}
-	for _, image := range h.unadmitted {
-		reported = append(reported, protocol.HostImage{Image: image, UnavailableReason: notAdmitted})
+	for _, image := range h.disallowed {
+		reported = append(reported, protocol.HostImage{Image: image, UnavailableReason: notAllowed})
 	}
 
 	slices.SortFunc(reported, func(a, b protocol.HostImage) int {

@@ -101,7 +101,7 @@ describe('ListLinesHandler', () => {
     ]);
   });
 
-  it('asks the reader on behalf of the caller, not the team alone', async () => {
+  it('calls the reader on behalf of the caller, not the team alone', async () => {
     const lines = reader([board]);
 
     await handle(lines);

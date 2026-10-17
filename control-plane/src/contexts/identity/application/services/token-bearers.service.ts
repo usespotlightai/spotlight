@@ -1,6 +1,6 @@
 import type { WorkspaceTokenRepository } from '@identity/domain/repositories/workspace-token.repository';
 import type { WorkspaceTokenTrustRepository } from '@identity/domain/repositories/workspace-token-trust.repository';
-import { BearerAdmission } from '@identity/domain/services/bearer-admission';
+import { TokenAuthentication } from '@identity/domain/services/token-authentication';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TokenIssuer } from '@shared-kernel/application/ports/token-issuer.port';
 import type { WorkspaceTokenIdentityPort } from '@shared-kernel/application/ports/workspace-token-identity.port';
@@ -28,7 +28,11 @@ export class TokenBearers implements WorkspaceTokenIdentityPort {
       ? await this.trusts.find(token.issuedByTrustId)
       : null;
 
-    return BearerAdmission.admits(token, issuedByTrust, this.clock.now())
+    return TokenAuthentication.authenticates(
+      token,
+      issuedByTrust,
+      this.clock.now(),
+    )
       ? token.principal
       : null;
   }

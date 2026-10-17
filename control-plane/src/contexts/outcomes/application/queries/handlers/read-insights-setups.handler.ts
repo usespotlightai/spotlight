@@ -18,7 +18,7 @@ import {
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
-const sizeAsked = (raw: string | null) => {
+const requestedSizeOf = (raw: string | null) => {
   if (raw === null) {
     return null;
   }
@@ -45,7 +45,7 @@ export class ReadInsightsSetupsHandler
 
   async execute(query: ReadInsightsSetupsQuery): Promise<InsightsSetupsDto> {
     try {
-      const size = sizeAsked(query.size);
+      const size = requestedSizeOf(query.size);
       const { access, period } = await this.scopes.scope(
         query.teamId,
         query.principal,

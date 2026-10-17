@@ -37,7 +37,7 @@ const NOTES: Record<string, TaskNote> = {
   },
   task_vat: {
     pass: 'Shows VAT per line and the total on the PDF, with the rate from the customer’s country.',
-    fail: 'Shows VAT only on the total, not per line as the spec asks.',
+    fail: 'Shows VAT only on the total, not per line as the spec requires.',
     path: 'services/billing/invoice-pdf.ts',
   },
   task_webhook_docs: {
@@ -47,13 +47,13 @@ const NOTES: Record<string, TaskNote> = {
   },
   task_export_docs: {
     pass: 'Wrote the export guide with a worked example for each format.',
-    fail: 'Left out the CSV column reference the spec asks for.',
+    fail: 'Left out the CSV column reference the spec requires.',
     path: 'docs/billing/exports.md',
   },
 };
 
 const FALLBACK: TaskNote = {
-  pass: 'Did what the spec asks and kept the tests passing.',
+  pass: 'Did what the spec says and kept the tests passing.',
   fail: 'Left a check failing and did not say why.',
   path: 'src/index.ts',
 };

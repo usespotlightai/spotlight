@@ -13,7 +13,7 @@ const source = (key: string): WebhookSourcePort => ({
   read: async () => [],
 });
 
-const asking = (
+const finding = (
   registered: readonly string[],
   declared: readonly string[] = [],
 ) => {
@@ -36,7 +36,7 @@ const asking = (
 describe('SourceForDelivery', () => {
   describe('at the shared door', () => {
     it('answers with the host Spotlight was written for', async () => {
-      const { sources } = asking(['github']);
+      const { sources } = finding(['github']);
 
       expect(
         (
@@ -51,7 +51,7 @@ describe('SourceForDelivery', () => {
     });
 
     it('answers with nothing for a host nobody registered', async () => {
-      const { sources } = asking(['github']);
+      const { sources } = finding(['github']);
 
       expect(
         await sources.find({
@@ -63,8 +63,8 @@ describe('SourceForDelivery', () => {
       ).toBeNull();
     });
 
-    it('does not reach a team’s own hosts', async () => {
-      const { sources, find } = asking(['github'], ['linear']);
+    it('does not look up a team’s own hosts', async () => {
+      const { sources, find } = finding(['github'], ['linear']);
 
       expect(
         await sources.find({
@@ -80,7 +80,7 @@ describe('SourceForDelivery', () => {
 
   describe('at a team’s own door', () => {
     it('answers with the host that team declared', async () => {
-      const { sources } = asking(['github'], ['linear']);
+      const { sources } = finding(['github'], ['linear']);
 
       expect(
         (
@@ -94,8 +94,8 @@ describe('SourceForDelivery', () => {
       ).toBe('linear');
     });
 
-    it('asks for it as that team’s, not as anybody’s', async () => {
-      const { sources, find } = asking(['github'], ['linear']);
+    it('looks it up as that team’s, not as anybody’s', async () => {
+      const { sources, find } = finding(['github'], ['linear']);
 
       await sources.find({
         workspaceId: 'ws_1',
@@ -113,7 +113,7 @@ describe('SourceForDelivery', () => {
     });
 
     it('answers with nothing where that team declared no such host', async () => {
-      const { sources } = asking(['github'], ['linear']);
+      const { sources } = finding(['github'], ['linear']);
 
       expect(
         await sources.find({
@@ -126,7 +126,7 @@ describe('SourceForDelivery', () => {
     });
 
     it('rejects a file claiming the name of a host Spotlight has', async () => {
-      const { sources, find } = asking(['github'], ['github']);
+      const { sources, find } = finding(['github'], ['github']);
 
       expect(
         await sources.find({

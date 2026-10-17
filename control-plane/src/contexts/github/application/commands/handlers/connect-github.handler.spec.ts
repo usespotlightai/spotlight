@@ -102,7 +102,7 @@ describe('ConnectGitHubHandler', () => {
     );
   });
 
-  it('asks GitHub before any transaction is open', async () => {
+  it('calls GitHub before any transaction is open', async () => {
     const { handler, administration, inTransaction } = connecting();
 
     await handler.execute(command());
@@ -123,7 +123,7 @@ describe('ConnectGitHubHandler', () => {
     expect(save).not.toHaveBeenCalled();
   });
 
-  it('denies a member who is neither owner nor admin, without asking GitHub', async () => {
+  it('denies a member who is neither owner nor admin, without calling GitHub', async () => {
     const { handler, save, administration } = connecting({
       membership: membership(false),
     });
@@ -164,7 +164,7 @@ describe('ConnectGitHubHandler', () => {
     expect(save).not.toHaveBeenCalled();
   });
 
-  it('rejects anything that is not a number GitHub could have given', async () => {
+  it('rejects anything that is not a number GitHub could have assigned', async () => {
     const { handler, save } = connecting();
 
     await expect(handler.execute(command('../../etc'))).rejects.toBeInstanceOf(

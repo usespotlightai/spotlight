@@ -83,7 +83,7 @@ describe('setNoiseOf', () => {
 });
 
 describe('suggestedRepeatsFor', () => {
-  it('asks for enough copies to bring the noise under the min gain, from 1 to 5', () => {
+  it('requests enough copies to bring the noise under the min gain, from 1 to 5', () => {
     expect(suggestedRepeatsFor(0, 0.05)).toBe(1);
     expect(suggestedRepeatsFor(0.05, 0.05)).toBe(1);
     expect(suggestedRepeatsFor(0.1, 0.05)).toBe(4);

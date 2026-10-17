@@ -124,7 +124,7 @@ describe('a skill, created through the resource API (e2e)', () => {
     });
   });
 
-  it('is laid out for every run that is given it', async () => {
+  it('is laid out for every run that has it enabled', async () => {
     await create(GRAFANA);
 
     const ready = await app
@@ -153,7 +153,7 @@ describe('a skill, created through the resource API (e2e)', () => {
     ]);
   });
 
-  it('will not be deleted while a station gives it', async () => {
+  it('will not be deleted while a station enables it', async () => {
     const made = await create(GRAFANA);
     const db = app.get<DrizzleDatabase>(DRIZZLE);
     const lineId = randomUUID();

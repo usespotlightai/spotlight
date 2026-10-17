@@ -1,7 +1,3 @@
-import type { AskForPairJudging } from '@replays/application/services/ask-for-pair-judging.service';
-import type { AskForReplayJudging } from '@replays/application/services/ask-for-replay-judging.service';
-import type { AskForReplayRecheck } from '@replays/application/services/ask-for-replay-recheck.service';
-import type { AskForReplayRejudging } from '@replays/application/services/ask-for-replay-rejudging.service';
 import type { CancelReplayRuns } from '@replays/application/services/cancel-replay-runs.service';
 import type { CancelSearch } from '@replays/application/services/cancel-search.service';
 import type { DeleteConfigPullRequests } from '@replays/application/services/delete-config-pull-requests.service';
@@ -20,35 +16,39 @@ import type { NoteReplayPaired } from '@replays/application/services/note-replay
 import type { NoteSearchProgress } from '@replays/application/services/note-search-progress.service';
 import type { NoticeSearchReflections } from '@replays/application/services/notice-search-reflections.service';
 import type { PairReplayEntries } from '@replays/application/services/pair-replay-entries.service';
+import type { RequestReplayJudging } from '@replays/application/services/request-replay-judging.service';
+import type { RequestReplayPairJudging } from '@replays/application/services/request-replay-pair-judging.service';
+import type { RequestReplayRecheck } from '@replays/application/services/request-replay-recheck.service';
+import type { RequestReplayRejudging } from '@replays/application/services/request-replay-rejudging.service';
 import type { StartOracleReplay } from '@replays/application/services/start-oracle-replay.service';
 import type { StartWantedBaseline } from '@replays/application/services/start-wanted-baseline.service';
-import type { CandidateDeletionDue } from '@replays/domain/events/candidate-deletion-due.event';
-import type { ConfigPullRequestDeletionDue } from '@replays/domain/events/config-pull-request-deletion-due.event';
-import type { ReplayBaselineWanted } from '@replays/domain/events/replay-baseline-wanted.event';
-import type { ReplayCheckDeletionDue } from '@replays/domain/events/replay-check-deletion-due.event';
-import type { ReplayDeletionDue } from '@replays/domain/events/replay-deletion-due.event';
+import type { CandidateDeletionRequested } from '@replays/domain/events/candidate-deletion-requested.event';
+import type { ConfigPullRequestDeletionRequested } from '@replays/domain/events/config-pull-request-deletion-requested.event';
+import type { ReplayBaselineRequested } from '@replays/domain/events/replay-baseline-requested.event';
+import type { ReplayCheckDeletionRequested } from '@replays/domain/events/replay-check-deletion-requested.event';
+import type { ReplayDeletionRequested } from '@replays/domain/events/replay-deletion-requested.event';
 import type { ReplayEnded } from '@replays/domain/events/replay-ended.event';
 import type { ReplayEntryConcluded } from '@replays/domain/events/replay-entry-concluded.event';
-import type { ReplayJudgingWanted } from '@replays/domain/events/replay-judging-wanted.event';
+import type { ReplayJudgingRequested } from '@replays/domain/events/replay-judging-requested.event';
 import type { ReplayOverBudget } from '@replays/domain/events/replay-over-budget.event';
-import type { ReplayPairJudgingWanted } from '@replays/domain/events/replay-pair-judging-wanted.event';
-import type { ReplayPairingDue } from '@replays/domain/events/replay-pairing-due.event';
+import type { ReplayPairJudgingRequested } from '@replays/domain/events/replay-pair-judging-requested.event';
 import type { ReplayPairingFailed } from '@replays/domain/events/replay-pairing-failed.event';
+import type { ReplayPairingRequested } from '@replays/domain/events/replay-pairing-requested.event';
+import type { ReplayRecheckRequested } from '@replays/domain/events/replay-recheck-requested.event';
 import type { ReplayRecheckUnavailable } from '@replays/domain/events/replay-recheck-unavailable.event';
-import type { ReplayRecheckWanted } from '@replays/domain/events/replay-recheck-wanted.event';
 import type { ReplayRejudgingFailed } from '@replays/domain/events/replay-rejudging-failed.event';
-import type { ReplayRejudgingWanted } from '@replays/domain/events/replay-rejudging-wanted.event';
+import type { ReplayRejudgingRequested } from '@replays/domain/events/replay-rejudging-requested.event';
 import type { ReplaySetDeleted } from '@replays/domain/events/replay-set-deleted.event';
-import type { ReplaySetDeletionDue } from '@replays/domain/events/replay-set-deletion-due.event';
+import type { ReplaySetDeletionRequested } from '@replays/domain/events/replay-set-deletion-requested.event';
 import type { ReplaySetEntriesChanged } from '@replays/domain/events/replay-set-entries-changed.event';
-import type { ReplaySetStationCheckDue } from '@replays/domain/events/replay-set-station-check-due.event';
+import type { ReplaySetStationCheckRequested } from '@replays/domain/events/replay-set-station-check-requested.event';
 import type { ReplaySetStationGone } from '@replays/domain/events/replay-set-station-gone.event';
-import type { ReplayStackRecheckWanted } from '@replays/domain/events/replay-stack-recheck-wanted.event';
+import type { ReplayStackRecheckRequested } from '@replays/domain/events/replay-stack-recheck-requested.event';
 import type { ReplayStopped } from '@replays/domain/events/replay-stopped.event';
-import type { SearchDeletionDue } from '@replays/domain/events/search-deletion-due.event';
+import type { SearchDeletionRequested } from '@replays/domain/events/search-deletion-requested.event';
 import type { SearchEnded } from '@replays/domain/events/search-ended.event';
-import type { SearchHoldingOutWanted } from '@replays/domain/events/search-holding-out-wanted.event';
-import type { SearchIterationWanted } from '@replays/domain/events/search-iteration-wanted.event';
+import type { SearchHoldingOutRequested } from '@replays/domain/events/search-holding-out-requested.event';
+import type { SearchIterationRequested } from '@replays/domain/events/search-iteration-requested.event';
 import type { SearchReflected } from '@replays/domain/events/search-reflected.event';
 import type { SearchStalledUnreflected } from '@replays/domain/events/search-stalled-unreflected.event';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
@@ -116,12 +116,12 @@ export interface ReplaysReactions {
   readonly ending: NoteReplayEnded;
   readonly digesting: NoteReplayDigested;
   readonly reviewing: NoteReplayChangeReviewed;
-  readonly asking: AskForReplayJudging;
-  readonly askingAgain: AskForReplayRejudging;
-  readonly askingRecheck: AskForReplayRecheck;
+  readonly requestingJudging: RequestReplayJudging;
+  readonly requestingRejudging: RequestReplayRejudging;
+  readonly requestingRecheck: RequestReplayRecheck;
   readonly judging: NoteReplayJudged;
   readonly pairing: PairReplayEntries;
-  readonly askingPair: AskForPairJudging;
+  readonly requestingPairJudging: RequestReplayPairJudging;
   readonly paired: NoteReplayPaired;
   readonly startingPointHolds: HoldSetStartingPoints;
   readonly cancellingRuns: CancelReplayRuns;
@@ -190,10 +190,10 @@ export const replaysSubscribers = (
     [REPLAY_STACK_COMPLETED, REPLAY_CHANGE_CHECKED],
     (event) => reactions.reviewing.reviewed(event.runId),
   ),
-  subscribing<ReplayJudgingWanted>(
-    'replays.ask-to-judge-replay-run',
-    ['replay.judging-wanted'],
-    (event) => reactions.asking.wanted(event),
+  subscribing<ReplayJudgingRequested>(
+    'replays.request-replay-run-judging',
+    ['replay.judging-requested'],
+    (event) => reactions.requestingJudging.requested(event),
   ),
   subscribing<ChangeJudgedIntegrationEvent>(
     'replays.record-replay-run-judged',
@@ -227,15 +227,15 @@ export const replaysSubscribers = (
     ['replay.entry-concluded'],
     (event) => reactions.pairing.concluded(event),
   ),
-  subscribing<ReplayPairingDue>(
+  subscribing<ReplayPairingRequested>(
     'replays.pair-replay-entries',
-    ['replay.pairing-due'],
-    (event) => reactions.pairing.due(event.replayId),
+    ['replay.pairing-requested'],
+    (event) => reactions.pairing.requested(event.replayId),
   ),
-  subscribing<ReplayPairJudgingWanted>(
-    'replays.ask-to-judge-pair',
-    ['replay.pair-judging-wanted'],
-    (event) => reactions.askingPair.wanted(event),
+  subscribing<ReplayPairJudgingRequested>(
+    'replays.request-pair-judging',
+    ['replay.pair-judging-requested'],
+    (event) => reactions.requestingPairJudging.requested(event),
   ),
   subscribing<PairJudgedIntegrationEvent>(
     'replays.record-pair-judged',
@@ -264,12 +264,12 @@ export const replaysSubscribers = (
   subscribing<ReplayPairingFailed>(
     'replays.record-pair-not-judged',
     ['replay.pairing-failed'],
-    (event) => reactions.paired.askFailed(event),
+    (event) => reactions.paired.requestFailed(event),
   ),
-  subscribing<ReplayRejudgingWanted>(
-    'replays.ask-to-judge-probed-run-again',
-    ['replay.rejudging-wanted'],
-    (event) => reactions.askingAgain.wanted(event),
+  subscribing<ReplayRejudgingRequested>(
+    'replays.request-probed-run-rejudging',
+    ['replay.rejudging-requested'],
+    (event) => reactions.requestingRejudging.requested(event),
   ),
   subscribing<ChangeJudgedIntegrationEvent>(
     'replays.record-probed-run-judged-again',
@@ -305,17 +305,17 @@ export const replaysSubscribers = (
   subscribing<ReplayRejudgingFailed>(
     'replays.record-probed-run-not-judged-again',
     ['replay.rejudging-failed'],
-    (event) => reactions.judging.rejudgingAskFailed(event),
+    (event) => reactions.judging.rejudgingRequestFailed(event),
   ),
-  subscribing<ReplayRecheckWanted>(
-    'replays.ask-to-check-probed-run-again',
-    ['replay.recheck-wanted'],
-    (event) => reactions.askingRecheck.wanted(event),
+  subscribing<ReplayRecheckRequested>(
+    'replays.request-probed-run-recheck',
+    ['replay.recheck-requested'],
+    (event) => reactions.requestingRecheck.requested(event),
   ),
-  subscribing<ReplayStackRecheckWanted>(
-    'replays.ask-to-check-probed-stack-again',
-    ['replay.stack-recheck-wanted'],
-    (event) => reactions.askingRecheck.stack(event),
+  subscribing<ReplayStackRecheckRequested>(
+    'replays.request-probed-stack-recheck',
+    ['replay.stack-recheck-requested'],
+    (event) => reactions.requestingRecheck.stack(event),
   ),
   subscribing<ReplayRecheckUnavailable>(
     'replays.record-probed-run-not-checked-again',
@@ -362,30 +362,30 @@ export const replaysSubscribers = (
     ['replay-set.deleted'],
     (event) => reactions.deleting.deleteForSet(event.setId, event.workspaceId),
   ),
-  subscribing<ReplayDeletionDue>(
+  subscribing<ReplayDeletionRequested>(
     'replays.delete-replay',
-    ['replays.replay-deletion-due'],
+    ['replays.replay-deletion-requested'],
     (event) => reactions.deleting.replay(event.replayId),
   ),
-  subscribing<ReplaySetDeletionDue>(
+  subscribing<ReplaySetDeletionRequested>(
     'replays.delete-replay-set',
-    ['replays.replay-set-deletion-due'],
+    ['replays.replay-set-deletion-requested'],
     (event) => reactions.deleting.set(event.setId),
   ),
-  subscribing<CandidateDeletionDue>(
+  subscribing<CandidateDeletionRequested>(
     'replays.delete-candidate',
-    ['replays.candidate-deletion-due'],
+    ['replays.candidate-deletion-requested'],
     (event) => reactions.deleting.candidate(event.candidateId),
   ),
-  subscribing<ReplaySetStationCheckDue>(
+  subscribing<ReplaySetStationCheckRequested>(
     'replays.check-station-of-replay-set',
-    ['replays.replay-set-station-check-due'],
+    ['replays.replay-set-station-check-requested'],
     (event) => reactions.lineChanges.check(event.setId),
   ),
-  subscribing<ReplayBaselineWanted>(
+  subscribing<ReplayBaselineRequested>(
     'replays.start-wanted-baseline',
-    ['replay.baseline-wanted'],
-    (event) => reactions.baselines.wanted(event),
+    ['replay.baseline-requested'],
+    (event) => reactions.baselines.requested(event),
   ),
   subscribing<LineChangedIntegrationEvent>(
     'replays.note-sets-of-changed-line',
@@ -418,15 +418,15 @@ export const replaysSubscribers = (
     [SEARCH_RUN_DIGESTED],
     (event) => reactions.searching.digested(event.runId, spentOf(event)),
   ),
-  subscribing<SearchIterationWanted>(
+  subscribing<SearchIterationRequested>(
     'replays.dispatch-search-iteration',
-    ['replays.search-iteration-wanted'],
-    (event) => reactions.iterating.wanted(event.searchId),
+    ['replays.search-iteration-requested'],
+    (event) => reactions.iterating.requested(event.searchId),
   ),
-  subscribing<SearchHoldingOutWanted>(
+  subscribing<SearchHoldingOutRequested>(
     'replays.hold-out-search',
-    ['replays.search-holding-out-wanted'],
-    (event) => reactions.holdingOut.wanted(event.searchId),
+    ['replays.search-holding-out-requested'],
+    (event) => reactions.holdingOut.requested(event.searchId),
   ),
   subscribing<SearchReflected>(
     'replays.notice-search-reflection',
@@ -452,9 +452,9 @@ export const replaysSubscribers = (
         WorkspaceId.of(event.workspaceId),
       ),
   ),
-  subscribing<SearchDeletionDue>(
+  subscribing<SearchDeletionRequested>(
     'replays.delete-search',
-    ['replays.search-deletion-due'],
+    ['replays.search-deletion-requested'],
     (event) => reactions.deletingSearches.search(event.searchId),
   ),
   subscribing<ReplaySetDeleted>(
@@ -482,9 +482,9 @@ export const replaysSubscribers = (
     (event) =>
       reactions.deletingChecks.deleteForSet(event.setId, event.workspaceId),
   ),
-  subscribing<ReplayCheckDeletionDue>(
+  subscribing<ReplayCheckDeletionRequested>(
     'replays.delete-replay-check',
-    ['replays.replay-check-deletion-due'],
+    ['replays.replay-check-deletion-requested'],
     (event) => reactions.deletingChecks.check(event.checkId),
   ),
   subscribing<TeamDeletedIntegrationEvent>(
@@ -496,9 +496,9 @@ export const replaysSubscribers = (
         WorkspaceId.of(event.workspaceId),
       ),
   ),
-  subscribing<ConfigPullRequestDeletionDue>(
+  subscribing<ConfigPullRequestDeletionRequested>(
     'replays.delete-config-pull-request',
-    ['replays.config-pull-request-deletion-due'],
+    ['replays.config-pull-request-deletion-requested'],
     (event) => reactions.deletingPullRequests.pullRequest(event.pullRequestId),
   ),
 ];

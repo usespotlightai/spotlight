@@ -18,7 +18,7 @@ describe('RandomTokenIssuer', () => {
     expect(issued.size).toBe(100);
   });
 
-  it('keeps a hash rather than the token', () => {
+  it('stores a hash rather than the token', () => {
     const { token, hash } = tokens.issue();
 
     expect(hash).not.toContain(token);

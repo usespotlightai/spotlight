@@ -49,7 +49,7 @@ export const describedAs = (text: unknown, otherwise: string): string => {
   return (trimmed === '' ? otherwise : trimmed).slice(0, MAX_DESCRIPTION);
 };
 
-export const keepingFirst = (
+export const firstByName = (
   records: readonly OperationRecord[],
 ): ReadOperations => {
   const named = new Map<string, OperationRecord>();

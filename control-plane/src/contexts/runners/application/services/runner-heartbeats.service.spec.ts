@@ -61,7 +61,7 @@ describe('RunnerHeartbeats', () => {
     expect(terms?.serves(null)).toBe(false);
   });
 
-  it('answers to the labels of the trust that admitted it', async () => {
+  it('answers to the labels of the trust it started through', async () => {
     const { heartbeats } = setUp(aRunner({ through: aTrust() }));
 
     expect((await heartbeats.heartbeat(ID, later(1)))?.terms.values).toEqual([

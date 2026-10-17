@@ -15,7 +15,7 @@ import {
   REVIEW_MARK,
 } from '@work/application/contracts/happenings.contract';
 import type { AttachmentStorePort } from '@work/application/ports/attachment-store.port';
-import { heardInMemory } from '@work/application/ports/heard-happenings.fake-spec';
+import { processedEventsInMemory } from '@work/application/ports/processed-events.fake-spec';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
 import { ReactToHappenings } from '@work/application/services/react-to-happenings.service';
 import type { TaskDispatching } from '@work/application/services/task-dispatch';
@@ -49,7 +49,7 @@ const members: MemberDirectoryPort = {
 const files = {
   grant: vi.fn(),
   received: vi.fn(async () => []),
-  keep: vi.fn(),
+  save: vi.fn(),
   taken: vi.fn(),
   link: vi.fn(),
   open: vi.fn(),
@@ -103,8 +103,8 @@ const created = (
 const reviewing = (over: Partial<LineOpening> = {}, repositories?: string[]) =>
   created(LineRole.REVIEW, over, repositories);
 
-const asked = (
-  asking: 'opened' | 'mentioned',
+const requested = (
+  trigger: 'opened' | 'mentioned',
   over: {
     body?: string;
     draft?: boolean;
@@ -117,9 +117,9 @@ const asked = (
   const marks = [{ kind: REVIEW_MARK, value: pullRequest }];
 
   return {
-    happening: `github.pull_request.${asking}`,
+    happening: `github.pull_request.${trigger}`,
     summary: 'A pull request wants a review.',
-    answers: asking === 'mentioned',
+    answers: trigger === 'mentioned',
     state: 'raised',
     concerns: { branch: null, marks },
     message: over.body ? { body: over.body } : null,
@@ -132,7 +132,7 @@ const asked = (
       assignEmail: null,
       marks,
       review: {
-        asking,
+        trigger,
         pullRequest,
         author: 'octocat',
         outside: over.outside ?? true,
@@ -201,7 +201,7 @@ const world = (input: {
     { generate: () => fresh('task') },
     members,
     files,
-    heardInMemory(),
+    processedEventsInMemory(),
     logger,
   );
 
@@ -226,14 +226,14 @@ const world = (input: {
 
 const policy = (start: string, skip = {}) => ReviewPolicy.of({ start, skip });
 
-describe('ReactToHappenings, asked for a review', () => {
+describe('ReactToHappenings, with a review request', () => {
   it('opens a task reviewing a pull request as it opens, on the line that reviews them', async () => {
     const line = reviewing({ reviews: policy('opened') });
     const { react, added, dispatched } = world({
       lines: [created(LineRole.DELIVERY), line],
     });
 
-    await react(asked('opened'));
+    await react(requested('opened'));
 
     expect(added).toHaveLength(1);
     const [task] = added;
@@ -246,7 +246,7 @@ describe('ReactToHappenings, asked for a review', () => {
     expect(dispatched).toHaveLength(1);
   });
 
-  it('leaves a review asked of a pull request whose head it cannot check out, as a happening that does not read', async () => {
+  it('leaves a review requested of a pull request whose head it cannot check out, as a happening that does not read', async () => {
     vi.mocked(logger.warn).mockClear();
     const { react, added } = world({
       lines: [reviewing({ reviews: policy('opened') })],
@@ -254,7 +254,7 @@ describe('ReactToHappenings, asked for a review', () => {
 
     await expect(
       react(
-        asked('opened', {
+        requested('opened', {
           pullRequest: 'https://github.com/acme/api/issues/7',
         }),
       ),
@@ -275,7 +275,7 @@ describe('ReactToHappenings, asked for a review', () => {
         lines: [reviewing({ reviews: policy('opened') })],
       });
 
-      await react(asked('opened', { outside }));
+      await react(requested('opened', { outside }));
 
       expect(added[0]?.fromOutside).toBe(outside);
     }
@@ -284,17 +284,17 @@ describe('ReactToHappenings, asked for a review', () => {
   it('waits to be mentioned where the line starts on a mention', async () => {
     const { react, added } = world({ lines: [reviewing()] });
 
-    await react(asked('opened'));
+    await react(requested('opened'));
     expect(added).toHaveLength(0);
 
-    await react(asked('mentioned', { body: '@spotlight please review' }));
+    await react(requested('mentioned', { body: '@spotlight please review' }));
     expect(added).toHaveLength(1);
   });
 
   it('opens nothing for a comment that does not mention it', async () => {
     const { react, added } = world({ lines: [reviewing()] });
 
-    await react(asked('mentioned', { body: '@octocat thoughts?' }));
+    await react(requested('mentioned', { body: '@octocat thoughts?' }));
 
     expect(added).toHaveLength(0);
   });
@@ -304,7 +304,7 @@ describe('ReactToHappenings, asked for a review', () => {
       lines: [created(LineRole.DELIVERY), reviewing({ reviews: null })],
     });
 
-    await react(asked('mentioned', { body: '@spotlight review this' }));
+    await react(requested('mentioned', { body: '@spotlight review this' }));
 
     expect(added).toHaveLength(0);
   });
@@ -313,13 +313,13 @@ describe('ReactToHappenings, asked for a review', () => {
     const elsewhere = world({
       lines: [reviewing({ reviews: policy('opened') }, ['acme/web'])],
     });
-    await elsewhere.react(asked('opened'));
+    await elsewhere.react(requested('opened'));
     expect(elsewhere.added).toHaveLength(0);
 
     const here = world({
       lines: [reviewing({ reviews: policy('opened') }, ['acme/api'])],
     });
-    await here.react(asked('opened'));
+    await here.react(requested('opened'));
     expect(here.added).toHaveLength(1);
   });
 
@@ -327,13 +327,15 @@ describe('ReactToHappenings, asked for a review', () => {
     const skipping = world({
       lines: [reviewing({ reviews: policy('opened') })],
     });
-    await skipping.react(asked('opened', { branch: 'spotlight/task_9' }));
+    await skipping.react(requested('opened', { branch: 'spotlight/task_9' }));
     expect(skipping.added).toHaveLength(0);
 
     const reviewingOwn = world({
       lines: [reviewing({ reviews: policy('opened', { spotlight: false }) })],
     });
-    await reviewingOwn.react(asked('opened', { branch: 'spotlight/task_9' }));
+    await reviewingOwn.react(
+      requested('opened', { branch: 'spotlight/task_9' }),
+    );
     expect(reviewingOwn.added).toHaveLength(1);
   });
 
@@ -356,12 +358,12 @@ describe('ReactToHappenings, asked for a review', () => {
           : null,
     });
 
-    await react(asked('opened', { branch: null }));
+    await react(requested('opened', { branch: null }));
 
     expect(added).toHaveLength(0);
   });
 
-  it('asks a review under way to look again when mentioned, rather than opening another', async () => {
+  it('requests a review under way to look again when mentioned, rather than opening another', async () => {
     const line = reviewing();
     const underway = Task.add({
       line,
@@ -380,7 +382,7 @@ describe('ReactToHappenings, asked for a review', () => {
           : null,
     });
 
-    await react(asked('mentioned', { body: '@spotlight again please' }));
+    await react(requested('mentioned', { body: '@spotlight again please' }));
 
     expect(added).toHaveLength(0);
     expect(saved).toHaveLength(1);
@@ -419,7 +421,7 @@ describe('ReactToHappenings, asked for a review', () => {
       findByMarks: () => finished,
     });
 
-    await react(asked('mentioned', { body: '@spotlight once more' }));
+    await react(requested('mentioned', { body: '@spotlight once more' }));
 
     expect(added).toHaveLength(1);
     expect(added[0]?.id.equals(finished.id)).toBe(false);

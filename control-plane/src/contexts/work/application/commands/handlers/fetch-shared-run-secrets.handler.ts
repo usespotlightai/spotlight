@@ -20,24 +20,24 @@ export class FetchSharedRunSecretsHandler
   ): Promise<EgressSecretsDto> {
     try {
       const shared = await this.egress.sharedWith(command.token);
-      const admitted = shared
-        ? await this.egress.admitThrough(
+      const authorized = shared
+        ? await this.egress.authorizeRunner(
             shared,
             command.proxyCredential,
             this.clock.now(),
           )
         : null;
 
-      if (!admitted) {
+      if (!authorized) {
         return { outcome: 'unauthorized' };
       }
 
       const fetched = await this.fetches.fetchFor(
-        { ...admitted, sharedEgress: admitted.egressId },
+        { ...authorized, sharedEgress: authorized.egressId },
         command.recipient,
       );
 
-      return admitted.work?.kind !== 'check' && fetched.runId === null
+      return authorized.work?.kind !== 'check' && fetched.runId === null
         ? { outcome: 'waiting' }
         : fetched;
     } catch (error) {

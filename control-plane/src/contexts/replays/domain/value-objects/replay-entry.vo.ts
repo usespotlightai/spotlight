@@ -222,15 +222,15 @@ export class ReplayEntry {
     return this.state.pairing === null && this.pairableFor(scoring);
   }
 
-  pairingAsked(against: RunId): ReplayEntry {
+  pairingRequested(against: RunId): ReplayEntry {
     return this.state.pairing === null
-      ? this.with({ pairing: EntryPairing.asked(against) })
+      ? this.with({ pairing: EntryPairing.requested(against) })
       : this;
   }
 
   pairingLeft(against: RunId, why: string): ReplayEntry {
     return this.state.pairing === null
-      ? this.with({ pairing: EntryPairing.asked(against).failed(why) })
+      ? this.with({ pairing: EntryPairing.requested(against).failed(why) })
       : this;
   }
 
@@ -293,13 +293,13 @@ export class ReplayEntry {
     return this.state.recheck === null && isConclusive(this.state.checks);
   }
 
-  rejudgingAsked(): ReplayEntry {
+  rejudgingRequested(): ReplayEntry {
     return this.wantsRejudging
-      ? this.with({ secondJudging: EntryJudging.asked() })
+      ? this.with({ secondJudging: EntryJudging.requested() })
       : this;
   }
 
-  recheckAsked(): ReplayEntry {
+  recheckRequested(): ReplayEntry {
     return this.wantsRecheck
       ? this.with({ recheck: ChangeChecks.checking() })
       : this;
@@ -367,10 +367,10 @@ export class ReplayEntry {
     return this.with({ checks, draftingSpent: drafting });
   }
 
-  judgingAsked(): ReplayEntry {
+  judgingRequested(): ReplayEntry {
     return this.state.judging
       ? this
-      : this.with({ judging: EntryJudging.asked() });
+      : this.with({ judging: EntryJudging.requested() });
   }
 
   judged(verdict: JudgeVerdict, spent: ModelSpent | null): ReplayEntry {
@@ -438,7 +438,7 @@ export class ReplayEntry {
     if (!this.isWaiting) {
       throw new InconsistentStateError(
         'replay entry',
-        'was given a run while it already had one or a result',
+        'got a run while it already had one or a result',
       );
     }
 

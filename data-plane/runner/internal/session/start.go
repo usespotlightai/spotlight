@@ -14,13 +14,13 @@ type startingPoints interface {
 	RecordStartingPoint(ctx context.Context, runID string, point protocol.StartingPoint) error
 }
 
-func (k *keeper) started(ctx context.Context) {
-	if !k.run.Spec.StartingPoint {
+func (a *archiver) started(ctx context.Context) {
+	if !a.run.Spec.StartingPoint {
 		return
 	}
 
-	if err := recordStart(ctx, k.control, k.run, k.space.Dir, k.restoredFrom); err != nil {
-		k.report(startStep, "Where the run started was not recorded: %v", err)
+	if err := recordStart(ctx, a.control, a.run, a.space.Dir, a.restoredFrom); err != nil {
+		a.report(startStep, "Where the run started was not recorded: %v", err)
 	}
 }
 

@@ -1,14 +1,14 @@
-import type { WayInKind } from '@runners/application/ports/runner-admissions.port';
+import type { CredentialSourceKind } from '@runners/application/ports/runner-authenticator.port';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export interface AdmittedThrough {
-  readonly kind: WayInKind;
+export interface CredentialSourceSummary {
+  readonly kind: CredentialSourceKind;
   readonly key: string | null;
 }
 
 export interface LiveRunnerSummary {
   readonly id: string;
-  readonly through: AdmittedThrough;
+  readonly source: CredentialSourceSummary;
   readonly hostId: string | null;
   readonly image: string | null;
   readonly harnesses: readonly string[];
@@ -33,7 +33,7 @@ interface HostImageSummary {
 export interface HostSummary {
   readonly id: string;
   readonly name: string;
-  readonly through: AdmittedThrough;
+  readonly source: CredentialSourceSummary;
   readonly release: string;
   readonly containerRuntime: string;
   readonly capacity: number;

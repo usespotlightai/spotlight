@@ -81,7 +81,7 @@ import { InsightsShippingResponseDto } from '@outcomes/presentation/http/dto/ins
 import { InsightsStationsResponseDto } from '@outcomes/presentation/http/dto/insights-stations.response.dto';
 import { InsightsToolsResponseDto } from '@outcomes/presentation/http/dto/insights-tools.response.dto';
 import { StationAlertCrossingResponseDto } from '@outcomes/presentation/http/dto/station-alert-crossing.response.dto';
-import { AdmitsWorkspaceTokens } from '@platform/http/decorators/admits-workspace-tokens.decorator';
+import { AllowWorkspaceTokens } from '@platform/http/decorators/allow-workspace-tokens.decorator';
 import { CurrentPrincipal } from '@platform/http/decorators/current-principal.decorator';
 import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo';
 
@@ -98,7 +98,7 @@ const periodOf = (raw: unknown): string => {
 const textOf = (raw: unknown): string | null =>
   typeof raw === 'string' && raw.trim().length > 0 ? raw.trim() : null;
 
-const askedOf = (raw: unknown): string | readonly string[] | null =>
+const queryValue = (raw: unknown): string | readonly string[] | null =>
   Array.isArray(raw) ? raw.map(String) : textOf(raw);
 
 const listOf = (raw: unknown): readonly string[] | null => {
@@ -114,8 +114,8 @@ const listOf = (raw: unknown): readonly string[] | null => {
 };
 
 const numberOf = (raw: unknown): number | null => {
-  const asked = typeof raw === 'string' ? Number(raw) : Number.NaN;
-  return Number.isInteger(asked) ? asked : null;
+  const value = typeof raw === 'string' ? Number(raw) : Number.NaN;
+  return Number.isInteger(value) ? value : null;
 };
 
 const PeriodQuery = () =>
@@ -124,7 +124,7 @@ const PeriodQuery = () =>
     required: false,
     enum: INSIGHTS_PERIODS,
     description:
-      'How many whole UTC days, up to and including today, to look at; 30d unless asked. Every answer also covers the period before, as long',
+      'How many whole UTC days, up to and including today, to look at; 30d by default. Every answer also covers the period before, as long',
   });
 
 const FilterQuery = (name: string, description: string) =>
@@ -132,7 +132,7 @@ const FilterQuery = (name: string, description: string) =>
 
 @ApiTags('insights')
 @ApiBearerAuth()
-@AdmitsWorkspaceTokens()
+@AllowWorkspaceTokens()
 @ApiUnauthorizedResponse({ description: 'No valid session or token' })
 @ApiNotFoundResponse({ description: 'No such team for this caller' })
 @ApiUnprocessableEntityResponse({
@@ -250,7 +250,7 @@ export class TeamInsightsController {
   @ApiOperation({
     operationId: 'readInsightsTools',
     summary:
-      'Which skills the team’s runs were given and read, week by week, and how each MCP server they called behaved',
+      'Which skills the team’s stations enabled for runs and which skills runs read, week by week, and how each MCP server they called behaved',
   })
   @PeriodQuery()
   @ApiOkResponse({ type: InsightsToolsResponseDto })
@@ -304,7 +304,7 @@ export class TeamInsightsController {
   @ApiOkResponse({ type: InsightsSetupsResponseDto })
   async setups(
     @Param('teamId') teamId: string,
-    @Query() asked: Record<string, unknown>,
+    @Query() query: Record<string, unknown>,
     @CurrentPrincipal() principal: Principal,
   ): Promise<InsightsSetupsResponseDto> {
     return new InsightsSetupsResponseDto(
@@ -312,9 +312,9 @@ export class TeamInsightsController {
         new ReadInsightsSetupsQuery(
           teamId,
           principal,
-          periodOf(asked.period),
-          textOf(asked.stationId),
-          textOf(asked.size),
+          periodOf(query.period),
+          textOf(query.stationId),
+          textOf(query.size),
         ),
       ),
     );
@@ -467,12 +467,12 @@ export class TeamInsightsController {
     name: 'size',
     required: false,
     type: Number,
-    description: 'Pull requests per page: 50 unless asked, 200 at most',
+    description: 'Pull requests per page: 50 by default, 200 at most',
   })
   @ApiOkResponse({ type: InsightsPullRequestListResponseDto })
   async pullRequestList(
     @Param('teamId') teamId: string,
-    @Query() asked: Record<string, unknown>,
+    @Query() query: Record<string, unknown>,
     @CurrentPrincipal() principal: Principal,
   ): Promise<InsightsPullRequestListResponseDto> {
     return new InsightsPullRequestListResponseDto(
@@ -483,19 +483,19 @@ export class TeamInsightsController {
         new ListInsightsPullRequestsQuery(
           teamId,
           principal,
-          periodOf(asked.period),
+          periodOf(query.period),
           {
-            repository: listOf(asked.repository),
-            author: askedOf(asked.author),
-            type: askedOf(asked.type),
-            state: askedOf(asked.state),
-            week: askedOf(asked.week),
-            reverted: askedOf(asked.reverted),
-            rounds: askedOf(asked.rounds),
-            compared: askedOf(asked.compared),
+            repository: listOf(query.repository),
+            author: queryValue(query.author),
+            type: queryValue(query.type),
+            state: queryValue(query.state),
+            week: queryValue(query.week),
+            reverted: queryValue(query.reverted),
+            rounds: queryValue(query.rounds),
+            compared: queryValue(query.compared),
           },
-          numberOf(asked.page),
-          numberOf(asked.size),
+          numberOf(query.page),
+          numberOf(query.size),
         ),
       ),
     );
@@ -537,7 +537,10 @@ export class TeamInsightsController {
     'week',
     'Only runs that ended in the week starting this UTC Monday, as YYYY-MM-DD',
   )
-  @FilterQuery('skillGiven', 'Only runs whose station config gave this skill')
+  @FilterQuery(
+    'skillEnabled',
+    'Only runs whose station config enabled this skill',
+  )
   @FilterQuery('skillUsed', 'Only runs that read this skill')
   @FilterQuery('server', 'Only runs that called this MCP server')
   @FilterQuery(
@@ -582,12 +585,12 @@ export class TeamInsightsController {
     name: 'size',
     required: false,
     type: Number,
-    description: 'Runs per page: 50 unless asked, 200 at most',
+    description: 'Runs per page: 50 by default, 200 at most',
   })
   @ApiOkResponse({ type: InsightsRunsResponseDto })
   async runs(
     @Param('teamId') teamId: string,
-    @Query() asked: Record<string, unknown>,
+    @Query() query: Record<string, unknown>,
     @CurrentPrincipal() principal: Principal,
   ): Promise<InsightsRunsResponseDto> {
     return new InsightsRunsResponseDto(
@@ -595,33 +598,33 @@ export class TeamInsightsController {
         new ListInsightsRunsQuery(
           teamId,
           principal,
-          periodOf(asked.period),
+          periodOf(query.period),
           {
-            lineId: askedOf(asked.lineId),
-            stationId: askedOf(asked.stationId),
-            outcome: askedOf(asked.outcome),
-            harness: askedOf(asked.harness),
-            model: askedOf(asked.model),
-            repository: askedOf(asked.repository),
-            fingerprint: askedOf(asked.fingerprint),
-            taskId: askedOf(asked.taskId),
-            taskIds: listOf(asked.taskIds),
-            personId: askedOf(asked.personId),
-            day: askedOf(asked.day),
-            week: askedOf(asked.week),
-            skillGiven: askedOf(asked.skillGiven),
-            skillUsed: askedOf(asked.skillUsed),
-            server: askedOf(asked.server),
-            serverFailed: askedOf(asked.serverFailed),
-            failedAfter: askedOf(asked.failedAfter),
-            refusedTool: askedOf(asked.refusedTool),
-            refusedServer: askedOf(asked.refusedServer),
-            delivery: askedOf(asked.delivery),
-            next: askedOf(asked.next),
-            asked: askedOf(asked.asked),
+            lineId: queryValue(query.lineId),
+            stationId: queryValue(query.stationId),
+            outcome: queryValue(query.outcome),
+            harness: queryValue(query.harness),
+            model: queryValue(query.model),
+            repository: queryValue(query.repository),
+            fingerprint: queryValue(query.fingerprint),
+            taskId: queryValue(query.taskId),
+            taskIds: listOf(query.taskIds),
+            personId: queryValue(query.personId),
+            day: queryValue(query.day),
+            week: queryValue(query.week),
+            skillEnabled: queryValue(query.skillEnabled),
+            skillUsed: queryValue(query.skillUsed),
+            server: queryValue(query.server),
+            serverFailed: queryValue(query.serverFailed),
+            failedAfter: queryValue(query.failedAfter),
+            refusedTool: queryValue(query.refusedTool),
+            refusedServer: queryValue(query.refusedServer),
+            delivery: queryValue(query.delivery),
+            next: queryValue(query.next),
+            asked: queryValue(query.asked),
           },
-          numberOf(asked.page),
-          numberOf(asked.size),
+          numberOf(query.page),
+          numberOf(query.size),
         ),
       ),
     );

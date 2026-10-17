@@ -23,7 +23,7 @@ const noting = () => {
     deletions,
     inTransaction,
   );
-  const heard = (way: 'briefed' | 'recalled', memories: readonly string[]) =>
+  const received = (way: 'briefed' | 'recalled', memories: readonly string[]) =>
     service.used({
       runId: RUN.value,
       workspaceId: WORKSPACE.value,
@@ -32,21 +32,21 @@ const noting = () => {
       memories,
     });
 
-  return { records, deletions, heard };
+  return { records, deletions, received };
 };
 
 describe('NoteRunMemories', () => {
   it('keeps the memories a run was briefed with before it ended, and keeps them when it ends', async () => {
-    const { records, heard } = noting();
+    const { records, received } = noting();
 
-    await heard('briefed', ['mem_2', 'mem_1']);
+    await received('briefed', ['mem_2', 'mem_1']);
     const briefed = await records.of(RUN);
     await records.save(
       (briefed as NonNullable<typeof briefed>).recordEnd(
         endOf({ taskId: 'task_1' }),
       ),
     );
-    await heard('recalled', ['mem_1']);
+    await received('recalled', ['mem_1']);
 
     const ended = await records.of(RUN);
 
@@ -55,34 +55,34 @@ describe('NoteRunMemories', () => {
     expect(ended?.memories.recalled).toEqual(['mem_1']);
   });
 
-  it('changes nothing when it hears the same memories again, or none', async () => {
-    const { records, heard } = noting();
+  it('changes nothing when it receives the same memories again, or none', async () => {
+    const { records, received } = noting();
 
-    await heard('briefed', ['mem_1']);
+    await received('briefed', ['mem_1']);
     const first = await records.of(RUN);
-    await heard('briefed', ['mem_1']);
-    await heard('recalled', []);
+    await received('briefed', ['mem_1']);
+    await received('recalled', []);
 
     expect((await records.of(RUN))?.version).toBe(first?.version);
     expect((await records.of(RUN))?.memories.recalled).toEqual([]);
   });
 
-  it('keeps nothing for a task that was deleted, and lets go of what it kept', async () => {
-    const { records, deletions, heard } = noting();
+  it('keeps nothing for a task that was deleted, and lets go of what it stored', async () => {
+    const { records, deletions, received } = noting();
 
-    await heard('briefed', ['mem_1']);
+    await received('briefed', ['mem_1']);
     await deletions.deleteTask(WORKSPACE, TASK);
-    await heard('recalled', ['mem_2']);
+    await received('recalled', ['mem_2']);
 
     expect(await records.of(RUN)).toBeNull();
     expect(deletions.locks).toContain(`${WORKSPACE.value} ${TASK.value}`);
   });
 
   it('keeps nothing for a workspace that was deleted', async () => {
-    const { records, deletions, heard } = noting();
+    const { records, deletions, received } = noting();
 
     await deletions.deleteWorkspace(WORKSPACE);
-    await heard('briefed', ['mem_1']);
+    await received('briefed', ['mem_1']);
 
     expect(await records.of(RUN)).toBeNull();
   });

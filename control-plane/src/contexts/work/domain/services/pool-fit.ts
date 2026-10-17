@@ -4,4 +4,4 @@ import type { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-ter
 export const poolCouldTake = (
   placement: RunnerPlacement,
   labels: RunnerTerms,
-): boolean => placement.admits(labels.runningIn(null));
+): boolean => placement.matches(labels.runningIn(null));

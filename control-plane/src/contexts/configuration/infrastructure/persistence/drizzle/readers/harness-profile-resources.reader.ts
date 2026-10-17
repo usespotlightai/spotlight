@@ -10,7 +10,7 @@ import { and, eq, type SQL } from 'drizzle-orm';
 
 type ProfileRow = typeof harnessProfile.$inferSelect;
 
-const keptFrom = (found: ProfileRow): HarnessProfileRecord => ({
+const recordFrom = (found: ProfileRow): HarnessProfileRecord => ({
   id: found.id,
   version: found.version,
   teamId: TeamId.of(found.teamId),
@@ -29,11 +29,11 @@ export class DrizzleHarnessProfileResources
   constructor(private readonly context: DrizzleContext) {}
 
   withId(id: string): Promise<HarnessProfileRecord | null> {
-    return this.kept(eq(harnessProfile.id, id));
+    return this.stored(eq(harnessProfile.id, id));
   }
 
   at(teamId: TeamId, key: string): Promise<HarnessProfileRecord | null> {
-    return this.kept(
+    return this.stored(
       and(eq(harnessProfile.teamId, teamId.value), eq(harnessProfile.key, key)),
     );
   }
@@ -44,10 +44,10 @@ export class DrizzleHarnessProfileResources
         .select()
         .from(harnessProfile)
         .where(eq(harnessProfile.teamId, teamId.value))
-    ).map(keptFrom);
+    ).map(recordFrom);
   }
 
-  private async kept(
+  private async stored(
     where: SQL | undefined,
   ): Promise<HarnessProfileRecord | null> {
     const [found] = await this.context.db
@@ -56,6 +56,6 @@ export class DrizzleHarnessProfileResources
       .where(where)
       .limit(1);
 
-    return found ? keptFrom(found) : null;
+    return found ? recordFrom(found) : null;
   }
 }

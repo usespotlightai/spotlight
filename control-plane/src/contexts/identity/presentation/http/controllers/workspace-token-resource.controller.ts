@@ -96,7 +96,7 @@ const CREATED = ApiResponse({
     },
     [WORKSPACE_TOKEN_HEADER]: {
       description:
-        'The token to send as Authorization: Bearer; answered this once and never again, not even to a retry, and kept only as a hash',
+        'The token to send as Authorization: Bearer; answered this once and never again, not even to a retry, and stored only as a hash',
       schema: {
         type: 'string',
         example: 'q3Vd0n8yXbT2c4kPzR7mW1sLhA9eJ5gUfN6oYiC0xEw',
@@ -191,7 +191,7 @@ export class WorkspaceTokenResourceController {
 
   @WorkspaceTokenResource.Delete(
     'tokens/:id',
-    'Revoke a workspace token; it admits nobody from this moment',
+    'Revoke a workspace token; Spotlight does not accept it from this moment',
   )
   @ID
   async delete(

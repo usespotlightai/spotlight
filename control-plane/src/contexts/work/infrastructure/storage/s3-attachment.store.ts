@@ -101,7 +101,7 @@ export class S3AttachmentStore implements AttachmentStorePort {
     return Promise.all(
       [...new Set(ids)].map(async (id) => {
         const head =
-          (await this.kept(workspaceId, id)) ??
+          (await this.stored(workspaceId, id)) ??
           (await this.pending(workspaceId, id));
 
         if (!head) {
@@ -118,7 +118,7 @@ export class S3AttachmentStore implements AttachmentStorePort {
     );
   }
 
-  async keep(
+  async save(
     workspaceId: WorkspaceId,
     file: Attachment,
     bytes: Uint8Array,
@@ -199,7 +199,7 @@ export class S3AttachmentStore implements AttachmentStorePort {
     workspaceId: WorkspaceId,
     id: AttachmentId,
   ): Promise<void> {
-    if (await this.kept(workspaceId, id)) {
+    if (await this.stored(workspaceId, id)) {
       return;
     }
 
@@ -216,7 +216,7 @@ export class S3AttachmentStore implements AttachmentStorePort {
       .catch(missing);
 
     if (!copied) {
-      if (!(await this.kept(workspaceId, id))) {
+      if (!(await this.stored(workspaceId, id))) {
         throw new InvalidAttachmentError('was never uploaded');
       }
 
@@ -228,7 +228,7 @@ export class S3AttachmentStore implements AttachmentStorePort {
       .catch(missing);
   }
 
-  private kept(
+  private stored(
     workspaceId: WorkspaceId,
     id: AttachmentId,
   ): Promise<HeadObjectCommandOutput | null> {

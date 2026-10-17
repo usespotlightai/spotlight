@@ -191,7 +191,7 @@ export class TeamMemoryController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     operationId: 'retireMemory',
-    summary: 'Stop a memory being given to runs, saying why',
+    summary: 'Stop briefing a memory to runs, saying why',
   })
   @ApiParam({ name: 'memoryId', type: String })
   @ApiBody({ type: RetireMemoryRequestDto })
@@ -199,7 +199,7 @@ export class TeamMemoryController {
   @ApiNotFoundResponse({ description: 'No such memory for this caller' })
   @ApiConflictResponse({ description: 'It was already retired' })
   @ApiUnprocessableEntityResponse({
-    description: 'No reason given, or one too long',
+    description: 'The reason is missing or too long',
   })
   async retire(
     @Param('teamId') teamId: string,

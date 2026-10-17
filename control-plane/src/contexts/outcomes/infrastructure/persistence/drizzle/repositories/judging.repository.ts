@@ -51,7 +51,7 @@ const toJudging = (row: JudgingRow): Judging =>
       passShare: row.passShare,
       version: row.rubricVersion,
     }),
-    askedAt: row.askedAt,
+    queuedAt: row.queuedAt,
     job: row.pending
       ? PendingJob.rehydrate({
           attempts: row.jobAttempts,
@@ -96,7 +96,7 @@ export class DrizzleJudgingRepository implements JudgingRepository {
           claims: [...added.rubric.criteria.claims],
           passShare: added.rubric.criteria.passShare,
           rubricVersion: added.rubric.version,
-          askedAt: added.askedAt,
+          queuedAt: added.queuedAt,
           version: added.version,
           ...columnsOf(added),
         })
@@ -163,7 +163,7 @@ export class DrizzleJudgingRepository implements JudgingRepository {
           or(isNull(judging.jobDueAt), lte(judging.jobDueAt, now)),
         ),
       )
-      .orderBy(asc(judging.askedAt))
+      .orderBy(asc(judging.queuedAt))
       .limit(1)
       .for('update', { skipLocked: true });
 

@@ -17,8 +17,8 @@ import { RestoredArchive } from '@work/domain/value-objects/restored-archive.vo'
 import type { WorkspaceArchiveId } from '@work/domain/value-objects/workspace-archive-id.vo';
 
 const RETENTION_AFTER_RELEASE_MS = 7 * 24 * 60 * 60_000;
-const KEPT_AFTER_SUPERSEDED_MS = 60 * 60_000;
-const KEPT_AFTER_STARTED_FROM_MS = 30 * 24 * 60 * 60_000;
+const RETENTION_AFTER_SUPERSEDED_MS = 60 * 60_000;
+const RETENTION_AFTER_STARTED_FROM_MS = 30 * 24 * 60 * 60_000;
 const AWAITED_UNSEALED_MS = 24 * 60 * 60_000;
 
 export interface StoredArchive {
@@ -77,7 +77,7 @@ export class WorkspaceArchive extends EventRecorder {
 
     if (!continuity || !holder) {
       throw new InvalidWorkspaceArchiveError(
-        'is kept only for work that continues in a later run',
+        'is stored only for work that continues in a later run',
       );
     }
 
@@ -103,9 +103,9 @@ export class WorkspaceArchive extends EventRecorder {
 
     return {
       grantedUnsealedBy: before(AWAITED_UNSEALED_MS),
-      supersededBy: before(KEPT_AFTER_SUPERSEDED_MS),
+      supersededBy: before(RETENTION_AFTER_SUPERSEDED_MS),
       releasedBy: before(RETENTION_AFTER_RELEASE_MS),
-      startedFromBy: before(KEPT_AFTER_STARTED_FROM_MS),
+      startedFromBy: before(RETENTION_AFTER_STARTED_FROM_MS),
     };
   }
 
@@ -190,7 +190,7 @@ export class WorkspaceArchive extends EventRecorder {
     return restored;
   }
 
-  isKeptIn(workspaceId: WorkspaceId): boolean {
+  isAvailableIn(workspaceId: WorkspaceId): boolean {
     return (
       this.isSealed &&
       !this.isDiscarded &&
@@ -245,14 +245,14 @@ export class WorkspaceArchive extends EventRecorder {
 
     if (
       facts.lastStartedFromAt &&
-      at < after(facts.lastStartedFromAt, KEPT_AFTER_STARTED_FROM_MS)
+      at < after(facts.lastStartedFromAt, RETENTION_AFTER_STARTED_FROM_MS)
     ) {
       return false;
     }
 
     if (
       facts.supersededAt &&
-      at >= after(facts.supersededAt, KEPT_AFTER_SUPERSEDED_MS)
+      at >= after(facts.supersededAt, RETENTION_AFTER_SUPERSEDED_MS)
     ) {
       return true;
     }

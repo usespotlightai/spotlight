@@ -28,12 +28,12 @@ func serve(t *testing.T, handle http.HandlerFunc) *pool.Client {
 }
 
 func TestClaimOffersTheImagesHarnessesAndGetsTheAssignment(t *testing.T) {
-	var asked protocol.HostClaim
+	var received protocol.HostClaim
 	var path, auth string
 
 	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
 		path, auth = r.URL.Path, r.Header.Get("Authorization")
-		_ = json.NewDecoder(r.Body).Decode(&asked)
+		_ = json.NewDecoder(r.Body).Decode(&received)
 		_ = json.NewEncoder(w).Encode(protocol.Assignment{
 			RunnerID: "runner_1",
 			Token:    "one-run",
@@ -47,10 +47,10 @@ func TestClaimOffersTheImagesHarnessesAndGetsTheAssignment(t *testing.T) {
 	}
 
 	if path != "/api/hosts/claim" || auth != "Bearer pool-token" {
-		t.Errorf("asked %s with %q", path, auth)
+		t.Errorf("received %s with %q", path, auth)
 	}
-	if asked.Host != "host_1" || asked.Image != "ghcr.io/acme/api-runner:main" {
-		t.Errorf("offered %+v", asked)
+	if received.Host != "host_1" || received.Image != "ghcr.io/acme/api-runner:main" {
+		t.Errorf("offered %+v", received)
 	}
 	if assignment.RunnerID != "runner_1" || assignment.Token != "one-run" || assignment.Work.Run.ID != "run_1" {
 		t.Errorf("assignment %+v", assignment)
@@ -133,12 +133,12 @@ func TestDeregisterIsSentUnderTheHost(t *testing.T) {
 
 func TestClaimCallNamesThisHostAndAnswerCallAnswersIt(t *testing.T) {
 	var paths []string
-	var asked protocol.HostCallClaim
+	var received protocol.HostCallClaim
 	var answered protocol.HostCallAnswer
 	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
 		paths = append(paths, r.URL.Path)
 		if r.URL.Path == "/api/hosts/calls/claim" {
-			_ = json.NewDecoder(r.Body).Decode(&asked)
+			_ = json.NewDecoder(r.Body).Decode(&received)
 			_ = json.NewEncoder(w).Encode(protocol.HostCall{ID: "call_1", URL: "https://audit.acme.internal/"})
 			return
 		}
@@ -147,14 +147,14 @@ func TestClaimCallNamesThisHostAndAnswerCallAnswersIt(t *testing.T) {
 	})
 
 	call, err := client.ClaimCall(context.Background())
-	if err != nil || call.ID != "call_1" || asked.Host != "host_1" {
-		t.Fatalf("claimed %+v as %+v: %v", call, asked, err)
+	if err != nil || call.ID != "call_1" || received.Host != "host_1" {
+		t.Fatalf("claimed %+v as %+v: %v", call, received, err)
 	}
 	if err := client.AnswerCall(context.Background(), call.ID, protocol.HostCallAnswer{Status: 204}); err != nil {
 		t.Fatal(err)
 	}
 	if len(paths) != 2 || paths[1] != "/api/hosts/calls/call_1/answer" {
-		t.Errorf("asked %v", paths)
+		t.Errorf("received %v", paths)
 	}
 	if answered.Host != "host_1" || answered.Status != 204 {
 		t.Errorf("answered as %+v, not as the host that claimed it", answered)

@@ -7,7 +7,7 @@ const MAX_BRIEFED = 8;
 
 const MAX_BRIEFED_LENGTH = 3_000;
 
-const MAX_CUT_KEPT = 20;
+const MAX_OMITTED = 20;
 
 const TASK_WEIGHT = 3;
 
@@ -33,16 +33,19 @@ const REPOSITORY_SPECIFICITY = 1;
 const matchOf = (rank: number): number =>
   Math.min(1, Math.max(0, rank / STRONG_RANK));
 
-const reaching = (candidate: BriefingCandidate, site: TouchedSite): boolean => {
+const relevantAt = (
+  candidate: BriefingCandidate,
+  site: TouchedSite,
+): boolean => {
   const { memory, rank } = candidate;
 
   return (
-    memory.appliesAt(site) && (memory.scope.reaches(site) || matchOf(rank) > 0)
+    memory.appliesAt(site) && (memory.scope.matches(site) || matchOf(rank) > 0)
   );
 };
 
 const specificityAt = (memory: Memory, site: TouchedSite): number =>
-  memory.scope.reaches(site)
+  memory.scope.matches(site)
     ? memory.scope.specificity
     : REPOSITORY_SPECIFICITY;
 
@@ -60,7 +63,7 @@ export const selectForBriefing = (
     withoutSuperseded(candidates.map((each) => each.memory)),
   );
   const ranked = candidates
-    .filter((each) => current.has(each.memory) && reaching(each, site))
+    .filter((each) => current.has(each.memory) && relevantAt(each, site))
     .map((each) => ({ memory: each.memory, bears: bearing(each, site) }))
     .sort(
       (one, other) =>
@@ -85,6 +88,6 @@ export const selectForBriefing = (
 
   return {
     briefed: chosen,
-    cut: ranked.slice(chosen.length, chosen.length + MAX_CUT_KEPT),
+    cut: ranked.slice(chosen.length, chosen.length + MAX_OMITTED),
   };
 };

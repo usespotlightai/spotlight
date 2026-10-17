@@ -9,7 +9,7 @@ import { Run } from '@work/domain/aggregates/run.aggregate';
 import { RunCompleted } from '@work/domain/events/run-completed.event';
 import { RunExhausted } from '@work/domain/events/run-exhausted.event';
 import { InvalidRunTransitionError } from '@work/domain/exceptions/invalid-run-transition.error';
-import { KeptFromSearchesError } from '@work/domain/exceptions/kept-from-searches.error';
+import { NotAllowedInSearchError } from '@work/domain/exceptions/not-allowed-in-search.error';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import { Handover } from '@work/domain/value-objects/handover.vo';
 import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
@@ -66,7 +66,7 @@ const reportOf = (next: string) =>
   HandoverReport.of({ handover: Handover.of({ next }), session: null });
 
 describe('a search run', () => {
-  it('works no task of its own, keeps no workspace and restores none', () => {
+  it('works no task of its own, archives no workspace and restores none', () => {
     const run = queued();
 
     expect(run.isSearch).toBe(true);
@@ -132,11 +132,11 @@ describe('a search run', () => {
     expect(exhausted?.asked).toBe(true);
   });
 
-  it('reaches nothing beyond itself, and hears no hook', () => {
+  it('acts on nothing beyond itself, and fires no hook', () => {
     expect(() =>
-      claimed().mayReachBeyondItself('reply to a review comment'),
-    ).toThrow(KeptFromSearchesError);
-    expect(claimed().hearsHooks).toBe(false);
+      claimed().mayActBeyondItself('reply to a review comment'),
+    ).toThrow(NotAllowedInSearchError);
+    expect(claimed().firesHooks).toBe(false);
   });
 
   it('comes back only with a spec that says it searches', () => {

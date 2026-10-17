@@ -1,7 +1,7 @@
 import type {
-  HostCredential,
-  RunnerAdmissionsPort,
-} from '@runners/application/ports/runner-admissions.port';
+  HostCredentials,
+  RunnerAuthenticatorPort,
+} from '@runners/application/ports/runner-authenticator.port';
 import type { RunnerHeartbeatsPort } from '@runners/application/ports/runner-heartbeats.port';
 import type {
   RunnersPort,
@@ -39,7 +39,7 @@ const taken = () =>
     harness: HarnessId.of('claude-code'),
     spec: RunSpec.of({
       command: { executable: 'claude-agent-acp', args: [] },
-      briefing: 'work out what is being asked for',
+      briefing: 'work out what the request wants',
       handover: { options: [], noteLimit: 4_000 },
       continuity: { key: 'task-task_1' },
     }),
@@ -99,12 +99,12 @@ const pulling = (
   const mayStart = vi.fn(
     async (): Promise<RunStart> => over.starts ?? 'starts',
   );
-  const admissions = {
-    admit: vi.fn(async (credential: HostCredential) =>
+  const authenticator = {
+    authenticate: vi.fn(async (credential: HostCredentials) =>
       credential.bearer !== 'pool-token'
         ? null
         : {
-            way: { kind: 'pool' as const, id: 'pool_1' },
+            source: { kind: 'pool' as const, id: 'pool_1' },
             workspaceId: WorkspaceId.of('ws_1'),
           },
     ),
@@ -134,7 +134,7 @@ const pulling = (
     waitingPlacements: vi.fn(async () => []),
   };
   const handler = new ClaimHostWorkHandler(
-    admissions as RunnerAdmissionsPort,
+    authenticator as RunnerAuthenticatorPort,
     runners as unknown as RunnersPort,
     heartbeats as RunnerHeartbeatsPort,
     runs,
@@ -153,7 +153,7 @@ const pulling = (
 
   return {
     handler,
-    admissions,
+    authenticator,
     runners,
     claimNext,
     claimCheck,
@@ -169,13 +169,13 @@ const pull = (bearer = 'pool-token', trust?: string) =>
   new ClaimHostWorkCommand({ bearer, trust }, HOST, IMAGE);
 
 describe('ClaimHostWorkHandler', () => {
-  it('rejects a host no pool or trust admits', async () => {
-    const { handler, admissions, runners } = pulling();
+  it('rejects a host that no pool or trust accepts', async () => {
+    const { handler, authenticator, runners } = pulling();
 
     expect(await handler.execute(pull('stolen', 'trust_1'))).toEqual({
       outcome: 'unauthorized',
     });
-    expect(admissions.admit).toHaveBeenCalledWith({
+    expect(authenticator.authenticate).toHaveBeenCalledWith({
       bearer: 'stolen',
       trust: 'trust_1',
     });
@@ -257,7 +257,7 @@ describe('ClaimHostWorkHandler', () => {
     expect(claimNext).not.toHaveBeenCalled();
   });
 
-  it('starts a runner, on the host that asked, through the way it was admitted, naming the image it claims for, claimable for a minute', async () => {
+  it('starts a runner, on the host that requested it, through the way it was authenticated, naming the image it claims for, claimable for a minute', async () => {
     const { handler, runners } = pulling({ run: taken() });
 
     await handler.execute(pull());

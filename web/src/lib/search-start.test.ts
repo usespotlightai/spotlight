@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
-  estimateAskedOf,
+  estimateInputOf,
   estimateKey,
   estimateProblemOf,
   FIRST_BUDGET,
@@ -32,13 +32,13 @@ describe('harnessOf', () => {
 });
 
 describe('estimateKey', () => {
-  it('round-trips what the estimate is asked for', () => {
+  it('round-trips what the estimate is requested for', () => {
     const key = estimateKey('set_1', BUDGET);
 
-    expect(estimateAskedOf(key)).toEqual({ setId: 'set_1', budget: BUDGET });
+    expect(estimateInputOf(key)).toEqual({ setId: 'set_1', budget: BUDGET });
     expect(estimateKey('', BUDGET)).toBeNull();
     expect(estimateKey('set_1', null)).toBeNull();
-    expect(estimateAskedOf(null)).toBeNull();
+    expect(estimateInputOf(null)).toBeNull();
   });
 });
 
@@ -69,7 +69,7 @@ describe('objectiveOf', () => {
     typeof objectiveOf
   >[1];
 
-  it('keeps what was asked, else follows the set’s saturation', () => {
+  it('keeps what was requested, else follows the set’s saturation', () => {
     expect(objectiveOf('success', saturated)).toBe('success');
     expect(objectiveOf(null, saturated)).toBe('cost');
     expect(objectiveOf(null, null)).toBe('success');

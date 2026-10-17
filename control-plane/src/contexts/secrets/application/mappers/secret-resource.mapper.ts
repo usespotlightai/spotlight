@@ -36,7 +36,7 @@ export const SecretResourceMapper = {
         name: each.target.name,
         prefix: each.prefix,
       })),
-      keepsValue: secret.source.isBuiltIn,
+      storesValue: secret.source.isBuiltIn,
       valueVersion: secret.valueVersion,
     };
   },

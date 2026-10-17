@@ -16,7 +16,10 @@ export class TaskNoteBody {
     return new TaskNoteBody(trimmed);
   }
 
-  static heard(summary: string, anchor: Anchor | null): TaskNoteBody {
+  static receivedHappening(
+    summary: string,
+    anchor: Anchor | null,
+  ): TaskNoteBody {
     const anchored = [anchor?.place, anchor?.body].filter(Boolean).join('\n');
 
     return TaskNoteBody.of(anchored || summary);
@@ -28,7 +31,7 @@ export class TaskNoteBody {
     to: StationName,
   ): TaskNoteBody {
     return TaskNoteBody.of(
-      `Heard while a run worked on the task. If the run does not pass the task on, the task moves to ${to.value} when the run ends.\n\n${TaskNoteBody.heard(summary, anchor).value}`,
+      `This arrived while a run worked on the task. If the run does not pass the task on, the task moves to ${to.value} when the run ends.\n\n${TaskNoteBody.receivedHappening(summary, anchor).value}`,
     );
   }
 
@@ -71,7 +74,7 @@ export class TaskNoteBody {
     );
   }
 
-  static given(
+  static fromInput(
     raw: string,
     attachments: readonly Attachment[] = [],
   ): TaskNoteBody {

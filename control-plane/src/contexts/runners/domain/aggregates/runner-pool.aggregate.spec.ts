@@ -21,7 +21,7 @@ import { describe, expect, it } from 'vitest';
 
 const BY = attributedIn();
 
-const keeping = (key: string, labels: string[] = ['linux']) => ({
+const definition = (key: string, labels: string[] = ['linux']) => ({
   key: PoolKey.of(key),
   labels: RunnerLabels.of(labels),
   maxRuns: null,
@@ -60,7 +60,7 @@ describe('RunnerPool', () => {
   it('will not provision without a secret to sign its calls with', () => {
     expect(() =>
       aPullPool().update(
-        keeping('ephemeral'),
+        definition('ephemeral'),
         {
           mode: 'push',
           url: ProvisionUrl.of('https://provision.example.com/runs'),
@@ -78,7 +78,7 @@ describe('RunnerPool', () => {
     pool.pullEvents();
 
     const rotated = pool.update(
-      keeping('ephemeral'),
+      definition('ephemeral'),
       { mode: 'pull', tokenHash: hashOf('c'), tokenVersion: 2 },
       BY,
     );
@@ -91,10 +91,10 @@ describe('RunnerPool', () => {
     });
   });
 
-  it('asks for a new token whenever its token version changes', () => {
+  it('requires a new token whenever its token version changes', () => {
     expect(() =>
       aPullPool({ tokenVersion: 1 }).update(
-        keeping('ephemeral'),
+        definition('ephemeral'),
         { mode: 'pull', tokenHash: null, tokenVersion: 2 },
         BY,
       ),
@@ -103,7 +103,7 @@ describe('RunnerPool', () => {
 
   it('keeps its token when relabelled without one', () => {
     const relabelled = aPullPool().update(
-      keeping('ephemeral', ['linux', 'gpu']),
+      definition('ephemeral', ['linux', 'gpu']),
       { mode: 'pull', tokenHash: null, tokenVersion: null },
       BY,
     );
@@ -115,35 +115,35 @@ describe('RunnerPool', () => {
   it('keeps its key and its mode for its whole life', () => {
     expect(() =>
       aPullPool().update(
-        keeping('other'),
+        definition('other'),
         { mode: 'pull', tokenHash: null, tokenVersion: null },
         BY,
       ),
     ).toThrow(ImmutableFieldError);
     expect(() =>
       aPushPool().update(
-        keeping('sandboxes'),
+        definition('sandboxes'),
         { mode: 'pull', tokenHash: hashOf('c'), tokenVersion: null },
         BY,
       ),
     ).toThrow(ImmutableFieldError);
   });
 
-  it('asks for the secret again whenever its version changes', () => {
+  it('requires the secret again whenever its version changes', () => {
     const pool = aPushPool();
     const url = ProvisionUrl.of('https://provision.example.com/runs');
     pool.pullEvents();
 
     expect(() =>
       pool.update(
-        keeping('sandboxes'),
+        definition('sandboxes'),
         { mode: 'push', url, secret: null, secretVersion: 2, egress: null },
         BY,
       ),
     ).toThrow(InvalidRunnerPoolError);
 
     const rotated = pool.update(
-      keeping('sandboxes'),
+      definition('sandboxes'),
       {
         mode: 'push',
         url,
@@ -190,9 +190,9 @@ describe('RunnerPool', () => {
     expect(pulled.delete(BY).capacity('pull', 0)).toBe('gone');
   });
 
-  it('always keeps its provision secret encrypted, even when kept from an update that gave none', () => {
-    const kept = aPushPool().update(
-      keeping('sandboxes'),
+  it('always keeps its provision secret encrypted, even after an update without one', () => {
+    const updated = aPushPool().update(
+      definition('sandboxes'),
       {
         mode: 'push',
         url: ProvisionUrl.of('https://provision.example.com/v2'),
@@ -203,8 +203,10 @@ describe('RunnerPool', () => {
       BY,
     );
 
-    expect(kept.provision?.secret.equals(encryptedOf('s'))).toBe(true);
-    expect(kept.provision?.url.value).toBe('https://provision.example.com/v2');
+    expect(updated.provision?.secret.equals(encryptedOf('s'))).toBe(true);
+    expect(updated.provision?.url.value).toBe(
+      'https://provision.example.com/v2',
+    );
   });
 
   it('records a deleted change when it is deleted', () => {
@@ -247,7 +249,7 @@ describe('RunnerPool egress', () => {
   it('names another egress, or none, when it is updated', () => {
     const pool = aPushPool({ egress: EgressReference.platform() });
     const url = ProvisionUrl.of('https://provision.example.com/runs');
-    const given = {
+    const access = {
       mode: 'push' as const,
       url,
       secret: null,
@@ -257,14 +259,15 @@ describe('RunnerPool egress', () => {
     expect(
       pool
         .update(
-          keeping('sandboxes'),
-          { ...given, egress: EgressReference.to(EGRESS_ID) },
+          definition('sandboxes'),
+          { ...access, egress: EgressReference.to(EGRESS_ID) },
           BY,
         )
         .egress?.equals(EgressReference.to(EGRESS_ID)),
     ).toBe(true);
     expect(
-      pool.update(keeping('sandboxes'), { ...given, egress: null }, BY).egress,
+      pool.update(definition('sandboxes'), { ...access, egress: null }, BY)
+        .egress,
     ).toBeNull();
   });
 

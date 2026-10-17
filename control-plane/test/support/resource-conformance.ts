@@ -55,7 +55,7 @@ export interface ResourceFixture {
   readonly changedAgain: Body;
   readonly invalid: { readonly body: Body; readonly path: string };
   readonly anyoneCreates?: boolean;
-  readonly admit?: (created: Body & { id: string }) => Promise<void>;
+  readonly allowViewer?: (created: Body & { id: string }) => Promise<void>;
   readonly close: () => Promise<void>;
 }
 
@@ -594,7 +594,7 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
       expect((await admin().read(made.id)).body).toEqual(made);
     });
 
-    it('deletes only the version it was asked to, and is gone after', async () => {
+    it('deletes only the version in the request, and is gone after', async () => {
       const made = await created();
       const current = updates
         ? (await admin().update(made.id, fixture.changed, made.version)).body
@@ -625,7 +625,7 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
         fixture.viewerToken ? { bearer: fixture.viewerToken } : fixture.viewer,
       );
 
-      await fixture.admit?.(made);
+      await fixture.allowViewer?.(made);
 
       expect((await viewer.read(made.id)).body).toEqual(made);
       expect(

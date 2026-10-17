@@ -1,4 +1,4 @@
-import type { RunnerAdmissionsPort } from '@runners/application/ports/runner-admissions.port';
+import type { RunnerAuthenticatorPort } from '@runners/application/ports/runner-authenticator.port';
 import type { RunnerHeartbeatsPort } from '@runners/application/ports/runner-heartbeats.port';
 import type { RunnersPort } from '@runners/application/ports/runners.port';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
@@ -25,7 +25,7 @@ export class ClaimHostWorkHandler
   implements CommandHandlerPort<ClaimHostWorkCommand, HostClaimDto>
 {
   constructor(
-    private readonly admissions: RunnerAdmissionsPort,
+    private readonly authenticator: RunnerAuthenticatorPort,
     private readonly runners: RunnersPort,
     private readonly heartbeats: RunnerHeartbeatsPort,
     private readonly runs: RunRepository,
@@ -39,9 +39,11 @@ export class ClaimHostWorkHandler
 
   async execute(command: ClaimHostWorkCommand): Promise<HostClaimDto> {
     try {
-      const admitted = await this.admissions.admit(command.credential);
+      const authenticated = await this.authenticator.authenticate(
+        command.credential,
+      );
 
-      if (!admitted) {
+      if (!authenticated) {
         return { outcome: 'unauthorized' };
       }
 
@@ -49,7 +51,7 @@ export class ClaimHostWorkHandler
       const started = await this.polls.polled(async () => {
         const now = this.clock.now();
         const attempt = await this.runners.start(
-          admitted.way,
+          authenticated.source,
           command.host,
           command.image,
           now,

@@ -62,7 +62,7 @@ export class NoteReplayJudged {
     );
   }
 
-  rejudgingAskFailed(event: ReplayRejudgingFailed): Promise<void> {
+  rejudgingRequestFailed(event: ReplayRejudgingFailed): Promise<void> {
     return this.changing(event.run.value, (replay, run) =>
       replay.recordRejudgingFailure(run, event.why, null),
     );

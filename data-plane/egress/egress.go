@@ -17,6 +17,7 @@ import (
 	"syscall"
 	"time"
 
+	"usespotlight.ai/data-plane/allowlist"
 	"usespotlight.ai/data-plane/control"
 	"usespotlight.ai/data-plane/egress/internal/awssm"
 	"usespotlight.ai/data-plane/egress/internal/proxy"
@@ -26,7 +27,6 @@ import (
 	"usespotlight.ai/data-plane/egressing/inject"
 	"usespotlight.ai/data-plane/egressing/seal"
 	"usespotlight.ai/data-plane/protocol"
-	"usespotlight.ai/data-plane/reach"
 	"usespotlight.ai/data-plane/telemetry"
 )
 
@@ -75,7 +75,7 @@ func run() error {
 		return err
 	}
 
-	allowed, err := reach.Parse(config.Allow)
+	allowed, err := allowlist.Parse(config.Allow)
 	if err != nil {
 		return fmt.Errorf("the host's allow-list: %w", err)
 	}
@@ -105,7 +105,7 @@ func run() error {
 	defer injector.Wipe()
 
 	if err := injector.ForControlPlane(fetched.SpotlightAPI, controlPlane, fetched.RunID, key); err != nil {
-		log.Warn("could not keep the run's Spotlight token", "error", err)
+		log.Warn("could not store the run's Spotlight token", "error", err)
 	}
 
 	issuer, err := authority.New(time.Now(), injector.Hosts())
@@ -113,7 +113,7 @@ func run() error {
 		return err
 	}
 
-	allowed = reachedBy(allowed, controlPlane.Hostname(), fetched)
+	allowed = withRunHosts(allowed, controlPlane.Hostname(), fetched)
 
 	listener, err := net.Listen("tcp", ":"+strconv.Itoa(protocol.EgressPort))
 	if err != nil {
@@ -216,8 +216,8 @@ func fetchSecretsFor(
 	return fetchedBy(ctx, fetcher, recipient, log), nil
 }
 
-func reachedBy(allowed reach.List, controlPlane string, fetched protocol.EgressSecrets) reach.List {
-	return allowed.With(append([]string{controlPlane}, fetched.Reaches...)...)
+func withRunHosts(allowed allowlist.List, controlPlane string, fetched protocol.EgressSecrets) allowlist.List {
+	return allowed.With(append([]string{controlPlane}, fetched.ExtraAllowedHosts...)...)
 }
 
 func fetchedBy(ctx context.Context, fetcher SecretFetcher, recipient string, log *slog.Logger) protocol.EgressSecrets {
@@ -233,7 +233,7 @@ func fetchedBy(ctx context.Context, fetcher SecretFetcher, recipient string, log
 
 		var rejection *control.ResponseError
 		if errors.As(err, &rejection) && rejection.Status < http.StatusInternalServerError {
-			log.Warn("the control plane gave egress no secrets to inject", "error", err)
+			log.Warn("the control plane sent egress no secrets to inject", "error", err)
 			return protocol.EgressSecrets{}
 		}
 

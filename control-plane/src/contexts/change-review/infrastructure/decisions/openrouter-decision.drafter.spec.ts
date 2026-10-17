@@ -13,13 +13,13 @@ const DECISIONS = [
 ];
 
 const answering = (status: number, body: unknown) => {
-  const asked: { url: string; init: RequestInit }[] = [];
+  const requests: { url: string; init: RequestInit }[] = [];
   const fetch = (async (url: string, init: RequestInit) => {
-    asked.push({ url, init });
+    requests.push({ url, init });
     return new Response(JSON.stringify(body), { status });
   }) as unknown as typeof globalThis.fetch;
 
-  return { asked, fetch };
+  return { requests, fetch };
 };
 
 const REASONED = {
@@ -31,8 +31,8 @@ const REASONED = {
 };
 
 describe('drafting decisions through OpenRouter', () => {
-  it('asks with the run’s numbered reasoning and the files it changed', async () => {
-    const { asked, fetch } = answering(200, {
+  it('requests a draft with the run’s numbered reasoning and the files it changed', async () => {
+    const { requests, fetch } = answering(200, {
       choices: [
         {
           finish_reason: 'stop',
@@ -47,7 +47,7 @@ describe('drafting decisions through OpenRouter', () => {
       fetch,
     ).draft(REASONED);
 
-    const body = JSON.parse(String(asked[0]?.init.body));
+    const body = JSON.parse(String(requests[0]?.init.body));
     const prompt = body.messages[1].content as string;
 
     expect(drafted).toEqual(DECISIONS);
@@ -72,6 +72,6 @@ describe('drafting decisions through OpenRouter', () => {
 
     await expect(
       new OpenRouterDecisionDrafter('key', 'some/model', fetch).draft(REASONED),
-    ).rejects.toThrow('OpenRouter gave no usable answer. Reason: length');
+    ).rejects.toThrow('OpenRouter returned no usable answer. Reason: length');
   });
 });

@@ -66,7 +66,7 @@ export class StartReplayHandler
 
       await this.stations.stillThere(seen);
 
-      const asked =
+      const requested =
         command.candidate === LIVE
           ? null
           : await this.proposed(access, seen, command.candidate);
@@ -78,92 +78,98 @@ export class StartReplayHandler
         command.repeats,
       );
       const live =
-        !asked || wantedBefore ? await this.snapshots.taken(seen) : null;
-      const candidate = asked ?? (live as Candidate);
+        !requested || wantedBefore ? await this.snapshots.taken(seen) : null;
+      const candidate = requested ?? (live as Candidate);
       const id = ReplayId.of(this.ids.generate());
       const baselineId = ReplayId.of(this.ids.generate());
 
-      const started = await this.keepingLive(live, asked === null, () =>
-        this.transaction.inTransaction(async () => {
-          const set = await this.sets.locked(seen.id);
+      const started = await this.withLiveSnapshot(
+        live,
+        requested === null,
+        () =>
+          this.transaction.inTransaction(async () => {
+            const set = await this.sets.locked(seen.id);
 
-          if (!set) {
-            throw new UnknownReplaySetError(command.setId);
-          }
+            if (!set) {
+              throw new UnknownReplaySetError(command.setId);
+            }
 
-          const setReplays = await this.replays.ofSet(set.id);
-          const needed = needsBaseline(
-            set,
-            setReplays,
-            liveScoring,
-            command.repeats,
-          );
-
-          if (needed && asked && !live) {
-            throw new ReplaySetBaselineMovedError(set.id.value);
-          }
-
-          if (asked && !(await this.candidates.lockedForUse(asked.id))) {
-            throw new UnknownCandidateError(asked.id.value);
-          }
-
-          const asBaseline = needed && !asked;
-          const baselineTerms =
-            needed && live
-              ? baselineTermsOf(
-                  checksSet(
-                    set,
-                    setReplays,
-                    await this.candidates.findMany(
-                      setReplays.map((each) => each.candidateId),
-                    ),
-                    live.fingerprint,
-                  ),
-                  command.repeats,
-                  ceiling,
-                )
-              : null;
-          const wanting =
-            asked && live && baselineTerms
-              ? { id: baselineId, candidate: live, ...baselineTerms }
-              : null;
-          const terms =
-            asBaseline && baselineTerms
-              ? baselineTerms
-              : { probe: false, repeats: command.repeats, ceiling };
-
-          await this.replays.add(
-            Replay.start({
-              id,
+            const setReplays = await this.replays.ofSet(set.id);
+            const needed = needsBaseline(
               set,
-              candidate,
-              baseline: asBaseline,
-              ceiling: terms.ceiling,
-              repeats: terms.repeats,
-              probe: terms.probe,
-              pairsWith: asBaseline
-                ? null
-                : (wanting?.id ??
-                  currentBaselineFor(
-                    set,
-                    setReplays,
-                    liveScoring,
-                    command.repeats,
-                  )?.id ??
-                  null),
-              at: this.clock.now(),
-              by: Attribution.of(command.actor, set.workspaceId),
-              wanting,
-            }),
-          );
+              setReplays,
+              liveScoring,
+              command.repeats,
+            );
 
-          return {
-            asBaseline,
-            wanted: wanting !== null,
-            ceiling: terms.ceiling,
-            baselineCeiling: baselineTerms?.ceiling ?? ceiling,
-          };
-        }),
+            if (needed && requested && !live) {
+              throw new ReplaySetBaselineMovedError(set.id.value);
+            }
+
+            if (
+              requested &&
+              !(await this.candidates.lockedForUse(requested.id))
+            ) {
+              throw new UnknownCandidateError(requested.id.value);
+            }
+
+            const asBaseline = needed && !requested;
+            const baselineTerms =
+              needed && live
+                ? baselineTermsOf(
+                    checksSet(
+                      set,
+                      setReplays,
+                      await this.candidates.findMany(
+                        setReplays.map((each) => each.candidateId),
+                      ),
+                      live.fingerprint,
+                    ),
+                    command.repeats,
+                    ceiling,
+                  )
+                : null;
+            const wanting =
+              requested && live && baselineTerms
+                ? { id: baselineId, candidate: live, ...baselineTerms }
+                : null;
+            const terms =
+              asBaseline && baselineTerms
+                ? baselineTerms
+                : { probe: false, repeats: command.repeats, ceiling };
+
+            await this.replays.add(
+              Replay.start({
+                id,
+                set,
+                candidate,
+                baseline: asBaseline,
+                ceiling: terms.ceiling,
+                repeats: terms.repeats,
+                probe: terms.probe,
+                pairsWith: asBaseline
+                  ? null
+                  : (wanting?.id ??
+                    currentBaselineFor(
+                      set,
+                      setReplays,
+                      liveScoring,
+                      command.repeats,
+                    )?.id ??
+                    null),
+                at: this.clock.now(),
+                by: Attribution.of(command.actor, set.workspaceId),
+                wanting,
+              }),
+            );
+
+            return {
+              asBaseline,
+              wanted: wanting !== null,
+              ceiling: terms.ceiling,
+              baselineCeiling: baselineTerms?.ceiling ?? ceiling,
+            };
+          }),
       );
 
       const spend = {
@@ -194,7 +200,7 @@ export class StartReplayHandler
     }
   }
 
-  private async keepingLive<T extends { wanted: boolean }>(
+  private async withLiveSnapshot<T extends { wanted: boolean }>(
     live: Candidate | null,
     replaysLive: boolean,
     start: () => Promise<T>,

@@ -1,4 +1,4 @@
-import type { Reach } from '@integrations/application/ports/integration-runtime.port';
+import type { CallAuth } from '@integrations/application/ports/integration-runtime.port';
 import type {
   SourceRead,
   SourceReaderPort,
@@ -11,9 +11,9 @@ export class SourceReaders implements SourceReaderPort {
     private readonly servers: SourceReaderPort,
   ) {}
 
-  read(source: DescribedSource, reach: Reach): Promise<SourceRead> {
+  read(source: DescribedSource, callAuth: CallAuth): Promise<SourceRead> {
     return source.kind === 'mcp'
-      ? this.servers.read(source, reach)
-      : this.descriptions.read(source, reach);
+      ? this.servers.read(source, callAuth)
+      : this.descriptions.read(source, callAuth);
   }
 }

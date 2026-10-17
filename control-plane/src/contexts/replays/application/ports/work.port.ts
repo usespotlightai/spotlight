@@ -77,7 +77,7 @@ export interface LiveConfig {
   readonly threshold: ReplayThreshold | null;
 }
 
-export interface OracleAnswerAsked {
+export interface OracleAnswerInput {
   readonly run: RunId;
   readonly answer: OracleAnswer;
 }
@@ -171,11 +171,11 @@ export interface WorkPort {
 
   dispatch(order: ReplayRunOrder): Promise<ReplayRunQueued>;
 
-  answerable(asked: readonly OracleAnswerAsked[]): Promise<readonly RunId[]>;
+  answerable(inputs: readonly OracleAnswerInput[]): Promise<readonly RunId[]>;
 
   cancelQueued(runs: readonly RunId[]): Promise<void>;
 
-  cancel(run: RunId, keep: boolean): Promise<CancelledRun>;
+  cancel(run: RunId, leaveRunAsIs: boolean): Promise<CancelledRun>;
 
   durations(runs: readonly RunId[]): Promise<ReadonlyMap<string, number>>;
 

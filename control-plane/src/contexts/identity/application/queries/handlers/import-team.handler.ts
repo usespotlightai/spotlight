@@ -22,14 +22,14 @@ export class ImportTeamHandler
         WorkspaceId.of(query.workspaceId),
         query.principal,
       );
-      const kept = membership
+      const record = membership
         ? await this.resources.teamAt(
             membership.workspaceId,
             TeamKey.of(query.address).value,
           )
         : null;
 
-      return kept ? ResourceMapper.team(kept) : null;
+      return record ? ResourceMapper.team(record) : null;
     } catch (error) {
       rethrowAsApplicationError(error);
     }

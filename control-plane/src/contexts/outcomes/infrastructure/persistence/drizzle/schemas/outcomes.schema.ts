@@ -525,7 +525,7 @@ export const judging = pgTable(
     claims: jsonb('claims').$type<string[]>().notNull(),
     passShare: doublePrecision('pass_share').notNull(),
     rubricVersion: text('rubric_version').notNull(),
-    askedAt: timestamp('asked_at').notNull(),
+    queuedAt: timestamp('queued_at').notNull(),
     pending: boolean('pending').notNull(),
     jobAttempts: integer('job_attempts').notNull().default(0),
     jobDueAt: timestamp('job_due_at'),
@@ -535,7 +535,9 @@ export const judging = pgTable(
     version: integer('version').notNull().default(0),
   },
   (table) => [
-    index('judging_pending_idx').on(table.askedAt).where(sql`${table.pending}`),
+    index('judging_pending_idx')
+      .on(table.queuedAt)
+      .where(sql`${table.pending}`),
     index('judging_task_idx').on(table.taskId),
     index('judging_workspace_idx').on(table.workspaceId, table.teamId),
   ],
@@ -564,7 +566,7 @@ export const changeJudging = pgTable(
     passShare: doublePrecision('pass_share').notNull(),
     referenceRunId: text('reference_run_id'),
     spent: jsonb('spent').$type<StoredModelSpend>().notNull(),
-    askedAt: timestamp('asked_at').notNull(),
+    queuedAt: timestamp('queued_at').notNull(),
     pending: boolean('pending').notNull(),
     jobAttempts: integer('job_attempts').notNull().default(0),
     jobDueAt: timestamp('job_due_at'),
@@ -576,7 +578,7 @@ export const changeJudging = pgTable(
   (table) => [
     primaryKey({ columns: [table.runId, table.round] }),
     index('change_judging_pending_idx')
-      .on(table.askedAt)
+      .on(table.queuedAt)
       .where(sql`${table.pending}`),
     index('change_judging_workspace_idx').on(table.workspaceId, table.teamId),
   ],
@@ -596,7 +598,7 @@ export const pairJudging = pgTable(
     maxAttempts: integer('most_attempts').notNull(),
     shownOrder: pairOrder('shown_order').notNull(),
     spent: jsonb('spent').$type<StoredModelSpend>().notNull(),
-    askedAt: timestamp('asked_at').notNull(),
+    queuedAt: timestamp('queued_at').notNull(),
     pending: boolean('pending').notNull(),
     jobAttempts: integer('job_attempts').notNull().default(0),
     jobDueAt: timestamp('job_due_at'),
@@ -608,7 +610,7 @@ export const pairJudging = pgTable(
   (table) => [
     primaryKey({ columns: [table.runId, table.againstRunId] }),
     index('pair_judging_pending_idx')
-      .on(table.askedAt)
+      .on(table.queuedAt)
       .where(sql`${table.pending}`),
     index('pair_judging_workspace_idx').on(table.workspaceId, table.teamId),
   ],

@@ -42,7 +42,7 @@ const PLATFORM: PlatformEgressSettings = {
 
 const egressOf = (
   stored: Runner | null,
-  given: {
+  input: {
     pool?: RunnerPool | null;
     egress?: Egress | null;
     platform?: PlatformEgressSettings | null;
@@ -60,17 +60,17 @@ const egressOf = (
       hash: (token: string) => (HASHES[token] ?? 'f').repeat(64),
     } as TokenIssuer,
     {
-      find: async () => given.egress ?? null,
+      find: async () => input.egress ?? null,
       findByTokenHash: async (hash: TokenHash) =>
-        given.egress?.tokenHash.equals(hash) ? given.egress : null,
+        input.egress?.tokenHash.equals(hash) ? input.egress : null,
     } as unknown as EgressRepository,
     {
-      find: async () => given.pool ?? null,
+      find: async () => input.pool ?? null,
     } as unknown as RunnerPoolRepository,
     {
-      isOpen: async () => given.open ?? true,
+      isOpen: async () => input.open ?? true,
     } as unknown as WorkspaceReaderPort,
-    given.platform === undefined ? PLATFORM : given.platform,
+    input.platform === undefined ? PLATFORM : input.platform,
   );
 
 const throughShared = () =>
@@ -80,11 +80,11 @@ const proxied = (pool: RunnerPool) =>
   aRunner({ through: pool, host: null, proxyCredentialHash: hashOf('d') });
 
 describe('RunnerEgress', () => {
-  it('admits the egress of a runner with a lease on its work, for that work', async () => {
+  it('authenticates the egress of a runner with a lease on its work, for that work', async () => {
     const runner = aRunner().claim(RunnerWork.run('run_1'), later(1));
 
     await expect(
-      egressOf(runner).admit('egress-token', later(2)),
+      egressOf(runner).authenticate('egress-token', later(2)),
     ).resolves.toEqual({
       runnerId: runner.id.value,
       workspaceId: runner.workspaceId.value,
@@ -99,16 +99,16 @@ describe('RunnerEgress', () => {
       .ended(later(2));
 
     await expect(
-      egressOf(waiting).admit(undefined, later(1)),
+      egressOf(waiting).authenticate(undefined, later(1)),
     ).resolves.toBeNull();
     await expect(
-      egressOf(waiting).admit('other', later(1)),
+      egressOf(waiting).authenticate('other', later(1)),
     ).resolves.toBeNull();
     await expect(
-      egressOf(waiting).admit('egress-token', later(1)),
+      egressOf(waiting).authenticate('egress-token', later(1)),
     ).resolves.toBeNull();
     await expect(
-      egressOf(ended).admit('egress-token', later(3)),
+      egressOf(ended).authenticate('egress-token', later(3)),
     ).resolves.toBeNull();
   });
 
@@ -151,14 +151,14 @@ describe('RunnerEgress', () => {
     });
   });
 
-  describe('admitting a runner through a shared egress', () => {
-    it('admits an alive runner whose pool names the egress, before it claims and with its work after', async () => {
+  describe('authorizing a runner through a shared egress', () => {
+    it('authorizes an alive runner whose pool names the egress, before it claims and with its work after', async () => {
       const pool = throughShared();
       const waiting = proxied(pool);
       const egress = { egressId: EGRESS_ID.value };
 
       await expect(
-        egressOf(waiting, { pool, egress: anEgress() }).admitThrough(
+        egressOf(waiting, { pool, egress: anEgress() }).authorizeRunner(
           egress,
           'proxy-credential',
           later(1),
@@ -173,7 +173,7 @@ describe('RunnerEgress', () => {
       const working = waiting.claim(RunnerWork.run('run_1'), later(1));
 
       await expect(
-        egressOf(working, { pool, egress: anEgress() }).admitThrough(
+        egressOf(working, { pool, egress: anEgress() }).authorizeRunner(
           egress,
           'proxy-credential',
           later(2),
@@ -181,11 +181,11 @@ describe('RunnerEgress', () => {
       ).resolves.toMatchObject({ work: { kind: 'run', id: 'run_1' } });
     });
 
-    it('admits a runner through the platform egress when its pool names spotlight', async () => {
+    it('authorizes a runner through the platform egress when its pool names spotlight', async () => {
       const pool = aPushPool({ egress: EgressReference.platform() });
 
       await expect(
-        egressOf(proxied(pool), { pool }).admitThrough(
+        egressOf(proxied(pool), { pool }).authorizeRunner(
           { egressId: 'spotlight' },
           'proxy-credential',
           later(1),
@@ -200,27 +200,27 @@ describe('RunnerEgress', () => {
       const setting = { pool, egress: anEgress() };
 
       await expect(
-        egressOf(runner, setting).admitThrough(egress, 'other', later(1)),
+        egressOf(runner, setting).authorizeRunner(egress, 'other', later(1)),
       ).resolves.toBeNull();
       await expect(
-        egressOf(runner, setting).admitThrough(egress, '', later(1)),
+        egressOf(runner, setting).authorizeRunner(egress, '', later(1)),
       ).resolves.toBeNull();
       await expect(
-        egressOf(runner.ended(later(1)), setting).admitThrough(
+        egressOf(runner.ended(later(1)), setting).authorizeRunner(
           egress,
           'proxy-credential',
           later(2),
         ),
       ).resolves.toBeNull();
       await expect(
-        egressOf(runner, setting).admitThrough(
+        egressOf(runner, setting).authorizeRunner(
           { egressId: 'spotlight' },
           'proxy-credential',
           later(1),
         ),
       ).resolves.toBeNull();
       await expect(
-        egressOf(runner, setting).admitThrough(
+        egressOf(runner, setting).authorizeRunner(
           { egressId: 'egress_2' },
           'proxy-credential',
           later(1),
@@ -228,7 +228,7 @@ describe('RunnerEgress', () => {
       ).resolves.toBeNull();
     });
 
-    it('lets the egress record for a runner’s work for two minutes after the runner ended, but admits it no more', async () => {
+    it('lets the egress record for a runner’s work for two minutes after the runner ended, but authorizes it no more', async () => {
       const pool = throughShared();
       const ended = proxied(pool)
         .claim(RunnerWork.run('run_1'), later(1))
@@ -263,7 +263,7 @@ describe('RunnerEgress', () => {
         ),
       ).resolves.toBeNull();
       await expect(
-        egressOf(ended, setting).admitThrough(
+        egressOf(ended, setting).authorizeRunner(
           egress,
           'proxy-credential',
           later(3),
@@ -277,7 +277,7 @@ describe('RunnerEgress', () => {
       const egress = { egressId: EGRESS_ID.value };
 
       await expect(
-        egressOf(runner, { pool: null, egress: anEgress() }).admitThrough(
+        egressOf(runner, { pool: null, egress: anEgress() }).authorizeRunner(
           egress,
           'proxy-credential',
           later(1),
@@ -287,7 +287,7 @@ describe('RunnerEgress', () => {
         egressOf(runner, {
           pool,
           egress: anEgress({ workspaceId: WorkspaceId.of('ws_other') }),
-        }).admitThrough(egress, 'proxy-credential', later(1)),
+        }).authorizeRunner(egress, 'proxy-credential', later(1)),
       ).resolves.toBeNull();
     });
   });

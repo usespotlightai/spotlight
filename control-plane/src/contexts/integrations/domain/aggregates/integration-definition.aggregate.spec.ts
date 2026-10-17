@@ -102,7 +102,7 @@ const LINEAR = {
   key: 'linear',
 };
 
-const GIVEN = ToolUses.of([
+const ENABLED = ToolUses.of([
   { tool: 'linear.comment', by: 'the station delivery/implementation' },
 ]);
 
@@ -173,12 +173,12 @@ describe('IntegrationDefinition', () => {
     expect(moved).toThrow(expect.objectContaining({ field: 'integration' }));
   });
 
-  it('will not stop offering a tool a station gives', () => {
+  it('will not stop offering a tool a station enables', () => {
     expect(() =>
       rehydrated(['linear.comment']).update(
         compiled('linear'),
         null,
-        GIVEN,
+        ENABLED,
         BY,
       ),
     ).toThrow(IntegrationToolsInUseError);
@@ -186,14 +186,14 @@ describe('IntegrationDefinition', () => {
       rehydrated(['linear.comment']).update(
         compiled('linear', { offers: ['comment'] }),
         null,
-        GIVEN,
+        ENABLED,
         BY,
       ),
     ).not.toThrow();
   });
 
-  it('is deleted only once no station gives what it offers', () => {
-    expect(() => rehydrated(['linear.comment']).delete(GIVEN, BY)).toThrow(
+  it('is deleted only once no station enables what it offers', () => {
+    expect(() => rehydrated(['linear.comment']).delete(ENABLED, BY)).toThrow(
       /linear.comment \(used by the station delivery\/implementation\)/,
     );
 
@@ -271,7 +271,7 @@ describe('IntegrationDefinition', () => {
         reading: null,
         by: BY,
       }),
-    ).toThrow(/was not given a reading of it/);
+    ).toThrow(/did not receive a reading of it/);
     expect(() =>
       IntegrationDefinition.create({
         ...compiled('linear'),
@@ -283,7 +283,7 @@ describe('IntegrationDefinition', () => {
     ).toThrow(/does not name/);
   });
 
-  it('rejects tools generated from another reading than the one it keeps', () => {
+  it('rejects tools generated from another reading than the one it stores', () => {
     expect(() =>
       IntegrationDefinition.create({
         ...compiled('linear', {
@@ -374,7 +374,7 @@ describe('IntegrationDefinition', () => {
     ]);
   });
 
-  it('is reread only from the definition it keeps', () => {
+  it('is reread only from the definition it stores', () => {
     expect(() =>
       rehydrated([], 3, readingOf()).reread(
         compiled('linear', { named: 'linear', generated: ['issue-create'] }),
@@ -391,10 +391,10 @@ describe('IntegrationDefinition', () => {
         readingOf(),
         BY,
       ),
-    ).toThrow(/other than the one it keeps/);
+    ).toThrow(/other than the one it stores/);
   });
 
-  it('is deleted with its team, whatever its tools are given to', () => {
+  it('is deleted with its team, whatever stations enable its tools', () => {
     const deleted = rehydrated(['linear.comment']).cascadeDelete(BY);
 
     expect(deleted.isDeleted).toBe(true);

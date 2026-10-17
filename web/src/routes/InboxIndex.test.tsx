@@ -49,7 +49,7 @@ describe('InboxIndex', () => {
     refetch.mockClear();
   });
 
-  it('asks for a task beneath a bar of its own', () => {
+  it('offers a new task beneath a bar of its own', () => {
     const { container } = renderIndex();
 
     expect(container.querySelector('header')).toBeInTheDocument();
@@ -79,7 +79,7 @@ describe('InboxIndex', () => {
     });
   });
 
-  it('says the inbox could not be loaded, and tries again when asked', async () => {
+  it('says the inbox could not be loaded, and tries again on request', async () => {
     const person = userEvent.setup();
     failing.mockReturnValue(true);
     const { container } = renderIndex();

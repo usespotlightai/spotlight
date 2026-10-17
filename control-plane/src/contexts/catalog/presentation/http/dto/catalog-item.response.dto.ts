@@ -6,7 +6,7 @@ export class CatalogToolResponseDto {
   @ApiProperty({
     example: 'catalog.web-search@1.1.0',
     description:
-      'What a station gives it by; it carries the version, so an upgrade shows as a change to the station',
+      'What a station enables it by; it carries the version, so an upgrade shows as a change to the station',
   })
   readonly id: string;
 
@@ -51,7 +51,7 @@ export class CatalogSkillResponseDto extends CatalogToolResponseDto {
     isArray: true,
     example: ['catalog.web-search@1.1.0', 'catalog.fetch-page@1.0.0'],
     description:
-      'The catalog tools it brings, given wherever the skill is; its files never leave Spotlight except into a run',
+      'The catalog tools it brings, enabled wherever the skill is; its files never leave Spotlight except into a run',
   })
   readonly tools: readonly string[];
 

@@ -36,9 +36,9 @@ const withinOf = (
   paths: readonly string[],
   repository: Repository | null,
 ): string[] => {
-  const given = paths.map((each) => each.trim()).filter(Boolean);
+  const requested = paths.map((each) => each.trim()).filter(Boolean);
 
-  if (given.length === 0) {
+  if (requested.length === 0) {
     return [];
   }
 
@@ -46,7 +46,7 @@ const withinOf = (
     throw invalid('decision lookup by path', 'must name its repository');
   }
 
-  return given.map((each) => {
+  return requested.map((each) => {
     const parts = each.split('/').filter((part) => part && part !== '.');
 
     if (parts.length === 0 || parts.includes('..')) {

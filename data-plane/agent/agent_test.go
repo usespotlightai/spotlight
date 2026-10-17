@@ -200,7 +200,7 @@ func TestRejectsAReplyNamingNoReviewComment(t *testing.T) {
 
 	err := run([]string{"reply", "--body", "x"}, strings.NewReader(""), new(bytes.Buffer))
 	if err == nil || !strings.Contains(err.Error(), "--to") {
-		t.Fatalf("err = %v, want it to ask which review comment", err)
+		t.Fatalf("err = %v, want it to require a review comment", err)
 	}
 }
 
@@ -221,7 +221,7 @@ func openingPullRequests(t *testing.T) *map[string]any {
 	carried := map[string]any{}
 	server.Tools([]string{"pull-request"}, func(_ context.Context, name string, input json.RawMessage) (json.RawMessage, error) {
 		if name != "pull-request" {
-			t.Errorf("reached for %q", name)
+			t.Errorf("called %q", name)
 		}
 		if err := json.Unmarshal(input, &carried); err != nil {
 			t.Errorf("carried %s: %v", input, err)
@@ -256,7 +256,7 @@ func TestRejectsAPullRequestWithoutATitle(t *testing.T) {
 
 	err := run([]string{"pull-request", "--body", "What it does."}, strings.NewReader(""), new(bytes.Buffer))
 	if err == nil || !strings.Contains(err.Error(), "--title is required") {
-		t.Fatalf("err = %v, want it to ask for a title", err)
+		t.Fatalf("err = %v, want it to require a title", err)
 	}
 }
 

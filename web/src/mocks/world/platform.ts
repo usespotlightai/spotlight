@@ -62,7 +62,7 @@ const DELIVERY_STATIONS: StationResponseDto[] = [
     skills: ['grafana-dashboards'],
     judge: {
       rubric:
-        '## A good run\n\n- Changes only what the spec asks for\n- Leaves the tests passing\n- Says what it could not do',
+        '## A good run\n\n- Changes only what the spec requires\n- Leaves the tests passing\n- Says what it could not do',
       claims: [],
       passShare: 1,
       sample: 0.2,

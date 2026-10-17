@@ -36,7 +36,7 @@ import { HostHeartbeatRequestDto } from '@runners/presentation/http/dto/host-hea
 import { HostHeartbeatResponseDto } from '@runners/presentation/http/dto/host-heartbeat.response.dto';
 
 const UNAUTHORIZED =
-  'Pool token is missing, rotated or unknown, or no trust admits this workload.';
+  'Pool token is missing, rotated or unknown, or no trust accepts this workload.';
 
 @ApiTags('runners')
 @ApiBearerAuth()

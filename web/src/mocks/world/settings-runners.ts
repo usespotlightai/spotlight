@@ -54,7 +54,7 @@ const HOSTS: HostResponseDto[] = [
   {
     id: BUILD_BOX,
     name: 'build-box-1',
-    through: BUILD_FARM,
+    source: BUILD_FARM,
     release: 'v1.4.0',
     containerRuntime: 'Docker Engine - Community 27.3.1 (linux/amd64)',
     capacity: 4,
@@ -78,7 +78,7 @@ const HOSTS: HostResponseDto[] = [
   {
     id: MAC_MINI,
     name: 'sams-mac-mini',
-    through: BUILD_FARM,
+    source: BUILD_FARM,
     release: 'v1.4.0',
     containerRuntime: 'OrbStack 1.9.2 (linux/arm64)',
     capacity: 2,
@@ -107,7 +107,7 @@ const HOSTS: HostResponseDto[] = [
   {
     id: GPU_NODE,
     name: 'gpu-node-3',
-    through: { kind: 'trust', key: 'production-cluster' },
+    source: { kind: 'trust', key: 'production-cluster' },
     release: 'v1.3.2',
     containerRuntime: 'Podman Engine 5.2.1 (linux/amd64)',
     capacity: 8,
@@ -132,7 +132,7 @@ const runner = (
   const { minutes, ...rest } = over;
 
   return {
-    through: BUILD_FARM,
+    source: BUILD_FARM,
     hostId: BUILD_BOX,
     image: RUNNER_IMAGE,
     harnesses: ['claude-code', 'codex'],
@@ -146,7 +146,7 @@ const pushed = (id: string, minutes: number): LiveRunnerResponseDto =>
   runner({
     id,
     minutes,
-    through: EPHEMERAL,
+    source: EPHEMERAL,
     hostId: null,
     image: null,
     harnesses: ['claude-code'],
@@ -211,7 +211,7 @@ const ACTIVITY: RunnerActivityResponseDto[] = [
     currentRun: leasedRun(
       'run_survey_1',
       GROWTH_ID,
-      'Ask new signups where they heard of us',
+      'Ask new signups how they found us',
     ),
   },
 ];

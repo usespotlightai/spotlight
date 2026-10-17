@@ -6,8 +6,8 @@ import type {
 } from '@identity/application/ports/workspace-access.port';
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
+import { CallAuthResolver } from '@integrations/application/services/call-auth-resolver.service';
 import { ConnectionRenewal } from '@integrations/application/services/connection-renewal.service';
-import { HostReach } from '@integrations/application/services/host-reach.service';
 import { OAuth2ClientResolution } from '@integrations/application/services/oauth2-client-resolution.service';
 import { DescribedDocument } from '@integrations/domain/aggregates/described-document.aggregate';
 import { HostConnection } from '@integrations/domain/aggregates/host-connection.aggregate';
@@ -38,8 +38,8 @@ import { defined } from '@integrations/integrations.definitions.fake-spec';
 import { operationsContaining } from '@integrations/integrations.documents.fake-spec';
 import { learningInto } from '@integrations/integrations.learned.fake-spec';
 import {
+  callingNoServer,
   discoveringNothing,
-  reachingNoServer,
 } from '@integrations/integrations.mcp.fake-spec';
 import {
   InMemoryPersonToolPolicies,
@@ -123,8 +123,8 @@ class FakeLinear {
 
     if (url === 'https://linear.app/oauth/register') {
       this.registrations++;
-      const asked = JSON.parse(String(init?.body ?? '{}'));
-      expect(asked.redirect_uris).toEqual([CALLBACK]);
+      const registration = JSON.parse(String(init?.body ?? '{}'));
+      expect(registration.redirect_uris).toEqual([CALLBACK]);
       return asJson({ client_id: 'dcr-client', client_secret: 'dcr-secret' });
     }
 
@@ -338,7 +338,7 @@ const settingUp = ({
     clients,
     exchange,
     discoveringNothing(),
-    reachingNoServer(),
+    callingNoServer(),
   );
   const renewal = new ConnectionRenewal(
     connections,
@@ -350,7 +350,7 @@ const settingUp = ({
   const tools = new IntegrationToolCalls(
     definitions as unknown as DefinedIntegrationsPort,
     runtime,
-    new HostReach(
+    new CallAuthResolver(
       connections,
       TEAMS,
       {
@@ -399,25 +399,25 @@ const settingUp = ({
     connections.of(TEAM, LINEAR, ConnectionHolder.person(ALICE));
 
   const issue = async () => {
-    const reached = (await tools.reach(
+    const resolved = (await tools.resolve(
       'linear.issue',
       TASK,
       { runId: 'run_1', attempt: 1 },
       ALICE.value,
     )) as IntegrationTool;
 
-    return reached.call({ id: 'ENG-12' });
+    return resolved.call({ id: 'ENG-12' });
   };
 
   const comment = async (body = 'Fixed.') => {
-    const reached = (await tools.reach(
+    const resolved = (await tools.resolve(
       'linear.comment',
       TASK,
       { runId: 'run_1', attempt: 1 },
       ALICE.value,
     )) as IntegrationTool;
 
-    return reached.call({ body });
+    return resolved.call({ body });
   };
 
   return {
@@ -434,7 +434,7 @@ const settingUp = ({
 };
 
 describe('OAuth that recovers from a token the host does not accept', () => {
-  it('renews a token the host did not accept, then sends the call once more, and keeps the rotated tokens', async () => {
+  it('renews a token the host did not accept, then sends the call once more, and stores the rotated tokens', async () => {
     const { linear, connectedAs, storedConnection, comment } = settingUp();
     connectedAs('at-1');
     linear.revoke();
@@ -443,12 +443,12 @@ describe('OAuth that recovers from a token the host does not accept', () => {
       'https://linear.app/acme/issue/ENG-12#at-2',
     );
 
-    const kept = await storedConnection();
+    const stored = await storedConnection();
     expect(linear.tokenCalls).toBe(1);
     expect(linear.apiCalls).toBe(2);
-    expect(kept?.accessToken.value).toBe('at-2');
-    expect(kept?.refreshToken?.value).toBe('rt-2');
-    expect(kept?.renewalClaim).toBeNull();
+    expect(stored?.accessToken.value).toBe('at-2');
+    expect(stored?.refreshToken?.value).toBe('rt-2');
+    expect(stored?.renewalClaim).toBeNull();
   });
 
   it('renews and sends once more for a tool generated from the API description too', async () => {
@@ -496,7 +496,7 @@ describe('OAuth that recovers from a token the host does not accept', () => {
     expect(linear.apiCalls).toBe(4);
   });
 
-  it('keeps the rotated refresh token even when the connection changed while it renewed', async () => {
+  it('stores the rotated refresh token even when the connection changed while it renewed', async () => {
     const { linear, connections, connectedAs, storedConnection, comment } =
       settingUp();
     connectedAs('at-1');
@@ -530,7 +530,7 @@ describe('OAuth that recovers from a token the host does not accept', () => {
     expect((await storedConnection())?.refreshFailedAt).toEqual(NOW);
     expect(
       (
-        await tools.reach(
+        await tools.resolve(
           'linear.comment',
           TASK,
           { runId: 'run_1', attempt: 1 },
@@ -549,20 +549,20 @@ describe('OAuth that recovers from a token the host does not accept', () => {
     const { connectedAs, tools } = settingUp();
     connectedAs('at-1');
 
-    const reached = await tools.reach(
+    const resolved = await tools.resolve(
       'linear.comment',
       TASK,
       { runId: 'run_1', attempt: 1 },
       ALICE.value,
     );
-    const nobody = await tools.reach(
+    const nobody = await tools.resolve(
       'linear.comment',
       TASK,
       { runId: 'run_1', attempt: 1 },
       null,
     );
 
-    expect(reached?.actingAs).toEqual({
+    expect(resolved?.actingAs).toEqual({
       holder: 'person',
       personId: ALICE.value,
       handle: '@alice',
@@ -585,14 +585,14 @@ describe('OAuth that recovers from a token the host does not accept', () => {
     const { connectedAs, tools } = settingUp({ policies });
     connectedAs('at-1');
 
-    const reached = await tools.reach(
+    const resolved = await tools.resolve(
       'linear.comment',
       TASK,
       { runId: 'run_1', attempt: 1 },
       ALICE.value,
     );
 
-    expect(reached?.personRule).toEqual({
+    expect(resolved?.personRule).toEqual({
       rule: 'needs-approval',
       personId: ALICE.value,
       personName: 'Alice',
@@ -603,7 +603,7 @@ describe('OAuth that recovers from a token the host does not accept', () => {
     const { linear, registrations, connectedAs, comment, linking } = settingUp({
       registered: false,
     });
-    const asked = {
+    const linkInput = {
       teamId: 'team_1',
       source: 'linear',
       by: ALICE.value,
@@ -611,8 +611,8 @@ describe('OAuth that recovers from a token the host does not accept', () => {
       back: null,
     };
 
-    await linking.begin(asked);
-    await linking.begin(asked);
+    await linking.begin(linkInput);
+    await linking.begin(linkInput);
     connectedAs('at-1');
     linear.revoke();
     await comment();

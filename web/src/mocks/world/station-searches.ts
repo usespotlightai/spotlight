@@ -139,7 +139,7 @@ const SEEDED: readonly SearchSpec[] = [
         seed: false,
         iteration: 1,
         hypothesis:
-          'Runs fail when they change billing code before reading its tests. Asking it to read and run the tests first should lift success on the flaky-test and refund tasks.',
+          'Runs fail when they change billing code before reading its tests. Telling it to read and run the tests first should lift success on the flaky-test and refund tasks.',
         changes: [changed('prompt')],
         replayId: 'replay_tf_tests_first',
         heldOutReplayId: 'replay_tf_tests_first_held_out',

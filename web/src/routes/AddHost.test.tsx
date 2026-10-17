@@ -21,7 +21,7 @@ vi.mock('@/hooks/api/useRunners', () => ({
 const host = (over: Record<string, unknown> = {}) => ({
   id: 'K7Q2M4ZC3VYH6N5RB8WX1TDJ9P',
   name: 'leons-mac',
-  through: { kind: 'pool', key: 'my-computer' },
+  source: { kind: 'pool', key: 'my-computer' },
   online: true,
   running: [],
   ...over,
@@ -254,7 +254,7 @@ describe('AddHost', () => {
   it('waits for a host in the new pool to connect', () => {
     poolCreated();
     listing(
-      host({ through: { kind: 'pool', key: 'build-farm' } }),
+      host({ source: { kind: 'pool', key: 'build-farm' } }),
       host({ id: 'second', name: 'asleep', online: false }),
     );
 

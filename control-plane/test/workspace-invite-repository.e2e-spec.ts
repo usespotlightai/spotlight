@@ -93,7 +93,7 @@ describe('DrizzleWorkspaceInviteRepository (e2e)', () => {
     recorded.length = 0;
   });
 
-  it('keeps an invite with its role and teams, at its first version', async () => {
+  it('stores an invite with its role and teams, at its first version', async () => {
     const invite = newInvite();
     await invites.add(invite);
 
@@ -240,7 +240,7 @@ describe('DrizzleWorkspaceInviteRepository (e2e)', () => {
     ]);
   });
 
-  it('keeps the new link and terms of an invite resent', async () => {
+  it('stores the new link and terms of an invite resent', async () => {
     const invite = newInvite();
     await invites.add(invite);
 

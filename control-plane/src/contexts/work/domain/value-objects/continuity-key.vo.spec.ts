@@ -7,10 +7,10 @@ describe('ContinuityKey', () => {
   });
 
   it('is the same for every run of the task, and another task’s differs', () => {
-    const kept = ContinuityKey.forTask('task_1');
+    const stored = ContinuityKey.forTask('task_1');
 
-    expect(ContinuityKey.forTask('task_1').equals(kept)).toBe(true);
-    expect(ContinuityKey.forTask('task_2').equals(kept)).toBe(false);
+    expect(ContinuityKey.forTask('task_1').equals(stored)).toBe(true);
+    expect(ContinuityKey.forTask('task_2').equals(stored)).toBe(false);
   });
 
   it('names a chat’s directory apart from any task’s', () => {

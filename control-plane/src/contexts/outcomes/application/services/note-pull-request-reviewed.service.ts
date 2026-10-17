@@ -37,10 +37,10 @@ export class NotePullRequestReviewed {
       );
 
       if (!existing) {
-        const keptFrom = longestLookbackFrom(this.clock.now());
+        const retainedFrom = longestLookbackFrom(this.clock.now());
 
         if (
-          review.at.getTime() >= keptFrom.getTime() &&
+          review.at.getTime() >= retainedFrom.getTime() &&
           !(await this.deletions.isDeleted(review.workspaceId, null))
         ) {
           await this.reviews.add(review.workspaceId, {
@@ -49,7 +49,7 @@ export class NotePullRequestReviewed {
           });
         }
 
-        await this.reviews.releaseBefore(review.workspaceId, keptFrom);
+        await this.reviews.releaseBefore(review.workspaceId, retainedFrom);
         return;
       }
 

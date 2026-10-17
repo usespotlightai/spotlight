@@ -168,7 +168,7 @@ describe('LineBoard', () => {
     ).toBeInTheDocument();
   });
 
-  it('says the line could not be loaded, and tries again when asked', async () => {
+  it('says the line could not be loaded, and tries again on request', async () => {
     const user = userEvent.setup();
     lined.mockReturnValue(undefined);
     linesFailing.mockReturnValue(true);
@@ -185,7 +185,7 @@ describe('LineBoard', () => {
     expect(refetchLines).toHaveBeenCalled();
   });
 
-  it('says the tasks could not be loaded, and tries again when asked', async () => {
+  it('says the tasks could not be loaded, and tries again on request', async () => {
     const user = userEvent.setup();
     listed.mockReturnValue(undefined);
     tasksFailing.mockReturnValue(true);
@@ -453,7 +453,7 @@ describe('LineBoard', () => {
     expect(first?.className).not.toContain('rounded-b-none');
   });
 
-  it('hides the backlog until it is asked for', () => {
+  it('hides the backlog until it is requested', () => {
     renderAt('line_1');
 
     expect(named()).toEqual([
@@ -474,7 +474,7 @@ describe('LineBoard', () => {
     expect(screen.getByText('Groom the idea')).toBeInTheDocument();
   });
 
-  it('hides what is completed until it is asked for', () => {
+  it('hides what is completed until it is requested', () => {
     renderAt('line_1');
 
     expect(named()).not.toContain('Completed');

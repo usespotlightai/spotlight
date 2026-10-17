@@ -46,8 +46,8 @@ const stepsOf = (
     tool: null,
     detail: null,
     locations: [],
-    given: null,
-    returned: null,
+    input: null,
+    output: null,
     change: null,
   };
 

@@ -51,7 +51,7 @@ export class NoteReplayPaired {
     );
   }
 
-  askFailed(event: ReplayPairingFailed): Promise<void> {
+  requestFailed(event: ReplayPairingFailed): Promise<void> {
     return this.changing(event.run.value, (replay, run) =>
       replay.recordPairingFailure(run, event.against, event.why, null),
     );

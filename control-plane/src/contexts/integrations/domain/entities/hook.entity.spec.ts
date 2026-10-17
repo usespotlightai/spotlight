@@ -23,7 +23,7 @@ const hook = (failure: HookOnFailure = 'continue') =>
     steps: [
       { name: 'tell', kind: 'call', tool: COMMENT },
       {
-        name: 'ask',
+        name: 'check',
         kind: 'request',
         url: new URL('https://dba.acme.dev/review'),
         fromNetwork: false,
@@ -67,7 +67,7 @@ describe('Hook', () => {
         match: { tools: [], paths: [] },
         steps: [
           {
-            name: 'ask',
+            name: 'check',
             kind: 'request',
             url: new URL('http://dba.acme.dev'),
             fromNetwork: false,
@@ -81,7 +81,7 @@ describe('Hook', () => {
   });
 
   describe('calling a tool', () => {
-    it('may call a tool the team offers without asking anyone', () => {
+    it('may call a tool the team offers without approval from anyone', () => {
       expect(hook().callDenial(COMMENT, offered())).toBeNull();
     });
 
@@ -94,14 +94,14 @@ describe('Hook', () => {
     });
 
     it('may not call a tool that asks a person before each call', () => {
-      const asking = offered(
+      const needsApproval = offered(
         ApprovalNeeded.of({ because: 'it writes to customers' }, 'comment'),
       );
 
-      expect(hook().callDenial(COMMENT, asking)).toMatchObject({
+      expect(hook().callDenial(COMMENT, needsApproval)).toMatchObject({
         code: 'not-allowed',
         reason:
-          "calls linear.comment, which needs a person's approval before each call. A hook cannot give that approval",
+          "calls linear.comment, which needs a person's approval before each call. A hook cannot approve the call",
       });
     });
   });
@@ -109,13 +109,13 @@ describe('Hook', () => {
   describe('making a request', () => {
     it('may send over https', () => {
       expect(
-        hook().requestDenial('ask', new URL('https://dba.acme.dev')),
+        hook().requestDenial('check', new URL('https://dba.acme.dev')),
       ).toBeNull();
     });
 
     it('may not send in the clear from Spotlight, once its url is written out', () => {
       expect(
-        hook().requestDenial('ask', new URL('http://dba.acme.dev')),
+        hook().requestDenial('check', new URL('http://dba.acme.dev')),
       ).toMatchObject({
         code: 'not-allowed',
         reason: 'sends to http://dba.acme.dev, which is not https',
@@ -132,7 +132,7 @@ describe('Hook', () => {
   describe('judging an event before it happens', () => {
     it('lets the next step go on after a step that did its work', () => {
       expect(
-        hook('block').verdictOn('ask', {
+        hook('block').verdictOn('check', {
           denyReason: null,
           failedBecause: null,
         }),
@@ -141,7 +141,7 @@ describe('Hook', () => {
 
     it('denies what an endpoint denied', () => {
       expect(
-        hook().verdictOn('ask', {
+        hook().verdictOn('check', {
           denyReason: 'the migration drops a column',
           failedBecause: null,
         }),
@@ -154,20 +154,20 @@ describe('Hook', () => {
 
     it('denies the event when a step fails and the hook blocks on failure', () => {
       expect(
-        hook('block').verdictOn('ask', {
+        hook('block').verdictOn('check', {
           denyReason: null,
           failedBecause: 'was answered 503',
         }),
       ).toEqual(
         HookVerdict.denied(
-          'Hook dba failed at step ask and blocks on failure. Reason: was answered 503',
+          'Hook dba failed at step check and blocks on failure. Reason: was answered 503',
         ),
       );
     });
 
     it('lets the event go on when a step fails and the hook continues', () => {
       expect(
-        hook('continue').verdictOn('ask', {
+        hook('continue').verdictOn('check', {
           denyReason: null,
           failedBecause: 'was answered 503',
         }),

@@ -6,7 +6,7 @@ import { RememberedProposal } from '@/components/features/runs/remembered/Rememb
 import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { type PaneConfig, SidePane } from '@/components/shared/SidePane';
 import { useRunMemories } from '@/hooks/api/useRunMemories';
-import { givenMemories } from '@/lib/memory';
+import { suppliedMemories } from '@/lib/memory';
 import { failed, loading } from '@/lib/query';
 
 const REMEMBERED_PANE: PaneConfig = {
@@ -34,7 +34,7 @@ export function RememberedDetail({
 }: RememberedDetailProps) {
   const query = useRunMemories(teamId, runId);
   const remembered = query.data;
-  const given = remembered ? givenMemories(remembered) : [];
+  const supplied = remembered ? suppliedMemories(remembered) : [];
 
   return (
     <SidePane pane={REMEMBERED_PANE} open={open}>
@@ -65,9 +65,9 @@ export function RememberedDetail({
           />
         ) : (
           <>
-            {given.length > 0 && (
-              <RememberedGroup title="Given to the agent">
-                {given.map((memory) => (
+            {supplied.length > 0 && (
+              <RememberedGroup title="Supplied to the agent">
+                {supplied.map((memory) => (
                   <RememberedMemory
                     key={memory.id}
                     slug={slug}

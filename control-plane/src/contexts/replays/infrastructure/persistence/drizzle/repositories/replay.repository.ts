@@ -120,7 +120,7 @@ const endOf = (row: EntryRow): RunEnd | null => {
   if (row.stopped === null || row.asked === null) {
     throw new InconsistentStateError(
       'replay entry',
-      'ended without saying whether it was stopped or asked',
+      'ended without saying whether it was stopped or asked a person',
     );
   }
 
@@ -167,7 +167,7 @@ const reasonsOf = (row: EntryRow): EntryReason[] =>
     if (!isEntryReasonCode(each.code)) {
       throw new InconsistentStateError(
         'replay entry',
-        `gives a reason no longer known, ${each.code}`,
+        `has a reason no longer known, ${each.code}`,
       );
     }
 
@@ -184,7 +184,7 @@ const judgingOf = (stored: StoredEntryJudging | null): EntryJudging | null => {
 
   return stored.unjudged
     ? EntryJudging.failed(stored.unjudged)
-    : EntryJudging.asked();
+    : EntryJudging.requested();
 };
 
 const judgingRow = (judging: EntryJudging | null): StoredEntryJudging | null =>
@@ -497,17 +497,17 @@ export class DrizzleReplayRepository implements ReplayRepository {
         ),
       )
       .as('ranked');
-    const kept = await this.context.db
+    const newest = await this.context.db
       .select({ id: ranked.id })
       .from(ranked)
       .where(lte(ranked.place, NEWEST_READ_FOR_HEALTH));
 
-    return kept.length === 0
+    return newest.length === 0
       ? []
       : this.withEntries(
           inArray(
             replay.id,
-            kept.map((each) => each.id),
+            newest.map((each) => each.id),
           ),
         );
   }

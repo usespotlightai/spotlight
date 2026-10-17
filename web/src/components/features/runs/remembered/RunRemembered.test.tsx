@@ -37,7 +37,7 @@ const memory = (over: Partial<TeamMemory>): TeamMemory => ({
   body: 'Name branches after the ticket.',
   source: 'person',
   status: 'active',
-  reach: 'team',
+  scope: 'team',
   lineId: null,
   stationId: null,
   repository: null,
@@ -58,7 +58,7 @@ const proposal = (over: Partial<RunProposal>): RunProposal => ({
   source: 'run',
   origin: 'remembered',
   state: 'proposed',
-  reach: 'line',
+  scope: 'line',
   repository: null,
   paths: [],
   supersedes: null,
@@ -92,7 +92,7 @@ const REMEMBERED: RunMemories = {
     proposal({}),
     proposal({
       id: 'memory_k',
-      body: 'Kept one.',
+      body: 'Approved one.',
       state: 'approved',
       handle: 'M-5',
       status: 'active',
@@ -134,7 +134,7 @@ describe('RunRemembered', () => {
       term.nextElementSibling?.textContent,
     ]);
     expect(shown).toEqual([
-      ['Given', '2'],
+      ['Supplied', '2'],
       ['Proposed', '2'],
     ]);
   });
@@ -152,7 +152,7 @@ describe('RunRemembered', () => {
     expect(summary).toHaveAttribute('aria-pressed', 'true');
     expect(
       within(screen.getByRole('complementary')).getByRole('region', {
-        name: 'Given to the agent',
+        name: 'Supplied to the agent',
       }),
     ).toBeInTheDocument();
 
@@ -163,15 +163,17 @@ describe('RunRemembered', () => {
     expect(summary).toHaveAttribute('aria-pressed', 'false');
   });
 
-  it('lists what the agent was given, without saying how it came by it, and what the run proposed, leaving out what the cap cut', async () => {
+  it('lists what the agent was supplied, without saying how it came by it, and what the run proposed, leaving out what the cap cut', async () => {
     rememberedState.data = REMEMBERED;
 
     await opened();
 
-    const given = screen.getByRole('region', { name: 'Given to the agent' });
-    expect(within(given).queryByText('Recalled')).toBeNull();
-    expect(within(given).getByText('Briefed one.')).toBeInTheDocument();
-    expect(within(given).getByText('Recalled one.')).toBeInTheDocument();
+    const supplied = screen.getByRole('region', {
+      name: 'Supplied to the agent',
+    });
+    expect(within(supplied).queryByText('Recalled')).toBeNull();
+    expect(within(supplied).getByText('Briefed one.')).toBeInTheDocument();
+    expect(within(supplied).getByText('Recalled one.')).toBeInTheDocument();
     expect(screen.queryByText('Cut one.')).toBeNull();
     expect(
       within(
@@ -226,7 +228,7 @@ describe('RunRemembered', () => {
     ).toHaveLength(2);
 
     const card = within(
-      screen.getByRole('region', { name: 'Given to the agent' }),
+      screen.getByRole('region', { name: 'Supplied to the agent' }),
     ).getAllByRole('listitem')[0] as HTMLElement;
     await userEvent.click(
       within(card).getByRole('button', { name: 'This was wrong' }),

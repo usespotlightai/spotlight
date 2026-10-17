@@ -10,7 +10,7 @@ import { NextAct } from '@outcomes/domain/value-objects/next-act.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { describe, expect, it } from 'vitest';
 
-const HEARD_AT = new Date('2026-09-30T12:00:00.000Z');
+const RECEIVED_AT = new Date('2026-09-30T12:00:00.000Z');
 
 const at = (hour: number) => day('2026-09-30', hour);
 
@@ -50,11 +50,11 @@ describe('measureOf', () => {
     const records = [
       endedRecord('run_1', { taskId: 'task_1', endedAt: at(1) }).recordCheck(
         'failed',
-        HEARD_AT,
+        RECEIVED_AT,
       ),
       endedRecord('run_2', { taskId: 'task_1', endedAt: at(2) }).recordCheck(
         'passed',
-        HEARD_AT,
+        RECEIVED_AT,
       ),
       endedRecord('run_3', { taskId: 'task_2', endedAt: at(3) }),
     ];
@@ -184,11 +184,11 @@ describe('readingOf, among measured runs', () => {
     const records = [
       endedRecord('run_3', { taskId: 'task_3', endedAt: at(3) }).recordCheck(
         'skipped',
-        HEARD_AT,
+        RECEIVED_AT,
       ),
       costedRecord('run_2', { amount: 3, endedAt: at(2) }).recordCheck(
         'failed',
-        HEARD_AT,
+        RECEIVED_AT,
       ),
     ];
 

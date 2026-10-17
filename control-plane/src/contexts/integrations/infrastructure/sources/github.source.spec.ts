@@ -152,7 +152,7 @@ describe('GitHubSource', () => {
     ).rejects.toThrow(UpstreamError);
   });
 
-  it('asks for a review of a pull request opened, found by the review it wants', async () => {
+  it('requests a review of a pull request opened, found by the review it wants', async () => {
     expect(await readOne(OPENED)).toEqual({
       happening: 'github.pull_request.opened',
       summary: 'A pull request was opened for review.',
@@ -177,7 +177,7 @@ describe('GitHubSource', () => {
           { kind: REVIEW_MARK, value: 'https://github.com/acme/api/pull/7' },
         ],
         review: {
-          asking: 'opened',
+          trigger: 'opened',
           label: null,
           pullRequest: 'https://github.com/acme/api/pull/7',
           author: 'octocat',
@@ -189,14 +189,14 @@ describe('GitHubSource', () => {
     });
   });
 
-  it('asks for a review of a pull request labelled, with the label it was given', async () => {
-    const asked = await readOne({
+  it('requests a review of a pull request labelled, with its label', async () => {
+    const reviewRequest = await readOne({
       ...OPENED,
       activity: 'labelled',
       label: 'spotlight',
     });
 
-    expect(asked).toMatchObject({
+    expect(reviewRequest).toMatchObject({
       happening: 'github.pull_request.labelled',
       concerns: {
         marks: [
@@ -205,12 +205,12 @@ describe('GitHubSource', () => {
       },
       opens: {
         onto: 'review',
-        review: { asking: 'labelled', label: 'spotlight' },
+        review: { trigger: 'labelled', label: 'spotlight' },
       },
     });
   });
 
-  it('hears nothing of a label GitHub did not name', async () => {
+  it('reads nothing from a label GitHub did not name', async () => {
     expect(
       await sourceOver([
         { ...OPENED, activity: 'labelled', label: null },
@@ -241,11 +241,11 @@ describe('GitHubSource', () => {
     expect(read[2]).toMatchObject({
       answers: true,
       message: { body: '@spotlight have a look' },
-      opens: { review: { asking: 'mentioned' } },
+      opens: { review: { trigger: 'mentioned' } },
     });
   });
 
-  it('hears no mention in a comment naming nobody', async () => {
+  it('finds no mention in a comment naming nobody', async () => {
     const read = await sourceOver([
       {
         ...OPENED,
@@ -295,7 +295,7 @@ describe('GitHubSource', () => {
     ).rejects.toThrow(UpstreamError);
   });
 
-  it('says nothing where GitHub heard no activity', async () => {
+  it('says nothing where GitHub reported no activity', async () => {
     expect(await sourceOver([]).source.read(DELIVERED)).toEqual([]);
   });
 

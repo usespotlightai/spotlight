@@ -55,7 +55,7 @@ import { createTeam } from './support/team';
 const RUNNER = RunnerId.of('runner_reactions');
 const CHANGES_REQUESTED = 'github.pull_request.changes-requested';
 const DEFERRED_MOVE_TO_CODE_REVIEW =
-  'Heard while a run worked on the task. If the run does not pass the task on, the task moves to Code Review when the run ends.\n\nChanges were requested on the pull request.';
+  'This arrived while a run worked on the task. If the run does not pass the task on, the task moves to Code Review when the run ends.\n\nChanges were requested on the pull request.';
 
 let app: INestApplication;
 let db: DrizzleDatabase;
@@ -368,7 +368,7 @@ describe('a pull request merged while a run works on the task (e2e)', () => {
     expect(cancelled.outcome?.cancelled).toBe(true);
   });
 
-  it('asks a working run to stop', async () => {
+  it('tells a working run to stop', async () => {
     const { task, runId } = await workingAt('implementation');
     await claimed(runId);
 
@@ -557,7 +557,7 @@ describe('a deferred move and what ends the run (e2e)', () => {
         hook: 'core/notify',
         code: 'rejected',
         reason: 'The hook rejected the run.',
-        heardAs: randomUUID(),
+        receivedAs: randomUUID(),
       }),
     ).resolves.toBe('reported');
 

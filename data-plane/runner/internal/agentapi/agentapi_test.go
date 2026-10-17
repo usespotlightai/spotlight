@@ -66,7 +66,7 @@ func TestRecordsTheAgentsHandover(t *testing.T) {
 	}
 }
 
-func TestAnswersInTheSpellingTheControlPlaneGave(t *testing.T) {
+func TestAnswersInTheSpellingTheControlPlaneSent(t *testing.T) {
 	server := serve(t)
 
 	if status, body := post(t, server, server.Token(), `{"next":"CODE-REVIEW"}`); status != http.StatusNoContent {
@@ -186,7 +186,7 @@ func TestTakesANoteInsideTheLimit(t *testing.T) {
 	}
 }
 
-func TestRejectsNothingForLengthWhenNoLimitWasGiven(t *testing.T) {
+func TestRejectsNothingForLengthWhenNoLimitIsSet(t *testing.T) {
 	server := serveLimited(t, 0)
 
 	status, _ := post(t, server, server.Token(),
@@ -197,12 +197,12 @@ func TestRejectsNothingForLengthWhenNoLimitWasGiven(t *testing.T) {
 	}
 }
 
-func TestCarriesAToolItWasGivenToSpotlight(t *testing.T) {
+func TestCarriesAToolCallToSpotlight(t *testing.T) {
 	server := serve(t)
 
-	var reached, carried string
+	var called, carried string
 	server.Tools([]string{"pull-request"}, func(_ context.Context, name string, input json.RawMessage) (json.RawMessage, error) {
-		reached, carried = name, string(input)
+		called, carried = name, string(input)
 		return json.RawMessage(`{"output":"https://github.com/acme/widgets/pull/7"}`), nil
 	})
 
@@ -212,15 +212,15 @@ func TestCarriesAToolItWasGivenToSpotlight(t *testing.T) {
 	if status != http.StatusOK {
 		t.Fatalf("status = %d, want 200: %s", status, body)
 	}
-	if reached != "pull-request" || carried != `{"title":"Fix the queue","body":"what it does"}` {
-		t.Errorf("reached %q with %s, want the input carried whole", reached, carried)
+	if called != "pull-request" || carried != `{"title":"Fix the queue","body":"what it does"}` {
+		t.Errorf("called %q with %s, want the input carried whole", called, carried)
 	}
 	if body != `{"output":"https://github.com/acme/widgets/pull/7"}` {
 		t.Errorf("got %q, want the answer carried whole", body)
 	}
 }
 
-func TestDeniesAToolTheRunWasNotGiven(t *testing.T) {
+func TestDeniesAToolNotEnabledForTheRun(t *testing.T) {
 	server := serve(t)
 	server.Tools([]string{"pull-request"}, func(context.Context, string, json.RawMessage) (json.RawMessage, error) {
 		t.Error("carried it to Spotlight anyway")
@@ -233,11 +233,11 @@ func TestDeniesAToolTheRunWasNotGiven(t *testing.T) {
 		t.Fatalf("status = %d, want 403", status)
 	}
 	if !strings.Contains(body, "pull-request") {
-		t.Errorf("got %q, want what it was given", body)
+		t.Errorf("got %q, want what is enabled for it", body)
 	}
 }
 
-func TestDeniesEveryToolWhereNoneWereGiven(t *testing.T) {
+func TestDeniesEveryToolWhereNoneAreEnabled(t *testing.T) {
 	server := serve(t)
 
 	status, body := postTo(t, server, protocol.AgentAPIToolsPath+"pull-request", server.Token(), `{"title":"x"}`)
@@ -245,8 +245,8 @@ func TestDeniesEveryToolWhereNoneWereGiven(t *testing.T) {
 	if status != http.StatusForbidden {
 		t.Fatalf("status = %d, want 403", status)
 	}
-	if !strings.Contains(body, "given: nothing") {
-		t.Errorf("got %q, want that it was given nothing", body)
+	if !strings.Contains(body, "it has: nothing") {
+		t.Errorf("got %q, want that it has nothing enabled", body)
 	}
 }
 
@@ -359,7 +359,7 @@ func TestSaysWhenTheRunCannotReplyToAReviewComment(t *testing.T) {
 	}
 }
 
-func TestDescribesOnlyTheToolsTheRunWasGiven(t *testing.T) {
+func TestDescribesOnlyTheToolsEnabledForTheRun(t *testing.T) {
 	server := serve(t)
 	server.Tools([]string{"linear.comment"}, func(context.Context, string, json.RawMessage) (json.RawMessage, error) {
 		return nil, nil
@@ -392,7 +392,7 @@ func TestDescribesOnlyTheToolsTheRunWasGiven(t *testing.T) {
 		t.Fatalf("status %d, described %+v", response.StatusCode, described)
 	}
 	if schema := string(described[0].Inputs[0].Schema); schema != `{"type":["string","null"]}` {
-		t.Errorf("described the body as %s, want its schema as given", schema)
+		t.Errorf("described the body as %s, want its schema as written", schema)
 	}
 }
 
@@ -406,7 +406,7 @@ func TestRejectsAToolRequestNamingNoTool(t *testing.T) {
 	status, body := postTo(t, server, protocol.AgentAPIToolsPath, server.Token(), `{"next":"spec"}`)
 
 	if status != http.StatusNotFound || !strings.Contains(body, "name the tool") {
-		t.Fatalf("status = %d, got %q, want it to ask which tool", status, body)
+		t.Fatalf("status = %d, got %q, want it to require a tool name", status, body)
 	}
 	if handover := server.TakeHandover(); handover != nil {
 		t.Fatalf("recorded a handover %+v", handover)

@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import type { Reach } from '@integrations/application/ports/integration-runtime.port';
+import type { CallAuth } from '@integrations/application/ports/integration-runtime.port';
 import type {
   SourceRead,
   SourceReaderPort,
@@ -48,7 +48,7 @@ const hashOf = (source: DescribedSource, tools: readonly Tool[]): ContentHash =>
 export class McpSourceReader implements SourceReaderPort {
   constructor(private readonly sessions: McpSessions) {}
 
-  async read(source: DescribedSource, reach: Reach): Promise<SourceRead> {
+  async read(source: DescribedSource, callAuth: CallAuth): Promise<SourceRead> {
     const server = source.url;
 
     if (server === null) {
@@ -64,9 +64,9 @@ export class McpSourceReader implements SourceReaderPort {
           this.sessions.tools(server, {
             connection: token?.value ?? null,
             secrets: source.injectedSecrets.map((each) => each.value),
-            credentials: reach.credentials,
+            credentials: callAuth.credentials,
           }),
-        source.connected ? reach.connection : null,
+        source.connected ? callAuth.connection : null,
       );
 
       return {

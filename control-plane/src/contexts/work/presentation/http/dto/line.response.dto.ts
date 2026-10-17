@@ -11,7 +11,7 @@ export class StationJudgeResponseDto {
   @ApiProperty({
     type: String,
     nullable: true,
-    example: 'A good run changes only what the task asks for.',
+    example: 'A good run changes only what the task requests.',
     description:
       'What a good run looks like, in Markdown. Null when the judge goes by its claims alone',
   })
@@ -195,7 +195,7 @@ export class StationResponseDto {
     example: ['our-migrations'],
     isArray: true,
     type: String,
-    description: 'The team’s own skills given to a run here',
+    description: 'The team’s own skills enabled for a run here',
   })
   readonly skills: string[];
 

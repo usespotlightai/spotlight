@@ -38,7 +38,7 @@ const detail = (over: Record<string, unknown> = {}) => ({
   body: 'Retry uploads in the request.',
   source: 'run',
   status: 'active',
-  reach: 'team',
+  scope: 'team',
   lineId: null,
   stationId: null,
   repository: null,
@@ -101,7 +101,7 @@ describe('MemoryDetails', () => {
     expect(screen.getByRole('button', { name: 'Retire' })).toBeVisible();
   });
 
-  it('asks why in place when retiring, not in a dialog', async () => {
+  it('takes the reason in place when retiring, not in a dialog', async () => {
     memoryState.data = detail();
     showing();
 

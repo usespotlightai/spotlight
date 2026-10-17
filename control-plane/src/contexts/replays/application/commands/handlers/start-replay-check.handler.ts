@@ -58,7 +58,7 @@ class CheckRejectedError extends Error {
 }
 
 class NothingToReplayError extends Error {
-  constructor(readonly keptLive: readonly ScoringField[]) {
+  constructor(readonly scoringPinnedToLive: readonly ScoringField[]) {
     super('Planned station runs the same as the live one.');
     this.name = 'NothingToReplayError';
   }
@@ -172,7 +172,10 @@ export class StartReplayCheckHandler
           return { outcome: 'invalid', problems: error.problems };
         }
         if (error instanceof NothingToReplayError) {
-          return { outcome: 'unchanged', keptLive: error.keptLive };
+          return {
+            outcome: 'unchanged',
+            scoringPinnedToLive: error.scoringPinnedToLive,
+          };
         }
 
         throw error;
@@ -229,7 +232,7 @@ export class StartReplayCheckHandler
       throw new CheckRejectedError(examined.problems);
     }
     if (examined.digests.runsAs(examined.liveDigests)) {
-      throw new NothingToReplayError(scored.keptLive);
+      throw new NothingToReplayError(scored.scoringPinnedToLive);
     }
 
     const set = await this.sets.locked(guarded.set.id);
@@ -345,7 +348,7 @@ export class StartReplayCheckHandler
       candidateDigests: examined.digests,
       threshold,
       repeats: planned.repeats,
-      keptLive: scored.keptLive,
+      scoringPinnedToLive: scored.scoringPinnedToLive,
       createdAt: at,
       by,
     });

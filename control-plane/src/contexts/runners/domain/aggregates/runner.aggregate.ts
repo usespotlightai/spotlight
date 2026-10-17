@@ -1,7 +1,7 @@
 import { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregate';
 import type { RunnerTrust } from '@runners/domain/aggregates/runner-trust.aggregate';
 import { RunnerAlreadyClaimedError } from '@runners/domain/exceptions/runner-already-claimed.error';
-import { Admission } from '@runners/domain/value-objects/admission.vo';
+import { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
 import type { HostId } from '@runners/domain/value-objects/host-id.vo';
 import type { InstalledHarness } from '@runners/domain/value-objects/installed-harness.vo';
 import type { RunnerLabels } from '@runners/domain/value-objects/runner-labels.vo';
@@ -36,7 +36,7 @@ const RECORDS_AFTER_ENDING_MS = 2 * 60_000;
 interface State {
   readonly id: RunnerId;
   readonly workspaceId: WorkspaceId;
-  readonly admission: Admission;
+  readonly source: CredentialSource;
   readonly hostId: HostId | null;
   readonly labels: RunnerLabels;
   readonly tokenHash: TokenHash;
@@ -102,7 +102,7 @@ export class Runner extends EventRecorder {
       {
         id: input.id,
         workspaceId: through.workspaceId,
-        admission: Admission.through(through.id),
+        source: CredentialSource.ofId(through.id),
         hostId: input.host,
         labels: through.labels,
         tokenHash: input.tokenHash,
@@ -144,8 +144,8 @@ export class Runner extends EventRecorder {
     return this.state.workspaceId;
   }
 
-  get admission(): Admission {
-    return this.state.admission;
+  get source(): CredentialSource {
+    return this.state.source;
   }
 
   get hostId(): HostId | null {

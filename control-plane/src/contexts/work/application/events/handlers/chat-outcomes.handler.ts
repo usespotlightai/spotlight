@@ -35,7 +35,7 @@ export class ChatOutcomes implements RunOutcomes {
     const chat = await this.waiting(event.runId, event.chatId);
 
     if (chat) {
-      await this.chats.save(chat.runKeptNothing(event.runId));
+      await this.chats.save(chat.runEndedWithoutSession(event.runId));
     }
   }
 

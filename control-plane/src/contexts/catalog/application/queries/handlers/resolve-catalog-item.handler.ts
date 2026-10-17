@@ -8,8 +8,8 @@ import { CatalogProblems } from '@catalog/application/rendering/catalog-problems
 import type { CatalogItem } from '@catalog/domain/entities/catalog-item.entity';
 import { InvalidCatalogEntryError } from '@catalog/domain/exceptions/invalid-catalog-entry.error';
 import type { CatalogRepository } from '@catalog/domain/repositories/catalog.repository';
-import { givingOfItem } from '@catalog/domain/services/giving';
-import { newestAdmitted } from '@catalog/domain/services/newest-admitted';
+import { resolveEntitledItem } from '@catalog/domain/services/entitlement-resolution';
+import { newestMatching } from '@catalog/domain/services/newest-matching';
 import { CatalogName } from '@catalog/domain/value-objects/catalog-name.vo';
 import { VersionConstraint } from '@catalog/domain/value-objects/version-constraint.vo';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
@@ -87,26 +87,26 @@ export class ResolveCatalogItemHandler
         };
       }
 
-      const admission = newestAdmitted(
+      const match = newestMatching(
         query.kind,
         name,
         this.catalog.versionsOf(query.kind, name),
         constraint,
       );
 
-      if (!admission.found) {
-        return { outcome: 'unmatched', because: admission.because };
+      if (!match.found) {
+        return { outcome: 'unmatched', because: match.because };
       }
 
-      const giving = givingOfItem(
-        admission.item,
+      const result = resolveEntitledItem(
+        match.item,
         await this.plans.of(permissions.workspaceId),
         this.clock.now(),
       );
 
-      return giving.given
-        ? { outcome: 'resolved', item: itemDto(giving.item, constraint) }
-        : { outcome: 'not-entitled', because: giving.denial.detail };
+      return result.entitled
+        ? { outcome: 'resolved', item: itemDto(result.item, constraint) }
+        : { outcome: 'not-entitled', because: result.denial.detail };
     } catch (error) {
       rethrowAsApplicationError(error);
     }

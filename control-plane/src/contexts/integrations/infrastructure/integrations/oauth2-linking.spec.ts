@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
-import type { OAuth2Asked } from '@integrations/application/ports/oauth2-linking.port';
+import type { OAuth2LinkInput } from '@integrations/application/ports/oauth2-linking.port';
 import type { OAuth2NoncesPort } from '@integrations/application/ports/oauth2-nonces.port';
 import { HostGrant } from '@integrations/domain/value-objects/host-grant.vo';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
@@ -107,7 +107,7 @@ const signed = (source = 'slack', by = 'user_1', nonce = 'n-1') =>
     nonce,
   }).token;
 
-const asking = (over: Partial<OAuth2Asked> = {}): OAuth2Asked => ({
+const linkInput = (over: Partial<OAuth2LinkInput> = {}): OAuth2LinkInput => ({
   teamId: 'team_1',
   source: 'slack',
   by: 'user_1',
@@ -133,7 +133,7 @@ describe('OAuth2Linking', () => {
   it('builds an authorize URL with the app, the callback, the scopes and a state', async () => {
     const { it } = linking();
 
-    const begun = await it.begin(asking());
+    const begun = await it.begin(linkInput());
     const url = new URL(begun?.url ?? '');
 
     expect(url.origin + url.pathname).toBe('https://slack.com/oauth/authorize');
@@ -148,8 +148,8 @@ describe('OAuth2Linking', () => {
   it('binds the state to a fresh nonce for the browser that began', async () => {
     const { it } = linking();
 
-    const one = await it.begin(asking());
-    const other = await it.begin(asking());
+    const one = await it.begin(linkInput());
+    const other = await it.begin(linkInput());
     const state = new URL(one?.url ?? '').searchParams.get('state') ?? '';
 
     expect(one?.nonce).toBeTruthy();
@@ -160,13 +160,13 @@ describe('OAuth2Linking', () => {
   it('will not begin where the deployment registered no app for the host', async () => {
     const { it } = linking({ clients: '{}' });
 
-    expect(await it.begin(asking())).toBeNull();
+    expect(await it.begin(linkInput())).toBeNull();
   });
 
   it('will not begin for a host the team does not link this way', async () => {
     const { it } = linking();
 
-    expect(await it.begin(asking({ source: 'linear' }))).toBeNull();
+    expect(await it.begin(linkInput({ source: 'linear' }))).toBeNull();
   });
 
   it('turns a returning code into a grant, with who signed it', async () => {
@@ -270,16 +270,16 @@ describe('OAuth2Linking', () => {
   it('keeps an unsafe place to land out of the state it signs', async () => {
     const { it } = linking();
 
-    const begun = await it.begin(asking({ back: 'https://evil.example' }));
+    const begun = await it.begin(linkInput({ back: 'https://evil.example' }));
     const state = new URL(begun?.url ?? '').searchParams.get('state') ?? '';
 
     expect(new OAuth2State('a-secret').open(state)?.back).toBeNull();
   });
 
-  it('asks for an S256 PKCE challenge and exchanges the code with its verifier', async () => {
+  it('requests an S256 PKCE challenge and exchanges the code with its verifier', async () => {
     const { it, exchange } = linking();
 
-    const begun = await it.begin(asking());
+    const begun = await it.begin(linkInput());
     const url = new URL(begun?.url ?? '');
     const state = url.searchParams.get('state') ?? '';
 
@@ -318,8 +318,8 @@ describe('OAuth2Linking', () => {
       `${BASE}/api/integrations/oauth/callback`,
     );
 
-    const plain = new URL((await it.begin(asking()))?.url ?? '');
-    const named = new URL((await withResource.begin(asking()))?.url ?? '');
+    const plain = new URL((await it.begin(linkInput()))?.url ?? '');
+    const named = new URL((await withResource.begin(linkInput()))?.url ?? '');
 
     expect(plain.searchParams.has('resource')).toBe(false);
     expect(named.searchParams.get('resource')).toBe('https://mcp.slack.com/');

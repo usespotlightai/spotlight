@@ -79,7 +79,7 @@ import {
 import { TaskTraceResponseDto } from '@work/presentation/http/dto/task-trace.response.dto';
 import { TeamTracesResponseDto } from '@work/presentation/http/dto/team-trace.response.dto';
 import { AttachmentHttpMapper } from '@work/presentation/http/mappers/attachment.http.mapper';
-import { givenIds } from '@work/presentation/http/mappers/given-ids';
+import { idsInput } from '@work/presentation/http/mappers/ids-input';
 import { TaskHttpMapper } from '@work/presentation/http/mappers/task.http.mapper';
 import { TaskRunHttpMapper } from '@work/presentation/http/mappers/task-run.http.mapper';
 import { TaskTraceHttpMapper } from '@work/presentation/http/mappers/task-trace.http.mapper';
@@ -157,7 +157,7 @@ export class TaskController {
     enum: TRACE_RANGES,
     example: '7d',
     description:
-      'How far back from now to look, counting runs started since; 30d unless asked',
+      'How far back from now to look, counting runs started since; 30d by default',
   })
   @ApiOkResponse({ type: TeamTracesResponseDto })
   @ApiUnprocessableEntityResponse({ description: 'No such range' })
@@ -228,7 +228,7 @@ export class TaskController {
   @Get('runs/:runId/conversation')
   @ApiOperation({
     operationId: 'readRunConversation',
-    summary: 'The task and the trail since it reached this run’s station',
+    summary: 'The task and the trail since it arrived at this run’s station',
   })
   @ApiParam({ name: 'runId', type: String })
   @ApiOkResponse({ type: RunConversationResponseDto })
@@ -330,7 +330,7 @@ export class TaskController {
         runId,
         user.id,
         body.body ?? '',
-        givenIds(body.attachments),
+        idsInput(body.attachments),
       ),
     );
   }
@@ -342,7 +342,7 @@ export class TaskController {
     summary: 'Stop the agent working a run',
   })
   @ApiParam({ name: 'runId', type: String })
-  @ApiNoContentResponse({ description: 'The run was asked to stop' })
+  @ApiNoContentResponse({ description: 'The run received a stop request' })
   @ApiNotFoundResponse({ description: 'No such run for this caller' })
   @ApiConflictResponse({ description: 'The run is no longer being worked' })
   async stop(
@@ -446,7 +446,7 @@ export class TaskController {
         body.title,
         body.description ?? null,
         user.id,
-        givenIds(body.attachments),
+        idsInput(body.attachments),
       ),
     );
 
@@ -497,7 +497,7 @@ export class TaskController {
   @Put('tasks/:taskId/assignee')
   @ApiOperation({
     operationId: 'assignTask',
-    summary: 'Give a task to a team member, or clear its assignee',
+    summary: 'Assign a task to a team member, or clear its assignee',
   })
   @ApiParam({
     name: 'taskId',

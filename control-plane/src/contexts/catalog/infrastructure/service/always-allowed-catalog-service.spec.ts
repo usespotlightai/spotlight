@@ -36,7 +36,7 @@ const serving = (status: number, body: unknown) => {
 };
 
 describe('AlwaysAllowedCatalogService', () => {
-  it('calls the version the run was given, on the catalog service alone, for the workspace and run', async () => {
+  it('calls the version enabled for the run, on the catalog service alone, for the workspace and run', async () => {
     const { service, sent } = serving(200, { output: ['https://example.com'] });
 
     await expect(

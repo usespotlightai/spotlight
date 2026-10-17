@@ -14,7 +14,7 @@ export const generatedEntries = (
     importers.set(to, (importers.get(to) ?? new Set()).add(from));
   }
 
-  const reaching = (path: string): Set<string> => {
+  const importersOf = (path: string): Set<string> => {
     const seen = new Set<string>();
     const waiting = [path];
 
@@ -55,7 +55,7 @@ export const generatedEntries = (
       });
 
       return generated.flatMap((file) => {
-        const places = [...reaching(file.path)].flatMap((path) =>
+        const places = [...importersOf(file.path)].flatMap((path) =>
           layerOf.has(path) ? [layerOf.get(path) as number] : [],
         );
 

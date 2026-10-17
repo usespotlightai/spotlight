@@ -16,7 +16,7 @@ export class StationWatchesInMemory implements StationWatchRepository {
     if (this.stored.has(watch.station.stationId)) {
       throw new StationWatchVersionConflictError(watch.station.stationId);
     }
-    this.keep(watch, [], watch.version);
+    this.store(watch, [], watch.version);
   }
 
   async save(watch: StationWatch): Promise<void> {
@@ -25,7 +25,7 @@ export class StationWatchesInMemory implements StationWatchRepository {
     if (!existing || existing.version !== watch.version) {
       throw new StationWatchVersionConflictError(watch.station.stationId);
     }
-    this.keep(watch, existing.crossings, watch.version + 1);
+    this.store(watch, existing.crossings, watch.version + 1);
   }
 
   async of(stationId: string, withTask?: TaskId): Promise<StationWatch | null> {
@@ -110,18 +110,18 @@ export class StationWatchesInMemory implements StationWatchRepository {
     });
   }
 
-  private keep(
+  private store(
     watch: StationWatch,
     before: readonly AlertCrossing[],
     version: number,
   ): void {
     const dropped = new Set(watch.dropped.map((each) => each.value));
     const changed = new Map(watch.changed.map((each) => [each.id.value, each]));
-    const kept = before
+    const retained = before
       .filter((each) => !dropped.has(each.id.value))
       .map((each) => changed.get(each.id.value) ?? each);
     const fresh = watch.changed.filter(
-      (each) => !kept.some((one) => one.id.equals(each.id)),
+      (each) => !retained.some((one) => one.id.equals(each.id)),
     );
 
     this.raised.push(...watch.pullEvents());
@@ -129,7 +129,7 @@ export class StationWatchesInMemory implements StationWatchRepository {
       watch.station.stationId,
       StationWatch.rehydrate({
         station: watch.station,
-        crossings: [...kept, ...fresh],
+        crossings: [...retained, ...fresh],
         version,
       }),
     );

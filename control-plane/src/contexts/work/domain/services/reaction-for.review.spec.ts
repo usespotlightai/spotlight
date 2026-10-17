@@ -10,8 +10,8 @@ import { ReactionFor } from '@work/domain/services/reaction-for';
 import { Branch } from '@work/domain/value-objects/branch.vo';
 import { LineRole } from '@work/domain/value-objects/line-role.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
-import type { ReviewRequest } from '@work/domain/value-objects/review-asked.vo';
 import { ReviewPolicy } from '@work/domain/value-objects/review-policy.vo';
+import type { ReviewRequest } from '@work/domain/value-objects/review-request.vo';
 import { TaskRank } from '@work/domain/value-objects/task-rank.vo';
 import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { describe, expect, it } from 'vitest';
@@ -64,7 +64,7 @@ const taskOn = (line: Line) =>
   });
 
 const REQUEST: ReviewRequest = {
-  asking: 'opened',
+  trigger: 'opened',
   label: null,
   pullRequest: PULL,
   author: 'octocat',
@@ -73,14 +73,14 @@ const REQUEST: ReviewRequest = {
   branch: Branch.of('fix-uploads'),
 };
 
-const asked = (
+const requested = (
   over: {
     request?: Partial<ReviewRequest>;
     pullRequestTask?: Task;
     reviewTask?: Task;
   } = {},
 ) =>
-  ReactionFor.reviewAsked({
+  ReactionFor.reviewRequested({
     lines: [delivery, review],
     opens: {
       onto: LineRole.REVIEW,
@@ -97,9 +97,9 @@ const asked = (
     reviewTask: over.reviewTask ?? null,
   });
 
-describe('ReactionFor, asked for a review', () => {
+describe('ReactionFor, with a review request', () => {
   it('opens a review on the line that reviews pull requests', () => {
-    const answer = asked();
+    const answer = requested();
 
     expect(answer.kind).toBe('opens');
     expect(answer.kind === 'opens' && answer.on.line.key.value).toBe('review');
@@ -107,26 +107,26 @@ describe('ReactionFor, asked for a review', () => {
 
   it('counts a pull request as Spotlight’s own by its branch, or by a task of Spotlight’s that opened it', () => {
     expect(
-      asked({ request: { branch: Branch.of('spotlight/task_9') } }),
+      requested({ request: { branch: Branch.of('spotlight/task_9') } }),
     ).toEqual({ kind: 'nothing' });
-    expect(asked({ pullRequestTask: taskOn(delivery) })).toEqual({
+    expect(requested({ pullRequestTask: taskOn(delivery) })).toEqual({
       kind: 'nothing',
     });
   });
 
   it('does not count a pull request as Spotlight’s own because an earlier review of it has its mark', () => {
     expect(
-      asked({
+      requested({
         pullRequestTask: taskOn(review).reviews(PULL, { outside: false }),
       }).kind,
     ).toBe('opens');
   });
 
-  it('lets a review under way hear the word, rather than opening another', () => {
+  it('lets a review under way receive the word, rather than opening another', () => {
     const underway = taskOn(review).reviews(PULL, { outside: false });
 
-    expect(asked({ reviewTask: underway })).toEqual({
-      kind: 'heard',
+    expect(requested({ reviewTask: underway })).toEqual({
+      kind: 'received',
       by: underway,
     });
   });

@@ -14,7 +14,7 @@ const WIDTH = 'w-80';
 const STATUS_TEXT: Record<string, string> = {
   accepted: 'This invitation is already accepted.',
   revoked: 'This invitation is revoked.',
-  expired: 'This invitation has expired. Please ask for a new one.',
+  expired: 'This invitation has expired. Please request a new one.',
 };
 
 export function AcceptInvite() {
@@ -45,7 +45,7 @@ export function AcceptInvite() {
       <AuthScreen className={WIDTH}>
         <AuthTitle title="Invitation link doesn’t work">
           The invitation may be revoked, or the link may be incomplete. Please
-          ask for a new one.
+          request a new one.
         </AuthTitle>
       </AuthScreen>
     );

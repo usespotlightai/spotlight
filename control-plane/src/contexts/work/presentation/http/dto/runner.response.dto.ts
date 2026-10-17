@@ -68,7 +68,7 @@ export class ToolAnswerResponseDto {
 
 export class ClaimedCheckStepResponseDto {
   @ApiProperty({
-    description: 'The whole change, or the layer this step reaches',
+    description: 'The whole change, or the layer this step covers',
     example: 'whole',
   })
   readonly id: string;
@@ -225,7 +225,7 @@ export class EnqueuedRunResponseDto {
 export class RenewLeaseResponseDto {
   @ApiProperty({
     example: false,
-    description: 'Whether a person has asked the runner to stop this run',
+    description: 'Whether a person has requested that the runner stop this run',
   })
   readonly stop: boolean;
 
@@ -247,16 +247,16 @@ export class RunCompletionResponseDto {
   }
 }
 
-export class TurnAsksAPersonResponseDto {
+export class TurnAwaitsPersonResponseDto {
   @ApiProperty({
     example: true,
     description:
-      'Whether this turn, reported as given, would put the run to a person, so the runner keeps its harness running while it keeps the workspace. Otherwise the runner closes the harness first, as the run ends.',
+      'Whether this turn, as reported, would put the run to a person, so the runner keeps its harness running while it archives the workspace. Otherwise the runner closes the harness first, as the run ends.',
   })
-  readonly asks: boolean;
+  readonly awaitsPerson: boolean;
 
-  constructor(asks: boolean) {
-    this.asks = asks;
+  constructor(awaitsPerson: boolean) {
+    this.awaitsPerson = awaitsPerson;
   }
 }
 
@@ -264,7 +264,7 @@ export class RunSuspensionResponseDto {
   @ApiProperty({
     example: true,
     description:
-      'Whether the run is suspended (or, if a stop was asked for, ended) and no longer leased by this runner. False when the answer arrived first: the run is working again, and the answer waits in its messages.',
+      'Whether the run is suspended (or, if a stop was requested, ended) and no longer leased by this runner. False when the answer arrived first: the run is working again, and the answer waits in its messages.',
   })
   readonly suspended: boolean;
 

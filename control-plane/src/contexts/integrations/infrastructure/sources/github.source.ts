@@ -19,7 +19,7 @@ import {
   PULL_REQUEST_MARK,
   REVIEW_MARK,
   REVIEW_ROLE,
-  type ReviewAsking,
+  type ReviewTrigger,
 } from '@work/application/contracts/happenings.contract';
 
 const raised = (input: {
@@ -34,7 +34,9 @@ const raised = (input: {
   answers: input.answers ?? false,
 });
 
-const ASKED: Readonly<Record<ReviewAsking, HappeningDeclaration>> = {
+const REVIEW_REQUEST_RAISED: Readonly<
+  Record<ReviewTrigger, HappeningDeclaration>
+> = {
   opened: raised({
     key: 'github.pull_request.opened',
     label: 'Pull request opened',
@@ -53,10 +55,16 @@ const ASKED: Readonly<Record<ReviewAsking, HappeningDeclaration>> = {
   }),
 };
 
-type Asked = Extract<PullRequestActivityKind, 'opened' | 'labelled'>;
+type ReviewRequestKind = Extract<
+  PullRequestActivityKind,
+  'opened' | 'labelled'
+>;
 
 const RAISED: Readonly<
-  Record<Exclude<PullRequestActivityKind, Asked>, HappeningDeclaration>
+  Record<
+    Exclude<PullRequestActivityKind, ReviewRequestKind>,
+    HappeningDeclaration
+  >
 > = {
   merged: raised({
     key: 'github.pull_request.merged',
@@ -87,38 +95,38 @@ const RAISED: Readonly<
   }),
 };
 
-const failUnnamed = (heard: PullRequestActivity): never => {
+const failUnnamed = (event: PullRequestActivity): never => {
   throw new UpstreamError(
-    `reading a GitHub ${heard.activity} delivery`,
+    `reading a GitHub ${event.activity} delivery`,
     'it names neither a branch nor a pull request',
   );
 };
 
-const messageOf = (heard: PullRequestActivity): Happened['message'] =>
-  heard.reviewComment
+const messageOf = (event: PullRequestActivity): Happened['message'] =>
+  event.reviewComment
     ? {
-        body: heard.reviewComment.body,
-        path: heard.reviewComment.path,
-        from: heard.reviewComment.from,
-        to: heard.reviewComment.to,
-        reviewComment: heard.reviewComment.id,
+        body: event.reviewComment.body,
+        path: event.reviewComment.path,
+        from: event.reviewComment.from,
+        to: event.reviewComment.to,
+        reviewComment: event.reviewComment.id,
       }
     : null;
 
 const describedFor = (pullRequest: string, body: string | null): string =>
   [`Review ${pullRequest}`, body ?? ''].filter(Boolean).join('\n\n');
 
-const askedFor = (
-  heard: PullRequestActivity,
-  asking: ReviewAsking,
+const reviewRequestFor = (
+  event: PullRequestActivity,
+  trigger: ReviewTrigger,
 ): Happened | null => {
-  if (!heard.pullRequest || !heard.about) {
+  if (!event.pullRequest || !event.about) {
     return null;
   }
 
-  const pullRequest = PullRequestUrl.of(heard.pullRequest).value;
+  const pullRequest = PullRequestUrl.of(event.pullRequest).value;
   const marks = [{ kind: REVIEW_MARK, value: pullRequest }];
-  const raising = ASKED[asking];
+  const raising = REVIEW_REQUEST_RAISED[trigger];
 
   return {
     happening: raising.happening.value,
@@ -126,60 +134,64 @@ const askedFor = (
     answers: raising.answers,
     state: 'raised',
     concerns: { branch: null, marks },
-    message: asking === 'mentioned' ? messageOf(heard) : null,
-    ourOwn: heard.byBot,
+    message: trigger === 'mentioned' ? messageOf(event) : null,
+    ourOwn: event.byBot,
     opens: {
       onto: REVIEW_ROLE,
       at: null,
-      title: heard.about.title,
-      description: describedFor(pullRequest, heard.about.body),
+      title: event.about.title,
+      description: describedFor(pullRequest, event.about.body),
       assignEmail: null,
       marks,
       review: {
-        asking,
-        label: heard.label,
+        trigger,
+        label: event.label,
         pullRequest,
-        author: heard.about.author,
-        outside: AuthorAssociation.of(heard.about.authorAssociation).isOutside,
-        draft: heard.about.draft,
-        branch: heard.branch,
+        author: event.about.author,
+        outside: AuthorAssociation.of(event.about.authorAssociation).isOutside,
+        draft: event.about.draft,
+        branch: event.branch,
       },
     },
   };
 };
 
-const mentions = (heard: PullRequestActivity): boolean =>
-  (heard.activity === 'commented' || heard.activity === 'changes-requested') &&
-  (heard.reviewComment?.body.includes('@') ?? false);
+const mentions = (event: PullRequestActivity): boolean =>
+  (event.activity === 'commented' || event.activity === 'changes-requested') &&
+  (event.reviewComment?.body.includes('@') ?? false);
 
-const happenedIn = (heard: PullRequestActivity): readonly Happened[] => {
-  if (heard.activity === 'opened') {
-    if (!heard.pullRequest) {
-      failUnnamed(heard);
+const happenedIn = (event: PullRequestActivity): readonly Happened[] => {
+  if (event.activity === 'opened') {
+    if (!event.pullRequest) {
+      failUnnamed(event);
     }
 
-    const asked = askedFor(heard, 'opened');
+    const reviewRequest = reviewRequestFor(event, 'opened');
 
-    return asked ? [asked] : [];
+    return reviewRequest ? [reviewRequest] : [];
   }
 
-  if (heard.activity === 'labelled') {
-    const asked = heard.label ? askedFor(heard, 'labelled') : null;
+  if (event.activity === 'labelled') {
+    const reviewRequest = event.label
+      ? reviewRequestFor(event, 'labelled')
+      : null;
 
-    return asked ? [asked] : [];
+    return reviewRequest ? [reviewRequest] : [];
   }
 
-  const mentioned = mentions(heard) ? askedFor(heard, 'mentioned') : null;
-  const payload = happened({ ...heard, activity: heard.activity });
+  const mentioned = mentions(event)
+    ? reviewRequestFor(event, 'mentioned')
+    : null;
+  const payload = happened({ ...event, activity: event.activity });
 
   return [
     payload,
-    ...(heard.pullRequest ? [toItsReview(payload, heard.pullRequest)] : []),
+    ...(event.pullRequest ? [toItsReview(payload, event.pullRequest)] : []),
     ...(mentioned ? [mentioned] : []),
   ];
 };
 
-// The task that opened a pull request and the task that reviews it each hear the word through their own mark.
+// The task that opened a pull request and the task that reviews it each receive the word through their own mark.
 const toItsReview = (payload: Happened, pullRequest: string): Happened => ({
   ...payload,
   concerns: {
@@ -189,25 +201,25 @@ const toItsReview = (payload: Happened, pullRequest: string): Happened => ({
 });
 
 const happened = (
-  heard: PullRequestActivity & {
-    activity: Exclude<PullRequestActivityKind, Asked>;
+  event: PullRequestActivity & {
+    activity: Exclude<PullRequestActivityKind, ReviewRequestKind>;
   },
 ): Happened => {
-  const raising = RAISED[heard.activity];
+  const raising = RAISED[event.activity];
   const concerns = {
-    branch: heard.branch,
-    marks: heard.pullRequest
+    branch: event.branch,
+    marks: event.pullRequest
       ? [
           {
             kind: PULL_REQUEST_MARK,
-            value: PullRequestUrl.of(heard.pullRequest).value,
+            value: PullRequestUrl.of(event.pullRequest).value,
           },
         ]
       : [],
   };
 
   if (!concerns.branch && concerns.marks.length === 0) {
-    failUnnamed(heard);
+    failUnnamed(event);
   }
 
   return {
@@ -216,8 +228,8 @@ const happened = (
     answers: raising.answers,
     state: 'raised',
     concerns,
-    message: messageOf(heard),
-    ourOwn: heard.byBot,
+    message: messageOf(event),
+    ourOwn: event.byBot,
     opens: null,
   };
 };
@@ -232,9 +244,9 @@ export class GitHubSource implements WebhookSourcePort {
     RAISED['changes-requested'],
     RAISED['checks-failed'],
     RAISED['closed-unmerged'],
-    ASKED.opened,
-    ASKED.mentioned,
-    ASKED.labelled,
+    REVIEW_REQUEST_RAISED.opened,
+    REVIEW_REQUEST_RAISED.mentioned,
+    REVIEW_REQUEST_RAISED.labelled,
   ];
 
   constructor(private readonly github: GitHubWebhooksPort) {}

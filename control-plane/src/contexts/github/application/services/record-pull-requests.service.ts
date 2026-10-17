@@ -1,16 +1,16 @@
 import { PullRequestsNotPurgedError } from '@github/application/errors/pull-requests-not-purged.error';
 import {
-  type HeardComment,
-  type HeardReview,
   PullRequest,
   type PullRequestFacts,
+  type WebhookComment,
+  type WebhookReview,
 } from '@github/domain/aggregates/pull-request.aggregate';
 import type { PullRequestRevertMerged } from '@github/domain/events/pull-request-revert-merged.event';
 import { PullRequestVersionConflictError } from '@github/domain/exceptions/pull-request-version-conflict.error';
 import type { GitHubConnectionRepository } from '@github/domain/repositories/github-connection.repository';
 import type { PullRequestRepository } from '@github/domain/repositories/pull-request.repository';
 import { retentionCutoff } from '@github/domain/services/pull-request-retention';
-import type { HeardThread } from '@github/domain/value-objects/bot-activity.vo';
+import type { PullRequestThread } from '@github/domain/value-objects/bot-activity.vo';
 import type { GitHubInstallation } from '@github/domain/value-objects/github-installation.vo';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
@@ -23,7 +23,7 @@ const ATTEMPTS = 3;
 
 const PURGE_BATCH = 200;
 
-export interface HeardFrom {
+export interface WebhookSource {
   readonly installation: GitHubInstallation;
   readonly workspaceId: WorkspaceId;
 }
@@ -50,15 +50,15 @@ export class RecordPullRequests {
     private readonly logger: LoggerPort,
   ) {}
 
-  described(from: HeardFrom, facts: PullRequestFacts): Promise<void> {
+  described(from: WebhookSource, facts: PullRequestFacts): Promise<void> {
     return this.changing(from, facts.url, facts, (known) => known);
   }
 
   async reviewed(
-    from: HeardFrom,
+    from: WebhookSource,
     pullRequest: string,
     facts: PullRequestFacts | null,
-    review: HeardReview,
+    review: WebhookReview,
   ): Promise<void> {
     const url = urlOf(pullRequest);
 
@@ -70,7 +70,7 @@ export class RecordPullRequests {
   }
 
   async reviewDismissed(
-    from: HeardFrom,
+    from: WebhookSource,
     pullRequest: string,
     facts: PullRequestFacts | null,
     review: number,
@@ -85,10 +85,10 @@ export class RecordPullRequests {
   }
 
   async commented(
-    from: HeardFrom,
+    from: WebhookSource,
     pullRequest: string,
     facts: PullRequestFacts | null,
-    comment: HeardComment,
+    comment: WebhookComment,
   ): Promise<void> {
     const url = urlOf(pullRequest);
 
@@ -100,10 +100,10 @@ export class RecordPullRequests {
   }
 
   async threadResolved(
-    from: HeardFrom,
+    from: WebhookSource,
     pullRequest: string,
     facts: PullRequestFacts | null,
-    thread: HeardThread,
+    thread: PullRequestThread,
   ): Promise<void> {
     const url = urlOf(pullRequest);
 
@@ -157,7 +157,7 @@ export class RecordPullRequests {
     let after: PullRequest | null = null;
 
     for (;;) {
-      const candidates = await this.pullRequests.lastHeardBefore(
+      const candidates = await this.pullRequests.lastUpdatedBefore(
         retentionCutoff(now),
         after,
         PURGE_BATCH,
@@ -257,12 +257,12 @@ export class RecordPullRequests {
   }
 
   private changing(
-    from: HeardFrom,
+    from: WebhookSource,
     url: PullRequestUrl,
     facts: PullRequestFacts | null,
     change: (pullRequest: PullRequest) => PullRequest,
   ): Promise<void> {
-    const heard = facts?.url.equals(url) ? facts : null;
+    const described = facts?.url.equals(url) ? facts : null;
     const { workspaceId } = from;
 
     return this.retrying(() =>
@@ -278,7 +278,9 @@ export class RecordPullRequests {
         const locked = await this.pullRequests.lockedAt(workspaceId, url);
 
         if (locked) {
-          const changed = change(heard ? locked.describe(heard) : locked);
+          const changed = change(
+            described ? locked.describe(described) : locked,
+          );
 
           if (changed !== locked) {
             await this.pullRequests.save(changed);
@@ -286,8 +288,8 @@ export class RecordPullRequests {
           return;
         }
 
-        const first = heard
-          ? PullRequest.heard(workspaceId, heard, this.clock.now())
+        const first = described
+          ? PullRequest.fromWebhook(workspaceId, described, this.clock.now())
           : null;
 
         if (first) {

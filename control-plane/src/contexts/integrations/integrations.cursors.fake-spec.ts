@@ -14,16 +14,16 @@ export class FakeIntegrationCursors implements IntegrationCursorsPort {
     private readonly beforeRead: () => Promise<void> = async () => {},
   ) {}
 
-  kept(teamId: TeamId, source: string): PollState | undefined {
+  stateOf(teamId: TeamId, source: string): PollState | undefined {
     return this.stored.get(this.key(teamId, source));
   }
 
-  keep(teamId: TeamId, source: string, state: PollState): void {
+  setState(teamId: TeamId, source: string, state: PollState): void {
     this.stored.set(this.key(teamId, source), state);
   }
 
   async read(teamId: TeamId, source: string): Promise<PollState> {
-    const state = this.kept(teamId, source) ?? { cursor: null, ranAt: null };
+    const state = this.stateOf(teamId, source) ?? { cursor: null, ranAt: null };
     await this.beforeRead();
     return state;
   }
@@ -34,13 +34,13 @@ export class FakeIntegrationCursors implements IntegrationCursorsPort {
     seen: PollState,
     at: Date,
   ): Promise<boolean> {
-    const current = this.kept(teamId, source);
+    const current = this.stateOf(teamId, source);
 
     if (current && !same(current.ranAt, seen.ranAt)) {
       return false;
     }
 
-    this.keep(teamId, source, {
+    this.setState(teamId, source, {
       cursor: current ? current.cursor : seen.cursor,
       ranAt: at,
     });
@@ -54,13 +54,13 @@ export class FakeIntegrationCursors implements IntegrationCursorsPort {
     cursor: string | null,
     claimedAt: Date,
   ): Promise<boolean> {
-    const current = this.kept(teamId, source);
+    const current = this.stateOf(teamId, source);
 
     if (!current || !same(current.ranAt, claimedAt)) {
       return false;
     }
 
-    this.keep(teamId, source, { cursor, ranAt: claimedAt });
+    this.setState(teamId, source, { cursor, ranAt: claimedAt });
 
     return true;
   }

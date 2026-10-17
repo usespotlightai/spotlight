@@ -64,7 +64,7 @@ const setUp = (managesSecrets = true) => {
     transaction,
   );
 
-  const keptValue = async () => {
+  const storedValue = async () => {
     const secret = await secrets.withId(SecretId.of(ID));
 
     return secret ? (await store.read(secret)).revealed() : null;
@@ -83,7 +83,7 @@ const setUp = (managesSecrets = true) => {
     store,
     creates,
     uses,
-    keptValue,
+    storedValue,
     demoted: () => {
       as.managesSecrets = false;
     },
@@ -98,15 +98,15 @@ const created = async () => {
 };
 
 describe('CreateSecretHandler', () => {
-  it('creates the secret and keeps its value', async () => {
-    const { create, keptValue, secrets } = setUp();
+  it('creates the secret and stores its value', async () => {
+    const { create, storedValue, secrets } = setUp();
 
     expect(await create()).toEqual({
       outcome: 'created',
       id: ID,
       replayed: false,
     });
-    expect(await keptValue()).toBe('lin_api_1');
+    expect(await storedValue()).toBe('lin_api_1');
     expect(secrets.events.map((each) => each.kind)).toEqual(['secret.created']);
   });
 
@@ -148,24 +148,24 @@ describe('CreateSecretHandler', () => {
 
 describe('UpdateSecretHandler', () => {
   it('rotates the value when valueWoVersion changes, with nothing redeployed', async () => {
-    const { update, keptValue } = await created();
+    const { update, storedValue } = await created();
 
     expect(
       await update({ ...LINEAR, valueWo: 'lin_api_2', valueWoVersion: 2 }),
     ).toEqual({ outcome: 'updated', id: ID });
-    expect(await keptValue()).toBe('lin_api_2');
+    expect(await storedValue()).toBe('lin_api_2');
   });
 
   it('leaves the value alone while valueWoVersion does not change', async () => {
-    const { update, keptValue } = await created();
+    const { update, storedValue } = await created();
 
     await update({ ...LINEAR, valueWo: 'lin_api_ignored' });
 
-    expect(await keptValue()).toBe('lin_api_1');
+    expect(await storedValue()).toBe('lin_api_1');
   });
 
   it('rejects a new valueWoVersion without the value, keeping the old one', async () => {
-    const { update, keptValue } = await created();
+    const { update, storedValue } = await created();
     const answered = await update({
       ...LINEAR,
       valueWo: undefined,
@@ -176,7 +176,7 @@ describe('UpdateSecretHandler', () => {
       answered?.outcome === 'invalid' &&
         answered.problems.map((each) => dottedOf(each.field)),
     ).toEqual(['valueWo']);
-    expect(await keptValue()).toBe('lin_api_1');
+    expect(await storedValue()).toBe('lin_api_1');
   });
 
   it('rejects a rename at the name', async () => {
@@ -199,14 +199,14 @@ describe('UpdateSecretHandler', () => {
   });
 
   it('forbids someone who may no longer manage the workspace’s secrets', async () => {
-    const { update, keptValue, demoted } = await created();
+    const { update, storedValue, demoted } = await created();
 
     demoted();
 
     expect(
       await update({ ...LINEAR, valueWo: 'lin_api_2', valueWoVersion: 2 }),
     ).toEqual(forbiddenTo('manage-secrets'));
-    expect(await keptValue()).toBe('lin_api_1');
+    expect(await storedValue()).toBe('lin_api_1');
   });
 
   it('records one change saying who rebound and rotated it, and never the value', async () => {
@@ -249,7 +249,7 @@ describe('DeleteSecretHandler', () => {
   });
 
   it('will not delete a secret an integration still uses, and says which', async () => {
-    const { remove, keptValue, uses } = await created();
+    const { remove, storedValue, uses } = await created();
 
     uses.push('integration core/linear');
 
@@ -257,15 +257,15 @@ describe('DeleteSecretHandler', () => {
       outcome: 'in-use',
       reason: expect.stringContaining('integration core/linear'),
     });
-    expect(await keptValue()).toBe('lin_api_1');
+    expect(await storedValue()).toBe('lin_api_1');
   });
 
   it('forbids someone who may no longer manage the workspace’s secrets', async () => {
-    const { remove, keptValue, demoted } = await created();
+    const { remove, storedValue, demoted } = await created();
 
     demoted();
 
     expect(await remove()).toEqual(forbiddenTo('manage-secrets'));
-    expect(await keptValue()).toBe('lin_api_1');
+    expect(await storedValue()).toBe('lin_api_1');
   });
 });

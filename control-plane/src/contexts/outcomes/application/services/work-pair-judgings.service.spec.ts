@@ -1,5 +1,5 @@
 import type { RunEvidence } from '@outcomes/application/ports/evidence.port';
-import type { PairJudgeAsk } from '@outcomes/application/ports/pair-judge.port';
+import type { PairJudgeRequest } from '@outcomes/application/ports/pair-judge.port';
 import { WorkPairJudgings } from '@outcomes/application/services/work-pair-judgings.service';
 import {
   PairJudging,
@@ -44,7 +44,7 @@ const logger: LoggerPort = {
 };
 
 const working = async (
-  answer: (ask: PairJudgeAsk) => PairVerdict,
+  answer: (request: PairJudgeRequest) => PairVerdict,
   evidence: Record<string, RunEvidence> = {
     replay_1: evidenceOf('replay_1', '+drainFast()'),
     replay_2: evidenceOf('replay_2', '+drain()'),
@@ -53,7 +53,7 @@ const working = async (
 ) => {
   const judgings = new PairJudgingsInMemory();
   await judgings.add(
-    PairJudging.asked({
+    PairJudging.requested({
       runId: RunId.of('replay_1'),
       against: RunId.of('replay_2'),
       workspaceId: WorkspaceId.of('ws_1'),
@@ -65,7 +65,7 @@ const working = async (
     }),
   );
   judgings.events.length = 0;
-  const asked: PairJudgeAsk[] = [];
+  const requests: PairJudgeRequest[] = [];
   const work = new WorkPairJudgings(
     judgings,
     {
@@ -77,10 +77,10 @@ const working = async (
     {
       available: true,
       model: 'some/model',
-      judgePair: async (ask) => {
-        asked.push(ask);
+      judgePair: async (request) => {
+        requests.push(request);
         return {
-          verdict: answer(ask),
+          verdict: answer(request),
           usage: {
             inputTokens: 900,
             outputTokens: 80,
@@ -98,34 +98,36 @@ const working = async (
   await work.processDue();
   await work.idle();
 
-  return { asked, judgings };
+  return { requests, judgings };
 };
 
-const fastSide = (ask: PairJudgeAsk): 'A' | 'B' =>
-  ask.a.hunks.some((each) => each.lines.includes('+drainFast()')) ? 'A' : 'B';
+const fastSide = (request: PairJudgeRequest): 'A' | 'B' =>
+  request.a.hunks.some((each) => each.lines.includes('+drainFast()'))
+    ? 'A'
+    : 'B';
 
 describe('WorkPairJudgings', () => {
   it('shows the judge both changes labelled A and B beside the accepted one, once each way round, both calls counting, and names the winner by its run', async () => {
-    const { asked, judgings } = await working((ask) => ({
-      preferred: fastSide(ask),
+    const { requests, judgings } = await working((request) => ({
+      preferred: fastSide(request),
       reasons: [
-        { text: 'It drains fast.', hunks: [`${fastSide(ask)}:api/q.ts#1`] },
+        { text: 'It drains fast.', hunks: [`${fastSide(request)}:api/q.ts#1`] },
       ],
     }));
     const [event] = judgings.events as PairJudged[];
 
-    expect(asked).toHaveLength(2);
-    expect(asked.map(fastSide).sort()).toEqual(['A', 'B']);
-    expect(asked[0]?.reference.hunks[0]?.lines).toEqual(['+drainInOrder()']);
-    expect(asked[0]?.claims).toHaveLength(3);
-    expect(asked[0]?.title).toBe('Drain the queue');
+    expect(requests).toHaveLength(2);
+    expect(requests.map(fastSide).sort()).toEqual(['A', 'B']);
+    expect(requests[0]?.reference.hunks[0]?.lines).toEqual(['+drainInOrder()']);
+    expect(requests[0]?.claims).toHaveLength(3);
+    expect(requests[0]?.title).toBe('Drain the queue');
     expect(event?.winner).toBe('run');
     expect(event?.readings).toHaveLength(2);
     expect(event?.spent.costs).toEqual([{ amount: 0.04, currency: 'USD' }]);
   });
 
   it('fails for good with no change on either side or no accepted change to set beside them', async () => {
-    const { asked, judgings } = await working(
+    const { requests, judgings } = await working(
       () => ({ preferred: 'tie', reasons: [] }),
       {
         replay_1: evidenceOf('replay_1', '+drainFast()'),
@@ -134,21 +136,24 @@ describe('WorkPairJudgings', () => {
     );
     const [event] = judgings.events as PairJudgingFailed[];
 
-    expect(asked).toEqual([]);
+    expect(requests).toEqual([]);
     expect(event?.failure.code).toBe('no-evidence');
   });
 
   it('keeps what the first reading cost and retries later when the second call breaks', async () => {
     let calls = 0;
-    const { judgings } = await working((ask) => {
+    const { judgings } = await working((request) => {
       calls += 1;
       if (calls === 2) {
         throw new Error('the connection dropped');
       }
       return {
-        preferred: fastSide(ask),
+        preferred: fastSide(request),
         reasons: [
-          { text: 'It drains fast.', hunks: [`${fastSide(ask)}:api/q.ts#1`] },
+          {
+            text: 'It drains fast.',
+            hunks: [`${fastSide(request)}:api/q.ts#1`],
+          },
         ],
       };
     });

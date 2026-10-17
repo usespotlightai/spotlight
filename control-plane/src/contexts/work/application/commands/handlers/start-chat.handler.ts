@@ -12,8 +12,8 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { StartChatCommand } from '@work/application/commands/chat.commands';
+import type { AccessibleRepositoriesPort } from '@work/application/ports/accessible-repositories.port';
 import type { HarnessLaunchPort } from '@work/application/ports/harness-launch.port';
-import type { ReachableRepositoriesPort } from '@work/application/ports/reachable-repositories.port';
 import type { ChatDispatching } from '@work/application/services/chat-dispatch';
 import type { FilesLoader } from '@work/application/services/files-loader.service';
 import type { TracesLoader } from '@work/application/services/traces-loader.service';
@@ -41,7 +41,7 @@ export class StartChatHandler
     private readonly lines: LineRepository,
     private readonly dispatch: ChatDispatching,
     private readonly launch: HarnessLaunchPort,
-    private readonly repositories: ReachableRepositoriesPort,
+    private readonly repositories: AccessibleRepositoriesPort,
     private readonly runners: RunnerReaderPort,
     private readonly ids: IdGeneratorPort,
     private readonly clock: ClockPort,
@@ -72,7 +72,7 @@ export class StartChatHandler
 
       if (
         setup &&
-        !(await this.repositories.reaches(workspaceId, setup.repository))
+        !(await this.repositories.isAccessible(workspaceId, setup.repository))
       ) {
         throw new ConfigHomeUnreachableError(setup.repository.value);
       }
@@ -99,7 +99,7 @@ export class StartChatHandler
           model: command.model === null ? null : HarnessModel.of(command.model),
           effort: command.effort === null ? null : Effort.of(command.effort),
           repositories: command.repositories.map((each) => Repository.of(each)),
-          body: ChatMessageBody.given(
+          body: ChatMessageBody.fromInput(
             command.body,
             attachments,
             traces,

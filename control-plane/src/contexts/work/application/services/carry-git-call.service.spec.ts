@@ -226,7 +226,7 @@ describe('CarryGitCall', () => {
     );
   });
 
-  it('carries a chat’s call to a repository the chat was given', async () => {
+  it('carries a chat’s call to a repository of the chat', async () => {
     const { service, git } = carrying(
       claimedBy('runner_1', RunSubject.chat(ChatId.of('chat_1'))),
       null,
@@ -331,7 +331,7 @@ describe('CarryGitCall', () => {
       expect(git.call).not.toHaveBeenCalled();
     });
 
-    it('reaches no repository it does not check out', async () => {
+    it('allows no repository it does not check out', async () => {
       const { service, git } = carrying(claimedBy('runner_1', REPLAY), null, [
         'acme/widgets',
         'acme/gadgets',
@@ -454,7 +454,7 @@ describe('CarryGitCall', () => {
       expect(git.call).not.toHaveBeenCalled();
     });
 
-    it('reaches no repository the replay did not check out', async () => {
+    it('allows no repository the replay did not check out', async () => {
       const { service, git } = carrying(
         claimedBy('runner_1', REPLAY),
         null,

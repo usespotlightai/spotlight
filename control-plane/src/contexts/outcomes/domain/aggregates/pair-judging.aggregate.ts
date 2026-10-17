@@ -53,19 +53,19 @@ const UNGROUNDED = 'ungrounded';
 const readingOf = (
   shown: PairShown,
 ): PairReading | typeof UNREADABLE | typeof UNGROUNDED => {
-  const given = shown.verdict.reasons;
+  const stated = shown.verdict.reasons;
 
   if (
     !PAIR_LABELS.includes(shown.verdict.preferred) ||
-    given.length === 0 ||
-    given.length > MAX_REASONS
+    stated.length === 0 ||
+    stated.length > MAX_REASONS
   ) {
     return UNREADABLE;
   }
 
-  const reasons = shown.evidence.groundedReasons(given);
+  const reasons = shown.evidence.groundedReasons(stated);
 
-  if (reasons.length * 2 <= given.length) {
+  if (reasons.length * 2 <= stated.length) {
     return UNGROUNDED;
   }
 
@@ -85,7 +85,7 @@ interface State {
   readonly reference: RunId;
   readonly maxAttempts: number;
   readonly order: PairOrder;
-  readonly askedAt: Date;
+  readonly queuedAt: Date;
   readonly job: PendingJob | null;
   readonly judgedAt: Date | null;
   readonly failure: JudgingFailure | null;
@@ -101,7 +101,7 @@ export class PairJudging
     super();
   }
 
-  static asked(input: {
+  static requested(input: {
     runId: RunId;
     against: RunId;
     workspaceId: WorkspaceId;
@@ -129,7 +129,7 @@ export class PairJudging
     return new PairJudging({
       ...input,
       order: pairOrderOf(input.runId, input.against),
-      askedAt: input.now,
+      queuedAt: input.now,
       job: PendingJob.fresh(),
       judgedAt: null,
       failure: null,
@@ -191,8 +191,8 @@ export class PairJudging
     return this.state.order;
   }
 
-  get askedAt(): Date {
-    return this.state.askedAt;
+  get queuedAt(): Date {
+    return this.state.queuedAt;
   }
 
   get job(): PendingJob | null {

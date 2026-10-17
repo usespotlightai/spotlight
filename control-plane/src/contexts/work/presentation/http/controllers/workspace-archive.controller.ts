@@ -93,13 +93,13 @@ export class WorkspaceArchiveController {
   @ApiOperation({
     operationId: 'grantWorkspaceArchive',
     summary:
-      'Keep the workspace as the run leaves it: a place to upload its archive, for this size and SHA-256 only',
+      'Archive the workspace as the run leaves it: a place to upload its archive, for this size and SHA-256 only',
   })
   @ApiCreatedResponse({ type: ArchiveGrantResponseDto })
   @ApiNotFoundResponse({ description: 'Not this runner’s run' })
   @ApiUnprocessableEntityResponse({
     description:
-      'Too large, not a SHA-256, work that does not carry on, or nowhere to keep it',
+      'Too large, not a SHA-256, work that does not carry on, or nowhere to store it',
   })
   async grant(
     @Param('runId') runId: string,

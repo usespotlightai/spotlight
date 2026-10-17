@@ -54,7 +54,7 @@ const definedOf = (row: DefinedRow): DefinedIntegration => ({
     : null,
 });
 
-const keptOf = (row: DefinedRow, teamId: TeamId): IntegrationRecord => ({
+const recordOf = (row: DefinedRow, teamId: TeamId): IntegrationRecord => ({
   ...definedOf(row),
   teamId,
 });
@@ -72,7 +72,7 @@ export class DrizzleDefinedIntegrations
       .where(eq(integrationDefinition.teamId, teamId.value))
       .orderBy(asc(integrationDefinition.source));
 
-    return found.map((each) => keptOf(each, teamId));
+    return found.map((each) => recordOf(each, teamId));
   }
 
   async everywhere(): Promise<readonly TeamDefinedIntegrations[]> {
@@ -96,11 +96,11 @@ export class DrizzleDefinedIntegrations
   }
 
   withId(id: string): Promise<IntegrationRecord | null> {
-    return this.kept(eq(integrationDefinition.id, id));
+    return this.findOne(eq(integrationDefinition.id, id));
   }
 
   at(teamId: TeamId, source: string): Promise<IntegrationRecord | null> {
-    return this.kept(
+    return this.findOne(
       and(
         eq(integrationDefinition.teamId, teamId.value),
         eq(integrationDefinition.source, source),
@@ -108,7 +108,7 @@ export class DrizzleDefinedIntegrations
     );
   }
 
-  private async kept(
+  private async findOne(
     where: SQL | undefined,
   ): Promise<IntegrationRecord | null> {
     const [found] = await this.context.db
@@ -117,6 +117,6 @@ export class DrizzleDefinedIntegrations
       .where(where)
       .limit(1);
 
-    return found ? keptOf(found, TeamId.of(found.teamId)) : null;
+    return found ? recordOf(found, TeamId.of(found.teamId)) : null;
   }
 }

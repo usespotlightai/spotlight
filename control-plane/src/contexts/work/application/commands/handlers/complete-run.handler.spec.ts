@@ -130,7 +130,7 @@ const completing = (
   task: Task | (() => Task) | null = null,
   stored: { tasks: Task[]; run?: () => Run } = { tasks: [] },
 ) => {
-  const asked: BeforeMoment[] = [];
+  const hookCalls: BeforeMoment[] = [];
   const handler = new CompleteRunHandler(
     {
       findById: async () => (stored.run ? stored.run() : leased()),
@@ -148,7 +148,7 @@ const completing = (
     {
       listens: async () => true,
       before: async (_task, moment) => {
-        asked.push(moment);
+        hookCalls.push(moment);
         return verdict;
       },
       after: async () => {},
@@ -156,7 +156,7 @@ const completing = (
     { now: () => NOW, sleep: async () => {} },
   );
 
-  return Object.assign(handler, { asked });
+  return Object.assign(handler, { hookCalls });
 };
 
 const handoverOn = (run: Run | undefined) =>
@@ -284,7 +284,7 @@ describe('CompleteRunHandler', () => {
       expect(stored.tasks).toEqual([]);
     });
 
-    it('answers a repeated report of a pause the same way, changing nothing and asking no hook again', async () => {
+    it('answers a repeated report of a pause the same way, changing nothing and calling no hook again', async () => {
       const saved: Run[] = [];
       const waiting = () =>
         leased().paused(
@@ -305,10 +305,10 @@ describe('CompleteRunHandler', () => {
 
       expect(answered).toEqual({ waiting: true });
       expect(saved).toEqual([]);
-      expect(handler.asked).toEqual([]);
+      expect(handler.hookCalls).toEqual([]);
     });
 
-    it('ends the run as before when the runner could not keep its workspace', async () => {
+    it('ends the run as before when the runner could not archive its workspace', async () => {
       const saved: Run[] = [];
 
       const answered = await completing(
@@ -476,14 +476,18 @@ describe('CompleteRunHandler', () => {
         note: 'Ready for review.',
       });
 
-    it('asks the hooks before the task is handed over, saying where and what', async () => {
+    it('calls the hooks before the task is handed over, saying where and what', async () => {
       const saved: Run[] = [];
       const handler = completing(async (run) => void saved.push(run));
 
       await handler.execute(handingOver('review-code'));
 
-      expect(handler.asked).toEqual([
-        { on: 'handover.giving', to: 'review-code', note: 'Ready for review.' },
+      expect(handler.hookCalls).toEqual([
+        {
+          on: 'handover.submitting',
+          to: 'review-code',
+          note: 'Ready for review.',
+        },
       ]);
       expect(handoverOn(saved[0])?.next).toBe('review-code');
     });
@@ -493,7 +497,7 @@ describe('CompleteRunHandler', () => {
 
       await handler.execute(handingOver(''));
 
-      expect(handler.asked[0]).toMatchObject({ to: null });
+      expect(handler.hookCalls[0]).toMatchObject({ to: null });
     });
 
     it('puts the task to a person with the hook’s reason when a hook denies it', async () => {
@@ -505,13 +509,13 @@ describe('CompleteRunHandler', () => {
       }).execute(handingOver('deploy'));
 
       const handover = handoverOn(saved[0]);
-      expect(handover?.asksForReview()).toBe(true);
+      expect(handover?.requestsReview()).toBe(true);
       expect(handover?.note).toBe(
         'The hook core/qa denied the handover: tests are red.\n\nNote from the run: Ready for review.',
       );
     });
 
-    it('asks no hooks when the run failed or was stopped', async () => {
+    it('calls no hooks when the run failed or was stopped', async () => {
       const failed = completing(async () => {});
       await failed.execute(
         new CompleteRunCommand('run_1', 'runner_1', 1, true, 'boom', {
@@ -533,21 +537,21 @@ describe('CompleteRunHandler', () => {
         ),
       );
 
-      expect(failed.asked).toEqual([]);
-      expect(stopped.asked).toEqual([]);
+      expect(failed.hookCalls).toEqual([]);
+      expect(stopped.hookCalls).toEqual([]);
     });
 
-    it('asks no hooks when the run handed over nothing', async () => {
+    it('calls no hooks when the run handed over nothing', async () => {
       const handler = completing(async () => {});
 
       await handler.execute(
         new CompleteRunCommand('run_1', 'runner_1', 0, false),
       );
 
-      expect(handler.asked).toEqual([]);
+      expect(handler.hookCalls).toEqual([]);
     });
 
-    it('asks no hooks for a run another runner leases', async () => {
+    it('calls no hooks for a run another runner leases', async () => {
       const handler = completing(async () => {});
 
       await expect(
@@ -557,7 +561,7 @@ describe('CompleteRunHandler', () => {
           }),
         ),
       ).rejects.toMatchObject({ kind: 'conflict' });
-      expect(handler.asked).toEqual([]);
+      expect(handler.hookCalls).toEqual([]);
     });
   });
 });

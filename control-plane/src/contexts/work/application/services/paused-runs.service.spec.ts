@@ -177,7 +177,7 @@ describe('PausedRuns', () => {
     expect(saved).toEqual([]);
   });
 
-  it('leaves a run that is no longer the current run of its task, or one asked to stop, alone', async () => {
+  it('leaves a run that is no longer the current run of its task, or one with a stop request, alone', async () => {
     const moved = taking(answered().leaveRun(RUN, NOW), waiting());
     const stopping = taking(answered(), waiting().requestStop(NOW));
 

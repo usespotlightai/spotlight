@@ -65,7 +65,7 @@ export function useStartSearchForm({
   const startProblems = problemsOf(start.error);
   const suggested = estimate.isError ? null : (estimate.data ?? null);
   const saturation = saturationOf(sets, setId);
-  const askedObjective = chosenObjective ?? suggested?.objective ?? null;
+  const requestedObjective = chosenObjective ?? suggested?.objective ?? null;
 
   const shown = (field: SearchField): string | null =>
     searchProblemOf(field, {
@@ -112,7 +112,7 @@ export function useStartSearchForm({
         setId,
         budget,
         agent: agentOf(harness, model, effort),
-        objective: askedObjective,
+        objective: requestedObjective,
       },
       { onSuccess: (started) => followStarted(searchPath(at, started.id)) },
     );
@@ -124,7 +124,7 @@ export function useStartSearchForm({
     harness,
     model,
     effort,
-    objective: objectiveOf(askedObjective, saturation),
+    objective: objectiveOf(requestedObjective, saturation),
     objectiveSuggestion: objectiveSuggestionOf(
       chosenObjective,
       saturatedRateOf(suggested, saturation),

@@ -12,13 +12,13 @@ interface CatalogToolInputShape {
   readonly piped: boolean;
 }
 
-export interface CatalogToolGiven {
+export interface CatalogToolEntitled {
   readonly id: string;
   readonly description: string;
   readonly inputs: readonly CatalogToolInputShape[];
 }
 
-export interface CatalogSkillGiven {
+export interface CatalogSkillEntitled {
   readonly id: string;
   readonly description: string;
   readonly files: readonly { readonly path: string; readonly text: string }[];
@@ -42,9 +42,9 @@ export interface CatalogNamed {
   readonly skills: readonly string[];
 }
 
-export interface CatalogGiving {
-  readonly tools: readonly CatalogToolGiven[];
-  readonly skills: readonly CatalogSkillGiven[];
+export interface EntitledItems {
+  readonly tools: readonly CatalogToolEntitled[];
+  readonly skills: readonly CatalogSkillEntitled[];
   readonly denied: readonly CatalogDenial[];
 }
 

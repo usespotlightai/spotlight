@@ -46,7 +46,7 @@ export class WorkspaceTokenResourceResponseDto extends ResourceResponseDto {
     nullable: true,
     example: '2026-12-31T23:59:59.000Z',
     description:
-      'After this it admits nobody; null never expires. Fixed for its life',
+      'After this Spotlight does not accept it; null never expires. Fixed for its life',
   })
   readonly expiresAt: string | null;
 

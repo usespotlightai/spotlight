@@ -1,6 +1,3 @@
-import { AskForReplayJudging } from '@replays/application/services/ask-for-replay-judging.service';
-import { AskForReplayRecheck } from '@replays/application/services/ask-for-replay-recheck.service';
-import { AskForReplayRejudging } from '@replays/application/services/ask-for-replay-rejudging.service';
 import { CancelReplayRuns } from '@replays/application/services/cancel-replay-runs.service';
 import { DeleteReplays } from '@replays/application/services/delete-replays.service';
 import { DispatchReplayRuns } from '@replays/application/services/dispatch-replay-runs.service';
@@ -20,16 +17,19 @@ import {
   STATION_VIEW,
   TRANSACTION,
 } from '@replays/application/services/replays.fake-spec';
+import { RequestReplayJudging } from '@replays/application/services/request-replay-judging.service';
+import { RequestReplayRecheck } from '@replays/application/services/request-replay-recheck.service';
+import { RequestReplayRejudging } from '@replays/application/services/request-replay-rejudging.service';
 import { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import { Replay } from '@replays/domain/aggregates/replay.aggregate';
-import { ReplayDeletionDue } from '@replays/domain/events/replay-deletion-due.event';
-import type { ReplayJudgingWanted } from '@replays/domain/events/replay-judging-wanted.event';
+import { ReplayDeletionRequested } from '@replays/domain/events/replay-deletion-requested.event';
+import type { ReplayJudgingRequested } from '@replays/domain/events/replay-judging-requested.event';
+import type { ReplayRecheckRequested } from '@replays/domain/events/replay-recheck-requested.event';
 import { ReplayRecheckUnavailable } from '@replays/domain/events/replay-recheck-unavailable.event';
-import type { ReplayRecheckWanted } from '@replays/domain/events/replay-recheck-wanted.event';
 import { ReplayRejudgingFailed } from '@replays/domain/events/replay-rejudging-failed.event';
-import type { ReplayRejudgingWanted } from '@replays/domain/events/replay-rejudging-wanted.event';
-import { ReplaySetStationCheckDue } from '@replays/domain/events/replay-set-station-check-due.event';
-import type { ReplayStackRecheckWanted } from '@replays/domain/events/replay-stack-recheck-wanted.event';
+import type { ReplayRejudgingRequested } from '@replays/domain/events/replay-rejudging-requested.event';
+import { ReplaySetStationCheckRequested } from '@replays/domain/events/replay-set-station-check-requested.event';
+import type { ReplayStackRecheckRequested } from '@replays/domain/events/replay-stack-recheck-requested.event';
 import {
   aBudget,
   aReplay,
@@ -139,7 +139,7 @@ describe('DispatchReplayRuns', () => {
     expect(work.dispatched).toHaveLength(REPLAY_RUNS_AT_ONCE);
   });
 
-  it('hands each run of a replay handed the answer the answer kept for its original when it started', async () => {
+  it('hands each run of a replay handed the answer the answer stored for its original when it started', async () => {
     const oracle = Candidate.oracleOf(candidateOf('live'), {
       id: CandidateId.of('candidate_oracle'),
       at: NOW,
@@ -224,7 +224,7 @@ describe('DispatchReplayRuns when Work fails', () => {
     expect(second?.fingerprint).not.toBeNull();
   });
 
-  it('asks Work to cancel a run reserved for a replay stopped before it was queued, freeing its slot only once Work says it never was', async () => {
+  it('requests Work to cancel a run reserved for a replay stopped before it was queued, freeing its slot only once Work says it never was', async () => {
     await memory.replayRepository.add(aReplay({ count: 2 }));
     work.dispatch = async () => {
       throw new Error('down');
@@ -234,18 +234,24 @@ describe('DispatchReplayRuns when Work fails', () => {
     await memory.replayRepository.save(
       (replay as NonNullable<typeof replay>).stop(later(1), BY),
     );
-    const kept = memory.replays.get('replay_1')?.entries[0]?.run?.value ?? '';
-    work.queuedRuns.add(kept);
+    const queuedRun =
+      memory.replays.get('replay_1')?.entries[0]?.run?.value ?? '';
+    work.queuedRuns.add(queuedRun);
 
     await dispatching().processDue();
 
-    expect(work.cancelled.map((each) => each.keep)).toEqual([false, false]);
+    expect(work.cancelled.map((each) => each.leaveRunAsIs)).toEqual([
+      false,
+      false,
+    ]);
     const after = memory.replays.get('replay_1');
-    expect(after?.occupying.map((each) => each.run?.value)).toEqual([kept]);
+    expect(after?.occupying.map((each) => each.run?.value)).toEqual([
+      queuedRun,
+    ]);
     expect(after?.occupying[0]?.fingerprint).not.toBeNull();
   });
 
-  it(`gives up on a run Work failed to queue ${MAX_QUEUE_ATTEMPTS} times only once Work says it never queued it, and keeps one it did`, async () => {
+  it(`gives up on a run Work failed to queue ${MAX_QUEUE_ATTEMPTS} times only once Work says it never queued it, and keeps one it queued`, async () => {
     await memory.replayRepository.add(aReplay({ count: 2 }));
     work.dispatch = async () => {
       throw new Error('down');
@@ -262,7 +268,10 @@ describe('DispatchReplayRuns when Work fails', () => {
     );
     await dispatching().processDue();
 
-    expect(work.cancelled.map((each) => each.keep)).toEqual([true, true]);
+    expect(work.cancelled.map((each) => each.leaveRunAsIs)).toEqual([
+      true,
+      true,
+    ]);
     const [first, second] = memory.replays.get('replay_1')?.entries ?? [];
     expect(first?.unreplayableReason).toBe('dispatch-failed');
     expect(second?.queued).toBe(true);
@@ -279,7 +288,7 @@ describe('DispatchReplayRuns without the candidate', () => {
     await dispatching().processDue();
 
     const replay = memory.replays.get('replay_1');
-    expect(work.cancelled.map((each) => each.keep)).toEqual([false]);
+    expect(work.cancelled.map((each) => each.leaveRunAsIs)).toEqual([false]);
     expect(replay?.entries[0]?.unreplayableReason).toBe('candidate-unfit');
     expect(replay?.occupying).toEqual([]);
   });
@@ -318,23 +327,23 @@ describe('NoteLineChanged', () => {
     expect(memory.replays.get('replay_oracle')?.stoppedAt).toEqual(NOW);
   });
 
-  it('asks for each set of the line to be checked, then notes one whose station Work no longer has', async () => {
+  it('requests a check of each set of the line, then notes one whose station Work no longer has', async () => {
     const set = aSet(1);
     await memory.setRepository.add(set);
     memory.events.length = 0;
     const lineChanges = noteLineChanged();
 
     expect(await lineChanges.changed('line_1')).toEqual([
-      new ReplaySetStationCheckDue(set.id, set.workspaceId),
+      new ReplaySetStationCheckRequested(set.id, set.workspaceId),
     ]);
 
     await lineChanges.check(set.id);
     expect(memory.sets.get('set_1')?.isAtGoneStation).toBe(false);
 
-    let asked = 0;
+    let calls = 0;
     work.station = async (lineId, stationId) => {
-      asked += 1;
-      return asked === 1 ? null : { ...STATION_VIEW, lineId, stationId };
+      calls += 1;
+      return calls === 1 ? null : { ...STATION_VIEW, lineId, stationId };
     };
     await lineChanges.check(set.id);
     expect(memory.sets.get('set_1')?.isAtGoneStation).toBe(false);
@@ -386,7 +395,7 @@ describe('NoteReplayEnded and NoteReplayDigested', () => {
     expect(replay?.spent.amount).toBe(0.5);
   });
 
-  it('pass over a run no replay gave out', async () => {
+  it('pass over a run no replay handed out', async () => {
     await new NoteReplayEnded(
       memory.replayRepository,
       new FakeChangeReview(),
@@ -442,7 +451,7 @@ describe('DeleteReplays', () => {
       TRANSACTION,
     );
 
-  it('asks for each set and candidate of a deleted team to be deleted, one by one, leaving its replays to their sets', async () => {
+  it('requests the deletion of each set and candidate of a deleted team, one by one, leaving its replays to their sets', async () => {
     const set = aSet(2);
     await memory.setRepository.add(set);
     await memory.replayRepository.add(aReplay({ count: 2 }));
@@ -450,8 +459,8 @@ describe('DeleteReplays', () => {
     const due = await deleting().deleteForTeam(set.teamId, set.workspaceId);
 
     expect(due.map((each) => each.kind)).toEqual([
-      'replays.replay-set-deletion-due',
-      'replays.candidate-deletion-due',
+      'replays.replay-set-deletion-requested',
+      'replays.candidate-deletion-requested',
     ]);
   });
 
@@ -478,12 +487,12 @@ describe('DeleteReplays', () => {
     expect(memory.candidates.size).toBe(0);
   });
 
-  it('asks for the replays of a deleted set to be deleted', async () => {
+  it('requests the deletion of the replays of a deleted set', async () => {
     const set = aSet(1);
     await memory.replayRepository.add(aReplay({ count: 1 }));
 
     expect(await deleting().deleteForSet(set.id, set.workspaceId)).toEqual([
-      new ReplayDeletionDue(ReplayId.of('replay_1'), set.workspaceId),
+      new ReplayDeletionRequested(ReplayId.of('replay_1'), set.workspaceId),
     ]);
   });
 });
@@ -495,7 +504,7 @@ describe('CancelReplayRuns', () => {
     await cancelling.stopped([RunId.of('run_1')]);
     await cancelling.overBudget([RunId.of('run_2')]);
 
-    expect(work.cancelled).toEqual([{ run: 'run_1', keep: false }]);
+    expect(work.cancelled).toEqual([{ run: 'run_1', leaveRunAsIs: false }]);
     expect(work.cancelledQueued).toEqual(['run_2']);
   });
 });
@@ -514,8 +523,8 @@ describe('scoring a replayed task', () => {
       TRANSACTION,
       CLOCK,
     );
-  const asking = () =>
-    new AskForReplayJudging(
+  const requestingJudging = () =>
+    new RequestReplayJudging(
       memory.replayRepository,
       memory.candidateRepository,
       outcomes,
@@ -584,21 +593,21 @@ describe('scoring a replayed task', () => {
     expect(entry()?.checks?.failedAt).toEqual(['the whole change']);
   });
 
-  it('asks the judge to compare the run with the change people accepted for the original', async () => {
+  it('requests the judge to compare the run with the change people accepted for the original', async () => {
     const run = await started();
     outcomes.accepted.add('original_0');
 
     await completed(run);
     const wanted = memory.events.find(
-      (each): each is ReplayJudgingWanted =>
-        each.kind === 'replay.judging-wanted',
+      (each): each is ReplayJudgingRequested =>
+        each.kind === 'replay.judging-requested',
     );
     if (!wanted) {
       throw new Error('no judging was wanted');
     }
-    await asking().wanted(wanted);
+    await requestingJudging().requested(wanted);
 
-    expect(outcomes.asked).toEqual([
+    expect(outcomes.judgingRequests).toEqual([
       {
         run: RunId.of(run),
         workspaceId: STATION.workspaceId,
@@ -609,28 +618,28 @@ describe('scoring a replayed task', () => {
     ]);
   });
 
-  it('asks the judge on the rubric alone when people did not accept the original’s change', async () => {
+  it('requests judging on the rubric alone when people did not accept the original’s change', async () => {
     const run = await started();
 
     await completed(run);
-    await asking().wanted(
+    await requestingJudging().requested(
       memory.events.find(
-        (each) => each.kind === 'replay.judging-wanted',
-      ) as ReplayJudgingWanted,
+        (each) => each.kind === 'replay.judging-requested',
+      ) as ReplayJudgingRequested,
     );
 
-    expect(outcomes.asked[0]?.reference).toBeNull();
+    expect(outcomes.judgingRequests[0]?.reference).toBeNull();
   });
 
-  it('records a judge that cannot be asked as unjudged, and finishes', async () => {
+  it('records a judge that cannot take the request as unjudged, and finishes', async () => {
     const run = await started();
     outcomes.answer = 'unavailable';
 
     await completed(run);
-    await asking().wanted(
+    await requestingJudging().requested(
       memory.events.find(
-        (each) => each.kind === 'replay.judging-wanted',
-      ) as ReplayJudgingWanted,
+        (each) => each.kind === 'replay.judging-requested',
+      ) as ReplayJudgingRequested,
     );
     await new NoteReplayDigested(
       memory.replayRepository,
@@ -757,32 +766,34 @@ describe('probing a set', () => {
     outcomes = new FakeOutcomes();
   });
 
-  it('asks the judge a second time of each judged run once the probe finishes', async () => {
+  it('requests a second judging of each judged run once the probe finishes', async () => {
     await probed();
 
-    for (const event of wanted<ReplayRejudgingWanted>(
-      'replay.rejudging-wanted',
+    for (const event of wanted<ReplayRejudgingRequested>(
+      'replay.rejudging-requested',
     )) {
-      expect(await new AskForReplayRejudging(outcomes).wanted(event)).toEqual(
-        [],
-      );
+      expect(
+        await new RequestReplayRejudging(outcomes).requested(event),
+      ).toEqual([]);
     }
 
     expect(memory.replays.get('replay_probe')?.current).toBe('finished');
-    expect(outcomes.askedAgain).toEqual(['probe_run_0', 'probe_run_1']);
+    expect(outcomes.rejudgingRequests).toEqual(['probe_run_0', 'probe_run_1']);
     expect(entries().map((each) => each.secondJudging?.pending)).toEqual([
       true,
       true,
     ]);
   });
 
-  it('says a second judging nobody could ask, and records it as unjudged on its own', async () => {
+  it('says a second judging nobody could request, and records it as unjudged on its own', async () => {
     await probed();
     outcomes.againAnswer = 'unavailable';
 
-    const [first] = wanted<ReplayRejudgingWanted>('replay.rejudging-wanted');
-    const [failed] = await new AskForReplayRejudging(outcomes).wanted(
-      first as ReplayRejudgingWanted,
+    const [first] = wanted<ReplayRejudgingRequested>(
+      'replay.rejudging-requested',
+    );
+    const [failed] = await new RequestReplayRejudging(outcomes).requested(
+      first as ReplayRejudgingRequested,
     );
 
     expect(failed).toBeInstanceOf(ReplayRejudgingFailed);
@@ -792,13 +803,13 @@ describe('probing a set', () => {
       memory.replayRepository,
       TRANSACTION,
       CLOCK,
-    ).rejudgingAskFailed(failed as ReplayRejudgingFailed);
+    ).rejudgingRequestFailed(failed as ReplayRejudgingFailed);
 
     expect(entries()[0]?.secondJudging?.unjudged).toBe('unavailable');
     expect(entries()[1]?.secondJudging?.pending).toBe(true);
   });
 
-  it('keeps the second verdict beside the first, and a second judging that failed, charging it to the ceiling but not to what the runs cost', async () => {
+  it('records the second verdict beside the first, and a second judging that failed, charging it to the ceiling but not to what the runs cost', async () => {
     await probed();
     const judging = new NoteReplayJudged(
       memory.replayRepository,
@@ -833,18 +844,22 @@ describe('probing a set', () => {
     expect(replay?.charged.amount).toBeCloseTo(2.02);
   });
 
-  it('asks Change Review to check each stack of each checked run again, one at a time, and reads what it found', async () => {
+  it('requests Change Review to check each stack of each checked run again, one at a time, and reads what it found', async () => {
     await probed();
-    const asking = new AskForReplayRecheck(changes);
-    const stacks: ReplayStackRecheckWanted[] = [];
+    const requesting = new RequestReplayRecheck(changes);
+    const stacks: ReplayStackRecheckRequested[] = [];
 
-    for (const event of wanted<ReplayRecheckWanted>('replay.recheck-wanted')) {
+    for (const event of wanted<ReplayRecheckRequested>(
+      'replay.recheck-requested',
+    )) {
       stacks.push(
-        ...((await asking.wanted(event)) as ReplayStackRecheckWanted[]),
+        ...((await requesting.requested(
+          event,
+        )) as ReplayStackRecheckRequested[]),
       );
     }
     for (const each of stacks) {
-      await asking.stack(each);
+      await requesting.stack(each);
     }
     changes.rechecks.set('probe_run_1', [{ ...PASSED[0], state: 'failed' }]);
     await new NoteReplayChangeReviewed(
@@ -854,7 +869,7 @@ describe('probing a set', () => {
       CLOCK,
     ).rechecked('probe_run_1');
 
-    expect(changes.recheckAsked).toEqual([
+    expect(changes.recheckRequests).toEqual([
       'probe_run_0#stack_1',
       'probe_run_1#stack_1',
     ]);
@@ -869,9 +884,9 @@ describe('probing a set', () => {
     await probed();
     changes.recheckableStacks = [];
 
-    const [first] = wanted<ReplayRecheckWanted>('replay.recheck-wanted');
-    const [unavailable] = await new AskForReplayRecheck(changes).wanted(
-      first as ReplayRecheckWanted,
+    const [first] = wanted<ReplayRecheckRequested>('replay.recheck-requested');
+    const [unavailable] = await new RequestReplayRecheck(changes).requested(
+      first as ReplayRecheckRequested,
     );
 
     expect(unavailable).toBeInstanceOf(ReplayRecheckUnavailable);

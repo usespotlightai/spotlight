@@ -1,6 +1,6 @@
 export const CHANGE_JUDGING = Symbol('CHANGE_JUDGING');
 
-export interface ChangeJudgingAsk {
+export interface ChangeJudgingRequest {
   readonly runId: string;
   readonly workspaceId: string;
   readonly teamId: string;
@@ -10,12 +10,15 @@ export interface ChangeJudgingAsk {
   readonly reference: string | null;
 }
 
-export type ChangeJudgingAnswer = 'asked' | 'unavailable' | 'unreadable-rubric';
+export type ChangeJudgingAnswer =
+  | 'requested'
+  | 'unavailable'
+  | 'unreadable-rubric';
 
-export type ChangeJudgingAgainAnswer = 'asked' | 'unavailable' | 'unjudged';
+export type ChangeJudgingAgainAnswer = 'requested' | 'unavailable' | 'unjudged';
 
 export interface ChangeJudgingPort {
-  ask(asked: ChangeJudgingAsk): Promise<ChangeJudgingAnswer>;
+  request(request: ChangeJudgingRequest): Promise<ChangeJudgingAnswer>;
 
-  askAgain(runId: string): Promise<ChangeJudgingAgainAnswer>;
+  requeue(runId: string): Promise<ChangeJudgingAgainAnswer>;
 }

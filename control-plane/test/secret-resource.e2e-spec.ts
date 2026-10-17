@@ -189,9 +189,9 @@ describe('a secret, created through the resource API (e2e)', () => {
     });
   });
 
-  it('keeps its value encrypted under the data key of the workspace', async () => {
+  it('stores its value encrypted under the data key of the workspace', async () => {
     const made = await admin().create(LINEAR);
-    const [kept] = await db
+    const [stored] = await db
       .select()
       .from(schema.secretValue)
       .where(eq(schema.secretValue.secretId, made.body.id));
@@ -200,10 +200,10 @@ describe('a secret, created through the resource API (e2e)', () => {
       .from(schema.secretDataKey)
       .where(eq(schema.secretDataKey.workspaceId, workspaceId));
 
-    expect(kept?.ciphertext).toMatch(/^v1\./);
-    expect(kept?.ciphertext).not.toContain(VALUE);
+    expect(stored?.ciphertext).toMatch(/^v1\./);
+    expect(stored?.ciphertext).not.toContain(VALUE);
     expect(
-      Buffer.from(kept?.ciphertext.split('.')[3] ?? '', 'base64').toString(),
+      Buffer.from(stored?.ciphertext.split('.')[3] ?? '', 'base64').toString(),
     ).not.toContain(VALUE);
     expect(keys).toHaveLength(1);
     expect(keys[0]?.keyId).toBe('local');
@@ -226,13 +226,13 @@ describe('a secret, created through the resource API (e2e)', () => {
   it('rotates through valueWoVersion, injected from the next request on', async () => {
     const made = await admin().create(LINEAR);
 
-    const kept = await admin().update(made.body.id, made.body.version, {
+    const unchanged = await admin().update(made.body.id, made.body.version, {
       ...LINEAR,
       valueWo: `${VALUE}_ignored`,
     });
     expect(await injected()).toEqual({ authorization: `Bearer ${VALUE}` });
 
-    const rotated = await admin().update(made.body.id, kept.body.version, {
+    const rotated = await admin().update(made.body.id, unchanged.body.version, {
       ...LINEAR,
       valueWo: `${VALUE}_2`,
       valueWoVersion: 2,

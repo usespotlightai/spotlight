@@ -22,7 +22,7 @@ describe('reasoning in a run’s journal', () => {
     ).toBe('handover');
   });
 
-  it('is what the agent asked its team to remember, however the harness titles the command', () => {
+  it('is what the agent told its team to remember, however the harness titles the command', () => {
     for (const text of [
       'spotlight remember --kind rationale --body "Retry once"',
       '`spotlight remember --kind rationale --body "Retry once"`',
@@ -35,12 +35,12 @@ describe('reasoning in a run’s journal', () => {
     ).toBeNull();
   });
 
-  it('reads the command from what the tool was given when its title does not show it', () => {
+  it('reads the command from the input of the tool when its title does not show it', () => {
     expect(
       reasoningIn({
         kind: 'tool',
         text: 'Terminal',
-        given:
+        input:
           '{"command":"spotlight remember --kind failure --body \\"CI flakes\\""}',
       }),
     ).toEqual({

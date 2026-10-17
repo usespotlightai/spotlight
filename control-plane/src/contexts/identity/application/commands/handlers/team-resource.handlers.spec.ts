@@ -25,11 +25,11 @@ const CORE = { key: 'core', name: 'Core' };
 
 describe('CreateTeamHandler', () => {
   const creating = (over: { administers?: boolean; throwing?: Error } = {}) => {
-    const kept = teams({ throwing: over.throwing });
+    const stored = teams({ throwing: over.throwing });
     const handler = new CreateTeamHandler(
       access(over.administers),
       new IdentityDefinitions(),
-      kept,
+      stored,
       creates(),
       { generate: () => 'team_new' },
       transaction,
@@ -45,19 +45,19 @@ describe('CreateTeamHandler', () => {
             definition,
           ),
         ),
-      kept,
+      stored,
     };
   };
 
-  it('creates a bare team keyed as asked', async () => {
-    const { create, kept } = creating();
+  it('creates a bare team keyed as requested', async () => {
+    const { create, stored } = creating();
 
     expect(await create(CORE)).toMatchObject({
       outcome: 'created',
       id: 'team_new',
     });
 
-    const [added] = kept.add.mock.calls[0] as [Team];
+    const [added] = stored.add.mock.calls[0] as [Team];
 
     expect(added.key.value).toBe('core');
     expect(added.pullEvents()).toEqual([
@@ -82,11 +82,11 @@ describe('CreateTeamHandler', () => {
 
 describe('UpdateTeamHandler', () => {
   const updating = (administers = true) => {
-    const kept = teams({ existing: teamAt(3) });
+    const stored = teams({ existing: teamAt(3) });
     const handler = new UpdateTeamHandler(
       access(administers),
       new IdentityDefinitions(),
-      kept,
+      stored,
       transaction,
     );
 
@@ -100,23 +100,23 @@ describe('UpdateTeamHandler', () => {
             definition,
           ),
         ),
-      kept,
+      stored,
     };
   };
 
   it('renames the team', async () => {
-    const { update, kept } = updating();
+    const { update, stored } = updating();
 
     expect(await update({ key: 'core', name: 'Core platform' })).toEqual({
       outcome: 'updated',
       id: 'team_1',
     });
-    expect((kept.save.mock.calls[0] as [Team])[0].name.value).toBe(
+    expect((stored.save.mock.calls[0] as [Team])[0].name.value).toBe(
       'Core platform',
     );
   });
 
-  it('points at the key when asked to change it', async () => {
+  it('points at the key when a request changes it', async () => {
     const rejected = await updating().update({ key: 'platform', name: 'Core' });
 
     expect(
@@ -141,10 +141,10 @@ describe('UpdateTeamHandler', () => {
 
 describe('DeleteTeamHandler', () => {
   const deleting = (names: readonly string[] = []) => {
-    const kept = teams({ existing: teamAt(3) });
+    const stored = teams({ existing: teamAt(3) });
     const handler = new DeleteTeamHandler(
       access(),
-      kept,
+      stored,
       dependents(names),
       transaction,
     );
@@ -154,24 +154,27 @@ describe('DeleteTeamHandler', () => {
         handler.execute(
           new DeleteTeamCommand('team_1', actorFor(OWNER.value), 3),
         ),
-      kept,
+      stored,
     };
   };
 
   it('deletes a team that has nothing', async () => {
-    const { remove, kept } = deleting();
+    const { remove, stored } = deleting();
 
     expect(await remove()).toEqual({ outcome: 'deleted' });
-    expect((kept.save.mock.calls[0] as [Team])[0].isDeleted).toBe(true);
+    expect((stored.save.mock.calls[0] as [Team])[0].isDeleted).toBe(true);
   });
 
   it('will not delete a team that still has configuration, and says what', async () => {
-    const { remove, kept } = deleting(['line delivery', 'integration linear']);
+    const { remove, stored } = deleting([
+      'line delivery',
+      'integration linear',
+    ]);
 
     expect(await remove()).toEqual({
       outcome: 'in-use',
       reason: expect.stringContaining('integration linear, line delivery'),
     });
-    expect(kept.save).not.toHaveBeenCalled();
+    expect(stored.save).not.toHaveBeenCalled();
   });
 });

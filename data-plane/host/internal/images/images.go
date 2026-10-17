@@ -44,7 +44,7 @@ func Parse(entries []string, fallback string) (Allowed, error) {
 	return allowed, nil
 }
 
-func (a Allowed) Admits(image string) bool {
+func (a Allowed) Allows(image string) bool {
 	return slices.ContainsFunc(a.entries, func(entry string) bool {
 		if prefix, pattern := strings.CutSuffix(entry, "*"); pattern {
 			return strings.HasPrefix(image, prefix)
@@ -57,7 +57,7 @@ func (a Allowed) Wanted(named []string) []Wanted {
 	wanted := []Wanted{{Image: a.Default, IsDefault: true}}
 
 	for _, image := range named {
-		if image == a.Default || !a.Admits(image) {
+		if image == a.Default || !a.Allows(image) {
 			continue
 		}
 		if !slices.ContainsFunc(wanted, func(each Wanted) bool { return each.Image == image }) {
@@ -71,7 +71,7 @@ func (a Allowed) Wanted(named []string) []Wanted {
 func (a Allowed) Disallowed(named []string) []string {
 	var disallowed []string
 	for _, image := range named {
-		if !a.Admits(image) && !slices.Contains(disallowed, image) {
+		if !a.Allows(image) && !slices.Contains(disallowed, image) {
 			disallowed = append(disallowed, image)
 		}
 	}

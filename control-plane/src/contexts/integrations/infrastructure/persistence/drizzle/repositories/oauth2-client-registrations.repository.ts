@@ -61,7 +61,7 @@ export class DrizzleOAuth2ClientRegistrations
       secretExpiresAt: registration.secretExpiresAt,
     };
 
-    const kept = registration.isNew
+    const saved = registration.isNew
       ? await this.context.db
           .insert(oauth2ClientRegistration)
           .values({
@@ -88,7 +88,7 @@ export class DrizzleOAuth2ClientRegistrations
           )
           .returning({ source: oauth2ClientRegistration.source });
 
-    if (kept.length === 0) {
+    if (saved.length === 0) {
       throw new OAuth2ClientRegistrationVersionConflictError(
         registration.source.value,
       );

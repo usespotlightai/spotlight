@@ -44,16 +44,16 @@ const draftOf = (row: DecisionSetRow): DecisionDraft | null => {
   if (!runId) {
     return null;
   }
-  if (!row.draftAskedAt) {
+  if (!row.draftRequestedAt) {
     throw new InconsistentStateError(
       'decision set',
-      'drafts a run without saying when it was asked',
+      'drafts a run without saying when it was requested',
     );
   }
 
   return DecisionDraft.rehydrate({
     runId: RunId.of(runId),
-    askedAt: row.draftAskedAt,
+    requestedAt: row.draftRequestedAt,
     job: PendingJob.rehydrate({
       attempts: row.jobAttempts,
       nextAttemptAt: row.jobDueAt,
@@ -122,7 +122,7 @@ const toDecisionSet = (
 const columnsOf = (set: DecisionSet) => ({
   decidedIn: set.decidedIn?.value ?? null,
   draftRunId: set.draft?.runId.value ?? null,
-  draftAskedAt: set.draft?.askedAt ?? null,
+  draftRequestedAt: set.draft?.requestedAt ?? null,
   jobAttempts: set.draft?.job.attempts ?? 0,
   jobDueAt: set.draft?.job.nextAttemptAt ?? null,
   status: set.status.state,
@@ -262,7 +262,7 @@ export class DrizzleDecisionSetRepository implements DecisionSetRepository {
           or(isNull(decisionSet.jobDueAt), lte(decisionSet.jobDueAt, now)),
         ),
       )
-      .orderBy(asc(decisionSet.draftAskedAt))
+      .orderBy(asc(decisionSet.draftRequestedAt))
       .limit(1)
       .for('update', { skipLocked: true });
 

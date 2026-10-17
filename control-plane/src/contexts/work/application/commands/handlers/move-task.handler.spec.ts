@@ -141,8 +141,8 @@ const lines = (found: Line | null = line()) =>
 
 const access = (teamId = 'team_1') =>
   ({
-    onTeam: vi.fn(async (asked: string) =>
-      asked === teamId
+    onTeam: vi.fn(async (requested: string) =>
+      requested === teamId
         ? {
             teamId: TeamId.of(teamId),
             workspaceId: WorkspaceId.of('ws_1'),

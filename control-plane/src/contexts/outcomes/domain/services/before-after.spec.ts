@@ -52,7 +52,7 @@ describe('changeSplitsOf', () => {
     ]);
   });
 
-  it('keeps only the changes asked for, still bounded by the ones left out', () => {
+  it('keeps only the requested changes, still bounded by the ones left out', () => {
     const splits = changeSplitsOf(
       records,
       (marker) => marker.fingerprint === THIRD_CONFIG,

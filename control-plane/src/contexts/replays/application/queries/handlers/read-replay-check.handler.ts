@@ -102,7 +102,7 @@ export class ReadReplayCheckHandler
         },
         liveFingerprint: check.liveFingerprint.value,
         candidateFingerprint: check.candidateFingerprint.value,
-        keptLive: [...check.keptLive],
+        scoringPinnedToLive: [...check.scoringPinnedToLive],
         threshold: {
           maxRegressions: check.threshold.maxRegressions,
           minGain: check.threshold.minGain,

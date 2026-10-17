@@ -112,9 +112,9 @@ export class DrizzleDescribedDocuments implements DescribedDocumentRepository {
     return found ? operationOf(name, found.operation) : null;
   }
 
-  async keep(document: DescribedDocument): Promise<void> {
+  async save(document: DescribedDocument): Promise<void> {
     await this.context.inTransaction(async () => {
-      const kept = await this.context.db
+      const saved = await this.context.db
         .insert(describedDocument)
         .values({
           hash: document.hash.value,
@@ -126,7 +126,7 @@ export class DrizzleDescribedDocuments implements DescribedDocumentRepository {
         .onConflictDoNothing()
         .returning({ hash: describedDocument.hash });
 
-      if (kept.length === 0) {
+      if (saved.length === 0) {
         return;
       }
 

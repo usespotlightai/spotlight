@@ -24,7 +24,7 @@ const press = (
 beforeEach(() => window.localStorage.clear());
 
 describe('usePaneWidth', () => {
-  it('starts at the width the pane asked for', () => {
+  it('starts at the width the pane requested', () => {
     const { result } = renderHook(() => usePaneWidth(PANE));
 
     expect(result.current.width).toBe(320);

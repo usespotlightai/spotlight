@@ -6,7 +6,7 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { FetchedEgressSecrets } from '@work/application/dto/egress-secrets.dto';
-import type { SandboxReachPort } from '@work/application/ports/sandbox-reach.port';
+import type { SandboxHostsPort } from '@work/application/ports/sandbox-hosts.port';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
@@ -18,7 +18,7 @@ const SPOTLIGHT_API_SCOPES = ['plan'];
 
 const SPOTLIGHT_API_LIFETIME_MS = 60 * 60 * 1_000;
 
-export interface EgressAdmitted {
+export interface EgressAuthorized {
   readonly runnerId: string;
   readonly workspaceId: string;
   readonly work: LeasedWork | null;
@@ -29,7 +29,7 @@ export interface RunLeasedByRunner {
   readonly run: Run;
   readonly attempt: RunAttempt;
   readonly injectedSecrets: readonly string[];
-  readonly reachesApi: boolean;
+  readonly usesSpotlightApi: boolean;
 }
 
 export class EgressSecretFetches {
@@ -37,7 +37,7 @@ export class EgressSecretFetches {
     private readonly runs: RunRepository,
     private readonly runSecretFetches: RunSecretFetchesPort,
     private readonly grants: RunGrantsPort,
-    private readonly reach: SandboxReachPort,
+    private readonly hosts: SandboxHostsPort,
     private readonly chats: ChatRepository,
     private readonly runTokens: RunTokensPort,
     private readonly clock: ClockPort,
@@ -45,56 +45,56 @@ export class EgressSecretFetches {
   ) {}
 
   async fetchFor(
-    admitted: EgressAdmitted,
+    authorized: EgressAuthorized,
     recipient: string,
   ): Promise<FetchedEgressSecrets> {
     const nothingInjected: FetchedEgressSecrets = {
       outcome: 'fetched',
       runId: null,
-      reaches: this.reach.hosts(),
+      extraAllowedHosts: this.hosts.hosts(),
       bound: [],
       secrets: [],
       denied: [],
       spotlightApi: null,
     };
 
-    if (admitted.work?.kind !== 'run') {
+    if (authorized.work?.kind !== 'run') {
       return nothingInjected;
     }
 
-    const runId = RunId.of(admitted.work.id);
-    const runner = RunnerId.of(admitted.runnerId);
-    const leased = await this.leasedBy(runId, runner, admitted.workspaceId);
+    const runId = RunId.of(authorized.work.id);
+    const runner = RunnerId.of(authorized.runnerId);
+    const leased = await this.leasedBy(runId, runner, authorized.workspaceId);
 
     if (!leased) {
       return nothingInjected;
     }
 
-    if (leased.injectedSecrets.length === 0 && !leased.reachesApi) {
+    if (leased.injectedSecrets.length === 0 && !leased.usesSpotlightApi) {
       return { ...nothingInjected, runId: runId.value };
     }
 
     const fetched = await this.runSecretFetches.fetchSecrets({
-      workspaceId: admitted.workspaceId,
+      workspaceId: authorized.workspaceId,
       runId: runId.value,
       attempt: leased.attempt.number,
       injectedSecrets: leased.injectedSecrets,
       recipient,
-      sharedEgress: admitted.sharedEgress,
+      sharedEgress: authorized.sharedEgress,
     });
-    const issued = leased.reachesApi
+    const issued = leased.usesSpotlightApi
       ? await this.apiFor(leased.run, leased.attempt, recipient)
       : null;
-    const still = await this.leasedBy(runId, runner, admitted.workspaceId);
+    const still = await this.leasedBy(runId, runner, authorized.workspaceId);
 
     if (!still?.attempt.equals(leased.attempt)) {
       await this.grants.leaseLost({
-        workspaceId: admitted.workspaceId,
+        workspaceId: authorized.workspaceId,
         runId: runId.value,
         attempt: leased.attempt.number,
       });
       if (issued) {
-        await this.runTokens.revoke(admitted.workspaceId, issued.tokenId);
+        await this.runTokens.revoke(authorized.workspaceId, issued.tokenId);
       }
       return nothingInjected;
     }
@@ -127,7 +127,7 @@ export class EgressSecretFetches {
           injectedSecrets: run
             .injectedSecretsFor(runner)
             .map((each) => each.value),
-          reachesApi: run.reachesSpotlightApiFor(runner),
+          usesSpotlightApi: run.usesSpotlightApiFor(runner),
         }
       : null;
   }

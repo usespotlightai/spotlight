@@ -126,7 +126,7 @@ export class HookStepDto {
       // biome-ignore lint/suspicious/noTemplateCurlyInString: how a hook expression is written
       text: 'Agent searched ${{ event.inputs.query }}',
     },
-    description: 'The inputs the step gives its tool',
+    description: 'The inputs the step sends to its tool',
   })
   readonly with?: Record<string, unknown>;
 

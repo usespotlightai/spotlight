@@ -19,12 +19,12 @@ import (
 	"sync/atomic"
 	"time"
 
+	"usespotlight.ai/data-plane/allowlist"
 	"usespotlight.ai/data-plane/egressing/guard"
 	"usespotlight.ai/data-plane/egressing/inject"
 	"usespotlight.ai/data-plane/egressing/seal"
 	"usespotlight.ai/data-plane/egressing/tunnel"
 	"usespotlight.ai/data-plane/protocol"
-	"usespotlight.ai/data-plane/reach"
 )
 
 const (
@@ -33,7 +33,7 @@ const (
 )
 
 type ControlPlane interface {
-	AdmitEgress(ctx context.Context, proxyCredential string) (protocol.EgressAdmitted, error)
+	AuthorizeEgress(ctx context.Context, proxyCredential string) (protocol.EgressAuthorizeResponse, error)
 	FetchRunSecretsFor(ctx context.Context, proxyCredential, recipient string) (protocol.EgressSecrets, error)
 	ActiveRuns(ctx context.Context, proxyCredentials []string) ([]string, error)
 	RecordConnections(ctx context.Context, records []protocol.EgressConnection) error
@@ -50,7 +50,7 @@ type Egress struct {
 	now      func() time.Time
 	dial     func(ctx context.Context, network, address string) (net.Conn, error)
 
-	admits *limits
+	authorizeLimits *limits
 
 	mu         sync.Mutex
 	runs       map[string]*run
@@ -73,19 +73,19 @@ func New(settings Settings, control ControlPlane, reader func() (inject.Reader, 
 	}
 
 	return &Egress{
-		settings:   settings,
-		control:    control,
-		key:        key,
-		reader:     reader,
-		limits:     newLimits(settings.Rate, settings.Connections, time.Now),
-		records:    &records{control: control, log: log},
-		log:        log,
-		now:        time.Now,
-		dial:       dial,
-		admits:     newLimits(admitRate, 0, time.Now),
-		runs:       map[string]*run{},
-		rejections: map[string]rejection{},
-		tunnels:    map[net.Conn]bool{},
+		settings:        settings,
+		control:         control,
+		key:             key,
+		reader:          reader,
+		limits:          newLimits(settings.Rate, settings.Connections, time.Now),
+		records:         &records{control: control, log: log},
+		log:             log,
+		now:             time.Now,
+		dial:            dial,
+		authorizeLimits: newLimits(authorizeRate, 0, time.Now),
+		runs:            map[string]*run{},
+		rejections:      map[string]rejection{},
+		tunnels:         map[net.Conn]bool{},
 	}, nil
 }
 
@@ -107,11 +107,11 @@ func (e *Egress) Serve(ctx context.Context, listener net.Listener) error {
 		protocols.SetUnencryptedHTTP2(true)
 	}
 
-	keeping, stopKeeping := context.WithCancel(context.WithoutCancel(ctx))
-	kept := make(chan struct{})
+	maintaining, stopMaintaining := context.WithCancel(context.WithoutCancel(ctx))
+	maintained := make(chan struct{})
 	go func() {
-		defer close(kept)
-		e.keep(keeping)
+		defer close(maintained)
+		e.maintain(maintaining)
 	}()
 
 	serving := make(chan error, 1)
@@ -132,8 +132,8 @@ func (e *Egress) Serve(ctx context.Context, listener net.Listener) error {
 		cancel()
 	}
 
-	stopKeeping()
-	<-kept
+	stopMaintaining()
+	<-maintained
 	e.closeTunnels()
 
 	flushing, cancel := context.WithTimeout(context.Background(), shutdownGrace)
@@ -162,7 +162,7 @@ func (e *Egress) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	credential, ok := proxyCredential(r)
 	if !ok {
 		w.Header().Set("Proxy-Authenticate", `Basic realm="spotlight egress"`)
-		http.Error(w, "Egress answers only a sandbox that gives its proxy credential.", http.StatusProxyAuthRequired)
+		http.Error(w, "Egress answers only a sandbox that sends its proxy credential.", http.StatusProxyAuthRequired)
 		return
 	}
 
@@ -171,18 +171,18 @@ func (e *Egress) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	found, err := e.admitted(r.Context(), credential, sourceOf(r))
+	found, err := e.authorized(r.Context(), credential, sourceOf(r))
 	switch {
-	case errors.Is(err, errAdmitsTooFast):
-		http.Error(w, "Sorry, egress admits too many sandboxes at once. Please try again in a second.", http.StatusTooManyRequests)
+	case errors.Is(err, errAuthorizeTooFast):
+		http.Error(w, "Sorry, egress authorizes too many sandboxes at once. Please try again in a second.", http.StatusTooManyRequests)
 		return
 	case isRejected(err):
 		w.Header().Set("Proxy-Authenticate", `Basic realm="spotlight egress"`)
 		http.Error(w, "Egress does not know this sandbox.", http.StatusProxyAuthRequired)
 		return
 	case err != nil:
-		e.log.Warn("could not admit a sandbox", "error", err)
-		http.Error(w, "Egress could not ask the control plane about this sandbox. Please try again.", http.StatusBadGateway)
+		e.log.Warn("could not authorize a sandbox", "error", err)
+		http.Error(w, "Egress could not get an answer from the control plane about this sandbox. Please try again.", http.StatusBadGateway)
 		return
 	}
 
@@ -225,7 +225,7 @@ func hostPort(target string) (string, string) {
 	if err != nil {
 		host, port = target, "443"
 	}
-	return reach.Normal(host), port
+	return allowlist.Normal(host), port
 }
 
 func sourceOf(r *http.Request) string {
@@ -300,7 +300,7 @@ func (e *Egress) bound(w http.ResponseWriter, r *http.Request, found *run) {
 
 	hosts, fetched := found.boundList()
 	if !fetched {
-		http.Error(w, "Egress has no run for this sandbox yet. Please ask again after the claim.", http.StatusConflict)
+		http.Error(w, "Egress has no run for this sandbox yet. Please try again after the claim.", http.StatusConflict)
 		return
 	}
 
@@ -325,11 +325,11 @@ func (e *Egress) connect(w http.ResponseWriter, r *http.Request, found *run) {
 	}
 
 	started := e.now()
-	admits, named := found.admits(host, port)
-	if !admits {
+	allowed, named := found.allows(host, port)
+	if !allowed {
 		e.record(found, host, port, started, protocol.EgressConnection{Outcome: protocol.ConnectionBlocked, Reason: protocol.ReasonNotAllowed})
-		e.log.Warn("blocked a tunnel to a host the run may not reach", "host", host)
-		http.Error(w, fmt.Sprintf("Egress does not let this sandbox reach %s.", host), http.StatusForbidden)
+		e.log.Warn("blocked a tunnel to a host the run may not connect to", "host", host)
+		http.Error(w, fmt.Sprintf("Egress does not allow this sandbox to connect to %s.", host), http.StatusForbidden)
 		return
 	}
 
@@ -369,7 +369,7 @@ func (e *Egress) forward(w http.ResponseWriter, r *http.Request, found *run) {
 		http.Error(w, fmt.Sprintf("%s must be a host and port 443, such as api.example.com:443.", protocol.EgressTargetHeader), http.StatusBadRequest)
 		return
 	}
-	host = reach.Normal(host)
+	host = allowlist.Normal(host)
 
 	if err := e.fetchSecrets(r.Context(), found); err != nil {
 		e.couldNotFetchSecrets(w, err)

@@ -15,7 +15,7 @@ const LATER = new Date('2026-09-13T09:00:00.000Z');
 const AFTER_IT_RUNS_OUT = new Date('2026-10-12T09:00:00.000Z');
 
 const ada = UserId.of('user_ada');
-const asker = UserId.of('user_leon');
+const inviter = UserId.of('user_leon');
 const acme = WorkspaceId.of('ws_1');
 const hash = (of: string) => TokenHash.of(of.repeat(64).slice(0, 64));
 
@@ -32,7 +32,7 @@ const created = (to = 'ada@example.com') =>
     email: EmailAddress.of(to),
     terms: terms(),
     tokenHash: hash('a'),
-    invitedBy: asker,
+    invitedBy: inviter,
     now: NOW,
   });
 
@@ -47,14 +47,16 @@ const resent = (invite: WorkspaceInvite, now = LATER) =>
     now,
   });
 
-const kept = (over: Partial<Parameters<typeof WorkspaceInvite.rehydrate>[0]>) =>
+const stored = (
+  over: Partial<Parameters<typeof WorkspaceInvite.rehydrate>[0]>,
+) =>
   WorkspaceInvite.rehydrate({
     id: InviteId.of('invite_1'),
     workspaceId: acme,
     email: EmailAddress.of('ada@example.com'),
     terms: terms(),
     tokenHash: hash('a'),
-    invitedBy: asker,
+    invitedBy: inviter,
     invitedAt: NOW,
     expiresAt: LATER,
     acceptedAt: null,
@@ -65,7 +67,7 @@ const kept = (over: Partial<Parameters<typeof WorkspaceInvite.rehydrate>[0]>) =>
   });
 
 describe('WorkspaceInvite', () => {
-  it('says it was created, with the role and teams it gives', () => {
+  it('says it was created, with the role and teams it grants', () => {
     expect(created().pullEvents()).toMatchObject([
       {
         kind: 'workspace-invite.created',
@@ -128,15 +130,15 @@ describe('WorkspaceInvite', () => {
   });
 
   it('cannot be taken up once it has been taken back', () => {
-    expect(() => acceptedBy(created().revoke(asker, LATER))).toThrow(
+    expect(() => acceptedBy(created().revoke(inviter, LATER))).toThrow(
       /been revoked/,
     );
   });
 
-  it('is revoked once however often it is asked, and says so once, naming who revoked it', () => {
+  it('is revoked once however often revoke is called, and says so once, naming who revoked it', () => {
     const revoked = created().revoke(ada, LATER);
 
-    expect(revoked.revoke(asker, AFTER_IT_RUNS_OUT)).toBe(revoked);
+    expect(revoked.revoke(inviter, AFTER_IT_RUNS_OUT)).toBe(revoked);
     expect(revoked.statusAt(LATER)).toBe('revoked');
     expect(revoked.pullEvents()).toMatchObject([
       { kind: 'workspace-invite.created' },
@@ -145,7 +147,7 @@ describe('WorkspaceInvite', () => {
   });
 
   it('cannot be taken back once it has been accepted', () => {
-    expect(() => acceptedBy(created()).revoke(asker, LATER)).toThrow(
+    expect(() => acceptedBy(created()).revoke(inviter, LATER)).toThrow(
       /already been accepted/,
     );
   });
@@ -173,49 +175,49 @@ describe('WorkspaceInvite', () => {
 
   it('is not resent once accepted or revoked', () => {
     expect(() => resent(acceptedBy(created()))).toThrow(InviteNotPendingError);
-    expect(() => resent(created().revoke(asker, LATER))).toThrow(
+    expect(() => resent(created().revoke(inviter, LATER))).toThrow(
       InviteNotPendingError,
     );
   });
 
   it('counts as ended only once accepted or revoked, not once run out', () => {
     expect(created().hasEndedAt(AFTER_IT_RUNS_OUT)).toBe(false);
-    expect(created().revoke(asker, LATER).hasEndedAt(LATER)).toBe(true);
+    expect(created().revoke(inviter, LATER).hasEndedAt(LATER)).toBe(true);
     expect(acceptedBy(created()).hasEndedAt(LATER)).toBe(true);
   });
 
   it('does not rehydrate as both accepted and revoked', () => {
     expect(() =>
-      kept({ acceptedAt: LATER, acceptedBy: ada, revokedAt: LATER }),
+      stored({ acceptedAt: LATER, acceptedBy: ada, revokedAt: LATER }),
     ).toThrow(/both accepted and revoked/);
   });
 
   it('rehydrates as accepted by an account since deleted', () => {
-    const read = kept({ acceptedAt: LATER, acceptedBy: null });
+    const read = stored({ acceptedAt: LATER, acceptedBy: null });
 
     expect(read.statusAt(LATER)).toBe('accepted');
     expect(read.hasEndedAt(LATER)).toBe(true);
   });
 
   it('rehydrates with an inviter whose account was since deleted', () => {
-    expect(kept({ invitedBy: null }).statusAt(NOW)).toBe('pending');
+    expect(stored({ invitedBy: null }).statusAt(NOW)).toBe('pending');
   });
 
   it('does not rehydrate as accepted by somebody at no time', () => {
-    expect(() => kept({ acceptedBy: ada })).toThrow(
+    expect(() => stored({ acceptedBy: ada })).toThrow(
       /accepted by somebody at no time/,
     );
   });
 
-  it('does not rehydrate as kept without ever being written', () => {
-    expect(() => kept({ version: 0 })).toThrow(/without ever being written/);
+  it('does not rehydrate as stored without ever being written', () => {
+    expect(() => stored({ version: 0 })).toThrow(/without ever being written/);
   });
 
   it('carries the version it was read at through every change, so a stale write is caught', () => {
-    const read = kept({ version: 4, expiresAt: AFTER_IT_RUNS_OUT });
+    const read = stored({ version: 4, expiresAt: AFTER_IT_RUNS_OUT });
 
     expect(acceptedBy(read).version).toBe(4);
-    expect(read.revoke(asker, NOW).version).toBe(4);
+    expect(read.revoke(inviter, NOW).version).toBe(4);
     expect(resent(read).version).toBe(4);
   });
 
@@ -226,7 +228,7 @@ describe('WorkspaceInvite', () => {
       email: EmailAddress.of('ada@example.com'),
       terms: terms(),
       tokenHash: hash('c'),
-      invitedBy: asker,
+      invitedBy: inviter,
       now: LATER,
     });
 
@@ -235,8 +237,8 @@ describe('WorkspaceInvite', () => {
     expect(invite.invitedAt).toBe(LATER);
   });
 
-  it('resends the pending invite, on the terms asked now, rather than creating a second', () => {
-    const pending = kept({ expiresAt: NOW });
+  it('resends the pending invite, on the terms requested now, rather than creating a second', () => {
+    const pending = stored({ expiresAt: NOW });
     const { invite, resent } = WorkspaceInvite.createOrResend(pending, {
       id: InviteId.of('invite_2'),
       workspaceId: acme,

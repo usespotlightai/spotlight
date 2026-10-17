@@ -22,11 +22,11 @@ type channel struct {
 	use      func(ctx context.Context, name string, input json.RawMessage) (json.RawMessage, error)
 	reply    func(ctx context.Context, reply protocol.ReviewCommentReply) error
 	trace    func(ctx context.Context, taskID string) (json.RawMessage, error)
-	history  func(asked protocol.HistoryRequest) (json.RawMessage, error)
-	recall   func(asked protocol.RecallRequest) (json.RawMessage, error)
-	remember func(asked protocol.Remembering) (json.RawMessage, error)
-	propose  func(asked protocol.CandidateProposal) (int, string)
-	cause    func(asked protocol.CauseRecord) (int, string)
+	history  func(received protocol.HistoryRequest) (json.RawMessage, error)
+	recall   func(received protocol.RecallRequest) (json.RawMessage, error)
+	remember func(received protocol.Remembering) (json.RawMessage, error)
+	propose  func(received protocol.CandidateProposal) (int, string)
+	cause    func(received protocol.CauseRecord) (int, string)
 
 	mu       sync.Mutex
 	handover *protocol.Handover
@@ -67,23 +67,23 @@ func (h *channel) Traces(trace func(ctx context.Context, taskID string) (json.Ra
 	h.trace = trace
 }
 
-func (h *channel) Histories(history func(asked protocol.HistoryRequest) (json.RawMessage, error)) {
+func (h *channel) Histories(history func(received protocol.HistoryRequest) (json.RawMessage, error)) {
 	h.history = history
 }
 
 func (h *channel) Memories(
-	recall func(asked protocol.RecallRequest) (json.RawMessage, error),
-	remember func(asked protocol.Remembering) (json.RawMessage, error),
+	recall func(received protocol.RecallRequest) (json.RawMessage, error),
+	remember func(received protocol.Remembering) (json.RawMessage, error),
 ) {
 	h.recall = recall
 	h.remember = remember
 }
 
-func (h *channel) Candidates(propose func(asked protocol.CandidateProposal) (int, string)) {
+func (h *channel) Candidates(propose func(received protocol.CandidateProposal) (int, string)) {
 	h.propose = propose
 }
 
-func (h *channel) Causes(cause func(asked protocol.CauseRecord) (int, string)) {
+func (h *channel) Causes(cause func(received protocol.CauseRecord) (int, string)) {
 	h.cause = cause
 }
 
@@ -118,37 +118,37 @@ func (h *channel) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case r.URL.Path == protocol.AgentAPITracePath:
 		h.traceOf(w, r)
 	case r.URL.Path == protocol.AgentAPIHistoryPath:
-		var asked protocol.HistoryRequest
-		if h.history == nil || json.NewDecoder(r.Body).Decode(&asked) != nil {
+		var received protocol.HistoryRequest
+		if h.history == nil || json.NewDecoder(r.Body).Decode(&received) != nil {
 			fail(w, http.StatusBadRequest, "unreadable history request")
 			return
 		}
-		answered(w)(h.history(asked))
+		answered(w)(h.history(received))
 	case r.URL.Path == protocol.AgentAPIRecallPath:
-		var asked protocol.RecallRequest
-		if h.recall == nil || json.NewDecoder(r.Body).Decode(&asked) != nil {
+		var received protocol.RecallRequest
+		if h.recall == nil || json.NewDecoder(r.Body).Decode(&received) != nil {
 			fail(w, http.StatusBadRequest, "unreadable recall")
 			return
 		}
-		answered(w)(h.recall(asked))
+		answered(w)(h.recall(received))
 	case r.URL.Path == protocol.AgentAPIRememberPath:
-		var asked protocol.Remembering
-		if h.remember == nil || json.NewDecoder(r.Body).Decode(&asked) != nil {
+		var received protocol.Remembering
+		if h.remember == nil || json.NewDecoder(r.Body).Decode(&received) != nil {
 			fail(w, http.StatusBadRequest, "unreadable memory")
 			return
 		}
-		answered(w)(h.remember(asked))
+		answered(w)(h.remember(received))
 	case r.URL.Path == protocol.AgentAPICandidatePath:
 		if h.propose == nil {
 			fail(w, http.StatusNotImplemented, "this run cannot propose a candidate: only a search's runs do")
 			return
 		}
-		var asked protocol.CandidateProposal
-		if json.NewDecoder(r.Body).Decode(&asked) != nil {
+		var received protocol.CandidateProposal
+		if json.NewDecoder(r.Body).Decode(&received) != nil {
 			fail(w, http.StatusBadRequest, "unreadable candidate")
 			return
 		}
-		status, body := h.propose(asked)
+		status, body := h.propose(received)
 		if strings.HasPrefix(body, "{") {
 			w.Header().Set("Content-Type", "application/json")
 		}
@@ -159,12 +159,12 @@ func (h *channel) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			fail(w, http.StatusNotImplemented, "this run cannot record a cause: only a search's runs do")
 			return
 		}
-		var asked protocol.CauseRecord
-		if json.NewDecoder(r.Body).Decode(&asked) != nil {
+		var received protocol.CauseRecord
+		if json.NewDecoder(r.Body).Decode(&received) != nil {
 			fail(w, http.StatusBadRequest, "unreadable cause")
 			return
 		}
-		status, body := h.cause(asked)
+		status, body := h.cause(received)
 		w.WriteHeader(status)
 		_, _ = w.Write([]byte(body))
 	default:
@@ -174,7 +174,7 @@ func (h *channel) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (h *channel) tool(w http.ResponseWriter, r *http.Request, name string) {
 	if h.use == nil || !slices.Contains(h.granted, name) {
-		fail(w, http.StatusForbidden, fmt.Sprintf("this run was not given %q", name))
+		fail(w, http.StatusForbidden, fmt.Sprintf("this run has no tool %q enabled", name))
 		return
 	}
 
@@ -215,13 +215,13 @@ func (h *channel) replyToReviewComment(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *channel) traceOf(w http.ResponseWriter, r *http.Request) {
-	var asked protocol.TraceRequest
-	if h.trace == nil || json.NewDecoder(r.Body).Decode(&asked) != nil {
+	var received protocol.TraceRequest
+	if h.trace == nil || json.NewDecoder(r.Body).Decode(&received) != nil {
 		fail(w, http.StatusBadRequest, "unreadable trace request")
 		return
 	}
 
-	trace, err := h.trace(r.Context(), asked.Task)
+	trace, err := h.trace(r.Context(), received.Task)
 	if err != nil {
 		fail(w, http.StatusBadGateway, err.Error())
 		return

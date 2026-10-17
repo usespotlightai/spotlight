@@ -15,7 +15,7 @@ export class TaskFailures {
     readonly version: number,
   ) {}
 
-  static heardOf(
+  static empty(
     taskId: TaskId,
     workspaceId: WorkspaceId,
     teamId: TeamId,

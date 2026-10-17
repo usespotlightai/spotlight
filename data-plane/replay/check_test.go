@@ -164,11 +164,11 @@ func (s *checkServer) serve() *httptest.Server {
 
 		switch {
 		case r.Method == http.MethodPost && r.URL.Path == exchangePath:
-			var asked map[string]string
-			_ = json.NewDecoder(r.Body).Decode(&asked)
-			if asked["trust"] != "trust_1" || asked["token"] != "oidc-token" {
+			var received map[string]string
+			_ = json.NewDecoder(r.Body).Decode(&received)
+			if received["trust"] != "trust_1" || received["token"] != "oidc-token" {
 				w.WriteHeader(http.StatusUnauthorized)
-				_, _ = io.WriteString(w, `{"statusCode":401,"message":"No such trust, or a workload it does not admit"}`)
+				_, _ = io.WriteString(w, `{"statusCode":401,"message":"No such trust, or a workload it does not match"}`)
 				return
 			}
 			s.exchanges++
@@ -207,7 +207,7 @@ func checkAnswer(verdict string) string {
 		undecided = `"too-few-scored"`
 	}
 
-	return `{"id":"check_1","setName":"Queue fixes","replayId":"replay_1","keptLive":["check","judge"],
+	return `{"id":"check_1","setName":"Queue fixes","replayId":"replay_1","scoringPinnedToLive":["check","judge"],
   "verdict":"` + verdict + `","undecidedBecause":` + undecided + `,"tasks":3,"compared":3,
   "threshold":{"maxRegressions":0,"minGain":0.05,"ceiling":{"amount":10,"currency":"USD"}},
   "repeats":3,"gain":{"gain":-0.3333,"low":-1,"high":0,"verdict":"within-noise","minGain":0.05,"tasks":3},
@@ -287,7 +287,7 @@ func TestCheckPassesOnceTheCheckPassesAndSendsNoThreshold(t *testing.T) {
 	}
 }
 
-func TestCheckReplaysEachRunAsOftenAsAskedAndSaysWhenTheGainIsWithinNoise(t *testing.T) {
+func TestCheckReplaysEachRunAsOftenAsRequestedAndSaysWhenTheGainIsWithinNoise(t *testing.T) {
 	s := &checkServer{t: t, verdict: []string{"passed"}}
 	server := s.serve()
 	defer server.Close()
@@ -432,7 +432,7 @@ func TestCheckExchangesTheJobsOIDCTokenThroughATrust(t *testing.T) {
 	}
 
 	untrusted := runCheck(t, map[string]string{urlVar: server.URL, trustVar: "trust_1", oidcTokenVar: "forged"}, withoutUnknowns(t, planFixture(t)))
-	if untrusted.code != errorExit || !strings.Contains(untrusted.out, "did not admit the OIDC token: No such trust, or a workload it does not admit") || strings.Contains(untrusted.out, "statusCode") {
+	if untrusted.code != errorExit || !strings.Contains(untrusted.out, "did not accept the OIDC token: No such trust, or a workload it does not match") || strings.Contains(untrusted.out, "statusCode") {
 		t.Fatalf("code = %d\n%s%s", untrusted.code, untrusted.out, untrusted.errOut)
 	}
 }
@@ -459,11 +459,11 @@ func withoutUnknowns(t *testing.T, plan []byte) []byte {
 	var shown map[string]any
 	_ = json.Unmarshal(plan, &shown)
 
-	kept := []any{}
+	remaining := []any{}
 	for _, each := range shown["resource_changes"].([]any) {
 		change := each.(map[string]any)
 		if change["address"] != "spotlight_line.delivery" {
-			kept = append(kept, change)
+			remaining = append(remaining, change)
 			continue
 		}
 
@@ -487,9 +487,9 @@ func withoutUnknowns(t *testing.T, plan []byte) []byte {
 		}
 		after["station"] = stations
 		unknowns["station"] = unknownStations
-		kept = append(kept, change)
+		remaining = append(remaining, change)
 	}
-	shown["resource_changes"] = kept
+	shown["resource_changes"] = remaining
 
 	written, _ := json.Marshal(shown)
 	return written
@@ -781,13 +781,13 @@ func TestReadPlanLeavesUndecidedTheWorkStationsOfAReplacedLine(t *testing.T) {
 	}
 
 	got := runCheck(t, map[string]string{}, mutated(t, plan, func(changes []any) []any {
-		kept := []any{}
+		remaining := []any{}
 		for _, each := range changes {
 			if each.(map[string]any)["address"] != "spotlight_line.delivery" {
-				kept = append(kept, each)
+				remaining = append(remaining, each)
 			}
 		}
-		return kept
+		return remaining
 	}))
 	if got.code != undecidedExit {
 		t.Fatalf("code = %d\n%s%s", got.code, got.out, got.errOut)

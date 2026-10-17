@@ -5,7 +5,7 @@ import { InvalidStationChangeError } from '@work/domain/exceptions/invalid-stati
 import {
   skillsProblem,
   toolsProblem,
-} from '@work/domain/services/station-gives';
+} from '@work/domain/services/station-enables';
 import type { AgentPrompt } from '@work/domain/value-objects/agent-prompt.vo';
 import type { Effort } from '@work/domain/value-objects/effort.vo';
 import type { ProfileKey } from '@work/domain/value-objects/profile-key.vo';
@@ -98,7 +98,7 @@ export abstract class Station {
   abstract readonly alerts: readonly StationAlert[];
 
   static of(input: StationInput): Station {
-    Station.guardWhatItGives(input.tools ?? [], input.skills ?? []);
+    Station.guardWhatItEnables(input.tools ?? [], input.skills ?? []);
 
     const ends = [
       input.id,
@@ -160,13 +160,13 @@ export abstract class Station {
     return this.copiedWith({ description });
   }
 
-  givesSkills(skills: readonly SkillKey[]): Station {
-    Station.guardWhatItGives(this.tools, skills);
+  enablesSkills(skills: readonly SkillKey[]): Station {
+    Station.guardWhatItEnables(this.tools, skills);
 
     return this.copiedWith({ skills });
   }
 
-  private static guardWhatItGives(
+  private static guardWhatItEnables(
     tools: readonly Tool[],
     skills: readonly SkillKey[],
   ): void {

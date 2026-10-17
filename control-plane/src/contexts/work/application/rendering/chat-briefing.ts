@@ -133,15 +133,15 @@ export const ChatBriefing = {
   },
 
   followUp(chat: Chat, handed: readonly MessagePosition[]): string {
-    const given = chat.messagesAt(handed);
+    const delivered = chat.messagesAt(handed);
     const earlier = chat.messages.filter(
       (message) =>
-        !given.includes(message) &&
-        given.some((each) => message.position.isAtOrBefore(each.position)),
+        !delivered.includes(message) &&
+        delivered.some((each) => message.position.isAtOrBefore(each.position)),
     );
-    const firstTraces = tracing(given) && !tracing(earlier);
+    const firstTraces = tracing(delivered) && !tracing(earlier);
 
-    return [firstTraces ? Traced.reading : null, ...given.map(words)]
+    return [firstTraces ? Traced.reading : null, ...delivered.map(words)]
       .filter(Boolean)
       .join('\n\n');
   },

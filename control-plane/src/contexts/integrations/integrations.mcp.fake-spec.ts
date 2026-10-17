@@ -8,5 +8,5 @@ export const discoveringNothing = (): OAuth2Discovery =>
     now: () => new Date(),
   } as ClockPort);
 
-export const reachingNoServer = (): McpSessions =>
+export const callingNoServer = (): McpSessions =>
   new McpSessions(new OutboundPolicy([]));

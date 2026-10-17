@@ -74,10 +74,10 @@ func causeCmd(args []string, out io.Writer) error {
 	return nil
 }
 
-func textOf(given, what string) (string, error) {
-	file, found := strings.CutPrefix(given, "@")
+func textOf(value, what string) (string, error) {
+	file, found := strings.CutPrefix(value, "@")
 	if !found {
-		return strings.TrimSpace(given), nil
+		return strings.TrimSpace(value), nil
 	}
 
 	read, err := os.ReadFile(file)

@@ -101,24 +101,24 @@ export class WebhookRuntime implements WebhookSourcePort {
     auth: Extract<AuthIR, { kind: 'token' }>,
     delivered: Delivered,
   ): Promise<boolean> {
-    const given = auth.header && headed(delivered.headers, auth.header);
+    const received = auth.header && headed(delivered.headers, auth.header);
 
-    if (!given) {
+    if (!received) {
       return false;
     }
 
     const secret = await this.signing.named(auth.secret);
 
-    return equal(secret.revealed(), given);
+    return equal(secret.revealed(), received);
   }
 
   private async hmac(
     auth: Extract<AuthIR, { kind: 'hmac' }>,
     delivered: Delivered,
   ): Promise<boolean> {
-    const given = auth.header && headed(delivered.headers, auth.header);
+    const received = auth.header && headed(delivered.headers, auth.header);
 
-    if (!given) {
+    if (!received) {
       return false;
     }
 
@@ -134,7 +134,7 @@ export class WebhookRuntime implements WebhookSourcePort {
         .update(material)
         .digest(auth.encoding);
 
-    return equal(expected, given);
+    return equal(expected, received);
   }
 
   private asymmetric(
@@ -142,16 +142,16 @@ export class WebhookRuntime implements WebhookSourcePort {
     delivered: Delivered,
   ): boolean {
     const raw = this.templated(auth.key, delivered);
-    const given = auth.header && headed(delivered.headers, auth.header);
+    const received = auth.header && headed(delivered.headers, auth.header);
 
-    if (!raw || !given) {
+    if (!raw || !received) {
       return false;
     }
 
     const message = auth.signed
       ? Buffer.from(reads(auth.signed, this.bindings(delivered)) ?? '')
       : Buffer.from(delivered.raw as Uint8Array);
-    const signature = Buffer.from(given, auth.encoding);
+    const signature = Buffer.from(received, auth.encoding);
 
     try {
       const key =

@@ -31,13 +31,13 @@ export class TraceReference {
   static distinct(
     traces: readonly TraceReference[],
   ): readonly TraceReference[] {
-    const kept = traces.filter(
+    const unique = traces.filter(
       (each, at) => traces.findIndex((other) => other.equals(each)) === at,
     );
 
-    TraceReference.assertNotTooMany(kept.length);
+    TraceReference.assertNotTooMany(unique.length);
 
-    return kept;
+    return unique;
   }
 
   equals(other: TraceReference): boolean {

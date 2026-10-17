@@ -1,6 +1,6 @@
 import {
   HookDefinition,
-  type SecretGiven,
+  type SigningSecretChange,
 } from '@integrations/domain/aggregates/hook-definition.aggregate';
 import { Hook } from '@integrations/domain/entities/hook.entity';
 import { HookCreated } from '@integrations/domain/events/hook-created.event';
@@ -67,8 +67,8 @@ const compiled = (options: Parameters<typeof hook>[0] = {}) => ({
   document: DefinitionDocument.of({ key: options.key ?? 'grafana-reads' }),
 });
 
-const given = (fill: string, version: number): SecretGiven => ({
-  kind: 'given',
+const supplied = (fill: string, version: number): SigningSecretChange => ({
+  kind: 'supplied',
   versioned: { secret: secret(fill), version },
 });
 
@@ -84,7 +84,7 @@ const created = () =>
     id: ID,
     workspaceId: WORKSPACE,
     teamId: TEAM,
-    secret: given('a', 1),
+    secret: supplied('a', 1),
     allowances: OFFERED,
     by: BY,
   });
@@ -117,7 +117,7 @@ describe('HookDefinition', () => {
       'slack.post-message',
     ]);
     expect(hook.signing).toEqual({ version: 1 });
-    expect(hook.givenSecret?.equals(secret('a'))).toBe(true);
+    expect(hook.secretInput?.equals(secret('a'))).toBe(true);
     expect(hook.pullEvents()).toEqual([
       new HookCreated(
         ID,
@@ -135,7 +135,7 @@ describe('HookDefinition', () => {
         id: ID,
         workspaceId: WORKSPACE,
         teamId: TEAM,
-        secret: given('a', 1),
+        secret: supplied('a', 1),
         allowances: { ...OFFERED, offered: ['grafana.search'] },
         by: BY,
       });
@@ -152,7 +152,7 @@ describe('HookDefinition', () => {
         id: ID,
         workspaceId: WORKSPACE,
         teamId: TEAM,
-        secret: given('a', 1),
+        secret: supplied('a', 1),
         allowances: { ...OFFERED, allowsHost: () => false },
         by: BY,
       }),
@@ -180,7 +180,7 @@ describe('HookDefinition', () => {
         id: ID,
         workspaceId: WORKSPACE,
         teamId: TEAM,
-        secret: given('a', 1),
+        secret: supplied('a', 1),
         allowances: OFFERED,
         by: BY,
       }),
@@ -204,13 +204,13 @@ describe('HookDefinition', () => {
   it('keeps its secret when updated at the same version', () => {
     const updated = rehydrated().update(
       compiled(),
-      { kind: 'kept', version: 1 },
+      { kind: 'unchanged', version: 1 },
       OFFERED,
       BY,
     );
 
     expect(updated.signing).toEqual({ version: 1 });
-    expect(updated.givenSecret).toBeNull();
+    expect(updated.secretInput).toBeNull();
     expect(updated.pullEvents()).toEqual([
       new HookUpdated(
         ID,
@@ -222,17 +222,22 @@ describe('HookDefinition', () => {
   });
 
   it('takes a new secret when its version moves', () => {
-    const updated = rehydrated().update(compiled(), given('b', 2), OFFERED, BY);
+    const updated = rehydrated().update(
+      compiled(),
+      supplied('b', 2),
+      OFFERED,
+      BY,
+    );
 
     expect(updated.signing).toEqual({ version: 2 });
-    expect(updated.givenSecret?.equals(secret('b'))).toBe(true);
+    expect(updated.secretInput?.equals(secret('b'))).toBe(true);
   });
 
   it('rejects a moved version without its new secret', () => {
     expect(() =>
       rehydrated().update(
         compiled(),
-        { kind: 'kept', version: 2 },
+        { kind: 'unchanged', version: 2 },
         OFFERED,
         BY,
       ),

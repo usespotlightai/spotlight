@@ -206,8 +206,8 @@ const step = {
   ms: 1_000,
   startedAt: '2026-08-29T10:00:00.000Z',
   locations: [],
-  given: null,
-  returned: null,
+  input: null,
+  output: null,
   change: null,
 };
 
@@ -290,7 +290,7 @@ describe('Run', () => {
       expect(screen.queryByText(/no such run/)).not.toBeInTheDocument();
     });
 
-    it('tries the runs again when asked', async () => {
+    it('tries the runs again on request', async () => {
       runs.mockReturnValue(undefined);
       runsFailing.mockReturnValue(true);
 

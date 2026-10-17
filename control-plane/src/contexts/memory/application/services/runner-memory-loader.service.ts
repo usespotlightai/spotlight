@@ -1,7 +1,7 @@
 import type { LeasedRun, WorkPort } from '@memory/application/ports/work.port';
 import type { RecordMemoryUses } from '@memory/application/services/record-memory-uses.service';
 import { UnknownRunError } from '@memory/domain/exceptions/unknown-run.error';
-import { keptFromSearches } from '@memory/domain/services/search-reach';
+import { notAllowedInSearch } from '@memory/domain/services/search-memory-access';
 import type { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -28,7 +28,7 @@ export class RunnerMemoryLoader {
   async recalling(runId: string, runnerId: string): Promise<LeasedRun> {
     const run = await this.leased(runId, runnerId);
 
-    keptFromSearches(run, 'recall what the team remembers');
+    notAllowedInSearch(run, 'recall what the team remembers');
 
     return run;
   }

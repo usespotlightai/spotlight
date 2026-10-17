@@ -2,21 +2,21 @@ import { CatalogVersion } from '@catalog/domain/value-objects/catalog-version.vo
 import { VersionConstraint } from '@catalog/domain/value-objects/version-constraint.vo';
 import { describe, expect, it } from 'vitest';
 
-const admitted = (constraint: string, versions: string[]) =>
+const matching = (constraint: string, versions: string[]) =>
   versions.filter((each) =>
-    VersionConstraint.of(constraint).admits(CatalogVersion.of(each)),
+    VersionConstraint.of(constraint).matches(CatalogVersion.of(each)),
   );
 
 const VERSIONS = ['0.9.0', '1.0.0', '1.0.4', '1.1.0', '1.10.2', '2.0.0'];
 
 describe('a version constraint, written as Terraform writes one', () => {
   it('takes a bare version to mean exactly that version', () => {
-    expect(admitted('1.0.4', VERSIONS)).toEqual(['1.0.4']);
-    expect(admitted('= 1.1', VERSIONS)).toEqual(['1.1.0']);
+    expect(matching('1.0.4', VERSIONS)).toEqual(['1.0.4']);
+    expect(matching('= 1.1', VERSIONS)).toEqual(['1.1.0']);
   });
 
   it('lets ~> with two parts move up to the next major', () => {
-    expect(admitted('~> 1.0', VERSIONS)).toEqual([
+    expect(matching('~> 1.0', VERSIONS)).toEqual([
       '1.0.0',
       '1.0.4',
       '1.1.0',
@@ -25,11 +25,11 @@ describe('a version constraint, written as Terraform writes one', () => {
   });
 
   it('lets ~> with three parts move only the patch', () => {
-    expect(admitted('~> 1.0.1', VERSIONS)).toEqual(['1.0.4']);
+    expect(matching('~> 1.0.1', VERSIONS)).toEqual(['1.0.4']);
   });
 
   it('satisfies every clause at once', () => {
-    expect(admitted('>= 1.0.4, < 2.0, != 1.1.0', VERSIONS)).toEqual([
+    expect(matching('>= 1.0.4, < 2.0, != 1.1.0', VERSIONS)).toEqual([
       '1.0.4',
       '1.10.2',
     ]);

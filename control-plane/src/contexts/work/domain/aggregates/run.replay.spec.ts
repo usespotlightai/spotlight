@@ -11,7 +11,7 @@ import { RunBriefed } from '@work/domain/events/run-briefed.event';
 import { RunCompleted } from '@work/domain/events/run-completed.event';
 import { RunExhausted } from '@work/domain/events/run-exhausted.event';
 import { InvalidRunTransitionError } from '@work/domain/exceptions/invalid-run-transition.error';
-import { KeptFromReplaysError } from '@work/domain/exceptions/kept-from-replays.error';
+import { NotAllowedInReplayError } from '@work/domain/exceptions/not-allowed-in-replay.error';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import { Handover } from '@work/domain/value-objects/handover.vo';
 import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
@@ -109,7 +109,7 @@ const reportOf = (next: string) =>
   HandoverReport.of({ handover: Handover.of({ next }), session: null });
 
 describe('a replay', () => {
-  it('works no task of its own and keeps no workspace for one', () => {
+  it('works no task of its own and archives no workspace for one', () => {
     const run = queued();
 
     expect(run.isReplay).toBe(true);
@@ -226,12 +226,12 @@ describe('a replay', () => {
     expect(claimed().replayedRepository('web')).toBeNull();
   });
 
-  it('reaches nothing beyond itself, and hears no hook', () => {
+  it('acts on nothing beyond itself, and fires no hook', () => {
     expect(() =>
-      claimed().mayReachBeyondItself('reply to a review comment'),
-    ).toThrow(KeptFromReplaysError);
-    expect(claimed().hearsHooks).toBe(false);
-    expect(queued(OF_TASK, TASK_SPEC).hearsHooks).toBe(true);
+      claimed().mayActBeyondItself('reply to a review comment'),
+    ).toThrow(NotAllowedInReplayError);
+    expect(claimed().firesHooks).toBe(false);
+    expect(queued(OF_TASK, TASK_SPEC).firesHooks).toBe(true);
   });
 
   it('ends recording that it asked nobody, when it did not', () => {

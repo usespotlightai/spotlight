@@ -92,7 +92,7 @@ export class RunnerPlacement {
     return this.isAnywhere ? fallback : this;
   }
 
-  admits(terms: RunnerTerms): boolean {
+  matches(terms: RunnerTerms): boolean {
     return (
       this.clauses.every((clause) => clause.some((each) => terms.has(each))) &&
       terms.serves(this.image)

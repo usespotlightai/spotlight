@@ -114,12 +114,12 @@ describe('a decision', () => {
     );
   });
 
-  it('comes back as it was kept, even past limits it was drafted under', () => {
+  it('comes back as it was stored, even past limits it was drafted under', () => {
     const decision = Decision.rehydrate({
       id: ID,
       kind: 'limitation',
       title: 'x'.repeat(500),
-      why: 'Kept before the title limit was tightened.',
+      why: 'Stored before the title limit was tightened.',
       alternatives: [],
       paths: [FilePath.of('src/uploads.ts')],
       steps: [1],
@@ -153,55 +153,59 @@ describe('a decision', () => {
   });
 });
 
-describe('a decision set, asked to draft', () => {
-  it('drafts the run that asked', () => {
-    const asked = opened().asked(FIRST, NOW);
+describe('a decision set, requested to draft', () => {
+  it('drafts the run that requested it', () => {
+    const requested = opened().requestDraft(FIRST, NOW);
 
-    expect(asked.hasPendingJob).toBe(true);
-    expect(asked.draft?.isFor(FIRST)).toBe(true);
-    expect(kinds(asked)).toEqual(['decisions.asked']);
+    expect(requested.hasPendingJob).toBe(true);
+    expect(requested.draft?.isFor(FIRST)).toBe(true);
+    expect(kinds(requested)).toEqual(['decisions.requested']);
   });
 
-  it('hears the same run once', () => {
-    const asked = opened().asked(FIRST, NOW);
-    asked.pullEvents();
+  it('takes the same run once', () => {
+    const requested = opened().requestDraft(FIRST, NOW);
+    requested.pullEvents();
 
-    expect(kinds(asked.asked(FIRST, NOW))).toEqual([]);
+    expect(kinds(requested.requestDraft(FIRST, NOW))).toEqual([]);
   });
 
   it('does not draft again a run it already drafted', () => {
-    const drafted = drafting(opened().asked(FIRST, NOW), FIRST, [proposed()]);
+    const drafted = drafting(opened().requestDraft(FIRST, NOW), FIRST, [
+      proposed(),
+    ]);
     drafted.pullEvents();
 
-    const again = drafted.asked(FIRST, NOW);
+    const again = drafted.requestDraft(FIRST, NOW);
 
     expect(again.hasPendingJob).toBe(false);
     expect(kinds(again)).toEqual([]);
   });
 
   it('drafts a newer run in place of one still waiting', () => {
-    const asked = opened().asked(FIRST, NOW).asked(SECOND, NOW);
+    const requested = opened()
+      .requestDraft(FIRST, NOW)
+      .requestDraft(SECOND, NOW);
 
-    expect(asked.draft?.isFor(SECOND)).toBe(true);
+    expect(requested.draft?.isFor(SECOND)).toBe(true);
   });
 
-  it('hears no later run after its decisions merge', () => {
-    const merged = drafting(opened().asked(FIRST, NOW), FIRST, [
+  it('takes no later run after its decisions merge', () => {
+    const merged = drafting(opened().requestDraft(FIRST, NOW), FIRST, [
       proposed(),
     ]).merge(MERGE);
     merged.pullEvents();
 
-    const asked = merged.asked(SECOND, NOW);
+    const requested = merged.requestDraft(SECOND, NOW);
 
-    expect(asked.hasPendingJob).toBe(false);
-    expect(asked.decidedIn?.equals(FIRST)).toBe(true);
-    expect(kinds(asked)).toEqual([]);
+    expect(requested.hasPendingJob).toBe(false);
+    expect(requested.decidedIn?.equals(FIRST)).toBe(true);
+    expect(kinds(requested)).toEqual([]);
   });
 });
 
 describe('a decision set, drafted', () => {
   it('keeps only the decisions its run grounds, each with its own id', () => {
-    const drafted = drafting(opened().asked(FIRST, NOW), FIRST, [
+    const drafted = drafting(opened().requestDraft(FIRST, NOW), FIRST, [
       proposed(),
       proposed({ title: 'Cites a step the run does not have', steps: [3] }),
       proposed({
@@ -221,17 +225,16 @@ describe('a decision set, drafted', () => {
     const [, recorded] = drafted.pullEvents();
     expect(recorded).toMatchObject({
       kind: 'decisions.recorded',
-      kept: 1,
+      recorded: 1,
       dropped: 3,
     });
   });
 
   it('replaces what an earlier run decided', () => {
     const drafted = drafting(
-      drafting(opened().asked(FIRST, NOW), FIRST, [proposed()]).asked(
-        SECOND,
-        NOW,
-      ),
+      drafting(opened().requestDraft(FIRST, NOW), FIRST, [
+        proposed(),
+      ]).requestDraft(SECOND, NOW),
       SECOND,
       [proposed({ kind: 'limitation', title: 'Retries only once' })],
     );
@@ -244,10 +247,9 @@ describe('a decision set, drafted', () => {
 
   it('records that a run decided nothing', () => {
     const drafted = drafting(
-      drafting(opened().asked(FIRST, NOW), FIRST, [proposed()]).asked(
-        SECOND,
-        NOW,
-      ),
+      drafting(opened().requestDraft(FIRST, NOW), FIRST, [
+        proposed(),
+      ]).requestDraft(SECOND, NOW),
       SECOND,
       [],
     );
@@ -256,11 +258,13 @@ describe('a decision set, drafted', () => {
   });
 
   it('ignores a draft of a run it is no longer drafting', () => {
-    const asked = opened().asked(FIRST, NOW).asked(SECOND, NOW);
+    const requested = opened()
+      .requestDraft(FIRST, NOW)
+      .requestDraft(SECOND, NOW);
 
-    const drafted = drafting(asked, FIRST, [proposed()]);
+    const drafted = drafting(requested, FIRST, [proposed()]);
 
-    expect(drafted).toBe(asked);
+    expect(drafted).toBe(requested);
     expect(drafted.decisions).toEqual([]);
   });
 
@@ -284,8 +288,10 @@ describe('a decision set, drafted', () => {
 
 describe('a decision set, failing to draft', () => {
   it('keeps what an earlier run decided when a later one cannot be drafted', () => {
-    const failed = drafting(opened().asked(FIRST, NOW), FIRST, [proposed()])
-      .asked(SECOND, NOW)
+    const failed = drafting(opened().requestDraft(FIRST, NOW), FIRST, [
+      proposed(),
+    ])
+      .requestDraft(SECOND, NOW)
       .deadLetter();
 
     expect(failed.decisions).toHaveLength(1);
@@ -295,7 +301,7 @@ describe('a decision set, failing to draft', () => {
   });
 
   it('is retried later, then dead-lettered', () => {
-    let set = opened().asked(FIRST, NOW);
+    let set = opened().requestDraft(FIRST, NOW);
 
     for (let attempt = 0; attempt < MAX_JOB_ATTEMPTS; attempt += 1) {
       const due = set.draft?.job.nextAttemptAt ?? NOW;
@@ -307,7 +313,7 @@ describe('a decision set, failing to draft', () => {
   });
 
   it('says its job is exhausted once every attempt is spent', () => {
-    let set = opened().asked(FIRST, NOW);
+    let set = opened().requestDraft(FIRST, NOW);
 
     for (let attempt = 0; attempt < MAX_JOB_ATTEMPTS; attempt += 1) {
       set = set.leaseJob(set.draft?.job.nextAttemptAt ?? NOW);
@@ -321,7 +327,7 @@ describe('a decision set, failing to draft', () => {
   });
 
   it('cannot be leased again while the lease is active', () => {
-    const leased = opened().asked(FIRST, NOW).leaseJob(NOW);
+    const leased = opened().requestDraft(FIRST, NOW).leaseJob(NOW);
 
     expect(() => leased.leaseJob(NOW)).toThrow(InvalidDecisionError);
   });
@@ -329,7 +335,7 @@ describe('a decision set, failing to draft', () => {
 
 describe('a decision set, merged', () => {
   it('merges, and keeps the commit of the merge', () => {
-    const merged = drafting(opened().asked(FIRST, NOW), FIRST, [
+    const merged = drafting(opened().requestDraft(FIRST, NOW), FIRST, [
       proposed(),
     ]).merge(MERGE);
 
@@ -374,7 +380,7 @@ describe('a decision set, merged', () => {
 
 describe('a decision set, closed without a merge', () => {
   it('is discarded', () => {
-    const discarded = drafting(opened().asked(FIRST, NOW), FIRST, [
+    const discarded = drafting(opened().requestDraft(FIRST, NOW), FIRST, [
       proposed(),
     ]).closeUnmerged();
 
@@ -395,7 +401,7 @@ describe('a decision set, closed without a merge', () => {
 
 describe('a decision set, disputed', () => {
   const decided = () =>
-    drafting(opened().asked(FIRST, NOW), FIRST, [
+    drafting(opened().requestDraft(FIRST, NOW), FIRST, [
       proposed(),
       proposed({ title: 'Second' }),
     ]);
@@ -417,7 +423,7 @@ describe('a decision set, disputed', () => {
       now: NOW,
     });
 
-  it('keeps who disputes a decision, and why', () => {
+  it('records who disputes a decision, and why', () => {
     const set = decided();
     const [first, second] = set.decisions;
     const disputed = dispute(set);
@@ -436,7 +442,7 @@ describe('a decision set, disputed', () => {
     expect(first?.id.equals(second?.id as DecisionId)).toBe(false);
   });
 
-  it('keeps every dispute, as a thread of replies', () => {
+  it('records every dispute, as a thread of replies', () => {
     const set = decided();
     const disputed = dispute(dispute(set, { reason: 'First thought' }), {
       id: 'dispute_2',
@@ -461,7 +467,7 @@ describe('a decision set, disputed', () => {
   it('knows no decision a later run replaced', () => {
     const earlier = decided();
     const stale = earlier.decisions[1]?.id as DecisionId;
-    const replaced = drafting(earlier.asked(SECOND, NOW), SECOND, [
+    const replaced = drafting(earlier.requestDraft(SECOND, NOW), SECOND, [
       proposed(),
       proposed({ title: 'Second' }),
     ]);
@@ -472,9 +478,11 @@ describe('a decision set, disputed', () => {
   });
 
   it('drops disputes with the decisions a later run replaces', () => {
-    const replaced = drafting(dispute(decided()).asked(SECOND, NOW), SECOND, [
-      proposed(),
-    ]);
+    const replaced = drafting(
+      dispute(decided()).requestDraft(SECOND, NOW),
+      SECOND,
+      [proposed()],
+    );
 
     expect(replaced.decisions.flatMap((each) => each.disputes)).toEqual([]);
   });

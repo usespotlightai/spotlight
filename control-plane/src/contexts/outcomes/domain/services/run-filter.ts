@@ -27,31 +27,31 @@ const LONGEST_FILTER = 200;
 
 export const MAX_FILTERED_TASKS = 200;
 
-type AskedValue = string | readonly string[] | null;
+type QueryValue = string | readonly string[] | null;
 
-export interface RunFilterAsked {
-  readonly lineId: AskedValue;
-  readonly stationId: AskedValue;
-  readonly outcome: AskedValue;
-  readonly harness: AskedValue;
-  readonly model: AskedValue;
-  readonly repository: AskedValue;
-  readonly fingerprint: AskedValue;
-  readonly taskId: AskedValue;
+export interface RunFilterQuery {
+  readonly lineId: QueryValue;
+  readonly stationId: QueryValue;
+  readonly outcome: QueryValue;
+  readonly harness: QueryValue;
+  readonly model: QueryValue;
+  readonly repository: QueryValue;
+  readonly fingerprint: QueryValue;
+  readonly taskId: QueryValue;
   readonly taskIds: readonly string[] | null;
-  readonly personId: AskedValue;
-  readonly day: AskedValue;
-  readonly week: AskedValue;
-  readonly skillGiven: AskedValue;
-  readonly skillUsed: AskedValue;
-  readonly server: AskedValue;
-  readonly serverFailed: AskedValue;
-  readonly failedAfter: AskedValue;
-  readonly refusedTool: AskedValue;
-  readonly refusedServer: AskedValue;
-  readonly delivery: AskedValue;
-  readonly next: AskedValue;
-  readonly asked: AskedValue;
+  readonly personId: QueryValue;
+  readonly day: QueryValue;
+  readonly week: QueryValue;
+  readonly skillEnabled: QueryValue;
+  readonly skillUsed: QueryValue;
+  readonly server: QueryValue;
+  readonly serverFailed: QueryValue;
+  readonly failedAfter: QueryValue;
+  readonly refusedTool: QueryValue;
+  readonly refusedServer: QueryValue;
+  readonly delivery: QueryValue;
+  readonly next: QueryValue;
+  readonly asked: QueryValue;
 }
 
 export type Narrowing =
@@ -71,7 +71,7 @@ export interface RunFilter {
   readonly personId: string | null;
   readonly day: Window | null;
   readonly week: Window | null;
-  readonly skillGiven: string | null;
+  readonly skillEnabled: string | null;
   readonly skillUsed: string | null;
   readonly server: string | null;
   readonly serverFailed: string | null;
@@ -83,35 +83,35 @@ export interface RunFilter {
   readonly askedWithin: Window | null;
 }
 
-const single = (asked: AskedValue, what: string): string | null => {
-  if (typeof asked === 'string' && asked.length > LONGEST_FILTER) {
+const single = (query: QueryValue, what: string): string | null => {
+  if (typeof query === 'string' && query.length > LONGEST_FILTER) {
     throw new InvalidRunFilterError(
       `${what} must be at most ${LONGEST_FILTER} characters`,
     );
   }
-  if (typeof asked === 'string' || asked === null) {
-    return asked;
+  if (typeof query === 'string' || query === null) {
+    return query;
   }
 
-  throw new InvalidRunFilterError(`takes one ${what}, not ${asked.length}`);
+  throw new InvalidRunFilterError(`takes one ${what}, not ${query.length}`);
 };
 
 const oneOf = <T extends string>(
   values: readonly T[],
-  value: AskedValue,
+  value: QueryValue,
   what: string,
 ): T | null => {
-  const asked = single(value, what);
+  const query = single(value, what);
 
-  if (asked === null) {
+  if (query === null) {
     return null;
   }
 
-  const found = values.find((each) => each === asked);
+  const found = values.find((each) => each === query);
 
   if (!found) {
     throw new InvalidRunFilterError(
-      `${what} must be one of ${values.join(', ')}, not ${asked}`,
+      `${what} must be one of ${values.join(', ')}, not ${query}`,
     );
   }
 
@@ -121,17 +121,17 @@ const oneOf = <T extends string>(
 const FLAGS = ['true', 'false'] as const;
 
 const narrowingOf = (
-  value: AskedValue,
+  value: QueryValue,
   none: string,
   what: string,
 ): Narrowing => {
-  const asked = single(value, what);
+  const query = single(value, what);
 
-  if (asked === null) {
+  if (query === null) {
     return { kind: 'any' };
   }
 
-  return asked === none ? { kind: 'none' } : { kind: 'is', value: asked };
+  return query === none ? { kind: 'none' } : { kind: 'is', value: query };
 };
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -140,103 +140,103 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 
 const MONDAY = 1;
 
-const startOf = (asked: string): Date | null => {
-  const from = DATE.test(asked) ? new Date(`${asked}T00:00:00.000Z`) : null;
+const startOf = (value: string): Date | null => {
+  const from = DATE.test(value) ? new Date(`${value}T00:00:00.000Z`) : null;
 
   return from &&
     !Number.isNaN(from.getTime()) &&
-    from.toISOString().slice(0, 10) === asked
+    from.toISOString().slice(0, 10) === value
     ? from
     : null;
 };
 
-const dayOf = (value: AskedValue, period: Window): Window | null => {
-  const asked = single(value, 'day');
+const dayOf = (value: QueryValue, period: Window): Window | null => {
+  const query = single(value, 'day');
 
-  if (asked === null) {
+  if (query === null) {
     return null;
   }
 
-  const from = startOf(asked);
+  const from = startOf(query);
 
   if (!from || !within(period, from)) {
     throw new InvalidRunFilterError(
-      `day must be a date in the period, in the form YYYY-MM-DD, not ${asked}`,
+      `day must be a date in the period, in the form YYYY-MM-DD, not ${query}`,
     );
   }
 
   return { from, to: new Date(from.getTime() + DAY_MS) };
 };
 
-const weekOf = (value: AskedValue): Window | null => {
-  const asked = single(value, 'week');
+const weekOf = (value: QueryValue): Window | null => {
+  const query = single(value, 'week');
 
-  if (asked === null) {
+  if (query === null) {
     return null;
   }
 
-  const window = DATE.test(asked) ? weekWindowOf(asked) : null;
+  const window = DATE.test(query) ? weekWindowOf(query) : null;
   const monday =
     window !== null &&
     !Number.isNaN(window.from.getTime()) &&
-    window.from.toISOString().slice(0, 10) === asked &&
+    window.from.toISOString().slice(0, 10) === query &&
     window.from.getUTCDay() === MONDAY;
 
   if (!window || !monday) {
     throw new InvalidRunFilterError(
-      `week must be a Monday in the form YYYY-MM-DD, not ${asked}`,
+      `week must be a Monday in the form YYYY-MM-DD, not ${query}`,
     );
   }
 
   return window;
 };
 
-const taskIdsOf = (asked: RunFilterAsked): readonly string[] | null => {
-  if (asked.taskIds !== null && asked.taskIds.length > MAX_FILTERED_TASKS) {
+const taskIdsOf = (query: RunFilterQuery): readonly string[] | null => {
+  if (query.taskIds !== null && query.taskIds.length > MAX_FILTERED_TASKS) {
     throw new InvalidRunFilterError(
       `takes at most ${MAX_FILTERED_TASKS} tasks`,
     );
   }
 
-  const taskId = single(asked.taskId, 'task');
+  const taskId = single(query.taskId, 'task');
 
   if (taskId === null) {
-    return asked.taskIds === null ? null : [...new Set(asked.taskIds)];
+    return query.taskIds === null ? null : [...new Set(query.taskIds)];
   }
 
-  return asked.taskIds === null || asked.taskIds.includes(taskId)
+  return query.taskIds === null || query.taskIds.includes(taskId)
     ? [taskId]
     : [];
 };
 
-const askedWithinOf = (value: AskedValue, period: Window): Window | null =>
+const askedWithinOf = (value: QueryValue, period: Window): Window | null =>
   oneOf(FLAGS, value, 'answer to whether the task asked') === 'true'
     ? period
     : null;
 
 export const runFilterOf = (
-  asked: RunFilterAsked,
+  query: RunFilterQuery,
   period: Window,
 ): RunFilter => ({
-  lineId: single(asked.lineId, 'line'),
-  stationId: single(asked.stationId, 'station'),
-  outcome: oneOf(RUN_ENDINGS, asked.outcome, 'outcome'),
-  harness: single(asked.harness, 'harness'),
-  model: narrowingOf(asked.model, HARNESS_DEFAULT_MODEL, 'model'),
-  repository: narrowingOf(asked.repository, NO_REPOSITORY, 'repository'),
-  fingerprint: single(asked.fingerprint, 'station config'),
-  taskIds: taskIdsOf(asked),
-  personId: single(asked.personId, 'person'),
-  day: dayOf(asked.day, period),
-  week: weekOf(asked.week),
-  skillGiven: single(asked.skillGiven, 'skill given'),
-  skillUsed: single(asked.skillUsed, 'skill used'),
-  server: single(asked.server, 'server'),
-  serverFailed: single(asked.serverFailed, 'server that failed'),
-  failedAfter: single(asked.failedAfter, 'server failed after'),
-  refusedTool: single(asked.refusedTool, 'refused tool'),
-  refusedServer: narrowingOf(asked.refusedServer, NO_SERVER, 'refused server'),
-  delivery: oneOf(DELIVERY_STATES, asked.delivery, 'delivery'),
-  next: oneOf(NEXT_ACTS, asked.next, 'next act'),
-  askedWithin: askedWithinOf(asked.asked, period),
+  lineId: single(query.lineId, 'line'),
+  stationId: single(query.stationId, 'station'),
+  outcome: oneOf(RUN_ENDINGS, query.outcome, 'outcome'),
+  harness: single(query.harness, 'harness'),
+  model: narrowingOf(query.model, HARNESS_DEFAULT_MODEL, 'model'),
+  repository: narrowingOf(query.repository, NO_REPOSITORY, 'repository'),
+  fingerprint: single(query.fingerprint, 'station config'),
+  taskIds: taskIdsOf(query),
+  personId: single(query.personId, 'person'),
+  day: dayOf(query.day, period),
+  week: weekOf(query.week),
+  skillEnabled: single(query.skillEnabled, 'skill enabled'),
+  skillUsed: single(query.skillUsed, 'skill used'),
+  server: single(query.server, 'server'),
+  serverFailed: single(query.serverFailed, 'server that failed'),
+  failedAfter: single(query.failedAfter, 'server failed after'),
+  refusedTool: single(query.refusedTool, 'refused tool'),
+  refusedServer: narrowingOf(query.refusedServer, NO_SERVER, 'refused server'),
+  delivery: oneOf(DELIVERY_STATES, query.delivery, 'delivery'),
+  next: oneOf(NEXT_ACTS, query.next, 'next act'),
+  askedWithin: askedWithinOf(query.asked, period),
 });

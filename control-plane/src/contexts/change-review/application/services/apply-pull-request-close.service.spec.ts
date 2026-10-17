@@ -37,7 +37,7 @@ const decided = () =>
     taskId: TASK,
     workspaceId: WORKSPACE,
   })
-    .asked(RUN, NOW)
+    .requestDraft(RUN, NOW)
     .recordDraft({
       runId: RUN,
       newId: () => 'decision_1',

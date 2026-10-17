@@ -218,13 +218,13 @@ export class DrizzleMemoryRepository implements MemoryRepository {
     const [row] = result.rows;
 
     if (!row) {
-      throw new Error('The memory handle sequence gave no number');
+      throw new Error('The memory handle sequence returned no number');
     }
 
     return MemoryHandle.of(Number(row.next));
   }
 
-  async mayReach(
+  async mayApplyAt(
     site: RunSite,
     asOf: Date | null = null,
   ): Promise<readonly Memory[]> {

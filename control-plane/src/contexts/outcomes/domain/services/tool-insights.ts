@@ -17,7 +17,7 @@ import { LatencyHistogram } from '@shared-kernel/domain/value-objects/latency-hi
 export interface SkillWeek {
   readonly week: string;
   readonly runs: number;
-  readonly given: number;
+  readonly enabled: number;
   readonly used: number;
   readonly usedShare: number | null;
 }
@@ -26,7 +26,7 @@ export interface SkillAtStation {
   readonly lineId: string;
   readonly stationId: string;
   readonly runs: number;
-  readonly given: number;
+  readonly enabled: number;
   readonly used: number;
   readonly trend: SkillTrend | null;
 }
@@ -34,7 +34,7 @@ export interface SkillAtStation {
 export interface SkillReport {
   readonly key: string;
   readonly defined: boolean;
-  readonly given: number;
+  readonly enabled: number;
   readonly used: number;
   readonly weeks: readonly SkillWeek[];
   readonly trend: SkillTrend | null;
@@ -70,7 +70,7 @@ export interface SkillUseCount {
   readonly key: string;
   readonly stationId: string | null;
   readonly week: string | null;
-  readonly given: number;
+  readonly enabled: number;
   readonly used: number;
 }
 
@@ -100,7 +100,7 @@ export interface ToolInsights {
   readonly refusals: readonly ToolRefusals[];
 }
 
-const givenTo = (record: RunRecord, skill: string): boolean =>
+const enabledFor = (record: RunRecord, skill: string): boolean =>
   record.end?.setup.skills.includes(skill) === true;
 
 const usedBy = (record: RunRecord, skill: string): boolean =>
@@ -180,10 +180,12 @@ const skillUseOf = (
 
   return keys.flatMap((key) =>
     groups.flatMap(({ stationId, week, records: grouped }) => {
-      const given = count(grouped, (each) => givenTo(each, key));
+      const enabled = count(grouped, (each) => enabledFor(each, key));
       const used = count(grouped, (each) => usedBy(each, key));
 
-      return given + used === 0 ? [] : [{ key, stationId, week, given, used }];
+      return enabled + used === 0
+        ? []
+        : [{ key, stationId, week, enabled, used }];
     }),
   );
 };
@@ -290,16 +292,16 @@ export const toolInsightsFrom = (
   const runsAt = (stationId: string | null, week: string | null): number =>
     runs.get(keyOf(stationId, week)) ?? 0;
   const useAt = (key: string, stationId: string | null, week: string | null) =>
-    uses.get(keyOf(key, stationId, week)) ?? { given: 0, used: 0 };
+    uses.get(keyOf(key, stationId, week)) ?? { enabled: 0, used: 0 };
   const weekly = (key: string, stationId: string | null): SkillWeek[] =>
     weeks.map((week) => {
       const inWeek = runsAt(stationId, week);
-      const { given, used } = useAt(key, stationId, week);
+      const { enabled, used } = useAt(key, stationId, week);
 
       return {
         week,
         runs: inWeek,
-        given,
+        enabled,
         used,
         usedShare: rateOf(used, inWeek),
       };
@@ -313,20 +315,20 @@ export const toolInsightsFrom = (
       return {
         key,
         defined: definedKeys.has(key),
-        given: all.given,
+        enabled: all.enabled,
         used: all.used,
         weeks: team,
         trend: skillTrendOf(team),
         stations: counts.stations.flatMap((place) => {
           const there = useAt(key, place.stationId, null);
 
-          return there.given + there.used === 0
+          return there.enabled + there.used === 0
             ? []
             : [
                 {
                   ...place,
                   runs: runsAt(place.stationId, null),
-                  given: there.given,
+                  enabled: there.enabled,
                   used: there.used,
                   trend: skillTrendOf(weekly(key, place.stationId)),
                 },

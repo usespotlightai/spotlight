@@ -35,7 +35,7 @@ import { seatTeam } from './support/team';
 const DELIVERY = definitionOf(BUILT_IN_LINES[0] as LineOpening);
 
 const JUDGE = {
-  rubric: 'A good run changes only what the task asks for.\n',
+  rubric: 'A good run changes only what the task requests.\n',
   sample: 0.2,
   trust: 0.6,
 };
@@ -186,7 +186,7 @@ describe('a line, created through the resource API (e2e)', () => {
     );
   });
 
-  it('keeps a prompt exactly as written, so applying it again reads back the same', async () => {
+  it('stores a prompt exactly as written, so applying it again reads back the same', async () => {
     const written = {
       ...DELIVERY,
       stations: DELIVERY.stations.map((each, at) =>
@@ -228,7 +228,7 @@ describe('a line, created through the resource API (e2e)', () => {
     expect(stopped.body.definition.stations[1].memories).toBe(false);
   });
 
-  it('keeps a station’s judge and its alerts as written, in their order, and clears them once left out', async () => {
+  it('stores a station’s judge and its alerts as written, in their order, and clears them once left out', async () => {
     const made = await create(judged(JUDGE, ALERTS));
     const again = await change(
       made.body.id,
@@ -298,7 +298,7 @@ describe('a line, created through the resource API (e2e)', () => {
     }
   });
 
-  it('keeps a judge of checkable claims, with or without a rubric, and the share of claims a run must meet', async () => {
+  it('stores a judge of checkable claims, with or without a rubric, and the share of claims a run must meet', async () => {
     const claims = [
       'The change adds a test that fails without it.',
       'The change touches only the files the task names.',
@@ -368,7 +368,7 @@ describe('a line, created through the resource API (e2e)', () => {
     }
   });
 
-  it('keeps the threshold a planned change is checked against, filling in what it leaves out, and clears it once left out', async () => {
+  it('stores the threshold a planned change is checked against, filling in what it leaves out, and clears it once left out', async () => {
     const made = await create({
       ...DELIVERY,
       replayCheck: { maxRegressions: 1, currency: 'eur' },
@@ -419,7 +419,7 @@ describe('a line, created through the resource API (e2e)', () => {
     }
   });
 
-  it('keeps where the line’s Terraform lives, shows it on the team’s lines, and clears it once set to null', async () => {
+  it('stores where the line’s Terraform lives, shows it on the team’s lines, and clears it once set to null', async () => {
     const source = {
       repository: 'acme/platform',
       path: 'teams/core/delivery.tf',
@@ -458,7 +458,7 @@ describe('a line, created through the resource API (e2e)', () => {
     }
   });
 
-  it('keeps the image and setup each repository names, and reads them back as written', async () => {
+  it('stores the image and setup each repository names, and reads them back as written', async () => {
     const written = {
       ...DELIVERY,
       repositories: [

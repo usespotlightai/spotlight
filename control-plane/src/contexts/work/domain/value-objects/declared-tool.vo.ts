@@ -134,21 +134,21 @@ export class DeclaredTool {
     );
   }
 
-  intentIn(given: unknown): {
+  intentIn(value: unknown): {
     readonly intent: ApprovalIntent | null;
     readonly rest: unknown;
   } {
     if (
       !this.approval ||
-      given === null ||
-      typeof given !== 'object' ||
-      Array.isArray(given) ||
-      !(APPROVAL_INTENT_INPUT in given)
+      value === null ||
+      typeof value !== 'object' ||
+      Array.isArray(value) ||
+      !(APPROVAL_INTENT_INPUT in value)
     ) {
-      return { intent: null, rest: given };
+      return { intent: null, rest: value };
     }
 
-    const { [APPROVAL_INTENT_INPUT]: intent, ...rest } = given as Record<
+    const { [APPROVAL_INTENT_INPUT]: intent, ...rest } = value as Record<
       string,
       unknown
     >;
@@ -165,12 +165,12 @@ export class DeclaredTool {
   }
 
   accept(
-    given: unknown,
+    value: unknown,
     defaultFor: (input: ToolInput) => unknown = () => undefined,
   ): ToolInputs {
     const handed = (
-      given !== null && typeof given === 'object' && !Array.isArray(given)
-        ? given
+      value !== null && typeof value === 'object' && !Array.isArray(value)
+        ? value
         : {}
     ) as Record<string, unknown>;
     const takes = this.inputs.map((each) => each.name);

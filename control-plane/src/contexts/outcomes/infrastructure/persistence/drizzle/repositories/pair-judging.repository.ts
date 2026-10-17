@@ -47,7 +47,7 @@ const toPairJudging = (row: Row): PairJudging =>
     reference: RunId.of(row.referenceRunId),
     maxAttempts: row.maxAttempts,
     order: row.shownOrder,
-    askedAt: row.askedAt,
+    queuedAt: row.queuedAt,
     job: row.pending
       ? PendingJob.rehydrate({
           attempts: row.jobAttempts,
@@ -99,7 +99,7 @@ export class DrizzlePairJudgingRepository implements PairJudgingRepository {
           referenceRunId: added.reference.value,
           maxAttempts: added.maxAttempts,
           shownOrder: added.order,
-          askedAt: added.askedAt,
+          queuedAt: added.queuedAt,
           version: added.version,
           ...columnsOf(added),
         })
@@ -169,7 +169,7 @@ export class DrizzlePairJudgingRepository implements PairJudgingRepository {
           or(isNull(pairJudging.jobDueAt), lte(pairJudging.jobDueAt, now)),
         ),
       )
-      .orderBy(asc(pairJudging.askedAt))
+      .orderBy(asc(pairJudging.queuedAt))
       .limit(1)
       .for('update', { skipLocked: true });
 

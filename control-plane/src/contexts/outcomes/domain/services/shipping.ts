@@ -630,12 +630,12 @@ export const pipelineCountsOf = (
   taskIds: readonly string[],
   period: InsightsPeriod,
 ): PipelineCounts => {
-  const reach = period.lookback;
+  const lookback = period.lookback;
   const touched = openingsOf(history.touches);
   const openings = [...new Set(taskIds)].sort(byText).flatMap((taskId) => {
     const openedAt = touched.get(taskId)?.opening?.at ?? null;
 
-    return openedAt !== null && openedAt.getTime() >= reach.from.getTime()
+    return openedAt !== null && openedAt.getTime() >= lookback.from.getTime()
       ? [{ taskId, openedAt }]
       : [];
   });
@@ -643,7 +643,7 @@ export const pipelineCountsOf = (
   const runs = history.records.filter(
     (each) => each.taskId && tasks.has(each.taskId.value) && each.end,
   );
-  const waits = inboxWaitsWithin(history, reach);
+  const waits = inboxWaitsWithin(history, lookback);
   const stations = stationsOf(runs);
   const stationIds = stations.map((each) => each.stationId).sort(byText);
 

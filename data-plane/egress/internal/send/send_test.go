@@ -13,14 +13,14 @@ import (
 	"testing"
 	"time"
 
+	"usespotlight.ai/data-plane/allowlist"
 	"usespotlight.ai/data-plane/protocol"
-	"usespotlight.ai/data-plane/reach"
 )
 
-func listed(t *testing.T, entries ...string) reach.List {
+func listed(t *testing.T, entries ...string) allowlist.List {
 	t.Helper()
 
-	list, err := reach.Parse(entries)
+	list, err := allowlist.Parse(entries)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -118,7 +118,7 @@ func TestBlocksAHostTheAllowListLeavesOut(t *testing.T) {
 	sender := New(listed(t, "grafana.example.com"))
 
 	answer := sender.Send(context.Background(), protocol.HostCall{URL: "https://audit.acme.internal/"})
-	if answer.Status != 0 || answer.Error != "The host's allow-list doesn't admit audit.acme.internal." {
+	if answer.Status != 0 || answer.Error != "The host's allow-list doesn't allow audit.acme.internal." {
 		t.Errorf("answered %+v", answer)
 	}
 }

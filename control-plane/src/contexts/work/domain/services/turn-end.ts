@@ -71,12 +71,12 @@ export const turnEnded = (turn: {
   line: Line | null;
   outcome: RunOutcome;
   report: HandoverReport;
-  kept: boolean;
+  archived: boolean;
   now: Date;
 }): TurnEnd => {
-  const { run, by, task, line, outcome, report, kept, now } = turn;
+  const { run, by, task, line, outcome, report, archived, now } = turn;
 
-  const asked = { run, task, line, outcome, handover: report.handover };
+  const ending = { run, task, line, outcome, handover: report.handover };
 
   if (run.leavesNothingBehind) {
     return {
@@ -86,13 +86,13 @@ export const turnEnded = (turn: {
     };
   }
 
-  const waits = turnWaits({ ...asked, by, mayBeSentToReview: false });
+  const waits = turnWaits({ ...ending, by, mayBeSentToReview: false });
 
   if (waits && run.pausedBy(by)) {
     return { waiting: true, run, task: null };
   }
 
-  if (!task || !kept || !waits) {
+  if (!task || !archived || !waits) {
     return {
       waiting: false,
       run: run.complete(by, outcome, report),
@@ -114,7 +114,7 @@ export const turnEnded = (turn: {
       : worked.putToAPerson(run.id, {
           station:
             line?.stationAt(task.stationId)?.name ?? StationName.unknown(),
-          body: handoverOf(task, asked).body,
+          body: handoverOf(task, ending).body,
           at: now,
           voice: Voice.station(run.id),
         }),

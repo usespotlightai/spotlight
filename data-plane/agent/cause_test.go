@@ -19,27 +19,27 @@ func causer(t *testing.T, status int, body string) *[]protocol.CauseRecord {
 	}
 	t.Cleanup(func() { _ = server.Close() })
 
-	var asked []protocol.CauseRecord
+	var received []protocol.CauseRecord
 	server.Causes(func(record protocol.CauseRecord) (int, string) {
-		asked = append(asked, record)
+		received = append(received, record)
 		return status, body
 	})
 
 	t.Setenv(protocol.AgentAPIURLVar, server.URL())
 	t.Setenv(protocol.AgentAPITokenVar, server.Token())
 
-	return &asked
+	return &received
 }
 
 const recordedJudge = `{"taskId":"task_1","cause":"judge","replayRunId":"replayed_1"}`
 
 func TestCauseRecordsTheCauseOfAFailingTask(t *testing.T) {
-	asked := causer(t, 200, recordedJudge)
+	received := causer(t, 200, recordedJudge)
 	out := new(bytes.Buffer)
 
 	err := run([]string{
 		"cause", "--task", "task_1", "--cause", "judge",
-		"--evidence", "The rubric asks for tests the task never needed.", "--suggestion", "Drop that line.",
+		"--evidence", "The rubric requires tests the task never needed.", "--suggestion", "Drop that line.",
 	}, strings.NewReader(""), out)
 	if err != nil {
 		t.Fatalf("run: %v", err)
@@ -47,10 +47,10 @@ func TestCauseRecordsTheCauseOfAFailingTask(t *testing.T) {
 
 	want := protocol.CauseRecord{
 		TaskID: "task_1", Cause: "judge",
-		Evidence: "The rubric asks for tests the task never needed.", Suggestion: "Drop that line.",
+		Evidence: "The rubric requires tests the task never needed.", Suggestion: "Drop that line.",
 	}
-	if len(*asked) != 1 || (*asked)[0] != want {
-		t.Errorf("recorded %+v", *asked)
+	if len(*received) != 1 || (*received)[0] != want {
+		t.Errorf("recorded %+v", *received)
 	}
 	for _, want := range []string{"Recorded judge as the cause for task task_1, whose replay run replayed_1 failed.", "replaces this one"} {
 		if !strings.Contains(out.String(), want) {
@@ -60,7 +60,7 @@ func TestCauseRecordsTheCauseOfAFailingTask(t *testing.T) {
 }
 
 func TestCauseReadsItsEvidenceAndSuggestionFromFiles(t *testing.T) {
-	asked := causer(t, 201, recordedJudge)
+	received := causer(t, 201, recordedJudge)
 	dir := t.TempDir()
 	evidence := filepath.Join(dir, "evidence.md")
 	suggestion := filepath.Join(dir, "suggestion.md")
@@ -77,13 +77,13 @@ func TestCauseReadsItsEvidenceAndSuggestionFromFiles(t *testing.T) {
 		t.Fatalf("run: %v", err)
 	}
 
-	if len(*asked) != 1 || (*asked)[0].Evidence != "Step 12 shows\nthe judge misread it." || (*asked)[0].Suggestion != "Say what passing means." {
-		t.Errorf("recorded %+v", *asked)
+	if len(*received) != 1 || (*received)[0].Evidence != "Step 12 shows\nthe judge misread it." || (*received)[0].Suggestion != "Say what passing means." {
+		t.Errorf("recorded %+v", *received)
 	}
 }
 
-func TestCauseRejectsMisuseBeforeAskingSpotlight(t *testing.T) {
-	asked := causer(t, 200, recordedJudge)
+func TestCauseRejectsMisuseBeforeCallingSpotlight(t *testing.T) {
+	received := causer(t, 200, recordedJudge)
 
 	for _, args := range [][]string{
 		{"cause"},
@@ -103,8 +103,8 @@ func TestCauseRejectsMisuseBeforeAskingSpotlight(t *testing.T) {
 		strings.NewReader(""), new(bytes.Buffer)); err == nil || !strings.Contains(err.Error(), "read the evidence") {
 		t.Errorf("a missing evidence file returned %v", err)
 	}
-	if len(*asked) != 0 {
-		t.Errorf("recorded anyway: %+v", *asked)
+	if len(*received) != 0 {
+		t.Errorf("recorded anyway: %+v", *received)
 	}
 }
 

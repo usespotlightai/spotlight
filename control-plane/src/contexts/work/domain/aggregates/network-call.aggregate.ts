@@ -170,7 +170,7 @@ export class NetworkCall extends EventRecorder {
   purge(now: Date): NetworkCall {
     if (!this.isPastRetention(now)) {
       throw new InvalidNetworkCallTransitionError(
-        `Network call ${this.state.id.value} is kept for a week after it completes.`,
+        `Network call ${this.state.id.value} is stored for a week after it completes.`,
       );
     }
 

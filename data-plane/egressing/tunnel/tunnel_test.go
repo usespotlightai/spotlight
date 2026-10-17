@@ -37,16 +37,16 @@ func TestSpliceCarriesBothWaysAndCountsTheBytes(t *testing.T) {
 	sandbox, client := connected(t)
 	upstream, host := connected(t)
 
-	heard := make(chan string, 1)
+	got := make(chan string, 1)
 	go func() {
 		_, _ = sandbox.Write([]byte("hello"))
 		CloseWrite(sandbox)
 		answer, _ := io.ReadAll(sandbox)
-		heard <- string(answer)
+		got <- string(answer)
 	}()
 	go func() {
-		asked, _ := io.ReadAll(host)
-		_, _ = host.Write([]byte("answered " + string(asked)))
+		sent, _ := io.ReadAll(host)
+		_, _ = host.Write([]byte("answered " + string(sent)))
 		CloseWrite(host)
 	}()
 
@@ -55,8 +55,8 @@ func TestSpliceCarriesBothWaysAndCountsTheBytes(t *testing.T) {
 	if out != 5 || in != 14 {
 		t.Errorf("counted %d out and %d in", out, in)
 	}
-	if answer := <-heard; answer != "answered hello" {
-		t.Errorf("the sandbox heard %q", answer)
+	if answer := <-got; answer != "answered hello" {
+		t.Errorf("the sandbox read %q", answer)
 	}
 }
 
@@ -88,6 +88,6 @@ func TestOneHandsItsConnectionOutOnceAndClosesWithIt(t *testing.T) {
 
 	_ = handed.Close()
 	if err := <-accepted; err != net.ErrClosed {
-		t.Errorf("the second accept gave %v", err)
+		t.Errorf("the second accept returned %v", err)
 	}
 }

@@ -27,7 +27,7 @@ const creating = (
     failing?: Error;
   } = {},
 ) => {
-  const kept = definitions({ failing: over.failing });
+  const repository = definitions({ failing: over.failing });
   const keys = creates(over.claim);
   const within: string[] = [];
   let open = false;
@@ -35,7 +35,7 @@ const creating = (
     access(over.administers),
     teams(),
     sources,
-    kept,
+    repository,
     keys,
     recalls(over.recall),
     { generate: () => 'integration_new' },
@@ -57,7 +57,7 @@ const creating = (
     noted('claim');
     return over.claim ?? { kind: 'fresh' };
   });
-  kept.save.mockImplementation(async () => {
+  repository.save.mockImplementation(async () => {
     noted('save');
 
     if (over.failing) {
@@ -79,7 +79,7 @@ const creating = (
           definition,
         ),
       ),
-    kept,
+    repository,
     keys,
   };
 };
@@ -98,7 +98,7 @@ describe('CreateIntegrationHandler', () => {
   });
 
   it('creates the integration under an id it issues, and records what the key created', async () => {
-    const { create, kept, keys } = creating();
+    const { create, repository, keys } = creating();
 
     expect(await create(LINEAR)).toEqual({
       outcome: 'created',
@@ -106,7 +106,7 @@ describe('CreateIntegrationHandler', () => {
       replayed: false,
     });
 
-    const [saved] = kept.save.mock.calls[0] as [IntegrationDefinition];
+    const [saved] = repository.save.mock.calls[0] as [IntegrationDefinition];
 
     expect(saved.isNew).toBe(true);
     expect(saved.teamId).toEqual(TEAM);
@@ -117,7 +117,7 @@ describe('CreateIntegrationHandler', () => {
   });
 
   it('answers a retry with what the key created, creating nothing more', async () => {
-    const { create, kept } = creating({
+    const { create, repository } = creating({
       claim: { kind: 'replay', createdId: 'integration_first' },
     });
 
@@ -126,12 +126,12 @@ describe('CreateIntegrationHandler', () => {
       id: 'integration_first',
       replayed: true,
     });
-    expect(kept.save).not.toHaveBeenCalled();
+    expect(repository.save).not.toHaveBeenCalled();
   });
 
   it('answers a retry the key already created from what it created, reading nothing again', async () => {
     const reading = vi.spyOn(sources, 'compiled');
-    const { create, kept, keys } = creating({
+    const { create, repository, keys } = creating({
       recall: { kind: 'replay', createdId: 'integration_first' },
     });
 
@@ -142,24 +142,26 @@ describe('CreateIntegrationHandler', () => {
     });
     expect(reading).not.toHaveBeenCalled();
     expect(keys.claim).not.toHaveBeenCalled();
-    expect(kept.save).not.toHaveBeenCalled();
+    expect(repository.save).not.toHaveBeenCalled();
   });
 
   it('rejects a key already used for a different request before reading anything', async () => {
     const reading = vi.spyOn(sources, 'compiled');
-    const { create, kept, keys } = creating({ recall: { kind: 'reused' } });
+    const { create, repository, keys } = creating({
+      recall: { kind: 'reused' },
+    });
 
     expect(await create(LINEAR)).toEqual({ outcome: 'key-reused' });
     expect(reading).not.toHaveBeenCalled();
     expect(keys.claim).not.toHaveBeenCalled();
-    expect(kept.save).not.toHaveBeenCalled();
+    expect(repository.save).not.toHaveBeenCalled();
   });
 
   it('rejects a key used for a different request', async () => {
-    const { create, kept } = creating({ claim: { kind: 'reused' } });
+    const { create, repository } = creating({ claim: { kind: 'reused' } });
 
     expect(await create(LINEAR)).toEqual({ outcome: 'key-reused' });
-    expect(kept.save).not.toHaveBeenCalled();
+    expect(repository.save).not.toHaveBeenCalled();
   });
 
   it('answers a create for a host the team already has with its address', async () => {
@@ -174,21 +176,21 @@ describe('CreateIntegrationHandler', () => {
     expect(keys.created).not.toHaveBeenCalled();
   });
 
-  it('says what is wrong with one that will not compile, and keeps nothing', async () => {
-    const { create, kept, keys } = creating();
+  it('says what is wrong with one that will not compile, and stores nothing', async () => {
+    const { create, repository, keys } = creating();
 
     expect(await create({ integration: 'linear' })).toMatchObject({
       outcome: 'invalid',
       problems: [{ field: FieldPath.dotted('actions.comment.request.url') }],
     });
-    expect(kept.save).not.toHaveBeenCalled();
+    expect(repository.save).not.toHaveBeenCalled();
     expect(keys.claim).not.toHaveBeenCalled();
   });
 
   it('forbids someone on the team who does not administer it', async () => {
-    const { create, kept } = creating({ administers: false });
+    const { create, repository } = creating({ administers: false });
 
     expect(await create(LINEAR)).toEqual(forbiddenTo('configure'));
-    expect(kept.save).not.toHaveBeenCalled();
+    expect(repository.save).not.toHaveBeenCalled();
   });
 });

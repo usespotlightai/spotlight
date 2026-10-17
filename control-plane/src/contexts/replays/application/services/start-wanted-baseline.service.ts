@@ -1,5 +1,5 @@
 import { Replay } from '@replays/domain/aggregates/replay.aggregate';
-import type { ReplayBaselineWanted } from '@replays/domain/events/replay-baseline-wanted.event';
+import type { ReplayBaselineRequested } from '@replays/domain/events/replay-baseline-requested.event';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
@@ -17,7 +17,7 @@ export class StartWantedBaseline {
     private readonly transaction: TransactionPort,
   ) {}
 
-  wanted(event: ReplayBaselineWanted): Promise<void> {
+  requested(event: ReplayBaselineRequested): Promise<void> {
     return this.transaction.inTransaction(async () => {
       if (await this.replays.find(event.baselineId)) {
         return;

@@ -44,7 +44,7 @@ const DELIVERY: LineDefinition = {
       decisions: true,
       memories: false,
       judge: {
-        rubric: 'A good run changes only what the task asks for.\n',
+        rubric: 'A good run changes only what the task requests.\n',
         sample: 0.2,
         trust: 0.6,
       },
@@ -233,7 +233,7 @@ export const CONFIGURATION: ExportableConfigurationDto = {
           prefix: 'Bearer ',
         },
       ],
-      keepsValue: true,
+      storesValue: true,
       valueVersion: 3,
     },
     {
@@ -251,7 +251,7 @@ export const CONFIGURATION: ExportableConfigurationDto = {
           prefix: 'Bearer ',
         },
       ],
-      keepsValue: true,
+      storesValue: true,
       valueVersion: null,
     },
     {
@@ -266,7 +266,7 @@ export const CONFIGURATION: ExportableConfigurationDto = {
         field: 'secret',
       },
       bindings: [],
-      keepsValue: false,
+      storesValue: false,
       valueVersion: null,
     },
     {

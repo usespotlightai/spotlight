@@ -25,7 +25,7 @@ export class ChatMessageBody {
     return new ChatMessageBody(trimmed);
   }
 
-  static given(
+  static fromInput(
     raw: string,
     attachments: readonly Attachment[] = [],
     traces: readonly TraceReference[] = [],
@@ -39,7 +39,7 @@ export class ChatMessageBody {
       raw.trim() ||
         [
           improving
-            ? `Asked to improve ${improving.stationName.value} on ${improving.lineName.value}.`
+            ? `Requested an improvement to ${improving.stationName.value} on ${improving.lineName.value}.`
             : '',
           names ? `Attached ${names}.` : '',
           traced

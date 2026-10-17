@@ -26,7 +26,7 @@ export function RevokeTokenDialog({
   onClose,
 }: RevokeTokenDialogProps) {
   const revoke = useRevokeWorkspaceToken(workspaceId);
-  const asked = useLingering(token, CLOSING_MS);
+  const shown = useLingering(token, CLOSING_MS);
 
   return (
     <Dialog
@@ -36,7 +36,7 @@ export function RevokeTokenDialog({
     >
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Revoke {asked?.name}?</DialogTitle>
+          <DialogTitle>Revoke {shown?.name}?</DialogTitle>
           <DialogDescription>
             Spotlight immediately stops accepting this token. You can’t undo
             this.

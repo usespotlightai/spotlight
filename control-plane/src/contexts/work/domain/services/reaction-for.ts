@@ -7,9 +7,9 @@ import type { Mark } from '@work/domain/value-objects/mark.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import type { OpensWith } from '@work/domain/value-objects/opens-with';
 import type {
-  ReviewAsked,
   ReviewRequest,
-} from '@work/domain/value-objects/review-asked.vo';
+  ReviewRequestReceived,
+} from '@work/domain/value-objects/review-request.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
 import { TaskDescription } from '@work/domain/value-objects/task-description.vo';
 import { TaskNoteBody } from '@work/domain/value-objects/task-note-body.vo';
@@ -43,7 +43,7 @@ export interface OpenedOn {
 
 export type ReviewAnswer =
   | { readonly kind: 'nothing' }
-  | { readonly kind: 'heard'; readonly by: Task }
+  | { readonly kind: 'received'; readonly by: Task }
   | { readonly kind: 'opens'; readonly on: OpenedOn };
 
 const spotlights = (
@@ -72,7 +72,10 @@ export const ReactionFor = {
 
     const note = (
       station: StationName,
-      body = TaskNoteBody.heard(input.payload.summary, input.anchor),
+      body = TaskNoteBody.receivedHappening(
+        input.payload.summary,
+        input.anchor,
+      ),
     ): OutcomeNote => ({ station, body, anchor: input.anchor });
 
     if (rule) {
@@ -154,7 +157,7 @@ export const ReactionFor = {
   },
 
   // pullRequestTask has the mark of the pull request. reviewTask has the mark of a review of the pull request.
-  reviewAsked(input: {
+  reviewRequested(input: {
     lines: readonly Line[];
     opens: OpensWith;
     request: ReviewRequest;
@@ -165,7 +168,7 @@ export const ReactionFor = {
     const on = ReactionFor.reviewOn({
       lines: input.lines,
       opens: input.opens,
-      asked: {
+      request: {
         ...input.request,
         anchor: input.anchor,
         ours: spotlights(input.request, input.pullRequestTask),
@@ -177,20 +180,20 @@ export const ReactionFor = {
     }
 
     return input.reviewTask && input.reviewTask.finishedAt === null
-      ? { kind: 'heard', by: input.reviewTask }
+      ? { kind: 'received', by: input.reviewTask }
       : { kind: 'opens', on };
   },
 
   reviewOn(input: {
     lines: readonly Line[];
     opens: OpensWith;
-    asked: ReviewAsked;
+    request: ReviewRequestReceived;
   }): OpenedOn | null {
-    const repository = input.asked.pullRequest.repository;
+    const repository = input.request.pullRequest.repository;
     const named = (line: Line): number =>
       repository && line.names(repository) ? 0 : 1;
     const ordered = input.lines
-      .filter((line) => line.takesReview(input.asked))
+      .filter((line) => line.takesReview(input.request))
       .sort(
         (one, other) =>
           named(one) - named(other) ||

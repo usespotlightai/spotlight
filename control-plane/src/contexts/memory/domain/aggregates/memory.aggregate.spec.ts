@@ -76,7 +76,7 @@ describe('Memory', () => {
     );
   });
 
-  it('applies only where its scope reaches, and only while it is active', () => {
+  it('applies only where its scope matches, and only while it is active', () => {
     const api = Repository.of('acme/api');
     const site = {
       teamId: TEAM,

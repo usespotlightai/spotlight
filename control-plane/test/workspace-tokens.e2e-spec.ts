@@ -213,13 +213,13 @@ describe('workspace tokens, acting in their workspace (e2e)', () => {
     await seat.unseat();
   });
 
-  it('answers the token once, on its create, and keeps only its hash', async () => {
+  it('answers the token once, on its create, and stores only its hash', async () => {
     const answer = await issue(['plan'], 'survey');
     const token = answer.headers[TOKEN_HEADER] as string;
     const read = await http()
       .get(`/api/resources/tokens/${answer.body.id}`)
       .set(TEST_USER_HEADER, seat.owner);
-    const [kept] = await db
+    const [stored] = await db
       .select({ hash: schema.workspaceToken.tokenHash })
       .from(schema.workspaceToken)
       .where(eq(schema.workspaceToken.id, answer.body.id));
@@ -228,7 +228,7 @@ describe('workspace tokens, acting in their workspace (e2e)', () => {
     expect(JSON.stringify(answer.body)).not.toContain(token);
     expect(read.headers[TOKEN_HEADER]).toBeUndefined();
     expect(JSON.stringify(read.body)).not.toContain(token);
-    expect(kept?.hash).toBe(createHash('sha256').update(token).digest('hex'));
+    expect(stored?.hash).toBe(createHash('sha256').update(token).digest('hex'));
   });
 
   it('lets a read token read its workspace, and nothing more', async () => {
@@ -538,7 +538,7 @@ describe('workspace tokens, acting in their workspace (e2e)', () => {
     }
   });
 
-  it('admits nobody once revoked or expired', async () => {
+  it('allows nobody once revoked or expired', async () => {
     const workspace = `/api/resources/workspaces/${seat.workspaceId}`;
     const [plan] = await db
       .select({ id: schema.workspaceToken.id })

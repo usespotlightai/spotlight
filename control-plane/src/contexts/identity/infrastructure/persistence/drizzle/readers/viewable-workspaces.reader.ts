@@ -15,9 +15,9 @@ export class DrizzleViewableWorkspaces implements ViewableWorkspacesPort {
     viewer: UserId,
     workspaces: readonly WorkspaceId[],
   ): Promise<ReadonlySet<string>> {
-    const asked = [...new Set(workspaces.map((each) => each.value))];
+    const unique = [...new Set(workspaces.map((each) => each.value))];
 
-    if (asked.length === 0) {
+    if (unique.length === 0) {
       return new Set();
     }
 
@@ -27,7 +27,7 @@ export class DrizzleViewableWorkspaces implements ViewableWorkspacesPort {
       .where(
         and(
           eq(workspaceMember.userId, viewer.value),
-          inArray(workspaceMember.workspaceId, asked),
+          inArray(workspaceMember.workspaceId, unique),
         ),
       );
 

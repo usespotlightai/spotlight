@@ -59,15 +59,15 @@ func TestRelaysACandidateToSpotlightAsTheRunner(t *testing.T) {
 		t.Fatalf("status = %d: %s", status, body)
 	}
 	if len(*seen) != 1 {
-		t.Fatalf("asked Spotlight %d times", len(*seen))
+		t.Fatalf("called Spotlight %d times", len(*seen))
 	}
-	asked := (*seen)[0]
-	if asked.method != http.MethodPost || asked.path != "/api/runs/run_1/search-candidates" || asked.auth != "Bearer runner-token" {
-		t.Errorf("asked %+v", asked)
+	received := (*seen)[0]
+	if received.method != http.MethodPost || received.path != "/api/runs/run_1/search-candidates" || received.auth != "Bearer runner-token" {
+		t.Errorf("received %+v", received)
 	}
 	var sent protocol.CandidateProposal
-	if err := json.Unmarshal([]byte(asked.body), &sent); err != nil {
-		t.Fatalf("sent %s: %v", asked.body, err)
+	if err := json.Unmarshal([]byte(received.body), &sent); err != nil {
+		t.Fatalf("sent %s: %v", received.body, err)
 	}
 	if sent.Name != "terse" || sent.Hypothesis != "Shorter prompts finish sooner." ||
 		string(sent.Station) != `{"prompt":"Be brief.","effort":"low"}` {
@@ -170,7 +170,7 @@ func TestRejectsACandidateWithoutANameAHypothesisOrAStationObject(t *testing.T) 
 		t.Errorf("status = %d for another run's token", status)
 	}
 	if len(*seen) != 0 {
-		t.Errorf("asked Spotlight anyway: %+v", *seen)
+		t.Errorf("called Spotlight anyway: %+v", *seen)
 	}
 }
 

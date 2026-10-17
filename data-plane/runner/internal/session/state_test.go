@@ -23,7 +23,7 @@ func TestNextFollowsTheHappyPath(t *testing.T) {
 			t.Fatalf("%s while %s: %v", step.trigger, state, err)
 		}
 		if next != step.want {
-			t.Fatalf("%s while %s gave %s, want %s", step.trigger, state, next, step.want)
+			t.Fatalf("%s while %s went to %s, want %s", step.trigger, state, next, step.want)
 		}
 		state = next
 	}
@@ -86,7 +86,7 @@ func TestAnythingCanGoWrongUntilItIsOver(t *testing.T) {
 			t.Fatalf("failing while %s: %v", from, err)
 		}
 		if next != session.Failed {
-			t.Errorf("failing while %s gave %s", from, next)
+			t.Errorf("failing while %s went to %s", from, next)
 		}
 	}
 }

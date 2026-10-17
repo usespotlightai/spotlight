@@ -123,8 +123,8 @@ const tasks = () =>
 
 const access = (teamId = 'team_1') =>
   ({
-    onTeam: vi.fn(async (asked: string) =>
-      asked === teamId
+    onTeam: vi.fn(async (requested: string) =>
+      requested === teamId
         ? {
             teamId: TeamId.of(teamId),
             workspaceId: WorkspaceId.of('ws_1'),
@@ -150,8 +150,8 @@ const lines = (found: Line | null = line()) =>
 
 const store = {
   grant: vi.fn(),
-  received: vi.fn(async (_at, given: readonly AttachmentId[]) =>
-    given.map((id) =>
+  received: vi.fn(async (_at, ids: readonly AttachmentId[]) =>
+    ids.map((id) =>
       Attachment.of({
         id: id.value,
         name: 'queue.png',
@@ -160,7 +160,7 @@ const store = {
       }),
     ),
   ),
-  keep: vi.fn(),
+  save: vi.fn(),
   taken: vi.fn(),
   link: vi.fn(),
   open: vi.fn(),

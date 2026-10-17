@@ -184,8 +184,8 @@ describe('RunGrants', () => {
     expect(begun().grant(FIRST, [grant()]).delete().isDiscarded).toBe(true);
   });
 
-  it('is kept only at a version it could have been saved at, never granted past its lease', () => {
-    const kept = {
+  it('is stored only at a version it could have been saved at, never granted past its lease', () => {
+    const record = {
       lease: FIRST,
       workspaceId: WORKSPACE,
       fetcher: null,
@@ -194,11 +194,11 @@ describe('RunGrants', () => {
     };
 
     expect(() =>
-      RunGrants.rehydrate({ ...kept, grants: [], version: 0 }),
+      RunGrants.rehydrate({ ...record, grants: [], version: 0 }),
     ).toThrow(InconsistentStateError);
     expect(() =>
       RunGrants.rehydrate({
-        ...kept,
+        ...record,
         grants: [grant()],
         endedAt: ENDED_AT,
         version: 2,
@@ -206,7 +206,7 @@ describe('RunGrants', () => {
     ).toThrow(InconsistentStateError);
     expect(() =>
       RunGrants.rehydrate({
-        ...kept,
+        ...record,
         grants: [grant()],
         leaseLost: true,
         version: 2,

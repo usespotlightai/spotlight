@@ -10,11 +10,11 @@ import {
 const NOW = new Date('2026-09-30T12:00:00.000Z').getTime();
 
 describe('scopesOf', () => {
-  it('is the reach alone when nothing more is granted', () => {
+  it('is the level alone when nothing more is granted', () => {
     expect(scopesOf('configure', new Set())).toEqual(['configure']);
   });
 
-  it('puts what is granted beside the reach, in one order however it was chosen', () => {
+  it('puts what is granted beside the level, in one order however it was chosen', () => {
     expect(scopesOf('read', new Set(['trusts', 'secrets'] as const))).toEqual([
       'read',
       'secrets',

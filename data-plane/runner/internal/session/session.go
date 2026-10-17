@@ -33,13 +33,13 @@ type Journal interface {
 	AppendEvents(ctx context.Context, runID string, events []protocol.Event) error
 	RenewLease(ctx context.Context, runID string) (bool, error)
 	Complete(ctx context.Context, runID string, done protocol.Completion) (protocol.Completed, error)
-	Asks(ctx context.Context, runID string, turn protocol.Completion) (bool, error)
+	AwaitsPerson(ctx context.Context, runID string, turn protocol.Completion) (bool, error)
 	Suspend(ctx context.Context, runID string, requeue bool) (protocol.Suspension, error)
 	UseTool(ctx context.Context, runID, name string, input json.RawMessage) (json.RawMessage, error)
 	DraftChangeStack(ctx context.Context, runID, repository, diff, base string) error
 	ReplyToReviewComment(ctx context.Context, runID string, reply protocol.ReviewCommentReply) error
 	Trace(ctx context.Context, runID, taskID string) (json.RawMessage, error)
-	History(ctx context.Context, runID string, asked protocol.HistoryRequest) (json.RawMessage, error)
+	History(ctx context.Context, runID string, request protocol.HistoryRequest) (json.RawMessage, error)
 	RecallMemories(ctx context.Context, runID, words string) (json.RawMessage, error)
 	RecallMemory(ctx context.Context, runID, handle string) (json.RawMessage, error)
 	Remember(ctx context.Context, runID string, remembered protocol.Remembering) (json.RawMessage, error)
@@ -106,8 +106,8 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 		return unprepared(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
 
-	keeper := newKeeper(run, space, journal, opts.Journal, opts.Transport, log)
-	if err := keeper.restore(ctx); err != nil {
+	archiver := newArchiver(run, space, journal, opts.Journal, opts.Transport, log)
+	if err := archiver.restore(ctx); err != nil {
 		return unprepared(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
 
@@ -126,7 +126,7 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 			}
 		}()
 
-		run.Spec.Checkouts = reached(run.Spec.Checkouts, serving.Remote)
+		run.Spec.Checkouts = viaGitProxy(run.Spec.Checkouts, serving.Remote)
 	}
 
 	// Prepare as the runner, before the handover, so the agent finds nothing that prepare keeps.
@@ -135,7 +135,7 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 	}
 
 	bases := markBases(ctx, space.Dir, run.Spec.Checkouts, log)
-	keeper.started(ctx)
+	archiver.started(ctx)
 
 	cwd := space.Dir
 
@@ -183,28 +183,28 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 	}
 
 	if opts.AgentUser != nil {
-		if err := space.GiveTo(opts.AgentUser.UID, opts.AgentUser.GID); err != nil {
+		if err := space.ChownAll(opts.AgentUser.UID, opts.AgentUser.GID); err != nil {
 			return unprepared(ctx, run.ID, journal, lifecycle, opts.Journal, log, fmt.Errorf("hand over workspace: %w", err))
 		}
 	}
 
 	opts.setUp(ctx, space.Dir, run.Spec.Checkouts, journal, log)
 
-	if err := lifecycle.reach(WorkspaceReady); err != nil {
+	if err := lifecycle.advance(WorkspaceReady); err != nil {
 		return unprepared(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
 	journal.record(ctx, protocol.Event{Type: protocol.EventWorkspaceReady, Message: space.Dir})
-	keeper.recordBaseline()
+	archiver.recordBaseline()
 
 	channel, err := agentapi.Serve(
 		run.Spec.Handover.Options,
 		run.Spec.Handover.NoteLimit,
 		func(ctx context.Context, reply protocol.ReviewCommentReply) error {
 			if replays(run) {
-				return keptFromReplays("reply to a review comment")
+				return notAllowedInReplay("reply to a review comment")
 			}
 			if searches(run) {
-				return keptFromSearches("reply to a review comment")
+				return notAllowedInSearch("reply to a review comment")
 			}
 			return opts.Journal.ReplyToReviewComment(ctx, run.ID, reply)
 		},
@@ -223,27 +223,27 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 		return opts.Journal.Trace(ctx, run.ID, taskID)
 	})
 
-	channel.Histories(func(ctx context.Context, asked protocol.HistoryRequest) (json.RawMessage, error) {
-		return opts.Journal.History(ctx, run.ID, asked)
+	channel.Histories(func(ctx context.Context, request protocol.HistoryRequest) (json.RawMessage, error) {
+		return opts.Journal.History(ctx, run.ID, request)
 	})
 
 	channel.Memories(
-		func(ctx context.Context, asked protocol.RecallRequest) (json.RawMessage, error) {
+		func(ctx context.Context, request protocol.RecallRequest) (json.RawMessage, error) {
 			if searches(run) {
-				return nil, keptFromSearches("recall what the team remembers")
+				return nil, notAllowedInSearch("recall what the team remembers")
 			}
 
 			from := time.Now()
-			answer, err := recall(ctx, opts.Journal, run.ID, asked)
-			journal.append(protocol.Event{Type: protocol.EventSpan, Data: recalled(asked, from, time.Now(), answer, err)})
+			answer, err := recall(ctx, opts.Journal, run.ID, request)
+			journal.append(protocol.Event{Type: protocol.EventSpan, Data: recalled(request, from, time.Now(), answer, err)})
 			return answer, err
 		},
 		func(ctx context.Context, remembered protocol.Remembering) (json.RawMessage, error) {
 			if replays(run) {
-				return nil, keptFromReplays("remember")
+				return nil, notAllowedInReplay("remember")
 			}
 			if searches(run) {
-				return nil, keptFromSearches("propose a memory")
+				return nil, notAllowedInSearch("propose a memory")
 			}
 
 			within, err := checkedOutPaths(space.Dir, run.Spec.Checkouts, remembered.Paths)
@@ -287,7 +287,7 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 
 	opts.checkEgress(ctx, journal)
 
-	env := granted(run.Spec.Command.Env, channel, state, telemetry.URL, reachingAPI(run.Spec, opts.ControlPlane))
+	env := granted(run.Spec.Command.Env, channel, state, telemetry.URL, usesAPI(run.Spec, opts.ControlPlane))
 	maps.Copy(env, opts.WayOut)
 
 	harness, err := acp.Start(ctx, acp.Options{
@@ -307,10 +307,10 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 
 	leave := func() {
 		_ = harness.Close()
-		keeper.keep(ctx)
+		archiver.archive(ctx)
 	}
 
-	if err := lifecycle.reach(AgentStarted); err != nil {
+	if err := lifecycle.advance(AgentStarted); err != nil {
 		leave()
 		return finish(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
@@ -328,7 +328,7 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 		sessionID: sessionID,
 		journal:   journal,
 		control:   opts.Journal,
-		keeper:    keeper,
+		archiver:  archiver,
 		lifecycle: lifecycle,
 		takeHandover: func() *protocol.Handover {
 			if handover := channel.TakeHandover(); handover != nil {
@@ -384,7 +384,7 @@ func replays(run protocol.Run) bool {
 	return run.Spec.Replay != nil
 }
 
-func keptFromReplays(what string) error {
+func notAllowedInReplay(what string) error {
 	return &agentapi.Error{Because: "a replay may not " + what + ": it has no effect outside Spotlight"}
 }
 
@@ -392,7 +392,7 @@ func searches(run protocol.Run) bool {
 	return run.Spec.Search != nil
 }
 
-func keptFromSearches(what string) error {
+func notAllowedInSearch(what string) error {
 	return &agentapi.Error{Because: "a search may not " + what + ": it studies the station's history and proposes station configs, nothing more"}
 }
 
@@ -460,10 +460,10 @@ func open(ctx context.Context, harness *acp.Client, previous string, log *slog.L
 func answerPermissions(
 	run protocol.Run, lease Journal, journal *journalWriter, escalated *atomic.Bool, log *slog.Logger,
 ) acp.Permission {
-	asks := run.Spec.HarnessSetup.Asks
+	askKinds := run.Spec.HarnessSetup.AskKinds
 
 	return func(ctx context.Context, asked acp.Asked) acp.Verdict {
-		verdict := decide(ctx, run, asks, lease, escalated, log, asked)
+		verdict := decide(ctx, run, askKinds, lease, escalated, log, asked)
 		if verdict != acp.Allow && asked.ToolCallID != "" {
 			journal.append(protocol.Event{Type: protocol.EventToolRefused, Data: refusedCall(asked.ToolCallID)})
 		}
@@ -479,9 +479,9 @@ func refusedCall(toolCallID string) []byte {
 }
 
 func decide(
-	ctx context.Context, run protocol.Run, asks []string, lease Journal, escalated *atomic.Bool, log *slog.Logger, asked acp.Asked,
+	ctx context.Context, run protocol.Run, askKinds []string, lease Journal, escalated *atomic.Bool, log *slog.Logger, asked acp.Asked,
 ) acp.Verdict {
-	if !slices.Contains(asks, asked.Kind) {
+	if !slices.Contains(askKinds, asked.Kind) {
 		return acp.Allow
 	}
 
@@ -511,9 +511,9 @@ func decide(
 	}
 }
 
-func serversOf(given []protocol.McpServer) []acp.McpServer {
-	servers := make([]acp.McpServer, 0, len(given))
-	for _, server := range given {
+func serversOf(configured []protocol.McpServer) []acp.McpServer {
+	servers := make([]acp.McpServer, 0, len(configured))
+	for _, server := range configured {
 		env := make([]acp.EnvVariable, 0, len(server.Env))
 		for _, variable := range server.Env {
 			env = append(env, acp.EnvVariable{Name: variable.Name, Value: variable.Value})
@@ -642,12 +642,12 @@ func setUp(space *workspace.Workspace, file protocol.SetupFile) error {
 	return nil
 }
 
-func unset(space *workspace.Workspace, path string, given []protocol.SetupFile) error {
+func unset(space *workspace.Workspace, path string, files []protocol.SetupFile) error {
 	if !filepath.IsLocal(path) {
 		return fmt.Errorf("harness file %q escapes the state directory", path)
 	}
 
-	if slices.ContainsFunc(given, func(file protocol.SetupFile) bool {
+	if slices.ContainsFunc(files, func(file protocol.SetupFile) bool {
 		return filepath.Clean(file.Path) == filepath.Clean(path)
 	}) {
 		return nil
@@ -701,7 +701,7 @@ func failed(
 	cause error,
 	beforeHandover bool,
 ) error {
-	if err := lifecycle.reach(Errored); err != nil {
+	if err := lifecycle.advance(Errored); err != nil {
 		log.Warn("could not mark the run failed", "error", err)
 	}
 
@@ -737,7 +737,7 @@ type progress struct {
 	state State
 }
 
-func (p *progress) reach(trigger Trigger) error {
+func (p *progress) advance(trigger Trigger) error {
 	next, err := Next(p.state, trigger)
 	if err != nil {
 		return err
@@ -747,7 +747,7 @@ func (p *progress) reach(trigger Trigger) error {
 }
 
 func (p *progress) note(trigger Trigger, log *slog.Logger) {
-	if err := p.reach(trigger); err != nil {
+	if err := p.advance(trigger); err != nil {
 		log.Warn("the run's lifecycle went astray", "error", err)
 	}
 }
@@ -845,21 +845,21 @@ func (j *journalWriter) flush(ctx context.Context) {
 	}
 }
 
-func recall(ctx context.Context, journal Journal, runID string, asked protocol.RecallRequest) (json.RawMessage, error) {
-	if asked.Handle != "" {
-		return journal.RecallMemory(ctx, runID, asked.Handle)
+func recall(ctx context.Context, journal Journal, runID string, request protocol.RecallRequest) (json.RawMessage, error) {
+	if request.Handle != "" {
+		return journal.RecallMemory(ctx, runID, request.Handle)
 	}
-	return journal.RecallMemories(ctx, runID, asked.Words)
+	return journal.RecallMemories(ctx, runID, request.Words)
 }
 
-func checkedOutPaths(dir string, checkouts []protocol.Checkout, asked []string) ([]string, error) {
+func checkedOutPaths(dir string, checkouts []protocol.Checkout, requested []string) ([]string, error) {
 	roots := []string{filepath.Clean(dir)}
 	if resolved, err := filepath.EvalSymlinks(dir); err == nil && resolved != roots[0] {
 		roots = append(roots, resolved)
 	}
 
-	within := make([]string, 0, len(asked))
-	for _, raw := range asked {
+	within := make([]string, 0, len(requested))
+	for _, raw := range requested {
 		found, ok := checkedOutPath(roots, checkouts, raw)
 		if !ok {
 			return nil, &agentapi.Error{Because: fmt.Sprintf(
@@ -921,7 +921,7 @@ const (
 	APITokenVar = "SPOTLIGHT_API_TOKEN"
 )
 
-func reachingAPI(spec protocol.Spec, controlPlane string) map[string]string {
+func usesAPI(spec protocol.Spec, controlPlane string) map[string]string {
 	if !spec.SpotlightAPI || controlPlane == "" {
 		return nil
 	}
@@ -947,7 +947,7 @@ func granted(
 	return granted
 }
 
-func reached(checkouts []protocol.Checkout, remote string) []protocol.Checkout {
+func viaGitProxy(checkouts []protocol.Checkout, remote string) []protocol.Checkout {
 	resolved := make([]protocol.Checkout, len(checkouts))
 
 	for at, checkout := range checkouts {

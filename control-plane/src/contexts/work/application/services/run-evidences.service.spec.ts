@@ -25,8 +25,8 @@ const stepOf = (change: Partial<JournalStep>): JournalStep => ({
   ms: 0,
   startedAt: new Date('2026-09-30T10:00:00.000Z'),
   locations: [],
-  given: null,
-  returned: null,
+  input: null,
+  output: null,
   change: null,
   ...change,
 });
@@ -40,7 +40,7 @@ const journal: RunJournal = {
       kind: 'tool',
       tool: 'edit',
       text: 'src/uploads.ts',
-      given: 'x'.repeat(5_000),
+      input: 'x'.repeat(5_000),
       change: {
         path: '/workspace/api/src/uploads.ts',
         before: 'a\nb\nc\n',
@@ -145,7 +145,7 @@ describe('RunEvidences', () => {
     expect(evidence?.title).toBe('Retry uploads');
     expect(evidence?.description).toBe('They fail on a flaky network.');
     expect(evidence?.steps.map((each) => each.index)).toEqual([0, 1, 2]);
-    expect(evidence?.steps[1]?.given?.length).toBeLessThan(2_100);
+    expect(evidence?.steps[1]?.input?.length).toBeLessThan(2_100);
     expect(evidence?.steps[1]?.tool).toBe('edit');
   });
 
@@ -223,7 +223,7 @@ describe('RunEvidences', () => {
     );
   });
 
-  it('gives the judges of a team’s stations on every line as the station gives each one', async () => {
+  it('gives the judges of a team’s stations on every line as the station sets each one', async () => {
     const reader = evidences(
       StationJudge.of({ rubric: 'Did it retry?', sample: 0.5, trust: 0.6 }),
     );

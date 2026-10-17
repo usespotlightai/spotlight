@@ -80,14 +80,14 @@ export class VersionConstraint {
     if (trimmed === '') {
       throw new InvalidCatalogEntryError(
         'version',
-        `Catalog version is required. Please give a version constraint, ${EXAMPLE}.`,
+        `Catalog version is required. Please set a version constraint, ${EXAMPLE}.`,
       );
     }
 
     return new VersionConstraint(trimmed, trimmed.split(',').map(clauseOf));
   }
 
-  admits(version: CatalogVersion): boolean {
+  matches(version: CatalogVersion): boolean {
     return this.clauses.every((each) => satisfies(each, version));
   }
 

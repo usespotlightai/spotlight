@@ -3,7 +3,7 @@ export class RepositoryUnreachableError extends Error {
 
   constructor(repository: string) {
     super(
-      `GitHub App cannot reach repository ${repository}. Please install it there or check the name.`,
+      `GitHub App cannot access repository ${repository}. Please install it there or check the name.`,
     );
     this.name = 'RepositoryUnreachableError';
   }

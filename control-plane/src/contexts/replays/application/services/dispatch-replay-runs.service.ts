@@ -115,7 +115,7 @@ export class DispatchReplayRuns implements PendingJobsPort {
   private async cancel(
     replay: Replay,
     entry: ReplayEntry,
-    keep: boolean,
+    leaveRunAsIs: boolean,
     neverQueued?: (fresh: Replay, now: Date) => Replay,
   ): Promise<void> {
     const run = entry.run;
@@ -124,7 +124,7 @@ export class DispatchReplayRuns implements PendingJobsPort {
       return;
     }
 
-    const cancelled = await this.work.cancel(run, keep);
+    const cancelled = await this.work.cancel(run, leaveRunAsIs);
 
     await this.changed(replay, (fresh, now) => {
       if (cancelled.queued) {
@@ -134,7 +134,7 @@ export class DispatchReplayRuns implements PendingJobsPort {
         return neverQueued(fresh, now);
       }
 
-      return keep ? fresh.exhaust(run, now) : fresh.cancel(run, now);
+      return leaveRunAsIs ? fresh.exhaust(run, now) : fresh.cancel(run, now);
     });
   }
 

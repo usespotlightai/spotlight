@@ -353,18 +353,18 @@ export class HookFiring extends EventRecorder {
   ): HookFiring {
     this.guardWorking('fail');
 
-    const { kept, at } = this.retryOf(failure, now);
+    const { recorded, at } = this.retryOf(failure, now);
 
     if (at) {
       return this.with({
         progress: { kind: 'pending', dueAt: at },
         attempts: this.state.attempts + 1,
-        failure: kept,
+        failure: recorded,
       });
     }
 
     return this.ended(
-      taskMovedOn && kept === failure ? failure.superseded() : kept,
+      taskMovedOn && recorded === failure ? failure.superseded() : recorded,
       now,
     );
   }
@@ -387,7 +387,7 @@ export class HookFiring extends EventRecorder {
   purge(now: Date): HookFiring {
     if (!this.isPastRetention(now)) {
       throw new InvalidHookFiringTransitionError(
-        'is kept for 30 days after it finishes',
+        'is stored for 30 days after it finishes',
       );
     }
 
@@ -400,13 +400,13 @@ export class HookFiring extends EventRecorder {
   private retryOf(
     failure: HookFailure,
     now: Date,
-  ): { readonly kept: HookFailure; readonly at: Date | null } {
+  ): { readonly recorded: HookFailure; readonly at: Date | null } {
     const attempts = this.state.attempts + 1;
     const loop = this.state.failure;
 
     return isLoop(loop) && failure.retry.allowsRetry
-      ? { kept: loop, at: DELIVERING.nextAttemptAt(attempts, now) }
-      : { kept: failure, at: failure.nextAttemptAfter(attempts, now) };
+      ? { recorded: loop, at: DELIVERING.nextAttemptAt(attempts, now) }
+      : { recorded: failure, at: failure.nextAttemptAfter(attempts, now) };
   }
 
   private ended(failure: HookFailure, now: Date): HookFiring {

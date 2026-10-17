@@ -100,7 +100,7 @@ describe('ProcessDueDeliveries', () => {
     expect(worked).toEqual(['d_1', 'd_2']);
   });
 
-  it('asks the inbox only for deliveries due now', async () => {
+  it('reads from the inbox only the deliveries due now', async () => {
     const { service, inbox } = working([]);
 
     await service.workOne();

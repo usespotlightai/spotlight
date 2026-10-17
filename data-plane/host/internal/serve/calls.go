@@ -29,7 +29,7 @@ func (h *Host) calls(ctx, serving context.Context, stop func(error)) error {
 			return nil
 		}
 
-		asked := time.Now()
+		claimedAt := time.Now()
 		call, err := h.pool.ClaimCall(ctx)
 		if err != nil || call == nil {
 			<-slots
@@ -46,7 +46,7 @@ func (h *Host) calls(ctx, serving context.Context, stop func(error)) error {
 					return nil
 				}
 				backoff = min(backoff*2, retryCeiling)
-			} else if time.Since(asked) < quickAnswer && !sleep(ctx, jitter(retryFloor)) {
+			} else if time.Since(claimedAt) < quickAnswer && !sleep(ctx, jitter(retryFloor)) {
 				return nil
 			}
 			continue

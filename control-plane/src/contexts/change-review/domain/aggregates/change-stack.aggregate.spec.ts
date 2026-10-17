@@ -121,7 +121,7 @@ describe('ChangeStack', () => {
         LATER,
       );
 
-      expect(ready.reachesGitHub).toBe(false);
+      expect(ready.postsToGitHub).toBe(false);
       expect(kindsOf(ready)).toEqual([
         'change-stack.completed',
         'change-stack.replay-completed',
@@ -163,7 +163,7 @@ describe('ChangeStack', () => {
       ).toThrow(InconsistentStateError);
     });
 
-    it('is told apart from a task run’s stack, which reaches GitHub and shapes its task’s outcome', () => {
+    it('is told apart from a task run’s stack, which posts to GitHub and shapes its task’s outcome', () => {
       const stack = drafting();
       stack.pullEvents();
 
@@ -172,7 +172,7 @@ describe('ChangeStack', () => {
         LATER,
       );
 
-      expect(ready.reachesGitHub).toBe(true);
+      expect(ready.postsToGitHub).toBe(true);
       expect(kindsOf(ready)).toEqual([
         'change-stack.completed',
         'change-stack.ready',
@@ -265,14 +265,14 @@ describe('ChangeStack', () => {
     expect(problemsOf([invitations([])])).toContain('cohort 1 has no layers');
   });
 
-  it('fails with the reason it gives, and says so', () => {
+  it('fails with the reason it receives, and says so', () => {
     const drafted = drafting();
     drafted.pullEvents();
 
-    const failed = drafted.fail('The model gave no answer', LATER);
+    const failed = drafted.fail('The model returned no answer', LATER);
 
     expect(failed.state).toBe('failed');
-    expect(failed.failure).toBe('The model gave no answer');
+    expect(failed.failure).toBe('The model returned no answer');
     expect(failed.pullEvents().map((each) => each.kind)).toEqual([
       'change-stack.failed',
     ]);

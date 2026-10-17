@@ -10,7 +10,7 @@ const query = (error: unknown) => ({
 });
 
 describe('InsightsFailed', () => {
-  it('says what could not be loaded, and tries again when asked', async () => {
+  it('says what could not be loaded, and tries again on request', async () => {
     const failing = query(new Error('The control plane did not answer.'));
 
     render(<InsightsFailed what="The overview" query={failing} />);

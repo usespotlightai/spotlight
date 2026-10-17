@@ -37,7 +37,7 @@ const SITE: StationSite = {
 const remembered = (change: Partial<ProposedMemory> = {}): ProposedMemory => ({
   kind: 'correction',
   body: 'Never retry an upload the bucket rejected with a 403.',
-  reach: 'station',
+  scope: 'station',
   repository: 'acme/api',
   paths: ['src/uploads.ts'],
   steps: [5],
@@ -112,8 +112,8 @@ afterAll(async () => {
 });
 
 describe('storing a task’s memory draft', () => {
-  it('keeps what a run proposed, where it applies and what it rests on', async () => {
-    const draft = newDraft().asked(FIRST, NOW);
+  it('stores what a run proposed, where it applies and what it rests on', async () => {
+    const draft = newDraft().requestDrafting(FIRST, NOW);
     await drafts.add(draft);
 
     await drafts.save(drafting(await stored(draft), FIRST, [remembered()]));
@@ -140,7 +140,7 @@ describe('storing a task’s memory draft', () => {
   });
 
   it('replaces what an earlier run proposed with what the latest proposed', async () => {
-    const draft = newDraft().asked(FIRST, NOW);
+    const draft = newDraft().requestDrafting(FIRST, NOW);
     await drafts.add(draft);
     await drafts.save(
       drafting(await stored(draft), FIRST, [
@@ -149,7 +149,7 @@ describe('storing a task’s memory draft', () => {
       ]),
     );
 
-    await drafts.save((await stored(draft)).asked(SECOND, LATER));
+    await drafts.save((await stored(draft)).requestDrafting(SECOND, LATER));
     await drafts.save(
       drafting(await stored(draft), SECOND, [
         remembered({ kind: 'failure', body: 'The upload test flakes.' }),
@@ -167,8 +167,8 @@ describe('storing a task’s memory draft', () => {
     expect(n).toBe(1);
   });
 
-  it('keeps a failure that allows no other attempt, and the draft it ended', async () => {
-    const draft = newDraft().asked(FIRST, NOW);
+  it('stores a failure that allows no other attempt, and the draft it ended', async () => {
+    const draft = newDraft().requestDrafting(FIRST, NOW);
     await drafts.add(draft);
     const leased = (await stored(draft)).leaseJob(NOW);
     await drafts.save(leased);
@@ -186,7 +186,7 @@ describe('storing a task’s memory draft', () => {
   });
 
   it('does not write over a draft that changed since it was read', async () => {
-    const draft = newDraft().asked(FIRST, NOW);
+    const draft = newDraft().requestDrafting(FIRST, NOW);
     await drafts.add(draft);
     const read = await stored(draft);
     await drafts.save(read.leaseJob(NOW));
@@ -198,8 +198,8 @@ describe('storing a task’s memory draft', () => {
 
   it('hands out the oldest draft that is due, and none that is waiting', async () => {
     await database.db.execute(sql`delete from memory_draft`);
-    const waiting = newDraft().asked(FIRST, NOW);
-    const due = newDraft().asked(SECOND, LATER);
+    const waiting = newDraft().requestDrafting(FIRST, NOW);
+    const due = newDraft().requestDrafting(SECOND, LATER);
     await drafts.add(waiting);
     await drafts.add(due);
     await drafts.save(
@@ -218,7 +218,7 @@ describe('storing a task’s memory draft', () => {
   });
 
   it('deletes the draft of a deleted task, and its proposals with it', async () => {
-    const draft = newDraft().asked(FIRST, NOW);
+    const draft = newDraft().requestDrafting(FIRST, NOW);
     await drafts.add(draft);
     await drafts.save(drafting(await stored(draft), FIRST, [remembered()]));
 
@@ -235,7 +235,7 @@ describe('storing a task’s memory draft', () => {
 });
 
 describe('reading what the team already knows', () => {
-  const keeping = async (
+  const approvedMemory = async (
     id: string,
     scope: {
       team?: string;
@@ -254,18 +254,24 @@ describe('reading what the team already knows', () => {
         ${scope.status ?? 'active'}, 'user_ada', ${NOW.toISOString()})
     `);
 
-  it('reads the active memories that reach this station, and none that do not', async () => {
-    await keeping('team_wide', {});
-    await keeping('this_line', { line: 'line_1' });
-    await keeping('this_station', { line: 'line_1', station: 'station_1' });
-    await keeping('this_repository', { repository: 'acme/api' });
-    await keeping('other_team', { team: 'team_2' });
-    await keeping('other_line', { line: 'line_2' });
-    await keeping('other_station', { line: 'line_1', station: 'station_2' });
-    await keeping('other_repository', { repository: 'acme/web' });
-    await keeping('retired', { status: 'retired' });
+  it('reads the active memories that apply to this station, and none that do not', async () => {
+    await approvedMemory('team_wide', {});
+    await approvedMemory('this_line', { line: 'line_1' });
+    await approvedMemory('this_station', {
+      line: 'line_1',
+      station: 'station_1',
+    });
+    await approvedMemory('this_repository', { repository: 'acme/api' });
+    await approvedMemory('other_team', { team: 'team_2' });
+    await approvedMemory('other_line', { line: 'line_2' });
+    await approvedMemory('other_station', {
+      line: 'line_1',
+      station: 'station_2',
+    });
+    await approvedMemory('other_repository', { repository: 'acme/web' });
+    await approvedMemory('retired', { status: 'retired' });
 
-    const active = (await memories.mayReach(SITE)).filter((each) =>
+    const active = (await memories.mayApplyAt(SITE)).filter((each) =>
       each.appliesAt(SITE),
     );
 
@@ -277,8 +283,8 @@ describe('reading what the team already knows', () => {
     ]);
   });
 
-  it('reads the proposals people turned down lately, in reach', async () => {
-    const draft = newDraft().asked(FIRST, NOW);
+  it('reads the proposals people turned down lately, in scope', async () => {
+    const draft = newDraft().requestDrafting(FIRST, NOW);
     await drafts.add(draft);
     await drafts.save(
       drafting(await stored(draft), FIRST, [

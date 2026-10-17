@@ -20,11 +20,11 @@ export interface SharedEgress {
 }
 
 export interface RunnerEgressPort {
-  admit(token: string | undefined, at: Date): Promise<EgressFor | null>;
+  authenticate(token: string | undefined, at: Date): Promise<EgressFor | null>;
 
   sharedWith(token: string | undefined): Promise<SharedEgress | null>;
 
-  admitThrough(
+  authorizeRunner(
     egress: SharedEgress,
     proxyCredential: string,
     at: Date,

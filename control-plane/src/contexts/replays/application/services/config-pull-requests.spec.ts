@@ -96,7 +96,7 @@ class FakeConfigs implements ConfigRepositoryPort {
 }
 
 class FakeEditor implements StationSourceEditorPort {
-  readonly asked: StationSourceEdit[] = [];
+  readonly edits: StationSourceEdit[] = [];
   answer: StationSourceEdited = {
     ok: true,
     files: [{ path: 'teams/core/delivery.tf', content: 'edited\n' }],
@@ -104,7 +104,7 @@ class FakeEditor implements StationSourceEditorPort {
   };
 
   async edited(edit: StationSourceEdit) {
-    this.asked.push(edit);
+    this.edits.push(edit);
 
     return this.answer;
   }
@@ -128,7 +128,7 @@ const searchWithTerse = (): Search => {
       runIds,
       true,
     )
-    .admitted(RunId.of('search_run_1'), {
+    .acceptProposal(RunId.of('search_run_1'), {
       candidateId: TERSE,
       name: CandidateName.searched('terse'),
       replayId: ReplayId.of('replay_terse'),
@@ -191,13 +191,13 @@ const opening = () =>
   );
 
 const only = (): ConfigPullRequest => {
-  const [kept, ...rest] = pullRequests.kept.values();
+  const [pullRequest, ...rest] = pullRequests.stored.values();
 
-  if (!kept || rest.length > 0) {
+  if (!pullRequest || rest.length > 0) {
     throw new Error(`expected one pull request, found ${rest.length + 1}`);
   }
 
-  return kept;
+  return pullRequest;
 };
 
 beforeEach(() => {
@@ -267,7 +267,7 @@ describe('picking a search candidate', () => {
     expect(configs.openings[0]?.body).toContain(
       `https://app.example.com/w/acme/team/${STATION_VIEW.teamId.value}/lines/${STATION_VIEW.lineId}/stations/${STATION_VIEW.stationId}/searches/${search.id.value}`,
     );
-    expect(editor.asked[0]).toMatchObject({
+    expect(editor.edits[0]).toMatchObject({
       lineKey: 'delivery',
       stationKey: 'build',
       file: { path: 'teams/core/delivery.tf' },
@@ -281,7 +281,7 @@ describe('picking a search candidate', () => {
     expect(await pick(TERSE.value, false)).toMatchObject({
       outcome: 'forbidden',
     });
-    expect(pullRequests.kept.size).toBe(0);
+    expect(pullRequests.stored.size).toBe(0);
   });
 
   it('records why the file could not be edited, and tries again when picked again', async () => {
@@ -317,7 +317,7 @@ describe('picking a search candidate', () => {
     expect(configs.openings[0]?.body).toContain('`judge.rubric`');
   });
 
-  it('fails for a repository the GitHub App cannot reach, and for a file it does not contain', async () => {
+  it('fails for a repository the GitHub App cannot access, and for a file it does not contain', async () => {
     configs.failing = new ConfigRepositoryError(
       'repository-unreachable',
       'not installed',
@@ -420,7 +420,7 @@ describe('picking a search candidate', () => {
     await opening().processDue();
 
     expect(only().reason?.code).toBe('no-source');
-    expect(editor.asked).toEqual([]);
+    expect(editor.edits).toEqual([]);
   });
 
   it('says the held-out result was still pending when its held-out replay had not finished', async () => {

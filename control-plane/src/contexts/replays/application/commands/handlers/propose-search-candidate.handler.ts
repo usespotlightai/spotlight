@@ -137,7 +137,7 @@ export class ProposeSearchCandidateHandler
         return { outcome: 'invalid', problems };
       }
 
-      return await this.admitted(seen, run, station, teamKey, {
+      return await this.acceptProposal(seen, run, station, teamKey, {
         name: name.value,
         hypothesis: hypothesis.value,
         examined,
@@ -178,7 +178,7 @@ export class ProposeSearchCandidateHandler
     });
   }
 
-  private admitted(
+  private acceptProposal(
     seen: Search,
     run: RunId,
     station: StationView,
@@ -213,7 +213,7 @@ export class ProposeSearchCandidateHandler
         at,
       });
       const replayId = ReplayId.of(this.ids.generate());
-      const admitted = search.admitted(run, {
+      const accepted = search.acceptProposal(run, {
         candidateId: candidate.id,
         name: proposal.name,
         replayId,
@@ -236,7 +236,7 @@ export class ProposeSearchCandidateHandler
           pairsWith: search.seed.replay.replayId,
         }),
       );
-      await this.searches.save(admitted);
+      await this.searches.save(accepted);
 
       return {
         outcome: 'proposed',

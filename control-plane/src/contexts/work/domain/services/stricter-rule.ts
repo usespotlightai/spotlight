@@ -14,8 +14,8 @@ export type Ruled =
   | { readonly kind: 'needs-approval'; readonly needed: ApprovalNeeded }
   | { readonly kind: 'blocked'; readonly by: string };
 
-const asking = (declared: DeclaredTool, person: PersonRule): string =>
-  `${person.personName || 'The person'} asks to approve each call made with their ${declared.offeredBy ?? 'integration'} connection.`;
+const approvalReason = (declared: DeclaredTool, person: PersonRule): string =>
+  `${person.personName || 'The person'} wants to approve each call made with their ${declared.offeredBy ?? 'integration'} connection.`;
 
 export const StricterRule = {
   of(declared: DeclaredTool, person: PersonRule | null): Ruled {
@@ -30,7 +30,7 @@ export const StricterRule = {
         kind: 'needs-approval',
         needed: ApprovalNeeded.of(
           declared.tool.value,
-          team?.because ?? asking(declared, person),
+          team?.because ?? approvalReason(declared, person),
           person.personId,
         ),
       };

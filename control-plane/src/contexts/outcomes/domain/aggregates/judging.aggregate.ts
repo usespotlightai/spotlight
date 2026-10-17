@@ -22,7 +22,7 @@ export class Judging extends EventRecorder implements HasPendingJob<Judging> {
     readonly place: RunPlace,
     readonly fingerprint: string | null,
     readonly rubric: Rubric,
-    readonly askedAt: Date,
+    readonly queuedAt: Date,
     readonly job: PendingJob | null,
     readonly judgedAt: Date | null,
     readonly failure: JudgingFailure | null,
@@ -31,7 +31,7 @@ export class Judging extends EventRecorder implements HasPendingJob<Judging> {
     super();
   }
 
-  static asked(input: {
+  static requested(input: {
     runId: RunId;
     workspaceId: WorkspaceId;
     place: RunPlace;
@@ -59,7 +59,7 @@ export class Judging extends EventRecorder implements HasPendingJob<Judging> {
     place: RunPlace;
     fingerprint: string | null;
     rubric: Rubric;
-    askedAt: Date;
+    queuedAt: Date;
     job: PendingJob | null;
     judgedAt: Date | null;
     failure: JudgingFailure | null;
@@ -82,7 +82,7 @@ export class Judging extends EventRecorder implements HasPendingJob<Judging> {
       input.place,
       input.fingerprint,
       input.rubric,
-      input.askedAt,
+      input.queuedAt,
       input.job,
       input.judgedAt,
       input.failure,
@@ -192,7 +192,7 @@ export class Judging extends EventRecorder implements HasPendingJob<Judging> {
       this.place,
       this.fingerprint,
       this.rubric,
-      this.askedAt,
+      this.queuedAt,
       change.job !== undefined ? change.job : this.job,
       change.judgedAt ?? this.judgedAt,
       change.failure !== undefined ? change.failure : this.failure,

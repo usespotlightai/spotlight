@@ -30,7 +30,7 @@ const TEAM = TeamId.of('team_1');
 const WORKSPACE = WorkspaceId.of('ws_1');
 
 let made = 0;
-const kept = (body: string, teamId = TEAM) => {
+const approved = (body: string, teamId = TEAM) => {
   made += 1;
   return Memory.write({
     id: MemoryId.of(`memory_${made}`),
@@ -142,10 +142,10 @@ const reading = (input: {
 
 describe('ReadRunMemoriesHandler', () => {
   it('keeps what was briefed, cut and recalled apart, and shows nothing of another team', async () => {
-    const briefed = kept('Briefed.');
-    const cut = kept('Cut.');
-    const recalled = kept('Recalled.');
-    const theirs = kept('Theirs.', TeamId.of('team_other'));
+    const briefed = approved('Briefed.');
+    const cut = approved('Cut.');
+    const recalled = approved('Recalled.');
+    const theirs = approved('Theirs.', TeamId.of('team_other'));
 
     const read = await reading({
       teamOfRun: TEAM,

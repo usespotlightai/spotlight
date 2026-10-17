@@ -63,12 +63,12 @@ export function usePaneWidth<T extends HTMLElement = HTMLElement>(
     return () => document.body.classList.remove('resizing');
   }, [resizing]);
 
-  const resize = (next: number, keep = true) => {
+  const resize = (next: number, persist = true) => {
     const clamped = clampTo(pane, next);
     last.current = clamped;
     setWidth(clamped);
 
-    if (keep) {
+    if (persist) {
       remember(pane, clamped);
     }
   };

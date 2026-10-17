@@ -44,7 +44,7 @@ describe('RunnerDefinitions', () => {
     ).toEqual([]);
   });
 
-  it('points at a label a pool is given twice', () => {
+  it('points at a label a pool names twice', () => {
     expect(
       invalidAt(definitions.pool({ key: 'ephemeral', labels: ['gpu', 'gpu'] })),
     ).toEqual(['labels.1']);
@@ -98,7 +98,7 @@ describe('RunnerDefinitions', () => {
       expect(compiled.ok && compiled.maxRuns).toBeNull();
     });
 
-    it('gives a pool that provisions no token', () => {
+    it('rejects a token on a pool that provisions', () => {
       expect(
         invalidAt(
           definitions.pool({

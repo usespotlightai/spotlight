@@ -315,7 +315,7 @@ describe('setHealthOf', () => {
     expect(oracle?.roomToImprove).toBeNull();
   });
 
-  it('gives no reading until its replay finishes, and reads only one of the live config as it is now', () => {
+  it('shows no reading until its replay finishes, and reads only one of the live config as it is now', () => {
     const underway = started(
       'replay_oracle',
       ORACLE,

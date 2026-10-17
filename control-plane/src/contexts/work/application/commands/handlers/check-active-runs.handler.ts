@@ -8,7 +8,7 @@ import type { CommandHandlerPort } from '@shared-kernel/application/ports/comman
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { CheckActiveRunsCommand } from '@work/application/commands/egress.commands';
-import type { EgressActiveRunsDto } from '@work/application/dto/egress-admission.dto';
+import type { EgressActiveRunsDto } from '@work/application/dto/egress-authorization.dto';
 import type { EgressSecretFetches } from '@work/application/services/egress-secret-fetches.service';
 
 export const MAX_RUNS_AT_ONCE = 500;
@@ -37,13 +37,13 @@ export class CheckActiveRunsHandler
       const active: string[] = [];
 
       for (const credential of new Set(command.proxyCredentials)) {
-        const admitted = await this.egress.admitThrough(
+        const authorized = await this.egress.authorizeRunner(
           shared,
           credential,
           this.clock.now(),
         );
 
-        if (admitted && (await this.isStillActive(admitted))) {
+        if (authorized && (await this.isStillActive(authorized))) {
           active.push(credential);
         }
       }
@@ -54,16 +54,16 @@ export class CheckActiveRunsHandler
     }
   }
 
-  private async isStillActive(admitted: SharedEgressFor): Promise<boolean> {
-    if (admitted.work?.kind !== 'run') {
+  private async isStillActive(authorized: SharedEgressFor): Promise<boolean> {
+    if (authorized.work?.kind !== 'run') {
       return true;
     }
 
     return (
       (await this.fetches.leasedBy(
-        RunId.of(admitted.work.id),
-        RunnerId.of(admitted.runnerId),
-        admitted.workspaceId,
+        RunId.of(authorized.work.id),
+        RunnerId.of(authorized.runnerId),
+        authorized.workspaceId,
       )) !== null
     );
   }

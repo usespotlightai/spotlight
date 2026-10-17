@@ -46,7 +46,7 @@ const PROMPTED = BUILT_IN.stations.find(
   (station) => station.prompt !== undefined,
 );
 
-const RUBRIC = 'A good run changes only what the task asks for.\n\n';
+const RUBRIC = 'A good run changes only what the task requests.\n\n';
 
 const DELIVERY = {
   ...BUILT_IN,
@@ -386,7 +386,7 @@ describe('a workspace exported as Terraform (e2e)', () => {
     }
   });
 
-  it('never writes a secret value or a pool token, asking for them as sensitive variables', async () => {
+  it('never writes a secret value or a pool token, requesting them as sensitive variables', async () => {
     const files = await exported();
     const main = fileOf(files, 'main.tf');
     const variables = fileOf(files, 'variables.tf');
@@ -399,7 +399,7 @@ describe('a workspace exported as Terraform (e2e)', () => {
       '  value_wo         = var.secret_linear_api_key\n  value_wo_version = 1\n',
     );
     expect(variables).toContain(
-      'variable "secret_linear_api_key" {\n  description = "The value of the secret LINEAR_API_KEY, which Spotlight keeps and never answers"\n  type        = string\n  sensitive   = true\n}\n',
+      'variable "secret_linear_api_key" {\n  description = "The value of the secret LINEAR_API_KEY, which Spotlight stores and never answers"\n  type        = string\n  sensitive   = true\n}\n',
     );
     expect(
       blockOf(main, 'resource "spotlight_runner_pool" "ephemeral"'),
@@ -610,7 +610,7 @@ const bodyOf = (
           ...(resource.source.field ? { field: resource.source.field } : {}),
         },
         bindings: resource.bindings,
-        ...(resource.keepsValue ? { valueWo: VALUE } : {}),
+        ...(resource.storesValue ? { valueWo: VALUE } : {}),
         ...(resource.valueVersion === null
           ? {}
           : { valueWoVersion: resource.valueVersion }),

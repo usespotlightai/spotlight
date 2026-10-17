@@ -23,11 +23,11 @@ import { and, eq, type SQL } from 'drizzle-orm';
 
 type Row = typeof egress.$inferSelect;
 
-const written = (kept: Egress) => ({
-  key: kept.key.value,
-  url: kept.url.value,
-  tokenHash: kept.tokenHash.value,
-  tokenVersion: kept.tokenVersion,
+const written = (egress: Egress) => ({
+  key: egress.key.value,
+  url: egress.url.value,
+  tokenHash: egress.tokenHash.value,
+  tokenVersion: egress.tokenVersion,
 });
 
 const toEgress = (row: Row): Egress =>

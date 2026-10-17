@@ -5,7 +5,7 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it, vi } from 'vitest';
 
-describe('configuration hearing that a team is deleted', () => {
+describe('configuration learning that a team is deleted', () => {
   it('deletes whatever skills the team still has', async () => {
     const deleting = { deleteForTeam: vi.fn(async () => {}) };
     const subscriber = configurationSubscribers(

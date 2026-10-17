@@ -136,7 +136,7 @@ func (o Options) perform(ctx context.Context, check protocol.StackCheck) protoco
 		return skipped(protocol.SkipCheckoutFailed, missing)
 	}
 	if o.RunAs != nil {
-		if err := space.GiveTo(o.RunAs.UID, o.RunAs.GID); err != nil {
+		if err := space.ChownAll(o.RunAs.UID, o.RunAs.GID); err != nil {
 			o.Log.Warn("could not hand over the copy a check runs in", "error", err)
 			return skipped(protocol.SkipNoRoom, err.Error())
 		}
@@ -256,7 +256,7 @@ func (o Options) step(
 		}
 	}
 
-	// Run setup after the patch, so the step installs what it asks for.
+	// Run setup after the patch, so the step installs what it requests.
 	if check.Setup != "" && step.RunsSetup {
 		if output, err := prepare.Setup(ctx, tree, check.Setup, o.RunAs, o.Setup, o.Env); err != nil {
 			o.Log.Warn("could not make the checkout ready", "step", step.ID, "error", err)

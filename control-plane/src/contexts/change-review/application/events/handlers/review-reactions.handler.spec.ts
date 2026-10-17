@@ -81,7 +81,7 @@ describe('ReviewReactions', () => {
     );
   });
 
-  it('keeps where GitHub put each comment its review contains', async () => {
+  it('stores where GitHub put each comment its review contains', async () => {
     const submitted = draft('comment_1').submittedIn(REVIEW);
     const elsewhere = draft('comment_2').submittedIn(ReviewId.of('review_2'));
     const { reactions, comments } = reacting([submitted, elsewhere]);
@@ -103,7 +103,7 @@ describe('ReviewReactions', () => {
     expect(comments.get('comment_2')?.github).toBeNull();
   });
 
-  it('hands back the comments of a review that never reached GitHub', async () => {
+  it('hands back the comments of a review that was never posted to GitHub', async () => {
     const submitted = draft('comment_1').submittedIn(REVIEW);
     const withdrawn = draft('comment_2').submittedIn(REVIEW).removed(ADA);
     const elsewhere = draft('comment_3').submittedIn(ReviewId.of('review_2'));
@@ -162,7 +162,7 @@ describe('ReviewReactions', () => {
     ).toEqual(['reply', 'edit', 'delete']);
   });
 
-  it('queues nothing for a draft rewritten or removed before it reached GitHub', async () => {
+  it('queues nothing for a draft rewritten or removed before it was posted to GitHub', async () => {
     const { reactions, enqueue } = reacting();
 
     await reactions.onRewritten(

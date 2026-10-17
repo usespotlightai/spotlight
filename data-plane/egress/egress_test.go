@@ -12,18 +12,18 @@ import (
 	"testing"
 	"time"
 
+	"usespotlight.ai/data-plane/allowlist"
 	"usespotlight.ai/data-plane/control"
 	"usespotlight.ai/data-plane/protocol"
-	"usespotlight.ai/data-plane/reach"
 )
 
 type fakeFetcher struct {
 	answers []error
-	asked   int
+	calls   int
 }
 
 func (r *fakeFetcher) FetchRunSecrets(context.Context, string) (protocol.EgressSecrets, error) {
-	r.asked++
+	r.calls++
 	if len(r.answers) > 0 {
 		answer := r.answers[0]
 		r.answers = r.answers[1:]
@@ -37,21 +37,21 @@ func (r *fakeFetcher) FetchRunSecrets(context.Context, string) (protocol.EgressS
 var quiet = slog.New(slog.NewTextHandler(io.Discard, nil))
 
 func TestTriesAgainWhileTheControlPlaneCannotAnswer(t *testing.T) {
-	asked := &fakeFetcher{answers: []error{
+	fetcher := &fakeFetcher{answers: []error{
 		errors.New("connection refused"),
 		&control.ResponseError{Status: http.StatusBadGateway, Err: errors.New("bad gateway")},
 	}}
 
-	if fetched := fetchedBy(context.Background(), asked, "key", quiet); fetched.RunID != "run_1" || asked.asked != 3 {
-		t.Errorf("fetched %+v after %d asks", fetched, asked.asked)
+	if fetched := fetchedBy(context.Background(), fetcher, "key", quiet); fetched.RunID != "run_1" || fetcher.calls != 3 {
+		t.Errorf("fetched %+v after %d calls", fetched, fetcher.calls)
 	}
 }
 
 func TestGoesOutInjectingNothingWhenTheControlPlaneDoesNotAccept(t *testing.T) {
-	asked := &fakeFetcher{answers: []error{&control.ResponseError{Status: http.StatusUnauthorized, Err: control.ErrUnauthorized}}}
+	fetcher := &fakeFetcher{answers: []error{&control.ResponseError{Status: http.StatusUnauthorized, Err: control.ErrUnauthorized}}}
 
-	if fetched := fetchedBy(context.Background(), asked, "key", quiet); fetched.RunID != "" || asked.asked != 1 {
-		t.Errorf("fetched %+v after %d asks", fetched, asked.asked)
+	if fetched := fetchedBy(context.Background(), fetcher, "key", quiet); fetched.RunID != "" || fetcher.calls != 1 {
+		t.Errorf("fetched %+v after %d calls", fetched, fetcher.calls)
 	}
 }
 
@@ -100,21 +100,21 @@ func TestFetchesNothingWithoutAToken(t *testing.T) {
 	}
 }
 
-func TestReachesTheControlPlaneAndItsStorageButNoHostASecretIsBoundTo(t *testing.T) {
-	listed, err := reach.Parse([]string{"api.anthropic.com"})
+func TestAllowsTheControlPlaneAndItsStorageButNoHostASecretIsBoundTo(t *testing.T) {
+	listed, err := allowlist.Parse([]string{"api.anthropic.com"})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	reached := reachedBy(listed, "control-plane", protocol.EgressSecrets{
-		Reaches: []string{"storage"},
-		Secrets: []protocol.FetchedSecret{{Secret: "PRIVATE", Host: "private-api.acme.internal"}},
+	allowed := withRunHosts(listed, "control-plane", protocol.EgressSecrets{
+		ExtraAllowedHosts: []string{"storage"},
+		Secrets:           []protocol.FetchedSecret{{Secret: "PRIVATE", Host: "private-api.acme.internal"}},
 	})
 
 	for host, want := range map[string]bool{
 		"control-plane": true, "storage": true, "api.anthropic.com": true, "private-api.acme.internal": false,
 	} {
-		if reached.Names(host) != want {
+		if allowed.ExplicitlyListed(host) != want {
 			t.Errorf("%s named: %v", host, !want)
 		}
 	}

@@ -1,4 +1,3 @@
-import { AskForPairJudging } from '@replays/application/services/ask-for-pair-judging.service';
 import { NoteReplayPaired } from '@replays/application/services/note-replay-paired.service';
 import { PairReplayEntries } from '@replays/application/services/pair-replay-entries.service';
 import {
@@ -6,11 +5,12 @@ import {
   InMemoryReplays,
   TRANSACTION,
 } from '@replays/application/services/replays.fake-spec';
+import { RequestReplayPairJudging } from '@replays/application/services/request-replay-pair-judging.service';
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import { ReplayEntryConcluded } from '@replays/domain/events/replay-entry-concluded.event';
-import type { ReplayPairJudgingWanted } from '@replays/domain/events/replay-pair-judging-wanted.event';
-import type { ReplayPairingDue } from '@replays/domain/events/replay-pairing-due.event';
+import type { ReplayPairJudgingRequested } from '@replays/domain/events/replay-pair-judging-requested.event';
 import { ReplayPairingFailed } from '@replays/domain/events/replay-pairing-failed.event';
+import type { ReplayPairingRequested } from '@replays/domain/events/replay-pairing-requested.event';
 import {
   aReplay,
   BY,
@@ -79,7 +79,7 @@ describe('PairReplayEntries', () => {
     );
     const due = (await pairing().concluded(
       concludedEvent(baseline as Replay),
-    )) as ReplayPairingDue[];
+    )) as ReplayPairingRequested[];
 
     expect(due.map((each) => each.replayId.value)).toEqual(['replay_1']);
   });
@@ -93,7 +93,7 @@ describe('PairReplayEntries', () => {
       (
         (await pairing().concluded(
           concludedEvent(replay),
-        )) as ReplayPairingDue[]
+        )) as ReplayPairingRequested[]
       ).map((each) => each.replayId.value),
     ).toEqual(['replay_1']);
 
@@ -114,55 +114,55 @@ describe('PairReplayEntries', () => {
       (
         (await pairing().concluded(
           concludedEvent(baseline),
-        )) as ReplayPairingDue[]
+        )) as ReplayPairingRequested[]
       ).map((each) => each.replayId.value),
     ).toEqual(['replay_1']);
   });
 
-  it('asks a side-by-side judging only for tasks people accepted a change for', async () => {
+  it('requests a side-by-side judging only for tasks people accepted a change for', async () => {
     outcomes.accepted.delete('original_1');
 
-    await pairing().due(ReplayId.of('replay_1'));
+    await pairing().requested(ReplayId.of('replay_1'));
 
     const wanted = memory.events.filter(
-      (each): each is ReplayPairJudgingWanted =>
-        each.kind === 'replay.pair-judging-wanted',
+      (each): each is ReplayPairJudgingRequested =>
+        each.kind === 'replay.pair-judging-requested',
     );
     expect(wanted.map((each) => [each.run.value, each.against.value])).toEqual([
       ['replay_1_run_0', 'baseline_1_run_0'],
     ]);
   });
 
-  it('asks nothing for a replay with no baseline to be set beside', async () => {
+  it('requests nothing for a replay with no baseline to be set beside', async () => {
     memory.replays.delete('baseline_1');
 
-    await pairing().due(ReplayId.of('replay_1'));
+    await pairing().requested(ReplayId.of('replay_1'));
 
     expect(memory.events).toEqual([]);
   });
 });
 
-describe('AskForPairJudging and NoteReplayPaired', () => {
+describe('RequestReplayPairJudging and NoteReplayPaired', () => {
   const wanted = async () => {
-    await pairing().due(ReplayId.of('replay_1'));
+    await pairing().requested(ReplayId.of('replay_1'));
 
     return memory.events.find(
-      (each): each is ReplayPairJudgingWanted =>
-        each.kind === 'replay.pair-judging-wanted',
-    ) as ReplayPairJudgingWanted;
+      (each): each is ReplayPairJudgingRequested =>
+        each.kind === 'replay.pair-judging-requested',
+    ) as ReplayPairJudgingRequested;
   };
 
-  it('asks the judge with the candidate’s criteria and the original as the reference', async () => {
+  it('requests judging with the candidate’s criteria and the original as the reference', async () => {
     const event = await wanted();
 
     expect(
-      await new AskForPairJudging(
+      await new RequestReplayPairJudging(
         memory.replayRepository,
         memory.candidateRepository,
         outcomes,
-      ).wanted(event),
+      ).requested(event),
     ).toEqual([]);
-    expect(outcomes.pairsAsked).toEqual([
+    expect(outcomes.pairJudgingRequests).toEqual([
       expect.objectContaining({
         run: RunId.of('replay_1_run_0'),
         against: RunId.of('baseline_1_run_0'),
@@ -172,18 +172,19 @@ describe('AskForPairJudging and NoteReplayPaired', () => {
     ]);
   });
 
-  it('says why it could not ask, and the replay keeps that as the entry’s answer', async () => {
+  it('says why it could not request judging, and the replay records that as the entry’s answer', async () => {
     const event = await wanted();
     outcomes.pairAnswer = 'unavailable';
 
-    const [failed] = (await new AskForPairJudging(
+    const [failed] = (await new RequestReplayPairJudging(
       memory.replayRepository,
       memory.candidateRepository,
       outcomes,
-    ).wanted(event)) as ReplayPairingFailed[];
-    await new NoteReplayPaired(memory.replayRepository, TRANSACTION).askFailed(
-      failed as ReplayPairingFailed,
-    );
+    ).requested(event)) as ReplayPairingFailed[];
+    await new NoteReplayPaired(
+      memory.replayRepository,
+      TRANSACTION,
+    ).requestFailed(failed as ReplayPairingFailed);
 
     expect(failed?.why).toBe('unavailable');
     expect(
@@ -192,7 +193,7 @@ describe('AskForPairJudging and NoteReplayPaired', () => {
     ).toBe('unavailable');
   });
 
-  it('keeps the verdict heard back, with what it cost', async () => {
+  it('records the verdict it received, with what it cost', async () => {
     const event = await wanted();
 
     await new NoteReplayPaired(memory.replayRepository, TRANSACTION).paired({

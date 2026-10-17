@@ -57,7 +57,7 @@ interface Answerable {
 }
 
 const UNAUTHORIZED =
-  'Missing, rotated or unknown pool token, or a workload the trust does not admit';
+  'Missing, rotated or unknown pool token, or a workload the trust does not match';
 
 @ApiTags('runners')
 @ApiBearerAuth()
@@ -184,7 +184,7 @@ export class HostWorkController {
   @ApiOperation({
     operationId: 'claimHostCall',
     summary:
-      'Long-poll for one call a hook asked to be sent from inside the host’s network',
+      'Long-poll for one call that a hook requested, to send from inside the host’s network',
     description:
       'Assigns the oldest call waiting for this pool’s or trust’s workspace that has not expired. The host sends it once and answers with what came back.',
   })

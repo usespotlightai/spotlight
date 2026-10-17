@@ -117,7 +117,7 @@ describe('ChangeStackComment', () => {
         ],
         NOW,
       )
-      .keptLayers();
+      .retainCheckedLayers();
     const body = ChangeStackComment.of(
       {
         cohorts: stack.cohorts,

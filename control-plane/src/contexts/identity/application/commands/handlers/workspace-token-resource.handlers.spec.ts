@@ -71,7 +71,7 @@ const issuing = (
 };
 
 describe('CreateWorkspaceTokenHandler', () => {
-  it('answers the token once, keeping only its hash', async () => {
+  it('answers the token once, storing only its hash', async () => {
     const { issue, add, issuer } = issuing();
     const issued = await issue(CI);
 
@@ -81,10 +81,10 @@ describe('CreateWorkspaceTokenHandler', () => {
     });
     expect(issued?.token).toMatch(/^[\w-]{43}$/);
 
-    const [kept] = add.mock.calls[0] as [WorkspaceToken];
+    const [stored] = add.mock.calls[0] as [WorkspaceToken];
 
-    expect(kept.hash.value).toBe(issuer.hash(issued?.token ?? ''));
-    expect(kept.issuedBy).toEqual(OWNER);
+    expect(stored.hash.value).toBe(issuer.hash(issued?.token ?? ''));
+    expect(stored.issuedBy).toEqual(OWNER);
   });
 
   it('answers no token to a retry, since only the first answer carried it', async () => {

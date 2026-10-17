@@ -307,13 +307,13 @@ describe('the station config a run ran with', () => {
 });
 
 describe('a chat improving a station', () => {
-  it('keeps the station it improves', async () => {
+  it('stores the station it improves', async () => {
     const chat = Chat.start({
       workspaceId: WorkspaceId.of('ws_1'),
       teamId: TeamId.of('team_1'),
       startedBy: UserId.of('user_1'),
       harness: HarnessId.of('dev'),
-      body: ChatMessageBody.given('Improve this station.'),
+      body: ChatMessageBody.fromInput('Improve this station.'),
       improving: ImprovedStation.rehydrate({
         teamId: TeamId.of('team_1'),
         lineId: LineId.of('line_1'),

@@ -7,8 +7,8 @@ import { WorkChangeStacks } from '@change-review/application/services/work-chang
 import type { INestApplication } from '@nestjs/common';
 import {
   JUDGE,
-  type JudgeAsk,
   type JudgePort,
+  type JudgeRequest,
 } from '@outcomes/application/ports/judge.port';
 import { WorkChangeJudgings } from '@outcomes/application/services/work-change-judgings.service';
 import { RunRecord } from '@outcomes/domain/aggregates/run-record.aggregate';
@@ -110,8 +110,8 @@ let judgeFlipsLeft = 4;
 const judge: JudgePort = {
   available: true,
   model: 'stub/judge',
-  judge: async (ask: JudgeAsk) => {
-    const scoredStep = ask.steps.find((each) => SCORED.test(each.text));
+  judge: async (request: JudgeRequest) => {
+    const scoredStep = request.steps.find((each) => SCORED.test(each.text));
     const run = MARKED.exec(scoredStep?.text ?? '')?.[1] ?? '';
     const times = (judgedRuns.get(run) ?? 0) + 1;
     const scored = Number(SCORED.exec(scoredStep?.text ?? '')?.[1] ?? 1);
@@ -134,7 +134,7 @@ const judge: JudgePort = {
           {
             text: `It drains the queue as a ${value}.`,
             steps: scoredStep ? [scoredStep.index] : [],
-            hunks: ask.hunks.slice(0, 1).map((each) => each.id),
+            hunks: request.hunks.slice(0, 1).map((each) => each.id),
           },
         ],
       },
@@ -309,7 +309,7 @@ const anOriginal = async (): Promise<Original> => {
   await app
     .get(DrizzleRunRecordRepository)
     .add(
-      RunRecord.heardOf(
+      RunRecord.empty(
         RunId.of(runId),
         team.workspaceId,
         TaskId.of(taskId),
@@ -421,7 +421,7 @@ const finish = async (assignment: Claimed, plan: Plan) => {
       failed: false,
       handover: { next: 'ship', note: 'Drained.' },
       sessionId: 'session_1',
-      kept: true,
+      archived: true,
     })
     .expect(200);
 };

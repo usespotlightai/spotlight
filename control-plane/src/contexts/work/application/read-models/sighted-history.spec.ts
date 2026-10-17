@@ -30,7 +30,7 @@ const SIGHT = aSight({
 });
 
 describe('SightedHistory', () => {
-  it('sees only the searched station, hides held-out tasks and shows originals not already kept', () => {
+  it('sees only the searched station, hides held-out tasks and shows originals not already listed', () => {
     const sighted = SightedHistory.through(SIGHT);
 
     expect(sighted.isSearch).toBe(true);

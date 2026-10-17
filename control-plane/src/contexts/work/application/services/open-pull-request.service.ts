@@ -22,7 +22,7 @@ interface PullRequestFor {
   readonly stationId: StationId;
 }
 
-interface PullRequestAsked {
+interface PullRequestInput {
   readonly title: string;
   readonly body: string;
   readonly repository: string | null;
@@ -41,7 +41,7 @@ export class OpenPullRequest {
 
   async open(
     target: PullRequestFor,
-    asked: PullRequestAsked,
+    input: PullRequestInput,
   ): Promise<OpenedPullRequest> {
     const task = await this.found(target.taskId);
 
@@ -55,7 +55,7 @@ export class OpenPullRequest {
       throw new UnknownStationError(target.stationId.value);
     }
 
-    const repository = line.opening(asked.repository);
+    const repository = line.opening(input.repository);
     const hooked = await this.hookedTasks.of(
       target.taskId.value,
       target.runId.value,
@@ -69,7 +69,7 @@ export class OpenPullRequest {
         on: 'pull-request.opening',
         repository: repository.value,
         branch: task.branch.value,
-        title: asked.title,
+        title: input.title,
         changed: await this.pullRequests.changedOn(
           task.workspaceId,
           repository,
@@ -86,8 +86,8 @@ export class OpenPullRequest {
       workspaceId: task.workspaceId,
       repository,
       branch: task.branch.value,
-      title: asked.title,
-      body: asked.body,
+      title: input.title,
+      body: input.body,
     });
 
     return this.transaction.inTransaction(async () => {

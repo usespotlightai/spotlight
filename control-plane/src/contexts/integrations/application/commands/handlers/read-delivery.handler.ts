@@ -68,20 +68,25 @@ export class ReadDeliveryHandler
         ? await this.history.chainOf(workspaceId.value, cause)
         : null;
 
-      await this.causation.within(this.heardFrom(fired, stored.source), () =>
-        this.reactions.react(
-          workspaceId,
-          stored.teamId ? TeamId.of(stored.teamId) : null,
-          news,
-          `delivery:${stored.source}:${stored.teamId}:${stored.id}`,
-        ),
+      await this.causation.within(
+        this.deliveryChain(fired, stored.source),
+        () =>
+          this.reactions.react(
+            workspaceId,
+            stored.teamId ? TeamId.of(stored.teamId) : null,
+            news,
+            `delivery:${stored.source}:${stored.teamId}:${stored.id}`,
+          ),
       );
     } catch (error) {
       rethrowAsApplicationError(error);
     }
   }
 
-  private heardFrom(fired: CausalChain | null, source: string): CausalChain {
+  private deliveryChain(
+    fired: CausalChain | null,
+    source: string,
+  ): CausalChain {
     return fired
       ? fired.followedBy({
           kind: 'delivery',

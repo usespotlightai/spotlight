@@ -7,7 +7,7 @@ import { ImproveSection } from '@/components/features/stations/improve/ImproveSe
 import { WorthImproving } from '@/components/features/stations/improve/WorthImproving';
 import { useSearchStart } from '@/hooks/useSearchStart';
 import type { LineResponseDto, StationResponseDto } from '@/lib/api';
-import { signalAsk } from '@/lib/insights';
+import { signalPrompt } from '@/lib/insights';
 import { loading } from '@/lib/query';
 import { REPLAYS_ANCHOR } from '@/lib/replay';
 import { SEARCHES_ANCHOR } from '@/lib/search';
@@ -51,13 +51,13 @@ export function StationImproveTab({
               variant="default"
             />
           }
-          askAbout={(reading) => (
+          actionFor={(reading) => (
             <ImproveStationLink
               slug={slug}
               teamId={teamId}
               improving={improving}
               label="Ask the agent"
-              ask={signalAsk(reading)}
+              prompt={signalPrompt(reading)}
             />
           )}
         />

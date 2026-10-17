@@ -45,12 +45,12 @@ interface Props {
 
 interface State extends Props {
   readonly deleted: boolean;
-  readonly givenSecret: HookSigningSecret | null;
+  readonly secretInput: HookSigningSecret | null;
 }
 
 interface Signing {
   readonly signing: SigningVersion | null;
-  readonly givenSecret: HookSigningSecret | null;
+  readonly secretInput: HookSigningSecret | null;
 }
 
 export interface Compiled {
@@ -58,9 +58,9 @@ export interface Compiled {
   readonly document: DefinitionDocument;
 }
 
-export type SecretGiven =
-  | { readonly kind: 'given'; readonly versioned: VersionedSigningSecret }
-  | { readonly kind: 'kept'; readonly version: number }
+export type SigningSecretChange =
+  | { readonly kind: 'supplied'; readonly versioned: VersionedSigningSecret }
+  | { readonly kind: 'unchanged'; readonly version: number }
   | { readonly kind: 'none' };
 
 export interface HookAllowances {
@@ -110,28 +110,28 @@ const guardAllowed = (hook: Hook, allowances: HookAllowances): void => {
   }
 };
 
-const NOT_SIGNED: Signing = { signing: null, givenSecret: null };
+const NOT_SIGNED: Signing = { signing: null, secretInput: null };
 
 const signingFor = (
   hook: Hook,
-  given: SecretGiven,
+  change: SigningSecretChange,
   stored: SigningVersion | null,
 ): Signing => {
   if (hook.signing !== 'hmac') {
     return NOT_SIGNED;
   }
 
-  if (given.kind === 'given') {
-    return stored && given.versioned.version === stored.version
-      ? { signing: stored, givenSecret: null }
+  if (change.kind === 'supplied') {
+    return stored && change.versioned.version === stored.version
+      ? { signing: stored, secretInput: null }
       : {
-          signing: { version: given.versioned.version },
-          givenSecret: given.versioned.secret,
+          signing: { version: change.versioned.version },
+          secretInput: change.versioned.secret,
         };
   }
 
-  if (stored && (given.kind === 'none' || given.version === stored.version)) {
-    return { signing: stored, givenSecret: null };
+  if (stored && (change.kind === 'none' || change.version === stored.version)) {
+    return { signing: stored, secretInput: null };
   }
 
   if (stored) {
@@ -157,7 +157,7 @@ export class HookDefinition extends EventRecorder {
       id: HookDefinitionId;
       workspaceId: WorkspaceId;
       teamId: TeamId;
-      secret: SecretGiven;
+      secret: SigningSecretChange;
       allowances: HookAllowances;
       by: Attribution;
     },
@@ -193,11 +193,11 @@ export class HookDefinition extends EventRecorder {
     if (input.version < 1) {
       throw new InconsistentStateError(
         'hook definition',
-        'was kept without a version',
+        'was stored without a version',
       );
     }
 
-    return new HookDefinition({ ...input, deleted: false, givenSecret: null });
+    return new HookDefinition({ ...input, deleted: false, secretInput: null });
   }
 
   assertVersion(version: number): void {
@@ -208,7 +208,7 @@ export class HookDefinition extends EventRecorder {
 
   update(
     compiled: Compiled,
-    secret: SecretGiven,
+    secret: SigningSecretChange,
     allowances: HookAllowances,
     by: Attribution,
   ): HookDefinition {
@@ -297,8 +297,8 @@ export class HookDefinition extends EventRecorder {
     return this.state.signing;
   }
 
-  get givenSecret(): HookSigningSecret | null {
-    return this.state.givenSecret;
+  get secretInput(): HookSigningSecret | null {
+    return this.state.secretInput;
   }
 
   get version(): number {

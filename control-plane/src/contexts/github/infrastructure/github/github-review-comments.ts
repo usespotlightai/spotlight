@@ -84,11 +84,11 @@ export class GitHubReviewComments implements ReviewCommentsPort {
     );
 
     if (!already) {
-      await this.ask(REPLY, { thread: thread.id, body: reply.body }, token);
+      await this.graphql(REPLY, { thread: thread.id, body: reply.body }, token);
     }
 
     if (reply.resolve && !thread.isResolved) {
-      await this.ask(RESOLVE, { thread: thread.id }, token);
+      await this.graphql(RESOLVE, { thread: thread.id }, token);
     }
   }
 
@@ -96,7 +96,7 @@ export class GitHubReviewComments implements ReviewCommentsPort {
     reply: ReviewCommentReply,
     token: string,
   ): Promise<Thread | null> {
-    const read = await this.ask(
+    const read = await this.graphql(
       THREADS,
       {
         owner: reply.repository.owner,
@@ -141,7 +141,7 @@ export class GitHubReviewComments implements ReviewCommentsPort {
     }
   }
 
-  private async ask(
+  private async graphql(
     query: string,
     variables: Record<string, unknown>,
     token: string,

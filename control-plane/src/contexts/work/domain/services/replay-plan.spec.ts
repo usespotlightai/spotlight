@@ -284,7 +284,7 @@ describe('planning a replay', () => {
     ).toBe('no-starting-point');
   });
 
-  it('rejects a run whose briefing was never kept', () => {
+  it('rejects a run whose briefing was never stored', () => {
     expect(
       unreplayableReasonOf(() =>
         replayPlanFor({

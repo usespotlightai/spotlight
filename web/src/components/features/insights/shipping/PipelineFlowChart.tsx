@@ -16,7 +16,7 @@ const HEIGHT = 216;
 const LABELS = 52;
 const MIDDLE = LABELS + 62;
 const MARKS_END = HEIGHT - 34;
-const BRACKET_REACH = 24;
+const BRACKET_EXTENT = 24;
 
 type PipelineFlowChartProps = {
   stages: readonly FlowStage[];
@@ -90,8 +90,8 @@ export function PipelineFlowChart({
             {stations.length > 0 && (
               <g className="text-chart-grid">
                 <line
-                  x1={geometry.centers[0] - BRACKET_REACH}
-                  x2={geometry.centers[stations.length - 1] + BRACKET_REACH}
+                  x1={geometry.centers[0] - BRACKET_EXTENT}
+                  x2={geometry.centers[stations.length - 1] + BRACKET_EXTENT}
                   y1={8}
                   y2={8}
                   stroke="currentColor"
@@ -136,7 +136,7 @@ export function PipelineFlowChart({
         {stations.length > 0 && width > 0 && (
           <span
             className="absolute top-0 bg-card pr-1.5 text-[0.7rem] text-muted-foreground"
-            style={{ left: geometry.centers[0] - BRACKET_REACH }}
+            style={{ left: geometry.centers[0] - BRACKET_EXTENT }}
           >
             Coding, by station
           </span>

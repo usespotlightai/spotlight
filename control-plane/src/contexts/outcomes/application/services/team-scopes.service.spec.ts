@@ -19,7 +19,7 @@ const scopes = (onTeam: boolean) =>
   );
 
 describe('TeamScopes', () => {
-  it('clears a team member and reads the period they asked for up to now', async () => {
+  it('clears a team member and reads the period they requested up to now', async () => {
     const { access, period } = await scopes(true).scope(
       'team_1',
       PersonPrincipal.of(UserId.of('user_ada')),

@@ -21,8 +21,8 @@ export class TaskAsides implements TaskAsidesPort {
     private readonly clock: ClockPort,
   ) {}
 
-  raise(asked: AsideOf): Promise<void> {
-    const aside = { ...asked, about: AsideAbout.of(asked.about) };
+  raise(input: AsideOf): Promise<void> {
+    const aside = { ...input, about: AsideAbout.of(input.about) };
 
     return this.transaction.inTransaction(async () => {
       const task = await this.tasks.find(aside.taskId);
@@ -51,8 +51,8 @@ export class TaskAsides implements TaskAsidesPort {
     });
   }
 
-  reopen(asked: AsideOf): Promise<void> {
-    const aside = { ...asked, about: AsideAbout.of(asked.about) };
+  reopen(input: AsideOf): Promise<void> {
+    const aside = { ...input, about: AsideAbout.of(input.about) };
 
     return this.transaction.inTransaction(async () => {
       const existing = await this.asides.about(
@@ -85,18 +85,18 @@ export class TaskAsides implements TaskAsidesPort {
     });
   }
 
-  async idOf(asked: AsideOf): Promise<string | null> {
+  async idOf(input: AsideOf): Promise<string | null> {
     const existing = await this.asides.about(
-      asked.taskId,
-      asideForm(asked.form),
-      AsideAbout.of(asked.about),
+      input.taskId,
+      asideForm(input.form),
+      AsideAbout.of(input.about),
     );
 
     return existing?.id.value ?? null;
   }
 
-  resolve(asked: AsideOf): Promise<void> {
-    const aside = { ...asked, about: AsideAbout.of(asked.about) };
+  resolve(input: AsideOf): Promise<void> {
+    const aside = { ...input, about: AsideAbout.of(input.about) };
 
     return this.transaction.inTransaction(async () => {
       const existing = await this.asides.about(

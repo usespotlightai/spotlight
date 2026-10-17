@@ -45,7 +45,7 @@ describe('TeamSkillFiles', () => {
     ]);
   });
 
-  it('reads none where the team keeps none', () => {
+  it('reads none where the team has none', () => {
     expect(read()).toEqual({ skills: [], problems: [] });
   });
 
@@ -90,7 +90,7 @@ describe('TeamSkillFiles', () => {
       ]);
     });
 
-    it('is kept in a folder named the way skills are', () => {
+    it('is stored in a folder named the way skills are', () => {
       const found = read(
         file(
           '.spotlight/skills/Our Migrations/SKILL.md',
@@ -129,7 +129,7 @@ describe('TeamSkillFiles', () => {
     });
   });
 
-  it('warns of a file kept outside any skill’s folder', () => {
+  it('warns of a file stored outside any skill’s folder', () => {
     const found = read(file('.spotlight/skills/README.md', 'Our skills.'));
 
     expect(found.problems).toMatchObject([

@@ -44,7 +44,7 @@ const announcing = (
   stored: TaskDecisionsDto | null,
   task: Partial<ReviewedTask> = {},
 ) => {
-  const kept: StickyComment[] = [];
+  const upserted: StickyComment[] = [];
   const withdrawn: StickyCommentPlace[] = [];
 
   const service = new AnnounceDecisions(
@@ -67,8 +67,8 @@ const announcing = (
     },
     { isConnected: async () => true },
     {
-      keep: async (comment) => {
-        kept.push(comment);
+      upsert: async (comment) => {
+        upserted.push(comment);
       },
       withdraw: async (place) => {
         withdrawn.push(place);
@@ -86,49 +86,49 @@ const announcing = (
     },
   );
 
-  return { service, kept, withdrawn };
+  return { service, upserted, withdrawn };
 };
 
 describe('announcing a task’s decisions on its pull request', () => {
   it('keeps one comment listing them, linked to Spotlight', async () => {
-    const { service, kept } = announcing(drafted([LIMITED]));
+    const { service, upserted } = announcing(drafted([LIMITED]));
 
     await service.ofTask(TASK);
 
-    expect(kept).toHaveLength(1);
-    expect(kept[0]?.marker).toBe('<!-- spotlight:decisions -->');
-    expect(kept[0]?.repository.value).toBe('acme/api');
-    expect(kept[0]?.body).toContain('**Limitation** · Retries only once');
-    expect(kept[0]?.body).toContain(
+    expect(upserted).toHaveLength(1);
+    expect(upserted[0]?.marker).toBe('<!-- spotlight:decisions -->');
+    expect(upserted[0]?.repository.value).toBe('acme/api');
+    expect(upserted[0]?.body).toContain('**Limitation** · Retries only once');
+    expect(upserted[0]?.body).toContain(
       'https://app.example/tasks/task_1#decisions',
     );
   });
 
   it('withdraws the comment once the latest run decided nothing', async () => {
-    const { service, kept, withdrawn } = announcing(drafted([]));
+    const { service, upserted, withdrawn } = announcing(drafted([]));
 
     await service.ofTask(TASK);
 
-    expect(kept).toEqual([]);
+    expect(upserted).toEqual([]);
     expect(withdrawn).toHaveLength(1);
   });
 
   it('says nothing before any run was drafted', async () => {
-    const { service, kept, withdrawn } = announcing(null);
+    const { service, upserted, withdrawn } = announcing(null);
 
     await service.ofTask(TASK);
 
-    expect([...kept, ...withdrawn]).toEqual([]);
+    expect([...upserted, ...withdrawn]).toEqual([]);
   });
 
   it.each([
     ['has no pull request yet', { pullRequest: null }],
     ['only reviews a pull request opened elsewhere', { reviewing: true }],
   ])('says nothing on a task that %s', async (_, task) => {
-    const { service, kept } = announcing(drafted([LIMITED]), task);
+    const { service, upserted } = announcing(drafted([LIMITED]), task);
 
     await service.ofTask(TASK);
 
-    expect(kept).toEqual([]);
+    expect(upserted).toEqual([]);
   });
 });

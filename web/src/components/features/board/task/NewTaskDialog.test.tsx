@@ -97,7 +97,7 @@ describe('NewTaskDialog', () => {
     );
   });
 
-  it('stays open and empties itself when asked to create more', async () => {
+  it('stays open and empties itself when told to create more', async () => {
     const user = userEvent.setup();
     renderDialog();
 

@@ -301,7 +301,7 @@ const REFERRAL: ChangeStackResponseDto = {
       kind: 'change',
       title: 'Referral link in the invite email',
       intent:
-        'Give everyone who receives an invite a way to pass Acme on, behind a flag.',
+        'Let everyone who receives an invite pass Acme on, behind a flag.',
       layers: [
         {
           id: 'c1.l1',

@@ -143,7 +143,7 @@ const ending = (input: {
   outcome?: RunOutcome;
   handover?: { next?: string; note?: string } | null;
   ran?: Run;
-  kept?: boolean;
+  archived?: boolean;
 }) =>
   turnEnded({
     run: input.ran ?? run(),
@@ -155,7 +155,7 @@ const ending = (input: {
       handover: input.handover ? Handover.of(input.handover) : null,
       session: HarnessSession.of('session_1'),
     }),
-    kept: input.kept ?? true,
+    archived: input.archived ?? true,
     now: NOW,
   });
 
@@ -207,15 +207,15 @@ describe('turnEnded', () => {
     });
   });
 
-  it('ends the run as before, leaving the task to be put to the person, when its workspace was not kept', () => {
-    const ended = ending({ handover: { next: 'review' }, kept: false });
+  it('ends the run as before, leaving the task to be put to the person, when its workspace was not archived', () => {
+    const ended = ending({ handover: { next: 'review' }, archived: false });
 
     expect(ended.waiting).toBe(false);
     expect(ended.run.state).toBe('completed');
     expect(ended.task).toBeNull();
   });
 
-  describe('whether a turn waits, asked before the runner keeps its workspace', () => {
+  describe('whether a turn waits, requested before the runner archives its workspace', () => {
     const turn = (
       handover: { next: string } | null,
       over: {
@@ -280,7 +280,7 @@ describe('turnEnded', () => {
     ).toBe(false);
   });
 
-  it('ends a turn once a person asked the run to stop', () => {
+  it('ends a turn once a person requested the run to stop', () => {
     expect(
       ending({ ran: run().requestStop(NOW), handover: { next: 'review' } })
         .waiting,
@@ -344,7 +344,7 @@ describe('the end of a replay’s turn', () => {
         handover: next === null ? null : Handover.of({ next }),
         session: null,
       }),
-      kept: true,
+      archived: true,
       now: NOW,
     });
 

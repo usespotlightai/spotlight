@@ -200,18 +200,18 @@ const groupOf = (
   };
 };
 
-const lastOf = (asked: number | null): number =>
-  asked === null || Number.isNaN(asked)
+const lastOf = (requested: number | null): number =>
+  requested === null || Number.isNaN(requested)
     ? DEFAULT_LAST
-    : Math.min(MAX_LAST, Math.max(1, asked));
+    : Math.min(MAX_LAST, Math.max(1, requested));
 
 export const stationOutcomes = (
   teamId: string,
   lineId: string,
   stationId: string,
-  asked: number | null = null,
+  requested: number | null = null,
 ): StationOutcomesResponseDto => {
-  const last = lastOf(asked);
+  const last = lastOf(requested);
   const { runs, versions } = stationRuns(teamId, lineId, stationId, last);
   const fingerprints = new Map(
     historyAt(teamId, lineId, stationId).map((run) => [

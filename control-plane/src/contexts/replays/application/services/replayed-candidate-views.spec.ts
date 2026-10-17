@@ -283,7 +283,7 @@ describe('replayedCandidatesView', () => {
     });
   });
 
-  it('gives the baseline’s cost in its own currency, apart from the candidate’s', () => {
+  it('shows the baseline’s cost in its own currency, apart from the candidate’s', () => {
     const euros = replayedAs(
       Replay.start({
         id: ReplayId.of('replay_euros'),
@@ -328,7 +328,7 @@ describe('replayedCandidatesView', () => {
     ).toBe('replay_running');
   });
 
-  it('gives a held-out score apart from the search score, as the search page does', () => {
+  it('shows a held-out score apart from the search score, as the search page does', () => {
     world = replayedWorld(true);
     const page = searchDetailView(
       world.search,

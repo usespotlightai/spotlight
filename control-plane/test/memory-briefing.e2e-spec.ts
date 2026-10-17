@@ -148,7 +148,7 @@ describe('briefing runs with what the team remembers', () => {
 
   const briefed = () => app.get<TeamMemoriesPort>(TEAM_MEMORIES);
 
-  it('gives a run what reaches its place, the most specific first, each by its handle', async () => {
+  it('gives a run what applies to its place, the most specific first, each by its handle', async () => {
     const { briefed: memories } = await briefed().forBriefing(place());
 
     expect(memories.map((each) => each.id)).toEqual([
@@ -234,7 +234,7 @@ describe('briefing runs with what the team remembers', () => {
     expect(counted(byPath.id)).toBe(1);
     expect(counted(lineOnly.id)).toBe(0);
 
-    const kept = await eventually(async () => {
+    const stored = await eventually(async () => {
       const [record] = await db
         .select({ memories: schema.runRecord.memories })
         .from(schema.runRecord)
@@ -242,7 +242,7 @@ describe('briefing runs with what the team remembers', () => {
 
       return record?.memories.briefed.length ? record.memories : null;
     });
-    expect(kept).toEqual({
+    expect(stored).toEqual({
       briefed: [byPath.id, teamWide.id].sort(),
       recalled: [],
     });
@@ -256,14 +256,14 @@ describe('briefing runs with what the team remembers', () => {
         taskId: team.list.id,
         workspaceId: team.workspaceId,
       })
-        .asked(runId, new Date())
+        .requestDrafting(runId, new Date())
         .recordDraft({
           runId,
           proposed: [
             {
               kind: 'preference',
               body: 'Still waiting on a person.',
-              reach: 'team',
+              scope: 'team',
               repository: null,
               paths: [],
               steps: [1],

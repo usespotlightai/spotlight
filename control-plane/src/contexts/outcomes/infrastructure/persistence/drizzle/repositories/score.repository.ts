@@ -236,7 +236,7 @@ export class DrizzleScoreRepository implements ScoreRepository {
   }
 
   async judgedAtStations(criteria: StationsScores): Promise<readonly Score[]> {
-    const asked = [
+    const stations = [
       ...new Map(
         criteria.stations.map((each) => [
           JSON.stringify([each.lineId, each.stationId, each.rubricVersion]),
@@ -245,12 +245,12 @@ export class DrizzleScoreRepository implements ScoreRepository {
       ).values(),
     ];
 
-    if (asked.length === 0) {
+    if (stations.length === 0) {
       return [];
     }
 
     const picked = sql.join(
-      asked.map(
+      stations.map(
         (each) =>
           sql`(select ${score.id} from ${score} where ${judgedWhere({ ...criteria, ...each })} order by ${score.at} desc, ${score.id} desc limit ${criteria.last})`,
       ),

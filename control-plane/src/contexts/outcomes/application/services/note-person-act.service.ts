@@ -32,17 +32,17 @@ export class NotePersonAct {
     private readonly transaction: TransactionPort,
   ) {}
 
-  async acted(heard: PersonActed): Promise<void> {
-    const act = personActOf(heard.act);
+  async acted(event: PersonActed): Promise<void> {
+    const act = personActOf(event.act);
 
     if (!act) {
       return;
     }
 
-    const next = NextAct.of(act, new Date(heard.at));
+    const next = NextAct.of(act, new Date(event.at));
     const refusal =
-      act === 'refused' && heard.tool
-        ? Refusal.of({ tool: heard.tool, server: heard.server, at: next.at })
+      act === 'refused' && event.tool
+        ? Refusal.of({ tool: event.tool, server: event.server, at: next.at })
         : null;
     const noted = (record: RunRecord): RunRecord => {
       const acted = record.recordAction(next);
@@ -50,18 +50,18 @@ export class NotePersonAct {
       return refusal ? acted.refused(refusal) : acted;
     };
 
-    const workspaceId = WorkspaceId.of(heard.workspaceId);
-    const taskId = TaskId.of(heard.taskId);
-    const run = heard.after ? await this.work.endedRun(heard.after) : null;
+    const workspaceId = WorkspaceId.of(event.workspaceId);
+    const taskId = TaskId.of(event.taskId);
+    const run = event.after ? await this.work.endedRun(event.after) : null;
     const teamId = run ? TeamId.of(run.teamId) : null;
 
     await this.transaction.inTransaction(async () => {
       await this.deletions.lockDeletion(workspaceId, taskId, teamId);
-      const existing = heard.after
-        ? await this.records.of(RunId.of(heard.after))
+      const existing = event.after
+        ? await this.records.of(RunId.of(event.after))
         : await this.records.lastEndedOfTaskAt(
             taskId,
-            heard.stationId,
+            event.stationId,
             next.at,
           );
 
@@ -79,11 +79,9 @@ export class NotePersonAct {
       }
 
       if (!existing) {
-        if (heard.after) {
+        if (event.after) {
           await this.records.add(
-            noted(
-              RunRecord.heardOf(RunId.of(heard.after), workspaceId, taskId),
-            ),
+            noted(RunRecord.empty(RunId.of(event.after), workspaceId, taskId)),
           );
         }
         return;

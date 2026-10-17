@@ -13,35 +13,35 @@ import (
 	"sync/atomic"
 	"time"
 
+	"usespotlight.ai/data-plane/allowlist"
 	"usespotlight.ai/data-plane/control"
 	"usespotlight.ai/data-plane/egressing/inject"
 	"usespotlight.ai/data-plane/protocol"
-	"usespotlight.ai/data-plane/reach"
 )
 
 const (
-	checkEvery    = 30 * time.Second
-	sweepEvery    = 10 * time.Second
-	recordEvery   = 5 * time.Second
-	unusedFor     = 2 * time.Minute
-	fetchAgain    = 5 * time.Second
-	fetchBudget   = time.Minute
-	admitBudget   = 30 * time.Second
-	rejectionTTL  = 10 * time.Second
-	maxRejections = 10_000
-	admitRate     = 50
+	checkEvery      = 30 * time.Second
+	sweepEvery      = 10 * time.Second
+	recordEvery     = 5 * time.Second
+	unusedFor       = 2 * time.Minute
+	fetchAgain      = 5 * time.Second
+	fetchBudget     = time.Minute
+	authorizeBudget = 30 * time.Second
+	rejectionTTL    = 10 * time.Second
+	maxRejections   = 10_000
+	authorizeRate   = 50
 )
 
-var errAdmitsTooFast = errors.New("egress admits too many sandboxes at once")
+var errAuthorizeTooFast = errors.New("egress authorizes too many sandboxes at once")
 
 type run struct {
-	credential   string
-	workspace    string
-	controlPlane string
-	port         string
-	reaches      []string
-	admitting    chan struct{}
-	failed       error
+	credential        string
+	workspace         string
+	controlPlane      string
+	port              string
+	extraAllowedHosts []string
+	authorizing       chan struct{}
+	failed            error
 
 	fetching sync.Mutex
 
@@ -50,7 +50,7 @@ type run struct {
 	triedAt   time.Time
 	injector  *inject.Injector
 	bound     map[string]bool
-	allowed   reach.List
+	allowed   allowlist.List
 	transport *http.Transport
 	evicted   bool
 
@@ -74,12 +74,12 @@ func isEgressAuthFailure(err error) bool {
 		(answer.Status == http.StatusUnauthorized || answer.Status == http.StatusForbidden)
 }
 
-func (e *Egress) admitted(ctx context.Context, credential, source string) (*run, error) {
+func (e *Egress) authorized(ctx context.Context, credential, source string) (*run, error) {
 	e.mu.Lock()
 	if found, ok := e.runs[credential]; ok {
 		found.active.Add(1)
 		e.mu.Unlock()
-		<-found.admitting
+		<-found.authorizing
 		if found.failed != nil {
 			e.leave(found)
 		}
@@ -90,27 +90,27 @@ func (e *Egress) admitted(ctx context.Context, credential, source string) (*run,
 		e.mu.Unlock()
 		return nil, failure.err
 	}
-	release, tooFast := e.admits.take(source)
+	release, tooFast := e.authorizeLimits.take(source)
 	if tooFast != "" {
 		e.mu.Unlock()
-		return nil, errAdmitsTooFast
+		return nil, errAuthorizeTooFast
 	}
 	release()
 
-	found := &run{credential: credential, admitting: make(chan struct{})}
+	found := &run{credential: credential, authorizing: make(chan struct{})}
 	found.active.Add(1)
 	e.runs[credential] = found
 	e.mu.Unlock()
 
-	admitting, cancel := context.WithTimeout(context.WithoutCancel(ctx), admitBudget)
+	authorizing, cancel := context.WithTimeout(context.WithoutCancel(ctx), authorizeBudget)
 	defer cancel()
 
-	admitted, err := e.control.AdmitEgress(admitting, credential)
+	authorized, err := e.control.AuthorizeEgress(authorizing, credential)
 	switch {
 	case err != nil:
-	case admitted.ControlPlaneHost == "":
+	case authorized.ControlPlaneHost == "":
 		err = errors.New("the control plane named no host of its own")
-	case admitted.ControlPlanePort <= 0 || admitted.ControlPlanePort > 65535:
+	case authorized.ControlPlanePort <= 0 || authorized.ControlPlanePort > 65535:
 		err = errors.New("the control plane named no port of its own")
 	}
 	if err != nil {
@@ -126,19 +126,19 @@ func (e *Egress) admitted(ctx context.Context, credential, source string) (*run,
 		}
 		e.mu.Unlock()
 		found.failed = err
-		close(found.admitting)
+		close(found.authorizing)
 		e.leave(found)
 		return nil, err
 	}
 
-	found.workspace = admitted.WorkspaceID
-	found.controlPlane = reach.Normal(admitted.ControlPlaneHost)
-	found.port = strconv.Itoa(admitted.ControlPlanePort)
-	found.reaches = admitted.Reaches
-	found.allowed = reach.List{}.With(admitted.Reaches...)
+	found.workspace = authorized.WorkspaceID
+	found.controlPlane = allowlist.Normal(authorized.ControlPlaneHost)
+	found.port = strconv.Itoa(authorized.ControlPlanePort)
+	found.extraAllowedHosts = authorized.ExtraAllowedHosts
+	found.allowed = allowlist.List{}.With(authorized.ExtraAllowedHosts...)
 	found.touch(e.now())
-	close(found.admitting)
-	e.log.Info("admitted a sandbox", "runner", admitted.RunnerID, "workspace", admitted.WorkspaceID)
+	close(found.authorizing)
+	e.log.Info("authorized a sandbox", "runner", authorized.RunnerID, "workspace", authorized.WorkspaceID)
 
 	return found, nil
 }
@@ -212,13 +212,13 @@ func (e *Egress) fetchedSecrets(ctx context.Context, r *run, now bool) error {
 	injector := inject.From(fetching, fetched, nil, inject.Limits{Hosts: e.settings.Allow, SecretAllow: e.settings.SecretAllow}, e.key, e.reader, log)
 	controlPlane := &url.URL{Scheme: "https", Host: r.controlPlane}
 	if err := injector.ForControlPlane(fetched.SpotlightAPI, controlPlane, fetched.RunID, e.key); err != nil {
-		log.Warn("could not keep the run's Spotlight token", "error", err)
+		log.Warn("could not store the run's Spotlight token", "error", err)
 	}
 
-	allowed := e.settings.Allow.With(slices.Concat([]string{r.controlPlane}, r.reaches, fetched.Reaches)...)
+	allowed := e.settings.Allow.With(slices.Concat([]string{r.controlPlane}, r.extraAllowedHosts, fetched.ExtraAllowedHosts)...)
 	bound := map[string]bool{}
 	for _, host := range slices.Concat(fetched.Bound, injector.Hosts()) {
-		if host = reach.Normal(host); allowed.Admits(host) {
+		if host = allowlist.Normal(host); allowed.Allows(host) {
 			bound[host] = true
 		}
 	}
@@ -260,7 +260,7 @@ func (r *run) controlPlaneAt(host, port string) bool {
 	return host == r.controlPlane && port == r.port
 }
 
-func (r *run) admits(host, port string) (admits, named bool) {
+func (r *run) allows(host, port string) (allowed, named bool) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -268,9 +268,9 @@ func (r *run) admits(host, port string) (admits, named bool) {
 		return port == r.port, port == r.port
 	}
 	if !r.fetched {
-		return r.allowed.Names(host), r.allowed.Names(host)
+		return r.allowed.ExplicitlyListed(host), r.allowed.ExplicitlyListed(host)
 	}
-	return r.allowed.Admits(host), r.allowed.Names(host)
+	return r.allowed.Allows(host), r.allowed.ExplicitlyListed(host)
 }
 
 type forwarding struct {
@@ -286,7 +286,7 @@ func (r *run) bindsFor(host string) (forwarding, bool) {
 	if !r.fetched || r.evicted || !r.bound[host] || (host == r.controlPlane && r.port != "443") {
 		return forwarding{}, false
 	}
-	return forwarding{injector: r.injector, transport: r.transport, named: r.allowed.Names(host)}, true
+	return forwarding{injector: r.injector, transport: r.transport, named: r.allowed.ExplicitlyListed(host)}, true
 }
 
 func (r *run) boundList() ([]string, bool) {
@@ -350,22 +350,22 @@ func (e *Egress) evict(ctx context.Context, runs []*run, why string) {
 	}
 }
 
-func admittedNow(found *run) bool {
+func authorizedNow(found *run) bool {
 	select {
-	case <-found.admitting:
+	case <-found.authorizing:
 		return found.failed == nil
 	default:
 		return false
 	}
 }
 
-func (e *Egress) admittedRuns() []*run {
+func (e *Egress) authorizedRuns() []*run {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
 	runs := make([]*run, 0, len(e.runs))
 	for _, found := range e.runs {
-		if admittedNow(found) {
+		if authorizedNow(found) {
 			runs = append(runs, found)
 		}
 	}
@@ -373,19 +373,19 @@ func (e *Egress) admittedRuns() []*run {
 }
 
 func (e *Egress) checkActiveRuns(ctx context.Context) {
-	for asked := range slices.Chunk(e.admittedRuns(), protocol.MaxRunsAtOnce) {
-		credentials := make([]string, len(asked))
-		for at, found := range asked {
+	for batch := range slices.Chunk(e.authorizedRuns(), protocol.MaxRunsAtOnce) {
+		credentials := make([]string, len(batch))
+		for at, found := range batch {
 			credentials[at] = found.credential
 		}
 
 		active, err := e.control.ActiveRuns(ctx, credentials)
 		if err != nil {
-			e.log.Warn("could not ask which runs are active, keeps them for now", "runs", len(asked), "error", err)
+			e.log.Warn("could not read which runs are active, keeps them for now", "runs", len(batch), "error", err)
 			continue
 		}
 
-		e.evict(ctx, slices.DeleteFunc(slices.Clone(asked), func(found *run) bool {
+		e.evict(ctx, slices.DeleteFunc(slices.Clone(batch), func(found *run) bool {
 			return slices.Contains(active, found.credential)
 		}), "their runs are no longer active")
 	}
@@ -397,7 +397,7 @@ func (e *Egress) sweep(ctx context.Context) {
 	e.mu.Lock()
 	var unused []*run
 	for credential, found := range e.runs {
-		if admittedNow(found) && found.active.Load() == 0 && found.used.Load() < cutoff {
+		if authorizedNow(found) && found.active.Load() == 0 && found.used.Load() < cutoff {
 			unused = append(unused, found)
 			delete(e.runs, credential)
 		}
@@ -416,7 +416,7 @@ func (e *Egress) sweep(ctx context.Context) {
 	e.limits.sweep()
 }
 
-func (e *Egress) keep(ctx context.Context) {
+func (e *Egress) maintain(ctx context.Context) {
 	checks := time.NewTicker(cmp.Or(e.settings.CheckEvery, checkEvery))
 	defer checks.Stop()
 	sweeps := time.NewTicker(sweepEvery)

@@ -38,7 +38,7 @@ export class OAuth2ClientRegistration {
     if (input.version < 1) {
       throw new InconsistentStateError(
         'oauth2 client registration',
-        'was kept without a version',
+        'was stored without a version',
       );
     }
 

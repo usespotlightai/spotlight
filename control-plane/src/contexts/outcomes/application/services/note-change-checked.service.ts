@@ -34,7 +34,7 @@ export class NoteChangeChecked {
         }
 
         await this.records.add(
-          RunRecord.heardOf(runId, workspaceId, taskId).recordCheck(
+          RunRecord.empty(runId, workspaceId, taskId).recordCheck(
             verdict,
             this.clock.now(),
           ),

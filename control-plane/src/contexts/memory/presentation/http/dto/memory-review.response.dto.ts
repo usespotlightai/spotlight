@@ -1,7 +1,7 @@
 import {
   MEMORY_KIND_NAMES,
   MEMORY_ORIGIN_NAMES,
-  MEMORY_REACH_NAMES,
+  MEMORY_SCOPE_NAMES,
   MEMORY_SOURCE_NAMES,
   MEMORY_STATE_NAMES,
   type MemoryDecisionDto,
@@ -131,7 +131,7 @@ export class ProposedMemoryResponseDto {
     enum: MEMORY_ORIGIN_NAMES,
     example: 'remembered',
     description:
-      'drafted: read from the run after it ended; remembered: the agent asked for it with spotlight remember',
+      'drafted: read from the run after it ended; remembered: the agent proposed it with spotlight remember',
   })
   readonly origin: string;
 
@@ -139,11 +139,11 @@ export class ProposedMemoryResponseDto {
   readonly state: string;
 
   @ApiProperty({
-    enum: MEMORY_REACH_NAMES,
+    enum: MEMORY_SCOPE_NAMES,
     example: 'station',
     description: 'Where it applies: the whole team, its line, or its station',
   })
-  readonly reach: string;
+  readonly scope: string;
 
   @ApiProperty({ nullable: true, type: String, example: 'acme/api' })
   readonly repository: string | null;
@@ -194,7 +194,7 @@ export class ProposedMemoryResponseDto {
     this.source = memory.source;
     this.origin = memory.origin;
     this.state = memory.state;
-    this.reach = memory.reach;
+    this.scope = memory.scope;
     this.repository = memory.repository;
     this.paths = memory.paths;
     this.supersedes = memory.supersedes;

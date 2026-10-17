@@ -22,11 +22,11 @@ export const workspacePath = (
     return null;
   }
 
-  const kept = parts.filter((each) => each !== '' && each !== '.');
-  const at = kept.findIndex((each) => folders.includes(each));
+  const remaining = parts.filter((each) => each !== '' && each !== '.');
+  const at = remaining.findIndex((each) => folders.includes(each));
 
-  if (at >= 0 && kept.length > at + 1) {
-    return kept.slice(at).join(SEPARATOR);
+  if (at >= 0 && remaining.length > at + 1) {
+    return remaining.slice(at).join(SEPARATOR);
   }
 
   return null;

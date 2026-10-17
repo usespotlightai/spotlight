@@ -8,7 +8,7 @@ import {
   formatUnpaired,
   OTHER_CHANGE,
   OTHER_RUN,
-  PAIR_ASKED,
+  PAIR_REQUESTED,
   READINGS_DISAGREED,
   READINGS_LABEL,
 } from '@/lib/replay-words';
@@ -43,8 +43,8 @@ export function EntryPairReadings({ pair, againstTo }: EntryPairReadingsProps) {
         </TrailLink>
       </p>
 
-      {pair.state === 'asked' && (
-        <p className="text-muted-foreground">{PAIR_ASKED}</p>
+      {pair.state === 'requested' && (
+        <p className="text-muted-foreground">{PAIR_REQUESTED}</p>
       )}
       {pair.state === 'unpaired' && (
         <p className="text-muted-foreground">{formatUnpaired(pair.unpaired)}</p>

@@ -324,7 +324,7 @@ export class DrizzleTaskRepository implements TaskRepository {
       return;
     }
 
-    const kept = await this.context.db
+    const stored = await this.context.db
       .insert(taskMark)
       .values(
         written.marks.map((mark) => ({
@@ -343,7 +343,7 @@ export class DrizzleTaskRepository implements TaskRepository {
 
     const taken = written.marks.find(
       (mark) =>
-        !kept.some(
+        !stored.some(
           (each) => each.kind === mark.kind && each.value === mark.value,
         ),
     );

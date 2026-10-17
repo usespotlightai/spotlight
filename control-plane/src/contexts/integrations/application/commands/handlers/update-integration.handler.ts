@@ -1,8 +1,8 @@
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type { UpdateIntegrationCommand } from '@integrations/application/commands/update-integration.command';
 import { IntegrationProblems } from '@integrations/application/rendering/integration-problems';
+import type { EnabledTools } from '@integrations/application/services/enabled-tools.service';
 import type { IntegrationSources } from '@integrations/application/services/integration-sources.service';
-import type { ToolsGiven } from '@integrations/application/services/tools-given.service';
 import type { IntegrationDefinition } from '@integrations/domain/aggregates/integration-definition.aggregate';
 import { IntegrationDefinitionVersionConflictError } from '@integrations/domain/exceptions/integration-definition-version-conflict.error';
 import { IntegrationToolsInUseError } from '@integrations/domain/exceptions/integration-tools-in-use.error';
@@ -26,7 +26,7 @@ export class UpdateIntegrationHandler
     private readonly access: WorkspaceAccessPort,
     private readonly sources: IntegrationSources,
     private readonly definitions: IntegrationDefinitionRepository,
-    private readonly given: ToolsGiven,
+    private readonly enabledTools: EnabledTools,
     private readonly transaction: TransactionPort,
   ) {}
 
@@ -67,14 +67,14 @@ export class UpdateIntegrationHandler
         return { outcome: 'invalid', problems: compiled.problems };
       }
 
-      const given = await this.given.onTeam(existing.teamId);
+      const enabled = await this.enabledTools.onTeam(existing.teamId);
 
       await this.transaction.inTransaction(() =>
         this.definitions.save(
           existing.update(
             compiled,
             reading,
-            given,
+            enabled,
             Attribution.of(command.actor, permissions.workspaceId),
           ),
         ),

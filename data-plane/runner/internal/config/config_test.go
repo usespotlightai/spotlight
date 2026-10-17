@@ -66,7 +66,7 @@ func TestLoadRejectsBothWaysToGetWork(t *testing.T) {
 	t.Setenv("SPOTLIGHT_TOKEN", "one-run")
 
 	_, err := config.Load(nil)
-	if err == nil || !strings.Contains(err.Error(), "give one") {
+	if err == nil || !strings.Contains(err.Error(), "set one") {
 		t.Fatalf("expected both named, got %v", err)
 	}
 }
@@ -146,7 +146,7 @@ func TestLoadTakesThePushPoolsEgress(t *testing.T) {
 	}
 
 	want := config.Egress{URL: "https://egress.example.com", Credential: "proxy-credential", Direct: true}
-	if cfg.Egress != want || !cfg.Egress.Given() {
+	if cfg.Egress != want || !cfg.Egress.Configured() {
 		t.Errorf("egress %+v", cfg.Egress)
 	}
 }
@@ -173,7 +173,7 @@ func TestLoadLeavesEgressToTheHostThatAssignedTheWork(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if cfg.Egress.Given() {
+	if cfg.Egress.Configured() {
 		t.Errorf("egress %+v", cfg.Egress)
 	}
 }

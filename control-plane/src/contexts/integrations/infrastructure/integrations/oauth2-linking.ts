@@ -4,9 +4,9 @@ import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-
 import type { DefinedIntegrationsPort } from '@integrations/application/ports/defined-integrations.port';
 import type { OAuth2ClientsPort } from '@integrations/application/ports/oauth2-clients.port';
 import type {
-  OAuth2Asked,
   OAuth2Authorized,
   OAuth2Begun,
+  OAuth2LinkInput,
   OAuth2LinkingPort,
   OAuth2Returned,
 } from '@integrations/application/ports/oauth2-linking.port';
@@ -49,19 +49,19 @@ export class OAuth2Linking implements OAuth2LinkingPort {
     private readonly callback: string,
   ) {}
 
-  async begin(asked: OAuth2Asked): Promise<OAuth2Begun | null> {
-    const teamId = TeamId.of(asked.teamId);
+  async begin(input: OAuth2LinkInput): Promise<OAuth2Begun | null> {
+    const teamId = TeamId.of(input.teamId);
     const oauth2 = await oauth2Of(
       this.defined,
       this.reader,
       this.discovery,
       teamId,
-      asked.source,
+      input.source,
     );
     const client = oauth2
       ? await this.clients.clientFor(
           teamId,
-          SourceKey.of(asked.source),
+          SourceKey.of(input.source),
           oauth2.registration,
           authorizationServerOf(oauth2),
         )
@@ -73,11 +73,11 @@ export class OAuth2Linking implements OAuth2LinkingPort {
 
     const nonce = randomBytes(NONCE_BYTES).toString('base64url');
     const signed = this.state.sign({
-      teamId: asked.teamId,
-      source: asked.source,
-      by: asked.by,
-      holder: asked.holder,
-      back: landingBack(asked.back),
+      teamId: input.teamId,
+      source: input.source,
+      by: input.by,
+      holder: input.holder,
+      back: landingBack(input.back),
       nonce,
     });
 

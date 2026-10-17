@@ -32,7 +32,7 @@ const NOW = new Date('2026-08-31T09:00:00.000Z');
 
 const spec = RunSpec.of({
   command: { executable: 'claude-agent-acp', args: ['--acp'] },
-  briefing: 'work out what is being asked for',
+  briefing: 'work out what the request wants',
   handover: { options: ['Spec'], noteLimit: 4_000 },
   continuity: { key: 'task-task_1' },
 });
@@ -169,7 +169,7 @@ describe('ClaimRunHandler', () => {
 
     expect(runOf(claimed)?.spec).toEqual({
       command: { executable: 'claude-agent-acp', args: ['--acp'] },
-      briefing: 'work out what is being asked for',
+      briefing: 'work out what the request wants',
       handover: { options: ['Spec'], noteLimit: 4_000 },
       continuity: { key: 'task-task_1' },
     });

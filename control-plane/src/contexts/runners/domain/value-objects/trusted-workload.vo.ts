@@ -83,7 +83,7 @@ export class TrustedWorkload {
     );
   }
 
-  admits(claims: WorkloadClaims): boolean {
+  matches(claims: WorkloadClaims): boolean {
     return (
       claims.issuer === this.issuer &&
       claims.subject === this.subject &&

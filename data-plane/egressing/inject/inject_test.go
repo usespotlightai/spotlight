@@ -13,8 +13,8 @@ import (
 	"strings"
 	"testing"
 
+	"usespotlight.ai/data-plane/allowlist"
 	"usespotlight.ai/data-plane/protocol"
-	"usespotlight.ai/data-plane/reach"
 )
 
 type opener struct{}
@@ -63,7 +63,7 @@ func injectorWithSecrets(t *testing.T) (*Injector, *bytes.Buffer) {
 	t.Helper()
 
 	var logged bytes.Buffer
-	hosts, err := reach.Parse([]string{"*.linear.app", "sentry.io", "gone.example.com", "multi.example.com"})
+	hosts, err := allowlist.Parse([]string{"*.linear.app", "sentry.io", "gone.example.com", "multi.example.com"})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -145,15 +145,15 @@ func TestInjectsARunSecretOnlyByReplacingItsStandIn(t *testing.T) {
 	}
 }
 
-func TestKeepsNothingItCouldNotReadOrInjectAndSaysWhyWithoutTheValue(t *testing.T) {
+func TestStoresNothingItCouldNotReadOrInjectAndSaysWhyWithoutTheValue(t *testing.T) {
 	injector, logged := injectorWithSecrets(t)
 
 	if injector.InjectsFor("gone.example.com") || injector.InjectsFor("multi.example.com") {
-		t.Error("keeps a secret it could not read or inject")
+		t.Error("stores a secret it could not read or inject")
 	}
 	for _, want := range []string{
 		"NOWHERE", "no such secret", "GONE", "ResourceNotFoundException", "MULTI",
-		"OUTSIDE", "allow-list does not admit exfiltrate.example.net",
+		"OUTSIDE", "allow-list does not allow exfiltrate.example.net",
 		"UNLISTED_READ", "does not let egress read prod/payments",
 		"SAME_HEADER", "already injected in Authorization for mcp.linear.app",
 	} {
@@ -171,7 +171,7 @@ func TestKeepsNothingItCouldNotReadOrInjectAndSaysWhyWithoutTheValue(t *testing.
 	}
 }
 
-func TestWipesEveryValueItKept(t *testing.T) {
+func TestWipesEveryValueItStored(t *testing.T) {
 	injector, _ := injectorWithSecrets(t)
 	value := injector.byHost["mcp.linear.app"][0].value
 
@@ -187,7 +187,7 @@ func TestWipesEveryValueItKept(t *testing.T) {
 
 func TestInjectsAKeyOfTheHostOnlyByReplacingItsOwnStandIn(t *testing.T) {
 	var logged bytes.Buffer
-	hosts, _ := reach.Parse([]string{"api.anthropic.com", "api.openai.com"})
+	hosts, _ := allowlist.Parse([]string{"api.anthropic.com", "api.openai.com"})
 	injector := From(context.Background(), protocol.EgressSecrets{
 		RunID: "run_1",
 		Secrets: []protocol.FetchedSecret{
@@ -227,7 +227,7 @@ func TestInjectsAKeyOfTheHostOnlyByReplacingItsOwnStandIn(t *testing.T) {
 	}
 
 	for _, want := range []string{
-		"GITHUB_TOKEN", "allow-list does not admit api.github.com",
+		"GITHUB_TOKEN", "allow-list does not allow api.github.com",
 		"CLAUDE_OAUTH", "has a key of its own for api.anthropic.com",
 		"DOTTED",
 	} {
@@ -247,7 +247,7 @@ func TestInjectsAKeyOfTheHostOnlyByReplacingItsOwnStandIn(t *testing.T) {
 
 func TestInjectsAQuerySecretOnlyByReplacingItsStandInKeepingTheRestOfTheQuery(t *testing.T) {
 	var logged bytes.Buffer
-	hosts, _ := reach.Parse([]string{"maps.googleapis.com", "api.example.com"})
+	hosts, _ := allowlist.Parse([]string{"maps.googleapis.com", "api.example.com"})
 	injector := From(context.Background(), protocol.EgressSecrets{
 		RunID: "run_1",
 		Secrets: []protocol.FetchedSecret{
@@ -320,7 +320,7 @@ func (t *trickle) Close() error { return nil }
 
 func TestHandsBackTheStandInWhereverTheHostEchoesASecret(t *testing.T) {
 	var logged bytes.Buffer
-	hosts, _ := reach.Parse([]string{"api.example.com"})
+	hosts, _ := allowlist.Parse([]string{"api.example.com"})
 	injector := From(context.Background(), protocol.EgressSecrets{
 		RunID: "run_1",
 		Secrets: []protocol.FetchedSecret{
@@ -346,7 +346,7 @@ func TestHandsBackTheStandInWhereverTheHostEchoesASecret(t *testing.T) {
 		t.Errorf("the sandbox read\n%s\nwant\n%s", read, want)
 	}
 	if response.ContentLength != -1 || response.Header.Get("Content-Length") != "" {
-		t.Errorf("kept a length the body no longer has: %d %v", response.ContentLength, response.Header)
+		t.Errorf("left a length the body no longer has: %d %v", response.ContentLength, response.Header)
 	}
 	if location := response.Header.Get("Location"); location != "https://api.example.com/?t=spotlight-egress%3ATOKEN" {
 		t.Errorf("redirected the sandbox to %q", location)
@@ -409,14 +409,14 @@ func TestForControlPlaneInjectsTheRunsTokenByReplacingItsStandIn(t *testing.T) {
 	}
 }
 
-func TestForControlPlaneKeepsNothingWithoutAToken(t *testing.T) {
+func TestForControlPlaneStoresNothingWithoutAToken(t *testing.T) {
 	injector, _ := injectorWithSecrets(t)
 	if err := injector.ForControlPlane(nil, controlPlane(t, "https://spotlight.example.com"), "run_1", opener{}); err != nil {
 		t.Fatal(err)
 	}
 
 	if injector.InjectsFor("spotlight.example.com") {
-		t.Fatal("egress should keep nothing for the control plane")
+		t.Fatal("egress should store nothing for the control plane")
 	}
 }
 

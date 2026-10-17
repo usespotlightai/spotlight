@@ -16,12 +16,12 @@ import (
 	"syscall"
 	"time"
 
+	"usespotlight.ai/data-plane/allowlist"
 	"usespotlight.ai/data-plane/control"
 	"usespotlight.ai/data-plane/host/internal/images"
 	"usespotlight.ai/data-plane/host/internal/registry"
 	"usespotlight.ai/data-plane/host/internal/trust"
 	"usespotlight.ai/data-plane/protocol"
-	"usespotlight.ai/data-plane/reach"
 	"usespotlight.ai/data-plane/telemetry"
 )
 
@@ -142,7 +142,7 @@ func Load(version string) (Config, error) {
 
 	switch {
 	case cfg.PoolToken != "" && (cfg.Workload.Trust != "" || cfg.Workload.TokenFile != ""):
-		note(fmt.Errorf("%s and %s are different ways in; give one", envToken, envTrust))
+		note(fmt.Errorf("%s and %s are different ways in; set one", envToken, envTrust))
 	case cfg.PoolToken == "" && cfg.Workload.Trust == "":
 		note(fmt.Errorf("%s (a pull pool's token) is required, or %s and %s to claim through a runner trust",
 			envToken, envTrust, envTokenFile))
@@ -244,7 +244,7 @@ func egressOf(get func(string) string, version, poolToken string) (Egress, error
 	}
 
 	var problems []error
-	if _, err := reach.Parse(egress.Allow); err != nil {
+	if _, err := allowlist.Parse(egress.Allow); err != nil {
 		problems = append(problems, fmt.Errorf("%s: %w", envEgressOK, err))
 	}
 
@@ -375,7 +375,7 @@ func HostID(state string) (string, error) {
 
 	id := rand.Text()
 	if err := os.WriteFile(path, []byte(id+"\n"), 0o600); err != nil {
-		return "", fmt.Errorf("keep the host's id: %w", err)
+		return "", fmt.Errorf("store the host's id: %w", err)
 	}
 
 	return id, nil

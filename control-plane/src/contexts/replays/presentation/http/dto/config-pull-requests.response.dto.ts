@@ -14,7 +14,7 @@ export class ConfigPullRequestReasonResponseDto {
     enum: CONFIG_PULL_REQUEST_ERRORS,
     example: 'computed-attribute',
     description:
-      'Why Spotlight would not open it: the line names no source; the GitHub App cannot reach the repository; the file is missing or does not parse; the station’s block was not found exactly once; an attribute it would change is computed in Terraform; the file changed since the search began; or GitHub answered with an error',
+      'Why Spotlight would not open it: the line names no source; the GitHub App cannot access the repository; the file is missing or does not parse; the station’s block was not found exactly once; an attribute it would change is computed in Terraform; the file changed since the search began; or GitHub answered with an error',
   })
   readonly code: string;
 

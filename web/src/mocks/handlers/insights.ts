@@ -20,12 +20,12 @@ import {
 import { shippingOf } from '@/mocks/world/insights-shipping';
 import { toolsOf } from '@/mocks/world/insights-tools';
 
-type Asked = {
+type ResolverInput = {
   readonly params: Record<string, unknown>;
   readonly request: Request;
 };
 
-const teamOf = (params: Asked['params']): string | null => {
+const teamOf = (params: ResolverInput['params']): string | null => {
   const teamId = String(params.teamId);
   return world().lines[teamId] ? teamId : null;
 };
@@ -38,14 +38,14 @@ const periodOf = (request: Request): PeriodName =>
 
 const forPeriod =
   (read: (teamId: string, period: PeriodName) => unknown) =>
-  ({ params, request }: Asked) => {
+  ({ params, request }: ResolverInput) => {
     const teamId = teamOf(params);
     return teamId ? json(read(teamId, periodOf(request))) : notFound();
   };
 
 const forQuery =
   (read: (teamId: string, query: URLSearchParams) => unknown) =>
-  ({ params, request }: Asked) => {
+  ({ params, request }: ResolverInput) => {
     const teamId = teamOf(params);
     return teamId ? json(read(teamId, queryOf(request))) : notFound();
   };

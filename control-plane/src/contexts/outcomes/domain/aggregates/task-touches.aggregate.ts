@@ -24,7 +24,7 @@ export class TaskTouches {
     readonly version: number,
   ) {}
 
-  static heardOf(taskId: TaskId, workspaceId: WorkspaceId): TaskTouches {
+  static empty(taskId: TaskId, workspaceId: WorkspaceId): TaskTouches {
     return new TaskTouches(taskId, workspaceId, null, [], [], 0);
   }
 

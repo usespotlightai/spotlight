@@ -23,14 +23,14 @@ type PoolRowProps = {
 };
 
 export function PoolRow({ slug, pool, harnesses }: PoolRowProps) {
-  const name = poolName(pool.through);
+  const name = poolName(pool.source);
 
   return (
     <li data-slot="pool-row">
       <div className={cn(HOST_ROW, HOST_ROW_HOVER, HOST_COLUMNS)}>
         <span className="min-w-0 truncate text-foreground">{name}</span>
 
-        <PoolWayOut slug={slug} poolKey={pool.through.key} />
+        <PoolWayOut slug={slug} poolKey={pool.source.key} />
 
         <StatusDot
           tone={

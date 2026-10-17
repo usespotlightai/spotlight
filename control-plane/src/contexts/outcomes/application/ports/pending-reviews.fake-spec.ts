@@ -28,12 +28,12 @@ export const pendingReviewsInMemory = (): PendingReviewsPort & {
     releaseBefore: async (workspaceId, before) => {
       for (const [key, reviews] of [...stored.entries()]) {
         if (key.startsWith(`${workspaceId.value} `)) {
-          const kept = reviews.filter(
+          const remaining = reviews.filter(
             (each) => each.at.getTime() >= before.getTime(),
           );
 
-          if (kept.length > 0) {
-            stored.set(key, kept);
+          if (remaining.length > 0) {
+            stored.set(key, remaining);
           } else {
             stored.delete(key);
           }

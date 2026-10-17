@@ -97,7 +97,7 @@ export function TeamMemoryResults({
           title="No memories yet"
           action={<WriteMemoryButton />}
         >
-          Stations that keep memories propose them after runs. Approve them in
+          Stations that use memories propose them after runs. Approve them in
           the inbox, or write one yourself.
         </EmptyState>
       </Notice>

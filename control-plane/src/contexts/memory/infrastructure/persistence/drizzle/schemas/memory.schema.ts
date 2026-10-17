@@ -45,7 +45,7 @@ export const memoryDraft = pgTable(
     taskId: text('task_id').notNull(),
     workspaceId: text('workspace_id').notNull(),
     draftingRunId: text('drafting_run_id'),
-    draftingAskedAt: timestamp('drafting_asked_at'),
+    draftingRequestedAt: timestamp('drafting_requested_at'),
     jobAttempts: integer('job_attempts').notNull().default(0),
     jobDueAt: timestamp('job_due_at'),
     draftedIn: text('drafted_in'),
@@ -56,7 +56,7 @@ export const memoryDraft = pgTable(
   },
   (table) => [
     uniqueIndex('memory_draft_task_idx').on(table.taskId),
-    index('memory_draft_drafting_idx').on(table.draftingAskedAt),
+    index('memory_draft_drafting_idx').on(table.draftingRequestedAt),
   ],
 );
 

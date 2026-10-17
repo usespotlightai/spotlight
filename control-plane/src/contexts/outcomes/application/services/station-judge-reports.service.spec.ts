@@ -101,13 +101,13 @@ const judgedAcross = async () => {
   const records = new RunRecordsInMemory();
   const scores = new ScoresInMemory();
   const deliveries = new TaskDeliveriesInMemory();
-  const asked: string[] = [];
+  const requested: string[] = [];
   const evidence: EvidencePort = {
     hasTask: async () => true,
     of: async () => null,
     judgeAt: async (stationId) => JUDGES.get(stationId) ?? null,
     judgesOnTeam: async (teamId) => {
-      asked.push(teamId);
+      requested.push(teamId);
 
       return new Map(
         [...JUDGES].filter(([, judge]) => judge.teamId === teamId),
@@ -162,7 +162,7 @@ const judgedAcross = async () => {
     );
   }
 
-  return { evidence, asked, scores, records, deliveries };
+  return { evidence, requested, scores, records, deliveries };
 };
 
 const oneByOne = async (
@@ -247,7 +247,7 @@ describe('StationJudgeReports', () => {
       'no-judge',
     ]);
     expect(calibrations[1]?.pairs).toBe(10);
-    expect(fixture.asked).toEqual(['team_1']);
+    expect(fixture.requested).toEqual(['team_1']);
   });
 
   it('reports how often the station’s judge agrees with people, and trusts it once it agrees enough', async () => {

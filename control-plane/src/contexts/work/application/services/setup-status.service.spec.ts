@@ -13,25 +13,25 @@ const WORKSPACE = WorkspaceId.of('123e4567-e89b-42d3-a456-426614174001');
 
 const TEAM = TeamId.of('team_1');
 
-type Given = {
+type Options = {
   connected?: boolean;
   harness?: boolean;
   hosted?: boolean;
   chat?: SetupChatView | null;
 };
 
-const read = (given: Given = {}) => {
+const read = (options: Options = {}) => {
   const connections = {
-    isConnected: vi.fn().mockResolvedValue(given.connected ?? false),
+    isConnected: vi.fn().mockResolvedValue(options.connected ?? false),
   } as unknown as WorkspaceConnectionsPort;
 
   const runners = {
-    readyToRun: vi.fn().mockResolvedValue(given.harness ?? false),
-    hasAWayOut: vi.fn().mockResolvedValue(given.hosted ?? false),
+    readyToRun: vi.fn().mockResolvedValue(options.harness ?? false),
+    hasAWayOut: vi.fn().mockResolvedValue(options.hosted ?? false),
   } as unknown as RunnerReaderPort;
 
   const chats = {
-    setupOf: vi.fn().mockResolvedValue(given.chat ?? null),
+    setupOf: vi.fn().mockResolvedValue(options.chat ?? null),
   } as unknown as ChatReaderPort;
 
   return new SetupStatus(connections, runners, chats).of(WORKSPACE, TEAM);

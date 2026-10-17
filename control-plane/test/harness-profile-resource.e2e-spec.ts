@@ -245,8 +245,8 @@ describe('a harness profile, created through the resource API (e2e)', () => {
     const claude = on('claude-code');
     const cursor = on('cursor');
 
-    expect(claude?.asks).toEqual(['execute']);
-    expect(cursor?.asks).toEqual(['execute']);
+    expect(claude?.askKinds).toEqual(['execute']);
+    expect(cursor?.askKinds).toEqual(['execute']);
     expect(
       JSON.parse(
         claude?.files.find((each) => each.path === 'claude/settings.json')
@@ -290,7 +290,7 @@ describe('a harness profile, created through the resource API (e2e)', () => {
     const made = await configure.create();
     const forbidden = await read.create();
     const seen = await read.read(made.body.id);
-    const kept = await read.delete(made.body.id, made.body.version);
+    const refused = await read.delete(made.body.id, made.body.version);
     const removed = await configure.delete(made.body.id, made.body.version);
     const changes = (
       await as(fixture.admin).read(
@@ -299,7 +299,7 @@ describe('a harness profile, created through the resource API (e2e)', () => {
     ).body as { resource: string; action: string; by: { kind: string } }[];
 
     expect([made.status, seen.status, removed.status]).toEqual([201, 200, 204]);
-    expect([forbidden.status, kept.status]).toEqual([403, 403]);
+    expect([forbidden.status, refused.status]).toEqual([403, 403]);
     expect(forbidden.body.type).toBe('urn:spotlight:problem:forbidden');
     expect(
       changes

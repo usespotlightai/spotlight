@@ -56,14 +56,14 @@ const listing = async (member = true) => {
   const records = new RunRecordsInMemory();
   const deliveries = new TaskDeliveriesInMemory();
   const pullRequests = stationConfigPullRequestsInMemory();
-  const asked: string[][] = [];
+  const requested: string[][] = [];
   const work: WorkPort = {
     endedRun: async () => null,
     teamRepositories: async () => [],
     teamSkillKeys: async () => [],
     alertsAt: async () => null,
     configsInOrder: async (fingerprints) => {
-      asked.push([...fingerprints]);
+      requested.push([...fingerprints]);
       const known = fingerprints.filter((each) => each in CONFIGS);
 
       return known.map(
@@ -96,7 +96,7 @@ const listing = async (member = true) => {
     records,
     deliveries,
     pullRequests,
-    asked,
+    requested,
     list: (last: number | null = null, stationId = 'station_1') =>
       new ListStationOutcomesHandler(
         access,
@@ -151,7 +151,7 @@ describe('listing how a station’s runs turned out', () => {
 
     const outcomes = await listed.list();
 
-    expect(listed.asked).toEqual([
+    expect(listed.requested).toEqual([
       [FIRST_CONFIG, FIRST_CONFIG, SECOND_CONFIG, SECOND_CONFIG, FIRST_CONFIG],
     ]);
     expect(outcomes.groups.every((group) => group.ran)).toBe(true);
@@ -492,7 +492,7 @@ describe('listing how a station’s runs turned out', () => {
     ).toEqual([['run_y'], ['run_x']]);
   });
 
-  it('looks at only as many of the latest runs as asked', async () => {
+  it('looks at only as many of the latest runs as requested', async () => {
     const listed = await listing();
     for (const hour of [1, 2, 3]) {
       await listed.records.add(
@@ -508,7 +508,7 @@ describe('listing how a station’s runs turned out', () => {
     ]);
   });
 
-  it('shows only the asked station’s runs', async () => {
+  it('shows only the requested station’s runs', async () => {
     const listed = await listing();
     await listed.records.add(endedRecord('run_1', { stationId: 'station_2' }));
 
@@ -573,7 +573,7 @@ describe('listing how a station’s runs turned out', () => {
     expect(outcomes.groups[0]?.firstRunId).toBe('run_1');
     expect(outcomes.groups[0]?.fingerprint).toBeNull();
     expect(outcomes.groups[0]?.config).toBeNull();
-    expect(listed.asked).toEqual([[]]);
+    expect(listed.requested).toEqual([[]]);
   });
 
   it('carries on the config of the station’s last config run before the oldest listed run, setting the oldest group against it', async () => {
@@ -649,7 +649,7 @@ describe('listing how a station’s runs turned out', () => {
         runs: ['run_2'],
       },
     ]);
-    expect(listed.asked).toEqual([
+    expect(listed.requested).toEqual([
       [FIRST_CONFIG, FIRST_CONFIG, SECOND_CONFIG],
       [FIRST_CONFIG, SECOND_CONFIG],
       [SECOND_CONFIG],

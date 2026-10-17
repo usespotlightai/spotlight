@@ -92,7 +92,7 @@ export class HostConnectionController {
   @ApiOperation({
     operationId: 'setMyToolRule',
     summary:
-      'Set what the caller asks of calls a tool makes with their own connection: allowed, needs-approval or blocked',
+      'Set what the caller requires of calls a tool makes with their own connection: allowed, needs-approval or blocked',
     description:
       'The stricter of the team’s rule and the caller’s wins, so this can ask first or block where the team allows, but never lets through a call the team asks about.',
   })

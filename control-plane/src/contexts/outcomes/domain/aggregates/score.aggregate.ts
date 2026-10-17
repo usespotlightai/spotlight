@@ -17,7 +17,7 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 
 const FINGERPRINT = /^[0-9a-f]{64}$/;
 
-export const MAX_SEEN_KEPT = 64_000;
+export const MAX_SEEN_CHARS = 64_000;
 
 const LEEWAY = 1e-9;
 
@@ -88,15 +88,15 @@ const checked = (state: ScoreState): ScoreState => {
     }
     if (state.reasons.length === 0 || state.by !== null) {
       throw new InvalidScoreError(
-        'from the judge must give reasons and no grader',
+        'from the judge must state reasons and no grader',
       );
     }
     if (
-      state.seen.size > MAX_SEEN_KEPT ||
+      state.seen.size > MAX_SEEN_CHARS ||
       !state.seen.onlyCitedBy(state.reasons.flatMap((each) => each.citations))
     ) {
       throw new InvalidScoreError(
-        `from the judge must keep at most ${MAX_SEEN_KEPT} characters of cited evidence`,
+        `from the judge must store at most ${MAX_SEEN_CHARS} characters of cited evidence`,
       );
     }
   } else if (
@@ -138,7 +138,7 @@ export class Score extends EventRecorder {
         ...input,
         seen: input.seen
           .citedBy(input.reasons.flatMap((each) => each.citations))
-          .within(MAX_SEEN_KEPT),
+          .within(MAX_SEEN_CHARS),
         source: 'judge',
         by: null,
         version: 0,

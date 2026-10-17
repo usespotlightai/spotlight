@@ -23,7 +23,7 @@ import {
 import { bearerIn } from '@platform/http/bearer';
 import { AllowAnonymous } from '@platform/http/decorators/allow-anonymous.decorator';
 import {
-  AdmitThroughEgressCommand,
+  AuthorizeRunnerCommand,
   CheckActiveRunsCommand,
   FetchRunSecretsCommand,
   FetchSharedRunSecretsCommand,
@@ -31,12 +31,12 @@ import {
 } from '@work/application/commands/egress.commands';
 import type {
   EgressActiveRunsDto,
-  EgressAdmissionDto,
-} from '@work/application/dto/egress-admission.dto';
+  EgressAuthorizationDto,
+} from '@work/application/dto/egress-authorization.dto';
 import type { EgressConnectionsRecordedDto } from '@work/application/dto/egress-connections.dto';
 import type { EgressSecretsDto } from '@work/application/dto/egress-secrets.dto';
 import {
-  AdmitThroughEgressRequestDto,
+  AuthorizeRunnerRequestDto,
   CheckActiveRunsRequestDto,
   FetchRunSecretsRequestDto,
   RecordEgressConnectionsRequestDto,
@@ -44,7 +44,7 @@ import {
 import {
   DeniedSecretResponseDto,
   EgressActiveRunsResponseDto,
-  EgressAdmissionResponseDto,
+  EgressAuthorizationResponseDto,
   EgressSecretsResponseDto,
   ExternalSecretRefResponseDto,
   FetchedSecretResponseDto,
@@ -60,16 +60,16 @@ const tooMany = (max: number, what: string): string =>
 const WAITING =
   'The runner of this proxy credential has no lease on a run yet. Please fetch the secrets again after it claims one';
 
-const texts = (given: unknown): readonly string[] =>
-  Array.isArray(given)
-    ? given.filter((each): each is string => typeof each === 'string')
+const texts = (value: unknown): readonly string[] =>
+  Array.isArray(value)
+    ? value.filter((each): each is string => typeof each === 'string')
     : [];
 
 const records = (
-  given: unknown,
+  value: unknown,
 ): RecordEgressConnectionsRequestDto['records'] =>
-  Array.isArray(given)
-    ? given.filter(
+  Array.isArray(value)
+    ? value.filter(
         (each): each is RecordEgressConnectionsRequestDto['records'][number] =>
           typeof each === 'object' &&
           each !== null &&
@@ -101,7 +101,7 @@ export class EgressController {
     summary:
       'The secrets that egress injects into the run’s requests, for their bound hosts',
     description:
-      'Called by the egress beside a sandbox with the credential its host was handed for this run alone, or by a shared egress with its egress token and the run proxy credential the runner presented. Each call grants the secrets that egress injects for the run. Values that Spotlight keeps come back sealed to the recipient. For a value in an external store, the answer gives the external reference that egress reads.',
+      'Called by the egress beside a sandbox with the credential its host was handed for this run alone, or by a shared egress with its egress token and the run proxy credential the runner presented. Each call grants the secrets that egress injects for the run. Values that Spotlight stores come back sealed to the recipient. For a value in an external store, the answer gives the external reference that egress reads.',
   })
   @ApiOkResponse({ type: EgressSecretsResponseDto })
   @ApiUnprocessableEntityResponse({
@@ -137,7 +137,7 @@ export class EgressController {
 
     return new EgressSecretsResponseDto(
       fetched.runId,
-      fetched.reaches,
+      fetched.extraAllowedHosts,
       fetched.bound,
       fetched.secrets.map(
         (each) =>
@@ -166,40 +166,40 @@ export class EgressController {
     );
   }
 
-  @Post('admit')
+  @Post('authorize')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    operationId: 'admitThroughEgress',
+    operationId: 'authorizeRunner',
     summary:
       'Whether a shared egress may serve the runner that presented a run proxy credential',
     description:
-      'Called by a shared egress with its egress token. Before the runner has a run, the egress lets it reach only the control plane.',
+      'Called by a shared egress with its egress token. Before the runner has a run, the egress allows it to connect only to the control plane.',
   })
-  @ApiOkResponse({ type: EgressAdmissionResponseDto })
-  async admit(
+  @ApiOkResponse({ type: EgressAuthorizationResponseDto })
+  async authorize(
     @Headers('authorization') authorization: string | undefined,
-    @Body() body: AdmitThroughEgressRequestDto,
-  ): Promise<EgressAdmissionResponseDto> {
-    const admitted = await this.commandBus.execute<
-      AdmitThroughEgressCommand,
-      EgressAdmissionDto
+    @Body() body: AuthorizeRunnerRequestDto,
+  ): Promise<EgressAuthorizationResponseDto> {
+    const authorized = await this.commandBus.execute<
+      AuthorizeRunnerCommand,
+      EgressAuthorizationDto
     >(
-      new AdmitThroughEgressCommand(
+      new AuthorizeRunnerCommand(
         bearerIn(authorization),
         typeof body?.proxyCredential === 'string' ? body.proxyCredential : '',
       ),
     );
 
-    if (admitted.outcome === 'unauthorized') {
+    if (authorized.outcome === 'unauthorized') {
       throw new UnauthorizedException(UNAUTHORIZED);
     }
 
-    return new EgressAdmissionResponseDto(
-      admitted.runnerId,
-      admitted.workspaceId,
-      admitted.controlPlaneHost,
-      admitted.controlPlanePort,
-      admitted.reaches,
+    return new EgressAuthorizationResponseDto(
+      authorized.runnerId,
+      authorized.workspaceId,
+      authorized.controlPlaneHost,
+      authorized.controlPlanePort,
+      authorized.extraAllowedHosts,
     );
   }
 
@@ -248,7 +248,7 @@ export class EgressController {
     operationId: 'recordEgressConnections',
     summary: 'Records the connections a shared egress made for its runs',
     description:
-      'Called by a shared egress with its egress token. Spotlight keeps each record with its run for 30 days. It keeps a record only when the run still names the runner of the proxy credential, and that runner is active, or ended at most 2 minutes before.',
+      'Called by a shared egress with its egress token. Spotlight stores each record with its run for 30 days. It stores a record only when the run still names the runner of the proxy credential, and that runner is active, or ended at most 2 minutes before.',
   })
   @ApiNoContentResponse({ description: 'The records were taken' })
   @ApiUnprocessableEntityResponse({

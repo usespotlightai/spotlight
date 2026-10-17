@@ -3,7 +3,7 @@ import { FACT_LABEL, FACT_VALUE, FactRow } from '@/components/shared/FactRow';
 import { appliesTo, memoryFilesOf, type ProposedMemory } from '@/lib/memory';
 
 type MemoryScopeRowsProps = {
-  memory: Pick<ProposedMemory, 'kind' | 'reach' | 'repository' | 'paths'>;
+  memory: Pick<ProposedMemory, 'kind' | 'scope' | 'repository' | 'paths'>;
 };
 
 export function MemoryScopeRows({ memory }: MemoryScopeRowsProps) {

@@ -18,7 +18,7 @@ const FILE = Attachment.of({
   contentType: 'image/png',
   size: 4096,
 });
-const KEPT = 'workspaces/ws_1/attachments/file_1';
+const STORED = 'workspaces/ws_1/attachments/file_1';
 const PENDING = 'pending/ws_1/file_1';
 
 const notThere = () =>
@@ -75,14 +75,14 @@ const sent = (send: { mock: { calls: unknown[][] } }) =>
 
 describe('S3AttachmentStore', () => {
   describe('received', () => {
-    it('reads an attachment already kept under its workspace without touching pending', async () => {
-      const { send, store } = bucketWith([KEPT, PENDING]);
+    it('reads an attachment already stored under its workspace without touching pending', async () => {
+      const { send, store } = bucketWith([STORED, PENDING]);
 
       await expect(
         store.received(WORKSPACE, [AttachmentId.of('file_1')]),
       ).resolves.toEqual([FILE]);
 
-      expect(sent(send)).toEqual([['HeadObjectCommand', KEPT]]);
+      expect(sent(send)).toEqual([['HeadObjectCommand', STORED]]);
     });
 
     it('reads an upload still pending', async () => {
@@ -93,7 +93,7 @@ describe('S3AttachmentStore', () => {
       ).resolves.toEqual([FILE]);
 
       expect(sent(send)).toEqual([
-        ['HeadObjectCommand', KEPT],
+        ['HeadObjectCommand', STORED],
         ['HeadObjectCommand', PENDING],
       ]);
     });
@@ -114,25 +114,25 @@ describe('S3AttachmentStore', () => {
       await store.taken(WORKSPACE, [FILE]);
 
       expect(sent(send)).toEqual([
-        ['HeadObjectCommand', KEPT],
-        ['CopyObjectCommand', KEPT],
+        ['HeadObjectCommand', STORED],
+        ['CopyObjectCommand', STORED],
         ['DeleteObjectCommand', PENDING],
       ]);
       const [copy] = send.mock.calls[1] as [CopyObjectCommand];
       expect(copy.input).toEqual({
         Bucket: 'files',
         CopySource: `files/${PENDING}`,
-        Key: KEPT,
+        Key: STORED,
         MetadataDirective: 'COPY',
       });
     });
 
-    it('leaves an attachment already kept alone, whatever is still pending', async () => {
-      const { send, store } = bucketWith([KEPT, PENDING]);
+    it('leaves an attachment already stored alone, whatever is still pending', async () => {
+      const { send, store } = bucketWith([STORED, PENDING]);
 
       await expect(store.taken(WORKSPACE, [FILE])).resolves.toBeUndefined();
 
-      expect(sent(send)).toEqual([['HeadObjectCommand', KEPT]]);
+      expect(sent(send)).toEqual([['HeadObjectCommand', STORED]]);
     });
 
     it('is content with a pending copy another message moved meanwhile', async () => {
@@ -142,20 +142,20 @@ describe('S3AttachmentStore', () => {
         throw notThere();
       });
       send.mockImplementationOnce(async () => {
-        keys.splice(0, 1, KEPT);
+        keys.splice(0, 1, STORED);
         throw notThere();
       });
 
       await expect(store.taken(WORKSPACE, [FILE])).resolves.toBeUndefined();
 
       expect(sent(send)).toEqual([
-        ['HeadObjectCommand', KEPT],
-        ['CopyObjectCommand', KEPT],
-        ['HeadObjectCommand', KEPT],
+        ['HeadObjectCommand', STORED],
+        ['CopyObjectCommand', STORED],
+        ['HeadObjectCommand', STORED],
       ]);
     });
 
-    it('rejects an upload that is neither pending nor kept', async () => {
+    it('rejects an upload that is neither pending nor stored', async () => {
       const { store } = bucketWith([]);
 
       await expect(store.taken(WORKSPACE, [FILE])).rejects.toThrow(

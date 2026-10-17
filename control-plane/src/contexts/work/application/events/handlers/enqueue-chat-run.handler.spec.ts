@@ -18,7 +18,7 @@ const chatWithRun = (runId: RunId | null) => {
   const released = { currentRunId: null } as unknown as Chat;
   return {
     currentRunId: runId,
-    runKeptNothing: vi.fn(() => released),
+    runEndedWithoutSession: vi.fn(() => released),
     released,
   };
 };
@@ -66,7 +66,7 @@ describe('EnqueueChatRun', () => {
 
     await handler.on(new ChatDispatched(CHAT, RUN, HANDED));
 
-    expect(chat.runKeptNothing).toHaveBeenCalledWith(RUN);
+    expect(chat.runEndedWithoutSession).toHaveBeenCalledWith(RUN);
     expect(save).toHaveBeenCalledWith(chat.released);
   });
 });

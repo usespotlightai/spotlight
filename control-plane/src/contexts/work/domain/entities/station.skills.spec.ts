@@ -19,7 +19,7 @@ const station = (kind: 'work' | 'backlog' = 'work') =>
 
 const named = (each: Station) => each.skills.map((skill) => skill.value);
 
-describe('the skills a station gives its runs', () => {
+describe('the skills a station enables for its runs', () => {
   it('are kept through any other change to the station', () => {
     expect(named(station().rename(StationName.of('Build')))).toEqual([
       'our-migrations',
@@ -29,9 +29,9 @@ describe('the skills a station gives its runs', () => {
     ]);
   });
 
-  it('are what the station is given, replacing what it had', () => {
+  it('are what the station is set to, replacing what it had', () => {
     expect(
-      named(station().givesSkills([SkillKey.of('frontend-hygiene')])),
+      named(station().enablesSkills([SkillKey.of('frontend-hygiene')])),
     ).toEqual(['frontend-hygiene']);
   });
 

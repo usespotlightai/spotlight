@@ -16,7 +16,7 @@ describe('attachmentPath', () => {
     );
   });
 
-  it('asks for a download rather than a look', () => {
+  it('requests a download rather than a look', () => {
     expect(downloadPath('acme', 'att_1')).toBe(
       '/api/workspaces/acme/attachments/att_1?download=1',
     );

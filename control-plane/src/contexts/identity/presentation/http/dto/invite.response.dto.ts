@@ -8,7 +8,7 @@ export class InviteOutcomeResponseDto {
 
   @ApiProperty({
     description:
-      'What came of the address: a new invitation, a pending one resent with a fresh link, nothing, since they are already in the workspace, or an invitation kept whose email could not be sent. Resend it to try again.',
+      'What came of the address: a new invitation, a pending one resent with a fresh link, nothing, since they are already in the workspace, or an invitation stored whose email could not be sent. Resend it to try again.',
     enum: ['invited', 'resent', 'already-a-member', 'not-sent'],
     example: 'invited',
   })
@@ -17,7 +17,8 @@ export class InviteOutcomeResponseDto {
 
 export class InviteOutcomesResponseDto {
   @ApiProperty({
-    description: 'One outcome per address asked, in the order asked.',
+    description:
+      'One outcome per address in the request, in the order of the request.',
     type: InviteOutcomeResponseDto,
     isArray: true,
   })
@@ -57,7 +58,7 @@ export class WorkspaceInviteResponseDto {
   readonly teams!: readonly TeamReferenceResponseDto[];
 
   @ApiProperty({
-    description: 'Who asked them, or null once their account is deleted.',
+    description: 'Who invited them, or null once their account is deleted.',
     type: InviterResponseDto,
     nullable: true,
   })
@@ -81,7 +82,7 @@ export class InvitePreviewResponseDto {
   readonly workspaceName!: string;
 
   @ApiProperty({
-    description: 'Who asked them, or null once their account is deleted.',
+    description: 'Who invited them, or null once their account is deleted.',
     type: String,
     nullable: true,
     example: 'Leon Liang',

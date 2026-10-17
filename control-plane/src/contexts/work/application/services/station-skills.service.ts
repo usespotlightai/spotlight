@@ -10,13 +10,13 @@ export class StationSkills {
     line: Line,
     station: Station,
   ): Promise<readonly ReadySkillFolder[]> {
-    const kept = station.skills.filter((each) => !each.catalogued);
+    const teamSkills = station.skills.filter((each) => !each.catalogued);
 
-    return kept.length === 0
+    return teamSkills.length === 0
       ? []
       : this.skills.readyFor(
           line.teamId,
-          kept.map((each) => each.value),
+          teamSkills.map((each) => each.value),
         );
   }
 }

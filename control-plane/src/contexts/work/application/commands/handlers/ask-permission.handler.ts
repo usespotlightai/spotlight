@@ -12,7 +12,7 @@ import { HarnessPermission } from '@work/domain/value-objects/harness-permission
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 
 const ANSWERS: Readonly<Record<PermissionCleared, PermissionAnswer>> = {
-  given: 'allow',
+  granted: 'allow',
   refused: 'reject',
   asked: 'asked',
 };
@@ -42,10 +42,7 @@ export class AskPermissionHandler
           kind: command.asked.kind,
           title: command.asked.title,
           input: command.asked.input,
-          tool: this.toolNames.askedFor(
-            command.asked.title,
-            command.asked.kind,
-          ),
+          tool: this.toolNames.toolFor(command.asked.title, command.asked.kind),
         }),
         command.asked.sessionId
           ? HarnessSession.of(command.asked.sessionId)

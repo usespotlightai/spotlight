@@ -21,7 +21,7 @@ const source = (verifies: (delivered: Delivered) => boolean) =>
     read: async () => [],
   }) satisfies WebhookSourcePort;
 
-const asking = (
+const guarding = (
   request: Record<string, unknown>,
   sources: WebhookSourcePort[],
   declared: WebhookSourcePort[] = [],
@@ -79,14 +79,14 @@ const delivered = (over: Record<string, unknown> = {}) => ({
 describe('WebhookGuard', () => {
   it('lets through what the source says its host signed', async () => {
     const github = source(() => true);
-    const { guard, context } = asking(delivered(), [github]);
+    const { guard, context } = guarding(delivered(), [github]);
 
     await expect(guard.canActivate(context)).resolves.toBe(true);
   });
 
   it('hands the source the body as it arrived, byte for byte', async () => {
     const github = source(() => true);
-    const { guard, context } = asking(delivered(), [github]);
+    const { guard, context } = guarding(delivered(), [github]);
 
     await guard.canActivate(context);
 
@@ -98,7 +98,7 @@ describe('WebhookGuard', () => {
   });
 
   it('turns away what the source will not vouch for', async () => {
-    const { guard, context } = asking(delivered(), [source(() => false)]);
+    const { guard, context } = guarding(delivered(), [source(() => false)]);
 
     await expect(guard.canActivate(context)).rejects.toThrow(
       UnauthorizedException,
@@ -106,7 +106,7 @@ describe('WebhookGuard', () => {
   });
 
   it('turns away a source nobody registered, the same way', async () => {
-    const { guard, context } = asking(
+    const { guard, context } = guarding(
       delivered({ params: { source: 'sentry' } }),
       [source(() => true)],
     );
@@ -122,7 +122,7 @@ describe('WebhookGuard', () => {
         'Secret GITHUB_SECRET not found. Please create it first.',
       );
     });
-    const { guard, context, logger } = asking(delivered(), [github]);
+    const { guard, context, logger } = guarding(delivered(), [github]);
 
     await expect(guard.canActivate(context)).rejects.toThrow(
       UnauthorizedException,
@@ -136,9 +136,9 @@ describe('WebhookGuard', () => {
     );
   });
 
-  it('turns away a delivery whose body was never kept', async () => {
+  it('turns away a delivery whose body was never stored', async () => {
     const github = source((each) => each.raw !== null);
-    const { guard, context } = asking(delivered({ rawBody: undefined }), [
+    const { guard, context } = guarding(delivered({ rawBody: undefined }), [
       github,
     ]);
 

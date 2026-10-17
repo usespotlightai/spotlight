@@ -23,7 +23,7 @@ class PermissionsResponseDto {
     isArray: true,
     example: ['execute(git push *)'],
     description:
-      'What the harness asks a person about first; the ask reaches their inbox as an approval',
+      'What the harness asks a person about first; the ask goes to their inbox as an approval',
   })
   readonly ask: readonly string[];
 

@@ -182,7 +182,7 @@ const NOTICES: InboxNoticeResponseDto[] = [
     headline:
       'The search for a better Implementation config finished: writing the tests first passes 2 more tasks',
     points: [
-      'Four iterations tried 11 configs against Billing work. The best one asks the agent to write a failing test before it changes any code.',
+      'Four iterations tried 11 configs against Billing work. The best one tells the agent to write a failing test before it changes any code.',
       'It passes 7 of 9 tasks, where the station’s config passes 5, for $0.21 more a run.',
       'Adopt it from the search, or keep looking with a larger replay set.',
     ],

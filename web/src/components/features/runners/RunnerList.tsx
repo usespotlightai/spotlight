@@ -34,7 +34,7 @@ export function RunnerList({ slug, hosts, pools, harnesses }: RunnerListProps) {
         ))}
         {pools.map((pool) => (
           <PoolRow
-            key={poolKeyOf(pool.through)}
+            key={poolKeyOf(pool.source)}
             slug={slug}
             pool={pool}
             harnesses={harnesses}

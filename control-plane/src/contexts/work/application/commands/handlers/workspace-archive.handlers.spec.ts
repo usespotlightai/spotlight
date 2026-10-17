@@ -54,7 +54,7 @@ const setUp = (...runs: Run[]) => {
   };
 };
 
-describe('keeping a workspace between runs', () => {
+describe('archiving a workspace between runs', () => {
   it('grants the runner that leases a run one place to upload its archive', async () => {
     const { grant, archives } = setUp();
 
@@ -67,7 +67,7 @@ describe('keeping a workspace between runs', () => {
       url: 'https://storage.test/put/archive_1',
       headers: { 'x-amz-checksum-sha256': SHA256 },
     });
-    expect(archives.kept.get('archive_1')?.isSealed).toBe(false);
+    expect(archives.stored.get('archive_1')?.isSealed).toBe(false);
   });
 
   it('grants nothing to a runner that does not lease the run', async () => {
@@ -80,7 +80,7 @@ describe('keeping a workspace between runs', () => {
     ).resolves.toBeNull();
   });
 
-  it('rejects work that does not carry on, and archives too large to keep', async () => {
+  it('rejects work that does not carry on, and archives too large to store', async () => {
     const { grant, archives } = setUp(
       aLeasedRun({ carriesOn: false }),
       aLeasedRun({ id: 'run_2', runner: 'runner_2' }),
@@ -101,13 +101,13 @@ describe('keeping a workspace between runs', () => {
         ),
       ),
     ).rejects.toThrow(ApplicationError);
-    expect(archives.kept.size).toBe(0);
+    expect(archives.stored.size).toBe(0);
   });
 
   it('keeps no archive the store cannot take', async () => {
     const { grant, archives, store } = setUp();
     store.grantUpload = async () => {
-      throw new InvalidWorkspaceArchiveError('cannot be kept here');
+      throw new InvalidWorkspaceArchiveError('cannot be stored here');
     };
 
     await expect(
@@ -115,7 +115,7 @@ describe('keeping a workspace between runs', () => {
         new GrantWorkspaceArchiveCommand('run_1', 'runner_1', 1_024, SHA256),
       ),
     ).rejects.toThrow(ApplicationError);
-    expect(archives.kept.size).toBe(0);
+    expect(archives.stored.size).toBe(0);
   });
 
   it('seals an archive once storage has it as granted, and the next run restores it', async () => {

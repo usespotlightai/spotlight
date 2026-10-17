@@ -34,11 +34,11 @@ export const installUrlFor = (base: string, whence: Whence): string => {
 export const formatRepos = (count: number): string =>
   count === 1 ? '1 repository' : `${count} repositories`;
 
-export const unreachedOf = (
+export const inaccessibleOf = (
   used: readonly string[],
-  reached: readonly string[],
+  accessible: readonly string[],
 ): Set<string> => {
-  const reachable = new Set(reached);
+  const accessibleSet = new Set(accessible);
 
-  return new Set(used.filter((each) => !reachable.has(each)));
+  return new Set(used.filter((each) => !accessibleSet.has(each)));
 };

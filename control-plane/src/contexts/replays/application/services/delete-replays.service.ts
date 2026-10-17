@@ -1,6 +1,6 @@
-import { CandidateDeletionDue } from '@replays/domain/events/candidate-deletion-due.event';
-import { ReplayDeletionDue } from '@replays/domain/events/replay-deletion-due.event';
-import { ReplaySetDeletionDue } from '@replays/domain/events/replay-set-deletion-due.event';
+import { CandidateDeletionRequested } from '@replays/domain/events/candidate-deletion-requested.event';
+import { ReplayDeletionRequested } from '@replays/domain/events/replay-deletion-requested.event';
+import { ReplaySetDeletionRequested } from '@replays/domain/events/replay-set-deletion-requested.event';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
@@ -28,9 +28,11 @@ export class DeleteReplays {
     const candidates = await this.candidates.ofTeam(teamId);
 
     return [
-      ...sets.map((each) => new ReplaySetDeletionDue(each.id, workspaceId)),
+      ...sets.map(
+        (each) => new ReplaySetDeletionRequested(each.id, workspaceId),
+      ),
       ...candidates.map(
-        (each) => new CandidateDeletionDue(each.id, workspaceId),
+        (each) => new CandidateDeletionRequested(each.id, workspaceId),
       ),
     ];
   }
@@ -40,7 +42,7 @@ export class DeleteReplays {
     workspaceId: WorkspaceId,
   ): Promise<readonly DomainEvent[]> {
     return (await this.replays.ofSet(setId)).map(
-      (each) => new ReplayDeletionDue(each.id, workspaceId),
+      (each) => new ReplayDeletionRequested(each.id, workspaceId),
     );
   }
 

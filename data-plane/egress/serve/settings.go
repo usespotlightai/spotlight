@@ -14,7 +14,7 @@ import (
 	"strings"
 	"time"
 
-	"usespotlight.ai/data-plane/reach"
+	"usespotlight.ai/data-plane/allowlist"
 )
 
 const (
@@ -41,7 +41,7 @@ type Settings struct {
 	Certificate *tls.Certificate
 	URL         string
 	Token       string
-	Allow       reach.List
+	Allow       allowlist.List
 	SecretAllow []string
 	Rate        float64
 	Connections int
@@ -78,7 +78,7 @@ func Load() (Settings, error) {
 		note(fmt.Errorf("%s is required; it is the token the control plane issued for this egress", envToken))
 	}
 
-	allow, err := reach.Parse(list(get(envAllow)))
+	allow, err := allowlist.Parse(list(get(envAllow)))
 	if err != nil {
 		note(fmt.Errorf("%s: %w", envAllow, err))
 	}
@@ -93,7 +93,7 @@ func Load() (Settings, error) {
 		}
 		settings.Certificate = &pair
 	case certificate != "" || key != "":
-		note(fmt.Errorf("%s and %s go together; give both or neither", envCertificate, envKey))
+		note(fmt.Errorf("%s and %s go together; set both or neither", envCertificate, envKey))
 	}
 
 	if path := get(envCABundle); path != "" {

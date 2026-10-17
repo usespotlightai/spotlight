@@ -11,8 +11,8 @@ const step = (over: Record<string, unknown>) => ({
   ms: 0,
   startedAt: new Date(),
   locations: [],
-  given: null,
-  returned: null,
+  input: null,
+  output: null,
   change: null,
   ...over,
 });
@@ -34,7 +34,7 @@ describe('what a run referred to under a folder', () => {
           },
           {
             text: 'Terminal',
-            given:
+            input:
               '{"command":"cat .spotlight/memory/repositories/acme/web/app/(auth)/my file.ts/M-4.md"}',
           },
           {
@@ -62,7 +62,7 @@ describe('what a run referred to under a folder', () => {
         journal([
           {
             text: 'find .spotlight/memory',
-            returned:
+            output:
               '.spotlight/memory/team/M-3.md\n.spotlight/memory/line/M-7.md',
           },
           { text: 'grep -rl retry .spotlight/memory' },

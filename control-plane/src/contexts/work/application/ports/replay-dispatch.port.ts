@@ -27,7 +27,7 @@ export type CancelledReplayRun =
   | { readonly outcome: 'never-queued' }
   | { readonly outcome: 'queued'; readonly fingerprint: string | null };
 
-export interface AnswerAsked {
+export interface AnswerInput {
   readonly original: string;
   readonly answer: ReplayAnswer;
 }
@@ -35,9 +35,9 @@ export interface AnswerAsked {
 export interface ReplayDispatchPort {
   enqueue(order: ReplayOrder): Promise<ReplayDispatched>;
 
-  answerable(asked: readonly AnswerAsked[]): Promise<readonly string[]>;
+  answerable(inputs: readonly AnswerInput[]): Promise<readonly string[]>;
 
   cancelQueued(runIds: readonly string[]): Promise<void>;
 
-  cancel(runId: string, keep: boolean): Promise<CancelledReplayRun>;
+  cancel(runId: string, leaveRunAsIs: boolean): Promise<CancelledReplayRun>;
 }

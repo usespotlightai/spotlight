@@ -22,11 +22,11 @@ export type Proposal = NonNullable<ChatMessage['proposal']>;
 
 export type SharedTrace = ChatTraceResponseDto;
 
-const isSharedTrace = (given: unknown): given is SharedTrace =>
-  typeof given === 'object' &&
-  given !== null &&
-  typeof (given as SharedTrace).taskId === 'string' &&
-  typeof (given as SharedTrace).title === 'string';
+const isSharedTrace = (value: unknown): value is SharedTrace =>
+  typeof value === 'object' &&
+  value !== null &&
+  typeof (value as SharedTrace).taskId === 'string' &&
+  typeof (value as SharedTrace).title === 'string';
 
 export const tracesHandedOver = (state: unknown): SharedTrace[] => {
   const traces = (state as { traces?: unknown } | null)?.traces;
@@ -45,11 +45,11 @@ const IMPROVED_STATION_FIELDS = [
   'stationName',
 ] as const satisfies readonly (keyof ImprovedStation)[];
 
-const isImprovedStation = (given: unknown): given is ImprovedStation =>
-  typeof given === 'object' &&
-  given !== null &&
+const isImprovedStation = (value: unknown): value is ImprovedStation =>
+  typeof value === 'object' &&
+  value !== null &&
   IMPROVED_STATION_FIELDS.every(
-    (field) => typeof (given as Record<string, unknown>)[field] === 'string',
+    (field) => typeof (value as Record<string, unknown>)[field] === 'string',
   );
 
 export const improvingHandedOver = (state: unknown): ImprovedStation | null => {
@@ -67,10 +67,10 @@ export const improvingHandedOver = (state: unknown): ImprovedStation | null => {
     : null;
 };
 
-export const askHandedOver = (state: unknown): string | null => {
-  const ask = (state as { ask?: unknown } | null)?.ask;
+export const promptHandedOver = (state: unknown): string | null => {
+  const prompt = (state as { prompt?: unknown } | null)?.prompt;
 
-  return typeof ask === 'string' && ask.trim() ? ask : null;
+  return typeof prompt === 'string' && prompt.trim() ? prompt : null;
 };
 
 export type ChatMoment =

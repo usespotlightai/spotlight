@@ -112,7 +112,7 @@ describe('reacting to memories being proposed and decided', () => {
     expect(reviews.resolve).toHaveBeenCalledWith(TASK, RUN);
   });
 
-  it('keeps an approved memory active, once however often it hears so', async () => {
+  it('creates an approved memory once, however often the event arrives', async () => {
     const { reactions, memories, stored } = reacting();
 
     await reactions.onApproved(approved());
@@ -123,7 +123,7 @@ describe('reacting to memories being proposed and decided', () => {
     expect(stored[0]?.approval.equals(ADA)).toBe(true);
   });
 
-  it('keeps an approved memory without claiming to replace one that is no longer active', async () => {
+  it('creates an approved memory without claiming to replace one that is no longer active', async () => {
     const gone = Memory.create({
       id: OLD,
       handle: MemoryHandle.of(1),

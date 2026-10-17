@@ -10,7 +10,7 @@ describe('sameField', () => {
     expect(sameField(undefined, null)).toBe(true);
   });
 
-  it('treats an empty list as unset only when asked', () => {
+  it('treats an empty list as unset only when requested', () => {
     expect(sameField([], undefined)).toBe(false);
     expect(sameField([], undefined, { emptyIsUnset: true })).toBe(true);
     expect(sameField(['gpu'], undefined, { emptyIsUnset: true })).toBe(false);

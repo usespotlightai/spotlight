@@ -51,7 +51,7 @@ export class HeldOutSplit {
   }
 
   private static ofRanked(
-    given: readonly ReplaySetEntry[],
+    input: readonly ReplaySetEntry[],
     ranked: readonly string[],
   ): HeldOutSplit {
     const heldOutCount = Math.ceil(HELD_OUT_SHARE * ranked.length);
@@ -64,7 +64,7 @@ export class HeldOutSplit {
     }
 
     const heldOutTasks = new Set(ranked.slice(0, heldOutCount));
-    const entries = given.map((each) => ({
+    const entries = input.map((each) => ({
       runId: each.runId,
       taskId: each.taskId,
     }));
@@ -83,19 +83,19 @@ export class HeldOutSplit {
     const heldOutCount = Math.ceil(HELD_OUT_SHARE * tasks.length);
     const runsOf = (task: string) =>
       entries.filter((each) => each.taskId.value === task).length;
-    const reach: Map<number, readonly string[]>[] = Array.from(
+    const subsetSums: Map<number, readonly string[]>[] = Array.from(
       { length: heldOutCount + 1 },
       () => new Map(),
     );
 
-    reach[0]?.set(0, []);
+    subsetSums[0]?.set(0, []);
 
     for (const task of tasks) {
       const runs = runsOf(task);
 
       for (let count = heldOutCount; count >= 1; count -= 1) {
-        for (const [heldOutRuns, chosen] of reach[count - 1] ?? []) {
-          const into = reach[count];
+        for (const [heldOutRuns, chosen] of subsetSums[count - 1] ?? []) {
+          const into = subsetSums[count];
 
           if (into && !into.has(heldOutRuns + runs)) {
             into.set(heldOutRuns + runs, [...chosen, task]);
@@ -104,7 +104,7 @@ export class HeldOutSplit {
       }
     }
 
-    const [costliest] = [...(reach[heldOutCount] ?? [])].sort(
+    const [costliest] = [...(subsetSums[heldOutCount] ?? [])].sort(
       ([one], [other]) =>
         units(entries.length - other, other) -
           units(entries.length - one, one) || one - other,

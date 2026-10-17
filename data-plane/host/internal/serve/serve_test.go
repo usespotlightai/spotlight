@@ -1168,7 +1168,7 @@ func TestDoesNotPullADigestItAlreadyHas(t *testing.T) {
 	}
 }
 
-func TestServesTheImagesLinesNameThatItsAllowListAdmits(t *testing.T) {
+func TestServesTheImagesLinesNameThatItsAllowListAllows(t *testing.T) {
 	engine, pool := harnessed(), newPool()
 	opts := options(t)
 	opts.Images = allowed(t, "runner:1", "ghcr.io/acme/*")
@@ -1186,11 +1186,11 @@ func TestServesTheImagesLinesNameThatItsAllowListAdmits(t *testing.T) {
 	})
 
 	if seen["ghcr.io/someone-else/runner:main"] {
-		t.Error("claimed for an image its allow-list does not admit")
+		t.Error("claimed for an image its allow-list does not allow")
 	}
 	eventually(t, "the unavailable reason reported", func() bool {
 		each, ok := pool.reported("ghcr.io/someone-else/runner:main")
-		return ok && strings.Contains(each.UnavailableReason, "doesn't admit")
+		return ok && strings.Contains(each.UnavailableReason, "doesn't allow")
 	})
 }
 

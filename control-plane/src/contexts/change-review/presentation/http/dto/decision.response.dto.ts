@@ -183,7 +183,7 @@ export class MergedDecisionsResponseDto {
   @ApiProperty({
     type: [DecisionResponseDto],
     description:
-      'Those bearing on the paths asked about; deviations and limitations first',
+      'Those bearing on the paths in the query; deviations and limitations first',
   })
   readonly decisions: DecisionResponseDto[];
 

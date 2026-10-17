@@ -44,11 +44,11 @@ const RUNS = {
     ['sent-back', 90],
   ],
   onlyApproved: [['approved', 100]],
-  closedHeardBeforeTheRefusalBeforeIt: [
+  closedReceivedBeforeTheRefusalBeforeIt: [
     ['closed', 90],
     ['refused', 100],
   ],
-  sentBackHeardAfterTheCloseAfterIt: [
+  sentBackReceivedAfterTheCloseAfterIt: [
     ['closed', 80],
     ['sent-back', 85],
   ],
@@ -85,7 +85,7 @@ beforeAll(async () => {
   );
   const records = app.get(DrizzleRunRecordRepository);
 
-  const heard = async (
+  const delivered = async (
     events: readonly unknown[],
     check: () => Promise<unknown>,
   ) => {
@@ -134,12 +134,12 @@ beforeAll(async () => {
       stopped: false,
       asked: false,
     };
-    await heard([ended], async () => (await records.of(runId))?.hasEnded);
+    await delivered([ended], async () => (await records.of(runId))?.hasEnded);
 
     for (const [act, minutesAgo] of acts) {
       const before = await records.of(runId);
 
-      await heard(
+      await delivered(
         [
           new TaskActedOn(
             taskId,
@@ -169,10 +169,10 @@ describe('a run a person decided a tool approval for (e2e)', () => {
       acceptance.acceptedAfter(runOf(name).value);
 
     expect(await accepted('approvedThenClosed')).toBe(true);
-    expect(await accepted('closedHeardBeforeTheRefusalBeforeIt')).toBe(true);
+    expect(await accepted('closedReceivedBeforeTheRefusalBeforeIt')).toBe(true);
     expect(await accepted('approvedThenSentBack')).toBe(false);
     expect(await accepted('onlyApproved')).toBe(false);
-    expect(await accepted('sentBackHeardAfterTheCloseAfterIt')).toBe(false);
+    expect(await accepted('sentBackReceivedAfterTheCloseAfterIt')).toBe(false);
   });
 
   it('turns out asking when the person only decided the approval', async () => {
@@ -188,8 +188,8 @@ describe('a run a person decided a tool approval for (e2e)', () => {
       approvedThenClosed: 'accepted',
       approvedThenSentBack: 'sent-back',
       onlyApproved: 'asked',
-      closedHeardBeforeTheRefusalBeforeIt: 'accepted',
-      sentBackHeardAfterTheCloseAfterIt: 'sent-back',
+      closedReceivedBeforeTheRefusalBeforeIt: 'accepted',
+      sentBackReceivedAfterTheCloseAfterIt: 'sent-back',
     });
   });
 

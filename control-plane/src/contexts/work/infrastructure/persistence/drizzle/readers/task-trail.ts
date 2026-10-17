@@ -94,7 +94,7 @@ export const attachmentsFor = async (
   return byTask;
 };
 
-const asked = (
+const approvalOf = (
   parts: ApprovalRow | null,
   named: ReadonlyMap<string, { readonly name: string }>,
 ): InboxApproval | null => {
@@ -108,9 +108,9 @@ const asked = (
     kind: subject.kind,
     name: subject.name,
     because: parts.because,
-    inputs: subject.given,
+    inputs: subject.writtenInputs,
     status: parts.status,
-    edited: toEditedCall(parts)?.given ?? null,
+    edited: toEditedCall(parts)?.writtenInputs ?? null,
     intent: parts.intent ?? null,
     askedOf: parts.askedOf
       ? { id: parts.askedOf, name: named.get(parts.askedOf)?.name ?? '' }
@@ -227,7 +227,7 @@ export const trailsFor = async (
             image: author?.image ?? null,
           }
         : null,
-      approval: asked(row.approval, authors),
+      approval: approvalOf(row.approval, authors),
       failure: failed(row.failure),
       connection: connecting(row.connectionAsk, authors),
     });
@@ -302,7 +302,7 @@ export const awaitedReviewsFor = async (
   return awaited;
 };
 
-type Asked = {
+type TrailNote = {
   taskId: string;
   position: number;
   kind: TaskNoteKind;
@@ -331,7 +331,7 @@ export const reviewsBy = async (
     .where(inArray(taskNote.taskId, named))
     .orderBy(asc(taskNote.taskId), asc(taskNote.position));
 
-  const trails = new Map<string, Asked[]>();
+  const trails = new Map<string, TrailNote[]>();
 
   for (const row of rows) {
     const notes = trails.get(row.taskId) ?? [];
@@ -345,12 +345,12 @@ export const reviewsBy = async (
   }
 
   for (const [taskId, trail] of trails) {
-    for (const [runId, asked] of reviewsIn(trail)) {
+    for (const [runId, reviewed] of reviewsIn(trail)) {
       review.set(runId, {
-        state: asked.state,
+        state: reviewed.state,
         conversationId: ConversationId.of({
           taskId: TaskId.of(taskId),
-          from: asked.from,
+          from: reviewed.from,
         }).value,
       });
     }
@@ -363,11 +363,11 @@ export const briefingsFor = async (
   db: DrizzleDatabase,
   runIds: readonly string[],
 ): Promise<Map<string, string>> => {
-  const given = new Map<string, string>();
+  const briefings = new Map<string, string>();
   const named = [...new Set(runIds)];
 
   if (named.length === 0) {
-    return given;
+    return briefings;
   }
 
   const rows = await db
@@ -376,8 +376,8 @@ export const briefingsFor = async (
     .where(inArray(run.id, named));
 
   for (const row of rows) {
-    given.set(row.id, RunSpecContract.from(row.spec).briefing);
+    briefings.set(row.id, RunSpecContract.from(row.spec).briefing);
   }
 
-  return given;
+  return briefings;
 };

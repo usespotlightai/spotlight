@@ -16,8 +16,8 @@ import { InMemoryHostConnections } from '@integrations/integrations.connections.
 import { defined } from '@integrations/integrations.definitions.fake-spec';
 import { operationsContaining } from '@integrations/integrations.documents.fake-spec';
 import {
+  callingNoServer,
   discoveringNothing,
-  reachingNoServer,
 } from '@integrations/integrations.mcp.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
@@ -38,7 +38,7 @@ const runtimeWith = (
     clients,
     exchange as OAuth2Exchange,
     discoveringNothing(),
-    reachingNoServer(),
+    callingNoServer(),
   );
 
 const NOW = new Date('2026-09-07T10:00:00.000Z');
@@ -125,7 +125,7 @@ const storedNow = (connections: InMemoryHostConnections) =>
   connections.of(TEAM, SLACK, ConnectionHolder.team());
 
 describe('RefreshConnections', () => {
-  it('renews a connection nearing expiry and keeps the fresh tokens', async () => {
+  it('renews a connection nearing expiry and stores the fresh tokens', async () => {
     const { it, connections, refresh } = refreshing([nearing()]);
 
     await it.refresh();

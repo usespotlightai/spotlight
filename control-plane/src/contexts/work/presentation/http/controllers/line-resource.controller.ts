@@ -124,7 +124,7 @@ export class LineResourceController {
 
   @LineResource.Update(
     'lines/:id',
-    'Reconcile a line with its definition, keeping each station it keeps',
+    'Reconcile a line with its definition, and keep each station that the definition still names',
   )
   @ID
   @DEFINITION

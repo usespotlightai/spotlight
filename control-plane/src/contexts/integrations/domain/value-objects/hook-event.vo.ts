@@ -34,7 +34,7 @@ const DESCRIBED = {
     aboutTool: false,
     aboutChanges: false,
   },
-  'handover.giving': {
+  'handover.submitting': {
     timing: 'before',
     inRun: true,
     aboutTool: false,

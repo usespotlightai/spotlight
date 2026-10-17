@@ -109,7 +109,7 @@ func (c *cli) propose(args []string) error {
 
 func (c *cli) block(path string) (map[string]any, error) {
 	if ext := strings.ToLower(filepath.Ext(path)); ext == ".tf" || ext == ".hcl" {
-		return nil, fmt.Errorf("%s is HCL; Spotlight writes HCL but never reads it, so give the station block as JSON, as the line resource contains it", path)
+		return nil, fmt.Errorf("%s is HCL; Spotlight writes HCL but never reads it, so supply the station block as JSON, as the line resource contains it", path)
 	}
 
 	var read []byte

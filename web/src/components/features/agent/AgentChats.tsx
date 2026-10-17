@@ -8,9 +8,9 @@ import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { EmptyState } from '@/components/shared/EmptyState';
 import { useChats } from '@/hooks/api/useChats';
 import {
-  askHandedOver,
   chatPath,
   improvingHandedOver,
+  promptHandedOver,
   tracesHandedOver,
 } from '@/lib/chat';
 import { failed, loading } from '@/lib/query';
@@ -84,7 +84,7 @@ export function AgentChats({ slug, teamId }: AgentChatsProps) {
           teamId={teamId}
           traces={tracesHandedOver(location.state)}
           defaultImproving={improvingHandedOver(location.state)}
-          defaultAsk={askHandedOver(location.state)}
+          defaultPrompt={promptHandedOver(location.state)}
           onStarted={started}
         />
       </ComposerFooter>

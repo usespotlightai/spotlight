@@ -36,9 +36,9 @@ export class ImportLineHandler
         return null;
       }
 
-      const kept = await this.resources.at(team.id, address.key);
+      const record = await this.resources.at(team.id, address.key);
 
-      return kept ? this.views.of(kept) : null;
+      return record ? this.views.of(record) : null;
     } catch (error) {
       rethrowAsApplicationError(error);
     }

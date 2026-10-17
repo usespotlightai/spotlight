@@ -53,7 +53,7 @@ describe('checking expressions for a plan', () => {
     await app.close();
   });
 
-  it('answers the type of a sound expression, in the API version asked', async () => {
+  it('answers the type of a sound expression, in the API version requested', async () => {
     const answer = await check({
       position: WHEN,
       expression: 'body.type == "Issue"',

@@ -5,7 +5,7 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { SearchRunWork } from '@work/application/services/search-run-work';
 import { Run } from '@work/domain/aggregates/run.aggregate';
-import { KeptFromSearchesError } from '@work/domain/exceptions/kept-from-searches.error';
+import { NotAllowedInSearchError } from '@work/domain/exceptions/not-allowed-in-search.error';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
@@ -56,28 +56,28 @@ const working = () => {
 };
 
 describe('the work of a search', () => {
-  it('reaches no repository, to fetch or to push', async () => {
+  it('uses no repository, to fetch or to push', async () => {
     const { work } = working();
 
     await expect(work.repositoryNamed('api')).rejects.toThrow(
-      KeptFromSearchesError,
+      NotAllowedInSearchError,
     );
   });
 
   it('reads no attachment', () => {
-    expect(working().work.gave()).toBeNull();
+    expect(working().work.attachment()).toBeNull();
   });
 
   it('uses no tool', async () => {
     const { work } = working();
 
-    await expect(work.toolContext()).rejects.toThrow(KeptFromSearchesError);
+    await expect(work.toolContext()).rejects.toThrow(NotAllowedInSearchError);
     expect((await work.clearFor()).kind).toBe('refused');
   });
 
   it('takes up nothing a person says', async () => {
     await expect(working().work.acknowledgeUpTo()).rejects.toThrow(
-      KeptFromSearchesError,
+      NotAllowedInSearchError,
     );
   });
 

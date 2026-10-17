@@ -7,7 +7,7 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export interface TaskFailedHeard {
+export interface TaskFailedReceived {
   readonly taskId: string;
   readonly workspaceId: string;
   readonly teamId: string;
@@ -26,19 +26,19 @@ export class NoteTaskFailed {
     private readonly transaction: TransactionPort,
   ) {}
 
-  failed(heard: TaskFailedHeard): Promise<void> {
+  failed(event: TaskFailedReceived): Promise<void> {
     const occurrence = FailureOccurrence.of({
-      stationId: heard.stationId,
-      runId: heard.runId,
-      source: heard.source,
-      code: heard.code,
-      occurrences: heard.occurrences,
-      at: new Date(heard.at),
+      stationId: event.stationId,
+      runId: event.runId,
+      source: event.source,
+      code: event.code,
+      occurrences: event.occurrences,
+      at: new Date(event.at),
     });
 
-    const taskId = TaskId.of(heard.taskId);
-    const workspaceId = WorkspaceId.of(heard.workspaceId);
-    const teamId = TeamId.of(heard.teamId);
+    const taskId = TaskId.of(event.taskId);
+    const workspaceId = WorkspaceId.of(event.workspaceId);
+    const teamId = TeamId.of(event.teamId);
 
     return this.transaction.inTransaction(async () => {
       await this.deletions.lockDeletion(workspaceId, taskId, teamId);
@@ -47,7 +47,7 @@ export class NoteTaskFailed {
       if (!existing) {
         if (!(await this.deletions.isDeleted(workspaceId, taskId, teamId))) {
           await this.failures.add(
-            TaskFailures.heardOf(taskId, workspaceId, teamId).raise(occurrence),
+            TaskFailures.empty(taskId, workspaceId, teamId).raise(occurrence),
           );
         }
         return;

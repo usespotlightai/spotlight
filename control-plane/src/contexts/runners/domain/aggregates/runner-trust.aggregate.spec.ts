@@ -42,9 +42,9 @@ describe('RunnerTrust', () => {
     expect(kinds(created())).toEqual(['runner-trust.created']);
   });
 
-  it('admits a token from its issuer, for its subject and audience', () => {
+  it('matches a token from its issuer, for its subject and audience', () => {
     expect(
-      persisted().admits({
+      persisted().matches({
         issuer: ISSUER,
         subject: SUBJECT,
         audiences: ['sts.amazonaws.com', 'spotlight'],
@@ -53,11 +53,11 @@ describe('RunnerTrust', () => {
     ).toBe(true);
   });
 
-  it('admits no token issued elsewhere, to another workload or for another audience', () => {
+  it('matches no token issued elsewhere, to another workload or for another audience', () => {
     const trust = persisted();
 
     expect(
-      trust.admits({
+      trust.matches({
         issuer: 'https://elsewhere.example.com',
         subject: SUBJECT,
         audiences: ['spotlight'],
@@ -65,7 +65,7 @@ describe('RunnerTrust', () => {
       }),
     ).toBe(false);
     expect(
-      trust.admits({
+      trust.matches({
         issuer: ISSUER,
         subject: 'system:serviceaccount:default:default',
         audiences: ['spotlight'],
@@ -73,7 +73,7 @@ describe('RunnerTrust', () => {
       }),
     ).toBe(false);
     expect(
-      trust.admits({
+      trust.matches({
         issuer: ISSUER,
         subject: SUBJECT,
         audiences: ['other'],
@@ -82,11 +82,11 @@ describe('RunnerTrust', () => {
     ).toBe(false);
   });
 
-  it('admits nothing once deleted, and says it was deleted', () => {
+  it('matches nothing once deleted, and says it was deleted', () => {
     const deleted = persisted().delete(BY);
 
     expect(
-      deleted.admits({
+      deleted.matches({
         issuer: ISSUER,
         subject: SUBJECT,
         audiences: ['spotlight'],

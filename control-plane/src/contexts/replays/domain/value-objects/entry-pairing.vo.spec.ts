@@ -28,7 +28,7 @@ describe('PairVerdict', () => {
     ).toThrow(InvalidReplayError);
   });
 
-  it('keeps both readings, one each way round, and is a tie where they disagree', () => {
+  it('records both readings, one each way round, and is a tie where they disagree', () => {
     const reading = (runShownFirst: boolean, outcome: string) => ({
       ownShownFirst: runShownFirst,
       outcome,
@@ -67,16 +67,16 @@ describe('PairVerdict', () => {
 });
 
 describe('EntryPairing', () => {
-  it('is asked once against one run, then judged or failed, and stays so', () => {
-    const asked = EntryPairing.asked(AGAINST);
-    const judged = asked.judged(verdict('run'));
+  it('is requested once against one run, then judged or failed, and stays so', () => {
+    const requested = EntryPairing.requested(AGAINST);
+    const judged = requested.judged(verdict('run'));
 
-    expect(asked.pending).toBe(true);
+    expect(requested.pending).toBe(true);
     expect(judged.verdict?.outcome).toBe('win');
     expect(judged.failed('errored')).toBe(judged);
-    expect(asked.failed('no-evidence').unpaired).toBe('no-evidence');
-    expect(() => asked.failed('something new')).toThrow(InvalidReplayError);
-    expect(asked.isAgainst(AGAINST)).toBe(true);
+    expect(requested.failed('no-evidence').unpaired).toBe('no-evidence');
+    expect(() => requested.failed('something new')).toThrow(InvalidReplayError);
+    expect(requested.isAgainst(AGAINST)).toBe(true);
   });
 
   it('is never both judged and failed', () => {

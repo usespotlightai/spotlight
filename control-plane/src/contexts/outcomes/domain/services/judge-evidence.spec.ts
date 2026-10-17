@@ -11,8 +11,8 @@ const stepOf = (index: number, text = `step ${index}`): JudgedStep => ({
   kind: 'message',
   tool: null,
   text,
-  given: null,
-  returned: null,
+  input: null,
+  output: null,
 });
 
 const evidenceOf = (steps: readonly JudgedStep[] = [stepOf(3), stepOf(7)]) =>

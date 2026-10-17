@@ -4,9 +4,9 @@ import type {
   IntegrationCompilerPort,
   ParsedIntegration,
 } from '@integrations/application/ports/integration-compiler.port';
-import type { HostReach } from '@integrations/application/services/host-reach.service';
+import type { CallAuthResolver } from '@integrations/application/services/call-auth-resolver.service';
+import type { EnabledTools } from '@integrations/application/services/enabled-tools.service';
 import { IntegrationSources } from '@integrations/application/services/integration-sources.service';
-import type { ToolsGiven } from '@integrations/application/services/tools-given.service';
 import { IntegrationDefinition } from '@integrations/domain/aggregates/integration-definition.aggregate';
 import { Integration } from '@integrations/domain/entities/integration.entity';
 import type { IntegrationDefinitionRepository } from '@integrations/domain/repositories/integration-definition.repository';
@@ -100,7 +100,7 @@ export const sources = new IntegrationSources(
   {
     read: vi.fn(async () => ({ kind: 'unread' as const, problem: 'unread' })),
   },
-  {} as HostReach,
+  {} as CallAuthResolver,
   { now: () => new Date('2026-10-05T12:00:00.000Z'), sleep: async () => {} },
 );
 
@@ -115,8 +115,8 @@ export const recalls = (recall: IdempotentRecall = { kind: 'unseen' }) =>
     recall: vi.fn(async () => recall),
   }) satisfies IdempotentRecallsPort;
 
-export const toolsGiven = (given = ToolUses.none()): ToolsGiven =>
-  ({ onTeam: vi.fn(async () => given) }) as unknown as ToolsGiven;
+export const enabledTools = (enabled = ToolUses.none()): EnabledTools =>
+  ({ onTeam: vi.fn(async () => enabled) }) as unknown as EnabledTools;
 
 export const transaction: TransactionPort = { inTransaction: (work) => work() };
 

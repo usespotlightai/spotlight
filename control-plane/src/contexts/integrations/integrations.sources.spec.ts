@@ -4,7 +4,7 @@ import { ContentHash } from '@integrations/domain/value-objects/content-hash.vo'
 import { DescribedOperation } from '@integrations/domain/value-objects/described-operation.vo';
 import { IntegrationCompiler } from '@integrations/infrastructure/integrations/integration.compile';
 import { documentsContaining } from '@integrations/integrations.documents.fake-spec';
-import { reachFor } from '@integrations/integrations.secrets.fake-spec';
+import { callAuthFor } from '@integrations/integrations.secrets.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { describe, expect, it, vi } from 'vitest';
@@ -52,7 +52,7 @@ const sourcing = (
     new IntegrationCompiler(new CelExpressionEngine()),
     documents,
     reader,
-    reachFor(),
+    callAuthFor(),
     { now: () => NOW, sleep: async () => {} },
   );
 
@@ -76,7 +76,7 @@ describe('IntegrationSources', () => {
     expect(reader.read).not.toHaveBeenCalled();
   });
 
-  it('reads a description, keeps what it read, and offers its operations', async () => {
+  it('reads a description, stores what it read, and offers its operations', async () => {
     const { sources, documents } = sourcing();
     const { compiled, reading } = await sources.compiled({
       definition: PETSTORE,
@@ -92,7 +92,7 @@ describe('IntegrationSources', () => {
     expect(reading?.passedOver).toEqual([
       'passes over uploadFile, because it sends a body that is not JSON',
     ]);
-    expect(documents.kept.map((each) => each.hash)).toEqual([HASH]);
+    expect(documents.stored.map((each) => each.hash)).toEqual([HASH]);
   });
 
   it('reuses what it read while the description is read from the same place', async () => {
@@ -186,7 +186,7 @@ describe('IntegrationSources', () => {
     expect(updated.reading?.problem).toBeNull();
   });
 
-  it('keeps a definition whose description could not be read, saying why, offering nothing from it', async () => {
+  it('stores a definition whose description could not be read, saying why, offering nothing from it', async () => {
     const { sources } = sourcing({
       kind: 'unread',
       problem: 'could not be read: petstore3.swagger.io answered 503',

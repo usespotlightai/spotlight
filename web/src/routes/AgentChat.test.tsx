@@ -172,7 +172,7 @@ describe('AgentChat', () => {
       expect(screen.queryByText(/Chat not found/)).not.toBeInTheDocument();
     });
 
-    it('tries again when asked', async () => {
+    it('tries again on request', async () => {
       renderChat();
 
       await userEvent.click(screen.getByRole('button', { name: 'Try again' }));

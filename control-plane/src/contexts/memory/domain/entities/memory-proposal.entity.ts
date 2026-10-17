@@ -22,7 +22,7 @@ export type MemoryProposalState = (typeof MEMORY_PROPOSAL_STATES)[number];
 export interface ProposedMemory {
   readonly kind: string;
   readonly body: string;
-  readonly reach: string;
+  readonly scope: string;
   readonly repository: string | null;
   readonly paths: readonly string[];
   readonly steps: readonly number[];

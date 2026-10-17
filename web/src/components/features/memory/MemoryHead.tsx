@@ -13,7 +13,7 @@ export function MemoryHead() {
       <span className="truncate">Kind</span>
       <span className="truncate">Applies to</span>
       <span className="truncate">Source</span>
-      <span className="truncate">Kept by</span>
+      <span className="truncate">Approved by</span>
       <span className="truncate text-right">Runs</span>
     </div>
   );
