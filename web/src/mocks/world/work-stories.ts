@@ -250,7 +250,7 @@ export const GONE_THOUGHT =
   'Three endpoints answer 410 Gone. They will never come back, so retrying them only fills the queue again.';
 
 export const GONE_REMEMBER =
-  'spotlight remember --kind rationale --reach station --path src/retries/deliver.ts --body "A 410 Gone from a webhook endpoint is permanent, so its deliveries are dropped rather than retried."';
+  'spotlight remember --kind rationale --scope station --path src/retries/deliver.ts --body "A 410 Gone from a webhook endpoint is permanent, so its deliveries are dropped rather than retried."';
 
 export const DRAIN_ANSWER =
   'Start with webhook-retries. Billing is still being reconciled, so leave it alone for now.';
@@ -338,7 +338,7 @@ export const RUN_STORIES: Record<string, RunStory> = {
         'The dashboard signs in with a session cookie, never an API token, so a limit per token leaves it alone.',
       ),
       planned(
-        '1. A token bucket per API key, kept in Redis\n2. 429 with Retry-After once it is empty\n3. Leave dashboard sessions unlimited',
+        '1. A token bucket per API key, stored in Redis\n2. 429 with Retry-After once it is empty\n3. Leave dashboard sessions unlimited',
       ),
       edit(
         'docs/specs/rate-limits.md',
@@ -491,7 +491,7 @@ export const RUN_STORIES: Record<string, RunStory> = {
   run_postgres_2: {
     spend: spend(2.31, 9_840, 21_600, 1_684_000, 88_200),
     before:
-      'The spec asks for `pg` 8.13.1 in acme/api without the `pg-native` binding, and warns that `timestamptz` now keeps microseconds.',
+      'The spec requires `pg` 8.13.1 in acme/api without the `pg-native` binding, and warns that `timestamptz` now keeps microseconds.',
     steps: [
       thought(
         'Start from the pool: the native binding is chosen there, and it is the part the spec drops.',
@@ -807,7 +807,7 @@ export const RUN_STORIES: Record<string, RunStory> = {
           kind: 'tool-call',
           name: 'linear.issue-create',
           because:
-            'Priya Nair asks to approve each call made with their Linear connection.',
+            'Priya Nair wants to approve each call made with their Linear connection.',
           inputs: [
             {
               name: 'title',
@@ -855,7 +855,7 @@ export const RUN_STORIES: Record<string, RunStory> = {
             {
               name: 'body',
               value:
-                'Experiment design: one optional question on the welcome screen, “Where did you hear about Acme?”, with five choices and a free-text other. Metric: share of signups that answer, now 22%. Stop rule: two weeks or 1,000 signups per arm.',
+                'Experiment design: one optional question on the welcome screen, “How did you find Acme?”, with five choices and a free-text other. Metric: share of signups that answer, now 22%. Stop rule: two weeks or 1,000 signups per arm.',
             },
             { name: 'issue', value: 'GRO-131' },
           ],

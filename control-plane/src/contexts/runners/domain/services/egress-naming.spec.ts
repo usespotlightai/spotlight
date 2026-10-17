@@ -20,7 +20,7 @@ const problemOf = (
     validateEgress(reference, {
       workspaceId: WORKSPACE,
       named: null,
-      platformKept: false,
+      platformStored: false,
       ...input,
     });
 
@@ -39,7 +39,7 @@ describe('validateEgress', () => {
 
   it('lets a pool name the platform egress only where the deployment has one', () => {
     expect(
-      problemOf(EgressReference.platform(), { platformKept: true }),
+      problemOf(EgressReference.platform(), { platformStored: true }),
     ).toBeNull();
     expect(problemOf(EgressReference.platform())).toMatch(
       /^provision\.egress names spotlight\. This deployment has no platform egress/,

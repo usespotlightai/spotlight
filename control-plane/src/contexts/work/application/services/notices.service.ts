@@ -23,24 +23,24 @@ export class Notices implements NoticesPort {
     private readonly clock: ClockPort,
   ) {}
 
-  async raise(asked: NoticeOf): Promise<void> {
-    const form = noticeForm(asked.form);
+  async raise(input: NoticeOf): Promise<void> {
+    const form = noticeForm(input.form);
     const raised = Notice.raise({
       id: NoticeId.of(this.ids.generate()),
-      workspaceId: asked.workspaceId,
-      teamId: asked.teamId,
-      addressee: asked.addressee,
+      workspaceId: input.workspaceId,
+      teamId: input.teamId,
+      addressee: input.addressee,
       form,
-      subject: asked.subject,
-      link: NoticeLink.of({ path: asked.link, label: asked.linkLabel }),
+      subject: input.subject,
+      link: NoticeLink.of({ path: input.link, label: input.linkLabel }),
       wording: NoticeWording.of({
-        headline: asked.headline,
-        points: asked.points,
+        headline: input.headline,
+        points: input.points,
       }),
       at: this.clock.now(),
     });
 
-    if (!(await this.access.onTeam(asked.teamId.value, asked.addressee))) {
+    if (!(await this.access.onTeam(input.teamId.value, input.addressee))) {
       return;
     }
 

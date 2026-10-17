@@ -103,7 +103,7 @@ const lineWorking = (repositories: readonly string[]): Line => {
   } as unknown as Line;
 };
 
-const asking = (repository: string | null = null, body = '') => ({
+const requested = (repository: string | null = null, body = '') => ({
   title: 'Fix the queue',
   body,
   repository,
@@ -121,18 +121,18 @@ const opening = (
   } = {},
 ) => {
   const saved: Task[] = [];
-  const asked: BeforeMoment[] = [];
+  const hookCalls: BeforeMoment[] = [];
   const compared: unknown[][] = [];
   const listened: [string, string][] = [];
   let stored: Task | null = null;
   const opened: Parameters<PullRequestPort['open']>[0][] = [];
 
   const pullRequests = {
-    open: async (asked: Parameters<PullRequestPort['open']>[0]) => {
+    open: async (request: Parameters<PullRequestPort['open']>[0]) => {
       if (over.connected === false) {
         throw new NoGitHubInstallationError();
       }
-      opened.push(asked);
+      opened.push(request);
       if (stored && over.meanwhile) {
         stored = over.meanwhile(stored);
       }
@@ -168,7 +168,7 @@ const opening = (
         return over.listening ?? true;
       },
       before: async (_task, moment) => {
-        asked.push(moment);
+        hookCalls.push(moment);
         return over.verdict ?? { kind: 'allowed' };
       },
       after: async () => {},
@@ -177,16 +177,16 @@ const opening = (
   );
 
   return {
-    open: (task: Task, asked = asking(), runId = RUN) => {
+    open: (task: Task, input = requested(), runId = RUN) => {
       stored = task;
       return service.open(
         { runId, taskId: task.id, stationId: task.stationId },
-        asked,
+        input,
       );
     },
     opened,
     saved,
-    asked,
+    hookCalls,
     compared,
     listened,
   };
@@ -196,7 +196,7 @@ describe('OpenPullRequest', () => {
   it('opens one against the line’s only repository, for the task’s branch', async () => {
     const { open, opened } = opening();
 
-    const answered = await open(task(), asking(null, 'why'));
+    const answered = await open(task(), requested(null, 'why'));
 
     expect(answered.url).toBe('https://github.com/acme/widgets/pull/7');
     expect(opened).toEqual([
@@ -215,7 +215,7 @@ describe('OpenPullRequest', () => {
       repositories: ['acme/api', 'acme/web'],
     });
 
-    await open(task(), asking('web'));
+    await open(task(), requested('web'));
 
     expect(opened[0]?.repository).toEqual(Repository.of('acme/web'));
   });
@@ -232,7 +232,7 @@ describe('OpenPullRequest', () => {
   it('rejects a repository the line does not work', async () => {
     const { open, opened } = opening({ repositories: ['acme/api'] });
 
-    await expect(open(task(), asking('web'))).rejects.toThrow(
+    await expect(open(task(), requested('web'))).rejects.toThrow(
       /no repository named web/,
     );
     expect(opened).toEqual([]);
@@ -245,7 +245,7 @@ describe('OpenPullRequest', () => {
     expect(opened).toEqual([]);
   });
 
-  it('rejects where the workspace reaches no GitHub installation', async () => {
+  it('rejects where the workspace has no GitHub installation', async () => {
     const { open, opened } = opening({ connected: false });
 
     await expect(open(task())).rejects.toThrow(NoGitHubInstallationError);
@@ -335,7 +335,7 @@ describe('OpenPullRequest', () => {
     );
   });
 
-  it('answers with the pull request recorded while GitHub was being asked', async () => {
+  it('answers with the pull request recorded while GitHub was being called', async () => {
     const { open, saved } = opening({
       meanwhile: (task) =>
         task.recordPullRequest(
@@ -355,15 +355,15 @@ describe('OpenPullRequest', () => {
   it('records nothing for a run the task detached', async () => {
     const { open, saved } = opening();
 
-    await expect(open(task(), asking(), RunId.of('run_2'))).rejects.toThrow(
+    await expect(open(task(), requested(), RunId.of('run_2'))).rejects.toThrow(
       InvalidTaskTransitionError,
     );
     expect(saved).toEqual([]);
   });
 
   describe('hooks', () => {
-    it('asks the hooks before it opens one, with what the branch changes', async () => {
-      const { open, asked, compared } = opening();
+    it('calls the hooks before it opens one, with what the branch changes', async () => {
+      const { open, hookCalls, compared } = opening();
 
       await open(task());
 
@@ -374,7 +374,7 @@ describe('OpenPullRequest', () => {
           'spotlight/task_1',
         ],
       ]);
-      expect(asked).toEqual([
+      expect(hookCalls).toEqual([
         {
           on: 'pull-request.opening',
           repository: 'acme/widgets',
@@ -401,8 +401,8 @@ describe('OpenPullRequest', () => {
       expect(saved).toEqual([]);
     });
 
-    it('asks no hooks for a task that already has one', async () => {
-      const { open, asked } = opening();
+    it('calls no hooks for a task that already has one', async () => {
+      const { open, hookCalls } = opening();
 
       await open(
         task().recordPullRequest(
@@ -413,10 +413,10 @@ describe('OpenPullRequest', () => {
         ),
       );
 
-      expect(asked).toEqual([]);
+      expect(hookCalls).toEqual([]);
     });
 
-    it('compares nothing where no hook can hear of the task', async () => {
+    it('compares nothing where no hook can learn of the task', async () => {
       const { open, compared, opened } = opening({ hooked: false });
 
       await open(task());
@@ -425,8 +425,8 @@ describe('OpenPullRequest', () => {
       expect(opened).toHaveLength(1);
     });
 
-    it('asks GitHub nothing and no hook when none listens for a pull request opening', async () => {
-      const { open, compared, asked, listened, opened } = opening({
+    it('calls neither GitHub nor a hook when none listens for a pull request opening', async () => {
+      const { open, compared, hookCalls, listened, opened } = opening({
         listening: false,
       });
 
@@ -434,7 +434,7 @@ describe('OpenPullRequest', () => {
 
       expect(listened).toEqual([['team_1', 'pull-request.opening']]);
       expect(compared).toEqual([]);
-      expect(asked).toEqual([]);
+      expect(hookCalls).toEqual([]);
       expect(opened).toHaveLength(1);
     });
   });

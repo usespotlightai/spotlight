@@ -14,12 +14,12 @@ import { clientsFrom } from '@integrations/integrations.clients.fake-spec';
 import { defined } from '@integrations/integrations.definitions.fake-spec';
 import { operationsContaining } from '@integrations/integrations.documents.fake-spec';
 import {
+  callingNoServer,
   discoveringNothing,
-  reachingNoServer,
 } from '@integrations/integrations.mcp.fake-spec';
 import {
+  callAuthFor,
   injecting,
-  reachFor,
 } from '@integrations/integrations.secrets.fake-spec';
 import { WebInboxLinks } from '@integrations/presentation/http/web-inbox-links';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
@@ -40,7 +40,7 @@ const runtimeWith = (
     clients,
     exchange as OAuth2Exchange,
     discoveringNothing(),
-    reachingNoServer(),
+    callingNoServer(),
   );
 
 const _NOW = new Date('2026-09-07T10:00:00.000Z');
@@ -129,7 +129,7 @@ const notifying = (
       ofTeam: vi.fn(async () => [defined(file)]),
     } as unknown as DefinedIntegrationsPort,
     runtimeWith({ run } as unknown as HttpOutbound),
-    reachFor(injection),
+    callAuthFor(injection),
     new WebInboxLinks(
       { slugOf: vi.fn(async () => 'acme') } as unknown as WorkspaceReaderPort,
       'https://app.example',
@@ -185,14 +185,14 @@ describe('TaskNotices', () => {
   it('hands back the thread it captured, for the caller to record', async () => {
     const { notifier } = notifying();
 
-    const kept = await notifier.notify(asked(), 'task.asked');
+    const marks = await notifier.notify(asked(), 'task.asked');
 
-    expect(kept.map((each) => `${each.kind}:${each.value}`)).toContain(
+    expect(marks.map((each) => `${each.kind}:${each.value}`)).toContain(
       'slack.thread:170.9',
     );
   });
 
-  it('keeps nothing where the host answers the post with an error', async () => {
+  it('stores no marks where the host answers the post with an error', async () => {
     const { notifier } = notifying({
       ok: false,
       status: 200,

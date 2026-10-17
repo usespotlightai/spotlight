@@ -110,8 +110,10 @@ export class OAuth2State {
 
   private isAuthentic(body: string, mac: string): boolean {
     const wanted = Buffer.from(this.mac(body));
-    const given = Buffer.from(mac);
+    const received = Buffer.from(mac);
 
-    return wanted.length === given.length && timingSafeEqual(wanted, given);
+    return (
+      wanted.length === received.length && timingSafeEqual(wanted, received)
+    );
   }
 }

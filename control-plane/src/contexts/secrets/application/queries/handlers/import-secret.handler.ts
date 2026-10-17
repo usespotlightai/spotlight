@@ -22,14 +22,14 @@ export class ImportSecretHandler
         WorkspaceId.of(query.workspaceId),
         query.principal,
       );
-      const kept = permissions
+      const record = permissions
         ? await this.resources.named(
             permissions.workspaceId,
             SecretName.of(query.address).value,
           )
         : null;
 
-      return kept ? SecretResourceMapper.toDto(kept) : null;
+      return record ? SecretResourceMapper.toDto(record) : null;
     } catch (error) {
       rethrowAsApplicationError(error);
     }

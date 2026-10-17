@@ -13,9 +13,9 @@ import (
 
 func TestCarriesAHistoryRequestToSpotlight(t *testing.T) {
 	server := serve(t)
-	var asked []protocol.HistoryRequest
+	var received []protocol.HistoryRequest
 	server.Histories(func(_ context.Context, request protocol.HistoryRequest) (json.RawMessage, error) {
-		asked = append(asked, request)
+		received = append(received, request)
 		return json.RawMessage(`{"runs":[]}`), nil
 	})
 
@@ -26,15 +26,15 @@ func TestCarriesAHistoryRequestToSpotlight(t *testing.T) {
 		t.Fatalf("status = %d: %s", status, body)
 	}
 	want := protocol.HistoryRequest{Station: "implementation", Line: "delivery", Last: 5}
-	if len(asked) != 1 || asked[0] != want {
-		t.Errorf("asked %+v", asked)
+	if len(received) != 1 || received[0] != want {
+		t.Errorf("received %+v", received)
 	}
 }
 
 func TestRejectsAHistoryOfNoStation(t *testing.T) {
 	server := serve(t)
 	server.Histories(func(context.Context, protocol.HistoryRequest) (json.RawMessage, error) {
-		t.Error("asked Spotlight anyway")
+		t.Error("called Spotlight anyway")
 		return nil, nil
 	})
 

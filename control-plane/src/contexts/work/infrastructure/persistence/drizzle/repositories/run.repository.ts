@@ -88,14 +88,14 @@ export class DrizzleRunRepository implements RunRepository {
     private readonly events: DomainEventDispatcher,
   ) {}
 
-  async add(added: Run, kept: RunExtras = {}): Promise<void> {
+  async add(added: Run, extras: RunExtras = {}): Promise<void> {
     await this.context.inTransaction(async () => {
-      await this.inserted(added, kept);
+      await this.inserted(added, extras);
       await this.events.dispatch(added.pullEvents());
     });
   }
 
-  private async inserted(added: Run, kept: RunExtras): Promise<void> {
+  private async inserted(added: Run, extras: RunExtras): Promise<void> {
     await this.context.db.insert(run).values({
       id: added.id.value,
       workspaceId: added.workspaceId.value,
@@ -121,7 +121,7 @@ export class DrizzleRunRepository implements RunRepository {
       endedAt: endedAtFor(added.state, sql`now()`),
       stationFingerprint: added.configuredAs?.fingerprint ?? null,
       stationConfig: added.configuredAs?.parts ?? null,
-      briefedTask: kept.briefed?.parts ?? null,
+      briefedTask: extras.briefed?.parts ?? null,
       askedAPerson: added.askedAPerson,
       ...startOf(added),
       ...reservationOf(added),
@@ -307,7 +307,7 @@ const configuredFrom = (row: Row): StationConfig | null => {
   if (row.stationConfig === null || row.stationFingerprint === null) {
     throw new InconsistentStateError(
       'run',
-      `keeps only half of its station config (${row.id})`,
+      `stores only half of its station config (${row.id})`,
     );
   }
 

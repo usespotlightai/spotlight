@@ -31,7 +31,7 @@ export interface AttachmentStorePort {
 
   taken(workspaceId: WorkspaceId, files: readonly Attachment[]): Promise<void>;
 
-  keep(
+  save(
     workspaceId: WorkspaceId,
     file: Attachment,
     bytes: Uint8Array,

@@ -1,4 +1,4 @@
-import type { Reach } from '@integrations/application/ports/integration-runtime.port';
+import type { CallAuth } from '@integrations/application/ports/integration-runtime.port';
 import { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
 import { ConnectionHolder } from '@integrations/domain/value-objects/connection-holder.vo';
 import { DescribedSource } from '@integrations/domain/value-objects/described-source.vo';
@@ -16,7 +16,7 @@ const SOURCE = DescribedSource.of({
   fingerprint: 'f'.repeat(64),
 });
 
-const REACH: Reach = {
+const CALL_AUTH: CallAuth = {
   connection: {
     token: AccessToken.of('the-token'),
     holder: ConnectionHolder.team(),
@@ -40,7 +40,7 @@ describe('McpSourceReader', () => {
     const tools = vi.fn(async () => [tool('one')]);
     const read = await new McpSourceReader({
       tools,
-    } as unknown as McpSessions).read(SOURCE, REACH);
+    } as unknown as McpSessions).read(SOURCE, CALL_AUTH);
 
     expect(read).toMatchObject({
       kind: 'read',
@@ -50,20 +50,23 @@ describe('McpSourceReader', () => {
     expect(tools).toHaveBeenCalledWith(SOURCE.url, {
       connection: 'the-token',
       secrets: [],
-      credentials: REACH.credentials,
+      credentials: CALL_AUTH.credentials,
     });
   });
 
   it('hashes the same tools the same, in whatever order they are listed', async () => {
     const one = await listing(async () => [tool('a'), tool('b')]).read(
       SOURCE,
-      REACH,
+      CALL_AUTH,
     );
     const other = await listing(async () => [tool('b'), tool('a')]).read(
       SOURCE,
-      REACH,
+      CALL_AUTH,
     );
-    const changed = await listing(async () => [tool('a')]).read(SOURCE, REACH);
+    const changed = await listing(async () => [tool('a')]).read(
+      SOURCE,
+      CALL_AUTH,
+    );
 
     expect(one.kind === 'read' && other.kind === 'read').toBe(true);
     expect(one.kind === 'read' && one.hash.value).toBe(
@@ -78,7 +81,7 @@ describe('McpSourceReader', () => {
     await expect(
       listing(async () => {
         throw new StreamableHTTPError(403, 'Forbidden');
-      }).read(SOURCE, REACH),
+      }).read(SOURCE, CALL_AUTH),
     ).resolves.toEqual({
       kind: 'unread',
       problem: 'could not be read: mcp.tracker.example answered 403',
@@ -94,7 +97,7 @@ describe('McpSourceReader', () => {
     const read = await new McpSourceReader({
       tools,
     } as unknown as McpSessions).read(SOURCE, {
-      ...REACH,
+      ...CALL_AUTH,
       connection: {
         token: AccessToken.of('stale'),
         holder: ConnectionHolder.team(),
@@ -120,7 +123,7 @@ describe('McpSourceReader', () => {
         url: 'https://mcp.tracker.example/mcp',
         fingerprint: 'f'.repeat(64),
       }),
-      REACH,
+      CALL_AUTH,
     );
 
     expect(tools).toHaveBeenCalledWith(

@@ -132,10 +132,11 @@ import { ListHappeningsQuery } from '@integrations/application/queries/list-happ
 import { ListHostConnectionsQuery } from '@integrations/application/queries/list-host-connections.query';
 import { ListIntegrationResourcesQuery } from '@integrations/application/queries/list-integration-resources.query';
 import { ReadIntegrationQuery } from '@integrations/application/queries/read-integration.query';
+import { CallAuthResolver } from '@integrations/application/services/call-auth-resolver.service';
 import { ConnectionRenewal } from '@integrations/application/services/connection-renewal.service';
 import { DeleteTeamIntegrations } from '@integrations/application/services/delete-team-integrations.service';
+import { EnabledTools } from '@integrations/application/services/enabled-tools.service';
 import { HookedHappenings } from '@integrations/application/services/hooked-happenings.service';
-import { HostReach } from '@integrations/application/services/host-reach.service';
 import { IntegrationSources } from '@integrations/application/services/integration-sources.service';
 import { IntegrationViews } from '@integrations/application/services/integration-views.service';
 import { LearnOutputShapes } from '@integrations/application/services/learn-output-shapes.service';
@@ -147,7 +148,6 @@ import { RefreshConnections } from '@integrations/application/services/refresh-c
 import { RelistServers } from '@integrations/application/services/relist-servers.service';
 import { RunSchedules } from '@integrations/application/services/run-schedules.service';
 import { SourceForDelivery } from '@integrations/application/services/source-for-delivery.service';
-import { ToolsGiven } from '@integrations/application/services/tools-given.service';
 import { WebhookSources } from '@integrations/application/services/webhook-sources.service';
 import { INTEGRATIONS_PAYLOAD_TYPES } from '@integrations/domain/payload-types';
 import {
@@ -274,9 +274,9 @@ import {
 } from '@shared-kernel/application/ports/logger.port';
 import { TRANSACTION } from '@shared-kernel/application/ports/transaction.port';
 import {
-  GIVEN_AT_STATIONS,
-  type GivenAtStationsPort,
-} from '@work/application/ports/given-at-stations.port';
+  ENABLED_AT_STATIONS,
+  type EnabledAtStationsPort,
+} from '@work/application/ports/enabled-at-stations.port';
 import {
   HAPPENING_REACTIONS,
   HappeningReactionsPort,
@@ -421,16 +421,23 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       INTEGRATION_COMPILER,
       DESCRIBED_DOCUMENTS,
       SOURCE_READER,
-      HostReach,
+      CallAuthResolver,
       CLOCK,
     ],
     useFactory: (
       compiler: IntegrationCompilerPort,
       documents: DescribedDocumentRepository,
       reader: SourceReaderPort,
-      hosts: HostReach,
+      callAuthResolver: CallAuthResolver,
       clock: ClockPort,
-    ) => new IntegrationSources(compiler, documents, reader, hosts, clock),
+    ) =>
+      new IntegrationSources(
+        compiler,
+        documents,
+        reader,
+        callAuthResolver,
+        clock,
+      ),
   },
 
   ...bindCommandHandler(
@@ -508,10 +515,12 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
   },
 
   {
-    provide: ToolsGiven,
-    inject: [GIVEN_AT_STATIONS, HOOK_DEFINITIONS],
-    useFactory: (given: GivenAtStationsPort, hooks: HookDefinitionRepository) =>
-      new ToolsGiven(given, hooks),
+    provide: EnabledTools,
+    inject: [ENABLED_AT_STATIONS, HOOK_DEFINITIONS],
+    useFactory: (
+      enabledAt: EnabledAtStationsPort,
+      hooks: HookDefinitionRepository,
+    ) => new EnabledTools(enabledAt, hooks),
   },
 
   {
@@ -602,7 +611,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       DEFINED_INTEGRATIONS,
       INTEGRATION_RUNTIME,
       TEAM_DIRECTORY,
-      HostReach,
+      CallAuthResolver,
       INTEGRATION_CURSORS,
       HAPPENING_REACTIONS,
       CLOCK,
@@ -612,7 +621,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       defined: DefinedIntegrationsPort,
       runtime: IntegrationRuntimePort,
       teams: TeamDirectoryPort,
-      reach: HostReach,
+      callAuthResolver: CallAuthResolver,
       cursors: IntegrationCursorsPort,
       reactions: HappeningReactionsPort,
       clock: ClockPort,
@@ -622,7 +631,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
         defined,
         runtime,
         teams,
-        reach,
+        callAuthResolver,
         cursors,
         reactions,
         clock,
@@ -642,7 +651,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
     inject: [
       DEFINED_INTEGRATIONS,
       INTEGRATION_RUNTIME,
-      HostReach,
+      CallAuthResolver,
       INTEGRATION_CURSORS,
       CLOCK,
       LOGGER,
@@ -650,11 +659,19 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
     useFactory: (
       defined: DefinedIntegrationsPort,
       runtime: IntegrationRuntimePort,
-      reach: HostReach,
+      callAuthResolver: CallAuthResolver,
       cursors: IntegrationCursorsPort,
       clock: ClockPort,
       logger: LoggerPort,
-    ) => new RunSchedules(defined, runtime, reach, cursors, clock, logger),
+    ) =>
+      new RunSchedules(
+        defined,
+        runtime,
+        callAuthResolver,
+        cursors,
+        clock,
+        logger,
+      ),
   },
 
   {
@@ -767,7 +784,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
   },
 
   {
-    provide: HostReach,
+    provide: CallAuthResolver,
     inject: [
       HOST_CONNECTIONS,
       TEAM_DIRECTORY,
@@ -781,7 +798,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       access: WorkspaceAccessPort,
       injection: SecretInjectionPort,
       renewal: ConnectionRenewal,
-    ) => new HostReach(connections, teams, access, injection, renewal),
+    ) => new CallAuthResolver(connections, teams, access, injection, renewal),
   },
 
   {
@@ -950,17 +967,17 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
     inject: [
       DEFINED_INTEGRATIONS,
       INTEGRATION_RUNTIME,
-      HostReach,
+      CallAuthResolver,
       INBOX_LINKS,
       LOGGER,
     ],
     useFactory: (
       defined: DefinedIntegrationsPort,
       runtime: IntegrationRuntimePort,
-      reach: HostReach,
+      callAuthResolver: CallAuthResolver,
       links: InboxLinksPort,
       logger: LoggerPort,
-    ) => new TaskNotices(defined, runtime, reach, links, logger),
+    ) => new TaskNotices(defined, runtime, callAuthResolver, links, logger),
   },
 
   ...bindQueryHandler(ListHappeningsQuery, ListHappeningsHandler, [
@@ -1030,14 +1047,14 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
     WORKSPACE_ACCESS,
     IntegrationSources,
     INTEGRATION_DEFINITIONS,
-    ToolsGiven,
+    EnabledTools,
     TRANSACTION,
   ]),
 
   ...bindCommandHandler(DeleteIntegrationCommand, DeleteIntegrationHandler, [
     WORKSPACE_ACCESS,
     INTEGRATION_DEFINITIONS,
-    ToolsGiven,
+    EnabledTools,
     TRANSACTION,
   ]),
 
@@ -1076,18 +1093,24 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
     inject: [
       DEFINED_INTEGRATIONS,
       INTEGRATION_RUNTIME,
-      HostReach,
+      CallAuthResolver,
       LearnOutputShapes,
       PersonToolRules,
     ],
     useFactory: (
       defined: DefinedIntegrationsPort,
       runtime: IntegrationRuntimePort,
-      reach: HostReach,
+      callAuthResolver: CallAuthResolver,
       learning: LearnOutputShapes,
       personRules: PersonToolRules,
     ) =>
-      new IntegrationToolCalls(defined, runtime, reach, learning, personRules),
+      new IntegrationToolCalls(
+        defined,
+        runtime,
+        callAuthResolver,
+        learning,
+        personRules,
+      ),
   },
 
   {

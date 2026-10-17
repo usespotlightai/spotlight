@@ -16,11 +16,11 @@ const ownWords = (handover: Handover): TaskNoteBody | null =>
 
 const DENIALS: Record<PassDenial, (key: string) => string> = {
   'already-there': (key) =>
-    `The run asked for station "${key}". The task is already there.`,
+    `The run requested station "${key}". The task is already there.`,
   'nothing-runs': (key) =>
-    `The run asked for station "${key}". Nothing runs there to take up the task.`,
+    `The run requested station "${key}". Nothing runs there to take up the task.`,
   'no-way': (key) =>
-    `The run asked for station "${key}". Work does not pass there from the task’s station.`,
+    `The run requested station "${key}". Work does not pass there from the task’s station.`,
 };
 
 export const HandoverFor = {
@@ -50,7 +50,7 @@ export const HandoverFor = {
     line: Line | null,
     currentStation: StationId,
   ): ResolvedHandover {
-    if (handover.asksForReview()) {
+    if (handover.requestsReview()) {
       return ResolvedHandover.review(
         bodyOf(handover, 'The run asked for someone to look at this.'),
         ownWords(handover),
@@ -76,7 +76,7 @@ export const HandoverFor = {
     if (!line || !named) {
       return ResolvedHandover.review(
         TaskNoteBody.of(
-          `The run asked for station "${handover.next}". This line has no such station.`,
+          `The run requested station "${handover.next}". This line has no such station.`,
         ),
         ownWords(handover),
       );

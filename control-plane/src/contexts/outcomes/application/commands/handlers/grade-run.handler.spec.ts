@@ -6,9 +6,9 @@ import { RunScoresViews } from '@outcomes/application/services/run-scores-views.
 import { StationJudgeReports } from '@outcomes/application/services/station-judge-reports.service';
 import type { ScoreRecorded } from '@outcomes/domain/events/score-recorded.event';
 import {
-  askedJudging,
   JudgingsInMemory,
   judgeScore,
+  queuedJudging,
   RUBRIC_VERSION,
   rubricOf,
   ScoresInMemory,
@@ -176,7 +176,7 @@ describe('GradeRunHandler', () => {
       'It leaves the handler alone.',
     ];
     await run.judgings.add(
-      askedJudging('run_1', rubricOf(null, RUBRIC_VERSION, marked)),
+      queuedJudging('run_1', rubricOf(null, RUBRIC_VERSION, marked)),
     );
 
     const scores = await run.gradeClaims([true, true, true]);
@@ -225,7 +225,7 @@ describe('GradeRunHandler', () => {
     });
   });
 
-  it('finds no run for someone off the team, nor a run it never heard of', async () => {
+  it('finds no run for someone off the team, nor a run it does not know', async () => {
     const run = await grading();
 
     await expect(run.grade(true, 'user_stranger')).rejects.toMatchObject({

@@ -127,7 +127,7 @@ describe('TeamSkills', () => {
     ).toBeInTheDocument();
   });
 
-  it('says the skills could not be loaded, rather than that there are none, and tries again when asked', async () => {
+  it('says the skills could not be loaded, rather than that there are none, and tries again on request', async () => {
     const person = userEvent.setup();
     skills.mockReturnValue(undefined);
     failing.mockReturnValue(true);

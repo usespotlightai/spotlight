@@ -27,7 +27,7 @@ import type { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplayCheck } from '@replays/domain/aggregates/replay-check.aggregate';
 import { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
-import { ReplayBaselineWanted } from '@replays/domain/events/replay-baseline-wanted.event';
+import { ReplayBaselineRequested } from '@replays/domain/events/replay-baseline-requested.event';
 import { ReplayCheckStarted } from '@replays/domain/events/replay-check-started.event';
 import { ReplaySetGuardChanged } from '@replays/domain/events/replay-set-guard-changed.event';
 import {
@@ -151,8 +151,8 @@ let work: FakeWork;
 let checks: InMemoryChecks;
 let examined: { block: unknown; line: unknown }[];
 
-const errorOf = async (asked: Promise<unknown>) =>
-  asked.then(
+const errorOf = async (call: Promise<unknown>) =>
+  call.then(
     () => {
       throw new Error('it was allowed');
     },
@@ -247,8 +247,8 @@ const checkOf = (id: string): ReplayCheck =>
 
 const wantedBaselines = () =>
   memory.events.filter(
-    (each): each is ReplayBaselineWanted =>
-      each instanceof ReplayBaselineWanted,
+    (each): each is ReplayBaselineRequested =>
+      each instanceof ReplayBaselineRequested,
   );
 
 const startingBaselines = async () => {
@@ -261,7 +261,7 @@ const startingBaselines = async () => {
   );
 
   for (const each of wantedBaselines()) {
-    await starting.wanted(each);
+    await starting.requested(each);
   }
 };
 
@@ -338,7 +338,7 @@ describe('StartReplayCheckHandler', () => {
         },
       },
     ]);
-    expect(check.keptLive).toEqual(['check', 'runners']);
+    expect(check.scoringPinnedToLive).toEqual(['check', 'runners']);
     expect(check.attempt).toBe(1);
     expect(check.setEntries).toBe(
       sha256(
@@ -529,7 +529,7 @@ describe('StartReplayCheckHandler', () => {
 
     expect(await start()).toEqual({
       outcome: 'unchanged',
-      keptLive: ['check', 'runners'],
+      scoringPinnedToLive: ['check', 'runners'],
     });
   });
 
@@ -633,7 +633,7 @@ describe('ReadReplayCheckHandler', () => {
         ceiling: { amount: 7.5, currency: 'USD' },
       },
       reference: { commit: null, pullRequest: 42 },
-      keptLive: ['check', 'runners'],
+      scoringPinnedToLive: ['check', 'runners'],
       tasks: 3,
       replayUrl: `https://app.example.test/w/acme/team/${STATION.teamId.value}/lines/line_1/stations/${STATION.stationId}/replays/${check.replayId.value}`,
     });

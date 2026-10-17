@@ -17,19 +17,19 @@ export class ReadHookHandler
 
   async execute(query: ReadHookQuery): Promise<HookResourceDto | null> {
     try {
-      const kept = await this.resources.withId(query.hookId);
+      const record = await this.resources.withId(query.hookId);
 
       if (
-        !kept ||
+        !record ||
         !(await this.access.permissionsOnTeam(
-          kept.teamId.value,
+          record.teamId.value,
           query.principal,
         ))
       ) {
         return null;
       }
 
-      return this.views.of(kept);
+      return this.views.of(record);
     } catch (error) {
       rethrowAsApplicationError(error);
     }

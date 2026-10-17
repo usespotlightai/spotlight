@@ -81,7 +81,7 @@ export class SendMessageHandler
       target.runId,
       {
         station: station?.name ?? StationName.unknown(),
-        body: TaskNoteBody.given(command.body, attachments),
+        body: TaskNoteBody.fromInput(command.body, attachments),
         at: this.clock.now(),
         voice: Voice.person(sentBy),
         attachments,

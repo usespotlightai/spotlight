@@ -33,7 +33,7 @@ export class ChatRunWork implements RunWork {
     );
   }
 
-  gave(attachmentId: string): Attachment | null {
+  attachment(attachmentId: string): Attachment | null {
     return (
       this.chat.allAttachments.find((each) => each.id.value === attachmentId) ??
       null
@@ -55,7 +55,7 @@ export class ChatRunWork implements RunWork {
           kind: 'refused',
           reason: `${declared.tool.value} has to be approved by a person on a task, and a chat has nobody to put it to.`,
         }
-      : { kind: 'given', edited: null, returned: async () => {} };
+      : { kind: 'granted', edited: null, returned: async () => {} };
   }
 
   async askToConnect(

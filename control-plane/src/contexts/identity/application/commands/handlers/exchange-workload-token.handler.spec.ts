@@ -120,7 +120,7 @@ describe('ExchangeWorkloadTokenHandler', () => {
     expect(add).not.toHaveBeenCalled();
   });
 
-  it('issues nothing for a workload the trust does not admit', async () => {
+  it('issues nothing for a workload the trust does not match', async () => {
     const { exchange, add } = exchanging({
       claims: { ...CLAIMS, subject: 'repo:acme/platform:pull_request' },
     });

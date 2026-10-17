@@ -83,7 +83,7 @@ const DEFINITION = ApiBody({
         minLength: 32,
         maxLength: 255,
         description:
-          'Write-only, and only for a pool without provision: the token its hosts claim with, kept only as a hash and never answered. Left out on create, Spotlight issues one and answers it once in Spotlight-Pool-Token',
+          'Write-only, and only for a pool without provision: the token its hosts claim with, stored only as a hash and never answered. Left out on create, Spotlight issues one and answers it once in Spotlight-Pool-Token',
       },
       tokenVersion: {
         ...WRITE_ONLY_VERSION,

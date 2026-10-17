@@ -17,7 +17,7 @@ describe('originOfRun', () => {
   it('came from the integration whose happening opened the task there', () => {
     expect(
       originOfRun({
-        openedFrom: TaskOrigin.heardFrom(Happening.of('slack.app_mention')),
+        openedFrom: TaskOrigin.receivedFrom(Happening.of('slack.app_mention')),
         raisedAt: 'build',
         ranAt: 'build',
       }),

@@ -12,7 +12,7 @@ import {
 } from '@change-review/domain/value-objects/check-claim.vo';
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
 import {
-  keptSkipOf,
+  storedSkipOf,
   WAITING_LIMIT_MS,
 } from '@change-review/domain/value-objects/stack-check.vo';
 import {
@@ -62,7 +62,7 @@ const toStackCheck = (row: Row): StackCheck =>
     outcome: row.outcome && {
       state: row.outcome.state,
       skip: row.outcome.skip
-        ? keptSkipOf(row.outcome.skip.code, row.outcome.skip.detail)
+        ? storedSkipOf(row.outcome.skip.code, row.outcome.skip.detail)
         : null,
       whole: row.outcome.whole && checkedStepOf(row.outcome.whole),
       layers: row.outcome.layers.map(checkedStepOf),

@@ -125,7 +125,7 @@ describe('currentStacks', () => {
 });
 
 describe('inProgress', () => {
-  it('keeps asking while a stack drafts or waits for its check', () => {
+  it('keeps polling while a stack drafts or waits for its check', () => {
     expect(inProgress([stack({ check: checked('waiting') })])).toBe(true);
     expect(inProgress([stack({ check: checked('checked') })])).toBe(false);
     expect(inProgress([stack()])).toBe(false);
@@ -133,7 +133,7 @@ describe('inProgress', () => {
 });
 
 describe('layerAt', () => {
-  it('finds the layer asked for, with its position in its cohort', () => {
+  it('finds the layer requested, with its position in its cohort', () => {
     const found = layerAt(stack(), 'c1.l2');
 
     expect(found?.layer.title).toBe('Mount the invitation routes');

@@ -26,8 +26,11 @@ export class SkillWeekResponseDto {
   @ApiProperty({ example: 14, description: 'Runs that ended that week' })
   readonly runs: number;
 
-  @ApiProperty({ example: 9, description: 'Of those, the runs given it' })
-  readonly given: number;
+  @ApiProperty({
+    example: 9,
+    description: 'Of those, the runs that had it enabled',
+  })
+  readonly enabled: number;
 
   @ApiProperty({ example: 6, description: 'Of those, the runs that read it' })
   readonly used: number;
@@ -44,7 +47,7 @@ export class SkillWeekResponseDto {
   constructor(week: SkillWeek) {
     this.week = week.week;
     this.runs = week.runs;
-    this.given = week.given;
+    this.enabled = week.enabled;
     this.used = week.used;
     this.usedShare = week.usedShare;
   }
@@ -61,7 +64,7 @@ export class SkillAtStationResponseDto {
   readonly runs: number;
 
   @ApiProperty({ example: 30 })
-  readonly given: number;
+  readonly enabled: number;
 
   @ApiProperty({ example: 12 })
   readonly used: number;
@@ -78,7 +81,7 @@ export class SkillAtStationResponseDto {
     this.lineId = station.lineId;
     this.stationId = station.stationId;
     this.runs = station.runs;
-    this.given = station.given;
+    this.enabled = station.enabled;
     this.used = station.used;
     this.trend = station.trend;
   }
@@ -96,14 +99,14 @@ export class SkillReportResponseDto {
 
   @ApiProperty({
     example: 40,
-    description: 'Runs in the period whose station config gave it',
+    description: 'Runs in the period whose station config enabled it',
   })
-  readonly given: number;
+  readonly enabled: number;
 
   @ApiProperty({
     example: 22,
     description:
-      'Runs in the period that read it: a tool call touched a file in its folder, or asked the harness for it by name',
+      'Runs in the period that read it: a tool call touched a file in its folder, or requested it from the harness by name',
   })
   readonly used: number;
 
@@ -125,14 +128,15 @@ export class SkillReportResponseDto {
   @ApiProperty({
     type: SkillAtStationResponseDto,
     isArray: true,
-    description: 'Each station whose runs were given it or read it',
+    description:
+      'Each station that enabled it for its runs or whose runs read it',
   })
   readonly stations: readonly SkillAtStationResponseDto[];
 
   constructor(skill: SkillReportDto) {
     this.key = skill.key;
     this.defined = skill.defined;
-    this.given = skill.given;
+    this.enabled = skill.enabled;
     this.used = skill.used;
     this.weeks = skill.weeks.map((each) => new SkillWeekResponseDto(each));
     this.trend = skill.trend;
@@ -291,7 +295,7 @@ export class InsightsToolsResponseDto {
     type: SkillReportResponseDto,
     isArray: true,
     description:
-      'Every skill a run in the period was given or read, the most used first',
+      'Every skill that a station enabled for a run in the period or that a run read, the most used first',
   })
   readonly skills: readonly SkillReportResponseDto[];
 

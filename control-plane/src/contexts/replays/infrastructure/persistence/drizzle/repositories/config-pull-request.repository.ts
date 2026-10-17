@@ -170,13 +170,16 @@ export class DrizzleConfigPullRequestRepository
         .returning({ id: configPullRequest.id });
 
       if (written.length === 0) {
-        const kept = await this.forCandidate(added.searchId, added.candidateId);
+        const existing = await this.forCandidate(
+          added.searchId,
+          added.candidateId,
+        );
 
-        if (!kept) {
+        if (!existing) {
           throw new ConfigPullRequestVersionConflictError(added.id.value);
         }
 
-        return kept;
+        return existing;
       }
 
       await this.events.dispatch(added.pullEvents());

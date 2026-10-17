@@ -9,8 +9,8 @@ import { MemoryGrounds } from '@memory/domain/value-objects/memory-grounds.vo';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { parseMemoryKind } from '@memory/domain/value-objects/memory-kind';
 import { MemoryPath } from '@memory/domain/value-objects/memory-path.vo';
-import { parseMemoryReach } from '@memory/domain/value-objects/memory-reach';
 import { MemoryScope } from '@memory/domain/value-objects/memory-scope.vo';
+import { parseMemoryScopeLevel } from '@memory/domain/value-objects/memory-scope-level';
 import type { MemorySource } from '@memory/domain/value-objects/memory-source';
 import type { StationSite } from '@memory/domain/value-objects/run-site';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
@@ -55,7 +55,7 @@ const within = <T extends { readonly text: string }>(
   items: readonly T[],
   max: number,
 ): T[] => {
-  const kept: T[] = [];
+  const selected: T[] = [];
   let used = 0;
 
   for (const item of items) {
@@ -63,11 +63,11 @@ const within = <T extends { readonly text: string }>(
       break;
     }
 
-    kept.push(item);
+    selected.push(item);
     used += item.text.length;
   }
 
-  return kept;
+  return selected;
 };
 
 const pathOf = (raw: string): MemoryPath | null => {
@@ -221,7 +221,7 @@ export class DraftEvidence {
   }
 
   private scopeOf(proposed: ProposedMemory): MemoryScope {
-    const reach = parseMemoryReach(proposed.reach);
+    const level = parseMemoryScopeLevel(proposed.scope);
     const named = proposed.repository?.trim() || null;
     const repository = named
       ? this.site.repositories.find((each) => each.value === named)
@@ -245,8 +245,8 @@ export class DraftEvidence {
 
     return MemoryScope.of({
       teamId: this.site.teamId,
-      lineId: reach === 'team' ? null : this.site.lineId,
-      stationId: reach === 'station' ? this.site.stationId : null,
+      lineId: level === 'team' ? null : this.site.lineId,
+      stationId: level === 'station' ? this.site.stationId : null,
       repository,
       paths,
     });

@@ -26,7 +26,7 @@ import {
   sql,
 } from 'drizzle-orm';
 
-const keptAttempt = or(
+const journalledAttempt = or(
   eq(run.attempt, runJournalEntry.attempt),
   sql`${runJournalEntry.attempt} = any(${run.suspendedAttempts})`,
 );
@@ -52,7 +52,7 @@ export async function changesOfTask(
   const outputs = await db
     .select({ runId: runJournalEntry.runId, data: runJournalEntry.data })
     .from(runJournalEntry)
-    .innerJoin(run, and(eq(run.id, runJournalEntry.runId), keptAttempt))
+    .innerJoin(run, and(eq(run.id, runJournalEntry.runId), journalledAttempt))
     .where(
       and(
         eq(run.taskId, taskId.value),
@@ -152,7 +152,7 @@ async function journalsOf(
       data: runJournalEntry.data,
     })
     .from(runJournalEntry)
-    .innerJoin(run, and(eq(run.id, runJournalEntry.runId), keptAttempt))
+    .innerJoin(run, and(eq(run.id, runJournalEntry.runId), journalledAttempt))
     .where(
       inArray(
         runJournalEntry.runId,

@@ -123,7 +123,7 @@ export class WorkspaceAccess implements WorkspaceAccessPort {
       : null;
 
     const permissions =
-      team && workspace && TeamAccess.admits(team, workspace, principal)
+      team && workspace && TeamAccess.allows(team, workspace, principal)
         ? permissionsIn(workspace, principal)
         : null;
 

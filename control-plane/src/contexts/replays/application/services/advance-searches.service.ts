@@ -50,10 +50,10 @@ export class AdvanceSearches implements PendingJobsPort {
       return;
     }
     if (fresh.wantedIteration) {
-      await this.dispatching.wanted(fresh.id);
+      await this.dispatching.requested(fresh.id);
     }
     if (fresh.wantsHoldingOut) {
-      await this.holdingOut.wanted(fresh.id);
+      await this.holdingOut.requested(fresh.id);
     }
     if (!fresh.isActive) {
       if (fresh.activeRun) {

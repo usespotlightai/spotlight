@@ -12,5 +12,5 @@ export interface DescribedDocumentRepository {
     name: string,
   ): Promise<DescribedOperation | null>;
 
-  keep(document: DescribedDocument): Promise<void>;
+  save(document: DescribedDocument): Promise<void>;
 }

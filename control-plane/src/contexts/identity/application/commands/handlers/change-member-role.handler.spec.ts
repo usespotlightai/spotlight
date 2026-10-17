@@ -108,7 +108,7 @@ describe('ChangeMemberRoleHandler', () => {
 
     await expect(
       handler.execute(change({ role: 'owner', viewerId: 'user_admin' })),
-    ).rejects.toThrow(/cannot give a role above your own/);
+    ).rejects.toThrow(/cannot assign a role above your own/);
     expect(save).not.toHaveBeenCalled();
   });
 

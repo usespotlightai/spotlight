@@ -9,7 +9,7 @@ import type { ReadInsightsChangesQuery } from '@outcomes/application/queries/rea
 import {
   type ConfigPair,
   configChangesOf,
-  fingerprintsAsked,
+  fingerprintsToRead,
 } from '@outcomes/application/services/config-changes';
 import type { TeamScopes } from '@outcomes/application/services/team-scopes.service';
 import type { TrustedJudges } from '@outcomes/application/services/trusted-judges.service';
@@ -65,7 +65,7 @@ export class ReadInsightsChangesHandler
           .map((each) => each.stationId),
       );
       const configs = configChangesOf(
-        await this.work.configsInOrder(fingerprintsAsked(changes.map(pairOf))),
+        await this.work.configsInOrder(fingerprintsToRead(changes.map(pairOf))),
       );
       const markers: ChangeMarkerDto[] = changes.map((change) => {
         const { marker } = change;

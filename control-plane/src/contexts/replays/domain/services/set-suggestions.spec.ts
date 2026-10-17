@@ -80,7 +80,7 @@ describe('balancingPicks', () => {
     expect(balancingPicks([], recent, MAX_SUGGESTED)).toEqual([]);
   });
 
-  it('suggests no more than it is asked for', () => {
+  it('suggests no more than is requested', () => {
     expect(
       balancingPicks(
         repeated('failed', 10),

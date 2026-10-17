@@ -22,7 +22,7 @@ describe('poolCouldTake', () => {
     );
   });
 
-  it('takes a run asking for an image, which the runner it provisions is started in', () => {
+  it('takes a run that requests an image, which the runner it provisions is started in', () => {
     const image = RunnerImage.of('ghcr.io/acme/widgets:1');
 
     expect(poolCouldTake(RunnerPlacement.anywhere().in(image), labels)).toBe(
@@ -36,7 +36,7 @@ describe('poolCouldTake', () => {
     ).toBe(false);
   });
 
-  it('takes a run asking for an image however the pool’s labels say they run', () => {
+  it('takes a run that requests an image however the pool’s labels say they run', () => {
     expect(
       poolCouldTake(
         RunnerPlacement.anywhere().in(RunnerImage.of('ghcr.io/acme/widgets:1')),

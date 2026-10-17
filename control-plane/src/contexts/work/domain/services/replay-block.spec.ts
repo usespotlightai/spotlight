@@ -11,7 +11,7 @@ const REPLAYABLE: ReplayFacts = {
   inWorkspace: true,
   ended: true,
   startedFrom: true,
-  archive: 'kept',
+  archive: 'stored',
   briefed: true,
   taskExists: true,
 };

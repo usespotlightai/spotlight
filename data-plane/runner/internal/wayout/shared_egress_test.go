@@ -19,12 +19,12 @@ import (
 	"testing"
 	"time"
 
+	"usespotlight.ai/data-plane/allowlist"
 	"usespotlight.ai/data-plane/control"
 	"usespotlight.ai/data-plane/egress/serve"
 	"usespotlight.ai/data-plane/egressing/authority"
 	"usespotlight.ai/data-plane/egressing/seal/sealtest"
 	"usespotlight.ai/data-plane/protocol"
-	"usespotlight.ai/data-plane/reach"
 	"usespotlight.ai/data-plane/runner/internal/wayout"
 )
 
@@ -62,27 +62,27 @@ func (f *fakeControlPlane) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	switch r.URL.Path {
-	case "/api/egress/admit":
-		var asked protocol.EgressAdmit
-		_ = json.NewDecoder(r.Body).Decode(&asked)
-		if _, ok := f.grants[asked.ProxyCredential]; !ok {
+	case "/api/egress/authorize":
+		var received protocol.EgressAuthorizeRequest
+		_ = json.NewDecoder(r.Body).Decode(&received)
+		if _, ok := f.grants[received.ProxyCredential]; !ok {
 			http.Error(w, `{"message":"no runner"}`, http.StatusNotFound)
 			return
 		}
-		_ = json.NewEncoder(w).Encode(protocol.EgressAdmitted{
-			RunnerID: "runner_" + asked.ProxyCredential, WorkspaceID: "ws_1", ControlPlaneHost: controlPlaneHost, ControlPlanePort: 80,
+		_ = json.NewEncoder(w).Encode(protocol.EgressAuthorizeResponse{
+			RunnerID: "runner_" + received.ProxyCredential, WorkspaceID: "ws_1", ControlPlaneHost: controlPlaneHost, ControlPlanePort: 80,
 		})
 	case "/api/egress/secrets":
-		var asked protocol.EgressSecretsRequest
-		_ = json.NewDecoder(r.Body).Decode(&asked)
-		if !f.active[asked.ProxyCredential] {
+		var received protocol.EgressSecretsRequest
+		_ = json.NewDecoder(r.Body).Decode(&received)
+		if !f.active[received.ProxyCredential] {
 			http.Error(w, `{"message":"no run"}`, http.StatusConflict)
 			return
 		}
-		runID := "run_" + asked.ProxyCredential
-		fetched := protocol.EgressSecrets{RunID: runID, Reaches: []string{}, Secrets: []protocol.FetchedSecret{}, Denied: []protocol.DeniedSecret{}}
-		for host, value := range f.grants[asked.ProxyCredential] {
-			sealed, err := sealtest.Seal(asked.Recipient, value, runID, "LINEAR_API_KEY")
+		runID := "run_" + received.ProxyCredential
+		fetched := protocol.EgressSecrets{RunID: runID, ExtraAllowedHosts: []string{}, Secrets: []protocol.FetchedSecret{}, Denied: []protocol.DeniedSecret{}}
+		for host, value := range f.grants[received.ProxyCredential] {
+			sealed, err := sealtest.Seal(received.Recipient, value, runID, "LINEAR_API_KEY")
 			if err != nil {
 				f.t.Error(err)
 			}
@@ -93,16 +93,16 @@ func (f *fakeControlPlane) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		_ = json.NewEncoder(w).Encode(fetched)
 	case "/api/egress/active-runs":
-		var asked protocol.ActiveRunsRequest
-		_ = json.NewDecoder(r.Body).Decode(&asked)
-		answer := protocol.ActiveRunsResponse{Active: slices.DeleteFunc(asked.ProxyCredentials, func(credential string) bool {
+		var received protocol.ActiveRunsRequest
+		_ = json.NewDecoder(r.Body).Decode(&received)
+		answer := protocol.ActiveRunsResponse{Active: slices.DeleteFunc(received.ProxyCredentials, func(credential string) bool {
 			return !f.active[credential]
 		})}
 		_ = json.NewEncoder(w).Encode(answer)
 	case "/api/egress/connections":
-		var asked protocol.EgressConnections
-		_ = json.NewDecoder(r.Body).Decode(&asked)
-		f.recorded = append(f.recorded, asked.Records...)
+		var received protocol.EgressConnections
+		_ = json.NewDecoder(r.Body).Decode(&received)
+		f.recorded = append(f.recorded, received.Records...)
 		w.WriteHeader(http.StatusNoContent)
 	default:
 		http.NotFound(w, r)
@@ -178,7 +178,7 @@ func sharedEgress(t *testing.T) *shared {
 		t.Fatal(err)
 	}
 
-	allow, _ := reach.Parse(nil)
+	allow, _ := allowlist.Parse(nil)
 	client, err := control.New(controlPlane.URL, egressToken)
 	if err != nil {
 		t.Fatal(err)
@@ -347,7 +347,7 @@ func TestAProxyCredentialCannotUseTheGrantsOfAnotherRun(t *testing.T) {
 	}
 }
 
-func TestTheRunnersControlClientReachesTheControlPlaneThroughTheTunnel(t *testing.T) {
+func TestTheRunnersControlClientConnectsToTheControlPlaneThroughTheTunnel(t *testing.T) {
 	s := sharedEgress(t)
 	egress, err := wayout.To(s.egressURL, "one", s.egressCAs)
 	if err != nil {

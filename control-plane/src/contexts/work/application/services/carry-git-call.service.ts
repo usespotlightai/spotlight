@@ -34,20 +34,23 @@ export class CarryGitCall implements GitGatewayPort {
     service: GitService,
     call: GitCall,
   ): Promise<GitAnswer | null> {
-    const reached = await this.reaching(runId, runnerId, repo, service).catch(
-      rethrowAsApplicationError,
-    );
+    const allowed = await this.allowedRepository(
+      runId,
+      runnerId,
+      repo,
+      service,
+    ).catch(rethrowAsApplicationError);
 
-    if (!reached) {
+    if (!allowed) {
       return null;
     }
 
-    return (await this.workspaces.isConnected(reached.workspaceId))
-      ? this.git.call(reached.workspaceId, reached.repository, call)
+    return (await this.workspaces.isConnected(allowed.workspaceId))
+      ? this.git.call(allowed.workspaceId, allowed.repository, call)
       : null;
   }
 
-  private async reaching(
+  private async allowedRepository(
     runId: string,
     runnerId: string,
     repo: string,

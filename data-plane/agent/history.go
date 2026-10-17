@@ -89,7 +89,7 @@ func historyCmd(args []string, out io.Writer) error {
 	return nil
 }
 
-func fetchHistory(asked protocol.HistoryRequest) (protocol.History, error) {
+func fetchHistory(request protocol.HistoryRequest) (protocol.History, error) {
 	endpoint, token := os.Getenv(protocol.AgentAPIURLVar), os.Getenv(protocol.AgentAPITokenVar)
 	if endpoint == "" || token == "" {
 		return protocol.History{}, fmt.Errorf(
@@ -97,7 +97,7 @@ func fetchHistory(asked protocol.HistoryRequest) (protocol.History, error) {
 		)
 	}
 
-	body, err := json.Marshal(asked)
+	body, err := json.Marshal(request)
 	if err != nil {
 		return protocol.History{}, err
 	}

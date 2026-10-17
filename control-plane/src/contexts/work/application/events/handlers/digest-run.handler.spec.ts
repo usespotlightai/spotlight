@@ -156,7 +156,7 @@ describe('DigestRun', () => {
     ),
   };
 
-  it('says what a replay cost as a replay’s digest, so no cost reaches a task', async () => {
+  it('says what a replay cost as a replay’s digest, so no cost goes to a task', async () => {
     const { handler, ensured } = digesting(new Map());
 
     const raised = await handler.onRunCompleted(

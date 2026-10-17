@@ -105,16 +105,16 @@ const flattened = (raw: Raw, seen: ReadonlySet<object>): Raw => {
 };
 
 const normalised = (
-  given: unknown,
+  value: unknown,
   depth: number,
   seen: ReadonlySet<object>,
 ): JsonObject => {
-  if (!isRaw(given) || depth >= DEEPEST || seen.has(given)) {
+  if (!isRaw(value) || depth >= DEEPEST || seen.has(value)) {
     return {};
   }
 
-  const within = new Set([...seen, given]);
-  const raw = flattened(given, within);
+  const within = new Set([...seen, value]);
+  const raw = flattened(value, within);
   const deeper = (each: unknown) => normalised(each, depth + 1, within);
   const written: Record<string, JsonValue> = {};
 
@@ -205,10 +205,10 @@ const normalised = (
     }
   }
 
-  for (const kept of ['pattern', 'format'] as const) {
-    const read = textOf(raw[kept]);
+  for (const key of ['pattern', 'format'] as const) {
+    const read = textOf(raw[key]);
     if (read) {
-      written[kept] = read;
+      written[key] = read;
     }
   }
 

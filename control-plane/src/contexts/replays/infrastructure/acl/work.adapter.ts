@@ -4,7 +4,7 @@ import type {
   ExaminedCandidate,
   LeasedSearchRun,
   LiveConfig,
-  OracleAnswerAsked,
+  OracleAnswerInput,
   PickableRun,
   ReplayRunOrder,
   ReplayRunQueued,
@@ -214,10 +214,10 @@ export class Work implements WorkPort {
   }
 
   async answerable(
-    asked: readonly OracleAnswerAsked[],
+    inputs: readonly OracleAnswerInput[],
   ): Promise<readonly RunId[]> {
     const answered = await this.dispatching.answerable(
-      asked.map((each) => ({
+      inputs.map((each) => ({
         original: each.run.value,
         answer: ANSWERS[each.answer],
       })),
@@ -255,8 +255,8 @@ export class Work implements WorkPort {
     return this.dispatching.cancelQueued(runs.map((each) => each.value));
   }
 
-  async cancel(run: RunId, keep: boolean): Promise<CancelledRun> {
-    const cancelled = await this.dispatching.cancel(run.value, keep);
+  async cancel(run: RunId, leaveRunAsIs: boolean): Promise<CancelledRun> {
+    const cancelled = await this.dispatching.cancel(run.value, leaveRunAsIs);
 
     return cancelled.outcome === 'queued'
       ? {

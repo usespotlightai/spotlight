@@ -17,7 +17,7 @@ spotlight review-comment --path "<file>" --line <line> --body "<what is wrong an
 - A comment on a line the pull request removes takes `--side old`, and its
   line is the one it had before.
 - A body of more than one line is piped in, never quoted: `\n` inside quotes
-  reaches GitHub as a backslash and an n, not a new line.
+  arrives at GitHub as a backslash and an n, not a new line.
 
   ```
   spotlight review-comment --path "<file>" --line <line> <<'EOF'

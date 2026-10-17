@@ -64,13 +64,13 @@ const httpRequest = (
   call: Extract<DescribedOperation['call'], { kind: 'http' }>,
   inputs: ToolInputValues,
 ): PlainRequest => {
-  const given = (name: string): JsonValue | undefined => inputs[name];
+  const inputOf = (name: string): JsonValue | undefined => inputs[name];
   let path = call.path;
   const query = new URLSearchParams();
   const headers: Record<string, string> = { accept: JSON_CONTENT };
 
   for (const parameter of call.params) {
-    const value = given(parameter.name);
+    const value = inputOf(parameter.name);
 
     if (value === undefined || value === null) {
       continue;
@@ -90,7 +90,7 @@ const httpRequest = (
     }
   }
 
-  const body = call.body ? given(call.body.input) : undefined;
+  const body = call.body ? inputOf(call.body.input) : undefined;
 
   if (call.body && body !== undefined) {
     headers['content-type'] = call.body.contentType;

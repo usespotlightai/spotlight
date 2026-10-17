@@ -153,7 +153,7 @@ const askingForReview = {
   failed: false,
   handover: { next: 'review', note: 'Which queue should I drain?' },
   sessionId: 'session_1',
-  kept: true,
+  archived: true,
 };
 
 const runRow = async (runId: string) => {
@@ -525,34 +525,34 @@ describe('a run that asks a person', () => {
     expect((await inboxItemOf(taskId)).working).toBe(true);
   });
 
-  it('reports whether a turn would wait for a person before the runner keeps its workspace', async () => {
+  it('reports whether a turn would wait for a person before the runner archives its workspace', async () => {
     const { runId } = await aTaskWithLeasedRun();
     const token = await claimed(runId);
 
     const review = await runner(token)
-      .post(`/api/runs/${runId}/completion/asks`, askingForReview)
+      .post(`/api/runs/${runId}/completion/awaits-person`, askingForReview)
       .expect(200);
     const ship = await runner(token)
-      .post(`/api/runs/${runId}/completion/asks`, {
+      .post(`/api/runs/${runId}/completion/awaits-person`, {
         exitCode: 0,
         failed: false,
         handover: { next: 'ship' },
       })
       .expect(200);
 
-    expect(review.body).toEqual({ asks: true });
-    expect(ship.body).toEqual({ asks: false });
+    expect(review.body).toEqual({ awaitsPerson: true });
+    expect(ship.body).toEqual({ awaitsPerson: false });
     expect((await runRow(runId))?.state).toBe('claimed');
   });
 
-  it('ends the run as before, putting the task to the person, when the workspace was not kept', async () => {
+  it('ends the run as before, putting the task to the person, when the workspace was not archived', async () => {
     const { taskId, runId } = await aTaskWithLeasedRun();
     const token = await claimed(runId);
 
     const completed = await runner(token)
       .post(`/api/runs/${runId}/completion`, {
         ...askingForReview,
-        kept: false,
+        archived: false,
       })
       .expect(200);
 
@@ -599,7 +599,7 @@ const sendMessage = (runId: string, body: string) =>
     .expect(204);
 
 describe('a message in a run chat', () => {
-  it('reaches the run still working the task, starting no other', async () => {
+  it('goes to the run still working the task, starting no other', async () => {
     const { taskId, runId } = await aTaskWithLeasedRun();
     const token = await claimed(runId);
 

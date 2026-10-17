@@ -38,7 +38,7 @@ export class SendChatMessageHandler
 
         const withMessage = chat.addMessage({
           by: UserId.of(command.sentBy),
-          body: ChatMessageBody.given(command.body, attachments, traces),
+          body: ChatMessageBody.fromInput(command.body, attachments, traces),
           attachments,
           traces,
           ...(command.model !== undefined && {

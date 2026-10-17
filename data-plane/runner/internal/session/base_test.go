@@ -95,9 +95,9 @@ func TestMarkBasesRecordsWhereTheBranchLeftTheDefaultBranch(t *testing.T) {
 }
 
 func TestToolNamesAreTheManifestsOwn(t *testing.T) {
-	given := []protocol.ToolManifest{{Name: "pull-request"}, {Name: "propose-task"}}
+	manifest := []protocol.ToolManifest{{Name: "pull-request"}, {Name: "propose-task"}}
 
-	got := toolNames(given)
+	got := toolNames(manifest)
 	if len(got) != 2 || got[0] != "pull-request" || got[1] != "propose-task" {
 		t.Fatalf("tool names %v", got)
 	}

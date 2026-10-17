@@ -65,10 +65,10 @@ const callRoute = (node: Node): GrammarRoute | null => {
   const path = named(field(node, 'arguments'))
     .map((argument) => named(argument)[0])
     .find((value) => STRINGS.has(value?.type ?? ''));
-  const given = path ? unquoted(path.text) : '';
+  const literal = path ? unquoted(path.text) : '';
 
-  return MAP_CALL.test(verb) && path && (method || given.startsWith('/'))
-    ? { method: method?.toUpperCase() ?? 'ANY', path: given }
+  return MAP_CALL.test(verb) && path && (method || literal.startsWith('/'))
+    ? { method: method?.toUpperCase() ?? 'ANY', path: literal }
     : null;
 };
 

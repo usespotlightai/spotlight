@@ -6,20 +6,20 @@ export interface HookFailureReport {
   readonly hook: string;
   readonly code: string;
   readonly reason: string;
-  readonly heardAs: string;
+  readonly receivedAs: string;
 }
 
-export type HookFailureHeard = 'reported' | 'superseded' | 'gone';
+export type HookFailureNotice = 'reported' | 'superseded' | 'gone';
 
 export interface TaskNotesFromHooksPort {
   noted(
     taskId: string,
     body: string,
     hook: string,
-    heardAs: string | null,
+    receivedAs: string | null,
   ): Promise<boolean>;
 
-  failed(report: HookFailureReport): Promise<HookFailureHeard>;
+  failed(report: HookFailureReport): Promise<HookFailureNotice>;
 
   movedOn(taskId: string, stationKey: string): Promise<boolean>;
 }

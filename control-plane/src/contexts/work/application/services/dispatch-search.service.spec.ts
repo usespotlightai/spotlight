@@ -168,7 +168,7 @@ describe('DispatchSearch', () => {
     expect(runs.get('run_9')?.placement.equals(line.runsIn)).toBe(false);
   });
 
-  it('hands the runner only the briefing it was given, with nothing to check out, no tools, skills, attachments or memories', async () => {
+  it('hands the runner only its own briefing, with nothing to check out, no tools, skills, attachments or memories', async () => {
     const { dispatch, runs } = dispatching();
 
     await dispatch.enqueue(ORDER);
@@ -200,7 +200,7 @@ describe('DispatchSearch', () => {
     ).toEqual([['claude-opus-4-5', 'high']]);
   });
 
-  it('queues an iteration once, however often it is asked', async () => {
+  it('queues an iteration once, however often it is requested', async () => {
     const { dispatch, runs } = dispatching();
 
     await dispatch.enqueue(ORDER);

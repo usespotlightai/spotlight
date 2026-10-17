@@ -72,11 +72,11 @@ const unreachable = async (): Promise<never> => {
 const announcing = (
   over: {
     pullRequest?: string | null;
-    failing?: 'run' | 'task' | 'connection' | 'keep';
+    failing?: 'run' | 'task' | 'connection' | 'upsert';
     replay?: boolean;
   } = {},
 ) => {
-  const kept: StickyComment[] = [];
+  const upserted: StickyComment[] = [];
   const pullRequest =
     over.pullRequest === undefined
       ? 'https://github.com/acme/widgets/pull/66'
@@ -147,11 +147,11 @@ const announcing = (
         over.failing === 'connection' ? unreachable() : true,
     },
     {
-      keep: async (comment) => {
-        if (over.failing === 'keep') {
+      upsert: async (comment) => {
+        if (over.failing === 'upsert') {
           await unreachable();
         }
-        kept.push(comment);
+        upserted.push(comment);
       },
       withdraw: async () => undefined,
     },
@@ -163,38 +163,40 @@ const announcing = (
     },
   );
 
-  return { announcer, kept };
+  return { announcer, upserted };
 };
 
 describe('AnnounceChangeStack', () => {
   it('keeps one comment on the task’s pull request that links its newest stack', async () => {
-    const { announcer, kept } = announcing();
+    const { announcer, upserted } = announcing();
 
     await announcer.ofRun(RunId.of('run-1'));
 
-    expect(kept).toHaveLength(1);
-    expect(kept[0]?.repository.name).toBe('widgets');
-    expect(kept[0]?.body).toContain('https://app.example/runs/run-1/changes');
+    expect(upserted).toHaveLength(1);
+    expect(upserted[0]?.repository.name).toBe('widgets');
+    expect(upserted[0]?.body).toContain(
+      'https://app.example/runs/run-1/changes',
+    );
   });
 
   it('never comments for a replay, whatever its run says of a task', async () => {
-    const { announcer, kept } = announcing({ replay: true });
+    const { announcer, upserted } = announcing({ replay: true });
 
     await announcer.ofRun(RunId.of('run-1'));
 
-    expect(kept).toEqual([]);
+    expect(upserted).toEqual([]);
   });
 
   it('says nothing while the task has no pull request', async () => {
-    const { announcer, kept } = announcing({ pullRequest: null });
+    const { announcer, upserted } = announcing({ pullRequest: null });
 
     await announcer.ofTask(TaskId.of('task-1'));
 
-    expect(kept).toEqual([]);
+    expect(upserted).toEqual([]);
   });
 
-  it('lets a failure to reach Work or GitHub surface, so the delivery is tried again', async () => {
-    for (const failing of ['run', 'task', 'connection', 'keep'] as const) {
+  it('lets a failure to call Work or GitHub surface, so the delivery is tried again', async () => {
+    for (const failing of ['run', 'task', 'connection', 'upsert'] as const) {
       const { announcer } = announcing({ failing });
 
       await expect(announcer.ofRun(RunId.of('run-1'))).rejects.toThrow(

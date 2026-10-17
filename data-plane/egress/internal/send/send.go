@@ -22,8 +22,8 @@ import (
 const usualTimeout = 10 * time.Second
 
 type Allowed interface {
-	Admits(host string) bool
-	Names(host string) bool
+	Allows(host string) bool
+	ExplicitlyListed(host string) bool
 }
 
 type Sender struct {
@@ -70,8 +70,8 @@ func (s *Sender) sent(ctx context.Context, call protocol.HostCall, timeout time.
 	}
 
 	host := address.Hostname()
-	if !s.allowed.Admits(host) {
-		return protocol.HostCallAnswer{}, &guard.Blocked{Reason: fmt.Sprintf("The host's allow-list doesn't admit %s.", host)}
+	if !s.allowed.Allows(host) {
+		return protocol.HostCallAnswer{}, &guard.Blocked{Reason: fmt.Sprintf("The host's allow-list doesn't allow %s.", host)}
 	}
 
 	body, err := base64.StdEncoding.DecodeString(call.Body)
@@ -79,7 +79,7 @@ func (s *Sender) sent(ctx context.Context, call protocol.HostCall, timeout time.
 		return protocol.HostCallAnswer{}, &guard.Blocked{Reason: "The call's body isn't base64."}
 	}
 
-	sending, cancel := context.WithTimeout(guard.Naming(ctx, s.allowed.Names(host)), timeout)
+	sending, cancel := context.WithTimeout(guard.Naming(ctx, s.allowed.ExplicitlyListed(host)), timeout)
 	defer cancel()
 
 	request, err := http.NewRequestWithContext(sending, call.Method, address.String(), bytes.NewReader(body))

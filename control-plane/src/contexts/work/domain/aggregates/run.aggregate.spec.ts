@@ -202,7 +202,7 @@ describe('Run', () => {
     expect(again.attempt).toBe(2);
   });
 
-  it('ends as stopped instead of going back on the queue when its runner was lost after it was asked to stop', () => {
+  it('ends as stopped instead of going back on the queue when its runner was lost after a stop request', () => {
     const stopping = claimed().requestStop(noon);
     stopping.pullEvents();
 
@@ -352,8 +352,8 @@ describe('Run', () => {
     });
   });
 
-  describe('knowing what it was given', () => {
-    const given = (...tools: string[]) =>
+  describe('knowing what it has enabled', () => {
+    const enabling = (...tools: string[]) =>
       Run.enqueue({
         id: RunId.of('run_1'),
         workspaceId: WorkspaceId.of('ws_1'),
@@ -372,20 +372,20 @@ describe('Run', () => {
         }),
       });
 
-    it('was given a tool its spec names', () => {
-      expect(given('pull-request').wasGiven(Tool.of('pull-request'))).toBe(
+    it('has a tool enabled that its spec names', () => {
+      expect(enabling('pull-request').isEnabled(Tool.of('pull-request'))).toBe(
         true,
       );
     });
 
-    it('was not given a tool its spec leaves out', () => {
-      expect(given('pull-request').wasGiven(Tool.of('linear.comment'))).toBe(
-        false,
-      );
+    it('does not have a tool enabled that its spec leaves out', () => {
+      expect(
+        enabling('pull-request').isEnabled(Tool.of('linear.comment')),
+      ).toBe(false);
     });
 
-    it('was given nothing where its spec names no tools', () => {
-      expect(queued().wasGiven(Tool.of('pull-request'))).toBe(false);
+    it('has nothing enabled where its spec names no tools', () => {
+      expect(queued().isEnabled(Tool.of('pull-request'))).toBe(false);
     });
   });
 
@@ -501,8 +501,8 @@ describe('Run', () => {
       ).toBe(false);
     });
 
-    it('is never reserved for a pool runner when it reaches Spotlight’s API, since only egress injects its token', () => {
-      const reaching = Run.enqueue({
+    it('is never reserved for a pool runner when it uses Spotlight’s API, since only egress injects its token', () => {
+      const usingApi = Run.enqueue({
         id: RunId.of('run_1'),
         workspaceId: WorkspaceId.of('ws_1'),
         harness: HarnessId.of('dev'),
@@ -515,15 +515,13 @@ describe('Run', () => {
         }),
       });
 
-      expect(reaching.provisionableAt(noon)).toBe(false);
-      expect(reaching.provisionableAt(noon, true)).toBe(true);
+      expect(usingApi.provisionableAt(noon)).toBe(false);
+      expect(usingApi.provisionableAt(noon, true)).toBe(true);
+      expect(usingApi.claim(runner(), noon).usesSpotlightApiFor(runner())).toBe(
+        true,
+      );
       expect(
-        reaching.claim(runner(), noon).reachesSpotlightApiFor(runner()),
-      ).toBe(true);
-      expect(
-        reaching
-          .claim(runner(), noon)
-          .reachesSpotlightApiFor(runner('runner_2')),
+        usingApi.claim(runner(), noon).usesSpotlightApiFor(runner('runner_2')),
       ).toBe(false);
     });
 
@@ -591,7 +589,7 @@ describe('Run', () => {
       }),
     ]);
 
-    it('ends failed, saying why, so whoever handed it over hears of it', () => {
+    it('ends failed, saying why, so whoever handed it over learns of it', () => {
       const refused = queued().refused(LAPSED);
 
       expect(refused.state).toBe('failed');
@@ -688,7 +686,7 @@ describe('Run', () => {
       expect(waits).toEqual([5_000, 10_000, 20_000, 40_000, 80_000]);
     });
 
-    it('ends failed, saying its hooks could not be asked, the sixth time it is requeued', () => {
+    it('ends failed, saying its hooks could not be called, the sixth time it is requeued', () => {
       let run = claimed();
 
       for (let each = 0; each < 5; each++) {
@@ -705,7 +703,7 @@ describe('Run', () => {
       expect(ended.pullEvents()[0]).toBeInstanceOf(RunCompleted);
     });
 
-    it('ends stopped, not queued, when a stop was asked for while its hooks were asked', () => {
+    it('ends stopped, not queued, when a stop was requested while its hooks were called', () => {
       const stopping = claimed().requestStop(noon);
       stopping.pullEvents();
 
@@ -789,12 +787,12 @@ describe('Run', () => {
     });
   });
 
-  describe('being asked to stop', () => {
-    it('records when a person asked a claimed run to stop', () => {
-      const asked = claimed().requestStop(at('2026-08-23T12:00:30.000Z'));
+  describe('getting a stop request', () => {
+    it('records when a person requested a claimed run to stop', () => {
+      const stopping = claimed().requestStop(at('2026-08-23T12:00:30.000Z'));
 
-      expect(asked.stopRequested).toBe(true);
-      expect(asked.stopRequestedAt).toEqual(at('2026-08-23T12:00:30.000Z'));
+      expect(stopping.stopRequested).toBe(true);
+      expect(stopping.stopRequestedAt).toEqual(at('2026-08-23T12:00:30.000Z'));
     });
 
     it('announces the request so it is a fact of the model', () => {
@@ -806,7 +804,7 @@ describe('Run', () => {
       expect((raised as RunStopRequested).runId).toEqual(RunId.of('run_1'));
     });
 
-    it('is not stop-requested until someone asks', () => {
+    it('is not stop-requested until someone requests it', () => {
       expect(claimed().stopRequested).toBe(false);
     });
 
@@ -822,7 +820,7 @@ describe('Run', () => {
       expect(() => ended.requestStop(noon)).toThrow(InvalidRunTransitionError);
     });
 
-    it('keeps the first ask when told twice', () => {
+    it('keeps the first request when told twice', () => {
       const first = claimed().requestStop(at('2026-08-23T12:00:30.000Z'));
       const again = first.requestStop(at('2026-08-23T12:00:45.000Z'));
 

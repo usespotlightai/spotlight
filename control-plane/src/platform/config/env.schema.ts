@@ -87,7 +87,7 @@ export const envSchema = databaseSchema
     {
       path: ['SPOTLIGHT_PLATFORM_EGRESS_TOKEN'],
       message:
-        'goes with SPOTLIGHT_PLATFORM_EGRESS_URL. Give both to name the platform egress, or neither; generate a token with: openssl rand -hex 32',
+        'goes with SPOTLIGHT_PLATFORM_EGRESS_URL. Set both to name the platform egress, or neither; generate a token with: openssl rand -hex 32',
     },
   )
   .transform((env) => ({

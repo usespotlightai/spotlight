@@ -73,7 +73,7 @@ beforeEach(() => {
 });
 
 describe('AcceptInvite', () => {
-  it('says who asked, to which workspace, and as what', () => {
+  it('says who sent the invite, to which workspace, and as what', () => {
     showing();
 
     expect(
@@ -86,7 +86,7 @@ describe('AcceptInvite', () => {
     ).toBeInTheDocument();
   });
 
-  it('says someone who has left asked, where their account is gone', () => {
+  it('says someone who has left sent it, where their account is gone', () => {
     invite.mockReturnValue(preview({ invitedBy: null }));
     showing();
 
@@ -119,7 +119,7 @@ describe('AcceptInvite', () => {
     ).toBeInTheDocument();
   });
 
-  it('asks somebody signed out to sign in with GitHub', async () => {
+  it('tells somebody signed out to sign in with GitHub', async () => {
     showing();
 
     expect(screen.queryByText(/Sign in as/)).not.toBeInTheDocument();
@@ -181,7 +181,7 @@ describe('AcceptInvite', () => {
   it.each([
     ['accepted', 'This invitation is already accepted.'],
     ['revoked', 'This invitation is revoked.'],
-    ['expired', 'This invitation has expired. Please ask for a new one.'],
+    ['expired', 'This invitation has expired. Please request a new one.'],
   ])('says an invitation that is %s is no longer open', (status, text) => {
     invite.mockReturnValue(preview({ status }));
     session.mockReturnValue({
@@ -229,7 +229,7 @@ describe('AcceptInvite', () => {
     expect(container).toBeEmptyDOMElement();
   });
 
-  it('says the invitation could not be loaded, and tries again when asked', async () => {
+  it('says the invitation could not be loaded, and tries again on request', async () => {
     invite.mockReturnValue({
       data: undefined,
       isPending: false,

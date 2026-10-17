@@ -93,7 +93,7 @@ export class WorkspaceInviteController {
   })
   @ApiParam({ name: 'slug', example: 'acme' })
   @ApiOkResponse({ type: InviteOutcomesResponseDto })
-  @ApiForbiddenResponse({ description: 'Not a role yours to give' })
+  @ApiForbiddenResponse({ description: 'You cannot assign this role' })
   @ApiConflictResponse({ description: 'Another invitation was just sent' })
   @ApiNotFoundResponse({
     description: 'No such workspace, or not yours to invite to',

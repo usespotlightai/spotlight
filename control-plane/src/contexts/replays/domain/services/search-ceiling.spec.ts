@@ -134,7 +134,7 @@ const searched = (
         search.split.searchedRuns,
       );
 
-      search = search.admitted(run, {
+      search = search.acceptProposal(run, {
         candidateId: CandidateId.of(`candidate_${name}`),
         name: CandidateName.searched(name),
         replayId: replay.id,

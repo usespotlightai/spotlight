@@ -27,8 +27,8 @@ import { RunSuperseded } from '@work/domain/events/run-superseded.event';
 import { RunSuspended } from '@work/domain/events/run-suspended.event';
 import { InvalidRunTransitionError } from '@work/domain/exceptions/invalid-run-transition.error';
 import { InvalidStartingPointError } from '@work/domain/exceptions/invalid-starting-point.error';
-import { KeptFromReplaysError } from '@work/domain/exceptions/kept-from-replays.error';
-import { KeptFromSearchesError } from '@work/domain/exceptions/kept-from-searches.error';
+import { NotAllowedInReplayError } from '@work/domain/exceptions/not-allowed-in-replay.error';
+import { NotAllowedInSearchError } from '@work/domain/exceptions/not-allowed-in-search.error';
 import { RunAttemptOverError } from '@work/domain/exceptions/run-attempt-over.error';
 import type { ArchiveHolder } from '@work/domain/value-objects/archive-holder.vo';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
@@ -370,10 +370,10 @@ export class Run extends EventRecorder {
   }
 
   get restoresFrom(): ContinuityKey | null {
-    const kept =
+    const restores =
       this.archiveHolder?.kind === 'task' || this.spec.continuesASession;
 
-    return kept ? this.spec.continuity : null;
+    return restores ? this.spec.continuity : null;
   }
 
   claim(by: RunnerId, now: Date): Run {
@@ -689,7 +689,7 @@ export class Run extends EventRecorder {
       wanted.some((each, at) => each !== named[at])
     ) {
       throw new InvalidStartingPointError(
-        `names the checkouts the run was given (${wanted.join(', ') || 'none'}), not ${named.join(', ') || 'none'}`,
+        `names the checkouts of the run (${wanted.join(', ') || 'none'}), not ${named.join(', ') || 'none'}`,
       );
     }
 
@@ -767,16 +767,16 @@ export class Run extends EventRecorder {
     return this.subject?.ranFor ?? null;
   }
 
-  get hearsHooks(): boolean {
+  get firesHooks(): boolean {
     return !this.leavesNothingBehind;
   }
 
-  mayReachBeyondItself(what: string): void {
+  mayActBeyondItself(what: string): void {
     if (this.isReplay) {
-      throw new KeptFromReplaysError(what);
+      throw new NotAllowedInReplayError(what);
     }
     if (this.isSearch) {
-      throw new KeptFromSearchesError(what);
+      throw new NotAllowedInSearchError(what);
     }
   }
 
@@ -814,7 +814,7 @@ export class Run extends EventRecorder {
 
     if (this.stopRequested) {
       throw new InvalidRunTransitionError(
-        `Run ${this.id.value} was asked to stop. It cannot wait for a person.`,
+        `Run ${this.id.value} has a stop request. It cannot wait for a person.`,
       );
     }
 
@@ -860,7 +860,7 @@ export class Run extends EventRecorder {
   resumed(): Run {
     if (!this.resumable) {
       throw new InvalidRunTransitionError(
-        `Run ${this.id.value} is ${this.state}${this.stopRequested ? ' and asked to stop' : ''}. It cannot be taken up again.`,
+        `Run ${this.id.value} is ${this.state}${this.stopRequested ? ' and has a stop request' : ''}. It cannot be taken up again.`,
       );
     }
 
@@ -1222,12 +1222,12 @@ export class Run extends EventRecorder {
     return this.isLeasedBy(runner) ? this.spec.injectedSecrets : [];
   }
 
-  reachesSpotlightApiFor(runner: RunnerId): boolean {
+  usesSpotlightApiFor(runner: RunnerId): boolean {
     return this.isLeasedBy(runner) && this.spec.injectsSpotlightApi;
   }
 
-  wasGiven(tool: Tool): boolean {
-    return this.spec.gives(tool);
+  isEnabled(tool: Tool): boolean {
+    return this.spec.enables(tool);
   }
 
   pinnedFor(tool: Tool): Tool | null {

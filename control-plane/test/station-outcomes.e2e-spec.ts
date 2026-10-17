@@ -6,7 +6,6 @@ import type {
 import { ListStationOutcomesHandler } from '@outcomes/application/queries/handlers/list-station-outcomes.handler';
 import { ListStationOutcomesQuery } from '@outcomes/application/queries/list-station-outcomes.query';
 import { AlertInbox } from '@outcomes/application/services/alert-inbox.service';
-import { AskForJudging } from '@outcomes/application/services/ask-for-judging.service';
 import { DeleteOutcomes } from '@outcomes/application/services/delete-outcomes.service';
 import { GradeAsides } from '@outcomes/application/services/grade-asides.service';
 import { NoteChangeChecked } from '@outcomes/application/services/note-change-checked.service';
@@ -27,6 +26,7 @@ import { NoteTaskFailed } from '@outcomes/application/services/note-task-failed.
 import { NoteTaskTouch } from '@outcomes/application/services/note-task-touch.service';
 import { OutcomesAccess } from '@outcomes/application/services/outcomes-access.service';
 import { RecordJudgeScore } from '@outcomes/application/services/record-judge-score.service';
+import { RequestJudging } from '@outcomes/application/services/request-judging.service';
 import { RunOutcomes } from '@outcomes/application/services/run-outcomes.service';
 import { WatchStations } from '@outcomes/application/services/watch-stations.service';
 import { RunRecordVersionConflictError } from '@outcomes/domain/exceptions/run-record-version-conflict.error';
@@ -74,7 +74,7 @@ import { eq } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { openDatabase, type TestDatabase } from './support/database';
 
-const HEARD_AT = new Date('2026-09-30T12:00:00.000Z');
+const RECEIVED_AT = new Date('2026-09-30T12:00:00.000Z');
 
 const WORKSPACE = 'ws_1';
 const SONNET = 'a'.repeat(64);
@@ -297,11 +297,11 @@ beforeAll(async () => {
   subscribers = outcomesSubscribers({
     ending: new NoteRunEnded(work, records, deletions, context, QUIET),
     superseding: new NoteRunSuperseded(records, deletions, context, {
-      now: () => HEARD_AT,
+      now: () => RECEIVED_AT,
       sleep: async () => {},
     }),
     checking: new NoteChangeChecked(records, deletions, context, {
-      now: () => HEARD_AT,
+      now: () => RECEIVED_AT,
       sleep: async () => {},
     }),
     acting: new NotePersonAct(work, records, deletions, context),
@@ -333,7 +333,7 @@ beforeAll(async () => {
       },
       context,
     ),
-    judging: new AskForJudging(
+    judging: new RequestJudging(
       work,
       {
         hasTask: async () => true,
@@ -460,7 +460,7 @@ describe('how a station’s runs turned out', () => {
     expect(record?.next?.at).toEqual(at(10));
   });
 
-  it('attaches checks heard before and after the run ended', async () => {
+  it('attaches checks received before and after the run ended', async () => {
     await deliver('outcomes.record-checked-change', {
       kind: CHANGE_CHECKED,
       runId: 'run_2',
@@ -724,10 +724,10 @@ describe('how a station’s runs turned out', () => {
       throw new Error('not stored');
     }
 
-    await records.save(read.recordCheck('passed', HEARD_AT));
+    await records.save(read.recordCheck('passed', RECEIVED_AT));
 
     await expect(
-      records.save(read.recordCheck('failed', HEARD_AT)),
+      records.save(read.recordCheck('failed', RECEIVED_AT)),
     ).rejects.toBeInstanceOf(RunRecordVersionConflictError);
   });
 
@@ -759,7 +759,7 @@ describe('how a station’s runs turned out', () => {
     expect((await list()).groups.flatMap((each) => each.runs)).toHaveLength(1);
   });
 
-  it('records nothing more of a deleted task, however late it is heard of', async () => {
+  it('records nothing more of a deleted task, however late its events arrive', async () => {
     await deliver('outcomes.record-next-person-act', {
       kind: TASK_ACTED_ON,
       taskId: 'task_1',
@@ -783,7 +783,7 @@ describe('how a station’s runs turned out', () => {
     expect(await deliveries.forTask(TaskId.of('task_1'))).toBeNull();
   });
 
-  it('records nothing of a task heard of while its deletion is under way, once the deletion commits', async () => {
+  it('records nothing of a task whose events arrive while its deletion is under way, once the deletion commits', async () => {
     let locked: () => void = () => {};
     let release: () => void = () => {};
     const deletionLocked = new Promise<void>((resolve) => {
@@ -820,7 +820,7 @@ describe('how a station’s runs turned out', () => {
     expect(await records.of(RunId.of('run_90'))).toBeNull();
   });
 
-  it('records nothing more of a deleted team, however late it is heard of', async () => {
+  it('records nothing more of a deleted team, however late its events arrive', async () => {
     await deliver('outcomes.delete-chats-of-deleted-team', {
       kind: TEAM_DELETED,
       workspaceId: WORKSPACE,
@@ -840,7 +840,7 @@ describe('how a station’s runs turned out', () => {
     expect(await chats.of('chat_gone')).toBeNull();
   });
 
-  it('keeps no config pull request of a deleted team heard of late', async () => {
+  it('stores no config pull request of a deleted team that arrives late', async () => {
     endedRun('run_deleted', {
       teamId: 'team_deleted',
       taskId: 'task_deleted',
@@ -863,7 +863,7 @@ describe('how a station’s runs turned out', () => {
     expect(outcomes.groups.map((group) => group.pullRequest)).toEqual([null]);
   });
 
-  it('keeps no config pull request of a deleted workspace heard of late', async () => {
+  it('stores no config pull request of a deleted workspace that arrives late', async () => {
     endedRun('run_deleted_ws', {
       workspaceId: 'ws_deleted',
       teamId: 'team_deleted_ws',

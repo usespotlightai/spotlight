@@ -13,7 +13,7 @@ import type { ToolInputs } from '@work/domain/value-objects/tool-inputs.vo';
 
 export type Cleared =
   | {
-      readonly kind: 'given';
+      readonly kind: 'granted';
       readonly edited: ToolInputs | null;
       returned(): Promise<void>;
     }
@@ -29,7 +29,7 @@ export type ConnectionAsked =
 export interface RunWork {
   readonly workspaceId: WorkspaceId;
   acknowledgeUpTo(position: number, at: Date): Promise<void>;
-  gave(attachmentId: string): Attachment | null;
+  attachment(attachmentId: string): Attachment | null;
   repositoryNamed(
     name: string,
     service: GitService,

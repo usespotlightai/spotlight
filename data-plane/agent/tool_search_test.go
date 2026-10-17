@@ -150,12 +150,12 @@ func TestSaysWhenNoToolMatches(t *testing.T) {
 	if err := run([]string{"tools", "search", "deploy"}, strings.NewReader(""), out); err != nil {
 		t.Fatalf("run: %v", err)
 	}
-	if !strings.Contains(out.String(), `No tool this run was given matches "deploy"`) {
+	if !strings.Contains(out.String(), `No tool enabled for this run matches "deploy"`) {
 		t.Errorf("output %q", out.String())
 	}
 }
 
-func TestAsksWhatToSearchFor(t *testing.T) {
+func TestRequiresWhatToSearchFor(t *testing.T) {
 	withTools(t, `{}`)
 
 	err := run([]string{"tools", "search", "--limit", "3"}, strings.NewReader(""), new(bytes.Buffer))

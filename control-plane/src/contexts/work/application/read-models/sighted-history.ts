@@ -27,9 +27,11 @@ export class SightedHistory {
     return this.sight?.hiddenTasks ?? [];
   }
 
-  shownBeyond(kept: readonly { readonly runId: string }[]): readonly string[] {
+  shownBeyond(
+    listed: readonly { readonly runId: string }[],
+  ): readonly string[] {
     return (this.sight?.shownOriginals ?? []).filter(
-      (runId) => !kept.some((each) => each.runId === runId),
+      (runId) => !listed.some((each) => each.runId === runId),
     );
   }
 

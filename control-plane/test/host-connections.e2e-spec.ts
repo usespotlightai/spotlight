@@ -91,7 +91,7 @@ const linked = (
     }),
   });
 
-describe('host connections kept per holder', () => {
+describe('host connections stored per holder', () => {
   it('keeps the team’s and each person’s connection to one host apart', async () => {
     const teamId = TeamId.of(randomUUID());
     const alice = ConnectionHolder.person(UserId.of('user_alice'));
@@ -218,7 +218,7 @@ describe('OAuth client registrations', () => {
       secretExpiresAt: null,
     });
 
-  it('keeps the first registration, encrypted, and rejects a second made at the same time', async () => {
+  it('stores the first registration, encrypted, and rejects a second made at the same time', async () => {
     const teamId = TeamId.of(randomUUID());
 
     await registrations.save(registered(teamId, 'client-1'));
@@ -226,12 +226,12 @@ describe('OAuth client registrations', () => {
       registrations.save(registered(teamId, 'client-2')),
     ).rejects.toBeInstanceOf(OAuth2ClientRegistrationVersionConflictError);
 
-    const kept = await registrations.of(teamId, LINEAR);
-    expect(kept?.clientId).toBe('client-1');
-    expect(kept?.clientSecret?.value).toBe('client-1-secret');
+    const stored = await registrations.of(teamId, LINEAR);
+    expect(stored?.clientId).toBe('client-1');
+    expect(stored?.clientSecret?.value).toBe('client-1-secret');
 
     await registrations.save(
-      (kept as OAuth2ClientRegistration).replaceWith(
+      (stored as OAuth2ClientRegistration).replaceWith(
         registered(teamId, 'client-3'),
       ),
     );
@@ -240,7 +240,7 @@ describe('OAuth client registrations', () => {
 });
 
 describe('tasks waiting on a connection', () => {
-  it('are found by the team, person and integration asked about, until the ask is met', async () => {
+  it('are found by the team, person and integration requested, until the ask is met', async () => {
     const { list, owner, teamId } = await createTeam(
       db,
       tasks,

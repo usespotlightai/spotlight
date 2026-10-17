@@ -19,7 +19,7 @@ export class DescribedSourceResponseDto {
     nullable: true,
     example: '9f2c4e1a7b3d5f6081a2c3e4f5061728394a5b6c7d8e9f0a1b2c3d4e5f607182',
     description:
-      'The sha256 of what was last read, kept while a later read fails; null when it has never been read',
+      'The sha256 of what was last read, unchanged while a later read fails; null when it has never been read',
   })
   readonly hash: string | null;
 
@@ -35,7 +35,7 @@ export class DescribedSourceResponseDto {
     nullable: true,
     example: null,
     description:
-      'Why the description could not be read when it was last asked for, or null when it was; Spotlight reads it again when its url, document, baseUrl, revision or depth changes, on any update after a failed read, and when the integration is connected, and lists an MCP server\u2019s tools again every MCP_RELIST_SECONDS',
+      'Why the description could not be read when it was last requested, or null when it was; Spotlight reads it again when its url, document, baseUrl, revision or depth changes, on any update after a failed read, and when the integration is connected, and lists an MCP server\u2019s tools again every MCP_RELIST_SECONDS',
   })
   readonly problem: string | null;
 
@@ -82,7 +82,7 @@ export class IntegrationResourceResponseDto extends ResourceResponseDto {
     additionalProperties: { type: 'string' },
     example: { search: 'grafana.search' },
     description:
-      'Each tool the integration offers, hand-written or generated from its API description, by its name within the integration, to the name a station or hook gives it by; not settable',
+      'Each tool the integration offers, hand-written or generated from its API description, by its name within the integration, to the name that a station or hook uses for it; not settable',
   })
   readonly tools: Readonly<Record<string, string>>;
 

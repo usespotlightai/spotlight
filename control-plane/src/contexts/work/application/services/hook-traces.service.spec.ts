@@ -84,7 +84,7 @@ describe('HookTraces', () => {
     });
   });
 
-  it('streams the call at the place the journal gave it', async () => {
+  it('streams the call at the place the journal put it', async () => {
     const { traces, publish } = tracing();
 
     await traces.record('run_1', CALL);

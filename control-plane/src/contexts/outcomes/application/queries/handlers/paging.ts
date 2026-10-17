@@ -1,10 +1,12 @@
 const DEFAULT_SIZE = 50;
 const MAX_SIZE = 200;
 
-export const sizeOf = (asked: number | null): number =>
-  asked !== null && Number.isInteger(asked) && asked > 0
-    ? Math.min(asked, MAX_SIZE)
+export const sizeOf = (requested: number | null): number =>
+  requested !== null && Number.isInteger(requested) && requested > 0
+    ? Math.min(requested, MAX_SIZE)
     : DEFAULT_SIZE;
 
-export const pageOf = (asked: number | null): number =>
-  asked !== null && Number.isInteger(asked) && asked > 0 ? asked : 1;
+export const pageOf = (requested: number | null): number =>
+  requested !== null && Number.isInteger(requested) && requested > 0
+    ? requested
+    : 1;

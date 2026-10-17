@@ -106,7 +106,7 @@ describe('a search for a better station config, when it stalls or loses its stat
         await causing(
           first?.taskId as string,
           'judge',
-          'Drop the line of the rubric that asks for tests.',
+          'Drop the line of the rubric that requires tests.',
         ).expect(201)
       ).body,
     ).toEqual({
@@ -175,7 +175,7 @@ describe('a search for a better station config, when it stalls or loses its stat
         /^No config change can fix the \d+ tasks? still failing\. The rest of the budget stays unspent\.$/,
       ),
       expect.stringMatching(
-        /^Fix the judge’s rubric, for “Drain (the )?queue[^”]*”: Drop the line of the rubric that asks for tests\.$/,
+        /^Fix the judge’s rubric, for “Drain (the )?queue[^”]*”: Drop the line of the rubric that requires tests\.$/,
       ),
       expect.stringMatching(
         /^Take the task out of the replay set, or reword it, for “Drain (the )?queue[^”]*”: Take it out of the set\.$/,

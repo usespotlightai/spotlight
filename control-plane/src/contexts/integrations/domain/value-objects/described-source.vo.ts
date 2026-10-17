@@ -70,7 +70,7 @@ export class DescribedSource {
 
     if (input.kind === 'mcp' && document !== null) {
       throw invalid(
-        'cannot be written out as a document. An MCP server lists its tools when asked',
+        'cannot be written out as a document. An MCP server lists its tools when requested',
       );
     }
 

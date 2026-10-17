@@ -170,7 +170,7 @@ actions:
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it('asks for the secret only once the deployment allows the host', async () => {
+  it('requests the secret only once the deployment allows the host', async () => {
     const fetch = replying({ ok: true });
     const { injection, forSpotlight } = injecting({
       TOKEN: { host: 'slack.com', value: 'xoxb-1' },
@@ -187,7 +187,7 @@ actions:
     expect(forSpotlight).not.toHaveBeenCalled();
   });
 
-  it('asks for the secrets the action names, for the address it calls', async () => {
+  it('requests the secrets the action names, for the address it calls', async () => {
     const { injection, forSpotlight } = injecting({
       TOKEN: { host: 'slack.com', value: 'xoxb-1' },
     });
@@ -424,7 +424,7 @@ actions:
     return read.readable.actions.get(name) as RequestIR;
   };
 
-  const asked = {
+  const payload = {
     ask: { body: 'The queue is stuck.', station: 'Triage' },
     target: {
       channel: 'C0DELIVERY',
@@ -439,7 +439,7 @@ actions:
   it('sends the structure the file wrote, each piece read in', async () => {
     const fetch = replying({ ok: true });
 
-    await new HttpOutbound(['slack.com'], fetch).run(written(), asked, SLACK);
+    await new HttpOutbound(['slack.com'], fetch).run(written(), payload, SLACK);
 
     const [url, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe('https://slack.com/api/chat.postMessage');
@@ -460,7 +460,7 @@ actions:
     await expect(
       new HttpOutbound(['slack.com'], fetch).run(
         written(),
-        { ...asked, ask: { station: 'Triage' } },
+        { ...payload, ask: { station: 'Triage' } },
         SLACK,
       ),
     ).rejects.toThrow(/actions\.post\.request\.body\.text/);
@@ -486,16 +486,16 @@ describe('HttpOutbound, a secret injected in the query', () => {
 
   const auth = { kind: 'secrets', secrets: ['MAPS_KEY'] } as const;
 
-  it('reaches the host with the key in its parameter, the rest of the query kept', async () => {
+  it('calls the host with the key in its parameter, and leaves the rest of the query unchanged', async () => {
     const fetch = replying({ results: [] });
     const out = new HttpOutbound(['maps.googleapis.com'], fetch);
 
     await out.answer(geocode, auth, null, GOOGLE);
 
     const [url, init] = fetch.mock.calls[0] as unknown as [string, RequestInit];
-    const reached = new URL(url);
-    expect(reached.searchParams.getAll('key')).toEqual(['AIza-1/2']);
-    expect(reached.searchParams.get('address')).toBe('10 Downing St');
+    const called = new URL(url);
+    expect(called.searchParams.getAll('key')).toEqual(['AIza-1/2']);
+    expect(called.searchParams.get('address')).toBe('10 Downing St');
     expect(init.headers).toEqual({ accept: 'application/json' });
   });
 

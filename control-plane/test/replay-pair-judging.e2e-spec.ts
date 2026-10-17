@@ -7,13 +7,13 @@ import { WorkChangeStacks } from '@change-review/application/services/work-chang
 import type { INestApplication } from '@nestjs/common';
 import {
   JUDGE,
-  type JudgeAsk,
   type JudgePort,
+  type JudgeRequest,
 } from '@outcomes/application/ports/judge.port';
 import {
   PAIR_JUDGE,
-  type PairJudgeAsk,
   type PairJudgePort,
+  type PairJudgeRequest,
 } from '@outcomes/application/ports/pair-judge.port';
 import { DeleteOutcomes } from '@outcomes/application/services/delete-outcomes.service';
 import { WorkChangeJudgings } from '@outcomes/application/services/work-change-judgings.service';
@@ -120,17 +120,17 @@ const drafter: ChangeStackDrafterPort = {
   }),
 };
 
-const asked: JudgeAsk[] = [];
+const requests: JudgeRequest[] = [];
 
 const judge: JudgePort = {
   available: true,
   model: 'stub/judge',
-  judge: async (ask) => {
-    asked.push(ask);
-    const fast = ask.hunks.some((each) =>
+  judge: async (request) => {
+    requests.push(request);
+    const fast = request.hunks.some((each) =>
       each.lines.some((line) => line.includes(FAST)),
     );
-    const cited = ask.hunks.slice(0, 1).map((each) => each.id);
+    const cited = request.hunks.slice(0, 1).map((each) => each.id);
 
     return {
       usage: {
@@ -139,7 +139,7 @@ const judge: JudgePort = {
         cost: { amount: 0.01, currency: 'USD' },
       },
       verdict: {
-        claims: ask.claims.map((claim, index) => ({
+        claims: request.claims.map((claim, index) => ({
           index,
           met: index === 0 || !fast,
           reasons: [{ text: `On "${claim}".`, steps: [], hunks: cited }],
@@ -149,17 +149,17 @@ const judge: JudgePort = {
   },
 };
 
-const pairsAsked: PairJudgeAsk[] = [];
+const pairRequests: PairJudgeRequest[] = [];
 
 const pairJudge: PairJudgePort = {
   available: true,
   model: 'stub/pair-judge',
-  judgePair: async (ask) => {
-    pairsAsked.push(ask);
-    const fastIsA = ask.a.hunks.some((each) =>
+  judgePair: async (request) => {
+    pairRequests.push(request);
+    const fastIsA = request.a.hunks.some((each) =>
       each.lines.some((line) => line.includes(FAST)),
     );
-    const wanted = PREFERRED[ask.title] ?? 'tie';
+    const wanted = PREFERRED[request.title] ?? 'tie';
     const preferred =
       wanted === 'tie'
         ? ('tie' as const)
@@ -178,7 +178,7 @@ const pairJudge: PairJudgePort = {
         reasons: [
           {
             text: 'One drains in order, the other does not.',
-            hunks: [ask.a.hunks[0]?.id ?? '', ask.b.hunks[0]?.id ?? ''],
+            hunks: [request.a.hunks[0]?.id ?? '', request.b.hunks[0]?.id ?? ''],
           },
         ],
       },
@@ -353,7 +353,7 @@ const anOriginal = async (title: string): Promise<Original> => {
   await app
     .get(DrizzleRunRecordRepository)
     .add(
-      RunRecord.heardOf(
+      RunRecord.empty(
         RunId.of(runId),
         team.workspaceId,
         TaskId.of(taskId),
@@ -611,7 +611,7 @@ describe('a replay at a station whose judge goes by claims', () => {
           failed: false,
           handover: { next: 'ship', note: 'Drained.' },
           sessionId: 'session_1',
-          kept: true,
+          archived: true,
         })
         .expect(200);
     };
@@ -780,11 +780,11 @@ describe('a replay at a station whose judge goes by claims', () => {
       expect(theirs?.pair).toBeNull();
     }
 
-    expect(asked.every((each) => each.scale === 'claims')).toBe(true);
-    expect(asked.every((each) => each.claims.length === 2)).toBe(true);
-    expect(pairsAsked).toHaveLength(6);
+    expect(requests.every((each) => each.scale === 'claims')).toBe(true);
+    expect(requests.every((each) => each.claims.length === 2)).toBe(true);
+    expect(pairRequests).toHaveLength(6);
     expect(
-      pairsAsked.every(
+      pairRequests.every(
         (each) =>
           each.claims.length === 2 &&
           each.reference.hunks.some((hunk) =>

@@ -13,7 +13,7 @@ import type {
 } from '@shared-kernel/application/ports/idempotent-recalls.port';
 import { and, eq, type SQL, sql } from 'drizzle-orm';
 
-const KEPT_FOR = '24 hours';
+const RETENTION = '24 hours';
 
 const sortedKeys = (_key: string, value: unknown): unknown =>
   value && typeof value === 'object' && !Array.isArray(value)
@@ -43,7 +43,7 @@ export class DrizzleIdempotentCreates
     const existing = await this.find(
       and(
         matching(create),
-        sql`${idempotentCreate.createdAt} >= now() - ${KEPT_FOR}::interval`,
+        sql`${idempotentCreate.createdAt} >= now() - ${RETENTION}::interval`,
       ),
     );
 
@@ -68,7 +68,7 @@ export class DrizzleIdempotentCreates
       .onConflictDoUpdate({
         target: [idempotentCreate.scope, idempotentCreate.key],
         set: { fingerprint, createdId: null, createdAt: sql`now()` },
-        setWhere: sql`${idempotentCreate.createdAt} < now() - ${KEPT_FOR}::interval`,
+        setWhere: sql`${idempotentCreate.createdAt} < now() - ${RETENTION}::interval`,
       })
       .returning({ key: idempotentCreate.key });
 

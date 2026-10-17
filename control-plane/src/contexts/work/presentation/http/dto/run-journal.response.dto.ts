@@ -72,16 +72,16 @@ export class JournalStepResponseDto {
   @ApiProperty({
     nullable: true,
     type: String,
-    description: 'What the tool was asked for, as it was asked',
+    description: 'The input of the call, as it was sent',
   })
-  readonly given: string | null;
+  readonly input: string | null;
 
   @ApiProperty({
     nullable: true,
     type: String,
-    description: 'What it returned, unread',
+    description: 'The output of the call, unread',
   })
-  readonly returned: string | null;
+  readonly output: string | null;
 
   @ApiProperty({ type: StepChangeResponseDto, nullable: true })
   readonly change: StepChangeResponseDto | null;
@@ -95,8 +95,8 @@ export class JournalStepResponseDto {
     ms: number,
     startedAt: string,
     locations: readonly StepLocationResponseDto[],
-    given: string | null,
-    returned: string | null,
+    input: string | null,
+    output: string | null,
     change: StepChangeResponseDto | null,
   ) {
     this.kind = kind;
@@ -107,8 +107,8 @@ export class JournalStepResponseDto {
     this.ms = ms;
     this.startedAt = startedAt;
     this.locations = locations;
-    this.given = given;
-    this.returned = returned;
+    this.input = input;
+    this.output = output;
     this.change = change;
   }
 }

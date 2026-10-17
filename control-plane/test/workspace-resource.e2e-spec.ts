@@ -48,7 +48,7 @@ const seated = async (app: INestApplication): Promise<ResourceFixture> => {
     changedAgain: { name: 'Acme, once more', slug },
     invalid: { body: { name: '', slug }, path: 'name' },
     anyoneCreates: true,
-    admit: async (created) => {
+    allowViewer: async (created) => {
       await db.insert(schema.workspaceMember).values({
         workspaceId: created.id,
         userId: seat.member,

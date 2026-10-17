@@ -8,7 +8,7 @@ import {
   CHANGE_STACK_MARKER,
   ChangeStackComment,
 } from '@change-review/application/rendering/change-stack-comment';
-import { reachesBeyondSpotlight } from '@change-review/domain/services/replay-isolation';
+import { actsOutsideSpotlight } from '@change-review/domain/services/replay-isolation';
 import type { PullRequestCommentsPort } from '@github/application/ports/pull-request-comments.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -28,7 +28,7 @@ export class AnnounceChangeStack implements ChangeStackAnnouncerPort {
   async ofRun(runId: RunId): Promise<void> {
     const run = await this.work.run(runId);
 
-    if (run?.taskId && reachesBeyondSpotlight({ replay: run.isReplay })) {
+    if (run?.taskId && actsOutsideSpotlight({ replay: run.isReplay })) {
       await this.ofTask(run.taskId);
     }
   }
@@ -52,7 +52,7 @@ export class AnnounceChangeStack implements ChangeStackAnnouncerPort {
       return;
     }
 
-    await this.comments.keep({
+    await this.comments.upsert({
       workspaceId: task.workspaceId,
       repository,
       pullRequest: task.pullRequest,

@@ -11,7 +11,7 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export interface TaskOpenedHeard {
+export interface TaskOpenedReceived {
   readonly taskId: string;
   readonly workspaceId: string;
   readonly teamId: string;
@@ -21,14 +21,14 @@ export interface TaskOpenedHeard {
   readonly at: string;
 }
 
-export interface TaskAskedHeard {
+export interface TaskAskedReceived {
   readonly taskId: string;
   readonly workspaceId: string;
   readonly stationId: string;
   readonly at: string;
 }
 
-export interface TaskActedOnHeard {
+export interface TaskActedOnReceived {
   readonly taskId: string;
   readonly workspaceId: string;
   readonly stationId: string;
@@ -44,30 +44,30 @@ export class NoteTaskTouch {
     private readonly transaction: TransactionPort,
   ) {}
 
-  opened(heard: TaskOpenedHeard): Promise<void> {
+  opened(event: TaskOpenedReceived): Promise<void> {
     const opening = TaskOpening.of({
-      teamId: TeamId.of(heard.teamId),
-      lineId: heard.lineId,
-      stationId: heard.stationId,
-      by: heard.by ? UserId.of(heard.by) : null,
-      at: new Date(heard.at),
+      teamId: TeamId.of(event.teamId),
+      lineId: event.lineId,
+      stationId: event.stationId,
+      by: event.by ? UserId.of(event.by) : null,
+      at: new Date(event.at),
     });
 
     return this.touched(
-      heard,
+      event,
       (touches) => touches.recordOpen(opening),
       opening.teamId,
     );
   }
 
-  asked(heard: TaskAskedHeard): Promise<void> {
-    const ask = InboxAsk.of(heard.stationId, new Date(heard.at));
+  asked(event: TaskAskedReceived): Promise<void> {
+    const ask = InboxAsk.of(event.stationId, new Date(event.at));
 
-    return this.touched(heard, (touches) => touches.asked(ask));
+    return this.touched(event, (touches) => touches.asked(ask));
   }
 
-  acted(heard: TaskActedOnHeard): Promise<void> {
-    const act = personActOf(heard.act);
+  acted(event: TaskActedOnReceived): Promise<void> {
+    const act = personActOf(event.act);
 
     if (!act) {
       return Promise.resolve();
@@ -75,21 +75,21 @@ export class NoteTaskTouch {
 
     const touch = PersonTouch.of({
       act,
-      by: UserId.of(heard.by),
-      stationId: heard.stationId,
-      at: new Date(heard.at),
+      by: UserId.of(event.by),
+      stationId: event.stationId,
+      at: new Date(event.at),
     });
 
-    return this.touched(heard, (touches) => touches.recordAction(touch));
+    return this.touched(event, (touches) => touches.recordAction(touch));
   }
 
   private touched(
-    heard: { readonly taskId: string; readonly workspaceId: string },
+    event: { readonly taskId: string; readonly workspaceId: string },
     change: (touches: TaskTouches) => TaskTouches,
     teamId: TeamId | null = null,
   ): Promise<void> {
-    const taskId = TaskId.of(heard.taskId);
-    const workspaceId = WorkspaceId.of(heard.workspaceId);
+    const taskId = TaskId.of(event.taskId);
+    const workspaceId = WorkspaceId.of(event.workspaceId);
 
     return this.transaction.inTransaction(async () => {
       await this.deletions.lockDeletion(workspaceId, taskId, teamId);
@@ -108,7 +108,7 @@ export class NoteTaskTouch {
       if (!existing) {
         if (!(await this.deletions.isDeleted(workspaceId, taskId))) {
           await this.touches.add(
-            change(TaskTouches.heardOf(taskId, workspaceId)),
+            change(TaskTouches.empty(taskId, workspaceId)),
           );
         }
         return;

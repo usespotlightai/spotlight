@@ -46,8 +46,8 @@ const step = (
     ms: 600,
     startedAt: hoursAgo(at),
     locations: [],
-    given: null,
-    returned: null,
+    input: null,
+    output: null,
     change: null,
     ...rest,
   };

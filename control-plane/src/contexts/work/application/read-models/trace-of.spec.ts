@@ -26,8 +26,8 @@ const step = (
   tool: 'execute',
   detail: null,
   locations: [],
-  given: null,
-  returned: null,
+  input: null,
+  output: null,
   change: null,
   ...part,
 });

@@ -231,7 +231,7 @@ describe('SetupSteps', () => {
     expect(install.closest('[inert]')).toBeNull();
   });
 
-  it('asks where the configuration lives once GitHub and a host are ready', () => {
+  it('offers the config home once GitHub and a host are ready', () => {
     onboardingState.data = onboarding({}, ['github', 'harness']);
     showing();
 

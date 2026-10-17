@@ -14,7 +14,7 @@ export class TaskOrigin {
     return new TaskOrigin(PERSON);
   }
 
-  static heardFrom(happening: Happening): TaskOrigin {
+  static receivedFrom(happening: Happening): TaskOrigin {
     return TaskOrigin.of(happening.source);
   }
 
@@ -22,7 +22,7 @@ export class TaskOrigin {
     if (raw !== PERSON && !INTEGRATION.test(raw)) {
       throw new InconsistentStateError(
         'task',
-        'was raised by a person or heard from an integration it names',
+        'was raised by a person or received from an integration it names',
       );
     }
 

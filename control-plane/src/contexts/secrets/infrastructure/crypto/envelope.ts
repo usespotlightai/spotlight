@@ -58,9 +58,9 @@ export const decrypt = (
     throw new DecryptionFailedError('it was not encrypted by this Spotlight');
   }
 
-  const given = Buffer.from(tag, 'base64');
+  const authTag = Buffer.from(tag, 'base64');
 
-  if (given.length !== TAG_BYTES) {
+  if (authTag.length !== TAG_BYTES) {
     throw new DecryptionFailedError('it has been tampered with');
   }
 
@@ -71,7 +71,7 @@ export const decrypt = (
   );
 
   decipher.setAAD(Buffer.from(aad, 'utf8'));
-  decipher.setAuthTag(given);
+  decipher.setAuthTag(authTag);
 
   try {
     return Buffer.concat([

@@ -7,8 +7,8 @@ import {
 } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
 import { bearerIn } from '@platform/http/bearer';
-import { ADMITS_WORKSPACE_TOKENS } from '@platform/http/decorators/admits-workspace-tokens.decorator';
 import { ALLOW_ANONYMOUS } from '@platform/http/decorators/allow-anonymous.decorator';
+import { ALLOW_WORKSPACE_TOKENS } from '@platform/http/decorators/allow-workspace-tokens.decorator';
 import {
   REQUEST_PRINCIPAL,
   type RequestWithPrincipal,
@@ -59,7 +59,7 @@ export class AuthenticatedGuard implements CanActivate {
       typeof authorization === 'string' ? authorization : undefined,
     );
 
-    if (bearer && marked(ADMITS_WORKSPACE_TOKENS)) {
+    if (bearer && marked(ALLOW_WORKSPACE_TOKENS)) {
       const principal = await this.tokens.identify(bearer);
 
       if (!principal) {

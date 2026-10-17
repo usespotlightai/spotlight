@@ -1,6 +1,6 @@
 import type { WorkPort } from '@replays/application/ports/work.port';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
-import { SearchDeletionDue } from '@replays/domain/events/search-deletion-due.event';
+import { SearchDeletionRequested } from '@replays/domain/events/search-deletion-requested.event';
 import type { SearchRepository } from '@replays/domain/repositories/search.repository';
 import type { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import type { SearchId } from '@replays/domain/value-objects/search-id.vo';
@@ -23,7 +23,7 @@ export class DeleteSearches {
     workspaceId: WorkspaceId,
   ): Promise<readonly DomainEvent[]> {
     return (await this.searches.ofTeam(teamId)).map(
-      (each) => new SearchDeletionDue(each.id, workspaceId),
+      (each) => new SearchDeletionRequested(each.id, workspaceId),
     );
   }
 

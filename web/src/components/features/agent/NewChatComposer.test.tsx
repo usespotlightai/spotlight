@@ -46,7 +46,7 @@ const showing = (
   onStarted = vi.fn(),
   traces: readonly SharedTrace[] = [],
   improving: ImprovedStation | null = null,
-  ask: string | null = null,
+  prompt: string | null = null,
 ) => {
   render(
     <NewChatComposer
@@ -54,7 +54,7 @@ const showing = (
       teamId="team_1"
       traces={traces}
       defaultImproving={improving}
-      defaultAsk={ask}
+      defaultPrompt={prompt}
       onStarted={onStarted}
     />,
   );

@@ -288,7 +288,7 @@ describe('a team, created through the resource API (e2e)', () => {
     await deleteTeam(teamId);
   });
 
-  it('deletes, in every context, whatever reached a team as it was deleted', async () => {
+  it('deletes, in every context, whatever arrived for a team as it was deleted', async () => {
     const teamId = randomUUID();
 
     await addEveryDependent(teamId);

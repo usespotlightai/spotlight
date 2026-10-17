@@ -147,7 +147,7 @@ const dispatched = (chat: Chat, runId: RunId) => {
 };
 
 describe('DispatchChat', () => {
-  it('lets a setup chat’s run reach Spotlight’s API and open its pull request', async () => {
+  it('lets a setup chat’s run use Spotlight’s API and open its pull request', async () => {
     const run = await enqueued(
       chatIn(
         [API],
@@ -156,28 +156,28 @@ describe('DispatchChat', () => {
     );
 
     expect(run.spec.injectsSpotlightApi).toBe(true);
-    expect(run.spec.gives(SETUP_PULL_REQUEST)).toBe(true);
+    expect(run.spec.enables(SETUP_PULL_REQUEST)).toBe(true);
   });
 
-  it('gives any other chat’s run neither', async () => {
+  it('allows any other chat’s run neither', async () => {
     const run = await enqueued(chatIn([API]));
 
     expect(run.spec.injectsSpotlightApi).toBe(false);
-    expect(run.spec.gives(SETUP_PULL_REQUEST)).toBe(false);
+    expect(run.spec.enables(SETUP_PULL_REQUEST)).toBe(false);
   });
 
   it('places a chat run where the lines working in its repositories run', async () => {
     const run = await enqueued(chatIn([API]));
 
-    expect(run.placement.admits(RunnerTerms.of(['vpc-internal']))).toBe(true);
-    expect(run.placement.admits(RunnerTerms.of(['gpu']))).toBe(false);
+    expect(run.placement.matches(RunnerTerms.of(['vpc-internal']))).toBe(true);
+    expect(run.placement.matches(RunnerTerms.of(['gpu']))).toBe(false);
   });
 
   it('places a chat run working in no repository anywhere', async () => {
     expect((await enqueued(chatIn([]))).placement.isAnywhere).toBe(true);
   });
 
-  it('briefs a resumed chat with what a run that kept nothing was handed', async () => {
+  it('briefs a resumed chat with what a run that ended without a session was handed', async () => {
     const resumed = chatIn([API])
       .assignRun(RunId.of('run_1'), NOW)
       .recordSession(HarnessSession.of('session_1'), null)
@@ -197,7 +197,7 @@ describe('DispatchChat', () => {
     ).toBe(false);
 
     const again = dispatched(
-      first.chat.runKeptNothing(RunId.of('run_2')).addMessage({
+      first.chat.runEndedWithoutSession(RunId.of('run_2')).addMessage({
         by: UserId.of('user_1'),
         body: ChatMessageBody.of('Then the docs.'),
         at: NOW,

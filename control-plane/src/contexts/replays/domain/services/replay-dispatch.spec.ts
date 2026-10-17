@@ -60,7 +60,7 @@ describe('dispatchedInTurn', () => {
     ).toHaveLength(REPLAY_RUNS_AT_ONCE - 1);
   });
 
-  it('gives out nothing when the team’s runners are taken', () => {
+  it('hands out nothing when the team’s runners are taken', () => {
     const full = aReplay({ count: 5 }).reserving(REPLAY_RUNS_AT_ONCE, runIds());
 
     expect(
@@ -109,7 +109,7 @@ describe('dispatchedInTurn', () => {
     ).toHaveLength(REPLAY_RUNS_AT_ONCE);
   });
 
-  it('gives a search no runs once it has no room, as when it has ended', () => {
+  it('hands a search no runs once it has no room, as when it has ended', () => {
     const searched = aReplay({ count: 3, searchId: SEARCH });
 
     expect(dispatchedInTurn([searched], runIds(), NO_SEARCHES)).toEqual([]);

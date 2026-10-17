@@ -54,17 +54,17 @@ const LINES = [
 const answer: {
   candidates: Queried;
   lines: unknown;
-  asked: unknown[];
+  requested: unknown[];
 } = {
   candidates: queried(undefined),
   lines: LINES,
-  asked: [],
+  requested: [],
 };
 
 vi.mock('@/hooks/api/useInsightsCandidates', () => ({
   insightsCandidatesKeys: { forTeam: () => ['insights', 'candidates'] },
   useInsightsCandidates: (teamId: string, period: string) => {
-    answer.asked.push({ teamId, period });
+    answer.requested.push({ teamId, period });
     return answer.candidates;
   },
 }));
@@ -96,14 +96,14 @@ const row = (name: string) =>
 beforeEach(() => {
   answer.candidates = queried(CANDIDATES);
   answer.lines = LINES;
-  answer.asked = [];
+  answer.requested = [];
 });
 
 describe('the Candidates tab', () => {
-  it('asks for the candidates replayed in its period', () => {
+  it('requests the candidates replayed in its period', () => {
     showing('7d');
 
-    expect(answer.asked).toContainEqual({ teamId: 'team_1', period: '7d' });
+    expect(answer.requested).toContainEqual({ teamId: 'team_1', period: '7d' });
   });
 
   it('shows a faithful skeleton while it loads', () => {

@@ -30,7 +30,7 @@ const Usage = `  spotlight handover --next <where> [--note <text>]
   spotlight trace --task <id> [--out <path>]
   spotlight history --station <key> [--line <key>] [--fingerprint <fp>] [--outcome <word>] [--since <date>] [--last <n>] [--out <dir>]
   spotlight recall "<words>" | M-12
-  spotlight remember --kind <kind> --body "…" [--path <path>]... [--reach team|line|station] [--supersedes M-12]
+  spotlight remember --kind <kind> --body "…" [--path <path>]... [--scope team|line|station] [--supersedes M-12]
   spotlight candidate --name <name> --hypothesis <text | @file> <station.json | ->
   spotlight cause --task <task> --cause config|task|judge|check|infra --evidence <text | @file> [--suggestion <text | @file>]
   spotlight tools

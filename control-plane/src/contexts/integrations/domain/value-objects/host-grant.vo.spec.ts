@@ -20,7 +20,7 @@ describe('HostGrant', () => {
     expect(grant.handle).toBe('Acme');
   });
 
-  it('contains nothing where a host gives nothing but a token', () => {
+  it('contains nothing where a host returns nothing but a token', () => {
     const grant = HostGrant.of({ accessToken: 'xoxb-1' });
 
     expect(grant.refreshToken).toBeNull();

@@ -219,7 +219,7 @@ describe('WorkChangeStacks', () => {
     expect(worked.stored().state).toBe('ready');
   });
 
-  it('dead-letters a job interrupted every time without asking again', async () => {
+  it('dead-letters a job interrupted every time without requesting it again', async () => {
     let interrupted = drafting();
     for (let day = 0; day < MAX_JOB_ATTEMPTS; day += 1) {
       interrupted = interrupted.leaseJob(new Date(NOW.getTime() + day * DAY));
@@ -235,7 +235,7 @@ describe('WorkChangeStacks', () => {
   it('stops reordering a stack whose check has gone', async () => {
     const reordering = drafting()
       .propose(layered([['h1'], ['h2']]), NOW)
-      .askedToReorder();
+      .requestReorder();
     const worked = working(reordering, async () => layered([['h2'], ['h1']]));
 
     await worked.tick(NOW);

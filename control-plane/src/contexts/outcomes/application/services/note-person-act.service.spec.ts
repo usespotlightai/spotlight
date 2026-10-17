@@ -14,7 +14,7 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { describe, expect, it } from 'vitest';
 
-const HEARD_AT = new Date('2026-09-30T12:00:00.000Z');
+const RECEIVED_AT = new Date('2026-09-30T12:00:00.000Z');
 
 const at = (hour: number) =>
   new Date(`2026-09-30T${String(hour).padStart(2, '0')}:00:00.000Z`);
@@ -84,7 +84,7 @@ const acting = async (...runs: Ended[]) => {
 };
 
 describe('noting what a person did after a run', () => {
-  it('notes the tool a person refused on the run that asked, once however often it is heard', async () => {
+  it('notes the tool a person refused on the run that asked, once however often it is received', async () => {
     const noted = await acting(['run_1', 9]);
     const tool = { tool: 'mcp__linear__create_issue', server: 'linear' };
 
@@ -106,7 +106,7 @@ describe('noting what a person did after a run', () => {
     expect(await noted.refusals('run_1')).toEqual([]);
   });
 
-  it('gives the act to the run it names', async () => {
+  it('attributes the act to the run it names', async () => {
     const noted = await acting(['run_1', 9], ['run_2', 10]);
 
     await noted.acted('sent-back', 11, 'run_1');
@@ -115,7 +115,7 @@ describe('noting what a person did after a run', () => {
     expect(await noted.next('run_2')).toBeNull();
   });
 
-  it('gives an act that names no run to the task’s latest run that ended before it', async () => {
+  it('attributes an act that names no run to the task’s latest run that ended before it', async () => {
     const noted = await acting(['run_1', 9], ['run_2', 10], ['run_3', 12]);
 
     await noted.acted('closed', 11);
@@ -125,7 +125,7 @@ describe('noting what a person did after a run', () => {
     expect(await noted.next('run_3')).toBeNull();
   });
 
-  it('gives an act that names no run to the latest run at the station the task was acted on at', async () => {
+  it('attributes an act that names no run to the latest run at the station the task was acted on at', async () => {
     const noted = await acting(
       ['run_1', 9],
       ['run_2', 10, { stationId: 'station_2' }],
@@ -137,7 +137,7 @@ describe('noting what a person did after a run', () => {
     expect(await noted.next('run_2')).toBeNull();
   });
 
-  it('gives no act to a run cancelled before it ran', async () => {
+  it('attributes no act to a run cancelled before it ran', async () => {
     const noted = await acting(
       ['run_1', 9],
       ['run_2', 10, { ending: 'cancelled' }],
@@ -158,7 +158,7 @@ describe('noting what a person did after a run', () => {
     expect(await noted.next('run_1')).toBe('sent-back');
   });
 
-  it('counts the first act after a run even when it hears of a later one first', async () => {
+  it('counts the first act after a run even when it receives a later one first', async () => {
     const noted = await acting(['run_1', 9]);
 
     await noted.acted('closed', 12, 'run_1');
@@ -205,7 +205,7 @@ describe('noting what a person did after a run', () => {
     expect(await noted.next('run_2')).toBe('sent-back');
   });
 
-  it('keeps an act that names a run heard of before the run ended', async () => {
+  it('keeps an act that names a run, received before the run ended', async () => {
     const noted = await acting();
 
     await noted.acted('answered', 11, 'run_7');
@@ -252,18 +252,18 @@ describe('noting how a run’s change was checked', () => {
     await records.add(endedRecord('run_1'));
 
     await new NoteChangeChecked(records, deletionsInMemory(), inTransaction, {
-      now: () => HEARD_AT,
+      now: () => RECEIVED_AT,
       sleep: async () => {},
     }).checked(RunId.of('run_1'), WORKSPACE, null, false);
 
     expect((await records.of(RunId.of('run_1')))?.checks).toBe('failed');
   });
 
-  it('keeps a verdict heard before the run was heard to end', async () => {
+  it('keeps a verdict received before the end of the run', async () => {
     const records = new RunRecordsInMemory();
 
     await new NoteChangeChecked(records, deletionsInMemory(), inTransaction, {
-      now: () => HEARD_AT,
+      now: () => RECEIVED_AT,
       sleep: async () => {},
     }).checked(RunId.of('run_1'), WORKSPACE, TaskId.of('task_1'), null);
 
@@ -311,7 +311,7 @@ describe('noting how a run used its tools', () => {
     expect(deletions.locks).toEqual(['ws_1 team_1 task_1']);
   });
 
-  it('keeps the tool use of a run heard before it ended', async () => {
+  it('keeps the tool use of a run, received before the run ended', async () => {
     const records = new RunRecordsInMemory();
 
     await new NoteRunDigested(

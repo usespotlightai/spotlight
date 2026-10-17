@@ -49,7 +49,7 @@ func (m *Mirrors) Dir(workspace, repository string) (string, bool) {
 
 func (m *Mirrors) Refresh(ctx context.Context, fetch Fetch) (string, error) {
 	if !plainName.MatchString(fetch.Workspace) || !plainName.MatchString(fetch.Repository) {
-		return "", fmt.Errorf("mirror %s/%s: not a name a mirror can be kept under", fetch.Workspace, fetch.Repository)
+		return "", fmt.Errorf("mirror %s/%s: not a name a mirror can be stored under", fetch.Workspace, fetch.Repository)
 	}
 
 	key := fetch.Workspace + "/" + fetch.Repository

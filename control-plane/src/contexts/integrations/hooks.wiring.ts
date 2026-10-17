@@ -67,12 +67,12 @@ import { HookIssuerQuery } from '@integrations/application/queries/hook-issuer.q
 import { ImportHookQuery } from '@integrations/application/queries/import-hook.query';
 import { ListHookResourcesQuery } from '@integrations/application/queries/list-hook-resources.query';
 import { ReadHookQuery } from '@integrations/application/queries/read-hook.query';
+import { CallAuthResolver } from '@integrations/application/services/call-auth-resolver.service';
 import { FireHooks } from '@integrations/application/services/fire-hooks.service';
 import { HookAllowancesService } from '@integrations/application/services/hook-allowances.service';
 import { HookCallbackGrants } from '@integrations/application/services/hook-callback-grants.service';
 import { HookViews } from '@integrations/application/services/hook-views.service';
 import { HookedHappenings } from '@integrations/application/services/hooked-happenings.service';
-import { HostReach } from '@integrations/application/services/host-reach.service';
 import {
   HOOK_CALLBACK_GRANTS,
   type HookCallbackGrantRepository,
@@ -280,7 +280,7 @@ export const HOOKS_PROVIDERS: readonly Provider[] = [
       EXPRESSION_ENGINE,
       DEFINED_INTEGRATIONS,
       INTEGRATION_RUNTIME,
-      HostReach,
+      CallAuthResolver,
       HookRequests,
       CLOCK,
     ],
@@ -289,7 +289,7 @@ export const HOOKS_PROVIDERS: readonly Provider[] = [
       expressions: ExpressionEnginePort,
       defined: DefinedIntegrationsPort,
       runtime: IntegrationRuntimePort,
-      reach: HostReach,
+      callAuthResolver: CallAuthResolver,
       requests: HookRequests,
       clock: ClockPort,
     ) =>
@@ -298,7 +298,7 @@ export const HOOKS_PROVIDERS: readonly Provider[] = [
         expressions,
         defined,
         runtime,
-        reach,
+        callAuthResolver,
         requests,
         clock,
       ),

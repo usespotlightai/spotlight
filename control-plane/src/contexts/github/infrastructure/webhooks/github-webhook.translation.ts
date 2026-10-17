@@ -7,8 +7,8 @@ import type {
   PullRequestReviewComment,
 } from '@github/application/dto/pull-request-activity.dto';
 import type {
-  Heard,
   TranslatedDelivery,
+  WebhookEvent,
   WebhookTranslationPort,
 } from '@github/application/ports/webhook-translation.port';
 import type {
@@ -166,7 +166,7 @@ const described = (pull: Described | undefined): PullRequestAbout | null => {
     : null;
 };
 
-const ASKED_BY_ANYONE: readonly PullRequestActivityKind[] = [
+const REQUESTED_BY_ANYONE: readonly PullRequestActivityKind[] = [
   'opened',
   'labelled',
 ];
@@ -219,7 +219,7 @@ const activityOf = (
 const pullRequestActivity = (
   event: string | undefined,
   payload: Payload,
-): Heard[] => {
+): WebhookEvent[] => {
   const activity = activityOf(event, payload);
 
   if (!activity) {
@@ -242,7 +242,7 @@ const pullRequestActivity = (
     about: described(payload.pull_request) ?? described(payload.issue),
     reviewComment:
       reviewCommentOf(payload.comment) ?? reviewCommentOf(payload.review),
-    byBot: !ASKED_BY_ANYONE.includes(activity) && byBot(payload),
+    byBot: !REQUESTED_BY_ANYONE.includes(activity) && byBot(payload),
   };
 
   return [{ kind: 'pull-request-activity', activity: read }];
@@ -327,13 +327,13 @@ const factsOf = (payload: Payload): PullRequestFacts | null => {
   }
 };
 
-const pullRequestDescribed = (payload: Payload): Heard[] => {
+const pullRequestDescribed = (payload: Payload): WebhookEvent[] => {
   const facts = factsOf(payload);
 
   return facts ? [{ kind: 'pull-request', facts }] : [];
 };
 
-const reviewComment = (payload: Payload): Heard[] => {
+const reviewComment = (payload: Payload): WebhookEvent[] => {
   const comment = payload.comment;
   const action = REVIEW_COMMENT_ACTIONS.find((each) => each === payload.action);
   const pullRequest = text(payload.pull_request?.html_url);
@@ -380,7 +380,7 @@ const reviewComment = (payload: Payload): Heard[] => {
   ];
 };
 
-const conversationComment = (payload: Payload): Heard[] => {
+const conversationComment = (payload: Payload): WebhookEvent[] => {
   const comment = payload.comment;
   const action = REVIEW_COMMENT_ACTIONS.find((each) => each === payload.action);
   const pullRequest = text(payload.issue?.pull_request?.html_url);
@@ -404,7 +404,7 @@ const conversationComment = (payload: Payload): Heard[] => {
   ];
 };
 
-const reviewThread = (payload: Payload): Heard[] => {
+const reviewThread = (payload: Payload): WebhookEvent[] => {
   const pullRequest = text(payload.pull_request?.html_url);
   const resolved = THREAD_ACTIONS.get(payload.action);
   const id = text(payload.thread?.node_id);
@@ -432,7 +432,7 @@ const reviewThread = (payload: Payload): Heard[] => {
 
 const COMMIT = /^[0-9a-f]{40}$/i;
 
-const pullRequestClosed = (payload: Payload): Heard[] => {
+const pullRequestClosed = (payload: Payload): WebhookEvent[] => {
   const pull = payload.pull_request;
   const pullRequest = text(pull?.html_url);
   const repository = text(payload.repository?.full_name);
@@ -471,7 +471,7 @@ const reviewStateOf = (state: unknown): ReviewState | null =>
     ? (REVIEW_STATES.get(state.toLowerCase()) ?? null)
     : null;
 
-const pullRequestReviewed = (payload: Payload): Heard[] => {
+const pullRequestReviewed = (payload: Payload): WebhookEvent[] => {
   const review = payload.review;
   const pullRequest = text(payload.pull_request?.html_url);
   const state = reviewStateOf(review?.state);
@@ -494,7 +494,7 @@ const pullRequestReviewed = (payload: Payload): Heard[] => {
   ];
 };
 
-const reviewDismissed = (payload: Payload): Heard[] => {
+const reviewDismissed = (payload: Payload): WebhookEvent[] => {
   const pullRequest = text(payload.pull_request?.html_url);
   const id = at(payload.review?.id);
 
@@ -512,7 +512,10 @@ const reviewDismissed = (payload: Payload): Heard[] => {
   ];
 };
 
-const heardIn = (event: string | undefined, payload: Payload): Heard[] => {
+const eventsIn = (
+  event: string | undefined,
+  payload: Payload,
+): WebhookEvent[] => {
   if (event === 'installation') {
     return payload.action === 'deleted'
       ? [{ kind: 'installation-removed' }]
@@ -550,7 +553,7 @@ export class GitHubWebhookTranslation implements WebhookTranslationPort {
 
     return {
       installation: named(payload.installation?.id),
-      heard: heardIn(headed(delivery, 'x-github-event'), payload),
+      events: eventsIn(headed(delivery, 'x-github-event'), payload),
     };
   }
 }

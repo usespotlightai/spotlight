@@ -24,10 +24,10 @@ export class WorkspaceKeys implements WorkspaceKeysPort {
   ) {}
 
   async of(workspaceId: WorkspaceId): Promise<Uint8Array> {
-    const kept = await this.kept(workspaceId);
+    const existing = await this.storedKey(workspaceId);
 
-    if (kept) {
-      return this.unwrapped(workspaceId, kept);
+    if (existing) {
+      return this.unwrapped(workspaceId, existing);
     }
 
     const issued = await this.kms.issue(contextFor(workspaceId));
@@ -46,7 +46,7 @@ export class WorkspaceKeys implements WorkspaceKeysPort {
       return issued.plain;
     }
 
-    const first = await this.kept(workspaceId);
+    const first = await this.storedKey(workspaceId);
 
     if (!first) {
       throw new Error(
@@ -68,7 +68,7 @@ export class WorkspaceKeys implements WorkspaceKeysPort {
     }
   }
 
-  private async kept(workspaceId: WorkspaceId): Promise<string | null> {
+  private async storedKey(workspaceId: WorkspaceId): Promise<string | null> {
     const [found] = await this.context.db
       .select({ wrapped: secretDataKey.wrapped })
       .from(secretDataKey)

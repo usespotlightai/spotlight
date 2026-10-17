@@ -72,7 +72,7 @@ describe('OAuth2ClientRegistration', () => {
   });
 
   it('is replaced in place by a registration for the same integration', () => {
-    const kept = OAuth2ClientRegistration.rehydrate({
+    const stored = OAuth2ClientRegistration.rehydrate({
       workspaceId: WorkspaceId.of('ws_1'),
       teamId: TeamId.of('team_1'),
       source: SourceKey.of('notion'),
@@ -82,7 +82,7 @@ describe('OAuth2ClientRegistration', () => {
       secretExpiresAt: null,
       version: 2,
     });
-    const replaced = kept.replaceWith(registered());
+    const replaced = stored.replaceWith(registered());
 
     expect(replaced.clientId).toBe('client-1');
     expect(replaced.version).toBe(2);

@@ -37,7 +37,7 @@ describe('DefinitionDocument', () => {
     ).toBe(true);
   });
 
-  it('is equal to another that says the same in another order, as one kept in the database is', () => {
+  it('is equal to another that says the same in another order, as one stored in the database is', () => {
     expect(
       DefinitionDocument.of({ key: 'a', mcp: { url: 'u', auth: {} } }).equals(
         DefinitionDocument.of({ mcp: { auth: {}, url: 'u' }, key: 'a' }),

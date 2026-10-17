@@ -163,22 +163,22 @@ describe('Task', () => {
     ).toThrow(UnknownStationError);
   });
 
-  it('remembers it was opened by a person, or heard from an integration', () => {
+  it('remembers it was opened by a person, or received from an integration', () => {
     expect(added().openedFrom.value).toBe('person');
 
-    const heard = Task.add({
+    const received = Task.add({
       line: LINE,
       at: StationId.of('station_1'),
       title: TaskTitle.of('Fix the queue'),
       rank: TaskRank.of('i'),
-      heardFrom: Happening.of('slack.app_mention'),
+      receivedFrom: Happening.of('slack.app_mention'),
       now: NOW,
       newId: () => 'task_1',
     });
 
-    expect(heard.openedFrom.value).toBe('slack');
-    expect(heard.pullEvents()).toContainEqual(
-      expect.objectContaining({ kind: 'task.opened', heard: true }),
+    expect(received.openedFrom.value).toBe('slack');
+    expect(received.pullEvents()).toContainEqual(
+      expect.objectContaining({ kind: 'task.opened', fromIntegration: true }),
     );
   });
 
@@ -411,7 +411,7 @@ describe('Task, what it is doing', () => {
       expect(carried.sessionId).toEqual(session);
     });
 
-    it('asks for no conversation when there is none to return to', () => {
+    it('requests no conversation when there is none to return to', () => {
       expect(added().continuity().sessionId).toBeNull();
     });
 
@@ -718,9 +718,9 @@ describe('Task, what it is doing', () => {
         );
 
     it('offers what nobody has answered, and nothing else', () => {
-      const heard = added().addMessage(reviewComment);
+      const received = added().addMessage(reviewComment);
 
-      expect(heard.openReviewComments.map((each) => each.at.value)).toEqual([
+      expect(received.openReviewComments.map((each) => each.at.value)).toEqual([
         0,
       ]);
       expect(added().askedAbout(newNote, null).openReviewComments).toEqual([]);
@@ -770,17 +770,17 @@ describe('Task, what it is doing', () => {
     });
 
     it('will not answer from a station the task has left', () => {
-      const heard = opened().addMessage(reviewComment);
+      const received = opened().addMessage(reviewComment);
 
       expect(() =>
-        heard.reviewCommentToReplyFrom(
+        received.reviewCommentToReplyFrom(
           RUN,
           StationId.of('station_2'),
           NotePosition.of(0),
         ),
       ).toThrow(InvalidTaskTransitionError);
       expect(() =>
-        heard.reviewCommentToReplyFrom(RUN, null, NotePosition.of(0)),
+        received.reviewCommentToReplyFrom(RUN, null, NotePosition.of(0)),
       ).toThrow(InvalidTaskTransitionError);
     });
 
@@ -794,17 +794,17 @@ describe('Task, what it is doing', () => {
     });
 
     it('answers only for its current run', () => {
-      const heard = opened().addMessage(reviewComment);
+      const received = opened().addMessage(reviewComment);
 
       expect(() =>
-        heard.reviewCommentToReplyFrom(
+        received.reviewCommentToReplyFrom(
           RunId.of('run_2'),
           HERE,
           NotePosition.of(0),
         ),
       ).toThrow(InvalidTaskTransitionError);
       expect(() =>
-        heard.recordReviewCommentReply(
+        received.recordReviewCommentReply(
           RunId.of('run_2'),
           HERE,
           NotePosition.of(0),
@@ -1693,7 +1693,7 @@ describe('Task, its revision', () => {
   });
 });
 
-describe('Task and the happenings heard while it has a current run', () => {
+describe('Task and the happenings received while it has a current run', () => {
   const world = { ...newNote, voice: Voice.world() };
   const SPEC = StationId.of('station_2');
   const COMPLETED = StationId.of('completed_1');

@@ -27,7 +27,7 @@ const tool = (
   });
 
 describe('toolManifestOf', () => {
-  it('asks the agent to say what it wants to do, where a person approves the call', () => {
+  it('tells the agent to say what it wants to do, where a person approves the call', () => {
     const manifest = toolManifestOf(
       tool(ApprovalNeeded.of('linear.comment', 'It posts publicly.')),
     );
@@ -66,7 +66,7 @@ describe('toolManifestOf', () => {
     expect(toolManifestOf(tool(null))).not.toHaveProperty('integration');
   });
 
-  it('asks nothing more of a tool nobody approves', () => {
+  it('requires nothing more of a tool nobody approves', () => {
     const manifest = toolManifestOf(tool(null));
 
     expect(manifest.inputs.map((each) => each.name)).toEqual(['body']);

@@ -33,7 +33,7 @@ export class RunnerTrustResourceResponseDto extends ResourceResponseDto {
   @ApiProperty({
     example: 'https://oidc.eks.eu-west-1.amazonaws.com/id/EXAMPLE',
     description:
-      'The issuer of the tokens the platform gives its workloads; its keys are found through OIDC discovery',
+      'The issuer of the tokens the platform issues to its workloads; its keys are found through OIDC discovery',
   })
   readonly issuer: string;
 

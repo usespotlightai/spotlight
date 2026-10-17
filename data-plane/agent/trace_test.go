@@ -30,7 +30,7 @@ func tracing(t *testing.T, trace protocol.Trace) {
 }
 
 func sampleTrace() protocol.Trace {
-	tool, given, returned := "read", "path: main.go", "package main"
+	tool, input, output := "read", "path: main.go", "package main"
 
 	return protocol.Trace{
 		Ms: 1500, Rows: 2, Faults: 1,
@@ -41,7 +41,7 @@ func sampleTrace() protocol.Trace {
 				Ms: 20, Tone: "failed",
 				Step: &protocol.TraceStep{
 					Kind: "tool", Text: "Read main.go",
-					Tool: &tool, Given: &given, Returned: &returned,
+					Tool: &tool, Input: &input, Output: &output,
 				},
 			}},
 		}},

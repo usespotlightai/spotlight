@@ -92,7 +92,7 @@ func TestReportsNoModelsWithoutDiscovery(t *testing.T) {
 	}
 }
 
-func TestNothingAskedAboutIsNothingReported(t *testing.T) {
+func TestNothingRequestedIsNothingReported(t *testing.T) {
 	if found := harness.Installed(context.Background(), nil); len(found) != 0 {
 		t.Fatalf("got %v", found)
 	}
@@ -149,7 +149,7 @@ func TestReportsNoVersionWhenItCannotBeRead(t *testing.T) {
 
 	found := harness.Installed(context.Background(), []protocol.Installable{
 		{ID: "broken", Executable: "broken", VersionProbe: []string{"broken"}},
-		{ID: "unasked", Executable: "broken"},
+		{ID: "unrequested", Executable: "broken"},
 	})
 
 	if len(found) != 2 || found[0].Version != "" || found[1].Version != "" {

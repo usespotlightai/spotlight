@@ -16,10 +16,10 @@ import { describe, expect, it, vi } from 'vitest';
 const NOW = new Date('2026-09-28T09:00:00.000Z');
 
 const renewing = (
-  given: { known?: boolean; answer?: CheckLeaseRenewal | Error } = {},
+  options: { known?: boolean; answer?: CheckLeaseRenewal | Error } = {},
 ) => {
   const seen = vi.fn(async () =>
-    given.known === false
+    options.known === false
       ? null
       : {
           workspaceId: WorkspaceId.of('ws_1'),
@@ -29,10 +29,10 @@ const renewing = (
         },
   );
   const renewLease = vi.fn(async (): Promise<CheckLeaseRenewal> => {
-    if (given.answer instanceof Error) {
-      throw given.answer;
+    if (options.answer instanceof Error) {
+      throw options.answer;
     }
-    return given.answer ?? 'renewed';
+    return options.answer ?? 'renewed';
   });
 
   const handler = new RenewCheckLeaseHandler(

@@ -6,8 +6,8 @@ import { ToolUses } from '@integrations/domain/value-objects/tool-uses.vo';
 import {
   access,
   definitions,
+  enabledTools,
   storedAt,
-  toolsGiven,
   transaction,
 } from '@integrations/integrations.resources.fake-spec';
 import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
@@ -17,14 +17,14 @@ import { describe, expect, it } from 'vitest';
 const deleting = (
   over: {
     administers?: boolean;
-    given?: ToolUses;
+    enabled?: ToolUses;
   } & Parameters<typeof definitions>[0] = {},
 ) => {
-  const kept = definitions({ stored: storedAt(3), ...over });
+  const repository = definitions({ stored: storedAt(3), ...over });
   const handler = new DeleteIntegrationHandler(
     access(over.administers),
-    kept,
-    toolsGiven(over.given),
+    repository,
+    enabledTools(over.enabled),
     transaction,
   );
 
@@ -37,29 +37,29 @@ const deleting = (
           version,
         ),
       ),
-    kept,
+    repository,
   };
 };
 
 describe('DeleteIntegrationHandler', () => {
-  it('deletes the version it was asked to', async () => {
-    const { remove, kept } = deleting();
+  it('deletes the requested version', async () => {
+    const { remove, repository } = deleting();
 
     expect(await remove()).toEqual({ outcome: 'deleted' });
 
-    const [saved] = kept.save.mock.calls[0] as [IntegrationDefinition];
+    const [saved] = repository.save.mock.calls[0] as [IntegrationDefinition];
 
     expect(saved.isDeleted).toBe(true);
   });
 
   it('does not delete a version no longer current, naming the current one', async () => {
-    const { remove, kept } = deleting();
+    const { remove, repository } = deleting();
 
     expect(await remove(2)).toEqual({
       outcome: 'version-conflict',
       currentVersion: 3,
     });
-    expect(kept.save).not.toHaveBeenCalled();
+    expect(repository.save).not.toHaveBeenCalled();
   });
 
   it('names the version that won when a change got there first', async () => {
@@ -74,16 +74,16 @@ describe('DeleteIntegrationHandler', () => {
     });
   });
 
-  it('will not delete an integration whose tools a station gives', async () => {
-    const { remove, kept } = deleting({
+  it('will not delete an integration whose tools a station enables', async () => {
+    const { remove, repository } = deleting({
       stored: storedAt(3, ['linear.comment']),
-      given: ToolUses.of([
+      enabled: ToolUses.of([
         { tool: 'linear.comment', by: 'the station delivery/implementation' },
       ]),
     });
 
     expect(await remove()).toMatchObject({ outcome: 'in-use' });
-    expect(kept.save).not.toHaveBeenCalled();
+    expect(repository.save).not.toHaveBeenCalled();
   });
 
   it('answers nothing for an integration it cannot find, and forbids one it may not delete', async () => {

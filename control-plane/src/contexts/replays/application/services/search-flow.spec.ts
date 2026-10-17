@@ -5,8 +5,8 @@ import { StopSearchHandler } from '@replays/application/commands/handlers/stop-s
 import { ProposeSearchCandidateCommand } from '@replays/application/commands/propose-search-candidate.command';
 import { RecordSearchCauseCommand } from '@replays/application/commands/record-search-cause.command';
 import {
-  type SearchBudgetAsked,
-  type SearchObjectiveAsked,
+  type SearchBudgetInput,
+  type SearchObjectiveInput,
   StartSearchCommand,
 } from '@replays/application/commands/start-search.command';
 import { StopSearchCommand } from '@replays/application/commands/stop-search.command';
@@ -42,10 +42,10 @@ import { SearchSights } from '@replays/application/services/search-sights.servic
 import { SetHealths } from '@replays/application/services/set-healths.service';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import { ReplayEnded } from '@replays/domain/events/replay-ended.event';
-import { SearchDeletionDue } from '@replays/domain/events/search-deletion-due.event';
+import { SearchDeletionRequested } from '@replays/domain/events/search-deletion-requested.event';
 import { SearchEnded } from '@replays/domain/events/search-ended.event';
-import { SearchHoldingOutWanted } from '@replays/domain/events/search-holding-out-wanted.event';
-import { SearchIterationWanted } from '@replays/domain/events/search-iteration-wanted.event';
+import { SearchHoldingOutRequested } from '@replays/domain/events/search-holding-out-requested.event';
+import { SearchIterationRequested } from '@replays/domain/events/search-iteration-requested.event';
 import { SearchReflected } from '@replays/domain/events/search-reflected.event';
 import { SearchStalledUnreflected } from '@replays/domain/events/search-stalled-unreflected.event';
 import { UnknownSearchRunError } from '@replays/domain/exceptions/unknown-search-run.error';
@@ -80,7 +80,7 @@ const DIGEST = { sha256 };
 const healthsFor = () =>
   new SetHealths(work, memory.replayRepository, memory.candidateRepository);
 
-const BUDGET: SearchBudgetAsked = {
+const BUDGET: SearchBudgetInput = {
   iterations: 2,
   perIteration: 2,
   ceiling: { amount: 100, currency: 'USD' },
@@ -110,10 +110,10 @@ const starting = (mayPlan = true) =>
 
 const start = async (
   over: {
-    budget?: SearchBudgetAsked;
+    budget?: SearchBudgetInput;
     mayPlan?: boolean;
     setId?: string;
-    objective?: SearchObjectiveAsked;
+    objective?: SearchObjectiveInput;
   } = {},
 ) =>
   starting(over.mayPlan).execute(
@@ -178,10 +178,10 @@ const delivered = async (): Promise<void> => {
     for (const event of events) {
       if (event instanceof ReplayEnded) {
         await progress().replayEnded(event);
-      } else if (event instanceof SearchIterationWanted) {
-        await iterating().wanted(event.searchId);
-      } else if (event instanceof SearchHoldingOutWanted) {
-        await holdingOut().wanted(event.searchId);
+      } else if (event instanceof SearchIterationRequested) {
+        await iterating().requested(event.searchId);
+      } else if (event instanceof SearchHoldingOutRequested) {
+        await holdingOut().requested(event.searchId);
       } else if (event instanceof SearchEnded) {
         await cancelling().ended(event);
       } else if (event instanceof SearchReflected) {
@@ -630,7 +630,7 @@ describe('a search’s iterations', () => {
 
 describe('a stalled search looking into why', () => {
   const stalledOn = async (
-    budget: SearchBudgetAsked,
+    budget: SearchBudgetInput,
     failing: (original: string) => boolean,
   ) => {
     const started = await start({ budget });
@@ -1014,13 +1014,13 @@ describe('DeleteSearches', () => {
     );
 
     expect(due).toEqual([
-      new SearchDeletionDue(theSearch().id, STATION.workspaceId),
+      new SearchDeletionRequested(theSearch().id, STATION.workspaceId),
     ]);
     expect(
       await deleting().deleteForTeam(TeamId.of('team_2'), STATION.workspaceId),
     ).toEqual([]);
 
-    await deleting().search((due[0] as SearchDeletionDue).searchId);
+    await deleting().search((due[0] as SearchDeletionRequested).searchId);
 
     expect(memory.searches.size).toBe(0);
     expect(work.cancelledSearchRuns).toEqual([run]);
@@ -1216,7 +1216,7 @@ describe('AdvanceSearches', () => {
     expect(theSearch().iterations).toHaveLength(2);
   });
 
-  it('never ends a replay admitted after it last looked, though its row is not there yet', async () => {
+  it('never ends a replay accepted after it last looked, though its row is not there yet', async () => {
     await seeded({ ...BUDGET, iterations: 3 });
     const run = activeRun();
     const seen = theSearch();

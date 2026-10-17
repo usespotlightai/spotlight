@@ -27,25 +27,25 @@ const aboutPaths = (paths: string[]) =>
   });
 
 describe('MemoryScope', () => {
-  it('reaches a place through a folder that contains a touched file', () => {
+  it('matches a place through a folder that contains a touched file', () => {
     expect(
-      aboutPaths(['src/uploads']).reaches(place(['src/uploads/retry.ts'])),
+      aboutPaths(['src/uploads']).matches(place(['src/uploads/retry.ts'])),
     ).toBe(true);
     expect(
-      aboutPaths(['src/uploads/retry.ts']).reaches(
+      aboutPaths(['src/uploads/retry.ts']).matches(
         place(['src/uploads/retry.ts']),
       ),
     ).toBe(true);
   });
 
-  it('never reaches through a path that only begins the same way', () => {
+  it('never matches through a path that only begins the same way', () => {
     expect(
-      aboutPaths(['src/uploads']).reaches(place(['src/uploadsX/a.ts'])),
+      aboutPaths(['src/uploads']).matches(place(['src/uploadsX/a.ts'])),
     ).toBe(false);
   });
 
-  it('never reaches a place that touched nothing it is about', () => {
-    expect(aboutPaths(['src/uploads']).reaches(place())).toBe(false);
+  it('never matches a place that touched nothing it is about', () => {
+    expect(aboutPaths(['src/uploads']).matches(place())).toBe(false);
   });
 
   it('ranks paths, then a station, then a line, then a repository, then the team', () => {

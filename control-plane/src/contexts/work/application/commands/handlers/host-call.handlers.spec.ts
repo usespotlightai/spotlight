@@ -1,7 +1,7 @@
 import type {
-  HostCredential,
-  RunnerAdmissionsPort,
-} from '@runners/application/ports/runner-admissions.port';
+  HostCredentials,
+  RunnerAuthenticatorPort,
+} from '@runners/application/ports/runner-authenticator.port';
 import type { RunnersPort } from '@runners/application/ports/runners.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -60,11 +60,11 @@ const hosting = (
       now = new Date(now.getTime() + ms);
     },
   };
-  const admissions: RunnerAdmissionsPort = {
-    admit: vi.fn(async (credential: HostCredential) =>
+  const authenticator: RunnerAuthenticatorPort = {
+    authenticate: vi.fn(async (credential: HostCredentials) =>
       credential.bearer === 'pool-token'
         ? {
-            way: { kind: 'pool' as const, id: 'pool_1' },
+            source: { kind: 'pool' as const, id: 'pool_1' },
             workspaceId: WorkspaceId.of('ws_1'),
           }
         : null,
@@ -92,14 +92,14 @@ const hosting = (
     saved,
     runners,
     claim: new ClaimHostCallHandler(
-      admissions,
+      authenticator,
       runners,
       calls as unknown as NetworkCallRepository,
       clock,
       new LongPoll(clock),
     ),
     answer: new AnswerHostCallHandler(
-      admissions,
+      authenticator,
       calls as unknown as NetworkCallRepository,
       clock,
     ),
@@ -116,7 +116,7 @@ const ANSWER: SentHostCallAnswer = {
 };
 
 describe('ClaimHostCallHandler', () => {
-  it('rejects a host no pool or trust admits', async () => {
+  it('rejects a host that no pool or trust accepts', async () => {
     const { claim, calls } = hosting();
 
     expect(
@@ -127,7 +127,7 @@ describe('ClaimHostCallHandler', () => {
     expect(calls.claimNext).not.toHaveBeenCalled();
   });
 
-  it('hands over the next call waiting for the admitted workspace, body in base64', async () => {
+  it('hands over the next call waiting for the authenticated workspace, body in base64', async () => {
     const { claim, calls } = hosting({ next: claimedCall() });
 
     expect(await claim.execute(new ClaimHostCallCommand(POOL, HOST))).toEqual({
@@ -192,13 +192,13 @@ describe('AnswerHostCallHandler', () => {
       await answer.execute(new AnswerHostCallCommand(POOL, 'call_1', ANSWER)),
     ).toEqual({ outcome: 'answered' });
 
-    const kept = saved[0]?.answer;
-    expect(kept?.status).toBe(200);
-    expect(kept?.headers).toEqual({ 'content-type': 'application/json' });
-    expect(Buffer.from(kept?.body ?? []).toString()).toBe(
+    const stored = saved[0]?.answer;
+    expect(stored?.status).toBe(200);
+    expect(stored?.headers).toEqual({ 'content-type': 'application/json' });
+    expect(Buffer.from(stored?.body ?? []).toString()).toBe(
       '{"deny":"not today"}',
     );
-    expect(kept?.ms).toBe(84);
+    expect(stored?.ms).toBe(84);
   });
 
   it('keeps why nothing answered', async () => {
@@ -218,7 +218,7 @@ describe('AnswerHostCallHandler', () => {
     expect(saved[0]?.answer?.error).toBe('timed out after 10s');
   });
 
-  it('rejects a host no pool or trust admits', async () => {
+  it('rejects a host that no pool or trust accepts', async () => {
     const { answer, calls } = hosting();
 
     expect(
@@ -247,7 +247,7 @@ describe('AnswerHostCallHandler', () => {
     expect(saved).toEqual([]);
   });
 
-  it('discards what the call sent once it keeps the answer', async () => {
+  it('discards what the call sent once it stores the answer', async () => {
     const { answer, saved } = hosting();
 
     await answer.execute(new AnswerHostCallCommand(POOL, 'call_1', ANSWER));
@@ -290,7 +290,7 @@ describe('AnswerHostCallHandler', () => {
     });
   });
 
-  it('gives the completed outcome to a call that was never claimed', async () => {
+  it('sets the completed outcome on a call that was never claimed', async () => {
     const { answer } = hosting({ found: queued() });
 
     expect(

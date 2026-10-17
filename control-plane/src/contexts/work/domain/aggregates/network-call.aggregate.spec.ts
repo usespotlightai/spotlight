@@ -171,7 +171,7 @@ describe('NetworkCall', () => {
     );
   });
 
-  it('is kept a week after it completes, then purged', () => {
+  it('is stored a week after it completes, then purged', () => {
     const answered = queued()
       .claimedBy(HOST, later(1_000))
       .answerWith(HOST, OK, later(2_000));
@@ -203,7 +203,7 @@ describe('NetworkCall', () => {
     );
   });
 
-  it('stays answered once answered, however late it is asked to expire', () => {
+  it('stays answered once answered, however late the expiry comes', () => {
     const answered = queued()
       .claimedBy(HOST, later(1_000))
       .answerWith(HOST, OK, later(2_000));
@@ -246,7 +246,7 @@ describe('NetworkCall', () => {
 });
 
 describe('NetworkRequest', () => {
-  const asking = (over: Partial<Parameters<typeof NetworkRequest.of>[0]>) =>
+  const requesting = (over: Partial<Parameters<typeof NetworkRequest.of>[0]>) =>
     NetworkRequest.of({
       method: 'post',
       url: 'https://audit.acme.dev/hooks',
@@ -257,19 +257,21 @@ describe('NetworkRequest', () => {
     });
 
   it('sends with the method named, in capitals', () => {
-    expect(asking({}).method).toBe('POST');
+    expect(requesting({}).method).toBe('POST');
   });
 
   it('is sent over http or https only', () => {
-    expect(() => asking({ url: 'file:///etc/passwd' })).toThrow(
+    expect(() => requesting({ url: 'file:///etc/passwd' })).toThrow(
       InvalidNetworkCallError,
     );
-    expect(() => asking({ url: 'not a url' })).toThrow(InvalidNetworkCallError);
+    expect(() => requesting({ url: 'not a url' })).toThrow(
+      InvalidNetworkCallError,
+    );
   });
 
   it('waits a sensible while for its answer', () => {
-    expect(() => asking({ timeoutMs: 0 })).toThrow(InvalidNetworkCallError);
-    expect(() => asking({ timeoutMs: 60_001 })).toThrow(
+    expect(() => requesting({ timeoutMs: 0 })).toThrow(InvalidNetworkCallError);
+    expect(() => requesting({ timeoutMs: 60_001 })).toThrow(
       InvalidNetworkCallError,
     );
   });

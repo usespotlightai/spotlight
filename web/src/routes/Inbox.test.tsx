@@ -57,7 +57,7 @@ const notice = (over: Record<string, unknown> = {}) => ({
   teamId: 'team_1',
   form: 'ended',
   headline: 'The search for a better Build config stalled',
-  points: ['Fix the judge’s rubric: it asks for tests a rename never needs.'],
+  points: ['Fix the judge’s rubric: it requires tests a rename never needs.'],
   link: 'lines/line_1/stations/station_1/searches/search_1',
   linkLabel: 'Open the search',
   askedAt: '2026-08-29T13:00:00.000Z',
@@ -135,7 +135,7 @@ describe('Inbox', () => {
       expect(section).toHaveTextContent('1');
     });
 
-    it('folds away when asked, leaving resolved alone', async () => {
+    it('folds away on request, leaving resolved alone', async () => {
       const person = userEvent.setup();
       waiting.mockReturnValue([
         item(),
@@ -214,7 +214,7 @@ describe('Inbox', () => {
       );
     });
 
-    it('folds away when asked', async () => {
+    it('folds away on request', async () => {
       const person = userEvent.setup();
       renderAt('/w/acme/inbox');
 
@@ -251,7 +251,7 @@ describe('Inbox', () => {
       expect(link).toHaveAttribute('href', '/w/acme/inbox/notices/notice_1');
       expect(link).toHaveTextContent('Unread');
       expect(link).toHaveTextContent(
-        'Fix the judge’s rubric: it asks for tests a rename never needs.',
+        'Fix the judge’s rubric: it requires tests a rename never needs.',
       );
       expect(
         link.querySelector('[data-slot="notice-icon"]'),

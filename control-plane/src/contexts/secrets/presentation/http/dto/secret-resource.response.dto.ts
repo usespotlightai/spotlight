@@ -12,7 +12,7 @@ class SecretSourceResponseDto {
     enum: SECRET_SOURCE_KINDS,
     example: 'built-in',
     description:
-      'Where the value lives: kept by Spotlight, or read from AWS Secrets Manager when it is used',
+      'Where the value lives: stored by Spotlight, or read from AWS Secrets Manager when it is used',
   })
   readonly kind: SecretSourceKind;
 

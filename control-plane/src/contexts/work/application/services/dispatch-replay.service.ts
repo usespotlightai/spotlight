@@ -32,7 +32,7 @@ import { repositoriesReviewedOrAll } from '@work/domain/services/task-checkouts'
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 
-export interface ReplayAsked {
+export interface ReplayInput {
   readonly original: RunId;
   readonly candidate: Line;
   readonly id?: RunId;
@@ -74,11 +74,11 @@ export class DispatchReplay {
   async enqueue({
     original,
     candidate,
-    id: asked,
+    id: requestedId,
     answer = null,
-  }: ReplayAsked): Promise<RunId> {
-    if (asked && (await this.alreadyQueued(asked, original))) {
-      return asked;
+  }: ReplayInput): Promise<RunId> {
+    if (requestedId && (await this.alreadyQueued(requestedId, original))) {
+      return requestedId;
     }
 
     const replayed = await this.runs.findById(original);
@@ -91,7 +91,7 @@ export class DispatchReplay {
       );
     }
 
-    const id = asked ?? RunId.of(this.ids.generate());
+    const id = requestedId ?? RunId.of(this.ids.generate());
     const plan = await this.planned(replayed, candidate, id);
     const ordered = await this.ordering.orderedForReplay(candidate, plan.at);
 
@@ -184,8 +184,8 @@ export class DispatchReplay {
       );
     }
 
-    await this.stillKept(replayed, plan);
-    await this.attachmentsStillKept(replayed, plan);
+    await this.stillStored(replayed, plan);
+    await this.attachmentsStillStored(replayed, plan);
 
     return plan;
   }
@@ -207,7 +207,7 @@ export class DispatchReplay {
     return true;
   }
 
-  private async attachmentsStillKept(
+  private async attachmentsStillStored(
     replayed: Run,
     plan: ReplayPlan,
   ): Promise<void> {
@@ -221,25 +221,25 @@ export class DispatchReplay {
           throw new UnreplayableRunError(
             replayed.id.value,
             'attachments-gone',
-            'A file from its task briefing is no longer kept.',
+            'A file from its task briefing is no longer stored.',
           );
         }
         throw error;
       });
   }
 
-  private async stillKept(replayed: Run, plan: ReplayPlan): Promise<void> {
+  private async stillStored(replayed: Run, plan: ReplayPlan): Promise<void> {
     if (!plan.archive) {
       return;
     }
 
     const archive = await this.archives.find(plan.archive);
 
-    if (!archive?.isKeptIn(replayed.workspaceId)) {
+    if (!archive?.isAvailableIn(replayed.workspaceId)) {
       throw new UnreplayableRunError(
         replayed.id.value,
         'archive-gone',
-        `Its workspace archive ${plan.archive.value} is no longer kept.`,
+        `Its workspace archive ${plan.archive.value} is no longer stored.`,
       );
     }
   }

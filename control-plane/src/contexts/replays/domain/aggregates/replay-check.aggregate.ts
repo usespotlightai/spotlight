@@ -44,7 +44,7 @@ interface State {
   readonly candidateDigests: StationDigests;
   readonly threshold: ReplayThreshold;
   readonly repeats: number;
-  readonly keptLive: readonly ScoringField[];
+  readonly scoringPinnedToLive: readonly ScoringField[];
   readonly baseline: BaselineStatus;
   readonly createdAt: Date;
 }
@@ -105,7 +105,7 @@ export class ReplayCheck extends EventRecorder {
   static rehydrate(state: State): ReplayCheck {
     return new ReplayCheck({
       ...state,
-      keptLive: inScoringOrder(state.keptLive),
+      scoringPinnedToLive: inScoringOrder(state.scoringPinnedToLive),
     });
   }
 
@@ -177,8 +177,8 @@ export class ReplayCheck extends EventRecorder {
     return this.state.repeats;
   }
 
-  get keptLive(): readonly ScoringField[] {
-    return this.state.keptLive;
+  get scoringPinnedToLive(): readonly ScoringField[] {
+    return this.state.scoringPinnedToLive;
   }
 
   get createdAt(): Date {

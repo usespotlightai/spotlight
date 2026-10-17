@@ -30,7 +30,7 @@ export class NoteRunSuperseded {
         }
 
         await this.records.add(
-          RunRecord.heardOf(runId, workspaceId, taskId).supersededByItsTask(
+          RunRecord.empty(runId, workspaceId, taskId).supersededByItsTask(
             this.clock.now(),
           ),
         );

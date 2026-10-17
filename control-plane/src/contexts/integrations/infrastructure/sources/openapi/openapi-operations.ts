@@ -6,8 +6,8 @@ import type {
 import {
   DescriptionUnreadable,
   describedAs,
+  firstByName,
   isNameable,
-  keepingFirst,
   type OperationRecord,
   type ReadOperations,
   toolWordsOf,
@@ -182,7 +182,7 @@ const serverIn = (servers: unknown, url: string | null): string | null => {
     return new URL(written, url ?? undefined).href.replace(/\/+$/, '');
   } catch {
     throw new DescriptionUnreadable(
-      `names the server ${JSON.stringify(written)}, which is not a web address. Please give the openapi block a baseUrl`,
+      `names the server ${JSON.stringify(written)}, which is not a web address. Please add a baseUrl to the openapi block`,
     );
   }
 };
@@ -203,7 +203,7 @@ const serverOf = (document: Node, at: Reading): string => {
   }
 
   throw new DescriptionUnreadable(
-    'names no server to call. Please give the openapi block a baseUrl',
+    'names no server to call. Please add a baseUrl to the openapi block',
   );
 };
 
@@ -470,10 +470,10 @@ export const openapiOperations = (
     }
   }
 
-  const kept = keepingFirst(records);
+  const unique = firstByName(records);
 
   return {
-    operations: kept.operations,
-    passedOver: [...passedOver, ...kept.passedOver],
+    operations: unique.operations,
+    passedOver: [...passedOver, ...unique.passedOver],
   };
 };

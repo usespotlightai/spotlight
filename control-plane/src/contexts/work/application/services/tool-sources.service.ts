@@ -1,6 +1,6 @@
 import type {
   IntegrationToolsPort,
-  ReachableTool,
+  ResolvedTool,
   ToolContext,
 } from '@work/application/ports/integration-tools.port';
 import type { BuiltInTools } from '@work/application/services/built-in-tools.service';
@@ -8,15 +8,15 @@ import type { StationCatalog } from '@work/application/services/station-catalog.
 import type { Run } from '@work/domain/aggregates/run.aggregate';
 import type { Tool, ToolOrigin } from '@work/domain/value-objects/tool.vo';
 
-type Reaching = (
+type ToolResolver = (
   tool: Tool,
   run: Run,
   context: ToolContext,
   runnerId: string,
-) => Promise<ReachableTool | null>;
+) => Promise<ResolvedTool | null>;
 
 export class ToolSources {
-  private readonly from: Readonly<Record<ToolOrigin, Reaching>>;
+  private readonly from: Readonly<Record<ToolOrigin, ToolResolver>>;
 
   constructor(
     builtIns: BuiltInTools,
@@ -24,14 +24,15 @@ export class ToolSources {
     catalog: StationCatalog,
   ) {
     this.from = {
-      'built-in': async (tool, _run, context) => builtIns.reach(tool, context),
+      'built-in': async (tool, _run, context) =>
+        builtIns.resolve(tool, context),
       integration: (tool, run, context, runnerId) =>
-        integrations.reach(tool, context, run.currentAttempt, runnerId),
-      catalog: (tool, run, context) => catalog.reach(tool, run, context),
+        integrations.resolve(tool, context, run.currentAttempt, runnerId),
+      catalog: (tool, run, context) => catalog.resolve(tool, run, context),
     };
   }
 
-  reach(tool: Tool, run: Run, context: ToolContext, runnerId: string) {
+  resolve(tool: Tool, run: Run, context: ToolContext, runnerId: string) {
     return this.from[tool.origin](tool, run, context, runnerId);
   }
 }

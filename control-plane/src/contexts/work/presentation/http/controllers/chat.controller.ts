@@ -49,10 +49,10 @@ import {
 } from '@work/presentation/http/dto/chat.response.dto';
 import { RunJournalResponseDto } from '@work/presentation/http/dto/run-journal.response.dto';
 import { ChatHttpMapper } from '@work/presentation/http/mappers/chat.http.mapper';
-import { givenChoice } from '@work/presentation/http/mappers/given-choice';
-import { givenIds } from '@work/presentation/http/mappers/given-ids';
-import { givenSetup } from '@work/presentation/http/mappers/given-setup';
+import { choiceInput } from '@work/presentation/http/mappers/choice-input';
+import { idsInput } from '@work/presentation/http/mappers/ids-input';
 import { RunJournalHttpMapper } from '@work/presentation/http/mappers/run-journal.http.mapper';
+import { setupInput } from '@work/presentation/http/mappers/setup-input';
 
 @ApiTags('chats')
 @ApiUnauthorizedResponse({ description: 'No valid session' })
@@ -105,7 +105,7 @@ export class ChatController {
   @ApiNotFoundResponse({ description: 'No such team for this caller' })
   @ApiUnprocessableEntityResponse({
     description:
-      'An unknown harness, model, effort or repository, or a setup the GitHub App cannot reach or no host can run',
+      'An unknown harness, model, effort or repository, or a setup the GitHub App cannot access or no host can run',
   })
   async start(
     @Param('teamId') teamId: string,
@@ -120,16 +120,16 @@ export class ChatController {
         teamId,
         user.id,
         body.harness,
-        givenChoice(body.model, 'model') ?? null,
-        givenChoice(body.effort, 'effort') ?? null,
+        choiceInput(body.model, 'model') ?? null,
+        choiceInput(body.effort, 'effort') ?? null,
         Array.isArray(body.repositories) ? body.repositories : [],
         body.body ?? '',
-        givenIds(body.attachments),
-        givenIds(body.traces),
+        idsInput(body.attachments),
+        idsInput(body.traces),
         typeof body.improving === 'string' && body.improving.trim()
           ? body.improving.trim()
           : null,
-        givenSetup(body.setup),
+        setupInput(body.setup),
       ),
     );
 
@@ -212,10 +212,10 @@ export class ChatController {
         chatId,
         user.id,
         body.body ?? '',
-        givenIds(body.attachments),
-        givenIds(body.traces),
-        givenChoice(body.model, 'model'),
-        givenChoice(body.effort, 'effort'),
+        idsInput(body.attachments),
+        idsInput(body.traces),
+        choiceInput(body.model, 'model'),
+        choiceInput(body.effort, 'effort'),
       ),
     );
   }
@@ -227,7 +227,7 @@ export class ChatController {
     summary: 'Stop the agent answering in a chat',
   })
   @ApiParam({ name: 'chatId', type: String })
-  @ApiNoContentResponse({ description: 'The agent was asked to stop' })
+  @ApiNoContentResponse({ description: 'The agent received a stop request' })
   @ApiNotFoundResponse({ description: 'No such chat for this caller' })
   @ApiConflictResponse({ description: 'The agent is not answering' })
   async stop(

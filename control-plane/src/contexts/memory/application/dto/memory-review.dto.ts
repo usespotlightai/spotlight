@@ -1,14 +1,14 @@
 import { MEMORY_PROPOSAL_STATES } from '@memory/domain/entities/memory-proposal.entity';
 import { MEMORY_KINDS } from '@memory/domain/value-objects/memory-kind';
 import { MEMORY_ORIGINS } from '@memory/domain/value-objects/memory-origin';
-import { MEMORY_REACHES } from '@memory/domain/value-objects/memory-reach';
+import { MEMORY_SCOPE_LEVELS } from '@memory/domain/value-objects/memory-scope-level';
 import { MEMORY_SOURCES } from '@memory/domain/value-objects/memory-source';
 
 export const MEMORY_KIND_NAMES = MEMORY_KINDS;
 export const MEMORY_SOURCE_NAMES = MEMORY_SOURCES;
 export const MEMORY_ORIGIN_NAMES = MEMORY_ORIGINS;
 export const MEMORY_STATE_NAMES = MEMORY_PROPOSAL_STATES;
-export const MEMORY_REACH_NAMES = MEMORY_REACHES;
+export const MEMORY_SCOPE_NAMES = MEMORY_SCOPE_LEVELS;
 
 export interface MemoryGroundStepDto {
   readonly index: number;
@@ -42,7 +42,7 @@ export interface ProposedMemoryDto {
   readonly source: string;
   readonly origin: string;
   readonly state: string;
-  readonly reach: string;
+  readonly scope: string;
   readonly repository: string | null;
   readonly paths: readonly string[];
   readonly supersedes: string | null;

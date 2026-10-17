@@ -21,16 +21,16 @@ func historian(t *testing.T, history protocol.History) *[]protocol.HistoryReques
 	}
 	t.Cleanup(func() { _ = server.Close() })
 
-	var asked []protocol.HistoryRequest
+	var received []protocol.HistoryRequest
 	server.Histories(func(request protocol.HistoryRequest) (json.RawMessage, error) {
-		asked = append(asked, request)
+		received = append(received, request)
 		return json.Marshal(history)
 	})
 
 	t.Setenv(protocol.AgentAPIURLVar, server.URL())
 	t.Setenv(protocol.AgentAPITokenVar, server.Token())
 
-	return &asked
+	return &received
 }
 
 func text(value string) *string { return &value }
@@ -42,8 +42,8 @@ const (
 
 func sampleHistory() protocol.History {
 	tool, status := "bash", "completed"
-	given := "{\"command\":\"go test ./...\"}"
-	returned := "--- FAIL: TestUploadRetries (0.02s)\n    upload_test.go:41: ```retry``` gave up after 3 tries\nFAIL"
+	input := "{\"command\":\"go test ./...\"}"
+	output := "--- FAIL: TestUploadRetries (0.02s)\n    upload_test.go:41: ```retry``` gave up after 3 tries\nFAIL"
 	failure, checks, delivery := "tests-failed", "failed", "open"
 	ms, cost, currency := 90000, 0.42, "USD"
 	line := 12
@@ -96,7 +96,7 @@ func sampleHistory() protocol.History {
 								ID: "2:step:0", Kind: "step", Name: "go test ./...", Ms: 800, Tone: "failed",
 								Step: &protocol.TraceStep{
 									Kind: "tool", Text: "go test ./...", Tool: &tool, Status: &status,
-									Given: &given, Returned: &returned,
+									Input: &input, Output: &output,
 									Locations: []protocol.TraceLocation{{Path: "api/upload_test.go", Line: &line}},
 								},
 							},
@@ -139,7 +139,7 @@ func readFile(t *testing.T, path string) string {
 }
 
 func TestHistoryWritesAGreppableTreeOfTheStationsRuns(t *testing.T) {
-	asked := historian(t, sampleHistory())
+	received := historian(t, sampleHistory())
 	root := t.TempDir()
 	out := new(bytes.Buffer)
 
@@ -154,8 +154,8 @@ func TestHistoryWritesAGreppableTreeOfTheStationsRuns(t *testing.T) {
 	want := protocol.HistoryRequest{
 		Station: "implementation", Line: "delivery", Outcome: "failed", Since: "2026-09-01", Last: 30,
 	}
-	if len(*asked) != 1 || (*asked)[0] != want {
-		t.Fatalf("asked %+v, want %+v", *asked, want)
+	if len(*received) != 1 || (*received)[0] != want {
+		t.Fatalf("received %+v, want %+v", *received, want)
 	}
 
 	dir := filepath.Join(root, "implementation")

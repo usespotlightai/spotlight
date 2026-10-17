@@ -7,7 +7,7 @@ const KEY = 'test.remembered';
 beforeEach(() => window.localStorage.clear());
 
 describe('useRemembered', () => {
-  it('starts at the fallback where nothing was kept', () => {
+  it('starts at the fallback where nothing was stored', () => {
     const { result } = renderHook(() => useRemembered(KEY, '30d'));
 
     expect(result.current[0]).toBe('30d');

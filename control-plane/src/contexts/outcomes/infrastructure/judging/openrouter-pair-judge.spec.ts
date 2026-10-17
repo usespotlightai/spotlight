@@ -1,5 +1,5 @@
 import { JudgingError } from '@outcomes/application/errors/judging.error';
-import type { PairJudgeAsk } from '@outcomes/application/ports/pair-judge.port';
+import type { PairJudgeRequest } from '@outcomes/application/ports/pair-judge.port';
 import { OpenRouterPairJudge } from '@outcomes/infrastructure/judging/openrouter-pair-judge';
 import { describe, expect, it } from 'vitest';
 
@@ -10,7 +10,7 @@ const hunk = (id: string, line: string) => ({
   lines: [line],
 });
 
-const ASK: PairJudgeAsk = {
+const REQUEST: PairJudgeRequest = {
   rubric: null,
   claims: ['It drains the queue in order.'],
   title: 'Drain the queue',
@@ -24,13 +24,13 @@ const ASK: PairJudgeAsk = {
 };
 
 const answering = (answer: Response) => {
-  const asked: RequestInit[] = [];
+  const requests: RequestInit[] = [];
   const fetch = (async (_url: string, init: RequestInit) => {
-    asked.push(init);
+    requests.push(init);
     return answer;
   }) as unknown as typeof globalThis.fetch;
 
-  return { asked, fetch };
+  return { requests, fetch };
 };
 
 const completed = (content: string) =>
@@ -44,7 +44,7 @@ const completed = (content: string) =>
 describe('judging two changes side by side through OpenRouter', () => {
   it('keeps the claims in its instructions, sends both changes and the accepted one as one JSON document, and reads which it preferred', async () => {
     const reasons = [{ text: 'A drains fast.', hunks: ['A:api/q.ts#1'] }];
-    const { asked, fetch } = answering(
+    const { requests, fetch } = answering(
       completed(JSON.stringify({ preferred: 'A', reasons })),
     );
 
@@ -52,9 +52,9 @@ describe('judging two changes side by side through OpenRouter', () => {
       'key',
       'some/model',
       fetch,
-    ).judgePair(ASK);
+    ).judgePair(REQUEST);
 
-    const body = JSON.parse(String(asked[0]?.body));
+    const body = JSON.parse(String(requests[0]?.body));
     const system = body.messages[0].content as string;
     const evidence = JSON.parse(body.messages[1].content as string);
     expect(answer).toEqual({
@@ -74,7 +74,7 @@ describe('judging two changes side by side through OpenRouter', () => {
 
   it('does not judge without an API key', async () => {
     await expect(
-      new OpenRouterPairJudge(undefined, 'some/model').judgePair(ASK),
+      new OpenRouterPairJudge(undefined, 'some/model').judgePair(REQUEST),
     ).rejects.toBeInstanceOf(JudgingError);
   });
 });

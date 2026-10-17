@@ -240,9 +240,11 @@ export class DrizzleLineRepository implements LineRepository {
       .select({ id: station.id })
       .from(station)
       .where(eq(station.lineId, saved.id.value));
-    const kept = new Set(saved.stations.map((each) => each.id.value));
+    const remaining = new Set(saved.stations.map((each) => each.id.value));
     const existing = new Set(stored.map((each) => each.id));
-    const dropped = stored.map((each) => each.id).filter((id) => !kept.has(id));
+    const dropped = stored
+      .map((each) => each.id)
+      .filter((id) => !remaining.has(id));
 
     if (dropped.length > 0) {
       await this.dropped(dropped);

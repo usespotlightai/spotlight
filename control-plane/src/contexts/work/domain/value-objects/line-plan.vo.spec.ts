@@ -412,7 +412,7 @@ describe('LinePlan', () => {
     );
   });
 
-  it('asks no setup of repositories when no station checks its layers', () => {
+  it('requires no setup of repositories when no station checks its layers', () => {
     expect(() =>
       plan({
         stations: withStations(checking({ diffs: false })),

@@ -76,7 +76,7 @@ describe('HostConnection', () => {
     expect(`${connection.accessToken}`).not.toContain('xoxb');
   });
 
-  it('is not a happening to read one back from where it was kept', () => {
+  it('is not a happening to read one back from where it was stored', () => {
     expect(rehydrated().pullEvents()).toEqual([]);
   });
 
@@ -134,7 +134,7 @@ describe('HostConnection', () => {
     expect(rehydrated().renewedWith(grant()).pullEvents()).toEqual([]);
   });
 
-  it('remembers a failed refresh, says so once, and stops asking', () => {
+  it('remembers a failed refresh, says so once, and stops trying', () => {
     const expiring = rehydrated({
       expiresAt: new Date('2026-09-07T10:01:00.000Z'),
     });

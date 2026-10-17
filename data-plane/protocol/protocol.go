@@ -79,7 +79,7 @@ type HarnessSetup struct {
 	Files      []SetupFile     `json:"files,omitempty"`
 	Session    json.RawMessage `json:"session,omitempty"`
 	McpServers []McpServer     `json:"mcpServers,omitempty"`
-	Asks       []string        `json:"asks,omitempty"`
+	AskKinds   []string        `json:"askKinds,omitempty"`
 }
 
 type SetupFile struct {
@@ -275,11 +275,11 @@ type Completion struct {
 	Message    string    `json:"message,omitempty"`
 	Handover   *Handover `json:"handover,omitempty"`
 	SessionID  string    `json:"sessionId,omitempty"`
-	Kept       bool      `json:"kept,omitempty"`
+	Archived   bool      `json:"archived,omitempty"`
 }
 
-type TurnAsks struct {
-	Asks bool `json:"asks"`
+type TurnAwaitsPerson struct {
+	AwaitsPerson bool `json:"awaitsPerson"`
 }
 
 type Completed struct {

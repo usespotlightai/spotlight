@@ -21,7 +21,7 @@ const ago = (ms: number): Date => new Date(NOW.getTime() - ms);
 const host = (overrides: Partial<HostSummary> = {}): HostSummary => ({
   id: '01J8ZQ4Y7N3K5V2W9X6RTBHCDE',
   name: 'build-box',
-  through: { kind: 'pool', key: 'ephemeral' },
+  source: { kind: 'pool', key: 'ephemeral' },
   release: '0.9.0',
   containerRuntime: 'docker',
   capacity: 4,
@@ -46,7 +46,7 @@ const runner = (
   overrides: Partial<LiveRunnerSummary> = {},
 ): LiveRunnerSummary => ({
   id: 'runner_1',
-  through: { kind: 'pool', key: 'ephemeral' },
+  source: { kind: 'pool', key: 'ephemeral' },
   hostId: '01J8ZQ4Y7N3K5V2W9X6RTBHCDE',
   image: 'ghcr.io/acme/runner:main',
   harnesses: ['claude-code'],
@@ -68,11 +68,11 @@ const MEMBER: WorkspaceMembership = {
 };
 
 const listing = (
-  given: { hosts?: HostSummary[]; runners?: LiveRunnerSummary[] } = {},
+  input: { hosts?: HostSummary[]; runners?: LiveRunnerSummary[] } = {},
   membership: WorkspaceMembership | null = MEMBER,
 ) => {
-  const inWorkspace = vi.fn().mockResolvedValue(given.runners ?? []);
-  const hostsIn = vi.fn().mockResolvedValue(given.hosts ?? []);
+  const inWorkspace = vi.fn().mockResolvedValue(input.runners ?? []);
+  const hostsIn = vi.fn().mockResolvedValue(input.hosts ?? []);
 
   const handler = new ListRunnersHandler(
     {
@@ -92,8 +92,8 @@ const listing = (
 };
 
 const handle = async (
-  given: { hosts?: HostSummary[]; runners?: LiveRunnerSummary[] } = {},
-) => listing(given).handler.execute(new ListRunnersQuery('acme', 'user_1'));
+  input: { hosts?: HostSummary[]; runners?: LiveRunnerSummary[] } = {},
+) => listing(input).handler.execute(new ListRunnersQuery('acme', 'user_1'));
 
 describe('ListRunnersHandler', () => {
   it('reports a host with a heartbeat just now as online', async () => {
@@ -102,7 +102,7 @@ describe('ListRunnersHandler', () => {
     expect(fleet?.hosts).toEqual([
       expect.objectContaining({
         id: '01J8ZQ4Y7N3K5V2W9X6RTBHCDE',
-        through: { kind: 'pool', key: 'ephemeral' },
+        source: { kind: 'pool', key: 'ephemeral' },
         running: ['runner_1'],
         images: [
           expect.objectContaining({
@@ -133,7 +133,7 @@ describe('ListRunnersHandler', () => {
     expect(fleet?.hosts[0]?.online).toBe(false);
   });
 
-  it('lists hosts for a day after their last heartbeat, and only those of the workspace asked about', async () => {
+  it('lists hosts for a day after their last heartbeat, and only those of the workspace requested', async () => {
     const { handler, hostsIn, inWorkspace } = listing();
 
     await handler.execute(new ListRunnersQuery('acme', 'user_1'));
@@ -151,7 +151,7 @@ describe('ListRunnersHandler', () => {
         runner(),
         runner({
           id: 'runner_2',
-          through: { kind: 'trust', key: 'cluster' },
+          source: { kind: 'trust', key: 'cluster' },
           hostId: null,
           image: null,
           lastHeartbeatAt: NOW,
@@ -162,7 +162,7 @@ describe('ListRunnersHandler', () => {
     expect(fleet?.runners).toEqual([
       {
         id: 'runner_1',
-        through: { kind: 'pool', key: 'ephemeral' },
+        source: { kind: 'pool', key: 'ephemeral' },
         hostId: '01J8ZQ4Y7N3K5V2W9X6RTBHCDE',
         image: 'ghcr.io/acme/runner:main',
         harnesses: ['claude-code'],
@@ -171,7 +171,7 @@ describe('ListRunnersHandler', () => {
       },
       expect.objectContaining({
         id: 'runner_2',
-        through: { kind: 'trust', key: 'cluster' },
+        source: { kind: 'trust', key: 'cluster' },
         hostId: null,
         lastHeartbeatAt: NOW.toISOString(),
       }),
@@ -181,12 +181,12 @@ describe('ListRunnersHandler', () => {
   it('still lists a host and a runner whose pool is gone, with no key to name it by', async () => {
     const gone = { kind: 'pool' as const, key: null };
     const fleet = await handle({
-      hosts: [host({ through: gone })],
-      runners: [runner({ through: gone })],
+      hosts: [host({ source: gone })],
+      runners: [runner({ source: gone })],
     });
 
-    expect(fleet?.hosts[0]?.through).toEqual(gone);
-    expect(fleet?.runners[0]?.through).toEqual(gone);
+    expect(fleet?.hosts[0]?.source).toEqual(gone);
+    expect(fleet?.runners[0]?.source).toEqual(gone);
   });
 
   it('lists nothing for someone outside the workspace', async () => {

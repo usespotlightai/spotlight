@@ -10,7 +10,7 @@ import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/
 import { ElicitResultSchema } from '@modelcontextprotocol/sdk/types.js';
 import { z } from 'zod';
 
-interface McpHeard {
+interface McpReceived {
   readonly method: string;
   readonly path: string;
   readonly authorization: string | undefined;
@@ -32,7 +32,7 @@ type Other = (
 export interface FakeMcpServer {
   readonly origin: string;
   readonly url: string;
-  readonly heard: McpHeard[];
+  readonly received: McpReceived[];
   readonly called: McpCalled[];
   started(): number;
   evictSessions(): void;
@@ -130,7 +130,7 @@ export const fakeMcpServer = async (
   options: { readonly token?: string; readonly other?: Other } = {},
 ): Promise<FakeMcpServer> => {
   const sessions = new Map<string, StreamableHTTPServerTransport>();
-  const heard: McpHeard[] = [];
+  const received: McpReceived[] = [];
   const called: McpCalled[] = [];
   let started = 0;
   let origin = '';
@@ -139,7 +139,7 @@ export const fakeMcpServer = async (
     const path = new URL(request.url ?? '/', origin).pathname;
     const authorization = headerOf(request, 'authorization');
 
-    heard.push({
+    received.push({
       method: request.method ?? 'GET',
       path,
       authorization,
@@ -198,7 +198,7 @@ export const fakeMcpServer = async (
   return {
     origin,
     url: `${origin}${PATH}`,
-    heard,
+    received,
     called,
     started: () => started,
     evictSessions: () => sessions.clear(),

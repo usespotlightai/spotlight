@@ -5,7 +5,7 @@ import type { ProvisionSecretsPort } from '@runners/application/ports/provision-
 import type { RunnerDefinitionsPort } from '@runners/application/ports/runner-definitions.port';
 import { RunnerProblems } from '@runners/application/rendering/runner-problems';
 import { assertKnownEgress } from '@runners/application/services/assert-known-egress';
-import { givenAccess } from '@runners/application/services/pool-access-given';
+import { poolAccessInput } from '@runners/application/services/pool-access-input';
 import { recordPoolTokenUse } from '@runners/application/services/record-pool-token-use';
 import { InvalidRunnerPoolError } from '@runners/domain/exceptions/invalid-runner-pool.error';
 import { PoolTokenAlreadyUsedError } from '@runners/domain/exceptions/pool-token-already-used.error';
@@ -73,7 +73,12 @@ export class UpdateRunnerPoolHandler
 
       const updated = existing.update(
         compiled,
-        await givenAccess(compiled.access, existing, this.tokens, this.secrets),
+        await poolAccessInput(
+          compiled.access,
+          existing,
+          this.tokens,
+          this.secrets,
+        ),
         Attribution.of(command.actor, permissions.workspaceId),
       );
 

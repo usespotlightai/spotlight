@@ -4,12 +4,12 @@ import type {
   ReplaySet,
 } from '@replays/domain/aggregates/replay-set.aggregate';
 import { SearchEnded } from '@replays/domain/events/search-ended.event';
-import { SearchHoldingOutWanted } from '@replays/domain/events/search-holding-out-wanted.event';
-import { SearchIterationWanted } from '@replays/domain/events/search-iteration-wanted.event';
+import { SearchHoldingOutRequested } from '@replays/domain/events/search-holding-out-requested.event';
+import { SearchIterationRequested } from '@replays/domain/events/search-iteration-requested.event';
 import { SearchReflected } from '@replays/domain/events/search-reflected.event';
 import { SearchStalledUnreflected } from '@replays/domain/events/search-stalled-unreflected.event';
 import { SearchStarted } from '@replays/domain/events/search-started.event';
-import { SearchStopAsked } from '@replays/domain/events/search-stop-asked.event';
+import { SearchStopRequested } from '@replays/domain/events/search-stop-requested.event';
 import { InvalidSearchError } from '@replays/domain/exceptions/invalid-search.error';
 import { SearchCandidateNameTakenError } from '@replays/domain/exceptions/search-candidate-name-taken.error';
 import { SearchEndedError } from '@replays/domain/exceptions/search-ended.error';
@@ -97,14 +97,14 @@ export interface RunEnding {
   readonly started: boolean;
 }
 
-export interface CauseGiven {
+export interface CauseInput {
   readonly taskId: TaskId;
   readonly cause: unknown;
   readonly evidence: unknown;
   readonly suggestion: unknown;
 }
 
-interface Admission {
+interface AcceptedProposal {
   readonly candidateId: CandidateId;
   readonly name: CandidateName;
   readonly replayId: ReplayId;
@@ -442,19 +442,19 @@ export class Search extends EventRecorder {
       .map((each) => each.replayId);
   }
 
-  admitted(run: RunId, admission: Admission): Search {
+  acceptProposal(run: RunId, proposal: AcceptedProposal): Search {
     const iteration = this.proposingIn(run);
 
-    if (this.proposals.some((each) => each.isNamed(admission.name))) {
-      throw new SearchCandidateNameTakenError(admission.name.value);
+    if (this.proposals.some((each) => each.isNamed(proposal.name))) {
+      throw new SearchCandidateNameTakenError(proposal.name.value);
     }
 
     return this.changingIteration(run, () =>
-      iteration.admitted(
+      iteration.acceptProposal(
         SearchProposal.of({
-          candidateId: admission.candidateId,
-          name: admission.name,
-          replay: SearchReplay.started(admission.replayId),
+          candidateId: proposal.candidateId,
+          name: proposal.name,
+          replay: SearchReplay.started(proposal.replayId),
           improved: null,
         }),
       ),
@@ -503,7 +503,7 @@ export class Search extends EventRecorder {
     ).advancedAt(at, runIds);
   }
 
-  recordCause(run: RunId, given: CauseGiven, at: Date): Search {
+  recordCause(run: RunId, input: CauseInput, at: Date): Search {
     const iteration = this.iterationOf(run);
 
     if (this.state.state !== 'searching' || !iteration?.ownsActiveRun) {
@@ -513,13 +513,13 @@ export class Search extends EventRecorder {
       throw new SearchNotReflectingError();
     }
 
-    const task = iteration.taskReflectedOn(given.taskId);
+    const task = iteration.taskReflectedOn(input.taskId);
 
     if (!task) {
-      throw new UnknownSearchTaskError(given.taskId.value);
+      throw new UnknownSearchTaskError(input.taskId.value);
     }
 
-    const cause = SearchCause.of({ task, ...given, at });
+    const cause = SearchCause.of({ task, ...input, at });
 
     return this.changingIteration(run, (each) => each.causeRecorded(cause));
   }
@@ -656,7 +656,7 @@ export class Search extends EventRecorder {
     const stopped = this.cutShort('stopped', at);
 
     stopped.record(
-      new SearchStopAsked(
+      new SearchStopRequested(
         this.id,
         this.teamId,
         ConfigurationChange.updated(this.whatChanged, by),
@@ -843,7 +843,7 @@ export class Search extends EventRecorder {
     });
 
     wanting.record(
-      new SearchIterationWanted(
+      new SearchIterationRequested(
         this.id,
         this.workspaceId,
         number,
@@ -861,7 +861,7 @@ export class Search extends EventRecorder {
 
     const holdingOut = this.with({ state: 'holding-out', ending });
 
-    holdingOut.record(new SearchHoldingOutWanted(this.id, this.workspaceId));
+    holdingOut.record(new SearchHoldingOutRequested(this.id, this.workspaceId));
 
     return holdingOut;
   }

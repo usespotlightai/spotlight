@@ -81,7 +81,7 @@ describe('GitDiffReader', () => {
     ]);
   });
 
-  it('keeps where each hunk sits and its lines', () => {
+  it('records where each hunk sits and its lines', () => {
     const [, second, third] = diff.hunks;
 
     expect(second).toMatchObject({
@@ -100,7 +100,7 @@ describe('GitDiffReader', () => {
     expect(third?.patch).toContain('\\ No newline at end of file');
   });
 
-  it('gives a file with no lines to show one empty hunk, so it is still placed', () => {
+  it('shows a file with no lines as one empty hunk, so it is still placed', () => {
     expect(diff.files[2]?.hunks).toEqual([
       {
         id: 'h4',
@@ -201,7 +201,7 @@ describe('GitDiffReader with the whole file as context', () => {
     expect(close.hunks).toHaveLength(1);
   });
 
-  it('keeps each side of the file, lines in place', () => {
+  it('records each side of the file, lines in place', () => {
     const lines = (side: 'before' | 'after') =>
       sources.find((each) => each.side === side)?.text.split('\n');
 
@@ -232,7 +232,7 @@ describe('GitDiffReader with the whole file as context', () => {
     ]);
   });
 
-  it('reads a diff that equals the one kept', () => {
+  it('reads a diff that equals the stored one', () => {
     expect(Diff.of(diff.files).equals(diff)).toBe(true);
     expect(reader.read(WHOLE).diff.equals(diff)).toBe(true);
   });

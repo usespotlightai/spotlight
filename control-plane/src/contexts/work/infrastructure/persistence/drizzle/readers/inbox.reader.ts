@@ -148,7 +148,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
       rows.map((row) => row.lineId),
     );
 
-    const given = await briefingsFor(
+    const briefings = await briefingsFor(
       this.db,
       [...trail.values()].flatMap((notes) =>
         notes.flatMap((note) => (note.runId ? [note.runId] : [])),
@@ -206,7 +206,7 @@ export class DrizzleInboxReader implements InboxReaderPort {
             !awaitsAPerson(notes),
           runId: stillOpen(conversation) ? row.working : null,
           unread: anyUnread(notes),
-          briefing: (note.runId && given.get(note.runId)) || null,
+          briefing: (note.runId && briefings.get(note.runId)) || null,
           failure: failureIn(notes),
           aside: null,
           notes,

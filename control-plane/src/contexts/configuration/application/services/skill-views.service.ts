@@ -10,22 +10,25 @@ export class SkillViews {
     private readonly compiler: SkillCompilerPort,
   ) {}
 
-  async of(kept: SkillRecord): Promise<SkillResourceDto | null> {
-    const team = await this.teams.find(kept.teamId);
+  async of(record: SkillRecord): Promise<SkillResourceDto | null> {
+    const team = await this.teams.find(record.teamId);
 
-    return team ? this.onTeam(kept, team.key) : null;
+    return team ? this.onTeam(record, team.key) : null;
   }
 
-  onTeam(kept: SkillRecord, teamKey: string): SkillResourceDto {
-    const read = this.compiler.compile({ key: kept.key, files: kept.files });
+  onTeam(record: SkillRecord, teamKey: string): SkillResourceDto {
+    const read = this.compiler.compile({
+      key: record.key,
+      files: record.files,
+    });
 
     return {
-      id: kept.id,
-      version: kept.version,
-      address: TeamAddress.of(teamKey, kept.key).toString(),
-      teamId: kept.teamId.value,
-      key: kept.key,
-      files: kept.files,
+      id: record.id,
+      version: record.version,
+      address: TeamAddress.of(teamKey, record.key).toString(),
+      teamId: record.teamId.value,
+      key: record.key,
+      files: record.files,
       description: read.ok ? read.skill.description : '',
       secrets: read.ok
         ? read.skill.secrets.map((each) => ({

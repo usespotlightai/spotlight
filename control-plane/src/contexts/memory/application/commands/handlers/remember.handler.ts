@@ -39,7 +39,7 @@ interface Remembrance {
   readonly site: StationSite;
   readonly steps: readonly RememberedStep[];
   readonly supersedes: Memory | null;
-  readonly asked: MemoryRemembering;
+  readonly input: MemoryRemembering;
   readonly id: MemoryId;
 }
 
@@ -85,7 +85,7 @@ export class RememberHandler
         site,
         steps,
         supersedes,
-        asked: command.remembering,
+        input: command.remembering,
         id: MemoryId.of(this.ids.generate()),
       };
       const remembered = await this.rememberedOnce(remembrance).catch(
@@ -132,7 +132,7 @@ export class RememberHandler
   private rememberedOnce(
     remembrance: Remembrance,
   ): Promise<{ draft: MemoryDraft; id: MemoryId }> {
-    const { remembering, runId, task, site, asked } = remembrance;
+    const { remembering, runId, task, site, input } = remembrance;
 
     return this.transaction.inTransaction(async () => {
       const found = await this.drafts.forTask(remembering.taskId);
@@ -146,10 +146,10 @@ export class RememberHandler
       const proposal = remembering.proposalOf({
         id: remembrance.id,
         remembered: {
-          kind: asked.kind,
-          body: asked.body,
-          reach: asked.reach,
-          paths: asked.paths,
+          kind: input.kind,
+          body: input.body,
+          scope: input.scope,
+          paths: input.paths,
           supersedes: remembrance.supersedes,
         },
         at: {
@@ -166,13 +166,13 @@ export class RememberHandler
         await (found ? this.drafts.save(next) : this.drafts.add(next));
       }
 
-      const kept = next.findProposal(proposal);
+      const stored = next.findProposal(proposal);
 
-      if (!kept) {
+      if (!stored) {
         throw new UnknownMemoryError(proposal.id.value);
       }
 
-      return { draft: next, id: kept.id };
+      return { draft: next, id: stored.id };
     });
   }
 }

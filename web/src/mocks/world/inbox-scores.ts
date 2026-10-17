@@ -74,7 +74,7 @@ const NO_JUDGE: JudgeCalibrationResponseDto = {
 };
 
 const EARLIER_RUBRIC_BODY =
-  'Score 5 where the change does what the spec asks, small and tested, and 1 where it does not do it at all.';
+  'Score 5 where the change does what the spec requires, small and tested, and 1 where it does not do it at all.';
 
 const verdict = (
   runId: string,
@@ -347,7 +347,7 @@ const pastJudgeOf = (
       {
         claim: null,
         text: yes
-          ? 'It changed what the spec asks for and left the tests passing.'
+          ? 'It changed what the spec requires and left the tests passing.'
           : 'It left a check failing and did not say why.',
         citations:
           tested < 0

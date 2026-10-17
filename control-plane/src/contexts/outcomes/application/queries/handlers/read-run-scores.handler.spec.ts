@@ -6,11 +6,11 @@ import { RunScoresViews } from '@outcomes/application/services/run-scores-views.
 import { StationJudgeReports } from '@outcomes/application/services/station-judge-reports.service';
 import { Score } from '@outcomes/domain/aggregates/score.aggregate';
 import {
-  askedJudging,
   JudgingsInMemory,
   judgeScore,
   NEXT_RUBRIC_VERSION,
   placeOf,
+  queuedJudging,
   RUBRIC_VERSION,
   rubricOf,
   ScoresInMemory,
@@ -50,7 +50,7 @@ const reading = async (agreeing: boolean, scoredBy = RUBRIC_VERSION) => {
   const judgings = new JudgingsInMemory();
   await records.add(endedRecord('run_1'));
   await judgings.add(
-    askedJudging('run_1', rubricOf('scores: yes-no\nDid it retry?', scoredBy)),
+    queuedJudging('run_1', rubricOf('scores: yes-no\nDid it retry?', scoredBy)),
   );
   await scores.add(
     Score.judge({

@@ -5,7 +5,7 @@ import type {
   IntegrationRuntimePort,
   TaskPayload,
 } from '@integrations/application/ports/integration-runtime.port';
-import type { HostReach } from '@integrations/application/services/host-reach.service';
+import type { CallAuthResolver } from '@integrations/application/services/call-auth-resolver.service';
 import { BoundTaskMapper } from '@integrations/infrastructure/acl/bound-task.mapper';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -28,7 +28,7 @@ export class TaskNotices implements TaskNoticesPort {
   constructor(
     private readonly defined: DefinedIntegrationsPort,
     private readonly runtime: IntegrationRuntimePort,
-    private readonly reach: HostReach,
+    private readonly callAuthResolver: CallAuthResolver,
     private readonly links: InboxLinksPort,
     private readonly log: LoggerPort,
   ) {}
@@ -49,7 +49,7 @@ export class TaskNotices implements TaskNoticesPort {
 
     const bound = BoundTaskMapper.toBound(task);
     const payload: TaskPayload = { task: bound, ask: await this.asking(bound) };
-    const kept: TaskMark[] = [];
+    const addedMarks: TaskMark[] = [];
 
     for (const integration of posting) {
       try {
@@ -58,11 +58,11 @@ export class TaskNotices implements TaskNoticesPort {
           integration,
           event,
           payload,
-          await this.reach.of(teamId, integration),
+          await this.callAuthResolver.of(teamId, integration),
         );
 
         if (posted.kind === 'posted') {
-          kept.push(...posted.marks);
+          addedMarks.push(...posted.marks);
         }
 
         if (posted.kind === 'failed') {
@@ -84,7 +84,7 @@ export class TaskNotices implements TaskNoticesPort {
       }
     }
 
-    return kept;
+    return addedMarks;
   }
 
   private async asking(task: BoundTask): Promise<TaskPayload['ask']> {

@@ -83,7 +83,7 @@ export class Spend {
     return this.sameCurrencyAs(ceiling) && this.micros <= ceiling.micros;
   }
 
-  reaches(ceiling: Spend): boolean {
+  meets(ceiling: Spend): boolean {
     return this.sameCurrencyAs(ceiling) && this.micros >= ceiling.micros;
   }
 

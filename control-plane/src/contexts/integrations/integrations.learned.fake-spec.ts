@@ -27,9 +27,9 @@ export class InMemoryLearnedOutputs implements LearnedOutputRepository {
 
   async save(learned: LearnedOutput): Promise<void> {
     const key = keyOf(learned.teamId, learned.tool);
-    const kept = this.stored.get(key);
+    const current = this.stored.get(key);
 
-    if ((kept?.version ?? 0) !== learned.version) {
+    if ((current?.version ?? 0) !== learned.version) {
       throw new LearnedOutputVersionConflictError(learned.tool.value);
     }
 

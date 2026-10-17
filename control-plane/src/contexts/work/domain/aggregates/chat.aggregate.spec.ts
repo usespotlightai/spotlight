@@ -55,7 +55,7 @@ const started = (body = 'Plan how retries back off.\nThen split it up.') =>
     startedBy: LEON,
     harness: HarnessId.of('claude-code'),
     repositories: [Repository.of('acme/api'), Repository.of('acme/api')],
-    body: ChatMessageBody.given(body),
+    body: ChatMessageBody.fromInput(body),
     now: NOW,
     newId: () => 'chat_1',
   });
@@ -66,7 +66,7 @@ const improving = (stationTeam: TeamId) =>
     teamId: TeamId.of('team_1'),
     startedBy: LEON,
     harness: HarnessId.of('claude-code'),
-    body: ChatMessageBody.given('Improve this station.'),
+    body: ChatMessageBody.fromInput('Improve this station.'),
     improving: ImprovedStation.rehydrate({
       teamId: stationTeam,
       lineId: LineId.of('line_1'),
@@ -128,7 +128,7 @@ describe('Chat', () => {
       teamId: TeamId.of('team_1'),
       startedBy: LEON,
       harness: HarnessId.of('claude-code'),
-      body: ChatMessageBody.given('', [
+      body: ChatMessageBody.fromInput('', [
         Attachment.of({ id: 'file_1', name: 'queue.png', size: 10 }),
       ]),
       attachments: [
@@ -154,7 +154,7 @@ describe('Chat', () => {
       teamId: TeamId.of('team_1'),
       startedBy: LEON,
       harness: HarnessId.of('claude-code'),
-      body: ChatMessageBody.given('', [], [retries]),
+      body: ChatMessageBody.fromInput('', [], [retries]),
       traces,
       now: NOW,
       newId: () => 'chat_1',
@@ -178,7 +178,7 @@ describe('Chat', () => {
     expect(() =>
       started().addMessage({
         by: LEON,
-        body: ChatMessageBody.given('And this?'),
+        body: ChatMessageBody.fromInput('And this?'),
         traces: [elsewhere],
         at: LATER,
       }),
@@ -208,7 +208,7 @@ describe('Chat', () => {
     expect(() =>
       started().addMessage({
         by: LEON,
-        body: ChatMessageBody.given('All of these'),
+        body: ChatMessageBody.fromInput('All of these'),
         traces: many,
         at: LATER,
       }),
@@ -219,7 +219,7 @@ describe('Chat', () => {
     expect(() => started('   ')).toThrow(InvalidChatMessageError);
   });
 
-  it('hears only the person who started it', () => {
+  it('accepts messages only from the person who started it', () => {
     expect(() =>
       working().addMessage({
         by: STRANGER,
@@ -259,7 +259,7 @@ describe('Chat', () => {
     ).toEqual(['And then?']);
   });
 
-  it('unacknowledges only what a run that kept nothing acknowledged, and wants following up', () => {
+  it('unacknowledges only what a run that ended without a session acknowledged, and wants following up', () => {
     const assigned = working()
       .endRun(RunId.of('run_1'))
       .addMessage({
@@ -274,7 +274,7 @@ describe('Chat', () => {
         at: LATER,
       });
 
-    const released = assigned.runKeptNothing(RunId.of('run_2'));
+    const released = assigned.runEndedWithoutSession(RunId.of('run_2'));
 
     expect(released.running).toBe(false);
     expect(released.unacknowledged.map((each) => each.position.value)).toEqual([
@@ -286,14 +286,14 @@ describe('Chat', () => {
     expect(released.wantsFollowUp).toBe(true);
   });
 
-  it('keeps what a run acknowledged when a run that is not its current run kept nothing', () => {
-    const unchanged = working().runKeptNothing(RunId.of('run_2'));
+  it('keeps what a run acknowledged when a run that is not its current run sameModel nothing', () => {
+    const unchanged = working().runEndedWithoutSession(RunId.of('run_2'));
 
     expect(unchanged.running).toBe(true);
     expect(unchanged.unacknowledged).toHaveLength(0);
   });
 
-  it('counts nothing as heard by a run that is not its current run', () => {
+  it('counts nothing as acknowledged by a run that is not its current run', () => {
     const withMessage = working()
       .endRun(RunId.of('run_1'))
       .addMessage({
@@ -308,8 +308,8 @@ describe('Chat', () => {
     ).toHaveLength(1);
   });
 
-  it('keeps what a run heard once it started', () => {
-    const heard = working()
+  it('keeps what a run acknowledged once it started', () => {
+    const acknowledged = working()
       .addMessage({
         by: LEON,
         body: ChatMessageBody.of('Split it.'),
@@ -317,8 +317,10 @@ describe('Chat', () => {
       })
       .acknowledgeUpTo(RunId.of('run_1'), SECOND, LATER);
 
-    expect(heard.messages[1]?.wasAcknowledgedBy(RunId.of('run_1'))).toBe(true);
-    expect(heard.endRun(RunId.of('run_1')).wantsFollowUp).toBe(false);
+    expect(acknowledged.messages[1]?.wasAcknowledgedBy(RunId.of('run_1'))).toBe(
+      true,
+    );
+    expect(acknowledged.endRun(RunId.of('run_1')).wantsFollowUp).toBe(false);
   });
 
   it('is not assigned to a second run while one works it', () => {
@@ -356,14 +358,14 @@ describe('Chat', () => {
     expect(picked.effort?.value).toBe('high');
     expect(picked.harness.value).toBe(started().harness.value);
 
-    const kept = picked.addMessage({
+    const sameModel = picked.addMessage({
       by: LEON,
       body: ChatMessageBody.of('And again.'),
       at: LATER,
     });
-    expect(kept.model?.value).toBe('opus');
+    expect(sameModel.model?.value).toBe('opus');
 
-    const defaulted = kept.addMessage({
+    const defaulted = sameModel.addMessage({
       by: LEON,
       body: ChatMessageBody.of('Back to the default.'),
       model: null,
@@ -408,7 +410,7 @@ describe('Chat', () => {
       expect(ended.followsUp).toBe(true);
     });
 
-    it('does not follow up after a run it was asked to stop', () => {
+    it('does not follow up after a run with a stop request', () => {
       const ended = messagedMeanwhile().runEnded(RunId.of('run_1'), {
         session: SESSION,
         workedBy: RUNNER,
@@ -419,7 +421,7 @@ describe('Chat', () => {
       expect(ended.followsUp).toBe(false);
     });
 
-    it('unacknowledges what a run that kept no session acknowledged, and leaves the follow-up for later', () => {
+    it('unacknowledges what a run that ended without a session acknowledged, and leaves the follow-up for later', () => {
       const ended = messagedMeanwhile().runEnded(RunId.of('run_1'), {
         session: null,
         workedBy: RUNNER,
@@ -576,7 +578,7 @@ describe('Chat', () => {
         startedBy: LEON,
         harness: HarnessId.of('claude-code'),
         repositories: [Repository.of('acme/api')],
-        body: ChatMessageBody.given('Set up our configuration.'),
+        body: ChatMessageBody.fromInput('Set up our configuration.'),
         setup: ConfigHome.of({ repository: 'acme/infra', folder: 'spotlight' }),
         now: NOW,
         newId: () => 'chat_1',

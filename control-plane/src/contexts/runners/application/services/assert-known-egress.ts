@@ -15,6 +15,6 @@ export const assertKnownEgress = async (
   validateEgress(reference, {
     workspaceId,
     named: id ? await egresses.findToName(id) : null,
-    platformKept: platform !== null,
+    platformStored: platform !== null,
   });
 };

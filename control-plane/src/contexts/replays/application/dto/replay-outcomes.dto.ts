@@ -73,7 +73,7 @@ export type ReplayCheckStartedOutcome =
   | { readonly outcome: 'reused'; readonly id: string }
   | {
       readonly outcome: 'unchanged';
-      readonly keptLive: readonly string[];
+      readonly scoringPinnedToLive: readonly string[];
     };
 
 export type CandidatePicked = Planned<{

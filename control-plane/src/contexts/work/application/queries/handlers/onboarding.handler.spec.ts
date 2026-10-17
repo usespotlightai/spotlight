@@ -10,7 +10,7 @@ import type { SetupStatus } from '@work/application/services/setup-status.servic
 import { SETUP_STEPS, type SetupState } from '@work/domain/services/setup-list';
 import { describe, expect, it, vi } from 'vitest';
 
-type Given = {
+type Options = {
   member?: boolean;
   state?: Partial<SetupState>;
   hasAWayOut?: boolean;
@@ -24,10 +24,10 @@ const nothing: SetupState = {
   configured: false,
 };
 
-const handler = (given: Given = {}) => {
+const handler = (options: Options = {}) => {
   const workspaces = {
     findTeamForMember: vi.fn().mockResolvedValue(
-      given.member === false
+      options.member === false
         ? null
         : {
             teamId: 'team_1',
@@ -40,21 +40,21 @@ const handler = (given: Given = {}) => {
 
   const setup = {
     of: vi.fn().mockResolvedValue({
-      state: { ...nothing, ...given.state },
-      hasAWayOut: given.hasAWayOut ?? false,
-      chat: given.chat ?? null,
+      state: { ...nothing, ...options.state },
+      hasAWayOut: options.hasAWayOut ?? false,
+      chat: options.chat ?? null,
     }),
   } as unknown as SetupStatus;
 
   const provisioning: TeamProvisioningPort = {
-    of: vi.fn().mockResolvedValue(given.provisioning ?? 'done'),
+    of: vi.fn().mockResolvedValue(options.provisioning ?? 'done'),
   };
 
   return new OnboardingHandler(workspaces, setup, provisioning);
 };
 
-const read = (given: Given = {}) =>
-  handler(given).execute(new OnboardingQuery('team_1', 'user_1'));
+const read = (options: Options = {}) =>
+  handler(options).execute(new OnboardingQuery('team_1', 'user_1'));
 
 const step = (of: Awaited<ReturnType<typeof read>>, key: string) =>
   of?.steps.find((each) => each.key === key);

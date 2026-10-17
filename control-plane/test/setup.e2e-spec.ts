@@ -107,7 +107,7 @@ describe('the open setup lists of a team', () => {
     ).not.toContain(list.id.value);
   });
 
-  it('keeps to the workspace it is asked about', async () => {
+  it('stays within the workspace it is requested for', async () => {
     const mine = await createTeam('hendricks');
     const theirs = await createTeam('sarah');
 

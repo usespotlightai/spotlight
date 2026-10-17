@@ -71,20 +71,20 @@ describe('Attachment', () => {
     expect(file().equals(file({ id: 'file_2' }))).toBe(false);
   });
 
-  it('reads back what was kept, whatever today\u2019s rules say', () => {
-    const kept = Attachment.rehydrate({
+  it('reads back what was stored, whatever today\u2019s rules say', () => {
+    const stored = Attachment.rehydrate({
       id: 'file_1',
       name: '.hidden name',
       contentType: 'application/x-made-up',
       size: MAX_ATTACHMENT_BYTES * 2,
     });
 
-    expect(kept.name).toBe('.hidden name');
-    expect(kept.contentType).toBe('application/x-made-up');
-    expect(kept.size).toBe(MAX_ATTACHMENT_BYTES * 2);
+    expect(stored.name).toBe('.hidden name');
+    expect(stored.contentType).toBe('application/x-made-up');
+    expect(stored.size).toBe(MAX_ATTACHMENT_BYTES * 2);
   });
 
-  it('says whether a size may be kept at all', () => {
+  it('says whether a size may be stored at all', () => {
     expect(Attachment.tooLarge(MAX_ATTACHMENT_BYTES)).toBe(false);
     expect(Attachment.tooLarge(MAX_ATTACHMENT_BYTES + 1)).toBe(true);
   });

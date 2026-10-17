@@ -7,10 +7,10 @@ export const marksTakenFrom = (
   [
     ...new Map(markedTasks.map((each) => [each.id.value, each])).values(),
   ].flatMap((markedTask) => {
-    const given = taker.marks.reduce(
+    const marked = taker.marks.reduce(
       (task, mark) => task.markTakenBy(mark, taker.id),
       markedTask,
     );
 
-    return given === markedTask ? [] : [given];
+    return marked === markedTask ? [] : [marked];
   });

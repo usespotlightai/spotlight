@@ -182,9 +182,9 @@ const heredoc = (node: Node, text: string): string | null => {
 
   const lines = text.slice(after + 1, closingLine + 1).split('\n');
   const content = lines.slice(0, -1);
-  const kept = start.text.startsWith('<<-') ? flushed(content) : content;
+  const unindented = start.text.startsWith('<<-') ? flushed(content) : content;
 
-  return unescapedTemplate(kept.map((each) => `${each}\n`).join(''));
+  return unescapedTemplate(unindented.map((each) => `${each}\n`).join(''));
 };
 
 const literalOf = (node: Node, text: string): HclLiteral | undefined => {
@@ -267,10 +267,10 @@ const fileOf = (node: Node): HclRead | null => {
   }
 
   const args = childOf(called, 'function_arguments');
-  const given = args ? namedOf(args) : [];
-  const [only] = given;
+  const named = args ? namedOf(args) : [];
+  const [only] = named;
 
-  if (!only || given.length !== 1 || args?.text.includes('...')) {
+  if (!only || named.length !== 1 || args?.text.includes('...')) {
     return null;
   }
 

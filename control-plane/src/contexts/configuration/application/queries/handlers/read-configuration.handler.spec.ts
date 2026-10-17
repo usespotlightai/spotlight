@@ -17,7 +17,7 @@ const TEAM: TeamProfile = {
   workspaceId: WorkspaceId.of('ws_1'),
 };
 
-const asking = (
+const reading = (
   over: {
     workspace?: null;
     applied?: boolean;
@@ -64,13 +64,13 @@ const query = () => new ConfigurationQuery('acme', 'user_1');
 
 describe('ConfigurationHandler', () => {
   it('says what the team listens to', async () => {
-    const read = await asking().execute(query());
+    const read = await reading().execute(query());
 
     expect(read?.integrations.map((each) => each.source)).toEqual(['linear']);
   });
 
-  it('says how many tools the API description it names gave, and when it was read', async () => {
-    const read = await asking({ described: true }).execute(query());
+  it('says how many tools the API description it names lists, and when it was read', async () => {
+    const read = await reading({ described: true }).execute(query());
 
     expect(read?.integrations[0]?.described).toEqual({
       kind: 'openapi',
@@ -79,18 +79,18 @@ describe('ConfigurationHandler', () => {
       problem: null,
     });
     expect(
-      (await asking().execute(query()))?.integrations[0]?.described,
+      (await reading().execute(query()))?.integrations[0]?.described,
     ).toBeNull();
   });
 
   it('says which resource defines each host', async () => {
-    const read = await asking().execute(query());
+    const read = await reading().execute(query());
 
     expect(read?.integrations[0]?.path).toBe('integrations/linear');
   });
 
   it('says a host is unlinked where it links by authorizing but the team has not', async () => {
-    const read = await asking({ connects: true }).execute(query());
+    const read = await reading({ connects: true }).execute(query());
 
     expect(read?.integrations[0]).toMatchObject({
       connectionStatus: 'unlinked',
@@ -99,7 +99,7 @@ describe('ConfigurationHandler', () => {
   });
 
   it('says a host is linked, and what it calls the team, once the team has authorized it', async () => {
-    const read = await asking({
+    const read = await reading({
       connects: true,
       handle: 'Acme',
     }).execute(query());
@@ -111,18 +111,18 @@ describe('ConfigurationHandler', () => {
   });
 
   it('says a host that does not link that way only listens', async () => {
-    const read = await asking().execute(query());
+    const read = await reading().execute(query());
 
     expect(read?.integrations[0]?.connectionStatus).toBe('listens');
   });
 
   it('lists nothing where the team listens to nothing', async () => {
-    const read = await asking({ applied: false }).execute(query());
+    const read = await reading({ applied: false }).execute(query());
 
     expect(read).toEqual({ integrations: [] });
   });
 
   it('answers with nothing where the team is not the caller’s', async () => {
-    expect(await asking({ workspace: null }).execute(query())).toBeNull();
+    expect(await reading({ workspace: null }).execute(query())).toBeNull();
   });
 });

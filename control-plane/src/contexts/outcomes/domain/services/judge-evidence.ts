@@ -25,8 +25,8 @@ export interface JudgedStep {
   readonly kind: string;
   readonly tool: string | null;
   readonly text: string;
-  readonly given: string | null;
-  readonly returned: string | null;
+  readonly input: string | null;
+  readonly output: string | null;
 }
 
 export interface JudgedHunk {
@@ -55,8 +55,8 @@ const sizeOfStep = (step: JudgedStep): number =>
   step.kind.length +
   (step.tool?.length ?? 0) +
   step.text.length +
-  (step.given?.length ?? 0) +
-  (step.returned?.length ?? 0);
+  (step.input?.length ?? 0) +
+  (step.output?.length ?? 0);
 
 const sizeOfHunk = (hunk: JudgedHunk): number =>
   hunk.lines.reduce(
@@ -65,16 +65,16 @@ const sizeOfHunk = (hunk: JudgedHunk): number =>
   );
 
 const clippedLines = (lines: readonly string[]): string[] => {
-  const kept = lines
+  const selected = lines
     .slice(0, MAX_PROMPT_HUNK_LINES)
     .map((line) => clipped(line, MAX_PROMPT_LINE_CHARS));
-  const left = lines.length - kept.length;
+  const left = lines.length - selected.length;
 
-  return left > 0 ? [...kept, `… ${left} more lines`] : kept;
+  return left > 0 ? [...selected, `… ${left} more lines`] : selected;
 };
 
 const latestWithin = (steps: readonly JudgedStep[]): JudgedStep[] => {
-  const kept: JudgedStep[] = [];
+  const selected: JudgedStep[] = [];
   let used = 0;
 
   for (const step of [...steps].reverse()) {
@@ -82,15 +82,15 @@ const latestWithin = (steps: readonly JudgedStep[]): JudgedStep[] => {
       break;
     }
 
-    kept.push(step);
+    selected.push(step);
     used += sizeOfStep(step);
   }
 
-  return kept.reverse();
+  return selected.reverse();
 };
 
 const firstWithin = (hunks: readonly JudgedHunk[]): JudgedHunk[] => {
-  const kept: JudgedHunk[] = [];
+  const selected: JudgedHunk[] = [];
   let used = 0;
 
   for (const hunk of hunks) {
@@ -100,11 +100,11 @@ const firstWithin = (hunks: readonly JudgedHunk[]): JudgedHunk[] => {
       continue;
     }
 
-    kept.push(shortened);
+    selected.push(shortened);
     used += sizeOfHunk(shortened);
   }
 
-  return kept;
+  return selected;
 };
 
 export class JudgeEvidence {
@@ -144,7 +144,7 @@ export class JudgeEvidence {
   }
 
   against(reference: readonly JudgedHunk[]): JudgeEvidence {
-    const kept = firstWithin(
+    const selected = firstWithin(
       reference.map((hunk) => ({ ...hunk, id: `${REFERENCE}${hunk.id}` })),
     );
 
@@ -156,8 +156,8 @@ export class JudgeEvidence {
       this.stepsLeftOut,
       this.hunks,
       this.hunksLeftOut,
-      kept.length > 0
-        ? { hunks: kept, hunksLeftOut: reference.length - kept.length }
+      selected.length > 0
+        ? { hunks: selected, hunksLeftOut: reference.length - selected.length }
         : null,
     );
   }

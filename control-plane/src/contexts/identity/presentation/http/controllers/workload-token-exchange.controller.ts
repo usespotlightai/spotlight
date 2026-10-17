@@ -23,7 +23,7 @@ import { CLIENT_HEADER } from '@platform/http/resources/resource-headers';
 import { Client } from '@shared-kernel/domain/value-objects/client.vo';
 
 const UNAUTHORIZED =
-  'Spotlight did not accept the exchange. Possible causes: an unknown trust, a token its issuer did not sign for the trust’s audience, a workload the trust does not admit, or a deleted workspace';
+  'Spotlight did not accept the exchange. Possible causes: an unknown trust, a token its issuer did not sign for the trust’s audience, a workload the trust does not match, or a deleted workspace';
 
 @ApiTags('workspace-tokens')
 @AllowAnonymous()
@@ -36,7 +36,7 @@ export class WorkloadTokenExchangeController {
   @ApiOperation({
     operationId: 'exchangeWorkloadToken',
     summary:
-      'Exchange the OIDC token a CI platform issued a workload for a short-lived workspace token, through a workspace token trust that admits it',
+      'Exchange the OIDC token a CI platform issued a workload for a short-lived workspace token, through a workspace token trust that matches it',
   })
   @ApiOkResponse({ type: IssuedTokenResponseDto })
   @ApiUnauthorizedResponse({ description: UNAUTHORIZED })

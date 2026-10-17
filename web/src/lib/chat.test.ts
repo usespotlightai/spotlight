@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import {
-  askHandedOver,
   type ChatMessage,
   chatPath,
   improvingHandedOver,
   momentsOf,
+  promptHandedOver,
   tracesHandedOver,
   turnsOf,
 } from '@/lib/chat';
@@ -33,8 +33,8 @@ const step = (over: Partial<JournalStep>): JournalStep =>
     ms: 10,
     startedAt: '2026-09-14T09:00:01.000Z',
     locations: [],
-    given: null,
-    returned: null,
+    input: null,
+    output: null,
     change: null,
     ...over,
   }) as JournalStep;
@@ -206,17 +206,17 @@ describe('tracesHandedOver', () => {
   });
 });
 
-describe('askHandedOver', () => {
+describe('promptHandedOver', () => {
   it('takes the question handed over with the station', () => {
-    expect(askHandedOver({ ask: 'What should change?' })).toBe(
+    expect(promptHandedOver({ prompt: 'What should change?' })).toBe(
       'What should change?',
     );
   });
 
   it('takes nothing where no question, or a blank one, was handed over', () => {
-    expect(askHandedOver(null)).toBeNull();
-    expect(askHandedOver({ ask: '  ' })).toBeNull();
-    expect(askHandedOver({ ask: 42 })).toBeNull();
+    expect(promptHandedOver(null)).toBeNull();
+    expect(promptHandedOver({ prompt: '  ' })).toBeNull();
+    expect(promptHandedOver({ prompt: 42 })).toBeNull();
   });
 });
 

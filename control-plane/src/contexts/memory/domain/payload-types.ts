@@ -2,8 +2,8 @@ import { MemoriesProposed } from '@memory/domain/events/memories-proposed.event'
 import { MemoriesUsed } from '@memory/domain/events/memories-used.event';
 import { MemoryApproved } from '@memory/domain/events/memory-approved.event';
 import { MemoryCreated } from '@memory/domain/events/memory-created.event';
-import { MemoryDraftingAsked } from '@memory/domain/events/memory-drafting-asked.event';
 import { MemoryDraftingFailed } from '@memory/domain/events/memory-drafting-failed.event';
+import { MemoryDraftingRequested } from '@memory/domain/events/memory-drafting-requested.event';
 import { MemoryRetired } from '@memory/domain/events/memory-retired.event';
 import { MemoryReviewResolved } from '@memory/domain/events/memory-review-resolved.event';
 import { MemoryBody } from '@memory/domain/value-objects/memory-body';
@@ -29,7 +29,7 @@ export const MEMORY_PAYLOAD_TYPES = [
   MemoryScope,
   MemoriesProposed,
   MemoriesUsed,
-  MemoryDraftingAsked,
+  MemoryDraftingRequested,
   MemoryDraftingFailed,
   MemoryApproved,
   MemoryReviewResolved,

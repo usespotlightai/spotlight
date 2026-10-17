@@ -1,6 +1,6 @@
 export const PAIR_JUDGING = Symbol('PAIR_JUDGING');
 
-export interface PairJudgingAsk {
+export interface PairJudgingRequest {
   readonly runId: string;
   readonly against: string;
   readonly workspaceId: string;
@@ -12,8 +12,11 @@ export interface PairJudgingAsk {
   readonly maxAttempts: number;
 }
 
-export type PairJudgingAnswer = 'asked' | 'unavailable' | 'unreadable-rubric';
+export type PairJudgingAnswer =
+  | 'requested'
+  | 'unavailable'
+  | 'unreadable-rubric';
 
 export interface PairJudgingPort {
-  ask(asked: PairJudgingAsk): Promise<PairJudgingAnswer>;
+  request(request: PairJudgingRequest): Promise<PairJudgingAnswer>;
 }

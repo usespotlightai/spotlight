@@ -218,14 +218,14 @@ export class ProblemException extends HttpException {
   }
 
   static unsupportedApiVersion(
-    asked: string,
+    requested: string,
     supported: readonly string[],
   ): ProblemException {
     return new ProblemException({
       type: problemType('unsupported-api-version'),
       title: 'This API version is not served here',
       status: HttpStatus.BAD_REQUEST,
-      detail: `API version ${asked} is not supported. Supported versions: ${supported.join(', ')}`,
+      detail: `API version ${requested} is not supported. Supported versions: ${supported.join(', ')}`,
     });
   }
 }

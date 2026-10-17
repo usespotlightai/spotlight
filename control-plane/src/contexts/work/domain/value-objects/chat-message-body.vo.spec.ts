@@ -29,27 +29,31 @@ const RETRIES = TraceReference.of({
   teamId: TeamId.of('team_1'),
 });
 
-describe('ChatMessageBody.given', () => {
+describe('ChatMessageBody.fromInput', () => {
   it('keeps what the person wrote', () => {
     expect(
-      ChatMessageBody.given('  Make it smaller.  ', [], [], IMPLEMENTATION)
+      ChatMessageBody.fromInput('  Make it smaller.  ', [], [], IMPLEMENTATION)
         .value,
     ).toBe('Make it smaller.');
   });
 
-  it('says which station it was asked to improve when nothing was written', () => {
-    expect(ChatMessageBody.given('', [], [], IMPLEMENTATION).value).toBe(
-      'Asked to improve Implementation on Delivery.',
+  it('says which station the person wants to improve when nothing was written', () => {
+    expect(ChatMessageBody.fromInput('', [], [], IMPLEMENTATION).value).toBe(
+      'Requested an improvement to Implementation on Delivery.',
     );
   });
 
   it('names the station before the traces it shares', () => {
-    expect(ChatMessageBody.given('', [], [RETRIES], IMPLEMENTATION).value).toBe(
-      'Asked to improve Implementation on Delivery. Shared the trace of Retries back off.',
+    expect(
+      ChatMessageBody.fromInput('', [], [RETRIES], IMPLEMENTATION).value,
+    ).toBe(
+      'Requested an improvement to Implementation on Delivery. Shared the trace of Retries back off.',
     );
   });
 
   it('rejects a message that says nothing, attaches nothing and names nothing', () => {
-    expect(() => ChatMessageBody.given('   ')).toThrow(InvalidChatMessageError);
+    expect(() => ChatMessageBody.fromInput('   ')).toThrow(
+      InvalidChatMessageError,
+    );
   });
 });

@@ -175,7 +175,7 @@ export class DrizzlePullRequests implements PullRequestRepository {
     return row ? toPullRequest(row) : null;
   }
 
-  async lastHeardBefore(
+  async lastUpdatedBefore(
     before: Date,
     after: PullRequest | null,
     max: number,

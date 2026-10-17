@@ -55,7 +55,7 @@ describe('compileSkill', () => {
     ).toEqual(['files.../escape', 'files./etc/passwd']);
   });
 
-  it('rejects a key Spotlight keeps for the skills it ships', () => {
+  it('rejects a key Spotlight reserves for the skills it ships', () => {
     expect(
       invalidAt({ key: 'spotlight-review', files: { 'SKILL.md': MAIN } }),
     ).toEqual([['key', expect.stringContaining('spotlight-')]]);

@@ -113,7 +113,7 @@ export function StartReplayDialog({
           <DialogTitle>Replay {set.name}</DialogTitle>
           <DialogDescription>
             Each of the set’s {set.entries.length} runs restarts from its
-            starting point under the chosen config. Nothing reaches the task,
+            starting point under the chosen config. Nothing goes to the task,
             GitHub or any inbox.
           </DialogDescription>
         </DialogHeader>

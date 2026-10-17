@@ -89,7 +89,7 @@ func Fetch(ctx context.Context, transport http.RoundTripper, stored protocol.Sto
 	sum := sha256.New()
 	copied, err := io.Copy(io.MultiWriter(file, sum), io.LimitReader(response.Body, stored.Size+1))
 	if err == nil && (copied != stored.Size || hex.EncodeToString(sum.Sum(nil)) != stored.SHA256) {
-		err = fmt.Errorf("the workspace fetched is not the one kept: %d bytes, expected %d", copied, stored.Size)
+		err = fmt.Errorf("the workspace fetched is not the one stored: %d bytes, expected %d", copied, stored.Size)
 	}
 	if err == nil {
 		_, err = file.Seek(0, io.SeekStart)

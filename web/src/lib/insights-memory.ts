@@ -40,7 +40,7 @@ export const memoryTiles = (memory: InsightsMemory): MemoryTile[] => [
     id: 'active',
     label: 'Active memories',
     value: formatCount(memory.activeCount),
-    detail: 'Kept by the team now',
+    detail: 'Approved by the team now',
   },
   {
     id: 'briefed',

@@ -49,14 +49,14 @@ const prefixOf = (
 const starlark = (value: string): string => JSON.stringify(value);
 
 const nativeKeys = (profile: HarnessSettings): Record<string, unknown> => {
-  const given = profile.native[HARNESS];
+  const native = profile.native[HARNESS];
 
-  if (typeof given !== 'string') {
+  if (typeof native !== 'string') {
     return {};
   }
 
   try {
-    return parse(given);
+    return parse(native);
   } catch {
     return {};
   }

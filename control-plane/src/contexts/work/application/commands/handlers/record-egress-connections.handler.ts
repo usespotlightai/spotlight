@@ -70,9 +70,9 @@ export class RecordEgressConnectionsHandler
       const byCredential = new Map<string, EgressConnectionRecord[]>();
 
       for (const record of command.records) {
-        const kept = byCredential.get(record.proxyCredential) ?? [];
-        kept.push(record);
-        byCredential.set(record.proxyCredential, kept);
+        const grouped = byCredential.get(record.proxyCredential) ?? [];
+        grouped.push(record);
+        byCredential.set(record.proxyCredential, grouped);
       }
 
       let recorded = 0;

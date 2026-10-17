@@ -56,7 +56,7 @@ export class NoteByCallbackHandler
             grant.taskId.value,
             note.body,
             grant.hook,
-            grant.noteHeardAs(command.idempotencyKey),
+            grant.noteIdempotencyKey(command.idempotencyKey),
           ),
       );
 

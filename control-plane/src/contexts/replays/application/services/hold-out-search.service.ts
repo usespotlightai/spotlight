@@ -24,7 +24,7 @@ export class HoldOutSearch {
     private readonly healths: SetHealths,
   ) {}
 
-  async wanted(searchId: SearchId): Promise<void> {
+  async requested(searchId: SearchId): Promise<void> {
     const seen = await this.searches.find(searchId);
 
     if (!seen?.wantsHoldingOut) {

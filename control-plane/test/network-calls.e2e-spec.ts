@@ -108,7 +108,7 @@ describe('DrizzleNetworkCallRepository', () => {
     expect(await calls.claimNext(WorkspaceId.of('ws_1'), HOST, NOW)).toBeNull();
   });
 
-  it('hands each call to one host only, however many ask at once', async () => {
+  it('hands each call to one host only, however many request at once', async () => {
     for (let each = 0; each < 3; each++) {
       await queued({ at: later(-each) });
     }
@@ -128,7 +128,7 @@ describe('DrizzleNetworkCallRepository', () => {
     expect(new Set(claimedIds).size).toBe(3);
   });
 
-  it('keeps the answer, and does not write over a call that changed', async () => {
+  it('stores the answer, and does not write over a call that changed', async () => {
     const call = await queued();
     await calls.claimNext(WorkspaceId.of('ws_1'), HOST, NOW);
     const claimed = await calls.find(call.id);
@@ -168,7 +168,7 @@ describe('DrizzleNetworkCallRepository', () => {
     });
   });
 
-  it('keeps no header or body of a call once it is answered or expired', async () => {
+  it('stores no header or body of a call once it is answered or expired', async () => {
     const answered = await queued();
     await calls.claimNext(WorkspaceId.of('ws_1'), HOST, NOW);
     const claimed = await calls.find(answered.id);
@@ -192,7 +192,7 @@ describe('DrizzleNetworkCallRepository', () => {
 
     await calls.save((expiring as NetworkCall).expire(NOW));
 
-    const kept = await database.db
+    const stored = await database.db
       .select({
         id: networkCall.id,
         state: networkCall.state,
@@ -203,7 +203,7 @@ describe('DrizzleNetworkCallRepository', () => {
       })
       .from(networkCall);
 
-    expect(kept.sort((one, other) => one.id.localeCompare(other.id))).toEqual(
+    expect(stored.sort((one, other) => one.id.localeCompare(other.id))).toEqual(
       [
         {
           id: answered.id.value,

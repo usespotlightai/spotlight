@@ -33,7 +33,7 @@ export const policedFetch =
     inject: Injecting = async () => InjectedSecrets.none(),
   ): PolicedFetch =>
   async (url, init) => {
-    const given = Object.fromEntries(new Headers(init?.headers));
+    const headers = Object.fromEntries(new Headers(init?.headers));
     let injected = InjectedSecrets.none();
 
     try {
@@ -46,7 +46,7 @@ export const policedFetch =
           body: bodyOf(init?.body),
         },
         async (hop): Promise<Dressed> => {
-          const request = { url: new URL(hop.url), headers: { ...given } };
+          const request = { url: new URL(hop.url), headers: { ...headers } };
           const injectedNow = await inject(hop, request);
 
           if (injectedNow.isEmpty) {

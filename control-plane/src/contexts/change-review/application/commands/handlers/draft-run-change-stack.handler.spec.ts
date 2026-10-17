@@ -124,7 +124,7 @@ describe('DraftRunChangeStackHandler', () => {
     );
   });
 
-  it('asks for no check when the station has none', async () => {
+  it('requests no check when the station has none', async () => {
     const { handler, begin } = drafting({ checking: null });
 
     await handler.execute(handed());
@@ -135,7 +135,7 @@ describe('DraftRunChangeStackHandler', () => {
     );
   });
 
-  it('asks for no check when the station’s check command is blank', async () => {
+  it('requests no check when the station’s check command is blank', async () => {
     const { handler, begin } = drafting({
       checking: { ...checking, command: '   ' },
     });

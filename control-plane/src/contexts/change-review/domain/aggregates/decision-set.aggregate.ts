@@ -5,10 +5,10 @@ import {
 import { DecisionDispute } from '@change-review/domain/entities/decision-dispute.entity';
 import { DecisionDisputed } from '@change-review/domain/events/decision-disputed.event';
 import { DecisionDraftingFailed } from '@change-review/domain/events/decision-drafting-failed.event';
-import { DecisionsAsked } from '@change-review/domain/events/decisions-asked.event';
 import { DecisionsDiscarded } from '@change-review/domain/events/decisions-discarded.event';
 import { DecisionsMerged } from '@change-review/domain/events/decisions-merged.event';
 import { DecisionsRecorded } from '@change-review/domain/events/decisions-recorded.event';
+import { DecisionsRequested } from '@change-review/domain/events/decisions-requested.event';
 import { InvalidDecisionError } from '@change-review/domain/exceptions/invalid-decision.error';
 import { UnknownDecisionError } from '@change-review/domain/exceptions/unknown-decision.error';
 import type { DecisionDisputeId } from '@change-review/domain/value-objects/decision-dispute-id.vo';
@@ -111,7 +111,7 @@ export class DecisionSet
     return this.draft?.job.exhausted ?? false;
   }
 
-  asked(runId: RunId, now: Date): DecisionSet {
+  requestDraft(runId: RunId, now: Date): DecisionSet {
     if (
       this.status.isMerged ||
       this.draft?.isFor(runId) ||
@@ -120,9 +120,9 @@ export class DecisionSet
       return this;
     }
 
-    const asked = this.with({ draft: DecisionDraft.asked(runId, now) });
-    asked.record(new DecisionsAsked(this.id, this.taskId, runId));
-    return asked;
+    const requested = this.with({ draft: DecisionDraft.requested(runId, now) });
+    requested.record(new DecisionsRequested(this.id, this.taskId, runId));
+    return requested;
   }
 
   leaseJob(now: Date): DecisionSet {
@@ -155,11 +155,11 @@ export class DecisionSet
       return this;
     }
 
-    const kept = this.with({ draft: null });
-    kept.record(
+    const cleared = this.with({ draft: null });
+    cleared.record(
       new DecisionDraftingFailed(this.id, this.taskId, this.draft.runId),
     );
-    return kept;
+    return cleared;
   }
 
   recordDraft(input: {
@@ -175,7 +175,7 @@ export class DecisionSet
     const valid = input.proposed.flatMap((each) => {
       try {
         const decision = Decision.of(DecisionId.of(input.newId()), each);
-        return input.grounds.admits(decision) ? [decision] : [];
+        return input.grounds.allows(decision) ? [decision] : [];
       } catch (error) {
         if (error instanceof InvalidDecisionError) {
           return [];

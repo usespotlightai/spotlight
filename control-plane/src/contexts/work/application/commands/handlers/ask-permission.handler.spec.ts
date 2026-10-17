@@ -152,7 +152,7 @@ const asking = (start: Task, subject?: RunSubject) => {
       { now: () => NOW, sleep: async () => {} },
     ),
     {
-      askedFor: (title) =>
+      toolFor: (title) =>
         title === 'mcp__linear__create_issue'
           ? CalledTool.of({ server: 'linear', tool: 'create_issue' })
           : null,

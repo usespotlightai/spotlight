@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { CatalogGivings } from '@catalog/application/services/catalog-givings.service';
+import { CatalogEntitlements } from '@catalog/application/services/catalog-entitlements.service';
 import { CATALOG_ITEMS } from '@catalog/infrastructure/catalog/catalog-items';
 import { SeededCatalog } from '@catalog/infrastructure/catalog/seeded-catalog';
 import { DrizzleMeteredCalls } from '@catalog/infrastructure/persistence/drizzle/ledgers/metered-calls.ledger';
@@ -232,13 +232,13 @@ describe('the catalog, read as Terraform data sources (e2e)', () => {
   });
 });
 
-describe('a station giving catalog tools and skills (e2e)', () => {
+describe('a station enabling catalog tools and skills (e2e)', () => {
   let app: INestApplication;
   let db: DrizzleDatabase;
   let team: string;
   let seat: Awaited<ReturnType<typeof seatTeam>>;
 
-  const giving = (tools: string[], skills: string[]) => {
+  const enabling = (tools: string[], skills: string[]) => {
     const delivery = definitionOf(BUILT_IN_LINES[0] as LineOpening);
 
     return {
@@ -265,7 +265,7 @@ describe('a station giving catalog tools and skills (e2e)', () => {
   });
 
   beforeEach(async () => {
-    team = `giving-${randomUUID().slice(0, 8)}`;
+    team = `enabling-${randomUUID().slice(0, 8)}`;
     seat = await seatTeam(db, team);
   });
 
@@ -292,7 +292,7 @@ describe('a station giving catalog tools and skills (e2e)', () => {
   it('rejects a line naming a catalog item the plan does not include, pointing at where it is named', async () => {
     const at = definitionOf(BUILT_IN_LINES[0] as LineOpening).stations[1]?.tools
       .length;
-    const rejected = await created(giving(['catalog.web-search@1.1.0'], []));
+    const rejected = await created(enabling(['catalog.web-search@1.1.0'], []));
 
     expect(rejected.status).toBe(422);
     expect(rejected.body.errors).toEqual([
@@ -307,7 +307,7 @@ describe('a station giving catalog tools and skills (e2e)', () => {
   it('rejects a line naming something the catalog does not have', async () => {
     await onTheTeamPlan();
 
-    const rejected = await created(giving([], ['catalog.research@9.0.0']));
+    const rejected = await created(enabling([], ['catalog.research@9.0.0']));
 
     expect(rejected.status).toBe(422);
     expect(rejected.body.errors).toEqual([
@@ -318,14 +318,14 @@ describe('a station giving catalog tools and skills (e2e)', () => {
     ]);
   });
 
-  it('keeps the versions it names, so an upgrade reads back as a change to the station', async () => {
+  it('stores the versions it names, so an upgrade reads back as a change to the station', async () => {
     await onTheTeamPlan();
     const http = served(app);
     const made = await http
       .post(`/api/resources/teams/${team}/lines`)
       .set(TEST_USER_HEADER, seat.owner)
       .set('Idempotency-Key', randomUUID())
-      .send(giving(['catalog.web-search@1.0.0'], ['catalog.research@1.0.0']));
+      .send(enabling(['catalog.web-search@1.0.0'], ['catalog.research@1.0.0']));
 
     expect(made.status).toBe(201);
     expect(made.body.definition.stations[1]).toMatchObject({
@@ -337,7 +337,7 @@ describe('a station giving catalog tools and skills (e2e)', () => {
       .put(`/api/resources/lines/${made.body.id}`)
       .set(TEST_USER_HEADER, seat.owner)
       .set('If-Match', `"${made.body.version}"`)
-      .send(giving(['catalog.web-search@1.1.0'], ['catalog.research@1.0.0']));
+      .send(enabling(['catalog.web-search@1.1.0'], ['catalog.research@1.0.0']));
 
     expect(upgraded.status).toBe(200);
     expect(upgraded.body.version).toBeGreaterThan(made.body.version);
@@ -355,7 +355,7 @@ describe('a station giving catalog tools and skills (e2e)', () => {
       .set(TEST_USER_HEADER, seat.owner)
       .set('Idempotency-Key', randomUUID())
       .send(
-        giving(['catalog.web-search@1.0.0', 'catalog.web-search@1.1.0'], []),
+        enabling(['catalog.web-search@1.0.0', 'catalog.web-search@1.1.0'], []),
       );
 
     expect(rejected.status).toBe(422);
@@ -387,7 +387,7 @@ describe('a catalog call (e2e)', () => {
   });
 
   it('is metered, by workspace, run and the version called', async () => {
-    const givings = new CatalogGivings(
+    const entitlements = new CatalogEntitlements(
       new SeededCatalog(CATALOG_ITEMS),
       new DrizzleWorkspacePlans(db),
       new DrizzleMeteredCalls(new DrizzleContext(db), {
@@ -399,7 +399,7 @@ describe('a catalog call (e2e)', () => {
     const runId = randomUUID();
 
     await expect(
-      givings.call({
+      entitlements.call({
         workspaceId: WorkspaceId.of(workspace),
         runId: RunId.of(runId),
         id: 'catalog.web-search@1.1.0',

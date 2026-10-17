@@ -7,7 +7,7 @@ export class FetchRunSecretsCommand {
   ) {}
 }
 
-export class AdmitThroughEgressCommand {
+export class AuthorizeRunnerCommand {
   constructor(
     readonly token: string | undefined,
     readonly proxyCredential: string,

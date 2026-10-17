@@ -21,7 +21,7 @@ import {
 } from '@/lib/insights';
 import {
   type SkillReport,
-  skillGivenFilter,
+  skillEnabledFilter,
   skillUsedFilter,
 } from '@/lib/insights-tools';
 import { skillPath } from '@/lib/skills';
@@ -74,9 +74,9 @@ export function SkillRows({
               />
             </span>
             <span aria-hidden className="hidden @4xl:block" />
-            <NestedCell heading="Given" strong>
-              <InsightsLink tab="runs" filter={skillGivenFilter(skill.key)}>
-                {formatCount(skill.given)}
+            <NestedCell heading="Enabled" strong>
+              <InsightsLink tab="runs" filter={skillEnabledFilter(skill.key)}>
+                {formatCount(skill.enabled)}
               </InsightsLink>
             </NestedCell>
             <NestedCell heading="Read" strong>
@@ -136,8 +136,8 @@ export function SkillRows({
               <NestedCell heading="Runs">
                 {formatCount(station.runs)}
               </NestedCell>
-              <NestedCell heading="Given">
-                {formatCount(station.given)}
+              <NestedCell heading="Enabled">
+                {formatCount(station.enabled)}
               </NestedCell>
               <NestedCell heading="Read">
                 {formatCount(station.used)}

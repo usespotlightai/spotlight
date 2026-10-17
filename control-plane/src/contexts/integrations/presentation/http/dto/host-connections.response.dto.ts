@@ -38,7 +38,7 @@ export class ConnectionToolRuleResponseDto {
     enum: PERSON_TOOL_RULES,
     example: 'needs-approval',
     description:
-      'What the caller asks of calls made with their connection: allowed follows the team, needs-approval asks them first, blocked never sends',
+      'What the caller requires of calls made with their connection: allowed follows the team, needs-approval asks them first, blocked never sends',
   })
   readonly rule: string;
 

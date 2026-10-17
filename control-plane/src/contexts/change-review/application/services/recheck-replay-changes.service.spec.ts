@@ -91,7 +91,7 @@ describe('RecheckReplayChanges', () => {
     expect(await service.recheckable(RUN.value)).toEqual(['passed']);
   });
 
-  it('checks one stack again, once however often it is asked', async () => {
+  it('checks one stack again, once however often it is requested', async () => {
     const { added, service } = rechecking([checkOf('passed', 'checked')]);
 
     await service.recheck(RUN.value, 'passed');

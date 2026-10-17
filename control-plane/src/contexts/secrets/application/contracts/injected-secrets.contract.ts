@@ -47,14 +47,14 @@ const injectInQuery = (url: URL, name: string, value: string): void => {
   const segments = url.search.slice(1).split('&');
   const injection = `${encodeURIComponent(name)}=${encodeURIComponent(value)}`;
   const at = segments.findIndex((each) => nameOf(each) === name);
-  const kept = segments.filter(
+  const remaining = segments.filter(
     (each, index) => index === at || nameOf(each) !== name,
   );
 
   url.search =
     at < 0
-      ? [...kept.filter((each) => each !== ''), injection].join('&')
-      : kept
+      ? [...remaining.filter((each) => each !== ''), injection].join('&')
+      : remaining
           .map((each) => (nameOf(each) === name ? injection : each))
           .join('&');
 };

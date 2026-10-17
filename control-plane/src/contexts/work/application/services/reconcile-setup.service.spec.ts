@@ -82,8 +82,8 @@ const done: SetupState = {
   configured: true,
 };
 
-const reconciling = (given: { task?: Task; state?: SetupState } = {}) => {
-  const task = given.task ?? list();
+const reconciling = (options: { task?: Task; state?: SetupState } = {}) => {
+  const task = options.task ?? list();
   const save = vi.fn(async () => {});
 
   const tasks = {
@@ -94,7 +94,7 @@ const reconciling = (given: { task?: Task; state?: SetupState } = {}) => {
   } as unknown as TaskRepository;
 
   const setup = {
-    of: vi.fn(async () => ({ state: given.state ?? done, chat: null })),
+    of: vi.fn(async () => ({ state: options.state ?? done, chat: null })),
   } as unknown as SetupStatus;
 
   const lines = {
@@ -195,7 +195,7 @@ describe('ReconcileSetup', () => {
     expect(save).toHaveBeenCalledTimes(1);
   });
 
-  it('asks after the workspace the list is in', async () => {
+  it('reads the workspace the list is in', async () => {
     const { service, setup } = reconciling();
 
     await service.wherever();
@@ -233,7 +233,7 @@ describe('ReconcileSetup', () => {
     expect(logger.warn).toHaveBeenCalled();
   });
 
-  it('reconciles only the list of the team it is asked about', async () => {
+  it('reconciles only the list of the team that the request names', async () => {
     const { service, tasks, save } = reconciling();
 
     await service.forTeam(TEAM);

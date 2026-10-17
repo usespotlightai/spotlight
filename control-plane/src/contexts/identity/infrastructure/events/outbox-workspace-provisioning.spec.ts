@@ -29,7 +29,7 @@ describe('OutboxWorkspaceProvisioning', () => {
     await expect(provisioning(1, 1).read).resolves.toBe('failed');
   });
 
-  it('asks about the first team of that workspace', async () => {
+  it('reads the first team of that workspace', async () => {
     const { pendingDeliveriesFor, read } = provisioning(0, 0);
 
     await read;

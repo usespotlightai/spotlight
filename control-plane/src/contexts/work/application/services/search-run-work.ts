@@ -8,7 +8,7 @@ import type {
   RunWork,
 } from '@work/application/services/run-work';
 import type { Run } from '@work/domain/aggregates/run.aggregate';
-import { KeptFromSearchesError } from '@work/domain/exceptions/kept-from-searches.error';
+import { NotAllowedInSearchError } from '@work/domain/exceptions/not-allowed-in-search.error';
 import { UnknownRunError } from '@work/domain/exceptions/unknown-run.error';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
@@ -27,19 +27,19 @@ export class SearchRunWork implements RunWork {
   }
 
   async acknowledgeUpTo(): Promise<void> {
-    throw new KeptFromSearchesError('acknowledge the messages of a person');
+    throw new NotAllowedInSearchError('acknowledge the messages of a person');
   }
 
-  gave(): Attachment | null {
+  attachment(): Attachment | null {
     return null;
   }
 
   async repositoryNamed(name: string): Promise<Repository | null> {
-    throw new KeptFromSearchesError(`reach the repository ${name}`);
+    throw new NotAllowedInSearchError(`use the repository ${name}`);
   }
 
   async toolContext(): Promise<ToolContext> {
-    throw new KeptFromSearchesError('use a tool');
+    throw new NotAllowedInSearchError('use a tool');
   }
 
   async clearFor(): Promise<Cleared> {

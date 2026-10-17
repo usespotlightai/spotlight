@@ -58,7 +58,7 @@ const FRONTEND: SkillFolder = {
 
 const naming = (...skills: string[]) => skills;
 
-const keeping = (
+const withSkills = (
   folders: readonly SkillFolder[],
   existing: readonly string[] = [],
 ) => {
@@ -83,16 +83,16 @@ const keysOf = (folders: readonly ReadySkillFolder[]) =>
   folders.map((each) => each.skill.key);
 
 describe('TeamSkills', () => {
-  it('gives a run each skill the station names whose secrets the team has', async () => {
-    const skills = keeping([GRAFANA, FRONTEND], ['GRAFANA_TOKEN']);
+  it('returns each skill the station names whose secrets the team has', async () => {
+    const skills = withSkills([GRAFANA, FRONTEND], ['GRAFANA_TOKEN']);
 
     const ready = await skills.readyFor(TEAM, naming('grafana-dashboards'));
 
     expect(keysOf(ready)).toEqual(['grafana-dashboards']);
   });
 
-  it('gives each skill whole, with every file of its folder', async () => {
-    const skills = keeping([MIGRATIONS]);
+  it('returns each skill whole, with every file of its folder', async () => {
+    const skills = withSkills([MIGRATIONS]);
 
     const ready = await skills.readyFor(TEAM, naming('our-migrations'));
 
@@ -103,7 +103,7 @@ describe('TeamSkills', () => {
   });
 
   it('leaves out a skill that needs a secret the team does not have', async () => {
-    const skills = keeping([GRAFANA, MIGRATIONS]);
+    const skills = withSkills([GRAFANA, MIGRATIONS]);
 
     const ready = await skills.readyFor(
       TEAM,
@@ -114,7 +114,7 @@ describe('TeamSkills', () => {
   });
 
   it('names every skill the team defines, whether or not the team has its secrets', async () => {
-    const skills = keeping([GRAFANA, MIGRATIONS]);
+    const skills = withSkills([GRAFANA, MIGRATIONS]);
 
     expect(await skills.definedFor(TEAM)).toEqual([
       'grafana-dashboards',
@@ -122,8 +122,8 @@ describe('TeamSkills', () => {
     ]);
   });
 
-  it('gives nothing where no skill is named', async () => {
-    const skills = keeping([MIGRATIONS, FRONTEND]);
+  it('returns nothing where no skill is named', async () => {
+    const skills = withSkills([MIGRATIONS, FRONTEND]);
 
     await expect(skills.readyFor(TEAM, naming())).resolves.toEqual([]);
   });

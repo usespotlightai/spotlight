@@ -34,13 +34,16 @@ const record = (
 });
 
 const recording = () => {
-  const kept: { run: string; attempt: number; host: string }[] = [];
+  const recorded: { run: string; attempt: number; host: string }[] = [];
   const taken: RunConnection[] = [];
   const connections: RunConnectionsPort = {
-    record: async (attempt: RunAttempt, given: readonly RunConnection[]) => {
-      taken.push(...given);
-      kept.push(
-        ...given.map((each) => ({
+    record: async (
+      attempt: RunAttempt,
+      connections: readonly RunConnection[],
+    ) => {
+      taken.push(...connections);
+      recorded.push(
+        ...connections.map((each) => ({
           run: attempt.runId.value,
           attempt: attempt.number,
           host: each.host,
@@ -66,12 +69,12 @@ const recording = () => {
     { now: () => NOW } as ClockPort,
   );
 
-  return { handler, kept, taken };
+  return { handler, recorded, taken };
 };
 
 describe('RecordEgressConnectionsHandler', () => {
   it('keeps each record with the run attempt its runner worked, also just after the run ended, and drops the rest', async () => {
-    const { handler, kept } = recording();
+    const { handler, recorded } = recording();
 
     await expect(
       handler.execute(
@@ -86,7 +89,7 @@ describe('RecordEgressConnectionsHandler', () => {
         ]),
       ),
     ).resolves.toEqual({ outcome: 'recorded', recorded: 3, dropped: 4 });
-    expect(kept).toEqual([
+    expect(recorded).toEqual([
       { run: 'run_1', attempt: 1, host: 'registry.npmjs.org' },
       { run: 'run_1', attempt: 1, host: 'api.linear.app' },
       { run: 'run_2', attempt: 1, host: 'registry.npmjs.org' },
@@ -114,18 +117,18 @@ describe('RecordEgressConnectionsHandler', () => {
   });
 
   it('rejects an unknown egress token', async () => {
-    const { handler, kept } = recording();
+    const { handler, recorded } = recording();
 
     await expect(
       handler.execute(
         new RecordEgressConnectionsCommand('other', [record('leased')]),
       ),
     ).resolves.toEqual({ outcome: 'unauthorized' });
-    expect(kept).toEqual([]);
+    expect(recorded).toEqual([]);
   });
 
   it('rejects more records than it allows at once', async () => {
-    const { handler, kept } = recording();
+    const { handler, recorded } = recording();
 
     await expect(
       handler.execute(
@@ -137,6 +140,6 @@ describe('RecordEgressConnectionsHandler', () => {
         ),
       ),
     ).resolves.toEqual({ outcome: 'too-many', max: MAX_CONNECTIONS_AT_ONCE });
-    expect(kept).toEqual([]);
+    expect(recorded).toEqual([]);
   });
 });

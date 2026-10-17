@@ -252,7 +252,7 @@ const SEEDED_SETS: readonly SetSpec[] = [
   },
 ];
 
-const KEPT_FOR_SETS_HOURS = 600;
+const SET_RETENTION_HOURS = 600;
 
 const TELLING: readonly Outcome[] = ['sent-back', 'failed'];
 
@@ -280,7 +280,7 @@ const runsOfPick = (pick: SetPick): StationRunFound[] =>
 const setOfPick = (pick: SetPick): SetSpec => {
   const older = runsOfPick(pick).filter((run) => {
     const ago = hoursSince(run.endedAt);
-    return ago > pick.createdHoursAgo + 2 && ago < KEPT_FOR_SETS_HOURS;
+    return ago > pick.createdHoursAgo + 2 && ago < SET_RETENTION_HOURS;
   });
 
   return {
@@ -400,7 +400,7 @@ export const replaySetOf = (spec: SetSpec): ReplaySetResponseDto => {
   };
 };
 
-const ARCHIVE_KEPT_HOURS = 700;
+const ARCHIVE_RETENTION_HOURS = 700;
 
 export const replayableRuns = (
   teamId: string,
@@ -408,7 +408,7 @@ export const replayableRuns = (
   stationId: string,
 ): ReplayableRunResponseDto[] =>
   runsAt(teamId, lineId, stationId).map((run) => {
-    const gone = hoursSince(run.endedAt) > ARCHIVE_KEPT_HOURS;
+    const gone = hoursSince(run.endedAt) > ARCHIVE_RETENTION_HOURS;
 
     return {
       runId: run.runId,
@@ -418,7 +418,7 @@ export const replayableRuns = (
       endedAt: run.endedAt,
       unreplayableReason: gone ? 'archive-gone' : null,
       reason: gone
-        ? 'The workspace archive that it started from is no longer kept.'
+        ? 'The workspace archive that it started from is no longer stored.'
         : null,
     };
   });

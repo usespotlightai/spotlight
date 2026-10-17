@@ -37,7 +37,7 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
-const HEARD_AT = new Date('2026-09-30T12:00:00.000Z');
+const RECEIVED_AT = new Date('2026-09-30T12:00:00.000Z');
 
 const TASK = TaskId.of('task_1');
 const PULL = PullRequestUrl.of('https://github.com/acme/api/pull/7');
@@ -162,8 +162,8 @@ const OPENING = {
   at: OPENED,
 };
 
-describe('keeping a review heard before its task’s pull request', () => {
-  it('keeps a person’s review until the pull request’s task is heard of, then dates the first review by it', async () => {
+describe('keeping a review received before its task’s pull request', () => {
+  it('keeps a person’s review until the pull request’s task is received, then dates the first review by it', async () => {
     const repositories = repositoriesInMemory();
     const reviewedAt = new Date(OPENED.getTime() + 60_000);
 
@@ -200,7 +200,7 @@ describe('keeping a review heard before its task’s pull request', () => {
     expect(repositories.reviews.stored.size).toBe(0);
   });
 
-  it('keeps no review older than insights ever look back, and lets go of those kept that long', async () => {
+  it('keeps no review older than insights ever look back, and lets go of those stored that long', async () => {
     const repositories = repositoriesInMemory();
     const longAgo = new Date(AT.getTime() - 200 * DAY_MS);
     const other = PullRequestUrl.of('https://github.com/acme/api/pull/8');
@@ -262,7 +262,7 @@ describe('keeping a review heard before its task’s pull request', () => {
   });
 });
 
-describe('noting what a deleted team did, however late it is heard of', () => {
+describe('noting what a deleted team did, however late it is received', () => {
   it('records no pull request, failure or review of a team once it is deleted', async () => {
     const repositories = repositoriesInMemory();
     await new DeleteOutcomes(repositories, inTransaction).runsOfTeam(
@@ -338,12 +338,12 @@ describe('deleting outcomes', () => {
     expect(await noted.state()).toBeNull();
   });
 
-  it('deletes what it heard of a deleted task’s runs before they ended', async () => {
+  it('deletes what it received about a deleted task’s runs before they ended', async () => {
     const records = new RunRecordsInMemory();
     await records.add(
-      RunRecord.heardOf(RunId.of('run_1'), WORKSPACE, TASK).recordCheck(
+      RunRecord.empty(RunId.of('run_1'), WORKSPACE, TASK).recordCheck(
         'passed',
-        HEARD_AT,
+        RECEIVED_AT,
       ),
     );
 

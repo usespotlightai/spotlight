@@ -22,12 +22,12 @@ import (
 	"testing"
 	"time"
 
+	"usespotlight.ai/data-plane/allowlist"
 	"usespotlight.ai/data-plane/control"
 	"usespotlight.ai/data-plane/egressing/authority"
 	"usespotlight.ai/data-plane/egressing/guard"
 	"usespotlight.ai/data-plane/egressing/seal/sealtest"
 	"usespotlight.ai/data-plane/protocol"
-	"usespotlight.ai/data-plane/reach"
 )
 
 const (
@@ -46,31 +46,31 @@ type granted struct {
 type controlPlane struct {
 	t *testing.T
 
-	mu       sync.Mutex
-	runs     map[string]*granted
-	active   map[string]bool
-	recorded []protocol.EgressConnection
-	fetches  int
-	asked    []int
-	sent     []int
-	admits   int
-	port     int
-	failSend int
-	reaches  []string
+	mu                sync.Mutex
+	runs              map[string]*granted
+	active            map[string]bool
+	recorded          []protocol.EgressConnection
+	fetches           int
+	received          []int
+	sent              []int
+	authorizes        int
+	port              int
+	failSend          int
+	extraAllowedHosts []string
 }
 
-func (c *controlPlane) AdmitEgress(_ context.Context, credential string) (protocol.EgressAdmitted, error) {
+func (c *controlPlane) AuthorizeEgress(_ context.Context, credential string) (protocol.EgressAuthorizeResponse, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	c.admits++
+	c.authorizes++
 	run, ok := c.runs[credential]
 	if !ok {
-		return protocol.EgressAdmitted{}, &control.ResponseError{Status: http.StatusNotFound, Err: fmt.Errorf("no runner")}
+		return protocol.EgressAuthorizeResponse{}, &control.ResponseError{Status: http.StatusNotFound, Err: fmt.Errorf("no runner")}
 	}
-	return protocol.EgressAdmitted{
+	return protocol.EgressAuthorizeResponse{
 		RunnerID: "runner_" + credential, WorkspaceID: run.workspace, ControlPlaneHost: controlPlaneHost, ControlPlanePort: c.port,
-		Reaches: c.reaches,
+		ExtraAllowedHosts: c.extraAllowedHosts,
 	}, nil
 }
 
@@ -101,7 +101,7 @@ func (c *controlPlane) ActiveRuns(_ context.Context, credentials []string) ([]st
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	c.asked = append(c.asked, len(credentials))
+	c.received = append(c.received, len(credentials))
 	if len(credentials) > protocol.MaxRunsAtOnce {
 		return nil, &control.ResponseError{Status: http.StatusUnprocessableEntity, Err: fmt.Errorf("too many")}
 	}
@@ -192,7 +192,7 @@ func riggedAllowing(t *testing.T, settings Settings, allow []string) *rig {
 		port:   443,
 	}
 
-	settings.Allow, _ = reach.Parse(allow)
+	settings.Allow, _ = allowlist.Parse(allow)
 	if settings.Dial == nil {
 		settings.Dial = func(ctx context.Context, network, _ string) (net.Conn, error) {
 			return (&net.Dialer{}).DialContext(ctx, network, secure.Listener.Addr().String())
@@ -329,7 +329,7 @@ func TestInjectsTheSecretIntoARequestForwardedToABoundHostOverHTTP2(t *testing.T
 		t.Errorf("the sandbox read %s", body)
 	}
 	if !strings.Contains(body, `"host":"mcp.example.com"`) {
-		t.Errorf("the host was asked as %s", body)
+		t.Errorf("the host was called with %s", body)
 	}
 	for _, name := range []string{"Proxy-Authorization", protocol.EgressTargetHeader} {
 		if r.upstream.last().Get(name) != "" {
@@ -362,7 +362,7 @@ func TestBlocksAForwardToAHostNoSecretOfTheRunIsBoundTo(t *testing.T) {
 		t.Errorf("answered %s: %s", response.Status, body)
 	}
 	if r.upstream.last() != nil {
-		t.Error("the host was asked")
+		t.Error("the host was called")
 	}
 }
 
@@ -383,7 +383,7 @@ func TestAProxyCredentialCannotUseTheSecretsOfAnotherRun(t *testing.T) {
 	}
 }
 
-func TestBeforeItsRunASandboxReachesOnlyTheControlPlane(t *testing.T) {
+func TestBeforeItsRunASandboxConnectsOnlyToTheControlPlane(t *testing.T) {
 	r := rigged(t, Settings{})
 	r.control.runs["two"].noRun = true
 
@@ -400,7 +400,7 @@ func TestBeforeItsRunASandboxReachesOnlyTheControlPlane(t *testing.T) {
 		t.Error("reached another host")
 	}
 	if r.control.fetches != fetches {
-		t.Error("asked the control plane again at once")
+		t.Error("called the control plane again at once")
 	}
 }
 
@@ -414,7 +414,7 @@ func TestRejectsASandboxWithoutAKnownProxyCredential(t *testing.T) {
 		}
 	}
 	if r.upstream.last() != nil {
-		t.Error("the host was asked")
+		t.Error("the host was called")
 	}
 }
 
@@ -698,8 +698,8 @@ func TestReadsItsSettingsFromTheEnvironment(t *testing.T) {
 	if settings.Listen != defaultListen || settings.Rate != 20 || settings.Connections != 10 || settings.Certificate != nil {
 		t.Errorf("settings %+v", settings)
 	}
-	if !settings.Allow.Admits("mcp.example.com") || settings.Allow.Admits("evil.test") {
-		t.Error("the allow-list is not the one given")
+	if !settings.Allow.Allows("mcp.example.com") || settings.Allow.Allows("evil.test") {
+		t.Error("the allow-list is not the one configured")
 	}
 }
 
@@ -717,30 +717,30 @@ func TestSaysWhatIsWrongWithItsSettings(t *testing.T) {
 	}
 }
 
-func admittedAlready(e *Egress, credentials ...string) {
+func authorizedAlready(e *Egress, credentials ...string) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
 	for _, credential := range credentials {
-		found := &run{credential: credential, workspace: "ws_1", controlPlane: controlPlaneHost, port: "443", admitting: make(chan struct{})}
-		close(found.admitting)
+		found := &run{credential: credential, workspace: "ws_1", controlPlane: controlPlaneHost, port: "443", authorizing: make(chan struct{})}
+		close(found.authorizing)
 		e.runs[credential] = found
 	}
 }
 
-func TestAsksWhichRunsAreActiveInBatchesTheControlPlaneTakes(t *testing.T) {
+func TestReadsWhichRunsAreActiveInBatchesTheControlPlaneTakes(t *testing.T) {
 	r := rigged(t, Settings{})
 	var credentials []string
 	for at := range 2*protocol.MaxRunsAtOnce + 1 {
 		credentials = append(credentials, fmt.Sprintf("many_%d", at))
 	}
-	admittedAlready(r.egress, credentials...)
+	authorizedAlready(r.egress, credentials...)
 	r.control.active["many_0"] = true
 
 	r.egress.checkActiveRuns(context.Background())
 
-	if !slices.Equal(r.control.asked, []int{protocol.MaxRunsAtOnce, protocol.MaxRunsAtOnce, 1}) {
-		t.Errorf("asked in batches of %v", r.control.asked)
+	if !slices.Equal(r.control.received, []int{protocol.MaxRunsAtOnce, protocol.MaxRunsAtOnce, 1}) {
+		t.Errorf("requested in batches of %v", r.control.received)
 	}
 	if len(r.egress.runs) != 1 || r.egress.runs["many_0"] == nil {
 		t.Errorf("still keeps %d runs", len(r.egress.runs))
@@ -763,11 +763,11 @@ func TestSendsConnectionRecordsInBatchesTheControlPlaneTakes(t *testing.T) {
 	}
 }
 
-func TestBeforeItsRunASandboxAlsoReachesWhatEverySandboxReaches(t *testing.T) {
+func TestBeforeItsRunASandboxAlsoConnectsToWhatEverySandboxMayConnectTo(t *testing.T) {
 	r := rigged(t, Settings{})
-	admittedAlready(r.egress, "early")
-	r.egress.runs["early"].reaches = []string{"storage.example.com"}
-	r.egress.runs["early"].allowed = reach.List{}.With("storage.example.com")
+	authorizedAlready(r.egress, "early")
+	r.egress.runs["early"].extraAllowedHosts = []string{"storage.example.com"}
+	r.egress.runs["early"].allowed = allowlist.List{}.With("storage.example.com")
 	r.control.runs["early"] = &granted{workspace: "ws_1", noRun: true}
 
 	if _, _, err := r.tunnel(t, "early", "https://storage.example.com/", nil); err != nil {
@@ -778,7 +778,7 @@ func TestBeforeItsRunASandboxAlsoReachesWhatEverySandboxReaches(t *testing.T) {
 	}
 }
 
-func TestAsksForBoundHostsFetchesSecretsWithoutWaiting(t *testing.T) {
+func TestARequestForBoundHostsFetchesSecretsWithoutWaiting(t *testing.T) {
 	r := rigged(t, Settings{})
 	r.control.runs["two"].noRun = true
 
@@ -798,7 +798,7 @@ func TestAsksForBoundHostsFetchesSecretsWithoutWaiting(t *testing.T) {
 	}
 }
 
-func TestTrustsTheAuthorityItIsGiven(t *testing.T) {
+func TestTrustsTheAuthorityItIsConfiguredWith(t *testing.T) {
 	internal := httptest.NewTLSServer(http.NotFoundHandler())
 	defer internal.Close()
 	path := t.TempDir() + "/internal.pem"
@@ -880,22 +880,22 @@ func TestHandsBackTheStandInWhenTheRunIsEvictedDuringARequest(t *testing.T) {
 	}
 }
 
-func TestEvictsOnlyTheRunItWasAskedToEvict(t *testing.T) {
+func TestEvictsOnlyTheRunItWasToldToEvict(t *testing.T) {
 	r := rigged(t, Settings{})
-	admittedAlready(r.egress, "one")
+	authorizedAlready(r.egress, "one")
 	before := r.egress.runs["one"]
 	r.egress.evict(t.Context(), []*run{before}, "test")
-	admittedAlready(r.egress, "one")
+	authorizedAlready(r.egress, "one")
 	again := r.egress.runs["one"]
 
 	r.egress.evict(t.Context(), []*run{before}, "test")
 
 	if r.egress.runs["one"] != again {
-		t.Error("evicted the run admitted again")
+		t.Error("evicted the run authorized again")
 	}
 }
 
-func TestAsksTheControlPlaneOnceAboutAnUnknownCredentialForAWhile(t *testing.T) {
+func TestCallsTheControlPlaneOnceAboutAnUnknownCredentialForAWhile(t *testing.T) {
 	r := rigged(t, Settings{})
 
 	for range 3 {
@@ -903,15 +903,15 @@ func TestAsksTheControlPlaneOnceAboutAnUnknownCredentialForAWhile(t *testing.T) 
 			t.Errorf("answered %s", response.Status)
 		}
 	}
-	if r.control.admits != 1 {
-		t.Errorf("asked the control plane %d times", r.control.admits)
+	if r.control.authorizes != 1 {
+		t.Errorf("called the control plane %d times", r.control.authorizes)
 	}
 
 	later := time.Now().Add(rejectionTTL + time.Second)
 	r.egress.now = func() time.Time { return later }
 	r.forward(t, "stranger", "", protocol.EgressBoundPath, nil)
-	if r.control.admits != 2 {
-		t.Errorf("did not ask again after %s; asked %d times", rejectionTTL, r.control.admits)
+	if r.control.authorizes != 2 {
+		t.Errorf("did not call again after %s; called %d times", rejectionTTL, r.control.authorizes)
 	}
 }
 
@@ -947,20 +947,20 @@ func TestTheControlPlaneTunnelIsNotCountedAgainstTheWorkspaceLimit(t *testing.T)
 	}
 }
 
-func TestBeforeItsRunASandboxDoesNotReachTheOperatorsAllowList(t *testing.T) {
+func TestBeforeItsRunASandboxDoesNotConnectToTheOperatorsAllowList(t *testing.T) {
 	r := riggedAllowing(t, Settings{}, []string{"internal.example.com", "storage.example.com"})
-	r.control.reaches = []string{"storage.example.com"}
+	r.control.extraAllowedHosts = []string{"storage.example.com"}
 	r.control.runs["two"].noRun = true
 
 	if _, _, err := r.tunnel(t, "two", "https://storage.example.com/", nil); err != nil {
-		t.Errorf("did not reach what every sandbox reaches: %v", err)
+		t.Errorf("did not reach what every sandbox may connect to: %v", err)
 	}
 	if _, _, err := r.tunnel(t, "two", "https://internal.example.com/", nil); err == nil {
 		t.Error("reached a host of the operator's allow-list before the run")
 	}
 }
 
-func TestReachesTheControlPlaneOnlyOnItsPort(t *testing.T) {
+func TestConnectsToTheControlPlaneOnlyOnItsPort(t *testing.T) {
 	r := rigged(t, Settings{})
 
 	for _, credential := range []string{"one", "two"} {
@@ -983,7 +983,7 @@ func TestDoesNotForwardToTheControlPlaneWhenItIsNotOnPort443(t *testing.T) {
 	}
 }
 
-func TestRejectsAnAdmissionThatNamesNoControlPlanePort(t *testing.T) {
+func TestRejectsAnAuthorizationThatNamesNoControlPlanePort(t *testing.T) {
 	r := rigged(t, Settings{})
 	r.control.port = 0
 

@@ -64,7 +64,7 @@ export class AnswerInboxItemHandler
       item.from,
       {
         station,
-        body: TaskNoteBody.given(
+        body: TaskNoteBody.fromInput(
           ApprovalAnswered.words(command.body, command.decision, changed),
           attachments,
         ),

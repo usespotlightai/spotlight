@@ -72,7 +72,7 @@ describe('StartingPoint', () => {
     expect(StartingPoint.rehydrate(recorded.parts).equals(recorded)).toBe(true);
   });
 
-  it('takes a stored start that no longer reads for a fault in what was kept, not in what was told', () => {
+  it('takes a stored start that no longer reads for a fault in what was stored, not in what was told', () => {
     const recorded = point(checkout('api')).parts;
 
     for (const corrupt of [

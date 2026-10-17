@@ -11,13 +11,13 @@ const base: BreadcrumbSegment[] = [
 ];
 
 function Probe({
-  base: given,
+  base: trailBase,
   own,
 }: {
   base: BreadcrumbSegment[];
   own?: number;
 }) {
-  const { trail, forward } = useTrail(given, own);
+  const { trail, forward } = useTrail(trailBase, own);
 
   return (
     <>

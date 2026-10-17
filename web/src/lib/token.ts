@@ -5,9 +5,9 @@ export type WorkspaceToken = WorkspaceTokenResourceResponseDto;
 
 export type TokenScope = WorkspaceToken['scopes'][number];
 
-export type TokenReach = Extract<TokenScope, 'read' | 'plan' | 'configure'>;
+export type TokenLevel = Extract<TokenScope, 'read' | 'plan' | 'configure'>;
 
-export type TokenGrant = Exclude<TokenScope, TokenReach>;
+export type TokenGrant = Exclude<TokenScope, TokenLevel>;
 
 export type TokenTerms = {
   readonly name: string;
@@ -22,7 +22,7 @@ type ScopeOption<T extends TokenScope> = {
   readonly description: string;
 };
 
-export const REACHES: readonly ScopeOption<TokenReach>[] = [
+export const TOKEN_LEVELS: readonly ScopeOption<TokenLevel>[] = [
   {
     id: 'read',
     label: 'Read',
@@ -54,13 +54,13 @@ export const GRANTS: readonly ScopeOption<TokenGrant>[] = [
   },
 ];
 
-const SCOPES: readonly ScopeOption<TokenScope>[] = [...REACHES, ...GRANTS];
+const SCOPES: readonly ScopeOption<TokenScope>[] = [...TOKEN_LEVELS, ...GRANTS];
 
 export const scopesOf = (
-  reach: TokenReach,
+  level: TokenLevel,
   grants: ReadonlySet<TokenGrant>,
 ): TokenScope[] => [
-  reach,
+  level,
   ...GRANTS.filter((each) => grants.has(each.id)).map((each) => each.id),
 ];
 

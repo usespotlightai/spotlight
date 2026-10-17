@@ -65,7 +65,7 @@ describe('TeamIndex', () => {
     expect(screen.getByText('team section')).toBeInTheDocument();
   });
 
-  it('says the lines could not be loaded, and tries again when asked', async () => {
+  it('says the lines could not be loaded, and tries again on request', async () => {
     lines.mockReturnValue(undefined);
     failing.mockReturnValue(true);
 

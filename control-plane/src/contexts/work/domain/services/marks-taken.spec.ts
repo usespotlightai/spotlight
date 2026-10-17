@@ -67,21 +67,21 @@ const task = (id: string, ...marks: Mark[]): Task => {
 
 describe('marksTakenFrom', () => {
   it('takes the mark off the task that wore it', () => {
-    const [given] = marksTakenFrom(
+    const [marked] = marksTakenFrom(
       [task('task_0', THREAD, ISSUE)],
       task('task_1', THREAD),
     );
 
-    expect(given?.marks).toEqual([ISSUE]);
+    expect(marked?.marks).toEqual([ISSUE]);
   });
 
   it('says which task now holds the mark', () => {
-    const [given] = marksTakenFrom(
+    const [marked] = marksTakenFrom(
       [task('task_0', THREAD)],
       task('task_1', THREAD),
     );
 
-    const [taken] = (given?.pullEvents() ?? []) as TaskMarkTaken[];
+    const [taken] = (marked?.pullEvents() ?? []) as TaskMarkTaken[];
 
     expect(taken?.kind).toBe('task.mark-taken');
     expect(taken?.mark).toEqual(THREAD);
@@ -91,14 +91,14 @@ describe('marksTakenFrom', () => {
   it('gives up every mark the taker claims in one change', () => {
     const markedTask = task('task_0', THREAD, CHANNEL);
 
-    const given = marksTakenFrom(
+    const marked = marksTakenFrom(
       [markedTask, markedTask],
       task('task_1', THREAD, CHANNEL),
     );
 
-    expect(given).toHaveLength(1);
-    expect(given[0]?.marks).toEqual([]);
-    expect(given[0]?.version).toBe(markedTask.version);
+    expect(marked).toHaveLength(1);
+    expect(marked[0]?.marks).toEqual([]);
+    expect(marked[0]?.version).toBe(markedTask.version);
   });
 
   it('leaves alone a task that has none of them', () => {

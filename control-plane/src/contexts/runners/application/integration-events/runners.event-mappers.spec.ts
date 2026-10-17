@@ -5,8 +5,8 @@ import {
   aPushPool,
   aTrust,
 } from '@runners/domain/aggregates/runner-pool.fake-spec';
-import { Admission } from '@runners/domain/value-objects/admission.vo';
 import { BootId } from '@runners/domain/value-objects/boot-id.vo';
+import { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import { HostReport } from '@runners/domain/value-objects/host-report.vo';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
@@ -39,7 +39,7 @@ describe('RUNNERS_EVENT_MAPPERS', () => {
     const host = RunnerHost.fromHeartbeat({
       id: HostId.of('01J8ZQ4Y7N3K5V2W9X6RTBHCDE'),
       workspaceId: WorkspaceId.of('ws_1'),
-      admission: Admission.of('pool', 'pool_1'),
+      source: CredentialSource.of('pool', 'pool_1'),
       bootId: BootId.of('boot_1'),
       report: HostReport.of({
         name: 'build-box',

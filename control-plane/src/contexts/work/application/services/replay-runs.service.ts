@@ -4,7 +4,7 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { UnreplayableReasonCode } from '@work/application/contracts/unreplayable-reason.contract';
 import type {
-  AnswerAsked,
+  AnswerInput,
   CancelledReplayRun,
   ReplayDispatched,
   ReplayDispatchPort,
@@ -20,7 +20,7 @@ import type { RunRepository } from '@work/domain/repositories/run.repository';
 import { ReplayRunClaim } from '@work/domain/value-objects/replay-run-claim.vo';
 
 const OVER_BUDGET =
-  'Replay reached its budget before a runner claimed the run.';
+  'Replay used up its budget before a runner claimed the run.';
 const STOPPED = 'Replay stopped before a runner claimed the run.';
 
 const unreplayable = (
@@ -77,10 +77,10 @@ export class ReplayRuns implements ReplayDispatchPort {
     });
   }
 
-  async answerable(asked: readonly AnswerAsked[]): Promise<readonly string[]> {
+  async answerable(inputs: readonly AnswerInput[]): Promise<readonly string[]> {
     const answered: string[] = [];
 
-    for (const each of asked) {
+    for (const each of inputs) {
       const original = await this.runs.findById(RunId.of(each.original));
 
       if (original && (await this.answers.has(original, each.answer))) {
@@ -97,7 +97,7 @@ export class ReplayRuns implements ReplayDispatchPort {
     );
   }
 
-  cancel(runId: string, keep: boolean): Promise<CancelledReplayRun> {
+  cancel(runId: string, leaveRunAsIs: boolean): Promise<CancelledReplayRun> {
     return this.transaction.inTransaction(async () => {
       const id = RunId.of(runId);
       const claim = await this.claims.claim(ReplayRunClaim.toCancel(id));
@@ -115,7 +115,7 @@ export class ReplayRuns implements ReplayDispatchPort {
         return { outcome: 'never-queued' as const };
       }
 
-      if (!keep) {
+      if (!leaveRunAsIs) {
         await this.stopped(replayed);
       }
 

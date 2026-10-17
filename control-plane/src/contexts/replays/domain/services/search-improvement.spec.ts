@@ -32,7 +32,7 @@ const proposedIn = (
   const run = RunId.of(`search_run_${number}`);
 
   return search
-    .admitted(run, {
+    .acceptProposal(run, {
       candidateId: CandidateId.of(`candidate_${name}`),
       name: CandidateName.searched(name),
       replayId: ReplayId.of(`replay_${name}`),

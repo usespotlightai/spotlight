@@ -43,7 +43,7 @@ export class RunMemoriesResponseDto {
     type: TeamMemoryResponseDto,
     isArray: true,
     description:
-      'What reached the run but was left out of its briefing by the cap, the nearest first',
+      'What applied to the run but was left out of its briefing by the cap, the nearest first',
   })
   readonly cut: readonly TeamMemoryResponseDto[];
 
@@ -58,7 +58,7 @@ export class RunMemoriesResponseDto {
   @ApiProperty({
     type: RunProposalResponseDto,
     isArray: true,
-    description: 'What the run proposed, drafted or asked to remember',
+    description: 'What the run proposed, drafted or remembered',
   })
   readonly proposed: readonly RunProposalResponseDto[];
 
@@ -67,7 +67,7 @@ export class RunMemoriesResponseDto {
     type: String,
     example: 'aside_8f2c',
     description:
-      'The inbox item where people keep or reject what the run proposed; null where it proposed nothing',
+      'The inbox item where people approve or reject what the run proposed; null where it proposed nothing',
   })
   readonly reviewItemId: string | null;
 

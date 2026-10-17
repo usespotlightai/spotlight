@@ -89,7 +89,7 @@ describe('SignalReviewing', () => {
     expect(reactions).toEqual([`withdraw eyes on ${PULL.value}`]);
   });
 
-  it('never starts looking for a run that has already ended, however late it hears it began', async () => {
+  it('never starts looking for a run that has already ended, however late it learns it began', async () => {
     const { signal, reactions } = signalling({ ended: [RUN] });
 
     await signal.began(TASK, RUN);

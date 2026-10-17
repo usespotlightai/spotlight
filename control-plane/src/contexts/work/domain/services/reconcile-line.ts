@@ -80,13 +80,13 @@ export const createLine = (input: {
 
 const assemble = (
   plan: LinePlan,
-  kept: (key: string) => StationId | null,
+  existing: (key: string) => StationId | null,
   newId: () => string,
 ): LineLayout => {
   const idOf = new Map<string, StationId>(
     plan.stations.map((each) => [
       each.key.value,
-      kept(each.key.value) ?? StationId.of(newId()),
+      existing(each.key.value) ?? StationId.of(newId()),
     ]),
   );
 

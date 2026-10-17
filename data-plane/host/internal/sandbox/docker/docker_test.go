@@ -157,7 +157,7 @@ func TestLayingAFileLeavesItsParentsAsTheImageHasThem(t *testing.T) {
 	}
 }
 
-func TestASandboxOnItsOwnNetworkReachesOnlyWhatJoinedIt(t *testing.T) {
+func TestASandboxOnItsOwnNetworkConnectsOnlyToWhatJoinedIt(t *testing.T) {
 	engine, err := Connect("")
 	if err != nil {
 		t.Skip("no container runtime: ", err)

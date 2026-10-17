@@ -14,12 +14,12 @@ func searching(o *runOptions) {
 	o.search = &protocol.SearchSpec{}
 }
 
-func asking(t *testing.T) string {
+func calling(t *testing.T) string {
 	t.Helper()
 
-	script := filepath.Join(t.TempDir(), "ask.js")
+	script := filepath.Join(t.TempDir(), "call.js")
 	body := `
-const ask = async (path, body) => {
+const call = async (path, body) => {
   const answer = await fetch(process.env.SPOTLIGHT_AGENT_API_URL + path, {
     method: "POST",
     headers: { Authorization: "Bearer " + process.env.SPOTLIGHT_AGENT_API_TOKEN },
@@ -29,11 +29,11 @@ const ask = async (path, body) => {
 };
 (async () => {
   const results = [
-    await ask("remember", { kind: "rationale", body: "Retry in the request." }),
-    await ask("recall", { words: "upload retries" }),
-    await ask("review-comment-replies", { handle: "R-1", body: "Done." }),
-    await ask("candidates", { name: "terse", hypothesis: "Shorter prompts finish sooner.", station: { prompt: "Be brief." } }),
-    await ask("causes", { taskId: "task_1", cause: "judge", evidence: "The rubric asks for tests.", suggestion: "Drop that line." }),
+    await call("remember", { kind: "rationale", body: "Retry in the request." }),
+    await call("recall", { words: "upload retries" }),
+    await call("review-comment-replies", { handle: "R-1", body: "Done." }),
+    await call("candidates", { name: "terse", hypothesis: "Shorter prompts finish sooner.", station: { prompt: "Be brief." } }),
+    await call("causes", { taskId: "task_1", cause: "judge", evidence: "The rubric requires tests.", suggestion: "Drop that line." }),
   ];
   process.stdout.write(results.join("\n"));
 })();
@@ -46,7 +46,7 @@ const ask = async (path, body) => {
 }
 
 func TestASearchKeepsOutOfTheTeamsMemoryAndProposesCandidates(t *testing.T) {
-	written := run(t, asking(t), searching)
+	written := run(t, calling(t), searching)
 
 	output := agentOutput(t, written)
 	for _, want := range []string{
@@ -100,7 +100,7 @@ func TestASearchKeepsOutOfTheTeamsMemoryAndProposesCandidates(t *testing.T) {
 		t.Errorf("proposed %+v", written.proposed)
 	}
 	if len(written.caused) != 1 || written.caused[0] != (protocol.CauseRecord{
-		TaskID: "task_1", Cause: "judge", Evidence: "The rubric asks for tests.", Suggestion: "Drop that line.",
+		TaskID: "task_1", Cause: "judge", Evidence: "The rubric requires tests.", Suggestion: "Drop that line.",
 	}) {
 		t.Errorf("caused %+v", written.caused)
 	}
@@ -110,7 +110,7 @@ func TestASearchKeepsOutOfTheTeamsMemoryAndProposesCandidates(t *testing.T) {
 }
 
 func TestOnlyASearchProposesCandidatesAndRecordsCauses(t *testing.T) {
-	written := run(t, asking(t))
+	written := run(t, calling(t))
 
 	output := agentOutput(t, written)
 	for _, want := range []string{
@@ -169,18 +169,18 @@ func TestASearchFindsNoneOfTheTeamsMemoryInItsWorkspace(t *testing.T) {
 	}
 }
 
-func TestASearchRestoresNoWorkspaceAndKeepsNone(t *testing.T) {
-	kept := newKeptArchives(t)
+func TestASearchRestoresNoWorkspaceAndArchivesNone(t *testing.T) {
+	archives := newArchives(t)
 
 	run(t, harness(t, `require("node:fs").writeFileSync("notes.md", "halfway"); output = "wrote";`, "end_turn"),
 		func(o *runOptions) {
-			o.archives = kept
+			o.archives = archives
 			o.continuity = protocol.Continuity{Key: carriedOn}
 		})
 
 	searched := run(t, harness(t, `output = String(require("node:fs").existsSync("notes.md"));`, "end_turn"),
 		searching, func(o *runOptions) {
-			o.archives = kept
+			o.archives = archives
 			o.continuity = protocol.Continuity{Key: carriedOn}
 		})
 
@@ -191,20 +191,20 @@ func TestASearchRestoresNoWorkspaceAndKeepsNone(t *testing.T) {
 		t.Errorf("the search said %q about restoring", got)
 	}
 	if got := step(t, searched, "archive"); got != "" {
-		t.Errorf("the search said %q about keeping its workspace", got)
+		t.Errorf("the search said %q about archiving its workspace", got)
 	}
-	if kept.count() != 1 {
-		t.Errorf("%d archives kept, want only the station run's", kept.count())
+	if archives.count() != 1 {
+		t.Errorf("%d archives stored, want only the station run's", archives.count())
 	}
 }
 
 func TestASearchIsHandedNoSkillsOrHarnessFiles(t *testing.T) {
 	root := t.TempDir()
-	kept := filepath.Join(root, "claude", "settings.json")
-	if err := os.MkdirAll(filepath.Dir(kept), 0o700); err != nil {
+	preserved := filepath.Join(root, "claude", "settings.json")
+	if err := os.MkdirAll(filepath.Dir(preserved), 0o700); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(kept, []byte(`{"left":"alone"}`), 0o600); err != nil {
+	if err := os.WriteFile(preserved, []byte(`{"left":"alone"}`), 0o600); err != nil {
 		t.Fatal(err)
 	}
 

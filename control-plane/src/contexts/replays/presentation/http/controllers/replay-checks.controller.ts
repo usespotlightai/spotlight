@@ -67,14 +67,14 @@ const fieldsOf = (body: unknown): Record<string, unknown> =>
     ? (body as Record<string, unknown>)
     : {};
 
-const nothingToReplay = (keptLive: readonly string[]): never => {
+const nothingToReplay = (scoringPinnedToLive: readonly string[]): never => {
   throw ProblemException.of({
     slug: 'nothing-to-replay',
     title: 'Planned station runs the same as the live one',
     status: HttpStatus.CONFLICT,
     detail:
-      keptLive.length > 0
-        ? `There is nothing to replay. A check keeps these changed fields at their live values: ${keptLive.join(', ')}`
+      scoringPinnedToLive.length > 0
+        ? `There is nothing to replay. A check pins these changed fields to their live values: ${scoringPinnedToLive.join(', ')}`
         : 'There is nothing to replay. The plan changes nothing that affects how the station’s runs go.',
   });
 };
@@ -101,7 +101,7 @@ export class ReplayChecksController {
     name: IDEMPOTENCY_KEY_HEADER,
     required: true,
     description:
-      'Unique per check asked for; a retry with the same key and body answers the check the first attempt started, and starts nothing more',
+      'Unique per requested check; a retry with the same key and body answers the check the first attempt started, and starts nothing more',
     schema: { type: 'string', maxLength: 255 },
   })
   @ApiBody({ type: StartReplayCheckRequestDto })
@@ -169,7 +169,7 @@ export class ReplayChecksController {
     );
 
     if (started.outcome === 'unchanged') {
-      return nothingToReplay(started.keptLive);
+      return nothingToReplay(started.scoringPinnedToLive);
     }
 
     if (started.outcome === 'reused') {

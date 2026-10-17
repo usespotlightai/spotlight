@@ -1,11 +1,11 @@
 import {
-  type HeardComment,
-  type HeardReview,
   PullRequest,
   type PullRequestFacts,
+  type WebhookComment,
+  type WebhookReview,
 } from '@github/domain/aggregates/pull-request.aggregate';
 import type { PullRequestRecorded } from '@github/domain/events/pull-request-recorded.event';
-import type { HeardThread } from '@github/domain/value-objects/bot-activity.vo';
+import type { PullRequestThread } from '@github/domain/value-objects/bot-activity.vo';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -43,17 +43,17 @@ const at = (hour: number) =>
 
 const review = (
   id: number,
-  state: HeardReview['state'],
+  state: WebhookReview['state'],
   hour: number,
   byBot = false,
   login = byBot ? 'coderabbitai[bot]' : 'grace',
-): HeardReview => ({ id, state, login, byBot, at: at(hour) });
+): WebhookReview => ({ id, state, login, byBot, at: at(hour) });
 
 const comment = (
   id: number,
-  action: HeardComment['action'],
-  over: Partial<HeardComment> = {},
-): HeardComment => ({
+  action: WebhookComment['action'],
+  over: Partial<WebhookComment> = {},
+): WebhookComment => ({
   id,
   on: 'line',
   action,
@@ -66,8 +66,8 @@ const comment = (
 const thread = (
   id: string,
   resolved: boolean,
-  over: Partial<HeardThread> = {},
-): HeardThread => ({
+  over: Partial<PullRequestThread> = {},
+): PullRequestThread => ({
   id,
   opener: null,
   login: 'coderabbitai[bot]',
@@ -105,8 +105,8 @@ const stored = (pullRequest: PullRequest) =>
     version: pullRequest.version + 1,
   });
 
-const heard = (over: Partial<PullRequestFacts> = {}) => {
-  const first = PullRequest.heard(WORKSPACE, factsOf(over), NOW);
+const received = (over: Partial<PullRequestFacts> = {}) => {
+  const first = PullRequest.fromWebhook(WORKSPACE, factsOf(over), NOW);
 
   if (!first) {
     throw new Error('Expected the pull request to be recorded');
@@ -115,7 +115,7 @@ const heard = (over: Partial<PullRequestFacts> = {}) => {
   return first;
 };
 
-const opened = (over: Partial<PullRequestFacts> = {}) => stored(heard(over));
+const opened = (over: Partial<PullRequestFacts> = {}) => stored(received(over));
 
 const kinds = (pullRequest: PullRequest) =>
   pullRequest.pullEvents().map((each) => each.kind);
@@ -130,8 +130,8 @@ const recorded = (pullRequest: PullRequest) =>
   )?.recorded;
 
 describe('PullRequest', () => {
-  it('records what it heard of a pull request, whether or not a task owns it', () => {
-    expect(recorded(heard())).toMatchObject({
+  it('records what it received about a pull request, whether or not a task owns it', () => {
+    expect(recorded(received())).toMatchObject({
       pullRequest: URL_7.value,
       repository: 'acme/api',
       number: 7,
@@ -159,7 +159,7 @@ describe('PullRequest', () => {
     });
   });
 
-  it('changes nothing where it hears what it already has', () => {
+  it('changes nothing where it receives what it already has', () => {
     const original = opened();
     const reviewed = stored(original.recordReview(review(1, 'approved', 9)));
 
@@ -167,7 +167,7 @@ describe('PullRequest', () => {
     expect(reviewed.recordReview(review(1, 'approved', 9))).toBe(reviewed);
   });
 
-  it('keeps a merged pull request merged, whatever it hears after', () => {
+  it('keeps a merged pull request merged, whatever it receives after', () => {
     const merged = opened().describe(
       factsOf({ state: 'merged', closedAt: MERGED }),
     );
@@ -180,7 +180,7 @@ describe('PullRequest', () => {
     expect(after.title).toBe('Renamed');
   });
 
-  it('keeps the size it knows where it later hears none', () => {
+  it('keeps the size it knows where it later receives none', () => {
     expect(
       opened().describe(factsOf({ size: null, title: 'New' })).size,
     ).toEqual({ additions: 40, deletions: 3, changedFiles: 2 });
@@ -192,7 +192,7 @@ describe('PullRequest', () => {
     ).toEqual(Repository.of('acme/api'));
   });
 
-  it('ignores what GitHub said before what it already heard, however late it arrives', () => {
+  it('ignores what GitHub said before what it already received, however late it arrives', () => {
     const newer = opened({ title: 'Newer', updatedAt: at(12) });
 
     expect(newer.describe(factsOf({ title: 'Older', updatedAt: at(11) }))).toBe(
@@ -266,7 +266,7 @@ describe('PullRequest', () => {
       expect(reviewed.reviewRounds).toBe(1);
     });
 
-    it('leaves out what bots said, and hears each review once', () => {
+    it('leaves out what bots said, and takes each review once', () => {
       const reviewed = opened()
         .recordReview(review(1, 'approved', 9, true))
         .recordReview(review(2, 'approved', 10))
@@ -276,7 +276,7 @@ describe('PullRequest', () => {
       expect(reviewed.firstReviewAt).toEqual(at(10));
     });
 
-    it('leaves out a dismissed review, whichever is heard first', () => {
+    it('leaves out a dismissed review, whichever arrives first', () => {
       const dismissedAfter = opened()
         .recordReview(review(1, 'changes-requested', 9))
         .recordReview(review(2, 'approved', 10))
@@ -296,7 +296,7 @@ describe('PullRequest', () => {
       });
     });
 
-    it('takes the earliest review by a person as the first, however late it is heard', () => {
+    it('takes the earliest review by a person as the first, however late it arrives', () => {
       const reviewed = opened()
         .recordReview(review(1, 'approved', 11))
         .recordReview(review(2, 'commented', 9));
@@ -319,7 +319,7 @@ describe('PullRequest', () => {
       expect(commented.comments).toEqual([1]);
     });
 
-    it('does not count a deleted comment again when its creation is heard after', () => {
+    it('does not count a deleted comment again when its creation arrives after', () => {
       const deleted = stored(
         opened()
           .recordComment(comment(1, 'created'))
@@ -339,8 +339,8 @@ describe('PullRequest', () => {
 
   describe('readiness for review', () => {
     it('is ready for review when it opened, unless it opened as a draft', () => {
-      expect(recorded(heard())).toMatchObject({ readyForReviewAt: OPENED });
-      expect(recorded(heard({ draft: true }))).toMatchObject({
+      expect(recorded(received())).toMatchObject({ readyForReviewAt: OPENED });
+      expect(recorded(received({ draft: true }))).toMatchObject({
         readyForReviewAt: null,
       });
     });
@@ -421,8 +421,8 @@ describe('PullRequest', () => {
       expect(lateReady.draftSpells).toEqual([{ from: at(12), to: null }]);
     });
 
-    it('opens a spell when the first it hears is GitHub turning it back into a draft', () => {
-      const draft = heard({
+    it('opens a spell when the first it receives is GitHub turning it back into a draft', () => {
+      const draft = received({
         draft: true,
         markedDraftAt: at(12),
         updatedAt: at(12),
@@ -449,7 +449,7 @@ describe('PullRequest', () => {
       ).toEqual([{ from: at(10), to: at(13) }]);
     });
 
-    it('keeps one spell open however often it hears the pull request is a draft', () => {
+    it('keeps one spell open however often it learns the pull request is a draft', () => {
       const draftAgain = stored(
         opened().describe(
           factsOf({ draft: true, markedDraftAt: at(10), updatedAt: at(10) }),
@@ -590,7 +590,7 @@ describe('PullRequest', () => {
       expect(busy.comments).toEqual([]);
     });
 
-    it('counts a bot comment once, and stops counting a deleted one however late its creation is heard', () => {
+    it('counts a bot comment once, and stops counting a deleted one however late its creation arrives', () => {
       const commented = stored(
         opened()
           .recordComment(comment(10, 'created', bot))
@@ -639,7 +639,7 @@ describe('PullRequest', () => {
       ]);
     });
 
-    it('hears a thread resolved again as nothing new, and leaves a person’s thread out', () => {
+    it('takes a thread resolved again as nothing new, and leaves a person’s thread out', () => {
       const resolved = stored(opened().resolveThread(thread('PRRT_1', true)));
       const byPerson = opened().resolveThread(
         thread('PRRT_2', true, { login: 'grace', byBot: false }),
@@ -683,9 +683,9 @@ describe('PullRequest', () => {
     });
 
     it('says nothing of a revert that has not merged', () => {
-      expect(kinds(heard({ title: 'Revert "Retry failed uploads"' }))).toEqual([
-        'pull-request.recorded',
-      ]);
+      expect(
+        kinds(received({ title: 'Revert "Retry failed uploads"' })),
+      ).toEqual(['pull-request.recorded']);
     });
 
     it('marks a merged pull request reverted, once', () => {
@@ -739,21 +739,21 @@ describe('PullRequest', () => {
       const long = new Date(NOW.getTime() - 181 * DAY);
 
       expect(
-        PullRequest.heard(
+        PullRequest.fromWebhook(
           WORKSPACE,
           factsOf({ state: 'merged', closedAt: long, openedAt: long }),
           NOW,
         ),
       ).toBeNull();
       expect(
-        PullRequest.heard(
+        PullRequest.fromWebhook(
           WORKSPACE,
           factsOf({ openedAt: long, updatedAt: long }),
           NOW,
         ),
       ).toBeNull();
       expect(
-        PullRequest.heard(
+        PullRequest.fromWebhook(
           WORKSPACE,
           factsOf({ openedAt: long, updatedAt: NOW }),
           NOW,

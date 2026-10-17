@@ -16,7 +16,7 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
-const kept = (scope: Parameters<typeof MemoryScope.of>[0]) =>
+const approved = (scope: Parameters<typeof MemoryScope.of>[0]) =>
   Memory.write({
     id: MemoryId.of('memory_1'),
     handle: MemoryHandle.of(18),
@@ -36,24 +36,26 @@ const API = Repository.of('acme/api');
 
 describe('the memory folder', () => {
   it('lays each memory under the most specific folder that fits it', () => {
-    expect(filesOf(kept({ teamId: TEAM }))).toEqual([
+    expect(filesOf(approved({ teamId: TEAM }))).toEqual([
       '.spotlight/memory/team/M-18.md',
     ]);
-    expect(filesOf(kept({ teamId: TEAM, lineId: 'line_1' }))).toEqual([
+    expect(filesOf(approved({ teamId: TEAM, lineId: 'line_1' }))).toEqual([
       '.spotlight/memory/line/M-18.md',
     ]);
     expect(
-      filesOf(kept({ teamId: TEAM, lineId: 'line_1', stationId: 'station_1' })),
+      filesOf(
+        approved({ teamId: TEAM, lineId: 'line_1', stationId: 'station_1' }),
+      ),
     ).toEqual(['.spotlight/memory/station/M-18.md']);
     expect(
-      filesOf(kept({ teamId: TEAM, lineId: 'line_1', repository: API })),
+      filesOf(approved({ teamId: TEAM, lineId: 'line_1', repository: API })),
     ).toEqual(['.spotlight/memory/repositories/acme/api/M-18.md']);
   });
 
   it('lays a memory about paths beside each of them', () => {
     expect(
       filesOf(
-        kept({
+        approved({
           teamId: TEAM,
           repository: API,
           paths: [MemoryPath.of('src/uploads'), MemoryPath.of('src/retry.ts')],

@@ -15,15 +15,15 @@ import { describe, expect, it } from 'vitest';
 
 const WEEK = 7 * 24 * 60 * 60_000;
 
-const kept = (runId: string, workspaceId = 'ws_1') =>
+const started = (runId: string, workspaceId = 'ws_1') =>
   RunGrants.start(RunLease.of(RunId.of(runId), 1), WorkspaceId.of(workspaceId));
 
-const keeping = async () => {
+const storedGrants = async () => {
   const grants = new InMemoryGrants();
 
-  await grants.save(kept('run_ended').end(NOW));
-  await grants.save(kept('run_going'));
-  await grants.save(kept('run_elsewhere', 'ws_2'));
+  await grants.save(started('run_ended').end(NOW));
+  await grants.save(started('run_going'));
+  await grants.save(started('run_elsewhere', 'ws_2'));
 
   return grants;
 };
@@ -38,7 +38,7 @@ const purgingBy = (grants: InMemoryGrants, logger = new RecordingLogger()) =>
 
 describe('PurgeRunGrants', () => {
   it('purges the grants of runs ended a week ago, and keeps the rest', async () => {
-    const grants = await keeping();
+    const grants = await storedGrants();
     let now = new Date(NOW.getTime() + WEEK - 1);
     const purging = new PurgeRunGrants(
       grants,
@@ -60,7 +60,9 @@ describe('PurgeRunGrants', () => {
     const grants = new InMemoryGrants();
 
     for (let each = 0; each < 120; each += 1) {
-      await grants.save(kept(`run_${String(each).padStart(3, '0')}`).end(NOW));
+      await grants.save(
+        started(`run_${String(each).padStart(3, '0')}`).end(NOW),
+      );
     }
 
     expect(await purgingBy(grants).longEnded()).toBe(120);
@@ -68,11 +70,11 @@ describe('PurgeRunGrants', () => {
   });
 
   it('skips grants it cannot read back, and purges the rest after them', async () => {
-    const grants = await keeping();
+    const grants = await storedGrants();
     const logger = new RecordingLogger();
     const found = grants.find.bind(grants);
 
-    await grants.save(kept('run_broken').end(NOW));
+    await grants.save(started('run_broken').end(NOW));
     grants.find = async (runId) => {
       if (runId.value === 'run_broken') {
         throw new InconsistentStateError('run grants', 'is unreadable');
@@ -90,7 +92,7 @@ describe('PurgeRunGrants', () => {
   });
 
   it('deletes every grant that the runs of a deleted workspace had, ended or not', async () => {
-    const grants = await keeping();
+    const grants = await storedGrants();
 
     await purgingBy(grants).deleteForWorkspace(WorkspaceId.of('ws_1'));
 
@@ -100,11 +102,11 @@ describe('PurgeRunGrants', () => {
   });
 
   it('deletes the rest of the grants of a deleted workspace past one it cannot read back', async () => {
-    const grants = await keeping();
+    const grants = await storedGrants();
     const logger = new RecordingLogger();
     const found = grants.find.bind(grants);
 
-    await grants.save(kept('run_broken'));
+    await grants.save(started('run_broken'));
     grants.find = async (runId) => {
       if (runId.value === 'run_broken') {
         throw new InconsistentStateError('run grants', 'is unreadable');

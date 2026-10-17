@@ -56,7 +56,7 @@ const delivered = (id = 'd_1', body: unknown = { action: 'closed' }) => ({
 });
 
 describe('AcceptDeliveryHandler', () => {
-  it('keeps the delivery as it arrived, under the name its host gave it', async () => {
+  it('stores the delivery as it arrived, under the name from its host', async () => {
     const { handler, taken } = accepting();
 
     await handler.execute(

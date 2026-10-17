@@ -30,9 +30,9 @@ const answering = (
   } = {},
 ) =>
   vi.fn(async (url: string | URL | Request) => {
-    const asked = url.toString();
+    const requested = url.toString();
 
-    if (asked === SERVER) {
+    if (requested === SERVER) {
       return new Response(null, {
         status: 401,
         headers: {
@@ -41,7 +41,7 @@ const answering = (
       });
     }
 
-    if (asked === METADATA) {
+    if (requested === METADATA) {
       return json({
         resource: over.resource ?? SERVER,
         authorization_servers: [ISSUER],
@@ -49,7 +49,7 @@ const answering = (
       });
     }
 
-    if (asked === `${ISSUER}/.well-known/oauth-authorization-server`) {
+    if (requested === `${ISSUER}/.well-known/oauth-authorization-server`) {
       return json({
         issuer: over.issuer ?? ISSUER,
         authorization_endpoint: `${ISSUER}/authorize`,
@@ -86,21 +86,21 @@ describe('OAuth2Discovery', () => {
     expect(fetch.mock.calls.map(([url]) => url.toString())).toContain(METADATA);
   });
 
-  it('keeps what it found for a while, and asks nothing again', async () => {
+  it('caches what it found for a while, and requests nothing again', async () => {
     const fetch = answering();
     const found = discovery(fetch);
 
     await found.endpoints(DISCOVERED);
-    const asked = fetch.mock.calls.length;
+    const requested = fetch.mock.calls.length;
     await found.endpoints({ ...DISCOVERED, scopes: ['read'] });
 
-    expect(fetch.mock.calls.length).toBe(asked);
+    expect(fetch.mock.calls.length).toBe(requested);
     await expect(
       found.endpoints({ ...DISCOVERED, scopes: ['read'] }),
     ).resolves.toMatchObject({ scopes: ['read'] });
   });
 
-  it('hands back endpoints the definition names, without asking anything', async () => {
+  it('hands back endpoints the definition names, without any request', async () => {
     const fetch = answering();
     const named: OAuth2IR = {
       discoverAt: null,
@@ -143,7 +143,7 @@ describe('OAuth2Discovery', () => {
     ).resolves.toBeNull();
   });
 
-  it('asks no authorization server on a host the deployment does not allow', async () => {
+  it('requests nothing from an authorization server on a host the deployment does not allow', async () => {
     const fetch = answering();
 
     await expect(

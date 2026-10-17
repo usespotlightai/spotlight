@@ -27,7 +27,7 @@ const TipContent = ({
       <p className="text-foreground">
         Read in {week.used} of {week.runs} {week.runs === 1 ? 'run' : 'runs'}
       </p>
-      <p className="text-muted-foreground">Given to {week.given}</p>
+      <p className="text-muted-foreground">Enabled for {week.enabled}</p>
     </ChartTip>
   );
 };

@@ -19,22 +19,22 @@ func proposer(t *testing.T, status int, body string) *[]protocol.CandidatePropos
 	}
 	t.Cleanup(func() { _ = server.Close() })
 
-	var asked []protocol.CandidateProposal
+	var received []protocol.CandidateProposal
 	server.Candidates(func(proposal protocol.CandidateProposal) (int, string) {
-		asked = append(asked, proposal)
+		received = append(received, proposal)
 		return status, body
 	})
 
 	t.Setenv(protocol.AgentAPIURLVar, server.URL())
 	t.Setenv(protocol.AgentAPITokenVar, server.Token())
 
-	return &asked
+	return &received
 }
 
 const proposedTerse = `{"candidateId":"cand_1","name":"terse","replayId":"replay_1"}`
 
 func TestCandidateReadsTheStationBlockFromStdin(t *testing.T) {
-	asked := proposer(t, 200, proposedTerse)
+	received := proposer(t, 200, proposedTerse)
 	out := new(bytes.Buffer)
 
 	err := run([]string{
@@ -44,10 +44,10 @@ func TestCandidateReadsTheStationBlockFromStdin(t *testing.T) {
 		t.Fatalf("run: %v", err)
 	}
 
-	if len(*asked) != 1 {
-		t.Fatalf("asked %+v", *asked)
+	if len(*received) != 1 {
+		t.Fatalf("received %+v", *received)
 	}
-	got := (*asked)[0]
+	got := (*received)[0]
 	if got.Name != "terse" || got.Hypothesis != "Shorter prompts finish sooner." ||
 		string(got.Station) != `{"prompt":"Be brief.","effort":"low"}` {
 		t.Errorf("proposed %+v (station %s)", got, got.Station)
@@ -60,7 +60,7 @@ func TestCandidateReadsTheStationBlockFromStdin(t *testing.T) {
 }
 
 func TestCandidateReadsTheBlockAndTheHypothesisFromFiles(t *testing.T) {
-	asked := proposer(t, 201, proposedTerse)
+	received := proposer(t, 201, proposedTerse)
 	dir := t.TempDir()
 	block := filepath.Join(dir, "station.json")
 	hypothesis := filepath.Join(dir, "hypothesis.md")
@@ -77,9 +77,9 @@ func TestCandidateReadsTheBlockAndTheHypothesisFromFiles(t *testing.T) {
 		t.Fatalf("run: %v", err)
 	}
 
-	if len(*asked) != 1 || (*asked)[0].Hypothesis != "A smaller model is enough\nfor this station." ||
-		string((*asked)[0].Station) != `{"model":"sonnet"}` {
-		t.Errorf("proposed %+v", *asked)
+	if len(*received) != 1 || (*received)[0].Hypothesis != "A smaller model is enough\nfor this station." ||
+		string((*received)[0].Station) != `{"model":"sonnet"}` {
+		t.Errorf("proposed %+v", *received)
 	}
 }
 
@@ -122,8 +122,8 @@ func TestCandidateCarriesAnErrorWithoutProblems(t *testing.T) {
 	}
 }
 
-func TestCandidateRejectsMisuseBeforeAskingSpotlight(t *testing.T) {
-	asked := proposer(t, 200, proposedTerse)
+func TestCandidateRejectsMisuseBeforeCallingSpotlight(t *testing.T) {
+	received := proposer(t, 200, proposedTerse)
 
 	for _, args := range [][]string{
 		{"candidate"},
@@ -144,13 +144,13 @@ func TestCandidateRejectsMisuseBeforeAskingSpotlight(t *testing.T) {
 			t.Errorf("%v returned %v", args, err)
 		}
 	}
-	if len(*asked) != 0 {
-		t.Errorf("proposed anyway: %+v", *asked)
+	if len(*received) != 0 {
+		t.Errorf("proposed anyway: %+v", *received)
 	}
 }
 
 func TestCandidateNeedsAJSONObject(t *testing.T) {
-	asked := proposer(t, 200, proposedTerse)
+	received := proposer(t, 200, proposedTerse)
 	hcl := filepath.Join(t.TempDir(), "line.tf")
 	if err := os.WriteFile(hcl, []byte(`station "build" {}`), 0o644); err != nil {
 		t.Fatal(err)
@@ -173,8 +173,8 @@ func TestCandidateNeedsAJSONObject(t *testing.T) {
 			t.Errorf("%v with %q: %v", attempt.args, attempt.in, err)
 		}
 	}
-	if len(*asked) != 0 {
-		t.Errorf("proposed anyway: %+v", *asked)
+	if len(*received) != 0 {
+		t.Errorf("proposed anyway: %+v", *received)
 	}
 }
 

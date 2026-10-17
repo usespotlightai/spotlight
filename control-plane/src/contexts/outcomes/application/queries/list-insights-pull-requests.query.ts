@@ -1,4 +1,4 @@
-import type { PullRequestFilterAsked } from '@outcomes/domain/services/pull-request-filter';
+import type { PullRequestFilterQuery } from '@outcomes/domain/services/pull-request-filter';
 import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo';
 
 export class ListInsightsPullRequestsQuery {
@@ -6,7 +6,7 @@ export class ListInsightsPullRequestsQuery {
     readonly teamId: string,
     readonly principal: Principal,
     readonly period: string,
-    readonly filter: PullRequestFilterAsked,
+    readonly filter: PullRequestFilterQuery,
     readonly page: number | null,
     readonly size: number | null,
   ) {}

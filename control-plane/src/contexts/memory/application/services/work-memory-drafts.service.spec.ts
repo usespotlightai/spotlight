@@ -1,8 +1,8 @@
 import { MemoryDraftingError } from '@memory/application/errors/memory-drafting.error';
 import type {
   KnownMemory,
-  MemoryDraftAsk,
   MemoryDrafterPort,
+  MemoryDraftRequest,
 } from '@memory/application/ports/memory-drafter.port';
 import type { MemoryRelevancePort } from '@memory/application/ports/memory-relevance.port';
 import type {
@@ -16,7 +16,7 @@ import type {
   TaskNote,
   WorkPort,
 } from '@memory/application/ports/work.port';
-import { MemoriesInReach } from '@memory/application/services/memories-in-reach.service';
+import { ApplicableMemories } from '@memory/application/services/applicable-memories.service';
 import { WorkMemoryDrafts } from '@memory/application/services/work-memory-drafts.service';
 import { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import { MemoryDraft } from '@memory/domain/aggregates/memory-draft.aggregate';
@@ -67,7 +67,7 @@ const NOTES: readonly TaskNote[] = [
   { position: 1, by: 'person', author: null, text: 'Never retry on a 403.' },
 ];
 
-const kept = (id: string, scope: MemoryScope, at = NOW) =>
+const approved = (id: string, scope: MemoryScope, at = NOW) =>
   Memory.write({
     id: MemoryId.of(id),
     handle: MemoryHandle.of(id.length),
@@ -80,8 +80,11 @@ const kept = (id: string, scope: MemoryScope, at = NOW) =>
   });
 
 const CANDIDATES: readonly Memory[] = [
-  kept('memory_old', MemoryScope.of({ teamId: TEAM, lineId: 'line_1' })),
-  kept('memory_elsewhere', MemoryScope.of({ teamId: TEAM, lineId: 'line_2' })),
+  approved('memory_old', MemoryScope.of({ teamId: TEAM, lineId: 'line_1' })),
+  approved(
+    'memory_elsewhere',
+    MemoryScope.of({ teamId: TEAM, lineId: 'line_2' }),
+  ),
 ];
 
 const ACTIVE: readonly KnownMemory[] = [
@@ -115,7 +118,7 @@ const REJECTED: readonly KnownMemory[] = [
 const REMEMBERED: ProposedMemory = {
   kind: 'correction',
   body: 'Never retry an upload the bucket rejected with a 403.',
-  reach: 'station',
+  scope: 'station',
   repository: 'acme/api',
   paths: ['src/uploads.ts'],
   steps: [],
@@ -131,7 +134,7 @@ const QUIET: LoggerPort = {
 };
 
 const working = (input: {
-  answer?: (ask: MemoryDraftAsk) => Promise<readonly ProposedMemory[]>;
+  answer?: (request: MemoryDraftRequest) => Promise<readonly ProposedMemory[]>;
   site?: NamedStationSite | null;
   steps?: readonly ReasonedStep[] | null;
   notes?: readonly TaskNote[];
@@ -144,7 +147,7 @@ const working = (input: {
       id: MemoryDraftId.of('draft_1'),
       taskId: TASK,
       workspaceId: WorkspaceId.of('ws_1'),
-    }).asked(RUN, NOW);
+    }).requestDrafting(RUN, NOW);
   let ids = 0;
   const draft = vi.fn(input.answer ?? (async () => [REMEMBERED]));
   const since = vi.fn();
@@ -176,9 +179,9 @@ const working = (input: {
       notesOf: async () => input.notes ?? NOTES,
       harnessOf: async () => null,
     } satisfies WorkPort,
-    new MemoriesInReach(
+    new ApplicableMemories(
       {
-        mayReach: async () => CANDIDATES,
+        mayApplyAt: async () => CANDIDATES,
         successorsOf: async () => [],
       } as unknown as MemoryRepository,
       {} as MemoryRelevancePort,
@@ -226,7 +229,7 @@ describe('drafting what a run should leave the team remembering', () => {
     expect(proposal?.scope.stationId).toBe('station_1');
   });
 
-  it('asks with the agent’s own words, the notes people wrote, and what the team keeps or turned down where the run worked', async () => {
+  it('requests a draft with the agent’s own words, the notes people wrote, and what the team approved or turned down where the run worked', async () => {
     const worked = working({});
 
     await worked.tick();
@@ -253,9 +256,13 @@ describe('drafting what a run should leave the team remembering', () => {
 
     await worked.tick();
 
-    const [ask] = worked.draft.mock.calls[0] ?? [];
-    expect(JSON.stringify(ask)).not.toMatch(/"returned"|"detail"|"given"/);
-    expect(Object.keys(ask?.steps[0] ?? {})).toEqual(['index', 'kind', 'text']);
+    const [request] = worked.draft.mock.calls[0] ?? [];
+    expect(JSON.stringify(request)).not.toMatch(/"output"|"detail"|"input"/);
+    expect(Object.keys(request?.steps[0] ?? {})).toEqual([
+      'index',
+      'kind',
+      'text',
+    ]);
   });
 
   it('reads again only the notes people added since the last draft', async () => {
@@ -263,7 +270,7 @@ describe('drafting what a run should leave the team remembering', () => {
     await first.tick();
 
     const later = working({
-      existing: first.stored().asked(RunId.of('run_2'), NOW),
+      existing: first.stored().requestDrafting(RunId.of('run_2'), NOW),
       notes: [
         ...NOTES,
         { position: 2, by: 'person', author: null, text: 'Use gzip.' },
@@ -285,7 +292,7 @@ describe('drafting what a run should leave the team remembering', () => {
     expect(worked.stored().proposals[0]?.source).toBe('outside');
   });
 
-  it('proposes nothing, asking no model, when the run has no steps and nobody wrote a note', async () => {
+  it('proposes nothing, calling no model, when the run has no steps and nobody wrote a note', async () => {
     const worked = working({ steps: [], notes: [] });
 
     await worked.tick();

@@ -29,12 +29,12 @@ const answer: {
   changes: Queried;
   setups: Queried;
   candidates: Queried;
-  asked: unknown[];
+  requested: unknown[];
 } = {
   changes: queried(undefined),
   setups: queried(undefined),
   candidates: queried(undefined),
-  asked: [],
+  requested: [],
 };
 
 vi.mock('@/hooks/api/useInsightsChanges', () => ({
@@ -42,7 +42,7 @@ vi.mock('@/hooks/api/useInsightsChanges', () => ({
 }));
 vi.mock('@/hooks/api/useInsightsSetups', () => ({
   useInsightsSetups: (_teamId: string, _period: string, narrowed: unknown) => {
-    answer.asked.push(narrowed);
+    answer.requested.push(narrowed);
     return answer.setups;
   },
 }));
@@ -267,7 +267,7 @@ beforeEach(() => {
   answer.changes = queried(CHANGES);
   answer.setups = queried(SETUPS);
   answer.candidates = queried(REPLAYED);
-  answer.asked = [];
+  answer.requested = [];
 });
 
 describe('the Changes tab', () => {
@@ -407,7 +407,7 @@ describe('the Changes tab', () => {
       await screen.findByRole('menuitemradio', { name: 'Large' }),
     );
 
-    expect(answer.asked.at(-1)).toEqual({ stationId: null, size: 'large' });
+    expect(answer.requested.at(-1)).toEqual({ stationId: null, size: 'large' });
   });
 
   it('draws no replayed candidates until a station is picked', () => {
@@ -610,6 +610,6 @@ describe('the Changes tab', () => {
       screen.getByRole('button', { name: 'Clear filters' }),
     );
 
-    expect(answer.asked.at(-1)).toEqual({ stationId: null, size: null });
+    expect(answer.requested.at(-1)).toEqual({ stationId: null, size: null });
   });
 });

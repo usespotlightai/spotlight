@@ -1,6 +1,6 @@
 import {
   MEMORY_KIND_NAMES,
-  MEMORY_REACH_NAMES,
+  MEMORY_SCOPE_NAMES,
   MEMORY_SOURCE_NAMES,
 } from '@memory/application/dto/memory-review.dto';
 import {
@@ -98,8 +98,8 @@ export class TeamMemoryResponseDto {
   @ApiProperty({ enum: MEMORY_STATUS_NAMES, example: 'active' })
   readonly status: string;
 
-  @ApiProperty({ enum: MEMORY_REACH_NAMES, example: 'team' })
-  readonly reach: string;
+  @ApiProperty({ enum: MEMORY_SCOPE_NAMES, example: 'team' })
+  readonly scope: string;
 
   @ApiProperty({ nullable: true, type: String })
   readonly lineId: string | null;
@@ -152,7 +152,7 @@ export class TeamMemoryResponseDto {
     this.body = memory.body;
     this.source = memory.source;
     this.status = memory.status;
-    this.reach = memory.reach;
+    this.scope = memory.scope;
     this.lineId = memory.lineId;
     this.stationId = memory.stationId;
     this.repository = memory.repository;

@@ -117,7 +117,7 @@ const travelled = (search: Search): Search => {
   return search
     .recordReplayEnd(SEED, 'finished', charged(5), NOW, runs, true)
     .queueRun(RunId.of('search_run_1'))
-    .admitted(RunId.of('search_run_1'), {
+    .acceptProposal(RunId.of('search_run_1'), {
       candidateId: CandidateId.of('candidate_terse'),
       name: CandidateName.searched('terse'),
       replayId: ReplayId.of('replay_terse'),
@@ -146,7 +146,7 @@ const travelled = (search: Search): Search => {
 };
 
 describe('DrizzleSearchRepository', () => {
-  it('keeps a search as it was started, and as it travelled', async () => {
+  it('stores a search as it was started, and as it travelled', async () => {
     const started = aSearch();
 
     await searches.add(started);
@@ -191,11 +191,11 @@ describe('DrizzleSearchRepository', () => {
     );
     expect(await searches.ranAs(RunId.of('elsewhere'))).toBeNull();
     expect(dispatched.map((each) => each.kind)).toContain(
-      'replays.search-iteration-wanted',
+      'replays.search-iteration-requested',
     );
   });
 
-  it('keeps what it held out and how it ended', async () => {
+  it('stores what it held out and how it ended', async () => {
     const runs = searchRunIds();
     let search = travelled(aSearch({ budget: aBudget({ iterations: 2 }) }));
 
@@ -294,7 +294,7 @@ describe('DrizzleSearchRepository', () => {
   });
 });
 
-describe('replays, candidates and sets a search keeps', () => {
+describe('replays, candidates and sets a search stores', () => {
   const made = {
     station: STATION,
     address: AT,
@@ -318,7 +318,7 @@ describe('replays, candidates and sets a search keeps', () => {
       },
     });
 
-  it('keeps a searched candidate and a planned one with what made them', async () => {
+  it('stores a searched candidate and a planned one with what made them', async () => {
     await candidates.add(searched('candidate_a', 'terse'));
     await candidates.add(
       Candidate.plan({
@@ -362,7 +362,7 @@ describe('replays, candidates and sets a search keeps', () => {
     );
   });
 
-  it('keeps which runs a replay replays and the search it belongs to', async () => {
+  it('stores which runs a replay replays and the search it belongs to', async () => {
     const set = aSet(4);
     const started = Replay.start({
       id: ReplayId.of('replay_some'),
@@ -407,7 +407,7 @@ describe('replays, candidates and sets a search keeps', () => {
     ).rejects.toThrow(ReplaySetVersionConflictError);
   });
 
-  it('keeps which set guards a station’s changes, one per station', async () => {
+  it('stores which set guards a station’s changes, one per station', async () => {
     const first = aSet(1);
     const second = ReplaySet.create({
       id: ReplaySetId.of('set_2'),

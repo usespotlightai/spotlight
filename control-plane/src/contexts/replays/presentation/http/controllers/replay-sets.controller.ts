@@ -168,7 +168,7 @@ export class ReplaySetsController {
   @ApiOperation({
     operationId: 'listReplaySetSuggestions',
     summary:
-      'Up to 5 recent runs of the set’s station that would even out how its runs turned out, accepted ones first, then sent back; none are added until asked',
+      'Up to 5 recent runs of the set’s station that would even out how its runs turned out, accepted ones first, then sent back; none are added until requested',
   })
   @ApiParam({ name: 'setId', type: String })
   @ApiOkResponse({ type: SuggestedRunResponseDto, isArray: true })
@@ -260,7 +260,7 @@ export class ReplaySetsController {
   @ApiOperation({
     operationId: 'deleteReplaySet',
     summary:
-      'Delete a replay set and its replays, and release the archives it kept',
+      'Delete a replay set and its replays, and release the archives it holds',
   })
   @ApiParam({ name: 'setId', type: String })
   @ApiNoContentResponse({ description: 'Deleted' })
@@ -290,7 +290,7 @@ export class ReplaySetsController {
   @ApiOperation({
     operationId: 'addReplaySetEntry',
     summary:
-      'Add a past run of the station to a replay set, keeping the archive it started from while it is there',
+      'Add a past run of the station to a replay set, holding the archive it started from while it is there',
   })
   @ApiParam({ name: 'setId', type: String })
   @ApiBody({ type: AddReplaySetEntryRequestDto })
@@ -358,7 +358,7 @@ export class ReplaySetsController {
   @ApiOperation({
     operationId: 'guardChanges',
     summary:
-      'Check planned changes of the set’s station against this set, as `spotlight replay check` asks; a station has one such set',
+      'Check planned changes of the set’s station against this set, as `spotlight replay check` requests; a station has one such set',
   })
   @ApiParam({ name: 'setId', type: String })
   @ApiNoContentResponse({ description: 'It guards the station’s changes' })

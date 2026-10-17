@@ -1,6 +1,6 @@
 import type {
-  Heard,
   TranslatedDelivery,
+  WebhookEvent,
 } from '@github/application/ports/webhook-translation.port';
 import { GitHubWebhooks } from '@github/application/services/github-webhooks.service';
 import type { RecordPullRequests } from '@github/application/services/record-pull-requests.service';
@@ -37,7 +37,7 @@ const COMMENT = {
   writtenAt: new Date('2026-09-16T09:00:00Z'),
 };
 
-const MERGED: Heard = {
+const MERGED: WebhookEvent = {
   kind: 'pull-request-activity',
   activity: {
     activity: 'merged',
@@ -50,7 +50,7 @@ const MERGED: Heard = {
   },
 };
 
-const CLOSED: Heard = {
+const CLOSED: WebhookEvent = {
   kind: 'pull-request-closed',
   pullRequest: 'https://github.com/acme/api/pull/7',
   repository: 'acme/api',
@@ -119,7 +119,7 @@ const hooks = (
 describe('GitHubWebhooks', () => {
   describe('verifying a delivery', () => {
     it('checks the signature over the bytes as received', () => {
-      const { service, signature } = hooks({ installation: null, heard: [] });
+      const { service, signature } = hooks({ installation: null, events: [] });
 
       expect(service.verifies(DELIVERY)).toBe(true);
       expect(signature.signs).toHaveBeenCalledWith(DELIVERY.raw, 'sha256=abc');
@@ -127,14 +127,14 @@ describe('GitHubWebhooks', () => {
 
     it('rejects a delivery without its bytes, or with a bad signature', () => {
       expect(
-        hooks({ installation: null, heard: [] }).service.verifies({
+        hooks({ installation: null, events: [] }).service.verifies({
           ...DELIVERY,
           raw: null,
         }),
       ).toBe(false);
       expect(
         hooks(
-          { installation: null, heard: [] },
+          { installation: null, events: [] },
           { signs: false },
         ).service.verifies(DELIVERY),
       ).toBe(false);
@@ -142,10 +142,10 @@ describe('GitHubWebhooks', () => {
   });
 
   describe('routing to a workspace', () => {
-    it('asks whose the installation the delivery names is', async () => {
+    it('reads whose the installation the delivery names is', async () => {
       const { service, connections } = hooks({
         installation: '158876513',
-        heard: [],
+        events: [],
       });
 
       expect(await service.workspaceOf(DELIVERY)).toEqual(WORKSPACE);
@@ -153,17 +153,20 @@ describe('GitHubWebhooks', () => {
     });
 
     it('routes a delivery that names no installation nowhere', async () => {
-      const { service, connections } = hooks({ installation: null, heard: [] });
+      const { service, connections } = hooks({
+        installation: null,
+        events: [],
+      });
 
       expect(await service.workspaceOf(DELIVERY)).toBeNull();
       expect(connections.claimantOf).not.toHaveBeenCalled();
     });
   });
 
-  it('hands over only the pull request activity it heard', () => {
+  it('hands over only the pull request activity it received', () => {
     const { service } = hooks({
       installation: '158876513',
-      heard: [{ kind: 'installation-removed' }, MERGED],
+      events: [{ kind: 'installation-removed' }, MERGED],
     });
 
     expect(service.activityIn(DELIVERY)).toEqual([
@@ -175,7 +178,7 @@ describe('GitHubWebhooks', () => {
     it('lets go of an installation GitHub removed, saying so', async () => {
       const { service, connections } = hooks({
         installation: '158876513',
-        heard: [{ kind: 'installation-removed' }],
+        events: [{ kind: 'installation-removed' }],
       });
 
       await service.receive(DELIVERY);
@@ -190,7 +193,7 @@ describe('GitHubWebhooks', () => {
     it('leaves purging the pull requests of a removed installation to the disconnection it says', async () => {
       const { service, recording } = hooks({
         installation: '158876513',
-        heard: [{ kind: 'installation-removed' }],
+        events: [{ kind: 'installation-removed' }],
       });
 
       await service.receive(DELIVERY);
@@ -201,7 +204,7 @@ describe('GitHubWebhooks', () => {
     it('records that a review was dismissed', async () => {
       const { service, recording } = hooks({
         installation: '42',
-        heard: [
+        events: [
           {
             kind: 'pull-request-review-dismissed',
             pullRequest: 'https://github.com/acme/api/pull/7',
@@ -225,7 +228,7 @@ describe('GitHubWebhooks', () => {
       const { service, connections } = hooks(
         {
           installation: '158876513',
-          heard: [{ kind: 'installation-removed' }],
+          events: [{ kind: 'installation-removed' }],
         },
         { claimed: false },
       );
@@ -238,7 +241,7 @@ describe('GitHubWebhooks', () => {
     it('says a review comment was received in the workspace', async () => {
       const { service, events } = hooks({
         installation: '42',
-        heard: [
+        events: [
           {
             kind: 'review-comment',
             action: 'created',
@@ -265,7 +268,7 @@ describe('GitHubWebhooks', () => {
       const closedAt = new Date('2026-09-21T09:30:00Z');
       const { service, events } = hooks({
         installation: '42',
-        heard: [
+        events: [
           {
             kind: 'pull-request-closed',
             pullRequest: 'https://github.com/acme/api/pull/7',
@@ -293,7 +296,7 @@ describe('GitHubWebhooks', () => {
       const submittedAt = new Date('2026-09-21T09:30:00Z');
       const { service, events } = hooks({
         installation: '42',
-        heard: [
+        events: [
           {
             kind: 'pull-request-reviewed',
             pullRequest: 'https://github.com/acme/api/pull/7',
@@ -321,7 +324,7 @@ describe('GitHubWebhooks', () => {
       ]);
     });
 
-    it('records every pull request it hears of, whether or not a task owns it', async () => {
+    it('records every pull request it receives, whether or not a task owns it', async () => {
       const facts = {
         url: PullRequestUrl.of('https://github.com/acme/api/pull/8'),
         repository: Repository.of('acme/api'),
@@ -342,7 +345,7 @@ describe('GitHubWebhooks', () => {
       };
       const { service, recording } = hooks({
         installation: '42',
-        heard: [{ kind: 'pull-request', facts }],
+        events: [{ kind: 'pull-request', facts }],
       });
 
       await service.receive(DELIVERY);
@@ -353,11 +356,11 @@ describe('GitHubWebhooks', () => {
       );
     });
 
-    it('records a review on the pull request it was given to', async () => {
+    it('records a review on the pull request it belongs to', async () => {
       const submittedAt = new Date('2026-09-21T09:30:00Z');
       const { service, recording } = hooks({
         installation: '42',
-        heard: [
+        events: [
           {
             kind: 'pull-request-reviewed',
             pullRequest: 'https://github.com/acme/api/pull/7',
@@ -390,7 +393,7 @@ describe('GitHubWebhooks', () => {
     it('records a review comment on the pull request it was left on', async () => {
       const { service, recording } = hooks({
         installation: '42',
-        heard: [
+        events: [
           {
             kind: 'review-comment',
             action: 'deleted',
@@ -421,7 +424,7 @@ describe('GitHubWebhooks', () => {
     it('records a conversation comment on the pull request it was left on', async () => {
       const { service, recording } = hooks({
         installation: '42',
-        heard: [
+        events: [
           {
             kind: 'conversation-comment',
             action: 'created',
@@ -458,7 +461,7 @@ describe('GitHubWebhooks', () => {
       };
       const { service, recording } = hooks({
         installation: '42',
-        heard: [
+        events: [
           {
             kind: 'review-thread',
             pullRequest: 'https://github.com/acme/api/pull/7',
@@ -482,7 +485,7 @@ describe('GitHubWebhooks', () => {
       const { service, events } = hooks(
         {
           installation: '42',
-          heard: [CLOSED],
+          events: [CLOSED],
         },
         { claimed: false },
       );
@@ -495,7 +498,7 @@ describe('GitHubWebhooks', () => {
     it('says nothing where the delivery came through no installation', async () => {
       const { service, events, connections } = hooks({
         installation: null,
-        heard: [CLOSED],
+        events: [CLOSED],
       });
 
       await service.receive(DELIVERY);
@@ -507,7 +510,7 @@ describe('GitHubWebhooks', () => {
     it('leaves pull request activity to whoever reads it', async () => {
       const { service, connections, events } = hooks({
         installation: '42',
-        heard: [MERGED],
+        events: [MERGED],
       });
 
       await service.receive(DELIVERY);
@@ -520,7 +523,7 @@ describe('GitHubWebhooks', () => {
       const { service, events, logger } = hooks(
         {
           installation: '42',
-          heard: [CLOSED],
+          events: [CLOSED],
         },
         {
           dispatch: async () => {
@@ -557,7 +560,7 @@ describe('GitHubWebhooks', () => {
       };
       const { service, recording } = hooks({
         installation: '42',
-        heard: [
+        events: [
           { kind: 'pull-request', facts },
           { kind: 'pull-request', facts: { ...facts, number: 9 } },
         ],

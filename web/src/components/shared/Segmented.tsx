@@ -3,7 +3,7 @@ import { useRef } from 'react';
 import { useTabIndicator } from '@/hooks/useTabIndicator';
 import { cn } from '@/lib/utils';
 
-const PILL_REACH = 2;
+const PILL_INSET = 2;
 
 type Segment<T extends string> = {
   readonly id: T;
@@ -42,8 +42,8 @@ export function Segmented<T extends string>({
               'transition-[transform,width] duration-200 ease-out motion-reduce:transition-none',
           )}
           style={{
-            width: indicator.width + PILL_REACH * 2,
-            transform: `translateX(${indicator.left - PILL_REACH}px)`,
+            width: indicator.width + PILL_INSET * 2,
+            transform: `translateX(${indicator.left - PILL_INSET}px)`,
           }}
         />
       )}

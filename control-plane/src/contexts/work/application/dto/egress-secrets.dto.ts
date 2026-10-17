@@ -9,7 +9,7 @@ export type EgressSecretsDto =
   | {
       readonly outcome: 'fetched';
       readonly runId: string | null;
-      readonly reaches: readonly string[];
+      readonly extraAllowedHosts: readonly string[];
       readonly bound: readonly string[];
       readonly secrets: readonly FetchedSecret[];
       readonly denied: readonly DeniedSecret[];

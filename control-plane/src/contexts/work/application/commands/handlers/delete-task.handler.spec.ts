@@ -79,8 +79,8 @@ const tasks = (found: Task | null = existing()) =>
 
 const access = (teamId = 'team_1') =>
   ({
-    onTeam: vi.fn(async (asked: string) =>
-      asked === teamId
+    onTeam: vi.fn(async (requested: string) =>
+      requested === teamId
         ? {
             teamId: TeamId.of(teamId),
             workspaceId: WorkspaceId.of('ws_1'),
@@ -108,7 +108,7 @@ describe('DeleteTaskHandler', () => {
     expect(stored.remove.mock.calls[0]?.[0].id).toEqual(TaskId.of('task_1'));
   });
 
-  it('says the task was deleted, so what others keep of it can go too', async () => {
+  it('says the task was deleted, so what others store of it can go too', async () => {
     const stored = tasks();
 
     await new DeleteTaskHandler(stored, lines()).execute(

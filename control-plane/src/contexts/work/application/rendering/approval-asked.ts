@@ -13,11 +13,13 @@ export const written = (name: string, value: string): string =>
     : `${name}: \`${value}\``;
 
 const handed = (call: ToolCall): readonly string[] =>
-  call.given.length === 0
+  call.writtenInputs.length === 0
     ? ['It would be called with nothing.']
     : [
         'It would be called with:',
-        ...call.given.map((each) => written(each.name, shortened(each.value))),
+        ...call.writtenInputs.map((each) =>
+          written(each.name, shortened(each.value)),
+        ),
       ];
 
 export const ApprovalAsked = {

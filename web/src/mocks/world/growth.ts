@@ -115,7 +115,7 @@ export const GROWTH_TASKS: TaskResponseDto[] = [
   }),
   task({
     id: 'task_signup_survey',
-    title: 'Ask new signups where they heard of us',
+    title: 'Ask new signups how they found us',
     stationId: 'station_design',
     running: true,
     createdAt: hoursAgo(3),

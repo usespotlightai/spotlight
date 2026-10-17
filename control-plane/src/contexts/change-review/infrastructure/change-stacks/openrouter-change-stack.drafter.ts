@@ -14,10 +14,10 @@ import type { Diff } from '@change-review/domain/value-objects/diff.vo';
 import { COHORT_KINDS } from '@change-review/domain/value-objects/stack-cohort.vo';
 import { HunkId } from '@change-review/domain/value-objects/stack-ids';
 import {
-  askForJson,
   type Fetch,
   JsonShape,
   OpenRouterUnansweredError,
+  requestJson,
 } from '@platform/openrouter/openrouter-json';
 import { z } from 'zod';
 
@@ -62,7 +62,7 @@ A change stack has two levels:
 
 Lockfiles, generated files, snapshots, whole-file renames and formatting-only changes have already been set aside, and Spotlight places them itself. Other changes that need no review of their own go in a cohort of kind "incidental". Everything else is kind "change".
 
-Spotlight has read the code and gives facts with each file and hunk. Treat them as fixed:
+Spotlight has read the code and adds facts to each file and hunk. Treat them as fixed:
 
 - "uses": the hunk uses something another hunk defines, so it belongs in the same cohort, in the same layer or a later one.
 - "tests": the hunk tests the code in another hunk, so it belongs in the same cohort and the same layer as that code, in the latest layer where it tests several.
@@ -71,13 +71,13 @@ Spotlight has read the code and gives facts with each file and hunk. Treat them 
 - "uses, unchanged": code the hunk uses that this diff leaves as it was. It links the hunk to nothing, but says which part of the codebase the hunk works with.
 - Hunks nothing connects are separate pieces of work. Join them in one cohort only when they plainly serve one purpose the code does not show, and then say why in the cohort's joinedBecause; otherwise leave joinedBecause null.
 
-The diff is split into hunks, each with an id such as h7. Rules the stack must keep:
+The diff is split into hunks, each with an id such as h7. Rules the stack must follow:
 
 1. Place every hunk exactly once, as a range of one layer. Never invent a hunk id.
 2. A layer depends only on earlier layers of its own cohort, named by their 1-based position within that cohort. Cohorts never depend on each other.
 3. Every dependency names in "because" the symbols (types, functions, tables, routes, components) the later layer uses from the earlier one.
 4. Titles are short imperative phrases ("Add the invitation data model"). A cohort's intent and a layer's summary say what changed and why in one to three plain sentences.
-5. Give a layer exactly one entry in "files" for every file its ranges touch, and none for any other file. Its path is the file's path exactly as its ## heading gives it, and its note says in one or two plain sentences what changed in that file for this layer and why. A note never restates the path or the layer's summary.
+5. Give a layer exactly one entry in "files" for every file its ranges touch, and none for any other file. Its path is the file's path exactly as its ## heading shows it, and its note says in one or two plain sentences what changed in that file for this layer and why. A note never restates the path or the layer's summary.
 
 Order cohorts by how much a reviewer needs to see them, most significant first, with incidental cohorts last.`;
 
@@ -181,7 +181,7 @@ export const revised = (revision: StackRevision): string =>
   ].join('\n\n');
 
 const REMEDIES: Partial<Record<StackProblemCode, string>> = {
-  unconnected: 'split it, or give joinedBecause',
+  unconnected: 'split it, or set joinedBecause',
   'joined-layers':
     'move the few changes a failing layer needs instead, and join layers only where that cannot work',
 };
@@ -215,7 +215,7 @@ export class OpenRouterChangeStackDrafter implements ChangeStackDrafterPort {
     }
 
     const revision = reordering ? reordering : null;
-    const asked = [
+    const prompt = [
       repository ? `Repository: ${repository.value}` : null,
       `The diff, as ${facts.hunks.filter((each) => !each.incidental).length} hunks to place:`,
       described(diff, facts),
@@ -227,13 +227,13 @@ export class OpenRouterChangeStackDrafter implements ChangeStackDrafterPort {
       .filter(Boolean)
       .join('\n\n');
 
-    const { answer, usage } = await askForJson({
+    const { answer, usage } = await requestJson({
       apiKey: this.apiKey,
       model: this.model,
       fetch: this.fetch,
       shape: STACK,
       system: SYSTEM,
-      asked,
+      prompt,
       max: MAX_OUTPUT,
     }).catch((error: unknown) => {
       throw error instanceof OpenRouterUnansweredError

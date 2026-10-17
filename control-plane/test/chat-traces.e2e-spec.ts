@@ -54,7 +54,7 @@ const started = () =>
     teamId: TeamId.of('team_1'),
     startedBy: UserId.of('user_1'),
     harness: HarnessId.of('dev'),
-    body: ChatMessageBody.given('Why did this fail?'),
+    body: ChatMessageBody.fromInput('Why did this fail?'),
     traces: [RETRIES],
     now: new Date(),
     newId: () => randomUUID(),
@@ -143,7 +143,7 @@ describe('traces shared in a chat', () => {
     ).toBe('team_3');
   });
 
-  it('keeps the traces a message shared', async () => {
+  it('stores the traces a message shared', async () => {
     const chat = started();
 
     await chats.add(chat);

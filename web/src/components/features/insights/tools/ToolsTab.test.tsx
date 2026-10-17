@@ -51,11 +51,11 @@ const TOOLS = {
     {
       key: 'our-migrations',
       defined: true,
-      given: 8,
+      enabled: 8,
       used: 5,
       weeks: [
-        { week: '2026-09-21', runs: 6, given: 4, used: 1, usedShare: 1 / 6 },
-        { week: '2026-09-28', runs: 6, given: 4, used: 4, usedShare: 4 / 6 },
+        { week: '2026-09-21', runs: 6, enabled: 4, used: 1, usedShare: 1 / 6 },
+        { week: '2026-09-28', runs: 6, enabled: 4, used: 4, usedShare: 4 / 6 },
       ],
       trend: 'spreading',
       stations: [
@@ -63,7 +63,7 @@ const TOOLS = {
           lineId: 'line_1',
           stationId: 'station_impl',
           runs: 10,
-          given: 8,
+          enabled: 8,
           used: 5,
           trend: 'spreading',
         },
@@ -72,11 +72,11 @@ const TOOLS = {
     {
       key: 'borrowed',
       defined: false,
-      given: 0,
+      enabled: 0,
       used: 1,
       weeks: [
-        { week: '2026-09-21', runs: 6, given: 0, used: 0, usedShare: 0 },
-        { week: '2026-09-28', runs: 6, given: 0, used: 1, usedShare: 1 / 6 },
+        { week: '2026-09-21', runs: 6, enabled: 0, used: 0, usedShare: 0 },
+        { week: '2026-09-28', runs: 6, enabled: 0, used: 1, usedShare: 1 / 6 },
       ],
       trend: null,
       stations: [],
@@ -209,7 +209,7 @@ describe('the skills and tools of the Tools and skills tab', () => {
     expect(
       skillRow('our-migrations').querySelector('[data-slot="skill-trend"]'),
     ).toHaveAttribute('data-trend', 'spreading');
-    expect(skillRow('our-migrations')).toHaveTextContent('Given8Read5Trend');
+    expect(skillRow('our-migrations')).toHaveTextContent('Enabled8Read5Trend');
   });
 
   it('links a defined skill to its page under the team’s skills, and opens the runs behind its numbers', () => {
@@ -232,7 +232,7 @@ describe('the skills and tools of the Tools and skills tab', () => {
     );
     expect(within(migrations).getByRole('link', { name: '8' })).toHaveAttribute(
       'href',
-      `${RUNS}&skillGiven=our-migrations`,
+      `${RUNS}&skillEnabled=our-migrations`,
     );
   });
 
@@ -248,7 +248,7 @@ describe('the skills and tools of the Tools and skills tab', () => {
       'href',
       '/w/acme/team/team_1/insights?tab=runs&period=7d&stationId=station_impl&skillUsed=our-migrations',
     );
-    expect(station.closest('li')).toHaveTextContent('Runs10Given8Read5');
+    expect(station.closest('li')).toHaveTextContent('Runs10Enabled8Read5');
     expect(
       screen.queryByRole('list', { name: 'Stations using borrowed' }),
     ).toBeNull();

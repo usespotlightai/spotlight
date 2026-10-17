@@ -138,7 +138,7 @@ export class WorkspaceTokenTrustResourceController {
 
   @WorkspaceTokenTrustResource.Update(
     'token-trusts/:id',
-    'Change which workloads a token trust admits, or what the tokens it issues may do; tokens issued with scopes it no longer grants stop admitting their bearers',
+    'Change which workloads a token trust matches, or what the tokens it issues may do; tokens issued with scopes it no longer grants stop being valid',
   )
   @ID
   @DEFINITION
@@ -160,7 +160,7 @@ export class WorkspaceTokenTrustResourceController {
 
   @WorkspaceTokenTrustResource.Delete(
     'token-trusts/:id',
-    'Delete a token trust; every token that the trust issued admits nobody from this moment',
+    'Delete a token trust; Spotlight accepts no token that the trust issued from this moment',
   )
   @ID
   async delete(

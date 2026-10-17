@@ -45,7 +45,7 @@ func (f *fakeEgress) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case r.Method == http.MethodConnect:
 		f.connects = append(f.connects, r.Host)
 		if strings.HasPrefix(r.Host, "blocked.example.com") {
-			http.Error(w, "Egress does not let this sandbox reach blocked.example.com.", http.StatusForbidden)
+			http.Error(w, "Egress does not allow this sandbox to connect to blocked.example.com.", http.StatusForbidden)
 			return
 		}
 		upstream, err := net.Dial("tcp", f.target)
@@ -179,7 +179,7 @@ func TestPassesOnWhatEgressBlocked(t *testing.T) {
 
 	status, body := r.get(t, "http://blocked.example.com/", "")
 
-	if status != http.StatusForbidden || !strings.Contains(body, "does not let this sandbox reach blocked.example.com") {
+	if status != http.StatusForbidden || !strings.Contains(body, "does not allow this sandbox to connect to blocked.example.com") {
 		t.Errorf("answered %d: %s", status, body)
 	}
 }
@@ -200,7 +200,7 @@ func TestGoesDirectWhenTheDefaultIsOff(t *testing.T) {
 	}
 }
 
-func TestGivesTheAgentTheWayOutAndItsAuthority(t *testing.T) {
+func TestHandsTheAgentTheWayOutAndItsAuthority(t *testing.T) {
 	r := rigged(t, false)
 	env := r.way.Env()
 
@@ -247,9 +247,9 @@ func TestTellsWhetherTheSandboxCanGoAroundEgress(t *testing.T) {
 }
 
 func TestRejectsAnEgressWithoutAnAddressOrCredential(t *testing.T) {
-	for _, given := range [][2]string{{"egress.example.com", "credential"}, {"https://egress.example.com", ""}} {
-		if _, err := wayout.To(given[0], given[1], nil); err == nil {
-			t.Errorf("accepted %q", given)
+	for _, input := range [][2]string{{"egress.example.com", "credential"}, {"https://egress.example.com", ""}} {
+		if _, err := wayout.To(input[0], input[1], nil); err == nil {
+			t.Errorf("accepted %q", input)
 		}
 	}
 }
@@ -266,7 +266,7 @@ func egressOf(t *testing.T, fake *fakeEgress) *wayout.Egress {
 	return egress
 }
 
-func TestAsksAgainForBoundHostsUntilEgressHasTheRun(t *testing.T) {
+func TestRequestsBoundHostsAgainUntilEgressHasTheRun(t *testing.T) {
 	fake := &fakeEgress{hosts: []string{"mcp.example.com"}, notYet: 2, busy: 1}
 
 	way, err := wayout.Open(context.Background(), egressOf(t, fake), wayout.Options{Listen: "127.0.0.1:0", Log: quiet})
@@ -278,7 +278,7 @@ func TestAsksAgainForBoundHostsUntilEgressHasTheRun(t *testing.T) {
 	fake.mu.Lock()
 	defer fake.mu.Unlock()
 	if fake.notYet != 0 || fake.busy != 0 {
-		t.Errorf("did not ask again; %d and %d answers left", fake.notYet, fake.busy)
+		t.Errorf("did not request again; %d and %d answers left", fake.notYet, fake.busy)
 	}
 }
 
@@ -291,7 +291,7 @@ func TestDoesNotOpenWithoutBoundHostsInTime(t *testing.T) {
 	}
 }
 
-func TestDoesNotAskAgainWhenEgressRejectsTheSandbox(t *testing.T) {
+func TestDoesNotRequestAgainWhenEgressRejectsTheSandbox(t *testing.T) {
 	fake := &fakeEgress{reject: http.StatusProxyAuthRequired}
 
 	started := time.Now()

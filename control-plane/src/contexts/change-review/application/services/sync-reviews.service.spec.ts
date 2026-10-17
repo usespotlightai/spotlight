@@ -177,7 +177,7 @@ const submitted = () => {
 };
 
 describe('SyncReviews', () => {
-  it('posts a submitted review with its comments, and keeps where GitHub put them', async () => {
+  it('posts a submitted review with its comments, and stores where GitHub put them', async () => {
     const { review, comments } = submitted();
     const synced = syncing({
       sync: { kind: 'review', subjectId: 'review_1', attempts: 0 },
@@ -369,7 +369,7 @@ describe('SyncReviews', () => {
     );
   });
 
-  it('withdraws a review whose every comment was deleted on its way, without asking GitHub', async () => {
+  it('withdraws a review whose every comment was deleted on its way, without calling GitHub', async () => {
     const { review, comments } = submitted();
     const synced = syncing({
       sync: { kind: 'review', subjectId: 'review_1', attempts: 0 },
@@ -398,7 +398,7 @@ describe('SyncReviews', () => {
     expect(synced.recorded).toEqual([{ how: 'done', args: ['sync_1'] }]);
   });
 
-  it('fails a reply to a comment whose review never reached GitHub', async () => {
+  it('fails a reply to a comment whose review was never posted to GitHub', async () => {
     const sending = draft('comment_1', 3).submittedIn(ReviewId.of('review_1'));
     const reply = sending.replied({
       id: ReviewCommentId.of('comment_2'),
@@ -496,7 +496,7 @@ describe('SyncReviews', () => {
     );
   });
 
-  it('posts a comment on a whole file on its own, and keeps where GitHub put it', async () => {
+  it('posts a comment on a whole file on its own, and stores where GitHub put it', async () => {
     const onFile = ReviewComment.draft({
       id: ReviewCommentId.of('comment_3'),
       workspaceId: WORKSPACE,
@@ -547,7 +547,7 @@ describe('SyncReviews', () => {
     expect(synced.comments.get('comment_2')?.github?.id).toBe(555);
   });
 
-  it('keeps where GitHub put a reply edited while it was posted, and never posts it twice', async () => {
+  it('stores where GitHub put a reply edited while it was posted, and never posts it twice', async () => {
     const parent = draft('comment_1', 3)
       .submittedIn(ReviewId.of('review_1'))
       .postedAs({ id: 77, url: 'https://github.com/c/77' });
@@ -567,11 +567,11 @@ describe('SyncReviews', () => {
 
     await synced.service.syncDue();
 
-    const kept = synced.comments.get('comment_2');
+    const stored = synced.comments.get('comment_2');
     expect(synced.github.reply).toHaveBeenCalledTimes(1);
-    expect(kept?.github?.id).toBe(555);
-    expect(kept?.body).toBe('Done, and tested');
-    expect(kept?.pullEvents()).toContainEqual(
+    expect(stored?.github?.id).toBe(555);
+    expect(stored?.body).toBe('Done, and tested');
+    expect(stored?.pullEvents()).toContainEqual(
       expect.objectContaining({
         kind: 'review-comment.rewritten',
         onGitHub: true,
@@ -581,7 +581,7 @@ describe('SyncReviews', () => {
 
     const again = syncing({
       sync: { kind: 'reply', subjectId: 'comment_2', attempts: 1 },
-      comments: [parent, kept as ReviewComment],
+      comments: [parent, stored as ReviewComment],
     });
     await again.service.syncDue();
 
@@ -686,10 +686,10 @@ describe('SyncReviews', () => {
     });
     await synced.service.syncDue();
 
-    const kept = synced.comments.get('comment_1');
-    expect(kept?.body).toBe('Second');
-    expect(kept?.editPending).toBe(true);
-    expect(kept?.editsAwaitingEcho).toEqual(['First']);
+    const stored = synced.comments.get('comment_1');
+    expect(stored?.body).toBe('Second');
+    expect(stored?.editPending).toBe(true);
+    expect(stored?.editsAwaitingEcho).toEqual(['First']);
   });
 
   it('drops a pending edit GitHub would never take', async () => {

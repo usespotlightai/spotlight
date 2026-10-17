@@ -55,7 +55,7 @@ const working = (
     id: DecisionSetId.of('set_1'),
     taskId: TaskId.of('task_1'),
     workspaceId: WorkspaceId.of('ws_1'),
-  }).asked(RUN, NOW);
+  }).requestDraft(RUN, NOW);
   let now = NOW;
   let ids = 0;
   const draft = vi.fn(answer);
@@ -110,7 +110,7 @@ describe('drafting the decisions a run made', () => {
     expect(worked.stored().hasPendingJob).toBe(false);
   });
 
-  it('records none, asking no model, where the run changed nothing', async () => {
+  it('records none, calling no model, where the run changed nothing', async () => {
     const worked = working({ ...REASONED, changed: [] }, async () => [DECIDED]);
 
     await worked.tick();
@@ -148,7 +148,7 @@ describe('drafting the decisions a run made', () => {
       id: DecisionSetId.of('set_1'),
       taskId: TaskId.of('task_1'),
       workspaceId: WorkspaceId.of('ws_1'),
-    }).asked(RUN, NOW);
+    }).requestDraft(RUN, NOW);
     let due: DecisionSet | null = leased;
 
     const service = new WorkDecisionSets(

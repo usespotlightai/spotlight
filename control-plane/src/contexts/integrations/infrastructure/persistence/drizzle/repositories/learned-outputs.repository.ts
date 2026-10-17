@@ -15,7 +15,7 @@ const rehydrate = (row: Row): LearnedOutput =>
   LearnedOutput.rehydrate({
     teamId: TeamId.of(row.teamId),
     tool: ToolName.of(row.tool),
-    shape: OutputShape.kept(row.shape),
+    shape: OutputShape.fromStored(row.shape),
     calls: row.calls,
     learnedAt: row.learnedAt,
     version: row.version,
@@ -67,7 +67,7 @@ export class DrizzleLearnedOutputs implements LearnedOutputRepository {
       learnedAt: learned.learnedAt,
     };
 
-    const kept = learned.isNew
+    const saved = learned.isNew
       ? await this.context.db
           .insert(learnedOutput)
           .values({
@@ -90,7 +90,7 @@ export class DrizzleLearnedOutputs implements LearnedOutputRepository {
           )
           .returning({ tool: learnedOutput.tool });
 
-    if (kept.length === 0) {
+    if (saved.length === 0) {
       throw new LearnedOutputVersionConflictError(learned.tool.value);
     }
   }

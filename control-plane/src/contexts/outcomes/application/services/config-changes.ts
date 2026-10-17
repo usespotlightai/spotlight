@@ -16,7 +16,7 @@ export interface ConfigChanges {
 
 const keyOf = (previous: string, next: string): string => `${previous}>${next}`;
 
-export const fingerprintsAsked = (
+export const fingerprintsToRead = (
   pairs: readonly ConfigPair[],
 ): readonly string[] =>
   pairs.flatMap(({ previous, next }) => {

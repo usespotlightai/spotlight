@@ -37,7 +37,7 @@ export class LearnedOutput {
     if (input.version < 1 || input.calls < 1) {
       throw new InconsistentStateError(
         'learned output',
-        'was kept without a version or a call it was learned from',
+        'was stored without a version or a call it was learned from',
       );
     }
 

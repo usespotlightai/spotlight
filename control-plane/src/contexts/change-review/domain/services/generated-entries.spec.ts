@@ -111,7 +111,7 @@ const ready = () =>
   }).propose(COHORTS, new Date('2026-09-16T10:01:00Z'));
 
 describe('generatedEntries', () => {
-  it('lets a generated file in with the earliest layer that reaches it through imports', () => {
+  it('lets a generated file in with the earliest layer that imports it, directly or not', () => {
     expect(generatedEntries(DIFF, ready().cohorts, facts)).toEqual([
       { hunk: HunkId.of('h2'), layer: 'c1.l2' },
     ]);
@@ -121,7 +121,7 @@ describe('generatedEntries', () => {
     expect(generatedEntries(DIFF, ready().cohorts, factsWith([]))).toEqual([]);
   });
 
-  it('checks each layer with only the generated files it reaches, and the whole change with all of them', () => {
+  it('checks each layer with only the generated files it imports, directly or not, and the whole change with all of them', () => {
     expect(ready().checkSteps(ready().entries())).toEqual([
       {
         id: 'whole',

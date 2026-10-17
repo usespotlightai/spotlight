@@ -121,7 +121,7 @@ export class RunnerTrustResourceController {
 
   @RunnerTrustResource.Update(
     'runner-trusts/:id',
-    'Change which workload a runner trust admits, or how its runners are labelled',
+    'Change which workload a runner trust matches, or how its runners are labelled',
   )
   @ID
   @DEFINITION

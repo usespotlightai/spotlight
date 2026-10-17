@@ -1,4 +1,4 @@
-import { ReplayCheckDeletionDue } from '@replays/domain/events/replay-check-deletion-due.event';
+import { ReplayCheckDeletionRequested } from '@replays/domain/events/replay-check-deletion-requested.event';
 import type { ReplayCheckRepository } from '@replays/domain/repositories/replay-check.repository';
 import type { ReplayCheckId } from '@replays/domain/value-objects/replay-check-id.vo';
 import type { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
@@ -18,7 +18,7 @@ export class DeleteReplayChecks {
     workspaceId: WorkspaceId,
   ): Promise<readonly DomainEvent[]> {
     return (await this.checks.ofTeam(teamId)).map(
-      (each) => new ReplayCheckDeletionDue(each.id, workspaceId),
+      (each) => new ReplayCheckDeletionRequested(each.id, workspaceId),
     );
   }
 
@@ -27,7 +27,7 @@ export class DeleteReplayChecks {
     workspaceId: WorkspaceId,
   ): Promise<readonly DomainEvent[]> {
     return (await this.checks.ofSet(setId)).map(
-      (each) => new ReplayCheckDeletionDue(each.id, workspaceId),
+      (each) => new ReplayCheckDeletionRequested(each.id, workspaceId),
     );
   }
 

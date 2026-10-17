@@ -63,7 +63,7 @@ import { ReadRunAttachmentQuery } from '@work/application/queries/read-run-attac
 import { ReadRunnerHistoryQuery } from '@work/application/queries/read-runner-history.query';
 import { ReadRunnerTraceQuery } from '@work/application/queries/read-runner-trace.query';
 import { RunStopRequestedQuery } from '@work/application/queries/run-stop-requested.query';
-import { TurnAsksAPersonQuery } from '@work/application/queries/turn-asks-a-person.query';
+import { TurnAwaitsPersonQuery } from '@work/application/queries/turn-awaits-person.query';
 import { InstallableHarnessResponseDto } from '@work/presentation/http/dto/installable-harness.response.dto';
 import {
   AckMessagesRequestDto,
@@ -86,7 +86,7 @@ import {
   RunSuspensionResponseDto,
   ToolActingAsResponseDto,
   ToolAnswerResponseDto,
-  TurnAsksAPersonResponseDto,
+  TurnAwaitsPersonResponseDto,
 } from '@work/presentation/http/dto/runner.response.dto';
 import { RunnerHistoryResponseDto } from '@work/presentation/http/dto/runner-history.response.dto';
 import { TaskTraceResponseDto } from '@work/presentation/http/dto/task-trace.response.dto';
@@ -205,7 +205,7 @@ export class RunnerController {
   @Get('runs/:runId/attachments/:attachmentId')
   @ApiOperation({
     operationId: 'readRunAttachment',
-    summary: 'A file the run’s task was given, to lay out in its workspace',
+    summary: 'A file attached to the run’s task, to lay out in its workspace',
   })
   @ApiOkResponse({ description: 'The file, byte for byte' })
   @ApiNotFoundResponse({
@@ -339,8 +339,8 @@ export class RunnerController {
     operationId: 'renewLease',
     summary: 'Say the run is still being worked on',
     description:
-      'The answer carries back whether a person has asked the run to stop, ' +
-      'so the heartbeat doubles as how a stop reaches the runner.',
+      'The answer carries back whether a person has requested that the run stop, ' +
+      'so the heartbeat also tells the runner about a stop.',
   })
   @ApiOkResponse({ type: RenewLeaseResponseDto })
   @ApiNotFoundResponse({
@@ -440,7 +440,7 @@ export class RunnerController {
   })
   @ApiUnprocessableEntityResponse({
     description:
-      'An archive the run could not have restored, a commit that is not a full SHA, or checkouts other than the ones the run was given',
+      'An archive the run could not have restored, a commit that is not a full SHA, or checkouts that are not the run’s own',
   })
   async recordStartingPoint(
     @Param('runId') runId: string,
@@ -486,10 +486,10 @@ export class RunnerController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     operationId: 'useTool',
-    summary: 'Do what a tool the run was given does',
+    summary: 'Do what a tool enabled for the run does',
     description:
-      'The input and the answer are the tool\u2019s own. Only for a tool the ' +
-      'run was given; any credential it needs is added by Spotlight, never ' +
+      'The input and the answer are the tool\u2019s own. Only for a tool ' +
+      'enabled for the run; any credential it needs is added by Spotlight, never ' +
       'sent by the run.',
   })
   @ApiParam({ name: 'tool', example: 'pull-request' })
@@ -501,7 +501,7 @@ export class RunnerController {
     },
   })
   @ApiOkResponse({ type: ToolAnswerResponseDto })
-  @ApiForbiddenResponse({ description: 'The run was not given this tool' })
+  @ApiForbiddenResponse({ description: 'This tool is not enabled for the run' })
   @ApiNotFoundResponse({
     description: 'No such run, station or tool for this runner',
   })
@@ -567,8 +567,8 @@ export class RunnerController {
     operationId: 'replyToReviewComment',
     summary: 'Reply to a review comment on the pull request, and resolve it',
     description:
-      'Spotlight replies with its own credential. Nothing that reaches ' +
-      'GitHub is ever sent to a runner.',
+      'Spotlight replies with its own credential. No GitHub credential ' +
+      'is ever sent to a runner.',
   })
   @ApiNoContentResponse()
   async replyToReviewComment(
@@ -614,7 +614,7 @@ export class RunnerController {
         body.handover ?? null,
         body.sessionId ?? null,
         body.stopped ?? false,
-        body.kept ?? false,
+        body.archived ?? false,
         body.unprepared ?? false,
         body.timedOut ?? false,
       ),
@@ -623,23 +623,26 @@ export class RunnerController {
     return new RunCompletionResponseDto(completed.waiting);
   }
 
-  @Post('runs/:runId/completion/asks')
+  @Post('runs/:runId/completion/awaits-person')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    operationId: 'turnAsksAPerson',
+    operationId: 'turnAwaitsPerson',
     summary: 'Whether a turn reported like this would wait for a person',
     description:
-      'Asked before the runner keeps the workspace at the end of a turn. Nothing changes: the completion decides.',
+      'The runner calls this before it archives the workspace at the end of a turn. Nothing changes: the completion decides.',
   })
-  @ApiOkResponse({ type: TurnAsksAPersonResponseDto })
+  @ApiOkResponse({ type: TurnAwaitsPersonResponseDto })
   @ApiNotFoundResponse({ description: 'No such run leased by this runner' })
-  async asks(
+  async awaitsPerson(
     @Param('runId') runId: string,
     @CurrentRunner() runnerId: string,
     @Body() body: CompleteRunRequestDto,
-  ): Promise<TurnAsksAPersonResponseDto> {
-    const asks = await this.queryBus.execute<TurnAsksAPersonQuery, boolean>(
-      new TurnAsksAPersonQuery(
+  ): Promise<TurnAwaitsPersonResponseDto> {
+    const awaitsPerson = await this.queryBus.execute<
+      TurnAwaitsPersonQuery,
+      boolean
+    >(
+      new TurnAwaitsPersonQuery(
         runId,
         runnerId,
         body.exitCode,
@@ -649,7 +652,7 @@ export class RunnerController {
       ),
     );
 
-    return new TurnAsksAPersonResponseDto(asks);
+    return new TurnAwaitsPersonResponseDto(awaitsPerson);
   }
 
   @Post('runs/:runId/suspended')

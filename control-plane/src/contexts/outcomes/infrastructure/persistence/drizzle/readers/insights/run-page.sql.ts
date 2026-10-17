@@ -87,9 +87,9 @@ const refusalWhere = (filter: RunFilter): SQL | undefined =>
 
 const toolsWhere = (filter: RunFilter): (SQL | undefined)[] => {
   const narrowed = [
-    filter.skillGiven === null
+    filter.skillEnabled === null
       ? undefined
-      : containing(runFact.skills, [filter.skillGiven]),
+      : containing(runFact.skills, [filter.skillEnabled]),
     filter.skillUsed === null
       ? undefined
       : containing(sql`${runFact.tools}->'skillsRead'`, [filter.skillUsed]),

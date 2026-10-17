@@ -17,7 +17,7 @@ describe('TraceRange', () => {
     expect(range.from).toEqual(new Date('2026-08-29T11:00:00.000Z'));
   });
 
-  it('cuts each stretch into the bars it was asked for', () => {
+  it('cuts each stretch into the bars that it was told to make', () => {
     expect(
       Object.fromEntries(
         TRACE_RANGES.map((name) => [

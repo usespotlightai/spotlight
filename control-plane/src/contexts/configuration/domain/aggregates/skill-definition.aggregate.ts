@@ -81,7 +81,7 @@ export class SkillDefinition extends EventRecorder {
     if (input.version < 1) {
       throw new InconsistentStateError(
         'skill definition',
-        'was kept without a version',
+        'was stored without a version',
       );
     }
 
@@ -122,10 +122,10 @@ export class SkillDefinition extends EventRecorder {
     return updated;
   }
 
-  delete(given: StationUses, by: Attribution): SkillDefinition {
+  delete(uses: StationUses, by: Attribution): SkillDefinition {
     this.guardLive();
 
-    const using = given.of(this.key);
+    const using = uses.of(this.key);
 
     if (!using.isEmpty) {
       throw new SkillInUseError(this.key.value, using);

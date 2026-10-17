@@ -18,7 +18,7 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { describe, expect, it } from 'vitest';
 
-const HEARD_AT = new Date('2026-09-30T12:00:00.000Z');
+const RECEIVED_AT = new Date('2026-09-30T12:00:00.000Z');
 
 const TASK = TaskId.of('task_1');
 
@@ -66,7 +66,7 @@ const noting = (runs: readonly EndedRun[]) => {
     warned,
     service: new NoteRunEnded(work, records, deletions, inTransaction, logger),
     superseding: new NoteRunSuperseded(records, deletions, inTransaction, {
-      now: () => HEARD_AT,
+      now: () => RECEIVED_AT,
       sleep: async () => {},
     }),
     ended: (
@@ -186,7 +186,7 @@ describe('noting that a run ended', () => {
     expect(await noted.stored('run_1')).toBe(first);
   });
 
-  it('keeps a superseding heard before the run was heard to end', async () => {
+  it('keeps a superseding received before the end of the run', async () => {
     const noted = noting([endedRun('run_1')]);
 
     await noted.superseding.superseded(RunId.of('run_1'), WORKSPACE, TASK);
@@ -207,7 +207,7 @@ describe('noting that a run ended', () => {
     expect(record?.version).toBe(1);
   });
 
-  it('knows the task of a run superseded before it was heard to end', async () => {
+  it('knows the task of a run superseded before its end was received', async () => {
     const noted = noting([]);
 
     await noted.superseding.superseded(RunId.of('run_9'), WORKSPACE, TASK);
@@ -217,7 +217,7 @@ describe('noting that a run ended', () => {
     expect(record?.hasEnded).toBe(false);
   });
 
-  it('records nothing of a run whose team was deleted, and lets go of what it heard of the run before', async () => {
+  it('records nothing of a run whose team was deleted, and lets go of what it received about the run before', async () => {
     const noted = noting([endedRun('run_1')]);
     await noted.superseding.superseded(RunId.of('run_1'), WORKSPACE, TASK);
     await noted.deletions.deleteTeam(WORKSPACE, TeamId.of('team_1'));

@@ -37,7 +37,7 @@ describe('IntegrationReader', () => {
     expect(read.problems).toEqual([]);
   });
 
-  it('says how many tools the API description it names gave, and when it was read', () => {
+  it('says how many tools the API description it names yielded, and when it was read', () => {
     const readAt = new Date('2026-10-05T12:00:00.000Z');
     const read = new IntegrationReader(
       expressions,

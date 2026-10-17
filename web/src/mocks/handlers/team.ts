@@ -111,7 +111,7 @@ const nextHandle = (): string => {
 
 type Placed = Pick<
   MemoryRecord,
-  'kind' | 'body' | 'reach' | 'lineId' | 'stationId' | 'repository' | 'paths'
+  'kind' | 'body' | 'scope' | 'lineId' | 'stationId' | 'repository' | 'paths'
 >;
 
 const placedFrom = (
@@ -147,7 +147,7 @@ const placedFrom = (
   return {
     kind: writing.kind,
     body,
-    reach: station ? 'station' : line ? 'line' : 'team',
+    scope: station ? 'station' : line ? 'line' : 'team',
     lineId: line?.id ?? null,
     stationId: station?.id ?? null,
     repository: writing.repository || null,
@@ -303,26 +303,26 @@ const memoryHandlers = [
       return notFound();
     }
 
-    const asked = (await request.json()) as RememberRequestDto;
-    if (!isKind(asked.kind) || !asked.body?.trim()) {
-      return problem(422, 'Sorry, that is not a memory the team can keep.');
+    const input = (await request.json()) as RememberRequestDto;
+    if (!isKind(input.kind) || !input.body?.trim()) {
+      return problem(422, 'Sorry, that is not a memory the team can approve.');
     }
 
-    const supersedes = asked.supersedes
+    const supersedes = input.supersedes
       ? (Object.values(teamMemories())
           .flat()
-          .find((memory) => memory.handle === asked.supersedes)?.id ?? null)
+          .find((memory) => memory.handle === input.supersedes)?.id ?? null)
       : null;
     const remembered: ProposedMemoryResponseDto = {
       id: nextId('memory'),
-      kind: asked.kind,
-      body: asked.body.trim(),
+      kind: input.kind,
+      body: input.body.trim(),
       source: 'run',
       origin: 'remembered',
       state: 'proposed',
-      reach: asked.reach ?? 'line',
+      scope: input.scope ?? 'line',
       repository: null,
-      paths: asked.paths ?? [],
+      paths: input.paths ?? [],
       supersedes,
       decision: null,
       harness: run.harness,
@@ -330,7 +330,7 @@ const memoryHandlers = [
         {
           index: 0,
           kind: 'remember',
-          text: `spotlight remember --kind ${asked.kind} --body "${asked.body.trim()}"`,
+          text: `spotlight remember --kind ${input.kind} --body "${input.body.trim()}"`,
         },
       ],
       notes: [],
@@ -410,7 +410,7 @@ const answerTo = (
 ): string => {
   if (improving) {
     const runs = runsAtStation(improving.stationId);
-    return `I read the last ${runs} ${runs === 1 ? 'run' : 'runs'} at ${improving.stationName} on ${improving.lineName}. The clearest pattern is work sent back from review for size: the agent keeps going after the change is done. Asking it to stop and open the pull request once the checks pass would have saved two of those round trips.`;
+    return `I read the last ${runs} ${runs === 1 ? 'run' : 'runs'} at ${improving.stationName} on ${improving.lineName}. The clearest pattern is work sent back from review for size: the agent keeps going after the change is done. Telling it to stop and open the pull request once the checks pass would have saved two of those round trips.`;
   }
   if (!body.trim()) {
     return 'I read what you shared. Tell me what you would like to change, and I will propose tasks for it.';
@@ -451,43 +451,43 @@ const chatHandlers = [
       return notFound();
     }
 
-    const asked = (await request.json()) as StartChatRequestDto;
-    const improving = asked.improving
-      ? improvingOf(teamId, asked.improving)
+    const input = (await request.json()) as StartChatRequestDto;
+    const improving = input.improving
+      ? improvingOf(teamId, input.improving)
       : null;
-    if (asked.improving && !improving) {
+    if (input.improving && !improving) {
       return problem(422, 'Sorry, the team has no such station.');
     }
-    if (!asked.harness) {
+    if (!input.harness) {
       return problem(422, 'A chat needs a harness.');
     }
 
-    const traces = tracesOf(teamId, asked.traces ?? []);
+    const traces = tracesOf(teamId, input.traces ?? []);
     const at = now();
     const record: ChatRecord = {
       chat: {
         id: nextId('chat'),
-        title: titleOf(asked.body, improving, traces),
-        harness: asked.harness,
-        model: asked.model ?? null,
-        effort: asked.effort ?? null,
+        title: titleOf(input.body, improving, traces),
+        harness: input.harness,
+        model: input.model ?? null,
+        effort: input.effort ?? null,
         repositories: [
           ...new Set([
-            ...(asked.setup ? [asked.setup.repository] : []),
-            ...(asked.repositories ?? []),
+            ...(input.setup ? [input.setup.repository] : []),
+            ...(input.repositories ?? []),
           ]),
         ],
         improving,
-        setup: asked.setup ? { ...asked.setup, pullRequest: null } : null,
+        setup: input.setup ? { ...input.setup, pullRequest: null } : null,
         createdAt: at,
         updatedAt: at,
         working: false,
         runId: null,
-        messages: [messageBy(SAM, 0, asked.body, at, traces)],
+        messages: [messageBy(SAM, 0, input.body, at, traces)],
       },
       journals: [],
     };
-    answered(record, at, asked.body);
+    answered(record, at, input.body);
     chatsOf(teamId).push(record);
 
     return json(record.chat, 201);

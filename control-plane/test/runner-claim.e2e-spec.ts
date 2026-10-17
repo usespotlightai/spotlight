@@ -158,7 +158,7 @@ describe('claiming a requeued run', () => {
 });
 
 describe('claiming placed work', () => {
-  it('hands a run placed by several lines only to a runner every one of them admits', async () => {
+  it('hands a run placed by several lines only to a runner every one of them matches', async () => {
     const placed = await queue('ws_placed', [['vpc-a', 'build-1'], ['gpu']]);
 
     await expect(

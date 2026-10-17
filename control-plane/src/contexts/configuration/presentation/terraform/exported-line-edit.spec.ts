@@ -87,7 +87,7 @@ const editOf = (now: Readonly<Record<string, HclLiteral>>): HclBlockEdit => ({
     {
       type: 'judge',
       was: {
-        rubric: 'A good run changes only what the task asks for.\n',
+        rubric: 'A good run changes only what the task requests.\n',
         sample: 0.2,
         trust: 0.6,
       },

@@ -33,7 +33,7 @@ describe('StricterRule', () => {
       ALICE,
     );
     expect(ruled.kind === 'needs-approval' && ruled.needed.because).toBe(
-      'Alice asks to approve each call made with their Linear connection.',
+      'Alice wants to approve each call made with their Linear connection.',
     );
   });
 

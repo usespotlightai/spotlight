@@ -338,7 +338,7 @@ export class WorkspaceToken extends EventRecorder {
   expire(now: Date): WorkspaceToken {
     this.assertNotDeleted();
 
-    if (this.admitsAt(now)) {
+    if (this.isActiveAt(now)) {
       throw new InconsistentStateError(
         'workspace token',
         'was marked expired before its expiry time',
@@ -354,7 +354,7 @@ export class WorkspaceToken extends EventRecorder {
     return expired;
   }
 
-  admitsAt(now: Date): boolean {
+  isActiveAt(now: Date): boolean {
     return (
       !this.isRevoked &&
       (this.expiresAt === null || this.expiresAt.getTime() > now.getTime())
@@ -399,7 +399,7 @@ export class WorkspaceToken extends EventRecorder {
     if (!this.state.expiresAt) {
       throw new InconsistentStateError(
         'workspace token',
-        'was asked when it expires, but it never does',
+        'was queried for its expiry, but it never expires',
       );
     }
 

@@ -98,7 +98,7 @@ describe('compileHook', () => {
     expect(compiled.document.fields.signing).toEqual({ secretVersion: 1 });
   });
 
-  it('keeps in its document only the failure and timeout it was written with', () => {
+  it('stores in its document only the failure and timeout it was written with', () => {
     const unwritten = compileHook(GRAFANA_READS, engine);
     const written = compileHook(
       { ...GRAFANA_READS, failure: 'continue', timeoutSeconds: 10 },
@@ -117,7 +117,7 @@ describe('compileHook', () => {
     });
   });
 
-  it('keeps the secret out of the document and hands it over apart', () => {
+  it('stores the secret apart from the document and hands it over separately', () => {
     expect(secretIn(GRAFANA_READS)).toEqual({ secret: SECRET, version: 1 });
     expect(JSON.stringify(compileHook(GRAFANA_READS, engine))).not.toContain(
       SECRET,

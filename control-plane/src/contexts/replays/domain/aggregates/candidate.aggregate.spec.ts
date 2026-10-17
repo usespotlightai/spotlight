@@ -2,7 +2,7 @@ import { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import { CandidateDeleted } from '@replays/domain/events/candidate-deleted.event';
 import { CandidateProposed } from '@replays/domain/events/candidate-proposed.event';
 import { CandidateIsLiveError } from '@replays/domain/exceptions/candidate-is-live.error';
-import { CandidateKeptBySpotlightError } from '@replays/domain/exceptions/candidate-kept-by-spotlight.error';
+import { CandidateManagedBySpotlightError } from '@replays/domain/exceptions/candidate-managed-by-spotlight.error';
 import { CandidateUnderwayError } from '@replays/domain/exceptions/candidate-underway.error';
 import { CandidateVersionConflictError } from '@replays/domain/exceptions/candidate-version-conflict.error';
 import { InvalidCandidateError } from '@replays/domain/exceptions/invalid-candidate.error';
@@ -98,7 +98,7 @@ describe('Candidate', () => {
     ).toThrow(InvalidCandidateError);
   });
 
-  it('is deleted at the version asked for, when none of its replays is running', () => {
+  it('is deleted at the requested version, when none of its replays is running', () => {
     const proposed = candidateOf('proposed');
     proposed.pullEvents();
 
@@ -292,7 +292,7 @@ describe('Candidate', () => {
     it('is never deleted by a person, and goes quietly when deleted with its team', () => {
       for (const candidate of [searched(), planned()]) {
         expect(() => candidate.delete(false, BY)).toThrow(
-          CandidateKeptBySpotlightError,
+          CandidateManagedBySpotlightError,
         );
 
         const deleted = candidate.cascadeDelete();

@@ -1,17 +1,17 @@
 import { MemoryDraftingError } from '@memory/application/errors/memory-drafting.error';
 import type {
-  MemoryDraftAsk,
   MemoryDrafterPort,
+  MemoryDraftRequest,
 } from '@memory/application/ports/memory-drafter.port';
 import type { ProposedMemory } from '@memory/domain/entities/memory-proposal.entity';
 import { MEMORY_KINDS } from '@memory/domain/value-objects/memory-kind';
-import { MEMORY_REACHES } from '@memory/domain/value-objects/memory-reach';
+import { MEMORY_SCOPE_LEVELS } from '@memory/domain/value-objects/memory-scope-level';
 import {
-  askForJson,
   type Fetch,
   JsonShape,
   OpenRouterRequestError,
   OpenRouterUnansweredError,
+  requestJson,
 } from '@platform/openrouter/openrouter-json';
 import { z } from 'zod';
 
@@ -24,7 +24,7 @@ const MEMORIES = new JsonShape(
       z.object({
         kind: z.enum(MEMORY_KINDS),
         body: z.string(),
-        reach: z.enum(MEMORY_REACHES),
+        scope: z.enum(MEMORY_SCOPE_LEVELS),
         repository: z.string().nullable(),
         paths: z.array(z.string()),
         steps: z.array(z.number().int()),
@@ -57,10 +57,10 @@ Rules:
 
 1. Record only what the steps and notes state or plainly imply. Never infer a memory from what a good engineer would have done.
 2. Cite every step in "steps" and every note in "notes" that the memory rests on, by its number. Cite nothing you were not given. A memory rests on at least one step or note.
-3. "reach" says where the memory applies: "team" for all of the team's work, "line" for the work of this line, "station" for the work of this station. Choose the narrowest that fits.
+3. "scope" says where the memory applies: "team" for all of the team's work, "line" for the work of this line, "station" for the work of this station. Choose the narrowest that fits.
 4. Name a "repository" only when the memory is about one of the repositories listed, and "paths" only when it is about particular files; paths are relative to their repository and must come from the files the run changed in it. Otherwise give null and an empty list.
 5. "body" is one to three plain sentences that are complete in themselves, so that a reader who has none of this context understands them. Say the thing to remember, not the story of how it was learned.
-6. Skip anything a memory the team already keeps says. When what you read shows one of them is wrong or out of date, propose its replacement and give that memory's id in "supersedes"; otherwise give null.
+6. Skip anything that an approved team memory already says. When what you read shows that one of these memories is wrong or out of date, propose its replacement and give that memory's id in "supersedes"; otherwise give null.
 7. Never propose again what people recently turned down, nor what the agent already proposed itself.
 8. Prefer a few memories that matter to many that do not. When nothing is worth remembering, give none.`;
 
@@ -72,40 +72,42 @@ const known = (body: string): string =>
 const listed = (lines: readonly string[], none: string): string =>
   lines.length > 0 ? lines.join('\n') : none;
 
-const buildPrompt = (ask: MemoryDraftAsk): string => {
-  const steps = ask.steps.map(
+const buildPrompt = (request: MemoryDraftRequest): string => {
+  const steps = request.steps.map(
     (each) => `[${each.index}] ${each.kind}: ${each.text}`,
   );
 
   return [
-    `Where the work happened: the line "${ask.lineName}", at its station "${ask.stationName}".`,
+    `Where the work happened: the line "${request.lineName}", at its station "${request.stationName}".`,
     `Repositories it worked in:\n${listed(
-      ask.repositories.map((each) => `- ${each}`),
+      request.repositories.map((each) => `- ${each}`),
       '(none)',
     )}`,
     `Files the run changed:\n${listed(
-      ask.changed.map((each) => `- ${each.repository.value}: ${each.path}`),
+      request.changed.map((each) => `- ${each.repository.value}: ${each.path}`),
       '(none)',
     )}`,
     `Notes people wrote on the task:\n${listed(
-      ask.notes.map((each) => `(${each.position}) ${each.by}: ${each.text}`),
+      request.notes.map(
+        (each) => `(${each.position}) ${each.by}: ${each.text}`,
+      ),
       '(nothing new)',
     )}`,
-    ask.stepsLeftOut > 0
-      ? `The agent's steps. Its earliest ${ask.stepsLeftOut} are left out for length:\n${listed(steps, '(none)')}`
+    request.stepsLeftOut > 0
+      ? `The agent's steps. Its earliest ${request.stepsLeftOut} are left out for length:\n${listed(steps, '(none)')}`
       : `The agent's steps:\n${listed(steps, '(none)')}`,
-    `Memories the team already keeps here:\n${listed(
-      ask.active.map(
+    `Memories the team approved here:\n${listed(
+      request.active.map(
         (each) => `- ${each.id} (${each.kind}): ${known(each.body)}`,
       ),
       '(none)',
     )}`,
     `Memories the agent already proposed, waiting for a person:\n${listed(
-      ask.proposed.map((each) => `- (${each.kind}): ${known(each.body)}`),
+      request.proposed.map((each) => `- (${each.kind}): ${known(each.body)}`),
       '(none)',
     )}`,
     `Memories people recently turned down:\n${listed(
-      ask.rejected.map((each) => `- (${each.kind}): ${known(each.body)}`),
+      request.rejected.map((each) => `- (${each.kind}): ${known(each.body)}`),
       '(none)',
     )}`,
   ].join('\n\n');
@@ -122,7 +124,7 @@ export class OpenRouterMemoryDrafter implements MemoryDrafterPort {
     return Boolean(this.apiKey);
   }
 
-  async draft(ask: MemoryDraftAsk): Promise<readonly ProposedMemory[]> {
+  async draft(request: MemoryDraftRequest): Promise<readonly ProposedMemory[]> {
     if (!this.apiKey) {
       throw new MemoryDraftingError(
         'request-failed',
@@ -133,13 +135,13 @@ export class OpenRouterMemoryDrafter implements MemoryDrafterPort {
     try {
       const {
         answer: { memories },
-      } = await askForJson({
+      } = await requestJson({
         apiKey: this.apiKey,
         model: this.model,
         fetch: this.fetch,
         shape: MEMORIES,
         system: SYSTEM,
-        asked: buildPrompt(ask),
+        prompt: buildPrompt(request),
         max: MAX_OUTPUT,
       });
 

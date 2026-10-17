@@ -2,7 +2,7 @@ import type { ReplayedStation } from '@replays/domain/aggregates/replay-set.aggr
 import { CandidateDeleted } from '@replays/domain/events/candidate-deleted.event';
 import { CandidateProposed } from '@replays/domain/events/candidate-proposed.event';
 import { CandidateIsLiveError } from '@replays/domain/exceptions/candidate-is-live.error';
-import { CandidateKeptBySpotlightError } from '@replays/domain/exceptions/candidate-kept-by-spotlight.error';
+import { CandidateManagedBySpotlightError } from '@replays/domain/exceptions/candidate-managed-by-spotlight.error';
 import { CandidateUnderwayError } from '@replays/domain/exceptions/candidate-underway.error';
 import { CandidateVersionConflictError } from '@replays/domain/exceptions/candidate-version-conflict.error';
 import { InvalidCandidateError } from '@replays/domain/exceptions/invalid-candidate.error';
@@ -351,7 +351,7 @@ export class Candidate extends EventRecorder {
       throw new CandidateIsLiveError(this.id.value);
     }
     if (!this.isProposed) {
-      throw new CandidateKeptBySpotlightError(this.id.value);
+      throw new CandidateManagedBySpotlightError(this.id.value);
     }
     if (underway) {
       throw new CandidateUnderwayError(this.id.value);

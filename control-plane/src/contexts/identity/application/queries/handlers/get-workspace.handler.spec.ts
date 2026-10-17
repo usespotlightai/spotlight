@@ -54,7 +54,7 @@ describe('GetWorkspaceHandler', () => {
     expect(provisioning.of).toHaveBeenCalledWith(WorkspaceId.of('ws_1'));
   });
 
-  it('asks only for workspaces the viewer belongs to', async () => {
+  it('reads only workspaces the viewer belongs to', async () => {
     const workspaces = reader(acme);
 
     await new GetWorkspaceHandler(workspaces, provisioned).execute(
@@ -75,7 +75,7 @@ describe('GetWorkspaceHandler', () => {
     ).resolves.toBeNull();
   });
 
-  it('rejects an unusable slug rather than asking the database', async () => {
+  it('rejects an unusable slug rather than querying the database', async () => {
     const workspaces = reader(null);
 
     await expect(

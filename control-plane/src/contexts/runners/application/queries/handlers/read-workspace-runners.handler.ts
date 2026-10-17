@@ -22,16 +22,16 @@ export class ReadWorkspaceRunnersHandler
     query: ReadWorkspaceRunnersQuery,
   ): Promise<WorkspaceRunnersResourceDto | null> {
     try {
-      const kept = await this.resources.declaredWithId(query.declarationId);
-      const permissions = kept
-        ? await this.access.permissionsIn(kept.workspaceId, query.principal)
+      const record = await this.resources.declaredWithId(query.declarationId);
+      const permissions = record
+        ? await this.access.permissionsIn(record.workspaceId, query.principal)
         : null;
 
-      return kept && permissions
+      return record && permissions
         ? RunnerResourceMapper.workspaceRunners(
-            kept,
+            record,
             permissions.slug,
-            await this.resources.waysIn(kept.workspaceId),
+            await this.resources.credentialSourceKeysIn(record.workspaceId),
           )
         : null;
     } catch (error) {

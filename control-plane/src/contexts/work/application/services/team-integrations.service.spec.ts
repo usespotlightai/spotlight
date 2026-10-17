@@ -44,7 +44,7 @@ describe('TeamIntegrations', () => {
     expect(tool?.learnedOutput).toEqual(learnedOutput);
   });
 
-  it('asks nothing of the integrations when no tool given comes from one', async () => {
+  it('requests nothing from the integrations when no enabled tool comes from one', async () => {
     const offered = vi.fn(async () => [LINEAR]);
     const service = new TeamIntegrations({ offered });
 

@@ -29,17 +29,17 @@ import {
 
 export const MAX_FILTERED_REPOSITORIES = 50;
 
-type AskedValue = string | readonly string[] | null;
+type QueryValue = string | readonly string[] | null;
 
-export interface PullRequestFilterAsked {
+export interface PullRequestFilterQuery {
   readonly repository: readonly string[] | null;
-  readonly author: AskedValue;
-  readonly type: AskedValue;
-  readonly state: AskedValue;
-  readonly week: AskedValue;
-  readonly reverted: AskedValue;
-  readonly rounds: AskedValue;
-  readonly compared: AskedValue;
+  readonly author: QueryValue;
+  readonly type: QueryValue;
+  readonly state: QueryValue;
+  readonly week: QueryValue;
+  readonly reverted: QueryValue;
+  readonly rounds: QueryValue;
+  readonly compared: QueryValue;
 }
 
 export interface PullRequestFilter {
@@ -57,53 +57,53 @@ const WEEK = /^\d{4}-\d{2}-\d{2}$/;
 
 const FLAGS = ['true', 'false'] as const;
 
-const single = (asked: AskedValue, what: string): string | null => {
-  if (typeof asked === 'string' || asked === null) {
-    return asked;
+const single = (query: QueryValue, what: string): string | null => {
+  if (typeof query === 'string' || query === null) {
+    return query;
   }
 
   throw new InvalidPullRequestFilterError(
-    `takes one ${what}, not ${asked.length}`,
+    `takes one ${what}, not ${query.length}`,
   );
 };
 
 const oneOf = <T extends string>(
   values: readonly T[],
-  value: AskedValue,
+  value: QueryValue,
   what: string,
 ): T | null => {
-  const asked = single(value, what);
+  const query = single(value, what);
 
-  if (asked === null) {
+  if (query === null) {
     return null;
   }
 
-  const found = values.find((each) => each === asked);
+  const found = values.find((each) => each === query);
 
   if (!found) {
     throw new InvalidPullRequestFilterError(
-      `${what} must be one of ${values.join(', ')}, not ${asked}`,
+      `${what} must be one of ${values.join(', ')}, not ${query}`,
     );
   }
 
   return found;
 };
 
-const flagOf = (asked: AskedValue, what: string): boolean =>
-  oneOf(FLAGS, asked, what) === 'true';
+const flagOf = (query: QueryValue, what: string): boolean =>
+  oneOf(FLAGS, query, what) === 'true';
 
-const weekOf = (value: AskedValue): Window | null => {
-  const asked = single(value, 'week');
+const weekOf = (value: QueryValue): Window | null => {
+  const query = single(value, 'week');
 
-  if (asked === null) {
+  if (query === null) {
     return null;
   }
 
-  const window = WEEK.test(asked) ? weekWindowOf(asked) : null;
+  const window = WEEK.test(query) ? weekWindowOf(query) : null;
 
   if (!window || Number.isNaN(window.from.getTime())) {
     throw new InvalidPullRequestFilterError(
-      `week must be a date in the form YYYY-MM-DD, not ${asked}`,
+      `week must be a date in the form YYYY-MM-DD, not ${query}`,
     );
   }
 
@@ -111,28 +111,28 @@ const weekOf = (value: AskedValue): Window | null => {
 };
 
 const repositoriesOf = (
-  asked: readonly string[] | null,
+  query: readonly string[] | null,
 ): readonly string[] | null => {
-  if (asked !== null && asked.length > MAX_FILTERED_REPOSITORIES) {
+  if (query !== null && query.length > MAX_FILTERED_REPOSITORIES) {
     throw new InvalidPullRequestFilterError(
       `takes at most ${MAX_FILTERED_REPOSITORIES} repositories`,
     );
   }
 
-  return asked;
+  return query;
 };
 
 export const pullRequestFilterOf = (
-  asked: PullRequestFilterAsked,
+  query: PullRequestFilterQuery,
 ): PullRequestFilter => ({
-  repositories: repositoriesOf(asked.repository),
-  author: oneOf(PULL_REQUEST_AUTHORS, asked.author, 'author'),
-  type: oneOf(PULL_REQUEST_TYPES, asked.type, 'type'),
-  state: oneOf(DELIVERY_STATES, asked.state, 'state'),
-  week: weekOf(asked.week),
-  reverted: flagOf(asked.reverted, 'reverted'),
-  rounds: oneOf(ROUND_BUCKETS, asked.rounds, 'count of review rounds'),
-  compared: flagOf(asked.compared, 'compared'),
+  repositories: repositoriesOf(query.repository),
+  author: oneOf(PULL_REQUEST_AUTHORS, query.author, 'author'),
+  type: oneOf(PULL_REQUEST_TYPES, query.type, 'type'),
+  state: oneOf(DELIVERY_STATES, query.state, 'state'),
+  week: weekOf(query.week),
+  reverted: flagOf(query.reverted, 'reverted'),
+  rounds: oneOf(ROUND_BUCKETS, query.rounds, 'count of review rounds'),
+  compared: flagOf(query.compared, 'compared'),
 });
 
 const activeWithin = (each: TeamPullRequest, window: Window): boolean =>

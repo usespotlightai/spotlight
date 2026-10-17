@@ -435,7 +435,7 @@ export class SetHealthResponseDto {
     nullable: true,
     type: CheckConsistencyResponseDto,
     description:
-      'Whether the station’s check gives the same answer twice, from the set’s newest probe; null until a probe was checked',
+      'Whether the station’s check returns the same answer twice, from the set’s newest probe; null until a probe was checked',
   })
   readonly checks: CheckConsistencyResponseDto | null;
 
@@ -574,7 +574,7 @@ export class EntryCitedStepResponseDto {
     nullable: true,
     type: String,
     description:
-      'Always null here: a replay keeps no copy of what the judge read',
+      'Always null here: a replay stores no copy of what the judge read',
   })
   readonly kind: string | null;
 
@@ -600,7 +600,7 @@ export class EntryCitedHunkResponseDto {
     nullable: true,
     type: String,
     description:
-      'Always null here: a replay keeps no copy of what the judge read',
+      'Always null here: a replay stores no copy of what the judge read',
   })
   readonly path: string | null;
 
@@ -665,7 +665,7 @@ export class EntryJudgeReasonResponseDto {
 }
 
 export class EntryJudgeResponseDto {
-  @ApiProperty({ enum: ['asked', 'judged', 'unjudged'] })
+  @ApiProperty({ enum: ['requested', 'judged', 'unjudged'] })
   readonly state: string;
 
   @ApiProperty({ nullable: true, enum: [...JUDGE_SCALES, null], type: String })
@@ -805,7 +805,7 @@ export class EntryPairReadingResponseDto {
 }
 
 export class EntryPairResponseDto {
-  @ApiProperty({ enum: ['asked', 'judged', 'unpaired'] })
+  @ApiProperty({ enum: ['requested', 'judged', 'unpaired'] })
   readonly state: string;
 
   @ApiProperty({
@@ -1323,7 +1323,7 @@ export class ReplayResponseDto {
 
   @ApiProperty({
     description:
-      'It probes the set: once it finishes, each judged change is judged again and each checked change checked again, to see whether the judge and the check give the same answer twice',
+      'It probes the set: once it finishes, each judged change is judged again and each checked change checked again, to see whether the judge and the check return the same answer twice',
   })
   readonly probe: boolean;
 
@@ -1602,7 +1602,7 @@ export class StartedBaselineResponseDto {
 
   @ApiProperty({
     type: SpendResponseDto,
-    description: 'Its own ceiling, the same as the one asked for',
+    description: 'Its own ceiling, the same as the requested one',
   })
   readonly ceiling: SpendResponseDto;
 
@@ -1634,7 +1634,7 @@ export class ReplayStartedResponseDto {
     nullable: true,
     type: StartedBaselineResponseDto,
     description:
-      'The set’s baseline replay of the live config, when the set had none covering its runs: this replay itself, or one starting beside it under this id. It spends against a ceiling of its own, equal to the one asked for, so the two together may spend up to twice it',
+      'The set’s baseline replay of the live config, when the set had none covering its runs: this replay itself, or one starting beside it under this id. It spends against a ceiling of its own, equal to the requested one, so the two together may spend up to twice it',
   })
   readonly baseline: StartedBaselineResponseDto | null;
 

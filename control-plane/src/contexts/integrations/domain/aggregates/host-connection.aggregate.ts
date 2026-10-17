@@ -73,7 +73,7 @@ export class HostConnection extends EventRecorder {
     if (input.version < 1) {
       throw new InconsistentStateError(
         'host connection',
-        'was kept without a version',
+        'was stored without a version',
       );
     }
 

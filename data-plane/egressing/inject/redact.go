@@ -11,8 +11,8 @@ import (
 	"slices"
 	"strings"
 
+	"usespotlight.ai/data-plane/allowlist"
 	"usespotlight.ai/data-plane/protocol"
-	"usespotlight.ai/data-plane/reach"
 )
 
 type swap struct {
@@ -82,7 +82,7 @@ func textual(contentType string) bool {
 func (w *Injector) Redact(host string, response *http.Response) {
 	w.mu.RLock()
 	var swaps []swap
-	for _, each := range w.byHost[reach.Normal(host)] {
+	for _, each := range w.byHost[allowlist.Normal(host)] {
 		swaps = append(swaps, each.swaps()...)
 	}
 	w.mu.RUnlock()

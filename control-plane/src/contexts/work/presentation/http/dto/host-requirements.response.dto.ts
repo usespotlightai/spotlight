@@ -29,7 +29,7 @@ export class HostRequirementsResponseDto {
     isArray: true,
     example: ['ghcr.io/acme/api-runner:main'],
     description:
-      'The images this workspace’s lines name; a host serves those its allow-list admits, beside its default',
+      'The images this workspace’s lines name; a host serves those its allow-list allows, beside its default',
   })
   readonly images: readonly string[];
 

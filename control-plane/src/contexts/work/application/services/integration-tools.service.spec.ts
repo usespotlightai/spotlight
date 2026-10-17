@@ -28,16 +28,16 @@ const CONTEXT: TaskToolContext = {
   requester: null,
 };
 
-const reaching = (given: { movedOn?: boolean } = {}) => {
+const resolving = (options: { movedOn?: boolean } = {}) => {
   const steps: string[] = [];
   const stillOn = vi.fn(async () => {
     steps.push('still on');
-    if (given.movedOn) {
+    if (options.movedOn) {
       throw new RunAttemptOverError(RUN.value, ATTEMPT.number);
     }
   });
   const calls: IntegrationToolCallsPort = {
-    reach: async () => ({
+    resolve: async () => ({
       declared: {
         tool: 'linear.comment',
         integrationName: 'Linear',
@@ -70,29 +70,29 @@ const reaching = (given: { movedOn?: boolean } = {}) => {
 
 describe('IntegrationTools', () => {
   it('makes sure the runner is still on the attempt right before the call injects its secrets', async () => {
-    const { tools, steps, stillOn } = reaching();
-    const reachable = await tools.reach(
+    const { tools, steps, stillOn } = resolving();
+    const resolved = await tools.resolve(
       Tool.of('linear.comment'),
       CONTEXT,
       ATTEMPT,
       'runner_1',
     );
 
-    await expect(reachable?.call(ToolInputs.of({}))).resolves.toBe('commented');
+    await expect(resolved?.call(ToolInputs.of({}))).resolves.toBe('commented');
     expect(stillOn).toHaveBeenCalledWith(ATTEMPT, 'runner_1');
     expect(steps).toEqual(['still on', 'called with its secrets injected']);
   });
 
-  it('never calls the integration once the attempt moved on after the tool was reached', async () => {
-    const { tools, steps } = reaching({ movedOn: true });
-    const reachable = await tools.reach(
+  it('never calls the integration once the attempt moved on after the tool was resolved', async () => {
+    const { tools, steps } = resolving({ movedOn: true });
+    const resolved = await tools.resolve(
       Tool.of('linear.comment'),
       CONTEXT,
       ATTEMPT,
       'runner_1',
     );
 
-    await expect(reachable?.call(ToolInputs.of({}))).rejects.toThrow(
+    await expect(resolved?.call(ToolInputs.of({}))).rejects.toThrow(
       RunAttemptOverError,
     );
     expect(steps).toEqual(['still on']);

@@ -55,7 +55,7 @@ export class AnnounceDecisions {
       return;
     }
 
-    await this.comments.keep({
+    await this.comments.upsert({
       ...place,
       body: DecisionsComment.of(
         {

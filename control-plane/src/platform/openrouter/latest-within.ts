@@ -2,7 +2,7 @@ export const latestWithin = (
   lines: readonly string[],
   max: number,
 ): string[] => {
-  const kept: string[] = [];
+  const selected: string[] = [];
   let used = 0;
 
   for (const line of [...lines].reverse()) {
@@ -10,9 +10,9 @@ export const latestWithin = (
       break;
     }
 
-    kept.unshift(line);
+    selected.unshift(line);
     used += line.length + 1;
   }
 
-  return kept;
+  return selected;
 };

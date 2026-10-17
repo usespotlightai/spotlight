@@ -22,7 +22,7 @@ export interface EgressDefinition {
   readonly url: EgressUrl;
 }
 
-export interface GivenEgressToken {
+export interface EgressTokenInput {
   readonly tokenHash: TokenHash | null;
   readonly tokenVersion: number | null;
 }
@@ -45,7 +45,7 @@ export class Egress extends EventRecorder {
     input: EgressDefinition & {
       id: EgressId;
       workspaceId: WorkspaceId;
-      token: GivenEgressToken;
+      token: EgressTokenInput;
       by: Attribution;
     },
   ): Egress {
@@ -119,7 +119,7 @@ export class Egress extends EventRecorder {
 
   update(
     definition: EgressDefinition,
-    given: GivenEgressToken,
+    tokenInput: EgressTokenInput,
     by: Attribution,
   ): Egress {
     this.assertNotDeleted();
@@ -134,18 +134,21 @@ export class Egress extends EventRecorder {
       );
     }
 
-    if (!given.tokenHash && given.tokenVersion !== this.tokenVersion) {
+    if (
+      !tokenInput.tokenHash &&
+      tokenInput.tokenVersion !== this.tokenVersion
+    ) {
       throw new InvalidEgressError(
         'token',
         'is required whenever tokenVersion changes',
       );
     }
 
-    const tokenHash = given.tokenHash ?? this.tokenHash;
+    const tokenHash = tokenInput.tokenHash ?? this.tokenHash;
     const updated = this.with({
       url: definition.url,
       tokenHash,
-      tokenVersion: given.tokenVersion,
+      tokenVersion: tokenInput.tokenVersion,
     });
 
     updated.record(

@@ -59,12 +59,12 @@ export const placeOf = (taskId = 'task_1', stationId = 'station_1'): RunPlace =>
     taskId: TaskId.of(taskId),
   });
 
-export const askedJudging = (
+export const queuedJudging = (
   runId = 'run_1',
   rubric: Rubric = rubricOf(),
   now = new Date('2026-09-30T10:00:00.000Z'),
 ): Judging =>
-  Judging.asked({
+  Judging.requested({
     runId: RunId.of(runId),
     workspaceId: WORKSPACE,
     place: placeOf(),
@@ -178,7 +178,7 @@ export class JudgingsInMemory implements JudgingRepository {
     return (
       [...this.stored.values()]
         .filter((each) => each.job?.isDue(now))
-        .sort((a, b) => a.askedAt.getTime() - b.askedAt.getTime())[0] ?? null
+        .sort((a, b) => a.queuedAt.getTime() - b.queuedAt.getTime())[0] ?? null
     );
   }
 
@@ -244,7 +244,7 @@ export class ChangeJudgingsInMemory implements ChangeJudgingRepository {
         teamId: judging.teamId,
         criteria: judging.criteria,
         reference: judging.reference,
-        askedAt: judging.askedAt,
+        queuedAt: judging.queuedAt,
         job: judging.job,
         judgedAt: judging.judgedAt,
         failure: judging.failure,
@@ -262,7 +262,7 @@ export class ChangeJudgingsInMemory implements ChangeJudgingRepository {
     return (
       [...this.stored.values()]
         .filter((each) => each.job?.isDue(now))
-        .sort((a, b) => a.askedAt.getTime() - b.askedAt.getTime())[0] ?? null
+        .sort((a, b) => a.queuedAt.getTime() - b.queuedAt.getTime())[0] ?? null
     );
   }
 
@@ -325,7 +325,7 @@ export class PairJudgingsInMemory implements PairJudgingRepository {
         reference: judging.reference,
         maxAttempts: judging.maxAttempts,
         order: judging.order,
-        askedAt: judging.askedAt,
+        queuedAt: judging.queuedAt,
         job: judging.job,
         judgedAt: judging.judgedAt,
         failure: judging.failure,
@@ -343,7 +343,7 @@ export class PairJudgingsInMemory implements PairJudgingRepository {
     return (
       [...this.stored.values()]
         .filter((each) => each.job?.isDue(now))
-        .sort((a, b) => a.askedAt.getTime() - b.askedAt.getTime())[0] ?? null
+        .sort((a, b) => a.queuedAt.getTime() - b.queuedAt.getTime())[0] ?? null
     );
   }
 
@@ -463,7 +463,7 @@ export class ScoresInMemory implements ScoreRepository {
   }
 
   async judgedAtStations(criteria: StationsScores): Promise<readonly Score[]> {
-    const asked = [
+    const stations = [
       ...new Map(
         criteria.stations.map((each) => [
           JSON.stringify([each.lineId, each.stationId, each.rubricVersion]),
@@ -472,7 +472,7 @@ export class ScoresInMemory implements ScoreRepository {
       ).values(),
     ];
     const judged = await Promise.all(
-      asked.map((each) =>
+      stations.map((each) =>
         this.judgedAtStation({
           workspaceId: criteria.workspaceId,
           teamId: criteria.teamId,

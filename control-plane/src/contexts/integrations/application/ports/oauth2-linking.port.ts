@@ -19,7 +19,7 @@ export interface OAuth2Returned {
   readonly viewerId: string | null;
 }
 
-export interface OAuth2Asked {
+export interface OAuth2LinkInput {
   readonly teamId: string;
   readonly source: string;
   readonly by: string;
@@ -27,12 +27,12 @@ export interface OAuth2Asked {
   readonly back: string | null;
 }
 
-export interface OAuth2Authorized extends OAuth2Asked {
+export interface OAuth2Authorized extends OAuth2LinkInput {
   readonly grant: HostGrant;
 }
 
 export interface OAuth2LinkingPort {
-  begin(asked: OAuth2Asked): Promise<OAuth2Begun | null>;
+  begin(input: OAuth2LinkInput): Promise<OAuth2Begun | null>;
 
   authorized(returned: OAuth2Returned): Promise<OAuth2Authorized | null>;
 

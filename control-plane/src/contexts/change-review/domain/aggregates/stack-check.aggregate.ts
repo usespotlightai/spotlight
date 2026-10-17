@@ -241,7 +241,7 @@ export class StackCheck extends EventRecorder {
 
   claimableBy(runner: RunnerId, terms: RunnerTerms, now: Date): boolean {
     return (
-      this.claimableAt(now, runner) && this.request.placement.admits(terms)
+      this.claimableAt(now, runner) && this.request.placement.matches(terms)
     );
   }
 
@@ -251,7 +251,7 @@ export class StackCheck extends EventRecorder {
         'has no check waiting for a runner to claim',
       );
     }
-    if (!this.request.placement.admits(terms)) {
+    if (!this.request.placement.matches(terms)) {
       throw InvalidChangeStackError.because(
         'is placed on runners that do not answer to these terms',
       );
@@ -416,12 +416,12 @@ export class StackCheck extends EventRecorder {
       output: step.output.slice(-MAX_CHECK_OUTPUT),
       tookMs: Math.max(0, Math.round(step.tookMs)),
     });
-    const given = new Map(steps.map((step) => [step.step, trimmed(step)]));
+    const reported = new Map(steps.map((step) => [step.step, trimmed(step)]));
     const layers = whole.passed
       ? planned.layers.flatMap((layer): CheckedStep[] => {
           const result = known.has(layer)
-            ? given.get(layer)
-            : given.get(WHOLE_STEP);
+            ? reported.get(layer)
+            : reported.get(WHOLE_STEP);
           return result ? [{ ...result, step: layer }] : [];
         })
       : [];
@@ -468,11 +468,11 @@ export class StackCheck extends EventRecorder {
     });
   }
 
-  keptLayers(): StackCheck {
-    this.assertIn('reordering', 'keep its layers');
+  retainCheckedLayers(): StackCheck {
+    this.assertIn('reordering', 'retain its layers');
 
-    const kept = this.with({ phase: 'checked' });
-    kept.record(
+    const checked = this.with({ phase: 'checked' });
+    checked.record(
       new ChangeStackChecked(
         this.stackId,
         this.runId,
@@ -484,7 +484,7 @@ export class StackCheck extends EventRecorder {
       ),
     );
 
-    return kept;
+    return checked;
   }
 
   private droppingReservation(): StackCheck {

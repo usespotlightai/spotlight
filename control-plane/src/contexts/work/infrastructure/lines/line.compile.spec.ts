@@ -51,7 +51,7 @@ describe('compileLine', () => {
     ).toEqual(['backlog', 'code-review', 'completed']);
   });
 
-  it('keeps memories from only the stations that ask for them', () => {
+  it('keeps memories from only the stations that request them', () => {
     const compiled = compileLine(
       withStation(1, { ...DELIVERY.stations[1], memories: true }),
     );
@@ -447,7 +447,7 @@ describe('compileLine', () => {
     });
   });
 
-  it('places a problem with what a station gives at that station', () => {
+  it('places a problem with what a station enables at that station', () => {
     expect(
       problemsOf(
         withStation(1, {

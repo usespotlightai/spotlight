@@ -86,7 +86,7 @@ export class CompleteRunRequestDto {
     description:
       'The workspace archive is sealed as this turn left it. A run waits for a person only when it is, so a later runner can take it up from there.',
   })
-  readonly kept?: boolean;
+  readonly archived?: boolean;
 }
 
 export class EnqueueRunRequestDto {
@@ -101,7 +101,7 @@ export class EnqueueRunRequestDto {
     description:
       'Sent to the runner unchanged: checkouts, briefing, handover and ' +
       'continuity. The command is filled in from the harness, so it is not ' +
-      'given here.',
+      'sent here.',
     example: {
       checkouts: [
         { remote: 'https://github.com/org/service', path: 'service' },
@@ -141,7 +141,7 @@ export class StartedCheckoutRequestDto {
   @ApiProperty({
     example: 'service',
     description:
-      'The checkout, by its path in the workspace, as the run was given it',
+      'The checkout, by its path in the workspace, as the run received it',
   })
   readonly path!: string;
 
@@ -205,7 +205,7 @@ export class PendingMessageResponseDto {
   @ApiProperty({
     type: RunAttachmentResponseDto,
     isArray: true,
-    description: 'Files to lay out before the words are given',
+    description: 'Files to lay out before the words are sent',
   })
   readonly attachments: readonly RunAttachmentResponseDto[];
 
@@ -248,7 +248,7 @@ export class AskPermissionRequestDto {
   @ApiPropertyOptional({
     example: 'execute',
     description:
-      'The ACP tool kind the harness gave, as in read, edit or execute',
+      'The ACP tool kind the harness sent, as in read, edit or execute',
   })
   readonly kind?: string;
 
@@ -262,7 +262,7 @@ export class AskPermissionRequestDto {
     type: 'object',
     additionalProperties: true,
     example: { command: 'git push origin main' },
-    description: 'The tool call’s raw input, as the harness gave it',
+    description: 'The tool call’s raw input, as the harness sent it',
   })
   readonly input?: unknown;
 }

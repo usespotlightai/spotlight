@@ -82,7 +82,7 @@ import { ExportableConfigurations } from '@configuration/application/services/ex
 import { HarnessProfileViews } from '@configuration/application/services/harness-profile-views.service';
 import { ProfileSecretUses } from '@configuration/application/services/profile-secret-uses.service';
 import { SkillViews } from '@configuration/application/services/skill-views.service';
-import { StationGifts } from '@configuration/application/services/station-gifts.service';
+import { StationReferences } from '@configuration/application/services/station-references.service';
 import { CONFIGURATION_PAYLOAD_TYPES } from '@configuration/domain/payload-types';
 import {
   HARNESS_PROFILES,
@@ -161,9 +161,9 @@ import {
   SHIPPED_SKILL_KEYS,
 } from '@work/application/ports/built-in-skills.port';
 import {
-  GIVEN_AT_STATIONS,
-  type GivenAtStationsPort,
-} from '@work/application/ports/given-at-stations.port';
+  ENABLED_AT_STATIONS,
+  type EnabledAtStationsPort,
+} from '@work/application/ports/enabled-at-stations.port';
 import {
   HARNESS_PROFILE_REVIEW,
   type HarnessProfileReviewPort,
@@ -221,9 +221,10 @@ const adapters: Provider[] = [
   { provide: SKILL_DEFINITIONS, useClass: DrizzleSkillDefinitions },
   { provide: SKILL_RESOURCES, useClass: DrizzleSkillResources },
   {
-    provide: StationGifts,
-    inject: [GIVEN_AT_STATIONS],
-    useFactory: (given: GivenAtStationsPort) => new StationGifts(given),
+    provide: StationReferences,
+    inject: [ENABLED_AT_STATIONS],
+    useFactory: (enabledAtStations: EnabledAtStationsPort) =>
+      new StationReferences(enabledAtStations),
   },
   {
     provide: HARNESS_REVIEW,
@@ -325,7 +326,7 @@ const handlers: Provider[] = [
   ...bindCommandHandler(DeleteSkillCommand, DeleteSkillHandler, [
     WORKSPACE_ACCESS,
     SKILL_DEFINITIONS,
-    StationGifts,
+    StationReferences,
     TRANSACTION,
   ]),
   ...bindCommandHandler(
@@ -356,7 +357,7 @@ const handlers: Provider[] = [
   ...bindCommandHandler(
     DeleteHarnessProfileCommand,
     DeleteHarnessProfileHandler,
-    [WORKSPACE_ACCESS, HARNESS_PROFILES, StationGifts, TRANSACTION],
+    [WORKSPACE_ACCESS, HARNESS_PROFILES, StationReferences, TRANSACTION],
   ),
   ...bindQueryHandler(ReadHarnessProfileQuery, ReadHarnessProfileHandler, [
     WORKSPACE_ACCESS,

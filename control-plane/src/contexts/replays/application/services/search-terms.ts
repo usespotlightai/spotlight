@@ -1,6 +1,6 @@
 import type {
-  SearchAgentAsked,
-  SearchBudgetAsked,
+  SearchAgentInput,
+  SearchBudgetInput,
 } from '@replays/application/commands/start-search.command';
 import type { WorkPort } from '@replays/application/ports/work.port';
 import { InvalidSearchError } from '@replays/domain/exceptions/invalid-search.error';
@@ -58,20 +58,20 @@ const ANY_HARNESS = 'any';
 const ANY_CEILING = Spend.ceiling(1, 'USD');
 
 export const searchAgentOf = (
-  asked: SearchAgentAsked,
+  input: SearchAgentInput,
   work: WorkPort,
 ): SearchAgent => {
   reject([
     ...problemsOf(
       () =>
-        SearchAgent.of({ harness: asked.harness, model: null, effort: null }),
+        SearchAgent.of({ harness: input.harness, model: null, effort: null }),
       ['agent', 'harness'],
     ),
     ...problemsOf(
       () =>
         SearchAgent.of({
           harness: ANY_HARNESS,
-          model: asked.model,
+          model: input.model,
           effort: null,
         }),
       ['agent', 'model'],
@@ -81,13 +81,13 @@ export const searchAgentOf = (
         SearchAgent.of({
           harness: ANY_HARNESS,
           model: null,
-          effort: asked.effort,
+          effort: input.effort,
         }),
       ['agent', 'effort'],
     ),
   ]);
 
-  const agent = SearchAgent.of(asked);
+  const agent = SearchAgent.of(input);
   const problem = work.agentProblem(agent);
 
   if (problem) {
@@ -97,8 +97,8 @@ export const searchAgentOf = (
   return agent;
 };
 
-export const searchBudgetOf = (asked: SearchBudgetAsked): SearchBudget => {
-  const counts = (over: Partial<SearchBudgetAsked>) => () =>
+export const searchBudgetOf = (input: SearchBudgetInput): SearchBudget => {
+  const counts = (over: Partial<SearchBudgetInput>) => () =>
     SearchBudget.of({
       iterations: over.iterations ?? 1,
       perIteration: over.perIteration ?? 1,
@@ -111,7 +111,7 @@ export const searchBudgetOf = (asked: SearchBudgetAsked): SearchBudget => {
         : { repeats: over.repeats }),
     });
   const currency = problemsOf(
-    () => Spend.none(asked.ceiling.currency),
+    () => Spend.none(input.ceiling.currency),
     ['budget', 'ceiling', 'currency'],
   );
 
@@ -120,30 +120,30 @@ export const searchBudgetOf = (asked: SearchBudgetAsked): SearchBudget => {
     ...(currency.length > 0
       ? []
       : problemsOf(
-          () => Spend.ceiling(asked.ceiling.amount, asked.ceiling.currency),
+          () => Spend.ceiling(input.ceiling.amount, input.ceiling.currency),
           ['budget', 'ceiling', 'amount'],
         )),
-    ...problemsOf(counts({ iterations: asked.iterations }), [
+    ...problemsOf(counts({ iterations: input.iterations }), [
       'budget',
       'iterations',
     ]),
-    ...problemsOf(counts({ perIteration: asked.perIteration }), [
+    ...problemsOf(counts({ perIteration: input.perIteration }), [
       'budget',
       'perIteration',
     ]),
-    ...problemsOf(counts({ concurrency: asked.concurrency }), [
+    ...problemsOf(counts({ concurrency: input.concurrency }), [
       'budget',
       'concurrency',
     ]),
-    ...problemsOf(counts({ repeats: asked.repeats }), ['budget', 'repeats']),
+    ...problemsOf(counts({ repeats: input.repeats }), ['budget', 'repeats']),
   ]);
 
   return SearchBudget.of({
-    iterations: asked.iterations,
-    perIteration: asked.perIteration,
-    ceiling: Spend.ceiling(asked.ceiling.amount, asked.ceiling.currency),
-    ...(asked.concurrency === null ? {} : { concurrency: asked.concurrency }),
-    ...(asked.repeats === null ? {} : { repeats: asked.repeats }),
+    iterations: input.iterations,
+    perIteration: input.perIteration,
+    ceiling: Spend.ceiling(input.ceiling.amount, input.ceiling.currency),
+    ...(input.concurrency === null ? {} : { concurrency: input.concurrency }),
+    ...(input.repeats === null ? {} : { repeats: input.repeats }),
   });
 };
 

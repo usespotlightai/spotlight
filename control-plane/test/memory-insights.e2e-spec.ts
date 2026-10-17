@@ -53,7 +53,7 @@ const remembered = async (
 };
 
 const ran = async (runId: string) => {
-  const ended = RunRecord.heardOf(RunId.of(runId), team.workspaceId).recordEnd(
+  const ended = RunRecord.empty(RunId.of(runId), team.workspaceId).recordEnd(
     RunEnd.of({
       place: RunPlace.of({
         teamId: team.teamId,
@@ -144,14 +144,14 @@ beforeAll(async () => {
   );
   await eventually(async () => {
     await app.get(EventDelivery).drain(2_000);
-    const heard = await db
+    const facts = await db
       .select({ memories: schema.runFact.memories })
       .from(schema.runFact)
       .where(inArray(schema.runFact.runId, [x, y]));
 
     return (
-      heard.filter((each) => each.memories.briefed.length > 0).length === 2 &&
-      heard.some((each) => each.memories.recalled.length > 0)
+      facts.filter((each) => each.memories.briefed.length > 0).length === 2 &&
+      facts.some((each) => each.memories.recalled.length > 0)
     );
   });
 }, 60_000);

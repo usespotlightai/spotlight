@@ -273,7 +273,7 @@ describe('CI exchanging its OIDC token for a short-lived workspace token (e2e)',
     });
   });
 
-  it('does not accept a workload the trust does not admit, one signed by another key, and a trust that does not exist', async () => {
+  it('does not accept a workload the trust does not match, one signed by another key, and a trust that does not exist', async () => {
     const trust = await create(trusting());
     const forged = await issuer.forge({
       sub: MAIN,

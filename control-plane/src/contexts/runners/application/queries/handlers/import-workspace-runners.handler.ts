@@ -27,16 +27,16 @@ export class ImportWorkspaceRunnersHandler
         WorkspaceId.of(query.workspaceId),
         query.principal,
       );
-      const kept =
+      const record =
         permissions && permissions.slug === query.address
           ? await this.resources.declaredIn(permissions.workspaceId)
           : null;
 
-      return kept && permissions
+      return record && permissions
         ? RunnerResourceMapper.workspaceRunners(
-            kept,
+            record,
             permissions.slug,
-            await this.resources.waysIn(kept.workspaceId),
+            await this.resources.credentialSourceKeysIn(record.workspaceId),
           )
         : null;
     } catch (error) {

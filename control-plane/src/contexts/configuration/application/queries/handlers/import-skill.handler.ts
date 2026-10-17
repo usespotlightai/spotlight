@@ -37,12 +37,12 @@ export class ImportSkillHandler
         return null;
       }
 
-      const kept = await this.resources.at(
+      const record = await this.resources.at(
         team.id,
         SkillKey.of(address.key).value,
       );
 
-      return kept ? this.views.of(kept) : null;
+      return record ? this.views.of(record) : null;
     } catch (error) {
       rethrowAsApplicationError(error);
     }

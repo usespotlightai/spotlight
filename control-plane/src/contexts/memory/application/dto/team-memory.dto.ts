@@ -27,7 +27,7 @@ export interface TeamMemoryDto {
   readonly body: string;
   readonly source: string;
   readonly status: string;
-  readonly reach: string;
+  readonly scope: string;
   readonly lineId: string | null;
   readonly stationId: string | null;
   readonly repository: string | null;

@@ -99,7 +99,7 @@ export function StartSearchDialog({
           <SearchEstimateSummary
             estimate={form.estimate.data}
             repeats={form.debounced?.budget.repeats ?? 1}
-            asked={form.debounced !== null}
+            requested={form.debounced !== null}
             estimating={form.estimate.isFetching}
             problem={form.estimateProblem}
           />

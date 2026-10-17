@@ -1,7 +1,7 @@
 import type { OutcomesPort } from '@replays/application/ports/outcomes.port';
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import type { ReplayEntryConcluded } from '@replays/domain/events/replay-entry-concluded.event';
-import { ReplayPairingDue } from '@replays/domain/events/replay-pairing-due.event';
+import { ReplayPairingRequested } from '@replays/domain/events/replay-pairing-requested.event';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
@@ -22,10 +22,12 @@ export class PairReplayEntries {
     const pairing = await this.replays.pairingWith(event.replayId);
     const due = [...(replay?.pairs ? [event.replayId] : []), ...pairing];
 
-    return due.map((each) => new ReplayPairingDue(each, event.workspaceId));
+    return due.map(
+      (each) => new ReplayPairingRequested(each, event.workspaceId),
+    );
   }
 
-  async due(replayId: ReplayId): Promise<void> {
+  async requested(replayId: ReplayId): Promise<void> {
     const seen = await this.replays.find(replayId);
 
     if (!seen?.pairs || !seen.takesPairings) {

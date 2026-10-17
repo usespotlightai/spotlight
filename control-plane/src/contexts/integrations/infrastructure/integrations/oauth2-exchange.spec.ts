@@ -204,7 +204,7 @@ describe('OAuth2Exchange', () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it('keeps nothing when the host answers with an error', async () => {
+  it('stores nothing when the host answers with an error', async () => {
     const fetch = replying({ error: 'bad_code' }, 400);
     const exchange = new OAuth2Exchange(
       new OutboundPolicy(['slack.com']),
@@ -223,7 +223,7 @@ describe('OAuth2Exchange', () => {
     ).toBeNull();
   });
 
-  it('never follows a redirect from the token endpoint, and keeps nothing from it', async () => {
+  it('never follows a redirect from the token endpoint, and stores nothing from it', async () => {
     const fetch = vi.fn(
       async () =>
         new Response(null, {

@@ -4,20 +4,20 @@ import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 export class DecisionDraft {
   private constructor(
     readonly runId: RunId,
-    readonly askedAt: Date,
+    readonly requestedAt: Date,
     readonly job: PendingJob,
   ) {}
 
-  static asked(runId: RunId, now: Date): DecisionDraft {
+  static requested(runId: RunId, now: Date): DecisionDraft {
     return new DecisionDraft(runId, now, PendingJob.fresh());
   }
 
   static rehydrate(input: {
     runId: RunId;
-    askedAt: Date;
+    requestedAt: Date;
     job: PendingJob;
   }): DecisionDraft {
-    return new DecisionDraft(input.runId, input.askedAt, input.job);
+    return new DecisionDraft(input.runId, input.requestedAt, input.job);
   }
 
   isFor(runId: RunId): boolean {
@@ -25,6 +25,6 @@ export class DecisionDraft {
   }
 
   withJob(job: PendingJob): DecisionDraft {
-    return new DecisionDraft(this.runId, this.askedAt, job);
+    return new DecisionDraft(this.runId, this.requestedAt, job);
   }
 }

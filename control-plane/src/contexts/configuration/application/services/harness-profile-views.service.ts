@@ -14,31 +14,31 @@ export class HarnessProfileViews {
   ) {}
 
   async of(
-    kept: HarnessProfileRecord,
+    record: HarnessProfileRecord,
   ): Promise<HarnessProfileResourceDto | null> {
-    const team = await this.teams.find(kept.teamId);
+    const team = await this.teams.find(record.teamId);
 
-    return team ? this.onTeam(kept, team.key) : null;
+    return team ? this.onTeam(record, team.key) : null;
   }
 
   onTeam(
-    kept: HarnessProfileRecord,
+    record: HarnessProfileRecord,
     teamKey: string,
   ): HarnessProfileResourceDto {
-    const read = this.compiler.read(kept.definition);
+    const read = this.compiler.read(record.definition);
 
     if (!read.ok) {
       throw new InconsistentStateError(
         'harness profile',
-        `was kept in a shape that no longer reads (${kept.id})`,
+        `is in a shape that no longer reads (${record.id})`,
       );
     }
 
     return {
-      id: kept.id,
-      version: kept.version,
+      id: record.id,
+      version: record.version,
       address: TeamAddress.of(teamKey, read.key.value).toString(),
-      teamId: kept.teamId.value,
+      teamId: record.teamId.value,
       key: read.key.value,
       permissions: read.settings.permissions,
       mcpServers: HarnessProfileMapper.servers(read.settings),

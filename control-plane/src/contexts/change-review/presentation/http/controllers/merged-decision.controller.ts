@@ -45,7 +45,7 @@ export class MergedDecisionController {
     isArray: true,
     type: String,
     description:
-      'A file or directory in the repository; repeat it to ask about several',
+      'A file or directory in the repository; repeat it to query several',
   })
   @ApiQuery({
     name: 'since',

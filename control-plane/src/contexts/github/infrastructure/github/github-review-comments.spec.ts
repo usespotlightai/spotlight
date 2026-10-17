@@ -36,12 +36,12 @@ const answered = (nodes: unknown[]) => ({
   },
 });
 
-let asked: { url: string; body: unknown }[] = [];
+let requests: { url: string; body: unknown }[] = [];
 let replies: unknown[] = [];
 
 const fetching = () =>
   vi.fn(async (url: string, init?: { body?: string }) => {
-    asked.push({ url, body: JSON.parse(init?.body ?? '{}') });
+    requests.push({ url, body: JSON.parse(init?.body ?? '{}') });
 
     return {
       ok: true,
@@ -51,7 +51,7 @@ const fetching = () =>
   });
 
 const queried = () =>
-  asked
+  requests
     .filter((each) => each.url.endsWith('/graphql'))
     .map((each) => each.body);
 
@@ -62,7 +62,7 @@ const named = (query: string) =>
 
 describe('GitHubReviewComments', () => {
   beforeEach(() => {
-    asked = [];
+    requests = [];
     replies = [];
     vi.stubGlobal('fetch', fetching());
   });
@@ -88,7 +88,7 @@ describe('GitHubReviewComments', () => {
     expect(named('resolveReviewThread')).toHaveLength(0);
   });
 
-  it('resolves the thread as well where it was asked to', async () => {
+  it('resolves the thread as well where the reply requests it', async () => {
     replies = [answered([thread()])];
 
     await reviewComments().reply(replying({ resolve: true }));
@@ -131,8 +131,8 @@ describe('GitHubReviewComments', () => {
 
       await reviewComments().reply(replying());
 
-      expect(asked[1]?.url).toContain('/issues/7/comments');
-      expect(asked[1]?.body).toEqual({ body: 'Split out in 4a1c2b0.' });
+      expect(requests[1]?.url).toContain('/issues/7/comments');
+      expect(requests[1]?.body).toEqual({ body: 'Split out in 4a1c2b0.' });
     });
 
     it('does not resolve what is in no thread', async () => {

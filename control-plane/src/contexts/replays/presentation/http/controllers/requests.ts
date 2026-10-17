@@ -1,8 +1,8 @@
 import { ProblemException } from '@platform/http/resources/problem.exception';
 import type {
-  SearchAgentAsked,
-  SearchBudgetAsked,
-  SearchObjectiveAsked,
+  SearchAgentInput,
+  SearchBudgetInput,
+  SearchObjectiveInput,
 } from '@replays/application/commands/start-search.command';
 import { isSearchObjective } from '@replays/domain/value-objects/search-objective';
 import type { Forbidden } from '@shared-kernel/application/dto/resource-outcomes.dto';
@@ -87,7 +87,7 @@ const optionalTextAt = (
   return typeof text === 'string' ? text : rejectAt(at, reason);
 };
 
-export const searchBudgetIn = (body: unknown): SearchBudgetAsked => {
+export const searchBudgetIn = (body: unknown): SearchBudgetInput => {
   const budget = fieldsOf(fieldsOf(body).budget);
   const concurrency = budget.concurrency;
   const repeats = budget.repeats;
@@ -119,7 +119,7 @@ export const searchBudgetIn = (body: unknown): SearchBudgetAsked => {
   };
 };
 
-export const searchAgentIn = (body: unknown): SearchAgentAsked => {
+export const searchAgentIn = (body: unknown): SearchAgentInput => {
   const agent = fieldsOf(fieldsOf(body).agent);
   const harness = agent.harness;
 
@@ -141,7 +141,7 @@ export const searchAgentIn = (body: unknown): SearchAgentAsked => {
   };
 };
 
-export const objectiveIn = (body: unknown): SearchObjectiveAsked => {
+export const objectiveIn = (body: unknown): SearchObjectiveInput => {
   const value = fieldsOf(body).objective;
 
   if (value === undefined || value === null) {
@@ -200,7 +200,7 @@ export const keyedIn = (
     ? { lineId: line, key: station }
     : rejectAt(
         [line ? 'station' : 'line'],
-        'Line and station must be given together.',
+        'Line and station must be sent together.',
       );
 };
 

@@ -96,7 +96,7 @@ const remembering = (run: LeasedRun | null = LEASED) => {
         new RememberCommand('run_1', 'runner_1', {
           kind: 'rationale',
           body,
-          reach: null,
+          scope: null,
           paths: [],
           supersedes: null,
         }),
@@ -105,7 +105,7 @@ const remembering = (run: LeasedRun | null = LEASED) => {
 };
 
 describe('RememberHandler', () => {
-  it('opens the task’s draft with what the run asked to keep, grounded in its step', async () => {
+  it('opens the task’s draft with what the run proposed to remember, grounded in its step', async () => {
     const { added, remember } = remembering();
 
     const proposed = await remember();

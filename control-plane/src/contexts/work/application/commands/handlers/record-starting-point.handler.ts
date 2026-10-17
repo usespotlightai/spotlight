@@ -99,7 +99,7 @@ export class RecordStartingPointHandler
 
     if (!archive) {
       throw new InvalidStartingPointError(
-        `names archive ${id.value}, which is not kept`,
+        `names archive ${id.value}, which is not stored`,
       );
     }
 

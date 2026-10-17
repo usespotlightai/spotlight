@@ -111,7 +111,7 @@ export interface MergedCounts {
 }
 
 export interface PullRequestCounts {
-  readonly reached: number;
+  readonly covered: number;
   readonly tallies: readonly MergedTally[];
   readonly named: readonly string[];
   readonly compared: readonly string[];
@@ -382,7 +382,7 @@ export const pullRequestCountsOf = (
   const compared = comparedRepositories(merged);
 
   return {
-    reached: pullRequests.length,
+    covered: pullRequests.length,
     tallies: talliesOf(merged),
     named: namedIn(merged),
     compared,

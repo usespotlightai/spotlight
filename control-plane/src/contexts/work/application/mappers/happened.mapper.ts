@@ -17,12 +17,12 @@ import { Mark } from '@work/domain/value-objects/mark.vo';
 import type { OpensWith } from '@work/domain/value-objects/opens-with';
 import {
   type ReviewRequest,
-  reviewAsking,
   reviewRequested,
-} from '@work/domain/value-objects/review-asked.vo';
+  reviewTrigger,
+} from '@work/domain/value-objects/review-request.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 
-export interface Heard {
+export interface ReceivedHappening {
   readonly payload: HappeningPayload;
   readonly concerns: Concerns;
   readonly anchor: Anchor | null;
@@ -39,7 +39,7 @@ const reviewOf = (
   }
 
   return reviewRequested({
-    asking: reviewAsking(review.asking),
+    trigger: reviewTrigger(review.trigger),
     label: review.label?.trim() || null,
     pullRequest: PullRequestUrl.of(review.pullRequest),
     author: review.author?.trim() || null,
@@ -54,7 +54,7 @@ export const HappenedMapper = {
     return Mark.of(mark.kind, mark.value);
   },
 
-  toHeard(happened: Happened): Heard | null {
+  toReceivedHappening(happened: Happened): ReceivedHappening | null {
     const concerns = Concerns.of({
       branch: happened.concerns.branch,
       marks: happened.concerns.marks.map(HappenedMapper.markOf),

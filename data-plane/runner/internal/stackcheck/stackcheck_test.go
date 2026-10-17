@@ -504,7 +504,7 @@ func TestDiffRejectsACheckoutWithNoRecordOfWhereItBegan(t *testing.T) {
 	}
 }
 
-func TestPerformMakesTheCheckoutReadyAgainOnlyWhereAStepAsksFor(t *testing.T) {
+func TestPerformMakesTheCheckoutReadyAgainOnlyWhereAStepRequestsIt(t *testing.T) {
 	r := setUp(t)
 	reported := &reporter{}
 
@@ -534,7 +534,7 @@ func TestPerformMakesTheCheckoutReadyAgainOnlyWhereAStepAsksFor(t *testing.T) {
 		t.Fatalf("read what setup left: %v", err)
 	}
 	if string(ready) != "xx" {
-		t.Fatalf("setup ran %d times, want once for the whole change and once for the step that asked", len(ready))
+		t.Fatalf("setup ran %d times, want once for the whole change and once for the step that requested it", len(ready))
 	}
 }
 

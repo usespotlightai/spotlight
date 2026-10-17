@@ -8,10 +8,10 @@ import { ChangeStackReorderingEnded } from '@change-review/domain/events/change-
 import { CheckReservationDropped } from '@change-review/domain/events/check-reservation-dropped.event';
 import { DecisionDisputed } from '@change-review/domain/events/decision-disputed.event';
 import { DecisionDraftingFailed } from '@change-review/domain/events/decision-drafting-failed.event';
-import { DecisionsAsked } from '@change-review/domain/events/decisions-asked.event';
 import { DecisionsDiscarded } from '@change-review/domain/events/decisions-discarded.event';
 import { DecisionsMerged } from '@change-review/domain/events/decisions-merged.event';
 import { DecisionsRecorded } from '@change-review/domain/events/decisions-recorded.event';
+import { DecisionsRequested } from '@change-review/domain/events/decisions-requested.event';
 import { LayersFailedCheck } from '@change-review/domain/events/layers-failed-check.event';
 import { LeasedCheckDeleted } from '@change-review/domain/events/leased-check-deleted.event';
 import { ReplayStackCompleted } from '@change-review/domain/events/replay-stack-completed.event';
@@ -84,7 +84,7 @@ export const CHANGE_REVIEW_PAYLOAD_TYPES = [
   DecisionSetId,
   DecisionStatus,
   DecisionDraftingFailed,
-  DecisionsAsked,
+  DecisionsRequested,
   DecisionsDiscarded,
   DecisionsRecorded,
   DecisionsMerged,

@@ -72,7 +72,8 @@ export class OAuth2ConnectionController {
   @ApiBody({ type: ConnectIntegrationRequestDto, required: false })
   @ApiOkResponse({ type: OAuth2StartResponseDto })
   @ApiBadRequestResponse({
-    description: 'It asks to connect for someone other than the team or me',
+    description:
+      'It requests a connection for someone other than the team or me',
   })
   @ApiUnauthorizedResponse({ description: 'No valid session' })
   @ApiNotFoundResponse({

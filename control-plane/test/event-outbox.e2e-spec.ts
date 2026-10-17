@@ -61,7 +61,7 @@ class Answered implements DomainEvent {
 let database: TestDatabase;
 let context: DrizzleContext;
 let now = new Date();
-const heard: string[] = [];
+const received: string[] = [];
 let failing = 0;
 const causation = new AmbientCausation();
 const causes: string[] = [];
@@ -80,22 +80,22 @@ const outboxWith = () => {
   const subscribers = new EventSubscribers();
   subscribers.register([
     subscribing<Rang>('test.answer', ['bell.rang'], async (event) => {
-      heard.push(`rang ${event.marker.value}`);
+      received.push(`rang ${event.marker.value}`);
       return [new Answered(event.marker)];
     }),
     subscribing<Answered>(
-      'test.hear-answer',
+      'test.receive-answer',
       ['bell.answered'],
       async (event) => {
-        heard.push(`answered ${event.marker.value}`);
+        received.push(`answered ${event.marker.value}`);
         causes.push(causation.current().description);
       },
     ),
     subscribing<{ kind: string; marker: string }>(
-      'test.hear-published',
+      'test.receive-published',
       ['bell.published-rang.v1'],
       async (event) => {
-        heard.push(`published ${typeof event.marker} ${event.marker}`);
+        received.push(`published ${typeof event.marker} ${event.marker}`);
       },
     ),
     subscribing<{ kind: string; marker: string }>(
@@ -112,7 +112,7 @@ const outboxWith = () => {
         failing -= 1;
         throw new Error('not yet');
       }
-      heard.push(`flaky ${event.marker.value}`);
+      received.push(`flaky ${event.marker.value}`);
     }),
   ]);
   const mappers = new IntegrationEventMappers();
@@ -172,7 +172,7 @@ describe('the event outbox', () => {
       .catch(() => undefined);
     await delivery.processDue();
 
-    expect(heard).toEqual([]);
+    expect(received).toEqual([]);
   });
 
   it('records who changed configuration in the same transaction as the change, and never apart from it', async () => {
@@ -191,7 +191,7 @@ describe('the event outbox', () => {
         throw new Error('the command failed');
       })
       .catch(() => undefined);
-    await outbox.record([changedBy('kept')]);
+    await outbox.record([changedBy('recorded')]);
 
     expect(
       await database.db
@@ -204,7 +204,12 @@ describe('the event outbox', () => {
         .from(configurationChange)
         .where(eq(configurationChange.workspaceId, 'ws_audited')),
     ).toEqual([
-      { key: 'kept', actor: 'person', userId: 'user_audited', client: 'web' },
+      {
+        key: 'recorded',
+        actor: 'person',
+        userId: 'user_audited',
+        client: 'web',
+      },
     ]);
   });
 
@@ -214,10 +219,10 @@ describe('the event outbox', () => {
     await outbox.record([new Rang(Marker.of('one'))]);
     await delivery.processDue();
 
-    expect(heard).toEqual(
+    expect(received).toEqual(
       expect.arrayContaining(['rang one', 'answered one', 'flaky one']),
     );
-    expect(heard).toHaveLength(4);
+    expect(received).toHaveLength(4);
   });
 
   it('carries the chain of causes an event was recorded in to what its subscribers raise', async () => {
@@ -242,31 +247,31 @@ describe('the event outbox', () => {
     ).toEqual(['the hook bell', 'the hook bell', 'the hook bell']);
   });
 
-  it('publishes what other contexts may hear as plain data, beside the domain event', async () => {
-    heard.length = 0;
+  it('publishes what other contexts may receive as plain data, beside the domain event', async () => {
+    received.length = 0;
     const { outbox, delivery } = outboxWith();
 
     await outbox.record([new Rang(Marker.of('plain'))]);
     await delivery.processDue();
 
-    expect(heard).toContain('published string plain');
+    expect(received).toContain('published string plain');
   });
 
   it('retries a failing subscriber later, without troubling the others', async () => {
-    heard.length = 0;
+    received.length = 0;
     failing = 1;
     const { outbox, delivery } = outboxWith();
 
     await outbox.record([new Rang(Marker.of('two'))]);
     await delivery.processDue();
 
-    expect(heard).not.toContain('flaky two');
-    expect(heard).toContain('rang two');
+    expect(received).not.toContain('flaky two');
+    expect(received).toContain('rang two');
 
     now = new Date(now.getTime() + 60_000);
     await delivery.processDue();
 
-    expect(heard).toContain('flaky two');
+    expect(received).toContain('flaky two');
   });
 
   it('dead-letters the delivery to a subscriber that keeps failing, and reports only the last failure', async () => {
@@ -302,9 +307,12 @@ describe('the event outbox', () => {
   it('counts the pending deliveries of a subscriber for the events about one thing', async () => {
     const { outbox, delivery } = outboxWith();
     const pending = (marker: string) =>
-      new DeliveryBacklog(context).pendingDeliveriesFor('test.hear-published', {
-        marker,
-      });
+      new DeliveryBacklog(context).pendingDeliveriesFor(
+        'test.receive-published',
+        {
+          marker,
+        },
+      );
 
     await outbox.record([new Rang(Marker.of('tracked'))]);
 
@@ -328,10 +336,13 @@ describe('the event outbox', () => {
   it('matches every field it is given', async () => {
     const { outbox } = outboxWith();
     const pending = (kind: string) =>
-      new DeliveryBacklog(context).pendingDeliveriesFor('test.hear-published', {
-        marker: 'two-fields',
-        kind,
-      });
+      new DeliveryBacklog(context).pendingDeliveriesFor(
+        'test.receive-published',
+        {
+          marker: 'two-fields',
+          kind,
+        },
+      );
 
     await outbox.record([new Rang(Marker.of('two-fields'))]);
 
@@ -345,7 +356,7 @@ describe('the event outbox', () => {
     });
   });
 
-  it('finds the events about one thing by an id kept in a value object', async () => {
+  it('finds the events about one thing by an id held in a value object', async () => {
     const { outbox } = outboxWith();
 
     await outbox.record([new Rang(Marker.of('nested'))]);

@@ -13,7 +13,7 @@ import {
 } from '@outcomes/domain/value-objects/pull-request-type';
 import {
   atIn,
-  reachedPullRequests,
+  coveredPullRequests,
 } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/pull-requests.sql';
 import {
   msOf,
@@ -36,7 +36,7 @@ interface TypeRow {
 }
 
 interface CountsRow extends Record<string, unknown> {
-  readonly reached: number;
+  readonly covered: number;
   readonly tallies: readonly MergedTally[];
   readonly named: readonly string[];
   readonly compared: readonly string[];
@@ -84,8 +84,8 @@ export const pullRequestCountsIn = async (
 ): Promise<PullRequestCounts> => {
   const window = team.period.current;
   const result = await db.execute<CountsRow>(sql`
-    with reached as (${reachedPullRequests(team, repositories, window.from)}),
-    merged as (select * from reached where ${mergedIn(window)}),
+    with covered as (${coveredPullRequests(team, repositories, window.from)}),
+    merged as (select * from covered where ${mergedIn(window)}),
     made as (select * from merged where made_by = 'spotlight'),
     compared as (${firstSpellings(sql`made`)}),
     people as (
@@ -94,7 +94,7 @@ export const pullRequestCountsIn = async (
         and repository_key in (select repository_key from compared)
     )
     select
-      (select count(*)::int from reached) as reached,
+      (select count(*)::int from covered) as covered,
       (
         select coalesce(json_agg(json_build_object(
           'repository', repository_key,
@@ -158,7 +158,7 @@ export const pullRequestCountsIn = async (
   }
 
   return {
-    reached: row.reached,
+    covered: row.covered,
     tallies: row.tallies,
     named: row.named,
     compared: row.compared,

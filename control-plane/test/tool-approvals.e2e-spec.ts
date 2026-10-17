@@ -213,7 +213,7 @@ describe('an approval a run asked for', () => {
       runId,
       null,
     );
-    expect(check.kind).toBe('given');
+    expect(check.kind).toBe('granted');
     await tasks.save(claimed);
 
     const spent = await readBack(granted);
@@ -263,8 +263,8 @@ describe('an approval a run asked for', () => {
 
     const [one, other] = await Promise.all([claiming(), claiming()]);
 
-    expect(one.check.kind).toBe('given');
-    expect(other.check.kind).toBe('given');
+    expect(one.check.kind).toBe('granted');
+    expect(other.check.kind).toBe('granted');
 
     await tasks.save(one.task);
     await expect(tasks.save(other.task)).rejects.toBeInstanceOf(
@@ -273,7 +273,7 @@ describe('an approval a run asked for', () => {
     expect((await readBack(task)).approvalFor(CALL)?.approval.spent).toBe(true);
   });
 
-  it('is read back granted with the person’s changes, typed as asked', async () => {
+  it('is read back granted with the person’s changes, typed as requested', async () => {
     const { task, owner } = await asking(
       ApprovalSubject.toolCall(
         ToolCall.of(

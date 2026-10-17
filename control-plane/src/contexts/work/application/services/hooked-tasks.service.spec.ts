@@ -6,7 +6,7 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import { heardInMemory } from '@work/application/ports/heard-happenings.fake-spec';
+import { processedEventsInMemory } from '@work/application/ports/processed-events.fake-spec';
 import { HookedTasks } from '@work/application/services/hooked-tasks.service';
 import type { TaskDispatching } from '@work/application/services/task-dispatch';
 import { Line } from '@work/domain/aggregates/line.aggregate';
@@ -128,7 +128,7 @@ const hooking = (
       {
         slugOf: async () => (over.slug === undefined ? 'acme' : over.slug),
       } as unknown as WorkspaceReaderPort,
-      heardInMemory(),
+      processedEventsInMemory(),
       { placementsAt: async () => [] },
       dispatch,
       { inTransaction: (work) => work() },
@@ -158,7 +158,7 @@ describe('HookedTasks', () => {
     });
   });
 
-  it('gives hooks only the reviewed repository of a review', async () => {
+  it('sends hooks only the reviewed repository of a review', async () => {
     const reviewing = Task.add({
       line: DELIVERY,
       at: StationId.of('station_1'),
@@ -177,7 +177,7 @@ describe('HookedTasks', () => {
     ]);
   });
 
-  it('names the run working the task when it is asked about none', async () => {
+  it('names the run working the task when the request names none', async () => {
     const { hooked } = hooking();
 
     expect((await hooked.of('task_1', null))?.runId).toBe('run_1');
@@ -286,7 +286,7 @@ describe('HookedTasks', () => {
     });
   });
 
-  describe('hearing a hook fail', () => {
+  describe('learning that a hook failed', () => {
     const LOOPED = {
       taskId: 'task_1',
       stationKey: 'implementation',
@@ -294,7 +294,7 @@ describe('HookedTasks', () => {
       code: 'loop',
       reason:
         'The hook core/notify was stopped: task.moved → the hook core/notify',
-      heardAs: 'loop:firing_1',
+      receivedAs: 'loop:firing_1',
     };
 
     it('moves the task where a move was deferred to, as the run it ends would, instead of asking a person', async () => {
@@ -352,7 +352,7 @@ describe('HookedTasks', () => {
       const { hooked, current } = hooking();
 
       await hooked.failed(LOOPED);
-      await hooked.failed({ ...LOOPED, heardAs: 'loop:firing_2' });
+      await hooked.failed({ ...LOOPED, receivedAs: 'loop:firing_2' });
 
       expect(current()?.notes).toHaveLength(1);
       expect(current()?.notes[0]?.failure?.occurrences).toBe(2);

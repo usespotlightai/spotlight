@@ -80,7 +80,7 @@ const stepSchema = z
       context.addIssue({
         code: 'custom',
         path: ['with'],
-        message: 'gives inputs to a tool. It goes only with call',
+        message: 'sets inputs for a tool. It goes only with call',
       });
     }
   });

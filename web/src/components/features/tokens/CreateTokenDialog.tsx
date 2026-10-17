@@ -22,7 +22,7 @@ import {
   LIFETIMES,
   scopesOf,
   type TokenGrant,
-  type TokenReach,
+  type TokenLevel,
   USUAL_LIFETIME,
 } from '@/lib/token';
 
@@ -50,7 +50,7 @@ export function CreateTokenDialog({
   const descriptionId = useId();
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
-  const [reach, setReach] = useState<TokenReach>('configure');
+  const [level, setLevel] = useState<TokenLevel>('configure');
   const [grants, setGrants] = useState<ReadonlySet<TokenGrant>>(new Set());
   const [lifetime, setLifetime] = useState<string | null>(USUAL_LIFETIME);
 
@@ -60,7 +60,7 @@ export function CreateTokenDialog({
   const reset = () => {
     setName('');
     setDescription('');
-    setReach('configure');
+    setLevel('configure');
     setGrants(new Set());
     setLifetime(USUAL_LIFETIME);
     create.reset();
@@ -89,7 +89,7 @@ export function CreateTokenDialog({
       {
         name: named,
         description: description.trim(),
-        scopes: scopesOf(reach, grants),
+        scopes: scopesOf(level, grants),
         expiresAt: expiryAfter(lifetime),
       },
       {
@@ -159,10 +159,10 @@ export function CreateTokenDialog({
           </div>
 
           <TokenAccessField
-            reach={reach}
+            level={level}
             grants={grants}
             disabled={busy}
-            onReach={setReach}
+            onLevel={setLevel}
             onGrant={grant}
           />
 

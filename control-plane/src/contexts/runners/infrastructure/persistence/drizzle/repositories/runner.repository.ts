@@ -3,7 +3,7 @@ import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { Runner } from '@runners/domain/aggregates/runner.aggregate';
 import { RunnerVersionConflictError } from '@runners/domain/exceptions/runner-version-conflict.error';
 import type { RunnerRepository } from '@runners/domain/repositories/runner.repository';
-import { Admission } from '@runners/domain/value-objects/admission.vo';
+import { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
 import { HarnessVersion } from '@runners/domain/value-objects/harness-version.vo';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import { InstalledHarness } from '@runners/domain/value-objects/installed-harness.vo';
@@ -49,12 +49,12 @@ const workOf = (row: Row): RunnerWork | null => {
   return RunnerWork.of(kind, row.workId);
 };
 
-const admissionOf = (row: Row): Admission => {
+const credentialSourceOf = (row: Row): CredentialSource => {
   if (row.poolId !== null) {
-    return Admission.of('pool', row.poolId);
+    return CredentialSource.of('pool', row.poolId);
   }
   if (row.trustId !== null) {
-    return Admission.of('trust', row.trustId);
+    return CredentialSource.of('trust', row.trustId);
   }
 
   throw new InconsistentStateError(
@@ -67,7 +67,7 @@ const toRunner = (row: Row): Runner =>
   Runner.rehydrate({
     id: RunnerId.of(row.id),
     workspaceId: WorkspaceId.of(row.workspaceId),
-    admission: admissionOf(row),
+    source: credentialSourceOf(row),
     hostId: row.hostId === null ? null : HostId.of(row.hostId),
     labels: RunnerLabels.of(row.labels),
     tokenHash: TokenHash.of(row.tokenHash),
@@ -130,8 +130,8 @@ export class DrizzleRunnerRepository implements RunnerRepository {
       await this.context.db.insert(runner).values({
         id: added.id.value,
         workspaceId: added.workspaceId.value,
-        poolId: added.admission.poolId?.value ?? null,
-        trustId: added.admission.trustId?.value ?? null,
+        poolId: added.source.poolId?.value ?? null,
+        trustId: added.source.trustId?.value ?? null,
         hostId: added.hostId?.value ?? null,
         labels: [...added.labels.values],
         tokenHash: added.tokenHash.value,

@@ -133,7 +133,7 @@ describe('InviteMemberships', () => {
     expect(savedTeam.mock.calls[0]?.[0].hasMember(ADA)).toBe(true);
   });
 
-  it('changes nothing more when the acceptance is heard twice', async () => {
+  it('changes nothing more when the acceptance is received twice', async () => {
     const { memberships, savedWorkspace, savedTeam } = joining();
 
     await memberships.joined(accepted());

@@ -2,7 +2,7 @@ import { InvalidRunPageError } from '@outcomes/domain/exceptions/invalid-run-pag
 
 export const MAX_RUN_PAGE = 10_000;
 
-export const pageAskedOf = (page: number): number => {
+export const requestedPageOf = (page: number): number => {
   if (page > MAX_RUN_PAGE) {
     throw new InvalidRunPageError(
       `must be at most ${MAX_RUN_PAGE}, not ${page}`,

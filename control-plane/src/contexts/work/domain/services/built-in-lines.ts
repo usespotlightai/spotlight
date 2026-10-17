@@ -75,7 +75,7 @@ const opening = (input: {
 
 const TRIAGE = `## Triage
 
-Decide what is actually being asked for, and whether it is clear and coherent
+Decide what the request actually wants, and whether it is clear and coherent
 enough to plan against. This is a gate, not a plan: read just enough to judge
 the request.
 
@@ -92,13 +92,13 @@ do its job here.
 A small change still goes along the line rather than skipping ahead to the end
 of it.
 
-If what was asked for is ambiguous, contradictory, or already done, that is a
+If the request is ambiguous, contradictory, or already done, that is a
 question for a person, not a guess for you to make.`;
 
 const SPEC = `## Spec
 
 Take the request as triage decided it and turn it into a plan someone can
-implement without going back to the requester. What is being asked is decided;
+implement without going back to the requester. What the request wants is decided;
 do not reopen it — your job is the how, not the what.
 
 Say in your note: the approach and why it beats the obvious alternative, the
@@ -145,7 +145,7 @@ change alters: code that looks wrong in a hunk can be right in its file, and
 the other way round. Read the project's conventions too, where it writes them
 down — AGENTS.md, CLAUDE.md, CONTRIBUTING.md.
 
-Give every changed file its own pass. A test, a migration, a type or a
+Review every changed file on its own. A test, a migration, a type or a
 configuration file is a file to review, even when it only serves the code
 beside it. Where files depend on each other, make sure they still agree: a
 changed signature, field or event has callers that must change with it.
@@ -154,7 +154,7 @@ changed signature, field or event has callers that must change with it.
 
 - Bugs first: wrong logic, missing guards, edge cases (empty, missing, at the
   limit), races, and security holes such as injection, a missing permission
-  check, or data that reaches the wrong person.
+  check, or data that goes to the wrong person.
 - Errors that are swallowed, thrown where nothing catches them, or turned into
   a success.
 - Behaviour that changes: a field, default, message or error path that the old
@@ -178,7 +178,7 @@ thing elsewhere, and read the documentation of the library it uses. Name a
 real case where it goes wrong, not a hypothetical one. When a doubt
 remains, ask it as a question rather than state it as a fault.
 
-Give each finding a severity, and do not overstate it:
+Assign each finding a severity, and do not overstate it:
 
 - high: it loses data, opens a security hole, crashes, or breaks what the
   change is for.
@@ -194,7 +194,7 @@ either way. Say nothing about code that is right, and do not praise.`;
 
 const CODE_REVIEW = `## Code review
 
-Review the change against what was asked for, not against how you would have
+Review the change against what the task requested, not against how you would have
 written it. The workspace is on this task's branch, and the change is
 everything since it forked from the default branch:
 
@@ -209,17 +209,17 @@ Say in your note what you found, most serious first, each finding with its
 severity.
 
 If the code needs changing, pass the task back to implementation. If the
-fault is in the plan rather than the code — the spec asked for the wrong
+fault is in the plan rather than the code — the spec requested the wrong
 thing, or left out something the change needs — pass it back to Spec instead:
 rewriting the code against the same plan would only repeat the mistake.
 Either way, your note is what that run works from, so it has to be enough to
 act on without reading the diff again.
 
 If it is sound, say so plainly and say what you checked, then open a pull
-request and give its address in your note.
+request and write its address in your note.
 
 With the pull request open, the task is finished: pass the task to \`done\` rather
-than to a person, so nothing is left waiting on an answer that nobody will give.`;
+than to a person, so nothing is left waiting on an answer that nobody will send.`;
 
 const PULL_REQUEST_REVIEW = `## Review
 

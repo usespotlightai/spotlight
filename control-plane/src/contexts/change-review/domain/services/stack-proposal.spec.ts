@@ -102,7 +102,7 @@ describe('StackProposal', () => {
     expect(problemsOf(proposal(NOTED.slice(0, 1)))).toEqual([
       {
         code: 'shape',
-        message: 'cohort 1, layer 1 gives no note on src/routes.ts',
+        message: 'cohort 1, layer 1 has no note on src/routes.ts',
       },
     ]);
   });

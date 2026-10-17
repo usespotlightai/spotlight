@@ -116,7 +116,7 @@ export const endedRecord = (
   runId: string,
   change: Parameters<typeof endOf>[0] = {},
 ): RunRecord =>
-  RunRecord.heardOf(RunId.of(runId), WORKSPACE).recordEnd(endOf(change));
+  RunRecord.empty(RunId.of(runId), WORKSPACE).recordEnd(endOf(change));
 
 export const costedRecord = (
   runId: string,

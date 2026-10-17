@@ -18,10 +18,10 @@ import (
 const CheckUsage = `  spotlight replay check [--json] [--timeout 60m] [--every 15s] [--commit <sha>] [--pull-request <n>] [--repeats 1] <plan.json | ->
       checks each station a saved Terraform plan changes against the replay set
       that guards the station's changes, under the live line's replay_check;
-      give it the output of ` + "`terraform show -json <planfile>`" + `. Reads SPOTLIGHT_URL and
+      pass it the output of ` + "`terraform show -json <planfile>`" + `. Reads SPOTLIGHT_URL and
       SPOTLIGHT_API_TOKEN (a workspace token that may plan), or SPOTLIGHT_OIDC_TRUST
       to exchange the CI job's OIDC token (GitHub Actions, or SPOTLIGHT_OIDC_TOKEN).
-      --every is how often it asks for the status of the checks while they run.
+      --every is how often it reads the status of the checks while they run.
       --repeats replays each run of the set up to 5 times within the line's
       ceiling; each side's success then carries a 95% interval, and the
       candidate's gain over the baseline says whether it is within noise.
@@ -69,15 +69,15 @@ type checkRegression struct {
 }
 
 type checkRead struct {
-	ID               string   `json:"id"`
-	SetName          *string  `json:"setName"`
-	ReplayID         string   `json:"replayId"`
-	KeptLive         []string `json:"keptLive"`
-	Verdict          string   `json:"verdict"`
-	UndecidedBecause *string  `json:"undecidedBecause"`
-	Tasks            int      `json:"tasks"`
-	Compared         int      `json:"compared"`
-	Threshold        struct {
+	ID                  string   `json:"id"`
+	SetName             *string  `json:"setName"`
+	ReplayID            string   `json:"replayId"`
+	ScoringPinnedToLive []string `json:"scoringPinnedToLive"`
+	Verdict             string   `json:"verdict"`
+	UndecidedBecause    *string  `json:"undecidedBecause"`
+	Tasks               int      `json:"tasks"`
+	Compared            int      `json:"compared"`
+	Threshold           struct {
 		MaxRegressions int     `json:"maxRegressions"`
 		MinGain        float64 `json:"minGain"`
 		Ceiling        spend   `json:"ceiling"`
@@ -131,7 +131,7 @@ func checkOptionsOf(args []string) (checkOptions, error) {
 
 	asJSON := set.Bool("json", false, "answer in JSON")
 	timeout := set.Duration("timeout", 60*time.Minute, "how long to wait for the checks")
-	every := set.Duration("every", 15*time.Second, "how often to ask")
+	every := set.Duration("every", 15*time.Second, "how often to read the status")
 	commit := set.String("commit", "", "the commit that plans the change")
 	pullRequest := set.Int("pull-request", 0, "the pull request that plans the change")
 	repeats := set.Int("repeats", 1, "how many times to replay each run")
@@ -421,8 +421,8 @@ func (r *checkReport) print(out io.Writer) {
 			fmt.Fprintf(out, "  %s\n", describeGain(*read.Gain, "the baseline"))
 		}
 		fmt.Fprintf(out, "  spent %s of a %s ceiling\n", describeSpent(read.Candidate.Spent), money(read.Threshold.Ceiling))
-		if len(read.KeptLive) > 0 {
-			fmt.Fprintf(out, "  scored with the live %s, which the plan also changes\n", strings.Join(read.KeptLive, ", "))
+		if len(read.ScoringPinnedToLive) > 0 {
+			fmt.Fprintf(out, "  scored with the live %s, which the plan also changes\n", strings.Join(read.ScoringPinnedToLive, ", "))
 		}
 		for _, regressed := range read.Regressions {
 			fmt.Fprintf(out, "  REGRESSED %s: %s\n", describeTask(regressed), describeReasons(regressed))
@@ -506,7 +506,7 @@ func describeUndecided(because string) string {
 	case "stopped":
 		return "the replay was stopped"
 	case "over-ceiling":
-		return "the replay reached its ceiling before every task ran"
+		return "the replay hit its ceiling before every task ran"
 	case "baseline-unfinished":
 		return "the baseline replay of the live config did not finish"
 	case "no-baseline":

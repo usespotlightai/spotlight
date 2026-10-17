@@ -147,7 +147,7 @@ describe('whether a replayed task succeeded', () => {
     });
   });
 
-  it('goes unscored when its candidate checks changes and no stack of its change reached Spotlight, whatever the judge says', () => {
+  it('goes unscored when its candidate checks changes and no stack of its change arrived at Spotlight, whatever the judge says', () => {
     const result = resultOf(
       completed({
         checks: ChangeChecks.of([]),
@@ -163,7 +163,7 @@ describe('whether a replayed task succeeded', () => {
     });
   });
 
-  it('goes unscored when it changed nothing for its candidate’s check to run on, keeping what the judge said', () => {
+  it('goes unscored when it changed nothing for its candidate’s check to run on, recording what the judge said', () => {
     const result = resultOf(
       completed({
         checks: ChangeChecks.of([]),
@@ -192,7 +192,7 @@ describe('whether a replayed task succeeded', () => {
     });
   });
 
-  it('goes unscored when its candidate checks changes but none of its stacks asked for a check', () => {
+  it('goes unscored when its candidate checks changes but none of its stacks requested a check', () => {
     expect(
       resultOf(
         completed({ checks: ChangeChecks.of([stack('unchecked')]) }),
@@ -225,7 +225,7 @@ describe('whether a replayed task succeeded', () => {
       resultOf(
         completed({
           checks: ChangeChecks.of([stack('failed')]),
-          judging: EntryJudging.asked(),
+          judging: EntryJudging.requested(),
         }),
         JUDGED,
       ),

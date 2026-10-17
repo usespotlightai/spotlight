@@ -9,7 +9,7 @@ import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 const keyOf = (teamId: TeamId, source: SourceKey, holder: ConnectionHolder) =>
   `${teamId.value}:${source.value}:${holder.key}`;
 
-const keptAs = (connection: HostConnection, version: number) =>
+const storedAs = (connection: HostConnection, version: number) =>
   HostConnection.rehydrate({
     workspaceId: connection.workspaceId,
     teamId: connection.teamId,
@@ -34,7 +34,7 @@ export class InMemoryHostConnections implements HostConnectionRepository {
   add(connection: HostConnection): void {
     this.#stored.set(
       keyOf(connection.teamId, connection.source, connection.holder),
-      keptAs(connection, Math.max(connection.version, 1)),
+      storedAs(connection, Math.max(connection.version, 1)),
     );
   }
 
@@ -47,7 +47,7 @@ export class InMemoryHostConnections implements HostConnectionRepository {
     const stored = this.#stored.get(key);
 
     if (stored) {
-      this.#stored.set(key, keptAs(stored, stored.version + 1));
+      this.#stored.set(key, storedAs(stored, stored.version + 1));
     }
   }
 
@@ -66,7 +66,7 @@ export class InMemoryHostConnections implements HostConnectionRepository {
     if (this.#conflicts > 0) {
       this.#conflicts--;
       if (stored) {
-        this.#stored.set(key, keptAs(stored, stored.version + 1));
+        this.#stored.set(key, storedAs(stored, stored.version + 1));
       }
       throw new HostConnectionVersionConflictError(connection.source.value);
     }
@@ -75,7 +75,7 @@ export class InMemoryHostConnections implements HostConnectionRepository {
       throw new HostConnectionVersionConflictError(connection.source.value);
     }
 
-    this.#stored.set(key, keptAs(connection, (stored?.version ?? 0) + 1));
+    this.#stored.set(key, storedAs(connection, (stored?.version ?? 0) + 1));
     this.saved.push(connection);
     this.events.push(...connection.pullEvents());
   }

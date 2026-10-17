@@ -61,7 +61,7 @@ const replayRuns = () =>
     runs,
     claiming,
     {
-      live: async () => ({ line: {}, station: {}, kept: {} }),
+      live: async () => ({ line: {}, station: {}, record: {} }),
       withStation: async () => ({ ok: true, line: {}, station: {} }),
     } as unknown as CandidateLines,
     {
@@ -156,7 +156,7 @@ describe('ReplayRuns', () => {
     expect(saved).toEqual([`${REPLAY}:cancelled`]);
   });
 
-  it('keeps a queued run it is asked to keep, only saying it was queued', async () => {
+  it('leaves a queued run running when requested, only saying it was queued', async () => {
     await replayRuns().enqueue(order());
 
     expect(await replayRuns().cancel(REPLAY, true)).toMatchObject({

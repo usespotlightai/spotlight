@@ -20,7 +20,7 @@ export class OpenRouterUnansweredError extends Error {
     reason: string,
     readonly usage: OpenRouterUsage | null,
   ) {
-    super(`OpenRouter gave no usable answer. Reason: ${reason}`);
+    super(`OpenRouter returned no usable answer. Reason: ${reason}`);
     this.name = 'OpenRouterUnansweredError';
   }
 }
@@ -96,37 +96,37 @@ export class JsonShape<T> {
   }
 }
 
-export const askForJson = async <T>(ask: {
+export const requestJson = async <T>(request: {
   apiKey: string;
   model: string;
   fetch: Fetch;
   shape: JsonShape<T>;
   system: string;
-  asked: string;
+  prompt: string;
   max: number;
 }): Promise<Answered<T>> => {
-  const response = await ask
+  const response = await request
     .fetch(ENDPOINT, {
       method: 'POST',
       signal: AbortSignal.timeout(MAX_WAIT_MS),
       headers: {
-        Authorization: `Bearer ${ask.apiKey}`,
+        Authorization: `Bearer ${request.apiKey}`,
         'Content-Type': 'application/json',
         'X-Title': 'Spotlight',
       },
       body: JSON.stringify({
-        model: ask.model,
-        max_tokens: ask.max,
+        model: request.model,
+        max_tokens: request.max,
         messages: [
-          { role: 'system', content: ask.system },
-          { role: 'user', content: ask.asked },
+          { role: 'system', content: request.system },
+          { role: 'user', content: request.prompt },
         ],
         response_format: {
           type: 'json_schema',
           json_schema: {
-            name: ask.shape.name,
+            name: request.shape.name,
             strict: true,
-            schema: ask.shape.json,
+            schema: request.shape.json,
           },
         },
         provider: { require_parameters: true },
@@ -160,7 +160,7 @@ export const askForJson = async <T>(ask: {
 
   try {
     return {
-      answer: ask.shape.schema.parse(JSON.parse(content)),
+      answer: request.shape.schema.parse(JSON.parse(content)),
       usage: usageOf(answered),
     };
   } catch (error) {

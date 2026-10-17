@@ -13,7 +13,7 @@ const LATER = new Date(STARTED_AT.getTime() + 30_000);
 
 const reported = (host: ReturnType<typeof aHost>) =>
   host.reportThrough({
-    admission: host.admission,
+    source: host.source,
     workspaceId: host.workspaceId,
     bootId: host.bootId,
     report: aHostReport(['runner_1']),

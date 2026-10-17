@@ -119,7 +119,7 @@ describe('the mock team memories', () => {
       throwOnError: true,
     });
 
-    expect(written.reach).toBe('line');
+    expect(written.scope).toBe('line');
     expect(written.source).toBe('person');
     expect(edited.superseded?.id).toBe('memory_gone');
     expect(edited.steps.length).toBeGreaterThan(0);
@@ -134,7 +134,7 @@ describe('the mock team memories', () => {
     );
   });
 
-  it('takes a memory an agent asks to remember', async () => {
+  it('takes a memory an agent requests to remember', async () => {
     const { data } = await remember({
       path: { runId: 'run_retries_3' },
       body: { kind: 'failure', body: 'The consumer test needs Redis running.' },

@@ -22,7 +22,7 @@ import type {
 import type { ConnectionWantedDto } from '@work/application/ports/integration-tool-calls.port';
 import type {
   IntegrationToolsPort,
-  ReachableTool,
+  ResolvedTool,
   TaskToolContext,
   ToolContext,
 } from '@work/application/ports/integration-tools.port';
@@ -178,7 +178,7 @@ const describedAs = (tool: string) => {
 };
 
 const claimed = (
-  given: string[] = ['pull-request'],
+  enabled: string[] = ['pull-request'],
   over: {
     dispatchedAt?: string;
     subject?: RunSubject | null;
@@ -202,7 +202,7 @@ const claimed = (
       briefing: 'do the thing',
       handover: { options: [], noteLimit: 4_000 },
       continuity: { key: 'task:station' },
-      manifest: given.map(describedAs),
+      manifest: enabled.map(describedAs),
       ...(over.catalog ? { catalog: over.catalog } : {}),
     }),
   }).claim(RunnerId.of('runner_1'), NOW);
@@ -269,7 +269,7 @@ const using = (
     because: 'denied here',
   });
   const catalog = new StationCatalog({
-    givenTo: async (_workspace, named) =>
+    entitledTo: async (_workspace, named) =>
       over.denied?.when === 'before'
         ? {
             tools: [],
@@ -347,7 +347,7 @@ const using = (
   ]);
 
   const integrationTools: IntegrationToolsPort = {
-    reach: async (tool, context): Promise<ReachableTool | null> =>
+    resolve: async (tool, context): Promise<ResolvedTool | null> =>
       tool.equals(LINEAR_COMMENT.tool) && context.kind === 'task'
         ? {
             declared: linear,
@@ -438,7 +438,7 @@ const using = (
     }
   };
 
-  const reach = async (
+  const useTool = async (
     tool: string,
     input: unknown = { title: 'Fix the queue' },
   ) => {
@@ -454,7 +454,7 @@ const using = (
   };
 
   return {
-    reach,
+    useTool,
     called,
     current: () => current,
     hooked,
@@ -471,22 +471,22 @@ describe('UseToolHandler', () => {
       });
 
     it('is called by name, at the version the run was dispatched with', async () => {
-      const { reach, called } = using(searching());
+      const { useTool, called } = using(searching());
 
       await expect(
-        reach('catalog.web-search', { query: 'queues' }),
+        useTool('catalog.web-search', { query: 'queues' }),
       ).resolves.toEqual({ output: 'Three pages.', actingAs: null });
       expect(called[0]?.tool).toBe('catalog.web-search@1.1.0');
       expect(called[0]?.inputs.values).toEqual({ query: 'queues' });
     });
 
     it('is denied as entitlement_lapsed once the plan no longer covers it, and nothing is called', async () => {
-      const { reach, called } = using(searching(), {
+      const { useTool, called } = using(searching(), {
         denied: { when: 'before', reason: 'lapsed' },
       });
 
       await expect(
-        reach('catalog.web-search', { query: 'queues' }),
+        useTool('catalog.web-search', { query: 'queues' }),
       ).rejects.toMatchObject({
         kind: 'not-allowed',
         message: expect.stringContaining('entitlement_lapsed'),
@@ -495,24 +495,24 @@ describe('UseToolHandler', () => {
     });
 
     it('is denied as entitlement_lapsed when the plan lapses as it is called', async () => {
-      const { reach } = using(searching(), {
+      const { useTool } = using(searching(), {
         denied: { when: 'during', reason: 'lapsed' },
       });
 
       await expect(
-        reach('catalog.web-search', { query: 'queues' }),
+        useTool('catalog.web-search', { query: 'queues' }),
       ).rejects.toMatchObject({
         message: expect.stringContaining('entitlement_lapsed'),
       });
     });
 
     it('is denied as catalog_item_unknown, not as a lapse, once the catalog no longer has it', async () => {
-      const { reach, called } = using(searching(), {
+      const { useTool, called } = using(searching(), {
         denied: { when: 'before', reason: 'unknown' },
       });
 
       await expect(
-        reach('catalog.web-search', { query: 'queues' }),
+        useTool('catalog.web-search', { query: 'queues' }),
       ).rejects.toMatchObject({
         kind: 'not-allowed',
         message: 'catalog_item_unknown: denied here',
@@ -521,25 +521,25 @@ describe('UseToolHandler', () => {
     });
 
     it('is not found where the run pinned no version of it', async () => {
-      const { reach } = using(claimed(['catalog.web-search']));
+      const { useTool } = using(claimed(['catalog.web-search']));
 
       await expect(
-        reach('catalog.web-search', { query: 'queues' }),
+        useTool('catalog.web-search', { query: 'queues' }),
       ).rejects.toMatchObject({ kind: 'not-found' });
     });
   });
 
-  it('gives no tool to a run its task detached', async () => {
-    const { reach, called } = using(claimed(), { task: added() });
+  it('resolves no tool for a run that its task detached', async () => {
+    const { useTool, called } = using(claimed(), { task: added() });
 
-    await expect(reach('pull-request')).rejects.toThrow();
+    await expect(useTool('pull-request')).rejects.toThrow();
     expect(called).toEqual([]);
   });
 
-  it('hands what the agent gave Spotlight’s own tool to it, for the run’s task and line, and answers with its answer', async () => {
-    const { reach, called } = using();
+  it('hands the input of the agent to Spotlight’s own tool, for the run’s task and line, and answers with its answer', async () => {
+    const { useTool, called } = using();
 
-    await expect(reach('pull-request')).resolves.toEqual({
+    await expect(useTool('pull-request')).resolves.toEqual({
       output: 'https://github.com/acme/widgets/pull/7',
       actingAs: null,
     });
@@ -551,14 +551,14 @@ describe('UseToolHandler', () => {
   });
 
   it('hands a chat’s tool the chat and the team’s lines', async () => {
-    const { reach, called } = using(
+    const { useTool, called } = using(
       claimed(['propose-task'], {
         subject: RunSubject.chat(ChatId.of('chat_1')),
       }),
     );
 
     await expect(
-      reach('propose-task', {
+      useTool('propose-task', {
         line: 'delivery',
         station: 'backlog',
         title: 'Back off',
@@ -567,81 +567,83 @@ describe('UseToolHandler', () => {
     expect(called[0]?.context.kind).toBe('chat');
   });
 
-  it('reaches no task’s tool from a chat', async () => {
-    const { reach, called } = using(
+  it('resolves no task’s tool from a chat', async () => {
+    const { useTool, called } = using(
       claimed(['pull-request'], {
         subject: RunSubject.chat(ChatId.of('chat_1')),
       }),
     );
 
-    await expect(reach('pull-request')).rejects.toMatchObject({
+    await expect(useTool('pull-request')).rejects.toMatchObject({
       kind: 'not-found',
     });
     expect(called).toEqual([]);
   });
 
   it('rejects what a tool does not take, and calls nothing', async () => {
-    const { reach, called } = using();
+    const { useTool, called } = using();
 
     await expect(
-      reach('pull-request', { title: 'Fix', colour: 'red' }),
+      useTool('pull-request', { title: 'Fix', colour: 'red' }),
     ).rejects.toMatchObject({ kind: 'invalid' });
     expect(called).toEqual([]);
   });
 
-  it('rejects a tool the run was not given', async () => {
-    const { reach, called } = using(claimed([]));
+  it('rejects a tool that the run does not have enabled', async () => {
+    const { useTool, called } = using(claimed([]));
 
-    await expect(reach('pull-request')).rejects.toMatchObject({
+    await expect(useTool('pull-request')).rejects.toMatchObject({
       kind: 'not-allowed',
     });
     expect(called).toEqual([]);
   });
 
   it('rejects a run that works nothing', async () => {
-    const { reach, called } = using(
+    const { useTool, called } = using(
       claimed(['pull-request'], { subject: null }),
     );
 
-    await expect(reach('pull-request')).rejects.toMatchObject({
+    await expect(useTool('pull-request')).rejects.toMatchObject({
       kind: 'conflict',
     });
     expect(called).toEqual([]);
   });
 
-  it('reaches the tool on the line of the station the run was dispatched at, not where its task is now', async () => {
-    const { reach } = using(
+  it('resolves the tool on the line of the station the run was dispatched at, not where its task is now', async () => {
+    const { useTool } = using(
       claimed(['pull-request'], { dispatchedAt: 'station_2' }),
       { lineAt: 'station_2' },
     );
 
-    await expect(reach('pull-request')).resolves.toEqual({
+    await expect(useTool('pull-request')).resolves.toEqual({
       output: 'https://github.com/acme/widgets/pull/7',
       actingAs: null,
     });
   });
 
   it('rejects where the station is on no line', async () => {
-    const { reach, called } = using(claimed(), { lineAt: null });
+    const { useTool, called } = using(claimed(), { lineAt: null });
 
-    await expect(reach('pull-request')).rejects.toMatchObject({
+    await expect(useTool('pull-request')).rejects.toMatchObject({
       kind: 'not-found',
     });
     expect(called).toEqual([]);
   });
 
-  it('says there is no such tool where a run was given one nothing provides', async () => {
-    const { reach } = using(claimed(['pull-request', 'teleport']));
+  it('says there is no such tool where a run has one enabled that nothing provides', async () => {
+    const { useTool } = using(claimed(['pull-request', 'teleport']));
 
-    await expect(reach('teleport')).rejects.toMatchObject({
+    await expect(useTool('teleport')).rejects.toMatchObject({
       kind: 'not-found',
     });
   });
 
   it('hands a tool a team’s integration offers to that integration, reading what the agent left out from the task', async () => {
-    const { reach, called } = using(claimed(['linear.comment']));
+    const { useTool, called } = using(claimed(['linear.comment']));
 
-    await expect(reach('linear.comment', { body: 'Fixed.' })).resolves.toEqual({
+    await expect(
+      useTool('linear.comment', { body: 'Fixed.' }),
+    ).resolves.toEqual({
       output: 'https://linear.app/acme/issue/ENG-12#comment-1',
       actingAs: null,
     });
@@ -653,28 +655,28 @@ describe('UseToolHandler', () => {
   });
 
   it('says there is no such tool where no integration of the team’s offers it', async () => {
-    const { reach } = using(claimed(['linear.close']));
+    const { useTool } = using(claimed(['linear.close']));
 
-    await expect(reach('linear.close')).rejects.toMatchObject({
+    await expect(useTool('linear.close')).rejects.toMatchObject({
       kind: 'not-found',
     });
   });
 
-  it('rejects a name nobody would give a tool', async () => {
-    const { reach } = using();
+  it('rejects a name that nobody would use for a tool', async () => {
+    const { useTool } = using();
 
-    await expect(reach('Pull Request')).rejects.toMatchObject({
+    await expect(useTool('Pull Request')).rejects.toMatchObject({
       kind: 'invalid',
     });
   });
 
   it('puts a tool that needs approving to a person instead of calling it, the run waiting on their answer', async () => {
-    const { reach, called, current } = using(claimed(['linear.comment']), {
+    const { useTool, called, current } = using(claimed(['linear.comment']), {
       approval: NEEDS_APPROVAL,
     });
 
     await expect(
-      reach('linear.comment', { body: 'Fixed.' }),
+      useTool('linear.comment', { body: 'Fixed.' }),
     ).rejects.toMatchObject({ kind: 'conflict' });
     expect(called).toEqual([]);
 
@@ -683,7 +685,7 @@ describe('UseToolHandler', () => {
     expect(asked?.form).toBe('approval');
     expect(asked?.approval?.subject.kind).toBe('tool-call');
     expect(asked?.approval?.subject.name).toBe('linear.comment');
-    expect(asked?.approval?.subject.given).toEqual([
+    expect(asked?.approval?.subject.writtenInputs).toEqual([
       { name: 'body', value: 'Fixed.' },
       { name: 'issue', value: 'ENG-12' },
     ]);
@@ -697,12 +699,12 @@ describe('UseToolHandler', () => {
   });
 
   it('keeps the intent of the agent on the ask, apart from what the tool takes', async () => {
-    const { reach, current } = using(claimed(['linear.comment']), {
+    const { useTool, current } = using(claimed(['linear.comment']), {
       approval: NEEDS_APPROVAL,
     });
 
     await expect(
-      reach('linear.comment', {
+      useTool('linear.comment', {
         body: 'Fixed.',
         intent: 'post the fix on ENG-12, publicly under the team’s name',
       }),
@@ -712,20 +714,24 @@ describe('UseToolHandler', () => {
     expect(asked?.intent?.value).toBe(
       'post the fix on ENG-12, publicly under the team’s name',
     );
-    expect(asked?.subject.given.map((each) => each.name)).toEqual([
+    expect(asked?.subject.writtenInputs.map((each) => each.name)).toEqual([
       'body',
       'issue',
     ]);
   });
 
   it('asks once while an answer from a person is still pending', async () => {
-    const { reach, current } = using(claimed(['linear.comment']), {
+    const { useTool, current } = using(claimed(['linear.comment']), {
       approval: NEEDS_APPROVAL,
     });
 
-    await expect(reach('linear.comment', { body: 'Fixed.' })).rejects.toThrow();
+    await expect(
+      useTool('linear.comment', { body: 'Fixed.' }),
+    ).rejects.toThrow();
     const asked = current().notes.length;
-    await expect(reach('linear.comment', { body: 'Fixed.' })).rejects.toThrow();
+    await expect(
+      useTool('linear.comment', { body: 'Fixed.' }),
+    ).rejects.toThrow();
 
     expect(current().notes).toHaveLength(asked);
   });
@@ -743,30 +749,30 @@ describe('UseToolHandler', () => {
       current().notes[current().notes.length - 1]?.approval;
 
     it('asks them first where they ask to approve a tool the team allows', async () => {
-      const { reach, called, current } = using(claimed(['linear.comment']), {
+      const { useTool, called, current } = using(claimed(['linear.comment']), {
         personRule: ruling('needs-approval'),
       });
 
       await expect(
-        reach('linear.comment', { body: 'Fixed.', intent: 'post the fix' }),
+        useTool('linear.comment', { body: 'Fixed.', intent: 'post the fix' }),
       ).rejects.toMatchObject({ kind: 'conflict' });
 
       expect(called).toEqual([]);
       expect(lastAsked(current)?.askedOf?.equals(ALICE)).toBe(true);
       expect(lastAsked(current)?.because).toBe(
-        'Alice asks to approve each call made with their Linear connection.',
+        'Alice wants to approve each call made with their Linear connection.',
       );
       expect(lastAsked(current)?.intent?.value).toBe('post the fix');
     });
 
     it('still asks the team where they allow a tool the team gates', async () => {
-      const { reach, called, current } = using(claimed(['linear.comment']), {
+      const { useTool, called, current } = using(claimed(['linear.comment']), {
         approval: NEEDS_APPROVAL,
         personRule: ruling('allowed'),
       });
 
       await expect(
-        reach('linear.comment', { body: 'Fixed.' }),
+        useTool('linear.comment', { body: 'Fixed.' }),
       ).rejects.toMatchObject({ kind: 'conflict' });
 
       expect(called).toEqual([]);
@@ -775,13 +781,13 @@ describe('UseToolHandler', () => {
     });
 
     it('asks only them, for the team’s reason, where both ask', async () => {
-      const { reach, current } = using(claimed(['linear.comment']), {
+      const { useTool, current } = using(claimed(['linear.comment']), {
         approval: NEEDS_APPROVAL,
         personRule: ruling('needs-approval'),
       });
 
       await expect(
-        reach('linear.comment', { body: 'Fixed.' }),
+        useTool('linear.comment', { body: 'Fixed.' }),
       ).rejects.toThrow();
 
       expect(lastAsked(current)?.askedOf?.equals(ALICE)).toBe(true);
@@ -790,14 +796,17 @@ describe('UseToolHandler', () => {
 
     it('sends nothing and asks nobody where they block it, whatever the team says', async () => {
       for (const approval of [null, NEEDS_APPROVAL]) {
-        const { reach, called, current } = using(claimed(['linear.comment']), {
-          approval,
-          personRule: ruling('blocked'),
-        });
+        const { useTool, called, current } = using(
+          claimed(['linear.comment']),
+          {
+            approval,
+            personRule: ruling('blocked'),
+          },
+        );
         const before = current().notes.length;
 
         await expect(
-          reach('linear.comment', { body: 'Fixed.' }),
+          useTool('linear.comment', { body: 'Fixed.' }),
         ).rejects.toMatchObject({
           kind: 'not-allowed',
           message: expect.stringContaining('Alice blocks it'),
@@ -827,7 +836,7 @@ describe('UseToolHandler', () => {
       null,
     ).task;
 
-    const { reach, called, current } = using(claimed(['linear.comment']), {
+    const { useTool, called, current } = using(claimed(['linear.comment']), {
       approval: NEEDS_APPROVAL,
       task: Task.rehydrate({
         ...approved.answer(
@@ -844,7 +853,9 @@ describe('UseToolHandler', () => {
       }),
     });
 
-    await expect(reach('linear.comment', { body: 'Fixed.' })).resolves.toEqual({
+    await expect(
+      useTool('linear.comment', { body: 'Fixed.' }),
+    ).resolves.toEqual({
       output: 'https://linear.app/acme/issue/ENG-12#comment-1',
       actingAs: null,
     });
@@ -873,7 +884,7 @@ describe('UseToolHandler', () => {
       null,
     ).task;
 
-    const { reach, called } = using(claimed(['linear.comment']), {
+    const { useTool, called } = using(claimed(['linear.comment']), {
       approval: NEEDS_APPROVAL,
       task: Task.rehydrate({
         ...approved.answer(
@@ -891,7 +902,7 @@ describe('UseToolHandler', () => {
       }),
     });
 
-    await reach('linear.comment', { body: 'Fixed.' });
+    await useTool('linear.comment', { body: 'Fixed.' });
 
     expect(called.map((each) => each.inputs.values)).toEqual([
       { issue: 'ENG-12', body: 'Fixed in #41.' },
@@ -927,7 +938,7 @@ describe('UseToolHandler', () => {
       'granted',
     );
 
-    const { reach, called, current, recorded } = using(
+    const { useTool, called, current, recorded } = using(
       claimed(['linear.comment']),
       {
         approval: NEEDS_APPROVAL,
@@ -936,7 +947,7 @@ describe('UseToolHandler', () => {
       },
     );
 
-    await expect(reach('linear.comment', { body: 'Fixed.' })).rejects.toThrow(
+    await expect(useTool('linear.comment', { body: 'Fixed.' })).rejects.toThrow(
       'the outbox is unreachable',
     );
     expect(called).toHaveLength(1);
@@ -975,14 +986,14 @@ describe('UseToolHandler', () => {
       'granted',
     );
 
-    const { reach, called, current } = using(claimed(['linear.comment']), {
+    const { useTool, called, current } = using(claimed(['linear.comment']), {
       approval: NEEDS_APPROVAL,
       failing: true,
       task: Task.rehydrate({ ...granted, currentRunId: RunId.of('run_1') }),
     });
 
     await expect(
-      reach('linear.comment', { body: 'Fixed.' }),
+      useTool('linear.comment', { body: 'Fixed.' }),
     ).rejects.toMatchObject({ kind: 'upstream-error' });
     expect(called).toHaveLength(1);
     expect(
@@ -1019,14 +1030,14 @@ describe('UseToolHandler', () => {
       'refused',
     );
 
-    const { reach, called, current } = using(claimed(['linear.comment']), {
+    const { useTool, called, current } = using(claimed(['linear.comment']), {
       approval: NEEDS_APPROVAL,
       task: Task.rehydrate({ ...rejected, currentRunId: RunId.of('run_1') }),
     });
     const before = current().notes.length;
 
     await expect(
-      reach('linear.comment', { body: 'Fixed.' }),
+      useTool('linear.comment', { body: 'Fixed.' }),
     ).rejects.toMatchObject({ kind: 'not-allowed' });
     expect(called).toEqual([]);
     expect(current().notes).toHaveLength(before);
@@ -1057,13 +1068,13 @@ describe('UseToolHandler', () => {
       voice: Voice.person(UserId.of('user_1')),
     });
 
-    const { reach, called, current } = using(claimed(['linear.comment']), {
+    const { useTool, called, current } = using(claimed(['linear.comment']), {
       approval: NEEDS_APPROVAL,
       task: Task.rehydrate({ ...talkedBack, currentRunId: RunId.of('run_1') }),
     });
 
     await expect(
-      reach('linear.comment', { body: 'Fixed.' }),
+      useTool('linear.comment', { body: 'Fixed.' }),
     ).rejects.toMatchObject({ kind: 'conflict' });
     expect(called).toEqual([]);
     expect(current().notes.filter((note) => note.approval?.open)).toHaveLength(
@@ -1101,13 +1112,13 @@ describe('UseToolHandler', () => {
       'granted',
     );
 
-    const { reach, called } = using(claimed(['linear.comment']), {
+    const { useTool, called } = using(claimed(['linear.comment']), {
       approval: NEEDS_APPROVAL,
       task: Task.rehydrate({ ...granted, currentRunId: RunId.of('run_1') }),
     });
 
     await expect(
-      reach('linear.comment', { body: 'Something else.' }),
+      useTool('linear.comment', { body: 'Something else.' }),
     ).rejects.toMatchObject({ kind: 'conflict' });
     expect(called).toEqual([]);
   });
@@ -1125,10 +1136,10 @@ describe('UseToolHandler', () => {
   });
 
   describe('hooks', () => {
-    it('asks the hooks before a tool is used, with what it will be given', async () => {
-      const { reach, hooked } = using(claimed(['linear.comment']));
+    it('calls the hooks before a tool is used, with its input', async () => {
+      const { useTool, hooked } = using(claimed(['linear.comment']));
 
-      await reach('linear.comment', { body: 'Fixed.' });
+      await useTool('linear.comment', { body: 'Fixed.' });
 
       expect(hooked.asked[0]).toEqual({ taskId: 'task_1', runId: 'run_1' });
       expect(hooked.before).toEqual([
@@ -1141,7 +1152,7 @@ describe('UseToolHandler', () => {
     });
 
     it('calls nothing and tells the agent why when a hook denies it', async () => {
-      const { reach, called, hooked } = using(claimed(['linear.comment']), {
+      const { useTool, called, hooked } = using(claimed(['linear.comment']), {
         verdict: {
           kind: 'denied',
           reason: 'The hook core/dba-review denied the call: not on a Friday.',
@@ -1149,7 +1160,7 @@ describe('UseToolHandler', () => {
       });
 
       await expect(
-        reach('linear.comment', { body: 'Fixed.' }),
+        useTool('linear.comment', { body: 'Fixed.' }),
       ).rejects.toMatchObject({
         kind: 'not-allowed',
         message:
@@ -1159,16 +1170,16 @@ describe('UseToolHandler', () => {
       expect(hooked.after).toEqual([]);
     });
 
-    it('asks the hooks nothing while the tool waits on a person’s approval', async () => {
-      const { reach, hooked } = using(claimed(['linear.comment']), {
+    it('calls no hook while the tool waits on a person’s approval', async () => {
+      const { useTool, hooked } = using(claimed(['linear.comment']), {
         approval: NEEDS_APPROVAL,
       });
 
       await expect(
-        reach('linear.comment', { body: 'Fixed.' }),
+        useTool('linear.comment', { body: 'Fixed.' }),
       ).rejects.toMatchObject({ kind: 'conflict' });
       await expect(
-        reach('linear.comment', { body: 'Fixed.' }),
+        useTool('linear.comment', { body: 'Fixed.' }),
       ).rejects.toMatchObject({ kind: 'conflict' });
       expect(hooked.before).toEqual([]);
     });
@@ -1202,7 +1213,7 @@ describe('UseToolHandler', () => {
         'granted',
       );
 
-      const { reach, called, hooked, current } = using(
+      const { useTool, called, hooked, current } = using(
         claimed(['linear.comment']),
         {
           approval: NEEDS_APPROVAL,
@@ -1212,7 +1223,7 @@ describe('UseToolHandler', () => {
       );
 
       await expect(
-        reach('linear.comment', { body: 'Fixed.' }),
+        useTool('linear.comment', { body: 'Fixed.' }),
       ).rejects.toMatchObject({ kind: 'not-allowed' });
       expect(hooked.before).toHaveLength(1);
       expect(called).toEqual([]);
@@ -1221,7 +1232,7 @@ describe('UseToolHandler', () => {
       expect(approval?.spent).toBe(false);
     });
 
-    it('hands a person’s approval back when the hooks could not be asked', async () => {
+    it('hands a person’s approval back when the hooks could not be called', async () => {
       const asked = task().clearFor(
         ApprovalSubject.toolCall(
           ToolCall.of(
@@ -1250,31 +1261,31 @@ describe('UseToolHandler', () => {
         'granted',
       );
 
-      const { reach, called, current } = using(claimed(['linear.comment']), {
+      const { useTool, called, current } = using(claimed(['linear.comment']), {
         approval: NEEDS_APPROVAL,
         hooksDown: true,
         task: Task.rehydrate({ ...granted, currentRunId: RunId.of('run_1') }),
       });
 
-      await expect(reach('linear.comment', { body: 'Fixed.' })).rejects.toThrow(
-        'the hooks are unreachable',
-      );
+      await expect(
+        useTool('linear.comment', { body: 'Fixed.' }),
+      ).rejects.toThrow('the hooks are unreachable');
       expect(called).toEqual([]);
       const approval = current().notes.find((note) => note.approval)?.approval;
       expect(approval?.grants).toBe(true);
       expect(approval?.spent).toBe(false);
     });
 
-    it('calls nothing where the run moved on to another attempt while the hooks were asked', async () => {
+    it('calls nothing where the run moved on to another attempt while the hooks were called', async () => {
       const leased = claimed(['linear.comment']);
-      const { reach, called, hooked } = using(leased, {
+      const { useTool, called, hooked } = using(leased, {
         movedOnTo: leased
           .expireLease(leased.leaseExpiresAt as Date)
           .claim(RunnerId.of('runner_1'), NOW),
       });
 
       await expect(
-        reach('linear.comment', { body: 'Fixed.' }),
+        useTool('linear.comment', { body: 'Fixed.' }),
       ).rejects.toMatchObject({ kind: 'conflict' });
       expect(hooked.before).toHaveLength(1);
       expect(called).toEqual([]);
@@ -1309,7 +1320,7 @@ describe('UseToolHandler', () => {
         },
         'granted',
       );
-      const { reach, called, recorded, current } = using(
+      const { useTool, called, recorded, current } = using(
         claimed(['linear.comment']),
         {
           approval: NEEDS_APPROVAL,
@@ -1319,7 +1330,7 @@ describe('UseToolHandler', () => {
       );
 
       await expect(
-        reach('linear.comment', { body: 'Fixed.' }),
+        useTool('linear.comment', { body: 'Fixed.' }),
       ).rejects.toMatchObject({ kind: 'conflict' });
       expect(called).toEqual([]);
       expect(recorded).toEqual([]);
@@ -1328,9 +1339,9 @@ describe('UseToolHandler', () => {
     });
 
     it('tells the hooks a tool was used, with what it answered', async () => {
-      const { reach, hooked } = using(claimed(['linear.comment']));
+      const { useTool, hooked } = using(claimed(['linear.comment']));
 
-      await reach('linear.comment', { body: 'Fixed.' });
+      await useTool('linear.comment', { body: 'Fixed.' });
 
       expect(hooked.after).toEqual([
         {
@@ -1347,9 +1358,9 @@ describe('UseToolHandler', () => {
     });
 
     it('carries what a tool answered as text, whatever its fields are called', async () => {
-      const { reach, recorded } = using(claimed(['linear.comment']));
+      const { useTool, recorded } = using(claimed(['linear.comment']));
 
-      await reach('linear.comment', { body: 'Fixed.' });
+      await useTool('linear.comment', { body: 'Fixed.' });
 
       expect((recorded[0] as ToolUsed).output.json).toBe(
         '"https://linear.app/acme/issue/ENG-12#comment-1"',
@@ -1357,19 +1368,19 @@ describe('UseToolHandler', () => {
     });
 
     it('tells the hooks a tool failed, and still answers with its failure', async () => {
-      const { reach, hooked } = using(claimed(['linear.comment']), {
+      const { useTool, hooked } = using(claimed(['linear.comment']), {
         failing: true,
       });
 
       await expect(
-        reach('linear.comment', { body: 'Fixed.' }),
+        useTool('linear.comment', { body: 'Fixed.' }),
       ).rejects.toMatchObject({ kind: 'upstream-error' });
       expect(hooked.after[0]?.moment.failed).toBe(true);
       expect(hooked.after[0]?.moment.output).toMatch(/down/);
     });
 
     it('answers with the tool’s answer, leaving the hooks after it to their own reaction', async () => {
-      const { reach, recorded, delivered } = using(
+      const { useTool, recorded, delivered } = using(
         claimed(['linear.comment']),
         {
           afterFails: true,
@@ -1377,7 +1388,7 @@ describe('UseToolHandler', () => {
       );
 
       await expect(
-        reach('linear.comment', { body: 'Fixed.' }),
+        useTool('linear.comment', { body: 'Fixed.' }),
       ).resolves.toEqual({
         output: 'https://linear.app/acme/issue/ENG-12#comment-1',
         actingAs: null,
@@ -1386,14 +1397,14 @@ describe('UseToolHandler', () => {
       await expect(delivered()).rejects.toThrow('the hooks are down');
     });
 
-    it('asks no hooks about a chat’s tool', async () => {
-      const { reach, hooked } = using(
+    it('calls no hooks about a chat’s tool', async () => {
+      const { useTool, hooked } = using(
         claimed(['propose-task'], {
           subject: RunSubject.chat(ChatId.of('chat_1')),
         }),
       );
 
-      await reach('propose-task', {
+      await useTool('propose-task', {
         line: 'delivery',
         station: 'backlog',
         title: 'Back off',
@@ -1413,13 +1424,13 @@ describe('UseToolHandler', () => {
     };
 
     it('asks that person to connect, sends nothing, and never asks for approval', async () => {
-      const { reach, called, current, recorded } = using(
+      const { useTool, called, current, recorded } = using(
         claimed(['linear.comment']),
         { wants: WANTED, approval: NEEDS_APPROVAL },
       );
 
       await expect(
-        reach('linear.comment', { body: 'Fixed.' }),
+        useTool('linear.comment', { body: 'Fixed.' }),
       ).rejects.toMatchObject({
         kind: 'conflict',
         message: expect.stringContaining("haven't connected Linear"),
@@ -1437,28 +1448,28 @@ describe('UseToolHandler', () => {
     });
 
     it('asks only once while the person has not answered', async () => {
-      const { reach, current } = using(claimed(['linear.comment']), {
+      const { useTool, current } = using(claimed(['linear.comment']), {
         wants: WANTED,
       });
 
       await expect(
-        reach('linear.comment', { body: 'Fixed.' }),
+        useTool('linear.comment', { body: 'Fixed.' }),
       ).rejects.toThrow();
       const once = current().notes.length;
       await expect(
-        reach('linear.comment', { body: 'Fixed.' }),
+        useTool('linear.comment', { body: 'Fixed.' }),
       ).rejects.toThrow();
 
       expect(current().notes.length).toBe(once);
     });
 
     it('is denied, never falling back to the team, when nobody started the task', async () => {
-      const { reach, called, current } = using(claimed(['linear.comment']), {
+      const { useTool, called, current } = using(claimed(['linear.comment']), {
         wants: { ...WANTED, personId: null, because: 'no-requester' },
       });
 
       await expect(
-        reach('linear.comment', { body: 'Fixed.' }),
+        useTool('linear.comment', { body: 'Fixed.' }),
       ).rejects.toMatchObject({
         kind: 'not-allowed',
         message: expect.stringContaining('nobody started this task'),
@@ -1485,13 +1496,13 @@ describe('UseToolHandler', () => {
         RunId.of('run_1'),
         null,
       ).task;
-      const { reach, called, current } = using(claimed(['linear.comment']), {
+      const { useTool, called, current } = using(claimed(['linear.comment']), {
         wants: WANTED,
         task: waitingOnApproval,
       });
 
       await expect(
-        reach('linear.comment', { body: 'Fixed.' }),
+        useTool('linear.comment', { body: 'Fixed.' }),
       ).rejects.toMatchObject({
         kind: 'not-allowed',
         message: expect.stringContaining('already waiting on someone'),
@@ -1503,12 +1514,12 @@ describe('UseToolHandler', () => {
     });
 
     it('is denied when the person who started it left the team', async () => {
-      const { reach, called } = using(claimed(['linear.comment']), {
+      const { useTool, called } = using(claimed(['linear.comment']), {
         wants: { ...WANTED, because: 'not-a-member' },
       });
 
       await expect(
-        reach('linear.comment', { body: 'Fixed.' }),
+        useTool('linear.comment', { body: 'Fixed.' }),
       ).rejects.toMatchObject({
         kind: 'not-allowed',
         message: expect.stringContaining('no longer on the team'),
@@ -1517,12 +1528,12 @@ describe('UseToolHandler', () => {
     });
 
     it('records whose connection the call acted with, and answers with it', async () => {
-      const { reach, recorded } = using(claimed(['linear.comment']), {
+      const { useTool, recorded } = using(claimed(['linear.comment']), {
         actingAs: ToolActingAs.person(UserId.of('user_1'), '@alice'),
       });
 
       await expect(
-        reach('linear.comment', { body: 'Fixed.' }),
+        useTool('linear.comment', { body: 'Fixed.' }),
       ).resolves.toEqual({
         output: 'https://linear.app/acme/issue/ENG-12#comment-1',
         actingAs: { holder: 'person', personId: 'user_1', handle: '@alice' },

@@ -19,7 +19,7 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { describe, expect, it } from 'vitest';
 
-const HEARD_AT = new Date('2026-09-30T12:00:00.000Z');
+const RECEIVED_AT = new Date('2026-09-30T12:00:00.000Z');
 
 const RUN = RunId.of('run_1');
 const EARLIER = new Date('2026-09-30T10:00:00.000Z');
@@ -28,14 +28,14 @@ const LATER = new Date('2026-09-30T12:00:00.000Z');
 
 describe('RunRecord', () => {
   it('has no ending until the run ends', () => {
-    const heard = RunRecord.heardOf(RUN, WORKSPACE);
+    const record = RunRecord.empty(RUN, WORKSPACE);
 
-    expect(heard.hasEnded).toBe(false);
-    expect(heard.ending).toBeNull();
+    expect(record.hasEnded).toBe(false);
+    expect(record.ending).toBeNull();
   });
 
   it('tells once that it ended, at the station it ended at, through later changes', () => {
-    const ended = RunRecord.heardOf(RUN, WORKSPACE)
+    const ended = RunRecord.empty(RUN, WORKSPACE)
       .recordEnd(endOf())
       .recordEnd(endOf({ stationId: 'station_2' }))
       .recordAction(NextAct.of('closed', AT));
@@ -51,19 +51,19 @@ describe('RunRecord', () => {
   });
 
   it('records that it is enriched once for each outcome it learns after it ended, and not for one it already knew', () => {
-    const heard = RunRecord.heardOf(RUN, WORKSPACE).recordAction(
+    const record = RunRecord.empty(RUN, WORKSPACE).recordAction(
       NextAct.of('closed', AT),
     );
-    expect(heard.pullEvents()).toEqual([]);
+    expect(record.pullEvents()).toEqual([]);
 
-    const learned = heard
+    const learned = record
       .recordEnd(endOf())
       .recordAction(NextAct.of('sent-back', LATER))
       .recordAction(NextAct.of('approved', LATER))
       .recordAction(NextAct.of('refused', LATER))
-      .recordCheck('skipped', HEARD_AT)
-      .recordCheck('passed', HEARD_AT)
-      .recordCheck('failed', HEARD_AT)
+      .recordCheck('skipped', RECEIVED_AT)
+      .recordCheck('passed', RECEIVED_AT)
+      .recordCheck('failed', RECEIVED_AT)
       .recordDigest(costOf(), RunTools.NONE)
       .recordDigest(costOf({ amount: 2 }), RunTools.NONE);
 
@@ -79,8 +79,8 @@ describe('RunRecord', () => {
     expect((events[1] as RunRecordEnriched).place.stationId).toBe('station_1');
   });
 
-  it('keeps the first end it hears of', () => {
-    const ended = RunRecord.heardOf(RUN, WORKSPACE).recordEnd(
+  it('keeps the first end it receives', () => {
+    const ended = RunRecord.empty(RUN, WORKSPACE).recordEnd(
       endOf({ ending: 'failed' }),
     );
 
@@ -89,47 +89,47 @@ describe('RunRecord', () => {
   });
 
   it('ends as superseded when its task superseded it after it ended', () => {
-    expect(endedRecord('run_1').supersededByItsTask(HEARD_AT).ending).toBe(
+    expect(endedRecord('run_1').supersededByItsTask(RECEIVED_AT).ending).toBe(
       'superseded',
     );
   });
 
-  it('ends as superseded when told so before it was heard to end', () => {
-    const superseded = RunRecord.heardOf(RUN, WORKSPACE)
-      .supersededByItsTask(HEARD_AT)
+  it('ends as superseded when told so before its end was received', () => {
+    const superseded = RunRecord.empty(RUN, WORKSPACE)
+      .supersededByItsTask(RECEIVED_AT)
       .recordEnd(endOf({ ending: 'completed' }));
 
     expect(superseded.ending).toBe('superseded');
   });
 
   it('is left as it is when superseded twice', () => {
-    const superseded = endedRecord('run_1').supersededByItsTask(HEARD_AT);
+    const superseded = endedRecord('run_1').supersededByItsTask(RECEIVED_AT);
 
-    expect(superseded.supersededByItsTask(HEARD_AT)).toBe(superseded);
+    expect(superseded.supersededByItsTask(RECEIVED_AT)).toBe(superseded);
   });
 
   it('keeps the first verdict on its change', () => {
-    const failed = endedRecord('run_1').recordCheck('failed', HEARD_AT);
+    const failed = endedRecord('run_1').recordCheck('failed', RECEIVED_AT);
 
-    expect(failed.recordCheck('passed', HEARD_AT)).toBe(failed);
+    expect(failed.recordCheck('passed', RECEIVED_AT)).toBe(failed);
     expect(failed.checks).toBe('failed');
   });
 
   it('takes a real verdict over a skipped check, in either order', () => {
     const skippedFirst = endedRecord('run_1')
-      .recordCheck('skipped', HEARD_AT)
-      .recordCheck('passed', HEARD_AT);
+      .recordCheck('skipped', RECEIVED_AT)
+      .recordCheck('passed', RECEIVED_AT);
     const passedFirst = endedRecord('run_1')
-      .recordCheck('passed', HEARD_AT)
-      .recordCheck('skipped', HEARD_AT);
+      .recordCheck('passed', RECEIVED_AT)
+      .recordCheck('skipped', RECEIVED_AT);
 
     expect(skippedFirst.checks).toBe('passed');
     expect(passedFirst.checks).toBe('passed');
   });
 
-  it('takes its verdict before it is heard to end', () => {
-    const checked = RunRecord.heardOf(RUN, WORKSPACE)
-      .recordCheck('passed', HEARD_AT)
+  it('takes its verdict before its end is received', () => {
+    const checked = RunRecord.empty(RUN, WORKSPACE)
+      .recordCheck('passed', RECEIVED_AT)
       .recordEnd(endOf());
 
     expect(checked.checks).toBe('passed');
@@ -145,14 +145,14 @@ describe('RunRecord', () => {
     expect(acted.next?.at).toEqual(AT);
   });
 
-  it('counts the first thing a person did after it, in whatever order it hears of what they did', () => {
+  it('counts the first thing a person did after it, in whatever order it receives what they did', () => {
     const acts = [
       NextAct.of('approved', EARLIER),
       NextAct.of('sent-back', AT),
       NextAct.of('refused', AT),
       NextAct.of('closed', LATER),
     ];
-    const heardIn = (order: readonly NextAct[]) =>
+    const receivedIn = (order: readonly NextAct[]) =>
       order.reduce(
         (record, act) => record.recordAction(act),
         endedRecord('run_1'),
@@ -163,15 +163,15 @@ describe('RunRecord', () => {
       [...acts].reverse(),
       [acts[3], acts[0], acts[2], acts[1]],
     ]) {
-      const heard = heardIn(order);
+      const record = receivedIn(order);
 
-      expect(heard.next?.act).toBe('sent-back');
-      expect(heard.approvalAnsweredAt).toEqual(EARLIER);
-      expect(heard.turnout).toBe('sent-back');
+      expect(record.next?.act).toBe('sent-back');
+      expect(record.approvalAnsweredAt).toEqual(EARLIER);
+      expect(record.turnout).toBe('sent-back');
     }
   });
 
-  it('decides between acts at the same moment the same way whichever it hears first', () => {
+  it('decides between acts at the same moment the same way whichever it receives first', () => {
     const closed = NextAct.of('closed', AT);
     const sentBack = NextAct.of('sent-back', AT);
 
@@ -246,18 +246,18 @@ describe('RunRecord', () => {
 
     expect(
       record
-        .recordCheck('passed', HEARD_AT)
+        .recordCheck('passed', RECEIVED_AT)
         .recordAction(NextAct.of('closed', AT)).version,
     ).toBe(3);
   });
 
-  it('knows its task once it ends, or when heard of with it', () => {
-    expect(RunRecord.heardOf(RUN, WORKSPACE).taskId).toBeNull();
+  it('knows its task once it ends, or when it is received with it', () => {
+    expect(RunRecord.empty(RUN, WORKSPACE).taskId).toBeNull();
     expect(
-      RunRecord.heardOf(RUN, WORKSPACE, TaskId.of('task_2')).taskId?.value,
+      RunRecord.empty(RUN, WORKSPACE, TaskId.of('task_2')).taskId?.value,
     ).toBe('task_2');
     expect(
-      RunRecord.heardOf(RUN, WORKSPACE).recordEnd(endOf({ taskId: 'task_3' }))
+      RunRecord.empty(RUN, WORKSPACE).recordEnd(endOf({ taskId: 'task_3' }))
         .taskId?.value,
     ).toBe('task_3');
   });
@@ -266,15 +266,15 @@ describe('RunRecord', () => {
     const cancelled = endedRecord('run_1', { ending: 'cancelled' });
 
     expect(cancelled.ran).toBe(false);
-    expect(cancelled.supersededByItsTask(HEARD_AT).ran).toBe(false);
-    expect(cancelled.supersededByItsTask(HEARD_AT).ending).toBe('cancelled');
+    expect(cancelled.supersededByItsTask(RECEIVED_AT).ran).toBe(false);
+    expect(cancelled.supersededByItsTask(RECEIVED_AT).ending).toBe('cancelled');
     expect(endedRecord('run_2', { ending: 'failed' }).ran).toBe(true);
-    expect(RunRecord.heardOf(RUN, WORKSPACE).ran).toBe(false);
+    expect(RunRecord.empty(RUN, WORKSPACE).ran).toBe(false);
   });
 
-  it('does not end on another task than the one it was heard of for', () => {
+  it('does not end on another task than the one it was received for', () => {
     expect(() =>
-      RunRecord.heardOf(RUN, WORKSPACE, TaskId.of('task_2')).recordEnd(
+      RunRecord.empty(RUN, WORKSPACE, TaskId.of('task_2')).recordEnd(
         endOf({ taskId: 'task_1' }),
       ),
     ).toThrow(InvalidOutcomeError);
@@ -302,8 +302,8 @@ describe('RunRecord', () => {
     ).toThrow(InvalidOutcomeError);
   });
 
-  it('keeps the first cost it hears of, before or after it ended', () => {
-    const digested = RunRecord.heardOf(RUN, WORKSPACE).recordDigest(
+  it('keeps the first cost it receives, before or after it ended', () => {
+    const digested = RunRecord.empty(RUN, WORKSPACE).recordDigest(
       costOf({ amount: 0.4 }),
       RunTools.NONE,
     );
@@ -322,7 +322,7 @@ describe('RunRecord', () => {
     expect(passed.passed?.to).toBe('station_2');
   });
 
-  it('keeps the tools it used with the first digest it hears of', () => {
+  it('keeps the tools it used with the first digest it receives', () => {
     const used = RunTools.of({
       servers: [
         {
@@ -365,7 +365,7 @@ describe('RunRecord', () => {
     expect(stored(costOf(), null).tools).toBeNull();
   });
 
-  it('notes each refusal once, however often it is heard', () => {
+  it('notes each refusal once, however often it is received', () => {
     const refusal = Refusal.of({
       tool: 'mcp__linear__create_issue',
       server: 'linear',
@@ -383,7 +383,7 @@ describe('RunRecord', () => {
   });
 
   it('turned out accepted or sent back by what a person did next, before how it ended', () => {
-    const ended = RunRecord.heardOf(RUN, WORKSPACE).recordEnd(
+    const ended = RunRecord.empty(RUN, WORKSPACE).recordEnd(
       endOf({ ending: 'failed' }),
     );
 
@@ -396,7 +396,7 @@ describe('RunRecord', () => {
   });
 
   it('turned out accepted when a person closed its task after approving a tool it asked for', () => {
-    const accepted = RunRecord.heardOf(RUN, WORKSPACE)
+    const accepted = RunRecord.empty(RUN, WORKSPACE)
       .recordEnd(endOf())
       .recordAction(NextAct.of('approved', AT))
       .recordAction(NextAct.of('closed', LATER));
@@ -406,7 +406,7 @@ describe('RunRecord', () => {
   });
 
   it('turned out sent back when a person sent it back after approving a tool it asked for', () => {
-    const sentBack = RunRecord.heardOf(RUN, WORKSPACE)
+    const sentBack = RunRecord.empty(RUN, WORKSPACE)
       .recordEnd(endOf())
       .recordAction(NextAct.of('approved', AT))
       .recordAction(NextAct.of('sent-back', LATER));
@@ -416,7 +416,7 @@ describe('RunRecord', () => {
   });
 
   it('turned out accepted when a person closed its task after refusing a tool it asked for', () => {
-    const accepted = RunRecord.heardOf(RUN, WORKSPACE)
+    const accepted = RunRecord.empty(RUN, WORKSPACE)
       .recordEnd(endOf())
       .recordAction(NextAct.of('refused', AT))
       .recordAction(NextAct.of('closed', LATER));
@@ -427,7 +427,7 @@ describe('RunRecord', () => {
 
   it('turned out failed when it failed and nobody accepted or sent it back', () => {
     expect(
-      RunRecord.heardOf(RUN, WORKSPACE)
+      RunRecord.empty(RUN, WORKSPACE)
         .recordEnd(endOf({ ending: 'failed' }))
         .recordAction(NextAct.of('answered', AT)).turnout,
     ).toBe('failed');
@@ -435,14 +435,14 @@ describe('RunRecord', () => {
 
   it('turned out asking when a person answered what it asked', () => {
     expect(
-      RunRecord.heardOf(RUN, WORKSPACE)
+      RunRecord.empty(RUN, WORKSPACE)
         .recordEnd(endOf())
         .recordAction(NextAct.of('answered', AT)).turnout,
     ).toBe('asked');
   });
 
   it('turned out asking, neither accepted nor sent back, when a person only decided a tool or permission approval', () => {
-    const ended = RunRecord.heardOf(RUN, WORKSPACE).recordEnd(endOf());
+    const ended = RunRecord.empty(RUN, WORKSPACE).recordEnd(endOf());
 
     for (const act of ['approved', 'refused'] as const) {
       const decided = ended.recordAction(NextAct.of(act, AT));
@@ -454,7 +454,7 @@ describe('RunRecord', () => {
 
   it('turned out failed when it failed after a person decided a tool it asked for', () => {
     expect(
-      RunRecord.heardOf(RUN, WORKSPACE)
+      RunRecord.empty(RUN, WORKSPACE)
         .recordEnd(endOf({ ending: 'failed' }))
         .recordAction(NextAct.of('approved', AT)).turnout,
     ).toBe('failed');
@@ -462,7 +462,7 @@ describe('RunRecord', () => {
 
   it('turned out asking when a person parked its task after deciding a tool it asked for', () => {
     expect(
-      RunRecord.heardOf(RUN, WORKSPACE)
+      RunRecord.empty(RUN, WORKSPACE)
         .recordEnd(endOf())
         .recordAction(NextAct.of('approved', AT))
         .recordAction(NextAct.of('parked', LATER)).turnout,
@@ -471,18 +471,17 @@ describe('RunRecord', () => {
 
   it('turned out asking when it ended waiting on a person nobody has answered yet', () => {
     expect(
-      RunRecord.heardOf(RUN, WORKSPACE).recordEnd(endOf({ asked: true }))
-        .turnout,
+      RunRecord.empty(RUN, WORKSPACE).recordEnd(endOf({ asked: true })).turnout,
     ).toBe('asked');
   });
 
   it('turned out some other way when nothing told how', () => {
-    expect(RunRecord.heardOf(RUN, WORKSPACE).turnout).toBe('other');
-    expect(RunRecord.heardOf(RUN, WORKSPACE).recordEnd(endOf()).turnout).toBe(
+    expect(RunRecord.empty(RUN, WORKSPACE).turnout).toBe('other');
+    expect(RunRecord.empty(RUN, WORKSPACE).recordEnd(endOf()).turnout).toBe(
       'other',
     );
     expect(
-      RunRecord.heardOf(RUN, WORKSPACE)
+      RunRecord.empty(RUN, WORKSPACE)
         .recordEnd(endOf())
         .recordAction(NextAct.of('parked', AT)).turnout,
     ).toBe('other');
@@ -521,11 +520,10 @@ describe('RunRecord', () => {
     expect(completed.failedAfterCallingTo('linear')).toBe(false);
   });
 
-  it('keeps the memories a run used, heard before or after it ended, and records no event for them', () => {
-    const briefed = RunRecord.heardOf(RUN, WORKSPACE).recordMemories(
-      'briefed',
-      ['mem_1'],
-    );
+  it('keeps the memories a run used, received before or after it ended, and records no event for them', () => {
+    const briefed = RunRecord.empty(RUN, WORKSPACE).recordMemories('briefed', [
+      'mem_1',
+    ]);
     const ended = briefed
       .recordEnd(endOf())
       .recordMemories('recalled', ['mem_2']);
@@ -539,7 +537,7 @@ describe('RunRecord', () => {
   });
 
   it('keeps the memories it used when looked at as of an earlier time', () => {
-    const used = RunRecord.heardOf(RUN, WORKSPACE)
+    const used = RunRecord.empty(RUN, WORKSPACE)
       .recordEnd(endOf())
       .recordMemories('briefed', ['mem_1']);
 

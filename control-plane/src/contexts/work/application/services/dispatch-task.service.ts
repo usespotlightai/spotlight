@@ -27,7 +27,7 @@ import type { Line } from '@work/domain/aggregates/line.aggregate';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
-import { describedTools } from '@work/domain/services/given-to-run';
+import { describedTools } from '@work/domain/services/enabled-for-run';
 import type { HarnessCatalog } from '@work/domain/services/harness-catalog';
 import { orderFor, taskOrderedAt } from '@work/domain/services/run-order';
 import { repositoriesWorkedOn } from '@work/domain/services/task-checkouts';
@@ -114,9 +114,9 @@ export class DispatchTask implements TaskDispatching {
 
     const offered = await this.integrations.offered(
       line,
-      found.order.given.tools,
+      found.order.enabled.tools,
     );
-    const described = describedTools(found.order.given.tools, [
+    const described = describedTools(found.order.enabled.tools, [
       ...offered,
       ...found.catalogTools,
     ]);
@@ -155,10 +155,10 @@ export class DispatchTask implements TaskDispatching {
       memoryFolder: memories.folder,
       tools: described,
     });
-    const injected = (order.given.profile?.injectedSecrets ?? []).map(
+    const injected = (order.enabled.profile?.injectedSecrets ?? []).map(
       (each) => each.value,
     );
-    const catalog = order.given.pinned.map((each) => each.value);
+    const catalog = order.enabled.pinned.map((each) => each.value);
 
     const queued = Run.enqueue({
       id,

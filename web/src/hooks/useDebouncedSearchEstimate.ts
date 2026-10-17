@@ -3,7 +3,7 @@ import { useSearchEstimate } from '@/hooks/api/useSearchEstimate';
 import { useDebounced } from '@/hooks/useDebounced';
 import type { ReplayedStation } from '@/lib/replay';
 import type { SearchBudget } from '@/lib/search';
-import { estimateAskedOf, estimateKey } from '@/lib/search-start';
+import { estimateInputOf, estimateKey } from '@/lib/search-start';
 
 const ESTIMATE_MS = 400;
 
@@ -15,7 +15,7 @@ export function useDebouncedSearchEstimate(
 ) {
   const debouncedKey = useDebounced(estimateKey(setId, budget), ESTIMATE_MS);
   const debounced = useMemo(
-    () => estimateAskedOf(debouncedKey),
+    () => estimateInputOf(debouncedKey),
     [debouncedKey],
   );
   const estimate = useSearchEstimate(at, open ? debounced : null);

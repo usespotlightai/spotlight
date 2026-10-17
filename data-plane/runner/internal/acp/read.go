@@ -35,7 +35,7 @@ func (c *Client) read(stdout io.Reader) {
 		case message.Method == "" && len(message.ID) > 0:
 			c.answered(message.ID, message.Result, message.Error)
 		case len(message.ID) > 0:
-			c.asked(message.ID, message.Method, message.Params)
+			c.requested(message.ID, message.Method, message.Params)
 		default:
 			c.onNotification(message.Method, message.Params)
 		}
@@ -89,7 +89,7 @@ func (c *Client) onNotification(method string, params json.RawMessage) {
 	})
 }
 
-func (c *Client) asked(id json.RawMessage, method string, params json.RawMessage) {
+func (c *Client) requested(id json.RawMessage, method string, params json.RawMessage) {
 	switch method {
 	case "session/request_permission":
 		go c.permit(id, params)
@@ -183,12 +183,12 @@ func (c *Client) within(path string) (string, bool) {
 }
 
 func (c *Client) readFile(id json.RawMessage, params json.RawMessage) {
-	var asked struct {
+	var request struct {
 		Path string `json:"path"`
 	}
-	_ = json.Unmarshal(params, &asked)
+	_ = json.Unmarshal(params, &request)
 
-	full, ok := c.within(asked.Path)
+	full, ok := c.within(request.Path)
 	if !ok {
 		c.reject(id, "outside the workspace")
 		return
@@ -204,13 +204,13 @@ func (c *Client) readFile(id json.RawMessage, params json.RawMessage) {
 }
 
 func (c *Client) writeFile(id json.RawMessage, params json.RawMessage) {
-	var asked struct {
+	var request struct {
 		Path    string `json:"path"`
 		Content string `json:"content"`
 	}
-	_ = json.Unmarshal(params, &asked)
+	_ = json.Unmarshal(params, &request)
 
-	full, ok := c.within(asked.Path)
+	full, ok := c.within(request.Path)
 	if !ok {
 		c.reject(id, "outside the workspace")
 		return
@@ -220,7 +220,7 @@ func (c *Client) writeFile(id json.RawMessage, params json.RawMessage) {
 		c.reject(id, err.Error())
 		return
 	}
-	if err := os.WriteFile(full, []byte(asked.Content), 0o644); err != nil {
+	if err := os.WriteFile(full, []byte(request.Content), 0o644); err != nil {
 		c.reject(id, err.Error())
 		return
 	}

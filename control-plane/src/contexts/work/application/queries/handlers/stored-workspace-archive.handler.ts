@@ -56,7 +56,7 @@ export class StoredWorkspaceArchiveHandler
     if (exactly) {
       const archive = await this.archives.find(exactly);
 
-      return archive?.isKeptIn(run.workspaceId) ? archive : null;
+      return archive?.isAvailableIn(run.workspaceId) ? archive : null;
     }
 
     const restoresFrom = run.restoresFrom;

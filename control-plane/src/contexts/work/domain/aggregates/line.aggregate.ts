@@ -49,11 +49,11 @@ import { LineRepositories } from '@work/domain/value-objects/line-repositories.v
 import { LineRole } from '@work/domain/value-objects/line-role.vo';
 import { Reaction } from '@work/domain/value-objects/reaction.vo';
 import type { ReplayCheckPolicy } from '@work/domain/value-objects/replay-check-policy.vo';
-import type { ReviewAsked } from '@work/domain/value-objects/review-asked.vo';
 import {
   type ReviewPolicy,
   reviewsOn,
 } from '@work/domain/value-objects/review-policy.vo';
+import type { ReviewRequestReceived } from '@work/domain/value-objects/review-request.vo';
 import type { SkillKey } from '@work/domain/value-objects/skill-key.vo';
 import type { StationColor } from '@work/domain/value-objects/station-color.vo';
 import type { StationDescription } from '@work/domain/value-objects/station-description.vo';
@@ -435,14 +435,14 @@ export class Line extends EventRecorder {
     return this.entry?.harness ?? null;
   }
 
-  takesReview(asked: ReviewAsked): boolean {
-    const repository = asked.pullRequest.repository;
+  takesReview(request: ReviewRequestReceived): boolean {
+    const repository = request.pullRequest.repository;
 
     return (
       reviewsOn(this.role) &&
       repository !== null &&
       (this.repositories.isEmpty || this.names(repository)) &&
-      (this.reviews?.takes(asked) ?? false)
+      (this.reviews?.takes(request) ?? false)
     );
   }
 
@@ -513,9 +513,9 @@ export class Line extends EventRecorder {
     );
   }
 
-  giveStationSkills(stationId: StationId, skills: readonly SkillKey[]): Line {
+  enableStationSkills(stationId: StationId, skills: readonly SkillKey[]): Line {
     return this.withStation(stationId, (station) =>
-      station.givesSkills(skills),
+      station.enablesSkills(skills),
     );
   }
 
@@ -695,10 +695,10 @@ export class Line extends EventRecorder {
       }
     }
 
-    const reached = this.stations
+    const depths = this.stations
       .filter((each) => !each.isCompleted)
       .map((each) => depth.get(each.id.value) ?? 0);
-    const last = Math.max(0, ...reached) + 1;
+    const last = Math.max(0, ...depths) + 1;
 
     for (const station of this.stations) {
       if (station.isCompleted) {

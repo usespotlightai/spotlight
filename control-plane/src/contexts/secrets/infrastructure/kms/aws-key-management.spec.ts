@@ -25,7 +25,7 @@ const kmsAnswering = () => {
 };
 
 describe('AwsKeyManagement', () => {
-  it('asks KMS for an AES-256 data key bound to the workspace', async () => {
+  it('requests an AES-256 data key from KMS, bound to the workspace', async () => {
     const { send, kms } = kmsAnswering();
 
     const issued = await new AwsKeyManagement(kms, KEY_ID).issue(CONTEXT);

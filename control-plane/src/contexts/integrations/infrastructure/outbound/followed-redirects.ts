@@ -7,7 +7,7 @@ const MAX_REDIRECTS = 5;
 
 const REDIRECTS = [301, 302, 303, 307, 308];
 
-const KEEPS_ITS_METHOD = [307, 308];
+const PRESERVES_METHOD = [307, 308];
 
 export interface Hop {
   readonly method: string;
@@ -57,7 +57,7 @@ export const followed = async (
       );
     }
 
-    hop = KEEPS_ITS_METHOD.includes(reply.status)
+    hop = PRESERVES_METHOD.includes(reply.status)
       ? { ...hop, url: next.href }
       : { method: 'GET', url: next.href };
   }

@@ -68,14 +68,14 @@ export class NoteRunEnded {
     private readonly logger: LoggerPort,
   ) {}
 
-  async ended(heard: RunEnded): Promise<void> {
-    const ending = endingOf(heard);
+  async ended(event: RunEnded): Promise<void> {
+    const ending = endingOf(event);
 
     if (!ending) {
       return;
     }
 
-    const run = await this.work.endedRun(heard.runId);
+    const run = await this.work.endedRun(event.runId);
 
     if (!run) {
       return;
@@ -94,7 +94,7 @@ export class NoteRunEnded {
       );
     }
 
-    const end = endOf(run, fingerprint, ending, heard.failure, heard.asked);
+    const end = endOf(run, fingerprint, ending, event.failure, event.asked);
     const { taskId, teamId } = end.place;
     const workspaceId = WorkspaceId.of(run.workspaceId);
 
@@ -120,7 +120,7 @@ export class NoteRunEnded {
       }
 
       await this.records.add(
-        RunRecord.heardOf(runId, workspaceId).recordEnd(end),
+        RunRecord.empty(runId, workspaceId).recordEnd(end),
       );
     });
   }

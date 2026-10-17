@@ -1,11 +1,11 @@
 import { JudgingError } from '@outcomes/application/errors/judging.error';
 import type { RunEvidence } from '@outcomes/application/ports/evidence.port';
-import type { JudgeAsk } from '@outcomes/application/ports/judge.port';
+import type { JudgeRequest } from '@outcomes/application/ports/judge.port';
 import { WorkJudgings } from '@outcomes/application/services/work-judgings.service';
 import type { RunJudged } from '@outcomes/domain/events/run-judged.event';
 import {
-  askedJudging,
   JudgingsInMemory,
+  queuedJudging,
 } from '@outcomes/domain/judging.fake-spec';
 import { inTransaction } from '@outcomes/domain/outcomes.fake-spec';
 import type { Verdict } from '@outcomes/domain/services/grounded-verdict';
@@ -26,8 +26,8 @@ const EVIDENCE: RunEvidence = {
       kind: 'message',
       tool: null,
       text: 'Retrying in the request.',
-      given: null,
-      returned: null,
+      input: null,
+      output: null,
     },
   ],
   hunks: [
@@ -48,12 +48,12 @@ const logger: LoggerPort = {
 };
 
 const working = async (
-  answer: (ask: JudgeAsk) => Promise<Verdict>,
+  answer: (request: JudgeRequest) => Promise<Verdict>,
   evidence: RunEvidence | null = EVIDENCE,
 ) => {
   const judgings = new JudgingsInMemory();
-  await judgings.add(askedJudging());
-  const asked: JudgeAsk[] = [];
+  await judgings.add(queuedJudging());
+  const requests: JudgeRequest[] = [];
   const work = new WorkJudgings(
     judgings,
     {
@@ -65,9 +65,9 @@ const working = async (
     {
       available: true,
       model: 'some/model',
-      judge: async (ask) => {
-        asked.push(ask);
-        return { verdict: await answer(ask), usage: null };
+      judge: async (request) => {
+        requests.push(request);
+        return { verdict: await answer(request), usage: null };
       },
     },
     { now: () => NOW, sleep: async () => {} },
@@ -80,7 +80,7 @@ const working = async (
   await work.idle();
 
   return {
-    asked,
+    requests,
     judgings,
     judging: await judgings.of(RunId.of('run_1')),
   };
@@ -88,17 +88,17 @@ const working = async (
 
 describe('WorkJudgings', () => {
   it('judges the run on its rubric, steps and hunks, and records the grounded verdict', async () => {
-    const { asked, judging, judgings } = await working(async () => ({
+    const { requests, judging, judgings } = await working(async () => ({
       value: true,
       reasons: [
         { text: 'It retries.', steps: [2], hunks: ['api/src/uploads.ts#1'] },
       ],
     }));
 
-    expect(asked[0]?.rubric).toBe('Did the run retry uploads?');
-    expect(asked[0]?.scale).toBe('yes-no');
-    expect(asked[0]?.steps.map((each) => each.index)).toEqual([2]);
-    expect(asked[0]?.hunks.map((each) => each.id)).toEqual([
+    expect(requests[0]?.rubric).toBe('Did the run retry uploads?');
+    expect(requests[0]?.scale).toBe('yes-no');
+    expect(requests[0]?.steps.map((each) => each.index)).toEqual([2]);
+    expect(requests[0]?.hunks.map((each) => each.id)).toEqual([
       'api/src/uploads.ts#1',
     ]);
     expect(judging?.hasPendingJob).toBe(false);
@@ -108,12 +108,12 @@ describe('WorkJudgings', () => {
   });
 
   it('fails where the run’s evidence is gone', async () => {
-    const { asked, judging } = await working(
+    const { requests, judging } = await working(
       async () => ({ value: true, reasons: [] }),
       null,
     );
 
-    expect(asked).toEqual([]);
+    expect(requests).toEqual([]);
     expect(judging?.failure?.code).toBe('no-evidence');
   });
 

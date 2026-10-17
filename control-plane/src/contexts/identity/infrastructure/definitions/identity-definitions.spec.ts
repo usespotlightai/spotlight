@@ -30,7 +30,7 @@ describe('IdentityDefinitions', () => {
     ).toEqual(['name', 'slug']);
   });
 
-  it('rejects a slug that is not written the way it is kept', () => {
+  it('rejects a slug that is not written the way it is stored', () => {
     expect(
       invalidAt(definitions.workspace({ name: 'Acme', slug: 'ACME' })),
     ).toEqual(['slug']);

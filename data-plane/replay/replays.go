@@ -304,7 +304,7 @@ func (c *cli) status(args []string) error {
 
 func (c *cli) watch(args []string) error {
 	flags := replayFlagsFor("watch")
-	every := flags.set.Duration("every", 15*time.Second, "how often to ask")
+	every := flags.set.Duration("every", 15*time.Second, "how often to read the status")
 	id, err := flags.parse(args)
 	if err != nil {
 		return err
@@ -330,7 +330,7 @@ func (c *cli) watch(args []string) error {
 				return fmt.Errorf("gave up after %d failed tries in a row: %w", failures, err)
 			}
 			if !*flags.json {
-				fmt.Fprintf(c.out, "could not ask (%v); asking again\n", err)
+				fmt.Fprintf(c.out, "could not read the status (%v); trying again\n", err)
 			}
 			c.sleep(retryDelay(*every, failures))
 			continue
@@ -564,7 +564,7 @@ func overCeiling(replay replayRead) string {
 		return ""
 	}
 
-	return fmt.Sprintf(", over the ceiling by %s, spent by runs already running when it was reached", money(spend{Amount: over, Currency: replay.Ceiling.Currency}))
+	return fmt.Sprintf(", over the ceiling by %s, spent by runs already running when it was hit", money(spend{Amount: over, Currency: replay.Ceiling.Currency}))
 }
 
 func rate(succeeded *int, share *float64, scored int) string {

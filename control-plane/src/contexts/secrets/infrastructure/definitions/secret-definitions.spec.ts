@@ -11,7 +11,7 @@ const problemsAt = (input: unknown) => {
 };
 
 describe('SecretDefinitions', () => {
-  it('reads a secret Spotlight keeps, with its value and bindings', () => {
+  it('reads a secret Spotlight stores, with its value and bindings', () => {
     const read = definitions.secret({
       name: 'LINEAR_API_KEY',
       bindings: [{ host: 'api.linear.app', prefix: 'Bearer ' }],
@@ -25,7 +25,7 @@ describe('SecretDefinitions', () => {
     expect(read.ok && read.bindings.hosts).toEqual(['api.linear.app']);
   });
 
-  it('reads a secret that AWS Secrets Manager keeps', () => {
+  it('reads a secret that AWS Secrets Manager stores', () => {
     const read = definitions.secret({
       name: 'LINEAR_API_KEY',
       source: {

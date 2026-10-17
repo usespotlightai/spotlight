@@ -16,11 +16,11 @@ export class ReadSecretHandler
 
   async execute(query: ReadSecretQuery): Promise<SecretResourceDto | null> {
     try {
-      const kept = await this.resources.withId(query.secretId);
+      const record = await this.resources.withId(query.secretId);
 
-      return kept &&
-        (await this.access.permissionsIn(kept.workspaceId, query.principal))
-        ? SecretResourceMapper.toDto(kept)
+      return record &&
+        (await this.access.permissionsIn(record.workspaceId, query.principal))
+        ? SecretResourceMapper.toDto(record)
         : null;
     } catch (error) {
       rethrowAsApplicationError(error);

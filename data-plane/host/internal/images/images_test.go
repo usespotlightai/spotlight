@@ -16,7 +16,7 @@ func TestTheFirstExactImageIsTheDefault(t *testing.T) {
 	if allowed.Default != "ghcr.io/acme/base:1" {
 		t.Errorf("default %q", allowed.Default)
 	}
-	if allowed.Admits("fallback:1") {
+	if allowed.Allows("fallback:1") {
 		t.Error("the fallback is only for a host that names no image")
 	}
 }
@@ -27,7 +27,7 @@ func TestAHostNamingNoImageServesTheFallback(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if allowed.Default != "fallback:1" || !allowed.Admits("fallback:1") || allowed.Admits("other:1") {
+	if allowed.Default != "fallback:1" || !allowed.Allows("fallback:1") || allowed.Allows("other:1") {
 		t.Errorf("allowed %+v", allowed)
 	}
 }
@@ -38,7 +38,7 @@ func TestOnlyPatternsNamingOnlyPatternsStillServeTheFallback(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if allowed.Default != "fallback:1" || !allowed.Admits("ghcr.io/acme/api:main") {
+	if allowed.Default != "fallback:1" || !allowed.Allows("ghcr.io/acme/api:main") {
 		t.Errorf("allowed %+v", allowed)
 	}
 }
@@ -60,7 +60,7 @@ func TestAnEntryThatIsNoImageIsRejected(t *testing.T) {
 	}
 }
 
-func TestWantsTheDefaultThenEachAdmittedImageOnce(t *testing.T) {
+func TestWantsTheDefaultThenEachAllowedImageOnce(t *testing.T) {
 	allowed, _ := images.Parse([]string{"runner:1", "ghcr.io/acme/*"}, "fallback:1")
 
 	wanted := allowed.Wanted([]string{"ghcr.io/acme/api:main", "runner:1", "ghcr.io/acme/api:main", "evil/runner:1"})

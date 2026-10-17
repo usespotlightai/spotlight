@@ -26,12 +26,12 @@ const queried = (data: unknown): Queried => ({
   refetch: vi.fn(),
 });
 
-const asked: { tab: string; period: InsightsPeriod }[] = [];
+const requested: { tab: string; period: InsightsPeriod }[] = [];
 const answers: Record<string, Queried> = {};
 
 const answering =
   (tab: string) => (_teamId: string, period: InsightsPeriod) => {
-    asked.push({ tab, period });
+    requested.push({ tab, period });
     return answers[tab] ?? queried(undefined);
   };
 
@@ -245,7 +245,7 @@ const address = () => screen.getByRole('status', { name: 'Address' });
 
 const tabs = () => screen.getByRole('navigation', { name: 'Insights' });
 
-const tabsAsked = () => asked.map((each) => each.tab);
+const tabsRequested = () => requested.map((each) => each.tab);
 
 const sections = () =>
   screen
@@ -253,7 +253,7 @@ const sections = () =>
     .map((heading) => heading.textContent);
 
 beforeEach(() => {
-  asked.length = 0;
+  requested.length = 0;
   for (const tab of Object.keys(answers)) {
     delete answers[tab];
   }
@@ -267,8 +267,8 @@ describe('TeamInsights', () => {
     expect(
       screen.getByRole('link', { name: 'Cost', current: 'page' }),
     ).toBeInTheDocument();
-    expect(asked).toContainEqual({ tab: 'cost', period: '7d' });
-    expect(asked.some((each) => each.tab === 'overview')).toBe(false);
+    expect(requested).toContainEqual({ tab: 'cost', period: '7d' });
+    expect(requested.some((each) => each.tab === 'overview')).toBe(false);
   });
 
   it('lists the eight tabs, Overview first', () => {
@@ -299,7 +299,7 @@ describe('TeamInsights', () => {
     expect(
       within(tabs()).getByRole('link', { name: 'Overview', current: 'page' }),
     ).toBeInTheDocument();
-    expect(asked).toEqual([{ tab: 'overview', period: '90d' }]);
+    expect(requested).toEqual([{ tab: 'overview', period: '90d' }]);
   });
 
   it('shows runs at each station, config changes and candidates on the Stations tab, all over the period', () => {
@@ -310,7 +310,7 @@ describe('TeamInsights', () => {
       'Config changes',
       'Candidates',
     ]);
-    expect(asked).toEqual(
+    expect(requested).toEqual(
       expect.arrayContaining([
         { tab: 'stations', period: '90d' },
         { tab: 'changes', period: '90d' },
@@ -335,7 +335,7 @@ describe('TeamInsights', () => {
       within(tabs()).getByRole('link', { name: 'Stations', current: 'page' }),
     ).toBeInTheDocument();
     expect(sections()).toEqual([]);
-    expect(tabsAsked()).toEqual(['stations']);
+    expect(tabsRequested()).toEqual(['stations']);
   });
 
   it('shows where work waits, what the agents ship and the pull requests on the Productivity tab', () => {
@@ -346,7 +346,7 @@ describe('TeamInsights', () => {
       'What the agents ship',
       'Pull requests',
     ]);
-    expect(asked).toEqual(
+    expect(requested).toEqual(
       expect.arrayContaining([
         { tab: 'flow', period: '7d' },
         { tab: 'shipping', period: '7d' },
@@ -362,7 +362,7 @@ describe('TeamInsights', () => {
     showing('?tab=tools&period=7d');
 
     expect(sections()).toEqual(['Skills and tools', 'Memory']);
-    expect(asked).toEqual(
+    expect(requested).toEqual(
       expect.arrayContaining([
         { tab: 'tools', period: '7d' },
         { tab: 'memory', period: '7d' },
@@ -412,7 +412,7 @@ describe('TeamInsights', () => {
     );
 
     expect(address()).toHaveTextContent('?tab=stations&period=7d');
-    expect(asked).toContainEqual({ tab: 'stations', period: '7d' });
+    expect(requested).toContainEqual({ tab: 'stations', period: '7d' });
   });
 
   it('keeps the period but drops the filters and page when moving to another tab', () => {

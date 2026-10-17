@@ -1,13 +1,13 @@
 import type { GitHubDelivery } from '@github/application/dto/github-delivery.dto';
 import type { PullRequestActivity } from '@github/application/dto/pull-request-activity.dto';
 import type { PullRequestFacts } from '@github/domain/aggregates/pull-request.aggregate';
-import type { HeardThread } from '@github/domain/value-objects/bot-activity.vo';
+import type { PullRequestThread } from '@github/domain/value-objects/bot-activity.vo';
 
 export const WEBHOOK_TRANSLATION = Symbol('WEBHOOK_TRANSLATION');
 
 type ReviewCommentAction = 'created' | 'edited' | 'deleted';
 
-type HeardPlace =
+type WebhookPlace =
   | { readonly subject: 'file' }
   | {
       readonly subject: 'line';
@@ -16,7 +16,7 @@ type HeardPlace =
       readonly startLine: number | null;
     };
 
-type HeardReviewComment = {
+type WebhookReviewComment = {
   readonly id: number;
   readonly url: string;
   readonly path: string;
@@ -25,15 +25,15 @@ type HeardReviewComment = {
   readonly login: string | null;
   readonly byBot: boolean;
   readonly writtenAt: Date | null;
-} & HeardPlace;
+} & WebhookPlace;
 
-export type Heard =
+export type WebhookEvent =
   | { readonly kind: 'installation-removed' }
   | {
       readonly kind: 'review-comment';
       readonly action: ReviewCommentAction;
       readonly pullRequest: string;
-      readonly comment: HeardReviewComment;
+      readonly comment: WebhookReviewComment;
       readonly facts: PullRequestFacts | null;
     }
   | {
@@ -49,7 +49,7 @@ export type Heard =
   | {
       readonly kind: 'review-thread';
       readonly pullRequest: string;
-      readonly thread: HeardThread;
+      readonly thread: PullRequestThread;
       readonly facts: PullRequestFacts | null;
     }
   | { readonly kind: 'pull-request'; readonly facts: PullRequestFacts }
@@ -83,7 +83,7 @@ export type Heard =
 
 export interface TranslatedDelivery {
   readonly installation: string | null;
-  readonly heard: readonly Heard[];
+  readonly events: readonly WebhookEvent[];
 }
 
 export interface WebhookTranslationPort {

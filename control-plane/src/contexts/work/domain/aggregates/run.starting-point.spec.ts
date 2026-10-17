@@ -184,7 +184,7 @@ describe('where a run started', () => {
     ).toThrow(InvalidRunTransitionError);
   });
 
-  it('names exactly the checkouts the run was given', () => {
+  it('names exactly the checkouts of the run', () => {
     const missing: RunStart = {
       restored: null,
       checkouts: [StartedCheckout.of({ path: 'api', commit: API })],

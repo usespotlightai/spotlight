@@ -82,13 +82,13 @@ func fetchTrace(taskID string) (protocol.Trace, error) {
 		)
 	}
 
-	asked, err := json.Marshal(protocol.TraceRequest{Task: taskID})
+	body, err := json.Marshal(protocol.TraceRequest{Task: taskID})
 	if err != nil {
 		return protocol.Trace{}, err
 	}
 
 	answered, err := post(
-		strings.TrimSuffix(endpoint, "/")+protocol.AgentAPITracePath, token, asked,
+		strings.TrimSuffix(endpoint, "/")+protocol.AgentAPITracePath, token, body,
 	)
 	if err != nil {
 		return protocol.Trace{}, err

@@ -20,31 +20,31 @@ const parsed = (edit: string): JsonValue | undefined => {
   }
 };
 
-const typedAs = (asked: JsonValue, edit: string): JsonValue | undefined => {
-  if (edit.trim() === '' && writtenOf(asked).trim() !== '') {
+const typedAs = (original: JsonValue, edit: string): JsonValue | undefined => {
+  if (edit.trim() === '' && writtenOf(original).trim() !== '') {
     return undefined;
   }
 
-  if (typeof asked === 'string') {
+  if (typeof original === 'string') {
     return edit;
   }
 
-  if (typeof asked === 'number') {
+  if (typeof original === 'number') {
     const number = edit.trim() === '' ? Number.NaN : Number(edit);
     return Number.isFinite(number) ? number : undefined;
   }
 
-  if (typeof asked === 'boolean') {
+  if (typeof original === 'boolean') {
     return edit === 'true' ? true : edit === 'false' ? false : undefined;
   }
 
   const read = parsed(edit);
 
-  if (Array.isArray(asked)) {
+  if (Array.isArray(original)) {
     return Array.isArray(read) ? read : undefined;
   }
 
-  if (isJsonObject(asked)) {
+  if (isJsonObject(original)) {
     return isJsonObject(read) ? read : undefined;
   }
 
@@ -109,7 +109,10 @@ export class ToolCall {
     };
   }
 
-  get given(): readonly { readonly name: string; readonly value: string }[] {
+  get writtenInputs(): readonly {
+    readonly name: string;
+    readonly value: string;
+  }[] {
     return Object.keys(this.inputs.values)
       .sort()
       .map((name) => ({
@@ -119,8 +122,8 @@ export class ToolCall {
   }
 
   editedTo(edits: Readonly<Record<string, string>>): EditedCall {
-    const asked = this.inputs.values;
-    const names = Object.keys(asked);
+    const values = this.inputs.values;
+    const names = Object.keys(values);
     const edited = new Set(Object.keys(edits));
 
     if (
@@ -133,7 +136,7 @@ export class ToolCall {
     const typed: Record<string, JsonValue> = {};
 
     for (const name of names) {
-      const value = typedAs(asked[name] as JsonValue, edits[name] ?? '');
+      const value = typedAs(values[name] as JsonValue, edits[name] ?? '');
 
       if (value === undefined) {
         return { problem: null };

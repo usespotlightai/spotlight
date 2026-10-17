@@ -37,7 +37,7 @@ export class StackCheckReactions {
     const stack = await this.stacks.find(stackId);
 
     if (stack) {
-      await this.stacks.save(stack.askedToReorder());
+      await this.stacks.save(stack.requestReorder());
     }
   }
 
@@ -56,7 +56,7 @@ export class StackCheckReactions {
     const check = await this.checks.find(stackId, false);
 
     if (check?.reordering) {
-      await this.checks.save(check.keptLayers());
+      await this.checks.save(check.retainCheckedLayers());
     }
   }
 }

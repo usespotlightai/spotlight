@@ -1,5 +1,5 @@
 import type {
-  AdmittedThroughResponseDto,
+  CredentialSourceResponseDto,
   HostHarnessResponseDto,
   HostResponseDto,
   LeasedRunResponseDto,
@@ -22,7 +22,7 @@ export type Host = HostResponseDto & {
 };
 
 export type PushPool = {
-  readonly through: AdmittedThroughResponseDto;
+  readonly source: CredentialSourceResponseDto;
   readonly runners: readonly ActiveRunner[];
 };
 
@@ -31,8 +31,8 @@ export type Fleet = {
   readonly pools: readonly PushPool[];
 };
 
-export const poolKeyOf = (way: AdmittedThroughResponseDto): string =>
-  `${way.kind}:${way.key ?? ''}`;
+export const poolKeyOf = (source: CredentialSourceResponseDto): string =>
+  `${source.kind}:${source.key ?? ''}`;
 
 export const withActivity = (
   fleet: RunnerFleetResponseDto,
@@ -45,7 +45,7 @@ export const withActivity = (
   }));
   const unhosted = runners.filter((runner) => runner.hostId === null);
   const pools = [
-    ...new Set(unhosted.map((runner) => poolKeyOf(runner.through))),
+    ...new Set(unhosted.map((runner) => poolKeyOf(runner.source))),
   ];
 
   return {
@@ -55,11 +55,11 @@ export const withActivity = (
     })),
     pools: pools.flatMap((key) => {
       const pooled = unhosted.filter(
-        (runner) => poolKeyOf(runner.through) === key,
+        (runner) => poolKeyOf(runner.source) === key,
       );
       const first = pooled[0];
 
-      return first ? [{ through: first.through, runners: pooled }] : [];
+      return first ? [{ source: first.source, runners: pooled }] : [];
     }),
   };
 };
@@ -90,9 +90,9 @@ export const hostStatus = (host: Host): string => {
     : 'Idle';
 };
 
-export const through = (way: AdmittedThroughResponseDto): string => {
-  const kind = way.kind === 'pool' ? 'Pool' : 'Trust';
-  return way.key === null ? `${kind} deleted` : `${kind} ${way.key}`;
+export const sourceLabel = (source: CredentialSourceResponseDto): string => {
+  const kind = source.kind === 'pool' ? 'Pool' : 'Trust';
+  return source.key === null ? `${kind} deleted` : `${kind} ${source.key}`;
 };
 
 export const heartbeatAt = (host: Host): string =>
@@ -184,8 +184,8 @@ export const poolInFilter = (filter: RunnerFilter, pool: PushPool): boolean =>
   (filter === 'running' &&
     pool.runners.some((runner) => runner.currentRun !== null));
 
-export const poolName = (way: AdmittedThroughResponseDto): string =>
-  way.key ?? 'Deleted';
+export const poolName = (source: CredentialSourceResponseDto): string =>
+  source.key ?? 'Deleted';
 
 export const PUSH_POOL = 'Push pool';
 
@@ -260,7 +260,7 @@ export const connectedIn = (
 ): Host | undefined =>
   fleet?.hosts.find(
     (host) =>
-      host.online && host.through.kind === 'pool' && host.through.key === pool,
+      host.online && host.source.kind === 'pool' && host.source.key === pool,
   );
 
 const SUGGESTED_POOL = 'my-computer';

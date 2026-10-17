@@ -1,7 +1,7 @@
 import type { MemoryRelevancePort } from '@memory/application/ports/memory-relevance.port';
 import type { MemoryUsesPort } from '@memory/application/ports/memory-uses.port';
+import { ApplicableMemories } from '@memory/application/services/applicable-memories.service';
 import { MemoriesForBriefing } from '@memory/application/services/memories-for-briefing.service';
-import { MemoriesInReach } from '@memory/application/services/memories-in-reach.service';
 import { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import { MemoryBody } from '@memory/domain/value-objects/memory-body';
@@ -19,7 +19,7 @@ import { describe, expect, it, vi } from 'vitest';
 const TEAM = TeamId.of('team_1');
 const API = Repository.of('acme/api');
 
-const kept = (id: number, paths: string[] = []) =>
+const approved = (id: number, paths: string[] = []) =>
   Memory.write({
     id: MemoryId.of(`memory_${id}`),
     handle: MemoryHandle.of(id),
@@ -49,9 +49,9 @@ const briefing = (
   const rank = vi.fn(async () => ranks);
   const relevance = { rank } as unknown as MemoryRelevancePort;
   const memories = new MemoriesForBriefing(
-    new MemoriesInReach(
+    new ApplicableMemories(
       {
-        mayReach: async () => stored,
+        mayApplyAt: async () => stored,
         successorsOf: async () => [],
       } as unknown as MemoryRepository,
       relevance,
@@ -77,15 +77,18 @@ const briefing = (
 };
 
 describe('MemoriesForBriefing', () => {
-  it('never asks what the task touched when no memory in reach is about paths', async () => {
-    const { touched, brief } = briefing([kept(1)]);
+  it('never reads what the task touched when no applicable memory is about paths', async () => {
+    const { touched, brief } = briefing([approved(1)]);
 
     expect((await brief()).briefed.map((each) => each.handle)).toEqual(['M-1']);
     expect(touched).not.toHaveBeenCalled();
   });
 
-  it('asks what the task touched to reach a memory about paths', async () => {
-    const { touched, brief } = briefing([kept(1), kept(2, ['src/uploads'])]);
+  it('reads what the task touched to match a memory about paths', async () => {
+    const { touched, brief } = briefing([
+      approved(1),
+      approved(2, ['src/uploads']),
+    ]);
 
     expect((await brief()).briefed.map((each) => each.handle)).toEqual([
       'M-2',
@@ -95,9 +98,9 @@ describe('MemoriesForBriefing', () => {
   });
 
   it('briefs a memory about paths the task has not touched when its words match the task', async () => {
-    const aboutUploads = kept(3, ['src/uploads']);
+    const aboutUploads = approved(3, ['src/uploads']);
     const { brief, rank } = briefing(
-      [kept(1), aboutUploads],
+      [approved(1), aboutUploads],
       new Map([[aboutUploads.id.value, 0.02]]),
       [],
     );
@@ -112,7 +115,7 @@ describe('MemoriesForBriefing', () => {
   });
 
   it('points at the memory folder only when some memory applies', async () => {
-    expect((await briefing([kept(1)]).brief()).folder).toEqual({
+    expect((await briefing([approved(1)]).brief()).folder).toEqual({
       path: '.spotlight/memory',
       layout: [
         { folder: 'team/', level: 'the whole team' },

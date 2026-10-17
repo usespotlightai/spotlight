@@ -18,7 +18,7 @@ const recallUsage = `usage:
   spotlight recall M-12`
 
 const rememberUsage = `usage:
-  spotlight remember --kind <kind> --body "…" [--path <path>]... [--reach team|line|station] [--supersedes M-12]`
+  spotlight remember --kind <kind> --body "…" [--path <path>]... [--scope team|line|station] [--supersedes M-12]`
 
 var handleShape = regexp.MustCompile(`^[Mm]-\d+$`)
 
@@ -43,17 +43,17 @@ func recall(args []string, out io.Writer) error {
 		return fmt.Errorf("say what to look for\n%s", recallUsage)
 	}
 
-	asked := protocol.RecallRequest{Words: words}
+	request := protocol.RecallRequest{Words: words}
 	if handleShape.MatchString(words) {
-		asked = protocol.RecallRequest{Handle: strings.ToUpper(words)}
+		request = protocol.RecallRequest{Handle: strings.ToUpper(words)}
 	}
 
-	answered, err := memoryCall(protocol.AgentAPIRecallPath, asked, "recall")
+	answered, err := memoryCall(protocol.AgentAPIRecallPath, request, "recall")
 	if err != nil {
 		return err
 	}
 
-	if asked.Handle != "" {
+	if request.Handle != "" {
 		var memory protocol.RecalledMemory
 		if err := json.Unmarshal([]byte(answered), &memory); err != nil {
 			return fmt.Errorf("Spotlight answered with %q", answered)
@@ -89,7 +89,7 @@ func remember(args []string, in io.Reader, out io.Writer) error {
 
 	kind := flags.String("kind", "", "what kind of memory it is")
 	body := flags.String("body", "", "what to remember")
-	reach := flags.String("reach", "", "where it applies: team, line or station")
+	scope := flags.String("scope", "", "where it applies: team, line or station")
 	supersedes := flags.String("supersedes", "", "the memory it corrects, like M-12")
 	var bearing paths
 	flags.Var(&bearing, "path", "a file or folder it bears on")
@@ -125,7 +125,7 @@ func remember(args []string, in io.Reader, out io.Writer) error {
 	answered, err := memoryCall(protocol.AgentAPIRememberPath, protocol.Remembering{
 		Kind:       strings.TrimSpace(*kind),
 		Body:       memory,
-		Reach:      strings.TrimSpace(*reach),
+		Scope:      strings.TrimSpace(*scope),
 		Paths:      absolute,
 		Supersedes: strings.TrimSpace(*supersedes),
 	}, "remember")
@@ -140,20 +140,20 @@ func remember(args []string, in io.Reader, out io.Writer) error {
 
 	fmt.Fprintf(
 		out,
-		"Proposed %s for the %s: %s\nIt waits beside the task for a person to approve it; the team keeps it only then.\n",
-		strings.ReplaceAll(proposed.Kind, "-", " "), reachOf(proposed.Reach, proposed.Repository, proposed.Paths), proposed.Body,
+		"Proposed %s for the %s: %s\nIt waits beside the task for a person to approve it; it goes into the team's memory only then.\n",
+		strings.ReplaceAll(proposed.Kind, "-", " "), scopeOf(proposed.Scope, proposed.Repository, proposed.Paths), proposed.Body,
 	)
 
 	return nil
 }
 
-func memoryCall(path string, asked any, doing string) (string, error) {
+func memoryCall(path string, payload any, doing string) (string, error) {
 	endpoint, token := os.Getenv(protocol.AgentAPIURLVar), os.Getenv(protocol.AgentAPITokenVar)
 	if endpoint == "" || token == "" {
 		return "", fmt.Errorf("no run to %s from: spotlight runs inside a Spotlight workspace", doing)
 	}
 
-	body, err := json.Marshal(asked)
+	body, err := json.Marshal(payload)
 	if err != nil {
 		return "", err
 	}
@@ -165,7 +165,7 @@ func inBrief(memory protocol.RecalledMemory) string {
 	return fmt.Sprintf(
 		"%s · %s · %s\n  %s\n  %s\n",
 		memory.Handle, strings.ReplaceAll(memory.Kind, "-", " "),
-		reachOf(memory.Reach, memory.Repository, memory.Paths),
+		scopeOf(memory.Scope, memory.Repository, memory.Paths),
 		flat(memory.Body), groundsOf(memory),
 	)
 }
@@ -174,7 +174,7 @@ func inFull(memory protocol.RecalledMemory) string {
 	var shown strings.Builder
 
 	fmt.Fprintf(&shown, "%s · %s · %s\n\n%s\n\n", memory.Handle, strings.ReplaceAll(memory.Kind, "-", " "), memory.Status, memory.Body)
-	fmt.Fprintf(&shown, "Applies to the %s.\n", reachOf(memory.Reach, memory.Repository, memory.Paths))
+	fmt.Fprintf(&shown, "Applies to the %s.\n", scopeOf(memory.Scope, memory.Repository, memory.Paths))
 	fmt.Fprintf(&shown, "%s.\n", groundsOf(memory))
 
 	if memory.Grounds != nil {
@@ -210,8 +210,8 @@ func inFull(memory protocol.RecalledMemory) string {
 	return shown.String()
 }
 
-func reachOf(reach string, repository *string, bearing []string) string {
-	where := reach
+func scopeOf(scope string, repository *string, bearing []string) string {
+	where := scope
 	if repository != nil && *repository != "" {
 		where += ", in " + *repository
 		if len(bearing) > 0 {

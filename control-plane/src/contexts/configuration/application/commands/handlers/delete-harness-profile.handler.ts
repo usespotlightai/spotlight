@@ -1,5 +1,5 @@
 import type { DeleteHarnessProfileCommand } from '@configuration/application/commands/delete-harness-profile.command';
-import type { StationGifts } from '@configuration/application/services/station-gifts.service';
+import type { StationReferences } from '@configuration/application/services/station-references.service';
 import { HarnessProfileInUseError } from '@configuration/domain/exceptions/harness-profile-in-use.error';
 import { HarnessProfileVersionConflictError } from '@configuration/domain/exceptions/harness-profile-version-conflict.error';
 import type { HarnessProfileRepository } from '@configuration/domain/repositories/harness-profile.repository';
@@ -21,7 +21,7 @@ export class DeleteHarnessProfileHandler
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly profiles: HarnessProfileRepository,
-    private readonly given: StationGifts,
+    private readonly stationReferences: StationReferences,
     private readonly transaction: TransactionPort,
   ) {}
 
@@ -49,7 +49,10 @@ export class DeleteHarnessProfileHandler
 
       existing.assertVersion(command.expectedVersion);
 
-      const named = await this.given.onTeam(existing.teamId, 'profile');
+      const named = await this.stationReferences.onTeam(
+        existing.teamId,
+        'profile',
+      );
 
       await this.transaction.inTransaction(() =>
         this.profiles.save(

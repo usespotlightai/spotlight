@@ -64,9 +64,9 @@ interface Commit {
 const decoded = (base64: string): string =>
   Buffer.from(base64, 'base64').toString('utf8');
 
-const shaOf = (answer: Sha, asking: string): string => {
+const shaOf = (answer: Sha, operation: string): string => {
   if (!answer.sha) {
-    throw new UpstreamError(asking, 'GitHub answered without a sha');
+    throw new UpstreamError(operation, 'GitHub answered without a sha');
   }
 
   return answer.sha;

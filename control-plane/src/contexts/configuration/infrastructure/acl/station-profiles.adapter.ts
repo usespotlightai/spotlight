@@ -15,8 +15,8 @@ export class StationProfiles implements StationProfilesPort {
     teamId: TeamId,
     key: string,
   ): Promise<HarnessProfileShape | null> {
-    const kept = await this.resources.at(teamId, key);
-    const read = kept ? this.compiler.read(kept.definition) : null;
+    const record = await this.resources.at(teamId, key);
+    const read = record ? this.compiler.read(record.definition) : null;
 
     return read?.ok ? HarnessProfileShapeMapper.toShape(read) : null;
   }

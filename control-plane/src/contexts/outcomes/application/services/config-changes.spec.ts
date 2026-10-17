@@ -6,7 +6,7 @@ import type {
 import {
   type ConfigPair,
   configChangesOf,
-  fingerprintsAsked,
+  fingerprintsToRead,
 } from '@outcomes/application/services/config-changes';
 import { describe, expect, it } from 'vitest';
 
@@ -59,10 +59,10 @@ describe('config changes', () => {
     { previous: 'b2', next: 'b3' },
   ];
 
-  it('looks up the change of each asked pair, with pairs from several stations interleaved', () => {
+  it('looks up the change of each requested pair, with pairs from several stations interleaved', () => {
     const changes = configChangesOf(
       inOrder(
-        fingerprintsAsked(pairs),
+        fingerprintsToRead(pairs),
         new Set(['a1', 'a2', 'a3', 'b1', 'b2', 'b3', 'c1']),
       ),
     );
@@ -87,7 +87,7 @@ describe('config changes', () => {
 
   it('answers nothing for pairs naming an unknown fingerprint', () => {
     const changes = configChangesOf(
-      inOrder(fingerprintsAsked(pairs), new Set(['a1', 'a3', 'b1', 'b2'])),
+      inOrder(fingerprintsToRead(pairs), new Set(['a1', 'a3', 'b1', 'b2'])),
     );
 
     expect(changes.between({ previous: 'a1', next: 'a2' })).toEqual([]);

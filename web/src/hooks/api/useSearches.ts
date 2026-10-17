@@ -8,8 +8,8 @@ export const searchKeys = {
     ['searches', 'station', stationId ?? null] as const,
   detail: (searchId?: string) =>
     ['searches', 'detail', searchId ?? null] as const,
-  estimate: (stationId: string | undefined, asked: unknown) =>
-    ['searches', 'estimate', stationId ?? null, asked] as const,
+  estimate: (stationId: string | undefined, input: unknown) =>
+    ['searches', 'estimate', stationId ?? null, input] as const,
 };
 
 const POLL_MS = 10_000;

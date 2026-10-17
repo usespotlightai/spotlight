@@ -166,7 +166,7 @@ const seeded = async (
 describe('ReadInsightsChangesHandler', () => {
   it('opens each config change with the station’s tally before and after it and what changed, reading every config at once', async () => {
     const { scopes, reader } = await seeded();
-    const asked: (readonly string[])[] = [];
+    const requested: (readonly string[])[] = [];
     const handler = new ReadInsightsChangesHandler(
       scopes,
       reader,
@@ -174,7 +174,7 @@ describe('ReadInsightsChangesHandler', () => {
       {
         ...WORK,
         configsInOrder: (fingerprints) => {
-          asked.push(fingerprints);
+          requested.push(fingerprints);
           return WORK.configsInOrder(fingerprints);
         },
       },
@@ -203,7 +203,7 @@ describe('ReadInsightsChangesHandler', () => {
     ]);
     expect(marker?.judgeBefore).toEqual({ mean: 0, judged: 1 });
     expect(marker?.judgeAfter).toEqual({ mean: 1, judged: 1 });
-    expect(asked).toEqual([[FIRST_CONFIG, SECOND_CONFIG]]);
+    expect(requested).toEqual([[FIRST_CONFIG, SECOND_CONFIG]]);
   });
 
   it('opens a return to the earlier config as a change of its own, set against the stretch just before it', async () => {
@@ -212,7 +212,7 @@ describe('ReadInsightsChangesHandler', () => {
       ['run_6', 14, FIRST_CONFIG, 'sonnet', 'sent-back'],
       ['run_7', 15, FIRST_CONFIG, 'sonnet', 'closed'],
     ]);
-    const asked: (readonly string[])[] = [];
+    const requested: (readonly string[])[] = [];
     const handler = new ReadInsightsChangesHandler(
       scopes,
       reader,
@@ -220,7 +220,7 @@ describe('ReadInsightsChangesHandler', () => {
       {
         ...WORK,
         configsInOrder: (fingerprints) => {
-          asked.push(fingerprints);
+          requested.push(fingerprints);
           return WORK.configsInOrder(fingerprints);
         },
       },
@@ -245,7 +245,7 @@ describe('ReadInsightsChangesHandler', () => {
       ['run_5', SECOND_CONFIG, FIRST_CONFIG, 2, 3, 2, [['opus', 'sonnet']]],
     ]);
     expect(changes.markers[1]?.judgeBefore).toEqual({ mean: 1, judged: 1 });
-    expect(asked).toEqual([
+    expect(requested).toEqual([
       [FIRST_CONFIG, SECOND_CONFIG, SECOND_CONFIG, FIRST_CONFIG],
     ]);
   });
@@ -341,10 +341,10 @@ describe('ReadInsightsSetupsHandler', () => {
 describe('ReadInsightsMemoryHandler', () => {
   it('sets runs with memories against runs without, and names who flagged one wrong', async () => {
     const { scopes, reader, records } = await seeded();
-    const asked: unknown[] = [];
+    const requested: unknown[] = [];
     const memory: MemoryUsePort = {
       between: async (window) => {
-        asked.push(window.teamId.value);
+        requested.push(window.teamId.value);
         return {
           activeCount: 5,
           flagged: [
@@ -383,7 +383,7 @@ describe('ReadInsightsMemoryHandler', () => {
       new ReadInsightsMemoryQuery('team_1', ADA, '30d'),
     );
 
-    expect(asked).toEqual(['team_1']);
+    expect(requested).toEqual(['team_1']);
     expect(read.activeCount).toBe(5);
     expect(read.memoriesBriefed).toBe(2);
     expect(read.memoriesRecalled).toBe(1);

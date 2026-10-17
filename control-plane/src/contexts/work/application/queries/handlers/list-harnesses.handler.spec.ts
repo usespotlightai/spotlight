@@ -1,8 +1,8 @@
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type {
-  HostCredential,
-  RunnerAdmissionsPort,
-} from '@runners/application/ports/runner-admissions.port';
+  HostCredentials,
+  RunnerAuthenticatorPort,
+} from '@runners/application/ports/runner-authenticator.port';
 import type { RunnerReaderPort } from '@runners/application/ports/runner-reader.port';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -83,11 +83,11 @@ describe('listing harnesses for a workspace', () => {
   });
 
   describe('for a host looking for what its runners should carry', () => {
-    const admissions: RunnerAdmissionsPort = {
-      admit: async (credential: HostCredential) =>
+    const authenticator: RunnerAuthenticatorPort = {
+      authenticate: async (credential: HostCredentials) =>
         credential.bearer === 'pool-token'
           ? {
-              way: { kind: 'pool', id: 'pool_1' },
+              source: { kind: 'pool', id: 'pool_1' },
               workspaceId: WorkspaceId.of('ws_1'),
             }
           : null,
@@ -98,13 +98,13 @@ describe('listing harnesses for a workspace', () => {
 
       return {
         namedIn,
-        subject: new HostRequirementsHandler(launch, admissions, {
+        subject: new HostRequirementsHandler(launch, authenticator, {
           namedIn,
         } satisfies LineImagesPort),
       };
     };
 
-    it('tells an admitted host the least runner release, the harnesses to look for and the images its workspace’s lines name', async () => {
+    it('tells an authenticated host the least runner release, the harnesses to look for and the images its workspace’s lines name', async () => {
       const { subject, namedIn } = requirements();
 
       expect(
@@ -119,7 +119,7 @@ describe('listing harnesses for a workspace', () => {
       expect(namedIn).toHaveBeenCalledWith(WorkspaceId.of('ws_1'));
     });
 
-    it('answers nothing to a host no pool or trust admits', async () => {
+    it('answers nothing to a host that no pool or trust accepts', async () => {
       const { subject, namedIn } = requirements();
 
       expect(

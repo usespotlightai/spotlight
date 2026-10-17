@@ -2,7 +2,10 @@ import type { HarnessModel } from '@shared-kernel/domain/value-objects/harness-m
 import type { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import type { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
-import { type GivenToRun, givenAt } from '@work/domain/services/given-to-run';
+import {
+  type EnabledForRun,
+  enabledAt,
+} from '@work/domain/services/enabled-for-run';
 import type { HarnessCatalog } from '@work/domain/services/harness-catalog';
 import {
   checkoutsOf,
@@ -31,7 +34,7 @@ export interface RunOrder {
   readonly noteLimit: number;
   readonly continuity: Continuity;
   readonly checkouts: readonly TaskCheckout[];
-  readonly given: GivenToRun;
+  readonly enabled: EnabledForRun;
   readonly diffs: boolean;
   readonly check: StationCheck | null;
   readonly refusal: RunOutcome | null;
@@ -71,8 +74,8 @@ export const orderAt = ({
     return null;
   }
 
-  const given = givenAt(station, ready, profiles);
-  const refusals = [...denied, ...given.refusals];
+  const enabled = enabledAt(station, ready, profiles);
+  const refusals = [...denied, ...enabled.refusals];
 
   return {
     harness,
@@ -85,7 +88,7 @@ export const orderAt = ({
     noteLimit: 0,
     continuity: at.continuity,
     checkouts: at.checkouts,
-    given,
+    enabled,
     diffs: station.diffs,
     check: station.diffs ? station.check : null,
     refusal: refusals.length > 0 ? RunOutcome.refused(refusals) : null,

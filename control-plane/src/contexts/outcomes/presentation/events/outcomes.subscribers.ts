@@ -1,5 +1,4 @@
 import type { AlertInbox } from '@outcomes/application/services/alert-inbox.service';
-import type { AskForJudging } from '@outcomes/application/services/ask-for-judging.service';
 import type { DeleteOutcomes } from '@outcomes/application/services/delete-outcomes.service';
 import type { GradeAsides } from '@outcomes/application/services/grade-asides.service';
 import type { NoteChangeChecked } from '@outcomes/application/services/note-change-checked.service';
@@ -19,6 +18,7 @@ import type { NoteRunSuperseded } from '@outcomes/application/services/note-run-
 import type { NoteTaskFailed } from '@outcomes/application/services/note-task-failed.service';
 import type { NoteTaskTouch } from '@outcomes/application/services/note-task-touch.service';
 import type { RecordJudgeScore } from '@outcomes/application/services/record-judge-score.service';
+import type { RequestJudging } from '@outcomes/application/services/request-judging.service';
 import type { WatchStations } from '@outcomes/application/services/watch-stations.service';
 import type { RunJudged } from '@outcomes/domain/events/run-judged.event';
 import type { RunRecordEnded } from '@outcomes/domain/events/run-record-ended.event';
@@ -139,7 +139,7 @@ export interface OutcomesReactions {
   readonly opening: NotePullRequestOpened;
   readonly closing: NotePullRequestClosed;
   readonly deleting: DeleteOutcomes;
-  readonly judging: AskForJudging;
+  readonly judging: RequestJudging;
   readonly scoring: RecordJudgeScore;
   readonly grading: GradeAsides;
   readonly digesting: NoteRunDigested;

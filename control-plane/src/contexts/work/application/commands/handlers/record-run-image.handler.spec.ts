@@ -24,16 +24,16 @@ const claimed = () =>
     harness: HarnessId.of('claude-code'),
     spec: RunSpec.of({
       command: { executable: 'claude-agent-acp', args: [] },
-      briefing: 'work out what is being asked for',
+      briefing: 'work out what the request wants',
       handover: { options: [], noteLimit: 4_000 },
       continuity: { key: 'task-task_1' },
     }),
   }).claim(RunnerId.of('runner_1'), NOW);
 
-const recording = (given: { run?: Run | null; known?: boolean } = {}) => {
+const recording = (options: { run?: Run | null; known?: boolean } = {}) => {
   const save = vi.fn(async (_: Run) => {});
   const seen = vi.fn(async () =>
-    given.known === false
+    options.known === false
       ? null
       : {
           workspaceId: WorkspaceId.of('ws_1'),
@@ -46,7 +46,7 @@ const recording = (given: { run?: Run | null; known?: boolean } = {}) => {
   const handler = new RecordRunImageHandler(
     {
       findById: vi.fn(async () =>
-        given.run === undefined ? claimed() : given.run,
+        options.run === undefined ? claimed() : options.run,
       ),
       save,
     } as unknown as RunRepository,

@@ -135,7 +135,7 @@ func (c *Client) Register(ctx context.Context, in protocol.Registration) error {
 func (c *Client) Installable(ctx context.Context) ([]protocol.Installable, error) {
 	var out []protocol.Installable
 	if err := c.do(ctx, http.MethodGet, "/api/runners/harnesses", nil, &out); err != nil {
-		return nil, fmt.Errorf("ask what to look for: %w", err)
+		return nil, fmt.Errorf("read what to look for: %w", err)
 	}
 
 	return out, nil
@@ -193,18 +193,18 @@ func (c *Client) Trace(
 }
 
 func (c *Client) History(
-	ctx context.Context, runID string, asked protocol.HistoryRequest,
+	ctx context.Context, runID string, request protocol.HistoryRequest,
 ) (json.RawMessage, error) {
-	query := url.Values{"station": {asked.Station}}
+	query := url.Values{"station": {request.Station}}
 	for name, value := range map[string]string{
-		"line": asked.Line, "fingerprint": asked.Fingerprint, "outcome": asked.Outcome, "since": asked.Since,
+		"line": request.Line, "fingerprint": request.Fingerprint, "outcome": request.Outcome, "since": request.Since,
 	} {
 		if value != "" {
 			query.Set(name, value)
 		}
 	}
-	if asked.Last > 0 {
-		query.Set("last", strconv.Itoa(asked.Last))
+	if request.Last > 0 {
+		query.Set("last", strconv.Itoa(request.Last))
 	}
 
 	var out json.RawMessage
@@ -213,20 +213,20 @@ func (c *Client) History(
 	if err := c.do(ctx, http.MethodGet, path, nil, &out); err != nil {
 		var rejection *ResponseError
 		if errors.As(err, &rejection) && rejection.IsNotFound() {
-			rejection.Message = unknownStation(asked)
+			rejection.Message = unknownStation(request)
 		}
-		return nil, fmt.Errorf("read the history of %s: %w", asked.Station, err)
+		return nil, fmt.Errorf("read the history of %s: %w", request.Station, err)
 	}
 
 	return out, nil
 }
 
-func unknownStation(asked protocol.HistoryRequest) string {
-	if asked.Line != "" {
-		return fmt.Sprintf("line %q has no station %q in this team", asked.Line, asked.Station)
+func unknownStation(request protocol.HistoryRequest) string {
+	if request.Line != "" {
+		return fmt.Sprintf("line %q has no station %q in this team", request.Line, request.Station)
 	}
 
-	return fmt.Sprintf("no line in this team has a station %q", asked.Station)
+	return fmt.Sprintf("no line in this team has a station %q", request.Station)
 }
 
 func (c *Client) RecallMemories(
@@ -234,11 +234,11 @@ func (c *Client) RecallMemories(
 ) (json.RawMessage, error) {
 	var out json.RawMessage
 	path := fmt.Sprintf("/api/runs/%s/memories/recall", url.PathEscape(runID))
-	asked := struct {
+	body := struct {
 		Words string `json:"words"`
 	}{Words: words}
 
-	if err := c.do(ctx, http.MethodPost, path, asked, &out); err != nil {
+	if err := c.do(ctx, http.MethodPost, path, body, &out); err != nil {
 		return nil, fmt.Errorf("recall: %w", err)
 	}
 
@@ -351,8 +351,8 @@ func (c *Client) ClaimCall(ctx context.Context, host string) (*protocol.HostCall
 	defer cancel()
 
 	var call protocol.HostCall
-	asked := protocol.HostCallClaim{Host: host}
-	status, err := c.request(ctx, http.MethodPost, protocol.HostCallClaimPath, asked, &call)
+	body := protocol.HostCallClaim{Host: host}
+	status, err := c.request(ctx, http.MethodPost, protocol.HostCallClaimPath, body, &call)
 	if err != nil {
 		return nil, fmt.Errorf("claim a call: %w", err)
 	}
@@ -447,15 +447,15 @@ func (c *Client) Complete(ctx context.Context, runID string, done protocol.Compl
 	return completed, nil
 }
 
-func (c *Client) Asks(ctx context.Context, runID string, turn protocol.Completion) (bool, error) {
-	path := fmt.Sprintf("/api/runs/%s/completion/asks", url.PathEscape(runID))
+func (c *Client) AwaitsPerson(ctx context.Context, runID string, turn protocol.Completion) (bool, error) {
+	path := fmt.Sprintf("/api/runs/%s/completion/awaits-person", url.PathEscape(runID))
 
-	var asks protocol.TurnAsks
-	if err := c.do(ctx, http.MethodPost, path, turn, &asks); err != nil {
-		return false, fmt.Errorf("ask whether the turn waits: %w", err)
+	var answer protocol.TurnAwaitsPerson
+	if err := c.do(ctx, http.MethodPost, path, turn, &answer); err != nil {
+		return false, fmt.Errorf("read whether the turn waits for a person: %w", err)
 	}
 
-	return asks.Asks, nil
+	return answer.AwaitsPerson, nil
 }
 
 func (c *Client) Suspend(ctx context.Context, runID string, requeue bool) (protocol.Suspension, error) {
@@ -500,7 +500,7 @@ func (c *Client) WorkspaceArchive(ctx context.Context, runID string) (*protocol.
 	var stored protocol.StoredArchive
 	status, err := c.request(ctx, http.MethodGet, path, nil, &stored)
 	if err != nil {
-		return nil, fmt.Errorf("ask for the workspace to restore: %w", err)
+		return nil, fmt.Errorf("read the workspace to restore: %w", err)
 	}
 	if status == http.StatusNoContent {
 		return nil, nil
@@ -515,9 +515,9 @@ func (c *Client) GrantArchive(
 	path := fmt.Sprintf("/api/runs/%s/workspace-archive", url.PathEscape(runID))
 
 	var granted protocol.ArchiveGrant
-	asked := protocol.ArchiveRequest{Size: size, SHA256: sha256}
-	if err := c.do(ctx, http.MethodPost, path, asked, &granted); err != nil {
-		return protocol.ArchiveGrant{}, fmt.Errorf("ask to keep the workspace: %w", err)
+	body := protocol.ArchiveRequest{Size: size, SHA256: sha256}
+	if err := c.do(ctx, http.MethodPost, path, body, &granted); err != nil {
+		return protocol.ArchiveGrant{}, fmt.Errorf("request a workspace archive: %w", err)
 	}
 
 	return granted, nil
@@ -530,7 +530,7 @@ func (c *Client) SealArchive(ctx context.Context, runID, archiveID string) error
 	)
 
 	if err := c.do(ctx, http.MethodPost, path, nil, nil); err != nil {
-		return fmt.Errorf("seal the workspace kept: %w", err)
+		return fmt.Errorf("seal the workspace archive: %w", err)
 	}
 
 	return nil
@@ -596,30 +596,30 @@ func (c *Client) RenewCheckLease(ctx context.Context, runID, stackID string, rec
 
 func (c *Client) FetchRunSecrets(ctx context.Context, recipient string) (protocol.EgressSecrets, error) {
 	var fetched protocol.EgressSecrets
-	asked := protocol.EgressSecretsRequest{Recipient: recipient}
-	if err := c.do(ctx, http.MethodPost, "/api/egress/secrets", asked, &fetched); err != nil {
+	body := protocol.EgressSecretsRequest{Recipient: recipient}
+	if err := c.do(ctx, http.MethodPost, "/api/egress/secrets", body, &fetched); err != nil {
 		return protocol.EgressSecrets{}, fmt.Errorf("fetch the run's secrets: %w", err)
 	}
 
 	return fetched, nil
 }
 
-func (c *Client) AdmitEgress(ctx context.Context, proxyCredential string) (protocol.EgressAdmitted, error) {
-	var admitted protocol.EgressAdmitted
-	asked := protocol.EgressAdmit{ProxyCredential: proxyCredential}
-	if err := c.do(ctx, http.MethodPost, "/api/egress/admit", asked, &admitted); err != nil {
-		return protocol.EgressAdmitted{}, fmt.Errorf("admit a sandbox: %w", err)
+func (c *Client) AuthorizeEgress(ctx context.Context, proxyCredential string) (protocol.EgressAuthorizeResponse, error) {
+	var authorized protocol.EgressAuthorizeResponse
+	body := protocol.EgressAuthorizeRequest{ProxyCredential: proxyCredential}
+	if err := c.do(ctx, http.MethodPost, "/api/egress/authorize", body, &authorized); err != nil {
+		return protocol.EgressAuthorizeResponse{}, fmt.Errorf("authorize a sandbox: %w", err)
 	}
 
-	return admitted, nil
+	return authorized, nil
 }
 
 func (c *Client) FetchRunSecretsFor(
 	ctx context.Context, proxyCredential, recipient string,
 ) (protocol.EgressSecrets, error) {
 	var fetched protocol.EgressSecrets
-	asked := protocol.EgressSecretsRequest{ProxyCredential: proxyCredential, Recipient: recipient}
-	if err := c.do(ctx, http.MethodPost, "/api/egress/secrets", asked, &fetched); err != nil {
+	body := protocol.EgressSecretsRequest{ProxyCredential: proxyCredential, Recipient: recipient}
+	if err := c.do(ctx, http.MethodPost, "/api/egress/secrets", body, &fetched); err != nil {
 		return protocol.EgressSecrets{}, fmt.Errorf("fetch a run's secrets: %w", err)
 	}
 
@@ -628,17 +628,17 @@ func (c *Client) FetchRunSecretsFor(
 
 func (c *Client) ActiveRuns(ctx context.Context, proxyCredentials []string) ([]string, error) {
 	var answer protocol.ActiveRunsResponse
-	asked := protocol.ActiveRunsRequest{ProxyCredentials: proxyCredentials}
-	if err := c.do(ctx, http.MethodPost, "/api/egress/active-runs", asked, &answer); err != nil {
-		return nil, fmt.Errorf("ask which runs are active: %w", err)
+	body := protocol.ActiveRunsRequest{ProxyCredentials: proxyCredentials}
+	if err := c.do(ctx, http.MethodPost, "/api/egress/active-runs", body, &answer); err != nil {
+		return nil, fmt.Errorf("read which runs are active: %w", err)
 	}
 
 	return answer.Active, nil
 }
 
 func (c *Client) RecordConnections(ctx context.Context, records []protocol.EgressConnection) error {
-	asked := protocol.EgressConnections{Records: records}
-	if err := c.do(ctx, http.MethodPost, "/api/egress/connections", asked, nil); err != nil {
+	body := protocol.EgressConnections{Records: records}
+	if err := c.do(ctx, http.MethodPost, "/api/egress/connections", body, nil); err != nil {
 		return fmt.Errorf("record connections: %w", err)
 	}
 

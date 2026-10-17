@@ -377,18 +377,18 @@ describe('inviting people to a workspace (e2e)', () => {
       .expect(200);
     await db.delete(schema.user).where(eq(schema.user.id, lin));
 
-    const [kept] = (await as(seat.owner).get(invites).expect(200)).body.filter(
-      (each: { email: string }) => each.email === emailOf(joan),
-    );
+    const [remaining] = (
+      await as(seat.owner).get(invites).expect(200)
+    ).body.filter((each: { email: string }) => each.email === emailOf(joan));
 
-    expect(kept.invitedBy).toBeNull();
+    expect(remaining.invitedBy).toBeNull();
     await http()
       .get(`/api/invites/${tokenFor(emailOf(joan))}`)
       .expect(200)
       .expect((read) => expect(read.body.invitedBy).toBeNull());
 
     const again = await as(seat.owner)
-      .post(`${invites}/${kept.id}/resend`)
+      .post(`${invites}/${remaining.id}/resend`)
       .expect(200);
 
     expect(again.body.invitedBy).toMatchObject({ id: seat.owner });

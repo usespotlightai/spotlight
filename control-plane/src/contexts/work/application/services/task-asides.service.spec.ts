@@ -50,7 +50,7 @@ const asiding = (input: { task?: boolean } = {}) => {
 };
 
 describe('TaskAsides', () => {
-  it('raises an aside on a task once, however often it is asked', async () => {
+  it('raises an aside on a task once, however often it is requested', async () => {
     const { asides, stored } = asiding();
 
     await asides.raise(MEMORIES);

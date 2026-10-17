@@ -17,7 +17,7 @@ import {
   TEAM_INTEGRATIONS,
   type TeamIntegrationsPort,
 } from '@work/application/ports/team-integrations.port';
-import { givenIntegrations } from '@work/domain/services/given-integrations';
+import { enabledIntegrations } from '@work/domain/services/enabled-integrations';
 import { DrizzleTaskRepository } from '@work/infrastructure/persistence/drizzle/repositories/task.repository';
 import { and, eq, sql } from 'drizzle-orm';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
@@ -39,7 +39,7 @@ interface InboxItem {
   readonly taskId: string;
 }
 
-interface Heard {
+interface ReceivedRequest {
   readonly path: string;
   readonly form: URLSearchParams;
 }
@@ -57,7 +57,7 @@ const answer = (reply: ServerResponse, body: unknown, status = 200) => {
   reply.end(JSON.stringify(body));
 };
 
-const authorizing = (asked: Heard[]) => {
+const authorizing = (received: ReceivedRequest[]) => {
   return async (
     request: IncomingMessage,
     reply: ServerResponse,
@@ -88,7 +88,7 @@ const authorizing = (asked: Heard[]) => {
     }
 
     if (path === '/as/register' && request.method === 'POST') {
-      asked.push({ path, form: new URLSearchParams() });
+      received.push({ path, form: new URLSearchParams() });
       answer(reply, { client_id: 'dcr-client', client_secret: 'dcr-secret' });
       return true;
     }
@@ -96,7 +96,7 @@ const authorizing = (asked: Heard[]) => {
     if (path === '/as/token' && request.method === 'POST') {
       const form = new URLSearchParams(await bodyOf(request));
 
-      asked.push({ path, form });
+      received.push({ path, form });
       answer(reply, {
         access_token: ISSUED,
         refresh_token: 'issued-refresh',
@@ -114,7 +114,7 @@ let db: DrizzleDatabase;
 let team: Awaited<ReturnType<typeof createTeam>>;
 let tracker: FakeMcpServer;
 let guarded: FakeMcpServer;
-const authorized: Heard[] = [];
+const authorized: ReceivedRequest[] = [];
 
 const http = () => served(app);
 
@@ -393,7 +393,7 @@ describe('an integration naming a remote MCP server (e2e)', () => {
         approval: { because: 'It changes data in Tracker.' },
       }),
     ]);
-    expect(givenIntegrations(declared)).toEqual([
+    expect(enabledIntegrations(declared)).toEqual([
       { name: 'Tracker', tools: 2 },
     ]);
   });
@@ -605,7 +605,7 @@ describe('an integration naming a remote MCP server (e2e)', () => {
 
     expect(reread.described.problem).toBeNull();
     expect(
-      guarded.heard.some(
+      guarded.received.some(
         (each) =>
           each.path === '/mcp' && each.authorization === `Bearer ${ISSUED}`,
       ),

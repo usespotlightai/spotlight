@@ -48,7 +48,7 @@ export const generatedTools = (input: {
   const kind = input.described.kind;
   const chosen = input.operations.filter(
     (each) =>
-      input.filter.admits(each.name) && !input.handWritten.includes(each.name),
+      input.filter.matches(each.name) && !input.handWritten.includes(each.name),
   );
 
   if (chosen.length > MAX_GENERATED) {
@@ -71,7 +71,7 @@ export const generatedTools = (input: {
 
     if (approval && operation.takes(APPROVAL_INTENT_INPUT)) {
       passedOver.push(
-        `passes over ${operation.name}. It needs approval and takes ${APPROVAL_INTENT_INPUT}, an input that Spotlight keeps for the agent to say what it wants to do. To offer it, switch its approval off in ${kind}.tools.approval`,
+        `passes over ${operation.name}. It needs approval and takes ${APPROVAL_INTENT_INPUT}, an input that Spotlight reserves for the agent to say what it wants to do. To offer it, switch its approval off in ${kind}.tools.approval`,
       );
       continue;
     }

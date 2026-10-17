@@ -34,7 +34,7 @@ func (c *Client) ForRun(assignment protocol.Assignment) (serve.RunClient, error)
 func (c *Client) Requirements(ctx context.Context) (protocol.HostRequirements, error) {
 	var out protocol.HostRequirements
 	if _, err := c.control.Request(ctx, http.MethodGet, "/api/hosts/requirements", nil, &out); err != nil {
-		return protocol.HostRequirements{}, fmt.Errorf("ask what to serve: %w", err)
+		return protocol.HostRequirements{}, fmt.Errorf("read what to serve: %w", err)
 	}
 
 	return out, nil

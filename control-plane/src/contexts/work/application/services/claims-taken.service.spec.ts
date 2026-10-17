@@ -23,7 +23,7 @@ const claimed = () =>
     harness: HarnessId.of('claude-code'),
     spec: RunSpec.of({
       command: { executable: 'claude-agent-acp', args: [] },
-      briefing: 'work out what is being asked for',
+      briefing: 'work out what the request wants',
       handover: { options: [], noteLimit: 4_000 },
       continuity: { key: 'task-task_1' },
     }),

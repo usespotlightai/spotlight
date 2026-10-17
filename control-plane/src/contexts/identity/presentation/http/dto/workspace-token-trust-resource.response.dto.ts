@@ -25,7 +25,7 @@ export class WorkspaceTokenTrustResourceResponseDto extends ResourceResponseDto 
 
   @ApiProperty({
     example: 'spotlight',
-    description: 'The audience the workload must ask its issuer for',
+    description: 'The audience the workload must request from its issuer',
   })
   readonly audience: string;
 
@@ -49,7 +49,7 @@ export class WorkspaceTokenTrustResourceResponseDto extends ResourceResponseDto 
     enum: TOKEN_SCOPES,
     isArray: true,
     example: ['configure', 'secrets'],
-    description: 'The scopes every token it issues is given',
+    description: 'The scopes of every token it issues',
   })
   readonly scopes: readonly string[];
 
@@ -58,7 +58,7 @@ export class WorkspaceTokenTrustResourceResponseDto extends ResourceResponseDto 
     example: 15,
     minimum: 1,
     maximum: 60,
-    description: 'How many minutes a token it issues admits its bearer',
+    description: 'How many minutes a token it issues stays valid',
   })
   readonly lifetimeMinutes: number;
 

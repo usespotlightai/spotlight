@@ -19,12 +19,13 @@ export class ImportWorkspaceHandler
     query: ImportWorkspaceQuery,
   ): Promise<WorkspaceResourceDto | null> {
     try {
-      const kept = await this.resources.workspaceWithSlug(
+      const record = await this.resources.workspaceWithSlug(
         WorkspaceSlug.of(query.address).value,
       );
 
-      return kept && (await this.access.permissionsIn(kept.id, query.principal))
-        ? ResourceMapper.workspace(kept)
+      return record &&
+        (await this.access.permissionsIn(record.id, query.principal))
+        ? ResourceMapper.workspace(record)
         : null;
     } catch (error) {
       rethrowAsApplicationError(error);

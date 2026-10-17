@@ -6,7 +6,7 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export interface ChatStartedHeard {
+export interface ChatStartedReceived {
   readonly chatId: string;
   readonly workspaceId: string;
   readonly teamId: string;
@@ -21,15 +21,15 @@ export class NoteChatStarted {
     private readonly transaction: TransactionPort,
   ) {}
 
-  started(heard: ChatStartedHeard): Promise<void> {
+  started(event: ChatStartedReceived): Promise<void> {
     return this.transaction.inTransaction(async () => {
-      const workspaceId = WorkspaceId.of(heard.workspaceId);
-      const teamId = TeamId.of(heard.teamId);
+      const workspaceId = WorkspaceId.of(event.workspaceId);
+      const teamId = TeamId.of(event.teamId);
 
       await this.deletions.lockDeletion(workspaceId, null, teamId);
 
       if (
-        (await this.chats.of(heard.chatId)) ||
+        (await this.chats.of(event.chatId)) ||
         (await this.deletions.isDeleted(workspaceId, null, teamId))
       ) {
         return;
@@ -37,11 +37,11 @@ export class NoteChatStarted {
 
       await this.chats.add(
         ChatRecord.start({
-          chatId: heard.chatId,
+          chatId: event.chatId,
           workspaceId,
           teamId,
-          startedBy: UserId.of(heard.by),
-          startedAt: new Date(heard.at),
+          startedBy: UserId.of(event.by),
+          startedAt: new Date(event.at),
         }),
       );
     });

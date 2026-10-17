@@ -1,4 +1,4 @@
-import type { HostCredential } from '@runners/application/ports/runner-admissions.port';
+import type { HostCredentials } from '@runners/application/ports/runner-authenticator.port';
 import type { ReportedImage } from '@runners/domain/value-objects/host-image.vo';
 
 export interface ReportedHost {
@@ -12,7 +12,7 @@ export interface ReportedHost {
 
 export class HostHeartbeatCommand {
   constructor(
-    readonly credential: HostCredential,
+    readonly credential: HostCredentials,
     readonly hostId: string,
     readonly bootId: string,
     readonly report: ReportedHost,
@@ -21,7 +21,7 @@ export class HostHeartbeatCommand {
 
 export class DeregisterHostCommand {
   constructor(
-    readonly credential: HostCredential,
+    readonly credential: HostCredentials,
     readonly hostId: string,
   ) {}
 }

@@ -80,21 +80,22 @@ const leaseExpiredRun = () => {
 };
 
 const fetching = (
-  admitted: EgressFor | null,
+  egressFor: EgressFor | null,
   run: Run | null = leasedRun(),
   after: Run | null = run,
   shared: SharedEgressFor | null = null,
 ) => {
-  const asked: RunSecretFetch[] = [];
+  const fetchesMade: RunSecretFetch[] = [];
   const lost: string[] = [];
   const issued: RunTokenWanted[] = [];
   const revoked: string[] = [];
   const found = [run, after];
   const egress: RunnerEgressPort = {
-    admit: async (token) => (token === 'egress-token' ? admitted : null),
+    authenticate: async (token) =>
+      token === 'egress-token' ? egressFor : null,
     sharedWith: async (token) =>
       token === 'shared-token' ? { egressId: 'egress_1' } : null,
-    admitThrough: async (through, credential) =>
+    authorizeRunner: async (through, credential) =>
       through.egressId === 'egress_1' && credential === 'proxy-credential'
         ? shared
         : null,
@@ -107,7 +108,7 @@ const fetching = (
     } as unknown as RunRepository,
     {
       fetchSecrets: async (wanted) => {
-        asked.push(wanted);
+        fetchesMade.push(wanted);
         return FETCHED;
       },
       sealedFor: (sealed) => `sealed(${sealed.name}=${sealed.value})`,
@@ -139,7 +140,7 @@ const fetching = (
   const handler = new FetchRunSecretsHandler(egress, fetches, clock);
   const through = new FetchSharedRunSecretsHandler(egress, fetches, clock);
 
-  return { handler, through, asked, lost, issued, revoked };
+  return { handler, through, fetches: fetchesMade, lost, issued, revoked };
 };
 
 const LEASED_RUN: EgressFor = {
@@ -150,7 +151,7 @@ const LEASED_RUN: EgressFor = {
 
 describe('FetchRunSecretsHandler', () => {
   it('fetches the secrets of the leased run, for the recipient that egress names', async () => {
-    const { handler, asked } = fetching(LEASED_RUN);
+    const { handler, fetches } = fetching(LEASED_RUN);
 
     await expect(
       handler.execute(
@@ -159,12 +160,12 @@ describe('FetchRunSecretsHandler', () => {
     ).resolves.toEqual({
       outcome: 'fetched',
       runId: 'run_1',
-      reaches: ['storage.example.com'],
+      extraAllowedHosts: ['storage.example.com'],
       bound: ['mcp.linear.app'],
       ...FETCHED,
       spotlightApi: null,
     });
-    expect(asked).toEqual([
+    expect(fetches).toEqual([
       {
         workspaceId: 'ws_1',
         runId: 'run_1',
@@ -176,17 +177,17 @@ describe('FetchRunSecretsHandler', () => {
     ]);
   });
 
-  it('rejects a token that admits no egress', async () => {
-    const { handler, asked } = fetching(LEASED_RUN);
+  it('rejects a token that matches no egress', async () => {
+    const { handler, fetches } = fetching(LEASED_RUN);
 
     await expect(
       handler.execute(new FetchRunSecretsCommand('other', 'recipient-key')),
     ).resolves.toEqual({ outcome: 'unauthorized' });
-    expect(asked).toEqual([]);
+    expect(fetches).toEqual([]);
   });
 
-  it('gives a check only what every sandbox reaches', async () => {
-    const { handler, asked } = fetching({
+  it('sends a check only the hosts that every sandbox may connect to', async () => {
+    const { handler, fetches } = fetching({
       ...LEASED_RUN,
       work: { kind: 'check', id: 'stack_1' },
     });
@@ -198,13 +199,13 @@ describe('FetchRunSecretsHandler', () => {
     ).resolves.toEqual({
       outcome: 'fetched',
       runId: null,
-      reaches: ['storage.example.com'],
+      extraAllowedHosts: ['storage.example.com'],
       bound: [],
       secrets: [],
       denied: [],
       spotlightApi: null,
     });
-    expect(asked).toEqual([]);
+    expect(fetches).toEqual([]);
   });
 
   it('fetches nothing for a run another runner leases, or one in another workspace', async () => {
@@ -213,27 +214,27 @@ describe('FetchRunSecretsHandler', () => {
       leasedRun('ws_2'),
       null,
     ]) {
-      const { handler, asked } = fetching(LEASED_RUN, run);
+      const { handler, fetches } = fetching(LEASED_RUN, run);
 
       await expect(
         handler.execute(
           new FetchRunSecretsCommand('egress-token', 'recipient-key'),
         ),
       ).resolves.toMatchObject({ outcome: 'fetched', secrets: [] });
-      expect(asked).toEqual([]);
+      expect(fetches).toEqual([]);
     }
   });
 
   it('fetches for the attempt that leases the run, once it is leased again', async () => {
     const again = leaseExpiredRun().claim(RunnerId.of(RUNNER), NOW);
-    const { handler, asked } = fetching(LEASED_RUN, again);
+    const { handler, fetches } = fetching(LEASED_RUN, again);
 
     await expect(
       handler.execute(
         new FetchRunSecretsCommand('egress-token', 'recipient-key'),
       ),
     ).resolves.toMatchObject({ outcome: 'fetched', runId: 'run_1' });
-    expect(asked.map((each) => each.attempt)).toEqual([2]);
+    expect(fetches.map((each) => each.attempt)).toEqual([2]);
   });
 
   it('ends the lease’s grants when the run ends or is cancelled while it fetches', async () => {
@@ -245,7 +246,11 @@ describe('FetchRunSecretsHandler', () => {
     const reclaimed = leaseExpiredRun().claim(RunnerId.of(RUNNER), NOW);
 
     for (const after of [ended, expired, reclaimed]) {
-      const { handler, asked, lost } = fetching(LEASED_RUN, leasedRun(), after);
+      const { handler, fetches, lost } = fetching(
+        LEASED_RUN,
+        leasedRun(),
+        after,
+      );
 
       await expect(
         handler.execute(
@@ -256,12 +261,12 @@ describe('FetchRunSecretsHandler', () => {
         runId: null,
         secrets: [],
       });
-      expect(asked).toHaveLength(1);
+      expect(fetches).toHaveLength(1);
       expect(lost).toEqual(['ws_1/run_1#1']);
     }
   });
 
-  it('issues a plan token for a run that reaches Spotlight’s API, as whoever started its chat, sealed to egress', async () => {
+  it('issues a plan token for a run that uses Spotlight’s API, as whoever started its chat, sealed to egress', async () => {
     const { handler, issued } = fetching(
       LEASED_RUN,
       leasedRun('ws_1', RUNNER, { spotlightApi: true, injectedSecrets: [] }),
@@ -289,14 +294,14 @@ describe('FetchRunSecretsHandler', () => {
   });
 
   it('revokes the earlier token of the lease before it issues another', async () => {
-    const reaching = leasedRun('ws_1', RUNNER, {
+    const usingApi = leasedRun('ws_1', RUNNER, {
       spotlightApi: true,
       injectedSecrets: [],
     });
     const { handler, revoked, issued } = fetching(
       LEASED_RUN,
-      reaching,
-      reaching,
+      usingApi,
+      usingApi,
     );
 
     await handler.execute(
@@ -307,7 +312,7 @@ describe('FetchRunSecretsHandler', () => {
     expect(issued).toHaveLength(1);
   });
 
-  it('issues no token for a run that does not reach Spotlight’s API', async () => {
+  it('issues no token for a run that does not use Spotlight’s API', async () => {
     const { handler, issued } = fetching(LEASED_RUN);
 
     await expect(
@@ -319,10 +324,10 @@ describe('FetchRunSecretsHandler', () => {
   });
 
   it('revokes the token it issued when the run is cancelled while it fetches', async () => {
-    const reaching = () =>
+    const usingApi = () =>
       leasedRun('ws_1', RUNNER, { spotlightApi: true, injectedSecrets: [] });
-    const expired = reaching().expireLease(reaching().leaseExpiresAt as Date);
-    const { handler, revoked } = fetching(LEASED_RUN, reaching(), expired);
+    const expired = usingApi().expireLease(usingApi().leaseExpiresAt as Date);
+    const { handler, revoked } = fetching(LEASED_RUN, usingApi(), expired);
 
     await expect(
       handler.execute(
@@ -337,7 +342,12 @@ describe('FetchSharedRunSecretsHandler', () => {
   const SHARED: SharedEgressFor = { ...LEASED_RUN, egressId: 'egress_1' };
 
   it('fetches for the run of the proxy credential, pinned to the shared egress', async () => {
-    const { through, asked } = fetching(null, leasedRun(), leasedRun(), SHARED);
+    const { through, fetches } = fetching(
+      null,
+      leasedRun(),
+      leasedRun(),
+      SHARED,
+    );
 
     await expect(
       through.execute(
@@ -352,17 +362,17 @@ describe('FetchSharedRunSecretsHandler', () => {
       runId: 'run_1',
       bound: ['mcp.linear.app'],
     });
-    expect(asked).toMatchObject([
+    expect(fetches).toMatchObject([
       { recipient: 'node-key', sharedEgress: 'egress_1' },
     ]);
   });
 
-  it('rejects an unknown egress token, or a proxy credential that admits no runner', async () => {
+  it('rejects an unknown egress token, or a proxy credential that matches no runner', async () => {
     for (const [token, credential] of [
       ['other', 'proxy-credential'],
       ['shared-token', 'another-credential'],
     ]) {
-      const { through, asked } = fetching(
+      const { through, fetches } = fetching(
         null,
         leasedRun(),
         leasedRun(),
@@ -374,16 +384,16 @@ describe('FetchSharedRunSecretsHandler', () => {
           new FetchSharedRunSecretsCommand(token, credential, 'node-key'),
         ),
       ).resolves.toEqual({ outcome: 'unauthorized' });
-      expect(asked).toEqual([]);
+      expect(fetches).toEqual([]);
     }
   });
 
   it('tells egress to wait while the runner has no run, or has lost it', async () => {
-    for (const [admitted, run] of [
+    for (const [egressFor, run] of [
       [{ ...SHARED, work: null }, leasedRun()],
       [SHARED, leasedRun('ws_1', 'runner_2')],
     ] as const) {
-      const { through, asked } = fetching(null, run, run, admitted);
+      const { through, fetches } = fetching(null, run, run, egressFor);
 
       await expect(
         through.execute(
@@ -394,11 +404,11 @@ describe('FetchSharedRunSecretsHandler', () => {
           ),
         ),
       ).resolves.toEqual({ outcome: 'waiting' });
-      expect(asked).toEqual([]);
+      expect(fetches).toEqual([]);
     }
   });
 
-  it('answers a leased run that injects no secrets, so egress stops asking', async () => {
+  it('answers a leased run that injects no secrets, so egress stops requesting', async () => {
     const plain = leasedRun('ws_1', RUNNER, { injectedSecrets: [] });
     const { through } = fetching(null, plain, plain, SHARED);
 
@@ -417,12 +427,12 @@ describe('FetchSharedRunSecretsHandler', () => {
     });
   });
 
-  it('binds the control plane host when the run reaches Spotlight’s API', async () => {
-    const reaching = leasedRun('ws_1', RUNNER, {
+  it('binds the control plane host when the run uses Spotlight’s API', async () => {
+    const usingApi = leasedRun('ws_1', RUNNER, {
       spotlightApi: true,
       injectedSecrets: [],
     });
-    const { through } = fetching(null, reaching, reaching, SHARED);
+    const { through } = fetching(null, usingApi, usingApi, SHARED);
 
     await expect(
       through.execute(

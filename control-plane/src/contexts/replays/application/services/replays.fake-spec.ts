@@ -12,7 +12,7 @@ import type {
   CancelledRun,
   ExaminedCandidate,
   LeasedSearchRun,
-  OracleAnswerAsked,
+  OracleAnswerInput,
   ReplayRunOrder,
   ReplayRunQueued,
   RunReplayability,
@@ -351,12 +351,12 @@ export class FakeWork implements WorkPort {
 
   recentAt = async () => [];
 
-  cancelled: { run: string; keep: boolean }[] = [];
+  cancelled: { run: string; leaveRunAsIs: boolean }[] = [];
 
   queuedRuns = new Set<string>();
 
-  cancel = async (run: RunId, keep: boolean): Promise<CancelledRun> => {
-    this.cancelled.push({ run: run.value, keep });
+  cancel = async (run: RunId, leaveRunAsIs: boolean): Promise<CancelledRun> => {
+    this.cancelled.push({ run: run.value, leaveRunAsIs });
     return this.queuedRuns.has(run.value)
       ? { queued: true, fingerprint: FINGERPRINT }
       : { queued: false };
@@ -391,9 +391,9 @@ export class FakeWork implements WorkPort {
   unanswerable = new Set<string>();
 
   answerable = async (
-    asked: readonly OracleAnswerAsked[],
+    inputs: readonly OracleAnswerInput[],
   ): Promise<readonly RunId[]> =>
-    asked
+    inputs
       .filter((each) => !this.unanswerable.has(each.run.value))
       .map((each) => each.run);
 
@@ -512,7 +512,7 @@ export const accessFor = (
 export class FakeChangeReview implements ChangeReviewPort {
   readonly stacks = new Map<string, StackStatus[]>();
   readonly rechecks = new Map<string, StackStatus[]>();
-  readonly recheckAsked: string[] = [];
+  readonly recheckRequests: string[] = [];
   recheckableStacks: readonly string[] = ['stack_1'];
 
   async stacksOf(run: RunId): Promise<readonly StackStatus[]> {
@@ -528,22 +528,22 @@ export class FakeChangeReview implements ChangeReviewPort {
   }
 
   async recheck(run: RunId, stackId: string): Promise<void> {
-    this.recheckAsked.push(`${run.value}#${stackId}`);
+    this.recheckRequests.push(`${run.value}#${stackId}`);
   }
 }
 
 export class FakeOutcomes implements OutcomesPort {
   readonly accepted = new Set<string>();
   readonly sentBack = new Set<string>();
-  readonly asked: JudgingOrder[] = [];
-  readonly askedAgain: string[] = [];
-  readonly pairsAsked: PairJudgingOrder[] = [];
-  answer: JudgingOrdered = 'asked';
-  pairAnswer: JudgingOrdered = 'asked';
-  againAnswer: JudgingAgainOrdered = 'asked';
+  readonly judgingRequests: JudgingOrder[] = [];
+  readonly rejudgingRequests: string[] = [];
+  readonly pairJudgingRequests: PairJudgingOrder[] = [];
+  answer: JudgingOrdered = 'requested';
+  pairAnswer: JudgingOrdered = 'requested';
+  againAnswer: JudgingAgainOrdered = 'requested';
 
   async judgeAgain(run: RunId): Promise<JudgingAgainOrdered> {
-    this.askedAgain.push(run.value);
+    this.rejudgingRequests.push(run.value);
     return this.againAnswer;
   }
 
@@ -559,12 +559,12 @@ export class FakeOutcomes implements OutcomesPort {
   }
 
   async judge(order: JudgingOrder): Promise<JudgingOrdered> {
-    this.asked.push(order);
+    this.judgingRequests.push(order);
     return this.answer;
   }
 
   async judgePair(order: PairJudgingOrder): Promise<JudgingOrdered> {
-    this.pairsAsked.push(order);
+    this.pairJudgingRequests.push(order);
     return this.pairAnswer;
   }
 }
@@ -610,11 +610,11 @@ export const snapshotsFor = (
   );
 
 export class InMemoryConfigPullRequests implements ConfigPullRequestRepository {
-  readonly kept = new Map<string, ConfigPullRequest>();
+  readonly stored = new Map<string, ConfigPullRequest>();
   readonly events: DomainEvent[] = [];
 
   async find(id: { value: string }) {
-    return this.kept.get(id.value) ?? null;
+    return this.stored.get(id.value) ?? null;
   }
 
   async forCandidate(
@@ -622,7 +622,7 @@ export class InMemoryConfigPullRequests implements ConfigPullRequestRepository {
     candidateId: { value: string },
   ) {
     return (
-      [...this.kept.values()].find(
+      [...this.stored.values()].find(
         (each) =>
           each.searchId.value === searchId.value &&
           each.candidateId.value === candidateId.value,
@@ -631,42 +631,42 @@ export class InMemoryConfigPullRequests implements ConfigPullRequestRepository {
   }
 
   async ofSearch(searchId: { value: string }) {
-    return [...this.kept.values()].filter(
+    return [...this.stored.values()].filter(
       (each) => each.searchId.value === searchId.value,
     );
   }
 
   async ofSearches(searchIds: readonly { value: string }[]) {
-    return [...this.kept.values()].filter((each) =>
+    return [...this.stored.values()].filter((each) =>
       searchIds.some((id) => id.value === each.searchId.value),
     );
   }
 
   async ofTeam(teamId: { value: string }) {
-    return [...this.kept.values()].filter(
+    return [...this.stored.values()].filter(
       (each) => each.teamId.value === teamId.value,
     );
   }
 
   async due(now: Date) {
-    return [...this.kept.values()].filter((each) => each.isDue(now));
+    return [...this.stored.values()].filter((each) => each.isDue(now));
   }
 
   async add(added: ConfigPullRequest) {
-    const kept = await this.forCandidate(added.searchId, added.candidateId);
+    const existing = await this.forCandidate(added.searchId, added.candidateId);
 
-    if (kept) {
-      return kept;
+    if (existing) {
+      return existing;
     }
 
     this.events.push(...added.pullEvents());
-    this.kept.set(added.id.value, added);
+    this.stored.set(added.id.value, added);
 
     return added;
   }
 
   async save(saved: ConfigPullRequest) {
-    const existing = this.kept.get(saved.id.value);
+    const existing = this.stored.get(saved.id.value);
 
     if (!existing || existing.version !== saved.version) {
       throw new ConfigPullRequestVersionConflictError(saved.id.value);
@@ -675,11 +675,11 @@ export class InMemoryConfigPullRequests implements ConfigPullRequestRepository {
     this.events.push(...saved.pullEvents());
 
     if (saved.isDeleted) {
-      this.kept.delete(saved.id.value);
+      this.stored.delete(saved.id.value);
       return;
     }
 
-    this.kept.set(
+    this.stored.set(
       saved.id.value,
       ConfigPullRequest.rehydrate({
         id: saved.id,

@@ -9,7 +9,7 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export interface RunMemoriesHeard {
+export interface RunMemoriesReceived {
   readonly runId: string;
   readonly workspaceId: string;
   readonly taskId: string;
@@ -25,19 +25,19 @@ export class NoteRunMemories {
     private readonly transaction: TransactionPort,
   ) {}
 
-  async used(heard: RunMemoriesHeard): Promise<void> {
-    if (heard.memories.length === 0) {
+  async used(event: RunMemoriesReceived): Promise<void> {
+    if (event.memories.length === 0) {
       return;
     }
 
-    const workspaceId = WorkspaceId.of(heard.workspaceId);
-    const taskId = TaskId.of(heard.taskId);
-    const run = await this.work.endedRun(heard.runId);
+    const workspaceId = WorkspaceId.of(event.workspaceId);
+    const taskId = TaskId.of(event.taskId);
+    const run = await this.work.endedRun(event.runId);
     const teamId = run ? TeamId.of(run.teamId) : null;
 
     await this.transaction.inTransaction(async () => {
       await this.deletions.lockDeletion(workspaceId, taskId, teamId);
-      const runId = RunId.of(heard.runId);
+      const runId = RunId.of(event.runId);
       const existing = await this.records.of(runId);
 
       if (await this.deletions.isDeleted(workspaceId, taskId, teamId)) {
@@ -49,15 +49,15 @@ export class NoteRunMemories {
 
       if (!existing) {
         await this.records.add(
-          RunRecord.heardOf(runId, workspaceId, taskId).recordMemories(
-            heard.way,
-            heard.memories,
+          RunRecord.empty(runId, workspaceId, taskId).recordMemories(
+            event.way,
+            event.memories,
           ),
         );
         return;
       }
 
-      const used = existing.recordMemories(heard.way, heard.memories);
+      const used = existing.recordMemories(event.way, event.memories);
 
       if (used !== existing) {
         await this.records.save(used);

@@ -21,7 +21,7 @@ export function PickCandidate({
   const pick = usePickSearchCandidate();
   const opened = candidate.pullRequest;
   const problem = pickProblem(candidate);
-  const asked = () =>
+  const pickCandidate = () =>
     pick.mutate({ teamId, searchId, candidateId: candidate.candidateId });
 
   if (candidate.seed) {
@@ -55,7 +55,7 @@ export function PickCandidate({
           variant={opened ? 'outline' : 'default'}
           className="rounded-full"
           disabled={problem !== null || pick.isPending}
-          onClick={asked}
+          onClick={pickCandidate}
         >
           <GitPullRequestArrow aria-hidden />
           {pick.isPending ? 'Picking…' : opened ? 'Retry' : 'Pick'}

@@ -769,7 +769,7 @@ const secret = (
         }),
       ),
       attribute('bindings', hclOf(resource.bindings)),
-      ...(resource.keepsValue
+      ...(resource.storesValue
         ? [attribute('value_wo', HclExpression.traversal('var', value))]
         : []),
       ...(resource.valueVersion === null
@@ -777,11 +777,11 @@ const secret = (
         : [attribute('value_wo_version', resource.valueVersion)]),
     ],
     {
-      variables: resource.keepsValue
+      variables: resource.storesValue
         ? [
             variable(
               value,
-              `The value of the secret ${resource.name}, which Spotlight keeps and never answers`,
+              `The value of the secret ${resource.name}, which Spotlight stores and never answers`,
               false,
             ),
           ]

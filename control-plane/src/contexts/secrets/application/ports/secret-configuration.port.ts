@@ -18,7 +18,7 @@ export interface SecretView {
     readonly name: string;
     readonly prefix: string;
   }[];
-  readonly keepsValue: boolean;
+  readonly storesValue: boolean;
   readonly valueVersion: number | null;
 }
 

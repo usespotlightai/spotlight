@@ -23,7 +23,7 @@ export const StationConfigMapper = {
     },
     digest: ContentDigestPort,
   ): StationConfig {
-    const profile = order.given.profile;
+    const profile = order.enabled.profile;
 
     return StationConfig.of(
       {
@@ -64,7 +64,7 @@ export const StationConfigMapper = {
             ),
           ),
         })),
-        tools: order.given.tools.map((each) => each.value),
+        tools: order.enabled.tools.map((each) => each.value),
         decisions: station.decisions,
         memories: station.memories,
         ...(station.judge

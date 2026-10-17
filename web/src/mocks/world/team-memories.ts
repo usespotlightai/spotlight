@@ -63,12 +63,12 @@ const memory = (
   over: Partial<MemoryRecord> &
     Pick<MemoryRecord, 'id' | 'handle' | 'kind' | 'body' | 'approvedAt'>,
 ): MemoryRecord => {
-  const reach = over.stationId ? 'station' : over.lineId ? 'line' : 'team';
+  const scope = over.stationId ? 'station' : over.lineId ? 'line' : 'team';
 
   return {
     source: 'person',
     status: 'active',
-    reach,
+    scope,
     lineId: null,
     stationId: null,
     repository: null,

@@ -25,7 +25,7 @@ export class EntryJudging {
     readonly unjudged: Unjudged | null,
   ) {}
 
-  static asked(): EntryJudging {
+  static requested(): EntryJudging {
     return new EntryJudging(null, null);
   }
 

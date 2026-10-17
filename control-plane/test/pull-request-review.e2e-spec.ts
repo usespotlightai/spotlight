@@ -75,7 +75,7 @@ describe('a pull request reviewed from GitHub (e2e)', () => {
     await app.close();
   });
 
-  it('opens a review task when mentioned, and keeps the agent’s review for GitHub', async () => {
+  it('opens a review task when mentioned, and stores the agent’s review for GitHub', async () => {
     const lines = app.get(DrizzleLineRepository);
     const tasks = app.get(DrizzleTaskRepository);
     let next = 0;
@@ -113,7 +113,7 @@ describe('a pull request reviewed from GitHub (e2e)', () => {
         assignEmail: null,
         marks,
         review: {
-          asking: 'mentioned',
+          trigger: 'mentioned',
           pullRequest: pull,
           author: 'octocat',
           outside: true,

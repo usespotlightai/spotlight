@@ -30,7 +30,7 @@ const INPUTS = ToolInputs.of({
   body: 'Triage reads the bug, feature and chore labels.',
 });
 
-const using = (given: { setup?: boolean } = {}) => {
+const using = (options: { setup?: boolean } = {}) => {
   let chat = Chat.start({
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),
@@ -38,7 +38,7 @@ const using = (given: { setup?: boolean } = {}) => {
     harness: HarnessId.of('claude-code'),
     body: ChatMessageBody.of('Set up our configuration.'),
     setup:
-      given.setup === false
+      options.setup === false
         ? null
         : ConfigHome.of({ repository: 'acme/infra', folder: 'spotlight' }),
     now: NOW,

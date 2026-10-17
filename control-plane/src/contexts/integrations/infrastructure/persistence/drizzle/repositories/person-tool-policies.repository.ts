@@ -70,7 +70,7 @@ export class DrizzlePersonToolPolicies implements PersonToolPolicyRepository {
       [...policy.rules].map(([tool, rule]) => [tool, rule.name]),
     );
 
-    const kept = policy.isNew
+    const saved = policy.isNew
       ? await this.context.db
           .insert(personToolPolicy)
           .values({
@@ -94,7 +94,7 @@ export class DrizzlePersonToolPolicies implements PersonToolPolicyRepository {
           )
           .returning({ source: personToolPolicy.source });
 
-    if (kept.length === 0) {
+    if (saved.length === 0) {
       throw new PersonToolPolicyVersionConflictError(policy.source.value);
     }
   }

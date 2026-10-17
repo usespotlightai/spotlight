@@ -1,12 +1,12 @@
 import type { HostHeartbeatCommand } from '@runners/application/commands/host.commands';
 import type { HostHeartbeatDto } from '@runners/application/dto/host-heartbeat.dto';
-import type { RunnerAdmissionsPort } from '@runners/application/ports/runner-admissions.port';
+import type { RunnerAuthenticatorPort } from '@runners/application/ports/runner-authenticator.port';
 import { reviseHost } from '@runners/application/services/runner-host-revisions';
 import { RunnerHost } from '@runners/domain/aggregates/runner-host.aggregate';
 import { HostInUseError } from '@runners/domain/exceptions/host-in-use.error';
 import type { RunnerHostRepository } from '@runners/domain/repositories/runner-host.repository';
-import { Admission } from '@runners/domain/value-objects/admission.vo';
 import { BootId } from '@runners/domain/value-objects/boot-id.vo';
+import { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import { HostReport } from '@runners/domain/value-objects/host-report.vo';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
@@ -17,21 +17,26 @@ export class HostHeartbeatHandler
   implements CommandHandlerPort<HostHeartbeatCommand, HostHeartbeatDto>
 {
   constructor(
-    private readonly admissions: RunnerAdmissionsPort,
+    private readonly authenticator: RunnerAuthenticatorPort,
     private readonly hosts: RunnerHostRepository,
     private readonly clock: ClockPort,
   ) {}
 
   async execute(command: HostHeartbeatCommand): Promise<HostHeartbeatDto> {
     try {
-      const admitted = await this.admissions.admit(command.credential);
+      const authenticated = await this.authenticator.authenticate(
+        command.credential,
+      );
 
-      if (!admitted) {
+      if (!authenticated) {
         return { outcome: 'unauthorized' };
       }
 
       const id = HostId.of(command.hostId);
-      const admission = Admission.of(admitted.way.kind, admitted.way.id);
+      const source = CredentialSource.of(
+        authenticated.source.kind,
+        authenticated.source.id,
+      );
       const bootId = BootId.of(command.bootId);
       const report = HostReport.of(command.report);
       const at = this.clock.now();
@@ -39,23 +44,26 @@ export class HostHeartbeatHandler
       await reviseHost(this.hosts, id, (known) =>
         known
           ? known.reportThrough({
-              admission,
-              workspaceId: admitted.workspaceId,
+              source,
+              workspaceId: authenticated.workspaceId,
               bootId,
               report,
               at,
             })
           : RunnerHost.fromHeartbeat({
               id,
-              workspaceId: admitted.workspaceId,
-              admission,
+              workspaceId: authenticated.workspaceId,
+              source,
               bootId,
               report,
               at,
             }),
       );
 
-      return { outcome: 'accepted', workspaceId: admitted.workspaceId.value };
+      return {
+        outcome: 'accepted',
+        workspaceId: authenticated.workspaceId.value,
+      };
     } catch (error) {
       if (error instanceof HostInUseError) {
         return { outcome: 'host-in-use' };

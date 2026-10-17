@@ -214,10 +214,10 @@ class Editing {
   }
 
   private read(path: string): Promise<string | null> {
-    const kept = this.written.get(path);
+    const pending = this.written.get(path);
 
-    if (kept !== undefined) {
-      return Promise.resolve(kept);
+    if (pending !== undefined) {
+      return Promise.resolve(pending);
     }
 
     const content = this.reads.get(path) ?? this.edit.read(path);
@@ -453,7 +453,7 @@ class Editing {
       return field.now as HclValue;
     }
 
-    const kept = (existing?.items ?? []).map((each) => ({
+    const previous = (existing?.items ?? []).map((each) => ({
       written: each.written,
       value:
         each.read.kind === 'literal'
@@ -464,7 +464,7 @@ class Editing {
       used: false,
     }));
     const element = (value: HclLiteral): HclValue => {
-      const original = kept.find(
+      const original = previous.find(
         (each) =>
           !each.used && each.value !== undefined && same(each.value, value),
       );

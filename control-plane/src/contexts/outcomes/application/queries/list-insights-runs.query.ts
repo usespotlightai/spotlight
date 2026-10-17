@@ -1,4 +1,4 @@
-import type { RunFilterAsked } from '@outcomes/domain/services/run-filter';
+import type { RunFilterQuery } from '@outcomes/domain/services/run-filter';
 import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo';
 
 export class ListInsightsRunsQuery {
@@ -6,7 +6,7 @@ export class ListInsightsRunsQuery {
     readonly teamId: string,
     readonly principal: Principal,
     readonly period: string,
-    readonly filter: RunFilterAsked,
+    readonly filter: RunFilterQuery,
     readonly page: number | null,
     readonly size: number | null,
   ) {}

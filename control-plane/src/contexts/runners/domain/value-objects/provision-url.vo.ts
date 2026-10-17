@@ -8,11 +8,11 @@ export class ProvisionUrl {
   private constructor(readonly value: string) {}
 
   static of(raw: string): ProvisionUrl {
-    const given = raw.trim();
+    const trimmed = raw.trim();
     let url: URL;
 
     try {
-      url = new URL(given);
+      url = new URL(trimmed);
     } catch {
       throw new InvalidRunnerPoolError(
         'provision.url',
@@ -34,14 +34,14 @@ export class ProvisionUrl {
       );
     }
 
-    if (url.hash || given.length > MAX_LENGTH) {
+    if (url.hash || trimmed.length > MAX_LENGTH) {
       throw new InvalidRunnerPoolError(
         'provision.url',
         `must be at most ${MAX_LENGTH} characters, with no fragment`,
       );
     }
 
-    return new ProvisionUrl(given);
+    return new ProvisionUrl(trimmed);
   }
 
   get hostname(): string {

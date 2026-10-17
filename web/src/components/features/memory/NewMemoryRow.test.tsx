@@ -39,7 +39,7 @@ beforeEach(() => {
 });
 
 describe('NewMemoryRow', () => {
-  it('keeps a memory for the whole team by default, kept by whoever writes it', async () => {
+  it('writes a memory for the whole team by default, approved by whoever writes it', async () => {
     showing();
 
     expect(screen.getByText('Ada Lovelace')).toBeInTheDocument();
@@ -66,7 +66,7 @@ describe('NewMemoryRow', () => {
     );
   });
 
-  it('keeps nothing without saying what to remember', () => {
+  it('saves nothing without saying what to remember', () => {
     showing();
 
     expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();

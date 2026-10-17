@@ -40,7 +40,7 @@ func recording(t *testing.T, status int, answer string) (*agentapi.Server, *[]pr
 	return server, &seen
 }
 
-const judged = `{"taskId":"task_1","cause":"judge","evidence":"The rubric asks for tests.","suggestion":"Drop that line."}`
+const judged = `{"taskId":"task_1","cause":"judge","evidence":"The rubric requires tests.","suggestion":"Drop that line."}`
 
 func TestRelaysACauseToSpotlightAsTheRunner(t *testing.T) {
 	server, seen := recording(t, http.StatusCreated, `{"taskId":"task_1","cause":"judge","replayRunId":"replayed_1"}`)
@@ -51,17 +51,17 @@ func TestRelaysACauseToSpotlightAsTheRunner(t *testing.T) {
 		t.Fatalf("status = %d: %s", status, body)
 	}
 	if len(*seen) != 1 {
-		t.Fatalf("asked Spotlight %d times", len(*seen))
+		t.Fatalf("called Spotlight %d times", len(*seen))
 	}
-	asked := (*seen)[0]
-	if asked.method != http.MethodPost || asked.path != "/api/runs/run_1/search-causes" || asked.auth != "Bearer runner-token" {
-		t.Errorf("asked %+v", asked)
+	received := (*seen)[0]
+	if received.method != http.MethodPost || received.path != "/api/runs/run_1/search-causes" || received.auth != "Bearer runner-token" {
+		t.Errorf("received %+v", received)
 	}
 	var sent protocol.CauseRecord
-	if err := json.Unmarshal([]byte(asked.body), &sent); err != nil || sent != (protocol.CauseRecord{
-		TaskID: "task_1", Cause: "judge", Evidence: "The rubric asks for tests.", Suggestion: "Drop that line.",
+	if err := json.Unmarshal([]byte(received.body), &sent); err != nil || sent != (protocol.CauseRecord{
+		TaskID: "task_1", Cause: "judge", Evidence: "The rubric requires tests.", Suggestion: "Drop that line.",
 	}) {
-		t.Errorf("sent %s", asked.body)
+		t.Errorf("sent %s", received.body)
 	}
 }
 
@@ -99,7 +99,7 @@ func TestRejectsACauseWithoutATaskAKnownCauseOrEvidence(t *testing.T) {
 		}
 	}
 	if len(*seen) != 0 {
-		t.Errorf("asked Spotlight anyway: %+v", *seen)
+		t.Errorf("called Spotlight anyway: %+v", *seen)
 	}
 }
 

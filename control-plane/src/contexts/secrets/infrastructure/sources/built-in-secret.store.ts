@@ -25,7 +25,7 @@ export class BuiltInSecretStore implements SecretSourcePort {
     private readonly keys: WorkspaceKeys,
   ) {}
 
-  async keep(secret: SecretReference, value: SecretValue): Promise<void> {
+  async store(secret: SecretReference, value: SecretValue): Promise<void> {
     const key = await this.keys.of(secret.workspaceId);
     const ciphertext = encrypt(
       key,

@@ -2,7 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import type {
-  AdmittedThrough,
+  CredentialSourceSummary,
   HostSummary,
   LiveRunnerSummary,
   RunnerReaderPort,
@@ -23,11 +23,11 @@ import {
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, eq, gt, isNotNull, isNull, ne, or } from 'drizzle-orm';
 
-const through = (row: {
+const sourceOf = (row: {
   poolId: string | null;
   poolKey: string | null;
   trustKey: string | null;
-}): AdmittedThrough =>
+}): CredentialSourceSummary =>
   row.poolId !== null
     ? { kind: 'pool', key: row.poolKey }
     : { kind: 'trust', key: row.trustKey };
@@ -186,7 +186,7 @@ export class DrizzleRunnerReader implements RunnerReaderPort {
 
     return rows.map((row) => ({
       id: row.id,
-      through: through(row),
+      source: sourceOf(row),
       hostId: row.hostId,
       image: row.image,
       harnesses: row.harnesses,
@@ -217,7 +217,7 @@ export class DrizzleRunnerReader implements RunnerReaderPort {
     return rows.map(({ host, ...keys }) => ({
       id: host.id,
       name: host.name,
-      through: through(keys),
+      source: sourceOf(keys),
       release: host.release,
       containerRuntime: host.containerRuntime,
       capacity: host.capacity,

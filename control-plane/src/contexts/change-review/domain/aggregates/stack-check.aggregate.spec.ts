@@ -21,8 +21,8 @@ import type {
   StepId,
 } from '@change-review/domain/value-objects/stack-check.vo';
 import {
-  keptSkipOf,
   skipOf,
+  storedSkipOf,
   unprovisioned,
   WAITING_LIMIT_MS,
   WHOLE_STEP,
@@ -211,7 +211,7 @@ describe('StackCheck', () => {
     );
   });
 
-  it('keeps what each layer’s check found', () => {
+  it('records what each layer’s check found', () => {
     const checked = checking().recordResult(
       RUNNER,
       planned(),
@@ -303,7 +303,7 @@ describe('StackCheck', () => {
     expect(() => skipOf('made-up', null)).toThrow(InvalidChangeStackError);
   });
 
-  it('asks for reordering where the whole change builds but a layer does not', () => {
+  it('requests reordering where the whole change builds but a layer does not', () => {
     const checked = checking().recordResult(
       RUNNER,
       planned(),
@@ -329,7 +329,7 @@ describe('StackCheck', () => {
     expect(again.outcome).toBeNull();
   });
 
-  it('keeps the checked layers where reordering stops', () => {
+  it('retains the checked layers where reordering stops', () => {
     const reordering = checking().recordResult(
       RUNNER,
       planned(),
@@ -338,10 +338,10 @@ describe('StackCheck', () => {
     );
     reordering.pullEvents();
 
-    const kept = reordering.keptLayers();
+    const checked = reordering.retainCheckedLayers();
 
-    expect(kept.stateAt(LATER)).toBe('checked');
-    expect(kinds(kept)).toEqual(['change-stack.checked']);
+    expect(checked.stateAt(LATER)).toBe('checked');
+    expect(kinds(checked)).toEqual(['change-stack.checked']);
   });
 
   it('drops a reservation when it takes reordered layers', () => {
@@ -383,7 +383,7 @@ describe('StackCheck', () => {
     expect(failing(again).reordering).toBe(false);
   });
 
-  it('does not come back in a state it could not have reached', () => {
+  it('does not come back in a state it could not have entered', () => {
     expect(() => rehydrated({ phase: 'checked' })).toThrow(
       InconsistentStateError,
     );
@@ -682,7 +682,7 @@ describe('StackCheck', () => {
       expect(() => claim.renewed(ceiling)).toThrow(InvalidChangeStackError);
     });
 
-    it('rejects a claim kept with no time it was claimed', () => {
+    it('rejects a claim stored with no time it was claimed', () => {
       expect(() =>
         CheckClaim.rehydrate({
           claimedBy: RUNNER,
@@ -718,27 +718,27 @@ describe('StackCheck', () => {
     });
   });
 
-  describe('keeping why it was skipped', () => {
+  describe('storing why it was skipped', () => {
     it('takes back a skip no runner could have reported', () => {
-      expect(keptSkipOf('unprovisioned', '5 attempts')).toEqual({
+      expect(storedSkipOf('unprovisioned', '5 attempts')).toEqual({
         code: 'unprovisioned',
         detail: '5 attempts',
       });
     });
 
     it('takes back a skip for a check nobody claimed in time', () => {
-      expect(keptSkipOf('nobody-checked', null)).toEqual({
+      expect(storedSkipOf('nobody-checked', null)).toEqual({
         code: 'nobody-checked',
         detail: null,
       });
     });
 
-    it('takes back a reported skip as a runner gave it', () => {
-      expect(keptSkipOf('no-room', '  disk full  ')).toEqual({
+    it('takes back a reported skip as a runner reported it', () => {
+      expect(storedSkipOf('no-room', '  disk full  ')).toEqual({
         code: 'no-room',
         detail: 'disk full',
       });
-      expect(() => keptSkipOf('made-up', null)).toThrow(
+      expect(() => storedSkipOf('made-up', null)).toThrow(
         InvalidChangeStackError,
       );
     });
@@ -758,7 +758,7 @@ describe('StackCheck', () => {
   });
 
   describe('provisioning a runner for it', () => {
-    it('reserves a waiting check for the runner a pool is asked to start', () => {
+    it('reserves a waiting check for the runner a pool is requested to start', () => {
       const reserved = waiting().reservedFor(
         RUNNER,
         PoolId.of('pool_burst'),
@@ -961,7 +961,7 @@ describe('StackCheck', () => {
     });
 
     it('comes back skipped as unprovisioned', () => {
-      const skip = keptSkipOf(
+      const skip = storedSkipOf(
         'unprovisioned',
         'Attempts: 5\nLast failure: http-error: answered 503',
       );
@@ -1128,7 +1128,7 @@ describe('StackCheck, rechecked', () => {
     expect(first.phase).toBe('checked');
   });
 
-  it('says what the recheck found as a recheck, and never asks to reorder the stack', () => {
+  it('says what the recheck found as a recheck, and never requests to reorder the stack', () => {
     const again = passedOnce().rechecking(LATER).claimedFor(OTHER, ANY, LATER);
     const found = again.recordResult(
       OTHER,

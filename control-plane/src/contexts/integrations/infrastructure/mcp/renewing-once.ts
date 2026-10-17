@@ -3,11 +3,11 @@ import type { AccessToken } from '@integrations/domain/value-objects/access-toke
 import { McpUnauthorizedError } from '@integrations/infrastructure/mcp/mcp-failures';
 
 export const renewingOnce = async <T>(
-  asking: (token: AccessToken | null) => Promise<T>,
+  calling: (token: AccessToken | null) => Promise<T>,
   connection: ActiveConnection | null,
 ): Promise<T> => {
   try {
-    return await asking(connection?.token ?? null);
+    return await calling(connection?.token ?? null);
   } catch (error) {
     const renewed =
       error instanceof McpUnauthorizedError && connection
@@ -18,6 +18,6 @@ export const renewingOnce = async <T>(
       throw error;
     }
 
-    return asking(renewed);
+    return calling(renewed);
   }
 };

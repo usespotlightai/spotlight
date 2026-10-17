@@ -90,7 +90,7 @@ describe('SuspendRunHandler', () => {
     expect(saved).toEqual([]);
   });
 
-  it('ends a run asked to stop instead of suspending it, and releases the runner all the same', async () => {
+  it('ends a run with a stop request instead of suspending it, and releases the runner all the same', async () => {
     const { suspend, saved } = suspending([waiting().requestStop(NOW)]);
 
     await expect(suspend()).resolves.toEqual({ suspended: true });

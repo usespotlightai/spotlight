@@ -1,7 +1,7 @@
 import type { MemoryReactions } from '@memory/application/events/handlers/memory-reactions.handler';
-import type { AskForMemories } from '@memory/application/services/ask-for-memories.service';
 import type { DeleteMemoryDraft } from '@memory/application/services/delete-memory-draft.service';
 import type { NoteMemoryUses } from '@memory/application/services/note-memory-uses.service';
+import type { RequestMemories } from '@memory/application/services/request-memories.service';
 import type { MemoriesProposed } from '@memory/domain/events/memories-proposed.event';
 import type { MemoryApproved } from '@memory/domain/events/memory-approved.event';
 import type { MemoryCreated } from '@memory/domain/events/memory-created.event';
@@ -27,7 +27,7 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export const memorySubscribers = (
-  asking: AskForMemories,
+  requesting: RequestMemories,
   deleting: DeleteMemoryDraft,
   reactions: MemoryReactions,
   noting: NoteMemoryUses,
@@ -56,7 +56,7 @@ export const memorySubscribers = (
     (event) => reactions.onReviewResolved(event),
   ),
   subscribing<MemoryApproved>(
-    'memory.keep-approved-memory',
+    'memory.create-approved-memory',
     ['memory-draft.approved'],
     (event) => reactions.onApproved(event),
   ),
@@ -76,11 +76,11 @@ export const memorySubscribers = (
       }),
   ),
   subscribing<RunEndedIntegrationEvent>(
-    'memory.ask-for-memories',
+    'memory.request-memories',
     [RUN_ENDED],
     (event) =>
       event.taskId
-        ? asking.runEnded(TaskId.of(event.taskId), RunId.of(event.runId))
+        ? requesting.runEnded(TaskId.of(event.taskId), RunId.of(event.runId))
         : Promise.resolve(),
   ),
   subscribing<TaskDeletedIntegrationEvent>(

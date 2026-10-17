@@ -40,7 +40,7 @@ export class RunRecord extends EventRecorder {
     super();
   }
 
-  static heardOf(
+  static empty(
     runId: RunId,
     workspaceId: WorkspaceId,
     taskId: TaskId | null = null,

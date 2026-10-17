@@ -28,31 +28,31 @@ const (
 type workloadTokens func(audience string) (string, error)
 
 func workloadFrom(env func(string) string, client *http.Client) (workloadTokens, error) {
-	if given := env(oidcTokenVar); given != "" {
-		return func(string) (string, error) { return given, nil }, nil
+	if token := env(oidcTokenVar); token != "" {
+		return func(string) (string, error) { return token, nil }, nil
 	}
 
-	asked, token := env(actionsURLVar), env(actionsTokenVar)
-	if asked == "" || token == "" {
+	actionsURL, token := env(actionsURLVar), env(actionsTokenVar)
+	if actionsURL == "" || token == "" {
 		return nil, fmt.Errorf("%s needs an OIDC token: set %s, or run in GitHub Actions with permissions: id-token: write", trustVar, oidcTokenVar)
 	}
 
 	return func(audience string) (string, error) {
-		return actionsToken(client, asked, token, audience)
+		return actionsToken(client, actionsURL, token, audience)
 	}, nil
 }
 
 func actionsToken(client *http.Client, requestURL, requestToken, audience string) (string, error) {
-	asked, err := url.Parse(requestURL)
+	target, err := url.Parse(requestURL)
 	if err != nil {
 		return "", fmt.Errorf("%s is not a URL: %w", actionsURLVar, err)
 	}
 
-	query := asked.Query()
+	query := target.Query()
 	query.Set("audience", audience)
-	asked.RawQuery = query.Encode()
+	target.RawQuery = query.Encode()
 
-	request, err := http.NewRequest(http.MethodGet, asked.String(), nil)
+	request, err := http.NewRequest(http.MethodGet, target.String(), nil)
 	if err != nil {
 		return "", err
 	}
@@ -148,7 +148,7 @@ func (e *exchanging) token(renewed bool) (string, error) {
 	}
 
 	if response.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("the workspace token trust %s did not admit the OIDC token: %s", e.trust, problemOf(response.StatusCode, body))
+		return "", fmt.Errorf("the workspace token trust %s did not accept the OIDC token: %s", e.trust, problemOf(response.StatusCode, body))
 	}
 
 	var issued struct {

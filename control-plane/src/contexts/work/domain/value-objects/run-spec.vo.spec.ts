@@ -74,7 +74,7 @@ describe('RunSpec', () => {
     }
   });
 
-  it('rejects a checkout that reaches outside the workspace', () => {
+  it('rejects a checkout that points outside the workspace', () => {
     for (const path of ['/etc', '../elsewhere', 'a/../../b']) {
       expect(() =>
         RunSpec.of(
@@ -105,7 +105,7 @@ describe('RunSpec', () => {
     ).toThrow(InvalidRunSpecError);
   });
 
-  it('gives the tools its manifest names, and no others', () => {
+  it('enables the tools its manifest names, and no others', () => {
     const spec = RunSpec.of(
       parts({
         manifest: [
@@ -119,9 +119,9 @@ describe('RunSpec', () => {
       }),
     );
 
-    expect(spec.gives(Tool.of('pull-request'))).toBe(true);
-    expect(spec.gives(Tool.of('merge'))).toBe(false);
-    expect(RunSpec.of(parts()).gives(Tool.of('pull-request'))).toBe(false);
+    expect(spec.enables(Tool.of('pull-request'))).toBe(true);
+    expect(spec.enables(Tool.of('merge'))).toBe(false);
+    expect(RunSpec.of(parts()).enables(Tool.of('pull-request'))).toBe(false);
   });
 
   it('keeps nothing it was not described by', () => {
@@ -166,8 +166,8 @@ describe('RunSpec', () => {
       expect(RunSpec.of(parts()).replay).toBeNull();
     });
 
-    it('gives a replay no tools, MCP servers or secrets', () => {
-      for (const given of [
+    it('enables no tools, MCP servers or secrets for a replay', () => {
+      for (const parts of [
         { injectedSecrets: ['LINEAR_API_KEY'] },
         {
           manifest: [
@@ -184,11 +184,11 @@ describe('RunSpec', () => {
           harnessSetup: {
             files: [],
             mcpServers: [{ name: 'linear', command: 'npx', args: [], env: [] }],
-            asks: [],
+            askKinds: [],
           },
         },
       ]) {
-        expect(() => RunSpec.of(replayed(given))).toThrow(InvalidRunSpecError);
+        expect(() => RunSpec.of(replayed(parts))).toThrow(InvalidRunSpecError);
       }
     });
 
@@ -253,8 +253,8 @@ describe('RunSpec', () => {
       expect(RunSpec.of(parts()).isSearch).toBe(false);
     });
 
-    it('gives a search no checkouts, tools, MCP servers, secrets, attachments, skills or harness settings', () => {
-      for (const given of [
+    it('allows a search no checkouts, tools, MCP servers, secrets, attachments, skills or harness settings', () => {
+      for (const parts of [
         { checkouts: [{ remote: 'spotlight:repository', path: 'api' }] },
         { injectedSecrets: ['LINEAR_API_KEY'] },
         {
@@ -272,7 +272,7 @@ describe('RunSpec', () => {
           harnessSetup: {
             files: [],
             mcpServers: [{ name: 'linear', command: 'npx', args: [], env: [] }],
-            asks: [],
+            askKinds: [],
           },
         },
         { attachments: [{ id: 'file_1', path: 'brief.png' }] },
@@ -283,16 +283,16 @@ describe('RunSpec', () => {
           harnessSetup: {
             files: [{ path: 'settings.json', text: '{}' }],
             mcpServers: [],
-            asks: [],
+            askKinds: [],
           },
         },
       ]) {
-        expect(() => RunSpec.of(searching(given))).toThrow(InvalidRunSpecError);
+        expect(() => RunSpec.of(searching(parts))).toThrow(InvalidRunSpecError);
       }
     });
 
     it('never reports where it started, carries on a conversation, replays at once, hands over a diff, checks a change or hands work on', () => {
-      for (const given of [
+      for (const parts of [
         { startingPoint: true },
         { continuity: { key: 'search-run_1', sessionId: 's_1' } },
         {
@@ -303,7 +303,7 @@ describe('RunSpec', () => {
         { handover: { options: ['review'], noteLimit: 0 } },
         { handover: { options: [], noteLimit: 4_000 } },
       ]) {
-        expect(() => RunSpec.of(searching(given))).toThrow(InvalidRunSpecError);
+        expect(() => RunSpec.of(searching(parts))).toThrow(InvalidRunSpecError);
       }
     });
   });

@@ -1,6 +1,6 @@
 import { DeregisterHostHandler } from '@runners/application/commands/handlers/deregister-host.handler';
 import { DeregisterHostCommand } from '@runners/application/commands/host.commands';
-import type { RunnerAdmissionsPort } from '@runners/application/ports/runner-admissions.port';
+import type { RunnerAuthenticatorPort } from '@runners/application/ports/runner-authenticator.port';
 import type { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregate';
 import {
   aHost,
@@ -11,22 +11,22 @@ import {
 } from '@runners/domain/aggregates/runner-pool.fake-spec';
 import type { RunnerTrust } from '@runners/domain/aggregates/runner-trust.aggregate';
 import { RunnerHostVersionConflictError } from '@runners/domain/exceptions/runner-host-version-conflict.error';
-import { Admission } from '@runners/domain/value-objects/admission.vo';
+import { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
 import { describe, expect, it, vi } from 'vitest';
 
-const deregistering = (admitted: RunnerPool | RunnerTrust | null) => {
+const deregistering = (authenticated: RunnerPool | RunnerTrust | null) => {
   const { stored, hosts } = storedHosts(aHost({ through: aPullPool() }));
   const handler = new DeregisterHostHandler(
     {
-      admit: vi.fn(async () =>
-        admitted
+      authenticate: vi.fn(async () =>
+        authenticated
           ? {
-              way: Admission.through(admitted.id),
-              workspaceId: admitted.workspaceId,
+              source: CredentialSource.ofId(authenticated.id),
+              workspaceId: authenticated.workspaceId,
             }
           : null,
       ),
-    } satisfies RunnerAdmissionsPort,
+    } satisfies RunnerAuthenticatorPort,
     hosts,
   );
 
@@ -44,7 +44,7 @@ const deregistering = (admitted: RunnerPool | RunnerTrust | null) => {
 };
 
 describe('DeregisterHostHandler', () => {
-  it('removes a host that deregisters through the way it came in', async () => {
+  it('removes a host that deregisters through the pool or trust it came in through', async () => {
     const { deregister, hosts, stored } = deregistering(aPullPool());
 
     await expect(deregister()).resolves.toEqual({ outcome: 'deregistered' });
@@ -52,7 +52,7 @@ describe('DeregisterHostHandler', () => {
     expect(stored.size).toBe(0);
   });
 
-  it('removes nothing of a host served through another way, yet lets it deregister', async () => {
+  it('removes nothing of a host served through another pool or trust, yet lets it deregister', async () => {
     const { deregister, hosts } = deregistering(aTrust());
 
     await expect(deregister()).resolves.toEqual({ outcome: 'deregistered' });
@@ -89,7 +89,7 @@ describe('DeregisterHostHandler', () => {
     expect(hosts.remove).not.toHaveBeenCalled();
   });
 
-  it('does not accept a host no pool or trust admits', async () => {
+  it('does not accept a host no pool or trust accepts', async () => {
     const { deregister, hosts } = deregistering(null);
 
     await expect(deregister()).resolves.toEqual({ outcome: 'unauthorized' });

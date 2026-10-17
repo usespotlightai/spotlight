@@ -27,7 +27,7 @@ const withoutHunks = (
   cohort: ProposedCohort,
   leaving: ReadonlySet<string>,
 ): ProposedCohort | null => {
-  const kept: { layer: ProposedLayer; from: number }[] = [];
+  const remaining: { layer: ProposedLayer; from: number }[] = [];
 
   cohort.layers.forEach((layer, place) => {
     const ranges = layer.ranges.filter((range) => !leaving.has(range.hunk));
@@ -39,19 +39,21 @@ const withoutHunks = (
         (each) => still.has(each.path) || !before.has(each.path),
       );
 
-      kept.push({ layer: { ...layer, ranges, notes }, from: place + 1 });
+      remaining.push({ layer: { ...layer, ranges, notes }, from: place + 1 });
     }
   });
 
-  if (kept.length === 0) {
+  if (remaining.length === 0) {
     return null;
   }
 
-  const renumbered = new Map(kept.map(({ from }, place) => [from, place + 1]));
+  const renumbered = new Map(
+    remaining.map(({ from }, place) => [from, place + 1]),
+  );
 
   return {
     ...cohort,
-    layers: kept.map(({ layer }) => ({
+    layers: remaining.map(({ layer }) => ({
       ...layer,
       dependsOn: layer.dependsOn.flatMap((dependency) => {
         const layerNow = renumbered.get(dependency.layer);
@@ -74,8 +76,8 @@ export const arranged = (
       return [cohort];
     }
 
-    const kept = withoutHunks(diff, cohort, leaving);
-    return kept ? [kept] : [];
+    const remaining = withoutHunks(diff, cohort, leaving);
+    return remaining ? [remaining] : [];
   });
 
   if (incidental.length === 0) {

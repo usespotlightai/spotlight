@@ -56,7 +56,7 @@ const noting = (
 ) => {
   const record = vi.fn(async () => undefined);
   const dispatched: DomainEvent[] = [];
-  const asked: { teamId: TeamId; handles: string[] }[] = [];
+  const lookedUp: { teamId: TeamId; handles: string[] }[] = [];
   const service = new NoteMemoryUses(
     new RecordMemoryUses(
       { record } as unknown as MemoryUsesPort,
@@ -79,7 +79,7 @@ const noting = (
     } as unknown as WorkPort,
     {
       withHandles: async (teamId: TeamId, handles: MemoryHandle[]) => {
-        asked.push({ teamId, handles: handles.map((each) => each.value) });
+        lookedUp.push({ teamId, handles: handles.map((each) => each.value) });
         return handles.map((each) =>
           storedMemory(each, isActive(each.value), applies(each.value)),
         );
@@ -87,19 +87,19 @@ const noting = (
     } as unknown as MemoryRepository,
   );
 
-  return { record, dispatched, asked, service };
+  return { record, dispatched, lookedUp, service };
 };
 
 describe('NoteMemoryUses, when a run ends', () => {
   it('counts every memory file the run referred to as recalled, looked up within its team', async () => {
-    const { record, dispatched, asked, service } = noting([
+    const { record, dispatched, lookedUp, service } = noting([
       '.spotlight/memory/team/M-3.md',
       '.spotlight/memory/repositories/acme/api/src/uploads/M-18.md',
     ]);
 
     await service.runEnded(RUN);
 
-    expect(asked).toEqual([{ teamId: TEAM, handles: ['M-3', 'M-18'] }]);
+    expect(lookedUp).toEqual([{ teamId: TEAM, handles: ['M-3', 'M-18'] }]);
     expect(dispatched).toEqual([
       new MemoriesUsed(RUN.id, RUN.workspaceId, RUN.taskId, 'recalled', [
         MemoryId.of('memory_3'),
@@ -114,7 +114,7 @@ describe('NoteMemoryUses, when a run ends', () => {
     );
   });
 
-  it('records nothing when the run read no memory, or kept no journal', async () => {
+  it('records nothing when the run read no memory, or recorded no journal', async () => {
     for (const referenced of [[], null]) {
       const { record, dispatched, service } = noting(referenced);
 

@@ -30,10 +30,10 @@ export class TokenTrustConfiguration implements TokenTrustConfigurationPort {
   }
 
   async withId(id: string): Promise<TokenTrustView | null> {
-    const kept = await this.resources.tokenTrustWithId(
+    const record = await this.resources.tokenTrustWithId(
       WorkspaceTokenTrustId.of(id),
     );
 
-    return kept ? configured(kept) : null;
+    return record ? configured(record) : null;
   }
 }

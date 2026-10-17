@@ -1,11 +1,11 @@
 import { Search } from '@replays/domain/aggregates/search.aggregate';
 import { SearchEnded } from '@replays/domain/events/search-ended.event';
-import { SearchHoldingOutWanted } from '@replays/domain/events/search-holding-out-wanted.event';
-import { SearchIterationWanted } from '@replays/domain/events/search-iteration-wanted.event';
+import { SearchHoldingOutRequested } from '@replays/domain/events/search-holding-out-requested.event';
+import { SearchIterationRequested } from '@replays/domain/events/search-iteration-requested.event';
 import { SearchReflected } from '@replays/domain/events/search-reflected.event';
 import { SearchStalledUnreflected } from '@replays/domain/events/search-stalled-unreflected.event';
 import { SearchStarted } from '@replays/domain/events/search-started.event';
-import { SearchStopAsked } from '@replays/domain/events/search-stop-asked.event';
+import { SearchStopRequested } from '@replays/domain/events/search-stop-requested.event';
 import { InvalidSearchError } from '@replays/domain/exceptions/invalid-search.error';
 import { InvalidSearchCauseError } from '@replays/domain/exceptions/invalid-search-cause.error';
 import { ReplaySetStationGoneError } from '@replays/domain/exceptions/replay-set-station-gone.error';
@@ -78,7 +78,7 @@ const searching = (search = aSearch(), runIds = searchRunIds()): Search => {
   return seeded;
 };
 
-const admission = (name: string, replay = `replay_${name}`) => ({
+const proposal = (name: string, replay = `replay_${name}`) => ({
   candidateId: CandidateId.of(`candidate_${name}`),
   name: CandidateName.searched(name),
   replayId: ReplayId.of(replay),
@@ -90,7 +90,7 @@ const proposing = (
   names: readonly string[],
 ): Search =>
   names.reduce(
-    (built, name) => built.admitted(run(number), admission(name)),
+    (built, name) => built.acceptProposal(run(number), proposal(name)),
     search,
   );
 
@@ -280,7 +280,7 @@ describe('Search', () => {
       );
     });
 
-    it('rejects a budget too thin to give each replay a cent', () => {
+    it('rejects a budget too thin to allot each replay a cent', () => {
       expect(() =>
         aSearch({
           budget: aBudget({ iterations: 10, perIteration: 5, ceiling: 0.2 }),
@@ -307,7 +307,7 @@ describe('Search', () => {
       expect(seeded.iterations.map((each) => each.current)).toEqual(['wanted']);
       expect(seeded.spent.amount).toBe(5);
       expect(seeded.pullEvents()).toEqual([
-        new SearchIterationWanted(SEARCH_ID, seeded.workspaceId, 1, run(1)),
+        new SearchIterationRequested(SEARCH_ID, seeded.workspaceId, 1, run(1)),
       ]);
     });
 
@@ -355,26 +355,26 @@ describe('Search', () => {
     );
 
     it('takes no candidates while seeding', () => {
-      expect(() => aSearch().admitted(run(1), admission('terse'))).toThrow(
+      expect(() => aSearch().acceptProposal(run(1), proposal('terse'))).toThrow(
         SearchIterationClosedError,
       );
     });
   });
 
   describe('proposing', () => {
-    it('admits a candidate from its active run', () => {
-      const admitted = searching().admitted(run(1), admission('terse'));
+    it('accepts a candidate from its active run', () => {
+      const accepted = searching().acceptProposal(run(1), proposal('terse'));
 
-      expect(admitted.proposals.map((each) => each.name.value)).toEqual([
+      expect(accepted.proposals.map((each) => each.name.value)).toEqual([
         'terse',
       ]);
-      expect(admitted.pullEvents()).toEqual([]);
+      expect(accepted.pullEvents()).toEqual([]);
     });
 
     it('takes at most its per-iteration number of candidates from one run', () => {
       const full = proposing(searching(), 1, ['one', 'two']);
 
-      expect(() => full.admitted(run(1), admission('three'))).toThrow(
+      expect(() => full.acceptProposal(run(1), proposal('three'))).toThrow(
         SearchProposalsExhaustedError,
       );
     });
@@ -387,7 +387,7 @@ describe('Search', () => {
       }
 
       expect(search.iterations[0]?.attempts).toBe(6);
-      expect(() => search.admitted(run(1), admission('late'))).toThrow(
+      expect(() => search.acceptProposal(run(1), proposal('late'))).toThrow(
         SearchProposalsExhaustedError,
       );
       expect(() => search.proposalRejected(run(1))).toThrow(
@@ -405,12 +405,12 @@ describe('Search', () => {
         )
         .recordAgentSpend(run(1), NO_SPEND, later(1), searchRunIds());
 
-      expect(() => ended.admitted(run(1), admission('late'))).toThrow(
+      expect(() => ended.acceptProposal(run(1), proposal('late'))).toThrow(
         SearchIterationClosedError,
       );
-      expect(() => searching().admitted(run(9), admission('other'))).toThrow(
-        SearchIterationClosedError,
-      );
+      expect(() =>
+        searching().acceptProposal(run(9), proposal('other')),
+      ).toThrow(SearchIterationClosedError);
     });
 
     it('rejects a name it used already, in any iteration', () => {
@@ -424,7 +424,7 @@ describe('Search', () => {
 
       expect(first.activeRun).toEqual(run(2));
       expect(() =>
-        first.admitted(run(2), admission('terse', 'replay_x')),
+        first.acceptProposal(run(2), proposal('terse', 'replay_x')),
       ).toThrow(SearchCandidateNameTakenError);
     });
   });
@@ -458,7 +458,7 @@ describe('Search', () => {
         'wanted',
       ]);
       expect(next.pullEvents().slice(-1)[0]).toEqual(
-        new SearchIterationWanted(SEARCH_ID, next.workspaceId, 2, run(2)),
+        new SearchIterationRequested(SEARCH_ID, next.workspaceId, 2, run(2)),
       );
     });
 
@@ -753,7 +753,7 @@ describe('Search', () => {
       expect(search.ending).toBe('iterations-spent');
       expect(search.endedAt).toBeNull();
       expect(search.pullEvents()).toEqual([
-        new SearchHoldingOutWanted(SEARCH_ID, search.workspaceId),
+        new SearchHoldingOutRequested(SEARCH_ID, search.workspaceId),
       ]);
     });
 
@@ -836,7 +836,7 @@ describe('Search', () => {
       );
     };
 
-    const given = (search: Search, at: number, cause: string) => ({
+    const causeInput = (search: Search, at: number, cause: string) => ({
       taskId: searchedTask(search, at).taskId,
       cause,
       evidence: `Task ${at} failed because of the ${cause}.`,
@@ -921,9 +921,9 @@ describe('Search', () => {
     it('records one cause per task it looks into, the later replacing the earlier', () => {
       const search = stalledAgain();
       const recorded = search
-        .recordCause(run(3), given(search, 0, 'judge'), later(4))
-        .recordCause(run(3), given(search, 0, 'config'), later(5))
-        .recordCause(run(3), given(search, 1, 'task'), later(5));
+        .recordCause(run(3), causeInput(search, 0, 'judge'), later(4))
+        .recordCause(run(3), causeInput(search, 0, 'config'), later(5))
+        .recordCause(run(3), causeInput(search, 1, 'task'), later(5));
       const causes = recorded.iterations[2]?.causes ?? [];
 
       expect(causes.map((each) => [each.taskId, each.cause])).toEqual([
@@ -950,7 +950,7 @@ describe('Search', () => {
         expect(() =>
           search.recordCause(
             run(3),
-            { ...given(search, 0, 'config'), taskId },
+            { ...causeInput(search, 0, 'config'), taskId },
             later(4),
           ),
         ).toThrow(UnknownSearchTaskError);
@@ -963,19 +963,23 @@ describe('Search', () => {
       expect(() =>
         search.recordCause(
           run(3),
-          { ...given(search, 0, 'config'), cause: 'luck' },
+          { ...causeInput(search, 0, 'config'), cause: 'luck' },
           later(4),
         ),
       ).toThrow(InvalidSearchCauseError);
       expect(() =>
         search.recordCause(
           run(3),
-          { ...given(search, 0, 'config'), evidence: '  ' },
+          { ...causeInput(search, 0, 'config'), evidence: '  ' },
           later(4),
         ),
       ).toThrow(InvalidSearchCauseError);
       expect(() =>
-        searching().recordCause(run(1), given(search, 0, 'config'), later(4)),
+        searching().recordCause(
+          run(1),
+          causeInput(search, 0, 'config'),
+          later(4),
+        ),
       ).toThrow(SearchNotReflectingError);
       expect(() =>
         search
@@ -985,21 +989,21 @@ describe('Search', () => {
             later(3),
             runIds,
           )
-          .recordCause(run(3), given(search, 0, 'config'), later(4)),
+          .recordCause(run(3), causeInput(search, 0, 'config'), later(4)),
       ).toThrow(SearchIterationClosedError);
     });
 
     it('takes no candidate while it looks into why it stalled', () => {
-      expect(() => stalledAgain().admitted(run(3), admission('late'))).toThrow(
-        SearchReflectingError,
-      );
+      expect(() =>
+        stalledAgain().acceptProposal(run(3), proposal('late')),
+      ).toThrow(SearchReflectingError);
     });
 
     it('searches on, its stall cleared, once it finds a cause the config can fix', () => {
       const search = stalledAgain(aBudget({ iterations: 7 }));
       const reflection = search
-        .recordCause(run(3), given(search, 0, 'config'), later(4))
-        .recordCause(run(3), given(search, 1, 'judge'), later(4));
+        .recordCause(run(3), causeInput(search, 0, 'config'), later(4))
+        .recordCause(run(3), causeInput(search, 1, 'judge'), later(4));
 
       reflection.pullEvents();
 
@@ -1010,7 +1014,7 @@ describe('Search', () => {
       expect(goneOn.iterations[2]?.outcome).toBe('went-on');
       expect(goneOn.iterations[2]?.endedSearch).toBe(false);
       expect(goneOn.pullEvents()).toEqual([
-        new SearchIterationWanted(SEARCH_ID, goneOn.workspaceId, 4, run(4)),
+        new SearchIterationRequested(SEARCH_ID, goneOn.workspaceId, 4, run(4)),
         new SearchReflected(SEARCH_ID, goneOn.workspaceId, 3, false),
       ]);
 
@@ -1032,7 +1036,7 @@ describe('Search', () => {
         const search = stalledAgain(aBudget({ iterations: 6 }));
         const reflection = causes.reduce(
           (built, cause, at) =>
-            built.recordCause(run(3), given(search, at, cause), later(4)),
+            built.recordCause(run(3), causeInput(search, at, cause), later(4)),
           search,
         );
 
@@ -1102,7 +1106,7 @@ describe('Search', () => {
     it('says it ended the search when it found a config cause but the budget left no room to try it', () => {
       const search = stalledAgain();
       const costly = search
-        .recordCause(run(3), given(search, 0, 'config'), later(4))
+        .recordCause(run(3), causeInput(search, 0, 'config'), later(4))
         .recordRunEnd(
           run(3),
           { failed: false, started: true },
@@ -1126,7 +1130,7 @@ describe('Search', () => {
       const search = stalledAgain();
       const recorded = search.recordCause(
         run(3),
-        given(search, 0, 'config'),
+        causeInput(search, 0, 'config'),
         later(4),
       );
       const reflection = recorded.iterations[2] as SearchIteration;
@@ -1384,7 +1388,7 @@ describe('Search', () => {
           run(1),
           [ReplayId.of('replay_one')],
         ),
-        new SearchStopAsked(
+        new SearchStopRequested(
           SEARCH_ID,
           stopped.teamId,
           ConfigurationChange.updated(
@@ -1428,7 +1432,7 @@ describe('Search', () => {
         BY,
       );
 
-      expect(() => stopped.admitted(run(1), admission('two'))).toThrow(
+      expect(() => stopped.acceptProposal(run(1), proposal('two'))).toThrow(
         SearchIterationClosedError,
       );
 

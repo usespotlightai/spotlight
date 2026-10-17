@@ -172,7 +172,7 @@ describe('workspaceTerraform', () => {
     );
   });
 
-  it('asks for the Spotlight provider', () => {
+  it('requires the Spotlight provider', () => {
     expect(mainOf(CONFIGURATION)).toMatch(
       /^terraform {\n {2}required_providers {\n {4}spotlight = {\n {6}source = "usespotlightai\/spotlight"\n/,
     );
@@ -232,7 +232,7 @@ describe('workspaceTerraform', () => {
   it('keeps each judge rubric in its own file byte for byte, read with file()', () => {
     expect(
       fileOf(CONFIGURATION, 'judges/core/delivery/implementation.md'),
-    ).toBe('A good run changes only what the task asks for.\n');
+    ).toBe('A good run changes only what the task requests.\n');
   });
 
   it('writes a judge’s claims one to a line and its pass share, with a rubric file only where it has a rubric', () => {
@@ -340,7 +340,7 @@ describe('workspaceTerraform', () => {
     expect(fileOf(CONFIGURATION, 'variables.tf')).toContain(
       [
         'variable "secret_linear_api_key" {',
-        '  description = "The value of the secret LINEAR_API_KEY, which Spotlight keeps and never answers"',
+        '  description = "The value of the secret LINEAR_API_KEY, which Spotlight stores and never answers"',
         '  type        = string',
         '  sensitive   = true',
         '}',
@@ -379,7 +379,7 @@ describe('workspaceTerraform', () => {
     }
   });
 
-  it('asks no value of a secret read from elsewhere', () => {
+  it('requests no value of a secret read from elsewhere', () => {
     expect(
       blockOf(
         mainOf(CONFIGURATION),
@@ -391,7 +391,7 @@ describe('workspaceTerraform', () => {
     );
   });
 
-  it('writes the runners a line and a station ask for as the labels they are, never as references', () => {
+  it('writes the runners a line and a station request as the labels they are, never as references', () => {
     const line = resourceHcl(
       CONFIGURATION,
       resourceOf('line', 'core/delivery'),
@@ -797,7 +797,7 @@ describe('workspaceTerraform', () => {
     expect(hcl).not.toContain('variable');
   });
 
-  it('reads the secret a hook signs with from a sensitive variable, and asks none of a hook that does not sign', () => {
+  it('reads the secret a hook signs with from a sensitive variable, and requests none of a hook that does not sign', () => {
     const variables = fileOf(CONFIGURATION, 'variables.tf');
 
     expect(variables).toContain(
@@ -903,7 +903,7 @@ describe('resourceHcl', () => {
     expect(resourceHcl(CONFIGURATION, resourceOf('line')).files).toEqual([
       {
         path: 'judges/core/delivery/implementation.md',
-        content: 'A good run changes only what the task asks for.\n',
+        content: 'A good run changes only what the task requests.\n',
       },
       {
         path: 'prompts/core/delivery/implementation.md',

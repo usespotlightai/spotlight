@@ -142,14 +142,14 @@ export class ReadRunnerHistoryHandler
         ended.map((each) => each.runId),
         leased.replaysFrom,
       );
-      const kept = ended
+      const filtered = ended
         .filter(
           (each) =>
             !wanted.outcome ||
             turnedOut(outcomes.get(each.runId) ?? null, wanted.outcome),
         )
         .slice(0, last);
-      const shown = await this.shownBeyond(only.stationId, sighted, kept);
+      const shown = await this.shownBeyond(only.stationId, sighted, filtered);
       const shownOutcomes =
         shown.length > 0
           ? await this.outcomes.of(
@@ -157,7 +157,7 @@ export class ReadRunnerHistoryHandler
               leased.replaysFrom,
             )
           : new Map();
-      const listed = [...kept, ...shown];
+      const listed = [...filtered, ...shown];
       const candidates = await this.candidatesAt(only, sighted);
 
       return {
@@ -203,10 +203,10 @@ export class ReadRunnerHistoryHandler
   private async shownBeyond(
     stationId: string,
     sighted: SightedHistory,
-    kept: readonly StationRunRow[],
+    runs: readonly StationRunRow[],
   ): Promise<readonly StationRunRow[]> {
     return (
-      await this.stations.endedAmong(stationId, sighted.shownBeyond(kept))
+      await this.stations.endedAmong(stationId, sighted.shownBeyond(runs))
     ).filter((each) => !sighted.hides(each));
   }
 
@@ -255,13 +255,13 @@ export class ReadRunnerHistoryHandler
   }
 
   private async withOutcomes(
-    kept: readonly StationRunRow[],
+    runs: readonly StationRunRow[],
     station: string,
     outcomes: Outcomes,
   ): Promise<readonly HistoryRunDto[]> {
     const [written, digests] = await Promise.all([
-      this.written(kept, station),
-      this.digests.forRuns(kept.map((each) => RunId.of(each.runId))),
+      this.written(runs, station),
+      this.digests.forRuns(runs.map((each) => RunId.of(each.runId))),
     ]);
 
     return written.map((each) => ({
@@ -274,10 +274,10 @@ export class ReadRunnerHistoryHandler
   }
 
   private async written(
-    kept: readonly StationRunRow[],
+    runs: readonly StationRunRow[],
     station: string,
   ): Promise<readonly WrittenRun[]> {
-    const runIds = kept.map((each) => each.runId);
+    const runIds = runs.map((each) => each.runId);
     const [found, errors] = await Promise.all([
       this.stations.journalsOf(runIds),
       this.connections.errorsIn(runIds),
@@ -286,7 +286,7 @@ export class ReadRunnerHistoryHandler
       found.map((journal) => [journal.runId, journal]),
     );
 
-    return kept.map((each) => {
+    return runs.map((each) => {
       const journal = journals.get(each.runId) ?? null;
 
       return {

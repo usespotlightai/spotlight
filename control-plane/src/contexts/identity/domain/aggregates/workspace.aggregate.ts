@@ -4,16 +4,16 @@ import { WorkspaceMemberJoined } from '@identity/domain/events/workspace-member-
 import { WorkspaceMemberRoleChanged } from '@identity/domain/events/workspace-member-role-changed.event';
 import { WorkspaceUpdated } from '@identity/domain/events/workspace-updated.event';
 import { LastOwnerError } from '@identity/domain/exceptions/last-owner.error';
-import { NotYoursToGiveError } from '@identity/domain/exceptions/not-yours-to-give.error';
 import { NotYoursToInviteError } from '@identity/domain/exceptions/not-yours-to-invite.error';
+import { RoleAssignmentDeniedError } from '@identity/domain/exceptions/role-assignment-denied.error';
 import { TeamOutsideWorkspaceError } from '@identity/domain/exceptions/team-outside-workspace.error';
 import { WorkspaceInUseError } from '@identity/domain/exceptions/workspace-in-use.error';
 import { WorkspaceVersionConflictError } from '@identity/domain/exceptions/workspace-version-conflict.error';
 import {
+  assignableRoles,
   type RolePositions,
   roleAssignmentDenial,
-  rolesGivable,
-} from '@identity/domain/services/role-giving';
+} from '@identity/domain/services/role-assignment';
 import { Dependents } from '@identity/domain/value-objects/dependents.vo';
 import { InviteTerms } from '@identity/domain/value-objects/invite-terms.vo';
 import { Permissions } from '@identity/domain/value-objects/permissions.vo';
@@ -240,8 +240,8 @@ export class Workspace extends EventRecorder {
     };
   }
 
-  rolesGivableTo(target: UserId, by: UserId): readonly WorkspaceRole[] {
-    return rolesGivable(this.positionsBetween(target, by));
+  assignableRolesFor(target: UserId, by: UserId): readonly WorkspaceRole[] {
+    return assignableRoles(this.positionsBetween(target, by));
   }
 
   changeRole(target: UserId, role: WorkspaceRole, by: UserId): Workspace {
@@ -252,7 +252,7 @@ export class Workspace extends EventRecorder {
       throw new LastOwnerError();
     }
     if (denial) {
-      throw new NotYoursToGiveError(denial);
+      throw new RoleAssignmentDeniedError(denial);
     }
 
     const was = positions.theirs;

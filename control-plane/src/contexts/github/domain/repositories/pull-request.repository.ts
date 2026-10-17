@@ -21,7 +21,7 @@ export interface PullRequestRepository {
     title: string,
   ): Promise<PullRequest | null>;
 
-  lastHeardBefore(
+  lastUpdatedBefore(
     before: Date,
     after: PullRequest | null,
     max: number,

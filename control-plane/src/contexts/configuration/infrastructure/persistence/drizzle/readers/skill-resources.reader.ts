@@ -8,7 +8,7 @@ import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { and, eq, type SQL } from 'drizzle-orm';
 
-const KEPT = {
+const SKILL_COLUMNS = {
   id: skillDefinition.id,
   version: skillDefinition.version,
   teamId: skillDefinition.teamId,
@@ -21,11 +21,11 @@ export class DrizzleSkillResources implements SkillResourcesPort {
   constructor(private readonly context: DrizzleContext) {}
 
   withId(id: string): Promise<SkillRecord | null> {
-    return this.kept(eq(skillDefinition.id, id));
+    return this.stored(eq(skillDefinition.id, id));
   }
 
   at(teamId: TeamId, key: string): Promise<SkillRecord | null> {
-    return this.kept(
+    return this.stored(
       and(
         eq(skillDefinition.teamId, teamId.value),
         eq(skillDefinition.key, key),
@@ -35,16 +35,16 @@ export class DrizzleSkillResources implements SkillResourcesPort {
 
   async ofTeam(teamId: TeamId): Promise<readonly SkillRecord[]> {
     const found = await this.context.db
-      .select(KEPT)
+      .select(SKILL_COLUMNS)
       .from(skillDefinition)
       .where(eq(skillDefinition.teamId, teamId.value));
 
     return found.map((each) => ({ ...each, teamId }));
   }
 
-  private async kept(where: SQL | undefined): Promise<SkillRecord | null> {
+  private async stored(where: SQL | undefined): Promise<SkillRecord | null> {
     const [found] = await this.context.db
-      .select(KEPT)
+      .select(SKILL_COLUMNS)
       .from(skillDefinition)
       .where(where)
       .limit(1);

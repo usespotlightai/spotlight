@@ -60,7 +60,7 @@ export class NetworkRequest implements Secret {
       throw new InvalidNetworkCallError(`cannot be sent with ${input.method}`);
     }
 
-    if (!reachable(input.url)) {
+    if (!isHttpUrl(input.url)) {
       throw new InvalidNetworkCallError('must go to an http or https address');
     }
 
@@ -114,7 +114,7 @@ export class NetworkRequest implements Secret {
   }
 }
 
-const reachable = (url: string): boolean => {
+const isHttpUrl = (url: string): boolean => {
   try {
     const { protocol } = new URL(url);
 

@@ -18,12 +18,12 @@ import { FakeIntegrationCursors } from '@integrations/integrations.cursors.fake-
 import { defined } from '@integrations/integrations.definitions.fake-spec';
 import { operationsContaining } from '@integrations/integrations.documents.fake-spec';
 import {
+  callingNoServer,
   discoveringNothing,
-  reachingNoServer,
 } from '@integrations/integrations.mcp.fake-spec';
 import {
+  callAuthFor,
   injecting,
-  reachFor,
 } from '@integrations/integrations.secrets.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import type { SecretInjectionPort } from '@secrets/application/ports/secret-injection.port';
@@ -44,7 +44,7 @@ const runtimeWith = (
     clients,
     exchange as OAuth2Exchange,
     discoveringNothing(),
-    reachingNoServer(),
+    callingNoServer(),
   );
 
 const NOW = new Date('2026-09-07T09:00:00.000Z');
@@ -91,7 +91,7 @@ const scheduling = (
       everywhere: async () => [config(file)],
     } as unknown as DefinedIntegrationsPort,
     runtimeWith({ run } as unknown as HttpOutbound),
-    reachFor(injection),
+    callAuthFor(injection),
     cursors,
     { now: () => now } as ClockPort,
     { warn: vi.fn(), info: vi.fn(), error: vi.fn(), debug: vi.fn() },
@@ -102,7 +102,7 @@ const working = (state: PollState, now: Date = NOW, file = schedule()) => {
   const cursors = new FakeIntegrationCursors();
 
   if (state.ranAt) {
-    cursors.keep(TEAM, KEY, state);
+    cursors.setState(TEAM, KEY, state);
   }
 
   return { schedules: scheduling(cursors, run, now, file), run, cursors };
@@ -115,7 +115,7 @@ describe('RunSchedules', () => {
     await schedules.runDue();
 
     expect(run).not.toHaveBeenCalled();
-    expect(cursors.kept(TEAM, KEY)?.ranAt).toEqual(NOW);
+    expect(cursors.stateOf(TEAM, KEY)?.ranAt).toEqual(NOW);
   });
 
   it('runs the action when the cron has come round', async () => {
@@ -127,7 +127,7 @@ describe('RunSchedules', () => {
     await schedules.runDue();
 
     expect(run).toHaveBeenCalledTimes(1);
-    expect(cursors.kept(TEAM, KEY)?.ranAt).toEqual(NOW);
+    expect(cursors.stateOf(TEAM, KEY)?.ranAt).toEqual(NOW);
   });
 
   it('leaves a schedule alone until its cron comes round', async () => {
@@ -139,7 +139,7 @@ describe('RunSchedules', () => {
     await schedules.runDue();
 
     expect(run).not.toHaveBeenCalled();
-    expect(cursors.kept(TEAM, KEY)?.ranAt).toEqual(
+    expect(cursors.stateOf(TEAM, KEY)?.ranAt).toEqual(
       new Date('2026-09-07T09:00:00.000Z'),
     );
   });
@@ -168,7 +168,7 @@ describe('RunSchedules', () => {
     );
 
     const cursors = new FakeIntegrationCursors();
-    cursors.keep(TEAM, KEY, {
+    cursors.setState(TEAM, KEY, {
       cursor: null,
       ranAt: new Date('2026-09-07T08:00:00.000Z'),
     });
@@ -193,7 +193,7 @@ describe('RunSchedules', () => {
     });
   });
 
-  it('runs the action once when two workers reach the slot together', async () => {
+  it('runs the action once when two workers claim the slot together', async () => {
     let reads = 0;
     let bothRead: () => void = () => {};
     const together = new Promise<void>((resolve) => {
@@ -206,7 +206,7 @@ describe('RunSchedules', () => {
       }
       await together;
     });
-    cursors.keep(TEAM, KEY, {
+    cursors.setState(TEAM, KEY, {
       cursor: null,
       ranAt: new Date('2026-09-07T08:00:00.000Z'),
     });

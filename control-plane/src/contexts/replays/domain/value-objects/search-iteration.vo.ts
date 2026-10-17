@@ -237,7 +237,7 @@ export class SearchIteration {
     });
   }
 
-  admitted(proposal: SearchProposal): SearchIteration {
+  acceptProposal(proposal: SearchProposal): SearchIteration {
     return this.with({
       proposals: [...this.state.proposals, proposal],
       attempts: this.state.attempts + 1,

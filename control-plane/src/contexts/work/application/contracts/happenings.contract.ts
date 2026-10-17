@@ -4,7 +4,7 @@ export const REVIEW_MARK = 'github.review';
 
 export const REVIEW_ROLE = 'review';
 
-export type ReviewAsking = 'opened' | 'mentioned' | 'labelled';
+export type ReviewTrigger = 'opened' | 'mentioned' | 'labelled';
 
 type HappeningState = 'raised' | 'resolved';
 
@@ -27,7 +27,7 @@ interface ConcernsPayload {
 }
 
 export interface ReviewPayload {
-  readonly asking: ReviewAsking;
+  readonly trigger: ReviewTrigger;
   readonly label?: string | null;
   readonly pullRequest: string;
   readonly author: string | null;

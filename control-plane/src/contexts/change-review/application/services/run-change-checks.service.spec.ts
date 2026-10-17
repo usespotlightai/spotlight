@@ -185,9 +185,9 @@ describe('RunChangeChecks', () => {
 });
 
 describe('RunChangeChecks, with rechecks', () => {
-  const stacks = [stackOf('kept', REQUEST), stackOf('flipped', REQUEST)];
+  const stacks = [stackOf('unchanged', REQUEST), stackOf('flipped', REQUEST)];
   const checks = [
-    checkOf('kept', checked(true)),
+    checkOf('unchanged', checked(true)),
     checkOf('flipped', checked(true)),
     checkOf('flipped', checked(false), NOW, true),
   ];
@@ -199,7 +199,7 @@ describe('RunChangeChecks, with rechecks', () => {
         each.state,
       ]),
     ).toEqual([
-      ['kept', 'passed'],
+      ['unchanged', 'passed'],
       ['flipped', 'passed'],
     ]);
   });
@@ -211,7 +211,7 @@ describe('RunChangeChecks, with rechecks', () => {
         each.state,
       ]),
     ).toEqual([
-      ['kept', 'checking'],
+      ['unchanged', 'checking'],
       ['flipped', 'failed'],
     ]);
   });

@@ -5,7 +5,7 @@ import type { ModelCall } from '@shared-kernel/domain/value-objects/model-usage.
 
 export const PAIR_JUDGE = Symbol('OUTCOMES_PAIR_JUDGE');
 
-export interface PairJudgeAsk {
+export interface PairJudgeRequest {
   readonly rubric: string | null;
   readonly claims: readonly string[];
   readonly title: string;
@@ -25,5 +25,5 @@ export interface PairJudgePort {
 
   readonly model: string;
 
-  judgePair(ask: PairJudgeAsk): Promise<PairJudgeAnswer>;
+  judgePair(request: PairJudgeRequest): Promise<PairJudgeAnswer>;
 }

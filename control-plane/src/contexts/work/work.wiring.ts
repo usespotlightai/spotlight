@@ -57,7 +57,7 @@ import { PayloadTypes } from '@platform/events/payload-types';
 import { AuthenticatedGuard } from '@platform/http/guards/authenticated.guard';
 import { RunnerGuard } from '@platform/http/guards/runner.guard';
 import { CryptoIdGenerator } from '@platform/ids/crypto-id.generator';
-import { RUNNER_ADMISSIONS } from '@runners/application/ports/runner-admissions.port';
+import { RUNNER_AUTHENTICATOR } from '@runners/application/ports/runner-authenticator.port';
 import { RUNNER_EGRESS } from '@runners/application/ports/runner-egress.port';
 import { RUNNER_HEARTBEATS } from '@runners/application/ports/runner-heartbeats.port';
 import {
@@ -118,7 +118,7 @@ import { CreateLineCommand } from '@work/application/commands/create-line.comman
 import { DeleteLineCommand } from '@work/application/commands/delete-line.command';
 import { DeleteTaskCommand } from '@work/application/commands/delete-task.command';
 import {
-  AdmitThroughEgressCommand,
+  AuthorizeRunnerCommand,
   CheckActiveRunsCommand,
   FetchRunSecretsCommand,
   FetchSharedRunSecretsCommand,
@@ -128,12 +128,12 @@ import { GrantAttachmentUploadCommand } from '@work/application/commands/grant-a
 import { AcceptProposalHandler } from '@work/application/commands/handlers/accept-proposal.handler';
 import { AckMessagesHandler } from '@work/application/commands/handlers/ack-messages.handler';
 import { AddTaskHandler } from '@work/application/commands/handlers/add-task.handler';
-import { AdmitThroughEgressHandler } from '@work/application/commands/handlers/admit-through-egress.handler';
 import { AnswerHostCallHandler } from '@work/application/commands/handlers/answer-host-call.handler';
 import { AnswerInboxItemHandler } from '@work/application/commands/handlers/answer-inbox-item.handler';
 import { AppendRunJournalHandler } from '@work/application/commands/handlers/append-run-journal.handler';
 import { AskPermissionHandler } from '@work/application/commands/handlers/ask-permission.handler';
 import { AssignTaskHandler } from '@work/application/commands/handlers/assign-task.handler';
+import { AuthorizeRunnerHandler } from '@work/application/commands/handlers/authorize-runner.handler';
 import { CheckActiveRunsHandler } from '@work/application/commands/handlers/check-active-runs.handler';
 import { ClaimHostCallHandler } from '@work/application/commands/handlers/claim-host-call.handler';
 import { ClaimHostWorkHandler } from '@work/application/commands/handlers/claim-host-work.handler';
@@ -207,6 +207,7 @@ import { HandOver } from '@work/application/events/handlers/hand-over.handler';
 import { NotifyOutsideTools } from '@work/application/events/handlers/notify-outside-tools.handler';
 import { ProvisionTeam } from '@work/application/events/handlers/provision-team.handler';
 import { WORK_EVENT_MAPPERS } from '@work/application/integration-events/work.event-mappers';
+import { ACCESSIBLE_REPOSITORIES } from '@work/application/ports/accessible-repositories.port';
 import type { ArchiveReferencesPort } from '@work/application/ports/archive-references.port';
 import { ARCHIVE_REFERENCES } from '@work/application/ports/archive-references.port';
 import { ATTACHMENT_READER } from '@work/application/ports/attachment-reader.port';
@@ -244,8 +245,8 @@ import {
   CONTENT_DIGEST,
   type ContentDigestPort,
 } from '@work/application/ports/content-digest.port';
+import { ENABLED_AT_STATIONS } from '@work/application/ports/enabled-at-stations.port';
 import { GIT_GATEWAY } from '@work/application/ports/git-gateway.port';
-import { GIVEN_AT_STATIONS } from '@work/application/ports/given-at-stations.port';
 import { HAPPENING_REACTIONS } from '@work/application/ports/happening-reactions.port';
 import {
   HARNESS_LAUNCH,
@@ -253,10 +254,6 @@ import {
 } from '@work/application/ports/harness-launch.port';
 import { HARNESS_PROFILE_REVIEW } from '@work/application/ports/harness-profile-review.port';
 import { HARNESS_TOOL_NAMES } from '@work/application/ports/harness-tool-names.port';
-import {
-  HEARD_HAPPENINGS,
-  type HeardHappeningsPort,
-} from '@work/application/ports/heard-happenings.port';
 import { HOOK_TRACES } from '@work/application/ports/hook-traces.port';
 import {
   HOOKED_TASKS,
@@ -299,11 +296,14 @@ import {
   type OutboundTaskNotifierPort,
 } from '@work/application/ports/outbound-task-notifier.port';
 import {
+  PROCESSED_EVENTS,
+  type ProcessedEventsPort,
+} from '@work/application/ports/processed-events.port';
+import {
   PULL_REQUEST_REVIEWING,
   type PullRequestReviewingPort,
 } from '@work/application/ports/pull-request-reviewing.port';
 import { QUEUED_PLACEMENTS } from '@work/application/ports/queued-placements.port';
-import { REACHABLE_REPOSITORIES } from '@work/application/ports/reachable-repositories.port';
 import { REPLAY_CANDIDATES } from '@work/application/ports/replay-candidates.port';
 import { REPLAY_DISPATCH } from '@work/application/ports/replay-dispatch.port';
 import {
@@ -353,9 +353,9 @@ import {
 import { RUNNER_ACTIVITY_READER } from '@work/application/ports/runner-activity-reader.port';
 import { RUNNER_TRACE_READER } from '@work/application/ports/runner-trace-reader.port';
 import {
-  SANDBOX_REACH,
-  type SandboxReachPort,
-} from '@work/application/ports/sandbox-reach.port';
+  SANDBOX_HOSTS,
+  type SandboxHostsPort,
+} from '@work/application/ports/sandbox-hosts.port';
 import { SEARCH_AGENTS } from '@work/application/ports/search-agents.port';
 import { SEARCH_DISPATCH } from '@work/application/ports/search-dispatch.port';
 import { SEARCH_RUNS } from '@work/application/ports/search-runs.port';
@@ -456,7 +456,7 @@ import { ReadTaskJournalHandler } from '@work/application/queries/handlers/read-
 import { ReadTaskTraceHandler } from '@work/application/queries/handlers/read-task-trace.handler';
 import { RunStopRequestedHandler } from '@work/application/queries/handlers/run-stop-requested.handler';
 import { StoredWorkspaceArchiveHandler } from '@work/application/queries/handlers/stored-workspace-archive.handler';
-import { TurnAsksAPersonHandler } from '@work/application/queries/handlers/turn-asks-a-person.handler';
+import { TurnAwaitsPersonHandler } from '@work/application/queries/handlers/turn-awaits-person.handler';
 import { WatchRunHandler } from '@work/application/queries/handlers/watch-run.handler';
 import { HostRequirementsQuery } from '@work/application/queries/host.queries';
 import { ImportLineQuery } from '@work/application/queries/import-line.query';
@@ -490,7 +490,7 @@ import { ReadTaskJournalQuery } from '@work/application/queries/read-task-journa
 import { ReadTaskTraceQuery } from '@work/application/queries/read-task-trace.query';
 import { RunStopRequestedQuery } from '@work/application/queries/run-stop-requested.query';
 import { StoredWorkspaceArchiveQuery } from '@work/application/queries/stored-workspace-archive.query';
-import { TurnAsksAPersonQuery } from '@work/application/queries/turn-asks-a-person.query';
+import { TurnAwaitsPersonQuery } from '@work/application/queries/turn-awaits-person.query';
 import { WatchRunQuery } from '@work/application/queries/watch-run.query';
 import { ApplyLines } from '@work/application/services/apply-lines.service';
 import { AsideLoader } from '@work/application/services/aside-loader.service';
@@ -530,7 +530,7 @@ import { ProposeTaskToolUse } from '@work/application/services/propose-task.tool
 import { ProvisionFailures } from '@work/application/services/provision-failures.service';
 import { ProvisionWork } from '@work/application/services/provision-work.service';
 import { PullRequestToolUse } from '@work/application/services/pull-request.tool-use';
-import { PurgeHeardHappenings } from '@work/application/services/purge-heard-happenings.service';
+import { PurgeProcessedEvents } from '@work/application/services/purge-processed-events.service';
 import { PurgeRunConnections } from '@work/application/services/purge-run-connections.service';
 import { RaiseTask } from '@work/application/services/raise-task';
 import { ReactToHappenings } from '@work/application/services/react-to-happenings.service';
@@ -572,7 +572,7 @@ import type { LineRepository } from '@work/domain/repositories/line.repository';
 import { BUILT_IN_SKILL_KEYS } from '@work/domain/services/built-in-skills';
 import { AcpHarnessToolNames } from '@work/infrastructure/acp/harness-tools';
 import { OutboxTeamProvisioning } from '@work/infrastructure/events/outbox-team-provisioning';
-import { GitHubReachableRepositories } from '@work/infrastructure/github/github-reachable-repositories';
+import { GitHubAccessibleRepositories } from '@work/infrastructure/github/github-accessible-repositories';
 import {
   BuiltInHarnesses,
   DEFAULT_HARNESS,
@@ -580,7 +580,7 @@ import {
 import { Sha256ContentDigest } from '@work/infrastructure/hashing/sha256-content-digest';
 import { LineCompiler } from '@work/infrastructure/lines/line.compile';
 import { RowsLineRendering } from '@work/infrastructure/lines/rows-line-rendering';
-import { DrizzleHeardHappenings } from '@work/infrastructure/persistence/drizzle/ledgers/heard-happenings.ledger';
+import { DrizzleProcessedEvents } from '@work/infrastructure/persistence/drizzle/ledgers/processed-events.ledger';
 import { DrizzleReplayRunClaims } from '@work/infrastructure/persistence/drizzle/ledgers/replay-run-claims.ledger';
 import { DrizzleRunConnections } from '@work/infrastructure/persistence/drizzle/ledgers/run-connections.ledger';
 import { DrizzleRunDigests } from '@work/infrastructure/persistence/drizzle/ledgers/run-digests.ledger';
@@ -589,7 +589,7 @@ import { DrizzleArchiveReferences } from '@work/infrastructure/persistence/drizz
 import { DrizzleAttachmentReader } from '@work/infrastructure/persistence/drizzle/readers/attachment.reader';
 import { DrizzleBriefedTasks } from '@work/infrastructure/persistence/drizzle/readers/briefed-tasks.reader';
 import { DrizzleChatReader } from '@work/infrastructure/persistence/drizzle/readers/chat.reader';
-import { DrizzleGivenAtStations } from '@work/infrastructure/persistence/drizzle/readers/given-at-stations.reader';
+import { DrizzleEnabledAtStations } from '@work/infrastructure/persistence/drizzle/readers/enabled-at-stations.reader';
 import { DrizzleInboxReader } from '@work/infrastructure/persistence/drizzle/readers/inbox.reader';
 import { DrizzleLeasedRunReader } from '@work/infrastructure/persistence/drizzle/readers/leased-run.reader';
 import { DrizzleLineReader } from '@work/infrastructure/persistence/drizzle/readers/line.reader';
@@ -622,7 +622,7 @@ import { DrizzleWorkspaceArchiveRepository } from '@work/infrastructure/persiste
 import { S3AttachmentStore } from '@work/infrastructure/storage/s3-attachment.store';
 import { s3ClientsOf } from '@work/infrastructure/storage/s3-clients';
 import { S3WorkspaceArchiveStore } from '@work/infrastructure/storage/s3-workspace-archive.store';
-import { StorageReach } from '@work/infrastructure/storage/storage-reach';
+import { StorageHosts } from '@work/infrastructure/storage/storage-hosts';
 import { InMemoryRunStream } from '@work/infrastructure/streaming/in-memory-run-stream';
 import { HashedTraceParent } from '@work/infrastructure/tracing/hashed-trace-parent';
 import { workSubscribers } from '@work/presentation/events/work.subscribers';
@@ -644,8 +644,8 @@ import { RunnerController } from '@work/presentation/http/controllers/runner.con
 import { RunnerActivityController } from '@work/presentation/http/controllers/runner-activity.controller';
 import { TaskController } from '@work/presentation/http/controllers/task.controller';
 import { WorkspaceArchiveController } from '@work/presentation/http/controllers/workspace-archive.controller';
-import { HeardHappeningsWorker } from '@work/presentation/workers/heard-happenings.worker';
 import { NetworkCallsWorker } from '@work/presentation/workers/network-calls.worker';
+import { ProcessedEventsWorker } from '@work/presentation/workers/processed-events.worker';
 import { ProvisionWorkWorker } from '@work/presentation/workers/provision-work.worker';
 import { RunConnectionsWorker } from '@work/presentation/workers/run-connections.worker';
 import { WorkspaceArchivesWorker } from '@work/presentation/workers/workspace-archives.worker';
@@ -680,7 +680,7 @@ export const WORK_CONTROLLERS: readonly Type[] = [
 ];
 
 export const WORK_PROVIDERS: readonly Provider[] = [
-  { provide: GIVEN_AT_STATIONS, useClass: DrizzleGivenAtStations },
+  { provide: ENABLED_AT_STATIONS, useClass: DrizzleEnabledAtStations },
   DrizzleLineDependents,
   {
     provide: WORK_DEPENDENTS,
@@ -734,7 +734,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   DrizzleRunRepository,
 
-  { provide: HEARD_HAPPENINGS, useClass: DrizzleHeardHappenings },
+  { provide: PROCESSED_EVENTS, useClass: DrizzleProcessedEvents },
 
   DrizzleLineRepository,
 
@@ -818,7 +818,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       DrizzleTaskRepository,
       DrizzleLineRepository,
       WORKSPACE_READER,
-      HEARD_HAPPENINGS,
+      PROCESSED_EVENTS,
       TASK_PLACEMENTS,
       TASK_DISPATCH,
       TRANSACTION,
@@ -829,7 +829,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       tasks: DrizzleTaskRepository,
       lines: DrizzleLineRepository,
       workspaces: WorkspaceReaderPort,
-      heard: HeardHappeningsPort,
+      processedEvents: ProcessedEventsPort,
       placements: TaskPlacementsPort,
       dispatch: DispatchTask,
       transaction: TransactionPort,
@@ -840,7 +840,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
         tasks,
         lines,
         workspaces,
-        heard,
+        processedEvents,
         placements,
         dispatch,
         transaction,
@@ -883,17 +883,17 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   },
 
   {
-    provide: PurgeHeardHappenings,
-    inject: [HEARD_HAPPENINGS, CLOCK],
-    useFactory: (heard: HeardHappeningsPort, clock: ClockPort) =>
-      new PurgeHeardHappenings(heard, clock),
+    provide: PurgeProcessedEvents,
+    inject: [PROCESSED_EVENTS, CLOCK],
+    useFactory: (processedEvents: ProcessedEventsPort, clock: ClockPort) =>
+      new PurgeProcessedEvents(processedEvents, clock),
   },
 
   {
-    provide: HeardHappeningsWorker,
-    inject: [PurgeHeardHappenings, LOGGER],
-    useFactory: (purging: PurgeHeardHappenings, logger: LoggerPort) =>
-      new HeardHappeningsWorker(purging, logger),
+    provide: ProcessedEventsWorker,
+    inject: [PurgeProcessedEvents, LOGGER],
+    useFactory: (purging: PurgeProcessedEvents, logger: LoggerPort) =>
+      new ProcessedEventsWorker(purging, logger),
   },
 
   {
@@ -966,9 +966,9 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   { provide: ATTACHMENT_READER, useClass: DrizzleAttachmentReader },
 
   {
-    provide: SANDBOX_REACH,
+    provide: SANDBOX_HOSTS,
     inject: [ENV],
-    useFactory: (env: Env) => new StorageReach(env),
+    useFactory: (env: Env) => new StorageHosts(env),
   },
 
   {
@@ -1041,10 +1041,10 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   },
 
   {
-    provide: REACHABLE_REPOSITORIES,
+    provide: ACCESSIBLE_REPOSITORIES,
     inject: [REPOSITORY_CATALOG],
     useFactory: (catalog: RepositoryCatalogPort) =>
-      new GitHubReachableRepositories(catalog),
+      new GitHubAccessibleRepositories(catalog),
   },
 
   {
@@ -1110,7 +1110,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       ID_GENERATOR,
       MEMBER_DIRECTORY,
       ATTACHMENT_STORE,
-      HEARD_HAPPENINGS,
+      PROCESSED_EVENTS,
       LOGGER,
     ],
     useFactory: (
@@ -1123,7 +1123,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       ids: IdGeneratorPort,
       members: MemberDirectoryPort,
       files: AttachmentStorePort,
-      heard: HeardHappeningsPort,
+      processedEvents: ProcessedEventsPort,
       logger: LoggerPort,
     ) =>
       new ReactToHappenings(
@@ -1136,7 +1136,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
         ids,
         members,
         files,
-        heard,
+        processedEvents,
         logger,
       ),
   },
@@ -1865,7 +1865,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     LEASED_RUN_READER,
   ]),
 
-  ...bindQueryHandler(TurnAsksAPersonQuery, TurnAsksAPersonHandler, [
+  ...bindQueryHandler(TurnAwaitsPersonQuery, TurnAwaitsPersonHandler, [
     DrizzleRunRepository,
     DrizzleTaskRepository,
     DrizzleLineRepository,
@@ -1884,7 +1884,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
 
   ...bindQueryHandler(HostRequirementsQuery, HostRequirementsHandler, [
     HARNESS_LAUNCH,
-    RUNNER_ADMISSIONS,
+    RUNNER_AUTHENTICATOR,
     LINE_IMAGES,
   ]),
 
@@ -2198,7 +2198,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     DrizzleLineRepository,
     CHAT_DISPATCH,
     HARNESS_LAUNCH,
-    REACHABLE_REPOSITORIES,
+    ACCESSIBLE_REPOSITORIES,
     RUNNER_READER,
     ID_GENERATOR,
     CLOCK,
@@ -2296,7 +2296,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   ]),
 
   ...bindCommandHandler(ClaimHostWorkCommand, ClaimHostWorkHandler, [
-    RUNNER_ADMISSIONS,
+    RUNNER_AUTHENTICATOR,
     RUNNERS,
     RUNNER_HEARTBEATS,
     DrizzleRunRepository,
@@ -2309,7 +2309,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   ]),
 
   ...bindCommandHandler(ClaimHostCallCommand, ClaimHostCallHandler, [
-    RUNNER_ADMISSIONS,
+    RUNNER_AUTHENTICATOR,
     RUNNERS,
     DrizzleNetworkCallRepository,
     CLOCK,
@@ -2317,7 +2317,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
   ]),
 
   ...bindCommandHandler(AnswerHostCallCommand, AnswerHostCallHandler, [
-    RUNNER_ADMISSIONS,
+    RUNNER_AUTHENTICATOR,
     DrizzleNetworkCallRepository,
     CLOCK,
   ]),
@@ -2328,7 +2328,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       DrizzleRunRepository,
       RUN_SECRET_FETCHES,
       RUN_GRANTS,
-      SANDBOX_REACH,
+      SANDBOX_HOSTS,
       DrizzleChatRepository,
       RUN_TOKENS,
       CLOCK,
@@ -2338,7 +2338,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
       runs: DrizzleRunRepository,
       runSecretFetches: RunSecretFetchesPort,
       grants: RunGrantsPort,
-      reach: SandboxReachPort,
+      sandboxHosts: SandboxHostsPort,
       chats: DrizzleChatRepository,
       runTokens: RunTokensPort,
       clock: ClockPort,
@@ -2348,7 +2348,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
         runs,
         runSecretFetches,
         grants,
-        reach,
+        sandboxHosts,
         chats,
         runTokens,
         clock,
@@ -2400,9 +2400,9 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     [RUNNER_EGRESS, EgressSecretFetches, CLOCK],
   ),
 
-  ...bindCommandHandler(AdmitThroughEgressCommand, AdmitThroughEgressHandler, [
+  ...bindCommandHandler(AuthorizeRunnerCommand, AuthorizeRunnerHandler, [
     RUNNER_EGRESS,
-    SANDBOX_REACH,
+    SANDBOX_HOSTS,
     CLOCK,
     CONTROL_PLANE_HOST,
     CONTROL_PLANE_PORT,

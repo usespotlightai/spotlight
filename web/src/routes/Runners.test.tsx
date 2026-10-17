@@ -58,7 +58,7 @@ const image = (over: Record<string, unknown> = {}) => ({
 const host = (over: Record<string, unknown> = {}) => ({
   id: 'K7Q2M4ZC3VYH6N5RB8WX1TDJ9P',
   name: 'build-box-1',
-  through: { kind: 'pool', key: 'build-farm' },
+  source: { kind: 'pool', key: 'build-farm' },
   release: 'v1.4.0',
   containerRuntime: 'Docker Engine 27.3.1 (linux/amd64)',
   capacity: 4,
@@ -73,7 +73,7 @@ const host = (over: Record<string, unknown> = {}) => ({
 });
 
 const pushPool = (over: Record<string, unknown> = {}) => ({
-  through: { kind: 'pool', key: 'ephemeral' },
+  source: { kind: 'pool', key: 'ephemeral' },
   runners: [provisioned(over)],
 });
 
@@ -88,7 +88,7 @@ const LEASED_RUN = {
 
 const provisioned = (over: Record<string, unknown> = {}) => ({
   id: 'runner_cloud_1',
-  through: { kind: 'pool', key: 'ephemeral' },
+  source: { kind: 'pool', key: 'ephemeral' },
   hostId: null,
   image: null,
   harnesses: ['claude-code'],
@@ -130,7 +130,7 @@ describe('Runners', () => {
     expect(screen.queryByText(/No hosts yet/)).not.toBeInTheDocument();
   });
 
-  it('says the runners could not be loaded, and tries again when asked', async () => {
+  it('says the runners could not be loaded, and tries again on request', async () => {
     const person = userEvent.setup();
     fleet.mockReturnValue(undefined);
     failing.mockReturnValue(true);
@@ -208,7 +208,7 @@ describe('Runners', () => {
   });
 
   it('names a host serving a trust by the trust', () => {
-    listing([host({ through: { kind: 'trust', key: 'production' } })]);
+    listing([host({ source: { kind: 'trust', key: 'production' } })]);
 
     renderPage();
 

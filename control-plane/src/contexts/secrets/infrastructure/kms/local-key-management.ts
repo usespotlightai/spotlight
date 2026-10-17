@@ -15,15 +15,15 @@ export class LocalKeyManagement implements KeyManagement {
   private readonly key: Buffer;
 
   constructor(key: string) {
-    const given = Buffer.from(key, 'base64');
+    const decoded = Buffer.from(key, 'base64');
 
-    if (given.length !== KEY_BYTES) {
+    if (decoded.length !== KEY_BYTES) {
       throw new Error(
         `SPOTLIGHT_SECRETS_KEY must be ${KEY_BYTES} bytes, base64 encoded. Generate one with: openssl rand -base64 32`,
       );
     }
 
-    this.key = given;
+    this.key = decoded;
   }
 
   async issue(context: KeyContext): Promise<IssuedDataKey> {

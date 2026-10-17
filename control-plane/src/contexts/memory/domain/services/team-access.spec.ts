@@ -17,7 +17,7 @@ const ADA = UserId.of('user_ada');
 const teamAccess = () =>
   TeamAccess.onTeam('team_1', { workspaceId: WORKSPACE, by: ADA });
 
-const kept = (teamId: string) =>
+const approved = (teamId: string) =>
   Memory.write({
     id: MemoryId.of('memory_1'),
     handle: MemoryHandle.of(1),
@@ -30,7 +30,7 @@ const kept = (teamId: string) =>
   });
 
 describe('TeamAccess', () => {
-  it('is given to anyone on the team, as themselves', () => {
+  it('is granted to anyone on the team, as themselves', () => {
     const access = teamAccess();
 
     expect(access.teamId.value).toBe('team_1');
@@ -45,8 +45,8 @@ describe('TeamAccess', () => {
   });
 
   it('includes only the team’s own memories', () => {
-    expect(teamAccess().includes(kept('team_1'))).toBe(true);
-    expect(teamAccess().includes(kept('team_2'))).toBe(false);
+    expect(teamAccess().includes(approved('team_1'))).toBe(true);
+    expect(teamAccess().includes(approved('team_2'))).toBe(false);
   });
 
   it('reviews only a task of the team, in its workspace', () => {

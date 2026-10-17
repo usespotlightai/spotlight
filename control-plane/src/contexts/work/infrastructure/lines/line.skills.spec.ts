@@ -24,7 +24,7 @@ const LINE = (skills: readonly string[]) =>
     ],
   });
 
-describe('the skills a station definition gives a station', () => {
+describe('the skills a station definition enables at a station', () => {
   it('are read as the skills laid for a run there', () => {
     const read = LINE(['our-migrations', 'frontend-hygiene']);
 

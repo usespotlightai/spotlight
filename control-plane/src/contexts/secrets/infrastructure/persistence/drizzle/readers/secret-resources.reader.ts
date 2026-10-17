@@ -11,7 +11,7 @@ import { secret } from '@secrets/infrastructure/persistence/drizzle/schemas/secr
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { and, asc, eq, type SQL } from 'drizzle-orm';
 
-const keptFrom = (row: typeof secret.$inferSelect): SecretRecord => ({
+const recordOf = (row: typeof secret.$inferSelect): SecretRecord => ({
   id: row.id,
   version: row.version,
   workspaceId: WorkspaceId.of(row.workspaceId),
@@ -48,7 +48,7 @@ export class DrizzleSecretResources
         .select()
         .from(secret)
         .where(eq(secret.workspaceId, workspaceId.value))
-    ).map(keptFrom);
+    ).map(recordOf);
   }
 
   async namesIn(workspaceId: string): Promise<readonly string[]> {
@@ -74,6 +74,6 @@ export class DrizzleSecretResources
       .where(where)
       .limit(1);
 
-    return found ? keptFrom(found) : null;
+    return found ? recordOf(found) : null;
   }
 }

@@ -4,7 +4,7 @@ import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/c
 
 export const HOOK_COMPILER = Symbol('HOOK_COMPILER');
 
-export interface GivenSigningSecret {
+export interface SigningSecretInput {
   readonly secret: string | null;
   readonly version: number;
 }
@@ -14,7 +14,7 @@ export type ParsedHookDefinition =
       readonly ok: true;
       readonly hook: Hook;
       readonly document: DefinitionDocument;
-      readonly secret: GivenSigningSecret | null;
+      readonly secret: SigningSecretInput | null;
     }
   | { readonly ok: false; readonly problems: readonly ConfigurationProblem[] };
 

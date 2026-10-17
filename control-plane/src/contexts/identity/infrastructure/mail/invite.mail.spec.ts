@@ -56,7 +56,7 @@ describe('InviteByMail', () => {
     );
   });
 
-  it('says who asked and which workspace they were asked into', async () => {
+  it('says who invited them and which workspace they were invited into', async () => {
     const { mail, delivered } = sending();
 
     await mail.send(invite);

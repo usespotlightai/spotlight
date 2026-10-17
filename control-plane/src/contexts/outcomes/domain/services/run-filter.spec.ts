@@ -1,6 +1,6 @@
 import { InvalidRunFilterError } from '@outcomes/domain/exceptions/invalid-run-filter.error';
 import {
-  type RunFilterAsked,
+  type RunFilterQuery,
   runFilterOf,
 } from '@outcomes/domain/services/run-filter';
 import { InsightsPeriod } from '@outcomes/domain/value-objects/insights-period.vo';
@@ -11,7 +11,7 @@ const PERIOD = InsightsPeriod.of(
   new Date('2026-10-01T15:00:00.000Z'),
 ).current;
 
-const NOTHING: RunFilterAsked = {
+const NOTHING: RunFilterQuery = {
   lineId: null,
   stationId: null,
   outcome: null,
@@ -24,7 +24,7 @@ const NOTHING: RunFilterAsked = {
   personId: null,
   day: null,
   week: null,
-  skillGiven: null,
+  skillEnabled: null,
   skillUsed: null,
   server: null,
   serverFailed: null,
@@ -37,7 +37,7 @@ const NOTHING: RunFilterAsked = {
 };
 
 describe('runFilterOf', () => {
-  it('narrows to the week that starts on the day asked, and rejects a day it cannot read', () => {
+  it('narrows to the week that starts on the requested day, and rejects a day it cannot read', () => {
     expect(
       runFilterOf({ ...NOTHING, week: '2026-09-28' }, PERIOD).week,
     ).toEqual({
@@ -57,7 +57,7 @@ describe('runFilterOf', () => {
     }
   });
 
-  it('keeps the skill, server and tool asked for', () => {
+  it('keeps the requested skill, server and tool', () => {
     expect(
       runFilterOf(
         {
@@ -78,7 +78,7 @@ describe('runFilterOf', () => {
     });
   });
 
-  it('narrows to refusals of no server when asked for none', () => {
+  it('narrows to refusals of no server when the query names none', () => {
     expect(
       runFilterOf({ ...NOTHING, refusedServer: 'none' }, PERIOD).refusedServer,
     ).toEqual({ kind: 'none' });
@@ -96,7 +96,7 @@ describe('runFilterOf', () => {
     ).toThrow(InvalidRunFilterError);
   });
 
-  it('narrows by nothing when nothing is asked', () => {
+  it('narrows by nothing when the query names nothing', () => {
     expect(runFilterOf(NOTHING, PERIOD)).toMatchObject({
       model: { kind: 'any' },
       repository: { kind: 'any' },
@@ -126,7 +126,7 @@ describe('runFilterOf', () => {
     });
   });
 
-  it('narrows to the tasks asked for, and to none when one task is asked that the list leaves out', () => {
+  it('narrows to the requested tasks, and to none when the query names one task that the list leaves out', () => {
     expect(
       runFilterOf(
         { ...NOTHING, taskIds: ['task_1', 'task_2', 'task_1'] },
@@ -155,12 +155,12 @@ describe('runFilterOf', () => {
   });
 
   it('rejects an outcome, delivery or next act it does not know', () => {
-    for (const asked of [
+    for (const query of [
       { outcome: 'exploded' },
       { delivery: 'shipped' },
       { next: 'shrugged' },
     ]) {
-      expect(() => runFilterOf({ ...NOTHING, ...asked }, PERIOD)).toThrow(
+      expect(() => runFilterOf({ ...NOTHING, ...query }, PERIOD)).toThrow(
         InvalidRunFilterError,
       );
     }
@@ -194,20 +194,20 @@ describe('runFilterOf', () => {
     }
   });
 
-  it('rejects a value asked more than once where it takes one', () => {
-    for (const asked of [
+  it('rejects a value repeated where it takes one', () => {
+    for (const query of [
       { stationId: ['station_1', 'station_2'] },
       { model: ['opus', 'sonnet'] },
       { day: ['2026-09-28', '2026-09-29'] },
       { asked: ['true', 'true'] },
     ]) {
-      expect(() => runFilterOf({ ...NOTHING, ...asked }, PERIOD)).toThrow(
+      expect(() => runFilterOf({ ...NOTHING, ...query }, PERIOD)).toThrow(
         InvalidRunFilterError,
       );
     }
   });
 
-  it('narrows to tasks that asked someone during the period only when asked true, and rejects anything but true or false', () => {
+  it('narrows to tasks that asked someone during the period only when the query is true, and rejects anything but true or false', () => {
     expect(
       runFilterOf({ ...NOTHING, asked: 'true' }, PERIOD).askedWithin,
     ).toEqual(PERIOD);

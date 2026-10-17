@@ -168,7 +168,7 @@ export class EntryPairing {
     readonly unpaired: Unpaired | null,
   ) {}
 
-  static asked(against: RunId): EntryPairing {
+  static requested(against: RunId): EntryPairing {
     return new EntryPairing(against, null, null);
   }
 

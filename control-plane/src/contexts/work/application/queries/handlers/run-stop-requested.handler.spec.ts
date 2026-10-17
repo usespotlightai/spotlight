@@ -2,7 +2,7 @@ import { RunStopRequestedHandler } from '@work/application/queries/handlers/run-
 import { RunStopRequestedQuery } from '@work/application/queries/run-stop-requested.query';
 import { describe, expect, it } from 'vitest';
 
-const asking = (stopping: Record<string, string>) =>
+const requesting = (stopping: Record<string, string>) =>
   new RunStopRequestedHandler({
     pendingFor: async () => [],
     stopRequestedFor: async (runId, runnerId) =>
@@ -10,16 +10,16 @@ const asking = (stopping: Record<string, string>) =>
   });
 
 describe('RunStopRequestedHandler', () => {
-  it('says no when nobody has asked the run to stop', async () => {
-    const answer = await asking({}).execute(
+  it('says no when nobody has requested the run to stop', async () => {
+    const answer = await requesting({}).execute(
       new RunStopRequestedQuery('run_1', 'runner_1'),
     );
 
     expect(answer).toBe(false);
   });
 
-  it('says yes once a person has asked', async () => {
-    const answer = await asking({ run_1: 'runner_1' }).execute(
+  it('says yes once a person has requested a stop', async () => {
+    const answer = await requesting({ run_1: 'runner_1' }).execute(
       new RunStopRequestedQuery('run_1', 'runner_1'),
     );
 
@@ -27,7 +27,7 @@ describe('RunStopRequestedHandler', () => {
   });
 
   it('tells another runner nothing about a run it does not lease', async () => {
-    const answer = await asking({ run_1: 'runner_1' }).execute(
+    const answer = await requesting({ run_1: 'runner_1' }).execute(
       new RunStopRequestedQuery('run_1', 'runner_2'),
     );
 

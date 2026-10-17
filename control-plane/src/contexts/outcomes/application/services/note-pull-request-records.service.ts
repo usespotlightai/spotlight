@@ -96,12 +96,12 @@ export class NotePullRequestRecords {
         return;
       }
 
-      const kept = existing.purgedByGitHub(purged.updatedAt);
+      const updated = existing.purgedByGitHub(purged.updatedAt);
 
-      if (kept === null) {
+      if (updated === null) {
         await this.records.remove(existing);
-      } else if (kept !== existing) {
-        await this.records.save(kept);
+      } else if (updated !== existing) {
+        await this.records.save(updated);
       }
     });
   }

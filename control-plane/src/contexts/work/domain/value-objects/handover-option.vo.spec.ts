@@ -15,7 +15,7 @@ describe('HandoverOption', () => {
     expect(option.station?.name.value).toBe('Code Review');
   });
 
-  it('is written as review where it reaches a person', () => {
+  it('is written as review where it goes to a person', () => {
     const option = HandoverOption.review();
 
     expect(option.kind).toBe('review');

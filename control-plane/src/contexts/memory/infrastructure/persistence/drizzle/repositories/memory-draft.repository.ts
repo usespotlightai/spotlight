@@ -38,16 +38,16 @@ const draftingOf = (row: DraftRow): MemoryDrafting | null => {
   if (!row.draftingRunId) {
     return null;
   }
-  if (!row.draftingAskedAt) {
+  if (!row.draftingRequestedAt) {
     throw new InconsistentStateError(
       'memory draft',
-      'drafts a run without saying when it was asked',
+      'drafts a run without saying when it was requested',
     );
   }
 
   return MemoryDrafting.rehydrate({
     runId: RunId.of(row.draftingRunId),
-    askedAt: row.draftingAskedAt,
+    requestedAt: row.draftingRequestedAt,
     job: PendingJob.rehydrate({
       attempts: row.jobAttempts,
       nextAttemptAt: row.jobDueAt,
@@ -120,7 +120,7 @@ const toDraft = (
 
 const columnsOf = (draft: MemoryDraft) => ({
   draftingRunId: draft.drafting?.runId.value ?? null,
-  draftingAskedAt: draft.drafting?.askedAt ?? null,
+  draftingRequestedAt: draft.drafting?.requestedAt ?? null,
   jobAttempts: draft.drafting?.job.attempts ?? 0,
   jobDueAt: draft.drafting?.job.nextAttemptAt ?? null,
   draftedIn: draft.draftedIn?.value ?? null,
@@ -239,7 +239,7 @@ export class DrizzleMemoryDraftRepository implements MemoryDraftRepository {
           or(isNull(memoryDraft.jobDueAt), lte(memoryDraft.jobDueAt, now)),
         ),
       )
-      .orderBy(asc(memoryDraft.draftingAskedAt))
+      .orderBy(asc(memoryDraft.draftingRequestedAt))
       .limit(1)
       .for('update', { skipLocked: true });
 

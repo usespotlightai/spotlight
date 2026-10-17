@@ -58,7 +58,7 @@ const guardRead = (compiled: Compiled, reading: SourceReading | null): void => {
     if (reading || generatedFrom) {
       throw new InvalidIntegrationError(
         source,
-        'was given a reading of a description it does not name',
+        'received a reading of a description it does not name',
       );
     }
 
@@ -68,14 +68,14 @@ const guardRead = (compiled: Compiled, reading: SourceReading | null): void => {
   if (!reading?.isOf(compiled.source)) {
     throw new InvalidIntegrationError(
       source,
-      `names its ${compiled.source.described} and was not given a reading of it`,
+      `names its ${compiled.source.described} and did not receive a reading of it`,
     );
   }
 
   if (generatedFrom && !reading.hash?.equals(generatedFrom)) {
     throw new InvalidIntegrationError(
       source,
-      `offers tools from another reading of its ${compiled.source.described} than the one it keeps`,
+      `offers tools from another reading of its ${compiled.source.described} than the one it stores`,
     );
   }
 };
@@ -127,14 +127,14 @@ export class IntegrationDefinition extends EventRecorder {
     if (input.version < 1) {
       throw new InconsistentStateError(
         'integration definition',
-        'was kept without a version',
+        'was stored without a version',
       );
     }
 
     if (!input.document.hasValue(SOURCE_FIELD, input.source.value)) {
       throw new InconsistentStateError(
         'integration definition',
-        'was kept under a host it does not define',
+        'was stored under a host it does not define',
       );
     }
 
@@ -150,7 +150,7 @@ export class IntegrationDefinition extends EventRecorder {
   update(
     compiled: Compiled,
     reading: SourceReading | null,
-    given: ToolUses,
+    enabled: ToolUses,
     by: Attribution,
   ): IntegrationDefinition {
     this.guardLive();
@@ -170,7 +170,7 @@ export class IntegrationDefinition extends EventRecorder {
     const offers = offeredBy(compiled);
 
     this.guardUnused(
-      given,
+      enabled,
       this.offers.filter((each) => !offers.includes(each)),
     );
 
@@ -216,7 +216,7 @@ export class IntegrationDefinition extends EventRecorder {
     if (!compiled.document.equals(this.document)) {
       throw new InvalidIntegrationError(
         this.source.value,
-        'was reread from a definition other than the one it keeps',
+        'was reread from a definition other than the one it stores',
       );
     }
 
@@ -246,9 +246,9 @@ export class IntegrationDefinition extends EventRecorder {
     return reread;
   }
 
-  delete(given: ToolUses, by: Attribution): IntegrationDefinition {
+  delete(enabled: ToolUses, by: Attribution): IntegrationDefinition {
     this.guardLive();
-    this.guardUnused(given, this.offers);
+    this.guardUnused(enabled, this.offers);
 
     const deleted = this.with({ deleted: true });
 
@@ -338,8 +338,8 @@ export class IntegrationDefinition extends EventRecorder {
     }
   }
 
-  private guardUnused(given: ToolUses, removed: readonly string[]): void {
-    const stranded = given.ofAny(removed);
+  private guardUnused(enabled: ToolUses, removed: readonly string[]): void {
+    const stranded = enabled.ofAny(removed);
 
     if (!stranded.isEmpty) {
       throw new IntegrationToolsInUseError(this.source.value, stranded);

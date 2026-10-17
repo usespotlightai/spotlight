@@ -18,8 +18,8 @@ const step = (part: Partial<JournalStep>): JournalStep =>
     ms: 1,
     startedAt: '2026-08-29T12:00:00.000Z',
     locations: [],
-    given: null,
-    returned: null,
+    input: null,
+    output: null,
     change: null,
     ...part,
   }) as JournalStep;

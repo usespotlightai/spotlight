@@ -87,7 +87,7 @@ const renderAt = (search = '') =>
     </QueryClientProvider>,
   );
 
-const given = (value: RunChangeStacks | undefined) =>
+const serving = (value: RunChangeStacks | undefined) =>
   stacks.mockReturnValue(value);
 
 beforeEach(() => {
@@ -99,7 +99,7 @@ beforeEach(() => {
 describe('RunChangeStack', () => {
   describe('while it loads', () => {
     it('shows the skeleton', () => {
-      given(undefined);
+      serving(undefined);
       renderAt();
 
       expect(
@@ -110,7 +110,7 @@ describe('RunChangeStack', () => {
 
   describe('when it could not be loaded', () => {
     it('says so and tries again', async () => {
-      given(undefined);
+      serving(undefined);
       stacksFailing.mockReturnValue(true);
       renderAt();
 
@@ -125,7 +125,7 @@ describe('RunChangeStack', () => {
 
   describe('without a stack', () => {
     it('says one appears once a station drafts it', () => {
-      given({ stacks: [] });
+      serving({ stacks: [] });
       renderAt();
 
       expect(screen.getByText('No change stack yet')).toBeInTheDocument();
@@ -137,7 +137,7 @@ describe('RunChangeStack', () => {
 
   describe('while the stack drafts', () => {
     it('says what it is grouping', () => {
-      given({
+      serving({
         stacks: [{ ...INVITATIONS, state: 'drafting', cohorts: [] }],
       });
       renderAt();
@@ -151,7 +151,7 @@ describe('RunChangeStack', () => {
 
   describe('where drafting failed', () => {
     it('says why', () => {
-      given({
+      serving({
         stacks: [
           {
             ...INVITATIONS,
@@ -170,7 +170,7 @@ describe('RunChangeStack', () => {
   });
 
   describe('with a stack', () => {
-    beforeEach(() => given({ stacks: [INVITATIONS] }));
+    beforeEach(() => serving({ stacks: [INVITATIONS] }));
 
     it('lists every cohort and its layers in order', () => {
       renderAt();
@@ -311,7 +311,7 @@ describe('RunChangeStack', () => {
     });
 
     it('opens large files collapsed, the rest open', () => {
-      given({ stacks: [LARGE_FILE] });
+      serving({ stacks: [LARGE_FILE] });
       renderAt('?layer=c1.l1');
 
       expect(

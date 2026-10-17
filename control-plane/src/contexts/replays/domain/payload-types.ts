@@ -1,42 +1,42 @@
 import { CandidateDeleted } from '@replays/domain/events/candidate-deleted.event';
-import { CandidateDeletionDue } from '@replays/domain/events/candidate-deletion-due.event';
+import { CandidateDeletionRequested } from '@replays/domain/events/candidate-deletion-requested.event';
 import { CandidateProposed } from '@replays/domain/events/candidate-proposed.event';
-import { ConfigPullRequestDeletionDue } from '@replays/domain/events/config-pull-request-deletion-due.event';
+import { ConfigPullRequestDeletionRequested } from '@replays/domain/events/config-pull-request-deletion-requested.event';
 import { ConfigPullRequestOpened } from '@replays/domain/events/config-pull-request-opened.event';
-import { ConfigPullRequestWanted } from '@replays/domain/events/config-pull-request-wanted.event';
-import { ReplayBaselineWanted } from '@replays/domain/events/replay-baseline-wanted.event';
-import { ReplayCheckDeletionDue } from '@replays/domain/events/replay-check-deletion-due.event';
+import { ConfigPullRequestRequested } from '@replays/domain/events/config-pull-request-requested.event';
+import { ReplayBaselineRequested } from '@replays/domain/events/replay-baseline-requested.event';
+import { ReplayCheckDeletionRequested } from '@replays/domain/events/replay-check-deletion-requested.event';
 import { ReplayCheckStarted } from '@replays/domain/events/replay-check-started.event';
-import { ReplayDeletionDue } from '@replays/domain/events/replay-deletion-due.event';
+import { ReplayDeletionRequested } from '@replays/domain/events/replay-deletion-requested.event';
 import { ReplayEnded } from '@replays/domain/events/replay-ended.event';
 import { ReplayEntryConcluded } from '@replays/domain/events/replay-entry-concluded.event';
-import { ReplayJudgingWanted } from '@replays/domain/events/replay-judging-wanted.event';
+import { ReplayJudgingRequested } from '@replays/domain/events/replay-judging-requested.event';
 import { ReplayOverBudget } from '@replays/domain/events/replay-over-budget.event';
-import { ReplayPairJudgingWanted } from '@replays/domain/events/replay-pair-judging-wanted.event';
-import { ReplayPairingDue } from '@replays/domain/events/replay-pairing-due.event';
+import { ReplayPairJudgingRequested } from '@replays/domain/events/replay-pair-judging-requested.event';
 import { ReplayPairingFailed } from '@replays/domain/events/replay-pairing-failed.event';
+import { ReplayPairingRequested } from '@replays/domain/events/replay-pairing-requested.event';
+import { ReplayRecheckRequested } from '@replays/domain/events/replay-recheck-requested.event';
 import { ReplayRecheckUnavailable } from '@replays/domain/events/replay-recheck-unavailable.event';
-import { ReplayRecheckWanted } from '@replays/domain/events/replay-recheck-wanted.event';
 import { ReplayRejudgingFailed } from '@replays/domain/events/replay-rejudging-failed.event';
-import { ReplayRejudgingWanted } from '@replays/domain/events/replay-rejudging-wanted.event';
+import { ReplayRejudgingRequested } from '@replays/domain/events/replay-rejudging-requested.event';
 import { ReplaySetDeleted } from '@replays/domain/events/replay-set-deleted.event';
-import { ReplaySetDeletionDue } from '@replays/domain/events/replay-set-deletion-due.event';
+import { ReplaySetDeletionRequested } from '@replays/domain/events/replay-set-deletion-requested.event';
 import { ReplaySetEntriesChanged } from '@replays/domain/events/replay-set-entries-changed.event';
 import { ReplaySetGuardChanged } from '@replays/domain/events/replay-set-guard-changed.event';
-import { ReplaySetStationCheckDue } from '@replays/domain/events/replay-set-station-check-due.event';
+import { ReplaySetStationCheckRequested } from '@replays/domain/events/replay-set-station-check-requested.event';
 import { ReplaySetStationGone } from '@replays/domain/events/replay-set-station-gone.event';
-import { ReplayStackRecheckWanted } from '@replays/domain/events/replay-stack-recheck-wanted.event';
+import { ReplayStackRecheckRequested } from '@replays/domain/events/replay-stack-recheck-requested.event';
 import { ReplayStarted } from '@replays/domain/events/replay-started.event';
-import { ReplayStopAsked } from '@replays/domain/events/replay-stop-asked.event';
+import { ReplayStopRequested } from '@replays/domain/events/replay-stop-requested.event';
 import { ReplayStopped } from '@replays/domain/events/replay-stopped.event';
-import { SearchDeletionDue } from '@replays/domain/events/search-deletion-due.event';
+import { SearchDeletionRequested } from '@replays/domain/events/search-deletion-requested.event';
 import { SearchEnded } from '@replays/domain/events/search-ended.event';
-import { SearchHoldingOutWanted } from '@replays/domain/events/search-holding-out-wanted.event';
-import { SearchIterationWanted } from '@replays/domain/events/search-iteration-wanted.event';
+import { SearchHoldingOutRequested } from '@replays/domain/events/search-holding-out-requested.event';
+import { SearchIterationRequested } from '@replays/domain/events/search-iteration-requested.event';
 import { SearchReflected } from '@replays/domain/events/search-reflected.event';
 import { SearchStalledUnreflected } from '@replays/domain/events/search-stalled-unreflected.event';
 import { SearchStarted } from '@replays/domain/events/search-started.event';
-import { SearchStopAsked } from '@replays/domain/events/search-stop-asked.event';
+import { SearchStopRequested } from '@replays/domain/events/search-stop-requested.event';
 import { CandidateAddress } from '@replays/domain/value-objects/candidate-address.vo';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { CandidateName } from '@replays/domain/value-objects/candidate-name.vo';
@@ -96,8 +96,8 @@ export const REPLAYS_PAYLOAD_TYPES = [
   PairVerdict,
   JudgeCriteria,
   ReplayEntryConcluded,
-  ReplayPairingDue,
-  ReplayPairJudgingWanted,
+  ReplayPairingRequested,
+  ReplayPairJudgingRequested,
   ReplayPairingFailed,
   JudgeVerdict,
   ModelSpent,
@@ -131,34 +131,34 @@ export const REPLAYS_PAYLOAD_TYPES = [
   ReplayStopped,
   ReplayOverBudget,
   ReplayRecheckUnavailable,
-  ReplayRecheckWanted,
+  ReplayRecheckRequested,
   ReplayRejudgingFailed,
-  ReplayRejudgingWanted,
-  ReplayStackRecheckWanted,
-  ReplayBaselineWanted,
-  ReplayJudgingWanted,
-  ReplayDeletionDue,
-  ReplaySetDeletionDue,
-  CandidateDeletionDue,
-  ReplaySetStationCheckDue,
+  ReplayRejudgingRequested,
+  ReplayStackRecheckRequested,
+  ReplayBaselineRequested,
+  ReplayJudgingRequested,
+  ReplayDeletionRequested,
+  ReplaySetDeletionRequested,
+  CandidateDeletionRequested,
+  ReplaySetStationCheckRequested,
   CandidateProposed,
   CandidateDeleted,
   ReplayStarted,
-  ReplayStopAsked,
+  ReplayStopRequested,
   ReplayEnded,
-  SearchDeletionDue,
+  SearchDeletionRequested,
   SearchEnded,
-  SearchHoldingOutWanted,
-  SearchIterationWanted,
+  SearchHoldingOutRequested,
+  SearchIterationRequested,
   SearchReflected,
   SearchStalledUnreflected,
   SearchStarted,
-  SearchStopAsked,
+  SearchStopRequested,
   ReplayCheckId,
   ReplayThreshold,
   ReplayedPeriod,
   ReplayCheckStarted,
-  ReplayCheckDeletionDue,
+  ReplayCheckDeletionRequested,
   StationDigests,
   PlannedLine,
   ChangesGuardDetail,
@@ -166,7 +166,7 @@ export const REPLAYS_PAYLOAD_TYPES = [
   ConfigPullRequestId,
   ConfigPullRequestDetail,
   ConfigPullRequestReason,
-  ConfigPullRequestWanted,
+  ConfigPullRequestRequested,
   ConfigPullRequestOpened,
-  ConfigPullRequestDeletionDue,
+  ConfigPullRequestDeletionRequested,
 ] as const;

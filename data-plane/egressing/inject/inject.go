@@ -10,8 +10,8 @@ import (
 	"strings"
 	"sync"
 
+	"usespotlight.ai/data-plane/allowlist"
 	"usespotlight.ai/data-plane/protocol"
-	"usespotlight.ai/data-plane/reach"
 )
 
 type Opener interface {
@@ -23,7 +23,7 @@ type Reader interface {
 }
 
 type Limits struct {
-	Hosts       interface{ Admits(host string) bool }
+	Hosts       interface{ Allows(host string) bool }
 	SecretAllow []string
 }
 
@@ -83,7 +83,7 @@ func From(
 	injector := &Injector{byHost: map[string][]*injected{}, log: log}
 
 	for _, key := range harnessKeys {
-		host, header := reach.Normal(key.Host), http.CanonicalHeaderKey(key.Header)
+		host, header := allowlist.Normal(key.Host), http.CanonicalHeaderKey(key.Header)
 		if problem := harnessKeyProblem(host, header, key, limits); problem != "" {
 			log.Warn("egress will not inject a key the host has", "key", key.Name, "host", host, "reason", problem)
 			continue
@@ -98,7 +98,7 @@ func From(
 			standIns: []string{key.Prefix + protocol.StandInPrefix + key.Name},
 			fromHost: true,
 		})
-		log.Info("keeps a host key for the run", "key", key.Name, "host", host, "header", key.Header)
+		log.Info("stores a host key for the run", "key", key.Name, "host", host, "header", key.Header)
 	}
 
 	for _, denied := range fetched.Denied {
@@ -106,7 +106,7 @@ func From(
 	}
 
 	for _, secret := range fetched.Secrets {
-		host := reach.Normal(secret.Host)
+		host := allowlist.Normal(secret.Host)
 		location, name := located(secret.Location, secret.Name)
 
 		if problem := injector.problem(host, location, name, secret, limits); problem != "" {
@@ -119,7 +119,7 @@ func From(
 			err = fmt.Errorf("it has more than one line, so egress cannot inject it into a request")
 		}
 		if err != nil {
-			log.Warn("could not keep a secret of the run", "secret", secret.Secret, "host", secret.Host, "error", err)
+			log.Warn("could not store a secret of the run", "secret", secret.Secret, "host", secret.Host, "error", err)
 			continue
 		}
 
@@ -133,7 +133,7 @@ func From(
 			prefix:   secret.Prefix,
 			standIns: slices.Compact([]string{standIn, secret.Prefix + standIn}),
 		})
-		log.Info("keeps a secret for the run", "secret", secret.Secret, "host", host, "location", location, "name", name)
+		log.Info("stores a secret for the run", "secret", secret.Secret, "host", host, "location", location, "name", name)
 	}
 
 	return injector
@@ -141,8 +141,8 @@ func From(
 
 func harnessKeyProblem(host, header string, key protocol.HarnessKey, limits Limits) string {
 	switch {
-	case !limits.Hosts.Admits(host):
-		return "the host's allow-list does not admit " + host
+	case !limits.Hosts.Allows(host):
+		return "the host's allow-list does not allow " + host
 	case header == "" || key.Value == "" || strings.ContainsAny(key.Value+key.Prefix, "\r\n\x00"):
 		return "it is empty or more than one line"
 	default:
@@ -156,8 +156,8 @@ func (w *Injector) problem(host, location, name string, secret protocol.FetchedS
 	switch {
 	case slices.ContainsFunc(w.byHost[host], func(each *injected) bool { return each.fromHost }):
 		return "the host has a key of its own for " + host
-	case !limits.Hosts.Admits(host):
-		return "the host's allow-list does not admit " + host
+	case !limits.Hosts.Allows(host):
+		return "the host's allow-list does not allow " + host
 	case secret.ExternalRef != nil && !limits.allowsSecret(secret.ExternalRef.SecretID):
 		return "the host does not let egress read " + secret.ExternalRef.SecretID
 	case location != protocol.LocationHeader && location != protocol.LocationQuery:
@@ -193,7 +193,7 @@ func (w *Injector) ForControlPlane(api *protocol.SpotlightAPI, controlPlane *url
 		return nil
 	}
 
-	host := reach.Normal(controlPlane.Hostname())
+	host := allowlist.Normal(controlPlane.Hostname())
 	const prefix, header = "Bearer ", "Authorization"
 
 	w.mu.Lock()
@@ -224,7 +224,7 @@ func (w *Injector) ForControlPlane(api *protocol.SpotlightAPI, controlPlane *url
 		standIns: []string{protocol.SpotlightAPIStandIn, prefix + protocol.SpotlightAPIStandIn},
 		plainOn:  plainPort(controlPlane),
 	})
-	w.log.Info("keeps the run's Spotlight token", "host", host)
+	w.log.Info("stores the run's Spotlight token", "host", host)
 
 	return nil
 }
@@ -244,7 +244,7 @@ func (w *Injector) InjectPlain(host, port string, r *http.Request) {
 	defer w.mu.RUnlock()
 
 	var plain []*injected
-	for _, each := range w.byHost[reach.Normal(host)] {
+	for _, each := range w.byHost[allowlist.Normal(host)] {
 		if each.plainOn != "" && each.plainOn == port {
 			plain = append(plain, each)
 		}
@@ -269,14 +269,14 @@ func (w *Injector) InjectsFor(host string) bool {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 
-	return len(w.byHost[reach.Normal(host)]) > 0
+	return len(w.byHost[allowlist.Normal(host)]) > 0
 }
 
 func (w *Injector) Inject(host string, r *http.Request) {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 
-	secrets := w.byHost[reach.Normal(host)]
+	secrets := w.byHost[allowlist.Normal(host)]
 	w.injectHeader(host, secrets, r.Header)
 	w.injectQuery(host, secrets, r.URL)
 }
@@ -309,12 +309,12 @@ func (w *Injector) injectQuery(host string, secrets []*injected, target *url.URL
 	}
 
 	segments := strings.Split(target.RawQuery, "&")
-	kept := segments[:0]
+	remaining := segments[:0]
 	for _, segment := range segments {
 		rawName, rawValue, _ := strings.Cut(segment, "=")
 		name, value := unescaped(rawName), unescaped(rawValue)
 		if !containsStandIn(segment) && !containsStandIn(name+"="+value) {
-			kept = append(kept, segment)
+			remaining = append(remaining, segment)
 			continue
 		}
 
@@ -324,10 +324,10 @@ func (w *Injector) injectQuery(host string, secrets []*injected, target *url.URL
 			continue
 		}
 
-		kept = append(kept, rawName+"="+url.QueryEscape(string(secrets[index].value)))
+		remaining = append(remaining, rawName+"="+url.QueryEscape(string(secrets[index].value)))
 	}
 
-	target.RawQuery = strings.Join(kept, "&")
+	target.RawQuery = strings.Join(remaining, "&")
 }
 
 func unescaped(raw string) string {

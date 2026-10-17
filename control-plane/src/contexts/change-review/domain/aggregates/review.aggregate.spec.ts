@@ -112,7 +112,7 @@ describe('Review', () => {
     );
   });
 
-  it('is posted once GitHub gives it a number', () => {
+  it('is posted once GitHub assigns it a number', () => {
     const posted = submit({ verdict: 'approve' }).postedAs(99, NOW);
 
     expect(posted.state).toBe('posted');

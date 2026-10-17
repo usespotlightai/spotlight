@@ -35,7 +35,7 @@ import {
   roundBucket,
   toMergeMs,
 } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/pull-request-counts.sql';
-import { reachedPullRequests } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/pull-requests.sql';
+import { coveredPullRequests } from '@outcomes/infrastructure/persistence/drizzle/readers/insights/pull-requests.sql';
 import {
   iso,
   msOf,
@@ -128,19 +128,19 @@ const days = (team: TeamInPeriod): SQL => sql`(
 ) as days`;
 
 const comparedTo = (window: Window): SQL => sql`(
-  select * from reached
+  select * from covered
   where made_by = 'spotlight'
     or (
       made_by = 'people'
       and repository_key in (
-        select repository_key from reached
+        select repository_key from covered
         where ${mergedIn(window)} and made_by = 'spotlight'
       )
     )
 )`;
 
-const reachedOf = (team: TeamInPeriod, repositories: readonly string[]): SQL =>
-  reachedPullRequests(team, repositories, team.period.previous.from);
+const coveredOf = (team: TeamInPeriod, repositories: readonly string[]): SQL =>
+  coveredPullRequests(team, repositories, team.period.previous.from);
 
 const mergesIn = async (
   db: DrizzleDatabase,
@@ -149,7 +149,7 @@ const mergesIn = async (
 ): Promise<MergesRow> => {
   const { current, previous } = team.period;
   const result = await db.execute<MergesRow>(sql`
-    with reached as (${reachedOf(team, repositories)}),
+    with covered as (${coveredOf(team, repositories)}),
     compared as ${comparedTo(current)},
     compared_before as ${comparedTo(previous)}
     select
@@ -232,10 +232,10 @@ const reviewDaysIn = async (
   const firstReviewedBetween = (from: SQL, to: SQL): SQL =>
     sql`first_unblocking_review_at >= ${from} and first_unblocking_review_at < ${to}`;
   const result = await db.execute<ReviewDaysRow>(sql`
-    with reached as (${reachedOf(team, repositories)}),
+    with covered as (${coveredOf(team, repositories)}),
     reviewed as (
       select *, ${toFirstReviewMs} as to_first_review
-      from reached
+      from covered
       where made_by <> 'bots'
     )
     select json_agg(json_build_object(
@@ -280,19 +280,19 @@ const botsIn = async (
 ): Promise<readonly BotActivity[]> => {
   const { current } = team.period;
   const result = await db.execute<BotRow>(sql`
-    with reached as (${reachedOf(team, repositories)})
+    with covered as (${coveredOf(team, repositories)})
     select
       bot.value->>'login' as login,
       sum((bot.value->>'reviews')::int)::int as reviews,
       sum((bot.value->>'comments')::int)::int as comments,
       sum((bot.value->>'threads')::int)::int as threads,
       sum((bot.value->>'resolvedThreads')::int)::int as "resolvedThreads"
-    from reached
-    cross join lateral jsonb_array_elements(reached.bot_activity) with ordinality as bot(value, at)
-    where reached.opened_at < ${iso(current.to)}::timestamp
-      and (reached.closed_at is null or reached.closed_at >= ${iso(current.from)}::timestamp)
+    from covered
+    cross join lateral jsonb_array_elements(covered.bot_activity) with ordinality as bot(value, at)
+    where covered.opened_at < ${iso(current.to)}::timestamp
+      and (covered.closed_at is null or covered.closed_at >= ${iso(current.from)}::timestamp)
     group by bot.value->>'login'
-    order by min(array[reached.ord, bot.at])
+    order by min(array[covered.ord, bot.at])
   `);
 
   return result.rows.map((row) => ({
@@ -305,9 +305,9 @@ const botsIn = async (
 };
 
 const shippedOf = (team: TeamInPeriod, repositories: readonly string[]): SQL =>
-  sql`reached as (${reachedOf(team, repositories)}),
+  sql`covered as (${coveredOf(team, repositories)}),
     shipped as (
-      select * from reached
+      select * from covered
       where ${mergedIn(team.period.current)} and made_by = 'spotlight'
     ),
     opened as (${openedFor(team, sql`select owner_task_id from shipped`)}),

@@ -32,7 +32,7 @@ describe('HarnessProfileCompiler', () => {
     ).toEqual(['native.gone']);
   });
 
-  it('reads a stored profile back without asking the harnesses again', () => {
+  it('reads a stored profile back without calling the harnesses again', () => {
     const read = DROPPED.read(DOCUMENT);
 
     expect(read.ok).toBe(true);

@@ -129,9 +129,9 @@ export class EgressSecretsResponseDto {
     type: [String],
     example: ['storage.example.com'],
     description:
-      'Hosts every sandbox must reach besides the control plane, whatever else the host allows',
+      'Hosts that every sandbox is allowed to connect to besides the control plane, whatever else the host allows',
   })
-  readonly reaches: readonly string[];
+  readonly extraAllowedHosts: readonly string[];
 
   @ApiProperty({
     type: [String],
@@ -154,20 +154,20 @@ export class EgressSecretsResponseDto {
     type: SpotlightApiResponseDto,
     nullable: true,
     description:
-      'Where the run reaches Spotlight’s own API, the token it reaches it with',
+      'Where the run uses Spotlight’s own API, the token that it uses',
   })
   readonly spotlightApi: SpotlightApiResponseDto | null;
 
   constructor(
     runId: string | null,
-    reaches: readonly string[],
+    extraAllowedHosts: readonly string[],
     bound: readonly string[],
     secrets: readonly FetchedSecretResponseDto[],
     denied: readonly DeniedSecretResponseDto[],
     spotlightApi: SpotlightApiResponseDto | null,
   ) {
     this.runId = runId;
-    this.reaches = reaches;
+    this.extraAllowedHosts = extraAllowedHosts;
     this.bound = bound;
     this.secrets = secrets;
     this.denied = denied;
@@ -175,7 +175,7 @@ export class EgressSecretsResponseDto {
   }
 }
 
-export class EgressAdmissionResponseDto {
+export class EgressAuthorizationResponseDto {
   @ApiProperty({ example: 'runner_1' })
   readonly runnerId: string;
 
@@ -185,14 +185,14 @@ export class EgressAdmissionResponseDto {
   @ApiProperty({
     example: 'app.usespotlight.ai',
     description:
-      'The host of the control plane URL the runner was handed. Before the runner has a run, egress lets it reach only this host',
+      'The host of the control plane URL the runner was handed. Before the runner has a run, egress allows it to connect only to this host',
   })
   readonly controlPlaneHost: string;
 
   @ApiProperty({
     example: 443,
     description:
-      'The port of the control plane URL the runner was handed. Egress lets a sandbox reach the control plane host only on this port',
+      'The port of the control plane URL the runner was handed. Egress allows a sandbox to connect to the control plane host only on this port',
   })
   readonly controlPlanePort: number;
 
@@ -200,22 +200,22 @@ export class EgressAdmissionResponseDto {
     type: [String],
     example: ['storage.example.com'],
     description:
-      'Hosts every sandbox must reach besides the control plane, whatever else the egress allows',
+      'Hosts that every sandbox is allowed to connect to besides the control plane, whatever else the egress allows',
   })
-  readonly reaches: readonly string[];
+  readonly extraAllowedHosts: readonly string[];
 
   constructor(
     runnerId: string,
     workspaceId: string,
     controlPlaneHost: string,
     controlPlanePort: number,
-    reaches: readonly string[],
+    extraAllowedHosts: readonly string[],
   ) {
     this.runnerId = runnerId;
     this.workspaceId = workspaceId;
     this.controlPlaneHost = controlPlaneHost;
     this.controlPlanePort = controlPlanePort;
-    this.reaches = reaches;
+    this.extraAllowedHosts = extraAllowedHosts;
   }
 }
 

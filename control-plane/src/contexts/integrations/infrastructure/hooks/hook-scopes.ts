@@ -41,7 +41,7 @@ const EVENT_FIELDS: Readonly<Record<HookEventName, SchemaFields>> = {
   },
   'run.starting': AT,
   'run.ended': { ...AT, outcome: 'string' },
-  'handover.giving': { ...AT, to: OUTSIDE, note: 'string' },
+  'handover.submitting': { ...AT, to: OUTSIDE, note: 'string' },
   'pull-request.opening': {
     ...AT,
     repository: 'string',

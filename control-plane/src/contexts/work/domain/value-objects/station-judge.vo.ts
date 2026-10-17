@@ -85,7 +85,7 @@ export class StationJudge {
     const passShare = input.passShare ?? ALL_CLAIMS;
 
     if (written === null && listed === null) {
-      throw new InvalidStationJudgeError('rubric', 'or claims must be given');
+      throw new InvalidStationJudgeError('rubric', 'or claims must be set');
     }
 
     const rubric = written === null ? null : rubricOf(written, listed === null);

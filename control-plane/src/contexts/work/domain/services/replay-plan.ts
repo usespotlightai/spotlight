@@ -119,7 +119,7 @@ export const replayPlanFor = ({
     );
   const task =
     briefed ??
-    unreplayable(original, 'no-briefing', 'Its task briefing was not kept.');
+    unreplayable(original, 'no-briefing', 'Its task briefing was not stored.');
 
   if (!candidate.stationAt(stationId)) {
     unreplayable(

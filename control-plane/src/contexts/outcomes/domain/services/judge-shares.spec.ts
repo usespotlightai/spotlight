@@ -71,7 +71,7 @@ describe('judgeChangeOf', () => {
 });
 
 describe('judgedRunsOf', () => {
-  it('takes only the judge’s scores at the station asked about', () => {
+  it('takes only the judge’s scores at the requested station', () => {
     const at = (stationId: string, runId: string) =>
       judgeScore(runId, ScoreScale.yesNo(), 1, { stationId });
 

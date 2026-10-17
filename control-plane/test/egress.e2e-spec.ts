@@ -230,7 +230,7 @@ describe('egress fetching a run’s secrets (e2e)', () => {
     await fetchSecrets(work.token, recipient().written).expect(401);
   });
 
-  it('fetches the secrets of the run: a value that Spotlight keeps sealed to egress, and an external reference for a value kept elsewhere', async () => {
+  it('fetches the secrets of the run: a value that Spotlight stores sealed to egress, and an external reference for a value stored elsewhere', async () => {
     const runId = await queue(['LINEAR_API_KEY', 'SENTRY_TOKEN', 'NOWHERE']);
     const work = await claimed();
     const to = recipient();
@@ -241,7 +241,7 @@ describe('egress fetching a run’s secrets (e2e)', () => {
 
     expect(fetched.body).toMatchObject({
       runId,
-      reaches: [expect.any(String)],
+      extraAllowedHosts: [expect.any(String)],
       denied: [
         {
           secret: 'NOWHERE',
@@ -335,11 +335,11 @@ describe('egress fetching a run’s secrets (e2e)', () => {
     await fetchSecrets(second.egressToken, to.written).expect(200);
     await fetchSecrets(second.egressToken, recipient().written).expect(409);
 
-    const [kept] = await db
+    const [stored] = await db
       .select({ attempt: schema.runGrants.attempt })
       .from(schema.runGrants)
       .where(eq(schema.runGrants.runId, runId));
-    expect(kept?.attempt).toBe(2);
+    expect(stored?.attempt).toBe(2);
   });
 
   it('does not accept egress once its run has ended, and the run’s grants go with it', async () => {

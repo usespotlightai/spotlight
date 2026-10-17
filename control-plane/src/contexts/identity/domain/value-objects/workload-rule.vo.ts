@@ -124,7 +124,7 @@ export class WorkloadRule {
     );
   }
 
-  admits(workload: WorkloadClaims): boolean {
+  matches(workload: WorkloadClaims): boolean {
     const named = new Map(Object.entries(workload.named));
 
     return (

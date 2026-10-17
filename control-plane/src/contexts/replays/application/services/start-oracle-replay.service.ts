@@ -126,14 +126,14 @@ export class StartOracleReplay {
       .map((each) => each.runId)
       .filter((run) => replayed.some((each) => each.equals(run)));
     const turned = await this.outcomes.turnedOut(runs);
-    const asked = runs.flatMap((run) => {
+    const queries = runs.flatMap((run) => {
       const answer = oracleAnswerOf(turned.get(run.value));
 
       return answer ? [{ run, answer }] : [];
     });
-    const answerable = await this.work.answerable(asked);
+    const answerable = await this.work.answerable(queries);
 
-    return asked.filter((each) =>
+    return queries.filter((each) =>
       answerable.some((run) => run.equals(each.run)),
     );
   }

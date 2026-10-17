@@ -48,13 +48,13 @@ const retryable = (response: Response, body: GitHubError): boolean => {
 
 export const answered = async <T>(
   response: Response,
-  asking: string,
+  operation: string,
 ): Promise<T> => {
   const body = (await response.json().catch(() => ({}))) as T & GitHubError;
 
   if (!response.ok) {
     throw new UpstreamError(
-      asking,
+      operation,
       body.errors?.[0]?.message ?? body.message ?? `${response.status}`,
       response.status,
       retryable(response, body),

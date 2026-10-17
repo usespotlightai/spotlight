@@ -58,7 +58,7 @@ export class DrizzleTaskAsideRepository implements TaskAsideRepository {
         resolvedAt: added.resolvedAt,
         version: added.version,
       });
-      await this.readsKept(added);
+      await this.savesReads(added);
       await this.events.dispatch(added.pullEvents());
     });
   }
@@ -95,12 +95,12 @@ export class DrizzleTaskAsideRepository implements TaskAsideRepository {
             : undefined,
         ),
       );
-      await this.readsKept(saved);
+      await this.savesReads(saved);
       await this.events.dispatch(saved.pullEvents());
     });
   }
 
-  private async readsKept(aside: TaskAside): Promise<void> {
+  private async savesReads(aside: TaskAside): Promise<void> {
     if (aside.reads.length > 0) {
       await this.context.db
         .insert(taskAsideRead)

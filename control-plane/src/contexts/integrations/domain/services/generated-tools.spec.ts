@@ -152,7 +152,7 @@ describe('generatedTools', () => {
     ).toEqual(['add-pet']);
   });
 
-  it('rejects more tools than a station can choose between, asking for a filter', () => {
+  it('rejects more tools than a station can choose between, and requires a filter', () => {
     const many = Array.from({ length: MAX_GENERATED + 1 }, (_, at) =>
       operation(`op-${at}`),
     );

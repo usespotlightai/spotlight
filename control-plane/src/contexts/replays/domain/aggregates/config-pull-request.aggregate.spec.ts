@@ -4,7 +4,7 @@ import {
 } from '@replays/domain/aggregates/config-pull-request.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import { ConfigPullRequestOpened } from '@replays/domain/events/config-pull-request-opened.event';
-import { ConfigPullRequestWanted } from '@replays/domain/events/config-pull-request-wanted.event';
+import { ConfigPullRequestRequested } from '@replays/domain/events/config-pull-request-requested.event';
 import { CandidateUnpickableError } from '@replays/domain/exceptions/candidate-unpickable.error';
 import { UnknownCandidateError } from '@replays/domain/exceptions/unknown-candidate.error';
 import {
@@ -48,9 +48,9 @@ const withCandidates = (finished: boolean): Search => {
     runIds,
     true,
   );
-  const admitted = ['terse', 'in-order'].reduce(
+  const accepted = ['terse', 'in-order'].reduce(
     (built, name) =>
-      built.admitted(RunId.of('search_run_1'), {
+      built.acceptProposal(RunId.of('search_run_1'), {
         candidateId: CandidateId.of(`candidate_${name}`),
         name: CandidateName.searched(name),
         replayId: ReplayId.of(`replay_${name}`),
@@ -59,7 +59,7 @@ const withCandidates = (finished: boolean): Search => {
   );
 
   return finished
-    ? admitted.recordReplayEnd(
+    ? accepted.recordReplayEnd(
         ReplayId.of('replay_terse'),
         'finished',
         charged,
@@ -67,7 +67,7 @@ const withCandidates = (finished: boolean): Search => {
         runIds,
         true,
       )
-    : admitted;
+    : accepted;
 };
 
 const picked = (source: typeof SOURCE | null = SOURCE) =>
@@ -116,9 +116,9 @@ describe('ConfigPullRequest', () => {
     expect(pullRequest.branch).toBe('spotlight/search-5d1e2f3a-terse');
     expect(pullRequest.repository).toBe('acme/platform');
     expect(pullRequest.isDue(NOW)).toBe(true);
-    expect(wanted).toBeInstanceOf(ConfigPullRequestWanted);
-    expect((wanted as ConfigPullRequestWanted).attempt).toBe(1);
-    expect((wanted as ConfigPullRequestWanted).change).toMatchObject({
+    expect(wanted).toBeInstanceOf(ConfigPullRequestRequested);
+    expect((wanted as ConfigPullRequestRequested).attempt).toBe(1);
+    expect((wanted as ConfigPullRequestRequested).change).toMatchObject({
       resource: 'config-pull-request',
       action: 'created',
       key: 'spotlight/search-5d1e2f3a-terse',
@@ -206,7 +206,7 @@ describe('ConfigPullRequest', () => {
     expect(retried.reason).toBeNull();
     expect(retried.isOpening(1)).toBe(false);
     expect(retried.isOpening(2)).toBe(true);
-    expect((wanted as ConfigPullRequestWanted).change).toMatchObject({
+    expect((wanted as ConfigPullRequestRequested).change).toMatchObject({
       action: 'updated',
     });
   });

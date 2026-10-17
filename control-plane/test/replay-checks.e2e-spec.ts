@@ -83,12 +83,12 @@ const bearing = (token: string) => ({
   get: (path: string) =>
     http().get(path).set('Authorization', `Bearer ${token}`),
   post: (path: string, body: object, key: string | null = randomUUID()) => {
-    const asked = http()
+    const request = http()
       .post(path)
       .set('Authorization', `Bearer ${token}`)
       .set('Spotlight-Client', 'cli/1.2.3');
 
-    return (key ? asked.set('Idempotency-Key', key) : asked).send(body);
+    return (key ? request.set('Idempotency-Key', key) : request).send(body);
   },
   delete: (path: string) =>
     http().delete(path).set('Authorization', `Bearer ${token}`),
@@ -125,7 +125,7 @@ interface CheckRead {
   baselineReplayId: string | null;
   attempt: number;
   candidateId: string;
-  keptLive: string[];
+  scoringPinnedToLive: string[];
   threshold: {
     maxRegressions: number;
     ceiling: { amount: number; currency: string };
@@ -573,7 +573,7 @@ describe('a replay check', () => {
 
     expect(check).toMatchObject({
       verdict: 'running',
-      keptLive: ['check', 'judge', 'diffs'],
+      scoringPinnedToLive: ['check', 'judge', 'diffs'],
       threshold: {
         maxRegressions: 0,
         ceiling: { amount: 4, currency: 'USD' },
@@ -799,7 +799,7 @@ describe('a replay check', () => {
         .expect(201)
     ).body as CheckRead;
 
-    expect(imaged.keptLive).toEqual(['runners']);
+    expect(imaged.scoringPinnedToLive).toEqual(['runners']);
     const [candidate] = await db
       .select()
       .from(schema.replayCandidate)

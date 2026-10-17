@@ -152,8 +152,8 @@ afterAll(async () => {
   await app?.close();
 });
 
-describe('reading a file given to a leased chat run', () => {
-  it('hands the runner with the lease on the run a file its chat was given, byte for byte', async () => {
+describe('reading a file attached to a leased chat run', () => {
+  it('hands the runner with the lease on the run a file attached to its chat, byte for byte', async () => {
     const leased = await claimed();
 
     const file = await read(leased.token, leased.runId, leased.attachmentId)
@@ -163,7 +163,7 @@ describe('reading a file given to a leased chat run', () => {
     expect([...(file.body as Buffer)]).toEqual([7, 7, 7]);
   });
 
-  it('denies another runner, and a file the run was not given', async () => {
+  it('denies another runner, and a file not attached to the run', async () => {
     const leased = await claimed();
     const other = await claimed();
 
@@ -177,7 +177,12 @@ describe('reading a file given to a leased chat run', () => {
     await http()
       .post(`/api/runs/${leased.runId}/completion`)
       .set('Authorization', `Bearer ${leased.token}`)
-      .send({ exitCode: 0, failed: false, sessionId: 'session_1', kept: true })
+      .send({
+        exitCode: 0,
+        failed: false,
+        sessionId: 'session_1',
+        archived: true,
+      })
       .expect(200);
 
     const after = await read(leased.token, leased.runId, leased.attachmentId);

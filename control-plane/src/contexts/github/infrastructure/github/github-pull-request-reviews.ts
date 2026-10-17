@@ -41,7 +41,7 @@ const EVENTS: Record<ReviewVerdict, string> = {
   'request-changes': 'REQUEST_CHANGES',
 };
 
-const UNHEARD = new Set([401, 403, 404]);
+const USER_TOKEN_REJECTED_STATUSES = new Set([401, 403, 404]);
 
 const UNPROCESSABLE = 422;
 
@@ -57,14 +57,17 @@ const FILES_PER_PAGE = 100;
 
 const MAX_FILE_PAGES = 30;
 
-class UnheardError extends UpstreamError {}
+class UserTokenRejectedError extends UpstreamError {}
 
-const heard = async <T>(response: Response, asking: string): Promise<T> => {
-  if (UNHEARD.has(response.status)) {
-    throw new UnheardError(asking, `${response.status}`);
+const userAnswered = async <T>(
+  response: Response,
+  operation: string,
+): Promise<T> => {
+  if (USER_TOKEN_REJECTED_STATUSES.has(response.status)) {
+    throw new UserTokenRejectedError(operation, `${response.status}`);
   }
 
-  return answered<T>(response, asking);
+  return answered<T>(response, operation);
 };
 
 const located = (on: OnPullRequest): { repo: string; number: number } => {
@@ -110,7 +113,7 @@ export class GitHubPullRequestReviews implements PullRequestReviewsPort {
     const { repo, number } = located(input);
 
     return this.speaking(input, async (speaker) => {
-      const pull = await heard<{ head: { sha: string } }>(
+      const pull = await userAnswered<{ head: { sha: string } }>(
         await call(`/repos/${repo}/pulls/${number}`, speaker.token),
         'read the pull request',
       );
@@ -180,7 +183,7 @@ export class GitHubPullRequestReviews implements PullRequestReviewsPort {
         inline = false;
       }
 
-      const review = await heard<Posted>(response, 'submit the review');
+      const review = await userAnswered<Posted>(response, 'submit the review');
 
       if (!inline || placed.length === 0) {
         return {
@@ -189,7 +192,7 @@ export class GitHubPullRequestReviews implements PullRequestReviewsPort {
         };
       }
 
-      const listed = await heard<ListedComment[]>(
+      const listed = await userAnswered<ListedComment[]>(
         await call(
           `/repos/${repo}/pulls/${number}/reviews/${review.id}/comments?per_page=100`,
           speaker.token,
@@ -227,7 +230,7 @@ export class GitHubPullRequestReviews implements PullRequestReviewsPort {
     const files: ChangedFile[] = [];
 
     for (let page = 1; page <= MAX_FILE_PAGES; page += 1) {
-      const listed = await heard<ChangedFile[]>(
+      const listed = await userAnswered<ChangedFile[]>(
         await call(
           `/repos/${repo}/pulls/${number}/files?per_page=${FILES_PER_PAGE}&page=${page}`,
           token,
@@ -251,7 +254,7 @@ export class GitHubPullRequestReviews implements PullRequestReviewsPort {
     const { repo, number } = located(input);
 
     return this.speaking(input, async (speaker) => {
-      const posted = await heard<Posted>(
+      const posted = await userAnswered<Posted>(
         await call(
           `/repos/${repo}/pulls/${number}/comments/${input.to}/replies`,
           speaker.token,
@@ -273,11 +276,11 @@ export class GitHubPullRequestReviews implements PullRequestReviewsPort {
     const { repo, number } = located(input);
 
     return this.speaking(input, async (speaker) => {
-      const pull = await heard<{ head: { sha: string } }>(
+      const pull = await userAnswered<{ head: { sha: string } }>(
         await call(`/repos/${repo}/pulls/${number}`, speaker.token),
         'read the pull request',
       );
-      const posted = await heard<Posted>(
+      const posted = await userAnswered<Posted>(
         await call(`/repos/${repo}/pulls/${number}/comments`, speaker.token, {
           method: 'POST',
           body: JSON.stringify({
@@ -300,7 +303,7 @@ export class GitHubPullRequestReviews implements PullRequestReviewsPort {
     const { repo } = located(input);
 
     await this.speaking(input, async (speaker) => {
-      await heard(
+      await userAnswered(
         await call(
           `/repos/${repo}/pulls/comments/${input.commentId}`,
           speaker.token,
@@ -327,7 +330,7 @@ export class GitHubPullRequestReviews implements PullRequestReviewsPort {
       );
 
       if (!response.ok && response.status !== 404) {
-        await heard(response, 'delete the review comment');
+        await userAnswered(response, 'delete the review comment');
       }
     });
   }
@@ -351,7 +354,7 @@ export class GitHubPullRequestReviews implements PullRequestReviewsPort {
       try {
         return await work({ token: personal, personally: true });
       } catch (error) {
-        if (!(error instanceof UnheardError)) {
+        if (!(error instanceof UserTokenRejectedError)) {
           throw error;
         }
       }

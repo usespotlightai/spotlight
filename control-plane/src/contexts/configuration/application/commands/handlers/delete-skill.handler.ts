@@ -1,5 +1,5 @@
 import type { DeleteSkillCommand } from '@configuration/application/commands/delete-skill.command';
-import type { StationGifts } from '@configuration/application/services/station-gifts.service';
+import type { StationReferences } from '@configuration/application/services/station-references.service';
 import { SkillDefinitionVersionConflictError } from '@configuration/domain/exceptions/skill-definition-version-conflict.error';
 import { SkillInUseError } from '@configuration/domain/exceptions/skill-in-use.error';
 import type { SkillDefinitionRepository } from '@configuration/domain/repositories/skill-definition.repository';
@@ -20,7 +20,7 @@ export class DeleteSkillHandler
   constructor(
     private readonly access: WorkspaceAccessPort,
     private readonly definitions: SkillDefinitionRepository,
-    private readonly given: StationGifts,
+    private readonly stationReferences: StationReferences,
     private readonly transaction: TransactionPort,
   ) {}
 
@@ -46,12 +46,15 @@ export class DeleteSkillHandler
 
       existing.assertVersion(command.expectedVersion);
 
-      const given = await this.given.onTeam(existing.teamId, 'skill');
+      const references = await this.stationReferences.onTeam(
+        existing.teamId,
+        'skill',
+      );
 
       await this.transaction.inTransaction(() =>
         this.definitions.save(
           existing.delete(
-            given,
+            references,
             Attribution.of(command.actor, permissions.workspaceId),
           ),
         ),

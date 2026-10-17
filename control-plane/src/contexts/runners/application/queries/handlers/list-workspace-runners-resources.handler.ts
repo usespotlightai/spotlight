@@ -32,14 +32,14 @@ export class ListWorkspaceRunnersResourcesHandler
         return null;
       }
 
-      const kept = await this.resources.declaredIn(permissions.workspaceId);
+      const record = await this.resources.declaredIn(permissions.workspaceId);
 
-      return kept
+      return record
         ? [
             RunnerResourceMapper.workspaceRunners(
-              kept,
+              record,
               permissions.slug,
-              await this.resources.waysIn(kept.workspaceId),
+              await this.resources.credentialSourceKeysIn(record.workspaceId),
             ),
           ]
         : [];

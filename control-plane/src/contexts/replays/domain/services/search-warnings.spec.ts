@@ -37,7 +37,7 @@ describe('searchWarningsOf', () => {
     ]);
   });
 
-  it('warns that a noisy set needs more copies than asked, and says how many', () => {
+  it('warns that a noisy set needs more copies than requested, and says how many', () => {
     expect(
       searchWarningsOf(healthOf({ noise: noiseOf(0.1) }), 0.05, 1),
     ).toEqual([

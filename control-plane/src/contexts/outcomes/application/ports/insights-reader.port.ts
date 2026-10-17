@@ -38,13 +38,13 @@ export interface SetupFilter {
   readonly size: RunSize | null;
 }
 
-export interface PullRequestsAsked {
+export interface PullRequestsQuery {
   readonly filter: PullRequestFilter;
   readonly page: number;
   readonly size: number;
 }
 
-export interface PullRequestListing extends PullRequestsAsked {
+export interface PullRequestListing extends PullRequestsQuery {
   readonly repositories: readonly string[];
 }
 

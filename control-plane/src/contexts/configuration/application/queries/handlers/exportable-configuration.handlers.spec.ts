@@ -63,7 +63,7 @@ const secretOf = (id: string, name: string) => ({
   name,
   source: { kind: 'built-in', secretId: null, field: null },
   bindings: [],
-  keepsValue: true,
+  storesValue: true,
   valueVersion: 1,
 });
 
@@ -263,12 +263,12 @@ const handlers = (over: { permitted?: boolean } = {}) => {
     ),
   } satisfies HarnessProfileResourcesPort;
   const profileViews = {
-    onTeam: vi.fn((kept: HarnessProfileRecord, teamKey: string) => ({
-      id: kept.id,
-      version: kept.version,
-      address: `${teamKey}/${String(kept.definition.key)}`,
-      teamId: kept.teamId.value,
-      key: String(kept.definition.key),
+    onTeam: vi.fn((record: HarnessProfileRecord, teamKey: string) => ({
+      id: record.id,
+      version: record.version,
+      address: `${teamKey}/${String(record.definition.key)}`,
+      teamId: record.teamId.value,
+      key: String(record.definition.key),
       permissions: { allow: [], ask: [], deny: [] },
       mcpServers: [],
       native: {},

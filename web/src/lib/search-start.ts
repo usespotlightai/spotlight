@@ -17,7 +17,7 @@ import {
 
 type SetSaturation = ReplaySet['health']['saturation'];
 
-export type EstimateAsked = {
+export type EstimateInput = {
   readonly setId: string;
   readonly budget: SearchBudget;
 };
@@ -59,8 +59,8 @@ export const estimateKey = (
 ): string | null =>
   setId && budget ? JSON.stringify({ setId, budget }) : null;
 
-export const estimateAskedOf = (key: string | null): EstimateAsked | null =>
-  key ? (JSON.parse(key) as EstimateAsked) : null;
+export const estimateInputOf = (key: string | null): EstimateInput | null =>
+  key ? (JSON.parse(key) as EstimateInput) : null;
 
 export const searchProblemOf = (
   field: SearchField,
@@ -86,9 +86,9 @@ export const saturationOf = (
   sets.find((each) => each.id === setId)?.health.saturation ?? null;
 
 export const objectiveOf = (
-  asked: SearchObjective | null,
+  requested: SearchObjective | null,
   saturation: SetSaturation,
-): SearchObjective => asked ?? (saturation?.saturated ? 'cost' : 'success');
+): SearchObjective => requested ?? (saturation?.saturated ? 'cost' : 'success');
 
 export const saturatedRateOf = (
   suggested: SearchEstimate | null,

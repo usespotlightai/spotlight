@@ -4,7 +4,7 @@ import type { CreateHookCommand } from '@integrations/application/commands/creat
 import type { HookCompilerPort } from '@integrations/application/ports/hook-compiler.port';
 import { HookProblems } from '@integrations/application/rendering/hook-problems';
 import type { HookAllowancesService } from '@integrations/application/services/hook-allowances.service';
-import { secretGiven } from '@integrations/application/services/signing-secrets';
+import { signingSecretChange } from '@integrations/application/services/signing-secrets';
 import { HookDefinition } from '@integrations/domain/aggregates/hook-definition.aggregate';
 import { HookAlreadyExistsError } from '@integrations/domain/exceptions/hook-already-exists.error';
 import { InvalidHookError } from '@integrations/domain/exceptions/invalid-hook.error';
@@ -87,7 +87,7 @@ export class CreateHookHandler
               id: HookDefinitionId.of(this.ids.generate()),
               workspaceId: permissions.workspaceId,
               teamId: permissions.teamId,
-              secret: secretGiven(compiled.secret),
+              secret: signingSecretChange(compiled.secret),
               allowances: await this.allowances.onTeam(permissions.teamId),
               by: Attribution.of(command.actor, permissions.workspaceId),
             });

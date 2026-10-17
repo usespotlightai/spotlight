@@ -75,7 +75,7 @@ const LEFT = {
 };
 
 describe('AgentReviews', () => {
-  it('keeps a comment the agent leaves as its draft, written by the run', async () => {
+  it('stores a comment the agent leaves as its draft, written by the run', async () => {
     const { agent, comments } = reviewing();
 
     const id = await agent.comment(ON, LEFT);

@@ -54,7 +54,7 @@ const starting = (
 ) => {
   let current = claimed();
   let clashes = over.clashes ?? 0;
-  const asked: BeforeMoment[] = [];
+  const hookCalls: BeforeMoment[] = [];
   const untils: (Date | undefined)[] = [];
   const warned: string[] = [];
   const of = vi.fn(async (taskId: string, runId: string | null) =>
@@ -74,7 +74,7 @@ const starting = (
   };
 
   return {
-    asked,
+    hookCalls,
     of,
     runs,
     current: () => current,
@@ -87,7 +87,7 @@ const starting = (
           if (over.unreachable) {
             throw new Error('connect ECONNREFUSED');
           }
-          asked.push(moment);
+          hookCalls.push(moment);
           untils.push(until);
           return over.verdict ?? { kind: 'allowed' };
         },
@@ -107,12 +107,12 @@ const starting = (
 };
 
 describe('RunStartHooks', () => {
-  it('lets a run start that no hook denies, after asking about its task', async () => {
-    const { hooks, asked, of } = starting();
+  it('lets a run start that no hook denies, after calling them about its task', async () => {
+    const { hooks, hookCalls, of } = starting();
 
     expect(await hooks.mayStart(claimed(), RUNNER, POLL_UNTIL)).toBe('starts');
     expect(of).toHaveBeenCalledWith('task_1', 'run_1');
-    expect(asked).toEqual([{ on: 'run.starting' }]);
+    expect(hookCalls).toEqual([{ on: 'run.starting' }]);
   });
 
   it('ends a run a hook denies, saying why', async () => {
@@ -136,8 +136,8 @@ describe('RunStartHooks', () => {
     expect(current().state).toBe('failed');
   });
 
-  it('asks nothing about a chat’s run', async () => {
-    const { hooks, asked } = starting();
+  it('calls no hook about a chat’s run', async () => {
+    const { hooks, hookCalls } = starting();
 
     expect(
       await hooks.mayStart(
@@ -146,14 +146,14 @@ describe('RunStartHooks', () => {
         POLL_UNTIL,
       ),
     ).toBe('starts');
-    expect(asked).toEqual([]);
+    expect(hookCalls).toEqual([]);
   });
 
-  it('lets a run start whose task no hook can hear of', async () => {
-    const { hooks, asked } = starting({ hooked: false });
+  it('lets a run start whose task no hook can learn of', async () => {
+    const { hooks, hookCalls } = starting({ hooked: false });
 
     expect(await hooks.mayStart(claimed(), RUNNER, POLL_UNTIL)).toBe('starts');
-    expect(asked).toEqual([]);
+    expect(hookCalls).toEqual([]);
   });
 
   it('gives the hooks until a little past the poll, so the claim answers in time', async () => {
@@ -176,7 +176,7 @@ describe('RunStartHooks', () => {
     expect(untils).toEqual([new Date(NOW.getTime() + 21_000)]);
   });
 
-  it('requeues a run, attempt unspent, when its hooks could not be asked', async () => {
+  it('requeues a run, attempt unspent, when its hooks could not be called', async () => {
     const { hooks, current, warned } = starting({ unreachable: true });
 
     expect(await hooks.mayStart(claimed(), RUNNER, POLL_UNTIL)).toBe(

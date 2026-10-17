@@ -311,7 +311,7 @@ describe('Task', () => {
     ).toEqual(['Completed']);
   });
 
-  it('asks before taking a task away', async () => {
+  it('confirms before taking a task away', async () => {
     const user = userEvent.setup();
     renderAt('task_1');
 
@@ -325,7 +325,7 @@ describe('Task', () => {
     expect(deleted).not.toHaveBeenCalled();
   });
 
-  it('takes the task away once it is asked to', async () => {
+  it('takes the task away once the person confirms', async () => {
     const user = userEvent.setup();
     renderAt('task_1');
 
@@ -342,7 +342,7 @@ describe('Task', () => {
     );
   });
 
-  it('keeps the task when the asking is declined', async () => {
+  it('keeps the task when the person declines', async () => {
     const user = userEvent.setup();
     renderAt('task_1');
 
@@ -382,7 +382,7 @@ describe('Task', () => {
     ).not.toBeInTheDocument();
   });
 
-  it('says the task could not be loaded, and tries again when asked', async () => {
+  it('says the task could not be loaded, and tries again on request', async () => {
     const user = userEvent.setup();
     listed.mockReturnValue(undefined);
     failing.mockReturnValue(true);

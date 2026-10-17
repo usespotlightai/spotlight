@@ -1,8 +1,8 @@
 import {
   DescriptionUnreadable,
   describedAs,
+  firstByName,
   isNameable,
-  keepingFirst,
   type OperationRecord,
   type ReadOperations,
   toolWordsOf,
@@ -219,11 +219,11 @@ const graphqlOperationsOf = (
     }
   }
 
-  const kept = keepingFirst(records);
+  const unique = firstByName(records);
 
   return {
-    operations: kept.operations,
-    passedOver: [...passedOver, ...kept.passedOver],
+    operations: unique.operations,
+    passedOver: [...passedOver, ...unique.passedOver],
   };
 };
 

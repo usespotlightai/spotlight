@@ -14,7 +14,7 @@ export type CallEnding = 'completed' | 'failed' | 'unfinished' | 'refused';
 export interface CalledStep {
   readonly server: string | null;
   readonly tool: string;
-  readonly skillAskedFor: string | null;
+  readonly requestedSkill: string | null;
   readonly paths: readonly string[];
   readonly ms: number | null;
   readonly ending: CallEnding;
@@ -45,13 +45,13 @@ export const skillsReadBy = (
 ): readonly string[] => [
   ...new Set(
     [
-      ...(step.skillAskedFor ? [step.skillAskedFor] : []),
+      ...(step.requestedSkill ? [step.requestedSkill] : []),
       ...step.paths.flatMap((text) => readUnder(text, homes)),
     ].filter(teamSkill),
   ),
 ];
 
-const reachedServer = (
+const calledServer = (
   step: CalledStep,
 ): step is CalledStep & {
   readonly server: string;
@@ -63,7 +63,7 @@ export const toolUseOf = (
 ): ToolUse => {
   const servers = new Map<string, ServerCalls>();
 
-  for (const step of steps.filter(reachedServer)) {
+  for (const step of steps.filter(calledServer)) {
     const existing = servers.get(step.server);
     const failed = step.ending !== 'completed';
     const latency = existing?.latency ?? LatencyHistogram.EMPTY;

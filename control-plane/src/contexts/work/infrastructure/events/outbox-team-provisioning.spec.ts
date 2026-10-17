@@ -29,7 +29,7 @@ describe('OutboxTeamProvisioning', () => {
     await expect(provisioning(1, 1).read).resolves.toBe('failed');
   });
 
-  it('asks only about a team a person signed up with', async () => {
+  it('reads only the provisioning of a team a person signed up with', async () => {
     const { pendingDeliveriesFor, read } = provisioning(0, 0);
 
     await read;

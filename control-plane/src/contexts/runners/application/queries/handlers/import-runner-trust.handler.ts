@@ -25,14 +25,14 @@ export class ImportRunnerTrustHandler
         WorkspaceId.of(query.workspaceId),
         query.principal,
       );
-      const kept = permissions
+      const record = permissions
         ? await this.resources.trustAt(
             permissions.workspaceId,
             TrustKey.of(query.address).value,
           )
         : null;
 
-      return kept ? RunnerResourceMapper.trust(kept) : null;
+      return record ? RunnerResourceMapper.trust(record) : null;
     } catch (error) {
       rethrowAsApplicationError(error);
     }

@@ -113,7 +113,7 @@ describe('ReviewComment', () => {
     );
   });
 
-  it('says what must reach GitHub when it is replied to, rewritten or removed', () => {
+  it('says what must go to GitHub when it is replied to, rewritten or removed', () => {
     const posted = drafted()
       .submittedIn(ReviewId.of('review_1'))
       .postedAs({ id: 42, url: 'https://github.com/c/42' });
@@ -177,7 +177,7 @@ describe('ReviewComment', () => {
     ]);
   });
 
-  it('keeps where GitHub put a comment deleted on its way, and removes it there', () => {
+  it('stores where GitHub put a comment deleted on its way, and removes it there', () => {
     const deleted = drafted().submittedIn(ReviewId.of('review_1')).removed(ADA);
 
     expect(deleted.pullEvents()).toEqual([
@@ -339,7 +339,7 @@ describe('ReviewComment', () => {
     );
   });
 
-  it('goes back to draft where the review that contains it never reached GitHub', () => {
+  it('goes back to draft where the review that contains it was never posted to GitHub', () => {
     const returned = drafted()
       .submittedIn(ReviewId.of('review_1'))
       .rewritten('Clearer', ADA, NOW)
@@ -362,7 +362,7 @@ describe('ReviewComment', () => {
     expect(withdrawn.sending).toBe(false);
   });
 
-  it('rejects a reply to a comment that never reached GitHub', () => {
+  it('rejects a reply to a comment that was never posted to GitHub', () => {
     const failed = drafted()
       .submittedIn(ReviewId.of('review_1'))
       .postedAs({ id: 42, url: 'https://github.com/c/42' })
@@ -398,7 +398,7 @@ describe('ReviewComment', () => {
     expect(posted.removed(ADA).threadOnGitHub).toBeNull();
   });
 
-  it('fails a reply that never reached GitHub', () => {
+  it('fails a reply that was never posted to GitHub', () => {
     const reply = drafted()
       .submittedIn(ReviewId.of('review_1'))
       .postedAs({ id: 42, url: 'https://github.com/c/42' })
@@ -417,7 +417,7 @@ describe('ReviewComment', () => {
 });
 
 describe('ReviewAnchor across lines', () => {
-  it('keeps where a comment on several lines starts', () => {
+  it('stores where a comment on several lines starts', () => {
     const anchor = ReviewAnchor.onLines({
       path: 'src/a.ts',
       side: 'new',

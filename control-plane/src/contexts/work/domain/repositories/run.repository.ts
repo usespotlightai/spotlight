@@ -21,7 +21,7 @@ export interface RunExtras {
 }
 
 export interface RunRepository {
-  add(run: Run, kept?: RunExtras): Promise<void>;
+  add(run: Run, extras?: RunExtras): Promise<void>;
 
   // Must be atomic and follow ClaimOrder. Two runners must never claim the same run.
   claimNext(by: Claimant, now: Date): Promise<Run | null>;

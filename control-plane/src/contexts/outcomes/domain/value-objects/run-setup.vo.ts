@@ -27,7 +27,7 @@ export class RunSetup {
       throw new InvalidOutcomeError('must name each repository');
     }
     if (input.skills.some(blank)) {
-      throw new InvalidOutcomeError('must name each skill given');
+      throw new InvalidOutcomeError('must name each enabled skill');
     }
 
     return new RunSetup(

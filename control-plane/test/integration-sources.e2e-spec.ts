@@ -49,7 +49,7 @@ type Mutation { issueCreate(input: IssueCreateInput!): IssuePayload! }
 
 const LINEAR_SCHEMA = buildSchema(LINEAR_SDL);
 
-interface Heard {
+interface ReceivedRequest {
   readonly method: string;
   readonly url: string;
   readonly body: string;
@@ -57,7 +57,7 @@ interface Heard {
 }
 
 const fixture = () => {
-  const heard: Heard[] = [];
+  const received: ReceivedRequest[] = [];
   const answer = (reply: ServerResponse, status: number, body: unknown) => {
     reply.writeHead(status, { 'content-type': 'application/json' });
     reply.end(JSON.stringify(body));
@@ -72,7 +72,7 @@ const fixture = () => {
         const body = Buffer.concat(chunks).toString('utf8');
         const url = request.url ?? '/';
 
-        heard.push({
+        received.push({
           method: request.method ?? 'GET',
           url,
           body,
@@ -94,7 +94,7 @@ const fixture = () => {
         }
 
         if (url === '/graphql' && request.method === 'POST') {
-          const asked = JSON.parse(body) as {
+          const operation = JSON.parse(body) as {
             query: string;
             variables?: Record<string, unknown>;
           };
@@ -104,8 +104,8 @@ const fixture = () => {
             200,
             await graphql({
               schema: LINEAR_SCHEMA,
-              source: asked.query,
-              variableValues: asked.variables ?? {},
+              source: operation.query,
+              variableValues: operation.variables ?? {},
               rootValue: {
                 issue: ({ id }: { id: string }) => ({ id, title: 'Broken' }),
               },
@@ -119,10 +119,10 @@ const fixture = () => {
   );
 
   return {
-    heard,
+    received,
     server,
     hits: (path: string) =>
-      heard.filter((each) => each.url.startsWith(path)).length,
+      received.filter((each) => each.url.startsWith(path)).length,
   };
 };
 
@@ -170,10 +170,10 @@ describe('an integration offering tools from an API description (e2e)', () => {
     waiting: null,
   });
 
-  const reach = async (tool: string) =>
+  const resolved = async (tool: string) =>
     (await app
       .get<IntegrationToolCallsPort>(INTEGRATION_TOOL_CALLS)
-      .reach(
+      .resolve(
         tool,
         task(),
         { runId: 'run_1', attempt: 1 },
@@ -199,7 +199,7 @@ describe('an integration offering tools from an API description (e2e)', () => {
   beforeEach(async () => {
     workspaceId = `sources-${randomUUID().slice(0, 8)}`;
     seat = await seatTeam(db, workspaceId);
-    upstream.heard.length = 0;
+    upstream.received.length = 0;
   });
 
   afterEach(async () => {
@@ -261,7 +261,7 @@ describe('an integration offering tools from an API description (e2e)', () => {
     expect(renamed.status).toBe(200);
     expect(upstream.hits('/api/v3/openapi.json')).toBe(1);
 
-    await reach('petstore.find-pets-by-status');
+    await resolved('petstore.find-pets-by-status');
 
     expect(upstream.hits('/api/v3/openapi.json')).toBe(1);
 
@@ -304,18 +304,18 @@ describe('an integration offering tools from an API description (e2e)', () => {
   it('calls a generated tool end to end, and rejects input not of its shape before calling anything', async () => {
     const made = await create(petstore());
     hashes.push(made.body.described.hash);
-    upstream.heard.length = 0;
+    upstream.received.length = 0;
 
-    const finding = await reach('petstore.find-pets-by-status');
+    const finding = await resolved('petstore.find-pets-by-status');
 
     await expect(finding.call({ status: 'sold' })).resolves.toEqual([
       { id: 10, name: 'doggie', status: 'sold' },
     ]);
-    expect(upstream.heard.map((each) => `${each.method} ${each.url}`)).toEqual([
-      'GET /api/v3/pet/findByStatus?status=sold',
-    ]);
+    expect(
+      upstream.received.map((each) => `${each.method} ${each.url}`),
+    ).toEqual(['GET /api/v3/pet/findByStatus?status=sold']);
 
-    const adding = await reach('petstore.add-pet');
+    const adding = await resolved('petstore.add-pet');
     const declared = ToolDeclarationMapper.toDeclared(adding.declared);
 
     expect(declared.approval?.because).toBe('It changes data in Petstore.');
@@ -373,7 +373,7 @@ describe('an integration offering tools from an API description (e2e)', () => {
     ]);
   });
 
-  it('rejects a description on a host the deployment does not allow, without asking it', async () => {
+  it('rejects a description on a host the deployment does not allow, without calling it', async () => {
     const made = await create(
       petstore({ url: 'http://169.254.169.254/latest/meta-data' }),
     );
@@ -405,7 +405,7 @@ describe('an integration offering tools from an API description (e2e)', () => {
       { because: 'It changes data in Linear.' },
     ]);
 
-    const issue = await reach('linear.issue');
+    const issue = await resolved('linear.issue');
 
     await expect(issue.call({ id: 'i1' })).resolves.toEqual({
       id: 'i1',

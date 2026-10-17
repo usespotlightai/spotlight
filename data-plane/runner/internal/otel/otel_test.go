@@ -56,7 +56,7 @@ const twoSpans = `{"resourceSpans":[{"scopeSpans":[{"spans":[
 	{"name":"claude_code.tool","spanId":"a2"}
 ]}]}]}`
 
-func TestKeepsEachSpanAsItArrived(t *testing.T) {
+func TestRecordsEachSpanAsItArrived(t *testing.T) {
 	seen := &taken{}
 	served := collector(t, seen)
 
@@ -77,7 +77,7 @@ func TestKeepsEachSpanAsItArrived(t *testing.T) {
 		t.Fatalf("unmarshal: %v", err)
 	}
 	if first.Name != "claude_code.llm_request" {
-		t.Errorf("kept %q, wanted the span's own name", first.Name)
+		t.Errorf("recorded %q, wanted the span's own name", first.Name)
 	}
 	if len(first.Attributes) != 1 || first.Attributes[0].Key != "gen_ai.request.model" {
 		t.Errorf("lost the span's attributes: %s", spans[0])

@@ -133,7 +133,7 @@ const openingsFor = async (
     ]),
   );
 
-export interface PullRequestReach {
+export interface PullRequestCoverage {
   readonly repositories: readonly string[];
   readonly from: Date;
   readonly max: number;
@@ -185,17 +185,17 @@ export const pullRequestsStoredIn = async (
   runs: Pick<RunRecordRepository, 'ofTasks'>,
   pullRequests: PullRequestRepositories,
   { workspaceId, teamId, period }: TeamInPeriod,
-  reach: PullRequestReach,
+  coverage: PullRequestCoverage,
 ): Promise<readonly TeamPullRequest[]> => {
   const records = await pullRequests.records.seenForTeamBetween(
     {
       workspaceId,
       teamId,
-      repositories: reach.repositories,
-      from: reach.from,
+      repositories: coverage.repositories,
+      from: coverage.from,
       to: period.current.to,
     },
-    reach.max,
+    coverage.max,
   );
   const owners = records.flatMap((each) =>
     each.owner ? [each.owner.taskId] : [],
@@ -221,10 +221,10 @@ export const pullRequestsStoredIn = async (
   });
 };
 
-const reachFrom = (
+const coverageFrom = (
   from: Date,
   repositories: readonly string[],
-): PullRequestReach => ({
+): PullRequestCoverage => ({
   repositories,
   from,
   max: Number.MAX_SAFE_INTEGER,
@@ -403,7 +403,7 @@ export const insightsReaderInMemory = (
         historyRepositories.records,
         pullRequests,
         team,
-        reachFrom(team.period.current.from, repositories),
+        coverageFrom(team.period.current.from, repositories),
       ),
       team.period.current,
     ),
@@ -413,7 +413,7 @@ export const insightsReaderInMemory = (
         historyRepositories.records,
         pullRequests,
         team,
-        reachFrom(team.period.current.from, repositories),
+        coverageFrom(team.period.current.from, repositories),
       ),
       filter,
       team.period.current,
@@ -426,18 +426,18 @@ export const insightsReaderInMemory = (
   },
   runPage: (listing) => runsListedIn(historyRepositories, listing),
   shippingCounts: async (team, repositories) => {
-    const reached = await pullRequestsStoredIn(
+    const covered = await pullRequestsStoredIn(
       historyRepositories.records,
       pullRequests,
       team,
-      reachFrom(team.period.previous.from, repositories),
+      coverageFrom(team.period.previous.from, repositories),
     );
 
     return shippingCountsOf(
-      reached,
+      covered,
       pipelineCountsOf(
         await storedHistoryOf(historyRepositories, team),
-        shippedTaskIdsOf(reached, team.period),
+        shippedTaskIdsOf(covered, team.period),
         team.period,
       ),
       team.period,

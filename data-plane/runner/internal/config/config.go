@@ -30,7 +30,7 @@ type Egress struct {
 	Direct     bool
 }
 
-func (e Egress) Given() bool { return e.URL != "" }
+func (e Egress) Configured() bool { return e.URL != "" }
 
 func (c Config) HasAssignmentFile() bool { return c.AssignmentFile != "" }
 
@@ -90,7 +90,7 @@ func Load(args []string) (Config, error) {
 
 	switch {
 	case cfg.Token != "" && cfg.AssignmentFile != "":
-		note(fmt.Errorf("%s and %s are different ways to get work; give one", envToken, envAssignmentFile))
+		note(fmt.Errorf("%s and %s are different ways to get work; set one", envToken, envAssignmentFile))
 	case cfg.Token == "" && cfg.AssignmentFile == "":
 		note(fmt.Errorf(
 			"%s names the file with the work a host assigned to this runner, or %s is the one-run credential a push pool provisioned it with",
@@ -104,8 +104,8 @@ func Load(args []string) (Config, error) {
 		cfg.Egress = Egress{URL: get(envEgressURL), Credential: get(envProxyCredential)}
 		switch {
 		case (cfg.Egress.URL == "") != (cfg.Egress.Credential == ""):
-			note(fmt.Errorf("%s and %s go together; give both or neither", envEgressURL, envProxyCredential))
-		case cfg.Egress.Given():
+			note(fmt.Errorf("%s and %s go together; set both or neither", envEgressURL, envProxyCredential))
+		case cfg.Egress.Configured():
 			direct, err := directFrom(get(envTraffic))
 			note(err)
 			cfg.Egress.Direct = direct

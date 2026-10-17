@@ -27,7 +27,7 @@ interface SkillRow extends Record<string, unknown> {
   readonly key: string;
   readonly station_id: string | null;
   readonly week: string | null;
-  readonly given: number;
+  readonly enabled: number;
   readonly used: number;
 }
 
@@ -83,7 +83,7 @@ const skillsIn = async (
       select
         ran.station_id,
         ran.week,
-        ran.skills as given,
+        ran.skills as enabled,
         coalesce(ran.tools->'skillsRead', '[]'::jsonb) as read
       from (${ranIn(team)}) as ran
     ), uses as (
@@ -91,11 +91,11 @@ const skillsIn = async (
         ran.station_id,
         ran.week,
         skill.key,
-        ran.given ? skill.key as given,
+        ran.enabled ? skill.key as enabled,
         ran.read ? skill.key as used
       from ran
       cross join lateral (
-        select jsonb_array_elements_text(ran.given)
+        select jsonb_array_elements_text(ran.enabled)
         union
         select jsonb_array_elements_text(ran.read)
       ) as skill(key)
@@ -104,7 +104,7 @@ const skillsIn = async (
       key,
       station_id,
       week,
-      count(*) filter (where given)::int as given,
+      count(*) filter (where enabled)::int as enabled,
       count(*) filter (where used)::int as used
     from uses
     group by grouping sets ((key), (key, week), (key, station_id), (key, station_id, week))
@@ -226,7 +226,7 @@ export const toolCountsIn = async (
         key: row.key,
         stationId: row.station_id,
         week: row.week,
-        given: row.given,
+        enabled: row.enabled,
         used: row.used,
       }),
     ),

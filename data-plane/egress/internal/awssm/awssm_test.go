@@ -31,12 +31,12 @@ func source(id, field string) protocol.ExternalSecretRef {
 func TestReadsASecretWholeOrOneFieldOfIt(t *testing.T) {
 	reader := With(client{"plain": "sntrys_1", "fielded": `{"token":"sntrys_2","other":3}`})
 
-	for asked, want := range map[protocol.ExternalSecretRef]string{
+	for received, want := range map[protocol.ExternalSecretRef]string{
 		source("plain", ""):        "sntrys_1",
 		source("fielded", "token"): "sntrys_2",
 	} {
-		if read, err := reader.Read(context.Background(), asked); err != nil || read != want {
-			t.Errorf("%+v: read %q: %v", asked, read, err)
+		if read, err := reader.Read(context.Background(), received); err != nil || read != want {
+			t.Errorf("%+v: read %q: %v", received, read, err)
 		}
 	}
 }
@@ -44,15 +44,15 @@ func TestReadsASecretWholeOrOneFieldOfIt(t *testing.T) {
 func TestSaysWhyItCouldNotRead(t *testing.T) {
 	reader := With(client{"plain": "sntrys_1", "fielded": `{"other":3}`, "empty": ""})
 
-	for asked, want := range map[protocol.ExternalSecretRef]string{
+	for received, want := range map[protocol.ExternalSecretRef]string{
 		source("missing", ""):      "ResourceNotFoundException",
 		source("plain", "token"):   "not JSON",
 		source("fielded", "other"): "no text at other",
 		source("empty", ""):        "has no text",
 		{Kind: "vault"}:            "reads no vault",
 	} {
-		if _, err := reader.Read(context.Background(), asked); err == nil || !strings.Contains(err.Error(), want) {
-			t.Errorf("%+v: %v", asked, err)
+		if _, err := reader.Read(context.Background(), received); err == nil || !strings.Contains(err.Error(), want) {
+			t.Errorf("%+v: %v", received, err)
 		}
 	}
 }

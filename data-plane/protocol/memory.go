@@ -8,7 +8,7 @@ type RecallRequest struct {
 type Remembering struct {
 	Kind       string   `json:"kind"`
 	Body       string   `json:"body"`
-	Reach      string   `json:"reach,omitempty"`
+	Scope      string   `json:"scope,omitempty"`
 	Paths      []string `json:"paths,omitempty"`
 	Supersedes string   `json:"supersedes,omitempty"`
 }
@@ -52,7 +52,7 @@ type RecalledMemory struct {
 	Body       string            `json:"body"`
 	Source     string            `json:"source"`
 	Status     string            `json:"status"`
-	Reach      string            `json:"reach"`
+	Scope      string            `json:"scope"`
 	Repository *string           `json:"repository"`
 	Paths      []string          `json:"paths"`
 	ApprovedBy MemoryPerson      `json:"approvedBy"`
@@ -69,7 +69,7 @@ type ProposedMemory struct {
 	Kind       string       `json:"kind"`
 	Body       string       `json:"body"`
 	Source     string       `json:"source"`
-	Reach      string       `json:"reach"`
+	Scope      string       `json:"scope"`
 	Repository *string      `json:"repository"`
 	Paths      []string     `json:"paths"`
 	Steps      []MemoryStep `json:"steps"`

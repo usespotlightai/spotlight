@@ -64,14 +64,14 @@ const team = (id: string, name: string) =>
 
 const TEAMS = [team('team_1', 'Platform'), team('team_2', 'Mobile')];
 
-const kept = (invite: WorkspaceInvite): WorkspaceInvite =>
+const stored = (invite: WorkspaceInvite): WorkspaceInvite =>
   WorkspaceInvite.rehydrate({ ...invite, version: invite.version + 1 });
 
 const pendingInvite = (
   email = 'ada@example.com',
   sentAt = new Date('2026-09-01T09:00:00.000Z'),
 ) =>
-  kept(
+  stored(
     WorkspaceInvite.create({
       id: InviteId.of(`invite_${email}`),
       workspaceId: ACME,
@@ -152,7 +152,7 @@ const invite = (
 ) => new InviteToWorkspaceCommand('acme', emails, role, teamIds, viewer);
 
 describe('InviteToWorkspaceHandler', () => {
-  it('invites every address asked, as one invite each, with one email each', async () => {
+  it('invites every address in the request, as one invite each, with one email each', async () => {
     const { handler, add, send } = inviting();
 
     await expect(
@@ -182,7 +182,7 @@ describe('InviteToWorkspaceHandler', () => {
     });
   });
 
-  it('keeps the invite whose email could not be sent, says so, and carries on with the rest', async () => {
+  it('stores the invite whose email could not be sent, says so, and carries on with the rest', async () => {
     const { handler, add, send, warn } = inviting({
       mail: async (sending) => {
         if (sending.to === 'grace@example.com') {
@@ -217,7 +217,7 @@ describe('InviteToWorkspaceHandler', () => {
     expect(send).not.toHaveBeenCalled();
   });
 
-  it('keeps only the hash of the token it sent', async () => {
+  it('stores only the hash of the token it sent', async () => {
     const { handler, add } = inviting();
 
     await handler.execute(invite(['ada@example.com']));
@@ -225,7 +225,7 @@ describe('InviteToWorkspaceHandler', () => {
     expect(add.mock.calls[0]?.[0].tokenHash.value).toBe('1'.repeat(64));
   });
 
-  it('asks each address once, however it was written', async () => {
+  it('invites each address once, however it was written', async () => {
     const { handler, add } = inviting();
 
     const { outcomes } =
@@ -254,7 +254,7 @@ describe('InviteToWorkspaceHandler', () => {
     expect(send).toHaveBeenCalledTimes(1);
   });
 
-  it('resends a pending invite, on the terms asked now, rather than creating a second', async () => {
+  it('resends a pending invite, on the terms requested now, rather than creating a second', async () => {
     const { handler, add, save, send } = inviting({
       previous: () => pendingInvite(),
     });

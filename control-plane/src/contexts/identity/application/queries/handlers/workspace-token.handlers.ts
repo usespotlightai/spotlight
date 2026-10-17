@@ -26,13 +26,13 @@ export class ReadWorkspaceTokenHandler
     query: ReadWorkspaceTokenQuery,
   ): Promise<WorkspaceTokenResourceDto | null> {
     try {
-      const kept = await this.resources.tokenWithId(
+      const record = await this.resources.tokenWithId(
         WorkspaceTokenId.of(query.tokenId),
       );
 
-      return kept &&
-        (await this.access.permissionsIn(kept.workspaceId, query.principal))
-        ? ResourceMapper.workspaceToken(kept)
+      return record &&
+        (await this.access.permissionsIn(record.workspaceId, query.principal))
+        ? ResourceMapper.workspaceToken(record)
         : null;
     } catch (error) {
       rethrowAsApplicationError(error);
@@ -60,14 +60,14 @@ export class ImportWorkspaceTokenHandler
         WorkspaceId.of(query.workspaceId),
         query.principal,
       );
-      const kept = permissions
+      const record = permissions
         ? await this.resources.tokenAt(
             permissions.workspaceId,
             TokenName.of(query.address).value,
           )
         : null;
 
-      return kept ? ResourceMapper.workspaceToken(kept) : null;
+      return record ? ResourceMapper.workspaceToken(record) : null;
     } catch (error) {
       rethrowAsApplicationError(error);
     }

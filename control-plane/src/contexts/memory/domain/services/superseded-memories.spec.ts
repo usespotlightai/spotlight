@@ -16,7 +16,7 @@ const BY = MemoryDecision.of({
   at: new Date('2026-09-27T10:00:00.000Z'),
 });
 
-const kept = (id: number) =>
+const approved = (id: number) =>
   Memory.write({
     id: MemoryId.of(`memory_${id}`),
     handle: MemoryHandle.of(id),
@@ -40,8 +40,8 @@ const correcting = (old: Memory, id: number) =>
 
 describe('withoutSuperseded', () => {
   it('drops a memory whose correction is active beside it', () => {
-    const old = kept(1);
-    const other = kept(2);
+    const old = approved(1);
+    const other = approved(2);
     const correction = correcting(old, 3);
 
     expect(withoutSuperseded([old, other, correction])).toEqual([
@@ -51,8 +51,8 @@ describe('withoutSuperseded', () => {
   });
 
   it('drops a memory whose correction is found elsewhere', () => {
-    const old = kept(1);
-    const other = kept(2);
+    const old = approved(1);
+    const other = approved(2);
 
     expect(withoutSuperseded([old, other], [correcting(old, 3)])).toEqual([
       other,
@@ -60,7 +60,7 @@ describe('withoutSuperseded', () => {
   });
 
   it('keeps every memory nothing corrects', () => {
-    const memories = [kept(1), kept(2)];
+    const memories = [approved(1), approved(2)];
 
     expect(withoutSuperseded(memories, [])).toEqual(memories);
   });

@@ -68,36 +68,36 @@ describe('BuiltInTools', () => {
     );
   });
 
-  it('reaches a tool of Spotlight’s own, as it is declared, calling its use for the run', async () => {
-    const reached = new BuiltInTools([
+  it('resolves a tool of Spotlight’s own, as it is declared, calling its use for the run', async () => {
+    const resolved = new BuiltInTools([
       answering,
       proposing,
       ...reviewing,
-    ]).reach(PULL_REQUEST, ON_TASK);
+    ]).resolve(PULL_REQUEST, ON_TASK);
 
-    expect(reached?.declared).toBe(builtInTool(PULL_REQUEST)?.declared);
+    expect(resolved?.declared).toBe(builtInTool(PULL_REQUEST)?.declared);
     expect(
-      reached?.defaultFor(
+      resolved?.defaultFor(
         builtInTool(PULL_REQUEST)?.declared.inputs[0] as never,
       ),
     ).toBeUndefined();
     await expect(
-      reached?.call(ToolInputs.of({ title: 'Fix the queue' })),
+      resolved?.call(ToolInputs.of({ title: 'Fix the queue' })),
     ).resolves.toEqual({ task: 'task_1', title: 'Fix the queue' });
   });
 
-  it('reaches a tool only for the kind of work it is made for', () => {
+  it('resolves a tool only for the kind of work it is made for', () => {
     const tools = new BuiltInTools([answering, proposing, ...reviewing]);
 
-    expect(tools.reach(PULL_REQUEST, IN_CHAT)).toBeNull();
-    expect(tools.reach(PROPOSE_TASK, ON_TASK)).toBeNull();
-    expect(tools.reach(PROPOSE_TASK, IN_CHAT)).not.toBeNull();
+    expect(tools.resolve(PULL_REQUEST, IN_CHAT)).toBeNull();
+    expect(tools.resolve(PROPOSE_TASK, ON_TASK)).toBeNull();
+    expect(tools.resolve(PROPOSE_TASK, IN_CHAT)).not.toBeNull();
   });
 
-  it('reaches nothing Spotlight does not declare', () => {
+  it('resolves nothing Spotlight does not declare', () => {
     const tools = new BuiltInTools([answering, proposing, ...reviewing]);
 
-    expect(tools.reach(Tool.of('teleport'), ON_TASK)).toBeNull();
-    expect(tools.reach(Tool.of('linear.comment'), ON_TASK)).toBeNull();
+    expect(tools.resolve(Tool.of('teleport'), ON_TASK)).toBeNull();
+    expect(tools.resolve(Tool.of('linear.comment'), ON_TASK)).toBeNull();
   });
 });

@@ -9,7 +9,7 @@ import {
   leasedRunPath,
   onlineCount,
   runnerStatus,
-  through,
+  sourceLabel,
   withActivity,
 } from '@/lib/runner';
 
@@ -18,7 +18,7 @@ const NOW = new Date('2026-08-30T12:00:00.000Z');
 const host = (over: Partial<HostResponseDto> = {}): HostResponseDto => ({
   id: 'K7Q2M4ZC3VYH6N5RB8WX1TDJ9P',
   name: 'build-box-1',
-  through: { kind: 'pool', key: 'build-farm' },
+  source: { kind: 'pool', key: 'build-farm' },
   release: 'v1.4.0',
   containerRuntime: 'Docker Engine 27.3.1 (linux/amd64)',
   capacity: 4,
@@ -40,7 +40,7 @@ const runner = (
   over: Partial<LiveRunnerResponseDto> = {},
 ): LiveRunnerResponseDto => ({
   id: 'runner_1',
-  through: { kind: 'pool', key: 'ephemeral' },
+  source: { kind: 'pool', key: 'ephemeral' },
   hostId: null,
   image: null,
   harnesses: [],
@@ -113,7 +113,7 @@ describe('withActivity', () => {
         hosts: [],
         runners: [
           runner({ id: 'runner_1' }),
-          runner({ id: 'runner_2', through: { kind: 'pool', key: 'burst' } }),
+          runner({ id: 'runner_2', source: { kind: 'pool', key: 'burst' } }),
           runner({ id: 'runner_3' }),
         ],
       },
@@ -122,7 +122,7 @@ describe('withActivity', () => {
 
     expect(
       pools.map((pool) => [
-        pool.through.key,
+        pool.source.key,
         pool.runners.map((each) => each.id),
       ]),
     ).toEqual([
@@ -217,11 +217,11 @@ describe('onlineCount', () => {
   });
 });
 
-describe('through', () => {
+describe('sourceLabel', () => {
   it('names the pool or trust, or says it is gone', () => {
-    expect(through({ kind: 'pool', key: 'build-farm' })).toBe(
+    expect(sourceLabel({ kind: 'pool', key: 'build-farm' })).toBe(
       'Pool build-farm',
     );
-    expect(through({ kind: 'trust', key: null })).toBe('Trust deleted');
+    expect(sourceLabel({ kind: 'trust', key: null })).toBe('Trust deleted');
   });
 });

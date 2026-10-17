@@ -24,10 +24,10 @@ const ORDER = {
   harness: { id: HarnessId.of('claude-code') },
   model: null,
   effort: null,
-  given: { profile: null, tools: [] },
+  enabled: { profile: null, tools: [] },
 } as unknown as RunOrder;
 
-const RUBRIC = 'A good run changes only what the task asks for.\n';
+const RUBRIC = 'A good run changes only what the task requests.\n';
 
 const station = (
   over: Partial<Parameters<typeof Station.of>[0]> = {},

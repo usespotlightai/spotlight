@@ -366,7 +366,7 @@ describe('a replay candidate, proposed through the resource API (e2e)', () => {
     ).toBe(404);
   });
 
-  it('lists and imports only proposed candidates, of one station when asked, and rejects a station or address that is none', async () => {
+  it('lists and imports only proposed candidates, of one station on request, and rejects a station or address that is none', async () => {
     const made = await proposed('Listed', 'Build it, listed.');
     const live = randomUUID();
 
@@ -437,10 +437,10 @@ describe('a replay candidate, proposed through the resource API (e2e)', () => {
       ).status,
     ).toBe(422);
 
-    const kept = await owner().delete(fixture.item(live), 0);
+    const refused = await owner().delete(fixture.item(live), 0);
 
-    expect(kept.status).toBe(409);
-    expect(kept.body.type).toBe('urn:spotlight:problem:in-use');
+    expect(refused.status).toBe(409);
+    expect(refused.body.type).toBe('urn:spotlight:problem:in-use');
   });
 
   it('is not deleted while a replay of it is running, and is once it has ended', async () => {

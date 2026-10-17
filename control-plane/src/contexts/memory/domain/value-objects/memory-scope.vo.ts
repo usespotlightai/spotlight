@@ -1,6 +1,6 @@
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
 import type { MemoryPath } from '@memory/domain/value-objects/memory-path.vo';
-import type { MemoryReach } from '@memory/domain/value-objects/memory-reach';
+import type { MemoryScopeLevel } from '@memory/domain/value-objects/memory-scope-level';
 import type {
   RunSite,
   TouchedSite,
@@ -67,7 +67,7 @@ export class MemoryScope {
     );
   }
 
-  reaches(site: TouchedSite): boolean {
+  matches(site: TouchedSite): boolean {
     const { repository } = this;
 
     return (
@@ -94,7 +94,7 @@ export class MemoryScope {
     return this.repository ? 1 : 0;
   }
 
-  get reach(): MemoryReach {
+  get level(): MemoryScopeLevel {
     return this.stationId ? 'station' : this.lineId ? 'line' : 'team';
   }
 

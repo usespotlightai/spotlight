@@ -3,7 +3,6 @@ import { pendingReviewsInMemory } from '@outcomes/application/ports/pending-revi
 import { stationConfigPullRequestsInMemory } from '@outcomes/application/ports/station-config-pull-requests.fake-spec';
 import type { EndedRun } from '@outcomes/application/ports/work.port';
 import { AlertInbox } from '@outcomes/application/services/alert-inbox.service';
-import { AskForJudging } from '@outcomes/application/services/ask-for-judging.service';
 import { DeleteOutcomes } from '@outcomes/application/services/delete-outcomes.service';
 import { GradeAsides } from '@outcomes/application/services/grade-asides.service';
 import { NoteChangeChecked } from '@outcomes/application/services/note-change-checked.service';
@@ -23,6 +22,7 @@ import { NoteRunSuperseded } from '@outcomes/application/services/note-run-super
 import { NoteTaskFailed } from '@outcomes/application/services/note-task-failed.service';
 import { NoteTaskTouch } from '@outcomes/application/services/note-task-touch.service';
 import { RecordJudgeScore } from '@outcomes/application/services/record-judge-score.service';
+import { RequestJudging } from '@outcomes/application/services/request-judging.service';
 import { WatchStations } from '@outcomes/application/services/watch-stations.service';
 import { StationWatchesInMemory } from '@outcomes/domain/alerts.fake-spec';
 import { RunJudged } from '@outcomes/domain/events/run-judged.event';
@@ -33,11 +33,11 @@ import {
   TaskTouchesInMemory,
 } from '@outcomes/domain/insights.fake-spec';
 import {
-  askedJudging,
   ChangeJudgingsInMemory,
   JudgingsInMemory,
   judgeScore,
   PairJudgingsInMemory,
+  queuedJudging,
   RUBRIC_VERSION,
   reasonOf,
   ScoresInMemory,
@@ -88,7 +88,7 @@ import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
 
-const HEARD_AT = new Date('2026-09-30T12:00:00.000Z');
+const RECEIVED_AT = new Date('2026-09-30T12:00:00.000Z');
 
 const PULL = 'https://github.com/acme/api/pull/3';
 
@@ -145,11 +145,11 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
       error: () => {},
     }),
     superseding: new NoteRunSuperseded(records, deletions, inTransaction, {
-      now: () => HEARD_AT,
+      now: () => RECEIVED_AT,
       sleep: async () => {},
     }),
     checking: new NoteChangeChecked(records, deletions, inTransaction, {
-      now: () => HEARD_AT,
+      now: () => RECEIVED_AT,
       sleep: async () => {},
     }),
     acting: new NotePersonAct(WORK, records, deletions, inTransaction),
@@ -181,7 +181,7 @@ const subscribed = (alerts: readonly AlertRule[] | null = null) => {
       },
       inTransaction,
     ),
-    judging: new AskForJudging(
+    judging: new RequestJudging(
       WORK,
       {
         hasTask: async () => true,
@@ -333,39 +333,39 @@ describe('outcomesSubscribers', () => {
   });
 
   it('records a run that ended at a station', async () => {
-    const heard = subscribed();
+    const subscriber = subscribed();
 
-    await heard.deliver('outcomes.record-ended-run', runEnded());
+    await subscriber.deliver('outcomes.record-ended-run', runEnded());
 
-    expect((await heard.record())?.ending).toBe('completed');
+    expect((await subscriber.record())?.ending).toBe('completed');
   });
 
   it('records a run a person stopped as stopped', async () => {
-    const heard = subscribed();
+    const subscriber = subscribed();
 
-    await heard.deliver(
+    await subscriber.deliver(
       'outcomes.record-ended-run',
       runEnded({ stopped: true }),
     );
 
-    expect((await heard.record())?.ending).toBe('stopped');
+    expect((await subscriber.record())?.ending).toBe('stopped');
   });
 
   it('records nothing for a run at no station', async () => {
-    const heard = subscribed();
+    const subscriber = subscribed();
 
-    await heard.deliver(
+    await subscriber.deliver(
       'outcomes.record-ended-run',
       runEnded({ stationId: null }),
     );
 
-    expect(await heard.record()).toBeNull();
+    expect(await subscriber.record()).toBeNull();
   });
 
   it('records nothing for a change checked for no task, as a replay’s is', async () => {
-    const heard = subscribed();
+    const subscriber = subscribed();
 
-    await heard.deliver('outcomes.record-checked-change', {
+    await subscriber.deliver('outcomes.record-checked-change', {
       kind: CHANGE_CHECKED,
       runId: 'run_1',
       taskId: null,
@@ -373,20 +373,20 @@ describe('outcomesSubscribers', () => {
       passed: true,
     });
 
-    expect(await heard.record()).toBeNull();
+    expect(await subscriber.record()).toBeNull();
   });
 
   it('fills in the checks, the next act and the superseding in any order', async () => {
-    const heard = subscribed();
+    const subscriber = subscribed();
 
-    await heard.deliver('outcomes.record-checked-change', {
+    await subscriber.deliver('outcomes.record-checked-change', {
       kind: CHANGE_CHECKED,
       runId: 'run_1',
       taskId: 'task_1',
       workspaceId: 'ws_1',
       passed: true,
     });
-    await heard.deliver('outcomes.record-next-person-act', {
+    await subscriber.deliver('outcomes.record-next-person-act', {
       kind: TASK_ACTED_ON,
       taskId: 'task_1',
       workspaceId: 'ws_1',
@@ -398,24 +398,24 @@ describe('outcomesSubscribers', () => {
       tool: null,
       server: null,
     });
-    await heard.deliver('outcomes.record-superseded-run', {
+    await subscriber.deliver('outcomes.record-superseded-run', {
       kind: RUN_SUPERSEDED,
       runId: 'run_1',
       workspaceId: 'ws_1',
       taskId: 'task_1',
     });
-    await heard.deliver('outcomes.record-ended-run', runEnded());
+    await subscriber.deliver('outcomes.record-ended-run', runEnded());
 
-    const record = await heard.record();
+    const record = await subscriber.record();
     expect(record?.checks).toBe('passed');
     expect(record?.next?.act).toBe('sent-back');
     expect(record?.ending).toBe('superseded');
   });
 
   it('follows the task’s pull request from opened to merged', async () => {
-    const heard = subscribed();
+    const subscriber = subscribed();
 
-    await heard.deliver('outcomes.record-opened-pull-request', {
+    await subscriber.deliver('outcomes.record-opened-pull-request', {
       kind: PULL_REQUEST_OPENED,
       taskId: 'task_1',
       workspaceId: 'ws_1',
@@ -423,7 +423,7 @@ describe('outcomesSubscribers', () => {
       url: PULL,
       at: '2026-09-30T10:30:00.000Z',
     });
-    await heard.deliver('outcomes.record-closed-pull-request', {
+    await subscriber.deliver('outcomes.record-closed-pull-request', {
       kind: PULL_REQUEST_CLOSED,
       workspaceId: 'ws_1',
       pullRequest: PULL,
@@ -433,15 +433,15 @@ describe('outcomesSubscribers', () => {
       mergeCommit: 'abc123',
     });
 
-    expect((await heard.deliveries.forTask(TaskId.of('task_1')))?.state).toBe(
-      'merged',
-    );
+    expect(
+      (await subscriber.deliveries.forTask(TaskId.of('task_1')))?.state,
+    ).toBe('merged');
   });
 
-  it('keeps what a run cost and where it passed its task, heard before or after it ended', async () => {
-    const heard = subscribed();
+  it('keeps what a run cost and where it passed its task, received before or after it ended', async () => {
+    const subscriber = subscribed();
 
-    await heard.deliver('outcomes.record-run-cost', {
+    await subscriber.deliver('outcomes.record-run-cost', {
       kind: RUN_DIGESTED,
       runId: 'run_1',
       workspaceId: 'ws_1',
@@ -469,8 +469,8 @@ describe('outcomesSubscribers', () => {
       ],
       skillsRead: ['grafana'],
     });
-    await heard.deliver('outcomes.record-ended-run', runEnded());
-    await heard.deliver('outcomes.record-passed-run', {
+    await subscriber.deliver('outcomes.record-ended-run', runEnded());
+    await subscriber.deliver('outcomes.record-passed-run', {
       kind: TASK_PASSED,
       taskId: 'task_1',
       workspaceId: 'ws_1',
@@ -480,7 +480,7 @@ describe('outcomesSubscribers', () => {
       at: '2026-09-30T10:01:00.000Z',
     });
 
-    const record = await heard.record();
+    const record = await subscriber.record();
     expect(record?.cost?.spend).toEqual({ amount: 0.42, currency: 'USD' });
     expect(record?.cost?.tokens).toEqual({
       input: 1_200,
@@ -497,9 +497,9 @@ describe('outcomesSubscribers', () => {
   });
 
   it('keeps no cost for a run that worked no task', async () => {
-    const heard = subscribed();
+    const subscriber = subscribed();
 
-    await heard.deliver('outcomes.record-run-cost', {
+    await subscriber.deliver('outcomes.record-run-cost', {
       kind: RUN_DIGESTED,
       runId: 'run_1',
       workspaceId: 'ws_1',
@@ -520,13 +520,13 @@ describe('outcomesSubscribers', () => {
       skillsRead: [],
     });
 
-    expect(await heard.record()).toBeNull();
+    expect(await subscriber.record()).toBeNull();
   });
 
-  it('keeps the memories a run used, heard before and after it ended', async () => {
-    const heard = subscribed();
+  it('keeps the memories a run used, received before and after it ended', async () => {
+    const subscriber = subscribed();
     const used = (way: string, memories: readonly string[]) =>
-      heard.deliver('outcomes.record-run-memories', {
+      subscriber.deliver('outcomes.record-run-memories', {
         kind: MEMORIES_USED,
         runId: 'run_1',
         workspaceId: 'ws_1',
@@ -536,20 +536,20 @@ describe('outcomesSubscribers', () => {
       });
 
     await used('briefed', ['mem_1']);
-    await heard.deliver('outcomes.record-ended-run', runEnded());
+    await subscriber.deliver('outcomes.record-ended-run', runEnded());
     await used('recalled', ['mem_2']);
 
-    expect((await heard.record())?.hasEnded).toBe(true);
-    expect((await heard.record())?.memories).toMatchObject({
+    expect((await subscriber.record())?.hasEnded).toBe(true);
+    expect((await subscriber.record())?.memories).toMatchObject({
       briefed: ['mem_1'],
       recalled: ['mem_2'],
     });
   });
 
   it('keeps no memories for a run that worked no task, nor for a way it does not know', async () => {
-    const heard = subscribed();
+    const subscriber = subscribed();
     const used = (taskId: string | null, way: string) =>
-      heard.deliver('outcomes.record-run-memories', {
+      subscriber.deliver('outcomes.record-run-memories', {
         kind: MEMORIES_USED,
         runId: 'run_1',
         workspaceId: 'ws_1',
@@ -561,12 +561,12 @@ describe('outcomesSubscribers', () => {
     await used(null, 'briefed');
     await used('task_1', 'unknown');
 
-    expect(await heard.record()).toBeNull();
+    expect(await subscriber.record()).toBeNull();
   });
 
   it('dates a pull request’s first review by a person, never a bot’s', async () => {
-    const heard = subscribed();
-    await heard.deliver('outcomes.record-opened-pull-request', {
+    const subscriber = subscribed();
+    await subscriber.deliver('outcomes.record-opened-pull-request', {
       kind: PULL_REQUEST_OPENED,
       taskId: 'task_1',
       workspaceId: 'ws_1',
@@ -575,7 +575,7 @@ describe('outcomesSubscribers', () => {
       at: '2026-09-30T10:30:00.000Z',
     });
     const reviewed = (byBot: boolean, submittedAt: string) =>
-      heard.deliver('outcomes.record-first-review', {
+      subscriber.deliver('outcomes.record-first-review', {
         kind: PULL_REQUEST_REVIEWED,
         workspaceId: 'ws_1',
         pullRequest: PULL,
@@ -590,12 +590,12 @@ describe('outcomesSubscribers', () => {
     await reviewed(false, '2026-09-30T12:00:00.000Z');
 
     expect(
-      (await heard.deliveries.forTask(TaskId.of('task_1')))?.firstReviewAt,
+      (await subscriber.deliveries.forTask(TaskId.of('task_1')))?.firstReviewAt,
     ).toEqual(new Date('2026-09-30T11:00:00.000Z'));
   });
 
-  it('keeps every task failure heard, once each', async () => {
-    const heard = subscribed();
+  it('keeps every task failure received, once each', async () => {
+    const subscriber = subscribed();
     const failed = (occurrences: number, at: string) => ({
       kind: TASK_FAILED,
       taskId: 'task_1',
@@ -609,34 +609,36 @@ describe('outcomesSubscribers', () => {
       at,
     });
 
-    await heard.deliver(
+    await subscriber.deliver(
       'outcomes.record-task-failure',
       failed(1, '2026-09-30T10:00:00.000Z'),
     );
-    await heard.deliver(
+    await subscriber.deliver(
       'outcomes.record-task-failure',
       failed(2, '2026-09-30T10:01:00.000Z'),
     );
-    await heard.deliver(
+    await subscriber.deliver(
       'outcomes.record-task-failure',
       failed(2, '2026-09-30T10:01:00.000Z'),
     );
 
-    const kept = await heard.failures.of(TaskId.of('task_1'));
-    expect(kept?.occurrences.map((each) => each.occurrences)).toEqual([1, 2]);
+    const failures = await subscriber.failures.of(TaskId.of('task_1'));
+    expect(failures?.occurrences.map((each) => each.occurrences)).toEqual([
+      1, 2,
+    ]);
   });
 
   it('keeps who opened a task, what it asked of people and what they did', async () => {
-    const heard = subscribed();
+    const subscriber = subscribed();
 
-    await heard.deliver('outcomes.record-inbox-ask', {
+    await subscriber.deliver('outcomes.record-inbox-ask', {
       kind: TASK_ASKED,
       taskId: 'task_1',
       workspaceId: 'ws_1',
       stationId: 'station_1',
       at: '2026-09-30T10:10:00.000Z',
     });
-    await heard.deliver('outcomes.record-task-opening', {
+    await subscriber.deliver('outcomes.record-task-opening', {
       kind: TASK_OPENED,
       taskId: 'task_1',
       workspaceId: 'ws_1',
@@ -646,7 +648,7 @@ describe('outcomesSubscribers', () => {
       by: 'user_ada',
       at: '2026-09-30T09:00:00.000Z',
     });
-    await heard.deliver('outcomes.record-person-touch', {
+    await subscriber.deliver('outcomes.record-person-touch', {
       kind: TASK_ACTED_ON,
       taskId: 'task_1',
       workspaceId: 'ws_1',
@@ -659,7 +661,7 @@ describe('outcomesSubscribers', () => {
       server: null,
     });
 
-    const touches = await heard.touches.of(TaskId.of('task_1'));
+    const touches = await subscriber.touches.of(TaskId.of('task_1'));
     expect(touches?.opening?.by?.value).toBe('user_ada');
     expect(touches?.waits()).toEqual([
       {
@@ -672,7 +674,7 @@ describe('outcomesSubscribers', () => {
   });
 
   it('keeps who started a chat, once', async () => {
-    const heard = subscribed();
+    const subscriber = subscribed();
     const started = {
       kind: CHAT_STARTED,
       chatId: 'chat_1',
@@ -682,14 +684,14 @@ describe('outcomesSubscribers', () => {
       at: '2026-09-30T09:00:00.000Z',
     };
 
-    await heard.deliver('outcomes.record-started-chat', started);
-    await heard.deliver('outcomes.record-started-chat', started);
+    await subscriber.deliver('outcomes.record-started-chat', started);
+    await subscriber.deliver('outcomes.record-started-chat', started);
 
-    expect(heard.chats.stored.size).toBe(1);
+    expect(subscriber.chats.stored.size).toBe(1);
   });
 
-  it('keeps the config pull requests Spotlight opened, each once, until their team is deleted and after none heard late', async () => {
-    const heard = subscribed();
+  it('keeps the config pull requests Spotlight opened, each once, until their team is deleted and after none received late', async () => {
+    const subscriber = subscribed();
     const opened = (id: string, teamId = 'team_1') => ({
       kind: CONFIG_PULL_REQUEST_OPENED,
       configPullRequestId: id,
@@ -701,22 +703,25 @@ describe('outcomesSubscribers', () => {
       at: '2026-09-30T09:00:00.000Z',
     });
 
-    await heard.deliver(
+    await subscriber.deliver(
       'outcomes.record-opened-config-pull-request',
       opened('1'),
     );
-    await heard.deliver(
+    await subscriber.deliver(
       'outcomes.record-opened-config-pull-request',
       opened('1'),
     );
-    await heard.deliver(
+    await subscriber.deliver(
       'outcomes.record-opened-config-pull-request',
       opened('2', 'team_2'),
     );
 
-    expect([...heard.configPullRequests.stored.keys()]).toEqual(['1', '2']);
+    expect([...subscriber.configPullRequests.stored.keys()]).toEqual([
+      '1',
+      '2',
+    ]);
 
-    await heard.deliver(
+    await subscriber.deliver(
       'outcomes.delete-config-pull-requests-of-deleted-team',
       {
         kind: TEAM_DELETED,
@@ -725,31 +730,31 @@ describe('outcomesSubscribers', () => {
         key: 'core',
       },
     );
-    await heard.deliver(
+    await subscriber.deliver(
       'outcomes.record-opened-config-pull-request',
       opened('3'),
     );
 
-    expect([...heard.configPullRequests.stored.keys()]).toEqual(['2']);
+    expect([...subscriber.configPullRequests.stored.keys()]).toEqual(['2']);
 
-    await heard.deliver(
+    await subscriber.deliver(
       'outcomes.delete-config-pull-requests-of-deleted-workspace',
       { kind: WORKSPACE_DELETED, workspaceId: 'ws_1', slug: 'acme' },
     );
 
-    expect(heard.configPullRequests.stored.size).toBe(0);
+    expect(subscriber.configPullRequests.stored.size).toBe(0);
   });
 
   it('deletes the touches and failures of a deleted task, and the chats of a deleted workspace', async () => {
-    const heard = subscribed();
-    await heard.deliver('outcomes.record-inbox-ask', {
+    const subscriber = subscribed();
+    await subscriber.deliver('outcomes.record-inbox-ask', {
       kind: TASK_ASKED,
       taskId: 'task_1',
       workspaceId: 'ws_1',
       stationId: 'station_1',
       at: '2026-09-30T10:10:00.000Z',
     });
-    await heard.deliver('outcomes.record-task-failure', {
+    await subscriber.deliver('outcomes.record-task-failure', {
       kind: TASK_FAILED,
       taskId: 'task_1',
       workspaceId: 'ws_1',
@@ -761,7 +766,7 @@ describe('outcomesSubscribers', () => {
       occurrences: 1,
       at: '2026-09-30T10:00:00.000Z',
     });
-    await heard.deliver('outcomes.record-started-chat', {
+    await subscriber.deliver('outcomes.record-started-chat', {
       kind: CHAT_STARTED,
       chatId: 'chat_1',
       workspaceId: 'ws_1',
@@ -775,23 +780,29 @@ describe('outcomesSubscribers', () => {
       workspaceId: 'ws_1',
     };
 
-    await heard.deliver('outcomes.delete-touches-of-deleted-task', deleted);
-    await heard.deliver('outcomes.delete-failures-of-deleted-task', deleted);
-    await heard.deliver('outcomes.delete-chats-of-deleted-workspace', {
+    await subscriber.deliver(
+      'outcomes.delete-touches-of-deleted-task',
+      deleted,
+    );
+    await subscriber.deliver(
+      'outcomes.delete-failures-of-deleted-task',
+      deleted,
+    );
+    await subscriber.deliver('outcomes.delete-chats-of-deleted-workspace', {
       kind: WORKSPACE_DELETED,
       workspaceId: 'ws_1',
       slug: 'acme',
     });
 
-    expect(heard.touches.stored.size).toBe(0);
-    expect(heard.failures.stored.size).toBe(0);
-    expect(heard.chats.stored.size).toBe(0);
+    expect(subscriber.touches.stored.size).toBe(0);
+    expect(subscriber.failures.stored.size).toBe(0);
+    expect(subscriber.chats.stored.size).toBe(0);
   });
 
   it('deletes the runs and delivery of a deleted task', async () => {
-    const heard = subscribed();
-    await heard.deliver('outcomes.record-ended-run', runEnded());
-    await heard.deliver('outcomes.record-opened-pull-request', {
+    const subscriber = subscribed();
+    await subscriber.deliver('outcomes.record-ended-run', runEnded());
+    await subscriber.deliver('outcomes.record-opened-pull-request', {
       kind: PULL_REQUEST_OPENED,
       taskId: 'task_1',
       workspaceId: 'ws_1',
@@ -805,30 +816,33 @@ describe('outcomesSubscribers', () => {
       workspaceId: 'ws_1',
     };
 
-    await heard.deliver('outcomes.delete-runs-of-deleted-task', deleted);
-    await heard.deliver('outcomes.delete-delivery-of-deleted-task', deleted);
+    await subscriber.deliver('outcomes.delete-runs-of-deleted-task', deleted);
+    await subscriber.deliver(
+      'outcomes.delete-delivery-of-deleted-task',
+      deleted,
+    );
 
-    expect(await heard.record()).toBeNull();
-    expect(heard.deliveries.stored.size).toBe(0);
+    expect(await subscriber.record()).toBeNull();
+    expect(subscriber.deliveries.stored.size).toBe(0);
   });
 
   it('deletes the runs of a deleted team', async () => {
-    const heard = subscribed();
-    await heard.deliver('outcomes.record-ended-run', runEnded());
+    const subscriber = subscribed();
+    await subscriber.deliver('outcomes.record-ended-run', runEnded());
 
-    await heard.deliver('outcomes.delete-runs-of-deleted-team', {
+    await subscriber.deliver('outcomes.delete-runs-of-deleted-team', {
       kind: TEAM_DELETED,
       workspaceId: 'ws_1',
       teamId: 'team_1',
       key: 'core',
     });
 
-    expect(await heard.record()).toBeNull();
+    expect(await subscriber.record()).toBeNull();
   });
 
-  it('dates a pull request’s first review even when the review is heard before the opening', async () => {
-    const heard = subscribed();
-    await heard.deliver('outcomes.record-first-review', {
+  it('dates a pull request’s first review even when the review is received before the opening', async () => {
+    const subscriber = subscribed();
+    await subscriber.deliver('outcomes.record-first-review', {
       kind: PULL_REQUEST_REVIEWED,
       workspaceId: 'ws_1',
       pullRequest: PULL,
@@ -838,7 +852,7 @@ describe('outcomesSubscribers', () => {
       submittedAt: '2026-09-30T11:00:00.000Z',
     });
 
-    await heard.deliver('outcomes.record-opened-pull-request', {
+    await subscriber.deliver('outcomes.record-opened-pull-request', {
       kind: PULL_REQUEST_OPENED,
       taskId: 'task_1',
       workspaceId: 'ws_1',
@@ -848,14 +862,14 @@ describe('outcomesSubscribers', () => {
     });
 
     expect(
-      (await heard.deliveries.forTask(TaskId.of('task_1')))?.firstReviewAt,
+      (await subscriber.deliveries.forTask(TaskId.of('task_1')))?.firstReviewAt,
     ).toEqual(new Date('2026-09-30T11:00:00.000Z'));
-    expect(heard.reviews.stored.size).toBe(0);
+    expect(subscriber.reviews.stored.size).toBe(0);
   });
 
   it('deletes the failures and pull requests of a deleted team', async () => {
-    const heard = subscribed();
-    await heard.deliver('outcomes.record-task-failure', {
+    const subscriber = subscribed();
+    await subscriber.deliver('outcomes.record-task-failure', {
       kind: TASK_FAILED,
       taskId: 'task_1',
       workspaceId: 'ws_1',
@@ -867,7 +881,7 @@ describe('outcomesSubscribers', () => {
       occurrences: 1,
       at: '2026-09-30T10:00:00.000Z',
     });
-    await heard.deliver('outcomes.record-opened-pull-request', {
+    await subscriber.deliver('outcomes.record-opened-pull-request', {
       kind: PULL_REQUEST_OPENED,
       taskId: 'task_1',
       workspaceId: 'ws_1',
@@ -882,29 +896,29 @@ describe('outcomesSubscribers', () => {
       key: 'core',
     };
 
-    await heard.deliver(
+    await subscriber.deliver(
       'outcomes.delete-failures-of-deleted-team',
       deletedTeam,
     );
-    await heard.deliver(
+    await subscriber.deliver(
       'outcomes.delete-deliveries-of-deleted-team',
       deletedTeam,
     );
 
-    expect(heard.failures.stored.size).toBe(0);
-    expect(heard.deliveries.stored.size).toBe(0);
+    expect(subscriber.failures.stored.size).toBe(0);
+    expect(subscriber.deliveries.stored.size).toBe(0);
   });
 
-  it('records nothing more of a task heard of after it was deleted, whichever deletion came first', async () => {
-    const heard = subscribed();
-    await heard.deliver('outcomes.delete-touches-of-deleted-task', {
+  it('records nothing more of a task received after it was deleted, whichever deletion came first', async () => {
+    const subscriber = subscribed();
+    await subscriber.deliver('outcomes.delete-touches-of-deleted-task', {
       kind: TASK_DELETED,
       taskId: 'task_1',
       workspaceId: 'ws_1',
     });
 
-    await heard.deliver('outcomes.record-ended-run', runEnded());
-    await heard.deliver('outcomes.record-run-cost', {
+    await subscriber.deliver('outcomes.record-ended-run', runEnded());
+    await subscriber.deliver('outcomes.record-run-cost', {
       kind: RUN_DIGESTED,
       runId: 'run_1',
       workspaceId: 'ws_1',
@@ -924,7 +938,7 @@ describe('outcomesSubscribers', () => {
       servers: [],
       skillsRead: [],
     });
-    await heard.deliver('outcomes.record-passed-run', {
+    await subscriber.deliver('outcomes.record-passed-run', {
       kind: TASK_PASSED,
       taskId: 'task_1',
       workspaceId: 'ws_1',
@@ -933,20 +947,20 @@ describe('outcomesSubscribers', () => {
       to: 'station_2',
       at: '2026-09-30T10:01:00.000Z',
     });
-    await heard.deliver('outcomes.record-checked-change', {
+    await subscriber.deliver('outcomes.record-checked-change', {
       kind: CHANGE_CHECKED,
       runId: 'run_3',
       workspaceId: 'ws_1',
       taskId: 'task_1',
       passed: true,
     });
-    await heard.deliver('outcomes.record-superseded-run', {
+    await subscriber.deliver('outcomes.record-superseded-run', {
       kind: RUN_SUPERSEDED,
       runId: 'run_4',
       workspaceId: 'ws_1',
       taskId: 'task_1',
     });
-    await heard.deliver('outcomes.record-next-person-act', {
+    await subscriber.deliver('outcomes.record-next-person-act', {
       kind: TASK_ACTED_ON,
       taskId: 'task_1',
       workspaceId: 'ws_1',
@@ -958,14 +972,14 @@ describe('outcomesSubscribers', () => {
       tool: null,
       server: null,
     });
-    await heard.deliver('outcomes.record-inbox-ask', {
+    await subscriber.deliver('outcomes.record-inbox-ask', {
       kind: TASK_ASKED,
       taskId: 'task_1',
       workspaceId: 'ws_1',
       stationId: 'station_1',
       at: '2026-09-30T10:10:00.000Z',
     });
-    await heard.deliver('outcomes.record-task-failure', {
+    await subscriber.deliver('outcomes.record-task-failure', {
       kind: TASK_FAILED,
       taskId: 'task_1',
       workspaceId: 'ws_1',
@@ -977,7 +991,7 @@ describe('outcomesSubscribers', () => {
       occurrences: 1,
       at: '2026-09-30T10:00:00.000Z',
     });
-    await heard.deliver('outcomes.record-opened-pull-request', {
+    await subscriber.deliver('outcomes.record-opened-pull-request', {
       kind: PULL_REQUEST_OPENED,
       taskId: 'task_1',
       workspaceId: 'ws_1',
@@ -986,30 +1000,30 @@ describe('outcomesSubscribers', () => {
       at: '2026-09-30T10:30:00.000Z',
     });
 
-    expect(heard.records.stored.size).toBe(0);
-    expect(heard.touches.stored.size).toBe(0);
-    expect(heard.failures.stored.size).toBe(0);
-    expect(heard.deliveries.stored.size).toBe(0);
+    expect(subscriber.records.stored.size).toBe(0);
+    expect(subscriber.touches.stored.size).toBe(0);
+    expect(subscriber.failures.stored.size).toBe(0);
+    expect(subscriber.deliveries.stored.size).toBe(0);
   });
 
-  it('records nothing more of a team heard of after it was deleted, and lets go of what it heard before it knew the team', async () => {
-    const heard = subscribed();
-    await heard.deliver('outcomes.record-inbox-ask', {
+  it('records nothing more of a team received after it was deleted, and lets go of what it received before it knew the team', async () => {
+    const subscriber = subscribed();
+    await subscriber.deliver('outcomes.record-inbox-ask', {
       kind: TASK_ASKED,
       taskId: 'task_1',
       workspaceId: 'ws_1',
       stationId: 'station_1',
       at: '2026-09-30T10:10:00.000Z',
     });
-    await heard.deliver('outcomes.delete-chats-of-deleted-team', {
+    await subscriber.deliver('outcomes.delete-chats-of-deleted-team', {
       kind: TEAM_DELETED,
       workspaceId: 'ws_1',
       teamId: 'team_1',
       key: 'core',
     });
 
-    await heard.deliver('outcomes.record-ended-run', runEnded());
-    await heard.deliver('outcomes.record-started-chat', {
+    await subscriber.deliver('outcomes.record-ended-run', runEnded());
+    await subscriber.deliver('outcomes.record-started-chat', {
       kind: CHAT_STARTED,
       chatId: 'chat_1',
       workspaceId: 'ws_1',
@@ -1017,7 +1031,7 @@ describe('outcomesSubscribers', () => {
       by: 'user_ada',
       at: '2026-09-30T09:00:00.000Z',
     });
-    await heard.deliver('outcomes.record-task-opening', {
+    await subscriber.deliver('outcomes.record-task-opening', {
       kind: TASK_OPENED,
       taskId: 'task_1',
       workspaceId: 'ws_1',
@@ -1027,7 +1041,7 @@ describe('outcomesSubscribers', () => {
       by: 'user_ada',
       at: '2026-09-30T09:00:00.000Z',
     });
-    await heard.deliver('outcomes.record-task-failure', {
+    await subscriber.deliver('outcomes.record-task-failure', {
       kind: TASK_FAILED,
       taskId: 'task_1',
       workspaceId: 'ws_1',
@@ -1040,22 +1054,22 @@ describe('outcomesSubscribers', () => {
       at: '2026-09-30T10:00:00.000Z',
     });
 
-    expect(heard.records.stored.size).toBe(0);
-    expect(heard.chats.stored.size).toBe(0);
-    expect(heard.touches.stored.size).toBe(0);
-    expect(heard.failures.stored.size).toBe(0);
+    expect(subscriber.records.stored.size).toBe(0);
+    expect(subscriber.chats.stored.size).toBe(0);
+    expect(subscriber.touches.stored.size).toBe(0);
+    expect(subscriber.failures.stored.size).toBe(0);
   });
 
-  it('records nothing more of a workspace heard of after it was deleted', async () => {
-    const heard = subscribed();
-    await heard.deliver('outcomes.delete-chats-of-deleted-workspace', {
+  it('records nothing more of a workspace received after it was deleted', async () => {
+    const subscriber = subscribed();
+    await subscriber.deliver('outcomes.delete-chats-of-deleted-workspace', {
       kind: WORKSPACE_DELETED,
       workspaceId: 'ws_1',
       slug: 'acme',
     });
 
-    await heard.deliver('outcomes.record-ended-run', runEnded());
-    await heard.deliver('outcomes.record-started-chat', {
+    await subscriber.deliver('outcomes.record-ended-run', runEnded());
+    await subscriber.deliver('outcomes.record-started-chat', {
       kind: CHAT_STARTED,
       chatId: 'chat_1',
       workspaceId: 'ws_1',
@@ -1063,7 +1077,7 @@ describe('outcomesSubscribers', () => {
       by: 'user_ada',
       at: '2026-09-30T09:00:00.000Z',
     });
-    await heard.deliver('outcomes.record-task-opening', {
+    await subscriber.deliver('outcomes.record-task-opening', {
       kind: TASK_OPENED,
       taskId: 'task_2',
       workspaceId: 'ws_1',
@@ -1073,7 +1087,7 @@ describe('outcomesSubscribers', () => {
       by: 'user_ada',
       at: '2026-09-30T09:00:00.000Z',
     });
-    await heard.deliver('outcomes.record-first-review', {
+    await subscriber.deliver('outcomes.record-first-review', {
       kind: PULL_REQUEST_REVIEWED,
       workspaceId: 'ws_1',
       pullRequest: PULL,
@@ -1083,16 +1097,16 @@ describe('outcomesSubscribers', () => {
       submittedAt: '2026-09-30T11:00:00.000Z',
     });
 
-    expect(heard.records.stored.size).toBe(0);
-    expect(heard.chats.stored.size).toBe(0);
-    expect(heard.touches.stored.size).toBe(0);
-    expect(heard.reviews.stored.size).toBe(0);
+    expect(subscriber.records.stored.size).toBe(0);
+    expect(subscriber.chats.stored.size).toBe(0);
+    expect(subscriber.touches.stored.size).toBe(0);
+    expect(subscriber.reviews.stored.size).toBe(0);
   });
 
   it('deletes everything of a deleted workspace', async () => {
-    const heard = subscribed();
-    await heard.deliver('outcomes.record-ended-run', runEnded());
-    await heard.deliver('outcomes.record-opened-pull-request', {
+    const subscriber = subscribed();
+    await subscriber.deliver('outcomes.record-ended-run', runEnded());
+    await subscriber.deliver('outcomes.record-opened-pull-request', {
       kind: PULL_REQUEST_OPENED,
       taskId: 'task_1',
       workspaceId: 'ws_1',
@@ -1106,52 +1120,52 @@ describe('outcomesSubscribers', () => {
       slug: 'acme',
     };
 
-    await heard.deliver(
+    await subscriber.deliver(
       'outcomes.delete-runs-of-deleted-workspace',
       deletedWorkspace,
     );
-    await heard.deliver(
+    await subscriber.deliver(
       'outcomes.delete-deliveries-of-deleted-workspace',
       deletedWorkspace,
     );
 
-    expect(heard.records.stored.size).toBe(0);
-    expect(heard.deliveries.stored.size).toBe(0);
+    expect(subscriber.records.stored.size).toBe(0);
+    expect(subscriber.deliveries.stored.size).toBe(0);
   });
 
-  it('asks for a judge’s verdict on a run that ended at a judged station', async () => {
-    const heard = subscribed();
+  it('requests a judge’s verdict on a run that ended at a judged station', async () => {
+    const subscriber = subscribed();
 
-    await heard.deliver('outcomes.judge-ended-run', runEnded());
-    await heard.deliver('outcomes.judge-ended-run', runEnded());
+    await subscriber.deliver('outcomes.judge-ended-run', runEnded());
+    await subscriber.deliver('outcomes.judge-ended-run', runEnded());
 
-    const judging = await heard.judgings.of(RunId.of('run_1'));
+    const judging = await subscriber.judgings.of(RunId.of('run_1'));
     expect(judging?.hasPendingJob).toBe(true);
     expect(judging?.rubric.version).toBe(RUBRIC_VERSION);
-    expect(heard.judgings.stored.size).toBe(1);
+    expect(subscriber.judgings.stored.size).toBe(1);
   });
 
   it('judges neither a cancelled run nor one at no station', async () => {
-    const heard = subscribed();
+    const subscriber = subscribed();
 
-    await heard.deliver(
+    await subscriber.deliver(
       'outcomes.judge-ended-run',
       runEnded({ outcome: 'cancelled' }),
     );
-    await heard.deliver(
+    await subscriber.deliver(
       'outcomes.judge-ended-run',
       runEnded({ stationId: null }),
     );
 
-    expect(heard.judgings.stored.size).toBe(0);
+    expect(subscriber.judgings.stored.size).toBe(0);
   });
 
-  it('records the judge’s score once, however often the verdict is heard', async () => {
-    const heard = subscribed();
+  it('records the judge’s score once, however often the verdict is received', async () => {
+    const subscriber = subscribed();
     const judged = new RunJudged(
       RunId.of('run_1'),
-      askedJudging().workspaceId,
-      askedJudging().place,
+      queuedJudging().workspaceId,
+      queuedJudging().place,
       null,
       RUBRIC_VERSION,
       ScoreScale.yesNo(),
@@ -1163,44 +1177,47 @@ describe('outcomesSubscribers', () => {
       new Date('2026-09-30T10:05:00.000Z'),
     );
 
-    await heard.deliver('outcomes.judge-ended-run', runEnded());
-    await heard.deliver('outcomes.record-judge-score', judged as never);
-    await heard.deliver('outcomes.record-judge-score', judged as never);
+    await subscriber.deliver('outcomes.judge-ended-run', runEnded());
+    await subscriber.deliver('outcomes.record-judge-score', judged as never);
+    await subscriber.deliver('outcomes.record-judge-score', judged as never);
 
-    const [score, ...rest] = [...heard.scores.stored.values()];
+    const [score, ...rest] = [...subscriber.scores.stored.values()];
     expect(rest).toEqual([]);
     expect(score?.source).toBe('judge');
     expect(score?.value).toBe(1);
   });
 
-  it('asks for no judging of a run heard to end after its task was deleted', async () => {
-    const heard = subscribed();
-    await heard.deliver('outcomes.delete-runs-of-deleted-task', {
+  it('requests no judging of a run whose end is received after its task was deleted', async () => {
+    const subscriber = subscribed();
+    await subscriber.deliver('outcomes.delete-runs-of-deleted-task', {
       kind: TASK_DELETED,
       taskId: 'task_1',
       workspaceId: 'ws_1',
     });
 
-    await heard.deliver('outcomes.judge-ended-run', runEnded());
+    await subscriber.deliver('outcomes.judge-ended-run', runEnded());
 
-    expect(heard.judgings.stored.size).toBe(0);
+    expect(subscriber.judgings.stored.size).toBe(0);
   });
 
-  it('records no score for a verdict heard after its task was deleted', async () => {
-    const heard = subscribed();
-    await heard.deliver('outcomes.judge-ended-run', runEnded());
-    await heard.deliver('outcomes.delete-judgings-and-scores-of-deleted-task', {
-      kind: TASK_DELETED,
-      taskId: 'task_1',
-      workspaceId: 'ws_1',
-    });
+  it('records no score for a verdict received after its task was deleted', async () => {
+    const subscriber = subscribed();
+    await subscriber.deliver('outcomes.judge-ended-run', runEnded());
+    await subscriber.deliver(
+      'outcomes.delete-judgings-and-scores-of-deleted-task',
+      {
+        kind: TASK_DELETED,
+        taskId: 'task_1',
+        workspaceId: 'ws_1',
+      },
+    );
 
-    await heard.deliver(
+    await subscriber.deliver(
       'outcomes.record-judge-score',
       new RunJudged(
         RunId.of('run_1'),
-        askedJudging().workspaceId,
-        askedJudging().place,
+        queuedJudging().workspaceId,
+        queuedJudging().place,
         null,
         RUBRIC_VERSION,
         ScoreScale.yesNo(),
@@ -1213,38 +1230,41 @@ describe('outcomesSubscribers', () => {
       ) as never,
     );
 
-    expect(heard.scores.stored.size).toBe(0);
+    expect(subscriber.scores.stored.size).toBe(0);
   });
 
   it('resolves a run’s grade aside once a person grades it', async () => {
-    const heard = subscribed();
+    const subscriber = subscribed();
 
-    await heard.deliver('outcomes.ask-or-resolve-grade', {
+    await subscriber.deliver('outcomes.ask-or-resolve-grade', {
       kind: 'score.recorded',
       scoreId: 'score_1',
       runId: RunId.of('run_1'),
-      place: askedJudging().place,
+      place: queuedJudging().place,
       source: 'person',
     } as never);
 
-    expect(heard.asked).toEqual(['resolve task_1 run_1']);
+    expect(subscriber.asked).toEqual(['resolve task_1 run_1']);
   });
 
   it('deletes the judgings and scores of a deleted task together', async () => {
-    const heard = subscribed();
-    await heard.deliver('outcomes.judge-ended-run', runEnded());
-    await heard.scores.add(
+    const subscriber = subscribed();
+    await subscriber.deliver('outcomes.judge-ended-run', runEnded());
+    await subscriber.scores.add(
       judgeScore('run_1', ScoreScale.yesNo(), 1, { taskId: 'task_1' }),
     );
 
-    await heard.deliver('outcomes.delete-judgings-and-scores-of-deleted-task', {
-      kind: TASK_DELETED,
-      taskId: 'task_1',
-      workspaceId: 'ws_1',
-    });
+    await subscriber.deliver(
+      'outcomes.delete-judgings-and-scores-of-deleted-task',
+      {
+        kind: TASK_DELETED,
+        taskId: 'task_1',
+        workspaceId: 'ws_1',
+      },
+    );
 
-    expect(heard.judgings.stored.size).toBe(0);
-    expect(heard.scores.stored.size).toBe(0);
+    expect(subscriber.judgings.stored.size).toBe(0);
+    expect(subscriber.scores.stored.size).toBe(0);
   });
 
   describe('every pull request in the team’s repositories', () => {
@@ -1281,21 +1301,27 @@ describe('outcomesSubscribers', () => {
       ...change,
     });
 
-    const recordOf = (heard: ReturnType<typeof subscribed>) =>
-      heard.pullRequests.at(WorkspaceId.of('ws_1'), PullRequestUrl.of(PULL));
+    const recordOf = (subscriber: ReturnType<typeof subscribed>) =>
+      subscriber.pullRequests.at(
+        WorkspaceId.of('ws_1'),
+        PullRequestUrl.of(PULL),
+      );
 
     it('records a pull request no task owns, as people’s', async () => {
-      const heard = subscribed();
+      const subscriber = subscribed();
 
-      await heard.deliver('outcomes.record-seen-pull-request', recordedEvent());
+      await subscriber.deliver(
+        'outcomes.record-seen-pull-request',
+        recordedEvent(),
+      );
 
-      const record = await recordOf(heard);
+      const record = await recordOf(subscriber);
       expect(record?.seen?.title).toBe('Retry failed uploads');
       expect(record?.owner).toBeNull();
     });
 
     it('records when it was ready for review, reviewed, approved, and what bots did on it', async () => {
-      const heard = subscribed();
+      const subscriber = subscribed();
       const botActivity = [
         {
           login: 'coderabbitai[bot]',
@@ -1306,7 +1332,7 @@ describe('outcomesSubscribers', () => {
         },
       ];
 
-      await heard.deliver(
+      await subscriber.deliver(
         'outcomes.record-seen-pull-request',
         recordedEvent({
           readyForReviewAt: '2026-09-30T09:00:00.000Z',
@@ -1327,7 +1353,7 @@ describe('outcomesSubscribers', () => {
         }),
       );
 
-      expect((await recordOf(heard))?.seen).toMatchObject({
+      expect((await recordOf(subscriber))?.seen).toMatchObject({
         readyForReviewAt: new Date('2026-09-30T09:00:00.000Z'),
         draftSpells: [
           {
@@ -1346,10 +1372,10 @@ describe('outcomesSubscribers', () => {
       });
     });
 
-    it('makes it Spotlight’s whichever it hears first, the pull request or the task opening it', async () => {
-      const heard = subscribed();
+    it('makes it Spotlight’s whichever it receives first, the pull request or the task opening it', async () => {
+      const subscriber = subscribed();
 
-      await heard.deliver('outcomes.record-pull-request-owner', {
+      await subscriber.deliver('outcomes.record-pull-request-owner', {
         kind: PULL_REQUEST_OPENED,
         taskId: 'task_1',
         workspaceId: 'ws_1',
@@ -1357,33 +1383,39 @@ describe('outcomesSubscribers', () => {
         url: PULL,
         at: '2026-09-30T08:00:00.000Z',
       });
-      await heard.deliver('outcomes.record-seen-pull-request', recordedEvent());
+      await subscriber.deliver(
+        'outcomes.record-seen-pull-request',
+        recordedEvent(),
+      );
 
-      const record = await recordOf(heard);
+      const record = await recordOf(subscriber);
       expect(record?.owner?.taskId.value).toBe('task_1');
       expect(record?.seen?.number).toBe(3);
     });
 
     it('keeps the newest of what GitHub said, however late an older word arrives', async () => {
-      const heard = subscribed();
+      const subscriber = subscribed();
 
-      await heard.deliver(
+      await subscriber.deliver(
         'outcomes.record-seen-pull-request',
         recordedEvent({ state: 'merged', version: 4 }),
       );
-      await heard.deliver(
+      await subscriber.deliver(
         'outcomes.record-seen-pull-request',
         recordedEvent({ state: 'open', version: 2 }),
       );
 
-      expect((await recordOf(heard))?.seen?.state).toBe('merged');
+      expect((await recordOf(subscriber))?.seen?.state).toBe('merged');
     });
 
     it('marks people’s pull request touched once a review task ran on it', async () => {
-      const heard = subscribed();
+      const subscriber = subscribed();
 
-      await heard.deliver('outcomes.record-seen-pull-request', recordedEvent());
-      await heard.deliver('outcomes.record-pull-request-review-task', {
+      await subscriber.deliver(
+        'outcomes.record-seen-pull-request',
+        recordedEvent(),
+      );
+      await subscriber.deliver('outcomes.record-pull-request-review-task', {
         kind: PULL_REQUEST_REVIEW_TAKEN,
         taskId: 'task_9',
         workspaceId: 'ws_1',
@@ -1391,7 +1423,7 @@ describe('outcomesSubscribers', () => {
       });
 
       expect(
-        (await recordOf(heard))?.reviewTasks.map((each) => each.value),
+        (await recordOf(subscriber))?.reviewTasks.map((each) => each.value),
       ).toEqual(['task_9']);
     });
 
@@ -1422,44 +1454,53 @@ describe('outcomesSubscribers', () => {
     });
 
     it('deletes people’s pull request once GitHub purges it, and never takes it back from a late word', async () => {
-      const heard = subscribed();
+      const subscriber = subscribed();
 
-      await heard.deliver('outcomes.record-seen-pull-request', closedEvent());
-      await heard.deliver(
+      await subscriber.deliver(
+        'outcomes.record-seen-pull-request',
+        closedEvent(),
+      );
+      await subscriber.deliver(
         'outcomes.delete-pull-request-purged-by-github',
         purgedEvent(),
       );
-      await heard.deliver(
+      await subscriber.deliver(
         'outcomes.record-seen-pull-request',
         closedEvent({ version: 3 }),
       );
 
-      expect(await recordOf(heard)).toBeNull();
+      expect(await recordOf(subscriber)).toBeNull();
     });
 
     it('turns away a late word GitHub said no later than it purged it, even one saying it is open', async () => {
-      const heard = subscribed();
+      const subscriber = subscribed();
 
-      await heard.deliver('outcomes.record-seen-pull-request', closedEvent());
-      await heard.deliver(
+      await subscriber.deliver(
+        'outcomes.record-seen-pull-request',
+        closedEvent(),
+      );
+      await subscriber.deliver(
         'outcomes.delete-pull-request-purged-by-github',
         purgedEvent(),
       );
-      await heard.deliver(
+      await subscriber.deliver(
         'outcomes.record-seen-pull-request',
         recordedEvent({ updatedAt: CLOSED_AT, version: 9 }),
       );
 
-      expect(await recordOf(heard)).toBeNull();
+      expect(await recordOf(subscriber)).toBeNull();
     });
 
     it('takes a purged pull request back once GitHub changes it later, at any version', async () => {
       const reopened = subscribed();
       const closedLater = subscribed();
 
-      for (const heard of [reopened, closedLater]) {
-        await heard.deliver('outcomes.record-seen-pull-request', closedEvent());
-        await heard.deliver(
+      for (const subscriber of [reopened, closedLater]) {
+        await subscriber.deliver(
+          'outcomes.record-seen-pull-request',
+          closedEvent(),
+        );
+        await subscriber.deliver(
           'outcomes.delete-pull-request-purged-by-github',
           purgedEvent(),
         );
@@ -1481,103 +1522,142 @@ describe('outcomesSubscribers', () => {
       expect((await recordOf(closedLater))?.seen?.title).toBe('Again');
     });
 
-    it('keeps Spotlight’s pull request after GitHub purges it, and hears it anew once GitHub records it again', async () => {
-      const heard = subscribed();
+    it('keeps Spotlight’s pull request after GitHub purges it, and reads it anew once GitHub records it again', async () => {
+      const subscriber = subscribed();
 
-      await heard.deliver(
+      await subscriber.deliver(
         'outcomes.record-seen-pull-request',
         closedEvent({ version: 5 }),
       );
-      await heard.deliver('outcomes.record-pull-request-owner', ownedEvent());
-      await heard.deliver(
+      await subscriber.deliver(
+        'outcomes.record-pull-request-owner',
+        ownedEvent(),
+      );
+      await subscriber.deliver(
         'outcomes.delete-pull-request-purged-by-github',
         purgedEvent(),
       );
 
-      expect((await recordOf(heard))?.seen?.number).toBe(3);
+      expect((await recordOf(subscriber))?.seen?.number).toBe(3);
 
-      await heard.deliver(
+      await subscriber.deliver(
         'outcomes.record-seen-pull-request',
         recordedEvent({ title: 'Reopened', version: 1 }),
       );
 
-      expect((await recordOf(heard))?.seen?.title).toBe('Reopened');
+      expect((await recordOf(subscriber))?.seen?.title).toBe('Reopened');
     });
 
     it('lets go of a deleted task’s pull request GitHub already purged', async () => {
-      const heard = subscribed();
+      const subscriber = subscribed();
 
-      await heard.deliver('outcomes.record-seen-pull-request', closedEvent());
-      await heard.deliver('outcomes.record-pull-request-owner', ownedEvent());
-      await heard.deliver(
+      await subscriber.deliver(
+        'outcomes.record-seen-pull-request',
+        closedEvent(),
+      );
+      await subscriber.deliver(
+        'outcomes.record-pull-request-owner',
+        ownedEvent(),
+      );
+      await subscriber.deliver(
         'outcomes.delete-pull-request-purged-by-github',
         purgedEvent(),
       );
-      await heard.deliver('outcomes.delete-pull-requests-of-deleted-task', {
-        kind: TASK_DELETED,
-        taskId: 'task_1',
-        workspaceId: 'ws_1',
-      });
+      await subscriber.deliver(
+        'outcomes.delete-pull-requests-of-deleted-task',
+        {
+          kind: TASK_DELETED,
+          taskId: 'task_1',
+          workspaceId: 'ws_1',
+        },
+      );
 
-      expect(await recordOf(heard)).toBeNull();
+      expect(await recordOf(subscriber)).toBeNull();
     });
 
     it('keeps what GitHub said of a deleted team’s pull request, as nobody’s', async () => {
-      const heard = subscribed();
+      const subscriber = subscribed();
 
-      await heard.deliver('outcomes.record-seen-pull-request', recordedEvent());
-      await heard.deliver('outcomes.record-pull-request-owner', ownedEvent());
-      await heard.deliver('outcomes.delete-pull-requests-of-deleted-team', {
-        kind: TEAM_DELETED,
-        workspaceId: 'ws_1',
-        teamId: 'team_1',
-      });
+      await subscriber.deliver(
+        'outcomes.record-seen-pull-request',
+        recordedEvent(),
+      );
+      await subscriber.deliver(
+        'outcomes.record-pull-request-owner',
+        ownedEvent(),
+      );
+      await subscriber.deliver(
+        'outcomes.delete-pull-requests-of-deleted-team',
+        {
+          kind: TEAM_DELETED,
+          workspaceId: 'ws_1',
+          teamId: 'team_1',
+        },
+      );
 
-      const record = await recordOf(heard);
+      const record = await recordOf(subscriber);
       expect(record?.owner).toBeNull();
       expect(record?.seen?.number).toBe(3);
     });
 
     it('lets go of a deleted team’s pull request GitHub already purged', async () => {
-      const heard = subscribed();
+      const subscriber = subscribed();
 
-      await heard.deliver('outcomes.record-seen-pull-request', closedEvent());
-      await heard.deliver('outcomes.record-pull-request-owner', ownedEvent());
-      await heard.deliver(
+      await subscriber.deliver(
+        'outcomes.record-seen-pull-request',
+        closedEvent(),
+      );
+      await subscriber.deliver(
+        'outcomes.record-pull-request-owner',
+        ownedEvent(),
+      );
+      await subscriber.deliver(
         'outcomes.delete-pull-request-purged-by-github',
         purgedEvent(),
       );
-      await heard.deliver('outcomes.delete-pull-requests-of-deleted-team', {
-        kind: TEAM_DELETED,
-        workspaceId: 'ws_1',
-        teamId: 'team_1',
-      });
+      await subscriber.deliver(
+        'outcomes.delete-pull-requests-of-deleted-team',
+        {
+          kind: TEAM_DELETED,
+          workspaceId: 'ws_1',
+          teamId: 'team_1',
+        },
+      );
 
-      expect(await recordOf(heard)).toBeNull();
+      expect(await recordOf(subscriber)).toBeNull();
     });
 
     it('leaves another team’s pull request alone when a team is deleted', async () => {
-      const heard = subscribed();
+      const subscriber = subscribed();
 
-      await heard.deliver('outcomes.record-seen-pull-request', recordedEvent());
-      await heard.deliver(
+      await subscriber.deliver(
+        'outcomes.record-seen-pull-request',
+        recordedEvent(),
+      );
+      await subscriber.deliver(
         'outcomes.record-pull-request-owner',
         ownedEvent('task_1', 'team_2'),
       );
-      await heard.deliver('outcomes.delete-pull-requests-of-deleted-team', {
-        kind: TEAM_DELETED,
-        workspaceId: 'ws_1',
-        teamId: 'team_1',
-      });
+      await subscriber.deliver(
+        'outcomes.delete-pull-requests-of-deleted-team',
+        {
+          kind: TEAM_DELETED,
+          workspaceId: 'ws_1',
+          teamId: 'team_1',
+        },
+      );
 
-      expect((await recordOf(heard))?.owner?.teamId.value).toBe('team_2');
+      expect((await recordOf(subscriber))?.owner?.teamId.value).toBe('team_2');
     });
 
     it('lets go of a deleted task’s pull requests but keeps what GitHub said of them', async () => {
-      const heard = subscribed();
+      const subscriber = subscribed();
 
-      await heard.deliver('outcomes.record-seen-pull-request', recordedEvent());
-      await heard.deliver('outcomes.record-pull-request-owner', {
+      await subscriber.deliver(
+        'outcomes.record-seen-pull-request',
+        recordedEvent(),
+      );
+      await subscriber.deliver('outcomes.record-pull-request-owner', {
         kind: PULL_REQUEST_OPENED,
         taskId: 'task_1',
         workspaceId: 'ws_1',
@@ -1585,12 +1665,15 @@ describe('outcomesSubscribers', () => {
         url: PULL,
         at: '2026-09-30T08:00:00.000Z',
       });
-      await heard.deliver('outcomes.delete-pull-requests-of-deleted-task', {
-        kind: TASK_DELETED,
-        taskId: 'task_1',
-        workspaceId: 'ws_1',
-      });
-      await heard.deliver('outcomes.record-pull-request-owner', {
+      await subscriber.deliver(
+        'outcomes.delete-pull-requests-of-deleted-task',
+        {
+          kind: TASK_DELETED,
+          taskId: 'task_1',
+          workspaceId: 'ws_1',
+        },
+      );
+      await subscriber.deliver('outcomes.record-pull-request-owner', {
         kind: PULL_REQUEST_OPENED,
         taskId: 'task_1',
         workspaceId: 'ws_1',
@@ -1599,31 +1682,37 @@ describe('outcomesSubscribers', () => {
         at: '2026-09-30T08:00:00.000Z',
       });
 
-      const record = await recordOf(heard);
+      const record = await recordOf(subscriber);
       expect(record?.owner).toBeNull();
       expect(record?.seen?.number).toBe(3);
     });
 
     it('deletes every pull request of a deleted workspace', async () => {
-      const heard = subscribed();
+      const subscriber = subscribed();
 
-      await heard.deliver('outcomes.record-seen-pull-request', recordedEvent());
-      await heard.deliver(
+      await subscriber.deliver(
+        'outcomes.record-seen-pull-request',
+        recordedEvent(),
+      );
+      await subscriber.deliver(
         'outcomes.delete-pull-requests-of-deleted-workspace',
         {
           kind: WORKSPACE_DELETED,
           workspaceId: 'ws_1',
         },
       );
-      await heard.deliver('outcomes.record-seen-pull-request', recordedEvent());
+      await subscriber.deliver(
+        'outcomes.record-seen-pull-request',
+        recordedEvent(),
+      );
 
-      expect(await recordOf(heard)).toBeNull();
+      expect(await recordOf(subscriber)).toBeNull();
     });
 
     it('records no cohorts a change stack claims for another task or workspace than its run’s', async () => {
-      const heard = subscribed();
+      const subscriber = subscribed();
 
-      await heard.deliver('outcomes.record-change-shape', {
+      await subscriber.deliver('outcomes.record-change-shape', {
         kind: CHANGE_STACK_READY,
         runId: 'run_1',
         taskId: 'task_2',
@@ -1632,7 +1721,7 @@ describe('outcomesSubscribers', () => {
         changeIntents: [''],
         at: '2026-09-30T10:00:00.000Z',
       });
-      await heard.deliver('outcomes.record-change-shape', {
+      await subscriber.deliver('outcomes.record-change-shape', {
         kind: CHANGE_STACK_READY,
         runId: 'run_1',
         taskId: 'task_1',
@@ -1642,14 +1731,14 @@ describe('outcomesSubscribers', () => {
         at: '2026-09-30T10:00:00.000Z',
       });
 
-      expect(await heard.shapes.forTask(TaskId.of('task_1'))).toBeNull();
-      expect(await heard.shapes.forTask(TaskId.of('task_2'))).toBeNull();
+      expect(await subscriber.shapes.forTask(TaskId.of('task_1'))).toBeNull();
+      expect(await subscriber.shapes.forTask(TaskId.of('task_2'))).toBeNull();
     });
 
     it('records the cohorts of the latest change stack a task’s run left', async () => {
-      const heard = subscribed();
+      const subscriber = subscribed();
 
-      await heard.deliver('outcomes.record-change-shape', {
+      await subscriber.deliver('outcomes.record-change-shape', {
         kind: CHANGE_STACK_READY,
         runId: 'run_1',
         taskId: 'task_1',
@@ -1658,7 +1747,7 @@ describe('outcomesSubscribers', () => {
         changeIntents: ['Stop dropping uploads'],
         at: '2026-09-30T10:00:00.000Z',
       });
-      await heard.deliver('outcomes.record-change-shape', {
+      await subscriber.deliver('outcomes.record-change-shape', {
         kind: CHANGE_STACK_READY,
         runId: 'run_unknown',
         taskId: 'task_2',
@@ -1669,12 +1758,13 @@ describe('outcomesSubscribers', () => {
       });
 
       expect(
-        (await heard.shapes.forTask(TaskId.of('task_1')))?.shape.changeTitles,
+        (await subscriber.shapes.forTask(TaskId.of('task_1')))?.shape
+          .changeTitles,
       ).toEqual(['Fix the retry loop']);
       expect(
-        (await heard.shapes.forTask(TaskId.of('task_1')))?.teamId.value,
+        (await subscriber.shapes.forTask(TaskId.of('task_1')))?.teamId.value,
       ).toBe('team_1');
-      expect(await heard.shapes.forTask(TaskId.of('task_2'))).toBeNull();
+      expect(await subscriber.shapes.forTask(TaskId.of('task_2'))).toBeNull();
     });
   });
 
@@ -1686,16 +1776,16 @@ describe('outcomesSubscribers', () => {
     });
 
     const watched = async (
-      heard: ReturnType<typeof subscribed>,
+      subscriber: ReturnType<typeof subscribed>,
       runId: string,
     ) => {
-      const record = await heard.records.of(RunId.of(runId));
+      const record = await subscriber.records.of(RunId.of(runId));
 
       if (!record?.end) {
         throw new Error(`no ended run ${runId}`);
       }
 
-      await heard.deliver(
+      await subscriber.deliver(
         'outcomes.watch-station-after-run',
         new RunRecordEnded(
           record.runId,
@@ -1706,88 +1796,88 @@ describe('outcomesSubscribers', () => {
     };
 
     it('raises one inbox aside on the run that crossed a station’s alert, and resolves it once the station recovers', async () => {
-      const heard = subscribed([FAILING_ABOVE_HALF]);
-      await heard.records.add(endedRecord('run_1', { ending: 'failed' }));
+      const subscriber = subscribed([FAILING_ABOVE_HALF]);
+      await subscriber.records.add(endedRecord('run_1', { ending: 'failed' }));
 
-      await watched(heard, 'run_1');
-      await watched(heard, 'run_1');
-      const [raised] = heard.watches.raised;
-      await heard.deliver(
+      await watched(subscriber, 'run_1');
+      await watched(subscriber, 'run_1');
+      const [raised] = subscriber.watches.raised;
+      await subscriber.deliver(
         'outcomes.follow-station-alert-aside',
         raised as never,
       );
 
-      expect(heard.alerted).toEqual(['open task_1 alert_1']);
+      expect(subscriber.alerted).toEqual(['open task_1 alert_1']);
 
-      await heard.records.add(
+      await subscriber.records.add(
         endedRecord('run_2', {
           taskId: 'task_2',
           endedAt: new Date('2026-09-30T11:00:00.000Z'),
         }),
       );
-      await watched(heard, 'run_2');
-      const recovered = heard.watches.raised[1];
-      await heard.deliver(
+      await watched(subscriber, 'run_2');
+      const recovered = subscriber.watches.raised[1];
+      await subscriber.deliver(
         'outcomes.follow-station-alert-aside',
         recovered as never,
       );
 
-      expect(heard.alerted).toEqual([
+      expect(subscriber.alerted).toEqual([
         'open task_1 alert_1',
         'resolve task_1 alert_1',
       ]);
     });
 
-    it('resolves the aside even when the raising is heard after the recovery', async () => {
-      const heard = subscribed([FAILING_ABOVE_HALF]);
-      await heard.records.add(endedRecord('run_1', { ending: 'failed' }));
-      await watched(heard, 'run_1');
-      await heard.records.add(
+    it('resolves the aside even when the raising is received after the recovery', async () => {
+      const subscriber = subscribed([FAILING_ABOVE_HALF]);
+      await subscriber.records.add(endedRecord('run_1', { ending: 'failed' }));
+      await watched(subscriber, 'run_1');
+      await subscriber.records.add(
         endedRecord('run_2', {
           taskId: 'task_2',
           endedAt: new Date('2026-09-30T11:00:00.000Z'),
         }),
       );
-      await watched(heard, 'run_2');
-      const [raised, recovered] = heard.watches.raised;
+      await watched(subscriber, 'run_2');
+      const [raised, recovered] = subscriber.watches.raised;
 
-      await heard.deliver(
+      await subscriber.deliver(
         'outcomes.follow-station-alert-aside',
         recovered as never,
       );
-      await heard.deliver(
+      await subscriber.deliver(
         'outcomes.follow-station-alert-aside',
         raised as never,
       );
 
-      expect(heard.alerted).toEqual([
+      expect(subscriber.alerted).toEqual([
         'resolve task_1 alert_1',
         'resolve task_1 alert_1',
       ]);
     });
 
     it('deletes the alerts of a deleted team and raises none for it after', async () => {
-      const heard = subscribed([FAILING_ABOVE_HALF]);
-      await heard.records.add(endedRecord('run_1', { ending: 'failed' }));
-      await watched(heard, 'run_1');
+      const subscriber = subscribed([FAILING_ABOVE_HALF]);
+      await subscriber.records.add(endedRecord('run_1', { ending: 'failed' }));
+      await watched(subscriber, 'run_1');
 
-      await heard.deliver('outcomes.delete-alerts-of-deleted-team', {
+      await subscriber.deliver('outcomes.delete-alerts-of-deleted-team', {
         kind: TEAM_DELETED,
         teamId: 'team_1',
         workspaceId: 'ws_1',
       });
-      await watched(heard, 'run_1');
+      await watched(subscriber, 'run_1');
 
-      expect(heard.watches.stored.size).toBe(0);
+      expect(subscriber.watches.stored.size).toBe(0);
     });
 
     it('re-checks a changed line’s stations, recovering an alert whose threshold is gone', async () => {
-      const heard = subscribed([FAILING_ABOVE_HALF]);
-      await heard.records.add(endedRecord('run_1', { ending: 'failed' }));
-      await watched(heard, 'run_1');
-      heard.alertsNow([]);
+      const subscriber = subscribed([FAILING_ABOVE_HALF]);
+      await subscriber.records.add(endedRecord('run_1', { ending: 'failed' }));
+      await watched(subscriber, 'run_1');
+      subscriber.alertsNow([]);
 
-      await heard.deliver('outcomes.watch-stations-after-line-changed', {
+      await subscriber.deliver('outcomes.watch-stations-after-line-changed', {
         kind: LINE_CHANGED,
         lineId: 'line_1',
         workspaceId: 'ws_1',
@@ -1795,35 +1885,35 @@ describe('outcomesSubscribers', () => {
         stationIds: ['station_1'],
       });
 
-      expect(heard.watches.raised.map((each) => each.kind)).toEqual([
+      expect(subscriber.watches.raised.map((each) => each.kind)).toEqual([
         'station-alert.raised',
         'station-alert.recovered',
       ]);
     });
 
     it('watches nothing at a station with no alerts', async () => {
-      const heard = subscribed();
-      await heard.records.add(endedRecord('run_1', { ending: 'failed' }));
+      const subscriber = subscribed();
+      await subscriber.records.add(endedRecord('run_1', { ending: 'failed' }));
 
-      await watched(heard, 'run_1');
+      await watched(subscriber, 'run_1');
 
-      expect(heard.watches.stored.size).toBe(0);
+      expect(subscriber.watches.stored.size).toBe(0);
     });
 
     it('raises no alert for a run whose task was deleted, and deletes the alerts a deleted task raised', async () => {
-      const heard = subscribed([FAILING_ABOVE_HALF]);
-      await heard.records.add(endedRecord('run_1', { ending: 'failed' }));
-      await watched(heard, 'run_1');
+      const subscriber = subscribed([FAILING_ABOVE_HALF]);
+      await subscriber.records.add(endedRecord('run_1', { ending: 'failed' }));
+      await watched(subscriber, 'run_1');
 
-      await heard.deliver('outcomes.delete-alerts-of-deleted-task', {
+      await subscriber.deliver('outcomes.delete-alerts-of-deleted-task', {
         kind: TASK_DELETED,
         taskId: 'task_1',
         workspaceId: 'ws_1',
       });
-      await watched(heard, 'run_1');
+      await watched(subscriber, 'run_1');
 
       expect(
-        (await heard.watches.of('station_1'))?.crossings.map(
+        (await subscriber.watches.of('station_1'))?.crossings.map(
           (each) => each.taskId.value,
         ),
       ).toEqual([]);

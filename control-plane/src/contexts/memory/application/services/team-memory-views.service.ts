@@ -73,7 +73,7 @@ export class TeamMemoryViews {
       body: memory.body.value,
       source: memory.source,
       status: memory.status,
-      reach: scope.reach,
+      scope: scope.level,
       lineId: scope.lineId,
       stationId: scope.stationId,
       repository: scope.repository?.value ?? null,

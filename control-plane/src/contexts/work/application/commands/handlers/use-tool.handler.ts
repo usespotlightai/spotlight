@@ -25,7 +25,7 @@ import { ToolBlockedByPersonError } from '@work/domain/exceptions/tool-blocked-b
 import { ToolConnectionDeniedError } from '@work/domain/exceptions/tool-connection-denied.error';
 import { ToolHookDeniedError } from '@work/domain/exceptions/tool-hook-denied.error';
 import { ToolNeedsWorkError } from '@work/domain/exceptions/tool-needs-work.error';
-import { ToolNotGivenError } from '@work/domain/exceptions/tool-not-given.error';
+import { ToolNotEnabledError } from '@work/domain/exceptions/tool-not-enabled.error';
 import { UnknownToolError } from '@work/domain/exceptions/unknown-tool.error';
 import { StricterRule } from '@work/domain/services/stricter-rule';
 import { Tool } from '@work/domain/value-objects/tool.vo';
@@ -53,8 +53,8 @@ export class UseToolHandler
         command.runnerId,
       );
 
-      if (!run.wasGiven(tool)) {
-        throw new ToolNotGivenError(tool.value);
+      if (!run.isEnabled(tool)) {
+        throw new ToolNotEnabledError(tool.value);
       }
 
       if (!work) {
@@ -62,34 +62,34 @@ export class UseToolHandler
       }
 
       const context = await work.toolContext();
-      const reachable = await this.sources.reach(
+      const resolved = await this.sources.resolve(
         tool,
         run,
         context,
         command.runnerId,
       );
 
-      if (!reachable) {
+      if (!resolved) {
         throw new UnknownToolError(tool.value);
       }
 
-      if (reachable.wants) {
+      if (resolved.wants) {
         const asked = await work.askToConnect(
-          reachable.declared,
-          reachable.wants,
+          resolved.declared,
+          resolved.wants,
         );
 
         if (asked.kind === 'asked') {
           throw new ToolAwaitsConnectionError(
             tool.value,
-            reachable.wants.integration,
+            resolved.wants.integration,
           );
         }
 
         throw new ToolConnectionDeniedError(tool.value, asked.reason);
       }
 
-      const ruled = StricterRule.of(reachable.declared, reachable.personRule);
+      const ruled = StricterRule.of(resolved.declared, resolved.personRule);
 
       if (ruled.kind === 'blocked') {
         throw new ToolBlockedByPersonError(tool.value, ruled.by);
@@ -97,15 +97,15 @@ export class UseToolHandler
 
       const declared =
         ruled.kind === 'needs-approval'
-          ? reachable.declared.withApproval(ruled.needed)
-          : reachable.declared;
+          ? resolved.declared.withApproval(ruled.needed)
+          : resolved.declared;
       const { intent, rest } = declared.intentIn(command.input);
-      const asked = declared.accept(rest, (input) =>
-        reachable.defaultFor(input),
+      const accepted = declared.accept(rest, (input) =>
+        resolved.defaultFor(input),
       );
       const cleared = await work.clearFor(
         declared,
-        declared.callWith(asked),
+        declared.callWith(accepted),
         intent,
       );
 
@@ -117,12 +117,12 @@ export class UseToolHandler
         throw new ToolApprovalRefusedError(tool.value, cleared.reason);
       }
 
-      let inputs = asked;
+      let inputs = accepted;
 
       try {
         if (cleared.edited) {
           inputs = declared.accept(cleared.edited.values, (input) =>
-            reachable.defaultFor(input),
+            resolved.defaultFor(input),
           );
         }
 
@@ -148,7 +148,7 @@ export class UseToolHandler
       let output: unknown;
 
       try {
-        output = await reachable.call(inputs);
+        output = await resolved.call(inputs);
       } catch (error) {
         await cleared.returned();
 
@@ -162,7 +162,7 @@ export class UseToolHandler
           inputs,
           ToolOutput.answered(error instanceof Error ? error.message : null),
           true,
-          reachable.actingAs,
+          resolved.actingAs,
         );
         throw error;
       }
@@ -173,13 +173,13 @@ export class UseToolHandler
         inputs,
         ToolOutput.answered(output),
         false,
-        reachable.actingAs,
+        resolved.actingAs,
       );
 
       return {
         output,
-        actingAs: reachable.actingAs
-          ? ToolActingAsMapper.toDto(reachable.actingAs)
+        actingAs: resolved.actingAs
+          ? ToolActingAsMapper.toDto(resolved.actingAs)
           : null,
       };
     } catch (error) {
@@ -188,7 +188,7 @@ export class UseToolHandler
   }
 
   private hookedTaskOf(run: Run): Promise<HookedTaskDto | null> {
-    return run.hearsHooks && run.taskId
+    return run.firesHooks && run.taskId
       ? this.hookedTasks.of(run.taskId.value, run.id.value)
       : Promise.resolve(null);
   }

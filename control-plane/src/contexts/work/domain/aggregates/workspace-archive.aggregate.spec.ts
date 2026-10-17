@@ -131,7 +131,7 @@ describe('WorkspaceArchive', () => {
     expect(waiting.removableAt(later(DAY), owned)).toBe(true);
   });
 
-  it('is kept while the task or chat it belongs to carries on', () => {
+  it('is stored while the task or chat it belongs to carries on', () => {
     expect(aSealedArchive().removableAt(later(365 * DAY), owned)).toBe(false);
   });
 
@@ -155,7 +155,7 @@ describe('WorkspaceArchive', () => {
     expect(aSealedArchive().removableAt(later(DAY + HOUR), facts)).toBe(true);
   });
 
-  it('is kept for a week after its task finished, counted from whichever came last', () => {
+  it('is stored for a week after its task finished, counted from whichever came last', () => {
     expect(aSealedArchive().removableAt(later(9 * DAY - 1), finished)).toBe(
       false,
     );
@@ -167,7 +167,7 @@ describe('WorkspaceArchive', () => {
     expect(sealedLater.removableAt(later(10 * DAY), finished)).toBe(true);
   });
 
-  it('is kept for as long as its task is unfinished, however long ago it last changed', () => {
+  it('is stored for as long as its task is unfinished, however long ago it last changed', () => {
     expect(
       aSealedArchive().removableAt(
         later(365 * DAY),
@@ -176,7 +176,7 @@ describe('WorkspaceArchive', () => {
     ).toBe(false);
   });
 
-  it('is kept while its chat converses, and for a week after it left its conversation', () => {
+  it('is stored while its chat converses, and for a week after it left its conversation', () => {
     expect(
       aSealedChatArchive().removableAt(later(365 * DAY), factsOf(conversing)),
     ).toBe(false);
@@ -197,7 +197,7 @@ describe('WorkspaceArchive', () => {
       lastStartedFromAt: at,
     });
 
-    it('is kept for thirty days after the latest such run started, though a newer one is sealed', () => {
+    it('is stored for thirty days after the latest such run started, though a newer one is sealed', () => {
       const facts = startedFrom(later(2 * DAY), {
         ...owned,
         supersededAt: later(DAY),
@@ -209,7 +209,7 @@ describe('WorkspaceArchive', () => {
       expect(aSealedArchive().removableAt(later(32 * DAY), facts)).toBe(true);
     });
 
-    it('is kept for thirty days though its task finished long before', () => {
+    it('is stored for thirty days though its task finished long before', () => {
       const facts = startedFrom(later(DAY), finished);
 
       expect(aSealedArchive().removableAt(later(31 * DAY - 1), facts)).toBe(
@@ -218,7 +218,7 @@ describe('WorkspaceArchive', () => {
       expect(aSealedArchive().removableAt(later(31 * DAY), facts)).toBe(true);
     });
 
-    it('is still kept while its task carries on, after the thirty days', () => {
+    it('is still stored while its task carries on, after the thirty days', () => {
       expect(
         aSealedArchive().removableAt(later(365 * DAY), startedFrom(later(DAY))),
       ).toBe(false);
@@ -246,7 +246,7 @@ describe('WorkspaceArchive', () => {
       pinned: true,
     });
 
-    it('is kept long after the thirty days, though a newer one is sealed and its task finished', () => {
+    it('is stored long after the thirty days, though a newer one is sealed and its task finished', () => {
       expect(
         aSealedArchive().removableAt(
           later(365 * DAY),
@@ -269,7 +269,7 @@ describe('WorkspaceArchive', () => {
       ).toBe(true);
     });
 
-    it('is kept only the thirty days once the set lets it go', () => {
+    it('is stored only the thirty days once the set lets it go', () => {
       const released = { ...pinned(finished), pinned: false };
 
       expect(aSealedArchive().removableAt(later(31 * DAY - 1), released)).toBe(

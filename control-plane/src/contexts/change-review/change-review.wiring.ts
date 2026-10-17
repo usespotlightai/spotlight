@@ -98,7 +98,6 @@ import { AgentReviews } from '@change-review/application/services/agent-reviews.
 import { AnnounceChangeStack } from '@change-review/application/services/announce-change-stack.service';
 import { AnnounceDecisions } from '@change-review/application/services/announce-decisions.service';
 import { ApplyPullRequestClose } from '@change-review/application/services/apply-pull-request-close.service';
-import { AskForDecisions } from '@change-review/application/services/ask-for-decisions.service';
 import { ChangeStackAccess } from '@change-review/application/services/change-stack-access.service';
 import { CheckAccess } from '@change-review/application/services/check-access.service';
 import { ClaimChangeStackCheck } from '@change-review/application/services/claim-change-stack-check.service';
@@ -111,6 +110,7 @@ import { ProvisionChangeStackChecks } from '@change-review/application/services/
 import { ReceiveReviewComment } from '@change-review/application/services/receive-review-comment.service';
 import { RecheckReplayChanges } from '@change-review/application/services/recheck-replay-changes.service';
 import { ReorderChangeStack } from '@change-review/application/services/reorder-change-stack.service';
+import { RequestDecisions } from '@change-review/application/services/request-decisions.service';
 import { ReviewAccess } from '@change-review/application/services/review-access.service';
 import { RunChangeChecks } from '@change-review/application/services/run-change-checks.service';
 import { SignalReviewing } from '@change-review/application/services/signal-reviewing.service';
@@ -429,7 +429,7 @@ const services: Provider[] = [
       ),
   },
   {
-    provide: AskForDecisions,
+    provide: RequestDecisions,
     inject: [
       WORK,
       DrizzleDecisionSetRepository,
@@ -445,7 +445,7 @@ const services: Provider[] = [
       transaction: TransactionPort,
       ids: IdGeneratorPort,
       clock: ClockPort,
-    ) => new AskForDecisions(work, sets, drafter, transaction, ids, clock),
+    ) => new RequestDecisions(work, sets, drafter, transaction, ids, clock),
   },
   {
     provide: AnnounceDecisions,
@@ -824,7 +824,7 @@ const published: Provider[] = [
       ReceiveReviewComment,
       SignalReviewing,
       StackCheckReactions,
-      AskForDecisions,
+      RequestDecisions,
       ApplyPullRequestClose,
       DecisionReactions,
       CHECK_RUNNERS,
@@ -843,7 +843,7 @@ const published: Provider[] = [
       receiving: ReceiveReviewComment,
       signalling: SignalReviewing,
       checks: StackCheckReactions,
-      deciding: AskForDecisions,
+      deciding: RequestDecisions,
       pullRequestClose: ApplyPullRequestClose,
       decisions: DecisionReactions,
       runners: CheckRunnersPort,

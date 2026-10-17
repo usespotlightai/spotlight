@@ -249,7 +249,7 @@ describe('FinishOAuth2ConnectionHandler', () => {
     expect(save).not.toHaveBeenCalled();
   });
 
-  it('keeps a person’s own connection as theirs, and lands where they began', async () => {
+  it('stores a person’s own connection as theirs, and lands where they began', async () => {
     const { handler, save, landingFor } = finishing({
       allowed: false,
       authorized: {

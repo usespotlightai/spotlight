@@ -44,7 +44,7 @@ const checkOf = (maxRegressions = 0): ReplayCheck =>
       minGain: 0.05,
     }),
     repeats: 1,
-    keptLive: [],
+    scoringPinnedToLive: [],
     createdAt: NOW,
     by: BY,
   });

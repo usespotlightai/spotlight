@@ -228,12 +228,12 @@ describe('openapiOperations', () => {
     expect(() => read('openapi: 3.0.0')).toThrow(/not an OpenAPI description/);
   });
 
-  it('asks for a base URL where it cannot tell which server to call', () => {
+  it('requires a base URL where it cannot tell which server to call', () => {
     expect(() =>
       read(
         { ...PETSTORE, servers: [] },
         { url: null, baseUrl: null, connected: false },
       ),
-    ).toThrow(/give the openapi block a baseUrl/);
+    ).toThrow(/add a baseUrl to the openapi block/);
   });
 });

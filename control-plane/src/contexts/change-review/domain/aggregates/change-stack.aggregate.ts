@@ -10,7 +10,7 @@ import { NoStackForSearchesError } from '@change-review/domain/exceptions/no-sta
 import { arranged } from '@change-review/domain/services/arrange-stack';
 import { checkStepsOf } from '@change-review/domain/services/check-steps';
 import { generatedEntries } from '@change-review/domain/services/generated-entries';
-import { reachesBeyondSpotlight } from '@change-review/domain/services/replay-isolation';
+import { actsOutsideSpotlight } from '@change-review/domain/services/replay-isolation';
 import { StackProposal } from '@change-review/domain/services/stack-proposal';
 import { BaseCommit } from '@change-review/domain/value-objects/base-commit.vo';
 import type { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
@@ -109,7 +109,7 @@ const assertWhole = (
   }
 };
 
-const assertKeptToItsRun = (stack: {
+const assertOneOwner = (stack: {
   taskId: TaskId | null;
   replay: boolean;
 }): void => {
@@ -164,7 +164,7 @@ export class ChangeStack
       throw new NoStackForSearchesError();
     }
 
-    assertKeptToItsRun(input);
+    assertOneOwner(input);
 
     const stack = new ChangeStack(
       input.id,
@@ -209,7 +209,7 @@ export class ChangeStack
     version: number;
   }): ChangeStack {
     assertWhole(input.progress, input.diff, input.cohorts);
-    assertKeptToItsRun(input);
+    assertOneOwner(input);
 
     return new ChangeStack(
       input.id,
@@ -247,8 +247,8 @@ export class ChangeStack
     return this.progress.completedAt;
   }
 
-  get reachesGitHub(): boolean {
-    return reachesBeyondSpotlight(this);
+  get postsToGitHub(): boolean {
+    return actsOutsideSpotlight(this);
   }
 
   get hasPendingJob(): boolean {
@@ -283,7 +283,7 @@ export class ChangeStack
     return call ? this.with({ spent: this.spent.with(call) }) : this;
   }
 
-  askedToReorder(): ChangeStack {
+  requestReorder(): ChangeStack {
     return this.state === 'ready' && !this.reordering
       ? this.with({ reordering: true, job: PendingJob.fresh() })
       : this;
@@ -361,9 +361,9 @@ export class ChangeStack
       return this;
     }
 
-    const kept = this.with({ reordering: false, job: PendingJob.fresh() });
-    kept.record(new ChangeStackReorderingEnded(this.id, this.runId));
-    return kept;
+    const ended = this.with({ reordering: false, job: PendingJob.fresh() });
+    ended.record(new ChangeStackReorderingEnded(this.id, this.runId));
+    return ended;
   }
 
   propose(cohorts: readonly ProposedCohort[], now: Date): ChangeStack {
@@ -398,7 +398,7 @@ export class ChangeStack
   }
 
   private recordReady(at: Date): void {
-    if (!reachesBeyondSpotlight(this)) {
+    if (!actsOutsideSpotlight(this)) {
       return;
     }
 

@@ -48,7 +48,7 @@ export class DrizzleMemoryRelevance implements MemoryRelevancePort {
     asOf: Date | null = null,
   ): Promise<readonly MemoryId[]> {
     const document = sql`to_tsvector('english', ${memory.body})`;
-    const asked = sql`websearch_to_tsquery('english', ${words.value})`;
+    const query = sql`websearch_to_tsquery('english', ${words.value})`;
     const rows = await this.context.db
       .select({ id: memory.id })
       .from(memory)
@@ -56,11 +56,11 @@ export class DrizzleMemoryRelevance implements MemoryRelevancePort {
         and(
           eq(memory.teamId, teamId.value),
           activeAsOf(asOf),
-          sql`${document} @@ ${asked}`,
+          sql`${document} @@ ${query}`,
         ),
       )
       .orderBy(
-        desc(sql`ts_rank(${document}, ${asked})`),
+        desc(sql`ts_rank(${document}, ${query})`),
         desc(memory.approvedAt),
       )
       .limit(max);

@@ -9,7 +9,7 @@ type ImproveStationLinkProps = {
   teamId: string;
   improving: ImprovedStation;
   label?: string;
-  ask?: string;
+  prompt?: string;
   variant?: PillVariant;
   className?: string;
 };
@@ -19,14 +19,14 @@ export function ImproveStationLink({
   teamId,
   improving,
   label = 'Improve',
-  ask,
+  prompt,
   variant,
   className,
 }: ImproveStationLinkProps) {
   return (
     <PillLink
       to={teamSectionPath(slug, teamId, 'agent')}
-      state={{ improving, ...(ask ? { ask } : {}) }}
+      state={{ improving, ...(prompt ? { prompt } : {}) }}
       variant={variant}
       className={className}
     >

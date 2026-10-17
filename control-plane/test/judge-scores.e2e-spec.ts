@@ -103,7 +103,7 @@ const graded = (runId: string, value: number, by = 'user_ada') =>
   });
 
 const endedRecord = (runId: string) =>
-  RunRecord.heardOf(RunId.of(runId), WORKSPACE).recordEnd(
+  RunRecord.empty(RunId.of(runId), WORKSPACE).recordEnd(
     RunEnd.of({
       place: placeOf(`task_${runId}`),
       fingerprint: CONFIG,
@@ -190,10 +190,10 @@ afterAll(async () => {
   await database?.close();
 });
 
-describe('judgings, kept', () => {
-  it('keeps a pending job for a judging until it is judged, and says so', async () => {
+describe('judgings, stored', () => {
+  it('stores a pending job for a judging until it is judged, and says so', async () => {
     await judgings.add(
-      Judging.asked({
+      Judging.requested({
         runId: RunId.of('run_judged'),
         workspaceId: WORKSPACE,
         place: placeOf('task_judged'),
@@ -230,8 +230,8 @@ describe('judgings, kept', () => {
               kind: 'message',
               tool: null,
               text: 'Retrying.',
-              given: null,
-              returned: null,
+              input: null,
+              output: null,
             },
           ],
           hunks: [],
@@ -255,8 +255,8 @@ describe('judgings, kept', () => {
   });
 });
 
-describe('scores, kept', () => {
-  it('keeps a judge’s score with its cited reasons', async () => {
+describe('scores, stored', () => {
+  it('stores a judge’s score with its cited reasons', async () => {
     await scores.add(judged('run_a', 1));
 
     const [score] = await scores.ofRuns([RunId.of('run_a')]);
@@ -275,7 +275,7 @@ describe('scores, kept', () => {
     );
   });
 
-  it('keeps one judge score for a run and rubric', async () => {
+  it('stores one judge score for a run and rubric', async () => {
     await expect(
       scores.add(
         Score.judge({
@@ -297,7 +297,7 @@ describe('scores, kept', () => {
     ).rejects.toBeInstanceOf(ScoreVersionConflictError);
   });
 
-  it('keeps one grade per person for a run, replaced by their later one', async () => {
+  it('stores one grade per person for a run, replaced by their later one', async () => {
     await scores.add(graded('run_a', 1));
 
     await expect(
@@ -371,7 +371,7 @@ describe('judge scores at many stations, read at once', () => {
       at: new Date(NOW.getTime() + at * 60_000),
     });
 
-  it('keeps the last judge scores of each asked station and rubric, and no others', async () => {
+  it('reads the last judge scores of each requested station and rubric, and no others', async () => {
     const added = [
       ...[0, 1, 2, 3, 4].map((at) =>
         judgedAt(`many_a_${at}`, at, { stationId: 'station_a' }),
@@ -390,7 +390,7 @@ describe('judge scores at many stations, read at once', () => {
         stationId: 'station_a',
         teamId: 'team_2',
       }),
-      judgedAt('many_unasked', 9, { stationId: 'station_d' }),
+      judgedAt('many_unrequested', 9, { stationId: 'station_d' }),
       judgedAt('many_other_workspace', 9, {
         stationId: 'station_a',
         workspaceId: WorkspaceId.of('ws_stations_next_door'),
@@ -526,7 +526,7 @@ describe('how often the judge agrees with people', () => {
 
   it('deletes a judge’s score recorded while its task’s judgings were being deleted', async () => {
     await judgings.add(
-      Judging.asked({
+      Judging.requested({
         runId: RunId.of('run_racing'),
         workspaceId: WORKSPACE,
         place: placeOf('task_racing'),
@@ -597,7 +597,7 @@ describe('how often a claims judge agrees with people, claim by claim', () => {
   const share = (marks: readonly boolean[]) =>
     marks.filter(Boolean).length / marks.length;
 
-  it('keeps each claim the judge and people marked, and weighs their agreement on each claim and over all of them', async () => {
+  it('stores each claim the judge and people marked, and weighs their agreement on each claim and over all of them', async () => {
     for (let at = 0; at < 12; at += 1) {
       const runId = `claims_${at}`;
       const retried = at % 2 === 0;
@@ -645,11 +645,11 @@ describe('how often a claims judge agrees with people, claim by claim', () => {
       );
     }
 
-    const kept = (await scores.ofRuns([RunId.of('claims_0')])).find(
+    const stored = (await scores.ofRuns([RunId.of('claims_0')])).find(
       (each) => each.fromJudge,
     );
-    expect(kept?.marks).toEqual([true, true]);
-    expect(kept?.reasons.map((each) => each.claim)).toEqual([0, 1]);
+    expect(stored?.marks).toEqual([true, true]);
+    expect(stored?.reasons.map((each) => each.claim)).toEqual([0, 1]);
 
     const { report, calibration } = await reports.at({
       workspaceId: WORKSPACE,

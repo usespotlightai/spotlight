@@ -18,18 +18,18 @@ func replaying(archive *string) func(*runOptions) {
 	}
 }
 
-func TestAReplayRestoresTheArchiveItReplaysAndKeepsNoneOfItsOwn(t *testing.T) {
-	kept := newKeptArchives(t)
+func TestAReplayRestoresTheArchiveItReplaysAndArchivesNoneOfItsOwn(t *testing.T) {
+	archives := newArchives(t)
 
 	run(t, harness(t, `require("node:fs").writeFileSync("notes.md", "halfway"); output = "wrote";`, "end_turn"),
 		func(o *runOptions) {
-			o.archives = kept
+			o.archives = archives
 			o.continuity = protocol.Continuity{Key: carriedOn}
 		})
 
-	started := kept.newest().ID
+	started := archives.newest().ID
 	replayed := run(t, harness(t, `output = require("node:fs").readFileSync("notes.md", "utf8");`, "end_turn"),
-		replaying(&started), func(o *runOptions) { o.archives = kept })
+		replaying(&started), func(o *runOptions) { o.archives = archives })
 
 	if got := agentOutput(t, replayed); got != "halfway" {
 		t.Errorf("the replay found %q in the workspace", got)
@@ -38,10 +38,10 @@ func TestAReplayRestoresTheArchiveItReplaysAndKeepsNoneOfItsOwn(t *testing.T) {
 		t.Errorf("the replay said %q about restoring", got)
 	}
 	if got := step(t, replayed, "archive"); got != "" {
-		t.Errorf("the replay said %q about keeping its workspace", got)
+		t.Errorf("the replay said %q about archiving its workspace", got)
 	}
-	if kept.count() != 1 {
-		t.Errorf("%d archives were kept, want only the one the replay started from", kept.count())
+	if archives.count() != 1 {
+		t.Errorf("%d archives were stored, want only the one the replay started from", archives.count())
 	}
 	if len(replayed.starts) != 0 {
 		t.Errorf("the replay said where it started: %+v", replayed.starts)
@@ -52,16 +52,16 @@ func TestAReplayRestoresTheArchiveItReplaysAndKeepsNoneOfItsOwn(t *testing.T) {
 }
 
 func TestAReplayThatStartedAfreshRestoresNothing(t *testing.T) {
-	kept := newKeptArchives(t)
+	archives := newArchives(t)
 
 	run(t, harness(t, `require("node:fs").writeFileSync("notes.md", "halfway"); output = "wrote";`, "end_turn"),
 		func(o *runOptions) {
-			o.archives = kept
+			o.archives = archives
 			o.continuity = protocol.Continuity{Key: carriedOn}
 		})
 
 	replayed := run(t, harness(t, `output = String(require("node:fs").existsSync("notes.md"));`, "end_turn"),
-		replaying(nil), func(o *runOptions) { o.archives = kept })
+		replaying(nil), func(o *runOptions) { o.archives = archives })
 
 	if got := agentOutput(t, replayed); got != "false" {
 		t.Errorf("a replay that started afresh found notes.md: %q", got)
@@ -69,9 +69,9 @@ func TestAReplayThatStartedAfreshRestoresNothing(t *testing.T) {
 }
 
 func TestAReplayWhoseArchiveIsGoneEndsFailedRatherThanStartingAfresh(t *testing.T) {
-	kept := newKeptArchives(t)
+	archives := newArchives(t)
 	gone := "archive_gone"
-	written := &journal{archives: kept}
+	written := &journal{archives: archives}
 
 	err := session.Execute(context.Background(), protocol.Run{
 		ID: "run_1",
@@ -96,7 +96,7 @@ func TestAReplayWhoseArchiveIsGoneEndsFailedRatherThanStartingAfresh(t *testing.
 
 func TestAReplayThatAsksAPersonEndsThere(t *testing.T) {
 	written := run(t, permitting(t), replaying(nil), func(o *runOptions) {
-		o.setup = protocol.HarnessSetup{Asks: []string{"execute"}}
+		o.setup = protocol.HarnessSetup{AskKinds: []string{"execute"}}
 		o.decision = protocol.PermissionEscalated
 		o.messages = [][]protocol.Message{{{Position: 1, Body: "Go ahead."}}}
 	})

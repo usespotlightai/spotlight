@@ -13,11 +13,11 @@ import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/config
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 
 const readingWarnings = (
-  kept: IntegrationRecord,
+  record: IntegrationRecord,
   source: DescribedSource,
 ): readonly ConfigurationProblem[] => {
-  const reading = kept.reading;
-  const path = integrationAt(kept.source);
+  const reading = record.reading;
+  const path = integrationAt(record.source);
   const warned = (at: FieldPath, reason: string) =>
     ConfigurationProblem.of({ path, at, reason, severity: 'warning' });
 
@@ -46,48 +46,48 @@ export class IntegrationViews {
     private readonly compiler: IntegrationCompilerPort,
   ) {}
 
-  async of(kept: IntegrationRecord): Promise<IntegrationResourceDto | null> {
-    const team = await this.teams.find(kept.teamId);
+  async of(record: IntegrationRecord): Promise<IntegrationResourceDto | null> {
+    const team = await this.teams.find(record.teamId);
 
-    return team ? this.onTeam(kept, team.key) : null;
+    return team ? this.onTeam(record, team.key) : null;
   }
 
-  onTeam(kept: IntegrationRecord, teamKey: string): IntegrationResourceDto {
-    const compiled = this.compiler.compile(kept.definition);
+  onTeam(record: IntegrationRecord, teamKey: string): IntegrationResourceDto {
+    const compiled = this.compiler.compile(record.definition);
     const source = compiled.ok ? compiled.source : null;
     const handWritten = compiled.ok
       ? compiled.integration.offers.map((each) => each.tool)
       : [];
     const described: DescribedSourceDto | null =
-      source && kept.reading
+      source && record.reading
         ? {
             kind: source.kind,
-            hash: kept.generatedFrom,
-            readAt: kept.reading.readAt.toISOString(),
-            problem: kept.reading.problem,
-            tools: kept.offers.filter((each) => !handWritten.includes(each))
+            hash: record.generatedFrom,
+            readAt: record.reading.readAt.toISOString(),
+            problem: record.reading.problem,
+            tools: record.offers.filter((each) => !handWritten.includes(each))
               .length,
           }
         : null;
 
     return {
-      id: kept.id,
-      version: kept.version,
+      id: record.id,
+      version: record.version,
       address: IntegrationAddress.of(
         teamKey,
-        SourceKey.of(kept.source),
+        SourceKey.of(record.source),
       ).toString(),
-      teamId: kept.teamId.value,
-      source: kept.source,
-      definition: kept.definition,
+      teamId: record.teamId.value,
+      source: record.source,
+      definition: record.definition,
       tools: Object.fromEntries(
-        kept.offers.map((tool) => [tool.slice(tool.indexOf('.') + 1), tool]),
+        record.offers.map((tool) => [tool.slice(tool.indexOf('.') + 1), tool]),
       ),
       described,
       warnings: compiled.ok
         ? [
             ...compiled.warnings,
-            ...(source ? readingWarnings(kept, source) : []),
+            ...(source ? readingWarnings(record, source) : []),
           ]
         : compiled.problems,
     };

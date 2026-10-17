@@ -23,7 +23,7 @@ const reading = (leases: Record<string, string>) => {
       leases[runId] === runnerId
         ? ({
             workspaceId: WorkspaceId.of('ws_1'),
-            gave: (id: string) => (id === 'att_1' ? SCREEN : null),
+            attachment: (id: string) => (id === 'att_1' ? SCREEN : null),
           } as unknown as RunWork)
         : null,
   } as unknown as RunWorks;
@@ -37,28 +37,28 @@ const reading = (leases: Record<string, string>) => {
   return { handler: new ReadRunAttachmentHandler(works, files), opened };
 };
 
-const asked = (attachmentId = 'att_1') =>
+const query = (attachmentId = 'att_1') =>
   new ReadRunAttachmentQuery('run_1', 'runner_1', attachmentId);
 
 describe('ReadRunAttachmentHandler', () => {
-  it('opens a file the work of the run the runner leases was given', async () => {
+  it('opens a file that the work of the leased run has', async () => {
     const { handler, opened } = reading({ run_1: 'runner_1' });
 
-    await expect(handler.execute(asked())).resolves.toBe(CONTENT);
+    await expect(handler.execute(query())).resolves.toBe(CONTENT);
     expect(opened).toEqual(['ws_1/att_1']);
   });
 
-  it('opens nothing its work was not given', async () => {
+  it('opens nothing that its work does not have', async () => {
     const { handler, opened } = reading({ run_1: 'runner_1' });
 
-    await expect(handler.execute(asked('att_2'))).resolves.toBeNull();
+    await expect(handler.execute(query('att_2'))).resolves.toBeNull();
     expect(opened).toEqual([]);
   });
 
   it('opens nothing for a runner that no longer leases the run', async () => {
     const { handler, opened } = reading({});
 
-    await expect(handler.execute(asked())).resolves.toBeNull();
+    await expect(handler.execute(query())).resolves.toBeNull();
     expect(opened).toEqual([]);
   });
 });

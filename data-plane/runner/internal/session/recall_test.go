@@ -43,7 +43,7 @@ func readSpan(t *testing.T, raw json.RawMessage) (spanRead, map[string]string) {
 	return span, attributes
 }
 
-func TestARecallIsASpanSayingWhatWasAskedAndHowManyCameBack(t *testing.T) {
+func TestARecallIsASpanSayingWhatWasRequestedAndHowManyCameBack(t *testing.T) {
 	from := time.Date(2026, 9, 27, 10, 0, 0, 0, time.UTC)
 
 	span, attributes := readSpan(t, recalled(

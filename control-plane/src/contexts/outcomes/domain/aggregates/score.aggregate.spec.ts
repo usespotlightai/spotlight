@@ -1,5 +1,5 @@
 import {
-  MAX_SEEN_KEPT,
+  MAX_SEEN_CHARS,
   Score,
 } from '@outcomes/domain/aggregates/score.aggregate';
 import type { ScoreRecorded } from '@outcomes/domain/events/score-recorded.event';
@@ -83,7 +83,7 @@ describe('Score', () => {
 
     expect(score.seen.steps).toEqual([]);
     expect(score.seen.hunks.length).toBeLessThanOrEqual(10);
-    expect(score.seen.size).toBeLessThanOrEqual(MAX_SEEN_KEPT);
+    expect(score.seen.size).toBeLessThanOrEqual(MAX_SEEN_CHARS);
   });
 
   it('from a person keeps nothing the judge saw', () => {

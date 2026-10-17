@@ -6,7 +6,7 @@ import type { ReplaySet } from '@/lib/replay';
 import { STATION_GONE_FROM_LINE } from '@/lib/replay-words';
 import { since } from '@/lib/since';
 
-const STATION_GONE = `${STATION_GONE_FROM_LINE} The set starts no replays, takes no runs and keeps no workspaces.`;
+const STATION_GONE = `${STATION_GONE_FROM_LINE} The set starts no replays, takes no runs and retains no workspaces.`;
 
 type ReplaySetHeadingProps = {
   set: ReplaySet;

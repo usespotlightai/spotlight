@@ -1,5 +1,5 @@
-import { HookDeletionDue } from '@integrations/domain/events/hook-deletion-due.event';
-import { IntegrationDeletionDue } from '@integrations/domain/events/integration-deletion-due.event';
+import { HookDeletionRequested } from '@integrations/domain/events/hook-deletion-requested.event';
+import { IntegrationDeletionRequested } from '@integrations/domain/events/integration-deletion-requested.event';
 import type { HookDefinitionRepository } from '@integrations/domain/repositories/hook-definition.repository';
 import type { HostConnectionRepository } from '@integrations/domain/repositories/host-connection.repository';
 import type { IntegrationDefinitionRepository } from '@integrations/domain/repositories/integration-definition.repository';
@@ -38,10 +38,10 @@ export class DeleteTeamIntegrations {
     const integrations = await this.definitions.ofTeam(teamId);
 
     return [
-      ...hooks.map((hook) => new HookDeletionDue(hook.id, workspaceId)),
+      ...hooks.map((hook) => new HookDeletionRequested(hook.id, workspaceId)),
       ...integrations.map(
         (integration) =>
-          new IntegrationDeletionDue(integration.id, workspaceId),
+          new IntegrationDeletionRequested(integration.id, workspaceId),
       ),
     ];
   }

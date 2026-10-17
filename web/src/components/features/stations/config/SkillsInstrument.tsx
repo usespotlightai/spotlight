@@ -13,7 +13,7 @@ export function SkillsInstrument({ skills }: { skills: readonly string[] }) {
             className="size-4 text-muted-foreground"
           />
         }
-        detail="given to its runs"
+        detail="enabled for its runs"
       >
         {skills.length === 0 ? (
           <span className="text-muted-foreground">None</span>

@@ -146,80 +146,80 @@ interface StoredSecret {
 
 export class InMemorySecrets implements SecretRepository {
   readonly events: DomainEvent[] = [];
-  readonly #kept = new Map<string, StoredSecret>();
+  readonly #records = new Map<string, StoredSecret>();
 
   constructor(private readonly values = new InMemoryStore()) {}
 
   async withId(id: SecretId): Promise<Secret | null> {
-    const kept = this.#kept.get(id.value);
+    const record = this.#records.get(id.value);
 
-    return kept ? this.rehydrated(kept) : null;
+    return record ? this.rehydrated(record) : null;
   }
 
   async named(
     workspaceId: WorkspaceId,
     name: SecretName,
   ): Promise<Secret | null> {
-    const kept = [...this.#kept.values()].find(
+    const record = [...this.#records.values()].find(
       (each) =>
         each.secret.workspaceId.equals(workspaceId) &&
         each.secret.name.equals(name),
     );
 
-    return kept ? this.rehydrated(kept) : null;
+    return record ? this.rehydrated(record) : null;
   }
 
   async inWorkspace(workspaceId: WorkspaceId): Promise<readonly Secret[]> {
-    return [...this.#kept.values()]
+    return [...this.#records.values()]
       .filter((each) => each.secret.workspaceId.equals(workspaceId))
       .map((each) => this.rehydrated(each));
   }
 
   async save(secret: Secret): Promise<void> {
-    const kept = this.#kept.get(secret.id.value);
+    const record = this.#records.get(secret.id.value);
 
     if (secret.isNew) {
       if ((await this.named(secret.workspaceId, secret.name)) !== null) {
         throw new SecretAlreadyExistsError(secret.name.value);
       }
-    } else if (!kept || kept.version !== secret.version) {
+    } else if (!record || record.version !== secret.version) {
       throw new SecretVersionConflictError(secret.name.value);
     }
 
     this.events.push(...secret.pullEvents());
 
-    if (secret.keeping) {
-      await this.values.keep(secret, secret.keeping);
+    if (secret.valueToStore) {
+      await this.values.store(secret, secret.valueToStore);
     } else if (secret.deletesValue) {
       await this.values.delete(secret);
     }
 
     if (secret.isDeleted) {
-      this.#kept.delete(secret.id.value);
+      this.#records.delete(secret.id.value);
       return;
     }
 
-    this.#kept.set(secret.id.value, {
+    this.#records.set(secret.id.value, {
       secret,
       version: secret.version + 1,
     });
   }
 
-  private rehydrated(kept: StoredSecret): Secret {
+  private rehydrated(record: StoredSecret): Secret {
     return Secret.rehydrate({
-      id: kept.secret.id,
-      workspaceId: kept.secret.workspaceId,
-      name: kept.secret.name,
-      source: kept.secret.source,
-      bindings: kept.secret.bindings,
-      valueVersion: kept.secret.valueVersion,
-      rotatedAt: kept.secret.rotatedAt,
-      version: kept.version,
+      id: record.secret.id,
+      workspaceId: record.secret.workspaceId,
+      name: record.secret.name,
+      source: record.secret.source,
+      bindings: record.secret.bindings,
+      valueVersion: record.secret.valueVersion,
+      rotatedAt: record.secret.rotatedAt,
+      version: record.version,
     });
   }
 }
 
-const keptCopy = (grants: RunGrants, version: number): RunGrants =>
+const copyOf = (grants: RunGrants, version: number): RunGrants =>
   RunGrants.rehydrate({
     lease: grants.lease,
     workspaceId: grants.workspaceId,
@@ -231,16 +231,16 @@ const keptCopy = (grants: RunGrants, version: number): RunGrants =>
   });
 
 export class InMemoryGrants implements RunGrantsRepository {
-  readonly #kept = new Map<string, RunGrants>();
+  readonly #records = new Map<string, RunGrants>();
 
   async find(runId: RunId): Promise<RunGrants | null> {
-    const kept = this.#kept.get(runId.value);
+    const record = this.#records.get(runId.value);
 
-    return kept ? keptCopy(kept, kept.version) : null;
+    return record ? copyOf(record, record.version) : null;
   }
 
   async runsIn(workspaceId: WorkspaceId): Promise<readonly RunId[]> {
-    return [...this.#kept.values()]
+    return [...this.#records.values()]
       .filter((each) => each.workspaceId.equals(workspaceId))
       .map((each) => each.runId);
   }
@@ -250,7 +250,7 @@ export class InMemoryGrants implements RunGrantsRepository {
     after: RunId | null,
     max: number,
   ): Promise<readonly RunId[]> {
-    return [...this.#kept.values()]
+    return [...this.#records.values()]
       .filter(
         (each) =>
           each.endedAt !== null &&
@@ -263,33 +263,33 @@ export class InMemoryGrants implements RunGrantsRepository {
   }
 
   async save(grants: RunGrants): Promise<void> {
-    const kept = this.#kept.get(grants.runId.value);
+    const record = this.#records.get(grants.runId.value);
 
-    if (grants.isNew ? kept : kept?.version !== grants.version) {
+    if (grants.isNew ? record : record?.version !== grants.version) {
       throw new RunGrantsVersionConflictError(grants.runId.value);
     }
 
     if (grants.isDiscarded) {
-      this.#kept.delete(grants.runId.value);
+      this.#records.delete(grants.runId.value);
       return;
     }
 
-    this.#kept.set(grants.runId.value, keptCopy(grants, grants.version + 1));
+    this.#records.set(grants.runId.value, copyOf(grants, grants.version + 1));
   }
 
   of(runId: string): RunGrants | null {
-    return this.#kept.get(runId) ?? null;
+    return this.#records.get(runId) ?? null;
   }
 
   get all(): readonly SecretGrant[] {
-    return [...this.#kept.values()].flatMap((each) => each.grants);
+    return [...this.#records.values()].flatMap((each) => each.grants);
   }
 }
 
 export class InMemoryStore implements SecretSourcePort {
   readonly #values = new Map<string, string>();
 
-  async keep(secret: SecretReference, value: SecretValue): Promise<void> {
+  async store(secret: SecretReference, value: SecretValue): Promise<void> {
     this.#values.set(secret.id.value, value.revealed());
   }
 
@@ -297,7 +297,7 @@ export class InMemoryStore implements SecretSourcePort {
     const stored = this.#values.get(secret.id.value);
 
     if (stored === undefined) {
-      throw new UnreadableSecretError(secret.name.value, 'no value is kept');
+      throw new UnreadableSecretError(secret.name.value, 'no value is stored');
     }
 
     return SecretValue.of(stored);

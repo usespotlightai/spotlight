@@ -104,7 +104,7 @@ describe('CreateWorkspace', () => {
     expect(submit).toBeEnabled();
   });
 
-  it('asks for the team name before creating anything', async () => {
+  it('needs the team name before creating anything', async () => {
     const user = userEvent.setup();
     renderPage();
 

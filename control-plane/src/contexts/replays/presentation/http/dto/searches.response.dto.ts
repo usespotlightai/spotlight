@@ -169,7 +169,7 @@ class NoisyWarningResponseDto {
 
   @ApiProperty({
     example: 5,
-    description: 'The repeats to ask for: the needed ones, at most 5',
+    description: 'The repeats to request: the needed ones, at most 5',
   })
   readonly suggestedRepeats: number;
 
@@ -204,7 +204,7 @@ class JudgeUnstableWarningResponseDto {
   @ApiProperty({
     enum: ['judge-unstable'],
     description:
-      'The judge, asked twice of the same change, passed or failed it alike less than 80% of the time, so its verdicts are partly chance',
+      'The judge, run twice on the same change, passed or failed it alike less than 80% of the time, so its verdicts are partly chance',
   })
   readonly kind = 'judge-unstable' as const;
 
@@ -1159,7 +1159,7 @@ export class SearchEstimateResponseDto {
 
   @ApiProperty({
     enum: SEARCH_OBJECTIVES,
-    description: `What it would look for, as asked or as the set’s health suggests: ${OBJECTIVE_DESCRIPTION}`,
+    description: `What it would look for, as requested or as the set’s health suggests: ${OBJECTIVE_DESCRIPTION}`,
   })
   readonly objective: 'success' | 'cost';
 

@@ -97,7 +97,7 @@ export function AddRunsDialog({
         <DialogHeader>
           <DialogTitle>Add runs to {set.name}</DialogTitle>
           <DialogDescription>
-            The station’s latest ended runs. Spotlight keeps a run’s starting
+            The station’s latest ended runs. Spotlight retains a run’s starting
             workspace while it’s in the set.
           </DialogDescription>
         </DialogHeader>

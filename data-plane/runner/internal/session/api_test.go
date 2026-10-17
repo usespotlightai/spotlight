@@ -6,8 +6,8 @@ import (
 	"usespotlight.ai/data-plane/protocol"
 )
 
-func TestReachingAPIGivesTheControlPlaneAndAStandInForTheToken(t *testing.T) {
-	got := reachingAPI(protocol.Spec{SpotlightAPI: true}, "https://spotlight.example.com")
+func TestUsesAPISetsTheControlPlaneAndAStandInForTheToken(t *testing.T) {
+	got := usesAPI(protocol.Spec{SpotlightAPI: true}, "https://spotlight.example.com")
 
 	if got[APIURLVar] != "https://spotlight.example.com" {
 		t.Fatalf("%s = %q", APIURLVar, got[APIURLVar])
@@ -17,8 +17,8 @@ func TestReachingAPIGivesTheControlPlaneAndAStandInForTheToken(t *testing.T) {
 	}
 }
 
-func TestReachingAPIGivesNothingToARunThatDoesNotReachIt(t *testing.T) {
-	if got := reachingAPI(protocol.Spec{}, "https://spotlight.example.com"); got != nil {
+func TestUsesAPISetsNothingForARunThatDoesNotUseIt(t *testing.T) {
+	if got := usesAPI(protocol.Spec{}, "https://spotlight.example.com"); got != nil {
 		t.Fatalf("got %v, want nothing", got)
 	}
 }

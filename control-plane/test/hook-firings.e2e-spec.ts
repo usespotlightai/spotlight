@@ -33,7 +33,7 @@ const OPENED = {
   description: 'task.opened of Fix the queue (triage)',
 };
 
-describe('hook firings, kept in the database (e2e)', () => {
+describe('hook firings, stored in the database (e2e)', () => {
   let app: INestApplication;
   let firings: HookFiringRepository;
   let history: HookFiringHistoryPort;
@@ -167,7 +167,7 @@ describe('hook firings, kept in the database (e2e)', () => {
     expect(left.map((each) => each.state)).toEqual(['pending']);
   });
 
-  it('keeps the chain of causes a firing came from, and hands it on with the firing itself', async () => {
+  it('stores the chain of causes a firing came from, and hands it on with the firing itself', async () => {
     const fired = firing('occurrence_5');
     await firings.add(fired);
 
@@ -200,7 +200,7 @@ describe('hook firings, kept in the database (e2e)', () => {
     await expect(history.recentRepeats(first)).resolves.toBe(0);
   });
 
-  it('keeps what kind of failure ended a firing, and a superseded one apart from a failed one', async () => {
+  it('stores what kind of failure ended a firing, and a superseded one apart from a failed one', async () => {
     await firings.add(firing('occurrence_9'));
     await firings.add(firing('occurrence_10'));
     const first = await claimed();

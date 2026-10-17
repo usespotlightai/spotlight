@@ -245,9 +245,12 @@ export class StationConfig {
     parts: StationConfigParts,
     fingerprintOf: (canonical: string) => string,
   ): StationConfig {
-    const kept = ordered(parts);
+    const sorted = ordered(parts);
 
-    return StationConfig.rehydrate(kept, fingerprintOf(canonicalText(kept)));
+    return StationConfig.rehydrate(
+      sorted,
+      fingerprintOf(canonicalText(sorted)),
+    );
   }
 
   static rehydrate(

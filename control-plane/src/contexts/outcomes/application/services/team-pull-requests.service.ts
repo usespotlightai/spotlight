@@ -1,7 +1,7 @@
 import type {
   InsightsReaderPort,
   PullRequestPage,
-  PullRequestsAsked,
+  PullRequestsQuery,
   TeamInPeriod,
 } from '@outcomes/application/ports/insights-reader.port';
 import type { WorkPort } from '@outcomes/application/ports/work.port';
@@ -60,7 +60,7 @@ export class TeamPullRequests {
     teamId: string,
     principal: Principal,
     period: string,
-    asked: PullRequestsAsked,
+    query: PullRequestsQuery,
   ): Promise<TeamPullRequestPage> {
     const scope = await this.scoped(teamId, principal, period);
 
@@ -68,7 +68,7 @@ export class TeamPullRequests {
       ...scope,
       ...(await this.reader.pullRequestPage(teamOf(scope), {
         repositories: scope.repositories,
-        ...asked,
+        ...query,
       })),
     };
   }

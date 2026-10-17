@@ -25,9 +25,9 @@ export class DrizzleRunGrants implements RunGrantsRepository {
   ) {}
 
   async find(runId: RunId): Promise<RunGrants | null> {
-    const [kept] = await this.kept(eq(runGrants.runId, runId.value), 1);
+    const [found] = await this.loaded(eq(runGrants.runId, runId.value), 1);
 
-    return kept ?? null;
+    return found ?? null;
   }
 
   async runsIn(workspaceId: WorkspaceId): Promise<readonly RunId[]> {
@@ -73,7 +73,7 @@ export class DrizzleRunGrants implements RunGrantsRepository {
     });
   }
 
-  private async kept(
+  private async loaded(
     where: SQL | undefined,
     max?: number,
   ): Promise<RunGrants[]> {
@@ -162,14 +162,16 @@ export class DrizzleRunGrants implements RunGrantsRepository {
       secretId: each.secretId.value,
       host: each.host,
     }));
-    const kept = await this.context.db
+    const existing = await this.context.db
       .select({ secretId: secretGrant.secretId, host: secretGrant.host })
       .from(secretGrant)
       .where(eq(secretGrant.runId, grants.runId.value));
     const wantedKeys = new Set(wanted.map(keyOf));
-    const keptKeys = new Set(kept.map(keyOf));
+    const existingKeys = new Set(existing.map(keyOf));
 
-    for (const gone of kept.filter((each) => !wantedKeys.has(keyOf(each)))) {
+    for (const gone of existing.filter(
+      (each) => !wantedKeys.has(keyOf(each)),
+    )) {
       await this.context.db
         .delete(secretGrant)
         .where(
@@ -181,7 +183,7 @@ export class DrizzleRunGrants implements RunGrantsRepository {
         );
     }
 
-    const fresh = wanted.filter((each) => !keptKeys.has(keyOf(each)));
+    const fresh = wanted.filter((each) => !existingKeys.has(keyOf(each)));
 
     if (fresh.length > 0) {
       await this.context.db

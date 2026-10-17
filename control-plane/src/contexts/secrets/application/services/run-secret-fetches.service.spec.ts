@@ -57,7 +57,7 @@ const setUp = async () => {
   const aws = readingFrom({ 'sentry-token': 'sntrys_1' });
   vi.spyOn(aws, 'read');
 
-  const kept = async (id: string, secret: Parameters<typeof definition>[0]) =>
+  const saved = async (id: string, secret: Parameters<typeof definition>[0]) =>
     secrets.save(
       Secret.create(definition(secret), {
         id: SecretId.of(id),
@@ -67,10 +67,10 @@ const setUp = async () => {
       }),
     );
 
-  await kept('secret_linear', {
+  await saved('secret_linear', {
     bindings: [{ host: 'mcp.linear.app', prefix: 'Bearer ' }],
   });
-  await kept('secret_sentry', {
+  await saved('secret_sentry', {
     name: 'SENTRY_TOKEN',
     source: SecretSource.awsSecretsManager({
       secretId: 'sentry-token',
@@ -79,8 +79,8 @@ const setUp = async () => {
     value: null,
     bindings: [{ host: 'sentry.io', name: 'x-sentry-token' }],
   });
-  await kept('secret_loose', { name: 'LOOSE', bindings: [] });
-  await kept('secret_lines', {
+  await saved('secret_loose', { name: 'LOOSE', bindings: [] });
+  await saved('secret_lines', {
     name: 'MULTI_LINE',
     value: 'one\ntwo',
     bindings: [{ host: 'pem.example.com' }],
@@ -99,7 +99,7 @@ const setUp = async () => {
 };
 
 describe('RunSecretFetches', () => {
-  it('seals a value Spotlight keeps to the run’s recipient, with where egress injects it', async () => {
+  it('seals a value Spotlight stores to the run’s recipient, with where egress injects it', async () => {
     const { fetches } = await setUp();
 
     await expect(
@@ -123,7 +123,7 @@ describe('RunSecretFetches', () => {
     });
   });
 
-  it('says where egress reads a value an external store keeps, and never reads it itself', async () => {
+  it('says where egress reads a value an external store holds, and never reads it itself', async () => {
     const { fetches, aws } = await setUp();
 
     const fetched = await fetches.fetchSecrets({
@@ -165,7 +165,7 @@ describe('RunSecretFetches', () => {
     ]);
   });
 
-  it('denies what it cannot give, says why, and gives the rest', async () => {
+  it('denies what it cannot grant, says why, and grants the rest', async () => {
     const { fetches } = await setUp();
 
     const fetched = await fetches.fetchSecrets({

@@ -70,7 +70,7 @@ describe('AgentChats', () => {
     expect(screen.queryByText('No chats yet')).not.toBeInTheDocument();
   });
 
-  it('says the chats could not be loaded, and tries again when asked', async () => {
+  it('says the chats could not be loaded, and tries again on request', async () => {
     chats.mockReturnValue(undefined);
     failing.mockReturnValue(true);
     showing();

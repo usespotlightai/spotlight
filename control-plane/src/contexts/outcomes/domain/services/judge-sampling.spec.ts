@@ -13,7 +13,7 @@ const shareOf = (picked: (runId: RunId) => boolean): number =>
   runs.filter(picked).length / runs.length;
 
 describe('judge sampling', () => {
-  it('picks the same runs every time it is asked', () => {
+  it('picks the same runs every time it is called', () => {
     expect(runs.map((each) => sampledForJudging(each, 0.3))).toEqual(
       runs.map((each) => sampledForJudging(each, 0.3)),
     );

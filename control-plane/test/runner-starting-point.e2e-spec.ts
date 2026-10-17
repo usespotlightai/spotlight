@@ -291,7 +291,7 @@ describe('a runner saying where its run started', () => {
     expect((await runRow(leased.runId))?.startedFromAt).toBeNull();
   });
 
-  it('rejects checkouts other than the ones the run was given, and a body it cannot read', async () => {
+  it('rejects checkouts other than the ones the run received, and a body it cannot read', async () => {
     const leased = await aLeasedTaskRun();
 
     for (const body of [

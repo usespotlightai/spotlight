@@ -17,7 +17,7 @@ interface MemoryBody {
   readonly body: string;
   readonly source: string;
   readonly status: string;
-  readonly reach: string;
+  readonly scope: string;
   readonly lineId: string | null;
   readonly stationId: string | null;
   readonly repository: string | null;
@@ -113,7 +113,7 @@ describe('the team’s memory', () => {
       kind: 'environment',
       source: 'person',
       status: 'active',
-      reach: 'team',
+      scope: 'team',
       approvedBy: { id: team.owner.value, name: 'Ada' },
       retirement: null,
     });
@@ -134,7 +134,7 @@ describe('the team’s memory', () => {
 
     expect(written.status).toBe(201);
     expect(written.body).toMatchObject({
-      reach: 'station',
+      scope: 'station',
       lineId: LINE,
       stationId: STATION,
       repository: 'acme/api',
@@ -244,7 +244,7 @@ describe('the team’s memory', () => {
     expect((await listing()).map((each) => each.id)).not.toContain(memory.id);
   });
 
-  it('keeps one correction when two arrive at once, and rejects a correction of a retired memory', async () => {
+  it('stores one correction when two arrive at once, and rejects a correction of a retired memory', async () => {
     const old = (
       await writing({ kind: 'preference', body: 'Squash every merge.' })
     ).body as MemoryBody;
@@ -268,7 +268,7 @@ describe('the team’s memory', () => {
     expect(active).toHaveLength(1);
   });
 
-  it('stops a retired memory reaching later runs', async () => {
+  it('stops a retired memory applying to later runs', async () => {
     const memory = (
       await writing({ kind: 'environment', body: 'CI has no network.' })
     ).body as MemoryBody;
@@ -280,7 +280,7 @@ describe('the team’s memory', () => {
     };
     const repository = app.get(DrizzleMemoryRepository);
     const applying = async () =>
-      (await repository.mayReach(site))
+      (await repository.mayApplyAt(site))
         .filter((each) => each.appliesAt(site))
         .map((each) => each.id.value);
 

@@ -116,14 +116,14 @@ const searchOn = (params: Params): SearchSpec | undefined => {
 
 const candidateFor = (
   set: SetSpec,
-  asked: string,
+  candidateId: string,
 ): CandidateResponseDto | undefined => {
-  if (asked === 'live') {
+  if (candidateId === 'live') {
     return liveCandidateOf(set.stationId);
   }
 
   const found = resourceCandidates().find(
-    (each) => each.id === asked && each.stationId === set.stationId,
+    (each) => each.id === candidateId && each.stationId === set.stationId,
   );
 
   return found

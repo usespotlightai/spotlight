@@ -48,9 +48,9 @@ func Main(args []string, version string) int {
 	return 0
 }
 
-func report(asked, version string, out io.Writer) error {
+func report(candidatesJSON, version string, out io.Writer) error {
 	var candidates []protocol.Installable
-	if err := json.Unmarshal([]byte(asked), &candidates); err != nil {
+	if err := json.Unmarshal([]byte(candidatesJSON), &candidates); err != nil {
 		return fmt.Errorf("read the harnesses to look for: %w", err)
 	}
 
@@ -82,7 +82,7 @@ func run(args []string, version string) error {
 	}
 
 	var egress *wayout.Egress
-	if cfg.Egress.Given() {
+	if cfg.Egress.Configured() {
 		if egress, err = wayout.To(cfg.Egress.URL, cfg.Egress.Credential, nil); err != nil {
 			return err
 		}
@@ -219,7 +219,7 @@ func unready(err error) protocol.StackChecked {
 }
 
 func (r runner) enforced() func(ctx context.Context) bool {
-	if !r.cfg.Egress.Given() {
+	if !r.cfg.Egress.Configured() {
 		return nil
 	}
 

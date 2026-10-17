@@ -12,16 +12,16 @@ const PROSE_TITLES: Record<string, string> = {
   thought: 'Reasoning',
 };
 
-export const askedOf = (node: TraceNode): Description | null => {
+export const inputOf = (node: TraceNode): Description | null => {
   const step = node.step;
 
-  if (!step?.given) {
+  if (!step?.input) {
     return null;
   }
 
   const command = step.kind === 'hook' || step.tool === 'execute';
 
-  return { title: 'Input', body: step.given, prose: false, command };
+  return { title: 'Input', body: step.input, prose: false, command };
 };
 
 export const answeredBy = (node: TraceNode): Description | null => {
@@ -39,7 +39,7 @@ export const answeredBy = (node: TraceNode): Description | null => {
       : { title, body: step.text, prose: true };
   }
 
-  const back = step.detail ?? step.returned;
+  const back = step.detail ?? step.output;
 
   return back ? { title: 'Output', body: back, prose: false } : null;
 };

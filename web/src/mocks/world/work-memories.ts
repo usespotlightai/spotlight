@@ -48,7 +48,7 @@ const proposal = (
   source: 'run',
   origin: 'drafted',
   state: 'proposed',
-  reach: 'team',
+  scope: 'team',
   repository: null,
   paths: [],
   supersedes: null,
@@ -78,7 +78,7 @@ const RUN_MEMORIES: Record<string, Partial<RunMemoriesResponseDto>> = {
         id: GONE.id,
         kind: GONE.kind,
         body: GONE.body,
-        reach: GONE.reach,
+        scope: GONE.scope,
         repository: GONE.repository,
         paths: GONE.paths,
         state: 'approved',
@@ -105,7 +105,7 @@ const RUN_MEMORIES: Record<string, Partial<RunMemoriesResponseDto>> = {
             'The reconcile script cannot reach the billing database from the runner.',
           ),
         ],
-        reach: 'line',
+        scope: 'line',
         state: 'rejected',
         decision: { by: MAYA.id, name: MAYA.name, at: hoursAgo(18) },
       }),
@@ -124,7 +124,7 @@ type RunPlace = Pick<
   'teamId' | 'lineId' | 'stationId' | 'repositories'
 > & { readonly startedAt: string };
 
-const reaches = (memory: MemoryRecord, run: RunPlace): boolean =>
+const matches = (memory: MemoryRecord, run: RunPlace): boolean =>
   (memory.lineId === null || memory.lineId === run.lineId) &&
   (memory.stationId === null || memory.stationId === run.stationId) &&
   (memory.repository === null ||
@@ -155,7 +155,7 @@ const briefedFor = (runId: string): TeamMemoryResponseDto[] => {
   return run
     ? (MEMORY_SEED[run.teamId] ?? [])
         .filter(
-          (memory) => activeAt(memory, run.startedAt) && reaches(memory, run),
+          (memory) => activeAt(memory, run.startedAt) && matches(memory, run),
         )
         .slice(0, MAX_BRIEFED)
         .map(briefedOf)

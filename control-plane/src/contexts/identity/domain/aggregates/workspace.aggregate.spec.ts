@@ -3,8 +3,8 @@ import { WorkspaceCreated } from '@identity/domain/events/workspace-created.even
 import { WorkspaceDeleted } from '@identity/domain/events/workspace-deleted.event';
 import { WorkspaceUpdated } from '@identity/domain/events/workspace-updated.event';
 import { LastOwnerError } from '@identity/domain/exceptions/last-owner.error';
-import { NotYoursToGiveError } from '@identity/domain/exceptions/not-yours-to-give.error';
 import { NotYoursToInviteError } from '@identity/domain/exceptions/not-yours-to-invite.error';
+import { RoleAssignmentDeniedError } from '@identity/domain/exceptions/role-assignment-denied.error';
 import { TeamOutsideWorkspaceError } from '@identity/domain/exceptions/team-outside-workspace.error';
 import { WorkspaceVersionConflictError } from '@identity/domain/exceptions/workspace-version-conflict.error';
 import { Dependents } from '@identity/domain/value-objects/dependents.vo';
@@ -271,19 +271,19 @@ describe('Workspace', () => {
       ).toBe(WorkspaceRole.admin);
     });
 
-    it('denies an admin reaching an owner', () => {
+    it('denies an admin who changes the role of an owner', () => {
       expect(() =>
         staff().changeRole(OWNER, WorkspaceRole.member, ADMIN),
-      ).toThrow(NotYoursToGiveError);
+      ).toThrow(RoleAssignmentDeniedError);
     });
 
     it('denies an admin handing out a rank they do not have', () => {
       expect(() =>
         staff().changeRole(MEMBER, WorkspaceRole.owner, ADMIN),
-      ).toThrow(/cannot give a role above your own/);
+      ).toThrow(/cannot assign a role above your own/);
     });
 
-    it('denies an admin reaching another admin', () => {
+    it('denies an admin who changes the role of another admin', () => {
       const two = staffed(
         { id: OWNER, role: WorkspaceRole.owner },
         { id: ADMIN, role: WorkspaceRole.admin },
@@ -356,21 +356,21 @@ describe('Workspace', () => {
     it('offers what it would allow, and nothing it would deny', () => {
       const workspace = staff();
 
-      expect(workspace.rolesGivableTo(MEMBER, OWNER)).toEqual([
+      expect(workspace.assignableRolesFor(MEMBER, OWNER)).toEqual([
         WorkspaceRole.owner,
         WorkspaceRole.admin,
         WorkspaceRole.member,
       ]);
-      expect(workspace.rolesGivableTo(MEMBER, ADMIN)).toEqual([
+      expect(workspace.assignableRolesFor(MEMBER, ADMIN)).toEqual([
         WorkspaceRole.admin,
         WorkspaceRole.member,
       ]);
-      expect(workspace.rolesGivableTo(OWNER, ADMIN)).toEqual([]);
-      expect(workspace.rolesGivableTo(ADMIN, MEMBER)).toEqual([]);
+      expect(workspace.assignableRolesFor(OWNER, ADMIN)).toEqual([]);
+      expect(workspace.assignableRolesFor(ADMIN, MEMBER)).toEqual([]);
     });
 
     it('offers nothing for the last owner', () => {
-      expect(staff().rolesGivableTo(OWNER, OWNER)).toEqual([]);
+      expect(staff().assignableRolesFor(OWNER, OWNER)).toEqual([]);
     });
 
     it('leaves everybody else where they were', () => {
@@ -382,7 +382,7 @@ describe('Workspace', () => {
   });
 
   describe('as a resource', () => {
-    const kept = (version = 3) =>
+    const stored = (version = 3) =>
       Workspace.rehydrate({
         id: WorkspaceId.of('ws_1'),
         name: WorkspaceName.of('Acme Inc.'),
@@ -391,7 +391,7 @@ describe('Workspace', () => {
         version,
       });
 
-    it('is created with no first team when none is asked for', () => {
+    it('is created with no first team when none is requested', () => {
       const created = Workspace.create({
         id: WorkspaceId.of('ws_1'),
         name: WorkspaceName.of('Acme Inc.'),
@@ -411,13 +411,13 @@ describe('Workspace', () => {
     });
 
     it('rejects a change made against another version', () => {
-      expect(() => kept(3).assertVersion(2)).toThrow(
+      expect(() => stored(3).assertVersion(2)).toThrow(
         WorkspaceVersionConflictError,
       );
     });
 
     it('takes a new name, and says so', () => {
-      const renamed = kept().update(
+      const renamed = stored().update(
         { name: WorkspaceName.of('Acme'), slug: WorkspaceSlug.of('acme-inc') },
         BY,
       );
@@ -434,7 +434,7 @@ describe('Workspace', () => {
 
     it('keeps its slug for its whole life', () => {
       expect(() =>
-        kept().update(
+        stored().update(
           { name: WorkspaceName.of('Acme'), slug: WorkspaceSlug.of('acme') },
           BY,
         ),
@@ -443,13 +443,27 @@ describe('Workspace', () => {
 
     it('is deleted only once it has no team, no token, no token trust, no issued token and nothing else', () => {
       expect(() =>
-        kept().delete([TeamKey.of('core')], [], [], [], Dependents.none(), BY),
+        stored().delete(
+          [TeamKey.of('core')],
+          [],
+          [],
+          [],
+          Dependents.none(),
+          BY,
+        ),
       ).toThrow(/It still has: team core/);
       expect(() =>
-        kept().delete([], [TokenName.of('ci')], [], [], Dependents.none(), BY),
+        stored().delete(
+          [],
+          [TokenName.of('ci')],
+          [],
+          [],
+          Dependents.none(),
+          BY,
+        ),
       ).toThrow(/It still has: token ci/);
       expect(() =>
-        kept().delete(
+        stored().delete(
           [],
           [],
           [TokenTrustKey.of('github-main')],
@@ -459,7 +473,7 @@ describe('Workspace', () => {
         ),
       ).toThrow(/It still has: token trust github-main/);
       expect(() =>
-        kept().delete(
+        stored().delete(
           [],
           [],
           [],
@@ -469,7 +483,7 @@ describe('Workspace', () => {
         ),
       ).toThrow(/It still has: tokens issued by github-main/);
       expect(() =>
-        kept().delete(
+        stored().delete(
           [],
           [],
           [],
@@ -479,7 +493,7 @@ describe('Workspace', () => {
         ),
       ).toThrow(/It still has: secret LINEAR_API_KEY/);
 
-      const deleted = kept().delete([], [], [], [], Dependents.none(), BY);
+      const deleted = stored().delete([], [], [], [], Dependents.none(), BY);
 
       expect(deleted.isDeleted).toBe(true);
       expect(deleted.pullEvents()).toEqual([

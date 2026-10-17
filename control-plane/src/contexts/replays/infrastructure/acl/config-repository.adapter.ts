@@ -15,9 +15,9 @@ import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-const reaching = async <T>(asking: () => Promise<T>): Promise<T> => {
+const withRepositoryErrors = async <T>(call: () => Promise<T>): Promise<T> => {
   try {
-    return await asking();
+    return await call();
   } catch (error) {
     if (
       error instanceof RepositoryUnreachableError ||
@@ -50,7 +50,7 @@ export class ConfigRepository implements ConfigRepositoryPort {
     path: string,
     commit?: string,
   ): Promise<ConfigFile | null> {
-    const found = await reaching(() =>
+    const found = await withRepositoryErrors(() =>
       this.contents.fileAt(workspaceId, repository, path, commit),
     );
 
@@ -64,7 +64,7 @@ export class ConfigRepository implements ConfigRepositoryPort {
     repository: Repository,
     commit: ConfigCommit,
   ): Promise<string> {
-    return reaching(() =>
+    return withRepositoryErrors(() =>
       this.contents.committed(workspaceId, repository, {
         branch: commit.branch,
         base: commit.base,
@@ -83,7 +83,7 @@ export class ConfigRepository implements ConfigRepositoryPort {
     repository: Repository,
     opening: ConfigPullRequestOpening,
   ): Promise<string> {
-    const opened = await reaching(() =>
+    const opened = await withRepositoryErrors(() =>
       this.pullRequests.open({
         workspaceId,
         repository,

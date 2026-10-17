@@ -6,7 +6,7 @@ func TestProgressAdvancesThroughLegalSteps(t *testing.T) {
 	lifecycle := &progress{state: Preparing}
 
 	for _, trigger := range []Trigger{WorkspaceReady, AgentStarted, AgentExited, Drained} {
-		if err := lifecycle.reach(trigger); err != nil {
+		if err := lifecycle.advance(trigger); err != nil {
 			t.Fatalf("%s: %v", trigger, err)
 		}
 	}
@@ -19,7 +19,7 @@ func TestProgressAdvancesThroughLegalSteps(t *testing.T) {
 func TestProgressRejectsAnIllegalStepAndStaysPut(t *testing.T) {
 	lifecycle := &progress{state: Preparing}
 
-	if err := lifecycle.reach(Drained); err == nil {
+	if err := lifecycle.advance(Drained); err == nil {
 		t.Fatal("draining before running should be rejected")
 	}
 

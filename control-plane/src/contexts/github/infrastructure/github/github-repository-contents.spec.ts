@@ -178,7 +178,7 @@ describe('GitHubRepositoryContents', () => {
     ).toBeNull();
   });
 
-  it('rejects a repository the installation cannot reach', async () => {
+  it('rejects a repository the installation cannot access', async () => {
     github({ unreachable: true });
 
     await expect(

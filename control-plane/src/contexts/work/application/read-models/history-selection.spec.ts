@@ -18,7 +18,7 @@ const outcome: RunOutcomeShape = {
 };
 
 describe('history selection', () => {
-  it('reads thirty runs unless asked, and never more than fifty', () => {
+  it('reads thirty runs unless requested, and never more than fifty', () => {
     expect(historyLength(null)).toBe(30);
     expect(historyLength(0)).toBe(30);
     expect(historyLength(12.7)).toBe(12);

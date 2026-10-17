@@ -34,7 +34,7 @@ const administers = () => scenario().account !== 'member';
 const NOT_PENDING_BECAUSE: Record<EndedInvite | 'expired', string> = {
   accepted: 'This invite has already been accepted.',
   revoked: 'This invite has been revoked.',
-  expired: 'This invite has expired. Please ask for a new one.',
+  expired: 'This invite has expired. Please request a new one.',
 };
 
 const endedInvite = (inviteId: unknown) =>
@@ -81,7 +81,7 @@ const roleAssignmentDenial = (
       : [403, 'You can only set roles for people below you.'];
   }
   if (RANK[mine] < RANK[role]) {
-    return [403, 'You cannot give a role above your own.'];
+    return [403, 'You cannot assign a role above your own.'];
   }
   if (lastOwner(person) && role !== 'owner') {
     return [409, LAST_OWNER];
@@ -96,9 +96,11 @@ const teamsOf = (personId: string) =>
   );
 
 const mayBeSetToOf = (person: WorkspacePerson): Role[] => {
-  const givable = ROLES.filter((each) => !roleAssignmentDenial(person, each));
+  const assignable = ROLES.filter(
+    (each) => !roleAssignmentDenial(person, each),
+  );
 
-  return givable.length > 1 ? givable : [];
+  return assignable.length > 1 ? assignable : [];
 };
 
 const memberOf = (person: WorkspacePerson): WorkspaceMemberResponseDto => ({

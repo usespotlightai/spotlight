@@ -7,9 +7,9 @@ import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/c
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { ReadySkillFolder } from '@work/application/dto/ready-skill.dto';
-import { CatalogGivenMapper } from '@work/application/mappers/catalog-given.mapper';
+import { CatalogEntitledMapper } from '@work/application/mappers/catalog-entitled.mapper';
 import type {
-  ReachableTool,
+  ResolvedTool,
   ToolContext,
 } from '@work/application/ports/integration-tools.port';
 import { LineProblems } from '@work/application/rendering/line-problems';
@@ -29,12 +29,12 @@ interface Named {
   readonly at: FieldPath;
 }
 
-interface Giving {
+interface StationItems {
   readonly tools: readonly Tool[];
   readonly skills: readonly SkillKey[];
 }
 
-const fromCatalog = ({ tools, skills }: Giving): CatalogNamed => ({
+const fromCatalog = ({ tools, skills }: StationItems): CatalogNamed => ({
   tools: tools
     .filter((each) => each.origin === 'catalog')
     .map((each) => each.value),
@@ -60,7 +60,7 @@ const namedIn = (plan: LinePlan): Named[] =>
     );
   });
 
-const asked = (named: CatalogNamed): boolean =>
+const namesAny = (named: CatalogNamed): boolean =>
   named.tools.length > 0 || named.skills.length > 0;
 
 export interface CatalogAtStation {
@@ -74,19 +74,19 @@ const NOTHING: CatalogAtStation = { skills: [], tools: [], denied: [] };
 export class StationCatalog {
   constructor(private readonly catalog: CatalogPort) {}
 
-  async givenAt(line: Line, station: Station): Promise<CatalogAtStation> {
+  async enabledAt(line: Line, station: Station): Promise<CatalogAtStation> {
     const named = fromCatalog(station);
 
-    if (!asked(named)) {
+    if (!namesAny(named)) {
       return NOTHING;
     }
 
-    const given = await this.catalog.givenTo(line.workspaceId, named);
+    const entitled = await this.catalog.entitledTo(line.workspaceId, named);
 
     return {
-      skills: given.skills.map(CatalogGivenMapper.toFolder),
-      tools: given.tools.map(CatalogGivenMapper.toDeclared),
-      denied: given.denied.map(CatalogGivenMapper.toDenied),
+      skills: entitled.skills.map(CatalogEntitledMapper.toFolder),
+      tools: entitled.tools.map(CatalogEntitledMapper.toDeclared),
+      denied: entitled.denied.map(CatalogEntitledMapper.toDenied),
     };
   }
 
@@ -100,7 +100,7 @@ export class StationCatalog {
       return [];
     }
 
-    const given = await this.catalog.givenTo(workspaceId, {
+    const entitled = await this.catalog.entitledTo(workspaceId, {
       tools: named
         .filter((each) => each.field === 'tools')
         .map((each) => each.id),
@@ -110,12 +110,12 @@ export class StationCatalog {
     });
     const bringing = (denial: CatalogDenial): readonly string[] => [
       denial.id,
-      ...given.skills
+      ...entitled.skills
         .filter((skill) => skill.tools.includes(denial.id))
         .map((skill) => skill.id),
     ];
 
-    return given.denied.flatMap((denial) =>
+    return entitled.denied.flatMap((denial) =>
       named
         .filter((each) => bringing(denial).includes(each.id))
         .map((each) =>
@@ -124,32 +124,32 @@ export class StationCatalog {
     );
   }
 
-  async reach(
+  async resolve(
     tool: Tool,
     run: Run,
     context: ToolContext,
-  ): Promise<ReachableTool | null> {
+  ): Promise<ResolvedTool | null> {
     const pinned = run.pinnedFor(tool);
 
     if (!pinned) {
       return null;
     }
 
-    const given = await this.catalog.givenTo(context.workspaceId, {
+    const entitled = await this.catalog.entitledTo(context.workspaceId, {
       tools: [pinned.value],
       skills: [],
     });
-    const [denied] = given.denied;
+    const [denied] = entitled.denied;
 
     if (denied) {
-      throw new CatalogItemDeniedError(CatalogGivenMapper.toDenied(denied));
+      throw new CatalogItemDeniedError(CatalogEntitledMapper.toDenied(denied));
     }
 
-    const found = given.tools.find((each) => each.id === pinned.value);
+    const found = entitled.tools.find((each) => each.id === pinned.value);
 
     return found
       ? {
-          declared: CatalogGivenMapper.toDeclared(found),
+          declared: CatalogEntitledMapper.toDeclared(found),
           actingAs: null,
           wants: null,
           personRule: null,
@@ -164,7 +164,7 @@ export class StationCatalog {
 
             if (answer.kind === 'denied') {
               throw new CatalogItemDeniedError(
-                CatalogGivenMapper.toDenied(answer.denial),
+                CatalogEntitledMapper.toDenied(answer.denial),
               );
             }
 

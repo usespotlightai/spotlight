@@ -31,8 +31,8 @@ const GRAFANA: SkillFolder = {
 const listing = (teamId = 'team_1') =>
   new TeamSkillsHandler(
     {
-      viewedBy: vi.fn(async (asked: string) =>
-        asked === 'team_1'
+      viewedBy: vi.fn(async (id: string) =>
+        id === 'team_1'
           ? { teamId: TeamId.of('team_1'), workspaceId: WorkspaceId.of('ws_1') }
           : null,
       ),

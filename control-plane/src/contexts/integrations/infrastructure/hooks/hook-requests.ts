@@ -26,7 +26,7 @@ type Fetch = typeof globalThis.fetch;
 
 const NETWORK_PATIENCE_MS = 2 * 60 * 1000;
 
-const MAX_KEPT = 16 * 1024;
+const MAX_STORED_BYTES = 16 * 1024;
 
 export interface HookRequest {
   readonly hook: ListeningHook;
@@ -82,8 +82,8 @@ const described = (error: unknown): string => {
     : String(error);
 };
 
-const kept = (text: string): unknown => {
-  const trimmed = text.slice(0, MAX_KEPT);
+const storedBody = (text: string): unknown => {
+  const trimmed = text.slice(0, MAX_STORED_BYTES);
 
   try {
     return JSON.parse(trimmed);
@@ -103,7 +103,7 @@ const firstOf = async (reply: Response): Promise<string> => {
   let size = 0;
 
   try {
-    while (size < MAX_KEPT) {
+    while (size < MAX_STORED_BYTES) {
       const { done, value } = await reader.read();
 
       if (done) {
@@ -119,7 +119,7 @@ const firstOf = async (reply: Response): Promise<string> => {
     await reader.cancel().catch(() => {});
   }
 
-  return Buffer.concat(chunks).subarray(0, MAX_KEPT).toString('utf8');
+  return Buffer.concat(chunks).subarray(0, MAX_STORED_BYTES).toString('utf8');
 };
 
 const UNANSWERED = (error: string): Answered => ({
@@ -136,7 +136,7 @@ const fromAnswer = (answer: NetworkAnswer): Answered =>
     : {
         reply: HookReply.answered(
           answer.status,
-          kept(Buffer.from(answer.body).toString('utf8')),
+          storedBody(Buffer.from(answer.body).toString('utf8')),
         ),
         error: answer.error,
       };
@@ -202,7 +202,10 @@ export class HookRequests {
       });
 
       answered = {
-        reply: HookReply.answered(reply.status, kept(await firstOf(reply))),
+        reply: HookReply.answered(
+          reply.status,
+          storedBody(await firstOf(reply)),
+        ),
         error: null,
       };
     } catch (error) {
@@ -247,7 +250,7 @@ export class HookRequests {
 
       if (!secret) {
         throw new Error(
-          'has no secret to sign with. Spotlight sent nothing. Please give the hook a new secret with a higher secretVersion',
+          'has no secret to sign with. Spotlight sent nothing. Please set a new secret for the hook with a higher secretVersion',
         );
       }
 
@@ -283,7 +286,7 @@ export class HookRequests {
       request.waiting === 'until-answered'
         ? request.deadline
         : new Date(started.getTime() + NETWORK_PATIENCE_MS);
-    const asked: NetworkRequest = {
+    const networkRequest: NetworkRequest = {
       method: 'POST',
       url: request.url,
       headers,
@@ -298,7 +301,7 @@ export class HookRequests {
     };
     const call = await this.network.queue(
       request.moment.task.workspaceId,
-      asked,
+      networkRequest,
       patience,
     );
 
@@ -392,7 +395,7 @@ export class HookRequests {
         step: request.step,
         kind: 'request',
         target: request.url,
-        request: { headers: shown, body: kept(request.body) },
+        request: { headers: shown, body: storedBody(request.body) },
         response: answered.error ?? reply.body,
         status: reply.status,
         failed: failure !== null,
@@ -421,7 +424,7 @@ export class HookRequests {
         step: request.step,
         kind: 'request',
         target: request.url,
-        request: { body: kept(request.body) },
+        request: { body: storedBody(request.body) },
         response: failure.reason,
         status: null,
         failed: true,

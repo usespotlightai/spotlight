@@ -9,7 +9,7 @@ import type { ModelCall } from '@shared-kernel/domain/value-objects/model-usage.
 
 export const JUDGE = Symbol('OUTCOMES_JUDGE');
 
-export interface JudgeAsk {
+export interface JudgeRequest {
   readonly rubric: string | null;
   readonly claims: readonly string[];
   readonly scale: ScoreKind;
@@ -32,5 +32,5 @@ export interface JudgePort {
 
   readonly model: string;
 
-  judge(ask: JudgeAsk): Promise<JudgeAnswer>;
+  judge(request: JudgeRequest): Promise<JudgeAnswer>;
 }

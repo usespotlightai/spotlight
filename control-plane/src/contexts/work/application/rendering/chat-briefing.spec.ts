@@ -43,7 +43,7 @@ const started = (traces: readonly TraceReference[] = []) =>
     teamId: TeamId.of('team_1'),
     startedBy: LEON,
     harness: HarnessId.of('claude-code'),
-    body: ChatMessageBody.given('Why did these fail?'),
+    body: ChatMessageBody.fromInput('Why did these fail?'),
     traces,
     now: NOW,
     newId: () => 'chat_1',
@@ -97,7 +97,7 @@ const followingUp = (chat: Chat, traces: readonly TraceReference[]) => {
     .endRun(RunId.of('run_1'))
     .addMessage({
       by: LEON,
-      body: ChatMessageBody.given('And this one?'),
+      body: ChatMessageBody.fromInput('And this one?'),
       traces,
       at: NOW,
     })
@@ -116,7 +116,7 @@ const improvingChat = () =>
     teamId: TeamId.of('team_1'),
     startedBy: LEON,
     harness: HarnessId.of('claude-code'),
-    body: ChatMessageBody.given('Improve this station.'),
+    body: ChatMessageBody.fromInput('Improve this station.'),
     improving: IMPLEMENTATION,
     now: NOW,
     newId: () => 'chat_1',
@@ -156,7 +156,7 @@ describe('ChatBriefing', () => {
     expect(brief(started())).not.toContain('spotlight history');
   });
 
-  it('gives the command for each shared trace, and how to read one', () => {
+  it('names the command for each shared trace, and how to read one', () => {
     const briefed = brief(started([traceOf('task_1', 'Retries back off')]));
 
     expect(briefed).toContain(
@@ -197,7 +197,7 @@ describe('ChatBriefing', () => {
     expect(followed).not.toContain('## Reading a trace');
   });
 
-  it('gives a fresh chat what the team has learned', () => {
+  it('briefs a fresh chat with what the team has learned', () => {
     const briefing = brief(started(), [
       {
         id: 'memory_1',
@@ -213,7 +213,7 @@ describe('ChatBriefing', () => {
     );
   });
 
-  it('points a chat at the memory folder, without the line or station, and never asks it to remember', () => {
+  it('points a chat at the memory folder, without the line or station, and never tells it to remember', () => {
     const briefing = brief(started(), [], {
       path: '.spotlight/memory',
       layout: [
@@ -244,13 +244,13 @@ describe('ChatBriefing', () => {
       teamId: TeamId.of('team_1'),
       startedBy: LEON,
       harness: HarnessId.of('claude-code'),
-      body: ChatMessageBody.given('Set up our configuration.'),
+      body: ChatMessageBody.fromInput('Set up our configuration.'),
       setup: ConfigHome.of({ repository: 'acme/infra', folder: 'spotlight' }),
       now: NOW,
       newId: () => 'chat_1',
     });
 
-    it('asks for a pull request with the team’s Terraform, never an apply', () => {
+    it('requests a pull request with the team’s Terraform, never an apply', () => {
       const briefing = brief(setup);
 
       expect(briefing).toContain('Spotlight configuration as code');

@@ -318,7 +318,7 @@ describe('runner pools (e2e)', () => {
       });
     });
 
-    it('issues a token Terraform does not keep when none is given', async () => {
+    it('issues a token Terraform does not store when none is given', async () => {
       const made = await create({ key: 'ephemeral' }).expect(201);
       const issued = made.headers[POOL_TOKEN_HEADER.toLowerCase()] as string;
       await queue();
@@ -339,7 +339,7 @@ describe('runner pools (e2e)', () => {
       await claimWith(tokenOf('z')).expect(401);
     });
 
-    it('gives out no more runs at once than maxRuns, keeping a host that asks for more waiting out its poll', async () => {
+    it('gives out no more runs at once than maxRuns, keeping a host that requests more waiting out its poll', async () => {
       const token = tokenOf('c');
       await create({ key: 'ephemeral', token, maxRuns: 1 }).expect(201);
       await heartbeat(token).expect(200);
@@ -347,10 +347,10 @@ describe('runner pools (e2e)', () => {
       await queue();
 
       await claimWith(token).expect(200);
-      const asked = Date.now();
+      const requestedAt = Date.now();
       await claimWith(token).expect(204);
 
-      expect(Date.now() - asked).toBeGreaterThanOrEqual(E2E_LONG_POLL_MS);
+      expect(Date.now() - requestedAt).toBeGreaterThanOrEqual(E2E_LONG_POLL_MS);
     });
 
     it('rotates its token in place: the pool keeps its id, the old token stops working at once, and a claimed run finishes', async () => {
@@ -487,7 +487,7 @@ describe('runner pools (e2e)', () => {
       }).expect(200);
     });
 
-    it('lets only one pool use a token when two ask for it at once', async () => {
+    it('lets only one pool use a token when two request it at once', async () => {
       const token = tokenOf('raced');
 
       const answers = await Promise.all(
@@ -534,7 +534,7 @@ describe('runner pools (e2e)', () => {
       ).toHaveLength(1);
     });
 
-    it('keeps only the sha256 of each used token, never the token', async () => {
+    it('stores only the sha256 of each used token, never the token', async () => {
       const first = tokenOf('first');
       const second = tokenOf('second');
       const made = await create({
@@ -678,7 +678,7 @@ describe('runner pools (e2e)', () => {
   });
 
   describe('a host', () => {
-    it('is recorded at its first heartbeat, and kept current after', async () => {
+    it('is recorded at its first heartbeat, and updated after', async () => {
       const token = tokenOf('j');
       const pool = await create({ key: 'ephemeral', token }).expect(201);
 
@@ -728,7 +728,7 @@ describe('runner pools (e2e)', () => {
       );
     });
 
-    it('keeps one way in for its life, rejecting the same host id through another pool', async () => {
+    it('keeps one credential source for its life, rejecting the same host id through another pool', async () => {
       const token = tokenOf('k');
       const other = tokenOf('l');
       await create({ key: 'ephemeral', token }).expect(201);
@@ -745,8 +745,8 @@ describe('runner pools (e2e)', () => {
       await create({ key: 'ephemeral', token }).expect(201);
       await queue();
 
-      const unheard = await claimWith(token).expect(409);
-      expect(unheard.body).toMatchObject({ reason: 'host-unreported' });
+      const offline = await claimWith(token).expect(409);
+      expect(offline.body).toMatchObject({ reason: 'host-unreported' });
       expect(await hostRow()).toBeNull();
     });
 
@@ -813,7 +813,7 @@ describe('runner pools (e2e)', () => {
       expect(fleet.body.runners).toEqual([
         expect.objectContaining({
           id: claimed.body.runnerId,
-          through: { kind: 'pool', key: null },
+          source: { kind: 'pool', key: null },
           hostId: HOST,
         }),
       ]);
@@ -893,7 +893,7 @@ describe('runner pools (e2e)', () => {
           {
             id: HOST,
             name: 'build-box',
-            through: { kind: 'pool', key: 'ephemeral' },
+            source: { kind: 'pool', key: 'ephemeral' },
             release: '0.1.0',
             containerRuntime: 'docker',
             capacity: 2,
@@ -925,7 +925,7 @@ describe('runner pools (e2e)', () => {
         runners: [
           {
             id: claimed.body.runnerId,
-            through: { kind: 'pool', key: 'ephemeral' },
+            source: { kind: 'pool', key: 'ephemeral' },
             hostId: HOST,
             image: DEFAULT_IMAGE,
             harnesses: ['dev'],

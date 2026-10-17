@@ -164,7 +164,7 @@ describe('checking an expression where a definition contains it', () => {
     ]);
   });
 
-  it('gives item only to an event that walks a list', () => {
+  it('provides item only to an event that walks a list', () => {
     expect(checked(WALKING, 'item.done').errors).toEqual([]);
     expect(checked(WHEN, 'item.done').errors[0]?.message).toBe(
       'Unknown variable: item',
@@ -175,14 +175,14 @@ describe('checking an expression where a definition contains it', () => {
     ).toBe('Unknown variable: item');
   });
 
-  it('gives a raise what its lookup captured', () => {
+  it('provides a raise with what its lookup captured', () => {
     expect(
       checked('integration.webhook.events[1].raise.message', 'issue.title')
         .errors,
     ).toEqual([]);
   });
 
-  it('gives an action the inputs of the tools that do it, as their types', () => {
+  it('provides an action with the inputs of the tools that do it, as their types', () => {
     const position = 'integration.actions.comment.request.body.urgent';
 
     expect(checked(position, 'inputs.urgent')).toMatchObject({
@@ -213,7 +213,7 @@ describe('checking an expression where a definition contains it', () => {
     expect(checked(position, 'body.data.identifer').errors).toEqual([]);
   });
 
-  it('warns where a capture shadows a name Spotlight gives', () => {
+  it('warns where a capture shadows a name Spotlight provides', () => {
     expect(
       checked('integration.webhook.events[1].raise.message', 'issue.title')
         .warnings,
@@ -320,7 +320,7 @@ describe('the check and the compiler', () => {
   it.each([
     ['a plain definition', LINEAR],
     ['a hinted definition', HINTED],
-  ])('reach the same verdict on every expression in %s', (_, definition) => {
+  ])('return the same verdict on every expression in %s', (_, definition) => {
     const compiled = placesOf(definition);
     const warnings = compiled.warnings;
     const verdicts = new Map<string, string[]>();
@@ -501,14 +501,14 @@ describe('the positions an expression is written at', () => {
       },
     });
 
-    const reached = new Set(
+    const covered = new Set(
       VERIFIES.flatMap((verify) => [
         ...placesOf(verifying(verify)).places.values(),
       ]).map((place) => place.position.position.rendered),
     );
 
     it('lists every position an integration has an expression at, and no other', () => {
-      expect(reached).toEqual(
+      expect(covered).toEqual(
         new Set(EXPRESSION_POSITIONS.map((each) => each.position.rendered)),
       );
     });

@@ -28,7 +28,7 @@ const seeded = (): Search =>
   );
 
 const withTerse = (): Search =>
-  seeded().admitted(RunId.of('search_run_1'), {
+  seeded().acceptProposal(RunId.of('search_run_1'), {
     candidateId: CandidateId.of('candidate_terse'),
     name: CandidateName.searched('terse'),
     replayId: ReplayId.of('replay_terse'),

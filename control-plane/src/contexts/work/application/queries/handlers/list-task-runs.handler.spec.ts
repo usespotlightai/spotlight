@@ -80,7 +80,7 @@ describe('ListTaskRunsHandler', () => {
     expect(only?.station).toBeNull();
   });
 
-  it('asks only for the runs of the task the viewer named', async () => {
+  it('requests only the runs of the task the viewer named', async () => {
     const { runs, listForTask } = reading([]);
 
     await new ListTaskRunsHandler(runs).execute(

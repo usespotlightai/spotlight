@@ -349,7 +349,7 @@ const buildStory = (context: Context): Omit<RunStory, 'spend'> => {
   const known = knownTaskNote(context.run.taskId);
   const summary = failedChecks
     ? (known?.fail ?? 'One test still fails.')
-    : (known?.pass ?? 'Did what the spec asks and kept the tests passing.');
+    : (known?.pass ?? 'Did what the spec says and kept the tests passing.');
   const brief =
     context.run.stationId === 'station_build'
       ? `docs/experiments/${slugOf(context.title)}.md`
@@ -707,8 +707,8 @@ export const timedSteps = (
       ms: timed.ms,
       startedAt: new Date(timed.startedAt).toISOString(),
       locations: script.locations ?? [],
-      given: null,
-      returned: null,
+      input: null,
+      output: null,
       change: script.change ?? null,
     };
   });

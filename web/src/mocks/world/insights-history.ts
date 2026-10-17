@@ -59,7 +59,7 @@ export type HistoryRun = InsightsRunResponseDto & {
   readonly at: number;
   readonly size: RunSize;
   readonly judge: number | null;
-  readonly skillsGiven: readonly string[];
+  readonly skillsEnabled: readonly string[];
   readonly skillsUsed: readonly string[];
   readonly calls: readonly ServerCalls[];
 };
@@ -174,19 +174,19 @@ const tokensOf = (draw: Draw, profile: Profile, amount: number | null) => {
   };
 };
 
-const givenAnywhere = (profile: Profile, skill: string): boolean =>
+const enabledAnywhere = (profile: Profile, skill: string): boolean =>
   profile.versions.some((version) => version.skills.includes(skill));
 
 const skillsUsedOf = (
   draw: Draw,
   profile: Profile,
-  given: readonly string[],
+  enabled: readonly string[],
 ): string[] =>
   profile.uses
     .filter(
       ([skill, share]) =>
         chance(draw, share) &&
-        (given.includes(skill) || !givenAnywhere(profile, skill)),
+        (enabled.includes(skill) || !enabledAnywhere(profile, skill)),
     )
     .map(([skill]) => skill);
 
@@ -302,7 +302,7 @@ const makeRun = (
     at: endedAt,
     size: weighted(draw, SIZES[profile.stationId] ?? SMALL_ONLY),
     judge: judged === null ? null : Math.round(judged * 100) / 100,
-    skillsGiven: version.skills,
+    skillsEnabled: version.skills,
     skillsUsed: skillsUsedOf(draw, profile, version.skills),
     calls: callsOf(draw, profile),
   };
@@ -818,7 +818,7 @@ const worldRuns = (
         at: endedAt,
         size: profile.checks ? 'medium' : 'small',
         judge: null,
-        skillsGiven: version.skills,
+        skillsEnabled: version.skills,
         skillsUsed: skillsUsedOf(draw, profile, version.skills),
         calls: callsOf(draw, profile),
       });
@@ -891,7 +891,7 @@ const namedRunOf = (
     at: endedAt,
     size: 'medium',
     judge: null,
-    skillsGiven: version.skills,
+    skillsEnabled: version.skills,
     skillsUsed: skillsUsedOf(draw, profile, version.skills),
     calls: [],
   };

@@ -8,11 +8,11 @@ export class EgressUrl {
   private constructor(readonly value: string) {}
 
   static of(raw: string): EgressUrl {
-    const given = raw.trim();
+    const trimmed = raw.trim();
     let url: URL;
 
     try {
-      url = new URL(given);
+      url = new URL(trimmed);
     } catch {
       throw new InvalidEgressError(
         'url',
@@ -27,18 +27,18 @@ export class EgressUrl {
     if (url.username || url.password) {
       throw new InvalidEgressError(
         'url',
-        'must carry no credentials. Runners give their proxy credential',
+        'must carry no credentials. Runners send their proxy credential',
       );
     }
 
-    if (url.hash || url.search || given.length > MAX_LENGTH) {
+    if (url.hash || url.search || trimmed.length > MAX_LENGTH) {
       throw new InvalidEgressError(
         'url',
         `must be at most ${MAX_LENGTH} characters, with no query and no fragment`,
       );
     }
 
-    return new EgressUrl(given);
+    return new EgressUrl(trimmed);
   }
 
   get isSecure(): boolean {

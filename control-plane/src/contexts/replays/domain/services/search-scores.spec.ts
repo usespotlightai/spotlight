@@ -34,12 +34,12 @@ const searchWith = (): Search => {
       ids,
       true,
     )
-    .admitted(RUN_ONE, {
+    .acceptProposal(RUN_ONE, {
       candidateId: CandidateId.of('candidate_terse'),
       name: CandidateName.searched('terse'),
       replayId: ReplayId.of('replay_terse'),
     })
-    .admitted(RUN_ONE, {
+    .acceptProposal(RUN_ONE, {
       candidateId: CandidateId.of('candidate_wordy'),
       name: CandidateName.searched('wordy'),
       replayId: ReplayId.of('replay_wordy'),
@@ -136,7 +136,7 @@ describe('scoresOf', () => {
     expect(second?.searchedPairs).toBeNull();
   });
 
-  it('gives a held-out score once the candidate’s held-out replay finished, and feeds the frontier', () => {
+  it('shows a held-out score once the candidate’s held-out replay finished, and feeds the frontier', () => {
     const ids = searchRunIds();
     let search = searchWith()
       .recordRunEnd(RUN_ONE, { failed: false, started: true }, later(1), ids)

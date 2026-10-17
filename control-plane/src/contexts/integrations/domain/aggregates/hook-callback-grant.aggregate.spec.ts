@@ -42,14 +42,14 @@ describe('HookCallbackGrant', () => {
     expect(grant().coversTaskIn(WorkspaceId.of('workspace_2'))).toBe(false);
   });
 
-  it('hears a retried note once, by the firing it came from or else by its hook', () => {
-    expect(grant().noteHeardAs('note-7')).toBe(
+  it('records a retried note once, by the firing it came from or else by its hook', () => {
+    expect(grant().noteIdempotencyKey('note-7')).toBe(
       'callback:task_1:firing_1:note-7',
     );
-    expect(grant(null).noteHeardAs('note-7')).toBe(
+    expect(grant(null).noteIdempotencyKey('note-7')).toBe(
       'callback:task_1:dba-review:note-7',
     );
-    expect(grant().noteHeardAs(null)).toBeNull();
+    expect(grant().noteIdempotencyKey(null)).toBeNull();
   });
 
   it('is caused by a callback from its hook', () => {

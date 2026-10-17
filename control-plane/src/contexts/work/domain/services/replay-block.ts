@@ -7,7 +7,7 @@ export interface ReplayFacts {
   readonly inWorkspace: boolean;
   readonly ended: boolean;
   readonly startedFrom: boolean;
-  readonly archive: 'none' | 'kept' | 'gone';
+  readonly archive: 'none' | 'stored' | 'gone';
   readonly briefed: boolean;
   readonly taskExists: boolean;
 }
@@ -47,7 +47,7 @@ export const replayBlockOf = (
   if (!facts.briefed) {
     return {
       unreplayableReason: 'no-briefing',
-      reason: 'Its task briefing was not kept.',
+      reason: 'Its task briefing was not stored.',
     };
   }
   if (!facts.taskExists) {
@@ -56,7 +56,7 @@ export const replayBlockOf = (
   if (facts.archive === 'gone') {
     return {
       unreplayableReason: 'archive-gone',
-      reason: 'The workspace archive that it started from is no longer kept.',
+      reason: 'The workspace archive that it started from is no longer stored.',
     };
   }
 

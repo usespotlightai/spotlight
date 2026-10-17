@@ -22,7 +22,7 @@ import {
   callEndingOf,
   harnessToolOf,
   readingPaths,
-  skillAskedFor,
+  requestedSkillOf,
 } from '@work/infrastructure/acp/harness-tools';
 import {
   decoded,
@@ -97,7 +97,7 @@ const changed = (content: Content | undefined): StepChange | null => {
     : null;
 };
 
-const reached = (
+const locationsOf = (
   locations: { path?: string; line?: number }[] | undefined,
 ): StepLocation[] =>
   (locations ?? []).flatMap((each) =>
@@ -182,8 +182,8 @@ interface Building {
   named: string | null;
   detail: string | null;
   locations: StepLocation[];
-  given: string | null;
-  returned: string | null;
+  input: string | null;
+  output: string | null;
   change: StepChange | null;
   startedAt: Date;
   workingAt: Date | null;
@@ -199,8 +199,8 @@ const bare = (kind: StepKind, text: string, at: Date): Building => ({
   named: null,
   detail: null,
   locations: [],
-  given: null,
-  returned: null,
+  input: null,
+  output: null,
   change: null,
   startedAt: at,
   workingAt: null,
@@ -330,7 +330,7 @@ export class JournalBuilder {
         this.addText('thought', textOf(update.content), at);
         break;
       case 'tool_call':
-        this.reachFor(update, at);
+        this.startTool(update, at);
         break;
       case 'tool_call_update':
         this.went(update, at);
@@ -422,8 +422,8 @@ export class JournalBuilder {
       ms: typeof called.ms === 'number' ? called.ms : 0,
       startedAt: startedAt(called, event.at),
       locations: [],
-      given: written(called.request),
-      returned: written(called.response),
+      input: written(called.request),
+      output: written(called.response),
       change: null,
     });
   }
@@ -482,10 +482,10 @@ export class JournalBuilder {
     return {
       server: tool.server,
       tool: tool.tool,
-      skillAskedFor: skillAskedFor(tool, step.given),
+      requestedSkill: requestedSkillOf(tool, step.input),
       paths: readingPaths(tool, step.tool, [
         ...step.locations.map((each) => each.path),
-        step.given,
+        step.input,
       ]),
       ms:
         ending === 'unfinished'
@@ -603,7 +603,7 @@ export class JournalBuilder {
     this.#textStep = bare(kind, text, at);
   }
 
-  private reachFor(
+  private startTool(
     update: NonNullable<AcpNotification['update']>,
     at: Date,
   ): void {
@@ -620,8 +620,8 @@ export class JournalBuilder {
     step.tool = update.kind ?? null;
     step.named = toolNameOf(update);
     step.workingAt = update.status === WORKING ? at : null;
-    step.locations = reached(update.locations);
-    step.given = written(update.rawInput);
+    step.locations = locationsOf(update.locations);
+    step.input = written(update.rawInput);
 
     this.#steps.push(step);
 
@@ -640,7 +640,7 @@ export class JournalBuilder {
     }
 
     const came = textOf(update.content);
-    const locations = reached(update.locations);
+    const locations = locationsOf(update.locations);
 
     this.#steps[found] = {
       ...step,
@@ -650,8 +650,8 @@ export class JournalBuilder {
       named: toolNameOf(update) ?? step.named,
       detail: came ? unfenced(came).slice(0, DETAIL_LIMIT) : step.detail,
       locations: locations.length > 0 ? locations : step.locations,
-      given: written(update.rawInput) ?? step.given,
-      returned: written(update.rawOutput) ?? step.returned,
+      input: written(update.rawInput) ?? step.input,
+      output: written(update.rawOutput) ?? step.output,
       change: changed(update.content) ?? step.change,
       workingAt: step.workingAt ?? (update.status === WORKING ? at : null),
       endedAt:

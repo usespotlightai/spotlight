@@ -1,15 +1,15 @@
 import { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
 import { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import { ReplaySet } from '@replays/domain/aggregates/replay-set.aggregate';
-import { ReplayBaselineWanted } from '@replays/domain/events/replay-baseline-wanted.event';
+import { ReplayBaselineRequested } from '@replays/domain/events/replay-baseline-requested.event';
 import { ReplayEnded } from '@replays/domain/events/replay-ended.event';
 import { ReplayEntryConcluded } from '@replays/domain/events/replay-entry-concluded.event';
-import { ReplayJudgingWanted } from '@replays/domain/events/replay-judging-wanted.event';
+import { ReplayJudgingRequested } from '@replays/domain/events/replay-judging-requested.event';
 import { ReplayOverBudget } from '@replays/domain/events/replay-over-budget.event';
-import { ReplayRecheckWanted } from '@replays/domain/events/replay-recheck-wanted.event';
-import { ReplayRejudgingWanted } from '@replays/domain/events/replay-rejudging-wanted.event';
+import { ReplayRecheckRequested } from '@replays/domain/events/replay-recheck-requested.event';
+import { ReplayRejudgingRequested } from '@replays/domain/events/replay-rejudging-requested.event';
 import { ReplayStarted } from '@replays/domain/events/replay-started.event';
-import { ReplayStopAsked } from '@replays/domain/events/replay-stop-asked.event';
+import { ReplayStopRequested } from '@replays/domain/events/replay-stop-requested.event';
 import { ReplayStopped } from '@replays/domain/events/replay-stopped.event';
 import { InvalidReplayError } from '@replays/domain/exceptions/invalid-replay.error';
 import { InvalidSpendError } from '@replays/domain/exceptions/invalid-spend.error';
@@ -55,8 +55,8 @@ const SEARCH = SearchId.of('search_1');
 const reserved = (replay: Replay, room: number): Replay =>
   replay.reserving(room, runIds());
 
-const stopAsked = (replay: Replay) =>
-  new ReplayStopAsked(
+const stopRequested = (replay: Replay) =>
+  new ReplayStopRequested(
     replay.id,
     replay.teamId,
     ConfigurationChange.updated(
@@ -80,7 +80,7 @@ describe('Replay', () => {
       expect(replay.isUnderway).toBe(true);
     });
 
-    it('replays each run as many times as asked, every first copy before any second, each at a place of its own', () => {
+    it('replays each run as many times as requested, every first copy before any second, each at a place of its own', () => {
       const replay = aReplay({ count: 2, repeats: 3 });
 
       expect(replay.repeats).toBe(3);
@@ -178,16 +178,16 @@ describe('Replay', () => {
       expect(Spend.ceiling(5, 'usd').currency).toBe('USD');
     });
 
-    it('adds spend up exactly, so a ceiling is reached on the very amount', () => {
+    it('adds spend up exactly, so spend meets a ceiling at the very amount', () => {
       const spent = Spend.of(0.1, 'USD').plus(Spend.of(0.2, 'USD'));
 
       expect(spent.amount).toBe(0.3);
-      expect(spent.reaches(Spend.ceiling(0.3, 'USD'))).toBe(true);
+      expect(spent.meets(Spend.ceiling(0.3, 'USD'))).toBe(true);
     });
   });
 
   describe('dispatching', () => {
-    it('gives runs to as many waiting entries as there is room for, in order, and is then running', () => {
+    it('hands runs to as many waiting entries as there is room for, in order, and is then running', () => {
       const replay = reserved(aReplay({ count: 3 }), 2);
 
       expect(replay.current).toBe('running');
@@ -200,7 +200,7 @@ describe('Replay', () => {
       expect(replay.unconfirmed).toHaveLength(2);
     });
 
-    it('gives out nothing without room', () => {
+    it('hands out nothing without room', () => {
       const replay = aReplay();
 
       expect(replay.reserving(0, runIds())).toBe(replay);
@@ -225,7 +225,7 @@ describe('Replay', () => {
       expect(replay.occupying).toEqual([]);
     });
 
-    it('ignores word of a run it never gave out', () => {
+    it('ignores word of a run it never handed out', () => {
       const replay = aReplay();
 
       expect(
@@ -270,7 +270,7 @@ describe('Replay', () => {
             }),
           ),
         ),
-        new ReplayBaselineWanted(
+        new ReplayBaselineRequested(
           replay.id,
           replay.workspaceId,
           replay.setId,
@@ -349,7 +349,7 @@ describe('Replay', () => {
         ...more,
       });
 
-    it('replays only the answered runs, keeps each answer and compares with the finished whole-set replay', () => {
+    it('replays only the answered runs, records each answer and compares with the finished whole-set replay', () => {
       const replay = handed(finishedLive());
 
       expect(replay.isOracle).toBe(true);
@@ -589,7 +589,7 @@ describe('Replay', () => {
   });
 
   describe('stopping', () => {
-    it('runs nothing more, and asks for its runs in flight to be stopped', () => {
+    it('runs nothing more, and requests its runs in flight to be stopped', () => {
       const replay = reserved(aReplay({ count: 3 }), 2)
         .confirm(run(0), FINGERPRINT, NOW)
         .stop(later(1), BY);
@@ -606,7 +606,7 @@ describe('Replay', () => {
       expect(replay.pullEvents()).toEqual([
         new ReplayStopped(replay.id, replay.workspaceId, [run(0), run(1)]),
         new ReplayEnded(replay.id, replay.workspaceId, null, 'stopped'),
-        stopAsked(replay),
+        stopRequested(replay),
       ]);
     });
 
@@ -662,7 +662,7 @@ describe('Replay', () => {
       expect(() => stopped.stop(NOW, BY)).toThrow(ReplayEndedError);
       expect(stopped.pullEvents()).toEqual([
         new ReplayStopped(stopped.id, stopped.workspaceId, [run(1)]),
-        stopAsked(stopped),
+        stopRequested(stopped),
       ]);
     });
   });
@@ -714,7 +714,7 @@ describe('Replay', () => {
       ).toBe('finished');
     });
 
-    it('asks its judge once its change stack is complete, once, then finishes on the verdict', () => {
+    it('requests judging once its change stack is complete, once, then finishes on the verdict', () => {
       const drafted = done(judging()).recordReview(
         run(0),
         drafting,
@@ -734,7 +734,7 @@ describe('Replay', () => {
       const wanted = reviewed.pullEvents();
 
       expect(wanted).toEqual([
-        new ReplayJudgingWanted(
+        new ReplayJudgingRequested(
           reviewed.id,
           reviewed.workspaceId,
           reviewed.candidateId,
@@ -807,7 +807,7 @@ describe('Replay', () => {
       ]);
     });
 
-    it('asks no more judging once stopped, leaving such entries unscored', () => {
+    it('requests no more judging once stopped, leaving such entries unscored', () => {
       const stopped = done(judging())
         .recordReview(run(0), drafting, null, later(62_000))
         .stop(later(62_500), BY);
@@ -821,7 +821,7 @@ describe('Replay', () => {
       );
 
       expect(reviewed.pullEvents().map((each) => each.kind)).not.toContain(
-        'replay.judging-wanted',
+        'replay.judging-requested',
       );
       expect(reviewed.entries[0]?.judging?.unjudged).toBe(
         'stopped-before-judging',
@@ -878,7 +878,7 @@ describe('Replay', () => {
       expect(replay.current).toBe('over-budget');
     });
 
-    it('asks no judge for a run that failed, which has failed already', () => {
+    it('requests no judging for a run that failed, which has failed already', () => {
       const replay = judging()
         .confirm(run(0), FINGERPRINT, NOW)
         .recordRunEnd(run(0), endOf('failed'))
@@ -886,7 +886,7 @@ describe('Replay', () => {
         .measure(run(0), measuresOf(1), later(63_000));
 
       expect(replay.pullEvents().map((each) => each.kind)).not.toContain(
-        'replay.judging-wanted',
+        'replay.judging-requested',
       );
       expect(replay.current).toBe('finished');
       expect(replay.entries[0]?.succeeded).toBe(false);
@@ -952,7 +952,7 @@ describe('Replay', () => {
   });
 
   describe('replaying some of its set', () => {
-    it('replays only the runs it was given, in its set’s order', () => {
+    it('replays only the runs it received, in its set’s order', () => {
       const replay = aReplay({
         count: 5,
         among: [RunId.of('original_3'), RunId.of('original_1')],
@@ -1114,7 +1114,7 @@ describe('Replay', () => {
       expect(aReplay({ candidate: live, repeats: 3 }).probe).toBe(false);
     });
 
-    it('once finished, asks its judge again of every judged run and to check again every run whose check passed or failed', () => {
+    it('once finished, requests a second judging of every judged run and a second check of every run whose check passed or failed', () => {
       const replay = probed();
       const events = replay.pullEvents();
 
@@ -1125,14 +1125,14 @@ describe('Replay', () => {
       expect(
         events.filter(
           (each) =>
-            each instanceof ReplayRejudgingWanted ||
-            each instanceof ReplayRecheckWanted,
+            each instanceof ReplayRejudgingRequested ||
+            each instanceof ReplayRecheckRequested,
         ),
       ).toEqual([
-        new ReplayRejudgingWanted(replay.id, replay.workspaceId, run(0)),
-        new ReplayRecheckWanted(replay.id, replay.workspaceId, run(0)),
-        new ReplayRejudgingWanted(replay.id, replay.workspaceId, run(1)),
-        new ReplayRecheckWanted(replay.id, replay.workspaceId, run(1)),
+        new ReplayRejudgingRequested(replay.id, replay.workspaceId, run(0)),
+        new ReplayRecheckRequested(replay.id, replay.workspaceId, run(0)),
+        new ReplayRejudgingRequested(replay.id, replay.workspaceId, run(1)),
+        new ReplayRecheckRequested(replay.id, replay.workspaceId, run(1)),
       ]);
       expect(
         replay.entries.map((each) => [
@@ -1145,7 +1145,7 @@ describe('Replay', () => {
       ]);
     });
 
-    it('keeps the second verdicts and rechecks beside the first, says where they agree, and charges the second judging to its ceiling but not to what its runs cost', () => {
+    it('records the second verdicts and rechecks beside the first, says where they agree, and charges the second judging to its ceiling but not to what its runs cost', () => {
       const replay = probed();
       const spentBefore = replay.spent.amount;
       const answered = replay
@@ -1189,7 +1189,7 @@ describe('Replay', () => {
       expect(replay.entries[0]?.checksFlipped).toBeNull();
     });
 
-    it('asks the judge again only of as many runs as the ceiling has room for, at what their first judging cost, and checks them all again', () => {
+    it('requests a second judging only of as many runs as the ceiling has room for, at what their first judging cost, and checks them all again', () => {
       const tight = probed(3.6);
       const events = tight.pullEvents();
 
@@ -1204,14 +1204,14 @@ describe('Replay', () => {
         [null, 'checking'],
       ]);
       expect(
-        events.filter((each) => each instanceof ReplayRejudgingWanted),
+        events.filter((each) => each instanceof ReplayRejudgingRequested),
       ).toHaveLength(1);
       expect(
-        events.filter((each) => each instanceof ReplayRecheckWanted),
+        events.filter((each) => each instanceof ReplayRecheckRequested),
       ).toHaveLength(2);
     });
 
-    it('asks nothing again of a replay that is no probe, nor the judge of a probe that spent its ceiling', () => {
+    it('requests nothing again of a replay that is no probe, nor the judge of a probe that spent its ceiling', () => {
       const plain = judgedRun(
         reserved(aReplay({ count: 1, candidate: live }), 1),
         0,
@@ -1225,8 +1225,8 @@ describe('Replay', () => {
           .pullEvents()
           .filter(
             (each) =>
-              each instanceof ReplayRejudgingWanted ||
-              each instanceof ReplayRecheckWanted,
+              each instanceof ReplayRejudgingRequested ||
+              each instanceof ReplayRecheckRequested,
           ),
       ).toEqual([]);
       expect(plain.entries[0]?.secondJudging).toBeNull();
@@ -1235,7 +1235,7 @@ describe('Replay', () => {
       expect(
         probed(3)
           .pullEvents()
-          .some((each) => each instanceof ReplayRejudgingWanted),
+          .some((each) => each instanceof ReplayRejudgingRequested),
       ).toBe(false);
     });
   });

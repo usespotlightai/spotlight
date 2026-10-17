@@ -37,8 +37,8 @@ const UNREADABLE: GroundedVerdict = { grounded: false, failure: 'unreadable' };
 
 const UNGROUNDED: GroundedVerdict = { grounded: false, failure: 'ungrounded' };
 
-const mostlyGrounded = (grounded: number, given: number): boolean =>
-  grounded * 2 > given;
+const mostlyGrounded = (grounded: number, total: number): boolean =>
+  grounded * 2 > total;
 
 const groundedOnClaims = (
   count: number,

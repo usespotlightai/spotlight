@@ -48,8 +48,8 @@ const step = (
   detail: null,
   ms: 1_000,
   locations: [],
-  given: null,
-  returned: null,
+  input: null,
+  output: null,
   change: null,
   ...part,
 });

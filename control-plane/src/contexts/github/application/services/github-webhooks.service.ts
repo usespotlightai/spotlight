@@ -3,7 +3,7 @@ import type { PullRequestActivity } from '@github/application/dto/pull-request-a
 import type { GitHubWebhooksPort } from '@github/application/ports/github-webhooks.port';
 import type { WebhookSignaturePort } from '@github/application/ports/webhook-signature.port';
 import type {
-  Heard,
+  WebhookEvent,
   WebhookTranslationPort,
 } from '@github/application/ports/webhook-translation.port';
 import type { RecordPullRequests } from '@github/application/services/record-pull-requests.service';
@@ -46,30 +46,30 @@ export class GitHubWebhooks implements GitHubWebhooksPort {
   activityIn(delivery: GitHubDelivery): readonly PullRequestActivity[] {
     return this.translation
       .translated(delivery)
-      .heard.flatMap((each) =>
+      .events.flatMap((each) =>
         each.kind === 'pull-request-activity' ? [each.activity] : [],
       );
   }
 
   async receive(delivery: GitHubDelivery): Promise<void> {
     const installation = this.installationIn(delivery);
-    const heard = this.translation
+    const events = this.translation
       .translated(delivery)
-      .heard.filter((each) => each.kind !== 'pull-request-activity');
+      .events.filter((each) => each.kind !== 'pull-request-activity');
 
-    if (!installation || heard.length === 0) {
+    if (!installation || events.length === 0) {
       return;
     }
 
     const failures: unknown[] = [];
 
-    for (const each of heard) {
+    for (const each of events) {
       try {
         await this.attend(installation, each);
       } catch (error) {
         failures.push(error);
         this.logger.error(
-          { err: error, heard: each.kind },
+          { err: error, event: each.kind },
           'Attending to what a GitHub delivery said about the workspace',
         );
       }
@@ -82,7 +82,7 @@ export class GitHubWebhooks implements GitHubWebhooksPort {
 
   private async attend(
     installation: GitHubInstallation,
-    heard: Heard,
+    event: WebhookEvent,
   ): Promise<void> {
     const workspaceId = await this.connections.claimantOf(installation);
 
@@ -92,95 +92,95 @@ export class GitHubWebhooks implements GitHubWebhooksPort {
 
     const from = { installation, workspaceId };
 
-    if (heard.kind === 'installation-removed') {
+    if (event.kind === 'installation-removed') {
       await this.connections.save(
         (await this.connections.of(workspaceId)).disconnectFrom(installation),
       );
     }
 
-    if (heard.kind === 'pull-request') {
-      await this.recording.described(from, heard.facts);
+    if (event.kind === 'pull-request') {
+      await this.recording.described(from, event.facts);
     }
 
-    if (heard.kind === 'review-comment') {
+    if (event.kind === 'review-comment') {
       await this.events.dispatch([
         new ReviewCommentReceived(
           workspaceId,
-          heard.action,
-          heard.pullRequest,
-          heard.comment,
+          event.action,
+          event.pullRequest,
+          event.comment,
         ),
       ]);
-      await this.recording.commented(from, heard.pullRequest, heard.facts, {
-        id: heard.comment.id,
+      await this.recording.commented(from, event.pullRequest, event.facts, {
+        id: event.comment.id,
         on: 'line',
-        action: heard.action,
-        login: heard.comment.login,
-        answers: heard.comment.answers,
-        byBot: heard.comment.byBot,
+        action: event.action,
+        login: event.comment.login,
+        answers: event.comment.answers,
+        byBot: event.comment.byBot,
       });
     }
 
-    if (heard.kind === 'conversation-comment') {
-      await this.recording.commented(from, heard.pullRequest, null, {
-        id: heard.comment.id,
+    if (event.kind === 'conversation-comment') {
+      await this.recording.commented(from, event.pullRequest, null, {
+        id: event.comment.id,
         on: 'conversation',
-        action: heard.action,
-        login: heard.comment.login,
+        action: event.action,
+        login: event.comment.login,
         answers: null,
-        byBot: heard.comment.byBot,
+        byBot: event.comment.byBot,
       });
     }
 
-    if (heard.kind === 'review-thread') {
+    if (event.kind === 'review-thread') {
       await this.recording.threadResolved(
         from,
-        heard.pullRequest,
-        heard.facts,
-        heard.thread,
+        event.pullRequest,
+        event.facts,
+        event.thread,
       );
     }
 
-    if (heard.kind === 'pull-request-reviewed') {
+    if (event.kind === 'pull-request-reviewed') {
       await this.events.dispatch([
         new PullRequestReviewed(
           workspaceId,
-          heard.pullRequest,
-          heard.state,
-          heard.login,
-          heard.byBot,
-          heard.submittedAt,
+          event.pullRequest,
+          event.state,
+          event.login,
+          event.byBot,
+          event.submittedAt,
         ),
       ]);
 
-      if (heard.id !== null) {
-        await this.recording.reviewed(from, heard.pullRequest, heard.facts, {
-          id: heard.id,
-          state: heard.state,
-          login: heard.login,
-          byBot: heard.byBot,
-          at: heard.submittedAt,
+      if (event.id !== null) {
+        await this.recording.reviewed(from, event.pullRequest, event.facts, {
+          id: event.id,
+          state: event.state,
+          login: event.login,
+          byBot: event.byBot,
+          at: event.submittedAt,
         });
       }
     }
 
-    if (heard.kind === 'pull-request-review-dismissed') {
+    if (event.kind === 'pull-request-review-dismissed') {
       await this.recording.reviewDismissed(
         from,
-        heard.pullRequest,
-        heard.facts,
-        heard.id,
+        event.pullRequest,
+        event.facts,
+        event.id,
       );
     }
 
-    if (heard.kind === 'pull-request-closed') {
+    if (event.kind === 'pull-request-closed') {
       await this.events.dispatch([
         new PullRequestClosed(
           workspaceId,
-          heard.pullRequest,
-          heard.repository,
-          heard.merge,
-          heard.closedAt,
+          event.pullRequest,
+          event.repository,
+          event.merge,
+          event.closedAt,
         ),
       ]);
     }

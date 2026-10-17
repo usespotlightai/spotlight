@@ -1,7 +1,7 @@
 import { parentPort, workerData } from 'node:worker_threads';
 import {
-  type DescriptionAsked,
+  type DescriptionInput,
   describedOperations,
 } from '@integrations/infrastructure/sources/described-operations';
 
-parentPort?.postMessage(describedOperations(workerData as DescriptionAsked));
+parentPort?.postMessage(describedOperations(workerData as DescriptionInput));

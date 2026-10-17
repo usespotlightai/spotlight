@@ -1,4 +1,4 @@
-import type { WaysIn } from '@runners/domain/services/runner-drift';
+import type { CredentialSourceKeys } from '@runners/domain/services/runner-drift';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export const RUNNER_RESOURCES = Symbol('RUNNER_RESOURCES');
@@ -78,5 +78,7 @@ export interface RunnerResourcesPort {
 
   declaredIn(workspaceId: WorkspaceId): Promise<WorkspaceRunnersRecord | null>;
 
-  waysIn(workspaceId: WorkspaceId): Promise<WaysIn>;
+  credentialSourceKeysIn(
+    workspaceId: WorkspaceId,
+  ): Promise<CredentialSourceKeys>;
 }

@@ -2,7 +2,7 @@ import type { MemoryUsesPort } from '@memory/application/ports/memory-uses.port'
 import type { LeasedRun, WorkPort } from '@memory/application/ports/work.port';
 import { RecordMemoryUses } from '@memory/application/services/record-memory-uses.service';
 import { RunnerMemoryLoader } from '@memory/application/services/runner-memory-loader.service';
-import { KeptFromSearchesError } from '@memory/domain/exceptions/kept-from-searches.error';
+import { NotAllowedInSearchError } from '@memory/domain/exceptions/not-allowed-in-search.error';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -59,10 +59,10 @@ describe('memories a runner recalls', () => {
     expect(recorded).toEqual([]);
   });
 
-  it('are kept from a search, which may not recall them at all', async () => {
+  it('are not allowed in a search, which may not recall them at all', async () => {
     await expect(
       loader(leasedRun(false, true)).hand.recalling('run_1', 'runner_1'),
-    ).rejects.toThrow(KeptFromSearchesError);
+    ).rejects.toThrow(NotAllowedInSearchError);
     await expect(
       loader(leasedRun(false)).hand.recalling('run_1', 'runner_1'),
     ).resolves.toMatchObject({ isSearch: false });

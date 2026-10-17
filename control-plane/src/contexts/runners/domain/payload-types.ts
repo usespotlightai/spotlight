@@ -11,8 +11,8 @@ import { RunnerTrustUpdated } from '@runners/domain/events/runner-trust-updated.
 import { WorkspaceRunnersCreated } from '@runners/domain/events/workspace-runners-created.event';
 import { WorkspaceRunnersDeleted } from '@runners/domain/events/workspace-runners-deleted.event';
 import { WorkspaceRunnersUpdated } from '@runners/domain/events/workspace-runners-updated.event';
-import { Admission } from '@runners/domain/value-objects/admission.vo';
 import { BootId } from '@runners/domain/value-objects/boot-id.vo';
+import { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
 import { EgressChangeDetail } from '@runners/domain/value-objects/egress-change-detail.vo';
 import { EgressId } from '@runners/domain/value-objects/egress-id.vo';
 import { EgressKey } from '@runners/domain/value-objects/egress-key.vo';
@@ -47,7 +47,7 @@ import { TrustedWorkload } from '@runners/domain/value-objects/trusted-workload.
 import { WorkspaceRunnersId } from '@runners/domain/value-objects/workspace-runners-id.vo';
 
 export const RUNNERS_PAYLOAD_TYPES = [
-  Admission,
+  CredentialSource,
   EgressChangeDetail,
   EgressId,
   EgressKey,

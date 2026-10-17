@@ -52,7 +52,7 @@ describe('Voice', () => {
       );
     });
 
-    it('rejects a voice it has never heard of', () => {
+    it('rejects a voice that it does not know', () => {
       expect(() => Voice.of({ by: 'nobody' })).toThrow(InvalidVoiceError);
     });
   });

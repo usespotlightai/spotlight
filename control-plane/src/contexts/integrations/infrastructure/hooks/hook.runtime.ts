@@ -3,15 +3,15 @@ import type {
   HookMoment,
   HookRuntimePort,
   ListeningHook,
-  StepAsked,
   StepOutcome,
+  StepRequest,
   StepTaken,
 } from '@integrations/application/ports/hook-runtime.port';
 import type {
   BoundTask,
   IntegrationRuntimePort,
 } from '@integrations/application/ports/integration-runtime.port';
-import type { HostReach } from '@integrations/application/services/host-reach.service';
+import type { CallAuthResolver } from '@integrations/application/services/call-auth-resolver.service';
 import type { HookDefinition } from '@integrations/domain/aggregates/hook-definition.aggregate';
 import type { HookDefinitionRepository } from '@integrations/domain/repositories/hook-definition.repository';
 import { HookDefinitionId } from '@integrations/domain/value-objects/hook-definition-id.vo';
@@ -153,12 +153,12 @@ const defaultBody = (hook: Readable, moment: HookMoment) => ({
 
 const inputsFor = (
   declared: ToolDeclaration,
-  given: unknown,
+  value: unknown,
   defaultFor: (name: string) => unknown,
 ): ToolInputValues => {
   const fields =
-    given && typeof given === 'object' && !Array.isArray(given)
-      ? (given as Record<string, unknown>)
+    value && typeof value === 'object' && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
       : {};
   const inputs: Record<string, JsonValue> = {};
 
@@ -207,7 +207,7 @@ export class CompiledHookRuntime implements HookRuntimePort {
     private readonly expressions: ExpressionEnginePort,
     private readonly defined: DefinedIntegrationsPort,
     private readonly runtime: IntegrationRuntimePort,
-    private readonly reach: HostReach,
+    private readonly callAuthResolver: CallAuthResolver,
     private readonly requests: HookRequests,
     private readonly clock: ClockPort,
   ) {}
@@ -240,37 +240,45 @@ export class CompiledHookRuntime implements HookRuntimePort {
     );
   }
 
-  async step(asked: StepAsked): Promise<StepTaken> {
-    const hook = asked.hook as Compiled;
+  async step(stepRequest: StepRequest): Promise<StepTaken> {
+    const hook = stepRequest.hook as Compiled;
 
     if (!isReadable(hook)) {
       return failedAt(
-        asked.step,
+        stepRequest.step,
         'broken',
         'belongs to a hook that no longer reads as it was written',
       );
     }
-    const step = hook.ir.steps.find((each) => each.name === asked.step);
+    const step = hook.ir.steps.find((each) => each.name === stepRequest.step);
     const now = this.clock.now();
 
     if (!step) {
-      return failedAt(asked.step, 'broken', 'is no longer a step of the hook');
+      return failedAt(
+        stepRequest.step,
+        'broken',
+        'is no longer a step of the hook',
+      );
     }
 
-    if (asked.resuming === null && now >= asked.deadline) {
+    if (stepRequest.resuming === null && now >= stepRequest.deadline) {
       return failedAt(
         step.name,
         'timeout',
-        `was not reached within the hook's ${hook.timeoutSeconds} seconds`,
+        `did not start within the hook's ${hook.timeoutSeconds} seconds`,
       );
     }
 
     try {
-      const bindings = bindingsFor(hook, asked.moment, asked.earlier);
+      const bindings = bindingsFor(
+        hook,
+        stepRequest.moment,
+        stepRequest.earlier,
+      );
 
       return step.kind === 'call'
-        ? await this.called(hook, step, asked, bindings, now)
-        : await this.requested(hook, step, asked, bindings, now);
+        ? await this.called(hook, step, stepRequest, bindings, now)
+        : await this.requested(hook, step, stepRequest, bindings, now);
     } catch (error) {
       return failedAt(step.name, 'errored', reasoned(error));
     }
@@ -279,7 +287,7 @@ export class CompiledHookRuntime implements HookRuntimePort {
   private async requested(
     hook: Readable,
     step: Extract<HookStepIR, { kind: 'request' }>,
-    asked: StepAsked,
+    stepRequest: StepRequest,
     bindings: Bindings,
     now: Date,
   ): Promise<StepTaken> {
@@ -299,7 +307,7 @@ export class CompiledHookRuntime implements HookRuntimePort {
       body = asJson(
         step.body
           ? requiredValueOf(step.body, bindings)
-          : defaultBody(hook, asked.moment),
+          : defaultBody(hook, stepRequest.moment),
       );
     } catch (error) {
       return failedAt(
@@ -311,16 +319,16 @@ export class CompiledHookRuntime implements HookRuntimePort {
 
     const request: HookRequest = {
       hook,
-      moment: asked.moment,
+      moment: stepRequest.moment,
       step: step.name,
       url,
       headers,
       body,
       fromNetwork: step.fromNetwork,
       signing: hook.ir.signing,
-      deadline: asked.deadline,
-      waiting: asked.waiting,
-      resuming: asked.resuming,
+      deadline: stepRequest.deadline,
+      waiting: stepRequest.waiting,
+      resuming: stepRequest.resuming,
     };
     const denial = hook.ir.hook.requestDenial(step.name, new URL(url));
 
@@ -332,11 +340,11 @@ export class CompiledHookRuntime implements HookRuntimePort {
   private async called(
     hook: Readable,
     step: Extract<HookStepIR, { kind: 'call' }>,
-    asked: StepAsked,
+    stepRequest: StepRequest,
     bindings: Bindings,
     started: Date,
   ): Promise<StepTaken> {
-    const { moment } = asked;
+    const { moment } = stepRequest;
     let inputs: ToolInputValues = {};
     let output: unknown = null;
     let failure: { code: HookFailureCode; reason: string } | null = null;
@@ -345,7 +353,7 @@ export class CompiledHookRuntime implements HookRuntimePort {
       const definitions = await this.defined.ofTeam(
         TeamId.of(moment.task.teamId),
       );
-      const reachable = await this.runtime.tool(
+      const resolved = await this.runtime.tool(
         definitions,
         step.tool,
         boundTask(moment),
@@ -353,10 +361,10 @@ export class CompiledHookRuntime implements HookRuntimePort {
 
       const denial = hook.ir.hook.callDenial(
         ToolName.of(step.tool),
-        reachable?.offered ?? null,
+        resolved?.offered ?? null,
       );
 
-      if (denial || !reachable) {
+      if (denial || !resolved) {
         throw new StepFailure(
           denial?.code ?? 'not-allowed',
           denial?.reason ?? `names ${step.tool}, which no integration offers`,
@@ -365,9 +373,9 @@ export class CompiledHookRuntime implements HookRuntimePort {
 
       try {
         inputs = inputsFor(
-          reachable.declared,
+          resolved.declared,
           requiredValueOf(step.with, bindings),
-          (name) => reachable.defaultFor(name),
+          (name) => resolved.defaultFor(name),
         );
       } catch (error) {
         throw new StepFailure(
@@ -376,21 +384,21 @@ export class CompiledHookRuntime implements HookRuntimePort {
         );
       }
 
-      if (reachable.integration.holderRule.byRequester) {
+      if (resolved.integration.holderRule.byRequester) {
         throw new StepFailure(
           'not-allowed',
           `names ${step.tool}, which acts as the person who started a task. A hook acts as nobody`,
         );
       }
 
-      const reach = await this.reach.of(
+      const callAuth = await this.callAuthResolver.of(
         TeamId.of(moment.task.teamId),
-        reachable.integration,
+        resolved.integration,
       );
 
       output = await within(
-        reachable.call(inputs, reach),
-        asked.deadline.getTime() - this.clock.now().getTime(),
+        resolved.call(inputs, callAuth),
+        stepRequest.deadline.getTime() - this.clock.now().getTime(),
         new StepFailure(
           'timeout',
           `took longer than the hook's ${hook.timeoutSeconds} seconds`,

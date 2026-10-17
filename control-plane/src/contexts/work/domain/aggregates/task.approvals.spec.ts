@@ -172,12 +172,12 @@ describe('clearing a tool call that needs approval', () => {
     );
   });
 
-  it('claims a grant as it gives it, so a second call finds nothing to use', () => {
+  it('claims a grant as it grants it, so a second call finds nothing to use', () => {
     const { task } = decided('granted');
     const first = clear(runningAt(task));
     const second = clear(runningAt(first.task));
 
-    expect(kindOf(first.check)).toBe('given');
+    expect(kindOf(first.check)).toBe('granted');
     expect(first.task.approvalFor(CALL)?.approval.spent).toBe(true);
     expect(kindOf(second.check)).toBe('asked');
   });
@@ -189,7 +189,7 @@ describe('clearing a tool call that needs approval', () => {
     const returned = runningAt(claimed.returnApproval(at));
 
     expect(returned.approvalFor(CALL)?.approval.grants).toBe(true);
-    expect(kindOf(clear(returned).check)).toBe('given');
+    expect(kindOf(clear(returned).check)).toBe('granted');
   });
 
   it('refuses a rejected call with the person’s own reason, and asks nothing', () => {
@@ -203,13 +203,13 @@ describe('clearing a tool call that needs approval', () => {
     expect(after.notes).toHaveLength(task.notes.length);
   });
 
-  it('asks again at another station, where a grant from the last one does not reach', () => {
+  it('asks again at another station, where a grant from the last one does not apply', () => {
     const { task } = decided('granted');
 
     expect(kindOf(clear(runningAt(task, REVIEW)).check)).toBe('asked');
   });
 
-  it('asks again at another station, where a rejection from the last one does not reach', () => {
+  it('asks again at another station, where a rejection from the last one does not apply', () => {
     const { task } = decided('refused');
 
     expect(kindOf(clear(runningAt(task, REVIEW)).check)).toBe('asked');
@@ -263,7 +263,7 @@ describe('clearing a tool call that needs approval', () => {
       'asked',
     );
     expect(kindOf(clear(grantedFor(permission), permission).check)).toBe(
-      'given',
+      'granted',
     );
   });
 
@@ -303,7 +303,7 @@ describe('deciding an approval', () => {
     const askedOfTheTeam = clear(working()).task;
     const alice = ApprovalNeeded.of(
       'linear.comment',
-      'Alice asks to approve each call made with their Linear connection.',
+      'Alice wants to approve each call made with their Linear connection.',
       UserId.of('user_alice'),
     );
     const asked = working().clearFor(CALL, alice, asking(), RUN, null).task;
@@ -335,7 +335,7 @@ describe('deciding an approval', () => {
   it('puts a call asked of one person to that person', () => {
     const alice = ApprovalNeeded.of(
       'linear.comment',
-      'Alice asks to approve each call made with their Linear connection.',
+      'Alice wants to approve each call made with their Linear connection.',
       UserId.of('user_alice'),
     );
 
@@ -345,11 +345,11 @@ describe('deciding an approval', () => {
     expect(clear(working()).task.assignee).toEqual(working().assignee);
   });
 
-  it('spends a grant on a call asked of one person only where that person gave it', () => {
+  it('spends a grant on a call asked of one person only where that person granted it', () => {
     const { task } = decided('granted');
     const alice = ApprovalNeeded.of(
       'linear.comment',
-      'Alice asks to approve each call made with their Linear connection.',
+      'Alice wants to approve each call made with their Linear connection.',
       UserId.of('user_alice'),
     );
     const user1 = ApprovalNeeded.of(
@@ -365,7 +365,7 @@ describe('deciding an approval', () => {
       'user_alice',
     );
     expect(running.clearFor(CALL, user1, asking(), RUN, null).check.kind).toBe(
-      'given',
+      'granted',
     );
   });
 
@@ -476,22 +476,22 @@ describe('approving a tool call with changes', () => {
     ),
   );
 
-  it('gives the call as asked, to run with the person’s inputs instead', () => {
+  it('grants the call as requested, to run with the person’s inputs instead', () => {
     const { check } = clear(edited({ issue: 'ENG-12', body: 'Fixed in #41.' }));
 
-    expect(check.kind === 'given' && check.edited?.values).toEqual({
+    expect(check.kind === 'granted' && check.edited?.values).toEqual({
       issue: 'ENG-12',
       body: 'Fixed in #41.',
     });
   });
 
-  it('gives it too where the agent calls with the inputs the person chose', () => {
+  it('grants it too where the agent calls with the inputs the person chose', () => {
     const { check } = clear(
       edited({ issue: 'ENG-12', body: 'Fixed in #41.' }),
       EDITED,
     );
 
-    expect(kindOf(check)).toBe('given');
+    expect(kindOf(check)).toBe('granted');
   });
 
   it('records nothing changed where the person left every input as it was', () => {
@@ -499,7 +499,7 @@ describe('approving a tool call with changes', () => {
     const { check } = clear(task);
 
     expect(task.approvalFor(CALL)?.approval.edited).toBeNull();
-    expect(check.kind === 'given' && check.edited).toBeNull();
+    expect(check.kind === 'granted' && check.edited).toBeNull();
   });
 
   it('types each change as the input it replaces', () => {
@@ -525,14 +525,14 @@ describe('approving a tool call with changes', () => {
     );
     const { check } = clear(granted, asked);
 
-    expect(check.kind === 'given' && check.edited?.values).toEqual({
+    expect(check.kind === 'granted' && check.edited?.values).toEqual({
       queue: 'retries',
       limit: 100,
       dry: false,
     });
   });
 
-  it('rejects changes that name other inputs than it asked with', () => {
+  it('rejects changes that name other inputs than it was called with', () => {
     const { asked, at } = askedOnce();
 
     expect(() =>
@@ -558,7 +558,7 @@ describe('approving a tool call with changes', () => {
     ).toThrowError(expect.objectContaining({ violation: 'conflict' }));
   });
 
-  it('rejects a change that is not a value of the kind asked', () => {
+  it('rejects a change that is not a value of the kind of the input', () => {
     const asked = ApprovalSubject.toolCall(
       ToolCall.of(Tool.of('queue.drain'), ToolInputs.of({ limit: 500 })),
     );

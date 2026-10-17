@@ -6,7 +6,7 @@ export interface BotComment {
   readonly deleted: boolean;
 }
 
-export interface HeardThread {
+export interface PullRequestThread {
   readonly id: string;
   readonly opener: number | null;
   readonly login: string | null;

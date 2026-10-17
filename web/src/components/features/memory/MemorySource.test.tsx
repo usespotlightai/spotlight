@@ -37,7 +37,7 @@ const detail = (over: Record<string, unknown> = {}) => ({
   body: 'Retry uploads in the request.',
   source: 'run',
   status: 'active',
-  reach: 'team',
+  scope: 'team',
   lineId: null,
   stationId: null,
   repository: null,

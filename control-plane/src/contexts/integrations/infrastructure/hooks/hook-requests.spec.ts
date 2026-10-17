@@ -25,7 +25,7 @@ const HOOK: ListeningHook = {
   teamId: 'team_1',
   blocks: true,
   timeoutSeconds: 10,
-  steps: ['ask'],
+  steps: ['check'],
   broken: null,
   written: null,
 };
@@ -52,10 +52,10 @@ const MOMENT: HookMoment = {
   },
 };
 
-const asked = (overrides: Partial<HookRequest> = {}): HookRequest => ({
+const hookRequest = (overrides: Partial<HookRequest> = {}): HookRequest => ({
   hook: HOOK,
   moment: MOMENT,
-  step: 'ask',
+  step: 'check',
   url: 'https://dba.example.com/review',
   headers: { 'x-team': 'core' },
   body: '{"files":["db/migrations/1.sql"]}',
@@ -128,11 +128,11 @@ describe('HookRequests', () => {
       async () => new Response('{"ok":true}', { status: 200 }),
     );
 
-    const taken = await sending.sent(asked(), NOW);
+    const taken = await sending.sent(hookRequest(), NOW);
     const headers = sentHeaders(fetch);
 
     expect(taken.outcome).toEqual({
-      name: 'ask',
+      name: 'check',
       status: 'done',
       output: { ok: true },
     });
@@ -141,7 +141,7 @@ describe('HookRequests', () => {
         SECRET.key,
         headers['webhook-id'] as string,
         Math.floor(NOW.getTime() / 1000),
-        asked().body,
+        hookRequest().body,
       ),
     );
     expect(headers['spotlight-callback-token']).toBe('callback_token');
@@ -150,7 +150,7 @@ describe('HookRequests', () => {
     );
     expect(headers['x-team']).toBe('core');
 
-    await sending.sent(asked(), NOW);
+    await sending.sent(hookRequest(), NOW);
     expect(sentHeaders(fetch)['webhook-id']).toBe(headers['webhook-id']);
   });
 
@@ -159,7 +159,7 @@ describe('HookRequests', () => {
       async () => new Response('{}', { status: 200 }),
     );
 
-    const taken = await sending.sent(asked(), NOW);
+    const taken = await sending.sent(hookRequest(), NOW);
 
     expect(JSON.stringify(taken.trace)).not.toMatch(
       /callback_token|webhook-signature/,
@@ -174,18 +174,18 @@ describe('HookRequests', () => {
       null,
     );
 
-    await expect(sending.sent(asked(), NOW)).resolves.toMatchObject({
+    await expect(sending.sent(hookRequest(), NOW)).resolves.toMatchObject({
       outcome: { status: 'failed', reason: expect.stringMatching(/no secret/) },
     });
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it('keeps no more of an answer than it can show', async () => {
+  it('stores no more of an answer than it can show', async () => {
     const { requests: sending } = requests(
       async () => new Response('x'.repeat(100_000), { status: 200 }),
     );
 
-    const taken = await sending.sent(asked(), NOW);
+    const taken = await sending.sent(hookRequest(), NOW);
 
     expect((taken.outcome as { output: string }).output).toHaveLength(
       16 * 1024,
@@ -200,7 +200,7 @@ describe('HookRequests', () => {
     } = requests(async () => new Response('{}', { status: 200 }));
 
     await sending.sent(
-      asked({ signing: { kind: 'oidc', audience: 'https://dba' } }),
+      hookRequest({ signing: { kind: 'oidc', audience: 'https://dba' } }),
       NOW,
     );
 
@@ -210,7 +210,9 @@ describe('HookRequests', () => {
       subject: 'hook:workspace_1/team_1/dba-review',
       occurrence: 'occurrence_1',
       message: sentHeaders(fetch)['webhook-id'],
-      bodyDigest: createHash('sha256').update(asked().body).digest('base64url'),
+      bodyDigest: createHash('sha256')
+        .update(hookRequest().body)
+        .digest('base64url'),
     });
   });
 
@@ -220,7 +222,7 @@ describe('HookRequests', () => {
         new Response('{"deny":"drops a column in use"}', { status: 200 }),
     );
 
-    await expect(sending.sent(asked(), NOW)).resolves.toMatchObject({
+    await expect(sending.sent(hookRequest(), NOW)).resolves.toMatchObject({
       denyReason: 'drops a column in use',
     });
   });
@@ -230,7 +232,7 @@ describe('HookRequests', () => {
       async () => new Response('down', { status: 503 }),
     );
 
-    await expect(sending.sent(asked(), NOW)).resolves.toMatchObject({
+    await expect(sending.sent(hookRequest(), NOW)).resolves.toMatchObject({
       outcome: {
         status: 'failed',
         code: 'server-error',
@@ -251,7 +253,7 @@ describe('HookRequests', () => {
       async () => new Response('no', { status }),
     );
 
-    await expect(sending.sent(asked(), NOW)).resolves.toMatchObject({
+    await expect(sending.sent(hookRequest(), NOW)).resolves.toMatchObject({
       outcome: { status: 'failed', code },
     });
   });
@@ -264,7 +266,7 @@ describe('HookRequests', () => {
     } = requests(async () => new Response('{}', { status: 200 }));
 
     await sending.sent(
-      asked({ moment: { ...MOMENT, firing: 'firing_1' } }),
+      hookRequest({ moment: { ...MOMENT, firing: 'firing_1' } }),
       NOW,
     );
 
@@ -279,7 +281,7 @@ describe('HookRequests', () => {
       async () => new Response('{}', { status: 200 }),
     );
 
-    await sending.sent(asked(), NOW);
+    await sending.sent(hookRequest(), NOW);
 
     expect(sentHeaders(fetch)['spotlight-cause']).toBeUndefined();
   });
@@ -291,7 +293,7 @@ describe('HookRequests', () => {
       });
     });
 
-    await expect(sending.sent(asked(), NOW)).resolves.toMatchObject({
+    await expect(sending.sent(hookRequest(), NOW)).resolves.toMatchObject({
       outcome: {
         status: 'failed',
         code: 'unreachable',
@@ -308,7 +310,7 @@ describe('HookRequests', () => {
       ['slack.com'],
     );
 
-    await expect(sending.sent(asked(), NOW)).resolves.toMatchObject({
+    await expect(sending.sent(hookRequest(), NOW)).resolves.toMatchObject({
       outcome: { status: 'failed', code: 'not-allowed' },
     });
     expect(fetch).not.toHaveBeenCalled();
@@ -322,7 +324,7 @@ describe('HookRequests', () => {
     } = requests(async () => new Response('{}'));
 
     const taken = await sending.sent(
-      asked({ url: 'http://dba.acme.internal/', fromNetwork: true }),
+      hookRequest({ url: 'http://dba.acme.internal/', fromNetwork: true }),
       NOW,
     );
 
@@ -338,7 +340,7 @@ describe('HookRequests', () => {
       new Date(NOW.getTime() + 10_000),
     );
     expect(taken.outcome).toEqual({
-      name: 'ask',
+      name: 'check',
       status: 'done',
       output: { ok: true },
     });
@@ -352,12 +354,12 @@ describe('HookRequests', () => {
     );
 
     const first = await sending.sent(
-      asked({ fromNetwork: true, waiting: 'suspend' }),
+      hookRequest({ fromNetwork: true, waiting: 'suspend' }),
       NOW,
     );
 
     expect(first.outcome).toEqual({
-      name: 'ask',
+      name: 'check',
       status: 'waiting',
       call: 'call_1',
       until: new Date(NOW.getTime() + 2 * 60 * 1000).toISOString(),
@@ -376,7 +378,7 @@ describe('HookRequests', () => {
 
     await expect(
       sending.sent(
-        asked({
+        hookRequest({
           fromNetwork: true,
           waiting: 'suspend',
           resuming: first.outcome,
@@ -398,7 +400,7 @@ describe('HookRequests', () => {
     );
 
     await expect(
-      sending.sent(asked({ fromNetwork: true }), NOW),
+      sending.sent(hookRequest({ fromNetwork: true }), NOW),
     ).resolves.toMatchObject({
       outcome: {
         status: 'failed',

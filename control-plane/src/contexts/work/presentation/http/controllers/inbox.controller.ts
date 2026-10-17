@@ -48,8 +48,8 @@ import {
 } from '@work/presentation/http/dto/inbox.response.dto';
 import { RunJournalResponseDto } from '@work/presentation/http/dto/run-journal.response.dto';
 import { AttachmentHttpMapper } from '@work/presentation/http/mappers/attachment.http.mapper';
-import { givenEdits } from '@work/presentation/http/mappers/given-edits';
-import { givenIds } from '@work/presentation/http/mappers/given-ids';
+import { editsInput } from '@work/presentation/http/mappers/edits-input';
+import { idsInput } from '@work/presentation/http/mappers/ids-input';
 import { RunJournalHttpMapper } from '@work/presentation/http/mappers/run-journal.http.mapper';
 
 const taskItemResponse = (item: InboxItemDto): InboxItemResponseDto =>
@@ -164,7 +164,7 @@ export class InboxController {
   @ApiNotFoundResponse({ description: 'No such conversation for this caller' })
   @ApiConflictResponse({
     description:
-      'Only a conversation waiting on a tool call can be approved or rejected, and only an approved tool call can be changed, naming exactly the inputs it asked with',
+      'Only a conversation waiting on a tool call can be approved or rejected, and only an approved tool call can be changed, naming exactly the inputs it was called with',
   })
   async answer(
     @Param('itemId') itemId: string,
@@ -176,13 +176,13 @@ export class InboxController {
         itemId,
         user.id,
         body.body ?? '',
-        givenIds(body.attachments),
+        idsInput(body.attachments),
         body.approve === undefined
           ? null
           : body.approve
             ? 'granted'
             : 'refused',
-        givenEdits(body.inputs),
+        editsInput(body.inputs),
       ),
     );
   }

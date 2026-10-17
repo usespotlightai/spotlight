@@ -158,13 +158,13 @@ const saturationOf = (live: readonly Replay[]): SetSaturation | null => {
 };
 
 const judgeOf = (probe: Replay): JudgeConsistency | null => {
-  const asked = probe.entries.filter((each) => each.secondJudging !== null);
+  const requested = probe.entries.filter((each) => each.secondJudging !== null);
 
-  if (asked.length === 0) {
+  if (requested.length === 0) {
     return null;
   }
 
-  const compared = asked.filter((each) => each.judgeAgreed !== null);
+  const compared = requested.filter((each) => each.judgeAgreed !== null);
   const agreed = compared.filter((each) => each.judgeAgreed).length;
   const agreement = compared.length > 0 ? agreed / compared.length : null;
 
@@ -172,24 +172,24 @@ const judgeOf = (probe: Replay): JudgeConsistency | null => {
     replayId: probe.id,
     compared: compared.length,
     agreed,
-    pending: asked.filter((each) => each.secondJudging?.pending).length,
+    pending: requested.filter((each) => each.secondJudging?.pending).length,
     agreement,
     unstable: agreement !== null && agreement < JUDGE_UNSTABLE_BELOW,
   };
 };
 
 const checksOf = (probe: Replay): CheckConsistency | null => {
-  const asked = probe.entries.filter((each) => each.recheck !== null);
+  const requested = probe.entries.filter((each) => each.recheck !== null);
 
-  if (asked.length === 0) {
+  if (requested.length === 0) {
     return null;
   }
 
   return {
     replayId: probe.id,
-    rechecked: asked.filter((each) => each.checksFlipped !== null).length,
-    pending: asked.filter((each) => each.recheck?.pending).length,
-    flaky: asked.flatMap((each) =>
+    rechecked: requested.filter((each) => each.checksFlipped !== null).length,
+    pending: requested.filter((each) => each.recheck?.pending).length,
+    flaky: requested.flatMap((each) =>
       each.checksFlipped && each.run && each.checks && each.recheck
         ? [
             {

@@ -37,7 +37,7 @@ const whereOf = (memory: Memory, lines: readonly TeamLine[]): string => {
     : `${at} · ${repository.value}`;
 };
 
-const keptOf = (memory: Memory, context: MemoryFileContext): string => {
+const sourceOf = (memory: Memory, context: MemoryFileContext): string => {
   const by = context.names.get(memory.approval.by.value) ?? 'someone';
   const on = day(memory.approval.at);
 
@@ -57,7 +57,7 @@ const bodyOf = (memory: Memory, context: MemoryFileContext): string => {
     memory.body.value,
     '',
     `- Applies to: ${whereOf(memory, context.lines)}`,
-    `- Kept: ${keptOf(memory, context)}`,
+    `- Source: ${sourceOf(memory, context)}`,
     ...(replaced
       ? [
           `- Replaced ${replaced.handle.value}, which said: ${replaced.body.value.replace(/\s+/g, ' ').trim()}`,

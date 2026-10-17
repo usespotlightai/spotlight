@@ -4,13 +4,13 @@ import type { DefinedIntegration } from '@integrations/application/ports/defined
 import type {
   Acted,
   BoundTask,
+  CallAuth,
   HostError,
   IntegrationRuntimePort,
   Polled,
   Posted,
-  Reach,
-  ReachableTool,
   Renewed,
+  ResolvedTool,
   TaskPayload,
   ToolOutput,
 } from '@integrations/application/ports/integration-runtime.port';
@@ -150,7 +150,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     definitions: readonly DefinedIntegration[],
     integration: Integration,
     cursor: string | null,
-    reach: Reach,
+    callAuth: CallAuth,
   ): Promise<Polled> {
     const readable = this.find(definitions, integration.source);
     const poll = readable?.poll;
@@ -162,7 +162,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     const { result } = await this.sent(
       poll.request,
       { cursor: cursor ?? '' },
-      reach,
+      callAuth,
     );
 
     if (!result.ok) {
@@ -191,7 +191,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
   async runSchedule(
     definitions: readonly DefinedIntegration[],
     integration: Integration,
-    reach: Reach,
+    callAuth: CallAuth,
   ): Promise<Acted> {
     const readable = this.find(definitions, integration.source);
     const schedule = readable?.integration.schedule;
@@ -201,7 +201,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
       return { kind: 'nothing-to-do' };
     }
 
-    const { result } = await this.sent(request, {}, reach);
+    const { result } = await this.sent(request, {}, callAuth);
 
     return result.ok
       ? { kind: 'done' }
@@ -213,7 +213,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     integration: Integration,
     event: string,
     payload: TaskPayload,
-    reach: Reach,
+    callAuth: CallAuth,
   ): Promise<Posted> {
     const readable = this.find(definitions, integration.source);
     const bound = readable?.integration.bindingFor(event);
@@ -250,7 +250,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     const { result, bindings } = await this.sent(
       action,
       { ...against, target },
-      reach,
+      callAuth,
     );
 
     if (!result.ok) {
@@ -278,7 +278,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     definitions: readonly DefinedIntegration[],
     tool: string,
     task: BoundTask,
-  ): Promise<ReachableTool | null> {
+  ): Promise<ResolvedTool | null> {
     const offering = await this.reader.offering(definitions, tool);
 
     if (!offering) {
@@ -298,7 +298,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     { readable, offered }: Offering,
     tool: string,
     task: BoundTask,
-  ): ReachableTool | null {
+  ): ResolvedTool | null {
     const compiled = readable.tools.get(offered.name);
     const action = offered.backing.action
       ? readable.actions.get(offered.backing.action)
@@ -325,11 +325,11 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
         )?.default;
         return written ? textOf(written, bound) : undefined;
       },
-      call: async (inputs, reach) => {
+      call: async (inputs, callAuth) => {
         const { result, bindings } = await this.sent(
           action,
           { ...bound, inputs },
-          reach,
+          callAuth,
         );
 
         if (!result.ok) {
@@ -353,7 +353,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
   private generated(
     { readable, offered, operation }: Offering,
     tool: string,
-  ): ReachableTool | null {
+  ): ResolvedTool | null {
     const auth = readable.described?.auth ?? null;
 
     if (!operation) {
@@ -369,15 +369,15 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
         readable.integration.name,
       ),
       defaultFor: () => undefined,
-      call: async (inputs, reach) => {
+      call: async (inputs, callAuth) => {
         const request = operationRequest(operation, inputs);
-        const connection = reach.connection;
+        const connection = callAuth.connection;
         const answering = (token: AccessToken | null) =>
           this.outbound.answer(
             request,
             auth,
             token?.value ?? null,
-            reach.credentials,
+            callAuth.credentials,
           );
         const first = await answering(connection?.token ?? null);
         const renewed =
@@ -411,7 +411,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     { readable, offered, operation }: Offering,
     tool: string,
     task: BoundTask,
-  ): ReachableTool | null {
+  ): ResolvedTool | null {
     const described = readable.described;
     const call = operation?.call;
 
@@ -432,8 +432,8 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
         readable.integration.name,
       ),
       defaultFor: () => undefined,
-      call: async (inputs, reach) => {
-        const connection = auth?.kind === 'oauth2' ? reach.connection : null;
+      call: async (inputs, callAuth) => {
+        const connection = auth?.kind === 'oauth2' ? callAuth.connection : null;
         const calling = (token: AccessToken | null) =>
           this.sessions.call(
             [
@@ -449,7 +449,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
             {
               connection: token?.value ?? null,
               secrets,
-              credentials: reach.credentials,
+              credentials: callAuth.credentials,
             },
           );
 
@@ -494,11 +494,15 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
   private async sent(
     request: RequestIR,
     bindings: Bindings,
-    reach: Reach,
+    callAuth: CallAuth,
   ): Promise<Sent> {
-    const connection = reach.connection;
+    const connection = callAuth.connection;
     const first = connected(bindings, connection?.token ?? null);
-    const result = await this.outbound.run(request, first, reach.credentials);
+    const result = await this.outbound.run(
+      request,
+      first,
+      callAuth.credentials,
+    );
 
     if (
       result.status !== UNAUTHORIZED ||
@@ -517,7 +521,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     const again = connected(bindings, renewed);
 
     return {
-      result: await this.outbound.run(request, again, reach.credentials),
+      result: await this.outbound.run(request, again, callAuth.credentials),
       bindings: again,
     };
   }

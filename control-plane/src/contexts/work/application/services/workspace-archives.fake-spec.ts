@@ -74,36 +74,36 @@ export const runsOf = (...runs: readonly Run[]): RunRepository =>
   }) as unknown as RunRepository;
 
 export class InMemoryArchives implements WorkspaceArchiveRepository {
-  readonly kept = new Map<string, WorkspaceArchive>();
+  readonly stored = new Map<string, WorkspaceArchive>();
 
   async add(archive: WorkspaceArchive): Promise<void> {
-    this.kept.set(archive.id.value, archive);
+    this.stored.set(archive.id.value, archive);
   }
 
   async save(archive: WorkspaceArchive): Promise<void> {
-    const existing = this.kept.get(archive.id.value);
+    const existing = this.stored.get(archive.id.value);
 
     if (!existing || existing.version !== archive.version) {
       throw new WorkspaceArchiveVersionConflictError(archive.id.value);
     }
 
     if (archive.isDiscarded) {
-      this.kept.delete(archive.id.value);
+      this.stored.delete(archive.id.value);
       return;
     }
 
-    this.kept.set(archive.id.value, archive);
+    this.stored.set(archive.id.value, archive);
   }
 
   async find(id: WorkspaceArchiveId): Promise<WorkspaceArchive | null> {
-    return this.kept.get(id.value) ?? null;
+    return this.stored.get(id.value) ?? null;
   }
 
   async newestSealed(
     workspaceId: WorkspaceId,
     continuity: ContinuityKey,
   ): Promise<WorkspaceArchive | null> {
-    const sealed = [...this.kept.values()]
+    const sealed = [...this.stored.values()]
       .filter(
         (each) =>
           each.isSealed &&

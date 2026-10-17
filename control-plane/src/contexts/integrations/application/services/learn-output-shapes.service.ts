@@ -25,7 +25,7 @@ export class LearnOutputShapes {
     }
 
     try {
-      await this.kept(teamId, ToolName.of(tool), answer);
+      await this.saveLearned(teamId, ToolName.of(tool), answer);
     } catch (error) {
       this.log.debug(
         { tool, error: error instanceof Error ? error.name : 'unknown' },
@@ -34,7 +34,7 @@ export class LearnOutputShapes {
     }
   }
 
-  private async kept(
+  private async saveLearned(
     teamId: TeamId,
     tool: ToolName,
     answer: JsonValue,

@@ -34,7 +34,7 @@ const LEASE_MS = 10 * 60 * 1000;
 
 const WAIT_FOR_PULL_REQUEST_MS = 60_000;
 
-const KEEPING_ATTEMPTS = 5;
+const MAX_SYNC_ATTEMPTS = 5;
 
 class NotYet extends Error {
   constructor(
@@ -155,9 +155,9 @@ export class SyncReviews implements ReviewSyncWorkPort {
     const id = ReviewCommentId.of(sync.subjectId);
 
     if (sync.kind === 'reply' || sync.kind === 'file') {
-      await this.keep(id, (comment) => comment.notPosted());
+      await this.saveWithRetry(id, (comment) => comment.notPosted());
     } else if (sync.kind === 'edit') {
-      await this.keep(id, (comment) => comment.editNotSent());
+      await this.saveWithRetry(id, (comment) => comment.editNotSent());
     }
   }
 
@@ -226,7 +226,7 @@ export class SyncReviews implements ReviewSyncWorkPort {
         commentId: comment.github.id,
         body,
       });
-      await this.keep(comment.id, (latest) => latest.editSent(body));
+      await this.saveWithRetry(comment.id, (latest) => latest.editSent(body));
       return;
     }
 
@@ -308,7 +308,7 @@ export class SyncReviews implements ReviewSyncWorkPort {
       return;
     }
     if (reply.state === 'deleted') {
-      await this.keep(reply.id, (latest) => latest.postedAs(null));
+      await this.saveWithRetry(reply.id, (latest) => latest.postedAs(null));
       return;
     }
 
@@ -330,7 +330,7 @@ export class SyncReviews implements ReviewSyncWorkPort {
 
     if (!thread) {
       throw new GaveUp(
-        'The comment that this reply answers never reached GitHub.',
+        'The comment that this reply answers was never posted to GitHub.',
       );
     }
 
@@ -340,7 +340,7 @@ export class SyncReviews implements ReviewSyncWorkPort {
       body: reply.sentBody ?? reply.body,
     });
 
-    await this.keep(reply.id, (latest) => latest.postedAs(posted));
+    await this.saveWithRetry(reply.id, (latest) => latest.postedAs(posted));
   }
 
   private async postOnFile(
@@ -351,7 +351,7 @@ export class SyncReviews implements ReviewSyncWorkPort {
       return;
     }
     if (comment.state === 'deleted') {
-      await this.keep(comment.id, (latest) => latest.postedAs(null));
+      await this.saveWithRetry(comment.id, (latest) => latest.postedAs(null));
       return;
     }
 
@@ -361,10 +361,10 @@ export class SyncReviews implements ReviewSyncWorkPort {
       body: comment.sentBody ?? comment.body,
     });
 
-    await this.keep(comment.id, (latest) => latest.postedAs(posted));
+    await this.saveWithRetry(comment.id, (latest) => latest.postedAs(posted));
   }
 
-  private async keep(
+  private async saveWithRetry(
     id: ReviewComment['id'],
     change: (latest: ReviewComment) => ReviewComment,
   ): Promise<void> {
@@ -381,12 +381,12 @@ export class SyncReviews implements ReviewSyncWorkPort {
       } catch (error) {
         if (
           !(error instanceof ReviewCommentVersionConflictError) ||
-          attempt >= KEEPING_ATTEMPTS
+          attempt >= MAX_SYNC_ATTEMPTS
         ) {
           throw new GaveUp(
             error instanceof Error
               ? error.message
-              : 'Spotlight couldn’t save the comment that reached GitHub.',
+              : 'Spotlight couldn’t save the comment that it posted to GitHub.',
           );
         }
       }

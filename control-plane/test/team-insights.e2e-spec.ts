@@ -154,7 +154,7 @@ beforeAll(async () => {
   const delivery = () => app.get(DrizzleTaskDeliveryRepository).forTask(TASK);
   const touches = () => app.get(DrizzleTaskTouchesRepository).of(TASK);
   const failures = () => app.get(DrizzleTaskFailuresRepository).of(TASK);
-  const heard = async (
+  const delivered = async (
     events: readonly DomainEvent[],
     check: () => Promise<unknown>,
   ) => {
@@ -165,7 +165,7 @@ beforeAll(async () => {
     }, 60_000);
   };
 
-  await heard(
+  await delivered(
     [
       new TaskOpened(
         TASK,
@@ -180,8 +180,8 @@ beforeAll(async () => {
     ],
     async () => (await touches())?.opening,
   );
-  await heard([ended], async () => (await record())?.hasEnded);
-  await heard(
+  await delivered([ended], async () => (await record())?.hasEnded);
+  await delivered(
     [
       new RunDigested(
         RUN,
@@ -211,7 +211,7 @@ beforeAll(async () => {
     ],
     async () => (await record())?.cost,
   );
-  await heard(
+  await delivered(
     [
       new TaskPassed(
         TASK,
@@ -224,11 +224,11 @@ beforeAll(async () => {
     ],
     async () => (await record())?.passed,
   );
-  await heard(
+  await delivered(
     [new TaskAsked(TASK, workspaceId, station, team.owner, ago(230))],
     async () => (await touches())?.asks.length === 1,
   );
-  await heard(
+  await delivered(
     [
       new TaskActedOn(
         TASK,
@@ -242,7 +242,7 @@ beforeAll(async () => {
     ],
     async () => (await record())?.next && (await touches())?.acts.length === 1,
   );
-  await heard(
+  await delivered(
     [
       new TaskActedOn(
         TASK,
@@ -257,7 +257,7 @@ beforeAll(async () => {
     ],
     async () => (await record())?.refusals.length === 1,
   );
-  await heard(
+  await delivered(
     [
       new TaskFailed(
         TASK,
@@ -271,7 +271,7 @@ beforeAll(async () => {
     ],
     async () => (await failures())?.occurrences.length === 1,
   );
-  await heard(
+  await delivered(
     [
       new TaskFailed(
         TASK,
@@ -285,7 +285,7 @@ beforeAll(async () => {
     ],
     async () => (await failures())?.occurrences.length === 2,
   );
-  await heard(
+  await delivered(
     [
       new PullRequestOpened(
         TASK,
@@ -297,7 +297,7 @@ beforeAll(async () => {
     ],
     delivery,
   );
-  await heard(
+  await delivered(
     [
       new PullRequestReviewed(
         workspaceId,
@@ -310,7 +310,7 @@ beforeAll(async () => {
     ],
     async () => (await delivery())?.firstReviewAt,
   );
-  await heard(
+  await delivered(
     [
       new PullRequestClosed(
         workspaceId,
@@ -322,7 +322,7 @@ beforeAll(async () => {
     ],
     async () => (await delivery())?.merged,
   );
-  await heard(
+  await delivered(
     [
       new ChatStarted(
         ChatId.of(randomUUID()),
@@ -346,8 +346,8 @@ afterAll(async () => {
   await app?.close();
 });
 
-describe('what the outcomes context hears for a team’s insights (e2e)', () => {
-  it('keeps on its record the run’s cost, setup, waits and the station it passed the task to', async () => {
+describe('what the outcomes context receives for a team’s insights (e2e)', () => {
+  it('stores on its record the run’s cost, setup, waits and the station it passed the task to', async () => {
     const record = await app.get(DrizzleRunRecordRepository).of(RUN);
 
     expect(record?.ending).toBe('completed');
@@ -395,7 +395,7 @@ describe('what the outcomes context hears for a team’s insights (e2e)', () => 
     );
   });
 
-  it('keeps who opened the task, what it asked and every failure raised on it', async () => {
+  it('stores who opened the task, what it asked and every failure raised on it', async () => {
     const touches = await app.get(DrizzleTaskTouchesRepository).of(TASK);
     const failures = await app.get(DrizzleTaskFailuresRepository).of(TASK);
 
@@ -617,7 +617,7 @@ describe('the team’s insights (e2e)', () => {
     expect(await total(`personId=${team.owner.value}`)).toBe(1);
   });
 
-  it('rejects a drill-down it cannot read: an unknown value, one asked twice, a day outside the period, or a page past the last', async () => {
+  it('rejects a drill-down it cannot read: an unknown value, one sent twice, a day outside the period, or a page past the last', async () => {
     const status = async (query: string) =>
       (await asOwner(insights('runs', `period=7d&${query}`))).status;
     const today = new Date().toISOString().slice(0, 10);
@@ -650,7 +650,7 @@ describe('the team’s insights (e2e)', () => {
       .toISOString()
       .slice(0, 10);
 
-    expect(await total('skillGiven=grafana')).toBe(1);
+    expect(await total('skillEnabled=grafana')).toBe(1);
     expect(await total('skillUsed=grafana')).toBe(1);
     expect(await total('skillUsed=our-migrations')).toBe(0);
     expect(await total('server=linear')).toBe(1);
@@ -678,7 +678,7 @@ describe('the team’s insights (e2e)', () => {
     }
   });
 
-  it('shows which skills runs were given and read, and how each MCP server behaved', async () => {
+  it('shows which skills runs had enabled and read, and how each MCP server behaved', async () => {
     const answer = await asOwner(insights('tools'));
 
     expect(answer.status).toBe(200);
@@ -691,13 +691,13 @@ describe('the team’s insights (e2e)', () => {
     expect(answer.body.skills).toEqual([
       expect.objectContaining({
         key: 'grafana',
-        given: 1,
+        enabled: 1,
         used: 1,
         trend: null,
         stations: [
           expect.objectContaining({
             stationId: team.stationId.value,
-            given: 1,
+            enabled: 1,
             used: 1,
           }),
         ],
@@ -867,7 +867,7 @@ describe('the team’s Tools tab and its drill-downs (e2e)', () => {
     (await asOwner(insights('runs', `period=7d&${query}`))).body
       .total as number;
 
-  it('leaves a run cancelled before it ran out of the runs given a skill, as the tab does', async () => {
+  it('leaves a run cancelled before it ran out of the runs with a skill enabled, as the tab does', async () => {
     const cancelled = RunId.of(randomUUID());
     const task = TaskId.of(randomUUID());
 
@@ -924,9 +924,9 @@ describe('the team’s Tools tab and its drill-downs (e2e)', () => {
     const tools = await asOwner(insights('tools'));
 
     expect(tools.body.skills).toEqual([
-      expect.objectContaining({ key: 'grafana', given: 1 }),
+      expect.objectContaining({ key: 'grafana', enabled: 1 }),
     ]);
-    expect(await total('skillGiven=grafana')).toBe(1);
+    expect(await total('skillEnabled=grafana')).toBe(1);
   });
 
   const seeded = async (seed: {
@@ -1072,7 +1072,7 @@ describe('the team’s Tools tab and its drill-downs (e2e)', () => {
         failingRuns: number;
         refused: number;
       }[];
-      skills: { key: string; given: number; used: number }[];
+      skills: { key: string; enabled: number; used: number }[];
       refusals: { tool: string; server: string | null; refused: number }[];
     };
 
@@ -1109,7 +1109,7 @@ describe('the team’s Tools tab and its drill-downs (e2e)', () => {
     }
     for (const skill of tools.skills) {
       expect(await total(`skillUsed=${skill.key}`)).toBe(skill.used);
-      expect(await total(`skillGiven=${skill.key}`)).toBe(skill.given);
+      expect(await total(`skillEnabled=${skill.key}`)).toBe(skill.enabled);
     }
   });
 });

@@ -74,8 +74,8 @@ const archiveStore: WorkspaceArchiveStorePort = {
 const judge: JudgePort = {
   available: true,
   model: 'stub/judge',
-  judge: async (ask) => {
-    const scoredStep = ask.steps.find((each) => SCORED.test(each.text));
+  judge: async (request) => {
+    const scoredStep = request.steps.find((each) => SCORED.test(each.text));
     const value = Number(SCORED.exec(scoredStep?.text ?? '')?.[1] ?? 1);
 
     return {
@@ -514,7 +514,7 @@ export const finished = async (
       failed: false,
       handover: { next: 'ship', note: 'Drained.' },
       sessionId: 'session_1',
-      kept: true,
+      archived: true,
     })
     .expect(200);
 };
@@ -619,7 +619,7 @@ export const endedSearchRun = async (
       failed,
       handover: failed ? undefined : { next: 'review', note: 'Proposed.' },
       sessionId: 'session_1',
-      kept: true,
+      archived: true,
     })
     .expect(200);
 };

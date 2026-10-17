@@ -44,8 +44,8 @@ describe('PersonToolPolicy', () => {
     );
   });
 
-  it('is never kept with a rule that only allows, or without a version', () => {
-    const kept = {
+  it('is never stored with a rule that only allows, or without a version', () => {
+    const stored = {
       teamId: TeamId.of('team_1'),
       personId: UserId.of('user_alice'),
       source: SourceKey.of('linear'),
@@ -53,13 +53,13 @@ describe('PersonToolPolicy', () => {
 
     expect(() =>
       PersonToolPolicy.rehydrate({
-        ...kept,
+        ...stored,
         rules: new Map([[COMMENT.value, PersonToolRule.allowed()]]),
         version: 1,
       }),
     ).toThrow(InconsistentStateError);
     expect(() =>
-      PersonToolPolicy.rehydrate({ ...kept, rules: new Map(), version: 0 }),
+      PersonToolPolicy.rehydrate({ ...stored, rules: new Map(), version: 0 }),
     ).toThrow(InconsistentStateError);
   });
 });

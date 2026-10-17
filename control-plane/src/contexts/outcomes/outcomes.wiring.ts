@@ -89,9 +89,6 @@ import { ReadRunScoresQuery } from '@outcomes/application/queries/read-run-score
 import { ReadStationAlertQuery } from '@outcomes/application/queries/read-station-alert.query';
 import { ReadStationJudgeQuery } from '@outcomes/application/queries/read-station-judge.query';
 import { AlertInbox } from '@outcomes/application/services/alert-inbox.service';
-import { AskChangeJudging } from '@outcomes/application/services/ask-change-judging.service';
-import { AskForJudging } from '@outcomes/application/services/ask-for-judging.service';
-import { AskPairJudging } from '@outcomes/application/services/ask-pair-judging.service';
 import { CheckRunFacts } from '@outcomes/application/services/check-run-facts.service';
 import { DeleteOutcomes } from '@outcomes/application/services/delete-outcomes.service';
 import { GradeAsides } from '@outcomes/application/services/grade-asides.service';
@@ -114,6 +111,9 @@ import { NoteTaskTouch } from '@outcomes/application/services/note-task-touch.se
 import { OutcomesAccess } from '@outcomes/application/services/outcomes-access.service';
 import { PurgeExpiredTombstones } from '@outcomes/application/services/purge-expired-tombstones.service';
 import { RecordJudgeScore } from '@outcomes/application/services/record-judge-score.service';
+import { RequestChangeJudging } from '@outcomes/application/services/request-change-judging.service';
+import { RequestJudging } from '@outcomes/application/services/request-judging.service';
+import { RequestPairJudging } from '@outcomes/application/services/request-pair-judging.service';
 import { RunAcceptance } from '@outcomes/application/services/run-acceptance.service';
 import { RunOutcomes } from '@outcomes/application/services/run-outcomes.service';
 import { RunScoresViews } from '@outcomes/application/services/run-scores-views.service';
@@ -480,7 +480,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
     CLOCK,
   ]),
   {
-    provide: AskForJudging,
+    provide: RequestJudging,
     inject: [
       WORK,
       EVIDENCE,
@@ -499,7 +499,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
       transaction: TransactionPort,
       clock: ClockPort,
     ) =>
-      new AskForJudging(
+      new RequestJudging(
         work,
         evidence,
         judge,
@@ -547,7 +547,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
       judge: JudgePort,
       transaction: TransactionPort,
       clock: ClockPort,
-    ) => new AskChangeJudging(judgings, judge, transaction, clock),
+    ) => new RequestChangeJudging(judgings, judge, transaction, clock),
   },
   {
     provide: PAIR_JUDGING,
@@ -557,7 +557,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
       judge: PairJudgePort,
       transaction: TransactionPort,
       clock: ClockPort,
-    ) => new AskPairJudging(judgings, judge, transaction, clock),
+    ) => new RequestPairJudging(judgings, judge, transaction, clock),
   },
   {
     provide: WorkPairJudgings,
@@ -944,7 +944,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
       NotePullRequestOpened,
       NotePullRequestClosed,
       DeleteOutcomes,
-      AskForJudging,
+      RequestJudging,
       RecordJudgeScore,
       GradeAsides,
       NoteRunDigested,
@@ -971,7 +971,7 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
       opening: NotePullRequestOpened,
       closing: NotePullRequestClosed,
       deleting: DeleteOutcomes,
-      judging: AskForJudging,
+      judging: RequestJudging,
       scoring: RecordJudgeScore,
       grading: GradeAsides,
       digesting: NoteRunDigested,

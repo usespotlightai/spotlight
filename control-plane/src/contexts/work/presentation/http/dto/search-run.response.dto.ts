@@ -87,7 +87,7 @@ export class SearchRunResponseDto extends TaskRunResponseDto {
 
   @ApiProperty({
     description:
-      'The briefing that the search gave its agent when it dispatched this iteration',
+      'The briefing that the search sent to its agent when it dispatched this iteration',
   })
   readonly briefing: string;
 

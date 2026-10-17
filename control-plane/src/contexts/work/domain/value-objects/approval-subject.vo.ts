@@ -57,10 +57,13 @@ export class ApprovalSubject {
     });
   }
 
-  get given(): readonly { readonly name: string; readonly value: string }[] {
+  get writtenInputs(): readonly {
+    readonly name: string;
+    readonly value: string;
+  }[] {
     return this.when({
-      toolCall: (call) => call.given,
-      harnessPermission: (permission) => permission.given,
+      toolCall: (call) => call.writtenInputs,
+      harnessPermission: (permission) => permission.writtenInputs,
     });
   }
 

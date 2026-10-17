@@ -1,22 +1,27 @@
-import { GRANTS, REACHES, type TokenGrant, type TokenReach } from '@/lib/token';
+import {
+  GRANTS,
+  TOKEN_LEVELS,
+  type TokenGrant,
+  type TokenLevel,
+} from '@/lib/token';
 import { cn } from '@/lib/utils';
 
 const CHOICE =
   'flex cursor-pointer items-start gap-2 rounded-md px-2 py-1.5 transition-colors hover:bg-muted';
 
 type TokenAccessFieldProps = {
-  reach: TokenReach;
+  level: TokenLevel;
   grants: ReadonlySet<TokenGrant>;
   disabled: boolean;
-  onReach: (reach: TokenReach) => void;
+  onLevel: (level: TokenLevel) => void;
   onGrant: (grant: TokenGrant, granted: boolean) => void;
 };
 
 export function TokenAccessField({
-  reach,
+  level,
   grants,
   disabled,
-  onReach,
+  onLevel,
   onGrant,
 }: TokenAccessFieldProps) {
   return (
@@ -26,17 +31,17 @@ export function TokenAccessField({
       </legend>
 
       <div className="flex flex-col gap-0.5">
-        {REACHES.map((each) => (
+        {TOKEN_LEVELS.map((each) => (
           <label
             key={each.id}
-            className={cn(CHOICE, reach === each.id && 'bg-muted')}
+            className={cn(CHOICE, level === each.id && 'bg-muted')}
           >
             <input
               type="radio"
-              name="reach"
+              name="level"
               value={each.id}
-              checked={reach === each.id}
-              onChange={() => onReach(each.id)}
+              checked={level === each.id}
+              onChange={() => onLevel(each.id)}
               className="mt-1"
             />
             <span className="flex flex-col">

@@ -133,7 +133,7 @@ describe('the mock inbox', () => {
     expect(approval?.edited).toEqual([{ name: 'for', value: '20m' }]);
   });
 
-  it('asks for approvals in every status', async () => {
+  it('requests approvals in every status', async () => {
     expect(await approvalIn('task_checkout:0')).toMatchObject({
       kind: 'harness-permission',
       status: 'asked',
@@ -240,7 +240,7 @@ describe('the mock inbox', () => {
     expect((await itemIn(ALERT_ASIDE_ID))?.resolved).toBe(true);
   });
 
-  it('asks for grades on every scale', async () => {
+  it('requests grades on every scale', async () => {
     const claims = await scoresAbout(CLAIMS_GRADE_ASIDE_ID);
     const five = await scoresAbout(FIVE_POINT_GRADE_ASIDE_ID);
 
@@ -331,7 +331,7 @@ describe('the mock inbox', () => {
     ]);
   });
 
-  it('shows the memory the run kept as approved, and resolves the aside once the last is decided', async () => {
+  it('shows the memory of the run as approved, and resolves the aside once the last is decided', async () => {
     const { data: review } = await readMemoryReview({
       path: RETRIES,
       throwOnError: true,

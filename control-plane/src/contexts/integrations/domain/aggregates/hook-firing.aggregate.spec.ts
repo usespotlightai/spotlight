@@ -63,10 +63,10 @@ const stateOf = (firing: HookFiring) => ({
   version: firing.version,
 });
 
-const kept = (firing: HookFiring, version = 1) =>
+const stored = (firing: HookFiring, version = 1) =>
   HookFiring.rehydrate({ ...stateOf(firing), version });
 
-const working = (firing = fired()) => kept(firing).claimed(NOW);
+const working = (firing = fired()) => stored(firing).claimed(NOW);
 
 const DONE_A = { name: 'a', status: 'done' as const, output: null };
 
@@ -103,7 +103,7 @@ describe('HookFiring', () => {
     });
 
     it('is not claimed before it is due', () => {
-      const waiting = kept(working().waitUntil(later(2_000)));
+      const waiting = stored(working().waitUntil(later(2_000)));
 
       expect(() => waiting.claimed(later(1_000))).toThrow(
         InvalidHookFiringTransitionError,
@@ -112,7 +112,7 @@ describe('HookFiring', () => {
     });
 
     it('is not claimed from a worker that still has the lease, only once its lease expires', () => {
-      const leased = kept(working());
+      const leased = stored(working());
 
       expect(() => leased.claimed(later(10 * 60_000))).toThrow(
         InvalidHookFiringTransitionError,
@@ -124,7 +124,7 @@ describe('HookFiring', () => {
     });
 
     it('is never claimed once finished', () => {
-      const done = kept(working().worked(NOW));
+      const done = stored(working().worked(NOW));
 
       expect(() => done.claimed(later(60 * 60_000))).toThrow(
         InvalidHookFiringTransitionError,
@@ -187,7 +187,7 @@ describe('HookFiring', () => {
     });
 
     it('rejects every change unless a worker has the lease', () => {
-      const pending = kept(fired());
+      const pending = stored(fired());
 
       expect(() => pending.recordStep([DONE_A])).toThrow(
         InvalidHookFiringTransitionError,
@@ -227,7 +227,7 @@ describe('HookFiring', () => {
       let firing = working();
 
       for (let attempt = 0; attempt < 7; attempt += 1) {
-        firing = kept(
+        firing = stored(
           firing.failedWith(HookFailure.of('timeout', 'slow'), NOW, false),
         ).claimed(later(60 * 60_000));
       }
@@ -368,7 +368,7 @@ describe('HookFiring', () => {
 
   describe('being purged', () => {
     it('is purged thirty days after it finishes', () => {
-      const done = kept(working().worked(NOW));
+      const done = stored(working().worked(NOW));
       const month = later(30 * 24 * 60 * 60_000);
 
       expect(done.isPastRetention(later(1))).toBe(false);
@@ -380,15 +380,15 @@ describe('HookFiring', () => {
     });
 
     it('is never purged while it is pending', () => {
-      expect(kept(fired()).isPastRetention(later(365 * 24 * 60 * 60_000))).toBe(
-        false,
-      );
+      expect(
+        stored(fired()).isPastRetention(later(365 * 24 * 60 * 60_000)),
+      ).toBe(false);
     });
   });
 
-  describe('as kept', () => {
-    it('rejects a firing kept without a version', () => {
-      expect(() => kept(fired(), 0)).toThrow(InconsistentStateError);
+  describe('as stored', () => {
+    it('rejects a firing stored without a version', () => {
+      expect(() => stored(fired(), 0)).toThrow(InconsistentStateError);
     });
 
     it('rejects a failed firing that says no failure', () => {

@@ -7,7 +7,7 @@ import (
 	"usespotlight.ai/data-plane/protocol"
 )
 
-func TestKeepsEveryHarnessKeyItKnowsWithEgressWhateverTheControlPlaneSays(t *testing.T) {
+func TestLeavesEveryHarnessKeyItKnowsWithEgressWhateverTheControlPlaneSays(t *testing.T) {
 	env, harnessKeys := standInsFor([]string{
 		"ANTHROPIC_API_KEY=sk-ant-api",
 		"CLAUDE_CODE_OAUTH_TOKEN=sk-ant-oat",

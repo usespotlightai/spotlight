@@ -96,13 +96,13 @@ export class PickSearchCandidateHandler
         at,
         by,
       });
-      const kept = await this.transaction.inTransaction(() =>
+      const stored = await this.transaction.inTransaction(() =>
         this.pullRequests.add(fresh),
       );
 
       return {
-        outcome: kept.id.equals(fresh.id) ? 'picked' : 'already',
-        pullRequest: configPullRequestView(kept),
+        outcome: stored.id.equals(fresh.id) ? 'picked' : 'already',
+        pullRequest: configPullRequestView(stored),
       };
     } catch (error) {
       rethrowAsApplicationError(error);

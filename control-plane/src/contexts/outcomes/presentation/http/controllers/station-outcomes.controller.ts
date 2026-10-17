@@ -16,8 +16,8 @@ import { CurrentUser } from '@platform/http/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '@shared-kernel/application/ports/session.port';
 
 const lastOf = (raw: unknown): number | null => {
-  const asked = typeof raw === 'string' ? Number(raw) : Number.NaN;
-  return Number.isInteger(asked) ? asked : null;
+  const value = typeof raw === 'string' ? Number(raw) : Number.NaN;
+  return Number.isInteger(value) ? value : null;
 };
 
 @ApiTags('outcomes')
@@ -40,7 +40,7 @@ export class StationOutcomesController {
     required: false,
     type: Number,
     description:
-      'How many of the latest-started runs to look at: 50 unless asked, 200 at most',
+      'How many of the latest-started runs to look at: 50 by default, 200 at most',
   })
   @ApiOkResponse({ type: StationOutcomesResponseDto })
   @ApiNotFoundResponse({ description: 'No such team for this caller' })

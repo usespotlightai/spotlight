@@ -5,7 +5,7 @@ import type {
   ProvisionEgress,
 } from '@runners/application/ports/provision-calls.port';
 import type { ProvisionSecretsPort } from '@runners/application/ports/provision-secrets.port';
-import type { AdmittedWay } from '@runners/application/ports/runner-admissions.port';
+import type { CredentialSourceRef } from '@runners/application/ports/runner-authenticator.port';
 import type {
   LeasedWork,
   ProvisionedRunner,
@@ -24,7 +24,7 @@ import type { RunnerHostRepository } from '@runners/domain/repositories/runner-h
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
 import type { RunnerTrustRepository } from '@runners/domain/repositories/runner-trust.repository';
 import { carriesRunTokens } from '@runners/domain/services/run-token-carriage';
-import { Admission } from '@runners/domain/value-objects/admission.vo';
+import { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
 import type { EgressReference } from '@runners/domain/value-objects/egress-reference.vo';
 import type { EgressUrl } from '@runners/domain/value-objects/egress-url.vo';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
@@ -81,7 +81,7 @@ export class Runners implements RunnersPort {
     private readonly logger: LoggerPort,
   ) {}
 
-  async reports(way: AdmittedWay, host: string): Promise<boolean> {
+  async reports(source: CredentialSourceRef, host: string): Promise<boolean> {
     let hostId: HostId;
 
     try {
@@ -92,11 +92,14 @@ export class Runners implements RunnersPort {
 
     const serving = await this.hosts.find(hostId);
 
-    return serving?.servesThrough(Admission.of(way.kind, way.id)) ?? false;
+    return (
+      serving?.servesThrough(CredentialSource.of(source.kind, source.id)) ??
+      false
+    );
   }
 
   async start(
-    way: AdmittedWay,
+    source: CredentialSourceRef,
     host: string,
     image: string,
     at: Date,
@@ -105,7 +108,7 @@ export class Runners implements RunnersPort {
     const hostId = HostId.of(host);
     const serving = await this.hosts.find(hostId);
 
-    if (!serving?.servesThrough(Admission.of(way.kind, way.id))) {
+    if (!serving?.servesThrough(CredentialSource.of(source.kind, source.id))) {
       return { outcome: 'host-unreported' };
     }
 
@@ -132,14 +135,14 @@ export class Runners implements RunnersPort {
         claimBy,
       });
     const began =
-      way.kind === 'trust'
+      source.kind === 'trust'
         ? await this.beganThroughTrust(
-            RunnerTrustId.of(way.id),
+            RunnerTrustId.of(source.id),
             'pull',
             starting,
           )
         : await this.beganThroughPool(
-            RunnerPoolId.of(way.id),
+            RunnerPoolId.of(source.id),
             'pull',
             at,
             starting,

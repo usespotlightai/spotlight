@@ -49,7 +49,7 @@ const sealedMeanwhile = (unsealed: WorkspaceArchive): WorkspaceArchive =>
   });
 
 describe('RemoveReleasedArchives', () => {
-  it('asks for the archives due by the cutoffs the archive rules name', async () => {
+  it('requests the archives due by the cutoffs the archive rules name', async () => {
     const due = vi.fn(async () => []);
     const { service } = await setUp(due);
 
@@ -86,7 +86,7 @@ describe('RemoveReleasedArchives', () => {
     await service.processDue();
 
     expect(store.removed).toEqual(['gone']);
-    expect([...archives.kept.keys()]).toEqual(['owned']);
+    expect([...archives.stored.keys()]).toEqual(['owned']);
   });
 
   it('keeps the object of an archive sealed while it was being removed', async () => {
@@ -108,7 +108,7 @@ describe('RemoveReleasedArchives', () => {
     await service.processDue();
 
     expect(store.removed).toEqual([]);
-    expect(archives.kept.get('late')?.isSealed).toBe(true);
+    expect(archives.stored.get('late')?.isSealed).toBe(true);
     expect(logger.error).not.toHaveBeenCalled();
   });
 
@@ -144,7 +144,7 @@ describe('RemoveReleasedArchives', () => {
     await service.processDue();
 
     expect(store.removed).toEqual(['owned']);
-    expect(archives.kept.size).toBe(0);
+    expect(archives.stored.size).toBe(0);
     expect(logger.error).toHaveBeenCalledOnce();
     expect(logger.error).toHaveBeenCalledWith(
       expect.objectContaining({ archive: 'gone', workspaceId: 'ws_1' }),

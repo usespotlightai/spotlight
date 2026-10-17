@@ -46,8 +46,8 @@ const SCALARS = ['null', 'boolean', 'number', 'string', 'unknown'] as const;
 const namesAField = (key: string): boolean =>
   FIELD_NAME.test(key) && !ID_LIKE.test(key);
 
-const churns = (known: number, given: number, unseen: number): boolean =>
-  known > 0 && given > 0 && unseen * 2 > given;
+const churns = (known: number, incoming: number, unseen: number): boolean =>
+  known > 0 && incoming > 0 && unseen * 2 > incoming;
 
 const keyedByData = (keys: readonly string[]): boolean =>
   keys.length > MAX_FIELDS || !keys.every(namesAField);
@@ -291,7 +291,7 @@ const read = (raw: unknown, depth: number): ShapeNode => {
   const invalid = () =>
     new InconsistentStateError(
       'learned output shape',
-      'was kept in a form Spotlight does not read',
+      'was stored in a form Spotlight does not read',
     );
 
   if (!isJsonObject(raw) || typeof raw.kind !== 'string' || depth > 64) {
@@ -340,7 +340,7 @@ export class OutputShape {
     return new OutputShape(inferred(answer, 0, new Budget()));
   }
 
-  static kept(raw: unknown): OutputShape {
+  static fromStored(raw: unknown): OutputShape {
     return new OutputShape(bounded(read(raw, 0), 0, new Budget()));
   }
 

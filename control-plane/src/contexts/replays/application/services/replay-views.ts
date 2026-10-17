@@ -161,7 +161,7 @@ const judgeView = (judging: EntryJudging | null): EntryJudgeDto | null => {
   const verdict = judging.verdict;
 
   return {
-    state: verdict ? 'judged' : judging.unjudged ? 'unjudged' : 'asked',
+    state: verdict ? 'judged' : judging.unjudged ? 'unjudged' : 'requested',
     scale: verdict?.scale ?? null,
     score: verdict?.value ?? null,
     passed: verdict?.passes ?? null,
@@ -198,7 +198,7 @@ const pairView = (pairing: EntryPairing | null): EntryPairDto | null => {
   const verdict = pairing.verdict;
 
   return {
-    state: verdict ? 'judged' : pairing.unpaired ? 'unpaired' : 'asked',
+    state: verdict ? 'judged' : pairing.unpaired ? 'unpaired' : 'requested',
     againstRunId: pairing.against.value,
     outcome: verdict?.outcome ?? null,
     model: verdict?.model ?? null,

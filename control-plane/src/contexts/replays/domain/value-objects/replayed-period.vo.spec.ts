@@ -34,7 +34,7 @@ describe('ReplayedPeriod', () => {
     expect(period.includes(period.to)).toBe(false);
   });
 
-  it('is only ever 7, 30 or 90 days, without repeating what it was asked', () => {
+  it('is only ever 7, 30 or 90 days, without repeating what was requested', () => {
     expect(() => ReplayedPeriod.of('14d', NOW)).toThrow(
       InvalidReplayedPeriodError,
     );

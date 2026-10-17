@@ -134,7 +134,7 @@ describe('ListInboxHandler', () => {
     });
   });
 
-  it('asks only for the notices resolved in the last 30 days, beside every open one', async () => {
+  it('requests only the notices resolved in the last 30 days, beside every open one', async () => {
     const inbox = reader([]);
 
     await handle(inbox);

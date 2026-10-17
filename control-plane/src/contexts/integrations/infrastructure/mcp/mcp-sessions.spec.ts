@@ -92,7 +92,7 @@ describe('McpSessions', () => {
     expect(server.called).toHaveLength(3);
   });
 
-  it('gives each call in flight a session of its own, so a question is put down to the call it came in', async () => {
+  it('uses a session of its own for each call in flight, so a question is put down to the call it came in', async () => {
     const key = 'team_1:tracker:team:none';
     const [asking, searching] = await Promise.allSettled([
       sessions.call(key, server.url, 'ask_first', {}, injectingNothing),
@@ -122,7 +122,7 @@ describe('McpSessions', () => {
       injectingNothing,
     );
 
-    expect(server.heard.map((each) => each.method)).not.toContain('GET');
+    expect(server.received.map((each) => each.method)).not.toContain('GET');
   });
 
   it('ends the session at the server when it lists, and when a session idles out', async () => {
@@ -148,7 +148,7 @@ describe('McpSessions', () => {
       await new Promise((resolve) => setTimeout(resolve, 100));
 
       expect(
-        server.heard.filter((each) => each.method === 'DELETE'),
+        server.received.filter((each) => each.method === 'DELETE'),
       ).toHaveLength(2);
     } finally {
       vi.useRealTimers();
@@ -266,8 +266,8 @@ describe('McpSessions', () => {
       },
     );
 
-    expect(server.heard.every((each) => each.authorization)).toBe(true);
-    expect(server.heard[0]).toMatchObject({
+    expect(server.received.every((each) => each.authorization)).toBe(true);
+    expect(server.received[0]).toMatchObject({
       authorization: 'Bearer the-token',
       apiKey: 'tk_live',
     });
@@ -297,20 +297,20 @@ describe('McpSessions', () => {
       },
     );
 
-    expect(server.heard[server.heard.length - 1]?.key).toBe('tk/live');
+    expect(server.received[server.received.length - 1]?.key).toBe('tk/live');
     expect(JSON.stringify(answered)).not.toContain('tk/live');
     expect(JSON.stringify(answered)).toContain('[secret]');
   });
 
   it('says when the server does not accept the connection it was handed', async () => {
     const guarded = await fakeMcpServer({ token: 'right' });
-    const asking = new McpSessions(
+    const guardedSessions = new McpSessions(
       new OutboundPolicy([new URL(guarded.url).host]),
     );
 
     try {
       await expect(
-        asking.call(
+        guardedSessions.call(
           'team_1:tracker:team:wrong',
           guarded.url,
           'search_issues',
@@ -319,10 +319,13 @@ describe('McpSessions', () => {
         ),
       ).rejects.toBeInstanceOf(McpUnauthorizedError);
       await expect(
-        asking.tools(guarded.url, { ...injectingNothing, connection: 'wrong' }),
+        guardedSessions.tools(guarded.url, {
+          ...injectingNothing,
+          connection: 'wrong',
+        }),
       ).rejects.toBeInstanceOf(McpUnauthorizedError);
     } finally {
-      asking.onModuleDestroy();
+      guardedSessions.onModuleDestroy();
       await guarded.close();
     }
   });
@@ -363,9 +366,9 @@ describe('McpSessions', () => {
   });
 
   it('carries no key to another host a server redirects to', async () => {
-    const heard: string[] = [];
+    const urls: string[] = [];
     const elsewhere = await serving((request, reply) => {
-      heard.push(request.url ?? '');
+      urls.push(request.url ?? '');
       reply.writeHead(404).end();
     });
     const moving = await serving((request, reply) => {
@@ -385,8 +388,8 @@ describe('McpSessions', () => {
         .tools(`${moving.origin}/mcp`, injectingKey)
         .catch(() => null);
 
-      expect(heard.length).toBeGreaterThan(0);
-      expect(heard.join(' ')).not.toMatch(/k(%2F|\/)live/);
+      expect(urls.length).toBeGreaterThan(0);
+      expect(urls.join(' ')).not.toMatch(/k(%2F|\/)live/);
     } finally {
       listing.onModuleDestroy();
       moving.server.close();
@@ -400,6 +403,6 @@ describe('McpSessions', () => {
     await expect(
       nowhere.tools(server.url, injectingNothing),
     ).rejects.toBeInstanceOf(EgressBlockedError);
-    expect(server.heard).toEqual([]);
+    expect(server.received).toEqual([]);
   });
 });

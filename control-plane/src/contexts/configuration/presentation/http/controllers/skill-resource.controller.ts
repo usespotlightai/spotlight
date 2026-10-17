@@ -123,7 +123,7 @@ export class SkillResourceController {
     );
   }
 
-  @SkillResource.Delete('skills/:id', 'Delete a skill no station gives')
+  @SkillResource.Delete('skills/:id', 'Delete a skill no station enables')
   @ID
   async delete(
     @Param('id') id: string,

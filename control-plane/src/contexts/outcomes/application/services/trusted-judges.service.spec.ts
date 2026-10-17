@@ -27,10 +27,10 @@ const shapeOf = (
 
 describe('TrustedJudges', () => {
   it('gives each station its own calibration, whatever order the calibrations come in', async () => {
-    const asked: unknown[] = [];
+    const requested: unknown[] = [];
     const judges = new TrustedJudges({
       calibrationsOf: async (team, stations) => {
-        asked.push({ team, stations });
+        requested.push({ team, stations });
 
         return [
           shapeOf('station_c', {}),
@@ -61,7 +61,7 @@ describe('TrustedJudges', () => {
       { lineId: 'line_2', stationId: 'station_c' },
     ]);
 
-    expect(asked).toEqual([
+    expect(requested).toEqual([
       {
         team: { workspaceId: 'workspace_1', teamId: 'team_1' },
         stations: [

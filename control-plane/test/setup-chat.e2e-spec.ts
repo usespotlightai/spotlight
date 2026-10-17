@@ -102,7 +102,7 @@ describe('setting a team up as code (e2e)', () => {
     await unseat();
   });
 
-  it('keeps where a setup chat writes the configuration, and the pull request it opens', async () => {
+  it('stores where a setup chat writes the configuration, and the pull request it opens', async () => {
     const runId = randomUUID();
     const chat = settingUp(runId);
 
@@ -209,13 +209,13 @@ describe('setting a team up as code (e2e)', () => {
     await starting('acme/infra').expect(400);
   });
 
-  it('rejects a setup in a repository the GitHub App cannot reach', async () => {
+  it('rejects a setup in a repository the GitHub App cannot access', async () => {
     const rejected = await starting({
       repository: 'acme/infra',
       folder: 'spotlight',
     }).expect(422);
 
-    expect(JSON.stringify(rejected.body)).toContain("can't reach acme/infra");
+    expect(JSON.stringify(rejected.body)).toContain("can't access acme/infra");
     await expect(reader().setupOf(TeamId.of(workspaceId))).resolves.toBeNull();
   });
 

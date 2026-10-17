@@ -447,7 +447,7 @@ export class InboxItemResponseDto {
   @ApiProperty({
     nullable: true,
     type: String,
-    description: 'What the station that opened this conversation was given',
+    description: 'The briefing of the station that opened this conversation',
   })
   readonly briefing: string | null;
 
@@ -549,7 +549,7 @@ export class InboxNoticeResponseDto {
     type: String,
     isArray: true,
     example: [
-      'Fix the judge: the rubric asks for tests the task never needed.',
+      'Fix the judge: the rubric requires tests the task never needed.',
     ],
     description: 'What happened, then what it suggests, one point each',
   })
@@ -644,7 +644,7 @@ export class AnswerInboxItemRequestDto {
     type: AnswerInboxItemInputRequestDto,
     isArray: true,
     description:
-      'With approve: true on a tool call, what it runs with instead, as the person changed it. Names exactly the inputs it asked with; a harness asking permission takes no changes.',
+      'With approve: true on a tool call, what it runs with instead, as the person changed it. Names exactly the inputs it was called with; a harness asking permission takes no changes.',
   })
   readonly inputs?: AnswerInboxItemInputRequestDto[];
 }

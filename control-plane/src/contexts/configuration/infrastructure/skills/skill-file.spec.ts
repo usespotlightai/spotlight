@@ -9,7 +9,7 @@ const SKILL = (front: string) =>
 const readSkill = (folder: string, text: string) =>
   readSkillFolder(folder, [{ path: 'SKILL.md', text }], 'defined').skill;
 
-describe('what a skill asks a team for', () => {
+describe('what a skill requires from a team', () => {
   it('reads the secrets its frontmatter lists, each with what it is for', () => {
     const skill = readSkill(
       'grafana-dashboards',
@@ -24,7 +24,7 @@ describe('what a skill asks a team for', () => {
     ]);
   });
 
-  it('asks for nothing where its frontmatter lists nothing', () => {
+  it('requires nothing where its frontmatter lists nothing', () => {
     const skill = readSkill('grafana-dashboards', SKILL(''));
 
     expect(skill.secrets).toEqual([]);

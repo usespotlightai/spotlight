@@ -4,7 +4,7 @@ import { RegisteredHarnessRequestDto } from '@runners/presentation/http/dto/regi
 export class HostImageRequestDto {
   @ApiProperty({
     example: 'ghcr.io/acme/api-runner:main',
-    description: 'The image as the host was asked to run it',
+    description: 'The image as Spotlight told the host to run it',
   })
   readonly image!: string;
 

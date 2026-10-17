@@ -32,7 +32,7 @@ func there(t *testing.T, space *workspace.Workspace, path string) bool {
 	return err == nil
 }
 
-func TestPruneRemovesWhatThisRunWasNotGiven(t *testing.T) {
+func TestPruneRemovesWhatIsNotEnabledForThisRun(t *testing.T) {
 	space, err := workspace.Open(t.TempDir())
 	if err != nil {
 		t.Fatalf("create: %v", err)
@@ -56,14 +56,14 @@ func TestPruneRemovesWhatThisRunWasNotGiven(t *testing.T) {
 		t.Fatalf("prune: %v", err)
 	}
 
-	for _, kept := range []string{
+	for _, preserved := range []string{
 		".claude/skills/spotlight-handover/SKILL.md",
 		".claude/skills/our-migrations/SKILL.md",
 		".claude/skills/our-migrations/examples/add-column.md",
 		".claude/settings.json",
 	} {
-		if !there(t, space, kept) {
-			t.Errorf("%s is gone", kept)
+		if !there(t, space, preserved) {
+			t.Errorf("%s is gone", preserved)
 		}
 	}
 	for _, dropped := range []string{
@@ -158,6 +158,6 @@ func TestPruneRejectsAPathOutOfTheWorkspace(t *testing.T) {
 		}
 	}
 	if err := space.Prune(".claude/skills", []string{"../SKILL.md"}); err == nil {
-		t.Error("a kept path out of the workspace should be rejected")
+		t.Error("a preserved path out of the workspace should be rejected")
 	}
 }

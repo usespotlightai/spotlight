@@ -266,7 +266,7 @@ describe('every pull request in an installed repository (e2e)', () => {
     expect(theirs?.revertedBy?.value).toBe(urlOf(3));
   });
 
-  it('keeps what Insights needs of each in the outcomes context, Spotlight’s apart from people’s', async () => {
+  it('stores what Insights needs of each in the outcomes context, Spotlight’s apart from people’s', async () => {
     const mine = await recordOf(1);
     const theirs = await recordOf(2);
     const revert = await recordOf(3);
@@ -379,7 +379,7 @@ describe('the team’s pull request insights (e2e)', () => {
   });
 });
 
-describe('what GitHub said, kept in order and purged in time (e2e)', () => {
+describe('what GitHub said, stored in order and purged in time (e2e)', () => {
   it('records nothing of a delivery through an installation no workspace claimed', async () => {
     await deliverThrough(UNCLAIMED_INSTALLATION, 'pull_request', {
       action: 'opened',
@@ -394,7 +394,7 @@ describe('what GitHub said, kept in order and purged in time (e2e)', () => {
     ).toEqual([]);
   });
 
-  it('keeps the newer of what GitHub said, however late the older arrives', async () => {
+  it('stores the newer of what GitHub said, however late the older arrives', async () => {
     await deliver('pull_request', {
       action: 'edited',
       pull_request: pullRequest(91, { title: 'Newer', updated_at: ago(1) }),
@@ -452,7 +452,7 @@ describe('what GitHub said, kept in order and purged in time (e2e)', () => {
     expect((await pullRequestOf(93))?.comments).toEqual([]);
   });
 
-  it('rejects a filter that takes one value asked for twice, and takes repositories repeated', async () => {
+  it('rejects a filter that takes one value requested twice, and takes repositories repeated', async () => {
     const twice = await asOwner(
       insights(
         'pull-requests/list',
@@ -493,7 +493,7 @@ describe('what GitHub said, kept in order and purged in time (e2e)', () => {
     ).not.toBeNull();
   });
 
-  it('records nothing heard late through an installation its workspace removed', async () => {
+  it('records nothing received late through an installation its workspace removed', async () => {
     await deliverThrough(ELSEWHERE_INSTALLATION, 'pull_request', {
       action: 'edited',
       pull_request: pullRequest(94, { updated_at: ago(0) }),
@@ -502,7 +502,7 @@ describe('what GitHub said, kept in order and purged in time (e2e)', () => {
     expect(await pullRequestOf(94, elsewhere.workspaceId)).toBeNull();
   });
 
-  it('purges the tombstones of deleted pull requests kept longer than retention and its slack', async () => {
+  it('purges the tombstones of deleted pull requests stored longer than retention and its slack', async () => {
     const deletions = app.get(DrizzleDeletions);
     const old = PullRequestUrl.of(urlOf(96));
     const recent = PullRequestUrl.of(urlOf(97));

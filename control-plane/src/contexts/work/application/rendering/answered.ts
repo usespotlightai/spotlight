@@ -37,16 +37,16 @@ const wholeHunks = (hunks: readonly EvidencedHunk[]): string => {
 };
 
 export const Answered = {
-  acceptedGiven(hunks: readonly EvidencedHunk[]): boolean {
+  hasAccepted(hunks: readonly EvidencedHunk[]): boolean {
     return hunks.length > 0;
   },
 
-  sentBackGiven(feedback: readonly string[]): boolean {
+  hasSentBack(feedback: readonly string[]): boolean {
     return feedback.length > 0;
   },
 
   accepted(hunks: readonly EvidencedHunk[]): string | null {
-    if (!Answered.acceptedGiven(hunks)) {
+    if (!Answered.hasAccepted(hunks)) {
       return null;
     }
 
@@ -58,7 +58,7 @@ export const Answered = {
   },
 
   sentBack(feedback: readonly string[]): string | null {
-    if (!Answered.sentBackGiven(feedback)) {
+    if (!Answered.hasSentBack(feedback)) {
       return null;
     }
 
@@ -66,7 +66,7 @@ export const Answered = {
       ANSWER,
       'A person sent an earlier attempt at this task back and said:',
       clipped(feedback.map(quoted).join('\n\n')),
-      'Do the task so that it meets what they asked for.',
+      'Do the task so that it meets what they requested.',
     ].join('\n\n');
   },
 };

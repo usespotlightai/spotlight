@@ -3,7 +3,7 @@ import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid
 import { describe, expect, it } from 'vitest';
 
 describe('GitHubInstallation', () => {
-  it('takes the number GitHub gave it', () => {
+  it('takes the number that GitHub assigned', () => {
     expect(GitHubInstallation.of('81234567').value).toBe('81234567');
   });
 

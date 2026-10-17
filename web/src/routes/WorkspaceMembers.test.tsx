@@ -9,7 +9,7 @@ const members = vi.fn();
 const invites = vi.fn();
 const membersFailing = vi.fn();
 const refetchMembers = vi.fn();
-const askedMembers = vi.fn();
+const requestedMembers = vi.fn();
 const changeRole = vi.fn();
 const changing = vi.fn();
 const resend = vi.fn();
@@ -41,7 +41,7 @@ vi.mock('@/hooks/api/useWorkspace', () => ({
 
 vi.mock('@/hooks/api/useWorkspaceMembers', () => ({
   useWorkspaceMembers: (slug: string | undefined) => {
-    askedMembers(slug);
+    requestedMembers(slug);
     return query(members(), membersFailing(), refetchMembers);
   },
 }));
@@ -168,7 +168,7 @@ beforeEach(() => {
   revoking.mockReturnValue('idle');
   for (const each of [
     refetchMembers,
-    askedMembers,
+    requestedMembers,
     changeRole,
     resend,
     revoke,
@@ -411,7 +411,7 @@ describe('WorkspaceMembers', () => {
     showing();
 
     expect(screen.getByText('the workspace')).toBeInTheDocument();
-    expect(askedMembers).not.toHaveBeenCalledWith('acme');
+    expect(requestedMembers).not.toHaveBeenCalledWith('acme');
   });
 
   it('keeps the shape of the list while it loads', () => {
@@ -427,7 +427,7 @@ describe('WorkspaceMembers', () => {
     ).toBeInTheDocument();
   });
 
-  it('says the members could not be loaded, and tries again when asked', async () => {
+  it('says the members could not be loaded, and tries again on request', async () => {
     members.mockReturnValue(undefined);
     membersFailing.mockReturnValue(true);
     showing();

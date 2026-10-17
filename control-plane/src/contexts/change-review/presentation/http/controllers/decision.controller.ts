@@ -75,7 +75,7 @@ export class DecisionController {
   @ApiCreatedResponse({ type: TaskDecisionsResponseDto })
   @ApiBadRequestResponse({
     description:
-      'No reason given, one too long, or a path the decision does not name',
+      'The reason is missing or too long, or the decision does not name the path',
   })
   @ApiNotFoundResponse({ description: 'No such decision for this caller' })
   async dispute(

@@ -19,7 +19,7 @@ afterAll(async () => {
   await database?.close();
 });
 
-const kept = async (id: string) =>
+const stored = async (id: string) =>
   (
     await database.db.execute(
       sql`select count(*)::int as n from savepoint_check where id = ${id}`,
@@ -37,7 +37,7 @@ describe('work in a savepoint inside a transaction', () => {
       await context.db.execute(sql`insert into savepoint_check values (${id})`);
     });
 
-    expect(await kept(id)).toEqual({ n: 1 });
+    expect(await stored(id)).toEqual({ n: 1 });
   });
 
   it('keeps what the savepoint work wrote when it succeeds', async () => {
@@ -49,6 +49,6 @@ describe('work in a savepoint inside a transaction', () => {
       ),
     );
 
-    expect(await kept(id)).toEqual({ n: 1 });
+    expect(await stored(id)).toEqual({ n: 1 });
   });
 });

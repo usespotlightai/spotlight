@@ -35,11 +35,11 @@ const trace = (taskId: string, runIds: string[]): TeamTraceSummary => ({
   output: null,
 });
 
-let asked: string[][] = [];
+let requested: string[][] = [];
 
 const digests = {
   forRuns: async (runIds: readonly RunId[]) => {
-    asked.push(runIds.map((each) => each.value));
+    requested.push(runIds.map((each) => each.value));
 
     return new Map<string, RunDigest>([
       [
@@ -79,25 +79,25 @@ const handler = (found: TeamTraceSummary[]) =>
 
 describe('ListTeamTracesHandler', () => {
   beforeEach(() => {
-    asked = [];
+    requested = [];
     since = null;
   });
 
-  it('asks only for what the runs it is reporting on came to', async () => {
+  it('reads only what the runs it reports on came to', async () => {
     await handler([trace('task_1', ['run_1', 'run_2'])]).execute(
       new ListTeamTracesQuery('team_1', 'user_1', '1h'),
     );
 
-    expect(asked).toEqual([['run_1', 'run_2']]);
+    expect(requested).toEqual([['run_1', 'run_2']]);
   });
 
-  it('asks for nothing where the team has run nothing', async () => {
+  it('requests nothing where the team has run nothing', async () => {
     const { traces } = await handler([]).execute(
       new ListTeamTracesQuery('team_1', 'user_1', '1h'),
     );
 
     expect(traces).toEqual([]);
-    expect(asked).toEqual([[]]);
+    expect(requested).toEqual([[]]);
   });
 
   it('hands back what each trace came to', async () => {

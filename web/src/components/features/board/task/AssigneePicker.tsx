@@ -46,7 +46,7 @@ export function AssigneePicker({
   const assignee = task.assignee;
   const label = assignee ? `Assigned to ${assignee.name}` : 'Assign this task';
 
-  const give = (person: Person | null) =>
+  const assign = (person: Person | null) =>
     mutate({ teamId, taskId: task.id, assignee: person });
 
   return (
@@ -98,7 +98,7 @@ export function AssigneePicker({
         className="w-44"
       >
         <DropdownMenuGroup>
-          <DropdownMenuItem closeOnClick onClick={() => give(null)}>
+          <DropdownMenuItem closeOnClick onClick={() => assign(null)}>
             <Unclaimed className="size-4" />
             <span className="flex-1 truncate text-foreground">No assignee</span>
             {!assignee && (
@@ -110,7 +110,7 @@ export function AssigneePicker({
             <DropdownMenuItem
               key={member.id}
               closeOnClick
-              onClick={() => give(member)}
+              onClick={() => assign(member)}
             >
               <PersonAvatar
                 person={member}

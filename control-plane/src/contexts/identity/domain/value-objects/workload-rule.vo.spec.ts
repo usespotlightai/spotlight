@@ -34,15 +34,15 @@ const workload = (over: Partial<WorkloadClaims> = {}): WorkloadClaims => ({
 });
 
 describe('WorkloadRule', () => {
-  it('admits a workload from its issuer, for its audience, with its subject', () => {
-    expect(rule().admits(workload())).toBe(true);
+  it('matches a workload from its issuer, for its audience, with its subject', () => {
+    expect(rule().matches(workload())).toBe(true);
   });
 
-  it('admits nothing another issuer signed, or signed for another audience', () => {
-    expect(rule().admits(workload({ issuer: 'https://gitlab.com' }))).toBe(
+  it('matches nothing another issuer signed, or signed for another audience', () => {
+    expect(rule().matches(workload({ issuer: 'https://gitlab.com' }))).toBe(
       false,
     );
-    expect(rule().admits(workload({ audiences: ['sts.amazonaws.com'] }))).toBe(
+    expect(rule().matches(workload({ audiences: ['sts.amazonaws.com'] }))).toBe(
       false,
     );
   });
@@ -52,19 +52,19 @@ describe('WorkloadRule', () => {
       subject: 'repo:acme/platform:ref:refs/heads/*',
     });
 
-    expect(everyBranch.admits(workload())).toBe(true);
+    expect(everyBranch.matches(workload())).toBe(true);
     expect(
-      everyBranch.admits(
+      everyBranch.matches(
         workload({ subject: 'repo:acme/platform:ref:refs/heads/release/1' }),
       ),
     ).toBe(true);
     expect(
-      everyBranch.admits(
+      everyBranch.matches(
         workload({ subject: 'repo:acme/platform:pull_request' }),
       ),
     ).toBe(false);
     expect(
-      rule({ subject: 'repo:acme/*' }).admits(
+      rule({ subject: 'repo:acme/*' }).matches(
         workload({ subject: 'repo:acme/api:environment:production' }),
       ),
     ).toBe(true);
@@ -72,25 +72,25 @@ describe('WorkloadRule', () => {
 
   it('treats every other character in a pattern as itself', () => {
     expect(
-      rule({ subject: 'repo:acme/platform.io:ref:refs/heads/main' }).admits(
+      rule({ subject: 'repo:acme/platform.io:ref:refs/heads/main' }).matches(
         workload({ subject: 'repo:acme/platformxio:ref:refs/heads/main' }),
       ),
     ).toBe(false);
   });
 
-  it('asks every claim it names to be carried and to match', () => {
+  it('requires every claim it names to be carried and to match', () => {
     const production = rule({
       subject: 'repo:acme/platform:environment:*',
       claims: { environment: 'production', ref: 'refs/heads/*' },
     });
 
     expect(
-      production.admits(
+      production.matches(
         workload({ subject: 'repo:acme/platform:environment:production' }),
       ),
     ).toBe(true);
     expect(
-      production.admits(
+      production.matches(
         workload({
           subject: 'repo:acme/platform:environment:staging',
           named: { environment: 'staging', ref: 'refs/heads/main' },
@@ -98,7 +98,7 @@ describe('WorkloadRule', () => {
       ),
     ).toBe(false);
     expect(
-      production.admits(
+      production.matches(
         workload({
           subject: 'repo:acme/platform:environment:production',
           named: { environment: 'production' },
@@ -109,11 +109,11 @@ describe('WorkloadRule', () => {
 
   it('finds no claim among what every object inherits', () => {
     expect(
-      rule({ claims: { constructor: '*' } }).admits(workload({ named: {} })),
+      rule({ claims: { constructor: '*' } }).matches(workload({ named: {} })),
     ).toBe(false);
   });
 
-  it('rejects a subject that would admit every owner its issuer signs for', () => {
+  it('rejects a subject that would match every owner its issuer signs for', () => {
     for (const open of ['*', '**', 'repo:*', '*:*', 'repo:ac*/platform:*']) {
       expect(() => rule({ subject: open })).toThrow(InvalidTokenTrustError);
     }
@@ -131,16 +131,16 @@ describe('WorkloadRule', () => {
     const started = Date.now();
 
     expect(
-      many.admits(workload({ subject: `repo:acme/${'a'.repeat(250)}` })),
+      many.matches(workload({ subject: `repo:acme/${'a'.repeat(250)}` })),
     ).toBe(false);
     expect(Date.now() - started).toBeLessThan(200);
     expect(
-      rule({ subject: 'repo:acme/*:ref:*/main' }).admits(
+      rule({ subject: 'repo:acme/*:ref:*/main' }).matches(
         workload({ subject: 'repo:acme/api:ref:refs/heads/main' }),
       ),
     ).toBe(true);
     expect(
-      rule({ subject: 'repo:acme/*:ref:*/main' }).admits(
+      rule({ subject: 'repo:acme/*:ref:*/main' }).matches(
         workload({ subject: 'repo:acme/api:ref:refs/heads/maint' }),
       ),
     ).toBe(false);

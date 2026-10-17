@@ -55,7 +55,7 @@ const ANSWERS_WITHIN_MS = 60_000;
 
 const MAX_PAGES = 50;
 
-const ASKS = 'elicitation/create';
+const ELICITATION_METHOD = 'elicitation/create';
 
 const NO_STREAM = 405;
 
@@ -246,7 +246,7 @@ export class McpSessions implements OnModuleDestroy {
     this.#busy.add(session);
     session.asked = false;
 
-    let kept = false;
+    let reusable = false;
 
     try {
       const result = (await session.client.callTool(
@@ -255,7 +255,7 @@ export class McpSessions implements OnModuleDestroy {
         { timeout: ANSWERS_WITHIN_MS },
       )) as CallToolResult;
 
-      kept = true;
+      reusable = true;
 
       if (result.isError && session.asked) {
         throw new McpQuestionUnsupportedError();
@@ -263,13 +263,13 @@ export class McpSessions implements OnModuleDestroy {
 
       return result;
     } catch (error) {
-      kept = error instanceof McpError;
+      reusable = error instanceof McpError;
 
       throw session.asked ? new McpQuestionUnsupportedError() : error;
     } finally {
       this.#busy.delete(session);
 
-      if (kept) {
+      if (reusable) {
         this.returned(pool, session);
       } else {
         void this.closed(session);
@@ -326,7 +326,7 @@ export class McpSessions implements OnModuleDestroy {
     const session: Session = { client, transport, asked: false, idle: null };
 
     client.fallbackRequestHandler = async (request) => {
-      if (request.method === ASKS) {
+      if (request.method === ELICITATION_METHOD) {
         session.asked = true;
       }
 

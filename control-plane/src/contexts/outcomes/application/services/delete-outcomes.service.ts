@@ -117,10 +117,10 @@ export class DeleteOutcomes {
     )) {
       await this.transaction.inTransaction(async () => {
         const watch = await this.repositories.watches.of(stationId, taskId);
-        const kept = watch?.withoutTask(taskId);
+        const updated = watch?.withoutTask(taskId);
 
-        if (watch && kept && kept !== watch) {
-          await this.repositories.watches.save(kept);
+        if (watch && updated && updated !== watch) {
+          await this.repositories.watches.save(updated);
         }
       });
     }
@@ -290,12 +290,12 @@ export class DeleteOutcomes {
             return;
           }
 
-          const kept = without(existing);
+          const updated = without(existing);
 
-          if (kept === null) {
+          if (updated === null) {
             await this.repositories.pullRequests.remove(existing);
-          } else if (kept !== existing) {
-            await this.repositories.pullRequests.save(kept);
+          } else if (updated !== existing) {
+            await this.repositories.pullRequests.save(updated);
           }
         });
         return;

@@ -83,8 +83,8 @@ describe('each person’s own connections (e2e)', () => {
       served(app).put(path).set(TEST_USER_HEADER, viewer).send(body),
   });
 
-  const reaching = (requester: string) =>
-    app.get<IntegrationToolCallsPort>(INTEGRATION_TOOL_CALLS).reach(
+  const resolving = (requester: string) =>
+    app.get<IntegrationToolCallsPort>(INTEGRATION_TOOL_CALLS).resolve(
       'linear.comment',
       {
         taskId: 'task_1',
@@ -152,7 +152,7 @@ describe('each person’s own connections (e2e)', () => {
     await seat.unseat();
   });
 
-  it('lets a member who is no admin begin connecting their own account, landing back where they asked', async () => {
+  it('lets a member who is no admin begin connecting their own account, landing back where they started', async () => {
     const started = await as(seat.member).post(
       `/api/teams/${workspaceId}/integrations/linear/connect`,
       { for: 'me', back: `/w/${workspaceId}/inbox/task_1` },
@@ -250,12 +250,12 @@ describe('each person’s own connections (e2e)', () => {
       { tool: 'linear.comment', rule: 'allowed' },
     ]);
 
-    expect((await reaching(seat.member))?.personRule).toEqual({
+    expect((await resolving(seat.member))?.personRule).toEqual({
       rule: 'needs-approval',
       personId: seat.member,
       personName: 'Bea',
     });
-    expect((await reaching(seat.owner))?.personRule).toBeNull();
+    expect((await resolving(seat.owner))?.personRule).toBeNull();
   });
 
   it('rejects a rule that is not one, and a tool the integration does not offer', async () => {

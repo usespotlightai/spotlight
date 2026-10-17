@@ -1,7 +1,7 @@
 import type {
-  AdmittedHost,
-  RunnerAdmissionsPort,
-} from '@runners/application/ports/runner-admissions.port';
+  AuthenticatedHost,
+  RunnerAuthenticatorPort,
+} from '@runners/application/ports/runner-authenticator.port';
 import type {
   RunnerPoolRecord,
   RunnerResourcesPort,
@@ -25,7 +25,7 @@ const WORKSPACE = WorkspaceId.of('ws_1');
 const NOW = new Date('2026-09-24T10:00:00.000Z');
 
 const pooling = (
-  admitted: AdmittedHost | null,
+  authenticated: AuthenticatedHost | null,
   stored: {
     pool?: RunnerPool | null;
     alive?: readonly Runner[];
@@ -33,7 +33,7 @@ const pooling = (
     platform?: boolean;
   } = {},
 ) => {
-  const admit = vi.fn(async () => admitted);
+  const authenticate = vi.fn(async () => authenticated);
   const find = vi.fn(async () =>
     stored.pool === undefined ? aPullPool({ maxRuns: 2 }) : stored.pool,
   );
@@ -46,22 +46,22 @@ const pooling = (
     {
       provisioningPools: vi.fn(async () => stored.provisioning ?? []),
     } as unknown as RunnerResourcesPort,
-    { admit } satisfies RunnerAdmissionsPort,
+    { authenticate } satisfies RunnerAuthenticatorPort,
     stored.platform ?? true,
   );
 
-  return { pools, admit, find };
+  return { pools, authenticate, find };
 };
 
-const THROUGH_POOL: AdmittedHost = {
-  way: { kind: 'pool', id: POOL_ID.value },
+const THROUGH_POOL: AuthenticatedHost = {
+  source: { kind: 'pool', id: POOL_ID.value },
   workspaceId: WORKSPACE,
 };
 
 describe('RunnerPools', () => {
   describe('the pool a token pulls with', () => {
-    it('answers the pool the admissions let the token in through, at work', async () => {
-      const { pools, admit } = pooling(THROUGH_POOL);
+    it('answers the pool the authenticator accepts the token for, at work', async () => {
+      const { pools, authenticate } = pooling(THROUGH_POOL);
 
       await expect(
         pools.pulledWith('pool-token', POOL_ID.value),
@@ -72,7 +72,7 @@ describe('RunnerPools', () => {
         labels: expect.objectContaining({ values: ['linux'] }),
         egress: false,
       });
-      expect(admit).toHaveBeenCalledWith({
+      expect(authenticate).toHaveBeenCalledWith({
         bearer: 'pool-token',
         trust: undefined,
       });
@@ -87,7 +87,7 @@ describe('RunnerPools', () => {
       expect(find).not.toHaveBeenCalled();
     });
 
-    it('answers no pool where the admissions let nothing in', async () => {
+    it('answers no pool where the authenticator accepts nothing', async () => {
       const { pools, find } = pooling(null);
 
       await expect(
@@ -96,9 +96,9 @@ describe('RunnerPools', () => {
       expect(find).not.toHaveBeenCalled();
     });
 
-    it('answers no pool for a way in that is a trust', async () => {
+    it('answers no pool for a credential source that is a trust', async () => {
       const { pools, find } = pooling({
-        way: { kind: 'trust', id: 'trust_1' },
+        source: { kind: 'trust', id: 'trust_1' },
         workspaceId: WORKSPACE,
       });
 
@@ -110,7 +110,7 @@ describe('RunnerPools', () => {
   });
 
   describe('the pools that provision', () => {
-    const kept = (egress: string | null): RunnerPoolRecord => ({
+    const stored = (egress: string | null): RunnerPoolRecord => ({
       id: `pool_${egress ?? 'none'}`,
       version: 0,
       workspaceId: WORKSPACE,
@@ -128,7 +128,7 @@ describe('RunnerPools', () => {
 
     it('says of each whether it names an egress', async () => {
       const { pools } = pooling(null, {
-        provisioning: [kept('spotlight'), kept('egress_1'), kept(null)],
+        provisioning: [stored('spotlight'), stored('egress_1'), stored(null)],
       });
 
       await expect(pools.provisioning()).resolves.toEqual([
@@ -140,7 +140,7 @@ describe('RunnerPools', () => {
 
     it('counts the platform egress only where the deployment has one', async () => {
       const { pools } = pooling(null, {
-        provisioning: [kept('spotlight'), kept('egress_1')],
+        provisioning: [stored('spotlight'), stored('egress_1')],
         platform: false,
       });
 

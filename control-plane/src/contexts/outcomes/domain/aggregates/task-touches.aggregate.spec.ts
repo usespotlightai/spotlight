@@ -72,25 +72,23 @@ describe('TaskTouches', () => {
     ]);
   });
 
-  it('pairs asks and answers heard in any order', () => {
+  it('pairs asks and answers received in any order', () => {
     const answer = PersonTouch.of({
       act: 'answered',
       by: UserId.of('user_bob'),
       stationId: 'station_1',
       at: day('2026-09-29', 10),
     });
-    const touches = TaskTouches.heardOf(TaskId.of('task_1'), WORKSPACE)
+    const touches = TaskTouches.empty(TaskId.of('task_1'), WORKSPACE)
       .recordAction(answer)
       .asked(InboxAsk.of('station_1', day('2026-09-29', 9)));
 
     expect(touches.waits()[0]?.answeredBy).toBe('user_bob');
   });
 
-  it('keeps each ask and act once, however often it is heard', () => {
+  it('keeps each ask and act once, however often it is received', () => {
     const ask = InboxAsk.of('station_1', day('2026-09-29', 9));
-    const asked = TaskTouches.heardOf(TaskId.of('task_1'), WORKSPACE).asked(
-      ask,
-    );
+    const asked = TaskTouches.empty(TaskId.of('task_1'), WORKSPACE).asked(ask);
 
     expect(asked.asked(InboxAsk.of('station_1', day('2026-09-29', 9)))).toBe(
       asked,

@@ -171,7 +171,7 @@ export class PullRequestRecord {
     return this.with({
       owner: owned ? null : this.owner,
       reviewTasks: this.reviewTasks.filter((each) => !each.equals(taskId)),
-    }).keptAtAll();
+    }).orNullWhenEmpty();
   }
 
   withoutTeam(teamId: TeamId): PullRequestRecord | null {
@@ -179,10 +179,10 @@ export class PullRequestRecord {
       return this;
     }
 
-    return this.with({ owner: null }).keptAtAll();
+    return this.with({ owner: null }).orNullWhenEmpty();
   }
 
-  private keptAtAll(): PullRequestRecord | null {
+  private orNullWhenEmpty(): PullRequestRecord | null {
     return this.isEmpty ? null : this;
   }
 

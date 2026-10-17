@@ -64,10 +64,10 @@ func TestLoadsWhatTheInstallerWrote(t *testing.T) {
 	if cfg.Capacity != 1 || cfg.RunTimeout != 6*time.Hour || cfg.AnswerWait != 5*time.Minute {
 		t.Errorf("capacity %d, timeout %v, answer wait %v", cfg.Capacity, cfg.RunTimeout, cfg.AnswerWait)
 	}
-	if cfg.Images.Default != config.Image+":v1.4.0" || !cfg.Images.Admits(config.Image+":v1.4.0") {
+	if cfg.Images.Default != config.Image+":v1.4.0" || !cfg.Images.Allows(config.Image+":v1.4.0") {
 		t.Errorf("images %+v: the runner image is pinned to the host's version", cfg.Images)
 	}
-	if cfg.Images.Admits("ghcr.io/acme/runner:main") {
+	if cfg.Images.Allows("ghcr.io/acme/runner:main") {
 		t.Error("a host with no allow-list serves only its default")
 	}
 	if cfg.State == "" || cfg.Name == "" {
@@ -93,13 +93,13 @@ func TestTheEnvironmentWinsOverTheFile(t *testing.T) {
 	if cfg.Images.Default != "runner:claude-2" {
 		t.Errorf("default %q: the first exact image is the default", cfg.Images.Default)
 	}
-	for _, admitted := range []string{"runner:claude-2", "runner:codex-1", "ghcr.io/acme/api-runner:main"} {
-		if !cfg.Images.Admits(admitted) {
-			t.Errorf("%s is not admitted", admitted)
+	for _, image := range []string{"runner:claude-2", "runner:codex-1", "ghcr.io/acme/api-runner:main"} {
+		if !cfg.Images.Allows(image) {
+			t.Errorf("%s is not allowed", image)
 		}
 	}
-	if cfg.Images.Admits("ghcr.io/other/runner:main") {
-		t.Error("an image no entry names is admitted")
+	if cfg.Images.Allows("ghcr.io/other/runner:main") {
+		t.Error("an image no entry names is allowed")
 	}
 }
 
@@ -233,7 +233,7 @@ func TestPassesSentryToSandboxesAndEgressOnlyWhenTheHostReports(t *testing.T) {
 		t.Errorf("egress env %v", cfg.Egress.Env)
 	}
 	if len(cfg.Egress.Allow) != 0 {
-		t.Errorf("an egress that admits any host was narrowed to %v", cfg.Egress.Allow)
+		t.Errorf("an egress that allows any host was narrowed to %v", cfg.Egress.Allow)
 	}
 
 	t.Setenv("SPOTLIGHT_EGRESS_ALLOW", "api.anthropic.com")
@@ -242,7 +242,7 @@ func TestPassesSentryToSandboxesAndEgressOnlyWhenTheHostReports(t *testing.T) {
 		t.Fatalf("load: %v", err)
 	}
 	if !slices.Equal(cfg.Egress.Allow, []string{"api.anthropic.com", "sentry.test"}) {
-		t.Errorf("egress admits %v, not the Sentry host too", cfg.Egress.Allow)
+		t.Errorf("egress allows %v, not the Sentry host too", cfg.Egress.Allow)
 	}
 }
 
@@ -287,7 +287,7 @@ func TestOnlyOneHostServesFromAStateDirectory(t *testing.T) {
 	again()
 }
 
-func TestRunsEgressFromTheHostsOwnReleaseAndLetsSandboxesReachAnywhereByDefault(t *testing.T) {
+func TestRunsEgressFromTheHostsOwnReleaseAndAllowsSandboxesAnyHostByDefault(t *testing.T) {
 	isolated(t)
 	t.Setenv("SPOTLIGHT_URL", "https://spotlight.test")
 	t.Setenv("SPOTLIGHT_TOKEN", "pool-token")
@@ -301,7 +301,7 @@ func TestRunsEgressFromTheHostsOwnReleaseAndLetsSandboxesReachAnywhereByDefault(
 	}
 }
 
-func TestReadsWhatSandboxesMayReachAndWhatEgressRunsWith(t *testing.T) {
+func TestReadsWhatHostsSandboxesMayConnectToAndWhatEgressRunsWith(t *testing.T) {
 	dir := isolated(t)
 	t.Setenv("SPOTLIGHT_URL", "https://spotlight.test")
 	t.Setenv("SPOTLIGHT_TOKEN", "pool-token")
@@ -323,7 +323,7 @@ func TestReadsWhatSandboxesMayReachAndWhatEgressRunsWith(t *testing.T) {
 		t.Errorf("egress %+v", cfg.Egress)
 	}
 	if slices.Contains(cfg.SandboxEnv, "AWS_REGION=eu-west-1") {
-		t.Error("gave the sandbox what only egress has")
+		t.Error("sent the sandbox what only egress has")
 	}
 }
 
@@ -340,7 +340,7 @@ func TestRejectsAnAllowListThatNamesNoHostAndAnEgressWithTheHostsCredential(t *t
 	t.Setenv("SPOTLIGHT_EGRESS_ALLOW", "")
 	write(t, filepath.Join(dir, "egress.env"), "SPOTLIGHT_TOKEN=pool-token\n")
 	if _, err := config.Load("dev"); err == nil {
-		t.Error("gave egress the host's own credential")
+		t.Error("sent egress the host's own credential")
 	}
 }
 

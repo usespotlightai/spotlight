@@ -5,8 +5,8 @@ export interface EvidencedStep {
   readonly kind: string;
   readonly tool: string | null;
   readonly text: string;
-  readonly given: string | null;
-  readonly returned: string | null;
+  readonly input: string | null;
+  readonly output: string | null;
 }
 
 export interface EvidencedHunk {

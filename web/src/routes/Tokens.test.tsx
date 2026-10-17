@@ -8,7 +8,7 @@ const listed = vi.fn();
 const failing = vi.fn();
 const refetch = vi.fn();
 const workspace = vi.fn();
-const asked = vi.fn();
+const requested = vi.fn();
 const create = vi.fn();
 const revoke = vi.fn();
 
@@ -19,7 +19,7 @@ vi.mock('@/hooks/api/useWorkspace', () => ({
 vi.mock('@/hooks/api/useWorkspaceTokens', () => ({
   tokenKeys: { forWorkspace: (id?: string) => ['workspace-tokens', id] },
   useWorkspaceTokens: (workspaceId: string | undefined) => {
-    asked(workspaceId);
+    requested(workspaceId);
 
     return {
       data: listed(),
@@ -87,7 +87,7 @@ describe('Tokens', () => {
     listed.mockReturnValue([]);
     failing.mockReturnValue(false);
     workspace.mockReturnValue({ id: 'workspace_acme', role: 'owner' });
-    for (const each of [refetch, asked, create, revoke]) {
+    for (const each of [refetch, requested, create, revoke]) {
       each.mockClear();
     }
   });
@@ -106,7 +106,7 @@ describe('Tokens', () => {
     expect(screen.queryByText(/No tokens yet/)).not.toBeInTheDocument();
   });
 
-  it('says the tokens could not be loaded, and tries again when asked', async () => {
+  it('says the tokens could not be loaded, and tries again on request', async () => {
     const person = userEvent.setup();
     listed.mockReturnValue(undefined);
     failing.mockReturnValue(true);
@@ -170,13 +170,13 @@ describe('Tokens', () => {
     ).toBeInTheDocument();
   });
 
-  it('sends a member back to the workspace, asking for no tokens', () => {
+  it('sends a member back to the workspace, requesting no tokens', () => {
     workspace.mockReturnValue({ id: 'workspace_acme', role: 'member' });
 
     renderPage();
 
     expect(screen.getByText('the workspace')).toBeInTheDocument();
-    expect(asked).not.toHaveBeenCalledWith('workspace_acme');
+    expect(requested).not.toHaveBeenCalledWith('workspace_acme');
   });
 
   it('creates a token that configures and expires, unless told otherwise', async () => {
@@ -198,7 +198,7 @@ describe('Tokens', () => {
     );
   });
 
-  it('creates a token with the reach and the grants chosen beside it', async () => {
+  it('creates a token with the level and the grants chosen beside it', async () => {
     const { person, dialog } = await openCreate();
 
     await person.type(within(dialog).getByLabelText('Name'), 'reader');

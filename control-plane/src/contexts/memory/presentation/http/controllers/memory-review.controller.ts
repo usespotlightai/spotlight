@@ -53,7 +53,7 @@ export class MemoryReviewController {
   @ApiOperation({
     operationId: 'readMemoryReview',
     summary:
-      'The memories a run proposed for the team to keep, each with what it rests on',
+      'The memories a run proposed for the team to approve, each with what it rests on',
   })
   @ApiOkResponse({ type: MemoryReviewResponseDto })
   @ApiNotFoundResponse({ description: 'No such task for this caller' })
@@ -119,7 +119,7 @@ export class MemoryReviewController {
   @ApiOperation({
     operationId: 'rejectMemory',
     summary:
-      'Turn a proposed memory down; it is kept, never briefed, and not proposed again',
+      'Turn a proposed memory down; it stays stored, never briefed, and not proposed again',
   })
   @ApiParam({ name: 'memoryId', type: String })
   @ApiOkResponse({ type: MemoryReviewResponseDto })

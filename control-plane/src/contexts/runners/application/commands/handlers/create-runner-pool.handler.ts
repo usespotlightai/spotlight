@@ -7,9 +7,9 @@ import type { RunnerDefinitionsPort } from '@runners/application/ports/runner-de
 import { RunnerProblems } from '@runners/application/rendering/runner-problems';
 import { assertKnownEgress } from '@runners/application/services/assert-known-egress';
 import {
-  givenAccess,
   issuedTo,
-} from '@runners/application/services/pool-access-given';
+  poolAccessInput,
+} from '@runners/application/services/pool-access-input';
 import { recordPoolTokenUse } from '@runners/application/services/record-pool-token-use';
 import { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregate';
 import { InvalidRunnerPoolError } from '@runners/domain/exceptions/invalid-runner-pool.error';
@@ -127,7 +127,7 @@ export class CreateRunnerPoolHandler
             }
 
             const id = RunnerPoolId.of(this.ids.generate());
-            const given = await givenAccess(
+            const accessInput = await poolAccessInput(
               supplied,
               { id, workspaceId: permissions.workspaceId },
               this.tokens,
@@ -140,7 +140,7 @@ export class CreateRunnerPoolHandler
               key: compiled.key,
               labels: compiled.labels,
               maxRuns: compiled.maxRuns,
-              access: issued ? issuedTo(given, issued) : given,
+              access: issued ? issuedTo(accessInput, issued) : accessInput,
             });
 
             await this.pools.add(pool);

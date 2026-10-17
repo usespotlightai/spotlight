@@ -33,7 +33,7 @@ export interface PoolDefinition {
   readonly maxRuns: MaxRuns | null;
 }
 
-export type GivenAccess =
+export type AccessInput =
   | {
       readonly mode: 'pull';
       readonly tokenHash: TokenHash | null;
@@ -74,7 +74,7 @@ export class RunnerPool extends EventRecorder {
     input: PoolDefinition & {
       id: RunnerPoolId;
       workspaceId: WorkspaceId;
-      access: GivenAccess;
+      access: AccessInput;
       by: Attribution;
     },
   ): RunnerPool {
@@ -133,19 +133,19 @@ export class RunnerPool extends EventRecorder {
     );
   }
 
-  private static firstAccess(given: GivenAccess): PoolAccess {
-    if (given.mode === 'pull') {
-      if (!given.tokenHash) {
+  private static firstAccess(accessInput: AccessInput): PoolAccess {
+    if (accessInput.mode === 'pull') {
+      if (!accessInput.tokenHash) {
         throw new InconsistentStateError(
           'runner pool',
           'was created to pull with no token to claim with',
         );
       }
 
-      return PullAccess.of(given.tokenHash, given.tokenVersion);
+      return PullAccess.of(accessInput.tokenHash, accessInput.tokenVersion);
     }
 
-    if (!given.secret) {
+    if (!accessInput.secret) {
       throw new InvalidRunnerPoolError(
         SECRET_FIELD,
         'is required for a pool that provisions',
@@ -153,11 +153,11 @@ export class RunnerPool extends EventRecorder {
     }
 
     return PushAccess.of(
-      given.url,
-      given.secret,
-      given.secretVersion,
-      given.egress,
-      given.egressTraffic,
+      accessInput.url,
+      accessInput.secret,
+      accessInput.secretVersion,
+      accessInput.egress,
+      accessInput.egressTraffic,
     );
   }
 
@@ -217,7 +217,7 @@ export class RunnerPool extends EventRecorder {
 
   update(
     definition: PoolDefinition,
-    given: GivenAccess,
+    accessInput: AccessInput,
     by: Attribution,
   ): RunnerPool {
     this.assertNotDeleted();
@@ -232,8 +232,8 @@ export class RunnerPool extends EventRecorder {
       );
     }
 
-    if (given.mode !== this.mode) {
-      const because = `can't change from ${this.mode === 'push' ? 'provisioning' : 'being pulled from'} to ${given.mode === 'push' ? 'provisioning' : 'being pulled from'}. Please replace the pool instead`;
+    if (accessInput.mode !== this.mode) {
+      const because = `can't change from ${this.mode === 'push' ? 'provisioning' : 'being pulled from'} to ${accessInput.mode === 'push' ? 'provisioning' : 'being pulled from'}. Please replace the pool instead`;
 
       throw new ImmutableFieldError(
         'provision',
@@ -242,7 +242,7 @@ export class RunnerPool extends EventRecorder {
       );
     }
 
-    const access = this.nextAccess(given);
+    const access = this.nextAccess(accessInput);
     const rekeyed =
       access.mode === 'pull' &&
       this.access.mode === 'pull' &&
@@ -263,7 +263,8 @@ export class RunnerPool extends EventRecorder {
           by,
           RunnerPoolChangeDetail.updated(this.mode, {
             rekeyed,
-            secretRotated: given.mode === 'push' && given.secret !== null,
+            secretRotated:
+              accessInput.mode === 'push' && accessInput.secret !== null,
             egressMoved:
               !sameEgress(this.egress, updated.egress) ||
               !this.egressTraffic.equals(updated.egressTraffic),
@@ -292,9 +293,12 @@ export class RunnerPool extends EventRecorder {
     return deleted;
   }
 
-  private nextAccess(given: GivenAccess): PoolAccess {
-    if (given.mode === 'pull' && this.access.mode === 'pull') {
-      if (!given.tokenHash && this.access.rotatesOn(given.tokenVersion)) {
+  private nextAccess(accessInput: AccessInput): PoolAccess {
+    if (accessInput.mode === 'pull' && this.access.mode === 'pull') {
+      if (
+        !accessInput.tokenHash &&
+        this.access.rotatesOn(accessInput.tokenVersion)
+      ) {
         throw new InvalidRunnerPoolError(
           'token',
           'is required whenever tokenVersion changes',
@@ -302,13 +306,16 @@ export class RunnerPool extends EventRecorder {
       }
 
       return PullAccess.of(
-        given.tokenHash ?? this.access.tokenHash,
-        given.tokenVersion,
+        accessInput.tokenHash ?? this.access.tokenHash,
+        accessInput.tokenVersion,
       );
     }
 
-    if (given.mode === 'push' && this.access.mode === 'push') {
-      if (!given.secret && this.access.rotatesOn(given.secretVersion)) {
+    if (accessInput.mode === 'push' && this.access.mode === 'push') {
+      if (
+        !accessInput.secret &&
+        this.access.rotatesOn(accessInput.secretVersion)
+      ) {
         throw new InvalidRunnerPoolError(
           SECRET_FIELD,
           'is required whenever provision.secretVersion changes',
@@ -316,11 +323,11 @@ export class RunnerPool extends EventRecorder {
       }
 
       return PushAccess.of(
-        given.url,
-        given.secret ?? this.access.secret,
-        given.secretVersion,
-        given.egress,
-        given.egressTraffic,
+        accessInput.url,
+        accessInput.secret ?? this.access.secret,
+        accessInput.secretVersion,
+        accessInput.egress,
+        accessInput.egressTraffic,
       );
     }
 

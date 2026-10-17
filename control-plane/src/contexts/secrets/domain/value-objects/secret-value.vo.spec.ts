@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 describe('SecretValue', () => {
   const value = SecretValue.of('lin_api_1');
 
-  it('says its value only when asked outright', () => {
+  it('says its value only when revealed outright', () => {
     expect(value.revealed()).toBe('lin_api_1');
   });
 

@@ -23,7 +23,7 @@ const briefing = (seed: boolean) =>
   });
 
 describe('ReflectionBriefing', () => {
-  it('asks for one cause per failing task, and no candidate', () => {
+  it('requests one cause per failing task, and no candidate', () => {
     const briefed = briefing(false);
 
     expect(briefed).toContain('| `task_1` | `original_1` | `replayed_1` |');

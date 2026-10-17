@@ -10,8 +10,8 @@ const WORKSPACE = WorkspaceId.of('ws_1');
 const store = () =>
   ({
     grant: vi.fn(),
-    received: vi.fn(async (_at, given: readonly AttachmentId[]) =>
-      given.map((id) =>
+    received: vi.fn(async (_at, ids: readonly AttachmentId[]) =>
+      ids.map((id) =>
         Attachment.of({
           id: id.value,
           name: 'queue.png',
@@ -20,7 +20,7 @@ const store = () =>
         }),
       ),
     ),
-    keep: vi.fn(),
+    save: vi.fn(),
     taken: vi.fn(),
     link: vi.fn(),
     open: vi.fn(),
@@ -41,11 +41,11 @@ describe('FilesLoader', () => {
       }),
     ]);
 
-    const [, asked] = files.received.mock.calls[0] as unknown as [
+    const [, requested] = files.received.mock.calls[0] as unknown as [
       unknown,
       readonly AttachmentId[],
     ];
-    expect(asked.map((each) => each.value)).toEqual(['file_1']);
+    expect(requested.map((each) => each.value)).toEqual(['file_1']);
   });
 
   it('rejects an id that names anywhere but a file', async () => {
@@ -72,7 +72,7 @@ describe('FilesLoader', () => {
     expect(files.taken).toHaveBeenCalledWith(WORKSPACE, [file]);
   });
 
-  it('asks for nothing where nothing was handed over', async () => {
+  it('requests nothing where nothing was handed over', async () => {
     const files = store();
 
     await expect(

@@ -57,7 +57,7 @@ const trendOf = (
 };
 
 const touches = (run: HistoryRun, skill: string): boolean =>
-  run.skillsGiven.includes(skill) || run.skillsUsed.includes(skill);
+  run.skillsEnabled.includes(skill) || run.skillsUsed.includes(skill);
 
 const skillOf = (
   runs: readonly HistoryRun[],
@@ -66,7 +66,7 @@ const skillOf = (
   defined: readonly string[],
 ): SkillReportResponseDto => {
   const countOf = (some: readonly HistoryRun[]) => ({
-    given: some.filter((run) => run.skillsGiven.includes(skill)).length,
+    enabled: some.filter((run) => run.skillsEnabled.includes(skill)).length,
     used: some.filter((run) => run.skillsUsed.includes(skill)).length,
   });
   const stations = distinct(
@@ -140,7 +140,7 @@ export const toolsOf = (
   const weeks = mondaysOf(span);
   const defined = DEFINED[teamId] ?? [];
   const seen = distinct(
-    runs.flatMap((run) => [...run.skillsGiven, ...run.skillsUsed]),
+    runs.flatMap((run) => [...run.skillsEnabled, ...run.skillsUsed]),
   );
   const refusals = runs.flatMap((run) =>
     run.calls.flatMap((call) =>

@@ -1,7 +1,7 @@
 import type { ExchangeWorkloadTokenCommand } from '@identity/application/commands/exchange-workload-token.command';
 import type { IssuedTokenDto } from '@identity/application/dto/issued-token.dto';
 import { NoSuchWorkspaceError } from '@identity/domain/exceptions/no-such-workspace.error';
-import { WorkloadNotAdmittedError } from '@identity/domain/exceptions/workload-not-admitted.error';
+import { WorkloadNotMatchedError } from '@identity/domain/exceptions/workload-not-matched.error';
 import type { WorkspaceTokenRepository } from '@identity/domain/repositories/workspace-token.repository';
 import type { WorkspaceTokenTrustRepository } from '@identity/domain/repositories/workspace-token-trust.repository';
 import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
@@ -86,7 +86,7 @@ export class ExchangeWorkloadTokenHandler
         : null;
     } catch (error) {
       if (
-        error instanceof WorkloadNotAdmittedError ||
+        error instanceof WorkloadNotMatchedError ||
         error instanceof NoSuchWorkspaceError
       ) {
         return null;

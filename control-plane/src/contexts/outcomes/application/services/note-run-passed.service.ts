@@ -7,7 +7,7 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export interface TaskPassedHeard {
+export interface TaskPassedReceived {
   readonly taskId: string;
   readonly workspaceId: string;
   readonly runId: string;
@@ -22,21 +22,21 @@ export class NoteRunPassed {
     private readonly transaction: TransactionPort,
   ) {}
 
-  passed(heard: TaskPassedHeard): Promise<void> {
-    const pass = StationPass.of(heard.to, new Date(heard.at));
+  passed(event: TaskPassedReceived): Promise<void> {
+    const pass = StationPass.of(event.to, new Date(event.at));
 
-    const workspaceId = WorkspaceId.of(heard.workspaceId);
-    const taskId = TaskId.of(heard.taskId);
+    const workspaceId = WorkspaceId.of(event.workspaceId);
+    const taskId = TaskId.of(event.taskId);
 
     return this.transaction.inTransaction(async () => {
       await this.deletions.lockDeletion(workspaceId, taskId);
-      const runId = RunId.of(heard.runId);
+      const runId = RunId.of(event.runId);
       const existing = await this.records.of(runId);
 
       if (!existing) {
         if (!(await this.deletions.isDeleted(workspaceId, taskId))) {
           await this.records.add(
-            RunRecord.heardOf(runId, workspaceId, taskId).passTo(pass),
+            RunRecord.empty(runId, workspaceId, taskId).passTo(pass),
           );
         }
         return;

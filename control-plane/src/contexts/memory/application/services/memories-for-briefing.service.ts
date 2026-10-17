@@ -1,7 +1,7 @@
 import type { MemoryRelevancePort } from '@memory/application/ports/memory-relevance.port';
 import type { MemoryUsesPort } from '@memory/application/ports/memory-uses.port';
 import { folderLayoutAt } from '@memory/application/rendering/memory-folder-layout';
-import type { MemoriesInReach } from '@memory/application/services/memories-in-reach.service';
+import type { ApplicableMemories } from '@memory/application/services/applicable-memories.service';
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import { selectForBriefing } from '@memory/domain/services/briefing-selection';
@@ -56,7 +56,7 @@ export class MemoriesForBriefing
   implements TeamMemoriesPort, MemoriesBriefedBeforePort
 {
   constructor(
-    private readonly inReach: MemoriesInReach,
+    private readonly applicable: ApplicableMemories,
     private readonly relevance: MemoryRelevancePort,
     private readonly uses: MemoryUsesPort,
     private readonly memories: MemoryRepository,
@@ -71,12 +71,12 @@ export class MemoriesForBriefing
     asOf: Date,
   ): Promise<BriefingSelection> {
     const site = siteOf(place);
-    const kept = await this.memories.findAll(
+    const stored = await this.memories.findAll(
       chosen.briefed.map((each) => MemoryId.of(each.id)),
     );
-    const applying = await this.inReach.at(site, asOf);
+    const applying = await this.applicable.at(site, asOf);
     const teamMemories = new Map(
-      kept
+      stored
         .filter((each) => each.isTeams(place.teamId))
         .map((each) => [each.id.value, each]),
     );
@@ -103,7 +103,7 @@ export class MemoriesForBriefing
 
   async forBriefing(place: BriefingPlace): Promise<BriefingSelection> {
     const site = siteOf(place);
-    const applying = await this.inReach.at(site);
+    const applying = await this.applicable.at(site);
     const ids = applying.map((each) => each.id);
     const touched = applying.some((each) => each.scope.paths.length > 0)
       ? await place.touched()

@@ -12,7 +12,7 @@ import {
   heartbeatAt,
   type NamedHarness,
   servedBy,
-  through,
+  sourceLabel,
 } from '@/lib/runner';
 import { cn } from '@/lib/utils';
 
@@ -29,7 +29,7 @@ export function HostRow({ slug, host, harnesses }: HostRowProps) {
         <span className="min-w-0 truncate text-foreground">{host.name}</span>
 
         <span className="min-w-0 truncate text-muted-foreground text-xs">
-          {through(host.through)}
+          {sourceLabel(host.source)}
         </span>
 
         <HostStatus host={host} />

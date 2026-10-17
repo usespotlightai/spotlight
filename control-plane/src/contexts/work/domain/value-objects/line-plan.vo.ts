@@ -11,7 +11,7 @@ import {
 import {
   skillsProblem,
   toolsProblem,
-} from '@work/domain/services/station-gives';
+} from '@work/domain/services/station-enables';
 import type { AgentPrompt } from '@work/domain/value-objects/agent-prompt.vo';
 import type { ConfigSource } from '@work/domain/value-objects/config-source.vo';
 import type { Effort } from '@work/domain/value-objects/effort.vo';

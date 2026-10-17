@@ -187,7 +187,7 @@
                   },
                   {
                     "group": ["@/contexts/**", "../**"],
-                    "message": "Reach other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -242,7 +242,7 @@
                   },
                   {
                     "group": ["@/contexts/**", "../**"],
-                    "message": "Reach other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -278,7 +278,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Reach other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -325,7 +325,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Reach other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -369,7 +369,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Reach other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -413,7 +413,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Reach other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -460,7 +460,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Reach other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -516,7 +516,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Reach other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -575,7 +575,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Reach other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -631,7 +631,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Reach other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -687,7 +687,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Reach other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -746,7 +746,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Reach other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -808,7 +808,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Reach other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -867,7 +867,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Reach other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -1222,7 +1222,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Reach other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -1276,7 +1276,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Reach other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -1327,7 +1327,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Reach other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -1378,7 +1378,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Reach other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -1432,7 +1432,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Reach other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -1495,7 +1495,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Reach other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -1561,7 +1561,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Reach other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -1624,7 +1624,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Reach other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -1687,7 +1687,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Reach other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -1753,7 +1753,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Reach other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -1822,7 +1822,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Reach other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -1888,7 +1888,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Reach other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -1928,7 +1928,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Reach other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -1983,7 +1983,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Reach other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -2033,7 +2033,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Reach other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -2083,7 +2083,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Reach other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -2138,7 +2138,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Reach other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -2208,7 +2208,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Reach other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -2283,7 +2283,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Reach other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -2353,7 +2353,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Reach other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -2423,7 +2423,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Reach other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -2498,7 +2498,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Reach other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -2578,7 +2578,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Reach other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -2653,7 +2653,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Reach other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -2701,7 +2701,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Reach other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -2760,7 +2760,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Reach other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -2816,7 +2816,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Reach other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -2872,7 +2872,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Reach other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -2931,7 +2931,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Reach other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -2999,7 +2999,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Reach other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -3070,7 +3070,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Reach other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -3138,7 +3138,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Reach other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -3208,7 +3208,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Reach other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -3282,7 +3282,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Reach other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -3359,7 +3359,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Reach other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }
@@ -3430,7 +3430,7 @@
                   },
                   {
                     "group": ["@/**", "../**"],
-                    "message": "Reach other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
+                    "message": "Import other code through its alias ('@work/…', '@platform/…'): '@/…' and relative parent paths bypass every boundary rule."
                   }
                 ]
               }

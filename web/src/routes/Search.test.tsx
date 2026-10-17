@@ -250,7 +250,7 @@ const reflection = (
         cause: 'judge',
         evidence:
           'It failed the change for missing tests a rename does not need.',
-        suggestion: 'Ask for tests only where behaviour changes.',
+        suggestion: 'Require tests only where behaviour changes.',
         recordedAt: '2026-10-01T11:00:00.000Z',
       },
       {
@@ -258,7 +258,7 @@ const reflection = (
         originalRunId: 'run_2',
         replayRunId: 'run_r2',
         cause: 'task',
-        evidence: 'The cache it asks to warm was removed.',
+        evidence: 'The cache it tells the agent to warm was removed.',
         suggestion: null,
         recordedAt: '2026-10-01T11:00:00.000Z',
       },
@@ -678,7 +678,7 @@ describe('Search', () => {
         within(judge).getByText(formatCauseAction('judge')),
       ).toBeInTheDocument();
       expect(
-        within(judge).getByText('Ask for tests only where behaviour changes.'),
+        within(judge).getByText('Require tests only where behaviour changes.'),
       ).toBeInTheDocument();
       expect(
         within(judge).getByRole('link', {

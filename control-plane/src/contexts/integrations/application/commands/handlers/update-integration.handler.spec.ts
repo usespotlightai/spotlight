@@ -6,11 +6,11 @@ import { ToolUses } from '@integrations/domain/value-objects/tool-uses.vo';
 import {
   access,
   definitions,
+  enabledTools,
   LINEAR,
   SLACK,
   sources,
   storedAt,
-  toolsGiven,
   transaction,
 } from '@integrations/integrations.resources.fake-spec';
 import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
@@ -21,15 +21,15 @@ import { describe, expect, it } from 'vitest';
 const updating = (
   over: {
     administers?: boolean;
-    given?: ToolUses;
+    enabled?: ToolUses;
   } & Parameters<typeof definitions>[0] = {},
 ) => {
-  const kept = definitions({ stored: storedAt(3), ...over });
+  const repository = definitions({ stored: storedAt(3), ...over });
   const handler = new UpdateIntegrationHandler(
     access(over.administers),
     sources,
-    kept,
-    toolsGiven(over.given),
+    repository,
+    enabledTools(over.enabled),
     transaction,
   );
 
@@ -43,33 +43,33 @@ const updating = (
           definition,
         ),
       ),
-    kept,
+    repository,
   };
 };
 
 describe('UpdateIntegrationHandler', () => {
   it('replaces the definition of the version it was based on', async () => {
-    const { update, kept } = updating();
+    const { update, repository } = updating();
 
     expect(await update(LINEAR)).toEqual({
       outcome: 'updated',
       id: 'integration_1',
     });
 
-    const [saved] = kept.save.mock.calls[0] as [IntegrationDefinition];
+    const [saved] = repository.save.mock.calls[0] as [IntegrationDefinition];
 
     expect(saved.version).toBe(3);
     expect(saved.document.hasValue('name', 'Linear')).toBe(true);
   });
 
   it('rejects a change based on a version no longer current, naming the current one', async () => {
-    const { update, kept } = updating();
+    const { update, repository } = updating();
 
     expect(await update(LINEAR, 2)).toEqual({
       outcome: 'version-conflict',
       currentVersion: 3,
     });
-    expect(kept.save).not.toHaveBeenCalled();
+    expect(repository.save).not.toHaveBeenCalled();
   });
 
   it('names the version that won when another change got there first', async () => {
@@ -94,19 +94,19 @@ describe('UpdateIntegrationHandler', () => {
   });
 
   it('keeps the host it was created for, pointing at the field that tried to move it', async () => {
-    const { update, kept } = updating();
+    const { update, repository } = updating();
 
     expect(await update(SLACK)).toMatchObject({
       outcome: 'invalid',
       problems: [{ field: FieldPath.dotted('integration') }],
     });
-    expect(kept.save).not.toHaveBeenCalled();
+    expect(repository.save).not.toHaveBeenCalled();
   });
 
-  it('will not stop offering a tool a station gives', async () => {
-    const { update, kept } = updating({
+  it('will not stop offering a tool a station enables', async () => {
+    const { update, repository } = updating({
       stored: storedAt(3, ['linear.comment']),
-      given: ToolUses.of([
+      enabled: ToolUses.of([
         { tool: 'linear.comment', by: 'the station delivery/implementation' },
       ]),
     });
@@ -115,7 +115,7 @@ describe('UpdateIntegrationHandler', () => {
       outcome: 'in-use',
       reason: expect.stringContaining('delivery/implementation'),
     });
-    expect(kept.save).not.toHaveBeenCalled();
+    expect(repository.save).not.toHaveBeenCalled();
   });
 
   it('says what is wrong with one that will not compile', async () => {

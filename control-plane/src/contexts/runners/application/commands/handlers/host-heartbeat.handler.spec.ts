@@ -4,10 +4,10 @@ import {
   type ReportedHost,
 } from '@runners/application/commands/host.commands';
 import type {
-  AdmittedHost,
-  HostCredential,
-  RunnerAdmissionsPort,
-} from '@runners/application/ports/runner-admissions.port';
+  AuthenticatedHost,
+  HostCredentials,
+  RunnerAuthenticatorPort,
+} from '@runners/application/ports/runner-authenticator.port';
 import type { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregate';
 import {
   aHost,
@@ -20,7 +20,7 @@ import {
   TRUST_ID,
 } from '@runners/domain/aggregates/runner-pool.fake-spec';
 import type { RunnerTrust } from '@runners/domain/aggregates/runner-trust.aggregate';
-import { Admission } from '@runners/domain/value-objects/admission.vo';
+import { CredentialSource } from '@runners/domain/value-objects/credential-source.vo';
 import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { describe, expect, it, vi } from 'vitest';
@@ -44,30 +44,33 @@ const REPORT: ReportedHost = {
   ],
 };
 
-const CREDENTIAL: HostCredential = { bearer: 'pool-token', trust: undefined };
+const CREDENTIAL: HostCredentials = { bearer: 'pool-token', trust: undefined };
 
-const admittedThrough = (way: RunnerPool | RunnerTrust): AdmittedHost => ({
-  way: Admission.through(way.id),
-  workspaceId: way.workspaceId,
+const authenticatedThrough = (
+  holder: RunnerPool | RunnerTrust,
+): AuthenticatedHost => ({
+  source: CredentialSource.ofId(holder.id),
+  workspaceId: holder.workspaceId,
 });
 
 const reporting = (
-  given: {
-    admitted?: RunnerPool | RunnerTrust | null;
+  input: {
+    authenticated?: RunnerPool | RunnerTrust | null;
     known?: ReturnType<typeof aHost>;
   } = {},
 ) => {
-  const { stored, hosts } = given.known
-    ? storedHosts(given.known)
+  const { stored, hosts } = input.known
+    ? storedHosts(input.known)
     : storedHosts();
   let now = STARTED_AT;
-  let admitted = given.admitted === undefined ? aPullPool() : given.admitted;
-  const admit = vi.fn(async () =>
-    admitted ? admittedThrough(admitted) : null,
+  let authenticated =
+    input.authenticated === undefined ? aPullPool() : input.authenticated;
+  const authenticate = vi.fn(async () =>
+    authenticated ? authenticatedThrough(authenticated) : null,
   );
 
   const handler = new HostHeartbeatHandler(
-    { admit } satisfies RunnerAdmissionsPort,
+    { authenticate } satisfies RunnerAuthenticatorPort,
     hosts,
     { now: () => now } as ClockPort,
   );
@@ -75,12 +78,12 @@ const reporting = (
   return {
     stored,
     hosts,
-    admit,
+    authenticate,
     at: (ms: number) => {
       now = later(ms);
     },
-    admitThrough: (way: RunnerPool | RunnerTrust) => {
-      admitted = way;
+    authenticateThrough: (holder: RunnerPool | RunnerTrust) => {
+      authenticated = holder;
     },
     report: (
       report: Partial<ReportedHost> = {},
@@ -97,15 +100,15 @@ const reporting = (
 };
 
 describe('HostHeartbeatHandler', () => {
-  it('does not accept a host no pool or trust admits, and keeps nothing of it', async () => {
-    const { report, hosts, admit } = reporting({ admitted: null });
+  it('does not accept a host no pool or trust accepts, and stores nothing of it', async () => {
+    const { report, hosts, authenticate } = reporting({ authenticated: null });
 
     await expect(
       report({}, { bearer: 'stolen', trust: 'trust_1' }),
     ).resolves.toEqual({
       outcome: 'unauthorized',
     });
-    expect(admit).toHaveBeenCalledWith({
+    expect(authenticate).toHaveBeenCalledWith({
       bearer: 'stolen',
       trust: 'trust_1',
     });
@@ -113,7 +116,7 @@ describe('HostHeartbeatHandler', () => {
     expect(hosts.save).not.toHaveBeenCalled();
   });
 
-  it('keeps a host the first time it reports, in the workspace it was admitted to', async () => {
+  it('stores a host the first time it reports, in the workspace it authenticated to', async () => {
     const { report, stored } = reporting();
 
     await expect(report()).resolves.toEqual({
@@ -124,7 +127,7 @@ describe('HostHeartbeatHandler', () => {
     const host = stored.get(HOST);
 
     expect(host?.workspaceId.value).toBe('ws_1');
-    expect(host?.admission.equals(Admission.through(POOL_ID))).toBe(true);
+    expect(host?.source.equals(CredentialSource.ofId(POOL_ID))).toBe(true);
     expect(host?.firstHeartbeatAt).toEqual(STARTED_AT);
     expect(host?.report.images[0]?.image.value).toBe(
       'ghcr.io/acme/runner:main',
@@ -166,21 +169,21 @@ describe('HostHeartbeatHandler', () => {
   });
 
   it('does not accept a host that reports through another pool or trust while it is still online through the first', async () => {
-    const { report, stored, admitThrough, at } = reporting();
+    const { report, stored, authenticateThrough, at } = reporting();
 
     await report();
-    admitThrough(aTrust());
+    authenticateThrough(aTrust());
     at(89_999);
 
     await expect(report()).resolves.toEqual({ outcome: 'host-in-use' });
-    expect(stored.get(HOST)?.admission.equals(Admission.through(POOL_ID))).toBe(
-      true,
-    );
+    expect(
+      stored.get(HOST)?.source.equals(CredentialSource.ofId(POOL_ID)),
+    ).toBe(true);
   });
 
   it('takes over a host id that is offline through another pool or trust', async () => {
     const { report, stored, at } = reporting({
-      admitted: aTrust(),
+      authenticated: aTrust(),
       known: aHost({ through: aPullPool() }),
     });
 
@@ -193,7 +196,7 @@ describe('HostHeartbeatHandler', () => {
 
     const host = stored.get(HOST);
 
-    expect(host?.admission.equals(Admission.through(TRUST_ID))).toBe(true);
+    expect(host?.source.equals(CredentialSource.ofId(TRUST_ID))).toBe(true);
     expect(host?.firstHeartbeatAt).toEqual(later(90_000));
     expect(host?.lastHeartbeatAt).toEqual(later(90_000));
   });

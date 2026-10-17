@@ -12,7 +12,7 @@ import { TeamMemory } from '@/components/features/memory/TeamMemory';
 import type { TeamMemory as Memory, MemoryFilter } from '@/lib/memory';
 
 const refetch = vi.fn();
-const asked: MemoryFilter[] = [];
+const requested: MemoryFilter[] = [];
 const memoriesState = {
   data: undefined as unknown,
   isPending: false,
@@ -23,7 +23,7 @@ const memoriesState = {
 
 vi.mock('@/hooks/api/useTeamMemories', () => ({
   useTeamMemories: (_teamId: string, filter: MemoryFilter) => {
-    asked.push(filter);
+    requested.push(filter);
     return memoriesState;
   },
 }));
@@ -102,7 +102,7 @@ const memory = (over: Partial<Memory> = {}): Memory => ({
   body: 'Name branches after the ticket.',
   source: 'person',
   status: 'active',
-  reach: 'team',
+  scope: 'team',
   lineId: null,
   stationId: null,
   repository: null,
@@ -148,7 +148,7 @@ const showing = (at = '/w/acme/team/team_1/memory') =>
   );
 
 beforeEach(() => {
-  asked.length = 0;
+  requested.length = 0;
   memoriesState.data = undefined;
   memoriesState.isPending = false;
   memoriesState.errorUpdateCount = 0;
@@ -158,7 +158,7 @@ beforeEach(() => {
 });
 
 describe('TeamMemory', () => {
-  it('lists every active memory, saying where it applies and who kept it', () => {
+  it('lists every active memory, saying where it applies and who approved it', () => {
     memoriesState.data = [
       memory(),
       memory({
@@ -182,10 +182,10 @@ describe('TeamMemory', () => {
       'Delivery › Implementation › acme/api › src/uploads.ts',
     );
     expect(screen.getAllByText('Maya Chen')).toHaveLength(2);
-    expect(asked[0]?.status).toBe('active');
+    expect(requested[0]?.status).toBe('active');
   });
 
-  it('asks for the retired memories, and says why each was retired', async () => {
+  it('requests the retired memories, and says why each was retired', async () => {
     memoriesState.data = [
       memory({
         status: 'retired',
@@ -200,7 +200,7 @@ describe('TeamMemory', () => {
 
     showing('/w/acme/team/team_1/memory?status=retired');
 
-    expect(asked[0]?.status).toBe('retired');
+    expect(requested[0]?.status).toBe('retired');
     await userEvent.click(
       screen.getByRole('button', { name: /Name branches after the ticket/ }),
     );
@@ -210,7 +210,7 @@ describe('TeamMemory', () => {
     expect(within(why).getByText('It was fixed.')).toBeVisible();
   });
 
-  it('shows the retired memories when asked, kept in the address', async () => {
+  it('shows the retired memories on request, held in the address', async () => {
     memoriesState.data = [memory()];
     showing();
 

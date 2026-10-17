@@ -1,7 +1,7 @@
 import type {
   BoundTask,
-  Reach,
-  ReachableTool,
+  CallAuth,
+  ResolvedTool,
 } from '@integrations/application/ports/integration-runtime.port';
 import { DescribedDocument } from '@integrations/domain/aggregates/described-document.aggregate';
 import { EgressBlockedError } from '@integrations/domain/exceptions/egress-blocked.error';
@@ -66,7 +66,7 @@ const TASK: BoundTask = {
   waiting: null,
 };
 
-const reaching = async (call: McpSessions['call']): Promise<ReachableTool> => {
+const resolving = async (call: McpSessions['call']): Promise<ResolvedTool> => {
   const runtime = new CompiledIntegrationRuntime(
     new IntegrationReader(
       expressions,
@@ -86,7 +86,7 @@ const reaching = async (call: McpSessions['call']): Promise<ReachableTool> => {
     discoveringNothing(),
     { call: vi.fn(call) } as unknown as McpSessions,
   );
-  const reached = await runtime.tool(
+  const resolved = await runtime.tool(
     [
       defined(TRACKER, {
         hash: HASH.value,
@@ -97,17 +97,17 @@ const reaching = async (call: McpSessions['call']): Promise<ReachableTool> => {
     TASK,
   );
 
-  if (!reached) {
-    throw new Error('the MCP tool was not reached');
+  if (!resolved) {
+    throw new Error('the MCP tool was not resolved');
   }
 
-  return reached;
+  return resolved;
 };
 
-const reachAs = (
+const callAuthAs = (
   token: string,
   renewed: string | null = null,
-): Reach & { unauthorized: ReturnType<typeof vi.fn> } => {
+): CallAuth & { unauthorized: ReturnType<typeof vi.fn> } => {
   const unauthorized = vi.fn(async () =>
     renewed ? AccessToken.of(renewed) : null,
   );
@@ -129,10 +129,10 @@ describe('a tool an MCP server offers', () => {
     const call = vi.fn(async () => ({
       content: [{ type: 'text' as const, text: '{"deleted":"ENG-1"}' }],
     }));
-    const reached = await reaching(call);
+    const resolved = await resolving(call);
 
     await expect(
-      reached.call({ id: 'ENG-1' }, reachAs('ada-token')),
+      resolved.call({ id: 'ENG-1' }, callAuthAs('ada-token')),
     ).resolves.toEqual({ deleted: 'ENG-1' });
     expect(call).toHaveBeenCalledWith(
       expect.stringMatching(/^team_1:tracker:oauth2:person:ada:[0-9a-f]{16}$/),
@@ -141,7 +141,7 @@ describe('a tool an MCP server offers', () => {
       { id: 'ENG-1' },
       expect.objectContaining({ connection: 'ada-token', secrets: [] }),
     );
-    expect(reached.declared).toMatchObject({
+    expect(resolved.declared).toMatchObject({
       tool: 'tracker.delete-issue',
       integrationName: 'Tracker',
       approval: { because: 'It changes data in Tracker.' },
@@ -153,33 +153,33 @@ describe('a tool an MCP server offers', () => {
       .fn()
       .mockRejectedValueOnce(new McpUnauthorizedError(SERVER))
       .mockResolvedValueOnce({ content: [{ type: 'text', text: 'done' }] });
-    const reach = reachAs('stale', 'fresh');
-    const reached = await reaching(call);
+    const callAuth = callAuthAs('stale', 'fresh');
+    const resolved = await resolving(call);
 
-    await expect(reached.call({}, reach)).resolves.toBe('done');
-    expect(reach.unauthorized).toHaveBeenCalledTimes(1);
+    await expect(resolved.call({}, callAuth)).resolves.toBe('done');
+    expect(callAuth.unauthorized).toHaveBeenCalledTimes(1);
     expect(call.mock.calls[1]?.[4]).toMatchObject({ connection: 'fresh' });
     expect(call.mock.calls[0]?.[0]).not.toBe(call.mock.calls[1]?.[0]);
   });
 
   it('fails when the connection cannot be renewed', async () => {
-    const reached = await reaching(async () => {
+    const resolved = await resolving(async () => {
       throw new McpUnauthorizedError(SERVER);
     });
 
-    await expect(reached.call({}, reachAs('stale'))).rejects.toThrow(
+    await expect(resolved.call({}, callAuthAs('stale'))).rejects.toThrow(
       'using tracker.delete-issue: mcp.tracker.example answered 401',
     );
   });
 
   it('fails a call the server asked a question in the middle of, typed as such', async () => {
-    const reached = await reaching(async () => {
+    const resolved = await resolving(async () => {
       throw new McpQuestionUnsupportedError();
     });
 
-    await expect(reached.call({}, reachAs('ada-token'))).rejects.toBeInstanceOf(
-      ToolAskedMidCallError,
-    );
+    await expect(
+      resolved.call({}, callAuthAs('ada-token')),
+    ).rejects.toBeInstanceOf(ToolAskedMidCallError);
   });
 
   it('lets a blocked call to the host through as it is', async () => {
@@ -187,10 +187,12 @@ describe('a tool an MCP server offers', () => {
       'mcp.tracker.example',
       'Host is not on the allowed list.',
     );
-    const reached = await reaching(async () => {
+    const resolved = await resolving(async () => {
       throw blocked;
     });
 
-    await expect(reached.call({}, reachAs('ada-token'))).rejects.toBe(blocked);
+    await expect(resolved.call({}, callAuthAs('ada-token'))).rejects.toBe(
+      blocked,
+    );
   });
 });

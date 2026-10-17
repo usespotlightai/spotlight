@@ -5,9 +5,9 @@ import type { StackCheckReactions } from '@change-review/application/events/hand
 import type { ChangeStackAnnouncerPort } from '@change-review/application/ports/change-stack-announcer.port';
 import type { CheckRunnersPort } from '@change-review/application/ports/check-runners.port';
 import type { ApplyPullRequestClose } from '@change-review/application/services/apply-pull-request-close.service';
-import type { AskForDecisions } from '@change-review/application/services/ask-for-decisions.service';
 import type { DeleteTaskAcrossAggregates } from '@change-review/application/services/delete-task-across-aggregates.service';
 import type { ReceiveReviewComment } from '@change-review/application/services/receive-review-comment.service';
+import type { RequestDecisions } from '@change-review/application/services/request-decisions.service';
 import type { SignalReviewing } from '@change-review/application/services/signal-reviewing.service';
 import type { ChangeStackChecked } from '@change-review/domain/events/change-stack-checked.event';
 import type { ChangeStackCompleted } from '@change-review/domain/events/change-stack-completed.event';
@@ -67,7 +67,7 @@ export const changeReviewSubscribers = (
   receiving: ReceiveReviewComment,
   signalling: SignalReviewing,
   checks: StackCheckReactions,
-  deciding: AskForDecisions,
+  deciding: RequestDecisions,
   pullRequestClose: ApplyPullRequestClose,
   decisions: DecisionReactions,
   runners: CheckRunnersPort,
@@ -93,7 +93,7 @@ export const changeReviewSubscribers = (
     (event) => checks.onCompleted(event),
   ),
   subscribing<LayersFailedCheck>(
-    'change-review.ask-to-reorder',
+    'change-review.request-reorder',
     ['change-stack.layers-failed-check'],
     (event) => checks.onLayersFailed(event.stackId),
   ),
@@ -103,7 +103,7 @@ export const changeReviewSubscribers = (
     (event) => checks.onReordered(event.stackId),
   ),
   subscribing<ChangeStackReorderingEnded>(
-    'change-review.keep-checked-layers',
+    'change-review.retain-checked-layers',
     ['change-stack.reordering-ended'],
     (event) => checks.onReorderingEnded(event.stackId),
   ),
@@ -121,7 +121,7 @@ export const changeReviewSubscribers = (
         : Promise.resolve(),
   ),
   subscribing<RunEndedIntegrationEvent>(
-    'change-review.ask-for-decisions',
+    'change-review.request-decisions',
     [RUN_ENDED],
     (event) =>
       event.taskId
@@ -186,7 +186,7 @@ export const changeReviewSubscribers = (
     (event) => reviews.onPosted(event),
   ),
   subscribing<ReviewCommentPlaced>(
-    'change-review.keep-posted-comment',
+    'change-review.record-posted-comment',
     ['review.comment-placed'],
     (event) => reviews.onCommentPlaced(event),
   ),

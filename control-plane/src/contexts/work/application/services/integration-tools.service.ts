@@ -4,7 +4,7 @@ import { ToolDeclarationMapper } from '@work/application/mappers/tool-declaratio
 import type { IntegrationToolCallsPort } from '@work/application/ports/integration-tool-calls.port';
 import type {
   IntegrationToolsPort,
-  ReachableTool,
+  ResolvedTool,
   ToolContext,
 } from '@work/application/ports/integration-tools.port';
 import type { RunWorks } from '@work/application/services/run-works.service';
@@ -23,12 +23,12 @@ export class IntegrationTools implements IntegrationToolsPort {
     private readonly works: RunWorks,
   ) {}
 
-  async reach(
+  async resolve(
     tool: Tool,
     context: ToolContext,
     attempt: RunAttempt,
     runnerId: string,
-  ): Promise<ReachableTool | null> {
+  ): Promise<ResolvedTool | null> {
     if (context.kind !== 'task') {
       return null;
     }
@@ -39,7 +39,7 @@ export class IntegrationTools implements IntegrationToolsPort {
     ]);
     const bound = task && line ? await this.bindings.of(task, line) : null;
     const found = bound
-      ? await this.calls.reach(
+      ? await this.calls.resolve(
           tool.value,
           bound,
           { runId: attempt.runId.value, attempt: attempt.number },

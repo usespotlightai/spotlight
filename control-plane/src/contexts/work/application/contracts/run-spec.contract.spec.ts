@@ -173,7 +173,7 @@ describe('RunSpecContract wire', () => {
 });
 
 describe('RunSpecContract.ordered', () => {
-  it('runs what Spotlight says, not what the caller asked for', () => {
+  it('runs what Spotlight says, not what the caller requested', () => {
     const spec = RunSpecContract.ordered(
       {
         briefing: 'do the thing',

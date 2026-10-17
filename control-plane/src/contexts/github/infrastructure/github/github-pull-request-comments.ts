@@ -29,7 +29,7 @@ export class GitHubPullRequestComments implements PullRequestCommentsPort {
     private readonly fetch: Fetch = globalThis.fetch,
   ) {}
 
-  async keep(comment: StickyComment): Promise<void> {
+  async upsert(comment: StickyComment): Promise<void> {
     const { password: token } = await this.access.credential(
       comment.workspaceId,
     );

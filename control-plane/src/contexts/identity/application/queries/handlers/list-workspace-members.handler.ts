@@ -40,7 +40,7 @@ export class ListWorkspaceMembersHandler
         teams: member.teams,
         joinedAt: member.joinedAt.toISOString(),
         mayBeSetTo: workspace
-          .rolesGivableTo(UserId.of(member.id), viewer)
+          .assignableRolesFor(UserId.of(member.id), viewer)
           .map((role) => role.value),
       }));
     } catch (error) {

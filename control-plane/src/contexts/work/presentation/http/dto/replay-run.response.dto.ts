@@ -54,7 +54,7 @@ export class ReplayRunResponseDto extends TaskRunResponseDto {
 
   @ApiProperty({
     description:
-      'The briefing that the replay gave its agent when it was dispatched',
+      'The briefing that the replay sent to its agent when it was dispatched',
   })
   readonly briefing: string;
 
@@ -67,7 +67,7 @@ export class ReplayRunResponseDto extends TaskRunResponseDto {
   @ApiProperty({
     type: String,
     isArray: true,
-    description: 'The repositories the replay was given',
+    description: 'The repositories of the replay',
   })
   readonly repositories: readonly string[];
 

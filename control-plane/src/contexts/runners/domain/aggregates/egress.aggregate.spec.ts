@@ -15,7 +15,7 @@ import { describe, expect, it } from 'vitest';
 
 const BY = attributedIn();
 
-const keeping = (url = 'https://egress.example.com') => ({
+const definition = (url = 'https://egress.example.com') => ({
   key: EgressKey.of('shared'),
   url: EgressUrl.of(url),
 });
@@ -34,7 +34,7 @@ describe('Egress', () => {
     egress.pullEvents();
 
     const moved = egress.update(
-      keeping('https://egress-2.example.com'),
+      definition('https://egress-2.example.com'),
       { tokenHash: null, tokenVersion: 1 },
       BY,
     );
@@ -51,7 +51,7 @@ describe('Egress', () => {
     egress.pullEvents();
 
     const rotated = egress.update(
-      keeping(),
+      definition(),
       { tokenHash: hashOf('8'), tokenVersion: 2 },
       BY,
     );
@@ -65,16 +65,16 @@ describe('Egress', () => {
     });
   });
 
-  it('asks for a token whenever tokenVersion changes', () => {
+  it('requires a token whenever tokenVersion changes', () => {
     expect(() =>
-      anEgress().update(keeping(), { tokenHash: null, tokenVersion: 2 }, BY),
+      anEgress().update(definition(), { tokenHash: null, tokenVersion: 2 }, BY),
     ).toThrow(InvalidEgressError);
   });
 
   it('keeps its key for its life', () => {
     expect(() =>
       anEgress().update(
-        { ...keeping(), key: EgressKey.of('other') },
+        { ...definition(), key: EgressKey.of('other') },
         { tokenHash: null, tokenVersion: 1 },
         BY,
       ),

@@ -29,14 +29,14 @@ export class PersonToolPolicy {
     if (input.version < 1) {
       throw new InconsistentStateError(
         'person tool policy',
-        'was kept without a version',
+        'was stored without a version',
       );
     }
 
     if ([...input.rules.values()].some((each) => each.allows)) {
       throw new InconsistentStateError(
         'person tool policy',
-        'was kept with a rule that only allows, which it never keeps',
+        'was stored with a rule that only allows, which it never stores',
       );
     }
 

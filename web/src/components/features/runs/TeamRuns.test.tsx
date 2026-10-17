@@ -131,7 +131,7 @@ describe('TeamRuns', () => {
     expect(screen.queryByText('No runs yet')).not.toBeInTheDocument();
   });
 
-  it('says the runs could not be loaded, and tries again when asked', async () => {
+  it('says the runs could not be loaded, and tries again on request', async () => {
     runs.mockReturnValue(undefined);
     failing.mockReturnValue(true);
     showing();

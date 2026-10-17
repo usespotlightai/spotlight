@@ -4,8 +4,8 @@ import type {
   Credentials,
   SigningSecrets,
 } from '@integrations/application/ports/integration-runtime.port';
+import { CallAuthResolver } from '@integrations/application/services/call-auth-resolver.service';
 import type { ConnectionRenewal } from '@integrations/application/services/connection-renewal.service';
-import { HostReach } from '@integrations/application/services/host-reach.service';
 import { SpotlightCredentials } from '@integrations/application/services/spotlight-credentials';
 import { SpotlightSigningSecrets } from '@integrations/application/services/spotlight-signing-secrets';
 import type { HostConnectionRepository } from '@integrations/domain/repositories/host-connection.repository';
@@ -65,13 +65,13 @@ export const injecting = (bound: Readonly<Record<string, Bound>> = {}) => {
       }),
     );
 
-  const grant = vi.fn(async (asked: RunGrant) => {
-    for (const name of asked.secrets) {
+  const grant = vi.fn(async (runGrant: RunGrant) => {
+    for (const name of runGrant.secrets) {
       if (!bound[name]) {
         throw new Error(`Secret ${name} not found. Please create it first.`);
       }
 
-      granted.add(`${asked.runId}:${name}`);
+      granted.add(`${runGrant.runId}:${name}`);
     }
   });
   const forRun = vi.fn(async (request: RunRequest) =>
@@ -126,10 +126,10 @@ export const signingFor = (
     WorkspaceId.of('ws_1'),
   );
 
-export const reachFor = (
+export const callAuthFor = (
   injection: SecretInjectionPort = injecting().injection,
-): HostReach =>
-  new HostReach(
+): CallAuthResolver =>
+  new CallAuthResolver(
     { of: async () => null } as unknown as HostConnectionRepository,
     {
       find: async (id) => ({

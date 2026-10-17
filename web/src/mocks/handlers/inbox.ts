@@ -230,35 +230,35 @@ const alertHandlers = [
 
 const gradeOf = (
   kind: GradeResponseDto['kind'],
-  given: GradeRunRequestDto,
+  input: GradeRunRequestDto,
 ): GradeResponseDto => {
   const base = { by: SAM.id, mine: true, kind, at: now() };
 
-  if (given.claims) {
-    const met = given.claims.filter(Boolean).length;
-    const share = given.claims.length ? met / given.claims.length : 0;
+  if (input.claims) {
+    const met = input.claims.filter(Boolean).length;
+    const share = input.claims.length ? met / input.claims.length : 0;
 
     return {
       ...base,
       value: share,
-      marks: given.claims,
+      marks: input.claims,
       label: `${Math.round(share * 100)}% of claims met`,
     };
   }
-  if (typeof given.value === 'boolean') {
+  if (typeof input.value === 'boolean') {
     return {
       ...base,
-      value: given.value ? 1 : 0,
+      value: input.value ? 1 : 0,
       marks: null,
-      label: given.value ? 'yes' : 'no',
+      label: input.value ? 'yes' : 'no',
     };
   }
 
   return {
     ...base,
-    value: given.value ?? 0,
+    value: input.value ?? 0,
     marks: null,
-    label: `${given.value ?? 0}`,
+    label: `${input.value ?? 0}`,
   };
 };
 
@@ -292,9 +292,9 @@ const scoreHandlers = [
       return notFound();
     }
 
-    const given = (await request.json()) as GradeRunRequestDto;
+    const input = (await request.json()) as GradeRunRequestDto;
     scores.grades = [
-      gradeOf(scores.kind, given),
+      gradeOf(scores.kind, input),
       ...scores.grades.filter((grade) => !grade.mine),
     ];
     resolveAsides('grade', runId);

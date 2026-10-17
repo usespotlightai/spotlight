@@ -176,7 +176,7 @@ describe('Team', () => {
         by: BY,
       });
 
-    const kept = (version = 3) =>
+    const stored = (version = 3) =>
       Team.rehydrate({
         id: TeamId.of('team_1'),
         workspaceId: WORKSPACE,
@@ -203,12 +203,14 @@ describe('Team', () => {
     });
 
     it('rejects a change made against another version', () => {
-      expect(() => kept(3).assertVersion(2)).toThrow(TeamVersionConflictError);
-      expect(() => kept(3).assertVersion(3)).not.toThrow();
+      expect(() => stored(3).assertVersion(2)).toThrow(
+        TeamVersionConflictError,
+      );
+      expect(() => stored(3).assertVersion(3)).not.toThrow();
     });
 
     it('takes a new name, and says so', () => {
-      const renamed = kept().update(
+      const renamed = stored().update(
         { key: TeamKey.of('core'), name: TeamName.of('Core platform') },
         BY,
       );
@@ -226,7 +228,7 @@ describe('Team', () => {
 
     it('keeps its key for its whole life', () => {
       expect(() =>
-        kept().update(
+        stored().update(
           { key: TeamKey.of('platform'), name: TeamName.of('Core') },
           BY,
         ),
@@ -235,10 +237,10 @@ describe('Team', () => {
 
     it('is deleted only once it has nothing', () => {
       expect(() =>
-        kept().delete(Dependents.of(['line delivery', 'skill grafana']), BY),
+        stored().delete(Dependents.of(['line delivery', 'skill grafana']), BY),
       ).toThrow(/It still has: line delivery, skill grafana/);
 
-      const deleted = kept().delete(Dependents.none(), BY);
+      const deleted = stored().delete(Dependents.none(), BY);
 
       expect(deleted.isDeleted).toBe(true);
       expect(deleted.pullEvents()).toEqual([

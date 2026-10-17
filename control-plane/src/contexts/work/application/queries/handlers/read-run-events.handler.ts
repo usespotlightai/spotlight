@@ -33,19 +33,19 @@ const newestWithin = (
   events: readonly RunEventView[],
   budget: number,
 ): RunEventView[] => {
-  const kept: RunEventView[] = [];
+  const newest: RunEventView[] = [];
   let spent = 0;
 
   for (let index = events.length - 1; index >= 0; index -= 1) {
     const event = events[index];
     spent += event.data?.length ?? 0;
 
-    if (spent > budget && kept.length > 0) {
+    if (spent > budget && newest.length > 0) {
       break;
     }
 
-    kept.push(event);
+    newest.push(event);
   }
 
-  return kept.reverse();
+  return newest.reverse();
 };

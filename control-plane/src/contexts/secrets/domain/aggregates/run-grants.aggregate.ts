@@ -42,22 +42,22 @@ export class RunGrants extends EventRecorder {
     });
   }
 
-  static rehydrate(kept: State): RunGrants {
-    if (!Number.isInteger(kept.version) || kept.version < 1) {
+  static rehydrate(record: State): RunGrants {
+    if (!Number.isInteger(record.version) || record.version < 1) {
       throw new InconsistentStateError(
         'run grants',
-        `has an impossible version (${kept.version})`,
+        `has an impossible version (${record.version})`,
       );
     }
 
-    if ((kept.endedAt || kept.leaseLost) && kept.grants.length > 0) {
+    if ((record.endedAt || record.leaseLost) && record.grants.length > 0) {
       throw new InconsistentStateError(
         'run grants',
-        'kept secrets granted to a lease that is over',
+        'holds secrets granted to a lease that is over',
       );
     }
 
-    return new RunGrants({ ...kept, grants: [...kept.grants] });
+    return new RunGrants({ ...record, grants: [...record.grants] });
   }
 
   static retentionCutoff(now: Date): Date {
@@ -137,7 +137,7 @@ export class RunGrants extends EventRecorder {
     if (!this.isPastRetention(now)) {
       throw new InconsistentStateError(
         'run grants',
-        'is kept for a week after its run ends before it is purged',
+        'is retained for a week after its run ends before it is purged',
       );
     }
 

@@ -21,7 +21,7 @@ export type InviteStatus = 'pending' | 'accepted' | 'revoked' | 'expired';
 const NOT_PENDING_BECAUSE: Record<Exclude<InviteStatus, 'pending'>, string> = {
   accepted: 'has already been accepted',
   revoked: 'has been revoked',
-  expired: 'has expired. Please ask for a new one',
+  expired: 'has expired. Please request a new one',
 };
 
 interface State {
@@ -147,7 +147,7 @@ export class WorkspaceInvite extends EventRecorder implements State {
     if (!Number.isInteger(input.version) || input.version < 1) {
       throw new InconsistentStateError(
         'invite',
-        'was kept without ever being written',
+        'was stored without ever being written',
       );
     }
     if (input.acceptedBy && !input.acceptedAt) {

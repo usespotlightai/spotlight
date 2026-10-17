@@ -12,7 +12,7 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type { Happened } from '@work/application/contracts/happenings.contract';
 import type { AttachmentStorePort } from '@work/application/ports/attachment-store.port';
-import { heardInMemory } from '@work/application/ports/heard-happenings.fake-spec';
+import { processedEventsInMemory } from '@work/application/ports/processed-events.fake-spec';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
 import { ReactToHappenings } from '@work/application/services/react-to-happenings.service';
 import type { TaskDispatching } from '@work/application/services/task-dispatch';
@@ -54,13 +54,13 @@ const members: MemberDirectoryPort = {
   byEmail: async () => null,
 };
 
-const kept: Attachment[] = [];
+const stored: Attachment[] = [];
 const files = {
   grant: vi.fn(),
   received: vi.fn(async () => []),
   taken: vi.fn(),
-  keep: vi.fn(async (_at, file: Attachment) => {
-    kept.push(file);
+  save: vi.fn(async (_at, file: Attachment) => {
+    stored.push(file);
   }),
   link: vi.fn(),
   open: vi.fn(),
@@ -192,7 +192,7 @@ const news = (
   opens: null,
 });
 
-const heard = (
+const receive = (
   happening: Happening,
   found: Task | null,
   message: string | null = null,
@@ -207,25 +207,30 @@ const heard = (
     ids,
     members,
     files,
-    heardInMemory(),
+    processedEventsInMemory(),
     logger,
-  ).react(WorkspaceId.of('ws_1'), null, [news(happening, message)], 'heard-as');
+  ).react(
+    WorkspaceId.of('ws_1'),
+    null,
+    [news(happening, message)],
+    'received-as',
+  );
 
 describe('ReactToHappenings', () => {
   beforeEach(() => {
     saved = undefined;
     dispatched.length = 0;
-    kept.length = 0;
+    stored.length = 0;
   });
 
   it('takes the task to the station waiting for it', async () => {
-    await heard(CHANGES_REQUESTED, taskAt(), 'Handle the empty case.');
+    await receive(CHANGES_REQUESTED, taskAt(), 'Handle the empty case.');
 
     expect(saved?.stationId).toEqual(StationId.of('station_1'));
     expect(saved?.notes[0]?.body.value).toContain('Handle the empty case.');
   });
 
-  it('has no second effect when the same delivery is heard again', async () => {
+  it('has no second effect when the same delivery is received again', async () => {
     const stored = tasks(taskAt());
     const reactions = new ReactToHappenings(
       stored,
@@ -237,7 +242,7 @@ describe('ReactToHappenings', () => {
       ids,
       members,
       files,
-      heardInMemory(),
+      processedEventsInMemory(),
       logger,
     );
     const happenings = [news(CHANGES_REQUESTED, 'Handle the empty case.')];
@@ -259,7 +264,7 @@ describe('ReactToHappenings', () => {
     expect(dispatched).toHaveLength(1);
   });
 
-  it('hears what a poll with no cursor says each time, since only a cursor tells news apart', async () => {
+  it('receives what a poll with no cursor says each time, since only a cursor tells news apart', async () => {
     const stored = tasks(taskAt());
     const reactions = new ReactToHappenings(
       stored,
@@ -271,7 +276,7 @@ describe('ReactToHappenings', () => {
       ids,
       members,
       files,
-      heardInMemory(),
+      processedEventsInMemory(),
       logger,
     );
     const happenings = [news(COMMENTED, 'Still retries.')];
@@ -282,7 +287,7 @@ describe('ReactToHappenings', () => {
     expect(stored.save).toHaveBeenCalledTimes(2);
   });
 
-  it('hears a later delivery saying the same thing as news of its own', async () => {
+  it('receives a later delivery saying the same thing as news of its own', async () => {
     const stored = tasks(taskAt());
     const reactions = new ReactToHappenings(
       stored,
@@ -294,7 +299,7 @@ describe('ReactToHappenings', () => {
       ids,
       members,
       files,
-      heardInMemory(),
+      processedEventsInMemory(),
       logger,
     );
     const happenings = [news(COMMENTED, 'Still retries.')];
@@ -316,14 +321,14 @@ describe('ReactToHappenings', () => {
   });
 
   it('starts the work at the station it was taken to', async () => {
-    await heard(CHANGES_REQUESTED, taskAt(), 'Handle the empty case.');
+    await receive(CHANGES_REQUESTED, taskAt(), 'Handle the empty case.');
 
     expect(dispatched).toHaveLength(1);
     expect(saved?.currentRunId).toEqual(RunId.of('run_2'));
   });
 
   it('leaves a task where it is when that is where it belongs', async () => {
-    await heard(COMMENTED, taskAt(), 'This retries forever.');
+    await receive(COMMENTED, taskAt(), 'This retries forever.');
 
     expect(saved?.stationId).toEqual(StationId.of('station_2'));
     expect(saved?.notes.map((each) => each.kind)).toEqual(['message']);
@@ -332,7 +337,7 @@ describe('ReactToHappenings', () => {
   });
 
   it('keeps the anchor from the world on the note, whole', async () => {
-    await heard(COMMENTED, taskAt(), 'pin this to a version.');
+    await receive(COMMENTED, taskAt(), 'pin this to a version.');
 
     const note = saved?.notes[0];
 
@@ -343,7 +348,7 @@ describe('ReactToHappenings', () => {
   });
 
   it('waits to be handed to the agent already working the task', async () => {
-    await heard(
+    await receive(
       COMMENTED,
       taskAt().assignRun(RunId.of('run_1'), line()),
       'Look.',
@@ -363,7 +368,7 @@ describe('ReactToHappenings', () => {
       null,
     );
 
-    await heard(COMMENTED, asked, 'The Dockerfile still copies all.');
+    await receive(COMMENTED, asked, 'The Dockerfile still copies all.');
 
     expect(saved?.notes.map((each) => each.kind)).toEqual([
       'asked',
@@ -408,9 +413,9 @@ describe('ReactToHappenings', () => {
       ids,
       members,
       files,
-      heardInMemory(),
+      processedEventsInMemory(),
       logger,
-    ).react(WorkspaceId.of('ws_1'), null, [reply], 'heard-as');
+    ).react(WorkspaceId.of('ws_1'), null, [reply], 'received-as');
 
     expect(saved?.notes.map((each) => each.kind)).toEqual([
       'asked',
@@ -445,7 +450,7 @@ describe('ReactToHappenings', () => {
       ids,
       members,
       files,
-      heardInMemory(),
+      processedEventsInMemory(),
       logger,
     ).react(
       WorkspaceId.of('ws_1'),
@@ -465,7 +470,7 @@ describe('ReactToHappenings', () => {
           opens: null,
         },
       ],
-      'heard-as',
+      'received-as',
     );
 
     expect(saved?.hasCurrentRun(RunId.of('run_1'))).toBe(true);
@@ -522,9 +527,9 @@ describe('ReactToHappenings', () => {
         ids,
         members,
         files,
-        heardInMemory(),
+        processedEventsInMemory(),
         logger,
-      ).react(WorkspaceId.of('ws_1'), null, [reply], 'heard-as');
+      ).react(WorkspaceId.of('ws_1'), null, [reply], 'received-as');
 
     it('takes a reply that is only a file as the answer, and keeps the file', async () => {
       await react(replying(null, async () => new Uint8Array([1, 2, 3, 4])));
@@ -537,10 +542,10 @@ describe('ReactToHappenings', () => {
       expect(saved?.notes[1]?.attachments.map((each) => each.name)).toEqual([
         'queue.png',
       ]);
-      expect(kept.map((each) => each.size)).toEqual([4]);
+      expect(stored.map((each) => each.size)).toEqual([4]);
     });
 
-    it('leaves behind a file it cannot have, and still hears the words', async () => {
+    it('leaves behind a file it cannot have, and still receives the words', async () => {
       await react(
         replying('Still stuck.', async () => {
           throw new Error('files.slack.com answered 403');
@@ -549,7 +554,7 @@ describe('ReactToHappenings', () => {
 
       expect(saved?.notes[1]?.body.value).toBe('Still stuck.');
       expect(saved?.notes[1]?.attachments).toEqual([]);
-      expect(kept).toEqual([]);
+      expect(stored).toEqual([]);
       expect(logger.warn).toHaveBeenCalled();
     });
   });
@@ -565,7 +570,7 @@ describe('ReactToHappenings', () => {
       null,
     );
 
-    await heard(CHECKS_FAILED, asked);
+    await receive(CHECKS_FAILED, asked);
 
     expect(saved?.notes.map((each) => each.kind)).toEqual(['asked', 'message']);
     expect(saved?.awaitingReview).toBe(true);
@@ -573,7 +578,7 @@ describe('ReactToHappenings', () => {
   });
 
   it('says nothing of a review submitted with nothing written on it', async () => {
-    await heard(COMMENTED, taskAt(), null);
+    await receive(COMMENTED, taskAt(), null);
 
     expect(saved).toBeUndefined();
     expect(dispatched).toHaveLength(0);
@@ -592,7 +597,7 @@ describe('ReactToHappenings', () => {
       ids,
       members,
       files,
-      heardInMemory(),
+      processedEventsInMemory(),
       logger,
     ).react(
       WorkspaceId.of('ws_1'),
@@ -606,7 +611,7 @@ describe('ReactToHappenings', () => {
           },
         },
       ],
-      'heard-as',
+      'received-as',
     );
 
     expect(saved).toBeUndefined();
@@ -614,14 +619,17 @@ describe('ReactToHappenings', () => {
   });
 
   it('says nothing to a station nobody set to wait for it', async () => {
-    await heard(Happening.of('github.pull_request.closed-unmerged'), taskAt());
+    await receive(
+      Happening.of('github.pull_request.closed-unmerged'),
+      taskAt(),
+    );
 
     expect(saved).toBeUndefined();
     expect(dispatched).toHaveLength(0);
   });
 
   it('leaves a task that has landed at the end of the line alone', async () => {
-    await heard(MERGED, taskAt('station_3'));
+    await receive(MERGED, taskAt('station_3'));
 
     expect(saved).toBeUndefined();
   });
@@ -644,7 +652,7 @@ describe('ReactToHappenings', () => {
 
     expect(ended.finished).toBe(true);
 
-    await heard(COMMENTED, ended, 'One more thing.');
+    await receive(COMMENTED, ended, 'One more thing.');
 
     expect(saved?.notes.map((each) => each.kind)).toEqual([
       'passed',
@@ -655,13 +663,13 @@ describe('ReactToHappenings', () => {
   });
 
   it('lets a pull request nobody here opened pass', async () => {
-    await heard(MERGED, null);
+    await receive(MERGED, null);
 
     expect(saved).toBeUndefined();
   });
 
   it('starts nothing where the task already has a current run', async () => {
-    await heard(
+    await receive(
       COMMENTED,
       taskAt().assignRun(RunId.of('run_1'), line()),
       'One more thing.',
@@ -692,7 +700,7 @@ describe('ReactToHappenings', () => {
     };
 
     it('leaves the task where it is and its current run', async () => {
-      await heard(COMMENTED, handed('station_1'), 'This retries forever.');
+      await receive(COMMENTED, handed('station_1'), 'This retries forever.');
 
       expect(saved?.stationId).toEqual(StationId.of('station_1'));
       expect(saved?.currentRunId).toEqual(RunId.of('run_1'));
@@ -701,10 +709,10 @@ describe('ReactToHappenings', () => {
     });
 
     it('defers the move on a note, for the run to be told', async () => {
-      await heard(COMMENTED, handed('station_1'), 'This retries forever.');
+      await receive(COMMENTED, handed('station_1'), 'This retries forever.');
 
       expect(saved?.notes.map((each) => each.body.value)).toEqual([
-        'Heard while a run worked on the task. If the run does not pass the task on, the task moves to Code Review when the run ends.\n\ncompose.yml:22\nThis retries forever.',
+        'This arrived while a run worked on the task. If the run does not pass the task on, the task moves to Code Review when the run ends.\n\ncompose.yml:22\nThis retries forever.',
       ]);
       expect(saved?.notes[0]?.station).toEqual(
         StationName.of('Implementation'),
@@ -715,7 +723,7 @@ describe('ReactToHappenings', () => {
     });
 
     it('defers a comment with no anchor as the summary of what happened', async () => {
-      await heard(COMMENTED, handed('station_1'), null);
+      await receive(COMMENTED, handed('station_1'), null);
 
       expect(saved?.stationId).toEqual(StationId.of('station_1'));
       expect(saved?.notes[0]?.body.value).toContain(
@@ -726,7 +734,7 @@ describe('ReactToHappenings', () => {
     });
 
     it('defers the move while the current run of the task waits on a person', async () => {
-      await heard(COMMENTED, paused('station_1'), 'This retries forever.');
+      await receive(COMMENTED, paused('station_1'), 'This retries forever.');
 
       expect(saved?.stationId).toEqual(StationId.of('station_1'));
       expect(saved?.currentRunId).toEqual(RunId.of('run_1'));
@@ -741,10 +749,10 @@ describe('ReactToHappenings', () => {
     });
 
     it('keeps a stored-back move when a later happening leaves the task where it is', async () => {
-      await heard(COMMENTED, handed('station_1'), 'This retries forever.');
+      await receive(COMMENTED, handed('station_1'), 'This retries forever.');
       const noted = saved as Task;
 
-      await heard(CHANGES_REQUESTED, noted, 'Handle the empty case.');
+      await receive(CHANGES_REQUESTED, noted, 'Handle the empty case.');
 
       expect(saved?.stationId).toEqual(StationId.of('station_1'));
       expect(saved?.notes.map((each) => each.kind)).toEqual([
@@ -755,7 +763,7 @@ describe('ReactToHappenings', () => {
     });
 
     it('moves the same task once it has no current run', async () => {
-      await heard(COMMENTED, taskAt('station_1'), 'This retries forever.');
+      await receive(COMMENTED, taskAt('station_1'), 'This retries forever.');
 
       expect(saved?.stationId).toEqual(StationId.of('station_2'));
       expect(saved?.notes[0]?.body.value).toBe(
@@ -767,7 +775,7 @@ describe('ReactToHappenings', () => {
 
     describe('when the pull request merges', () => {
       it('stops the run and keeps the task where it is', async () => {
-        await heard(MERGED, handed('station_2'));
+        await receive(MERGED, handed('station_2'));
 
         expect(saved?.stationId).toEqual(StationId.of('station_2'));
         expect(saved?.currentRunId).toBeNull();
@@ -782,7 +790,7 @@ describe('ReactToHappenings', () => {
       });
 
       it('asks whoever raised the task whether to close it or carry on', async () => {
-        await heard(MERGED, handed('station_2'));
+        await receive(MERGED, handed('station_2'));
 
         expect(saved?.awaitingReview).toBe(true);
         expect(saved?.assignee).toEqual(UserId.of('user_1'));
@@ -797,7 +805,7 @@ describe('ReactToHappenings', () => {
       });
 
       it('adds to the question the paused run put to a person, asking nothing again and leaving the run alone', async () => {
-        await heard(MERGED, paused('station_2'));
+        await receive(MERGED, paused('station_2'));
 
         expect(saved?.stationId).toEqual(StationId.of('station_2'));
         expect(saved?.currentRunId).toEqual(RunId.of('run_1'));
@@ -816,10 +824,10 @@ describe('ReactToHappenings', () => {
       });
 
       it('drops the moves stored back before it once the paused run’s question is open, leaving the person to decide', async () => {
-        await heard(COMMENTED, paused('station_1'), 'This retries forever.');
+        await receive(COMMENTED, paused('station_1'), 'This retries forever.');
         expect(saved?.deferredMoveTo).toEqual(StationId.of('station_2'));
 
-        await heard(MERGED, saved as Task);
+        await receive(MERGED, saved as Task);
 
         expect(saved?.deferredMoveTo).toBeNull();
         expect(saved?.currentRunId).toEqual(RunId.of('run_1'));
@@ -827,7 +835,7 @@ describe('ReactToHappenings', () => {
       });
 
       it('finishes a task that has no current run, as before', async () => {
-        await heard(MERGED, taskAt('station_1'));
+        await receive(MERGED, taskAt('station_1'));
 
         expect(saved?.stationId).toEqual(StationId.of('station_3'));
         expect(saved?.finished).toBe(true);
@@ -848,9 +856,9 @@ describe('ReactToHappenings', () => {
       ids,
       members,
       files,
-      heardInMemory(),
+      processedEventsInMemory(),
       logger,
-    ).react(WorkspaceId.of('ws_1'), null, [news(MERGED, null)], 'heard-as');
+    ).react(WorkspaceId.of('ws_1'), null, [news(MERGED, null)], 'received-as');
 
     expect(stored.findByMarks).toHaveBeenCalledWith(
       WorkspaceId.of('ws_1'),
@@ -926,9 +934,9 @@ describe('ReactToHappenings', () => {
       ids,
       members,
       files,
-      heardInMemory(),
+      processedEventsInMemory(),
       logger,
-    ).react(WorkspaceId.of('ws_1'), null, [filed], 'heard-as');
+    ).react(WorkspaceId.of('ws_1'), null, [filed], 'received-as');
 
     expect(stored.add).toHaveBeenCalledTimes(1);
     expect(added?.stationId).toEqual(entry.id);
@@ -936,7 +944,7 @@ describe('ReactToHappenings', () => {
     expect(added?.title.value).toBe('Drain the retry queue');
     expect(added?.description?.value).toBe('It loops forever.');
     expect(added?.pullEvents()).toContainEqual(
-      expect.objectContaining({ kind: 'task.opened', heard: true }),
+      expect.objectContaining({ kind: 'task.opened', fromIntegration: true }),
     );
   });
 
@@ -1009,9 +1017,9 @@ describe('ReactToHappenings', () => {
       ids,
       { byEmail },
       files,
-      heardInMemory(),
+      processedEventsInMemory(),
       logger,
-    ).react(WorkspaceId.of('ws_1'), null, [filed], 'heard-as');
+    ).react(WorkspaceId.of('ws_1'), null, [filed], 'received-as');
 
     expect(byEmail).toHaveBeenCalledWith(
       WorkspaceId.of('ws_1'),
@@ -1087,9 +1095,9 @@ describe('ReactToHappenings', () => {
       ids,
       { byEmail: async () => null },
       files,
-      heardInMemory(),
+      processedEventsInMemory(),
       logger,
-    ).react(WorkspaceId.of('ws_1'), null, [filed], 'heard-as');
+    ).react(WorkspaceId.of('ws_1'), null, [filed], 'received-as');
 
     expect(added?.assignee).toBeNull();
   });
@@ -1170,9 +1178,9 @@ describe('ReactToHappenings', () => {
       ids,
       members,
       files,
-      heardInMemory(),
+      processedEventsInMemory(),
       logger,
-    ).react(WorkspaceId.of('ws_1'), null, [filed], 'heard-as');
+    ).react(WorkspaceId.of('ws_1'), null, [filed], 'received-as');
 
     expect(stored.add).toHaveBeenCalledTimes(1);
     expect(added[0]?.stationId).toEqual((first.entry as Station).id);

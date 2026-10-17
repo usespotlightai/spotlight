@@ -13,14 +13,14 @@ const ID = '123e4567-e89b-42d3-a456-426614174000';
 const NOW = new Date('2026-09-24T10:00:30.000Z');
 
 const registering = (
-  given: {
+  input: {
     runner?: () => Runner | null;
     save?: (runner: Runner) => Promise<void>;
   } = {},
 ) => {
-  const save = vi.fn(given.save ?? (async (_: Runner) => {}));
+  const save = vi.fn(input.save ?? (async (_: Runner) => {}));
   const find = vi.fn(async () =>
-    given.runner ? given.runner() : aRunner({ id: ID }),
+    input.runner ? input.runner() : aRunner({ id: ID }),
   );
 
   const handler = new RegisterRunnerHandler(

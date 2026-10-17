@@ -48,7 +48,7 @@ func (r *Reader) Read(ctx context.Context, source protocol.ExternalSecretRef) (s
 		if errors.As(err, &failed) {
 			return "", fmt.Errorf("AWS Secrets Manager answered %s", failed.ErrorCode())
 		}
-		return "", fmt.Errorf("AWS Secrets Manager could not be asked: %w", err)
+		return "", fmt.Errorf("could not call AWS Secrets Manager: %w", err)
 	}
 
 	text := aws.ToString(answer.SecretString)

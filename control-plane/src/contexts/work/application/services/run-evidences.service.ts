@@ -23,7 +23,7 @@ import type { StationJudge } from '@work/domain/value-objects/station-judge.vo';
 
 const MAX_TEXT = 4_000;
 
-interface AskedOfRun {
+interface TaskOfRun {
   readonly taskId: string;
   readonly title: string;
   readonly description: string | null;
@@ -42,8 +42,8 @@ const evidenced = (step: JournalStep, index: number): EvidencedStep => ({
   kind: step.kind,
   tool: step.tool,
   text: clipped(step.text, MAX_TEXT),
-  given: clippedOrNone(step.given),
-  returned: clippedOrNone(step.returned),
+  input: clippedOrNone(step.input),
+  output: clippedOrNone(step.output),
 });
 
 const hunksIn = (
@@ -94,10 +94,10 @@ export class RunEvidences implements RunEvidencePort {
 
   async of(runId: string): Promise<EvidencedRun | null> {
     const run = await this.runs.findById(RunId.of(runId));
-    const asked = run ? await this.askedOf(run) : null;
+    const task = run ? await this.taskOf(run) : null;
     const attempts = run ? await this.journals.attemptsOfRun(run.id) : [];
 
-    if (!run || !asked || attempts.length === 0) {
+    if (!run || !task || attempts.length === 0) {
       return null;
     }
 
@@ -105,13 +105,13 @@ export class RunEvidences implements RunEvidencePort {
 
     return {
       runId: run.id.value,
-      ...asked,
+      ...task,
       steps: steps.map(evidenced),
       hunks: hunksIn(steps, run.spec.checkoutFolders),
     };
   }
 
-  private async askedOf(run: Run): Promise<AskedOfRun | null> {
+  private async taskOf(run: Run): Promise<TaskOfRun | null> {
     if (run.replayOf) {
       const original = await this.runs.findById(run.replayOf);
       const briefed = await this.briefed.of(run.replayOf);

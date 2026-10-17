@@ -16,8 +16,8 @@ const step = (
   ms: 1,
   startedAt: new Date('2026-09-30T10:00:00Z'),
   locations: [],
-  given: null,
-  returned: null,
+  input: null,
+  output: null,
   change,
 });
 

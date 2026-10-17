@@ -35,7 +35,7 @@ export class StreamMark {
     this.sent = from.seq;
   }
 
-  admits(event: RunEventView): boolean {
+  accepts(event: RunEventView): boolean {
     if (event.attempt < this.attempt) {
       return false;
     }

@@ -54,10 +54,7 @@ const ended = (
     endedHoursAgo?: number;
   } = {},
 ): RunRecord =>
-  RunRecord.heardOf(
-    RunId.of(runId),
-    options.workspaceId ?? WORKSPACE,
-  ).recordEnd(
+  RunRecord.empty(RunId.of(runId), options.workspaceId ?? WORKSPACE).recordEnd(
     RunEnd.of({
       place: RunPlace.of({
         teamId: options.teamId ?? TEAM,
@@ -106,7 +103,7 @@ const digested = (record: RunRecord): RunRecord =>
   );
 
 const opening = (taskId: string, teamId: TeamId): TaskTouches =>
-  TaskTouches.heardOf(TaskId.of(taskId), WORKSPACE).recordOpen(
+  TaskTouches.empty(TaskId.of(taskId), WORKSPACE).recordOpen(
     TaskOpening.of({
       teamId,
       lineId: 'line_1',
@@ -197,8 +194,8 @@ beforeEach(async () => {
 });
 
 describe('run facts', () => {
-  it('keeps no fact for a run that has not ended', async () => {
-    await records.add(RunRecord.heardOf(RunId.of('run_open'), WORKSPACE));
+  it('stores no fact for a run that has not ended', async () => {
+    await records.add(RunRecord.empty(RunId.of('run_open'), WORKSPACE));
 
     expect(await factOf('run_open')).toBeNull();
   });
@@ -234,10 +231,10 @@ describe('run facts', () => {
     });
   });
 
-  it('keeps the memories a run was briefed with before it ended in its fact, and those it recalled after', async () => {
+  it('stores the memories a run was briefed with before it ended in its fact, and those it recalled after', async () => {
     const runId = RunId.of('run_briefed');
     await records.add(
-      RunRecord.heardOf(runId, WORKSPACE, TaskId.of('task_b')).recordMemories(
+      RunRecord.empty(runId, WORKSPACE, TaskId.of('task_b')).recordMemories(
         'briefed',
         ['mem_1'],
       ),
@@ -267,7 +264,7 @@ describe('run facts', () => {
     await records.add(ended('run_2', 'task_1'));
 
     await touches.add(
-      TaskTouches.heardOf(TaskId.of('task_1'), WORKSPACE).recordOpen(
+      TaskTouches.empty(TaskId.of('task_1'), WORKSPACE).recordOpen(
         TaskOpening.of({
           teamId: TEAM,
           lineId: 'line_1',
@@ -312,7 +309,7 @@ describe('run facts', () => {
 
   it('takes no opener or delivery from another workspace’s records of the same task', async () => {
     await touches.add(
-      TaskTouches.heardOf(TaskId.of('task_x'), ELSEWHERE).recordOpen(
+      TaskTouches.empty(TaskId.of('task_x'), ELSEWHERE).recordOpen(
         TaskOpening.of({
           teamId: TEAM,
           lineId: 'line_1',
@@ -341,7 +338,7 @@ describe('run facts', () => {
     });
   });
 
-  it('keeps both changes when a run and its task’s delivery change at once', async () => {
+  it('stores both changes when a run and its task’s delivery change at once', async () => {
     await records.add(ended('run_1', 'task_1'));
     await deliveries.add(
       TaskDelivery.open({
@@ -434,7 +431,7 @@ describe('run facts', () => {
     });
   });
 
-  it('keeps no fact for a deleted team’s run when its delivery changes meanwhile', async () => {
+  it('stores no fact for a deleted team’s run when its delivery changes meanwhile', async () => {
     await records.add(ended('run_1', 'task_1'));
     await deliveries.add(
       TaskDelivery.open({

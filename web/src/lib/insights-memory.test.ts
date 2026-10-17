@@ -22,7 +22,7 @@ describe('memoryTiles', () => {
     expect(
       memoryTiles(memory({})).map((each) => [each.value, each.detail]),
     ).toEqual([
-      ['3', 'Kept by the team now'],
+      ['3', 'Approved by the team now'],
       ['2', 'to 1 run'],
       ['1', 'by 4 runs'],
       ['0', 'Retired by people in this period'],
@@ -32,7 +32,7 @@ describe('memoryTiles', () => {
 });
 
 describe('usedNoMemory', () => {
-  it('is true only where the team keeps, uses and flags no memory', () => {
+  it('is true only where the team has, uses and flags no memory', () => {
     expect(usedNoMemory(memory({}))).toBe(false);
     expect(
       usedNoMemory(

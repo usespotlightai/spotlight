@@ -5,13 +5,13 @@ describe('AcpHarnessToolNames', () => {
   const names = new AcpHarnessToolNames();
 
   it('names the server and tool a permission asks for', () => {
-    expect(names.askedFor('mcp__linear__create_issue', 'other')).toEqual({
+    expect(names.toolFor('mcp__linear__create_issue', 'other')).toEqual({
       server: 'linear',
       tool: 'create_issue',
     });
   });
 
   it('never reads a server out of a command a permission asks to run', () => {
-    expect(names.askedFor('mcp__linear__create_issue', 'execute')).toBeNull();
+    expect(names.toolFor('mcp__linear__create_issue', 'execute')).toBeNull();
   });
 });

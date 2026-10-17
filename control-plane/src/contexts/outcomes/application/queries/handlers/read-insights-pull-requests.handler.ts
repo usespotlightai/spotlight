@@ -27,7 +27,7 @@ export class ReadInsightsPullRequestsHandler
 
       return {
         period: periodOf(period),
-        total: counts.reached,
+        total: counts.covered,
         repositories,
         ...pullRequestInsightsDtoOf(
           pullRequestInsightsFrom(counts, repositories, period.current),

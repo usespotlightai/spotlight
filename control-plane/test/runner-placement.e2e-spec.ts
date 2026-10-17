@@ -50,20 +50,20 @@ const RUNNING: readonly (RunningImage | null)[] = [
   RunningImage.of(RunnerImage.of(GADGETS), false),
 ];
 
-const admittedInSql = async (
+const matchesInSql = async (
   clauses: readonly (readonly string[])[],
   image: string | null,
   terms: RunnerTerms,
 ): Promise<boolean> => {
-  const answered = await db.execute<{ admitted: boolean }>(
+  const answered = await db.execute<{ matches: boolean }>(
     sql`SELECT ${placementMet(
       sql`${JSON.stringify(clauses)}::jsonb`,
       sql`${image}::text`,
       terms,
-    )} AS admitted`,
+    )} AS matches`,
   );
 
-  return answered.rows[0]?.admitted === true;
+  return answered.rows[0]?.matches === true;
 };
 
 const described = (
@@ -80,7 +80,7 @@ const described = (
   }`;
 
 describe('placement said in SQL', () => {
-  it('admits exactly the runners RunnerPlacement admits', async () => {
+  it('matches exactly the runners RunnerPlacement matches', async () => {
     const disagreements: string[] = [];
 
     for (const clauses of CLAUSES) {
@@ -95,8 +95,8 @@ describe('placement said in SQL', () => {
             const terms = RunnerTerms.of(labels).runningIn(running);
 
             if (
-              (await admittedInSql(clauses, image, terms)) !==
-              placement.admits(terms)
+              (await matchesInSql(clauses, image, terms)) !==
+              placement.matches(terms)
             ) {
               disagreements.push(described(clauses, image, terms));
             }
@@ -117,10 +117,10 @@ describe('placement said in SQL', () => {
       RunningImage.of(RunnerImage.of(GADGETS), false),
     );
 
-    expect(await admittedInSql([], WIDGETS, inDefaultImage)).toBe(true);
-    expect(await admittedInSql([], WIDGETS, offered)).toBe(false);
-    expect(await admittedInSql([], GADGETS, offered)).toBe(true);
-    expect(await admittedInSql([], null, inDefaultImage)).toBe(true);
-    expect(await admittedInSql([], null, offered)).toBe(false);
+    expect(await matchesInSql([], WIDGETS, inDefaultImage)).toBe(true);
+    expect(await matchesInSql([], WIDGETS, offered)).toBe(false);
+    expect(await matchesInSql([], GADGETS, offered)).toBe(true);
+    expect(await matchesInSql([], null, inDefaultImage)).toBe(true);
+    expect(await matchesInSql([], null, offered)).toBe(false);
   });
 });

@@ -1,6 +1,6 @@
 import type { SeenPullRequest } from '@outcomes/domain/aggregates/pull-request-record.aggregate';
 
-const TOMBSTONE_KEPT_DAYS = 210;
+const TOMBSTONE_RETENTION_DAYS = 210;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -14,4 +14,4 @@ export const outlivesTombstone = (
 ): boolean => seen.updatedAt.getTime() > tombstone.updatedAt.getTime();
 
 export const tombstonesExpiredBefore = (now: Date): Date =>
-  new Date(now.getTime() - TOMBSTONE_KEPT_DAYS * DAY_MS);
+  new Date(now.getTime() - TOMBSTONE_RETENTION_DAYS * DAY_MS);

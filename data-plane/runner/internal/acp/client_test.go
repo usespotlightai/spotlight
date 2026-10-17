@@ -97,7 +97,7 @@ func TestOpensASessionAndReportsTheAgentsOutput(t *testing.T) {
 	}
 }
 
-const asking = `
+const permissionRequest = `
 const send = (m) => process.stdout.write(JSON.stringify(m) + "\n");
 let buffered = "", promptId = null;
 process.stdin.on("data", (chunk) => {
@@ -121,7 +121,7 @@ process.stdin.on("data", (chunk) => {
 });
 `
 
-const reaching = `
+const fileAccess = `
 const send = (m) => process.stdout.write(JSON.stringify(m) + "\n");
 let buffered = "", promptId = null;
 process.stdin.on("data", (chunk) => {
@@ -148,7 +148,7 @@ process.stdin.on("data", (chunk) => {
 });
 `
 
-const reachingOut = `
+const fileAccessOutside = `
 const send = (m) => process.stdout.write(JSON.stringify(m) + "\n");
 let buffered = "", promptId = null;
 process.stdin.on("data", (chunk) => {
@@ -216,12 +216,12 @@ func TestCancelEndsTheTurnInFlight(t *testing.T) {
 	}
 }
 
-func TestAnswersThePermissionTheAgentAsksFor(t *testing.T) {
+func TestAnswersThePermissionTheAgentRequests(t *testing.T) {
 	for _, expected := range []struct {
 		allowed bool
 		stopped string
 	}{{true, "allowed"}, {false, "refused"}} {
-		client, _ := start(t, asking, func(context.Context, acp.Asked) acp.Verdict {
+		client, _ := start(t, permissionRequest, func(context.Context, acp.Asked) acp.Verdict {
 			if expected.allowed {
 				return acp.Allow
 			}
@@ -242,7 +242,7 @@ func TestAnswersThePermissionTheAgentAsksFor(t *testing.T) {
 }
 
 func TestReadsAndWritesWithinTheWorkspace(t *testing.T) {
-	client, root := start(t, reaching, nil)
+	client, root := start(t, fileAccess, nil)
 	if err := os.WriteFile(filepath.Join(root, "hello.txt"), []byte("in the workspace"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -261,7 +261,7 @@ func TestReadsAndWritesWithinTheWorkspace(t *testing.T) {
 }
 
 func TestRejectsAPathOutsideTheWorkspace(t *testing.T) {
-	client, root := start(t, reachingOut, nil)
+	client, root := start(t, fileAccessOutside, nil)
 	if err := os.WriteFile(filepath.Join(filepath.Dir(root), "outside.txt"), []byte("secret"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -269,7 +269,7 @@ func TestRejectsAPathOutsideTheWorkspace(t *testing.T) {
 	ctx, stop := context.WithTimeout(context.Background(), 10*time.Second)
 	defer stop()
 
-	result, err := client.Prompt(ctx, "session_1", "reach out", func(acp.Update) {})
+	result, err := client.Prompt(ctx, "session_1", "read outside", func(acp.Update) {})
 	if err != nil {
 		t.Fatalf("prompt: %v", err)
 	}

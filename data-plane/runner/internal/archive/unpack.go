@@ -12,7 +12,7 @@ import (
 	"strings"
 )
 
-var ErrOutside = errors.New("the archive reaches outside the workspace")
+var ErrOutside = errors.New("the archive has a path outside the workspace")
 
 func Unpack(from io.Reader, dir string) error {
 	root, err := os.OpenRoot(dir)

@@ -797,7 +797,7 @@ const RUN_MATCHERS: {
   personId: (run, value) => run.openedBy === value,
   day: (run, value) => dayOf(run.at) === value,
   week: (run, value) => weekOf(run.at) === value,
-  skillGiven: (run, value) => run.skillsGiven.includes(value),
+  skillEnabled: (run, value) => run.skillsEnabled.includes(value),
   skillUsed: (run, value) => run.skillsUsed.includes(value),
   server: (run, value) => run.calls.some((call) => call.server === value),
   serverFailed: (run, value) =>
@@ -815,7 +815,7 @@ const shownRun = (run: HistoryRun): InsightsRunResponseDto => {
     at: _at,
     size: _size,
     judge: _judge,
-    skillsGiven: _given,
+    skillsEnabled: _enabled,
     skillsUsed: _used,
     calls: _calls,
     ...shown

@@ -26,13 +26,13 @@ const connection = (host: string) =>
   });
 
 const reading = (checked: string | null, visible = true) => {
-  const asked: string[] = [];
+  const read: string[] = [];
   const events = {
     findForViewer: async (runId: RunId) =>
       visible ? { id: runId.value, attempt: 2 } : null,
     eventsSince: async () => [],
     lastOfType: async (_runId: RunId, _attempt: number, type: string) => {
-      asked.push(type);
+      read.push(type);
       return checked === null
         ? null
         : { attempt: 2, seq: 3, type, at: AT.toISOString(), data: checked };
@@ -50,13 +50,13 @@ const reading = (checked: string | null, visible = true) => {
 
   return {
     handler: new ReadRunNetworkHandler(events, connections),
-    asked,
+    read,
   };
 };
 
 describe('ReadRunNetworkHandler', () => {
   it('reads the connections of the current attempt, and egress enforced', async () => {
-    const { handler, asked } = reading(encoded({ enforced: true }));
+    const { handler, read } = reading(encoded({ enforced: true }));
 
     await expect(
       handler.execute(new ReadRunNetworkQuery('run_1', 'user_1')),
@@ -79,7 +79,7 @@ describe('ReadRunNetworkHandler', () => {
         },
       ],
     });
-    expect(asked).toEqual([EGRESS_CHECKED]);
+    expect(read).toEqual([EGRESS_CHECKED]);
   });
 
   it('reads egress not enforced, or no check at all', async () => {

@@ -26,7 +26,7 @@ const queued = () =>
     harness: HarnessId.of('dev'),
     spec: RunSpec.of({
       command: { executable: 'claude-agent-acp', args: ['--acp'] },
-      briefing: 'work out what is being asked for',
+      briefing: 'work out what the request wants',
       handover: { options: ['Spec'], noteLimit: 4_000 },
       continuity: { key: 'task-task_1' },
     }),
@@ -64,7 +64,7 @@ const stopping = (run: Run | null) => {
 };
 
 describe('CancelDetachedRun', () => {
-  it('asks the run its task detached to stop', async () => {
+  it('requests the run that its task detached to stop', async () => {
     const { handler, save } = stopping(claimed());
 
     await handler.on(detached);

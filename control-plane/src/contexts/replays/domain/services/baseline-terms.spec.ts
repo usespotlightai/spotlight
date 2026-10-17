@@ -3,7 +3,7 @@ import { Spend } from '@replays/domain/value-objects/spend.vo';
 import { describe, expect, it } from 'vitest';
 
 describe('baselineTermsOf', () => {
-  it('keeps a baseline as asked when it does not check the set', () => {
+  it('keeps a baseline as requested when it does not check the set', () => {
     expect(baselineTermsOf(false, 1, Spend.ceiling(5, 'USD'))).toEqual({
       probe: false,
       repeats: 1,

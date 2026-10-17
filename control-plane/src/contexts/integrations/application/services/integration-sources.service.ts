@@ -4,7 +4,7 @@ import type {
   ParsedIntegration,
 } from '@integrations/application/ports/integration-compiler.port';
 import type { SourceReaderPort } from '@integrations/application/ports/source-reader.port';
-import type { HostReach } from '@integrations/application/services/host-reach.service';
+import type { CallAuthResolver } from '@integrations/application/services/call-auth-resolver.service';
 import { DescribedDocument } from '@integrations/domain/aggregates/described-document.aggregate';
 import type { Integration } from '@integrations/domain/entities/integration.entity';
 import type { DescribedDocumentRepository } from '@integrations/domain/repositories/described-document.repository';
@@ -28,7 +28,7 @@ export class IntegrationSources {
     private readonly compiler: IntegrationCompilerPort,
     private readonly documents: DescribedDocumentRepository,
     private readonly reader: SourceReaderPort,
-    private readonly hosts: HostReach,
+    private readonly callAuthResolver: CallAuthResolver,
     private readonly clock: ClockPort,
   ) {}
 
@@ -71,19 +71,19 @@ export class IntegrationSources {
     source: DescribedSource;
     current: SourceReading | null;
   }): Promise<SourceForDefinition> {
-    const kept = await this.keptFor(input.current, input.source);
+    const stored = await this.storedFor(input.current, input.source);
 
-    if (input.current && kept && !input.current.problem) {
+    if (input.current && stored && !input.current.problem) {
       return {
-        reading: input.current.passingOver(kept.passedOver),
-        described: { hash: kept.hash, operations: kept.operations },
+        reading: input.current.passingOver(stored.passedOver),
+        described: { hash: stored.hash, operations: stored.operations },
       };
     }
 
     return this.read(input);
   }
 
-  private async keptFor(
+  private async storedFor(
     current: SourceReading | null,
     source: DescribedSource,
   ): Promise<DescribedDocument | null> {
@@ -100,19 +100,19 @@ export class IntegrationSources {
   }): Promise<SourceForDefinition> {
     const read = await this.reader.read(
       input.source,
-      await this.hosts.of(input.teamId, input.integration),
+      await this.callAuthResolver.of(input.teamId, input.integration),
     );
     const readAt = this.clock.now();
 
     if (read.kind === 'unread') {
-      const kept = await this.keptFor(input.current, input.source);
+      const stored = await this.storedFor(input.current, input.source);
 
-      return input.current && kept
+      return input.current && stored
         ? {
             reading: input.current
               .stillAfter(read.problem)
-              .passingOver(kept.passedOver),
-            described: { hash: kept.hash, operations: kept.operations },
+              .passingOver(stored.passedOver),
+            described: { hash: stored.hash, operations: stored.operations },
           }
         : {
             reading: SourceReading.failed({
@@ -126,7 +126,7 @@ export class IntegrationSources {
 
     const document =
       (await this.documents.withHash(read.hash)) ??
-      (await this.kept(
+      (await this.saved(
         DescribedDocument.read({
           hash: read.hash,
           kind: input.source.kind,
@@ -147,8 +147,8 @@ export class IntegrationSources {
     };
   }
 
-  private async kept(document: DescribedDocument): Promise<DescribedDocument> {
-    await this.documents.keep(document);
+  private async saved(document: DescribedDocument): Promise<DescribedDocument> {
+    await this.documents.save(document);
 
     return document;
   }

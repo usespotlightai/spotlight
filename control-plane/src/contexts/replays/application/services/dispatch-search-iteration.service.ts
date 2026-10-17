@@ -51,7 +51,7 @@ export class DispatchSearchIteration {
     private readonly transaction: TransactionPort,
   ) {}
 
-  async wanted(searchId: SearchId): Promise<void> {
+  async requested(searchId: SearchId): Promise<void> {
     const search = await this.searches.find(searchId);
     const iteration = search?.wantedIteration ?? null;
 

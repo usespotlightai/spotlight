@@ -22,8 +22,8 @@ import type { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregat
 import type { RunnerTrust } from '@runners/domain/aggregates/runner-trust.aggregate';
 import type { WorkspaceRunners } from '@runners/domain/aggregates/workspace-runners.aggregate';
 import {
+  type CredentialSourceKeys,
   driftBetween,
-  type WaysIn,
 } from '@runners/domain/services/runner-drift';
 import { EgressUrl } from '@runners/domain/value-objects/egress-url.vo';
 import { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
@@ -141,9 +141,9 @@ export const RunnerResourceMapper = {
   workspaceRunners(
     declared: WorkspaceRunnersRecord,
     slug: string,
-    waysIn: WaysIn,
+    existing: CredentialSourceKeys,
   ): WorkspaceRunnersResourceDto {
-    const drift = driftBetween(declared, waysIn);
+    const drift = driftBetween(declared, existing);
 
     return {
       id: declared.id,

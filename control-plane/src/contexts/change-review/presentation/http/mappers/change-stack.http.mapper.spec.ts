@@ -2,7 +2,7 @@ import { ChangeStackHttpMapper } from '@change-review/presentation/http/mappers/
 import { describe, expect, it } from 'vitest';
 
 describe('ChangeStackHttpMapper', () => {
-  it('gives each layer its hunks and one note per file', () => {
+  it('shows each layer with its hunks and one note per file', () => {
     const response = ChangeStackHttpMapper.toResponse({
       stacks: [
         {

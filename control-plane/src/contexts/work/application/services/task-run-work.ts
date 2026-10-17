@@ -53,7 +53,7 @@ export class TaskRunWork implements RunWork {
     );
   }
 
-  gave(attachmentId: string): Attachment | null {
+  attachment(attachmentId: string): Attachment | null {
     return (
       this.task.allAttachments.find((each) => each.id.value === attachmentId) ??
       null
@@ -78,7 +78,7 @@ export class TaskRunWork implements RunWork {
     const needed = declared.approval;
 
     if (!needed) {
-      return { kind: 'given', edited: null, returned: async () => {} };
+      return { kind: 'granted', edited: null, returned: async () => {} };
     }
 
     const line = await this.lines.findByStation(this.task.stationId);
@@ -105,7 +105,7 @@ export class TaskRunWork implements RunWork {
     return check.kind === 'asked'
       ? check
       : {
-          kind: 'given',
+          kind: 'granted',
           edited: check.edited,
           returned: () => this.returned(task, check.claimed),
         };

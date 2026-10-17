@@ -134,12 +134,12 @@ export const replayedWorld = (holdingOut = false): ReplayedWorld => {
       ids,
       true,
     )
-    .admitted(RUN_ONE, {
+    .acceptProposal(RUN_ONE, {
       candidateId: CandidateId.of('candidate_terse'),
       name: CandidateName.searched('terse'),
       replayId: ReplayId.of('replay_terse'),
     })
-    .admitted(RUN_ONE, {
+    .acceptProposal(RUN_ONE, {
       candidateId: CandidateId.of('candidate_wordy'),
       name: CandidateName.searched('wordy'),
       replayId: ReplayId.of('replay_wordy'),

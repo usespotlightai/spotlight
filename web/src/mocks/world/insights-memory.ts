@@ -22,7 +22,7 @@ const activeAt = (memory: MemoryRecord, at: number): boolean =>
 const writesCode = (run: HistoryRun): boolean =>
   profileOf(run.stationId)?.checks ?? false;
 
-const reaches = (memory: MemoryRecord, run: HistoryRun): boolean =>
+const matches = (memory: MemoryRecord, run: HistoryRun): boolean =>
   (memory.lineId === null || memory.lineId === run.lineId) &&
   (memory.stationId === null || memory.stationId === run.stationId) &&
   (memory.repository === null ||
@@ -33,7 +33,7 @@ const briefedWith = (
   memories: readonly MemoryRecord[],
   run: HistoryRun,
 ): MemoryRecord[] =>
-  memories.filter((memory) => activeAt(memory, run.at) && reaches(memory, run));
+  memories.filter((memory) => activeAt(memory, run.at) && matches(memory, run));
 
 const recalled = (run: HistoryRun): boolean =>
   [...run.runId].reduce((sum, letter) => sum + letter.charCodeAt(0), 0) % 9 < 2;
@@ -90,7 +90,7 @@ export const memoryOf = (
       .filter((each) => recalled(each.run))
       .flatMap((each) =>
         each.memories
-          .filter((memory) => memory.reach !== 'team')
+          .filter((memory) => memory.scope !== 'team')
           .map((memory) => memory.id),
       ),
   );
