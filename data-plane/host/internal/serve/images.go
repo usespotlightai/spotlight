@@ -247,8 +247,8 @@ func (h *Host) found(ctx context.Context, image string, candidates []protocol.In
 	ctx, cancel := context.WithTimeout(ctx, probeLongest)
 	defer cancel()
 
-	env, hostCredentials := standInsFor(h.opts.SandboxEnv)
-	way, err := h.wayOut(ctx, "probe-"+strings.ToLower(rand.Text()[:12]), map[string]string{LabelHost: h.opts.HostID}, "", hostCredentials,
+	env, harnessKeys := standInsFor(h.opts.SandboxEnv)
+	way, err := h.wayOut(ctx, "probe-"+strings.ToLower(rand.Text()[:12]), map[string]string{LabelHost: h.opts.HostID}, "", harnessKeys,
 		probeEgressWait)
 	defer way.close()
 	if err != nil {

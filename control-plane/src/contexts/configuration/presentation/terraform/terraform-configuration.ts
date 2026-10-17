@@ -51,7 +51,7 @@ interface Rendered {
   readonly files: readonly TerraformFile[];
 }
 
-type Scoped<K extends ExportableResourceDto['kind']> = Extract<
+type ResourceOf<K extends ExportableResourceDto['kind']> = Extract<
   ExportableResourceDto,
   { kind: K }
 >;
@@ -108,7 +108,7 @@ const teamOf = (resource: ExportableResourceDto): string => {
     return resource.key;
   }
 
-  return resource.kind !== 'workspace' && resource.scope === 'team'
+  return resource.kind !== 'workspace' && resource.ownedBy === 'team'
     ? resource.teamKey
     : '';
 };
@@ -174,11 +174,11 @@ const neighboursIn = (
 ): Neighbours => {
   const of = <K extends ExportableResourceDto['kind']>(
     kind: K,
-    key: (resource: Scoped<K>) => string,
+    key: (resource: ResourceOf<K>) => string,
   ): ReadonlySet<string> =>
     new Set(
       configuration.resources
-        .filter((each): each is Scoped<K> => each.kind === kind)
+        .filter((each): each is ResourceOf<K> => each.kind === kind)
         .map(key),
     );
 
@@ -191,7 +191,7 @@ const neighboursIn = (
     pools: of('runner-pool', (each) => each.key),
     egresses: new Map(
       configuration.resources
-        .filter((each): each is Scoped<'egress'> => each.kind === 'egress')
+        .filter((each): each is ResourceOf<'egress'> => each.kind === 'egress')
         .map((each) => [each.id, each.key]),
     ),
     secrets: of('secret', (each) => each.name),
@@ -204,7 +204,7 @@ const References = (neighbours: Neighbours) => ({
       return [];
     }
 
-    return resource.scope === 'team'
+    return resource.ownedBy === 'team'
       ? [
           attribute(
             'team_id',
@@ -339,7 +339,7 @@ const present = (
 ): readonly HclItem[] => (value === undefined ? [] : [attribute(name, value)]);
 
 const line = (
-  resource: Scoped<'line'>,
+  resource: ResourceOf<'line'>,
   importedAs: string,
   refer: Referring,
 ): Rendered => {
@@ -519,7 +519,7 @@ const line = (
 };
 
 const skill = (
-  resource: Scoped<'skill'>,
+  resource: ResourceOf<'skill'>,
   importedAs: string,
   refer: Referring,
 ): Rendered => {
@@ -588,7 +588,7 @@ const withSecretReferences = (
   }, definition);
 
 const integration = (
-  resource: Scoped<'integration'>,
+  resource: ResourceOf<'integration'>,
   importedAs: string,
   refer: Referring,
 ): Rendered =>
@@ -603,7 +603,7 @@ const integration = (
   ]);
 
 const profile = (
-  resource: Scoped<'harness-profile'>,
+  resource: ResourceOf<'harness-profile'>,
   importedAs: string,
   refer: Referring,
 ): Rendered =>
@@ -620,7 +620,10 @@ const profile = (
     attribute('native', hclOf(resource.native)),
   ]);
 
-const hookMatch = (resource: Scoped<'hook'>, refer: Referring): HclItem[] => {
+const hookMatch = (
+  resource: ResourceOf<'hook'>,
+  refer: Referring,
+): HclItem[] => {
   const matched = HOOK_MATCHES.filter(
     (each) => resource.match[each].length > 0,
   );
@@ -675,7 +678,7 @@ const hookStep = (
 };
 
 const hook = (
-  resource: Scoped<'hook'>,
+  resource: ResourceOf<'hook'>,
   importedAs: string,
   refer: Referring,
 ): Rendered => {
@@ -735,7 +738,7 @@ const hook = (
 };
 
 const secret = (
-  resource: Scoped<'secret'>,
+  resource: ResourceOf<'secret'>,
   importedAs: string,
   refer: Referring,
 ): Rendered => {
@@ -780,7 +783,7 @@ const secret = (
 };
 
 const pool = (
-  resource: Scoped<'runner-pool'>,
+  resource: ResourceOf<'runner-pool'>,
   importedAs: string,
   refer: Referring,
 ): Rendered => {
@@ -841,7 +844,7 @@ const pool = (
 };
 
 const egress = (
-  resource: Scoped<'egress'>,
+  resource: ResourceOf<'egress'>,
   importedAs: string,
   refer: Referring,
 ): Rendered => {

@@ -23,7 +23,7 @@ export class Integration {
     readonly bindings: readonly Binding[],
     readonly credentials: readonly SecretName[],
     readonly connects: boolean,
-    readonly holder: ConnectionHolderRule,
+    readonly holderRule: ConnectionHolderRule,
     readonly offers: readonly OfferedTool[],
   ) {}
 
@@ -37,7 +37,7 @@ export class Integration {
     bindings?: readonly Binding[];
     credentials?: readonly SecretName[];
     connects?: boolean;
-    holder?: ConnectionHolderRule;
+    holderRule?: ConnectionHolderRule;
     offers?: readonly OfferedTool[];
   }): Integration {
     const source = input.source;
@@ -119,9 +119,9 @@ export class Integration {
     }
 
     const connects = input.connects ?? false;
-    const holder = input.holder ?? ConnectionHolderRule.team();
+    const holderRule = input.holderRule ?? ConnectionHolderRule.team();
 
-    if (holder.byRequester && !connects) {
+    if (holderRule.byRequester && !connects) {
       throw new InvalidIntegrationError(
         source.value,
         'takes each person’s connection. A person can connect only over oauth2',
@@ -138,7 +138,7 @@ export class Integration {
       bindings,
       input.credentials ?? [],
       connects,
-      holder,
+      holderRule,
       offers,
     );
   }
@@ -169,7 +169,7 @@ export class Integration {
   }
 
   takesConnectionFrom(holder: ConnectionHolder): boolean {
-    return this.connects && (!holder.isPerson || this.holder.byRequester);
+    return this.connects && (!holder.isPerson || this.holderRule.byRequester);
   }
 
   offered(tool: string): OfferedTool | null {

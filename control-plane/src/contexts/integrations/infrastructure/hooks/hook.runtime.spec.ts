@@ -82,13 +82,13 @@ const MOMENT: HookMoment = {
 const tool = (
   call: ReachableTool['call'],
   approval: { because: string } | null = null,
-  holder: ConnectionHolderRule = ConnectionHolderRule.team(),
+  holderRule: ConnectionHolderRule = ConnectionHolderRule.team(),
 ): ReachableTool =>
   ({
     integration: Integration.of({
       source: SourceKey.of('slack'),
-      connects: holder.byRequester,
-      holder,
+      connects: holderRule.byRequester,
+      holderRule,
     }),
     offered: OfferedTool.of({
       source: SourceKey.of('slack'),

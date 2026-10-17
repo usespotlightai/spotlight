@@ -77,14 +77,14 @@ type Wearing struct {
 }
 
 func From(
-	ctx context.Context, redeemed protocol.EgressRedemption, hostCredentials []protocol.HostCredential, limits Limits,
+	ctx context.Context, redeemed protocol.EgressRedemption, harnessKeys []protocol.HarnessKey, limits Limits,
 	opener Opener, reader func() (Reader, error), log *slog.Logger,
 ) *Wearing {
 	wearing := &Wearing{toward: map[string][]*worn{}, log: log}
 
-	for _, key := range hostCredentials {
+	for _, key := range harnessKeys {
 		host, header := reach.Normal(key.Host), http.CanonicalHeaderKey(key.Header)
-		if refusal := hostCredentialRefusal(host, header, key, limits); refusal != "" {
+		if refusal := harnessKeyRefusal(host, header, key, limits); refusal != "" {
 			log.Warn("egress will not wear a key the host has", "key", key.Name, "host", host, "reason", refusal)
 			continue
 		}
@@ -139,7 +139,7 @@ func From(
 	return wearing
 }
 
-func hostCredentialRefusal(host, header string, key protocol.HostCredential, limits Limits) string {
+func harnessKeyRefusal(host, header string, key protocol.HarnessKey, limits Limits) string {
 	switch {
 	case !limits.Hosts.Admits(host):
 		return "the host's allow-list does not admit " + host

@@ -220,7 +220,7 @@ export const CONFIGURATION: ExportableConfigurationDto = {
     },
     {
       kind: 'secret',
-      scope: 'workspace',
+      ownedBy: 'workspace',
       id: 'secret_linear',
       address: 'LINEAR_API_KEY',
       name: 'LINEAR_API_KEY',
@@ -238,7 +238,7 @@ export const CONFIGURATION: ExportableConfigurationDto = {
     },
     {
       kind: 'secret',
-      scope: 'workspace',
+      ownedBy: 'workspace',
       id: 'secret_sentry',
       address: 'SENTRY_TOKEN',
       name: 'SENTRY_TOKEN',
@@ -256,7 +256,7 @@ export const CONFIGURATION: ExportableConfigurationDto = {
     },
     {
       kind: 'secret',
-      scope: 'workspace',
+      ownedBy: 'workspace',
       id: 'secret_signing',
       address: 'LINEAR_SIGNING',
       name: 'LINEAR_SIGNING',
@@ -271,7 +271,7 @@ export const CONFIGURATION: ExportableConfigurationDto = {
     },
     {
       kind: 'workspace-token-trust',
-      scope: 'workspace',
+      ownedBy: 'workspace',
       id: 'token_trust_main',
       address: 'github-main',
       key: 'github-main',
@@ -284,7 +284,7 @@ export const CONFIGURATION: ExportableConfigurationDto = {
     },
     {
       kind: 'workspace-token-trust',
-      scope: 'workspace',
+      ownedBy: 'workspace',
       id: 'token_trust_plans',
       address: 'github-pull-requests',
       key: 'github-pull-requests',
@@ -297,7 +297,7 @@ export const CONFIGURATION: ExportableConfigurationDto = {
     },
     {
       kind: 'runner-trust',
-      scope: 'workspace',
+      ownedBy: 'workspace',
       id: 'trust_cluster',
       address: 'production-cluster',
       key: 'production-cluster',
@@ -308,7 +308,7 @@ export const CONFIGURATION: ExportableConfigurationDto = {
     },
     {
       kind: 'runner-pool',
-      scope: 'workspace',
+      ownedBy: 'workspace',
       id: 'pool_burst',
       address: 'burst',
       key: 'burst',
@@ -319,7 +319,7 @@ export const CONFIGURATION: ExportableConfigurationDto = {
     },
     {
       kind: 'runner-pool',
-      scope: 'workspace',
+      ownedBy: 'workspace',
       id: 'pool_jobs',
       address: 'k8s-jobs',
       key: 'k8s-jobs',
@@ -335,7 +335,7 @@ export const CONFIGURATION: ExportableConfigurationDto = {
     },
     {
       kind: 'egress',
-      scope: 'workspace',
+      ownedBy: 'workspace',
       id: 'egress_shared',
       address: 'shared',
       key: 'shared',
@@ -344,7 +344,7 @@ export const CONFIGURATION: ExportableConfigurationDto = {
     },
     {
       kind: 'workspace-runners',
-      scope: 'workspace',
+      ownedBy: 'workspace',
       id: 'declared_acme',
       address: 'acme',
       trusts: ['production-cluster'],
@@ -352,7 +352,7 @@ export const CONFIGURATION: ExportableConfigurationDto = {
     },
     {
       kind: 'team',
-      scope: 'workspace',
+      ownedBy: 'workspace',
       id: 'team_core',
       address: 'core',
       key: 'core',
@@ -360,7 +360,7 @@ export const CONFIGURATION: ExportableConfigurationDto = {
     },
     {
       kind: 'line',
-      scope: 'team',
+      ownedBy: 'team',
       id: 'line_delivery',
       address: 'core/delivery',
       teamKey: 'core',
@@ -369,7 +369,7 @@ export const CONFIGURATION: ExportableConfigurationDto = {
     },
     {
       kind: 'line',
-      scope: 'team',
+      ownedBy: 'team',
       id: 'line_review',
       address: 'core/review',
       teamKey: 'core',
@@ -378,7 +378,7 @@ export const CONFIGURATION: ExportableConfigurationDto = {
     },
     {
       kind: 'skill',
-      scope: 'team',
+      ownedBy: 'team',
       id: 'skill_grafana',
       address: 'core/grafana',
       teamKey: 'core',
@@ -391,7 +391,7 @@ export const CONFIGURATION: ExportableConfigurationDto = {
     },
     {
       kind: 'integration',
-      scope: 'team',
+      ownedBy: 'team',
       id: 'integration_linear',
       address: 'core/linear',
       teamKey: 'core',
@@ -428,7 +428,7 @@ export const CONFIGURATION: ExportableConfigurationDto = {
     },
     {
       kind: 'hook',
-      scope: 'team',
+      ownedBy: 'team',
       id: 'hook_linear_comments',
       address: 'core/linear-comments',
       teamKey: 'core',
@@ -469,7 +469,7 @@ export const CONFIGURATION: ExportableConfigurationDto = {
     },
     {
       kind: 'hook',
-      scope: 'team',
+      ownedBy: 'team',
       id: 'hook_merged',
       address: 'core/merged',
       teamKey: 'core',
@@ -497,7 +497,7 @@ export const CONFIGURATION: ExportableConfigurationDto = {
     },
     {
       kind: 'harness-profile',
-      scope: 'team',
+      ownedBy: 'team',
       id: 'profile_careful',
       address: 'core/careful',
       teamKey: 'core',
@@ -529,7 +529,7 @@ export const CONFIGURATION: ExportableConfigurationDto = {
     },
     {
       kind: 'team',
-      scope: 'workspace',
+      ownedBy: 'workspace',
       id: 'team_3d',
       address: '3d',
       key: '3d',

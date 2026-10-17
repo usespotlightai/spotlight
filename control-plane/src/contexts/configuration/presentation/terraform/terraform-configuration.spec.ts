@@ -18,7 +18,7 @@ import {
 } from '@platform/hcl/terraform-cli.fake-spec';
 import { describe, expect, it } from 'vitest';
 
-type Scoped<K extends ExportableResourceDto['kind']> = Extract<
+type ResourceOf<K extends ExportableResourceDto['kind']> = Extract<
   ExportableResourceDto,
   { kind: K }
 >;
@@ -740,7 +740,7 @@ describe('workspaceTerraform', () => {
   });
 
   it('writes a failure and timeout the hook was written with, even where they say what it would do anyway', () => {
-    const hook: Scoped<'hook'> = {
+    const hook: ResourceOf<'hook'> = {
       ...resourceOf('hook', 'core/merged'),
       failure: 'continue',
       timeoutSeconds: 10,
@@ -752,7 +752,7 @@ describe('workspaceTerraform', () => {
   });
 
   it('writes a hook signed with OIDC by its audience, and a request by its url alone when it has only defaults', () => {
-    const hook: Scoped<'hook'> = {
+    const hook: ResourceOf<'hook'> = {
       ...resourceOf('hook', 'core/merged'),
       steps: [
         {

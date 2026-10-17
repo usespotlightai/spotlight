@@ -22,8 +22,13 @@ const TEAM = TeamId.of('team_1');
 
 const integration = (
   connects: boolean,
-  holder: ConnectionHolderRule = ConnectionHolderRule.team(),
-) => Integration.of({ source: SourceKey.of('slack'), connects, holder });
+  holderRule: ConnectionHolderRule = ConnectionHolderRule.team(),
+) =>
+  Integration.of({
+    source: SourceKey.of('slack'),
+    connects,
+    holderRule,
+  });
 
 const ALICE = UserId.of('user_alice');
 

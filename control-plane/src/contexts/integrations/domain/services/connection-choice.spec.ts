@@ -14,12 +14,12 @@ const LINEAR = SourceKey.of('linear');
 const ALICE = UserId.of('user_alice');
 const NOW = new Date('2026-10-05T10:00:00.000Z');
 
-const integration = (holder = ConnectionHolderRule.requester()) =>
+const integration = (holderRule = ConnectionHolderRule.requester()) =>
   Integration.of({
     source: LINEAR,
     name: 'Linear',
     connects: true,
-    holder,
+    holderRule,
   });
 
 const connected = (holder: ConnectionHolder) =>

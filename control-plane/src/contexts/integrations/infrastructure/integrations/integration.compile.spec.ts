@@ -379,10 +379,10 @@ webhook:
         expressions,
       );
 
-      expect(read.ok && read.readable.integration.holder.kind).toBe('team');
-      expect(requester.ok && requester.readable.integration.holder.kind).toBe(
-        'requester',
-      );
+      expect(read.ok && read.readable.integration.holderRule.kind).toBe('team');
+      expect(
+        requester.ok && requester.readable.integration.holderRule.kind,
+      ).toBe('requester');
       expect(
         requester.ok && requester.readable.connection?.oauth2,
       ).toMatchObject({ registration: 'https://slack.com/oauth/register' });

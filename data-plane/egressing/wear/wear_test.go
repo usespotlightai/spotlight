@@ -194,7 +194,7 @@ func TestWearsAKeyOfTheHostOnlyInPlaceOfItsOwnStandIn(t *testing.T) {
 			{Secret: "CLAUDE_OAUTH", Host: "api.anthropic.com", Carrier: "header", Name: "x-other", Sealed: "sealed:from-a-run"},
 			{Secret: "DOTTED", Host: "API.anthropic.com.", Carrier: "header", Name: "x-dotted", Sealed: "sealed:dotted"},
 		},
-	}, []protocol.HostCredential{
+	}, []protocol.HarnessKey{
 		{Name: "ANTHROPIC_API_KEY", Host: "api.anthropic.com", Header: "x-api-key", Value: "sk-ant-api"},
 		{Name: "CLAUDE_CODE_OAUTH_TOKEN", Host: "api.anthropic.com", Header: "authorization", Prefix: "Bearer ", Value: "sk-ant-oat"},
 		{Name: "OPENAI_API_KEY", Host: "api.openai.com", Header: "authorization", Prefix: "Bearer ", Value: "sk-openai"},

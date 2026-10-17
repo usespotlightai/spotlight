@@ -56,14 +56,14 @@ describe('BeginOAuth2ConnectionHandler', () => {
     over: {
       allowed?: boolean;
       member?: boolean;
-      holder?: ConnectionHolderRule;
+      holderRule?: ConnectionHolderRule;
     } = {},
   ) => {
     const begin = vi.fn(async () => BEGUN);
     const integration = Integration.of({
       source: SourceKey.of('slack'),
       connects: true,
-      holder: over.holder ?? ConnectionHolderRule.team(),
+      holderRule: over.holderRule ?? ConnectionHolderRule.team(),
     });
 
     return {
@@ -108,7 +108,7 @@ describe('BeginOAuth2ConnectionHandler', () => {
   it('lets any member connect their own account where the integration acts as each person', async () => {
     const { handler, begin } = beginning({
       allowed: false,
-      holder: ConnectionHolderRule.requester(),
+      holderRule: ConnectionHolderRule.requester(),
     });
 
     expect(
@@ -132,7 +132,7 @@ describe('BeginOAuth2ConnectionHandler', () => {
   it('refuses someone who is not on the team', async () => {
     const { handler, begin } = beginning({
       member: false,
-      holder: ConnectionHolderRule.requester(),
+      holderRule: ConnectionHolderRule.requester(),
     });
 
     expect(await handler.execute(command('person'))).toBeNull();
@@ -163,13 +163,13 @@ describe('FinishOAuth2ConnectionHandler', () => {
       authorized?: OAuth2Authorized | null;
       allowed?: boolean;
       member?: boolean;
-      holder?: ConnectionHolderRule;
+      holderRule?: ConnectionHolderRule;
     } = {},
   ) => {
     const integration = Integration.of({
       source: SourceKey.of('slack'),
       connects: true,
-      holder: over.holder ?? ConnectionHolderRule.requester(),
+      holderRule: over.holderRule ?? ConnectionHolderRule.requester(),
     });
     const dispatch = vi.fn(
       async (_events: readonly { kind: string }[]) => undefined,
@@ -281,7 +281,7 @@ describe('FinishOAuth2ConnectionHandler', () => {
 
   it('refuses a person’s own connection once the integration acts as the team', async () => {
     const { handler, save } = finishing({
-      holder: ConnectionHolderRule.team(),
+      holderRule: ConnectionHolderRule.team(),
       authorized: { ...authorized, holder: 'person' },
     });
 

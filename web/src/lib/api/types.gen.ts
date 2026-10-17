@@ -3300,7 +3300,7 @@ export type IntegrationViewResponseDto = {
   /**
    * Whose connection its tools act with: the team’s, or that of the person who started the task
    */
-  holder: 'team' | 'requester';
+  holderRule: 'team' | 'requester';
   /**
    * What the host calls the team once linked, where it says
    */

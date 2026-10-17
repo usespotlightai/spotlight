@@ -10,7 +10,7 @@ import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { describe, expect, it } from 'vitest';
 
-const setting = (member = true, holder = 'requester') => {
+const setting = (member = true, holderRule = 'requester') => {
   const policies = new InMemoryPersonToolPolicies();
   const handler = new SetPersonToolRuleHandler(
     {
@@ -25,7 +25,7 @@ const setting = (member = true, holder = 'requester') => {
       integrations: () => [
         {
           source: SourceKey.of('linear'),
-          holder: { byRequester: holder === 'requester' },
+          holderRule: { byRequester: holderRule === 'requester' },
         },
       ],
     } as unknown as IntegrationRuntimePort,

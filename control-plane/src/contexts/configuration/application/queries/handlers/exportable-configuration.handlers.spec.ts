@@ -433,7 +433,7 @@ describe('ResourceConfigurationHandler', () => {
   it('contains a pool with its labels, its limit and the token version it pulls with', async () => {
     expect((await one('runner-pool', 'pool_1'))?.resource).toEqual({
       kind: 'runner-pool',
-      scope: 'workspace',
+      ownedBy: 'workspace',
       id: 'pool_1',
       address: 'burst',
       key: 'burst',

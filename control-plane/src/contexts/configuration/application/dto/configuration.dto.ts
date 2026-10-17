@@ -21,7 +21,7 @@ export interface IntegrationView {
   readonly name: string;
   readonly path: string;
   readonly standing: IntegrationStanding;
-  readonly holder: (typeof CONFIGURED_INTEGRATION_HOLDER_RULES)[number];
+  readonly holderRule: (typeof CONFIGURED_INTEGRATION_HOLDER_RULES)[number];
   readonly handle: string | null;
   readonly described: DescriptionView | null;
 }

@@ -110,11 +110,11 @@ describe('Integration', () => {
   });
 });
 
-describe('Integration holder', () => {
+describe('Integration holder rule', () => {
   it('takes the team’s connection unless it says otherwise', () => {
-    expect(Integration.of({ source: LINEAR, connects: true }).holder.kind).toBe(
-      'team',
-    );
+    expect(
+      Integration.of({ source: LINEAR, connects: true }).holderRule.kind,
+    ).toBe('team');
   });
 
   it('takes each requester’s connection when it connects over oauth2', () => {
@@ -122,8 +122,8 @@ describe('Integration holder', () => {
       Integration.of({
         source: LINEAR,
         connects: true,
-        holder: ConnectionHolderRule.requester(),
-      }).holder.byRequester,
+        holderRule: ConnectionHolderRule.requester(),
+      }).holderRule.byRequester,
     ).toBe(true);
   });
 
@@ -131,7 +131,7 @@ describe('Integration holder', () => {
     expect(() =>
       Integration.of({
         source: LINEAR,
-        holder: ConnectionHolderRule.requester(),
+        holderRule: ConnectionHolderRule.requester(),
       }),
     ).toThrow(InvalidIntegrationError);
   });
@@ -158,7 +158,7 @@ describe('Integration connections', () => {
       Integration.of({
         source: LINEAR,
         connects: true,
-        holder: ConnectionHolderRule.requester(),
+        holderRule: ConnectionHolderRule.requester(),
       }).takesConnectionFrom(PERSON),
     ).toBe(true);
   });

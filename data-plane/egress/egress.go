@@ -101,7 +101,7 @@ func run() error {
 		return err
 	}
 
-	wearing := wear.From(ctx, redeemed, handed.HostCredentials, wear.Limits{Hosts: allowed, Reads: handed.Reads}, key, readerInNetwork(ctx), log)
+	wearing := wear.From(ctx, redeemed, handed.HarnessKeys, wear.Limits{Hosts: allowed, Reads: handed.Reads}, key, readerInNetwork(ctx), log)
 	defer wearing.Forget()
 
 	if err := wearing.TowardControlPlane(redeemed.SpotlightAPI, controlPlane, redeemed.RunID, key); err != nil {

@@ -41,7 +41,9 @@ export class SetPersonToolRuleHandler
       );
       const actsAsEachPerson = this.runtime
         .integrations(definitions)
-        .some((each) => each.source.equals(source) && each.holder.byRequester);
+        .some(
+          (each) => each.source.equals(source) && each.holderRule.byRequester,
+        );
 
       if (!offered || !actsAsEachPerson) {
         return false;

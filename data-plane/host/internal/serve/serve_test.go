@@ -1622,11 +1622,11 @@ func TestHandsHarnessKeysToEgressAndTheSandboxAndProbeOnlyStandIns(t *testing.T)
 		}
 		return handed
 	}
-	wantHostCredentials := []protocol.HostCredential{{Name: "ANTHROPIC_API_KEY", Host: "api.anthropic.com", Header: "x-api-key", Value: "sk-test"}}
+	wantHarnessKeys := []protocol.HarnessKey{{Name: "ANTHROPIC_API_KEY", Host: "api.anthropic.com", Header: "x-api-key", Value: "sk-test"}}
 
 	_, runEgress, _ := engine.egressOf("runner_1")
-	if hostCredentials := told(runEgress).HostCredentials; !slices.Equal(hostCredentials, wantHostCredentials) {
-		t.Errorf("the run's egress has %+v", hostCredentials)
+	if harnessKeys := told(runEgress).HarnessKeys; !slices.Equal(harnessKeys, wantHarnessKeys) {
+		t.Errorf("the run's egress has %+v", harnessKeys)
 	}
 
 	sandboxed := engine.sandbox(engine.workSandboxes()[0])
@@ -1658,7 +1658,7 @@ func TestHandsHarnessKeysToEgressAndTheSandboxAndProbeOnlyStandIns(t *testing.T)
 	for _, spec := range engine.egresses {
 		if spec.Labels[serve.LabelRunner] == "" {
 			probeEgress = true
-			if handed := told(spec); handed.Token != "" || !slices.Equal(handed.HostCredentials, wantHostCredentials) {
+			if handed := told(spec); handed.Token != "" || !slices.Equal(handed.HarnessKeys, wantHarnessKeys) {
 				t.Errorf("the probe's egress was told %+v", handed)
 			}
 		}

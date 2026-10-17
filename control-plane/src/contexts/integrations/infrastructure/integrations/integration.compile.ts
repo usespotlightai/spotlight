@@ -1183,7 +1183,7 @@ export const compileIntegration = (
       actions: defined,
       bindings,
       connects: connection?.oauth2 !== null && connection?.oauth2 !== undefined,
-      holder: connection?.holder,
+      holderRule: connection?.holder,
       credentials: [...compiler.secrets].map((name) => SecretName.of(name)),
       offers: [...offers.filter(isPresent), ...(generation?.tools ?? [])],
     });

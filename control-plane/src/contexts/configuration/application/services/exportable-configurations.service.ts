@@ -41,8 +41,8 @@ export class ExportableConfigurations {
       this.runners.in(workspaceId),
       this.tokenTrusts.in(workspaceId),
     ]);
-    const teamScoped = await Promise.all(
-      teams.map((team) => this.scopedTo(team)),
+    const teamOwned = await Promise.all(
+      teams.map((team) => this.ownedByTeam(team)),
     );
 
     return {
@@ -58,12 +58,12 @@ export class ExportableConfigurations {
         ...(runners.declared
           ? [ExportableResourceMapper.declared(runners.declared)]
           : []),
-        ...teamScoped.flat(),
+        ...teamOwned.flat(),
       ],
     };
   }
 
-  private async scopedTo(
+  private async ownedByTeam(
     team: TeamProfile,
   ): Promise<readonly ExportableResourceDto[]> {
     const [lines, skills, integrations, hooks, profiles] = await Promise.all([

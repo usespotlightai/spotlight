@@ -34,7 +34,7 @@ export class ConfigurationHandler
           path: each.path,
           name: each.name,
           standing: standingOf(each.connectable, each.linked),
-          holder: each.holder,
+          holderRule: each.holderRule,
           handle: each.handle,
           described: each.described
             ? {

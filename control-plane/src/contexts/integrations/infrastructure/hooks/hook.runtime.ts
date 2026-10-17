@@ -376,7 +376,7 @@ export class CompiledHookRuntime implements HookRuntimePort {
         );
       }
 
-      if (reachable.integration.holder.byRequester) {
+      if (reachable.integration.holderRule.byRequester) {
         throw new StepRefused(
           'not-allowed',
           `names ${step.tool}, which acts as the person who started a task. A hook acts as nobody`,

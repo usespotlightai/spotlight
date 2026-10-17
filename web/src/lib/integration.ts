@@ -11,7 +11,7 @@ export type Integration = IntegrationViewResponseDto;
 export type MyConnection = MyConnectionResponseDto;
 
 export const actsAsEachPerson = (integration: Integration): boolean =>
-  integration.holder === 'requester';
+  integration.holderRule === 'requester';
 
 export const usesTeamAccount = (integration: Integration): boolean =>
   integration.standing !== 'listens';

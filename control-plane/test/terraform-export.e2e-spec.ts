@@ -797,7 +797,7 @@ describe('the configuration the export spec renders (e2e)', () => {
 
     for (const each of creating) {
       const owner =
-        each.scope === 'team'
+        each.ownedBy === 'team'
           ? `teams/${teams.get(each.teamKey)}`
           : `workspaces/${workspaceId}`;
       const created = await served(app)
@@ -847,7 +847,7 @@ describe('the configuration the export spec renders (e2e)', () => {
           }),
           {
             kind: 'team',
-            scope: 'workspace',
+            ownedBy: 'workspace',
             id: workspaceId,
             address: 'team',
             key: 'team',

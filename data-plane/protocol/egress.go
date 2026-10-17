@@ -12,16 +12,16 @@ const (
 )
 
 type EgressHanded struct {
-	URL             string           `json:"url"`
-	Token           string           `json:"token,omitempty"`
-	Credential      string           `json:"credential"`
-	Allow           []string         `json:"allow,omitempty"`
-	Reads           []string         `json:"reads,omitempty"`
-	HostCredentials []HostCredential `json:"hostCredentials,omitempty"`
-	Send            *HostCall        `json:"send,omitempty"`
+	URL         string       `json:"url"`
+	Token       string       `json:"token,omitempty"`
+	Credential  string       `json:"credential"`
+	Allow       []string     `json:"allow,omitempty"`
+	Reads       []string     `json:"reads,omitempty"`
+	HarnessKeys []HarnessKey `json:"harnessKeys,omitempty"`
+	Send        *HostCall    `json:"send,omitempty"`
 }
 
-type HostCredential struct {
+type HarnessKey struct {
 	Name   string `json:"name"`
 	Host   string `json:"host"`
 	Header string `json:"header"`

@@ -30,7 +30,7 @@ const wanted = (
 
 export const ConnectionChoice = {
   choose(integration: Integration, requester: Requester): ChosenConnection {
-    if (!integration.holder.byRequester) {
+    if (!integration.holderRule.byRequester) {
       return { kind: 'holder', holder: ConnectionHolder.team() };
     }
 

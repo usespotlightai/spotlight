@@ -30,7 +30,7 @@ export const ExportableResourceMapper = {
   team(team: TeamProfile): ExportableResourceDto {
     return {
       kind: 'team',
-      scope: 'workspace',
+      ownedBy: 'workspace',
       id: team.id.value,
       address: team.key,
       key: team.key,
@@ -41,7 +41,7 @@ export const ExportableResourceMapper = {
   secret(secret: SecretView): ExportableResourceDto {
     return {
       kind: 'secret',
-      scope: 'workspace',
+      ownedBy: 'workspace',
       id: secret.id,
       address: secret.address,
       name: secret.name,
@@ -55,7 +55,7 @@ export const ExportableResourceMapper = {
   tokenTrust(trust: TokenTrustView): ExportableResourceDto {
     return {
       kind: 'workspace-token-trust',
-      scope: 'workspace',
+      ownedBy: 'workspace',
       id: trust.id,
       address: trust.address,
       key: trust.key,
@@ -71,7 +71,7 @@ export const ExportableResourceMapper = {
   trust(trust: RunnerTrustView): ExportableResourceDto {
     return {
       kind: 'runner-trust',
-      scope: 'workspace',
+      ownedBy: 'workspace',
       id: trust.id,
       address: trust.address,
       key: trust.key,
@@ -85,7 +85,7 @@ export const ExportableResourceMapper = {
   pool(pool: RunnerPoolView): ExportableResourceDto {
     return {
       kind: 'runner-pool',
-      scope: 'workspace',
+      ownedBy: 'workspace',
       id: pool.id,
       address: pool.address,
       key: pool.key,
@@ -99,7 +99,7 @@ export const ExportableResourceMapper = {
   egress(egress: EgressView): ExportableResourceDto {
     return {
       kind: 'egress',
-      scope: 'workspace',
+      ownedBy: 'workspace',
       id: egress.id,
       address: egress.address,
       key: egress.key,
@@ -111,7 +111,7 @@ export const ExportableResourceMapper = {
   declared(declared: WorkspaceRunnersView): ExportableResourceDto {
     return {
       kind: 'workspace-runners',
-      scope: 'workspace',
+      ownedBy: 'workspace',
       id: declared.id,
       address: declared.address,
       trusts: [...declared.trusts],
@@ -122,7 +122,7 @@ export const ExportableResourceMapper = {
   line(teamKey: string, line: LineRecord): ExportableResourceDto {
     return {
       kind: 'line',
-      scope: 'team',
+      ownedBy: 'team',
       id: line.id,
       address: TeamAddress.of(teamKey, line.key).toString(),
       teamKey,
@@ -134,7 +134,7 @@ export const ExportableResourceMapper = {
   skill(teamKey: string, skill: SkillRecord): ExportableResourceDto {
     return {
       kind: 'skill',
-      scope: 'team',
+      ownedBy: 'team',
       id: skill.id,
       address: TeamAddress.of(teamKey, skill.key).toString(),
       teamKey,
@@ -149,7 +149,7 @@ export const ExportableResourceMapper = {
   ): ExportableResourceDto {
     return {
       kind: 'harness-profile',
-      scope: 'team',
+      ownedBy: 'team',
       id: profile.id,
       address: profile.address,
       teamKey,
@@ -179,7 +179,7 @@ export const ExportableResourceMapper = {
   ): ExportableResourceDto {
     return {
       kind: 'integration',
-      scope: 'team',
+      ownedBy: 'team',
       id: integration.id,
       address: integration.address,
       teamKey,
@@ -195,7 +195,7 @@ export const ExportableResourceMapper = {
   hook(teamKey: string, hook: HookConfig): ExportableResourceDto {
     return {
       kind: 'hook',
-      scope: 'team',
+      ownedBy: 'team',
       id: hook.id,
       address: hook.address,
       teamKey,

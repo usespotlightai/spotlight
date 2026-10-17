@@ -16,7 +16,7 @@ interface IntegrationSummary {
   readonly path: string;
   readonly name: string;
   readonly connects: boolean;
-  readonly holder: 'team' | 'requester';
+  readonly holderRule: 'team' | 'requester';
   readonly linked: boolean;
   readonly handle: string | null;
   readonly credentials: readonly SecretName[];

@@ -73,7 +73,7 @@ export class IntegrationViewResponseDto {
     enum: CONFIGURED_INTEGRATION_HOLDER_RULES,
     example: 'team',
   })
-  readonly holder: IntegrationView['holder'];
+  readonly holderRule: IntegrationView['holderRule'];
 
   @ApiProperty({
     description: 'What the host calls the team once linked, where it says',
@@ -96,7 +96,7 @@ export class IntegrationViewResponseDto {
     this.name = integration.name;
     this.path = integration.path;
     this.standing = integration.standing;
-    this.holder = integration.holder;
+    this.holderRule = integration.holderRule;
     this.handle = integration.handle;
     this.described = integration.described
       ? new DescriptionViewResponseDto(integration.described)

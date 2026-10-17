@@ -42,7 +42,7 @@ const asking = (
                     name: 'Linear',
                     path: 'integrations/linear',
                     connectable: over.connects ?? false,
-                    holder: 'team',
+                    holderRule: 'team',
                     linked: over.handle !== undefined,
                     handle: over.handle ?? null,
                     described: over.described

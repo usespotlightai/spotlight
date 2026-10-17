@@ -27,14 +27,14 @@ type wayOut struct {
 }
 
 func (h *Host) egress(
-	ctx context.Context, handed protocol.Handed, hostCredentials []protocol.HostCredential, log *slog.Logger,
+	ctx context.Context, handed protocol.Handed, harnessKeys []protocol.HarnessKey, log *slog.Logger,
 ) (*wayOut, error) {
 	if handed.EgressToken == "" {
 		return &wayOut{host: h}, errors.New("the control plane handed no credential for the sandbox's egress")
 	}
 
 	way, err := h.wayOut(ctx, handed.RunnerID, map[string]string{LabelHost: h.opts.HostID, LabelRunner: handed.RunnerID},
-		handed.EgressToken, hostCredentials, h.opts.EgressWait)
+		handed.EgressToken, harnessKeys, h.opts.EgressWait)
 	if err == nil {
 		log.Info("started the sandbox's egress", "egress", way.container)
 	}
@@ -43,7 +43,7 @@ func (h *Host) egress(
 }
 
 func (h *Host) wayOut(
-	ctx context.Context, name string, labels map[string]string, token string, hostCredentials []protocol.HostCredential,
+	ctx context.Context, name string, labels map[string]string, token string, harnessKeys []protocol.HarnessKey,
 	wait time.Duration,
 ) (*wayOut, error) {
 	way := &wayOut{host: h, credential: rand.Text()}
@@ -59,12 +59,12 @@ func (h *Host) wayOut(
 	}
 
 	way.container, err = h.startEgress(ctx, image, name, labels, protocol.EgressHanded{
-		URL:             h.opts.SandboxURL,
-		Token:           token,
-		Credential:      way.credential,
-		Allow:           h.opts.Egress.Allow,
-		Reads:           h.opts.Egress.Reads,
-		HostCredentials: hostCredentials,
+		URL:         h.opts.SandboxURL,
+		Token:       token,
+		Credential:  way.credential,
+		Allow:       h.opts.Egress.Allow,
+		Reads:       h.opts.Egress.Reads,
+		HarnessKeys: harnessKeys,
 	}, []sandbox.Join{{Network: way.network, Aliases: []string{EgressAlias}}})
 	if err != nil {
 		return way, err

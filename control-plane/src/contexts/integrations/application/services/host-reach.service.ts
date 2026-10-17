@@ -77,7 +77,7 @@ export class HostReach {
     const chosen = ConnectionChoice.choose(integration, {
       personId: requester,
       member:
-        requester !== null && integration.holder.byRequester
+        requester !== null && integration.holderRule.byRequester
           ? (await this.access.onTeam(teamId.value, requester)) !== null
           : false,
     });

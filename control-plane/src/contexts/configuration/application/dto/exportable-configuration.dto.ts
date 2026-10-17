@@ -36,12 +36,12 @@ interface Exportable {
   readonly address: string;
 }
 
-interface WorkspaceScoped extends Exportable {
-  readonly scope: 'workspace';
+interface WorkspaceOwned extends Exportable {
+  readonly ownedBy: 'workspace';
 }
 
-interface TeamScoped extends Exportable {
-  readonly scope: 'team';
+interface TeamOwned extends Exportable {
+  readonly ownedBy: 'team';
   readonly teamKey: string;
 }
 
@@ -51,12 +51,12 @@ export type ExportableResourceDto =
       readonly slug: string;
       readonly name: string;
     })
-  | (WorkspaceScoped & {
+  | (WorkspaceOwned & {
       readonly kind: 'team';
       readonly key: string;
       readonly name: string;
     })
-  | (WorkspaceScoped & {
+  | (WorkspaceOwned & {
       readonly kind: 'secret';
       readonly name: string;
       readonly source: {
@@ -73,7 +73,7 @@ export type ExportableResourceDto =
       readonly keepsValue: boolean;
       readonly valueVersion: number | null;
     })
-  | (WorkspaceScoped & {
+  | (WorkspaceOwned & {
       readonly kind: 'workspace-token-trust';
       readonly key: string;
       readonly issuer: string;
@@ -83,7 +83,7 @@ export type ExportableResourceDto =
       readonly scopes: readonly string[];
       readonly lifetimeMinutes: number;
     })
-  | (WorkspaceScoped & {
+  | (WorkspaceOwned & {
       readonly kind: 'runner-trust';
       readonly key: string;
       readonly issuer: string;
@@ -91,7 +91,7 @@ export type ExportableResourceDto =
       readonly audience: string;
       readonly labels: readonly string[];
     })
-  | (WorkspaceScoped & {
+  | (WorkspaceOwned & {
       readonly kind: 'runner-pool';
       readonly key: string;
       readonly labels: readonly string[];
@@ -104,34 +104,34 @@ export type ExportableResourceDto =
         readonly egressTraffic: 'all' | 'bound';
       } | null;
     })
-  | (WorkspaceScoped & {
+  | (WorkspaceOwned & {
       readonly kind: 'egress';
       readonly key: string;
       readonly url: string;
       readonly tokenVersion: number | null;
     })
-  | (WorkspaceScoped & {
+  | (WorkspaceOwned & {
       readonly kind: 'workspace-runners';
       readonly trusts: readonly string[];
       readonly pools: readonly string[];
     })
-  | (TeamScoped & {
+  | (TeamOwned & {
       readonly kind: 'line';
       readonly key: string;
       readonly definition: LineDefinition;
     })
-  | (TeamScoped & {
+  | (TeamOwned & {
       readonly kind: 'skill';
       readonly key: string;
       readonly files: Readonly<Record<string, string>>;
     })
-  | (TeamScoped & {
+  | (TeamOwned & {
       readonly kind: 'integration';
       readonly source: string;
       readonly definition: Readonly<Record<string, unknown>>;
       readonly secretsWorn: readonly WornSecret[];
     })
-  | (TeamScoped & {
+  | (TeamOwned & {
       readonly kind: 'hook';
       readonly key: string;
       readonly on: string;
@@ -143,7 +143,7 @@ export type ExportableResourceDto =
       readonly failure: string | null;
       readonly timeoutSeconds: number | null;
     })
-  | (TeamScoped & {
+  | (TeamOwned & {
       readonly kind: 'harness-profile';
       readonly key: string;
       readonly permissions: {

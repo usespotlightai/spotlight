@@ -88,7 +88,7 @@ const integration = (over: Record<string, unknown> = {}) => ({
   name: 'PagerDuty',
   path: 'integrations/pagerduty.tf',
   standing: 'listens',
-  holder: 'team',
+  holderRule: 'team',
   handle: null,
   described: null,
   ...over,
@@ -100,7 +100,7 @@ const personal = (over: Record<string, unknown> = {}) =>
     name: 'Linear',
     path: 'integrations/linear.tf',
     standing: 'linked',
-    holder: 'requester',
+    holderRule: 'requester',
     handle: '@acme-bot',
     ...over,
   });
