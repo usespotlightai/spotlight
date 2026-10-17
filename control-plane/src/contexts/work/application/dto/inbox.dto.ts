@@ -61,7 +61,7 @@ interface InboxAuthorDto {
   readonly image: string | null;
 }
 
-export interface InboxMessageDto {
+export interface NoteDto {
   readonly position: number;
   readonly kind: string;
   readonly form: string;
@@ -108,7 +108,7 @@ export interface InboxItemDto {
   readonly briefing: string | null;
   readonly failure: InboxFailureDto | null;
   readonly aside: InboxAsideDto | null;
-  readonly notes: readonly InboxMessageDto[];
+  readonly notes: readonly NoteDto[];
 }
 
 export interface InboxNoticeDto {

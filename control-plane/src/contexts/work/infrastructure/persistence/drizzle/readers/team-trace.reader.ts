@@ -36,8 +36,8 @@ const ranAt = alias(station, 'ran_at');
 const PREVIEW_LIMIT = 300;
 
 const shortened = (text: string | null | undefined): string | null => {
-  const said = text?.trim();
-  return said ? said.slice(0, PREVIEW_LIMIT) : null;
+  const trimmed = text?.trim();
+  return trimmed ? trimmed.slice(0, PREVIEW_LIMIT) : null;
 };
 
 @Injectable()
@@ -92,7 +92,7 @@ export class DrizzleTeamTraceReader implements TeamTraceReaderPort {
       return [];
     }
 
-    const said = await this.db
+    const runNotes = await this.db
       .select({ runId: taskNote.runId, body: taskNote.body })
       .from(taskNote)
       .where(
@@ -103,7 +103,7 @@ export class DrizzleTeamTraceReader implements TeamTraceReaderPort {
       )
       .orderBy(asc(taskNote.position));
 
-    const answers = new Map(said.map((each) => [each.runId, each.body]));
+    const answers = new Map(runNotes.map((each) => [each.runId, each.body]));
 
     const stationCounts = await stationsPerLine(
       this.db,

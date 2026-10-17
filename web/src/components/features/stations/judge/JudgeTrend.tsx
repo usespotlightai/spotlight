@@ -21,7 +21,7 @@ import {
 const scoreOf = (kind: ScoreKind, value: number | null): string =>
   sharesOn(kind) ? formatPercent(value) : formatStat(value);
 
-const Said = ({
+const TipContent = ({
   placement,
   active,
   payload,
@@ -102,7 +102,9 @@ export function JudgeTrend({
               <YAxis hide domain={sharesOn(kind) ? [0, 1] : [1, 5]} />
               <Tooltip
                 {...cursor.tooltip}
-                content={<Said placement={cursor.placement} kind={kind} />}
+                content={
+                  <TipContent placement={cursor.placement} kind={kind} />
+                }
                 cursor={{ stroke: 'var(--chart-grid)' }}
               />
               <Line

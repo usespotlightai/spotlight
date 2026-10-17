@@ -15,13 +15,13 @@ import {
 import { minutesAfter, runEnded } from '@/mocks/world/inbox-places';
 import { MAYA, PRIYA, SAM, TOM } from '@/mocks/world/people';
 import {
-  DISK_DUMPS_SAID,
+  DISK_DUMPS_MESSAGE,
   DRAIN_ANSWER,
   GONE_REMEMBER,
   GONE_THOUGHT,
   groundStep,
   PAID_AT_MIGRATION,
-  PRICING_FLAG_SAID,
+  PRICING_FLAG_MESSAGE,
   SEARCH_SCAN_THOUGHT,
 } from '@/mocks/world/work-stories';
 
@@ -38,7 +38,7 @@ const person = ({ id, name, image }: MemoryPersonResponseDto) => ({
   image,
 });
 
-const said = (
+const personNote = (
   position: number,
   author: MemoryPersonResponseDto,
   text: string,
@@ -96,7 +96,7 @@ const PLATFORM_MEMORIES: MemoryRecord[] = [
     grounds: { taskId: 'task_retries', runId: 'run_retries_2' },
     runs: 2,
     harness: 'claude-code',
-    notes: [said(1, MAYA, DRAIN_ANSWER)],
+    notes: [personNote(1, MAYA, DRAIN_ANSWER)],
   }),
   memory({
     id: 'memory_gone',
@@ -182,7 +182,7 @@ const PLATFORM_MEMORIES: MemoryRecord[] = [
     grounds: { taskId: 'task_disk', runId: 'run_disk_1' },
     runs: 1,
     harness: 'claude-code',
-    steps: [groundStep('run_disk_1', DISK_DUMPS_SAID)],
+    steps: [groundStep('run_disk_1', DISK_DUMPS_MESSAGE)],
   }),
   memory({
     id: 'memory_search_index',
@@ -272,7 +272,7 @@ const GROWTH_MEMORIES: MemoryRecord[] = [
     grounds: { taskId: 'task_pricing_toggle', runId: 'run_pricing_1' },
     runs: 1,
     harness: 'claude-code',
-    steps: [groundStep('run_pricing_1', PRICING_FLAG_SAID)],
+    steps: [groundStep('run_pricing_1', PRICING_FLAG_MESSAGE)],
   }),
   memory({
     id: 'memory_posthog',

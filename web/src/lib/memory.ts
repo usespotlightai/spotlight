@@ -10,6 +10,7 @@ import {
   type ApprovalStatus,
   WAITING_FOR_APPROVAL,
 } from '@/lib/approval-status';
+import { ANOTHER_TOOL } from '@/lib/inbox';
 import { teamSectionPath } from '@/lib/team';
 
 export type ProposedMemory = ProposedMemoryResponseDto;
@@ -85,9 +86,9 @@ const REACH_LABELS: Record<ProposedMemory['reach'], string> = {
 export const undecided = (memory: ProposedMemory): boolean =>
   memory.state === 'proposed';
 
-export const speakerOf = (note: MemoryGroundNote): string => {
+export const authorOf = (note: MemoryGroundNote): string => {
   if (note.by === 'world') {
-    return 'From another tool';
+    return ANOTHER_TOOL;
   }
 
   return note.author?.name ?? 'A teammate';

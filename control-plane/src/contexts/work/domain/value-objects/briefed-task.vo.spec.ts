@@ -91,7 +91,7 @@ describe('BriefedTask', () => {
     expect(briefed.reviewing).toBeNull();
     expect(briefed.allAttachments).toEqual([SCREENSHOT]);
     expect(briefed.notes).toEqual([]);
-    expect(briefed.openRemarks).toEqual([]);
+    expect(briefed.openReviewComments).toEqual([]);
   });
 
   it('reads back as it was stored', () => {

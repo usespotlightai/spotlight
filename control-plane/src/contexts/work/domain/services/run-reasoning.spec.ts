@@ -5,8 +5,8 @@ const kindOf = (step: Parameters<typeof reasoningIn>[0]) =>
   reasoningIn(step)?.kind ?? null;
 
 describe('reasoning in a run’s journal', () => {
-  it('is what the agent said, thought and planned', () => {
-    expect(kindOf({ kind: 'said', text: 'Retrying once.' })).toBe('said');
+  it('is the messages, thoughts and plans of the agent', () => {
+    expect(kindOf({ kind: 'message', text: 'Retrying once.' })).toBe('message');
     expect(kindOf({ kind: 'thought', text: 'A queue is overkill.' })).toBe(
       'thought',
     );
@@ -64,13 +64,13 @@ describe('reasoning in a run’s journal', () => {
     ).toBeNull();
   });
 
-  it('is never another command, a hook, or nothing said', () => {
+  it('is never another command, a hook, or an empty message', () => {
     expect(kindOf({ kind: 'tool', text: 'npm test' })).toBeNull();
     expect(kindOf({ kind: 'tool', text: 'spotlight handovers' })).toBeNull();
     expect(
       kindOf({ kind: 'tool', text: 'grep -r "spotlight remember" docs' }),
     ).toBeNull();
     expect(kindOf({ kind: 'hook', text: 'lint passed' })).toBeNull();
-    expect(kindOf({ kind: 'said', text: '   ' })).toBeNull();
+    expect(kindOf({ kind: 'message', text: '   ' })).toBeNull();
   });
 });

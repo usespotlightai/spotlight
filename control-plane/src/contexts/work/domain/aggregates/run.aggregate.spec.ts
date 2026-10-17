@@ -19,8 +19,8 @@ import { InvalidRunTransitionError } from '@work/domain/exceptions/invalid-run-t
 import { RunAttemptOverError } from '@work/domain/exceptions/run-attempt-over.error';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
 import { ChatId } from '@work/domain/value-objects/chat-id.vo';
-import { Declaration } from '@work/domain/value-objects/declaration.vo';
 import { DeniedCatalogItem } from '@work/domain/value-objects/denied-catalog-item.vo';
+import { Handover } from '@work/domain/value-objects/handover.vo';
 import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
@@ -837,7 +837,7 @@ describe('Run', () => {
           runner(),
           RunOutcome.of({ exitCode: 0, failed: false }),
           HandoverReport.of({
-            declared: Declaration.of({ next: 'Spec', note: 'ready' }),
+            handover: Handover.of({ next: 'Spec', note: 'ready' }),
             session: HarnessSession.of('session_1'),
           }),
         )
@@ -848,7 +848,7 @@ describe('Run', () => {
       expect(completed.runId).toEqual(RunId.of('run_1'));
       expect(completed.outcome.failed).toBe(false);
       expect(completed.workedBy).toEqual(runner());
-      expect(completed.declared?.next).toBe('Spec');
+      expect(completed.handover?.next).toBe('Spec');
       expect(completed.session?.value).toBe('session_1');
     });
 
@@ -1006,7 +1006,7 @@ describe('Run', () => {
 
     it('releases its provisioned runner when refused', () => {
       const run = reserved().refused(
-        RunOutcome.refused([{ saying: 'The plan lapsed.' }]),
+        RunOutcome.refused([{ description: 'The plan lapsed.' }]),
       );
 
       expect(run.reservation).toBeNull();

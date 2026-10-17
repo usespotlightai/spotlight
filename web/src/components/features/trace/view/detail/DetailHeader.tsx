@@ -1,6 +1,6 @@
 import { DetailProperty } from '@/components/features/trace/view/detail/DetailProperty';
 import { contentsOf, reported } from '@/lib/detail';
-import { counted, spentOn, spokenAt, took } from '@/lib/inbox';
+import { counted, shortTimeOf, spentOn, took } from '@/lib/inbox';
 import { ERROR_LABELS, REASON_LABELS } from '@/lib/run-network';
 import type { TraceNode } from '@/lib/trace';
 import { cn } from '@/lib/utils';
@@ -36,7 +36,7 @@ export function DetailHeader({ node }: { node: TraceNode }) {
 
       <dl className="flex flex-col">
         <DetailProperty name="Started">
-          {spokenAt(node.startedAt)}
+          {shortTimeOf(node.startedAt)}
         </DetailProperty>
         <DetailProperty name="Took">{took(node.ms)}</DetailProperty>
 

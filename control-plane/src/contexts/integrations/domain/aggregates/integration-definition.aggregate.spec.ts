@@ -153,7 +153,7 @@ describe('IntegrationDefinition', () => {
     expect(redefined.id).toEqual(ID);
     expect(redefined.version).toBe(3);
     expect(redefined.offers).toEqual(['linear.comment']);
-    expect(redefined.document.says('name', 'Linear')).toBe(true);
+    expect(redefined.document.hasValue('name', 'Linear')).toBe(true);
     expect(redefined.pullEvents()).toEqual([
       new IntegrationRedefined(
         ID,

@@ -9,7 +9,7 @@ export interface BriefedNote {
   readonly attachments: readonly Attachment[];
 }
 
-export interface BriefedRemark {
+export interface BriefedReviewComment {
   readonly at: NotePosition;
   readonly place: string | null;
   readonly body: string;
@@ -41,7 +41,7 @@ export interface BriefedTaskParts {
     readonly body: string;
     readonly attachments: readonly BriefedAttachmentParts[];
   }[];
-  readonly openRemarks: readonly {
+  readonly openReviewComments: readonly {
     readonly at: number;
     readonly place: string | null;
     readonly body: string;
@@ -92,7 +92,7 @@ export class BriefedTask {
     readonly reviewing: Repository | null,
     readonly attachments: readonly Attachment[],
     readonly notes: readonly BriefedNote[],
-    readonly openRemarks: readonly BriefedRemark[],
+    readonly openReviewComments: readonly BriefedReviewComment[],
     readonly decisions: readonly DecisionOnRecord[],
   ) {}
 
@@ -103,7 +103,7 @@ export class BriefedTask {
     reviewing: Repository | null;
     attachments: readonly Attachment[];
     notes: readonly BriefedNote[];
-    openRemarks: readonly BriefedRemark[];
+    openReviewComments: readonly BriefedReviewComment[];
     decisions?: readonly DecisionOnRecord[];
   }): BriefedTask {
     return new BriefedTask(
@@ -117,7 +117,7 @@ export class BriefedTask {
         body: each.body,
         attachments: [...each.attachments],
       })),
-      input.openRemarks.map((each) => ({
+      input.openReviewComments.map((each) => ({
         at: each.at,
         place: each.place,
         body: each.body,
@@ -142,7 +142,7 @@ export class BriefedTask {
         body: each.body,
         attachments: each.attachments.map(Attachment.rehydrate),
       })),
-      openRemarks: parts.openRemarks.map((each) => ({
+      openReviewComments: parts.openReviewComments.map((each) => ({
         at: NotePosition.of(each.at),
         place: each.place,
         body: each.body,
@@ -170,7 +170,7 @@ export class BriefedTask {
         body: each.body,
         attachments: attachmentParts(each.attachments),
       })),
-      openRemarks: this.openRemarks.map((each) => ({
+      openReviewComments: this.openReviewComments.map((each) => ({
         at: each.at.value,
         place: each.place,
         body: each.body,
@@ -196,9 +196,9 @@ export class BriefedTask {
           sameAttachments(each.attachments, theirs.attachments)
         );
       }) &&
-      this.openRemarks.length === other.openRemarks.length &&
-      this.openRemarks.every((each, at) => {
-        const theirs = other.openRemarks[at];
+      this.openReviewComments.length === other.openReviewComments.length &&
+      this.openReviewComments.every((each, at) => {
+        const theirs = other.openReviewComments[at];
         return (
           theirs !== undefined &&
           each.at.equals(theirs.at) &&

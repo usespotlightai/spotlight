@@ -6,13 +6,13 @@ export class CallbackNote {
   private constructor(readonly body: string) {}
 
   static of(body: string): CallbackNote {
-    const said = body.trim();
+    const text = body.trim();
 
-    if (!said || said.length > LONGEST_CALLBACK_NOTE) {
+    if (!text || text.length > LONGEST_CALLBACK_NOTE) {
       throw new InvalidCallbackNoteError(LONGEST_CALLBACK_NOTE);
     }
 
-    return new CallbackNote(said);
+    return new CallbackNote(text);
   }
 
   equals(other: CallbackNote): boolean {

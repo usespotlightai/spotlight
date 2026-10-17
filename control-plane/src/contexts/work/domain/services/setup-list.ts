@@ -1,4 +1,4 @@
-import type { Saying } from '@work/domain/aggregates/task.aggregate';
+import type { NewNote } from '@work/domain/aggregates/task.aggregate';
 import type { TaskNote } from '@work/domain/entities/task-note.entity';
 import {
   conversationsOf,
@@ -42,7 +42,7 @@ export const setupDoneNote = (
   notes: readonly TaskNote[],
   state: SetupState,
   at: Date,
-): Saying | null => {
+): NewNote | null => {
   const opened = openSetupList(notes);
 
   if (!opened || !setUp(state)) {

@@ -122,7 +122,7 @@ export class DrizzleRunEventReader implements RunEventReaderPort {
       eq(runJournalEntry.attempt, attempt),
     );
 
-    const told = await this.db
+    const entries = await this.db
       .select(columns)
       .from(runJournalEntry)
       .where(and(ofAttempt, gt(runJournalEntry.seq, afterSeq)))
@@ -139,7 +139,7 @@ export class DrizzleRunEventReader implements RunEventReaderPort {
     return aside
       .reverse()
       .map(viewOf)
-      .reduce(inPlace, told.reverse().map(viewOf));
+      .reduce(inPlace, entries.reverse().map(viewOf));
   }
 
   async lastOfType(

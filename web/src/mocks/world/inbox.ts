@@ -1,8 +1,8 @@
 import type {
   InboxItemResponseDto,
-  InboxMessageResponseDto,
   InboxNoticeResponseDto,
   ListInboxResponse,
+  NoteResponseDto,
 } from '@/lib/api';
 import { daysAgo, hoursAgo } from '@/mocks/clock';
 import { GROWTH_ID } from '@/mocks/world/growth';
@@ -21,7 +21,7 @@ import {
 import { history } from '@/mocks/world/insights-history';
 import { isCoreTask, pastTaskOf } from '@/mocks/world/past-work';
 import { PLATFORM_ID } from '@/mocks/world/platform';
-import { messagesOfRun, type StoryMessage } from '@/mocks/world/run-stories';
+import { notesOfRun, type StoryNote } from '@/mocks/world/run-stories';
 import { onEarlierRubric } from '@/mocks/world/station-judge';
 
 export type InboxEntry = ListInboxResponse[number];
@@ -40,13 +40,13 @@ export const FIVE_POINT_GRADE_ASIDE_ID = 'aside_earlier_rubric_grade';
 export const CLAIMS_GRADE_ASIDE_ID = 'aside_pricing_grade';
 export const SETUP_ITEM_ID = 'task_setup_platform:0';
 
-const numbered = (notes: readonly StoryMessage[]): InboxMessageResponseDto[] =>
+const numbered = (notes: readonly StoryNote[]): NoteResponseDto[] =>
   notes.map((note, position) => ({ ...note, position }));
 
-const notesOfTask = (taskId: string): StoryMessage[] =>
+const notesOfTask = (taskId: string): StoryNote[] =>
   [...runsOfTask(taskId)]
     .sort((one, other) => one.startedAt.localeCompare(other.startedAt))
-    .flatMap(messagesOfRun);
+    .flatMap(notesOfRun);
 
 type Conversation = Omit<Partial<InboxItemResponseDto>, 'notes'> & {
   readonly taskId: string;

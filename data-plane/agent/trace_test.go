@@ -25,8 +25,8 @@ func tracing(t *testing.T, trace protocol.Trace) {
 		return json.Marshal(trace)
 	})
 
-	t.Setenv(protocol.HandoverURLVar, server.URL())
-	t.Setenv(protocol.HandoverTokenVar, server.Token())
+	t.Setenv(protocol.AgentAPIURLVar, server.URL())
+	t.Setenv(protocol.AgentAPITokenVar, server.Token())
 }
 
 func sampleTrace() protocol.Trace {

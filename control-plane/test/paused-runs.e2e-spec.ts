@@ -21,7 +21,7 @@ import { forgetRunnersOf } from './support/runners';
 import * as schema from './support/schema';
 import { openTeam } from './support/team';
 
-interface Said {
+interface PendingMessage {
   readonly position: number;
   readonly body: string;
 }
@@ -151,7 +151,7 @@ const aTaskWithLeasedRun = async (
 const askingForReview = {
   exitCode: 0,
   failed: false,
-  outcome: { next: 'review', note: 'Which queue should I drain?' },
+  handover: { next: 'review', note: 'Which queue should I drain?' },
   sessionId: 'session_1',
   kept: true,
 };
@@ -329,7 +329,7 @@ describe('a run that asks a person', () => {
     expect(renewed.body).toEqual({ stop: false });
   });
 
-  it('delivers an answer given while it waits warm into the same run, which a suspend request then leaves working', async () => {
+  it('sends an answer given while it waits warm to the same run, which a suspend request then leaves working', async () => {
     const { taskId, runId } = await aTaskWithLeasedRun();
     const token = await claimed(runId);
     await runner(token)
@@ -344,7 +344,7 @@ describe('a run that asks a person', () => {
 
     const pending = (
       await runner(token).get(`/api/runs/${runId}/messages`).expect(200)
-    ).body as Said[];
+    ).body as PendingMessage[];
     expect(pending.map((each) => each.body)).toEqual(['The default one.']);
 
     const suspension = await runner(token)
@@ -353,7 +353,7 @@ describe('a run that asks a person', () => {
     expect(suspension.body).toEqual({ suspended: false });
 
     await runner(token)
-      .post(`/api/runs/${runId}/messages/delivered`, {
+      .post(`/api/runs/${runId}/messages/ack`, {
         upTo: pending[0]?.position,
       })
       .expect(204);
@@ -365,7 +365,7 @@ describe('a run that asks a person', () => {
       .post(`/api/runs/${runId}/completion`, {
         exitCode: 0,
         failed: false,
-        outcome: { next: 'ship', note: 'Drained.' },
+        handover: { next: 'ship', note: 'Drained.' },
       })
       .expect(200);
     expect(again.body).toEqual({ waiting: false });
@@ -434,7 +434,7 @@ describe('a run that asks a person', () => {
 
     const pending = (
       await runner(second).get(`/api/runs/${runId}/messages`).expect(200)
-    ).body as Said[];
+    ).body as PendingMessage[];
     expect(pending.map((each) => each.body)).toEqual(['The default one.']);
 
     await journalled(second, runId, 'after the answer');
@@ -509,7 +509,7 @@ describe('a run that asks a person', () => {
     await inboxItemOf(taskId);
 
     await http()
-      .post(`/api/teams/${team.teamId.value}/runs/${runId}/say`)
+      .post(`/api/teams/${team.teamId.value}/runs/${runId}/messages`)
       .set(TEST_USER_HEADER, team.owner.value)
       .send({ body: 'Drain the default one.' })
       .expect((response) => expect(response.status).toBeLessThan(300));
@@ -518,7 +518,7 @@ describe('a run that asks a person', () => {
     expect(working?.attempt).toBe(1);
     const pending = (
       await runner(token).get(`/api/runs/${runId}/messages`).expect(200)
-    ).body as Said[];
+    ).body as PendingMessage[];
     expect(pending.map((each) => each.body)).toEqual([
       'Drain the default one.',
     ]);
@@ -536,7 +536,7 @@ describe('a run that asks a person', () => {
       .post(`/api/runs/${runId}/completion/asks`, {
         exitCode: 0,
         failed: false,
-        outcome: { next: 'ship' },
+        handover: { next: 'ship' },
       })
       .expect(200);
 
@@ -591,9 +591,9 @@ describe('a run that asks a person', () => {
   });
 });
 
-const said = (runId: string, body: string) =>
+const sendMessage = (runId: string, body: string) =>
   http()
-    .post(`/api/teams/${team.teamId.value}/runs/${runId}/say`)
+    .post(`/api/teams/${team.teamId.value}/runs/${runId}/messages`)
     .set(TEST_USER_HEADER, team.owner.value)
     .send({ body })
     .expect(204);
@@ -603,11 +603,11 @@ describe('a message in a run chat', () => {
     const { taskId, runId } = await aTaskWithLeasedRun();
     const token = await claimed(runId);
 
-    await said(runId, 'Drain the default one first.');
+    await sendMessage(runId, 'Drain the default one first.');
 
     const pending = (
       await runner(token).get(`/api/runs/${runId}/messages`).expect(200)
-    ).body as Said[];
+    ).body as PendingMessage[];
     expect(pending.map((each) => each.body)).toEqual([
       'Drain the default one first.',
     ]);
@@ -622,7 +622,7 @@ describe('a message in a run chat', () => {
       .post(`/api/runs/${runId}/completion`, {
         exitCode: 0,
         failed: false,
-        outcome: { next: 'done', note: 'Deployed.' },
+        handover: { next: 'done', note: 'Deployed.' },
         sessionId: 'session_1',
       })
       .expect(200);
@@ -630,7 +630,7 @@ describe('a message in a run chat', () => {
       (await taskRow(taskId))?.finishedAt ? true : null,
     );
 
-    await said(runId, 'Deploy the docs with it too.');
+    await sendMessage(runId, 'Deploy the docs with it too.');
 
     const task = await taskRow(taskId);
     const next = task?.currentRunId ?? '';
@@ -662,7 +662,7 @@ describe('a message in a run chat', () => {
       .expect(200);
 
     const rejected = await http()
-      .post(`/api/teams/${team.teamId.value}/runs/${runId}/say`)
+      .post(`/api/teams/${team.teamId.value}/runs/${runId}/messages`)
       .set(TEST_USER_HEADER, team.owner.value)
       .send({ body: 'Drain it after all.' })
       .expect(409);

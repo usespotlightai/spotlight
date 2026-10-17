@@ -27,11 +27,11 @@ func decoded(t *testing.T, header string) map[string]string {
 	if err != nil {
 		t.Fatalf("header %q: %v", header, err)
 	}
-	var said map[string]string
-	if err := json.Unmarshal(raw, &said); err != nil {
+	var auth map[string]string
+	if err := json.Unmarshal(raw, &auth); err != nil {
 		t.Fatal(err)
 	}
-	return said
+	return auth
 }
 
 func TestNamesTheRegistryAnImageComesFrom(t *testing.T) {
@@ -58,9 +58,9 @@ func TestSignsAPullWithTheRegistrysCredentials(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	said := decoded(t, header)
-	if said["username"] != "robot" || said["password"] != "s3cret" || said["serveraddress"] != "ghcr.io" {
-		t.Errorf("said %v", said)
+	auth := decoded(t, header)
+	if auth["username"] != "robot" || auth["password"] != "s3cret" || auth["serveraddress"] != "ghcr.io" {
+		t.Errorf("decoded %v", auth)
 	}
 }
 
@@ -72,8 +72,8 @@ func TestFindsDockerHubUnderItsLegacyName(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	if said := decoded(t, header); said["identitytoken"] != "refresh" {
-		t.Errorf("said %v", said)
+	if auth := decoded(t, header); auth["identitytoken"] != "refresh" {
+		t.Errorf("decoded %v", auth)
 	}
 }
 

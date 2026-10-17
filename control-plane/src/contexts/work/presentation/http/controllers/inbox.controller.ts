@@ -42,9 +42,9 @@ import {
   InboxConnectionResponseDto,
   InboxFailureResponseDto,
   InboxItemResponseDto,
-  InboxMessageResponseDto,
   InboxNoticeResponseDto,
   InboxStationResponseDto,
+  NoteResponseDto,
 } from '@work/presentation/http/dto/inbox.response.dto';
 import { RunJournalResponseDto } from '@work/presentation/http/dto/run-journal.response.dto';
 import { AttachmentHttpMapper } from '@work/presentation/http/mappers/attachment.http.mapper';
@@ -85,7 +85,7 @@ const taskItemResponse = (item: InboxItemDto): InboxItemResponseDto =>
     item.aside ? new InboxAsideResponseDto(item.aside) : null,
     item.notes.map(
       (note) =>
-        new InboxMessageResponseDto(
+        new NoteResponseDto(
           note.position,
           note.kind,
           note.form,
@@ -244,7 +244,7 @@ export class InboxController {
   @Get('tasks/:taskId/journal')
   @ApiOperation({
     operationId: 'readTaskJournal',
-    summary: 'What each run did to arrive at what it said',
+    summary: 'What each run did to arrive at its result',
   })
   @ApiParam({ name: 'slug', type: String, example: 'acme' })
   @ApiParam({ name: 'taskId' })

@@ -58,7 +58,7 @@ export class ProvisionFailure {
     return PROVISION_FAILURES[this.kind];
   }
 
-  get saying(): string {
+  get description(): string {
     return `${this.kind}: ${this.detail}`;
   }
 

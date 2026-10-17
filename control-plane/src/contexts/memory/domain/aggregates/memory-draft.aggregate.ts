@@ -214,7 +214,7 @@ export class MemoryDraft
       }
     });
     const kept = valid.filter(
-      (each) => !this.stillRemembered.some((one) => one.says(each)),
+      (each) => !this.stillRemembered.some((one) => one.matches(each)),
     );
     const replaced = input.evidence.isEmpty
       ? []
@@ -308,7 +308,7 @@ export class MemoryDraft
         (each) =>
           each.remembered &&
           each.proposedIn(proposal.grounds.runId) &&
-          each.says(proposal),
+          each.matches(proposal),
       ) ?? null
     );
   }

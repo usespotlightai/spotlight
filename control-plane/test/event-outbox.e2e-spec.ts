@@ -88,7 +88,7 @@ const outboxWith = () => {
       ['bell.answered'],
       async (event) => {
         heard.push(`answered ${event.marker.value}`);
-        causes.push(causation.current().saying);
+        causes.push(causation.current().description);
       },
     ),
     subscribing<{ kind: string; marker: string }>(
@@ -226,7 +226,7 @@ describe('the event outbox', () => {
     const chain = CausalChain.none().followedBy({
       kind: 'hook',
       key: 'hook:bell',
-      saying: 'the hook bell',
+      description: 'the hook bell',
     });
 
     await causation.within(chain, () =>
@@ -237,7 +237,7 @@ describe('the event outbox', () => {
     expect(causes).toEqual(['the hook bell']);
     expect(
       (await database.db.select({ cause: eventOutbox.cause }).from(eventOutbox))
-        .map((each) => CausalChain.read(each.cause).saying)
+        .map((each) => CausalChain.read(each.cause).description)
         .filter((each) => each !== ''),
     ).toEqual(['the hook bell', 'the hook bell', 'the hook bell']);
   });

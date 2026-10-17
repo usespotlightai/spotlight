@@ -179,10 +179,10 @@ export class RunMarksResponseDto {
   readonly readyAt: string | null;
 
   @ApiProperty({ nullable: true, type: String })
-  readonly spokeFrom: string | null;
+  readonly firstAgentUpdateAt: string | null;
 
   @ApiProperty({ nullable: true, type: String })
-  readonly spokeTo: string | null;
+  readonly lastAgentUpdateAt: string | null;
 
   @ApiProperty({ nullable: true, type: String })
   readonly endedAt: string | null;
@@ -190,14 +190,14 @@ export class RunMarksResponseDto {
   constructor(
     startedAt: string | null,
     readyAt: string | null,
-    spokeFrom: string | null,
-    spokeTo: string | null,
+    firstAgentUpdateAt: string | null,
+    lastAgentUpdateAt: string | null,
     endedAt: string | null,
   ) {
     this.startedAt = startedAt;
     this.readyAt = readyAt;
-    this.spokeFrom = spokeFrom;
-    this.spokeTo = spokeTo;
+    this.firstAgentUpdateAt = firstAgentUpdateAt;
+    this.lastAgentUpdateAt = lastAgentUpdateAt;
     this.endedAt = endedAt;
   }
 }
@@ -249,7 +249,7 @@ export class RunJournalResponseDto {
     example: 56000,
     nullable: true,
     type: Number,
-    description: 'How long the run spoke for, in ms',
+    description: 'How long the agent was active, in ms',
   })
   readonly ms: number | null;
 

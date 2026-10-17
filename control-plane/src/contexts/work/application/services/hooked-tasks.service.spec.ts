@@ -245,10 +245,10 @@ describe('HookedTasks', () => {
       const noted = current();
       expect(noted?.awaitingReview).toBe(true);
       expect(noted?.pendingConversation).toEqual(asking.pendingConversation);
-      expect(noted?.undelivered).toEqual([]);
+      expect(noted?.unacknowledged).toEqual([]);
       expect(noted?.running).toBe(false);
-      expect(noted?.notes[noted.notes.length - 1]?.kind).toBe('said');
-      expect(noted?.openRemarks).toEqual([]);
+      expect(noted?.notes[noted.notes.length - 1]?.kind).toBe('message');
+      expect(noted?.openReviewComments).toEqual([]);
     });
 
     it('reads the task again when it changed meanwhile', async () => {
@@ -292,7 +292,7 @@ describe('HookedTasks', () => {
       stationKey: 'implementation',
       hook: 'core/notify',
       code: 'loop',
-      saying:
+      reason:
         'The hook core/notify was stopped: task.moved → the hook core/notify',
       heardAs: 'loop:firing_1',
     };
@@ -362,9 +362,9 @@ describe('HookedTasks', () => {
       const { hooked, current, tasks } = hooking();
 
       await hooked.failed(LOOPED);
-      const told = current() as Task;
+      const failed = current() as Task;
       tasks.find.mockResolvedValue(
-        told.react(DELIVERY, StationId.of('station_0'), TaskRank.of('i'), {
+        failed.react(DELIVERY, StationId.of('station_0'), TaskRank.of('i'), {
           station: StationName.of('Implementation'),
           body: TaskNoteBody.of('Back to the backlog.'),
           at: NOW,

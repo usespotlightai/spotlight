@@ -20,7 +20,7 @@ export function SetCaveats({ health, minGain }: SetCaveatsProps) {
   }
 
   const note = [
-    ...warnings.map((each) => `${each.label}: ${each.said}.`),
+    ...warnings.map((each) => `${each.label}: ${each.text}.`),
     ...(unmeasured.length > 0
       ? [
           `${unmeasured.length} of ${readings.length} trust checks not run: ${unmeasured.map((each) => each.label).join(', ')}.`,

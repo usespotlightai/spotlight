@@ -6,6 +6,7 @@ import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { Station } from '@work/domain/entities/station.entity';
 import { type Outcome, ReactionFor } from '@work/domain/services/reaction-for';
+import { Anchor } from '@work/domain/value-objects/anchor.vo';
 import { Approval } from '@work/domain/value-objects/approval.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
 import {
@@ -16,7 +17,6 @@ import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
 import { LineName } from '@work/domain/value-objects/line-name.vo';
 import { Reaction } from '@work/domain/value-objects/reaction.vo';
-import { Said } from '@work/domain/value-objects/said.vo';
 import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
@@ -94,10 +94,13 @@ const taskAt = (stationId: string) =>
     newId: () => 'task_1',
   });
 
-const payloadOf = (happening: Happening, told: string): HappeningPayload => ({
+const payloadOf = (
+  happening: Happening,
+  summary: string,
+): HappeningPayload => ({
   happening,
-  told,
-  spoken: happening.equals(COMMENTED),
+  summary,
+  answers: happening.equals(COMMENTED),
   state: 'raised',
 });
 
@@ -107,8 +110,8 @@ const commented = payloadOf(COMMENTED, 'The pull request was commented on.');
 const reaction = (
   task: Task,
   heard: HappeningPayload,
-  said: Said | null = null,
-) => ReactionFor.happened({ task, line: LINE, payload: heard, said });
+  anchor: Anchor | null = null,
+) => ReactionFor.happened({ task, line: LINE, payload: heard, anchor });
 
 const destination = (outcome: Outcome) =>
   outcome.kind === 'moves' || outcome.kind === 'deferredMove'
@@ -144,7 +147,7 @@ describe('ReactionFor.happened', () => {
     const outcome = reaction(
       handed('station_1'),
       commented,
-      Said.of({ body: 'This retries forever.', path: 'upload.ts', from: 12 }),
+      Anchor.of({ body: 'This retries forever.', path: 'upload.ts', from: 12 }),
     );
 
     expect(outcome.kind).toBe('deferredMove');
@@ -155,16 +158,16 @@ describe('ReactionFor.happened', () => {
   });
 
   it('notes what was heard while a run worked on the task, and where it moves once the run ends', () => {
-    const said = Said.of({ body: 'This retries forever.' });
-    const outcome = reaction(handed('station_1'), commented, said);
+    const anchor = Anchor.of({ body: 'This retries forever.' });
+    const outcome = reaction(handed('station_1'), commented, anchor);
 
     expect(outcome.kind === 'deferredMove' && outcome.body.value).toBe(
       'Heard while a run worked on the task. If the run does not pass the task on, the task moves to Code Review when the run ends.\n\nThis retries forever.',
     );
-    expect(outcome.kind === 'deferredMove' && outcome.said).toBe(said);
+    expect(outcome.kind === 'deferredMove' && outcome.anchor).toBe(anchor);
   });
 
-  it('defers a spoken word with nothing said as what happened', () => {
+  it('defers a comment with no anchor as the summary of what happened', () => {
     const outcome = reaction(handed('station_1'), commented);
 
     expect(outcome.kind === 'deferredMove' && outcome.body.value).toContain(
@@ -263,10 +266,10 @@ describe('ReactionFor.happened', () => {
   });
 
   it('keeps a task where the rule names the station it is at, run or no run', () => {
-    const said = Said.of({ body: 'Pin it to a version.' });
+    const anchor = Anchor.of({ body: 'Pin it to a version.' });
 
-    expect(reaction(taskAt('station_2'), commented, said).kind).toBe('stays');
-    expect(reaction(handed('station_2'), commented, said).kind).toBe('stays');
+    expect(reaction(taskAt('station_2'), commented, anchor).kind).toBe('stays');
+    expect(reaction(handed('station_2'), commented, anchor).kind).toBe('stays');
   });
 
   it('says nothing to a task that has landed at the end of the line', () => {

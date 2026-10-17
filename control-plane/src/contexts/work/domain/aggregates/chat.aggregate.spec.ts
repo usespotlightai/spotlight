@@ -115,11 +115,11 @@ describe('Chat', () => {
     ]);
   });
 
-  it('opens with what the person said, waiting to be heard', () => {
+  it('opens with the message of the person, waiting to be acknowledged', () => {
     const chat = started();
 
     expect(chat.messages).toHaveLength(1);
-    expect(chat.undelivered.map((each) => each.position.value)).toEqual([0]);
+    expect(chat.unacknowledged.map((each) => each.position.value)).toEqual([0]);
   });
 
   it('names an attachment where nothing was typed', () => {
@@ -176,7 +176,7 @@ describe('Chat', () => {
     });
 
     expect(() =>
-      started().said({
+      started().addMessage({
         by: LEON,
         body: ChatMessageBody.given('And this?'),
         traces: [elsewhere],
@@ -206,7 +206,7 @@ describe('Chat', () => {
     );
 
     expect(() =>
-      started().said({
+      started().addMessage({
         by: LEON,
         body: ChatMessageBody.given('All of these'),
         traces: many,
@@ -221,7 +221,7 @@ describe('Chat', () => {
 
   it('hears only the person who started it', () => {
     expect(() =>
-      working().said({
+      working().addMessage({
         by: STRANGER,
         body: ChatMessageBody.of('Me too.'),
         at: LATER,
@@ -229,72 +229,95 @@ describe('Chat', () => {
     ).toThrow(NotTheChatStarterError);
   });
 
-  it('counts the messages it delivered to a run as heard', () => {
+  it('has the messages acknowledged once a run works it', () => {
     const chat = working();
 
     expect(chat.running).toBe(true);
-    expect(chat.undelivered).toHaveLength(0);
+    expect(chat.unacknowledged).toHaveLength(0);
   });
 
-  it('says which of its messages it delivered to a run', () => {
+  it('says which of its messages a run acknowledged', () => {
     const assigned = working()
       .endRun(RunId.of('run_1'))
-      .said({ by: LEON, body: ChatMessageBody.of('And then?'), at: LATER })
+      .addMessage({
+        by: LEON,
+        body: ChatMessageBody.of('And then?'),
+        at: LATER,
+      })
       .assignRun(RunId.of('run_2'), LATER);
 
     const [event] = assigned.pullEvents();
 
     expect(event).toBeInstanceOf(ChatDispatched);
     expect(
-      (event as ChatDispatched).delivered.map((each) => each.value),
+      (event as ChatDispatched).acknowledged.map((each) => each.value),
     ).toEqual([1]);
     expect(
       assigned
-        .messagesAt((event as ChatDispatched).delivered)
+        .messagesAt((event as ChatDispatched).acknowledged)
         .map((each) => each.body.value),
     ).toEqual(['And then?']);
   });
 
-  it('takes back only what it delivered to a run that kept nothing, and wants following up', () => {
+  it('unacknowledges only what a run that kept nothing acknowledged, and wants following up', () => {
     const assigned = working()
       .endRun(RunId.of('run_1'))
-      .said({ by: LEON, body: ChatMessageBody.of('Split it.'), at: LATER })
+      .addMessage({
+        by: LEON,
+        body: ChatMessageBody.of('Split it.'),
+        at: LATER,
+      })
       .assignRun(RunId.of('run_2'), LATER)
-      .said({ by: LEON, body: ChatMessageBody.of('And docs.'), at: LATER });
+      .addMessage({
+        by: LEON,
+        body: ChatMessageBody.of('And docs.'),
+        at: LATER,
+      });
 
     const released = assigned.runKeptNothing(RunId.of('run_2'));
 
     expect(released.running).toBe(false);
-    expect(released.undelivered.map((each) => each.position.value)).toEqual([
+    expect(released.unacknowledged.map((each) => each.position.value)).toEqual([
       1, 2,
     ]);
-    expect(released.messages[0]?.wasDeliveredTo(RunId.of('run_1'))).toBe(true);
+    expect(released.messages[0]?.wasAcknowledgedBy(RunId.of('run_1'))).toBe(
+      true,
+    );
     expect(released.wantsFollowUp).toBe(true);
   });
 
-  it('keeps what it delivered when a run that is not its current run kept nothing', () => {
+  it('keeps what a run acknowledged when a run that is not its current run kept nothing', () => {
     const unchanged = working().runKeptNothing(RunId.of('run_2'));
 
     expect(unchanged.running).toBe(true);
-    expect(unchanged.undelivered).toHaveLength(0);
+    expect(unchanged.unacknowledged).toHaveLength(0);
   });
 
   it('counts nothing as heard by a run that is not its current run', () => {
-    const said = working()
+    const withMessage = working()
       .endRun(RunId.of('run_1'))
-      .said({ by: LEON, body: ChatMessageBody.of('Split it.'), at: LATER });
+      .addMessage({
+        by: LEON,
+        body: ChatMessageBody.of('Split it.'),
+        at: LATER,
+      });
 
     expect(
-      said.markDeliveredUpTo(RunId.of('run_1'), SECOND, LATER).undelivered,
+      withMessage.acknowledgeUpTo(RunId.of('run_1'), SECOND, LATER)
+        .unacknowledged,
     ).toHaveLength(1);
   });
 
   it('keeps what a run heard once it started', () => {
     const heard = working()
-      .said({ by: LEON, body: ChatMessageBody.of('Split it.'), at: LATER })
-      .markDeliveredUpTo(RunId.of('run_1'), SECOND, LATER);
+      .addMessage({
+        by: LEON,
+        body: ChatMessageBody.of('Split it.'),
+        at: LATER,
+      })
+      .acknowledgeUpTo(RunId.of('run_1'), SECOND, LATER);
 
-    expect(heard.messages[1]?.wasDeliveredTo(RunId.of('run_1'))).toBe(true);
+    expect(heard.messages[1]?.wasAcknowledgedBy(RunId.of('run_1'))).toBe(true);
     expect(heard.endRun(RunId.of('run_1')).wantsFollowUp).toBe(false);
   });
 
@@ -304,21 +327,24 @@ describe('Chat', () => {
     );
   });
 
-  it('hears what is said while it is worked, until it is delivered', () => {
-    const said = working().said({
+  it('keeps a message sent while it is worked unacknowledged, until a run acknowledges it', () => {
+    const withMessage = working().addMessage({
       by: LEON,
       body: ChatMessageBody.of('Split it.'),
       at: LATER,
     });
 
-    expect(said.undelivered.map((each) => each.position.value)).toEqual([1]);
     expect(
-      said.markDeliveredUpTo(RunId.of('run_1'), SECOND, LATER).undelivered,
+      withMessage.unacknowledged.map((each) => each.position.value),
+    ).toEqual([1]);
+    expect(
+      withMessage.acknowledgeUpTo(RunId.of('run_1'), SECOND, LATER)
+        .unacknowledged,
     ).toHaveLength(0);
   });
 
   it('answers with the model and effort the person picks, keeping the harness, and keeps them when nothing is picked', () => {
-    const picked = started().said({
+    const picked = started().addMessage({
       by: LEON,
       body: ChatMessageBody.of('Think harder.'),
       model: HarnessModel.of('opus'),
@@ -330,14 +356,14 @@ describe('Chat', () => {
     expect(picked.effort?.value).toBe('high');
     expect(picked.harness.value).toBe(started().harness.value);
 
-    const kept = picked.said({
+    const kept = picked.addMessage({
       by: LEON,
       body: ChatMessageBody.of('And again.'),
       at: LATER,
     });
     expect(kept.model?.value).toBe('opus');
 
-    const defaulted = kept.said({
+    const defaulted = kept.addMessage({
       by: LEON,
       body: ChatMessageBody.of('Back to the default.'),
       model: null,
@@ -348,30 +374,30 @@ describe('Chat', () => {
     expect(defaulted.effort).toBeNull();
   });
 
-  it('wants following up only once its run is done and something is left unheard', () => {
-    const said = working().said({
+  it('wants following up only once its run is done and a message is left unacknowledged', () => {
+    const withMessage = working().addMessage({
       by: LEON,
       body: ChatMessageBody.of('Split it.'),
       at: LATER,
     });
 
-    expect(said.wantsFollowUp).toBe(false);
-    expect(said.endRun(RunId.of('run_1')).wantsFollowUp).toBe(true);
+    expect(withMessage.wantsFollowUp).toBe(false);
+    expect(withMessage.endRun(RunId.of('run_1')).wantsFollowUp).toBe(true);
     expect(working().endRun(RunId.of('run_1')).wantsFollowUp).toBe(false);
   });
 
   describe('when its run ends', () => {
     const SESSION = HarnessSession.of('session_1');
     const RUNNER = RunnerId.of('runner_1');
-    const saidMeanwhile = () =>
-      working().said({
+    const messagedMeanwhile = () =>
+      working().addMessage({
         by: LEON,
         body: ChatMessageBody.of('Split it.'),
         at: LATER,
       });
 
-    it('keeps the session the run worked in and follows up on what was said meanwhile', () => {
-      const ended = saidMeanwhile().runEnded(RunId.of('run_1'), {
+    it('keeps the session the run worked in and follows up on the messages sent meanwhile', () => {
+      const ended = messagedMeanwhile().runEnded(RunId.of('run_1'), {
         session: SESSION,
         workedBy: RUNNER,
         stopped: false,
@@ -383,7 +409,7 @@ describe('Chat', () => {
     });
 
     it('does not follow up after a run it was asked to stop', () => {
-      const ended = saidMeanwhile().runEnded(RunId.of('run_1'), {
+      const ended = messagedMeanwhile().runEnded(RunId.of('run_1'), {
         session: SESSION,
         workedBy: RUNNER,
         stopped: true,
@@ -393,17 +419,17 @@ describe('Chat', () => {
       expect(ended.followsUp).toBe(false);
     });
 
-    it('takes back what it delivered to a run that kept no session, and leaves the follow-up for later', () => {
-      const ended = saidMeanwhile().runEnded(RunId.of('run_1'), {
+    it('unacknowledges what a run that kept no session acknowledged, and leaves the follow-up for later', () => {
+      const ended = messagedMeanwhile().runEnded(RunId.of('run_1'), {
         session: null,
         workedBy: RUNNER,
         stopped: false,
       });
 
       expect(ended.chat.running).toBe(false);
-      expect(ended.chat.undelivered.map((each) => each.position.value)).toEqual(
-        [0, 1],
-      );
+      expect(
+        ended.chat.unacknowledged.map((each) => each.position.value),
+      ).toEqual([0, 1]);
       expect(ended.followsUp).toBe(false);
     });
 
@@ -464,7 +490,7 @@ describe('Chat', () => {
     ).toThrow(InvalidChatTransitionError);
   });
 
-  it('keeps a proposal open, says it was proposed, and never delivers it back', () => {
+  it('keeps a proposal open, says it was proposed, and never hands it back to a run', () => {
     const chat = working().propose({
       runId: RunId.of('run_1'),
       placement: ProposalPlacement.of({
@@ -478,7 +504,7 @@ describe('Chat', () => {
 
     expect(chat.proposalAt(SECOND).isOpen).toBe(true);
     expect(chat.messages[1]?.kind).toBe('proposed');
-    expect(chat.undelivered).toHaveLength(0);
+    expect(chat.unacknowledged).toHaveLength(0);
     expect(chat.pullEvents()).toEqual([expect.any(TaskProposed)]);
   });
 
@@ -536,7 +562,7 @@ describe('Chat', () => {
     ).toThrow(InvalidChatTransitionError);
   });
 
-  it('has no proposal where something was only said', () => {
+  it('has no proposal where there is only a message', () => {
     expect(() => proposing().proposalAt(MessagePosition.of(0))).toThrow(
       InvalidChatTransitionError,
     );

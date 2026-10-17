@@ -97,15 +97,15 @@ export class WorkMemoryDrafts implements PendingJobsPort {
     }
 
     const { runId } = draft.drafting;
-    const [site, task, steps, changed, spoken] = await Promise.all([
+    const [site, task, steps, changed, notes] = await Promise.all([
       this.work.stationSiteOf(runId),
       this.work.task(draft.taskId),
       this.work.reasoning(runId),
       this.work.changedBy(runId),
-      this.work.spokenOn(draft.taskId),
+      this.work.notesOf(draft.taskId),
     ]);
 
-    if (!site || !task || !steps || !changed || !spoken) {
+    if (!site || !task || !steps || !changed || !notes) {
       return draft.failed(
         MemoryDraftingFailure.of('no-evidence', this.clock.now()),
       );
@@ -123,7 +123,7 @@ export class WorkMemoryDrafts implements PendingJobsPort {
       runId,
       site,
       steps,
-      notes: spoken.filter((each) => draft.reads(each.position)),
+      notes: notes.filter((each) => draft.reads(each.position)),
       notesRead: draft.notesRead,
       changed,
       known: candidates,

@@ -21,7 +21,7 @@ export class MemoryReviews {
     );
     const [steps, notes, harness] = await Promise.all([
       this.work.reasoning(runId),
-      this.work.spokenOn(draft.taskId),
+      this.work.notesOf(draft.taskId),
       this.work.harnessOf(runId),
     ]);
     const person = lookUpOnce(this.people);

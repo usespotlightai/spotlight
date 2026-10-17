@@ -202,7 +202,7 @@ describe('AnswerInboxItem', () => {
     saved = undefined;
   });
 
-  it('adds what the person said to the trail, in their name', async () => {
+  it('adds the answer of the person to the trail, in their name', async () => {
     await answer(waiting());
 
     const last = saved?.notes[saved.notes.length - 1];
@@ -389,7 +389,7 @@ describe('AnswerInboxItem', () => {
       await answer(asking());
 
       expect(saved?.currentRunId).toEqual(RunId.of('run_1'));
-      expect(saved?.undelivered.map((each) => each.body.value)).toEqual([
+      expect(saved?.unacknowledged.map((each) => each.body.value)).toEqual([
         'Cap it at 500.',
       ]);
       expect(saved?.pullEvents()).toContainEqual(
@@ -401,10 +401,10 @@ describe('AnswerInboxItem', () => {
       );
     });
 
-    it('hands the answer to a new run in its briefing, so it is never delivered twice', async () => {
+    it('hands the answer to a new run in its briefing, so the run never gets it twice', async () => {
       await answer(waiting());
 
-      expect(saved?.undelivered).toEqual([]);
+      expect(saved?.unacknowledged).toEqual([]);
       expect(
         saved?.pullEvents().some((each) => each instanceof TaskAnswered),
       ).toBe(false);

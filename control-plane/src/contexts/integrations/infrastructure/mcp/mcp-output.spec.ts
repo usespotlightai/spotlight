@@ -2,7 +2,7 @@ import { mcpOutput } from '@integrations/infrastructure/mcp/mcp-output';
 import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
 import { describe, expect, it } from 'vitest';
 
-const text = (said: string) => ({ type: 'text' as const, text: said });
+const text = (value: string) => ({ type: 'text' as const, text: value });
 
 describe('mcpOutput', () => {
   it('answers with the structured content when there is some', () => {
@@ -40,7 +40,7 @@ describe('mcpOutput', () => {
     ]);
   });
 
-  it('fails with what the server said when it answers with an error', () => {
+  it('fails with the output of the server when it answers with an error', () => {
     const failing = () =>
       mcpOutput(
         { isError: true, content: [text('Deleting is frozen.')] },

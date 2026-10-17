@@ -15,7 +15,7 @@ const EVIDENCE = JudgeEvidence.of({
   steps: [
     {
       index: 2,
-      kind: 'said',
+      kind: 'message',
       tool: null,
       text: 'Retrying.',
       given: null,

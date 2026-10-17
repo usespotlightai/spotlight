@@ -15,10 +15,10 @@ export function useChatRefresh(chatId: string | undefined, chat?: Chat) {
   useRunStream(chat?.runId ?? undefined, Boolean(chat?.working), bump);
 
   const working = chat?.working;
-  const said = chat?.messages.length;
+  const messageCount = chat?.messages.length;
 
   // biome-ignore lint/correctness/useExhaustiveDependencies: the journal must update when a run stops or a new message comes, but the effect reads neither value
   useEffect(() => {
     void queryClient.invalidateQueries({ queryKey: chatKeys.journal(chatId) });
-  }, [queryClient, chatId, working, said]);
+  }, [queryClient, chatId, working, messageCount]);
 }

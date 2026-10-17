@@ -36,24 +36,29 @@ export function Run() {
   const { slug, teamId, runId } = useParams();
   const runs = useTeamRuns(teamId);
   const run = runs.data?.find((each) => each.id === runId);
-  const conversation = useRunConversation(
+  const conversationQuery = useRunConversation(
     teamId,
     runs.data && !run ? undefined : runId,
   );
-  const said = conversation.data;
-  const journal = useTaskJournal(slug, said?.taskId);
+  const conversation = conversationQuery.data;
+  const journal = useTaskJournal(slug, conversation?.taskId);
 
-  useRunRefresh({ teamId, runId, taskId: said?.taskId, state: run?.state });
+  useRunRefresh({
+    teamId,
+    runId,
+    taskId: conversation?.taskId,
+    state: run?.state,
+  });
 
   if (!slug || !teamId) {
     return null;
   }
 
-  if (stillLoading(runs, Boolean(run), conversation, journal)) {
+  if (stillLoading(runs, Boolean(run), conversationQuery, journal)) {
     return <RunSkeleton />;
   }
 
-  const lost = lostOf(runs, Boolean(run), conversation);
+  const lost = lostOf(runs, Boolean(run), conversationQuery);
 
   if (lost) {
     return (
@@ -76,7 +81,7 @@ export function Run() {
       slug={slug}
       teamId={teamId}
       run={run}
-      said={said}
+      conversation={conversation}
       worked={journal.data ?? []}
       journalFailed={failed(journal)}
     />

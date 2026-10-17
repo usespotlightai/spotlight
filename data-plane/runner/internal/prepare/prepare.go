@@ -26,12 +26,12 @@ type Options struct {
 	Timeout time.Duration
 }
 
-type said struct {
+type output struct {
 	lines []string
 }
 
-func (s *said) say(format string, args ...any) {
-	s.lines = append(s.lines, fmt.Sprintf(format, args...))
+func (o *output) add(format string, args ...any) {
+	o.lines = append(o.lines, fmt.Sprintf(format, args...))
 }
 
 func Checkouts(ctx context.Context, checkouts []protocol.Checkout, opts Options) (string, error) {
@@ -42,7 +42,7 @@ func Checkouts(ctx context.Context, checkouts []protocol.Checkout, opts Options)
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	var out said
+	var out output
 	for _, checkout := range checkouts {
 		if err := opts.checkout(ctx, checkout, &out); err != nil {
 			if ctx.Err() != nil {
@@ -55,7 +55,7 @@ func Checkouts(ctx context.Context, checkouts []protocol.Checkout, opts Options)
 	return strings.Join(out.lines, "\n"), nil
 }
 
-func (o Options) checkout(ctx context.Context, checkout protocol.Checkout, out *said) error {
+func (o Options) checkout(ctx context.Context, checkout protocol.Checkout, out *output) error {
 	tree := filepath.Join(o.Dir, checkout.Path)
 	git := func(args ...string) error {
 		output, err := shell.Git(ctx, tree, nil, args...)
@@ -69,7 +69,7 @@ func (o Options) checkout(ctx context.Context, checkout protocol.Checkout, out *
 
 	switch {
 	case exists(filepath.Join(tree, ".git")):
-		out.say("reusing %s", checkout.Path)
+		out.add("reusing %s", checkout.Path)
 		if err := git("remote", "set-url", "origin", checkout.Remote); err != nil {
 			if err := git("remote", "add", "origin", checkout.Remote); err != nil {
 				return err
@@ -82,13 +82,13 @@ func (o Options) checkout(ctx context.Context, checkout protocol.Checkout, out *
 			start = "refs/remotes/origin/HEAD"
 		}
 	case o.Mirrors != "" && exists(filepath.Join(o.Mirrors, checkout.Path+".git")):
-		out.say("cloning %s from the host's mirror", checkout.Path)
+		out.add("cloning %s from the host's mirror", checkout.Path)
 		// Use --dissociate because the workspace is archived and then restored on hosts that do not have this mirror.
 		if err := o.clone(ctx, checkout, "--reference-if-able", filepath.Join(o.Mirrors, checkout.Path+".git"), "--dissociate"); err != nil {
 			return err
 		}
 	default:
-		out.say("cloning %s", checkout.Path)
+		out.add("cloning %s", checkout.Path)
 		if err := o.clone(ctx, checkout); err != nil {
 			return err
 		}
@@ -126,7 +126,7 @@ func (o Options) checkout(ctx context.Context, checkout protocol.Checkout, out *
 	return nil
 }
 
-func catchUp(checkout protocol.Checkout, git func(args ...string) bool, out *said) {
+func catchUp(checkout protocol.Checkout, git func(args ...string) bool, out *output) {
 	pushed := "refs/remotes/origin/" + checkout.Branch
 
 	if !git("rev-parse", "--verify", "--quiet", pushed) || git("merge-base", "--is-ancestor", pushed, "HEAD") {
@@ -135,11 +135,11 @@ func catchUp(checkout protocol.Checkout, git func(args ...string) bool, out *sai
 
 	switch {
 	case !git("merge-base", "--is-ancestor", "HEAD", pushed):
-		out.say("left %s as the last run left it: %s has moved on both here and on the remote", checkout.Path, checkout.Branch)
+		out.add("left %s as the last run left it: %s has moved on both here and on the remote", checkout.Path, checkout.Branch)
 	case !git("merge", "--quiet", "--ff-only", pushed):
-		out.say("left %s behind the remote's %s: uncommitted changes here block the fast-forward", checkout.Path, checkout.Branch)
+		out.add("left %s behind the remote's %s: uncommitted changes here block the fast-forward", checkout.Path, checkout.Branch)
 	default:
-		out.say("caught %s up with what was pushed to %s", checkout.Path, checkout.Branch)
+		out.add("caught %s up with what was pushed to %s", checkout.Path, checkout.Branch)
 	}
 }
 

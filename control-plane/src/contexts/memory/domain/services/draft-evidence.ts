@@ -17,15 +17,15 @@ import type { Repository } from '@shared-kernel/domain/value-objects/repository.
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 
-const MAX_TOLD = 2_000;
+const MAX_PROMPT_CHARS = 2_000;
 
-const MAX_STEPS_TOLD = 100_000;
+const MAX_PROMPT_STEPS = 100_000;
 
-const MAX_NOTES_TOLD = 20_000;
+const MAX_PROMPT_NOTES = 20_000;
 
-const MAX_ACTIVE_TOLD = 50;
+const MAX_PROMPT_ACTIVE = 50;
 
-export type NoteSpeaker = 'person' | 'world';
+export type AuthorKind = 'person' | 'world';
 
 export interface EvidenceStep {
   readonly index: number;
@@ -35,7 +35,7 @@ export interface EvidenceStep {
 
 export interface EvidenceNote {
   readonly position: number;
-  readonly by: NoteSpeaker;
+  readonly by: AuthorKind;
   readonly text: string;
 }
 
@@ -46,8 +46,8 @@ export interface ChangedPath {
 
 const clipped = (text: string): string => {
   const trimmed = text.trim();
-  return trimmed.length > MAX_TOLD
-    ? `${trimmed.slice(0, MAX_TOLD)} …`
+  return trimmed.length > MAX_PROMPT_CHARS
+    ? `${trimmed.slice(0, MAX_PROMPT_CHARS)} …`
     : trimmed;
 };
 
@@ -113,18 +113,19 @@ export class DraftEvidence {
       input.steps
         .map((each) => ({ ...each, text: clipped(each.text) }))
         .reverse(),
-      MAX_STEPS_TOLD,
+      MAX_PROMPT_STEPS,
     ).reverse();
     const ordered = [...input.notes]
       .sort((a, b) => a.position - b.position)
       .map((each) => ({ ...each, text: clipped(each.text) }));
     const unread = within(
       ordered.filter((each) => each.position >= input.notesRead),
-      MAX_NOTES_TOLD,
+      MAX_PROMPT_NOTES,
     );
     const revisited = within(
       ordered.filter((each) => each.position < input.notesRead),
-      MAX_NOTES_TOLD - unread.reduce((sum, each) => sum + each.text.length, 0),
+      MAX_PROMPT_NOTES -
+        unread.reduce((sum, each) => sum + each.text.length, 0),
     );
     const changed = input.changed.flatMap((each) => {
       const path = pathOf(each.path);
@@ -138,7 +139,7 @@ export class DraftEvidence {
       .sort(
         (one, other) => other.approval.at.getTime() - one.approval.at.getTime(),
       )
-      .slice(0, MAX_ACTIVE_TOLD);
+      .slice(0, MAX_PROMPT_ACTIVE);
 
     return new DraftEvidence(
       input.taskId,
@@ -190,7 +191,7 @@ export class DraftEvidence {
       );
     }
 
-    if (!grounds.notes.every((position) => this.speakerOf(position))) {
+    if (!grounds.notes.every((position) => this.authorOf(position))) {
       throw new InvalidMemoryError('cites only notes its drafter read');
     }
 
@@ -215,7 +216,7 @@ export class DraftEvidence {
     });
   }
 
-  private speakerOf(position: number): NoteSpeaker | null {
+  private authorOf(position: number): AuthorKind | null {
     return this.notes.find((each) => each.position === position)?.by ?? null;
   }
 
@@ -252,9 +253,9 @@ export class DraftEvidence {
   }
 
   private sourceOf(grounds: MemoryGrounds): MemorySource {
-    const speakers = grounds.notes.map((each) => this.speakerOf(each));
+    const authors = grounds.notes.map((each) => this.authorOf(each));
 
-    if (this.fromOutside || speakers.includes('world')) {
+    if (this.fromOutside || authors.includes('world')) {
       return 'outside';
     }
 

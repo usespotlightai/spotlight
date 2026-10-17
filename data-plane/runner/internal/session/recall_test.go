@@ -35,18 +35,18 @@ func readSpan(t *testing.T, raw json.RawMessage) (spanRead, map[string]string) {
 		t.Fatal(err)
 	}
 
-	said := map[string]string{}
+	attributes := map[string]string{}
 	for _, each := range span.Attributes {
-		said[each.Key] = each.Value.StringValue + each.Value.IntValue
+		attributes[each.Key] = each.Value.StringValue + each.Value.IntValue
 	}
 
-	return span, said
+	return span, attributes
 }
 
 func TestARecallIsASpanSayingWhatWasAskedAndHowManyCameBack(t *testing.T) {
 	from := time.Date(2026, 9, 27, 10, 0, 0, 0, time.UTC)
 
-	span, said := readSpan(t, recalled(
+	span, attributes := readSpan(t, recalled(
 		protocol.RecallRequest{Words: "upload retries"},
 		from, from.Add(40*time.Millisecond),
 		json.RawMessage(`[{"handle":"M-1"},{"handle":"M-2"}]`), nil,
@@ -58,22 +58,22 @@ func TestARecallIsASpanSayingWhatWasAskedAndHowManyCameBack(t *testing.T) {
 	if span.Start != "1790503200000000000" || span.End != "1790503200040000000" {
 		t.Errorf("timed %s to %s", span.Start, span.End)
 	}
-	if said["spotlight.recall.words"] != "upload retries" || said["spotlight.recall.found"] != "2" {
-		t.Errorf("said %v", said)
+	if attributes["spotlight.recall.words"] != "upload retries" || attributes["spotlight.recall.found"] != "2" {
+		t.Errorf("attributes %v", attributes)
 	}
 }
 
 func TestARecallByHandleThatFailedSaysSo(t *testing.T) {
 	now := time.Now()
 
-	span, said := readSpan(t, recalled(
+	span, attributes := readSpan(t, recalled(
 		protocol.RecallRequest{Handle: "M-12"}, now, now, nil, errors.New("no such memory"),
 	))
 
-	if said["spotlight.recall.handle"] != "M-12" || span.Status == nil || span.Status.Code != 2 {
-		t.Errorf("span %+v, said %v", span, said)
+	if attributes["spotlight.recall.handle"] != "M-12" || span.Status == nil || span.Status.Code != 2 {
+		t.Errorf("span %+v, attributes %v", span, attributes)
 	}
-	if _, counted := said["spotlight.recall.found"]; counted {
+	if _, counted := attributes["spotlight.recall.found"]; counted {
 		t.Error("a failed recall found nothing to count")
 	}
 }

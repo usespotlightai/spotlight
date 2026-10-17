@@ -283,7 +283,7 @@ export class HookDefinition extends EventRecorder {
   get blocks(): boolean {
     const blocking: HookOnFailure = 'block';
 
-    return this.state.document.says('failure', blocking);
+    return this.state.document.hasValue('failure', blocking);
   }
 
   get workspaceId(): WorkspaceId {

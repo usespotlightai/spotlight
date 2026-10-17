@@ -11,13 +11,13 @@ import { givenIntegrations } from '@work/domain/services/given-integrations';
 import { HANDOVER_COMMAND } from '@work/domain/services/run-reasoning';
 import { repositoriesReviewedOrAll } from '@work/domain/services/task-checkouts';
 import type {
-  BriefedRemark,
+  BriefedReviewComment,
   BriefedTask,
   DecisionOnRecord,
 } from '@work/domain/value-objects/briefed-task.vo';
 import type { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
 import { DONE, REVIEW } from '@work/domain/value-objects/handover-word';
-import { RemarkHandle } from '@work/domain/value-objects/remark-handle.vo';
+import { ReviewCommentHandle } from '@work/domain/value-objects/review-comment-handle.vo';
 import { SkillKey } from '@work/domain/value-objects/skill-key.vo';
 import type { StationId } from '@work/domain/value-objects/station-id.vo';
 
@@ -50,30 +50,30 @@ const closing = (line: Line, stationId: StationId): string => {
     .join('\n\n');
 };
 
-const answering = (task: BriefedTask): string | null => {
-  const open = task.openRemarks;
+const replying = (task: BriefedTask): string | null => {
+  const open = task.openReviewComments;
 
   if (open.length === 0) {
     return null;
   }
 
   const listed = open.map((each) =>
-    [`- \`${RemarkHandle.for(each.at)}\``, each.place, each.body || null]
+    [`- \`${ReviewCommentHandle.for(each.at)}\``, each.place, each.body || null]
       .filter(Boolean)
       .join(' — '),
   );
 
-  const one = RemarkHandle.for((open[0] as BriefedRemark).at);
+  const one = ReviewCommentHandle.for((open[0] as BriefedReviewComment).at);
 
   return [
-    '## Answering the pull request',
-    'These were said on the pull request and nobody has answered them:',
+    '## Replying to review comments',
+    'These review comments on the pull request have no reply:',
     ...listed,
-    'Run this to answer one, from anywhere in the workspace:',
+    'Run this to reply to one, from anywhere in the workspace:',
     `\`\`\`\nspotlight reply --to ${one} --body "…"\n\`\`\``,
     'Add `--resolve` to resolve the thread as well, where you have addressed what it asked. Leave it off where you are disagreeing or asking something back.',
-    `A long answer is easier piped in, as \`spotlight reply --to ${one} < answer.md\`.`,
-    'Answer only what you have something to say about. What you leave alone stays open for whoever picks the task up next.',
+    `A long reply is easier piped in, as \`spotlight reply --to ${one} < answer.md\`.`,
+    'Reply only where you have something to say. The review comments that you do not reply to stay open for whoever picks the task up next.',
   ].join('\n\n');
 };
 
@@ -204,7 +204,7 @@ export const TaskBriefing = {
       workspaceOf(input.task, input.line),
       toolsOf(input.tools),
       listing(input.skills, input.listedIn),
-      answering(input.task),
+      replying(input.task),
       closing(input.line, input.task.stationId),
     ]
       .filter(Boolean)

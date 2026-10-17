@@ -7,20 +7,20 @@ export type RunConversation = RunConversationResponseDto;
 const UNCOLOURED = '#a3a8b0';
 
 export const conversingOf = (
-  said: RunConversation,
+  conversation: RunConversation,
   teamId: string,
 ): Conversing => ({
-  id: said.runId,
+  id: conversation.runId,
   teamId,
-  createdAt: said.createdAt,
+  createdAt: conversation.createdAt,
   station: {
-    name: said.station?.name ?? '',
-    color: said.station?.color ?? UNCOLOURED,
-    position: said.station?.position ?? 0,
-    count: said.station?.count ?? 1,
+    name: conversation.station?.name ?? '',
+    color: conversation.station?.color ?? UNCOLOURED,
+    position: conversation.station?.position ?? 0,
+    count: conversation.station?.count ?? 1,
   },
-  working: said.working,
-  notes: said.notes,
+  working: conversation.working,
+  notes: conversation.notes,
 });
 
 export const lastNoteOf = (
@@ -33,17 +33,20 @@ export const lastNoteOf = (
   notes.findLast((each) => each.runId === runId)?.position ?? null;
 
 export const runThreadText = (
-  said: RunConversation | undefined,
+  conversation: RunConversation | undefined,
   run: TeamRun,
   ran: readonly RunJournal[],
 ): string =>
   threadText({
-    opening:
-      said?.briefing ||
-      [said?.title ?? run.taskTitle, said?.description ?? run.taskDescription]
+    briefing:
+      conversation?.briefing ||
+      [
+        conversation?.title ?? run.taskTitle,
+        conversation?.description ?? run.taskDescription,
+      ]
         .filter(Boolean)
         .join('\n\n'),
-    notes: said?.notes ?? [],
+    notes: conversation?.notes ?? [],
     ran,
     agent: run.station?.name ?? 'The agent',
   });

@@ -1,7 +1,7 @@
 import type {
   InboxItemResponseDto,
-  InboxMessageResponseDto,
   InboxNoticeResponseDto,
+  NoteResponseDto,
   RunJournalResponseDto,
 } from '@/lib/api';
 import { teamPath } from '@/lib/team';
@@ -12,7 +12,7 @@ export type InboxNotice = InboxNoticeResponseDto;
 
 export type InboxEntry = InboxItem | InboxNotice;
 
-export type InboxMessage = InboxMessageResponseDto;
+export type Note = NoteResponseDto;
 
 export type Conversing = {
   readonly id: string;
@@ -30,15 +30,15 @@ export type Conversing = {
   };
   readonly working: boolean;
   readonly resolved?: boolean;
-  readonly notes: readonly InboxMessage[];
+  readonly notes: readonly Note[];
 };
 
 export type RunJournal = RunJournalResponseDto;
 
-export const decisionPending = (notes: readonly InboxMessage[]): boolean =>
+export const decisionPending = (notes: readonly Note[]): boolean =>
   notes.findLast((note) => note.kind === 'asked')?.form === 'approval';
 
-const answersTo = (notes: readonly InboxMessage[], runId: string): number[] => {
+const answersTo = (notes: readonly Note[], runId: string): number[] => {
   const answers: number[] = [];
   let asked = false;
 
@@ -66,62 +66,65 @@ const spanOf = (steps: readonly JournalStep[]): number => {
 };
 
 export interface ThreadInput {
-  readonly opening: string | null;
-  readonly notes: readonly InboxMessage[];
+  readonly briefing: string | null;
+  readonly notes: readonly Note[];
   readonly ran: readonly RunJournal[];
   readonly agent: string;
 }
 
-const speakerOf = (note: InboxMessage): string => {
+export const ANOTHER_TOOL = 'Another tool';
+
+const authorOf = (note: Note): string => {
   if (note.voice === 'person') {
     return note.author?.name ?? 'Someone';
   }
   if (note.voice === 'world') {
-    return 'Spotlight';
+    return ANOTHER_TOOL;
   }
   return note.station;
 };
 
-const told = (speaker: string, text: string): string =>
-  `${speaker}:\n${text.trim()}`;
+const entryOf = (author: string, text: string): string =>
+  `${author}:\n${text.trim()}`;
 
 export const threadText = ({
-  opening,
+  briefing,
   notes,
   ran,
   agent,
 }: ThreadInput): string => {
-  const spoken = notes
+  const noteEntries = notes
     .filter((note) => note.body.trim())
-    .map((note) => told(speakerOf(note), note.body));
-  const said =
-    spoken.length > 0
+    .map((note) => entryOf(authorOf(note), note.body));
+  const messageEntries =
+    noteEntries.length > 0
       ? []
       : ran
           .flatMap((journal) => journal.steps)
-          .filter((step) => step.kind === 'said' && step.text.trim())
-          .map((step) => told(agent, step.text));
+          .filter((step) => step.kind === 'message' && step.text.trim())
+          .map((step) => entryOf(agent, step.text));
 
   return [
-    ...(opening?.trim() ? [told('Briefing', opening)] : []),
-    ...spoken,
-    ...said,
+    ...(briefing?.trim() ? [entryOf('Briefing', briefing)] : []),
+    ...noteEntries,
+    ...messageEntries,
   ].join('\n\n');
 };
 
-export const lastSpokenAt = (
-  notes: readonly InboxMessage[],
+export const lastNoteAt = (
+  notes: readonly Note[],
   ran: readonly RunJournal[],
 ): string | null =>
   notes.findLast((note) => note.body.trim())?.at ??
   ran
     .flatMap((journal) => journal.steps)
-    .findLast((step) => step.kind === 'said' && step.text.trim())?.startedAt ??
+    .findLast((step) => step.kind === 'message' && step.text.trim())
+    ?.startedAt ??
   null;
 
 export const workedOn = (
   worked: readonly RunJournal[],
-  notes: readonly InboxMessage[],
+  notes: readonly Note[],
   runId: string | null,
   at: string | null = null,
 ): RunJournal[] => {
@@ -203,7 +206,7 @@ export const amountIn = (amount: number, currency: string | null): string =>
 
 export type JournalStep = RunJournalResponseDto['steps'][number];
 
-export const spokenAt = (at: string): string =>
+export const shortTimeOf = (at: string): string =>
   new Date(at).toLocaleTimeString(undefined, {
     hour: 'numeric',
     minute: '2-digit',
@@ -274,7 +277,7 @@ export const noticePreviewOf = (notice: InboxNotice): string =>
   notice.points[0] ?? '';
 
 export const shownAt = (
-  notes: readonly InboxMessage[],
+  notes: readonly Note[],
   runId: string | null,
 ): number | null =>
   notes.find((note) => runId && note.runId === runId)?.position ?? null;

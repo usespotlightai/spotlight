@@ -8,7 +8,7 @@ import type { ApprovalStatus } from '@work/domain/value-objects/approval.vo';
 import type { ApprovalSubjectKind } from '@work/domain/value-objects/approval-subject.vo';
 import type { AsideForm } from '@work/domain/value-objects/aside-form';
 import type { NoticeForm } from '@work/domain/value-objects/notice-form';
-import type { SpokenBy } from '@work/domain/value-objects/voice.vo';
+import type { AuthorKind } from '@work/domain/value-objects/voice.vo';
 
 interface InboxAuthor {
   readonly id: string;
@@ -55,7 +55,7 @@ export interface InboxNote {
   readonly position: number;
   readonly kind: TaskNoteKind;
   readonly form: TaskNoteForm;
-  readonly voice: SpokenBy;
+  readonly voice: AuthorKind;
   readonly station: string;
   readonly stationColor: string;
   readonly stationPosition: number;

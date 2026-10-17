@@ -26,7 +26,7 @@ const REASONED: RunReasoning = {
       kind: 'thought',
       text: 'A queue needs a worker we do not run.',
     },
-    { index: 7, kind: 'said', text: 'Retrying in the request instead.' },
+    { index: 7, kind: 'message', text: 'Retrying in the request instead.' },
   ],
   changed: ['api/src/uploads.ts'],
 };

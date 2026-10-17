@@ -13,7 +13,7 @@ import {
   readRunMemories,
   readTaskChangeStack,
   readTaskTrace,
-  sayToRun,
+  sendMessage,
   stopRun,
 } from '@/lib/api';
 import { serveMockApi } from '@/mocks/testing';
@@ -189,8 +189,8 @@ describe('the mock work area', () => {
     expect(tasks.some((each) => each.id === added.id)).toBe(false);
   });
 
-  it('says to a run and stops it', async () => {
-    await sayToRun({
+  it('sends a message to a run and stops it', async () => {
+    await sendMessage({
       path: { teamId, runId: 'run_retries_3' },
       body: { body: 'Skip the billing queue entirely.' },
       throwOnError: true,
@@ -201,7 +201,7 @@ describe('the mock work area', () => {
     });
 
     expect(conversation.notes.at(-1)).toMatchObject({
-      kind: 'said',
+      kind: 'message',
       body: 'Skip the billing queue entirely.',
     });
 

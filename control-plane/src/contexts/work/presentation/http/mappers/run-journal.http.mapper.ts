@@ -62,8 +62,8 @@ export const RunJournalHttpMapper = {
       new RunMarksResponseDto(
         journal.marks.startedAt,
         journal.marks.readyAt,
-        journal.marks.spokeFrom,
-        journal.marks.spokeTo,
+        journal.marks.firstAgentUpdateAt,
+        journal.marks.lastAgentUpdateAt,
         journal.marks.endedAt,
       ),
       journal.spent

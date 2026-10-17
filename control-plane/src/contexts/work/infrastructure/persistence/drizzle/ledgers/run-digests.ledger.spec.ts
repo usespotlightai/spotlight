@@ -1,6 +1,6 @@
 import { Money } from '@work/domain/value-objects/money.vo';
 import { Tokens } from '@work/domain/value-objects/tokens.vo';
-import { Told } from '@work/infrastructure/acp/told';
+import { JournalBuilder } from '@work/infrastructure/acp/journal-builder';
 import {
   digestOf,
   spendAcross,
@@ -73,8 +73,8 @@ describe('spentAcross', () => {
     amount: number | null,
     currency = 'USD',
   ) => {
-    const told = new Told();
-    told.take({
+    const builder = new JournalBuilder();
+    builder.take({
       type: 'output',
       at: new Date('2026-09-29T09:00:00.000Z'),
       message: null,
@@ -90,7 +90,7 @@ describe('spentAcross', () => {
         }),
       ).toString('base64'),
     });
-    return told;
+    return builder;
   };
 
   it('adds up what each conversation cost, taking each at its latest report', () => {
@@ -105,7 +105,7 @@ describe('spentAcross', () => {
   });
 
   it('spent nothing where nothing was reported', () => {
-    expect(spentAcross([new Told()])).toBeNull();
+    expect(spentAcross([new JournalBuilder()])).toBeNull();
   });
 
   it('reports each session’s spend in its own currency and counts the unpriced ones, never dropping either', () => {
@@ -121,7 +121,7 @@ describe('spentAcross', () => {
       unpricedSessions: 1,
       called: true,
     });
-    expect(spendAcross([new Told()])).toEqual({
+    expect(spendAcross([new JournalBuilder()])).toEqual({
       costs: [],
       unpricedSessions: 0,
       called: false,
@@ -130,16 +130,16 @@ describe('spentAcross', () => {
 
   describe('tokensAcross', () => {
     const turned = (...usages: object[]) => {
-      const told = new Told();
+      const builder = new JournalBuilder();
       for (const usage of usages) {
-        told.take({
+        builder.take({
           type: 'usage',
           at: new Date('2026-09-29T09:00:00.000Z'),
           message: null,
           data: Buffer.from(JSON.stringify(usage)).toString('base64'),
         });
       }
-      return told;
+      return builder;
     };
 
     it('adds up every turn of every attempt, count by count', () => {
@@ -192,7 +192,9 @@ describe('spentAcross', () => {
     });
 
     it('knows nothing of a run whose harness reported no usage', () => {
-      expect(tokensAcross([new Told(), new Told()])).toEqual(Tokens.UNREPORTED);
+      expect(
+        tokensAcross([new JournalBuilder(), new JournalBuilder()]),
+      ).toEqual(Tokens.UNREPORTED);
     });
   });
 });

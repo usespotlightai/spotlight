@@ -34,7 +34,7 @@ type HappeningState = 'raised' | 'resolved';
 
 export interface HappeningPayload {
   readonly happening: Happening;
-  readonly told: string;
-  readonly spoken: boolean;
+  readonly summary: string;
+  readonly answers: boolean;
   readonly state: HappeningState;
 }

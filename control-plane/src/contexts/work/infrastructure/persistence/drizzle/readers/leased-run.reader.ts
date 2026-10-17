@@ -5,7 +5,7 @@ import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type {
   LeasedRunReaderPort,
-  PendingSaying,
+  PendingMessage,
 } from '@work/application/ports/leased-run-reader.port';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { LEASED_RUN_STATES } from '@work/domain/value-objects/run-state';
@@ -29,11 +29,11 @@ interface AttachedRow {
   readonly size: number;
 }
 
-const sayings = (
-  said: readonly { position: number; body: string }[],
+const pendingMessages = (
+  messages: readonly { position: number; body: string }[],
   attached: readonly AttachedRow[],
-): PendingSaying[] =>
-  said.map((each) => ({
+): PendingMessage[] =>
+  messages.map((each) => ({
     position: each.position,
     body: each.body,
     attachments: attached
@@ -48,7 +48,7 @@ export class DrizzleLeasedRunReader implements LeasedRunReaderPort {
   async pendingFor(
     runId: RunId,
     runnerId: RunnerId,
-  ): Promise<readonly PendingSaying[] | null> {
+  ): Promise<readonly PendingMessage[] | null> {
     const leased = await this.leased(runId, runnerId);
 
     if (!leased) {
@@ -91,8 +91,8 @@ export class DrizzleLeasedRunReader implements LeasedRunReaderPort {
   private async pendingOnTask(
     taskId: string,
     runId: RunId,
-  ): Promise<PendingSaying[]> {
-    const [said, attached] = await Promise.all([
+  ): Promise<PendingMessage[]> {
+    const [messages, attached] = await Promise.all([
       this.db
         .select({ position: taskNote.position, body: taskNote.body })
         .from(taskNote)
@@ -103,9 +103,9 @@ export class DrizzleLeasedRunReader implements LeasedRunReaderPort {
         .where(
           and(
             eq(taskNote.taskId, taskId),
-            inArray(taskNote.kind, ['said', 'answered']),
+            inArray(taskNote.kind, ['message', 'answered']),
             ne(taskNote.voice, 'station'),
-            isNull(taskNote.deliveredAt),
+            isNull(taskNote.acknowledgedAt),
           ),
         )
         .orderBy(asc(taskNote.position)),
@@ -122,19 +122,19 @@ export class DrizzleLeasedRunReader implements LeasedRunReaderPort {
         .orderBy(asc(taskAttachment.place)),
     ]);
 
-    return sayings(said, attached);
+    return pendingMessages(messages, attached);
   }
 
-  private async pendingInChat(chatId: string): Promise<PendingSaying[]> {
-    const [said, attached] = await Promise.all([
+  private async pendingInChat(chatId: string): Promise<PendingMessage[]> {
+    const [messages, attached] = await Promise.all([
       this.db
         .select({ position: chatMessage.position, body: chatMessage.body })
         .from(chatMessage)
         .where(
           and(
             eq(chatMessage.chatId, chatId),
-            eq(chatMessage.kind, 'said'),
-            isNull(chatMessage.deliveredAt),
+            eq(chatMessage.kind, 'message'),
+            isNull(chatMessage.acknowledgedAt),
           ),
         )
         .orderBy(asc(chatMessage.position)),
@@ -151,6 +151,6 @@ export class DrizzleLeasedRunReader implements LeasedRunReaderPort {
         .orderBy(asc(chatAttachment.place)),
     ]);
 
-    return sayings(said, attached);
+    return pendingMessages(messages, attached);
   }
 }

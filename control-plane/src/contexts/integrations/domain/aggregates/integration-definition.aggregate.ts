@@ -45,7 +45,7 @@ const SOURCE_FIELD = 'integration';
 const guardDescribes = (compiled: Compiled): void => {
   const source = compiled.integration.source.value;
 
-  if (!compiled.document.says(SOURCE_FIELD, source)) {
+  if (!compiled.document.hasValue(SOURCE_FIELD, source)) {
     throw new InvalidIntegrationError(source, 'was compiled for another host');
   }
 };
@@ -131,7 +131,7 @@ export class IntegrationDefinition extends EventRecorder {
       );
     }
 
-    if (!input.document.says(SOURCE_FIELD, input.source.value)) {
+    if (!input.document.hasValue(SOURCE_FIELD, input.source.value)) {
       throw new InconsistentStateError(
         'integration definition',
         'was kept under a host it does not define',

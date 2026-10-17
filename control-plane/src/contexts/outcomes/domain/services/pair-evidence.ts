@@ -29,7 +29,7 @@ interface Side {
   readonly hunks: readonly JudgedHunk[];
 }
 
-const toldOf = (
+const evidenceOf = (
   side: Side,
   title: string,
   description: string | null,
@@ -42,9 +42,9 @@ const toldOf = (
     hunks: side.hunks,
   });
 
-const labelled = (label: string, told: JudgeEvidence): PairedChange => ({
-  hunks: told.hunks.map((each) => ({ ...each, id: `${label}${each.id}` })),
-  hunksLeftOut: told.hunksLeftOut,
+const labelled = (label: string, evidence: JudgeEvidence): PairedChange => ({
+  hunks: evidence.hunks.map((each) => ({ ...each, id: `${label}${each.id}` })),
+  hunksLeftOut: evidence.hunksLeftOut,
 });
 
 export class PairEvidence {
@@ -67,9 +67,9 @@ export class PairEvidence {
     description: string | null;
     reference: readonly JudgedHunk[];
   }): PairEvidence {
-    const run = toldOf(input.run, input.title, input.description);
-    const against = toldOf(input.against, input.title, input.description);
-    const reference = toldOf(
+    const run = evidenceOf(input.run, input.title, input.description);
+    const against = evidenceOf(input.against, input.title, input.description);
+    const reference = evidenceOf(
       {
         run: input.run.run,
         hunks: input.reference.map((each) => ({

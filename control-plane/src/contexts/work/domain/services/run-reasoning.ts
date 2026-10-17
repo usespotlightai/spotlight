@@ -4,15 +4,20 @@ export const HANDOVER_COMMAND = 'spotlight handover';
 
 export const REMEMBER_COMMAND = 'spotlight remember';
 
-type ReasoningKind = 'said' | 'thought' | 'planned' | 'handover' | 'remember';
+type ReasoningKind =
+  | 'message'
+  | 'thought'
+  | 'planned'
+  | 'handover'
+  | 'remember';
 
 export interface Reasoning {
   readonly kind: ReasoningKind;
   readonly text: string;
 }
 
-const SPOKEN: Partial<Record<StepKind, ReasoningKind>> = {
-  said: 'said',
+const REASONING_KINDS: Partial<Record<StepKind, ReasoningKind>> = {
+  message: 'message',
   thought: 'thought',
   planned: 'planned',
 };
@@ -62,6 +67,6 @@ export const reasoningIn = (step: {
     return commanded(step);
   }
 
-  const kind = SPOKEN[step.kind];
+  const kind = REASONING_KINDS[step.kind];
   return kind ? { kind, text: step.text } : null;
 };

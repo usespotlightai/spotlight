@@ -23,7 +23,7 @@ const EVIDENCE: RunEvidence = {
   steps: [
     {
       index: 2,
-      kind: 'said',
+      kind: 'message',
       tool: null,
       text: 'Retrying in the request.',
       given: null,

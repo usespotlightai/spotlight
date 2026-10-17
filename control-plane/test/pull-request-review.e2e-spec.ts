@@ -99,11 +99,11 @@ describe('a pull request reviewed from GitHub (e2e)', () => {
     const marks = [{ kind: REVIEW_MARK, value: pull }];
     const mentioned: Happened = {
       happening: 'github.pull_request.mentioned',
-      told: 'Somebody mentioned Spotlight on the pull request.',
-      spoken: true,
+      summary: 'Somebody mentioned Spotlight on the pull request.',
+      answers: true,
       state: 'raised',
       concerns: { branch: null, marks },
-      said: { body: '@spotlight please review' },
+      message: { body: '@spotlight please review' },
       ourOwn: false,
       opens: {
         onto: 'review',

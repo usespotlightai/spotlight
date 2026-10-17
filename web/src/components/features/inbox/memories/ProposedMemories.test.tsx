@@ -85,7 +85,7 @@ describe('ProposedMemories', () => {
     expect(screen.getAllByRole('button', { name: /^Approve/ })).toHaveLength(2);
   });
 
-  it('names who said each thing it came from, and the harness behind its steps', () => {
+  it('names the author of each note it came from, and the harness behind its steps', () => {
     showing([
       memory({
         id: 'one',

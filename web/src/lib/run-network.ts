@@ -4,7 +4,7 @@ import type {
   TraceConnectionResponseDto,
 } from '@/lib/api';
 import { sized } from '@/lib/attachment';
-import type { Told } from '@/lib/detail';
+import type { Description } from '@/lib/detail';
 import type { TraceNode } from '@/lib/trace';
 
 export type ConnectionOutcome = RunConnectionResponseDto['outcome'];
@@ -64,7 +64,7 @@ export const CONNECTION_OUTCOME_LABELS: Record<ConnectionOutcome, string> = {
   failed: 'Failed',
 };
 
-export const OUTCOME_TOLD: Record<ConnectionOutcome, string> = {
+export const OUTCOME_DESCRIPTION: Record<ConnectionOutcome, string> = {
   passthrough: 'Egress sent this traffic on and did not decrypt it.',
   injected:
     'Egress decrypted this traffic, because a secret of the run is bound to this host, and injected the secret.',
@@ -81,7 +81,7 @@ export const ERROR_LABELS: Record<ConnectionError, string> = {
   'server-error': 'Server error',
 };
 
-const REASON_TOLD: Record<ConnectionReason, string> = {
+const REASON_DESCRIPTION: Record<ConnectionReason, string> = {
   'not-allowed':
     'Egress blocked the connection. The host is not on the allow-list of egress.',
   'private-address':
@@ -105,11 +105,11 @@ const errorCause = (connection: TraceConnectionResponseDto): string => {
   }
 
   return connection.reason
-    ? REASON_TOLD[connection.reason]
-    : OUTCOME_TOLD[connection.outcome];
+    ? REASON_DESCRIPTION[connection.reason]
+    : OUTCOME_DESCRIPTION[connection.outcome];
 };
 
-export const connectionTold = (node: TraceNode): Told | null =>
+export const describeConnection = (node: TraceNode): Description | null =>
   node.connection
     ? { title: 'Cause', body: errorCause(node.connection), prose: true }
     : null;
@@ -132,7 +132,7 @@ export const ENFORCEMENT_LABELS: Record<
   'not-enforced': 'Not enforced',
 };
 
-export const ENFORCEMENT_TOLD: Record<
+export const ENFORCEMENT_DESCRIPTION: Record<
   NonNullable<RunNetworkResponseDto['egressEnforcement']>,
   string
 > = {

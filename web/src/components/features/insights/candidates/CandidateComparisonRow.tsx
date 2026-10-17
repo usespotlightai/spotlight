@@ -1,5 +1,5 @@
 import { BestValueMark } from '@/components/features/insights/BestValueMark';
-import { GainSaid } from '@/components/features/insights/candidates/GainSaid';
+import { GainValue } from '@/components/features/insights/candidates/GainValue';
 import { RateTrack } from '@/components/features/insights/candidates/RateTrack';
 import { ConfigPlan } from '@/components/features/insights/changes/ConfigPlan';
 import { ReplayStatePill } from '@/components/features/replays/ReplayStatePill';
@@ -113,7 +113,7 @@ export function CandidateComparisonRow({
             {formatPercent(shown.liveSuccessRate)}
           </NestedCell>
           <NestedCell heading="Against live" numeric={false}>
-            <GainSaid gain={candidate.againstLive} />
+            <GainValue gain={candidate.againstLive} />
           </NestedCell>
           <NestedCell heading="Cost per run" strong>
             {costNote ? (

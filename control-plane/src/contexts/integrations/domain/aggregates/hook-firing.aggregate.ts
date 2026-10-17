@@ -307,7 +307,7 @@ export class HookFiring extends EventRecorder {
     return stop
       ? HookFailure.of(
           'loop',
-          `Hook ${hook} was stopped to prevent a loop. ${stop.saying}`,
+          `Hook ${hook} was stopped to prevent a loop. ${stop.description}`,
         )
       : null;
   }
@@ -328,8 +328,8 @@ export class HookFiring extends EventRecorder {
     return this.with({ failure: loop });
   }
 
-  toldOfLoop(now: Date, superseded: boolean): HookFiring {
-    this.guardWorking('be told of');
+  markLoopNotified(now: Date, superseded: boolean): HookFiring {
+    this.guardWorking('be marked as notified of a loop');
 
     const loop = this.state.failure;
 

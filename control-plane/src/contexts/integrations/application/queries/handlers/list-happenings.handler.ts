@@ -29,7 +29,7 @@ export class ListHappeningsHandler
         happening: each.happening.value,
         source: each.happening.source,
         label: each.label,
-        told: each.told,
+        summary: each.summary,
       }));
     } catch (error) {
       rethrowAsApplicationError(error);

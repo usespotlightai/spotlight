@@ -89,7 +89,7 @@ export class Chat extends EventRecorder {
     Chat.assertNoForeignTraces(input.teamId, input.traces ?? []);
     Chat.assertNoForeignStation(input.teamId, input.improving ?? null);
 
-    const opening = ChatMessage.said({
+    const opening = ChatMessage.sent({
       position: MessagePosition.of(0),
       by: input.startedBy,
       body: input.body,
@@ -156,7 +156,7 @@ export class Chat extends EventRecorder {
     if (
       input.messages.some((message, place) => message.position.value !== place)
     ) {
-      throw new InconsistentStateError('chat', 'has a gap in what was said');
+      throw new InconsistentStateError('chat', 'has a gap in its messages');
     }
 
     return new Chat(
@@ -202,11 +202,11 @@ export class Chat extends EventRecorder {
   }
 
   get wantsFollowUp(): boolean {
-    return !this.running && this.undelivered.length > 0;
+    return !this.running && this.unacknowledged.length > 0;
   }
 
-  get undelivered(): readonly ChatMessage[] {
-    return this.messages.filter((message) => message.undelivered);
+  get unacknowledged(): readonly ChatMessage[] {
+    return this.messages.filter((message) => message.unacknowledged);
   }
 
   get allAttachments(): readonly Attachment[] {
@@ -233,7 +233,7 @@ export class Chat extends EventRecorder {
     return named && this.setup?.repository.equals(named) ? named : null;
   }
 
-  said(input: {
+  addMessage(input: {
     by: UserId;
     body: ChatMessageBody;
     attachments?: readonly Attachment[];
@@ -248,7 +248,7 @@ export class Chat extends EventRecorder {
     return this.with({
       messages: [
         ...this.messages,
-        ChatMessage.said({ ...input, position: this.nextPosition }),
+        ChatMessage.sent({ ...input, position: this.nextPosition }),
       ],
       model: input.model,
       effort: input.effort,
@@ -317,14 +317,14 @@ export class Chat extends EventRecorder {
 
     const assigned = this.with({
       currentRunId: runId,
-      messages: this.messages.map((message) => message.delivered(runId, at)),
+      messages: this.messages.map((message) => message.acknowledge(runId, at)),
     });
 
     assigned.record(
       new ChatDispatched(
         this.id,
         runId,
-        this.undelivered.map((message) => message.position),
+        this.unacknowledged.map((message) => message.position),
       ),
     );
 
@@ -339,7 +339,7 @@ export class Chat extends EventRecorder {
     return this.with({
       currentRunId: null,
       messages: this.messages.map((message) =>
-        message.wasDeliveredTo(runId) ? message.takenBack() : message,
+        message.wasAcknowledgedBy(runId) ? message.unacknowledge() : message,
       ),
     });
   }
@@ -378,7 +378,7 @@ export class Chat extends EventRecorder {
     return this.with({ sessionId, runnerId });
   }
 
-  markDeliveredUpTo(runId: RunId, position: MessagePosition, at: Date): Chat {
+  acknowledgeUpTo(runId: RunId, position: MessagePosition, at: Date): Chat {
     if (!this.hasCurrentRun(runId)) {
       return this;
     }
@@ -386,7 +386,7 @@ export class Chat extends EventRecorder {
     return this.with({
       messages: this.messages.map((message) =>
         message.position.isAtOrBefore(position)
-          ? message.delivered(runId, at)
+          ? message.acknowledge(runId, at)
           : message,
       ),
     });

@@ -26,13 +26,13 @@ describe('HarnessCommand', () => {
       HarnessCommand.of({ executable: 'agent' }).started(),
     ).not.toHaveProperty('env');
 
-    const told = HarnessCommand.of({
+    const command = HarnessCommand.of({
       executable: 'agent',
       // biome-ignore lint/suspicious/noTemplateCurlyInString: expanded by the runner
       env: { AGENT_STATE_DIR: '${SPOTLIGHT_STATE_DIR}/agent' },
     });
 
-    expect(told.started()).toEqual({
+    expect(command.started()).toEqual({
       executable: 'agent',
       args: [],
       // biome-ignore lint/suspicious/noTemplateCurlyInString: expanded by the runner

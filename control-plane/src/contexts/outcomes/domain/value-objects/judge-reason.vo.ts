@@ -1,7 +1,7 @@
 import { InvalidScoreError } from '@outcomes/domain/exceptions/invalid-score.error';
 import type { Citation } from '@outcomes/domain/value-objects/citation.vo';
 
-const MAX_SAID = 1_000;
+const MAX_REASON_CHARS = 1_000;
 
 const MAX_CITED = 10;
 
@@ -24,9 +24,9 @@ export class JudgeReason {
       (each, at, all) => all.findIndex((one) => one.equals(each)) === at,
     );
 
-    if (!text || text.length > MAX_SAID) {
+    if (!text || text.length > MAX_REASON_CHARS) {
       throw new InvalidScoreError(
-        `must be 1 to ${MAX_SAID} characters`,
+        `must be 1 to ${MAX_REASON_CHARS} characters`,
         'reason',
       );
     }

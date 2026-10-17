@@ -46,7 +46,7 @@ func causeCmd(args []string, out io.Writer) error {
 		}
 	}
 
-	endpoint, token := os.Getenv(protocol.HandoverURLVar), os.Getenv(protocol.HandoverTokenVar)
+	endpoint, token := os.Getenv(protocol.AgentAPIURLVar), os.Getenv(protocol.AgentAPITokenVar)
 	if endpoint == "" || token == "" {
 		return fmt.Errorf("no run to record a cause from: spotlight runs inside a Spotlight workspace")
 	}
@@ -58,7 +58,7 @@ func causeCmd(args []string, out io.Writer) error {
 		return err
 	}
 
-	answered, err := proposeTo(strings.TrimSuffix(endpoint, "/")+protocol.HandoverCausePath, token, body)
+	answered, err := proposeTo(strings.TrimSuffix(endpoint, "/")+protocol.AgentAPICausePath, token, body)
 	if err != nil {
 		return err
 	}
@@ -85,10 +85,10 @@ func textOf(given, what string) (string, error) {
 		return "", fmt.Errorf("read the %s: %w", what, err)
 	}
 
-	said := strings.TrimSpace(string(read))
-	if said == "" {
+	text := strings.TrimSpace(string(read))
+	if text == "" {
 		return "", fmt.Errorf("%s contains no %s", file, what)
 	}
 
-	return said, nil
+	return text, nil
 }

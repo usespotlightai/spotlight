@@ -21,17 +21,17 @@ func replaying(archive *string) func(*runOptions) {
 func TestAReplayRestoresTheArchiveItReplaysAndKeepsNoneOfItsOwn(t *testing.T) {
 	kept := newKeptArchives(t)
 
-	run(t, harness(t, `require("node:fs").writeFileSync("notes.md", "halfway"); said = "wrote";`, "end_turn"),
+	run(t, harness(t, `require("node:fs").writeFileSync("notes.md", "halfway"); output = "wrote";`, "end_turn"),
 		func(o *runOptions) {
 			o.archives = kept
 			o.continuity = protocol.Continuity{Key: carriedOn}
 		})
 
 	started := kept.newest().ID
-	replayed := run(t, harness(t, `said = require("node:fs").readFileSync("notes.md", "utf8");`, "end_turn"),
+	replayed := run(t, harness(t, `output = require("node:fs").readFileSync("notes.md", "utf8");`, "end_turn"),
 		replaying(&started), func(o *runOptions) { o.archives = kept })
 
-	if got := said(t, replayed); got != "halfway" {
+	if got := agentOutput(t, replayed); got != "halfway" {
 		t.Errorf("the replay found %q in the workspace", got)
 	}
 	if got := step(t, replayed, "restore"); !strings.HasPrefix(got, "Restored the workspace the replayed run started from") {
@@ -54,16 +54,16 @@ func TestAReplayRestoresTheArchiveItReplaysAndKeepsNoneOfItsOwn(t *testing.T) {
 func TestAReplayThatStartedAfreshRestoresNothing(t *testing.T) {
 	kept := newKeptArchives(t)
 
-	run(t, harness(t, `require("node:fs").writeFileSync("notes.md", "halfway"); said = "wrote";`, "end_turn"),
+	run(t, harness(t, `require("node:fs").writeFileSync("notes.md", "halfway"); output = "wrote";`, "end_turn"),
 		func(o *runOptions) {
 			o.archives = kept
 			o.continuity = protocol.Continuity{Key: carriedOn}
 		})
 
-	replayed := run(t, harness(t, `said = String(require("node:fs").existsSync("notes.md"));`, "end_turn"),
+	replayed := run(t, harness(t, `output = String(require("node:fs").existsSync("notes.md"));`, "end_turn"),
 		replaying(nil), func(o *runOptions) { o.archives = kept })
 
-	if got := said(t, replayed); got != "false" {
+	if got := agentOutput(t, replayed); got != "false" {
 		t.Errorf("a replay that started afresh found notes.md: %q", got)
 	}
 }
@@ -76,7 +76,7 @@ func TestAReplayWhoseArchiveIsGoneEndsFailedRatherThanStartingAfresh(t *testing.
 	err := session.Execute(context.Background(), protocol.Run{
 		ID: "run_1",
 		Spec: protocol.Spec{
-			Command:    protocol.Command{Executable: harness(t, `said = "worked";`, "end_turn")},
+			Command:    protocol.Command{Executable: harness(t, `output = "worked";`, "end_turn")},
 			Continuity: protocol.Continuity{Key: "replay-run_1"},
 			Replay:     &protocol.Replay{Archive: &gone},
 		},
@@ -98,14 +98,14 @@ func TestAReplayThatAsksAPersonEndsThere(t *testing.T) {
 	written := run(t, permitting(t), replaying(nil), func(o *runOptions) {
 		o.setup = protocol.HarnessSetup{Asks: []string{"execute"}}
 		o.decision = protocol.PermissionEscalated
-		o.said = [][]protocol.Said{{{Position: 1, Body: "Go ahead."}}}
+		o.messages = [][]protocol.Message{{{Position: 1, Body: "Go ahead."}}}
 	})
 
-	if heard := said(t, written); heard != "cancelled" {
-		t.Errorf("the agent was told %q", heard)
+	if output := agentOutput(t, written); output != "cancelled" {
+		t.Errorf("the agent got %q", output)
 	}
-	if len(written.delivered) != 0 {
-		t.Errorf("the replay used what was said: delivered %v", written.delivered)
+	if len(written.acked) != 0 {
+		t.Errorf("the replay used the messages: acknowledged %v", written.acked)
 	}
 	if written.done == nil || written.done.Failed || written.done.Stopped {
 		t.Fatalf("completion %+v", written.done)
@@ -116,12 +116,12 @@ func TestAReplayRemembersNothing(t *testing.T) {
 	remembering := `execSync(` + "`" +
 		`node -e '
       const body = JSON.stringify({ kind: "rationale", body: "Retry in the request." });
-      fetch(process.env.SPOTLIGHT_HANDOVER_URL + "remember", {
+      fetch(process.env.SPOTLIGHT_AGENT_API_URL + "remember", {
         method: "POST",
-        headers: { Authorization: "Bearer " + process.env.SPOTLIGHT_HANDOVER_TOKEN },
+        headers: { Authorization: "Bearer " + process.env.SPOTLIGHT_AGENT_API_TOKEN },
         body,
       }).then((answer) => process.exit(answer.ok ? 0 : 1));
-    '` + "`" + `); said = "remembered";`
+    '` + "`" + `); output = "remembered";`
 
 	written := run(t, harness(t, remembering, "end_turn"), replaying(nil))
 

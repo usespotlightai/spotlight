@@ -28,7 +28,7 @@ import type { AuthenticatedUser } from '@shared-kernel/application/ports/session
 import {
   AcceptProposalCommand,
   DismissProposalCommand,
-  SayInChatCommand,
+  SendChatMessageCommand,
   StartChatCommand,
   StopChatCommand,
 } from '@work/application/commands/chat.commands';
@@ -40,7 +40,7 @@ import {
   ReadChatQuery,
 } from '@work/application/queries/chat.queries';
 import {
-  SayInChatRequestDto,
+  SendChatMessageRequestDto,
   StartChatRequestDto,
 } from '@work/presentation/http/dto/chat.request.dto';
 import {
@@ -143,7 +143,7 @@ export class ChatController {
   @Get(':chatId')
   @ApiOperation({
     operationId: 'readChat',
-    summary: 'A chat, with everything said and proposed in it',
+    summary: 'A chat, with all its messages and proposals',
   })
   @ApiParam({ name: 'chatId', type: String })
   @ApiOkResponse({ type: ChatResponseDto })
@@ -167,7 +167,7 @@ export class ChatController {
   @Get(':chatId/journal')
   @ApiOperation({
     operationId: 'readChatJournal',
-    summary: 'What the agent did and said in each run of a chat',
+    summary: 'What the agent did and wrote in each run of a chat',
   })
   @ApiParam({ name: 'chatId', type: String })
   @ApiOkResponse({ type: RunJournalResponseDto, isArray: true })
@@ -192,22 +192,22 @@ export class ChatController {
   @Post(':chatId/messages')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
-    operationId: 'sayInChat',
-    summary: 'Say something to the agent in a chat',
+    operationId: 'sendChatMessage',
+    summary: 'Send a message to the agent in a chat',
   })
   @ApiParam({ name: 'chatId', type: String })
-  @ApiNoContentResponse({ description: 'The agent hears it' })
+  @ApiNoContentResponse({ description: 'The agent gets the message' })
   @ApiBadRequestResponse({ description: 'A model or effort that is not text' })
   @ApiNotFoundResponse({ description: 'No such chat for this caller' })
   @ApiUnprocessableEntityResponse({ description: 'An unknown model or effort' })
-  async say(
+  async sendChatMessage(
     @Param('teamId') teamId: string,
     @Param('chatId') chatId: string,
-    @Body() body: SayInChatRequestDto,
+    @Body() body: SendChatMessageRequestDto,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<void> {
     await this.commandBus.execute(
-      new SayInChatCommand(
+      new SendChatMessageCommand(
         teamId,
         chatId,
         user.id,

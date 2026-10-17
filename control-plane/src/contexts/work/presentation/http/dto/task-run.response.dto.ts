@@ -4,7 +4,7 @@ import {
   RUN_STATE_NAMES,
 } from '@work/application/dto/task-run.dto';
 import { AttachmentResponseDto } from '@work/presentation/http/dto/attachment.response.dto';
-import { InboxMessageResponseDto } from '@work/presentation/http/dto/inbox.response.dto';
+import { NoteResponseDto } from '@work/presentation/http/dto/inbox.response.dto';
 
 export class RunStationResponseDto {
   @ApiProperty({ example: 'd41f0a2c-8b7e-4f19-9d3a-6c5e2b1a4f80' })
@@ -144,8 +144,8 @@ export class RunConversationResponseDto {
   @ApiProperty({ example: false, description: 'A run is on the task now' })
   readonly working: boolean;
 
-  @ApiProperty({ type: InboxMessageResponseDto, isArray: true })
-  readonly notes: readonly InboxMessageResponseDto[];
+  @ApiProperty({ type: NoteResponseDto, isArray: true })
+  readonly notes: readonly NoteResponseDto[];
 
   @ApiProperty({
     type: RunSpendResponseDto,
@@ -164,7 +164,7 @@ export class RunConversationResponseDto {
     createdAt: string,
     briefing: string,
     working: boolean,
-    notes: readonly InboxMessageResponseDto[],
+    notes: readonly NoteResponseDto[],
     spend: RunSpendResponseDto | null,
   ) {
     this.runId = runId;
@@ -181,7 +181,7 @@ export class RunConversationResponseDto {
   }
 }
 
-export class SayToRunRequestDto {
+export class SendMessageRequestDto {
   @ApiProperty({
     example: 'Cap the retries at 500 while you are in there.',
     description:
@@ -278,7 +278,7 @@ export class TeamRunResponseDto extends TaskRunResponseDto {
   @ApiProperty({
     nullable: true,
     type: String,
-    description: 'What was asked for, shown before a run has said anything',
+    description: 'What was asked for, shown before a run has written a note',
   })
   readonly taskDescription: string | null;
 

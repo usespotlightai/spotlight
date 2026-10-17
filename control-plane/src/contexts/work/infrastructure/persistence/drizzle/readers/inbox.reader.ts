@@ -150,26 +150,26 @@ export class DrizzleInboxReader implements InboxReaderPort {
 
     const given = await briefingsFor(
       this.db,
-      [...trail.values()].flatMap((told) =>
-        told.flatMap((note) => (note.runId ? [note.runId] : [])),
+      [...trail.values()].flatMap((notes) =>
+        notes.flatMap((note) => (note.runId ? [note.runId] : [])),
       ),
     );
 
     const items: InboxItemSummary[] = [];
 
     for (const row of rows) {
-      const told = trail.get(row.taskId) ?? [];
+      const taskNotes = trail.get(row.taskId) ?? [];
 
       for (const conversation of conversationsOf(
-        told.map((each) => each.kind),
+        taskNotes.map((each) => each.kind),
       )) {
-        const note = told[conversation.from];
+        const note = taskNotes[conversation.from];
 
         if (!note) {
           continue;
         }
 
-        const notes = notesIn(conversation, told);
+        const notes = notesIn(conversation, taskNotes);
         const last = notes[notes.length - 1];
 
         items.push({

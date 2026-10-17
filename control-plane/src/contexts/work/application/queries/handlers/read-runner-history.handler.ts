@@ -278,12 +278,12 @@ export class ReadRunnerHistoryHandler
     station: string,
   ): Promise<readonly WrittenRun[]> {
     const runIds = kept.map((each) => each.runId);
-    const [told, errors] = await Promise.all([
+    const [found, errors] = await Promise.all([
       this.stations.journalsOf(runIds),
       this.connections.errorsIn(runIds),
     ]);
     const journals = new Map<string, RunJournal>(
-      told.map((journal) => [journal.runId, journal]),
+      found.map((journal) => [journal.runId, journal]),
     );
 
     return kept.map((each) => {

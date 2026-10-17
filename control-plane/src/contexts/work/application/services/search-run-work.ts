@@ -26,8 +26,8 @@ export class SearchRunWork implements RunWork {
     return this.run.workspaceId;
   }
 
-  async deliverUpTo(): Promise<void> {
-    throw new KeptFromSearchesError('take up what a person says');
+  async acknowledgeUpTo(): Promise<void> {
+    throw new KeptFromSearchesError('acknowledge the messages of a person');
   }
 
   gave(): Attachment | null {

@@ -62,8 +62,8 @@ func remembering(t *testing.T, rejecting error) *memoryChannel {
 		},
 	)
 
-	t.Setenv(protocol.HandoverURLVar, server.URL())
-	t.Setenv(protocol.HandoverTokenVar, server.Token())
+	t.Setenv(protocol.AgentAPIURLVar, server.URL())
+	t.Setenv(protocol.AgentAPITokenVar, server.Token())
 
 	return seen
 }
@@ -99,7 +99,7 @@ func TestRecallSaysSoWhenNothingMatches(t *testing.T) {
 	}
 
 	if !strings.Contains(out.String(), "remembers nothing") {
-		t.Errorf("said %q", out.String())
+		t.Errorf("output %q", out.String())
 	}
 }
 
@@ -153,7 +153,7 @@ func TestRememberProposesWithAbsolutePaths(t *testing.T) {
 		t.Errorf("paths %v", got.Paths)
 	}
 	if !strings.Contains(out.String(), "waits beside the task for a person to approve it") {
-		t.Errorf("said %q", out.String())
+		t.Errorf("output %q", out.String())
 	}
 }
 

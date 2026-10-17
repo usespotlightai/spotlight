@@ -95,8 +95,8 @@ describe('the open setup lists of a team', () => {
   it('leaves a closed one out', async () => {
     const { teamId, list } = await openTeam('fallon');
 
-    const saying = setupDoneNote(list.notes, DONE, NOW);
-    const gone = list.closeConversation(saying as NonNullable<typeof saying>);
+    const newNote = setupDoneNote(list.notes, DONE, NOW);
+    const gone = list.closeConversation(newNote as NonNullable<typeof newNote>);
 
     expect(gone.finishedAt).toBeNull();
     await tasks.save(gone);
@@ -184,10 +184,10 @@ describe('the inbox item of a setup list', () => {
   });
 
   it('reads as resolved once the list has been closed', async () => {
-    const saying = setupDoneNote(waiting.list.notes, DONE, NOW);
+    const newNote = setupDoneNote(waiting.list.notes, DONE, NOW);
 
     await tasks.save(
-      waiting.list.closeConversation(saying as NonNullable<typeof saying>),
+      waiting.list.closeConversation(newNote as NonNullable<typeof newNote>),
     );
 
     const [item] = await inbox();

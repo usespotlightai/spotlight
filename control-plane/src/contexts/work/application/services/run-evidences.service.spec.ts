@@ -17,7 +17,7 @@ import { TaskTitle } from '@work/domain/value-objects/task-title.vo';
 import { describe, expect, it } from 'vitest';
 
 const stepOf = (change: Partial<JournalStep>): JournalStep => ({
-  kind: 'said',
+  kind: 'message',
   text: '',
   status: null,
   tool: null,
@@ -63,8 +63,8 @@ const journal: RunJournal = {
   marks: {
     startedAt: null,
     readyAt: null,
-    spokeFrom: null,
-    spokeTo: null,
+    firstAgentUpdateAt: null,
+    lastAgentUpdateAt: null,
     endedAt: null,
   },
   spent: null,

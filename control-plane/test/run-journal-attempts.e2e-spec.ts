@@ -156,7 +156,7 @@ describe('journalling a run that was tried again', () => {
 });
 
 describe('digesting a run that paused for a person', () => {
-  const spoken = (seq: number, second: number) => ({
+  const messageChunk = (seq: number, second: number) => ({
     seq,
     type: 'output',
     at: new Date(Date.UTC(2026, 8, 17, 9, 0, second)),
@@ -165,7 +165,7 @@ describe('digesting a run that paused for a person', () => {
         sessionId: 'session_1',
         update: {
           sessionUpdate: 'agent_message_chunk',
-          content: { type: 'text', text: `said at ${second}` },
+          content: { type: 'text', text: `message at ${second}` },
         },
       }),
     ).toString('base64'),
@@ -174,7 +174,10 @@ describe('digesting a run that paused for a person', () => {
   it('counts every attempt it kept, and none of the time it waited', async () => {
     const { runId } = await chatRun();
 
-    await journal.append(RunAttempt.of(runId, 1), [spoken(1, 0), spoken(2, 4)]);
+    await journal.append(RunAttempt.of(runId, 1), [
+      messageChunk(1, 0),
+      messageChunk(2, 4),
+    ]);
     await journal.appendAside(RunAttempt.of(runId, 1), {
       type: 'run.paused',
       at: new Date(Date.UTC(2026, 8, 17, 9, 0, 5)),
@@ -185,8 +188,8 @@ describe('digesting a run that paused for a person', () => {
       .set({ attempt: 2, suspendedAttempts: [1], state: 'claimed' })
       .where(eq(schema.run.id, runId.value));
     await journal.append(RunAttempt.of(runId, 2), [
-      spoken(1, 50),
-      spoken(2, 53),
+      messageChunk(1, 50),
+      messageChunk(2, 53),
     ]);
     await finished(runId);
     await digests.ensure([runId]);

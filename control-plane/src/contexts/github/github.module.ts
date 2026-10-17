@@ -4,11 +4,11 @@ import { PULL_REQUESTS } from '@github/application/ports/pull-request.port';
 import { PULL_REQUEST_COMMENTS } from '@github/application/ports/pull-request-comments.port';
 import { PULL_REQUEST_REACTIONS } from '@github/application/ports/pull-request-reactions.port';
 import { PULL_REQUEST_REVIEWS } from '@github/application/ports/pull-request-reviews.port';
-import { REMARKS } from '@github/application/ports/remarks.port';
 import { REPOSITORY_ACCESS } from '@github/application/ports/repository-access.port';
 import { REPOSITORY_CATALOG } from '@github/application/ports/repository-catalog.port';
 import { REPOSITORY_CONTENTS } from '@github/application/ports/repository-contents.port';
 import { REPOSITORY_GIT } from '@github/application/ports/repository-git.port';
+import { REVIEW_COMMENTS } from '@github/application/ports/review-comments.port';
 
 import { WORKSPACE_CONNECTIONS } from '@github/application/ports/workspace-connections.port';
 import { GITHUB_CONTROLLERS, GITHUB_PROVIDERS } from '@github/github.wiring';
@@ -29,7 +29,7 @@ import { Module } from '@nestjs/common';
     PULL_REQUEST_COMMENTS,
     PULL_REQUEST_REACTIONS,
     PULL_REQUEST_REVIEWS,
-    REMARKS,
+    REVIEW_COMMENTS,
     GITHUB_APP,
     GITHUB_WEBHOOKS,
   ],

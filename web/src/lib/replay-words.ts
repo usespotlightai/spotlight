@@ -187,16 +187,16 @@ const formatSkip = (code: string): string =>
   isKey(CHECK_SKIPS, code) ? CHECK_SKIPS[code] : code;
 
 export const formatChecks = (checks: EntryChecksResponseDto): string => {
-  const said = CHECKS[checks.state];
+  const text = CHECKS[checks.state];
 
   if (checks.state === 'failed' && checks.failedAt.length > 0) {
-    return `${said} at ${checks.failedAt.join(', ')}`;
+    return `${text} at ${checks.failedAt.join(', ')}`;
   }
   if (checks.state === 'unchecked' && checks.why) {
-    return `${said}: ${formatSkip(checks.why)}`;
+    return `${text}: ${formatSkip(checks.why)}`;
   }
 
-  return said;
+  return text;
 };
 
 export const formatUncompared = (why: ScoreUncompared): string =>
@@ -426,7 +426,7 @@ export type HealthTone = 'good' | 'bad' | 'pending' | 'unknown';
 export type HealthReading = {
   readonly key: HealthKey;
   readonly label: string;
-  readonly said: string;
+  readonly text: string;
   readonly tone: HealthTone;
   readonly advice: string;
 };
@@ -461,7 +461,7 @@ const noiseReading = (
   if (!noise) {
     return {
       ...base,
-      said: NOISE_UNMEASURED,
+      text: NOISE_UNMEASURED,
       tone: 'unknown',
       advice:
         'The first baseline of the live config replays each run 3 times to measure noise. Noise shows how much success moves by chance.',
@@ -472,7 +472,7 @@ const noiseReading = (
 
   return {
     ...base,
-    said: formatNoise(noise),
+    text: formatNoise(noise),
     tone: noise.noisyInOneCopy ? 'bad' : 'good',
     advice: noise.noisyInOneCopy
       ? `One copy can’t tell a real gain from chance. Search with more repeats per run, or raise the line’s min_gain. ${minimum}`
@@ -500,7 +500,7 @@ const liveRoomReading = (
 ): Omit<HealthReading, 'key' | 'label'> => {
   if (!saturation) {
     return {
-      said: NOISE_UNMEASURED,
+      text: NOISE_UNMEASURED,
       tone: 'unknown',
       advice:
         'Replay the live config over the whole set to see how much of it succeeds already.',
@@ -511,12 +511,12 @@ const liveRoomReading = (
 
   return saturation.saturated
     ? {
-        said: `Almost none: ${succeeds}`,
+        text: `Almost none: ${succeeds}`,
         tone: 'bad',
         advice: `The set has no room for more success. Search for the same success at less cost, or add tasks that the live config fails. ${MEASURED_WITH_ANSWER}`,
       }
     : {
-        said: sentence(succeeds),
+        text: sentence(succeeds),
         tone: 'good',
         advice: `The set has room for a search to find more success. ${MEASURED_WITH_ANSWER}`,
       };
@@ -534,7 +534,7 @@ const roomReading = (
   if (oracle.state === 'queued' || oracle.state === 'running') {
     return {
       ...base,
-      said: 'Measuring with the answer',
+      text: 'Measuring with the answer',
       tone: 'pending',
       advice: `Spotlight replays the live config with each run’s answer. ${ANSWER_GIVEN}`,
     };
@@ -542,7 +542,7 @@ const roomReading = (
   if (oracleLost(oracle)) {
     return {
       ...base,
-      said: 'Couldn’t measure with the answer',
+      text: 'Couldn’t measure with the answer',
       tone: 'unknown',
       advice: `The replay with the answer or its live replay didn’t finish. ${MEASURED_WITH_ANSWER}`,
     };
@@ -554,7 +554,7 @@ const roomReading = (
   if (oracle.roomToImprove === null) {
     return {
       ...base,
-      said: `Too few runs to tell: ${counted(oracle.answered, 'run', 'runs')} with an answer`,
+      text: `Too few runs to tell: ${counted(oracle.answered, 'run', 'runs')} with an answer`,
       tone: 'unknown',
       advice: `Spotlight needs 5 runs that were accepted or sent back to measure room. Please add some to the set. ${ANSWER_GIVEN}`,
     };
@@ -565,13 +565,13 @@ const roomReading = (
   return oracle.roomToImprove
     ? {
         ...base,
-        said: `Up to ${formatGain(oracle.gain)} with the answer`,
+        text: `Up to ${formatGain(oracle.gain)} with the answer`,
         tone: 'good',
         advice: `${rates} A better config can gain up to this much. ${ANSWER_GIVEN}`,
       }
     : {
         ...base,
-        said: `Little: ${formatGain(oracle.gain)} with the answer`,
+        text: `Little: ${formatGain(oracle.gain)} with the answer`,
         tone: 'bad',
         advice: `${rates} Even the answer barely helps. Add tasks that the live config fails, or search for the same success at less cost. ${ANSWER_GIVEN}`,
       };
@@ -591,7 +591,7 @@ const judgeReading = (judge: SetHealth['judge']): HealthReading => {
   if (!judge) {
     return {
       ...base,
-      said: NOT_CHECKED,
+      text: NOT_CHECKED,
       tone: 'unknown',
       advice:
         'The first baseline of the live config judges each change twice to measure this. It shows whether the verdicts match.',
@@ -603,24 +603,24 @@ const judgeReading = (judge: SetHealth['judge']): HealthReading => {
   if (judge.agreement === null) {
     return {
       ...base,
-      said: 'Judging again',
+      text: 'Judging again',
       tone: 'pending',
       advice: `The judge is judging each change a second time.${pending}`,
     };
   }
 
-  const said = `Same verdict on ${formatPercent(judge.agreement)} of ${formatChanges(judge.compared)}`;
+  const text = `Same verdict on ${formatPercent(judge.agreement)} of ${formatChanges(judge.compared)}`;
 
   return judge.unstable
     ? {
         ...base,
-        said,
+        text,
         tone: 'bad',
         advice: `The verdicts are partly chance. Please make the rubric more specific before you search.${pending}`,
       }
     : {
         ...base,
-        said,
+        text,
         tone: 'good',
         advice: `The verdicts stay the same when the judge judges again.${pending}`,
       };
@@ -632,7 +632,7 @@ const checksReading = (checks: SetHealth['checks']): HealthReading => {
   if (!checks) {
     return {
       ...base,
-      said: NOT_CHECKED,
+      text: NOT_CHECKED,
       tone: 'unknown',
       advice:
         'The first baseline of the live config runs the station’s check twice on each change to measure this. It shows whether the check gives the same answer.',
@@ -644,7 +644,7 @@ const checksReading = (checks: SetHealth['checks']): HealthReading => {
   if (checks.rechecked === 0) {
     return {
       ...base,
-      said: 'Checking again',
+      text: 'Checking again',
       tone: 'pending',
       advice: `Spotlight is checking each change a second time.${pending}`,
     };
@@ -653,13 +653,13 @@ const checksReading = (checks: SetHealth['checks']): HealthReading => {
   return checks.flaky.length > 0
     ? {
         ...base,
-        said: `${checks.flaky.length} of ${formatChanges(checks.rechecked)} flipped`,
+        text: `${checks.flaky.length} of ${formatChanges(checks.rechecked)} flipped`,
         tone: 'bad',
         advice: `The check passed once and failed once on these changes. Please fix the flaky tests, or take these tasks out of the set.${pending}`,
       }
     : {
         ...base,
-        said: `None of ${formatChanges(checks.rechecked)} flipped`,
+        text: `None of ${formatChanges(checks.rechecked)} flipped`,
         tone: 'good',
         advice: `The check gave the same answer both times.${pending}`,
       };

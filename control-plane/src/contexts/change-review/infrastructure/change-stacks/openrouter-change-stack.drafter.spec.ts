@@ -4,9 +4,9 @@ import { HunkId } from '@change-review/domain/value-objects/stack-ids';
 import { GitDiffReader } from '@change-review/infrastructure/change-stacks/git-diff.reader';
 import {
   DEFAULT_MODEL,
+  describeProblem,
   OpenRouterChangeStackDrafter,
   revised,
-  told,
 } from '@change-review/infrastructure/change-stacks/openrouter-change-stack.drafter';
 import { PatternCodeReading } from '@change-review/infrastructure/change-stacks/pattern-code.reading';
 import { describe, expect, it } from 'vitest';
@@ -63,13 +63,13 @@ const draft = (drafter: OpenRouterChangeStackDrafter) =>
     problems: [{ code: 'shape', message: 'leaves h2 out' }],
   });
 
-describe('told', () => {
+describe('describeProblem', () => {
   it('tells the model how to mend a problem it can mend by itself', () => {
-    expect(told({ code: 'shape', message: 'leaves h2 out' })).toBe(
+    expect(describeProblem({ code: 'shape', message: 'leaves h2 out' })).toBe(
       'leaves h2 out',
     );
     expect(
-      told({
+      describeProblem({
         code: 'unconnected',
         message: 'cohort 1 joins changes the code does not connect (h1 | h2)',
       }),

@@ -11,7 +11,7 @@ const hunkOf = (id: string, lines: readonly string[]) => ({
 
 describe('SeenEvidence', () => {
   it('keeps each step and hunk once, however often it is given', () => {
-    const step = { index: 4, kind: 'said', tool: null, text: 'Retrying.' };
+    const step = { index: 4, kind: 'message', tool: null, text: 'Retrying.' };
     const seen = SeenEvidence.of({
       steps: [step, step],
       hunks: [hunkOf('a#1', ['+a']), hunkOf('a#1', ['+a'])],
@@ -54,7 +54,9 @@ describe('SeenEvidence', () => {
 
   it('clips the same way however often it is read back', () => {
     const once = SeenEvidence.of({
-      steps: [{ index: 1, kind: 'said', tool: null, text: 'x'.repeat(5_000) }],
+      steps: [
+        { index: 1, kind: 'message', tool: null, text: 'x'.repeat(5_000) },
+      ],
       hunks: [],
     });
 
@@ -64,8 +66,8 @@ describe('SeenEvidence', () => {
   it('keeps within a budget, going on past what does not fit', () => {
     const seen = SeenEvidence.of({
       steps: [
-        { index: 1, kind: 'said', tool: null, text: 'x'.repeat(2_000) },
-        { index: 2, kind: 'said', tool: null, text: 'short' },
+        { index: 1, kind: 'message', tool: null, text: 'x'.repeat(2_000) },
+        { index: 2, kind: 'message', tool: null, text: 'short' },
       ],
       hunks: [],
     }).within(1_000);
@@ -77,8 +79,8 @@ describe('SeenEvidence', () => {
   it('keeps only what the given citations cite', () => {
     const seen = SeenEvidence.of({
       steps: [
-        { index: 1, kind: 'said', tool: null, text: 'one' },
-        { index: 2, kind: 'said', tool: null, text: 'two' },
+        { index: 1, kind: 'message', tool: null, text: 'one' },
+        { index: 2, kind: 'message', tool: null, text: 'two' },
       ],
       hunks: [hunkOf('a#1', ['+a']), hunkOf('a#2', ['+b'])],
     });

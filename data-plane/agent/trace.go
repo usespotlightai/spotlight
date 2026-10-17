@@ -75,7 +75,7 @@ func traceFile(path string) (*os.File, error) {
 }
 
 func fetchTrace(taskID string) (protocol.Trace, error) {
-	endpoint, token := os.Getenv(protocol.HandoverURLVar), os.Getenv(protocol.HandoverTokenVar)
+	endpoint, token := os.Getenv(protocol.AgentAPIURLVar), os.Getenv(protocol.AgentAPITokenVar)
 	if endpoint == "" || token == "" {
 		return protocol.Trace{}, fmt.Errorf(
 			"no run to read a trace from: spotlight runs inside a Spotlight workspace",
@@ -88,7 +88,7 @@ func fetchTrace(taskID string) (protocol.Trace, error) {
 	}
 
 	answered, err := post(
-		strings.TrimSuffix(endpoint, "/")+protocol.HandoverTracePath, token, asked,
+		strings.TrimSuffix(endpoint, "/")+protocol.AgentAPITracePath, token, asked,
 	)
 	if err != nil {
 		return protocol.Trace{}, err

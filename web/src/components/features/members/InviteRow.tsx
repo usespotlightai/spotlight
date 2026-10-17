@@ -3,9 +3,9 @@ import { InviteActions } from '@/components/features/members/InviteActions';
 import { SettingsRow } from '@/components/features/settings/SettingsRow';
 import { RowIcon } from '@/components/shared/RowIcon';
 import {
+  describeInviter,
+  describeTeams,
   expiryOfInvite,
-  invitedByTold,
-  teamsTold,
   type WorkspaceInvite,
 } from '@/lib/members';
 import { nameOfRole } from '@/lib/role';
@@ -22,8 +22,8 @@ export function InviteRow({ slug, invite }: InviteRowProps) {
         label={invite.email}
         leading={<RowIcon icon={Mail} />}
         description={[
-          teamsTold(invite.teams),
-          invitedByTold(invite.invitedBy?.name),
+          describeTeams(invite.teams),
+          describeInviter(invite.invitedBy?.name),
           expiryOfInvite(invite.expiresAt),
         ].join(' · ')}
       >

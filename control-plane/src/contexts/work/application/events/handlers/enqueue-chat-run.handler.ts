@@ -21,7 +21,7 @@ export class EnqueueChatRun {
       return;
     }
 
-    if (await this.dispatching.enqueue(chat, event.runId, event.delivered)) {
+    if (await this.dispatching.enqueue(chat, event.runId, event.acknowledged)) {
       return;
     }
 

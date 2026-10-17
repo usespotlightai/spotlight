@@ -85,7 +85,9 @@ export class ReviewController {
   @ApiNotFoundResponse({
     description: 'No such run or comment for this caller',
   })
-  @ApiUnprocessableEntityResponse({ description: 'Nothing said, or no file' })
+  @ApiUnprocessableEntityResponse({
+    description: 'The comment has no text, or names no file',
+  })
   async draft(
     @Param('teamId') teamId: string,
     @Param('runId') runId: string,

@@ -11,7 +11,7 @@ import { RunExhausted } from '@work/domain/events/run-exhausted.event';
 import { InvalidRunTransitionError } from '@work/domain/exceptions/invalid-run-transition.error';
 import { KeptFromSearchesError } from '@work/domain/exceptions/kept-from-searches.error';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
-import { Declaration } from '@work/domain/value-objects/declaration.vo';
+import { Handover } from '@work/domain/value-objects/handover.vo';
 import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
@@ -62,8 +62,8 @@ const claimed = () => queued().claim(RUNNER, NOW);
 
 const finished = RunOutcome.of({ exitCode: 0, failed: false });
 
-const saying = (next: string) =>
-  HandoverReport.of({ declared: Declaration.of({ next }), session: null });
+const reportOf = (next: string) =>
+  HandoverReport.of({ handover: Handover.of({ next }), session: null });
 
 describe('a search run', () => {
   it('works no task of its own, keeps no workspace and restores none', () => {
@@ -101,14 +101,14 @@ describe('a search run', () => {
 
   it('never waits for a person', () => {
     expect(() =>
-      claimed().paused(RUNNER, finished, saying('review'), NOW),
+      claimed().paused(RUNNER, finished, reportOf('review'), NOW),
     ).toThrow(InvalidRunTransitionError);
   });
 
   it('ends recording that it asked a person, when its runner says so, and only then', () => {
     const asked = claimed()
       .askedAPersonBy(RUNNER)
-      .complete(RUNNER, finished, saying('review'));
+      .complete(RUNNER, finished, reportOf('review'));
     const [completed] = asked
       .pullEvents()
       .filter((each): each is RunCompleted => each instanceof RunCompleted);
@@ -116,7 +116,7 @@ describe('a search run', () => {
     expect(asked.askedAPerson).toBe(true);
     expect(completed?.asked).toBe(true);
     expect(
-      claimed().complete(RUNNER, finished, saying('review')).askedAPerson,
+      claimed().complete(RUNNER, finished, reportOf('review')).askedAPerson,
     ).toBe(false);
   });
 
@@ -133,9 +133,9 @@ describe('a search run', () => {
   });
 
   it('reaches nothing beyond itself, and hears no hook', () => {
-    expect(() => claimed().mayReachBeyondItself('answer a remark')).toThrow(
-      KeptFromSearchesError,
-    );
+    expect(() =>
+      claimed().mayReachBeyondItself('reply to a review comment'),
+    ).toThrow(KeptFromSearchesError);
     expect(claimed().hearsHooks).toBe(false);
   });
 

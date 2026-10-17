@@ -9,7 +9,7 @@ import {
   type ConnectionGroup,
   ERROR_LABELS,
   formatTraffic,
-  OUTCOME_TOLD,
+  OUTCOME_DESCRIPTION,
 } from '@/lib/run-network';
 import { cn } from '@/lib/utils';
 
@@ -47,7 +47,7 @@ export function ConnectionRow({ group }: { group: ConnectionGroup }) {
             {shown} · {group.count}{' '}
             {group.count === 1 ? 'connection' : 'connections'}
           </span>
-          <span>{OUTCOME_TOLD[group.outcome]}</span>
+          <span>{OUTCOME_DESCRIPTION[group.outcome]}</span>
           <span>{formatTraffic(group)}</span>
         </TooltipContent>
       </Tooltip>

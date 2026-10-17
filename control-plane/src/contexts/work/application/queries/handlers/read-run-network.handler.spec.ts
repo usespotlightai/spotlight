@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest';
 
 const AT = new Date('2026-10-16T12:00:00.000Z');
 
-const told = (data: unknown) =>
+const encoded = (data: unknown) =>
   Buffer.from(JSON.stringify(data)).toString('base64');
 
 const connection = (host: string) =>
@@ -56,7 +56,7 @@ const reading = (checked: string | null, visible = true) => {
 
 describe('ReadRunNetworkHandler', () => {
   it('reads the connections of the current attempt, and egress enforced', async () => {
-    const { handler, asked } = reading(told({ enforced: true }));
+    const { handler, asked } = reading(encoded({ enforced: true }));
 
     await expect(
       handler.execute(new ReadRunNetworkQuery('run_1', 'user_1')),
@@ -84,9 +84,9 @@ describe('ReadRunNetworkHandler', () => {
 
   it('reads egress not enforced, or no check at all', async () => {
     for (const [checked, egressEnforcement] of [
-      [told({ enforced: false }), 'not-enforced'],
+      [encoded({ enforced: false }), 'not-enforced'],
       [null, null],
-      [told({ enforced: 'yes' }), null],
+      [encoded({ enforced: 'yes' }), null],
       ['not base64 json', null],
     ] as const) {
       await expect(

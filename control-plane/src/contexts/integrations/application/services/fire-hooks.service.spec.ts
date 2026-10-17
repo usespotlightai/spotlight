@@ -423,7 +423,7 @@ describe('FireHooks.happened', () => {
       link: {
         kind: 'hook',
         key: 'hook:a_id:tool.used:task_1:grafana.search',
-        saying: 'the hook a',
+        description: 'the hook a',
       },
       progress: { kind: 'pending', dueAt: NOW },
     });
@@ -436,7 +436,7 @@ describe('FireHooks.happened', () => {
     const delivered = CausalChain.none().followedBy({
       kind: 'delivery',
       key: 'delivery:slack',
-      saying: 'a delivery from slack',
+      description: 'a delivery from slack',
     });
 
     await causation.within(delivered, () =>
@@ -450,7 +450,7 @@ describe('FireHooks.happened', () => {
     );
 
     const [fired] = vi.mocked(firings.add).mock.calls[0] ?? [];
-    expect(fired?.cause.saying).toBe(
+    expect(fired?.cause.description).toBe(
       'a delivery from slack → task.moved of Add a column (triage → build)',
     );
   });
@@ -459,13 +459,13 @@ describe('FireHooks.happened', () => {
 const MOVED = {
   kind: 'event' as const,
   key: 'task.moved:task_1:triage → build',
-  saying: 'task.moved of Add a column (triage → build)',
+  description: 'task.moved of Add a column (triage → build)',
 };
 
 const AUDIT = {
   kind: 'hook' as const,
   key: `hook:audit_id:${MOVED.key}`,
-  saying: 'the hook audit',
+  description: 'the hook audit',
 };
 
 const stored = (
@@ -645,7 +645,7 @@ describe('FireHooks.workOne', () => {
     const { hooked, causation } = setUp(
       [hookNamed('audit', ['a'])],
       () => {
-        chains.push(causation.current().saying);
+        chains.push(causation.current().description);
         return done('a');
       },
       { stored: stored() },
@@ -682,7 +682,7 @@ describe('FireHooks.workOne, guarding against loops', () => {
     .followedBy({
       kind: 'delivery',
       key: 'delivery:slack',
-      saying: 'a delivery from slack',
+      description: 'a delivery from slack',
     })
     .followedBy(MOVED);
 
@@ -701,7 +701,7 @@ describe('FireHooks.workOne, guarding against loops', () => {
       stationKey: 'implementation',
       hook: 'audit',
       code: 'loop',
-      saying:
+      reason:
         'Hook audit was stopped to prevent a loop. It would fire again for the change that caused it. Cause chain: task.moved of Add a column (triage → build) → the hook audit → a delivery from slack → task.moved of Add a column (triage → build) → the hook audit',
       heardAs: 'loop:firing_1',
     });
@@ -725,7 +725,7 @@ describe('FireHooks.workOne, guarding against loops', () => {
     await hooked.workOne();
 
     expect(runtime.step).not.toHaveBeenCalled();
-    expect(vi.mocked(notes.failed).mock.calls[0]?.[0]?.saying).toContain(
+    expect(vi.mocked(notes.failed).mock.calls[0]?.[0]?.reason).toContain(
       'Maximum depth: 8',
     );
   });
@@ -740,7 +740,7 @@ describe('FireHooks.workOne, guarding against loops', () => {
     await hooked.workOne();
 
     expect(runtime.step).not.toHaveBeenCalled();
-    expect(vi.mocked(notes.failed).mock.calls[0]?.[0]?.saying).toContain(
+    expect(vi.mocked(notes.failed).mock.calls[0]?.[0]?.reason).toContain(
       'fired 3 times for the same change in the last 10 minutes',
     );
   });
@@ -772,7 +772,7 @@ describe('FireHooks.workOne, guarding against loops', () => {
     expect(saved).toHaveLength(1);
     expect(notes.failed).toHaveBeenCalledWith(
       expect.objectContaining({
-        saying: 'The hook audit was stopped: before',
+        reason: 'The hook audit was stopped: before',
         heardAs: 'loop:firing_1',
       }),
     );
@@ -807,7 +807,7 @@ describe('FireHooks.workOne, guarding against loops', () => {
     expect(last()?.progress.kind).toBe('done');
   });
 
-  it('keeps a stop it could not yet tell of, to tell of it again later', async () => {
+  it('keeps a stop it could not yet give notice of, to notify again later', async () => {
     const { hooked, last, notes } = setUp(
       [hookNamed('audit', ['a'])],
       () => done('a'),
@@ -821,7 +821,7 @@ describe('FireHooks.workOne, guarding against loops', () => {
     expect(last()?.failure?.code).toBe('loop');
   });
 
-  it('ends a stop it could never tell of as a loop, after its last attempt', async () => {
+  it('ends a stop it could never give notice of as a loop, after its last attempt', async () => {
     const { hooked, last, notes } = setUp(
       [hookNamed('audit', ['a'])],
       () => done('a'),
@@ -835,7 +835,7 @@ describe('FireHooks.workOne, guarding against loops', () => {
     expect(last()?.failure?.code).toBe('loop');
   });
 
-  it('keeps a stop it kept when something else fails before it is told of', async () => {
+  it('keeps a stop it kept when something else fails before the notice', async () => {
     const kept = HookFailure.of('loop', 'The hook audit was stopped: before');
     const { hooked, last, runtime } = setUp(
       [hookNamed('audit', ['a'])],

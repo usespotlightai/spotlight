@@ -42,6 +42,7 @@ import { TaskPassed } from '@work/domain/events/task-passed.event';
 import { TaskProposed } from '@work/domain/events/task-proposed.event';
 import { ToolUsed } from '@work/domain/events/tool-used.event';
 import { AgentPrompt } from '@work/domain/value-objects/agent-prompt.vo';
+import { Anchor } from '@work/domain/value-objects/anchor.vo';
 import { Approval } from '@work/domain/value-objects/approval.vo';
 import { ApprovalIntent } from '@work/domain/value-objects/approval-intent.vo';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
@@ -67,11 +68,11 @@ import { ConnectionAsk } from '@work/domain/value-objects/connection-ask.vo';
 import { Continuity } from '@work/domain/value-objects/continuity.vo';
 import { ContinuityKey } from '@work/domain/value-objects/continuity-key.vo';
 import { ConversationId } from '@work/domain/value-objects/conversation-id.vo';
-import { Declaration } from '@work/domain/value-objects/declaration.vo';
 import { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
 import { DeferredMove } from '@work/domain/value-objects/deferred-move.vo';
 import { DeniedCatalogItem } from '@work/domain/value-objects/denied-catalog-item.vo';
 import { Effort } from '@work/domain/value-objects/effort.vo';
+import { Handover } from '@work/domain/value-objects/handover.vo';
 import { HandoverOption } from '@work/domain/value-objects/handover-option.vo';
 import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
 import { Happening } from '@work/domain/value-objects/happening.vo';
@@ -103,12 +104,12 @@ import { ProposalOrigin } from '@work/domain/value-objects/proposal-origin.vo';
 import { ProposalPlacement } from '@work/domain/value-objects/proposal-placement.vo';
 import { PullRequestLink } from '@work/domain/value-objects/pull-request-link.vo';
 import { Reaction } from '@work/domain/value-objects/reaction.vo';
-import { Remark } from '@work/domain/value-objects/remark.vo';
 import { ReplayCheckPolicy } from '@work/domain/value-objects/replay-check-policy.vo';
 import { ReplayRunClaim } from '@work/domain/value-objects/replay-run-claim.vo';
 import { RepositorySetup } from '@work/domain/value-objects/repository-setup.vo';
 import { RequeueCount } from '@work/domain/value-objects/requeue-count.vo';
 import { RestoredArchive } from '@work/domain/value-objects/restored-archive.vo';
+import { ReviewComment } from '@work/domain/value-objects/review-comment.vo';
 import { ReviewPolicy } from '@work/domain/value-objects/review-policy.vo';
 import { RunAttempt } from '@work/domain/value-objects/run-attempt.vo';
 import { RunConnection } from '@work/domain/value-objects/run-connection.vo';
@@ -117,7 +118,6 @@ import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
 import { RunSpec } from '@work/domain/value-objects/run-spec.vo';
 import { RunSubject } from '@work/domain/value-objects/run-subject.vo';
-import { Said } from '@work/domain/value-objects/said.vo';
 import { SearchId } from '@work/domain/value-objects/search-id.vo';
 import { SearchIteration } from '@work/domain/value-objects/search-iteration.vo';
 import { Signing } from '@work/domain/value-objects/signing.vo';
@@ -177,7 +177,7 @@ export const WORK_PAYLOAD_TYPES = [
   Continuity,
   ContinuityKey,
   ConversationId,
-  Declaration,
+  Handover,
   DeclaredTool,
   DeniedCatalogItem,
   Effort,
@@ -222,7 +222,7 @@ export const WORK_PAYLOAD_TYPES = [
   ProposalOrigin,
   ProposalPlacement,
   Reaction,
-  Remark,
+  ReviewComment,
   RunAttempt,
   RunConnection,
   RunOutcome,
@@ -231,7 +231,7 @@ export const WORK_PAYLOAD_TYPES = [
   RunPriority,
   RunSpec,
   RunSubject,
-  Said,
+  Anchor,
   SearchId,
   SearchIteration,
   Signing,

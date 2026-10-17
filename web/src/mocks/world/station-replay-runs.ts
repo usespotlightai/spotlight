@@ -91,7 +91,7 @@ const readingStepsOf = (
     ms: 300,
     at: startedHoursAgo - 0.02,
   }),
-  step({ kind: 'said', text: summary, ms: 500, at: startedHoursAgo - 0.05 }),
+  step({ kind: 'message', text: summary, ms: 500, at: startedHoursAgo - 0.05 }),
 ];
 
 const stepsOf = (
@@ -140,7 +140,7 @@ const stepsOf = (
     ms: 41_000,
     at: startedHoursAgo - 0.09,
   }),
-  step({ kind: 'said', text: summary, ms: 500, at: startedHoursAgo - 0.11 }),
+  step({ kind: 'message', text: summary, ms: 500, at: startedHoursAgo - 0.11 }),
 ];
 
 export const replayRun = (runId: string): ReplayRunResponseDto | null => {
@@ -219,8 +219,8 @@ export const replayRun = (runId: string): ReplayRunResponseDto | null => {
             marks: {
               startedAt: hoursAgo(startedHoursAgo),
               readyAt: null,
-              spokeFrom: null,
-              spokeTo: null,
+              firstAgentUpdateAt: null,
+              lastAgentUpdateAt: null,
               endedAt: hoursAgo(endedHoursAgo),
             },
             spent: { used: 52_000, size: 200_000, cost: null, currency: null },

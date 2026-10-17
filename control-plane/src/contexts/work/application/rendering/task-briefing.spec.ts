@@ -20,13 +20,13 @@ import {
 } from '@work/domain/services/built-in-skills';
 import { builtInTool } from '@work/domain/services/built-in-tools';
 import { AgentPrompt } from '@work/domain/value-objects/agent-prompt.vo';
+import { Anchor } from '@work/domain/value-objects/anchor.vo';
 import { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { DeclaredTool } from '@work/domain/value-objects/declared-tool.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
 import { LineName } from '@work/domain/value-objects/line-name.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
-import { Said } from '@work/domain/value-objects/said.vo';
 import { StationColor } from '@work/domain/value-objects/station-color.vo';
 import { StationId } from '@work/domain/value-objects/station-id.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
@@ -140,8 +140,8 @@ const task = (stationId: string, description?: TaskDescription) =>
     newId: () => 'task_1',
   });
 
-const HANDOVER_SAYS = 'How to write the note, as the handover skill says it.';
-const PULL_REQUEST_SAYS = 'How to open one, as the pull-request skill says it.';
+const HANDOVER_TEXT = 'How to write the note, as the handover skill says it.';
+const PULL_REQUEST_TEXT = 'How to open one, as the pull-request skill says it.';
 
 const shipped = [
   {
@@ -286,7 +286,7 @@ describe('TaskBriefing', () => {
         station: StationName.of('Triage'),
         body: TaskNoteBody.of('Here is the log.'),
         at: new Date('2026-08-28T10:00:00.000Z'),
-        kind: 'said',
+        kind: 'message',
         attachments: [log],
       }),
     );
@@ -301,7 +301,7 @@ describe('TaskBriefing', () => {
     );
   });
 
-  it('says how to declare where the task goes next', () => {
+  it('says how to hand over the task to the next station', () => {
     const briefing = brief(triage());
 
     expect(briefing).toContain('spotlight handover --next');
@@ -385,7 +385,7 @@ describe('TaskBriefing', () => {
     });
   });
 
-  it('says that saying nothing puts the task in front of a person', () => {
+  it('says that a handover to no station puts the task in front of a person', () => {
     expect(brief(triage())).toContain('puts the task in front of a person');
   });
 
@@ -404,8 +404,8 @@ describe('TaskBriefing', () => {
     it('pastes no skill in, and lists none, where the harness reads them itself', () => {
       const briefing = brief(triage());
 
-      expect(briefing).not.toContain(HANDOVER_SAYS);
-      expect(briefing).not.toContain(PULL_REQUEST_SAYS);
+      expect(briefing).not.toContain(HANDOVER_TEXT);
+      expect(briefing).not.toContain(PULL_REQUEST_TEXT);
       expect(briefing).not.toContain('## Skills');
     });
 
@@ -416,7 +416,7 @@ describe('TaskBriefing', () => {
       expect(briefing).toContain(
         '- `.spotlight/skills/spotlight-handover/SKILL.md` — Handing over.',
       );
-      expect(briefing).not.toContain(HANDOVER_SAYS);
+      expect(briefing).not.toContain(HANDOVER_TEXT);
     });
 
     it('keeps the station’s own instructions above the skills it lists', () => {
@@ -432,7 +432,7 @@ describe('TaskBriefing', () => {
     });
   });
 
-  describe('what the pull request is waiting to hear back on', () => {
+  describe('the review comments that wait for a reply', () => {
     const heard = (body: string, named: string | null) =>
       TaskNote.of({
         position: NotePosition.of(0),
@@ -440,15 +440,15 @@ describe('TaskBriefing', () => {
         body: TaskNoteBody.of(body),
         at: new Date('2026-08-31T12:00:00.000Z'),
         voice: Voice.world(),
-        said: named
-          ? Said.of({
+        anchor: named
+          ? Anchor.of({
               body: 'pin this.',
               path: 'compose.yml',
               from: 22,
-              remark: named,
+              reviewComment: named,
             })
           : null,
-        kind: 'said',
+        kind: 'message',
       });
 
     const reviewed = () =>
@@ -464,7 +464,7 @@ describe('TaskBriefing', () => {
     it('names each one the way the agent must name it back', () => {
       const briefing = brief(triage(), reviewed());
 
-      expect(briefing).toContain('## Answering the pull request');
+      expect(briefing).toContain('## Replying to review comments');
       expect(briefing).toContain('- `c1` — compose.yml:22 — pin this.');
     });
 
@@ -479,12 +479,12 @@ describe('TaskBriefing', () => {
       expect(brief(triage(), reviewed())).not.toContain('--to c0');
     });
 
-    it('leaves out what was said nowhere answerable', () => {
+    it('leaves out a review comment that has no place to reply to', () => {
       expect(brief(triage(), reviewed())).not.toContain('`c0`');
     });
 
-    it('says nothing about answering where there is nothing to answer', () => {
-      expect(brief(triage())).not.toContain('## Answering the pull request');
+    it('says nothing about replies where there is no review comment', () => {
+      expect(brief(triage())).not.toContain('## Replying to review comments');
     });
   });
 

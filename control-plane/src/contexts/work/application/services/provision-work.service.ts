@@ -122,7 +122,7 @@ export class ProvisionWork {
       return;
     }
 
-    let room = PoolRoom.told(
+    let room = PoolRoom.of(
       await Promise.all(
         pools.map(
           async (offered) =>

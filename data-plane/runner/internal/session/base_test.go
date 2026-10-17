@@ -58,7 +58,7 @@ func TestMarkBasesRecordsWhereEachCheckoutBegan(t *testing.T) {
 	if marked["widgets"] != began {
 		t.Fatalf("reported %q, want %s", marked["widgets"], began)
 	}
-	if _, told := marked["missing"]; told {
+	if _, found := marked["missing"]; found {
 		t.Fatalf("reported a base for a checkout that is not there: %q", marked["missing"])
 	}
 }

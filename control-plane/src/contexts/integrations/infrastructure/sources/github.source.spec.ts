@@ -17,7 +17,7 @@ const MERGED: PullRequestActivity = {
   pullRequest: 'https://github.com/acme/api/pull/7',
   label: null,
   about: null,
-  remark: null,
+  reviewComment: null,
   byBot: false,
 };
 
@@ -33,7 +33,7 @@ const OPENED: PullRequestActivity = {
     authorAssociation: 'CONTRIBUTOR',
     draft: false,
   },
-  remark: null,
+  reviewComment: null,
   byBot: false,
 };
 
@@ -62,8 +62,8 @@ describe('GitHubSource', () => {
   it('reads a merged pull request by its branch and pull request', async () => {
     expect(await readOne(MERGED)).toEqual({
       happening: 'github.pull_request.merged',
-      told: 'The pull request was merged.',
-      spoken: false,
+      summary: 'The pull request was merged.',
+      answers: false,
       state: 'raised',
       concerns: {
         branch: 'spotlight/task_1',
@@ -74,7 +74,7 @@ describe('GitHubSource', () => {
           },
         ],
       },
-      said: null,
+      message: null,
       ourOwn: false,
       opens: null,
     });
@@ -104,13 +104,13 @@ describe('GitHubSource', () => {
     ]);
   });
 
-  it('carries what was said, and where', async () => {
+  it('carries the review comment, and where it is', async () => {
     expect(
       (
         await readOne({
           ...MERGED,
           activity: 'commented',
-          remark: {
+          reviewComment: {
             body: 'Extract this.',
             path: 'compose.yml',
             from: 10,
@@ -118,13 +118,13 @@ describe('GitHubSource', () => {
             id: 'PRRC_1',
           },
         })
-      ).said,
+      ).message,
     ).toEqual({
       body: 'Extract this.',
       path: 'compose.yml',
       from: 10,
       to: 14,
-      remark: 'PRRC_1',
+      reviewComment: 'PRRC_1',
     });
   });
 
@@ -155,8 +155,8 @@ describe('GitHubSource', () => {
   it('asks for a review of a pull request opened, found by the review it wants', async () => {
     expect(await readOne(OPENED)).toEqual({
       happening: 'github.pull_request.opened',
-      told: 'A pull request was opened for review.',
-      spoken: false,
+      summary: 'A pull request was opened for review.',
+      answers: false,
       state: 'raised',
       concerns: {
         branch: null,
@@ -164,7 +164,7 @@ describe('GitHubSource', () => {
           { kind: REVIEW_MARK, value: 'https://github.com/acme/api/pull/7' },
         ],
       },
-      said: null,
+      message: null,
       ourOwn: false,
       opens: {
         onto: 'review',
@@ -223,7 +223,7 @@ describe('GitHubSource', () => {
       {
         ...OPENED,
         activity: 'commented',
-        remark: {
+        reviewComment: {
           body: '@spotlight have a look',
           path: null,
           from: null,
@@ -239,8 +239,8 @@ describe('GitHubSource', () => {
       'github.pull_request.mentioned',
     ]);
     expect(read[2]).toMatchObject({
-      spoken: true,
-      said: { body: '@spotlight have a look' },
+      answers: true,
+      message: { body: '@spotlight have a look' },
       opens: { review: { asking: 'mentioned' } },
     });
   });
@@ -250,7 +250,7 @@ describe('GitHubSource', () => {
       {
         ...OPENED,
         activity: 'commented',
-        remark: {
+        reviewComment: {
           body: 'Looks good',
           path: null,
           from: null,

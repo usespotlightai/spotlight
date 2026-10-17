@@ -6,9 +6,9 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import {
+  describeOutcomes,
   type InviteOutcome,
   OUTCOME_LABELS,
-  outcomesTold,
 } from '@/lib/members';
 import { cn } from '@/lib/utils';
 
@@ -20,7 +20,7 @@ export function InviteOutcomes({ outcomes }: InviteOutcomesProps) {
   return (
     <>
       <DialogHeader>
-        <DialogTitle>{outcomesTold(outcomes)}</DialogTitle>
+        <DialogTitle>{describeOutcomes(outcomes)}</DialogTitle>
       </DialogHeader>
 
       <div role="status">

@@ -118,15 +118,15 @@ const typeOfChanges = (titles: SQL, intents: SQL): SQL => sql`(
   limit 1
 )`;
 
-export const pullRequestTypeSql = (said: {
+export const pullRequestTypeSql = (columns: {
   readonly title: SQL;
   readonly branch: SQL;
   readonly changeTitles: SQL;
   readonly changeIntents: SQL;
 }): SQL =>
   sql`coalesce(
-    ${typeOfChanges(sql`coalesce(${said.changeTitles}, '{}'::text[])`, sql`coalesce(${said.changeIntents}, '{}'::text[])`)},
-    ${typeOfTitle(said.title)},
-    ${typeOfBranch(said.branch)},
+    ${typeOfChanges(sql`coalesce(${columns.changeTitles}, '{}'::text[])`, sql`coalesce(${columns.changeIntents}, '{}'::text[])`)},
+    ${typeOfTitle(columns.title)},
+    ${typeOfBranch(columns.branch)},
     ${UNMATCHED}
   )`;

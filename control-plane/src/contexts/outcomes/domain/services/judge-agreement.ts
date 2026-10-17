@@ -212,11 +212,11 @@ export const f1Of = (
   const both = pairs.filter(
     (each) => each.judge === positive && each.human === positive,
   ).length;
-  const said =
+  const positives =
     pairs.filter((each) => each.judge === positive).length +
     pairs.filter((each) => each.human === positive).length;
 
-  return said === 0 ? null : (2 * both) / said;
+  return positives === 0 ? null : (2 * both) / positives;
 };
 
 export const distributionOf = (confusion: Confusion): ScoreCount[] =>

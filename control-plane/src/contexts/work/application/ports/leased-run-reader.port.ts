@@ -2,7 +2,7 @@ import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
 
-export interface PendingSaying {
+export interface PendingMessage {
   readonly position: number;
   readonly body: string;
   readonly attachments: readonly Attachment[];
@@ -14,7 +14,7 @@ export interface LeasedRunReaderPort {
   pendingFor(
     runId: RunId,
     runnerId: RunnerId,
-  ): Promise<readonly PendingSaying[] | null>;
+  ): Promise<readonly PendingMessage[] | null>;
 
   stopRequestedFor(runId: RunId, runnerId: RunnerId): Promise<boolean>;
 }

@@ -4,7 +4,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { ENFORCEMENT_LABELS, ENFORCEMENT_TOLD } from '@/lib/run-network';
+import { ENFORCEMENT_DESCRIPTION, ENFORCEMENT_LABELS } from '@/lib/run-network';
 
 const SHOWN = `Egress ${ENFORCEMENT_LABELS['not-enforced'].toLowerCase()}`;
 
@@ -25,7 +25,7 @@ export function TraceEgressMark() {
       </TooltipTrigger>
       <TooltipContent className="flex max-w-80 flex-col gap-1">
         <span className="font-medium">{SHOWN}</span>
-        <span>{ENFORCEMENT_TOLD['not-enforced']}</span>
+        <span>{ENFORCEMENT_DESCRIPTION['not-enforced']}</span>
       </TooltipContent>
     </Tooltip>
   );

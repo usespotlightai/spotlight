@@ -202,7 +202,7 @@ const anOriginal = async (): Promise<string> => {
       reviewing: null,
       attachments: [],
       notes: [],
-      openRemarks: [],
+      openReviewComments: [],
     }).parts,
     briefedMemories: { briefed: [], cut: [] },
     startedFromArchiveId: archiveId,

@@ -39,27 +39,27 @@ type problem struct {
 }
 
 type answered struct {
-	status int
-	said   problem
+	status    int
+	errorBody problem
 }
 
 func (a *answered) Error() string {
-	var told strings.Builder
+	var text strings.Builder
 
 	switch {
-	case a.said.Detail != "" && len(a.said.Errors) == 0:
-		told.WriteString(a.said.Detail)
-	case a.said.Title != "":
-		told.WriteString(a.said.Title)
+	case a.errorBody.Detail != "" && len(a.errorBody.Errors) == 0:
+		text.WriteString(a.errorBody.Detail)
+	case a.errorBody.Title != "":
+		text.WriteString(a.errorBody.Title)
 	default:
-		fmt.Fprintf(&told, "Spotlight answered %d", a.status)
+		fmt.Fprintf(&text, "Spotlight answered %d", a.status)
 	}
 
-	for _, each := range a.said.Errors {
-		fmt.Fprintf(&told, "\n  %s: %s", each.Path, each.Message)
+	for _, each := range a.errorBody.Errors {
+		fmt.Fprintf(&text, "\n  %s: %s", each.Path, each.Message)
 	}
 
-	return told.String()
+	return text.String()
 }
 
 func newAPI(base, token, version string) *api {
@@ -169,7 +169,7 @@ func (a *api) attempt(method, path string, written []byte, headers map[string]st
 
 	if response.StatusCode >= http.StatusMultipleChoices {
 		failed := &answered{status: response.StatusCode}
-		_ = json.Unmarshal(read, &failed.said)
+		_ = json.Unmarshal(read, &failed.errorBody)
 		return failed
 	}
 

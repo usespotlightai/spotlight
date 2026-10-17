@@ -88,8 +88,8 @@ export const chatMessage = pgTable(
     runId: text('run_id'),
     traces: jsonb('traces').$type<TraceRow[]>().notNull().default([]),
     proposal: jsonb('proposal').$type<ProposalRow>(),
-    deliveredAt: timestamp('delivered_at'),
-    deliveredTo: text('delivered_to'),
+    acknowledgedAt: timestamp('acknowledged_at'),
+    acknowledgedByRunId: text('acknowledged_by_run_id'),
   },
   (table) => [primaryKey({ columns: [table.chatId, table.position] })],
 );

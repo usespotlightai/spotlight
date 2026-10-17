@@ -10,7 +10,7 @@ import {
   readTeamMemory,
   remember,
   retireMemory,
-  sayInChat,
+  sendChatMessage,
   startChat,
   writeMemory,
 } from '@/lib/api';
@@ -165,7 +165,7 @@ describe('the mock agent chats', () => {
     expect(chat.messages.some((each) => each.proposal?.state === 'open')).toBe(
       true,
     );
-    expect(journal.flatMap((each) => each.steps).at(-1)?.kind).toBe('said');
+    expect(journal.flatMap((each) => each.steps).at(-1)?.kind).toBe('message');
   });
 
   it('turns an accepted proposal into a task at its station', async () => {
@@ -186,7 +186,7 @@ describe('the mock agent chats', () => {
     );
   });
 
-  it('starts a chat about improving a station and answers what is said', async () => {
+  it('starts a chat about improving a station and answers the message', async () => {
     const { data: started } = await startChat({
       path: team,
       body: {
@@ -196,7 +196,7 @@ describe('the mock agent chats', () => {
       },
       throwOnError: true,
     });
-    await sayInChat({
+    await sendChatMessage({
       path: { ...team, chatId: started.id },
       body: { body: 'Draft the prompt change.' },
       throwOnError: true,

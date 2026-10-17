@@ -20,7 +20,7 @@ func (k *keeper) started(ctx context.Context) {
 	}
 
 	if err := recordStart(ctx, k.control, k.run, k.space.Dir, k.restoredFrom); err != nil {
-		k.say(startStep, "Where the run started was not recorded: %v", err)
+		k.report(startStep, "Where the run started was not recorded: %v", err)
 	}
 }
 

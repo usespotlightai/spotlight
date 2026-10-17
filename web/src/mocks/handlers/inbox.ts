@@ -91,16 +91,16 @@ const answerReviewOf = (item: InboxItemResponseDto) => {
 
 const answer = (
   item: InboxItemResponseDto,
-  said: AnswerInboxItemRequestDto,
+  reply: AnswerInboxItemRequestDto,
 ) => {
   const pending = item.notes.findLast((note) => note.kind === 'asked');
-  const deciding = said.approve !== undefined;
+  const deciding = reply.approve !== undefined;
 
   if (deciding && pending?.approval) {
     pending.approval = {
       ...pending.approval,
-      status: said.approve ? 'granted' : 'refused',
-      edited: said.approve && said.inputs ? said.inputs : null,
+      status: reply.approve ? 'granted' : 'refused',
+      edited: reply.approve && reply.inputs ? reply.inputs : null,
     };
   }
 
@@ -113,7 +113,7 @@ const answer = (
     stationColor: item.stationColor,
     stationPosition: item.stationPosition,
     runId: null,
-    body: said.body,
+    body: reply.body,
     attachments: [],
     at: now(),
     author: SAM,
@@ -150,16 +150,16 @@ const conversationHandlers = [
         return problem(409, 'Sorry, this was already answered.');
       }
 
-      const said = (await request.json()) as AnswerInboxItemRequestDto;
+      const reply = (await request.json()) as AnswerInboxItemRequestDto;
       const decisionPending =
         item.notes.findLast((note) => note.kind === 'asked')?.form ===
         'approval';
 
-      if (said.approve !== undefined && !decisionPending) {
+      if (reply.approve !== undefined && !decisionPending) {
         return problem(400, 'Nothing here waits for an approval.');
       }
 
-      answer(item, said);
+      answer(item, reply);
 
       return noContent();
     },

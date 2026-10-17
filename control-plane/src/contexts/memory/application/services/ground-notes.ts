@@ -1,9 +1,9 @@
 import type { MemoryGroundNoteDto } from '@memory/application/dto/memory-review.dto';
-import type { SpokenNote } from '@memory/application/ports/work.port';
+import type { TaskNote } from '@memory/application/ports/work.port';
 import type { PersonLookup } from '@memory/application/services/people-lookup';
 
 export const groundNotes = async (
-  notes: readonly SpokenNote[],
+  notes: readonly TaskNote[],
   cited: readonly number[],
   person: PersonLookup,
 ): Promise<MemoryGroundNoteDto[]> =>

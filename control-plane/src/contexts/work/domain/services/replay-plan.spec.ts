@@ -109,7 +109,7 @@ const briefed = (reviewing: string | null = null) =>
     reviewing: reviewing ? Repository.of(reviewing) : null,
     attachments: [],
     notes: [],
-    openRemarks: [],
+    openReviewComments: [],
   });
 
 const original = (

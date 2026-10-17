@@ -86,7 +86,7 @@ export class ReadDeliveryHandler
       ? fired.followedBy({
           kind: 'delivery',
           key: `delivery:${source}`,
-          saying: `a delivery from ${source}`,
+          description: `a delivery from ${source}`,
         })
       : CausalChain.none();
   }

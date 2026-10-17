@@ -1,7 +1,7 @@
 import type {
   AttachmentResponseDto,
-  InboxMessageResponseDto,
   LatestChangeStackResponseDto,
+  NoteResponseDto,
   RunConversationResponseDto,
   StationResponseDto,
   TaskResponseDto,
@@ -25,10 +25,10 @@ import {
   changeStacksOf,
   endOf,
   finished,
-  messageOf,
   PREPARE_MS,
   PUBLISH_MS,
   runsOfAnyTask,
+  storyNoteOf,
   storyOf,
   timedSteps,
 } from '@/mocks/world/run-stories';
@@ -130,15 +130,15 @@ export const teamRunsOf = (teamId: string): TeamRunResponseDto[] =>
   );
 
 const conversationNotes = perWorld(
-  (): Record<string, InboxMessageResponseDto[]> => ({}),
+  (): Record<string, NoteResponseDto[]> => ({}),
 );
 
 const noteOf = (
   located: Located,
   script: NoteScript,
   position: number,
-): InboxMessageResponseDto => ({
-  ...messageOf(located.run, script),
+): NoteResponseDto => ({
+  ...storyNoteOf(located.run, script),
   position,
 });
 
@@ -188,7 +188,7 @@ export const conversationOf = (
   };
 };
 
-export const sayTo = (
+export const addMessage = (
   located: Located,
   body: string,
   attachments: AttachmentResponseDto[],
@@ -199,7 +199,7 @@ export const sayTo = (
   notes[located.run.id] = [
     ...(notes[located.run.id] ?? []),
     {
-      ...noteOf(located, { kind: 'said', body }, before),
+      ...noteOf(located, { kind: 'message', body }, before),
       at: new Date().toISOString(),
       attachments,
       author: SAM,

@@ -453,15 +453,15 @@ func (h *Host) sandbox(ctx context.Context, image string, assignment protocol.As
 		return
 	}
 
-	stopRenewing, told := h.renewingLease(ctx, assignment, client, log)
+	stopRenewing, stopRequested := h.renewingLease(ctx, assignment, client, log)
 	defer stopRenewing()
 
 	ready, ok := h.readied(ctx, image, assignment, client, log)
 	if !ok {
 		return
 	}
-	if told() {
-		log.Info("told to stop the work, so no sandbox starts")
+	if stopRequested() {
+		log.Info("a stop was requested, so no sandbox starts")
 		return
 	}
 
@@ -485,8 +485,8 @@ func (h *Host) sandbox(ctx context.Context, image string, assignment protocol.As
 		return
 	}
 
-	if told() {
-		log.Info("told to stop the work, so no sandbox starts")
+	if stopRequested() {
+		log.Info("a stop was requested, so no sandbox starts")
 		return
 	}
 
@@ -643,7 +643,7 @@ func (h *Host) readied(
 
 func (h *Host) renewingLease(
 	ctx context.Context, assignment protocol.Assignment, client RunClient, log *slog.Logger,
-) (release func(), told func() bool) {
+) (release func(), stopRequested func() bool) {
 	renew := renewal(assignment.Work, client)
 	if renew == nil {
 		return func() {}, func() bool { return false }
@@ -671,7 +671,7 @@ func (h *Host) renewingLease(
 				stop, err := renew(renewing)
 				switch {
 				case err == nil && stop:
-					log.Info("told to stop the work while the sandbox starts")
+					log.Info("a stop was requested while the sandbox starts")
 					stopped.Store(true)
 					return
 				case err != nil && renewing.Err() == nil:

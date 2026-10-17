@@ -62,7 +62,7 @@ export class TeamTraceResponseDto {
   @ApiProperty({
     nullable: true,
     type: String,
-    description: 'What it said when it passed the task on',
+    description: 'The last note that the run wrote on the task',
   })
   readonly output: string | null;
 

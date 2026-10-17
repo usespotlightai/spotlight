@@ -9,7 +9,7 @@ import type { LineRepository } from '@work/domain/repositories/line.repository';
 import type { RunRepository } from '@work/domain/repositories/run.repository';
 import type { TaskRepository } from '@work/domain/repositories/task.repository';
 import { turnWaits } from '@work/domain/services/turn-end';
-import { Declaration } from '@work/domain/value-objects/declaration.vo';
+import { Handover } from '@work/domain/value-objects/handover.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 
 export class TurnAsksAPersonHandler
@@ -50,7 +50,7 @@ export class TurnAsksAPersonHandler
               exitCode: query.exitCode,
               failed: query.failed,
             }),
-        declared: query.declared ? Declaration.of(query.declared) : null,
+        handover: query.handover ? Handover.of(query.handover) : null,
       });
     } catch (error) {
       rethrowAsApplicationError(error);

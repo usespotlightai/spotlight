@@ -12,13 +12,13 @@ import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 
 const taskOf = (raw: unknown): TaskId => {
-  const said = typeof raw === 'string' ? raw.trim() : '';
+  const id = typeof raw === 'string' ? raw.trim() : '';
 
-  if (!said) {
+  if (!id) {
     throw new UnknownSearchTaskError(String(raw ?? ''));
   }
 
-  return TaskId.of(said);
+  return TaskId.of(id);
 };
 
 export class RecordSearchCauseHandler

@@ -7,7 +7,7 @@ import {
   putsItToAPerson,
   routeAfterRun,
 } from '@work/domain/services/route-after-run';
-import type { Declaration } from '@work/domain/value-objects/declaration.vo';
+import type { Handover } from '@work/domain/value-objects/handover.vo';
 import type { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
 import type { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { StationName } from '@work/domain/value-objects/station-name.vo';
@@ -24,13 +24,13 @@ interface Turn {
   readonly task: Task | null;
   readonly line: Line | null;
   readonly outcome: RunOutcome;
-  readonly declared: Declaration | null;
+  readonly handover: Handover | null;
 }
 
-const handoverOf = (task: Task, { outcome, declared, line }: Turn) =>
+const handoverOf = (task: Task, { outcome, handover, line }: Turn) =>
   HandoverFor.after({
     outcome,
-    declared,
+    handover,
     line,
     currentStation: task.stationId,
   });
@@ -55,8 +55,8 @@ export const turnWaits = (
   }
 
   const sentToReview =
-    turn.mayBeSentToReview && turn.declared
-      ? { ...turn, declared: turn.declared.sentToReview('') }
+    turn.mayBeSentToReview && turn.handover
+      ? { ...turn, handover: turn.handover.sentToReview('') }
       : null;
 
   return (
@@ -76,7 +76,7 @@ export const turnEnded = (turn: {
 }): TurnEnd => {
   const { run, by, task, line, outcome, report, kept, now } = turn;
 
-  const asked = { run, task, line, outcome, declared: report.declared };
+  const asked = { run, task, line, outcome, handover: report.handover };
 
   if (run.leavesNothingBehind) {
     return {
@@ -100,7 +100,7 @@ export const turnEnded = (turn: {
     };
   }
 
-  if (task.undelivered.length > 0) {
+  if (task.unacknowledged.length > 0) {
     return { waiting: true, run, task: null };
   }
 

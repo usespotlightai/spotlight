@@ -1,6 +1,6 @@
 import type { SkipCode } from '@change-review/domain/value-objects/stack-check.vo';
 
-const SAID: Readonly<Record<SkipCode, string>> = {
+const SKIP_DESCRIPTION: Readonly<Record<SkipCode, string>> = {
   'no-base':
     'Spotlight doesn’t know the commit where the run began. The layers can’t be checked without it.',
   'no-checkout': 'Spotlight does not know which checkout the changes are from.',
@@ -21,7 +21,7 @@ export interface UncheckedFor {
 
 export const checkReasonOf = (found: UncheckedFor): string | null => {
   if (found.skipped) {
-    return [SAID[found.skipped.code], found.skipped.detail]
+    return [SKIP_DESCRIPTION[found.skipped.code], found.skipped.detail]
       .filter(Boolean)
       .join('\n\n');
   }

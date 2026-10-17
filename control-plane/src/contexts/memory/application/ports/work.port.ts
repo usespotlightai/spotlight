@@ -53,7 +53,7 @@ export interface ChangedFile {
   readonly path: string;
 }
 
-export interface SpokenNote {
+export interface TaskNote {
   readonly position: number;
   readonly by: 'person' | 'world';
   readonly author: UserId | null;
@@ -90,7 +90,7 @@ export interface WorkPort {
 
   changedBy(runId: RunId): Promise<readonly ChangedFile[] | null>;
 
-  spokenOn(taskId: TaskId): Promise<readonly SpokenNote[] | null>;
+  notesOf(taskId: TaskId): Promise<readonly TaskNote[] | null>;
 
   harnessOf(runId: RunId): Promise<string | null>;
 }

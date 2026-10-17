@@ -184,7 +184,7 @@ describe('RunRemembered', () => {
     );
   });
 
-  it('shows who retired a memory and why, as something they said', async () => {
+  it('shows who retired a memory and why, as their message', async () => {
     rememberedState.data = REMEMBERED;
 
     await opened();

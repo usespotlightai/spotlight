@@ -67,7 +67,7 @@ const line = Line.rehydrate({
   ],
 });
 
-const said = (body: string, voice: Voice) => ({
+const newNote = (body: string, voice: Voice) => ({
   station: StationName.of('build'),
   body: TaskNoteBody.of(body),
   at: NOW,
@@ -88,13 +88,13 @@ const assigned = () =>
 const paused = () =>
   assigned().putToAPerson(
     RUN,
-    said('Which queue should I drain?', Voice.station(RUN)),
+    newNote('Which queue should I drain?', Voice.station(RUN)),
   );
 
 const answer = (task: Task) =>
   task.answer(
     NotePosition.of(0),
-    said('The default one.', Voice.person(UserId.of('user_1'))),
+    newNote('The default one.', Voice.person(UserId.of('user_1'))),
   );
 
 describe('a task put to a person by its current run', () => {
@@ -120,11 +120,11 @@ describe('a task put to a person by its current run', () => {
     expect(() =>
       assigned().putToAPerson(
         RunId.of('run_2'),
-        said('Which?', Voice.station(RunId.of('run_2'))),
+        newNote('Which?', Voice.station(RunId.of('run_2'))),
       ),
     ).toThrow(InvalidTaskTransitionError);
     expect(() =>
-      paused().putToAPerson(RUN, said('And?', Voice.station(RUN))),
+      paused().putToAPerson(RUN, newNote('And?', Voice.station(RUN))),
     ).toThrow(InvalidTaskTransitionError);
   });
 
@@ -137,29 +137,29 @@ describe('a task put to a person by its current run', () => {
     const task = answer(paused());
 
     expect(task.working).toBe(true);
-    expect(task.undelivered.map((each) => each.body.value)).toEqual([
+    expect(task.unacknowledged.map((each) => each.body.value)).toEqual([
       'The default one.',
     ]);
     expect(
-      task.markDeliveredUpTo(NotePosition.of(1), NOW).undelivered,
+      task.acknowledgeUpTo(NotePosition.of(1), NOW).unacknowledged,
     ).toHaveLength(0);
   });
 
   it('hands an answer to the next run’s briefing where the task has no current run', () => {
     const asked = assigned().askedAbout(
-      said('Which queue should I drain?', Voice.station(RUN)),
+      newNote('Which queue should I drain?', Voice.station(RUN)),
       RUN,
     );
 
     expect(asked.running).toBe(false);
-    expect(answer(asked).undelivered).toEqual([]);
+    expect(answer(asked).unacknowledged).toEqual([]);
     expect(answer(asked).wantsRun(line)).toBe(true);
   });
 
   it('can be put to a person again by the same run once answered', () => {
     const again = answer(paused()).putToAPerson(
       RUN,
-      said('Ready for review.', Voice.station(RUN)),
+      newNote('Ready for review.', Voice.station(RUN)),
     );
 
     expect(again.awaitingReview).toBe(true);
@@ -177,55 +177,55 @@ describe('a task put to a person by its current run', () => {
     );
   });
 
-  it('takes a person speaking to the waiting run as their answer to its open question', () => {
-    const spoken = paused().spokenTo(
+  it('takes a message from a person to the waiting run as their answer to its open question', () => {
+    const received = paused().receiveMessage(
       RUN,
-      said('The default one.', Voice.person(UserId.of('user_1'))),
+      newNote('The default one.', Voice.person(UserId.of('user_1'))),
       BUILD,
     );
 
-    expect(spoken.awaitingReview).toBe(false);
-    expect(spoken.notes[1]?.kind).toBe('answered');
-    expect(spoken.pullEvents()).toContainEqual(
-      new TaskAnswered(spoken.id, spoken.workspaceId, RUN),
+    expect(received.awaitingReview).toBe(false);
+    expect(received.notes[1]?.kind).toBe('answered');
+    expect(received.pullEvents()).toContainEqual(
+      new TaskAnswered(received.id, received.workspaceId, RUN),
     );
   });
 
-  it('takes words to a run waiting on an approval as something said, leaving the approval to be decided', () => {
+  it('takes words to a run waiting on an approval as a message, leaving the approval to be decided', () => {
     const approving = assigned().clearFor(
       ApprovalSubject.toolCall(
         ToolCall.of(Tool.of('linear.comment'), ToolInputs.of({ body: 'x' })),
       ),
       ApprovalNeeded.of('linear.comment', 'It posts publicly.'),
-      said('Approve linear.comment?', Voice.station(RUN)),
+      newNote('Approve linear.comment?', Voice.station(RUN)),
       RUN,
       null,
     ).task;
 
-    const spoken = approving.spokenTo(
+    const received = approving.receiveMessage(
       RUN,
-      said('Why do you need it?', Voice.person(UserId.of('user_1'))),
+      newNote('Why do you need it?', Voice.person(UserId.of('user_1'))),
       BUILD,
     );
 
     expect(approving.decisionPending).toBe(true);
-    expect(spoken.awaitingReview).toBe(true);
-    expect(spoken.notes[1]?.kind).toBe('said');
+    expect(received.awaitingReview).toBe(true);
+    expect(received.notes[1]?.kind).toBe('message');
     expect(
-      spoken.pullEvents().some((each) => each instanceof TaskAnswered),
+      received.pullEvents().some((each) => each instanceof TaskAnswered),
     ).toBe(false);
   });
 
-  it('takes a person speaking to a working run as something said to it, answering nothing', () => {
-    const spoken = assigned().spokenTo(
+  it('takes a message from a person to a working run as a message, answering nothing', () => {
+    const received = assigned().receiveMessage(
       RUN,
-      said('Use the staging queue.', Voice.person(UserId.of('user_1'))),
+      newNote('Use the staging queue.', Voice.person(UserId.of('user_1'))),
       BUILD,
     );
 
-    expect(spoken.notes[0]?.kind).toBe('said');
+    expect(received.notes[0]?.kind).toBe('message');
     expect(
-      spoken.pullEvents().some((each) => each instanceof TaskAnswered),
+      received.pullEvents().some((each) => each instanceof TaskAnswered),
     ).toBe(false);
   });
 
@@ -242,19 +242,19 @@ describe('a task put to a person by its current run', () => {
   it('passes an answer its run never heard to the next run’s briefing once it leaves its run', () => {
     const answered = answer(paused());
 
-    expect(answered.leaveRun(RUN, NOW).undelivered).toEqual([]);
+    expect(answered.leaveRun(RUN, NOW).unacknowledged).toEqual([]);
     expect(
       answered.moveTo(
         line,
         StationId.of('station_backlog'),
         TaskRank.of('j'),
-        said('Moved on.', Voice.person(UserId.of('user_1'))),
+        newNote('Moved on.', Voice.person(UserId.of('user_1'))),
         { mover: UserId.of('user_1') },
-      ).undelivered,
+      ).unacknowledged,
     ).toEqual([]);
     expect(
-      answered.askedAbout(said('Stopped.', Voice.station(RUN)), RUN)
-        .undelivered,
+      answered.askedAbout(newNote('Stopped.', Voice.station(RUN)), RUN)
+        .unacknowledged,
     ).toEqual([]);
   });
 
@@ -266,7 +266,7 @@ describe('a task put to a person by its current run', () => {
       line,
       StationId.of('station_backlog'),
       TaskRank.of('j'),
-      said('Moved on.', Voice.person(UserId.of('user_1'))),
+      newNote('Moved on.', Voice.person(UserId.of('user_1'))),
       { mover: UserId.of('user_1') },
     );
 

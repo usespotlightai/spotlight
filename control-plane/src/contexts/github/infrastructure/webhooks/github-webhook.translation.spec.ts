@@ -43,7 +43,7 @@ describe('GitHubWebhookTranslation', () => {
         pullRequest: 'https://github.com/acme/api/pull/7',
         label: null,
         about: null,
-        remark: null,
+        reviewComment: null,
         byBot: false,
       });
     });
@@ -211,7 +211,7 @@ describe('GitHubWebhookTranslation', () => {
         }),
       ).toMatchObject({
         activity: 'commented',
-        remark: { body: 'This retries forever.', id: 'PRRC_1' },
+        reviewComment: { body: 'This retries forever.', id: 'PRRC_1' },
       });
     });
 
@@ -225,7 +225,7 @@ describe('GitHubWebhookTranslation', () => {
             path: 'runner/internal/session/session.go',
             line: 42,
           },
-        })?.remark,
+        })?.reviewComment,
       ).toMatchObject({
         path: 'runner/internal/session/session.go',
         from: 42,
@@ -244,7 +244,7 @@ describe('GitHubWebhookTranslation', () => {
             start_line: 10,
             line: 14,
           },
-        })?.remark,
+        })?.reviewComment,
       ).toMatchObject({ path: 'compose.yml', from: 10, to: 14 });
     });
 
@@ -258,7 +258,7 @@ describe('GitHubWebhookTranslation', () => {
             path: 'compose.yml',
             original_line: 7,
           },
-        })?.remark,
+        })?.reviewComment,
       ).toMatchObject({ path: 'compose.yml', from: 7 });
     });
 
@@ -290,7 +290,7 @@ describe('GitHubWebhookTranslation', () => {
         }),
       ).toMatchObject({
         activity: 'changes-requested',
-        remark: { body: 'Handle the empty case.' },
+        reviewComment: { body: 'Handle the empty case.' },
       });
       expect(
         activity('pull_request_review', {

@@ -21,7 +21,7 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { WORK_EVENT_MAPPERS } from '@work/application/integration-events/work.event-mappers';
 import { Run } from '@work/domain/aggregates/run.aggregate';
 import { BriefedMemories } from '@work/domain/value-objects/briefed-memories.vo';
-import { Declaration } from '@work/domain/value-objects/declaration.vo';
+import { Handover } from '@work/domain/value-objects/handover.vo';
 import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
 import { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import { RunPriority } from '@work/domain/value-objects/run-priority.vo';
@@ -234,7 +234,7 @@ describe('a replay run’s ending, stored on its replay through Replays (e2e)', 
           RUNNER,
           RunOutcome.of({ exitCode: 0, failed: false }),
           HandoverReport.of({
-            declared: Declaration.of({ next: 'build' }),
+            handover: Handover.of({ next: 'build' }),
             session: null,
           }),
         ),

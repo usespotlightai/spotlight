@@ -66,7 +66,7 @@ describe('a search for a better station config, ranking and picking its candidat
         })
         .expect(200)
     ).body as { objective: string; warnings: { kind: string }[] };
-    const told = (
+    const withObjective = (
       await owner()
         .post(`${stationPath()}/searches/estimate`, {
           setId,
@@ -78,7 +78,7 @@ describe('a search for a better station config, ranking and picking its candidat
 
     expect(estimate.objective).toBe('cost');
     expect(estimate.warnings).toContainEqual({ kind: 'saturated', rate: 1 });
-    expect(told.objective).toBe('success');
+    expect(withObjective.objective).toBe('success');
     await owner()
       .post(`${stationPath()}/searches/estimate`, {
         setId,

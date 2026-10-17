@@ -82,7 +82,7 @@ const briefed = BriefedTask.of({
       attachments: [SCREENSHOT],
     },
   ],
-  openRemarks: [
+  openReviewComments: [
     { at: NotePosition.of(0), place: 'src/queue.ts:12', body: 'Why here?' },
   ],
 });

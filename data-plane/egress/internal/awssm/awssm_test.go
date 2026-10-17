@@ -44,14 +44,14 @@ func TestReadsASecretWholeOrOneFieldOfIt(t *testing.T) {
 func TestSaysWhyItCouldNotRead(t *testing.T) {
 	reader := With(client{"plain": "sntrys_1", "fielded": `{"other":3}`, "empty": ""})
 
-	for asked, said := range map[protocol.ExternalSecretRef]string{
+	for asked, want := range map[protocol.ExternalSecretRef]string{
 		source("missing", ""):      "ResourceNotFoundException",
 		source("plain", "token"):   "not JSON",
 		source("fielded", "other"): "no text at other",
 		source("empty", ""):        "has no text",
 		{Kind: "vault"}:            "reads no vault",
 	} {
-		if _, err := reader.Read(context.Background(), asked); err == nil || !strings.Contains(err.Error(), said) {
+		if _, err := reader.Read(context.Background(), asked); err == nil || !strings.Contains(err.Error(), want) {
 			t.Errorf("%+v: %v", asked, err)
 		}
 	}

@@ -29,13 +29,13 @@ interface AskedOfRun {
   readonly description: string | null;
 }
 
-const MAX_TOLD = 2_000;
+const MAX_TOOL_IO_CHARS = 2_000;
 
 const clipped = (text: string, max: number): string =>
   text.length > max ? `${text.slice(0, max)} …` : text;
 
 const clippedOrNone = (text: string | null): string | null =>
-  text === null ? null : clipped(text, MAX_TOLD);
+  text === null ? null : clipped(text, MAX_TOOL_IO_CHARS);
 
 const evidenced = (step: JournalStep, index: number): EvidencedStep => ({
   index,

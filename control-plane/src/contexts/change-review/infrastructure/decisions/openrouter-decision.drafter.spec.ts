@@ -25,7 +25,7 @@ const answering = (status: number, body: unknown) => {
 const REASONED = {
   steps: [
     { index: 3, kind: 'thought', text: 'Backoff is not in the client yet.' },
-    { index: 7, kind: 'said', text: 'Retrying once for now.' },
+    { index: 7, kind: 'message', text: 'Retrying once for now.' },
   ],
   changed: ['api/src/uploads.ts'],
 };
@@ -48,14 +48,14 @@ describe('drafting decisions through OpenRouter', () => {
     ).draft(REASONED);
 
     const body = JSON.parse(String(asked[0]?.init.body));
-    const told = body.messages[1].content as string;
+    const prompt = body.messages[1].content as string;
 
     expect(drafted).toEqual(DECISIONS);
     expect(body.model).toBe('some/model');
     expect(body.response_format.json_schema.name).toBe('decisions');
-    expect(told).toContain('- api/src/uploads.ts');
-    expect(told).toContain('[3] thought: Backoff is not in the client yet.');
-    expect(told).toContain('[7] said: Retrying once for now.');
+    expect(prompt).toContain('- api/src/uploads.ts');
+    expect(prompt).toContain('[3] thought: Backoff is not in the client yet.');
+    expect(prompt).toContain('[7] message: Retrying once for now.');
   });
 
   it('does not draft without a key', async () => {

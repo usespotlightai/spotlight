@@ -41,7 +41,9 @@ export function TokenAccessField({
             />
             <span className="flex flex-col">
               <span className="text-foreground text-sm">{each.label}</span>
-              <span className="text-muted-foreground text-xs">{each.told}</span>
+              <span className="text-muted-foreground text-xs">
+                {each.description}
+              </span>
             </span>
           </label>
         ))}
@@ -59,7 +61,9 @@ export function TokenAccessField({
             />
             <span className="flex flex-col">
               <span className="text-foreground text-sm">{each.label}</span>
-              <span className="text-muted-foreground text-xs">{each.told}</span>
+              <span className="text-muted-foreground text-xs">
+                {each.description}
+              </span>
             </span>
           </label>
         ))}

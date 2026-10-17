@@ -75,8 +75,8 @@ const judge: JudgePort = {
   available: true,
   model: 'stub/judge',
   judge: async (ask) => {
-    const said = ask.steps.find((each) => SCORED.test(each.text));
-    const value = Number(SCORED.exec(said?.text ?? '')?.[1] ?? 1);
+    const scoredStep = ask.steps.find((each) => SCORED.test(each.text));
+    const value = Number(SCORED.exec(scoredStep?.text ?? '')?.[1] ?? 1);
 
     return {
       usage: {
@@ -89,7 +89,7 @@ const judge: JudgePort = {
         reasons: [
           {
             text: `It drains the queue as a ${value}.`,
-            steps: said ? [said.index] : [],
+            steps: scoredStep ? [scoredStep.index] : [],
             hunks: [],
           },
         ],
@@ -273,7 +273,7 @@ export const anOriginal = async (stationId = BUILD): Promise<Original> => {
       reviewing: null,
       attachments: [],
       notes: [],
-      openRemarks: [],
+      openReviewComments: [],
     }).parts,
     briefedMemories: { briefed: [], cut: [] },
     startedFromArchiveId: archiveId,
@@ -512,7 +512,7 @@ export const finished = async (
     .post(`/api/runs/${runId}/completion`, {
       exitCode: 0,
       failed: false,
-      outcome: { next: 'ship', note: 'Drained.' },
+      handover: { next: 'ship', note: 'Drained.' },
       sessionId: 'session_1',
       kept: true,
     })
@@ -617,7 +617,7 @@ export const endedSearchRun = async (
     .post(`/api/runs/${runId}/completion`, {
       exitCode: failed ? 1 : 0,
       failed,
-      outcome: failed ? undefined : { next: 'review', note: 'Proposed.' },
+      handover: failed ? undefined : { next: 'review', note: 'Proposed.' },
       sessionId: 'session_1',
       kept: true,
     })

@@ -213,7 +213,7 @@ func TestProposeSendsTheStationBlockOnceAndSaysWhatItChanges(t *testing.T) {
 	spotlight := serve(t)
 	block := writeBlock(t, "build.json", `{"key":"build","name":"Build","kind":"work","effort":"low"}`)
 
-	said, err := replaying("propose", "--station", "core/delivery/build", "--name", "Faster", block)
+	output, err := replaying("propose", "--station", "core/delivery/build", "--name", "Faster", block)
 	if err != nil {
 		t.Fatalf("propose: %v", err)
 	}
@@ -228,8 +228,8 @@ func TestProposeSendsTheStationBlockOnceAndSaysWhatItChanges(t *testing.T) {
 	spotlight.last(http.MethodGet, "/api/resources/workspaces/ws_1/lines/import?address=core%2Fdelivery")
 
 	for _, want := range []string{"Proposed core/delivery/build/Faster (cand_2); nothing is applied.", "effort none → low", "9f2c4e7a1b3d"} {
-		if !strings.Contains(said, want) {
-			t.Fatalf("said %q, want %q in it", said, want)
+		if !strings.Contains(output, want) {
+			t.Fatalf("output %q, want %q in it", output, want)
 		}
 	}
 }
@@ -248,7 +248,7 @@ func TestProposeReadsTheBlockFromStdin(t *testing.T) {
 
 	var answered map[string]any
 	if err := json.Unmarshal(out.Bytes(), &answered); err != nil || answered["id"] != "cand_2" {
-		t.Fatalf("--json said %q", out.String())
+		t.Fatalf("--json wrote %q", out.String())
 	}
 }
 
@@ -300,15 +300,15 @@ func TestStationIsCheckedAgainstTheLine(t *testing.T) {
 func TestCandidatesListsTheStationsOwn(t *testing.T) {
 	spotlight := serve(t)
 
-	said, err := replaying("candidates", "--station", "core/delivery/build")
+	output, err := replaying("candidates", "--station", "core/delivery/build")
 	if err != nil {
 		t.Fatalf("candidates: %v", err)
 	}
 
 	spotlight.last(http.MethodGet, "/api/resources/workspaces/ws_1/replay-candidates?station=core%2Fdelivery%2Fbuild")
 	for _, want := range []string{"NAME", "Shorter prompt", "cand_1"} {
-		if !strings.Contains(said, want) {
-			t.Fatalf("said %q, want %q", said, want)
+		if !strings.Contains(output, want) {
+			t.Fatalf("output %q, want %q", output, want)
 		}
 	}
 }
@@ -316,14 +316,14 @@ func TestCandidatesListsTheStationsOwn(t *testing.T) {
 func TestShowSaysWhatTheCandidateChanges(t *testing.T) {
 	serve(t)
 
-	said, err := replaying("show", "--station", "core/delivery/build", "Shorter prompt")
+	output, err := replaying("show", "--station", "core/delivery/build", "Shorter prompt")
 	if err != nil {
 		t.Fatalf("show: %v", err)
 	}
 
 	for _, want := range []string{"prompt changed", "model sonnet → opus", "skill tdd added"} {
-		if !strings.Contains(said, want) {
-			t.Fatalf("said %q, want %q", said, want)
+		if !strings.Contains(output, want) {
+			t.Fatalf("output %q, want %q", output, want)
 		}
 	}
 
@@ -335,21 +335,21 @@ func TestShowSaysWhatTheCandidateChanges(t *testing.T) {
 func TestSetsListsTheStationsSetsByLineAndKey(t *testing.T) {
 	spotlight := serve(t)
 
-	said, err := replaying("sets", "--station", "core/delivery/build")
+	output, err := replaying("sets", "--station", "core/delivery/build")
 	if err != nil {
 		t.Fatalf("sets: %v", err)
 	}
 
 	spotlight.last(http.MethodGet, "/api/teams/team_1/replay-sets?line=line_1&station=build")
-	if !strings.Contains(said, "Queue fixes") || !strings.Contains(said, "set_1") {
-		t.Fatalf("said %q", said)
+	if !strings.Contains(output, "Queue fixes") || !strings.Contains(output, "set_1") {
+		t.Fatalf("output %q", output)
 	}
 }
 
 func TestStartReplaysASetUnderACandidateNamedWithinACeiling(t *testing.T) {
 	spotlight := serve(t)
 
-	said, err := replaying("start", "--station", "core/delivery/build", "--set", "Queue fixes", "--candidate", "Shorter prompt", "--ceiling", "5")
+	output, err := replaying("start", "--station", "core/delivery/build", "--set", "Queue fixes", "--candidate", "Shorter prompt", "--ceiling", "5")
 	if err != nil {
 		t.Fatalf("start: %v", err)
 	}
@@ -359,8 +359,8 @@ func TestStartReplaysASetUnderACandidateNamedWithinACeiling(t *testing.T) {
 		t.Fatalf("sent %v", sent.body)
 	}
 	for _, want := range []string{"replay_1", "replay_base", "spotlight replay watch --team core replay_1"} {
-		if !strings.Contains(said, want) {
-			t.Fatalf("said %q, want %q", said, want)
+		if !strings.Contains(output, want) {
+			t.Fatalf("output %q, want %q", output, want)
 		}
 	}
 }
@@ -368,15 +368,15 @@ func TestStartReplaysASetUnderACandidateNamedWithinACeiling(t *testing.T) {
 func TestStartReplaysEachRunAsOftenAsAsked(t *testing.T) {
 	spotlight := serve(t)
 
-	said, err := replaying("start", "--station", "core/delivery/build", "--set", "Queue fixes", "--candidate", "live", "--ceiling", "5", "--repeats", "3")
+	output, err := replaying("start", "--station", "core/delivery/build", "--set", "Queue fixes", "--candidate", "live", "--ceiling", "5", "--repeats", "3")
 	if err != nil {
 		t.Fatalf("start: %v", err)
 	}
 	if sent := spotlight.last(http.MethodPost, "/api/teams/team_1/replay-sets/set_1/replays"); sent.body["repeats"] != 3.0 {
 		t.Fatalf("sent %v", sent.body)
 	}
-	if !strings.Contains(said, "replays each run 3 times") {
-		t.Fatalf("said %q", said)
+	if !strings.Contains(output, "replays each run 3 times") {
+		t.Fatalf("output %q", output)
 	}
 	if _, err := replaying("start", "--station", "core/delivery/build", "--set", "Queue fixes", "--candidate", "live", "--ceiling", "5", "--repeats", "6"); err == nil || !strings.Contains(err.Error(), "--repeats") {
 		t.Fatalf("err = %v, want --repeats rejected", err)
@@ -390,7 +390,7 @@ func TestStatusGivesEachRateItsIntervalAndSaysWhenTheGainIsWithinNoise(t *testin
 		`"candidate":[{"result":"succeeded"}],"baseline":[]`, `"candidate":[{"result":"succeeded"},{"result":"failed"}],"baseline":[]`, 1,
 	)}
 
-	said, err := replaying("status", "--team", "core", "replay_1")
+	output, err := replaying("status", "--team", "core", "replay_1")
 	if err != nil {
 		t.Fatalf("status: %v", err)
 	}
@@ -400,8 +400,8 @@ func TestStatusGivesEachRateItsIntervalAndSaysWhenTheGainIsWithinNoise(t *testin
 		"Within noise of the baseline: -50 points (-100 to +0) over 2 tasks",
 		"succeeded/failed",
 	} {
-		if !strings.Contains(said, want) {
-			t.Fatalf("said %q, want %q", said, want)
+		if !strings.Contains(output, want) {
+			t.Fatalf("output %q, want %q", output, want)
 		}
 	}
 }
@@ -421,18 +421,18 @@ func TestStatusShowsRegressionsFirstAndExitsAsRegressed(t *testing.T) {
 	spotlight := serve(t)
 	spotlight.replays = []string{replayOf("finished", true)}
 
-	said, err := replaying("status", "--team", "core", "replay_1")
+	output, err := replaying("status", "--team", "core", "replay_1")
 	if !errors.Is(err, errRegressed) || !strings.Contains(err.Error(), "the candidate regressed against its counterpart on 1 of 2 tasks") {
 		t.Fatalf("err = %v, want a regression", err)
 	}
 
-	regressed := strings.Index(said, "REGRESSED")
-	if regressed < 0 || regressed > strings.Index(said, "task_1") {
-		t.Fatalf("said %q, want the regression first", said)
+	regressed := strings.Index(output, "REGRESSED")
+	if regressed < 0 || regressed > strings.Index(output, "task_1") {
+		t.Fatalf("output %q, want the regression first", output)
 	}
 	for _, want := range []string{"Succeeded: 1 of 2 (50%), 0 unscored", "Compared with the baseline, finished: 2 of 2 (100%); 100% (34–100%) over 2 of 2 tasks, 0 unscored\n\n", "CANDIDATE  COMPARED WITH  COST Δ", "1.25 USD of 5 USD"} {
-		if !strings.Contains(said, want) {
-			t.Fatalf("said %q, want %q", said, want)
+		if !strings.Contains(output, want) {
+			t.Fatalf("output %q, want %q", output, want)
 		}
 	}
 	spotlight.last(http.MethodGet, "/api/resources/workspaces/ws_1/teams/import?address=core")
@@ -442,12 +442,12 @@ func TestStatusOwnsUpToSpendingPastTheCeiling(t *testing.T) {
 	spotlight := serve(t)
 	spotlight.replays = []string{strings.Replace(replayOf("over-budget", false), `"spent":{"amount":1.25`, `"spent":{"amount":5.5`, 1)}
 
-	said, err := replaying("status", "--team", "core", "replay_1")
+	output, err := replaying("status", "--team", "core", "replay_1")
 	if err != nil {
 		t.Fatalf("status: %v", err)
 	}
-	if !strings.Contains(said, "5.5 USD of 5 USD spent, over the ceiling by 0.5 USD") {
-		t.Fatalf("said %q", said)
+	if !strings.Contains(output, "5.5 USD of 5 USD spent, over the ceiling by 0.5 USD") {
+		t.Fatalf("output %q", output)
 	}
 }
 
@@ -476,7 +476,7 @@ func TestWatchAsksUntilTheReplayAndTheReplayItIsComparedWithEnd(t *testing.T) {
 		t.Fatalf("slept %d times, want 2", slept)
 	}
 	if json.Unmarshal(out.Bytes(), &answered) != nil || answered["replay"].(map[string]any)["state"] != "finished" || answered["comparedWith"].(map[string]any)["id"] != "replay_base" {
-		t.Fatalf("--json said %q", out.String())
+		t.Fatalf("--json wrote %q", out.String())
 	}
 }
 
@@ -484,14 +484,14 @@ func TestStopStopsTheReplayAndAnswersAsSpotlightReadsItAfter(t *testing.T) {
 	spotlight := serve(t)
 	spotlight.replays = []string{replayOf("stopped", false)}
 
-	said, err := replaying("stop", "--team", "core", "replay_1")
+	output, err := replaying("stop", "--team", "core", "replay_1")
 	if err != nil {
 		t.Fatalf("stop: %v", err)
 	}
 
 	spotlight.last(http.MethodPost, "/api/teams/team_1/replays/replay_1/stop")
-	if !strings.Contains(said, "Stopped replay replay_1, now stopped") {
-		t.Fatalf("said %q", said)
+	if !strings.Contains(output, "Stopped replay replay_1, now stopped") {
+		t.Fatalf("output %q", output)
 	}
 
 	out := new(bytes.Buffer)
@@ -500,7 +500,7 @@ func TestStopStopsTheReplayAndAnswersAsSpotlightReadsItAfter(t *testing.T) {
 	}
 	var answered map[string]any
 	if json.Unmarshal(out.Bytes(), &answered) != nil || answered["state"] != "stopped" || answered["setId"] != "set_1" {
-		t.Fatalf("--json said %q", out.String())
+		t.Fatalf("--json wrote %q", out.String())
 	}
 }
 
@@ -595,7 +595,7 @@ func TestEveryCommandNeedsTheAddressAndAToken(t *testing.T) {
 	}
 }
 
-func TestATokenSpotlightDoesNotAcceptIsTold(t *testing.T) {
+func TestATokenSpotlightDoesNotAcceptIsReported(t *testing.T) {
 	serve(t)
 	t.Setenv(tokenVar, "not-the-token")
 
@@ -626,7 +626,7 @@ func TestStatusNamesTheReplayItIsComparedWithAndFollowsIt(t *testing.T) {
 			spotlight.replays = []string{replay}
 			spotlight.answers["GET /api/teams/team_1/replays/"+each.against] = counterpartOf(each.against, "finished")
 
-			said, err := replaying("status", "--team", "core", "replay_1")
+			output, err := replaying("status", "--team", "core", "replay_1")
 			if err != nil {
 				t.Fatalf("status: %v", err)
 			}
@@ -634,8 +634,8 @@ func TestStatusNamesTheReplayItIsComparedWithAndFollowsIt(t *testing.T) {
 				"Compared with " + each.want + ", finished: 1 of 2 (50%); 50% (10–90%) over 2 of 2 tasks, 0 unscored\nOn the tasks both scored: 60% (40–80%)\n",
 				"Better than " + each.want + ": +20 points (+10 to +30) over 2 tasks",
 			} {
-				if !strings.Contains(said, want) {
-					t.Fatalf("said %q, want %q", said, want)
+				if !strings.Contains(output, want) {
+					t.Fatalf("output %q, want %q", output, want)
 				}
 			}
 			spotlight.last(http.MethodGet, "/api/teams/team_1/replays/"+each.against)
@@ -674,7 +674,7 @@ func TestWatchWaitsForTheReplayItIsComparedWith(t *testing.T) {
 				t.Fatalf("watch: %v", err)
 			}
 			if slept != 1 || !strings.Contains(out.String(), "Compared with "+each.want+", finished:") {
-				t.Fatalf("slept %d times and said %q", slept, out.String())
+				t.Fatalf("slept %d times and wrote %q", slept, out.String())
 			}
 		})
 	}
@@ -684,12 +684,12 @@ func TestStatusOfTheBaselineComparesItWithNothing(t *testing.T) {
 	spotlight := serve(t)
 	spotlight.replays = []string{strings.Replace(baseline, `"id":"replay_base"`, `"id":"replay_1"`, 1)}
 
-	said, err := replaying("status", "--team", "core", "replay_1")
+	output, err := replaying("status", "--team", "core", "replay_1")
 	if err != nil {
 		t.Fatalf("status: %v", err)
 	}
-	if !strings.Contains(said, "It is the set's baseline.\n") || strings.Contains(said, "Compared with") {
-		t.Fatalf("said %q", said)
+	if !strings.Contains(output, "It is the set's baseline.\n") || strings.Contains(output, "Compared with") {
+		t.Fatalf("output %q", output)
 	}
 	for _, asked := range spotlight.asked {
 		if asked.path == "/api/teams/team_1/replays/replay_base" {
@@ -710,12 +710,12 @@ func TestStatusSaysWhyNothingIsCompared(t *testing.T) {
 			spotlight := serve(t)
 			spotlight.replays = []string{each.replay}
 
-			said, err := replaying("status", "--team", "core", "replay_1")
+			output, err := replaying("status", "--team", "core", "replay_1")
 			if err != nil {
 				t.Fatalf("status: %v", err)
 			}
-			if !strings.Contains(said, each.want) {
-				t.Fatalf("said %q, want %q", said, each.want)
+			if !strings.Contains(output, each.want) {
+				t.Fatalf("output %q, want %q", output, each.want)
 			}
 		})
 	}
@@ -726,7 +726,7 @@ func TestStatusAnswersInJSONWithTheReplayItIsComparedWith(t *testing.T) {
 	spotlight.replays = []string{replayUnder("searched", "replay_seed")}
 	spotlight.answers["GET /api/teams/team_1/replays/replay_seed"] = counterpartOf("replay_seed", "finished")
 
-	said, err := replaying("status", "--team", "core", "--json", "replay_1")
+	output, err := replaying("status", "--team", "core", "--json", "replay_1")
 	if err != nil {
 		t.Fatalf("status: %v", err)
 	}
@@ -742,14 +742,14 @@ func TestStatusAnswersInJSONWithTheReplayItIsComparedWith(t *testing.T) {
 		} `json:"comparedWith"`
 		Baseline any `json:"baseline"`
 	}
-	if json.Unmarshal([]byte(said), &answered) != nil || answered.Replay.ComparedWith.ReplayID != "replay_seed" || answered.ComparedWith.ID != "replay_seed" || answered.Baseline != nil {
-		t.Fatalf("--json said %q", said)
+	if json.Unmarshal([]byte(output), &answered) != nil || answered.Replay.ComparedWith.ReplayID != "replay_seed" || answered.ComparedWith.ID != "replay_seed" || answered.Baseline != nil {
+		t.Fatalf("--json wrote %q", output)
 	}
 
 	spotlight.replays = []string{replayUnder("oracle", "")}
-	said, err = replaying("status", "--team", "core", "--json", "replay_1")
+	output, err = replaying("status", "--team", "core", "--json", "replay_1")
 	var bare map[string]any
-	if err != nil || json.Unmarshal([]byte(said), &bare) != nil || bare["comparedWith"] != nil {
-		t.Fatalf("err = %v, --json said %q", err, said)
+	if err != nil || json.Unmarshal([]byte(output), &bare) != nil || bare["comparedWith"] != nil {
+		t.Fatalf("err = %v, --json wrote %q", err, output)
 	}
 }

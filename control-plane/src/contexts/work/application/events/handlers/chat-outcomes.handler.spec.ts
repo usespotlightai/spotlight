@@ -38,7 +38,7 @@ const handedAgain = () =>
   working()
     .recordSession(HarnessSession.of('session_1'), RunnerId.of('runner_1'))
     .endRun(RunId.of('run_1'))
-    .said({
+    .addMessage({
       by: UserId.of('user_1'),
       body: ChatMessageBody.of('Split it.'),
       at: NOW,
@@ -87,13 +87,13 @@ describe('ChatOutcomes', () => {
     expect(takenUp).not.toHaveBeenCalled();
   });
 
-  it('takes up again what was said after the agent last listened', async () => {
-    const said = working().said({
+  it('takes up again the messages sent after the agent last got one', async () => {
+    const withMessage = working().addMessage({
       by: UserId.of('user_1'),
       body: ChatMessageBody.of('And one more thing.'),
       at: NOW,
     });
-    const { outcomes, save, takenUp } = outcomesOf(said);
+    const { outcomes, save, takenUp } = outcomesOf(withMessage);
 
     await outcomes.onRunCompleted(completed());
 
@@ -101,13 +101,13 @@ describe('ChatOutcomes', () => {
     expect(save.mock.calls[0]?.[0].currentRunId?.value).toBe('run_2');
   });
 
-  it('leaves what was said waiting when the person stopped the agent', async () => {
-    const said = working().said({
+  it('leaves the messages waiting when the person stopped the agent', async () => {
+    const withMessage = working().addMessage({
       by: UserId.of('user_1'),
       body: ChatMessageBody.of('Never mind.'),
       at: NOW,
     });
-    const { outcomes, takenUp } = outcomesOf(said);
+    const { outcomes, takenUp } = outcomesOf(withMessage);
 
     await outcomes.onRunCompleted(completed(RunOutcome.stopped(0)));
 
@@ -117,7 +117,7 @@ describe('ChatOutcomes', () => {
   it.each([
     [
       'a run that never started',
-      RunOutcome.unprovisioned({ saying: 'no capacity' }, 3),
+      RunOutcome.unprovisioned({ description: 'no capacity' }, 3),
       null,
     ],
     [
@@ -126,7 +126,7 @@ describe('ChatOutcomes', () => {
       RunnerId.of('runner_1'),
     ],
   ])(
-    'takes back what %s was handed, and waits for the person',
+    'unacknowledges what %s acknowledged, and waits for the person',
     async (_, outcome, workedBy) => {
       const { outcomes, save, takenUp } = outcomesOf(handedAgain());
 
@@ -146,7 +146,7 @@ describe('ChatOutcomes', () => {
       const saved = save.mock.calls[0]?.[0];
       expect(saved?.running).toBe(false);
       expect(saved?.sessionId?.value).toBe('session_1');
-      expect(saved?.undelivered.map((each) => each.position.value)).toEqual([
+      expect(saved?.unacknowledged.map((each) => each.position.value)).toEqual([
         1,
       ]);
       expect(takenUp).not.toHaveBeenCalled();
@@ -175,7 +175,7 @@ describe('ChatOutcomes', () => {
     expect(save).not.toHaveBeenCalled();
   });
 
-  it('releases a run no runner finished, and takes back what it delivered', async () => {
+  it('releases a run no runner finished, and unacknowledges what it acknowledged', async () => {
     const { outcomes, save, takenUp } = outcomesOf(handedAgain());
 
     await outcomes.onRunExhausted(
@@ -190,7 +190,9 @@ describe('ChatOutcomes', () => {
 
     const saved = save.mock.calls[0]?.[0];
     expect(saved?.running).toBe(false);
-    expect(saved?.undelivered.map((each) => each.position.value)).toEqual([1]);
+    expect(saved?.unacknowledged.map((each) => each.position.value)).toEqual([
+      1,
+    ]);
     expect(takenUp).not.toHaveBeenCalled();
   });
 });

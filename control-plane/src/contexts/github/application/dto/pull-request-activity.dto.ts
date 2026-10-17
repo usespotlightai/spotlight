@@ -7,7 +7,7 @@ export type PullRequestActivityKind =
   | 'changes-requested'
   | 'checks-failed';
 
-export interface PullRequestRemark {
+export interface PullRequestReviewComment {
   readonly body: string;
   readonly path: string | null;
   readonly from: number | null;
@@ -29,6 +29,6 @@ export interface PullRequestActivity {
   readonly pullRequest: string | null;
   readonly label: string | null;
   readonly about: PullRequestAbout | null;
-  readonly remark: PullRequestRemark | null;
+  readonly reviewComment: PullRequestReviewComment | null;
   readonly byBot: boolean;
 }

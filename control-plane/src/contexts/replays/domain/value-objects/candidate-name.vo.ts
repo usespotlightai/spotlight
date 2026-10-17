@@ -14,11 +14,11 @@ const SEARCHED = /^[a-z0-9][a-z0-9-]{0,62}$/;
 
 export const SEED_NAME = 'seed';
 
-const CANDIDATE_NAME_SAYS = `name must be 1 to ${MAX_LENGTH} characters`;
+const CANDIDATE_NAME_PROBLEM = `name must be 1 to ${MAX_LENGTH} characters`;
 
 const problemOf = (raw: string): string | null => {
   if (raw.length === 0 || raw.length > MAX_LENGTH) {
-    return CANDIDATE_NAME_SAYS;
+    return CANDIDATE_NAME_PROBLEM;
   }
   if (raw.trim() !== raw) {
     return 'name cannot start or end with a space';

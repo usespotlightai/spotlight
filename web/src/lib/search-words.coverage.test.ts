@@ -46,10 +46,10 @@ const codesOf = (schema: string, property: string): string[] => {
   return codes.filter((each): each is string => each !== null);
 };
 
-const worded = (said: string, code: string) => {
-  expect(said, code).toBeTruthy();
-  expect(said, code).not.toBe(code);
-  expect(said.includes('undefined'), `${code} has no words`).toBe(false);
+const worded = (text: string, code: string) => {
+  expect(text, code).toBeTruthy();
+  expect(text, code).not.toBe(code);
+  expect(text.includes('undefined'), `${code} has no words`).toBe(false);
 };
 
 const reason = (code: string): PullRequestReason => ({

@@ -30,9 +30,9 @@ import {
 } from '@nestjs/swagger';
 import { CurrentRunner } from '@platform/http/decorators/current-runner.decorator';
 import { RunnerOnly } from '@platform/http/decorators/runner-only.decorator';
-import { AnswerRemarkCommand } from '@work/application/commands/answer-remark.command';
+import { AckMessagesCommand } from '@work/application/commands/ack-messages.command';
 import { AskPermissionCommand } from '@work/application/commands/ask-permission.command';
-import { DeliverSaidCommand } from '@work/application/commands/deliver-said.command';
+import { ReplyToReviewCommentCommand } from '@work/application/commands/reply-to-review-comment.command';
 import {
   AppendRunJournalCommand,
   ClaimRunCommand,
@@ -66,14 +66,14 @@ import { RunStopRequestedQuery } from '@work/application/queries/run-stop-reques
 import { TurnAsksAPersonQuery } from '@work/application/queries/turn-asks-a-person.query';
 import { InstallableHarnessResponseDto } from '@work/presentation/http/dto/installable-harness.response.dto';
 import {
-  AnswerRemarkRequestDto,
+  AckMessagesRequestDto,
   AppendRunEventsRequestDto,
   AskPermissionRequestDto,
   CompleteRunRequestDto,
-  DeliverSaidRequestDto,
   PendingMessageResponseDto,
   RecordRunImageRequestDto,
   RecordStartingPointRequestDto,
+  ReplyToReviewCommentRequestDto,
   RunAttachmentResponseDto,
   SuspendRunRequestDto,
 } from '@work/presentation/http/dto/runner.request.dto';
@@ -177,7 +177,7 @@ export class RunnerController {
   @Get('runs/:runId/messages')
   @ApiOperation({
     operationId: 'pendingMessages',
-    summary: 'What a person has said to the agent working this run',
+    summary: 'The messages that a person sent to the agent of this run',
   })
   @ApiOkResponse({ type: PendingMessageResponseDto, isArray: true })
   @ApiNotFoundResponse({ description: 'No such run leased by this runner' })
@@ -316,21 +316,21 @@ export class RunnerController {
     }
   }
 
-  @Post('runs/:runId/messages/delivered')
+  @Post('runs/:runId/messages/ack')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
-    operationId: 'deliverSaid',
-    summary: 'Say what the agent has been given',
+    operationId: 'ackMessages',
+    summary: 'Acknowledge the messages that the agent got',
   })
   @ApiNoContentResponse()
   @ApiConflictResponse({ description: 'The run is not leased by this runner' })
-  async delivered(
+  async ackMessages(
     @Param('runId') runId: string,
     @CurrentRunner() runnerId: string,
-    @Body() body: DeliverSaidRequestDto,
+    @Body() body: AckMessagesRequestDto,
   ): Promise<void> {
     await this.commandBus.execute(
-      new DeliverSaidCommand(runId, runnerId, body.upTo),
+      new AckMessagesCommand(runId, runnerId, body.upTo),
     );
   }
 
@@ -561,23 +561,23 @@ export class RunnerController {
     return new PermissionAnswerResponseDto(answered.decision);
   }
 
-  @Post('runs/:runId/remark')
+  @Post('runs/:runId/review-comment-replies')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
-    operationId: 'answerRemark',
-    summary: 'Answer something said on the pull request, and resolve it',
+    operationId: 'replyToReviewComment',
+    summary: 'Reply to a review comment on the pull request, and resolve it',
     description:
-      'Answered under Spotlight\u2019s own credential. Nothing that reaches ' +
+      'Spotlight replies with its own credential. Nothing that reaches ' +
       'GitHub is ever sent to a runner.',
   })
   @ApiNoContentResponse()
-  async answerRemark(
+  async replyToReviewComment(
     @Param('runId') runId: string,
     @CurrentRunner() runnerId: string,
-    @Body() body: AnswerRemarkRequestDto,
+    @Body() body: ReplyToReviewCommentRequestDto,
   ): Promise<void> {
     await this.commandBus.execute(
-      new AnswerRemarkCommand(
+      new ReplyToReviewCommentCommand(
         runId,
         runnerId,
         body.handle,
@@ -611,7 +611,7 @@ export class RunnerController {
         body.exitCode,
         body.failed,
         body.message,
-        body.outcome ?? null,
+        body.handover ?? null,
         body.sessionId ?? null,
         body.stopped ?? false,
         body.kept ?? false,
@@ -645,7 +645,7 @@ export class RunnerController {
         body.exitCode,
         body.failed,
         body.stopped ?? false,
-        body.outcome ?? null,
+        body.handover ?? null,
       ),
     );
 

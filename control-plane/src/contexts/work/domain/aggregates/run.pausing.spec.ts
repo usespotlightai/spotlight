@@ -10,7 +10,7 @@ import { RunPaused } from '@work/domain/events/run-paused.event';
 import { RunResumed } from '@work/domain/events/run-resumed.event';
 import { RunSuspended } from '@work/domain/events/run-suspended.event';
 import { InvalidRunTransitionError } from '@work/domain/exceptions/invalid-run-transition.error';
-import { Declaration } from '@work/domain/value-objects/declaration.vo';
+import { Handover } from '@work/domain/value-objects/handover.vo';
 import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import { RunAttempt } from '@work/domain/value-objects/run-attempt.vo';
@@ -25,7 +25,7 @@ const RUNNER = RunnerId.of('runner_1');
 const OTHER = RunnerId.of('runner_2');
 const CLEAN = RunOutcome.of({ exitCode: 0, failed: false });
 const ASKED = HandoverReport.of({
-  declared: Declaration.of({ next: 'review', note: 'Which queue?' }),
+  handover: Handover.of({ next: 'review', note: 'Which queue?' }),
   session: HarnessSession.of('session_1'),
 });
 
@@ -71,7 +71,7 @@ describe('a run that asks a person', () => {
           null,
           RUNNER,
           CLEAN,
-          ASKED.declared,
+          ASKED.handover,
           ASKED.session,
           1,
           NOW,

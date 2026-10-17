@@ -122,8 +122,8 @@ vi.mock('@/hooks/api/useTaskStation', () => ({
   useTaskStation: () => taskStation(),
 }));
 
-vi.mock('@/hooks/api/useSayToRun', () => ({
-  useSayToRun: () => ({ mutate: vi.fn(), isPending: false }),
+vi.mock('@/hooks/api/useSendMessage', () => ({
+  useSendMessage: () => ({ mutate: vi.fn(), isPending: false }),
 }));
 
 const answer = vi.fn();
@@ -168,7 +168,7 @@ const run = (over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
-const said = (over: Record<string, unknown> = {}) => ({
+const conversationOf = (over: Record<string, unknown> = {}) => ({
   runId: 'run_1',
   taskId: 'task_1',
   title: 'Fix the queue',
@@ -228,7 +228,7 @@ describe('Run', () => {
     runs.mockReturnValue([run()]);
     runsFailing.mockReturnValue(false);
     refetchRuns.mockReset();
-    conversation.mockReturnValue(said());
+    conversation.mockReturnValue(conversationOf());
     conversationFailing.mockReturnValue(false);
     refetchConversation.mockReset();
     journal.mockReturnValue([]);
@@ -251,7 +251,7 @@ describe('Run', () => {
       expect(screen.queryByText(/no such run/)).not.toBeInTheDocument();
     });
 
-    it('waits for what was said, so the footer does not change under the reader', () => {
+    it('waits for the conversation, so the footer does not change under the reader', () => {
       conversation.mockReturnValue(undefined);
 
       renderRun();
@@ -301,7 +301,7 @@ describe('Run', () => {
       expect(refetchRuns).toHaveBeenCalledTimes(1);
     });
 
-    it('tries what was said again when only that is missing', async () => {
+    it('tries the conversation again when only that is missing', async () => {
       conversation.mockReturnValue(undefined);
       conversationFailing.mockReturnValue(true);
 
@@ -330,7 +330,7 @@ describe('Run', () => {
     });
 
     it('does not call a run empty when only its work is missing', () => {
-      conversation.mockReturnValue(said({ notes: [] }));
+      conversation.mockReturnValue(conversationOf({ notes: [] }));
       journal.mockReturnValue(undefined);
       journalFailing.mockReturnValue(true);
 
@@ -415,7 +415,7 @@ describe('Run', () => {
       );
     });
 
-    it('shows what it was told and what it did, with a composer nobody can use', () => {
+    it('shows its briefing and what it did, with a composer nobody can use', () => {
       renderRun();
 
       expect(
@@ -429,7 +429,7 @@ describe('Run', () => {
     });
   });
 
-  it('shows what the station said', () => {
+  it('shows the note of the station', () => {
     renderRun();
 
     expect(screen.getByText('Which queue should I drain?')).toBeInTheDocument();
@@ -469,7 +469,7 @@ describe('Run', () => {
 
   it('leaves the config and the spend to the traces', () => {
     conversation.mockReturnValue(
-      said({
+      conversationOf({
         spend: {
           cost: 1.8742,
           currency: 'USD',
@@ -494,7 +494,7 @@ describe('Run', () => {
   describe('when nothing was done', () => {
     it('says the run failed before the agent started, and leads to the task', () => {
       runs.mockReturnValue([run({ state: 'failed' })]);
-      conversation.mockReturnValue(said({ notes: [] }));
+      conversation.mockReturnValue(conversationOf({ notes: [] }));
 
       renderRun();
 
@@ -508,7 +508,7 @@ describe('Run', () => {
 
     it('says nothing of the kind while the run is still to start', () => {
       runs.mockReturnValue([run({ state: 'queued' })]);
-      conversation.mockReturnValue(said({ notes: [] }));
+      conversation.mockReturnValue(conversationOf({ notes: [] }));
 
       renderRun();
 
@@ -521,7 +521,7 @@ describe('Run', () => {
     });
 
     it('says nothing of the kind once the run has done something', () => {
-      conversation.mockReturnValue(said({ notes: [] }));
+      conversation.mockReturnValue(conversationOf({ notes: [] }));
       journal.mockReturnValue([
         { runId: 'run_1', attempt: 1, steps: [step], spans: [] },
       ]);
@@ -631,7 +631,7 @@ describe('Run', () => {
 
     it('lets an approval be decided right here, through its inbox conversation', async () => {
       runs.mockReturnValue([run({ state: 'waiting', review: PENDING })]);
-      const approval = said().notes.map((note) => ({
+      const approval = conversationOf().notes.map((note) => ({
         ...note,
         form: 'approval',
         approval: {
@@ -644,7 +644,7 @@ describe('Run', () => {
           intent: null,
         },
       }));
-      conversation.mockReturnValue(said({ notes: approval }));
+      conversation.mockReturnValue(conversationOf({ notes: approval }));
 
       renderRun();
 
@@ -685,7 +685,7 @@ describe('Run', () => {
 
     it('does not call a run that asked before doing anything empty', () => {
       runs.mockReturnValue([run({ state: 'waiting' })]);
-      conversation.mockReturnValue(said({ notes: [] }));
+      conversation.mockReturnValue(conversationOf({ notes: [] }));
 
       renderRun();
 
@@ -722,7 +722,7 @@ describe('Run', () => {
   });
 
   describe('once the person answered', () => {
-    const asked = said().notes[0];
+    const asked = conversationOf().notes[0];
     const answered = {
       ...asked,
       position: 1,
@@ -743,7 +743,7 @@ describe('Run', () => {
     it('shows one run: its work before the question, the answer, then it carrying on', () => {
       runs.mockReturnValue([run({ state: 'claimed', attempt: 2 })]);
       conversation.mockReturnValue(
-        said({ working: true, notes: [asked, answered] }),
+        conversationOf({ working: true, notes: [asked, answered] }),
       );
       journal.mockReturnValue([
         {
@@ -819,7 +819,7 @@ describe('Run', () => {
       expect(screen.getByText('Runner lost (not scored).')).toBeInTheDocument();
     });
 
-    it('shows what its agent was told, and a composer nobody can use', () => {
+    it('shows the briefing of its agent, and a composer nobody can use', () => {
       renderRun();
 
       expect(

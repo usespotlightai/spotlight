@@ -203,12 +203,12 @@ describe('Task', () => {
       ]);
       renderAt('task_1');
 
-      const told = screen
+      const rows = screen
         .getAllByRole('listitem')
         .map((each) => each.textContent);
 
-      expect(told[1]).toContain('Waiting for you');
-      expect(told[2]).toContain('Implementation');
+      expect(rows[1]).toContain('Waiting for you');
+      expect(rows[2]).toContain('Implementation');
     });
   });
 

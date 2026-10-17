@@ -71,7 +71,7 @@ export class HookCallbackGrant {
     return {
       kind: 'callback',
       key: `callback:${this.granted.hook}:${this.granted.taskId.value}`,
-      saying: `a note by callback from the hook ${this.granted.hook}`,
+      description: `a note by callback from the hook ${this.granted.hook}`,
     };
   }
 

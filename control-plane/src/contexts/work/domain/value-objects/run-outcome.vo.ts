@@ -3,7 +3,7 @@ import { InvalidRunOutcomeError } from '@work/domain/exceptions/invalid-run-outc
 import { RunFailure } from '@work/domain/value-objects/run-failure.vo';
 
 export interface RefusalReason {
-  readonly saying: string;
+  readonly description: string;
 }
 
 export class RunOutcome {
@@ -52,17 +52,17 @@ export class RunOutcome {
   static refused(reasons: readonly RefusalReason[]): RunOutcome {
     return RunOutcome.failedWith(
       'refused',
-      reasons.map((each) => each.saying).join('; '),
+      reasons.map((each) => each.description).join('; '),
     );
   }
 
   static unprovisioned(
-    failure: { readonly saying: string },
+    failure: { readonly description: string },
     attempts: number,
   ): RunOutcome {
     return RunOutcome.failedWith(
       'unprovisioned',
-      `No runner was provisioned after ${attempts} attempts. Last failure: ${failure.saying}`,
+      `No runner was provisioned after ${attempts} attempts. Last failure: ${failure.description}`,
     );
   }
 

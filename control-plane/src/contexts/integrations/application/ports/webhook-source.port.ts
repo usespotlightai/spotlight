@@ -18,8 +18,8 @@ export interface Delivered {
 export interface HappeningDeclaration {
   readonly happening: HappeningName;
   readonly label: string;
-  readonly told: string;
-  readonly spoken: boolean;
+  readonly summary: string;
+  readonly answers: boolean;
 }
 
 // Throw UpstreamError for a recognised delivery that cannot be placed yet, so the host resends it.

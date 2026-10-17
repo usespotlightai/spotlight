@@ -27,7 +27,7 @@ const ASK: MemoryDraftAsk = {
       kind: 'thought',
       text: 'A queue needs a worker we do not run.',
     },
-    { index: 7, kind: 'said', text: 'Retrying in the request.' },
+    { index: 7, kind: 'message', text: 'Retrying in the request.' },
   ],
   stepsLeftOut: 0,
   notes: [{ position: 4, by: 'person', text: 'Never retry on a 403.' }],
@@ -71,21 +71,21 @@ describe('drafting memories through OpenRouter', () => {
     const drafted = await drafting(fetch);
 
     const body = JSON.parse(String(asked[0]?.body));
-    const told = body.messages[1].content as string;
+    const prompt = body.messages[1].content as string;
     expect(drafted).toEqual(MEMORIES);
     expect(body.model).toBe('some/model');
     expect(body.response_format.json_schema.name).toBe('memories');
-    expect(told).toContain(
+    expect(prompt).toContain(
       'the line "Delivery", at its station "Implementation"',
     );
-    expect(told).toContain('- acme/api: src/uploads.ts');
-    expect(told).toContain(
+    expect(prompt).toContain('- acme/api: src/uploads.ts');
+    expect(prompt).toContain(
       '[3] thought: A queue needs a worker we do not run.',
     );
-    expect(told).toContain('(4) person: Never retry on a 403.');
-    expect(told).toContain('- memory_old (preference): Retry twice.');
-    expect(told).toContain('- (rejected-approach): Retry forever.');
-    expect(told).toContain(
+    expect(prompt).toContain('(4) person: Never retry on a 403.');
+    expect(prompt).toContain('- memory_old (preference): Retry twice.');
+    expect(prompt).toContain('- (rejected-approach): Retry forever.');
+    expect(prompt).toContain(
       'Memories the agent already proposed, waiting for a person:\n- (rationale): Retry in the request.',
     );
   });

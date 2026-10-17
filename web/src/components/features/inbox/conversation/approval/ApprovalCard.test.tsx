@@ -54,7 +54,7 @@ describe('ApprovalCard', () => {
     ).toBeInTheDocument();
   });
 
-  it('names the tool and why it asks, where the agent said nothing', () => {
+  it('names the tool and why it asks, where the agent gave no intent', () => {
     showing(EXECUTE);
 
     expect(
@@ -71,7 +71,7 @@ describe('ApprovalCard', () => {
       screen.getByRole('button', { name: 'Approve linear.comment' }),
     );
 
-    expect(onDecide).toHaveBeenCalledWith({ approve: true, said: '' });
+    expect(onDecide).toHaveBeenCalledWith({ approve: true, body: '' });
   });
 
   it('lets only the person it was asked of approve it, and anyone dismiss it', async () => {
@@ -116,7 +116,7 @@ describe('ApprovalCard', () => {
       screen.getByRole('button', { name: 'Approve linear.comment' }),
     );
 
-    expect(onDecide).toHaveBeenCalledWith({ approve: true, said: '' });
+    expect(onDecide).toHaveBeenCalledWith({ approve: true, body: '' });
     expect(screen.queryByText(/Only .* can approve this/)).toBeNull();
   });
 
@@ -135,7 +135,7 @@ describe('ApprovalCard', () => {
 
     expect(onDecide).toHaveBeenCalledWith({
       approve: true,
-      said: '',
+      body: '',
       inputs: [
         { name: 'body', value: 'Fixed in #41.' },
         { name: 'issue', value: 'ENG-12' },
@@ -155,7 +155,7 @@ describe('ApprovalCard', () => {
 
     expect(onDecide).toHaveBeenCalledWith({
       approve: true,
-      said: '',
+      body: '',
       inputs: undefined,
     });
   });
@@ -222,7 +222,7 @@ describe('ApprovalCard', () => {
 
     expect(onDecide).toHaveBeenCalledWith({
       approve: false,
-      said: 'Not before the release.',
+      body: 'Not before the release.',
     });
   });
 

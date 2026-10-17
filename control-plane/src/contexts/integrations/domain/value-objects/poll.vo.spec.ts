@@ -13,7 +13,7 @@ const poll = () =>
       DeclaredHappening.of({
         happening: HappeningName.of('linear.issue.completed'),
         label: 'Done',
-        told: 'Done.',
+        summary: 'Done.',
         finds: [MarkKind.of('linear.issue')],
       }),
     ],

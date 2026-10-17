@@ -113,7 +113,7 @@ func TestSkipsAnEntryThatNamesNothing(t *testing.T) {
 
 func TestReadsTheVersionTheHarnessReports(t *testing.T) {
 	for _, expected := range []struct {
-		said    string
+		printed string
 		version string
 	}{
 		{"2.1.270 (Claude Code)", "2.1.270"},
@@ -124,7 +124,7 @@ func TestReadsTheVersionTheHarnessReports(t *testing.T) {
 		{"", ""},
 	} {
 		dir := t.TempDir()
-		script := "#!/bin/sh\nprintf '%s\\n' '" + expected.said + "'\n"
+		script := "#!/bin/sh\nprintf '%s\\n' '" + expected.printed + "'\n"
 		if err := os.WriteFile(filepath.Join(dir, "versioned"), []byte(script), 0o755); err != nil {
 			t.Fatal(err)
 		}
@@ -135,7 +135,7 @@ func TestReadsTheVersionTheHarnessReports(t *testing.T) {
 		})
 
 		if len(found) != 1 || found[0].Version != expected.version {
-			t.Errorf("%q: got %+v, want version %q", expected.said, found, expected.version)
+			t.Errorf("%q: got %+v, want version %q", expected.printed, found, expected.version)
 		}
 	}
 }

@@ -30,8 +30,8 @@ const journal = (steps: JournalStep[]): RunJournal => ({
   marks: {
     startedAt: null,
     readyAt: null,
-    spokeFrom: null,
-    spokeTo: null,
+    firstAgentUpdateAt: null,
+    lastAgentUpdateAt: null,
     endedAt: null,
   },
   spent: null,

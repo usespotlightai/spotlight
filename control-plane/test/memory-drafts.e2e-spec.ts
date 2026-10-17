@@ -74,7 +74,7 @@ const drafting = (
       taskId: draft.taskId,
       runId,
       site: SITE,
-      steps: [{ index: 5, kind: 'said', text: 'Retrying in the request.' }],
+      steps: [{ index: 5, kind: 'message', text: 'Retrying in the request.' }],
       notes: [{ position: 4, by: 'person', text: 'Never retry on a 403.' }],
       notesRead: 0,
       changed: [{ repository: API, path: 'src/uploads.ts' }],

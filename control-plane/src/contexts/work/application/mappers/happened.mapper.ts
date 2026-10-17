@@ -5,6 +5,7 @@ import type {
   ReviewPayload,
   TaskMark,
 } from '@work/application/contracts/happenings.contract';
+import { Anchor } from '@work/domain/value-objects/anchor.vo';
 import { Branch } from '@work/domain/value-objects/branch.vo';
 import { Concerns } from '@work/domain/value-objects/concerns.vo';
 import {
@@ -19,13 +20,12 @@ import {
   reviewAsking,
   reviewRequested,
 } from '@work/domain/value-objects/review-asked.vo';
-import { Said } from '@work/domain/value-objects/said.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 
 export interface Heard {
   readonly payload: HappeningPayload;
   readonly concerns: Concerns;
-  readonly said: Said | null;
+  readonly anchor: Anchor | null;
   readonly ourOwn: boolean;
   readonly opens: OpensWith | null;
   readonly attachments: readonly Arriving[];
@@ -69,12 +69,12 @@ export const HappenedMapper = {
     return {
       payload: {
         happening: Happening.of(happened.happening),
-        told: happened.told,
-        spoken: happened.spoken,
+        summary: happened.summary,
+        answers: happened.answers,
         state: happened.state,
       },
       concerns,
-      said: happened.said ? Said.of(happened.said) : null,
+      anchor: happened.message ? Anchor.of(happened.message) : null,
       ourOwn: happened.ourOwn,
       opens: opens
         ? {

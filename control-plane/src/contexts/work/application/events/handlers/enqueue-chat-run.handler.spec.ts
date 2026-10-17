@@ -61,7 +61,7 @@ describe('EnqueueChatRun', () => {
     expect(twice.enqueue).not.toHaveBeenCalled();
   });
 
-  it('detaches the chat from its run and takes back what it handed when its run can no longer start', async () => {
+  it('detaches the chat from its run and unacknowledges what its run acknowledged when its run can no longer start', async () => {
     const { handler, chat, save } = enqueuing({ enqueued: false });
 
     await handler.on(new ChatDispatched(CHAT, RUN, HANDED));

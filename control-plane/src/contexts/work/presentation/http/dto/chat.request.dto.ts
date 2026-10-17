@@ -81,7 +81,7 @@ export class StartChatRequestDto {
   readonly setup?: ChatSetupRequestDto;
 }
 
-export class SayInChatRequestDto {
+export class SendChatMessageRequestDto {
   @ApiProperty({
     example: 'Split it into two tasks.',
     description: 'May be empty where files are attached or traces shared.',

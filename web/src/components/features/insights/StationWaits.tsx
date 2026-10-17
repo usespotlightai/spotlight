@@ -26,7 +26,7 @@ const WAITS = [
   { key: 'inbox', label: 'In the inbox', fill: 'var(--chart-5)' },
 ] as const;
 
-const Said = ({
+const TipContent = ({
   placement,
   active,
   payload,
@@ -118,7 +118,7 @@ export function StationWaits({
                 />
                 <Tooltip
                   {...cursor.tooltip}
-                  content={<Said placement={cursor.placement} />}
+                  content={<TipContent placement={cursor.placement} />}
                   cursor={{ fill: 'var(--accent)' }}
                 />
                 {WAITS.map((wait) => (

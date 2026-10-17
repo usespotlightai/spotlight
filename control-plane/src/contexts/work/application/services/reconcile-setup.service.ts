@@ -68,10 +68,10 @@ export class ReconcileSetup {
       }
 
       const { state } = await this.setup.of(task.workspaceId, line.teamId);
-      const saying = setupDoneNote(task.notes, state, this.clock.now());
+      const newNote = setupDoneNote(task.notes, state, this.clock.now());
 
-      if (saying) {
-        await this.tasks.save(task.closeConversation(saying));
+      if (newNote) {
+        await this.tasks.save(task.closeConversation(newNote));
       }
     } catch (error) {
       if (error instanceof TaskVersionConflictError) {

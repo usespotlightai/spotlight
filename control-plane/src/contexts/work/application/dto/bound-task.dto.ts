@@ -1,6 +1,6 @@
 interface WaitingDto {
   readonly conversationId: string;
-  readonly said: string;
+  readonly body: string;
   readonly awaitsApproval: boolean;
 }
 

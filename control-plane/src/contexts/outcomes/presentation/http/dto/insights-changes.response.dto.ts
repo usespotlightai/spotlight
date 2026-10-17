@@ -369,7 +369,7 @@ export class InsightsSetupsResponseDto {
     type: SizeBoundResponseDto,
     isArray: true,
     description:
-      'How a run’s size is told: by the lines its changes removed and added, or by its steps where it changed none',
+      'How a run’s size is measured: by the lines its changes removed and added, or by its steps where it changed none',
   })
   readonly sizes: readonly SizeBoundResponseDto[];
 

@@ -25,31 +25,31 @@ import {
 const raised = (input: {
   key: string;
   label: string;
-  told: string;
-  spoken?: boolean;
+  summary: string;
+  answers?: boolean;
 }): HappeningDeclaration => ({
   happening: HappeningName.of(input.key),
   label: input.label,
-  told: input.told,
-  spoken: input.spoken ?? false,
+  summary: input.summary,
+  answers: input.answers ?? false,
 });
 
 const ASKED: Readonly<Record<ReviewAsking, HappeningDeclaration>> = {
   opened: raised({
     key: 'github.pull_request.opened',
     label: 'Pull request opened',
-    told: 'A pull request was opened for review.',
+    summary: 'A pull request was opened for review.',
   }),
   mentioned: raised({
     key: 'github.pull_request.mentioned',
     label: 'Mentioned on a pull request',
-    told: 'Somebody mentioned Spotlight on the pull request.',
-    spoken: true,
+    summary: 'Somebody mentioned Spotlight on the pull request.',
+    answers: true,
   }),
   labelled: raised({
     key: 'github.pull_request.labelled',
     label: 'Labelled on a pull request',
-    told: 'Somebody labelled the pull request for Spotlight.',
+    summary: 'Somebody labelled the pull request for Spotlight.',
   }),
 };
 
@@ -61,29 +61,29 @@ const RAISED: Readonly<
   merged: raised({
     key: 'github.pull_request.merged',
     label: 'Pull request merged',
-    told: 'The pull request was merged.',
+    summary: 'The pull request was merged.',
   }),
   commented: raised({
     key: 'github.pull_request.commented',
     label: 'Pull request commented on',
-    told: 'The pull request was commented on.',
-    spoken: true,
+    summary: 'The pull request was commented on.',
+    answers: true,
   }),
   'changes-requested': raised({
     key: 'github.pull_request.changes-requested',
     label: 'Changes requested',
-    told: 'Changes were requested on the pull request.',
-    spoken: true,
+    summary: 'Changes were requested on the pull request.',
+    answers: true,
   }),
   'checks-failed': raised({
     key: 'github.checks.failed',
     label: 'Checks failed',
-    told: 'The checks failed on the pull request.',
+    summary: 'The checks failed on the pull request.',
   }),
   'closed-unmerged': raised({
     key: 'github.pull_request.closed-unmerged',
     label: 'Pull request closed unmerged',
-    told: 'The pull request was closed without being merged.',
+    summary: 'The pull request was closed without being merged.',
   }),
 };
 
@@ -94,14 +94,14 @@ const failUnnamed = (heard: PullRequestActivity): never => {
   );
 };
 
-const saidIn = (heard: PullRequestActivity): Happened['said'] =>
-  heard.remark
+const messageOf = (heard: PullRequestActivity): Happened['message'] =>
+  heard.reviewComment
     ? {
-        body: heard.remark.body,
-        path: heard.remark.path,
-        from: heard.remark.from,
-        to: heard.remark.to,
-        remark: heard.remark.id,
+        body: heard.reviewComment.body,
+        path: heard.reviewComment.path,
+        from: heard.reviewComment.from,
+        to: heard.reviewComment.to,
+        reviewComment: heard.reviewComment.id,
       }
     : null;
 
@@ -122,11 +122,11 @@ const askedFor = (
 
   return {
     happening: raising.happening.value,
-    told: raising.told,
-    spoken: raising.spoken,
+    summary: raising.summary,
+    answers: raising.answers,
     state: 'raised',
     concerns: { branch: null, marks },
-    said: asking === 'mentioned' ? saidIn(heard) : null,
+    message: asking === 'mentioned' ? messageOf(heard) : null,
     ourOwn: heard.byBot,
     opens: {
       onto: REVIEW_ROLE,
@@ -150,7 +150,7 @@ const askedFor = (
 
 const mentions = (heard: PullRequestActivity): boolean =>
   (heard.activity === 'commented' || heard.activity === 'changes-requested') &&
-  (heard.remark?.body.includes('@') ?? false);
+  (heard.reviewComment?.body.includes('@') ?? false);
 
 const happenedIn = (heard: PullRequestActivity): readonly Happened[] => {
   if (heard.activity === 'opened') {
@@ -212,11 +212,11 @@ const happened = (
 
   return {
     happening: raising.happening.value,
-    told: raising.told,
-    spoken: raising.spoken,
+    summary: raising.summary,
+    answers: raising.answers,
     state: 'raised',
     concerns,
-    said: saidIn(heard),
+    message: messageOf(heard),
     ourOwn: heard.byBot,
     opens: null,
   };

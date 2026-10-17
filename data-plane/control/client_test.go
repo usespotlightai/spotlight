@@ -118,7 +118,7 @@ func TestClaimReturnsTheRun(t *testing.T) {
 	}
 }
 
-func TestAppendEventsSaysNothingWhenThereIsNothingToSay(t *testing.T) {
+func TestAppendEventsSendsNothingWhenThereIsNothingToSend(t *testing.T) {
 	called := false
 	client := serve(t, func(http.ResponseWriter, *http.Request) { called = true })
 
@@ -739,7 +739,7 @@ func TestRecallsByWordsAndByHandle(t *testing.T) {
 	}
 }
 
-func TestARejectedMemorySaysWhatSpotlightSaid(t *testing.T) {
+func TestARejectedMemorySaysWhySpotlightRejectedIt(t *testing.T) {
 	client := serve(t, func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusUnprocessableEntity)
@@ -752,8 +752,8 @@ func TestARejectedMemorySaysWhatSpotlightSaid(t *testing.T) {
 	if !errors.As(err, &rejection) {
 		t.Fatalf("got %v", err)
 	}
-	if said, ok := rejection.ClientErrorMessage(); !ok || said != "A memory is one of rationale, not gossip" {
-		t.Errorf("rejected with %q, %v", said, ok)
+	if message, ok := rejection.ClientErrorMessage(); !ok || message != "A memory is one of rationale, not gossip" {
+		t.Errorf("rejected with %q, %v", message, ok)
 	}
 }
 
@@ -792,10 +792,10 @@ func TestReadsTheMemoryFilesOfARun(t *testing.T) {
 
 func TestCompleteHearsWhetherTheRunNowWaitsForAPerson(t *testing.T) {
 	var asked string
-	var told protocol.Completion
+	var sent protocol.Completion
 	client := serve(t, func(w http.ResponseWriter, r *http.Request) {
 		asked = r.Method + " " + r.URL.Path
-		_ = json.NewDecoder(r.Body).Decode(&told)
+		_ = json.NewDecoder(r.Body).Decode(&sent)
 		_, _ = w.Write([]byte(`{"waiting":true}`))
 	})
 
@@ -806,8 +806,8 @@ func TestCompleteHearsWhetherTheRunNowWaitsForAPerson(t *testing.T) {
 	if !completed.Waiting {
 		t.Error("the run waits for a person, yet the runner heard it ended")
 	}
-	if asked != "POST /api/runs/run_1/completion" || told.SessionID != "session_1" {
-		t.Errorf("asked %q with %+v", asked, told)
+	if asked != "POST /api/runs/run_1/completion" || sent.SessionID != "session_1" {
+		t.Errorf("asked %q with %+v", asked, sent)
 	}
 }
 
@@ -867,7 +867,7 @@ func TestAsksHearsWhetherTheTurnWouldWaitForAPerson(t *testing.T) {
 		})
 
 		asks, err := client.Asks(context.Background(), "run_1", protocol.Completion{
-			Outcome: &protocol.Outcome{Next: "review"},
+			Handover: &protocol.Handover{Next: "review"},
 		})
 		if err != nil {
 			t.Fatalf("asks: %v", err)
@@ -875,7 +875,7 @@ func TestAsksHearsWhetherTheTurnWouldWaitForAPerson(t *testing.T) {
 		if asks != answer {
 			t.Errorf("the control plane said %t, the runner heard %t", answer, asks)
 		}
-		if asked != "POST /api/runs/run_1/completion/asks" || sent.Outcome == nil || sent.Outcome.Next != "review" {
+		if asked != "POST /api/runs/run_1/completion/asks" || sent.Handover == nil || sent.Handover.Next != "review" {
 			t.Errorf("asked %q with %+v", asked, sent)
 		}
 	}

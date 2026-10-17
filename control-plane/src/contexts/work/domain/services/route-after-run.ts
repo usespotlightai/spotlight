@@ -1,7 +1,7 @@
 import type { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import type { Station } from '@work/domain/entities/station.entity';
-import type { Handover } from '@work/domain/value-objects/handover.vo';
+import type { ResolvedHandover } from '@work/domain/value-objects/resolved-handover.vo';
 import type { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
 
 export type RunRouting =
@@ -22,11 +22,11 @@ export type RunRouting =
 export const putsItToAPerson = (routing: RunRouting): boolean =>
   routing.kind === 'ask' && routing.failure === null;
 
-const failureOf = (handover: Handover): TaskFailure | null =>
+const failureOf = (handover: ResolvedHandover): TaskFailure | null =>
   handover.kind === 'review' ? handover.failure : null;
 
 export const routeAfterRun = (
-  handover: Handover,
+  handover: ResolvedHandover,
   line: Line | null,
   task: Pick<Task, 'awaitingReview' | 'deferredMoveTo'>,
 ): RunRouting => {

@@ -28,7 +28,7 @@ export class DeniedCatalogItem implements RefusalReason {
     return new DeniedCatalogItem(input.id, input.reason, input.because);
   }
 
-  get saying(): string {
+  get description(): string {
     return `${CODES[this.reason]}: ${this.because}`;
   }
 }

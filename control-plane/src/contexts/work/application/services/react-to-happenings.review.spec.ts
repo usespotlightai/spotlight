@@ -118,11 +118,11 @@ const asked = (
 
   return {
     happening: `github.pull_request.${asking}`,
-    told: 'A pull request wants a review.',
-    spoken: asking === 'mentioned',
+    summary: 'A pull request wants a review.',
+    answers: asking === 'mentioned',
     state: 'raised',
     concerns: { branch: null, marks },
-    said: over.body ? { body: over.body } : null,
+    message: over.body ? { body: over.body } : null,
     ourOwn: false,
     opens: {
       onto: 'review',

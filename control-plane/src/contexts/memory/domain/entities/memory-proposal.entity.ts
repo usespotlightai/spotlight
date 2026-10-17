@@ -130,7 +130,7 @@ export class MemoryProposal {
     return this.grounds.notes.includes(position);
   }
 
-  says(other: MemoryProposal): boolean {
+  matches(other: MemoryProposal): boolean {
     return this.kind === other.kind && this.body.equals(other.body);
   }
 

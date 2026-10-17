@@ -89,7 +89,7 @@ export type StationResponseDto = {
    */
   model: string | null;
   /**
-   * How hard the harness is told to think. Null leaves its own default.
+   * How hard the harness must think. Null leaves its own default.
    */
   effort: string | null;
   /**
@@ -389,7 +389,7 @@ export type StepChangeResponseDto = {
 };
 
 export type JournalStepResponseDto = {
-  kind: 'said' | 'thought' | 'tool' | 'planned' | 'hook';
+  kind: 'message' | 'thought' | 'tool' | 'planned' | 'hook';
   text: string;
   status: string | null;
   /**
@@ -691,9 +691,9 @@ export type RunnerHistoryResponseDto = {
   } | null;
 };
 
-export type DeliverSaidRequestDto = {
+export type AckMessagesRequestDto = {
   /**
-   * Everything said up to and including this note was given
+   * The agent got all the messages up to and including this note
    */
   upTo: number;
 };
@@ -816,19 +816,19 @@ export type PermissionAnswerResponseDto = {
   decision: 'allow' | 'reject' | 'asked';
 };
 
-export type AnswerRemarkRequestDto = {
+export type ReplyToReviewCommentRequestDto = {
   /**
-   * Which remark, as briefed
+   * Which review comment, as the briefing named it
    */
   handle: string;
   body: string;
   /**
-   * Resolve the thread as well as answering it
+   * Resolve the thread as well as replying to it
    */
   resolve?: boolean;
 };
 
-export type DeclaredOutcomeDto = {
+export type HandoverDto = {
   /**
    * The key of the station to pass the task to, as in code-review; "review" to ask a person; or "done" to close the task at its current station. Anything this line does not know is treated as a question for a person.
    */
@@ -851,7 +851,7 @@ export type CompleteRunRequestDto = {
    */
   timedOut?: boolean;
   message?: string;
-  outcome?: DeclaredOutcomeDto;
+  handover?: HandoverDto;
   /**
    * What the harness called this conversation. Reported rather than remembered by the runner, because the next run may fall to another one.
    */
@@ -1358,15 +1358,15 @@ export type InboxConnectionResponseDto = {
   met: boolean;
 };
 
-export type InboxMessageResponseDto = {
+export type NoteResponseDto = {
   position: number;
-  kind: 'asked' | 'passed' | 'answered' | 'said';
+  kind: 'asked' | 'passed' | 'answered' | 'message';
   /**
    * What it shows, which is not what it did
    */
   form: 'words' | 'setup' | 'resolved' | 'approval' | 'failure' | 'connection';
   /**
-   * Who spoke: the station, a person, or the world outside it
+   * Who wrote it: the station, a person, or the world outside it
    */
   voice: 'station' | 'person' | 'world';
   station: string;
@@ -1386,7 +1386,7 @@ export type InboxMessageResponseDto = {
   attachments: Array<AttachmentResponseDto>;
   at: string;
   /**
-   * Absent where the station said it rather than a person
+   * Absent where the station wrote it rather than a person
    */
   author: InboxAuthorResponseDto | null;
   /**
@@ -1468,7 +1468,7 @@ export type InboxItemResponseDto = {
    * What this item puts aside for a person to resolve, where it is not a conversation; it never blocks the task
    */
   aside: InboxAsideResponseDto | null;
-  notes: Array<InboxMessageResponseDto>;
+  notes: Array<NoteResponseDto>;
 };
 
 export type InboxNoticeResponseDto = {
@@ -1513,7 +1513,7 @@ export type AnswerInboxItemInputRequestDto = {
 
 export type AnswerInboxItemRequestDto = {
   /**
-   * What the person says back. It joins the task’s trail. May be empty where files are attached.
+   * What the person writes back. It joins the task’s trail. May be empty where files are attached.
    */
   body: string;
   /**
@@ -1536,8 +1536,8 @@ export type RunMarksResponseDto = {
    * When the workspace was handed to the agent
    */
   readyAt: string | null;
-  spokeFrom: string | null;
-  spokeTo: string | null;
+  firstAgentUpdateAt: string | null;
+  lastAgentUpdateAt: string | null;
   endedAt: string | null;
 };
 
@@ -1563,7 +1563,7 @@ export type RunJournalResponseDto = {
    */
   spans: Array<RunSpanResponseDto>;
   /**
-   * How long the run spoke for, in ms
+   * How long the agent was active, in ms
    */
   ms: number | null;
   marks: RunMarksResponseDto;
@@ -1656,7 +1656,7 @@ export type TaskResponseDto = {
    */
   assignee: TaskPersonResponseDto | null;
   /**
-   * The last thing said about this task, and where it was said
+   * The last note on this task, and the station where it was written
    */
   note: TaskNoteResponseDto | null;
 };
@@ -1703,7 +1703,7 @@ export type TeamRunResponseDto = {
   taskId: string | null;
   taskTitle: string | null;
   /**
-   * What was asked for, shown before a run has said anything
+   * What was asked for, shown before a run has written a note
    */
   taskDescription: string | null;
 };
@@ -1757,7 +1757,7 @@ export type TeamTraceResponseDto = {
    */
   input: string | null;
   /**
-   * What it said when it passed the task on
+   * The last note that the run wrote on the task
    */
   output: string | null;
   ms: number | null;
@@ -1904,14 +1904,14 @@ export type RunConversationResponseDto = {
    * A run is on the task now
    */
   working: boolean;
-  notes: Array<InboxMessageResponseDto>;
+  notes: Array<NoteResponseDto>;
   /**
    * What the run spent, once it has ended and been digested
    */
   spend: RunSpendResponseDto | null;
 };
 
-export type SayToRunRequestDto = {
+export type SendMessageRequestDto = {
   /**
    * Reaches the agent when its current turn ends. May be empty where files are attached.
    */
@@ -1947,7 +1947,7 @@ export type TaskRunResponseDto = {
 export type AddTaskRequestDto = {
   title: string;
   /**
-   * Markdown. Left out or blank for a task with nothing said.
+   * Markdown. Left out or blank for a task with no description.
    */
   description?: string | null;
   /**
@@ -2019,11 +2019,11 @@ export type ReplayRunResponseDto = {
   original: ReplayedRunResponseDto;
   spend: RunSpendResponseDto | null;
   /**
-   * What it did and said, attempt by attempt
+   * What it did and wrote, attempt by attempt
    */
   journals: Array<RunJournalResponseDto>;
   /**
-   * What the replay told its agent when it was dispatched
+   * The briefing that the replay gave its agent when it was dispatched
    */
   briefing: string;
   /**
@@ -2089,11 +2089,11 @@ export type SearchRunResponseDto = {
   spent: SearchRunSpentResponseDto;
   spend: RunSpendResponseDto | null;
   /**
-   * What it did and said, attempt by attempt
+   * What it did and wrote, attempt by attempt
    */
   journals: Array<RunJournalResponseDto>;
   /**
-   * What the search told its agent when it dispatched this iteration
+   * The briefing that the search gave its agent when it dispatched this iteration
    */
   briefing: string;
 };
@@ -2219,7 +2219,7 @@ export type ChatProposalResponseDto = {
 
 export type ChatMessageResponseDto = {
   position: number;
-  kind: 'said' | 'proposed';
+  kind: 'message' | 'proposed';
   body: string;
   at: string;
   author: InboxAuthorResponseDto | null;
@@ -2263,7 +2263,7 @@ export type ChatResponseDto = {
   messages: Array<ChatMessageResponseDto>;
 };
 
-export type SayInChatRequestDto = {
+export type SendChatMessageRequestDto = {
   /**
    * May be empty where files are attached or traces shared.
    */
@@ -4103,7 +4103,7 @@ export type HappeningResponseDto = {
   happening: string;
   source: string;
   label: string;
-  told: string;
+  summary: string;
 };
 
 export type HookMatchDto = {
@@ -4295,7 +4295,7 @@ export type CallbackTaskResponseDto = {
 
 export type CallbackNoteRequestDto = {
   /**
-   * What to say on the task, as the hook
+   * The note to add to the task, as the hook
    */
   body: string;
 };
@@ -4312,7 +4312,7 @@ export type MemoryGroundStepResponseDto = {
    */
   index: number;
   /**
-   * said, thought, planned, handover, or remember
+   * message, thought, planned, handover, or remember
    */
   kind: string;
   text: string;
@@ -4334,7 +4334,7 @@ export type MemoryGroundNoteResponseDto = {
    */
   by: string;
   /**
-   * The teammate who said it; absent for words from another tool, which carry no author
+   * The teammate who wrote it; absent for a note from another tool, which carries no author
    */
   author: MemoryPersonResponseDto | null;
   text: string;
@@ -4345,7 +4345,7 @@ export type ProposedMemoryResponseDto = {
   kind: 'rationale' | 'rejected-approach' | 'failure' | 'environment' | 'preference' | 'correction';
   body: string;
   /**
-   * person: only what a teammate said; outside: input the team does not control, approved one at a time; run: anything else
+   * person: only notes by a teammate; outside: input the team does not control, approved one at a time; run: anything else
    */
   source: 'person' | 'run' | 'outside';
   /**
@@ -4376,7 +4376,7 @@ export type ProposedMemoryResponseDto = {
    */
   steps: Array<MemoryGroundStepResponseDto>;
   /**
-   * What people said on the task that it rests on
+   * The notes on the task that it rests on
    */
   notes: Array<MemoryGroundNoteResponseDto>;
 };
@@ -4531,7 +4531,7 @@ export type RunProposalResponseDto = {
   kind: 'rationale' | 'rejected-approach' | 'failure' | 'environment' | 'preference' | 'correction';
   body: string;
   /**
-   * person: only what a teammate said; outside: input the team does not control, approved one at a time; run: anything else
+   * person: only notes by a teammate; outside: input the team does not control, approved one at a time; run: anything else
    */
   source: 'person' | 'run' | 'outside';
   /**
@@ -4562,7 +4562,7 @@ export type RunProposalResponseDto = {
    */
   steps: Array<MemoryGroundStepResponseDto>;
   /**
-   * What people said on the task that it rests on
+   * The notes on the task that it rests on
    */
   notes: Array<MemoryGroundNoteResponseDto>;
   /**
@@ -4577,7 +4577,7 @@ export type RunProposalResponseDto = {
 
 export type RunMemoriesResponseDto = {
   /**
-   * What the run was briefed with, in the order it was told
+   * What the run was briefed with, in the order of the briefing
    */
   briefed: Array<TeamMemoryResponseDto>;
   /**
@@ -6256,7 +6256,7 @@ export type InsightsSetupsResponseDto = {
    */
   size: 'small' | 'medium' | 'large' | null;
   /**
-   * How a run’s size is told: by the lines its changes removed and added, or by its steps where it changed none
+   * How a run’s size is measured: by the lines its changes removed and added, or by its steps where it changed none
    */
   sizes: Array<SizeBoundResponseDto>;
   /**
@@ -7265,7 +7265,7 @@ export type GainReadingResponseDto = {
 
 export type OracleReadingResponseDto = {
   /**
-   * The newest replay of the live config handed each run’s answer: the change people accepted, or what they said when they sent it back
+   * The newest replay of the live config handed each run’s answer: the change people accepted, or the note they wrote when they sent it back
    */
   replayId: string;
   candidateId: string;
@@ -7280,7 +7280,7 @@ export type OracleReadingResponseDto = {
    */
   againstState: 'queued' | 'running' | 'finished' | 'stopped' | 'over-budget' | 'gone' | null;
   /**
-   * Runs it replayed: those the live replay replayed whose original was accepted with a change, or sent back with something a person said. Others have no answer to hand over
+   * Runs it replayed: those the live replay replayed whose original was accepted with a change, or sent back with a note from a person. Others have no answer to hand over
    */
   answered: number;
   /**
@@ -9927,16 +9927,16 @@ export type ReadRunHistoryResponses = {
 
 export type ReadRunHistoryResponse = ReadRunHistoryResponses[keyof ReadRunHistoryResponses];
 
-export type DeliverSaidData = {
-  body: DeliverSaidRequestDto;
+export type AckMessagesData = {
+  body: AckMessagesRequestDto;
   path: {
     runId: string;
   };
   query?: never;
-  url: '/runs/{runId}/messages/delivered';
+  url: '/runs/{runId}/messages/ack';
 };
 
-export type DeliverSaidErrors = {
+export type AckMessagesErrors = {
   /**
    * Missing, no longer valid or wrong runner token
    */
@@ -9947,11 +9947,11 @@ export type DeliverSaidErrors = {
   409: unknown;
 };
 
-export type DeliverSaidResponses = {
+export type AckMessagesResponses = {
   204: void;
 };
 
-export type DeliverSaidResponse = DeliverSaidResponses[keyof DeliverSaidResponses];
+export type AckMessagesResponse = AckMessagesResponses[keyof AckMessagesResponses];
 
 export type RenewLeaseData = {
   body?: never;
@@ -10176,27 +10176,27 @@ export type AskPermissionResponses = {
 
 export type AskPermissionResponse = AskPermissionResponses[keyof AskPermissionResponses];
 
-export type AnswerRemarkData = {
-  body: AnswerRemarkRequestDto;
+export type ReplyToReviewCommentData = {
+  body: ReplyToReviewCommentRequestDto;
   path: {
     runId: string;
   };
   query?: never;
-  url: '/runs/{runId}/remark';
+  url: '/runs/{runId}/review-comment-replies';
 };
 
-export type AnswerRemarkErrors = {
+export type ReplyToReviewCommentErrors = {
   /**
    * Missing, no longer valid or wrong runner token
    */
   401: unknown;
 };
 
-export type AnswerRemarkResponses = {
+export type ReplyToReviewCommentResponses = {
   204: void;
 };
 
-export type AnswerRemarkResponse = AnswerRemarkResponses[keyof AnswerRemarkResponses];
+export type ReplyToReviewCommentResponse = ReplyToReviewCommentResponses[keyof ReplyToReviewCommentResponses];
 
 export type CompleteRunData = {
   body: CompleteRunRequestDto;
@@ -11062,17 +11062,17 @@ export type ReadRunConversationResponses = {
 
 export type ReadRunConversationResponse = ReadRunConversationResponses[keyof ReadRunConversationResponses];
 
-export type SayToRunData = {
-  body: SayToRunRequestDto;
+export type SendMessageData = {
+  body: SendMessageRequestDto;
   path: {
     runId: string;
     teamId: string;
   };
   query?: never;
-  url: '/teams/{teamId}/runs/{runId}/say';
+  url: '/teams/{teamId}/runs/{runId}/messages';
 };
 
-export type SayToRunErrors = {
+export type SendMessageErrors = {
   /**
    * No valid session
    */
@@ -11087,14 +11087,14 @@ export type SayToRunErrors = {
   409: unknown;
 };
 
-export type SayToRunResponses = {
+export type SendMessageResponses = {
   /**
    * It joined the task’s trail, and starts the station again if the task was idle there
    */
   204: void;
 };
 
-export type SayToRunResponse = SayToRunResponses[keyof SayToRunResponses];
+export type SendMessageResponse = SendMessageResponses[keyof SendMessageResponses];
 
 export type StopRunData = {
   body?: never;
@@ -11501,8 +11501,8 @@ export type ReadChatJournalResponses = {
 
 export type ReadChatJournalResponse = ReadChatJournalResponses[keyof ReadChatJournalResponses];
 
-export type SayInChatData = {
-  body: SayInChatRequestDto;
+export type SendChatMessageData = {
+  body: SendChatMessageRequestDto;
   path: {
     teamId: string;
     chatId: string;
@@ -11511,7 +11511,7 @@ export type SayInChatData = {
   url: '/teams/{teamId}/chats/{chatId}/messages';
 };
 
-export type SayInChatErrors = {
+export type SendChatMessageErrors = {
   /**
    * A model or effort that is not text
    */
@@ -11530,14 +11530,14 @@ export type SayInChatErrors = {
   422: unknown;
 };
 
-export type SayInChatResponses = {
+export type SendChatMessageResponses = {
   /**
-   * The agent hears it
+   * The agent gets the message
    */
   204: void;
 };
 
-export type SayInChatResponse = SayInChatResponses[keyof SayInChatResponses];
+export type SendChatMessageResponse = SendChatMessageResponses[keyof SendChatMessageResponses];
 
 export type StopChatData = {
   body?: never;
@@ -16715,7 +16715,7 @@ export type DraftReviewCommentErrors = {
    */
   404: unknown;
   /**
-   * Nothing said, or no file
+   * The comment has no text, or names no file
    */
   422: unknown;
 };
@@ -17715,7 +17715,7 @@ export type NoteOnHookTaskData = {
   body: CallbackNoteRequestDto;
   headers?: {
     /**
-     * The same on every retry of one note, so a retried note is said once
+     * The same on every retry of one note, so a retried note is added once
      */
     'Idempotency-Key'?: string;
   };

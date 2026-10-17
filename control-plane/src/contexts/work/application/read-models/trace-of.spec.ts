@@ -52,8 +52,8 @@ const journal = (part: Partial<RunJournal> = {}): RunJournal => ({
   marks: {
     startedAt: at(0),
     readyAt: at(10_000),
-    spokeFrom: at(12_000),
-    spokeTo: at(50_000),
+    firstAgentUpdateAt: at(12_000),
+    lastAgentUpdateAt: at(50_000),
     endedAt: at(60_000),
   },
   spent: null,
@@ -125,8 +125,8 @@ describe('traceOf', () => {
           marks: {
             startedAt: at(0),
             readyAt: null,
-            spokeFrom: null,
-            spokeTo: null,
+            firstAgentUpdateAt: null,
+            lastAgentUpdateAt: null,
             endedAt: at(6_000),
           },
         }),
@@ -190,7 +190,7 @@ describe('traceOf', () => {
         journal: journal({
           steps: [
             step({
-              kind: 'said',
+              kind: 'message',
               text: 'Done.',
               startedAt: at(20_000),
               ms: 100,

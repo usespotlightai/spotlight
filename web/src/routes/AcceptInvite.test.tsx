@@ -182,7 +182,7 @@ describe('AcceptInvite', () => {
     ['accepted', 'This invitation is already accepted.'],
     ['revoked', 'This invitation is withdrawn.'],
     ['expired', 'This invitation has expired. Please ask for a new one.'],
-  ])('says an invitation that is %s is no longer open', (status, said) => {
+  ])('says an invitation that is %s is no longer open', (status, text) => {
     invite.mockReturnValue(offered({ status }));
     session.mockReturnValue({
       data: { user: { email: 'ada@example.com' } },
@@ -190,7 +190,7 @@ describe('AcceptInvite', () => {
     });
     showing();
 
-    expect(screen.getByText(said)).toBeInTheDocument();
+    expect(screen.getByText(text)).toBeInTheDocument();
     expect(
       screen.queryByRole('button', { name: 'Accept invitation' }),
     ).not.toBeInTheDocument();

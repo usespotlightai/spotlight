@@ -4,7 +4,7 @@ import type {
   PullRequestAbout,
   PullRequestActivity,
   PullRequestActivityKind,
-  PullRequestRemark,
+  PullRequestReviewComment,
 } from '@github/application/dto/pull-request-activity.dto';
 import type {
   Heard,
@@ -28,8 +28,8 @@ interface Payload {
   readonly issue?: Described & {
     readonly pull_request?: { readonly html_url?: unknown };
   };
-  readonly comment?: Remark & ReviewComment;
-  readonly review?: Remark & {
+  readonly comment?: CommentPayload & ReviewComment;
+  readonly review?: CommentPayload & {
     readonly id?: unknown;
     readonly state?: unknown;
     readonly submitted_at?: unknown;
@@ -76,7 +76,7 @@ interface Pull extends Described {
   readonly head?: { readonly ref?: unknown };
 }
 
-interface Remark {
+interface CommentPayload {
   readonly node_id?: unknown;
   readonly body?: unknown;
   readonly user?: { readonly type?: unknown; readonly login?: unknown };
@@ -133,18 +133,22 @@ const headed = (delivery: GitHubDelivery, name: string): string | undefined => {
   return Array.isArray(value) ? value[0] : value;
 };
 
-const remarked = (remark: Remark | undefined): PullRequestRemark | null =>
-  remark && (text(remark.body) || text(remark.path))
+const reviewCommentOf = (
+  comment: CommentPayload | undefined,
+): PullRequestReviewComment | null =>
+  comment && (text(comment.body) || text(comment.path))
     ? {
-        body: text(remark.body)?.trim() ?? '',
-        path: text(remark.path)?.trim() ?? null,
+        body: text(comment.body)?.trim() ?? '',
+        path: text(comment.path)?.trim() ?? null,
         from:
-          at(remark.start_line) ?? at(remark.line) ?? at(remark.original_line),
+          at(comment.start_line) ??
+          at(comment.line) ??
+          at(comment.original_line),
         to:
-          at(remark.start_line) !== null
-            ? (at(remark.line) ?? at(remark.original_line))
+          at(comment.start_line) !== null
+            ? (at(comment.line) ?? at(comment.original_line))
             : null,
-        id: text(remark.node_id),
+        id: text(comment.node_id),
       }
     : null;
 
@@ -236,7 +240,8 @@ const pullRequestActivity = (
         ? (text(payload.label?.name)?.trim() ?? null)
         : null,
     about: described(payload.pull_request) ?? described(payload.issue),
-    remark: remarked(payload.comment) ?? remarked(payload.review),
+    reviewComment:
+      reviewCommentOf(payload.comment) ?? reviewCommentOf(payload.review),
     byBot: !ASKED_BY_ANYONE.includes(activity) && byBot(payload),
   };
 

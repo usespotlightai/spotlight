@@ -121,7 +121,8 @@ export class TaskResponseDto {
   @ApiProperty({
     type: TaskNoteResponseDto,
     nullable: true,
-    description: 'The last thing said about this task, and where it was said',
+    description:
+      'The last note on this task, and the station where it was written',
   })
   readonly note: TaskNoteResponseDto | null;
 

@@ -162,7 +162,7 @@ describe('replay words', () => {
   it('says plainly that a set’s health was never read, and how to read it', () => {
     const readings = healthReadingsOf(NEVER_READ, 0.05);
 
-    expect(readings.map((each) => [each.label, each.said, each.tone])).toEqual([
+    expect(readings.map((each) => [each.label, each.text, each.tone])).toEqual([
       ['Noise', 'Not measured', 'unknown'],
       ['Room to improve', 'Not measured', 'unknown'],
       ['Judge agreeing with itself', 'Not checked', 'unknown'],
@@ -261,7 +261,7 @@ describe('replay words', () => {
       0.05,
     );
 
-    expect(readings.map((each) => [each.said, each.tone])).toEqual([
+    expect(readings.map((each) => [each.text, each.tone])).toEqual([
       ['Success moved 20 pts between 3 copies', 'bad'],
       ['Little: +2 pts with the answer', 'bad'],
       ['Same verdict on 70% of 10 changes', 'bad'],
@@ -305,15 +305,15 @@ describe('replay words', () => {
         0.05,
       )[1];
 
-    expect(roomOf({})?.said).toBe('Up to +20 pts with the answer');
+    expect(roomOf({})?.text).toBe('Up to +20 pts with the answer');
     expect(roomOf({})?.tone).toBe('good');
     expect(roomOf({})?.advice).toMatch(
       /^Live config: 60% on 5 runs\. With the answer: 80%\./,
     );
-    expect(roomOf({ state: 'running' })?.said).toBe(
+    expect(roomOf({ state: 'running' })?.text).toBe(
       'Measuring with the answer',
     );
-    expect(roomOf({ state: 'stopped' })?.said).toBe(
+    expect(roomOf({ state: 'stopped' })?.text).toBe(
       'Couldn’t measure with the answer',
     );
     expect(roomOf({ againstState: 'gone' })?.tone).toBe('unknown');

@@ -171,21 +171,21 @@ func (e *exchanging) token(renewed bool) (string, error) {
 }
 
 func problemOf(status int, body []byte) string {
-	var said struct {
+	var errorBody struct {
 		Detail  string `json:"detail"`
 		Title   string `json:"title"`
 		Message any    `json:"message"`
 	}
-	_ = json.Unmarshal(body, &said)
+	_ = json.Unmarshal(body, &errorBody)
 
 	switch {
-	case said.Detail != "":
-		return said.Detail
-	case said.Title != "":
-		return said.Title
+	case errorBody.Detail != "":
+		return errorBody.Detail
+	case errorBody.Title != "":
+		return errorBody.Title
 	}
 
-	if message, ok := said.Message.(string); ok && message != "" {
+	if message, ok := errorBody.Message.(string); ok && message != "" {
 		return message
 	}
 

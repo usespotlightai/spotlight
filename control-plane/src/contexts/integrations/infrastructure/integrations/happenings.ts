@@ -138,15 +138,17 @@ const raiseFrom = (
   }
 
   const title = raise.opens ? reads(raise.opens.title, against) : null;
-  const saying = raise.say ? (reads(raise.say, against) ?? '').trim() : '';
+  const messageText = raise.message
+    ? (reads(raise.message, against) ?? '').trim()
+    : '';
 
   return {
     happening: declared.happening.value,
-    told: declared.told,
-    spoken: declared.spoken,
+    summary: declared.summary,
+    answers: declared.answers,
     state: 'raised',
     concerns: { branch, marks: finding },
-    said: saying ? { body: saying } : null,
+    message: messageText ? { body: messageText } : null,
     ourOwn,
     opens:
       declared.opens && raise.opens && title

@@ -2,16 +2,16 @@ import { describe, expect, it } from 'vitest';
 import type {
   InboxEntry,
   InboxItem,
-  InboxMessage,
   InboxNotice,
   JournalStep,
+  Note,
   RunJournal,
 } from '@/lib/inbox';
 import {
   counted,
   decisionPending,
   inboxItemPath,
-  lastSpokenAt,
+  lastNoteAt,
   noticeLinkPath,
   noticeOf,
   noticePath,
@@ -26,7 +26,7 @@ import {
 } from '@/lib/inbox';
 
 const note = (position: number, runId: string | null) =>
-  ({ position, runId }) as InboxMessage;
+  ({ position, runId }) as Note;
 
 const notes = [note(11, 'run_1'), note(12, null), note(13, 'run_2')];
 
@@ -53,7 +53,7 @@ describe('shownAt', () => {
     expect(shownAt(notes, null)).toBeNull();
   });
 
-  it('opens on nothing in particular for a run that said nothing here', () => {
+  it('opens on nothing in particular for a run without a note here', () => {
     expect(shownAt(notes, 'run_9')).toBeNull();
   });
 });
@@ -86,14 +86,14 @@ describe('spentIn', () => {
 });
 
 describe('previewOf', () => {
-  const item = (notes: Partial<InboxMessage>[]) =>
+  const item = (notes: Partial<Note>[]) =>
     ({
       station: 'Planning',
       description: 'A few quick steps will get everything ready.',
       notes,
     }) as InboxItem;
 
-  it('shows the last thing said', () => {
+  it('shows the last note', () => {
     expect(previewOf(item([{ form: 'words', body: 'Which queue?' }]))).toBe(
       'Which queue?',
     );
@@ -105,7 +105,7 @@ describe('previewOf', () => {
     ).toBe('A few quick steps will get everything ready.');
   });
 
-  it('says where it waits when nothing has been said', () => {
+  it('says where it waits when there is no note', () => {
     expect(previewOf(item([]))).toBe('Waiting at Planning');
   });
 
@@ -125,8 +125,7 @@ describe('previewOf', () => {
 });
 
 describe('decisionPending', () => {
-  const asked = (form: InboxMessage['form']) =>
-    ({ kind: 'asked', form }) as InboxMessage;
+  const asked = (form: Note['form']) => ({ kind: 'asked', form }) as Note;
 
   it('has a pending decision where the last question put up an approval', () => {
     expect(decisionPending([asked('words'), asked('approval')])).toBe(true);
@@ -139,10 +138,10 @@ describe('decisionPending', () => {
 });
 
 describe('threadText', () => {
-  const spoke = (
+  const noteBy = (
     body: string,
-    voice: InboxMessage['voice'],
-    over: Partial<InboxMessage> = {},
+    voice: Note['voice'],
+    over: Partial<Note> = {},
   ) =>
     ({
       body,
@@ -150,24 +149,24 @@ describe('threadText', () => {
       station: 'Implementation',
       author: null,
       ...over,
-    }) as InboxMessage;
+    }) as Note;
 
   const journal = (...steps: { kind: string; text: string }[]) =>
     ({ runId: 'run_1', steps }) as unknown as RunJournal;
 
-  it('copies the briefing and everything said, in order, naming who said it', () => {
+  it('copies the briefing and every note, in order, naming the author of each', () => {
     expect(
       threadText({
-        opening: 'Drain the queue.',
+        briefing: 'Drain the queue.',
         notes: [
-          spoke('Which queue?', 'station'),
-          spoke('The webhook one.', 'person', {
+          noteBy('Which queue?', 'station'),
+          noteBy('The webhook one.', 'person', {
             author: { id: 'user_2', name: 'Maya Chen', image: null },
           }),
-          spoke('  ', 'station'),
-          spoke('Set up the team.', 'world'),
+          noteBy('  ', 'station'),
+          noteBy('Set up the team.', 'world'),
         ],
-        ran: [journal({ kind: 'said', text: 'Not copied twice.' })],
+        ran: [journal({ kind: 'message', text: 'Not copied twice.' })],
         agent: 'Implementation',
       }),
     ).toBe(
@@ -175,20 +174,20 @@ describe('threadText', () => {
         'Briefing:\nDrain the queue.',
         'Implementation:\nWhich queue?',
         'Maya Chen:\nThe webhook one.',
-        'Spotlight:\nSet up the team.',
+        'Another tool:\nSet up the team.',
       ].join('\n\n'),
     );
   });
 
-  it('takes what the agent said from its journal where nobody spoke', () => {
+  it('takes the messages of the agent from its journal where there is no note', () => {
     expect(
       threadText({
-        opening: null,
+        briefing: null,
         notes: [],
         ran: [
           journal(
-            { kind: 'thought', text: 'Not said.' },
-            { kind: 'said', text: 'Done.' },
+            { kind: 'thought', text: 'Not a message.' },
+            { kind: 'message', text: 'Done.' },
           ),
         ],
         agent: 'Implementation',
@@ -196,10 +195,10 @@ describe('threadText', () => {
     ).toBe('Implementation:\nDone.');
   });
 
-  it('copies nothing where nothing was said', () => {
+  it('copies nothing where there is no note and no message', () => {
     expect(
       threadText({
-        opening: '  ',
+        briefing: '  ',
         notes: [],
         ran: [],
         agent: 'Implementation',
@@ -208,42 +207,46 @@ describe('threadText', () => {
   });
 });
 
-describe('lastSpokenAt', () => {
-  const spoke = (body: string, at: string) => ({ body, at }) as InboxMessage;
+describe('lastNoteAt', () => {
+  const noteAt = (body: string, at: string) => ({ body, at }) as Note;
   const journal = (
     ...steps: { kind: string; text: string; startedAt: string }[]
   ) => ({ runId: 'run_1', steps }) as unknown as RunJournal;
 
-  it('dates the last thing said in the conversation', () => {
+  it('dates the last note in the conversation', () => {
     expect(
-      lastSpokenAt(
+      lastNoteAt(
         [
-          spoke('First.', '2026-10-03T10:00:00Z'),
-          spoke('Last.', '2026-10-03T11:00:00Z'),
-          spoke(' ', '2026-10-03T12:00:00Z'),
+          noteAt('First.', '2026-10-03T10:00:00Z'),
+          noteAt('Last.', '2026-10-03T11:00:00Z'),
+          noteAt(' ', '2026-10-03T12:00:00Z'),
         ],
         [],
       ),
     ).toBe('2026-10-03T11:00:00Z');
   });
 
-  it('falls back on what the agent said in its journal, then on nothing', () => {
+  it('falls back on the last message of the agent in its journal, then on nothing', () => {
     expect(
-      lastSpokenAt(
+      lastNoteAt(
         [],
         [
           journal(
-            { kind: 'said', text: 'Done.', startedAt: '2026-10-03T09:00:00Z' },
+            {
+              kind: 'message',
+              text: 'Done.',
+              startedAt: '2026-10-03T09:00:00Z',
+            },
             {
               kind: 'thought',
-              text: 'Not said.',
+              text: 'Not a message.',
               startedAt: '2026-10-03T09:30:00Z',
             },
           ),
         ],
       ),
     ).toBe('2026-10-03T09:00:00Z');
-    expect(lastSpokenAt([], [])).toBeNull();
+    expect(lastNoteAt([], [])).toBeNull();
   });
 });
 
@@ -267,11 +270,11 @@ describe('workedOn', () => {
       marks: { startedAt: began === null ? null : at(began) },
     }) as RunJournal;
 
-  const said = (
-    voice: InboxMessage['voice'],
+  const noteOf = (
+    voice: Note['voice'],
     minute: number,
     runId: string | null = voice === 'person' ? null : 'run_1',
-  ) => ({ voice, runId, at: at(minute) }) as InboxMessage;
+  ) => ({ voice, runId, at: at(minute) }) as Note;
 
   const texts = (journals: RunJournal[]) =>
     journals.flatMap((each) => each.steps.map((one) => one.text));
@@ -279,7 +282,7 @@ describe('workedOn', () => {
   it('hands a run that asked nobody everything it did', () => {
     const worked = [journal(1, [step('read', 1), step('edit', 2)])];
 
-    expect(workedOn(worked, [said('station', 5)], 'run_1')).toEqual(worked);
+    expect(workedOn(worked, [noteOf('station', 5)], 'run_1')).toEqual(worked);
   });
 
   it('keeps other runs out of it', () => {
@@ -293,14 +296,14 @@ describe('workedOn', () => {
 
   it('gives the question what the run did before the person answered', () => {
     const worked = [journal(1, [step('before', 1), step('after', 20)])];
-    const notes = [said('station', 5), said('person', 10)];
+    const notes = [noteOf('station', 5), noteOf('person', 10)];
 
     expect(texts(workedOn(worked, notes, 'run_1', at(5)))).toEqual(['before']);
   });
 
   it('gives what it goes on to do only what came after the answer', () => {
     const worked = [journal(1, [step('before', 1), step('after', 20)])];
-    const notes = [said('station', 5), said('person', 10)];
+    const notes = [noteOf('station', 5), noteOf('person', 10)];
 
     expect(texts(workedOn(worked, notes, 'run_1'))).toEqual(['after']);
     expect(texts(workedOn(worked, notes, 'run_1', at(25)))).toEqual(['after']);
@@ -309,13 +312,13 @@ describe('workedOn', () => {
   it('splits at an answer that came from Slack as it does at one typed here', () => {
     const worked = [journal(1, [step('before', 1), step('after', 20)])];
     const notes = [
-      said('station', 5),
+      noteOf('station', 5),
       {
         voice: 'world',
         kind: 'answered',
         runId: null,
         at: at(10),
-      } as InboxMessage,
+      } as Note,
     ];
 
     expect(texts(workedOn(worked, notes, 'run_1', at(5)))).toEqual(['before']);
@@ -324,7 +327,7 @@ describe('workedOn', () => {
 
   it('times a split attempt by the steps it kept', () => {
     const worked = [journal(1, [step('before', 1), step('after', 20)])];
-    const notes = [said('station', 5), said('person', 10)];
+    const notes = [noteOf('station', 5), noteOf('person', 10)];
 
     expect(workedOn(worked, notes, 'run_1')[0]?.ms).toBe(30_000);
   });
@@ -334,7 +337,7 @@ describe('workedOn', () => {
       journal(1, [step('before', 1)], 0),
       journal(2, [step('after', 20)], 15),
     ];
-    const notes = [said('station', 5), said('person', 10)];
+    const notes = [noteOf('station', 5), noteOf('person', 10)];
 
     expect(
       workedOn(worked, notes, 'run_1', at(5)).map((each) => each.attempt),
@@ -346,7 +349,7 @@ describe('workedOn', () => {
 
   it('counts an attempt resumed after the answer that has done nothing yet as after it', () => {
     const worked = [journal(1, [step('before', 1)], 0), journal(2, [], 15)];
-    const notes = [said('station', 5), said('person', 10)];
+    const notes = [noteOf('station', 5), noteOf('person', 10)];
 
     expect(
       workedOn(worked, notes, 'run_1', at(5)).map((each) => each.attempt),
@@ -356,9 +359,9 @@ describe('workedOn', () => {
     ).toEqual([2]);
   });
 
-  it('does not split on what a person said before the run said anything', () => {
+  it('does not split on a message of a person before the first note of the run', () => {
     const worked = [journal(1, [step('before', 1), step('after', 20)])];
-    const notes = [said('person', 10), said('station', 25)];
+    const notes = [noteOf('person', 10), noteOf('station', 25)];
 
     expect(texts(workedOn(worked, notes, 'run_1', at(25)))).toEqual([
       'before',

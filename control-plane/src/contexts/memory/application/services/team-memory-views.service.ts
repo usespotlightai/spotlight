@@ -41,7 +41,7 @@ export class TeamMemoryViews {
           .runsUsing([memory.id])
           .then((used) => this.summaryOf(memory, person, used)),
         grounds ? this.work.reasoning(grounds.runId) : null,
-        grounds ? this.work.spokenOn(grounds.taskId) : null,
+        grounds ? this.work.notesOf(grounds.taskId) : null,
         grounds ? this.work.harnessOf(grounds.runId) : null,
         this.linkTo(memory.supersedes),
         this.linkTo(memory.retirement?.supersededBy ?? null),

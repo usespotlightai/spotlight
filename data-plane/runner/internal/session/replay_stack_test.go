@@ -98,7 +98,7 @@ func TestAReplayHandsOverItsChangeBeforeItEndsFromABaseItsCheckCanFetch(t *testi
 		ID: "run_1",
 		Spec: protocol.Spec{
 			Command: protocol.Command{Executable: harness(t,
-				`require("node:fs").writeFileSync("api/queue.js", "drain()\n"); said = "drained";`, "end_turn")},
+				`require("node:fs").writeFileSync("api/queue.js", "drain()\n"); output = "drained";`, "end_turn")},
 			Continuity: protocol.Continuity{Key: "replay-run_1"},
 			Checkouts:  []protocol.Checkout{{Remote: "spotlight:repository", Path: "api", Ref: served.commit}},
 			Diffs:      true,
@@ -158,7 +158,7 @@ func TestATaskRunStillHandsOverItsChangeAfterItsTurnIsReported(t *testing.T) {
 		ID: "run_1",
 		Spec: protocol.Spec{
 			Command: protocol.Command{Executable: harness(t,
-				`require("node:fs").writeFileSync("api/queue.js", "drain()\n"); said = "drained";`, "end_turn")},
+				`require("node:fs").writeFileSync("api/queue.js", "drain()\n"); output = "drained";`, "end_turn")},
 			Continuity: protocol.Continuity{Key: "task-1"},
 			Checkouts:  []protocol.Checkout{{Remote: "spotlight:repository", Path: "api", Ref: served.commit}},
 			Diffs:      true,

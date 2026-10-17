@@ -1,10 +1,10 @@
 import { FixedAgent } from '@/components/features/stations/FixedAgent';
 import { FixedRepositories } from '@/components/features/stations/FixedRepositories';
 import { ChatInput } from '@/components/shared/chat-input/ChatInput';
-import { useSayToRun } from '@/hooks/api/useSayToRun';
+import { useSendMessage } from '@/hooks/api/useSendMessage';
 import { useStopRun } from '@/hooks/api/useStopRun';
 import { useTaskStation } from '@/hooks/api/useTaskStation';
-import { startsAgainWhenTold } from '@/lib/task';
+import { startsAgainOnMessage } from '@/lib/task';
 
 type RunComposerProps = {
   slug: string;
@@ -27,7 +27,7 @@ export function RunComposer({
   running,
   answering,
 }: RunComposerProps) {
-  const say = useSayToRun();
+  const send = useSendMessage();
   const stop = useStopRun();
   const {
     line,
@@ -35,7 +35,7 @@ export function RunComposer({
     task,
   } = useTaskStation(teamId, taskId);
   const restarts =
-    !answering && startsAgainWhenTold(task, currentStation, stationId);
+    !answering && startsAgainOnMessage(task, currentStation, stationId);
 
   return (
     <ChatInput
@@ -54,7 +54,7 @@ export function RunComposer({
             ? `Say what to change. ${station} starts again…`
             : 'Say something…'
       }
-      pending={say.isPending}
+      pending={send.isPending}
       running={running}
       settings={<FixedAgent agent={currentStation} />}
       below={
@@ -65,7 +65,7 @@ export function RunComposer({
       }
       onStop={() => stop.mutate({ teamId, runId })}
       onSend={({ body, attachments }, sent) =>
-        say.mutate({ teamId, runId, body, attachments }, { onSuccess: sent })
+        send.mutate({ teamId, runId, body, attachments }, { onSuccess: sent })
       }
     />
   );

@@ -197,7 +197,7 @@ let noticed: SearchNotice[];
 
 const noticing = () =>
   new NoticeSearchReflections(memory.searchRepository, work, {
-    told: async (notice) => {
+    notify: async (notice) => {
       noticed.push(notice);
     },
   });
@@ -441,9 +441,9 @@ describe('StartSearchHandler', () => {
       ),
     );
 
-    const told = await start({ objective: 'success' });
+    const started = await start({ objective: 'success' });
 
-    expect(told.outcome === 'started' && told.objective).toBe('success');
+    expect(started.outcome === 'started' && started.objective).toBe('success');
   });
 
   it('rejects a second search of the station, a harness no runner starts, a set elsewhere, and denies a caller who may not plan', async () => {

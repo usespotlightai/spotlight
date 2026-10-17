@@ -45,7 +45,7 @@ const MERGED: Heard = {
     pullRequest: 'https://github.com/acme/api/pull/7',
     label: null,
     about: null,
-    remark: null,
+    reviewComment: null,
     byBot: false,
   },
 };

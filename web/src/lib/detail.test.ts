@@ -71,11 +71,11 @@ describe('askedOf and answeredBy', () => {
     expect(answeredBy(call)?.body).toBe('ok');
   });
 
-  it('reads what was said as the answer, where the row only says it spoke', () => {
+  it('reads the message as the answer, where the row shows only the step kind', () => {
     const call = node({
       id: 'b',
-      name: 'Said',
-      step: step({ kind: 'said', text: 'All done.' }),
+      name: 'Message',
+      step: step({ kind: 'message', text: 'All done.' }),
     });
 
     expect(answeredBy(call)).toEqual({

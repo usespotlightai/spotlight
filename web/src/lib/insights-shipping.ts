@@ -113,14 +113,14 @@ export const slowestFirst = (
     (type) => shipping.types.find((each) => each.type === type) ?? [],
   );
 
-const ROUNDS_SAID: Record<Rounds, string> = {
+const ROUNDS_TEXT: Record<Rounds, string> = {
   '0': 'No review',
   '1': 'One round',
   '2': 'Two rounds',
   '3+': 'Three or more',
 };
 
-export const formatRounds = (rounds: Rounds): string => ROUNDS_SAID[rounds];
+export const formatRounds = (rounds: Rounds): string => ROUNDS_TEXT[rounds];
 
 const MINUTE_MS = 60_000;
 const HOUR_MS = 60 * MINUTE_MS;
@@ -168,13 +168,13 @@ export const STATION_PARTS = ['queued', 'running', 'inbox'] as const;
 
 export type StationPart = (typeof STATION_PARTS)[number];
 
-const PARTS_SAID: Record<StationPart, string> = {
+const PARTS_TEXT: Record<StationPart, string> = {
   queued: 'queued',
   running: 'running',
   inbox: 'in the inbox',
 };
 
-export const formatPart = (part: StationPart): string => PARTS_SAID[part];
+export const formatPart = (part: StationPart): string => PARTS_TEXT[part];
 
 type StageTimes = {
   readonly total: Spreads;
@@ -214,7 +214,7 @@ export type PipelineFlow = {
 
 type StageKind = FlowStageResponseDto['kind'];
 
-const STAGES_SAID: Record<StageKind, string> = {
+const STAGES_TEXT: Record<StageKind, string> = {
   coding: 'Coding',
   station: 'Station',
   awaitingReview: 'Awaiting review',
@@ -308,7 +308,7 @@ const pipelineStageOf =
     id: stage.stationId ?? stage.kind,
     label: stage.stationId
       ? formatStation(names, stage.stationId)
-      : STAGES_SAID[stage.kind],
+      : STAGES_TEXT[stage.kind],
     station: stage.kind === 'station',
     times: byTypeOf(stage.times),
   });

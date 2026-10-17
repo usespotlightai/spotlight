@@ -7,8 +7,8 @@ export class DeclaredHappening {
   private constructor(
     readonly happening: HappeningName,
     readonly label: string,
-    readonly told: string,
-    readonly spoken: boolean,
+    readonly summary: string,
+    readonly answers: boolean,
     readonly finds: readonly MarkKind[],
     readonly findsByBranch: boolean,
     readonly opens: Opening | null,
@@ -17,14 +17,14 @@ export class DeclaredHappening {
   static of(input: {
     happening: HappeningName;
     label: string;
-    told: string;
-    spoken?: boolean;
+    summary: string;
+    answers?: boolean;
     finds?: readonly MarkKind[];
     findsByBranch?: boolean;
     opens?: Opening | null;
   }): DeclaredHappening {
     const label = input.label.trim();
-    const told = input.told.trim();
+    const summary = input.summary.trim();
 
     if (label.length === 0) {
       throw new InvalidIdentifierError(
@@ -33,9 +33,9 @@ export class DeclaredHappening {
       );
     }
 
-    if (told.length === 0) {
+    if (summary.length === 0) {
       throw new InvalidIdentifierError(
-        'happening told',
+        'happening summary',
         'is how this reads in a note when it arrives',
       );
     }
@@ -53,8 +53,8 @@ export class DeclaredHappening {
     return new DeclaredHappening(
       input.happening,
       label,
-      told,
-      input.spoken ?? false,
+      summary,
+      input.answers ?? false,
       finds,
       findsByBranch,
       input.opens ?? null,

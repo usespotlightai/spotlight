@@ -27,13 +27,9 @@ export class ChatRunWork implements RunWork {
     return this.chat.workspaceId;
   }
 
-  async deliverUpTo(position: number, at: Date): Promise<void> {
+  async acknowledgeUpTo(position: number, at: Date): Promise<void> {
     await this.chats.save(
-      this.chat.markDeliveredUpTo(
-        this.run.id,
-        MessagePosition.of(position),
-        at,
-      ),
+      this.chat.acknowledgeUpTo(this.run.id, MessagePosition.of(position), at),
     );
   }
 

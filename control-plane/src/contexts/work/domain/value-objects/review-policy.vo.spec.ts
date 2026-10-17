@@ -1,9 +1,9 @@
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { InvalidReviewPolicyError } from '@work/domain/exceptions/invalid-review-policy.error';
+import { Anchor } from '@work/domain/value-objects/anchor.vo';
 import { Branch } from '@work/domain/value-objects/branch.vo';
 import type { ReviewAsked } from '@work/domain/value-objects/review-asked.vo';
 import { ReviewPolicy } from '@work/domain/value-objects/review-policy.vo';
-import { Said } from '@work/domain/value-objects/said.vo';
 import { describe, expect, it } from 'vitest';
 
 const asked = (over: Partial<ReviewAsked> = {}): ReviewAsked => ({
@@ -14,13 +14,13 @@ const asked = (over: Partial<ReviewAsked> = {}): ReviewAsked => ({
   outside: false,
   draft: false,
   branch: Branch.of('fix-uploads'),
-  said: null,
+  anchor: null,
   ours: false,
   ...over,
 });
 
 const mentioned = (body: string, over: Partial<ReviewAsked> = {}) =>
-  asked({ asking: 'mentioned', said: Said.of({ body }), ...over });
+  asked({ asking: 'mentioned', anchor: Anchor.of({ body }), ...over });
 
 const labelled = (label: string, over: Partial<ReviewAsked> = {}) =>
   asked({ asking: 'labelled', label, ...over });
@@ -92,7 +92,7 @@ describe('ReviewPolicy', () => {
     expect(policy.takes(mentioned('@spotlight have a look'))).toBe(false);
     expect(policy.takes(mentioned('@reviewers have a look'))).toBe(false);
     expect(policy.takes(mentioned('mail me@reviewer.dev'))).toBe(false);
-    expect(policy.takes(asked({ asking: 'mentioned', said: null }))).toBe(
+    expect(policy.takes(asked({ asking: 'mentioned', anchor: null }))).toBe(
       false,
     );
   });

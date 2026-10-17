@@ -68,7 +68,7 @@ ${headers}  cursor: '\${{ body.lastId }}'
       raise:
         happening: linear.issue.completed
         label: Done
-        told: Done.
+        summary: Done.
         marks:
           - kind: linear.issue
             value: '\${{ item.id }}'

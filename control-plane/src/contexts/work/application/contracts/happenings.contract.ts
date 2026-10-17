@@ -13,12 +13,12 @@ export interface TaskMark {
   readonly value: string;
 }
 
-interface SaidPayload {
+interface MessagePayload {
   readonly body: string;
   readonly path?: string | null;
   readonly from?: number | null;
   readonly to?: number | null;
-  readonly remark?: string | null;
+  readonly reviewComment?: string | null;
 }
 
 interface ConcernsPayload {
@@ -55,11 +55,11 @@ export interface Arriving {
 
 export interface Happened {
   readonly happening: string;
-  readonly told: string;
-  readonly spoken: boolean;
+  readonly summary: string;
+  readonly answers: boolean;
   readonly state: HappeningState;
   readonly concerns: ConcernsPayload;
-  readonly said: SaidPayload | null;
+  readonly message: MessagePayload | null;
   readonly ourOwn: boolean;
   readonly opens: OpensPayload | null;
   readonly attachments?: readonly Arriving[];

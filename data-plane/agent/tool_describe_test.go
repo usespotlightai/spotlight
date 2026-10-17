@@ -180,7 +180,7 @@ func TestDescribesARunsToolByEitherSpelling(t *testing.T) {
 				t.Fatalf("run: %v", err)
 			}
 			if !strings.Contains(out.String(), "linear.search\nSearch the team's Linear issues.") || !strings.Contains(out.String(), `--team_id "…"`) {
-				t.Errorf("said %q", out.String())
+				t.Errorf("output %q", out.String())
 			}
 		})
 	}

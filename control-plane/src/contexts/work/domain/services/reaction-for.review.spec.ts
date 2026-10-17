@@ -92,7 +92,7 @@ const asked = (
       review: { ...REQUEST, ...over.request },
     },
     request: { ...REQUEST, ...over.request },
-    said: null,
+    anchor: null,
     pullRequestTask: over.pullRequestTask ?? null,
     reviewTask: over.reviewTask ?? null,
   });

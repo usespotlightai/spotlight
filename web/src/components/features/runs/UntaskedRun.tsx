@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react';
 import { TimeMarker } from '@/components/features/inbox/conversation/TimeMarker';
+import { BriefingCard } from '@/components/features/runs/BriefingCard';
 import { RunActions } from '@/components/features/runs/RunActions';
 import { RunActivity } from '@/components/features/runs/RunActivity';
-import { RunBriefing } from '@/components/features/runs/RunBriefing';
 import { RunImage } from '@/components/features/runs/RunImage';
 import { RunSidePanel } from '@/components/features/runs/RunSidePanel';
 import { StepAnchorsProvider } from '@/components/features/runs/StepAnchorsProvider';
@@ -12,7 +12,7 @@ import {
 } from '@/components/shell/layout/Breadcrumbs';
 import { PageHeader } from '@/components/shell/layout/PageHeader';
 import { useStickToBottom } from '@/hooks/useStickToBottom';
-import { lastSpokenAt, threadText } from '@/lib/inbox';
+import { lastNoteAt, threadText } from '@/lib/inbox';
 import type { ReplayRun } from '@/lib/replay';
 import { idleNoteOf, working } from '@/lib/run';
 import { TrailContext } from '@/lib/trail';
@@ -33,7 +33,7 @@ type UntaskedRunProps = {
     | 'journals'
   >;
   banner?: ReactNode;
-  opening: string | null;
+  threadBriefing: string | null;
   briefing?: string | null;
   failure?: string | null;
   title: string;
@@ -47,7 +47,7 @@ export function UntaskedRun({
   forward,
   run,
   banner,
-  opening,
+  threadBriefing,
   briefing = null,
   failure = null,
   title,
@@ -73,7 +73,7 @@ export function UntaskedRun({
 
                 {briefing && (
                   <div className={banner ? 'mt-3' : 'mt-6'}>
-                    <RunBriefing briefing={briefing} attachments={[]} />
+                    <BriefingCard briefing={briefing} attachments={[]} />
                   </div>
                 )}
 
@@ -95,13 +95,13 @@ export function UntaskedRun({
                       runId={run.id}
                       thread={
                         threadText({
-                          opening,
+                          briefing: threadBriefing,
                           notes: [],
                           ran: run.journals,
                           agent: run.station?.name ?? 'The agent',
                         }) || title
                       }
-                      at={lastSpokenAt([], run.journals) ?? run.updatedAt}
+                      at={lastNoteAt([], run.journals) ?? run.updatedAt}
                     />
                     {(!steps || failure) && (
                       <p className="text-center text-muted-foreground text-sm">

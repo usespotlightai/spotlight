@@ -25,8 +25,8 @@ func causer(t *testing.T, status int, body string) *[]protocol.CauseRecord {
 		return status, body
 	})
 
-	t.Setenv(protocol.HandoverURLVar, server.URL())
-	t.Setenv(protocol.HandoverTokenVar, server.Token())
+	t.Setenv(protocol.AgentAPIURLVar, server.URL())
+	t.Setenv(protocol.AgentAPITokenVar, server.Token())
 
 	return &asked
 }
@@ -52,9 +52,9 @@ func TestCauseRecordsTheCauseOfAFailingTask(t *testing.T) {
 	if len(*asked) != 1 || (*asked)[0] != want {
 		t.Errorf("recorded %+v", *asked)
 	}
-	for _, said := range []string{"Recorded judge as the cause for task task_1, whose replay run replayed_1 failed.", "replaces this one"} {
-		if !strings.Contains(out.String(), said) {
-			t.Errorf("said %q, missing %q", out, said)
+	for _, want := range []string{"Recorded judge as the cause for task task_1, whose replay run replayed_1 failed.", "replaces this one"} {
+		if !strings.Contains(out.String(), want) {
+			t.Errorf("output %q, missing %q", out, want)
 		}
 	}
 }
@@ -96,12 +96,12 @@ func TestCauseRejectsMisuseBeforeAskingSpotlight(t *testing.T) {
 	} {
 		err := run(args, strings.NewReader(""), new(bytes.Buffer))
 		if err == nil || !strings.Contains(err.Error(), "usage:") {
-			t.Errorf("%v said %v", args, err)
+			t.Errorf("%v returned %v", args, err)
 		}
 	}
 	if err := run([]string{"cause", "--task", "task_1", "--cause", "judge", "--evidence", "@" + filepath.Join(t.TempDir(), "gone.md")},
 		strings.NewReader(""), new(bytes.Buffer)); err == nil || !strings.Contains(err.Error(), "read the evidence") {
-		t.Errorf("a missing evidence file said %v", err)
+		t.Errorf("a missing evidence file returned %v", err)
 	}
 	if len(*asked) != 0 {
 		t.Errorf("recorded anyway: %+v", *asked)
@@ -124,8 +124,8 @@ func TestCauseSaysWhenTheRunCannotRecordOne(t *testing.T) {
 		t.Fatalf("serve: %v", err)
 	}
 	t.Cleanup(func() { _ = server.Close() })
-	t.Setenv(protocol.HandoverURLVar, server.URL())
-	t.Setenv(protocol.HandoverTokenVar, server.Token())
+	t.Setenv(protocol.AgentAPIURLVar, server.URL())
+	t.Setenv(protocol.AgentAPITokenVar, server.Token())
 
 	err = run([]string{"cause", "--task", "task_1", "--cause", "judge", "--evidence", "x"}, strings.NewReader(""), new(bytes.Buffer))
 	if err == nil || !strings.Contains(err.Error(), "only a search's runs do") {
@@ -134,8 +134,8 @@ func TestCauseSaysWhenTheRunCannotRecordOne(t *testing.T) {
 }
 
 func TestCauseOutsideARunSaysSo(t *testing.T) {
-	t.Setenv(protocol.HandoverURLVar, "")
-	t.Setenv(protocol.HandoverTokenVar, "")
+	t.Setenv(protocol.AgentAPIURLVar, "")
+	t.Setenv(protocol.AgentAPITokenVar, "")
 
 	err := run([]string{"cause", "--task", "task_1", "--cause", "judge", "--evidence", "x"}, strings.NewReader(""), new(bytes.Buffer))
 	if err == nil || !strings.Contains(err.Error(), "no run") {

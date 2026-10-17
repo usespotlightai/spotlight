@@ -12,7 +12,7 @@ import { Station } from '@work/domain/entities/station.entity';
 import { turnEnded, turnWaits } from '@work/domain/services/turn-end';
 import { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
-import { Declaration } from '@work/domain/value-objects/declaration.vo';
+import { Handover } from '@work/domain/value-objects/handover.vo';
 import { HandoverReport } from '@work/domain/value-objects/handover-report.vo';
 import { HarnessSession } from '@work/domain/value-objects/harness-session.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
@@ -141,7 +141,7 @@ const CLEAN = RunOutcome.of({ exitCode: 0, failed: false });
 const ending = (input: {
   task?: Task | null;
   outcome?: RunOutcome;
-  declared?: { next?: string; note?: string } | null;
+  handover?: { next?: string; note?: string } | null;
   ran?: Run;
   kept?: boolean;
 }) =>
@@ -152,7 +152,7 @@ const ending = (input: {
     line,
     outcome: input.outcome ?? CLEAN,
     report: HandoverReport.of({
-      declared: input.declared ? Declaration.of(input.declared) : null,
+      handover: input.handover ? Handover.of(input.handover) : null,
       session: HarnessSession.of('session_1'),
     }),
     kept: input.kept ?? true,
@@ -161,7 +161,7 @@ const ending = (input: {
 
 describe('turnEnded', () => {
   it('pauses a turn that hands the task over for review, putting the task to a person in the same stroke', () => {
-    const ended = ending({ declared: { next: 'review', note: 'Which?' } });
+    const ended = ending({ handover: { next: 'review', note: 'Which?' } });
 
     expect(ended.waiting).toBe(true);
     expect(ended.run.state).toBe('waiting');
@@ -171,13 +171,13 @@ describe('turnEnded', () => {
     expect(ended.task?.notes[0]?.body.value).toBe('Which?');
   });
 
-  it('pauses a turn that ends without saying where the task goes, or names a station it cannot pass to', () => {
-    expect(ending({ declared: null }).waiting).toBe(true);
-    expect(ending({ declared: { next: 'nowhere' } }).waiting).toBe(true);
+  it('pauses a turn that ends without a handover to a station, or names a station it cannot pass to', () => {
+    expect(ending({ handover: null }).waiting).toBe(true);
+    expect(ending({ handover: { next: 'nowhere' } }).waiting).toBe(true);
   });
 
   it('pauses after a tool approval or harness permission was put to a person, asking nothing more', () => {
-    const ended = ending({ task: approvalAsked(), declared: { next: 'ship' } });
+    const ended = ending({ task: approvalAsked(), handover: { next: 'ship' } });
 
     expect(ended.run.state).toBe('waiting');
     expect(ended.task?.notes).toHaveLength(1);
@@ -200,7 +200,7 @@ describe('turnEnded', () => {
   it('answers a repeated report of a pause without changing anything', () => {
     const waiting = run().paused(RUNNER, CLEAN, HandoverReport.none(), NOW);
 
-    expect(ending({ ran: waiting, declared: { next: 'review' } })).toEqual({
+    expect(ending({ ran: waiting, handover: { next: 'review' } })).toEqual({
       waiting: true,
       run: waiting,
       task: null,
@@ -208,7 +208,7 @@ describe('turnEnded', () => {
   });
 
   it('ends the run as before, leaving the task to be put to the person, when its workspace was not kept', () => {
-    const ended = ending({ declared: { next: 'review' }, kept: false });
+    const ended = ending({ handover: { next: 'review' }, kept: false });
 
     expect(ended.waiting).toBe(false);
     expect(ended.run.state).toBe('completed');
@@ -217,7 +217,7 @@ describe('turnEnded', () => {
 
   describe('whether a turn waits, asked before the runner keeps its workspace', () => {
     const turn = (
-      declared: { next: string } | null,
+      handover: { next: string } | null,
       over: {
         ran?: Run;
         mayBeSentToReview?: boolean;
@@ -229,7 +229,7 @@ describe('turnEnded', () => {
       task: handed(),
       line,
       outcome: over.outcome ?? CLEAN,
-      declared: declared ? Declaration.of(declared) : null,
+      handover: handover ? Handover.of(handover) : null,
       mayBeSentToReview: over.mayBeSentToReview ?? false,
     });
 
@@ -258,7 +258,7 @@ describe('turnEnded', () => {
   });
 
   it('ends a turn that passes the task on', () => {
-    const ended = ending({ declared: { next: 'ship' } });
+    const ended = ending({ handover: { next: 'ship' } });
 
     expect(ended.waiting).toBe(false);
     expect(ended.run.state).toBe('completed');
@@ -269,20 +269,20 @@ describe('turnEnded', () => {
     expect(
       ending({
         outcome: RunOutcome.of({ exitCode: 1, failed: true }),
-        declared: { next: 'review' },
+        handover: { next: 'review' },
       }).run.state,
     ).toBe('failed');
     expect(
       ending({
         outcome: RunOutcome.stopped(130),
-        declared: { next: 'review' },
+        handover: { next: 'review' },
       }).waiting,
     ).toBe(false);
   });
 
   it('ends a turn once a person asked the run to stop', () => {
     expect(
-      ending({ ran: run().requestStop(NOW), declared: { next: 'review' } })
+      ending({ ran: run().requestStop(NOW), handover: { next: 'review' } })
         .waiting,
     ).toBe(false);
   });
@@ -291,10 +291,10 @@ describe('turnEnded', () => {
     expect(
       ending({
         task: handed().leaveRun(RUN, NOW),
-        declared: { next: 'review' },
+        handover: { next: 'review' },
       }).waiting,
     ).toBe(false);
-    expect(ending({ task: null, declared: { next: 'review' } }).waiting).toBe(
+    expect(ending({ task: null, handover: { next: 'review' } }).waiting).toBe(
       false,
     );
   });
@@ -341,7 +341,7 @@ describe('the end of a replay’s turn', () => {
       line,
       outcome,
       report: HandoverReport.of({
-        declared: next === null ? null : Declaration.of({ next }),
+        handover: next === null ? null : Handover.of({ next }),
         session: null,
       }),
       kept: true,
@@ -384,7 +384,7 @@ describe('the end of a replay’s turn', () => {
         task: null,
         line,
         outcome: RunOutcome.of({ exitCode: 0, failed: false }),
-        declared: Declaration.of({ next: 'review' }),
+        handover: Handover.of({ next: 'review' }),
         mayBeSentToReview: true,
       }),
     ).toBe(false);

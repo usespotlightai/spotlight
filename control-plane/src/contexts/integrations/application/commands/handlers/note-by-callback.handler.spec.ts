@@ -33,7 +33,7 @@ const HOLDER = HookCallbackGrant.issueFor(
 const FIRED = CausalChain.none().followedBy({
   kind: 'hook',
   key: 'hook:dba_id:task.moved:task_1:build → review',
-  saying: 'the hook dba-review',
+  description: 'the hook dba-review',
 });
 
 const TASK = {
@@ -78,7 +78,7 @@ const setUp = (
   const chains: string[] = [];
   const notes = {
     noted: vi.fn(async () => {
-      chains.push(causation.current().saying);
+      chains.push(causation.current().description);
       return true;
     }),
     failed: vi.fn(async () => 'reported' as const),

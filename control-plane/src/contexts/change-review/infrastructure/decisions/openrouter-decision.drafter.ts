@@ -49,7 +49,7 @@ Each decision is one of these kinds:
 
 Rules:
 
-1. Record only decisions the agent's own words state or plainly imply. Its words are what it said, thought and planned, and the note it handed its work over with (a step of kind "handover", given as the command it ran). Never infer one from what a good engineer would have considered, and never judge the code yourself.
+1. Record only decisions the agent's own words state or plainly imply. Its words are its messages, thoughts and plans, and the note it handed its work over with (a step of kind "handover", given as the command it ran). Never infer one from what a good engineer would have considered, and never judge the code yourself.
 2. Every decision cites in "steps" the numbers of the steps its reasoning appears in, as they are given in brackets. Never cite a step that does not say it.
 3. Every decision names in "paths" the changed files it bears on, exactly as the list of changed files gives them, and never a file outside that list. The list covers every file changed on the task so far, including by earlier runs, so a decision to leave earlier work as it is bears on the file that work changed.
 4. A title is a short plain statement of the decision ("Retries uploads in the request, not from a queue"). "why" says in one to three plain sentences what led to it and what it costs. "alternatives" names the options the agent weighed and set aside, and is empty when it weighed none.
@@ -79,13 +79,13 @@ export class OpenRouterDecisionDrafter implements DecisionDrafterPort {
       throw new Error('No OpenRouter API key is set for decisions');
     }
 
-    const told = latestWithin(reasoning.steps.map(line), MAX_ASKED);
+    const stepLines = latestWithin(reasoning.steps.map(line), MAX_ASKED);
     const asked = [
       `The files changed on this task so far:\n${reasoning.changed.map((each) => `- ${each}`).join('\n')}`,
-      told.length < reasoning.steps.length
-        ? `The agent's reasoning, step by step. Its earliest ${reasoning.steps.length - told.length} steps are left out for length:`
+      stepLines.length < reasoning.steps.length
+        ? `The agent's reasoning, step by step. Its earliest ${reasoning.steps.length - stepLines.length} steps are left out for length:`
         : "The agent's reasoning, step by step:",
-      told.join('\n'),
+      stepLines.join('\n'),
     ].join('\n\n');
 
     const {

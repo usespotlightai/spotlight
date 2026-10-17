@@ -119,11 +119,11 @@ export const keptSkipOf = (code: string, detail: string | null): StackSkip => {
 };
 
 export const unprovisioned = (
-  failure: { readonly saying: string },
+  failure: { readonly description: string },
   attempts: number,
 ): StackSkip => ({
   code: UNPROVISIONED,
-  detail: `Attempts: ${attempts}\nLast failure: ${failure.saying}`,
+  detail: `Attempts: ${attempts}\nLast failure: ${failure.description}`,
 });
 
 export const nobodyChecked = (): StackSkip => ({

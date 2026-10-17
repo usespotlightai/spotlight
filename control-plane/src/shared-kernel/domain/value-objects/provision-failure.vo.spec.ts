@@ -34,7 +34,7 @@ describe('ProvisionFailure', () => {
 
   it('says what kind of failure it was and why', () => {
     expect(
-      ProvisionFailure.of('unreachable', 'connection refused').saying,
+      ProvisionFailure.of('unreachable', 'connection refused').description,
     ).toBe('unreachable: connection refused');
   });
 

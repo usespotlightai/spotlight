@@ -188,8 +188,8 @@ export type GroupSummary = {
   readonly cost: string;
 };
 
-const shareOf = (share: number | null, said: string): string =>
-  share === null ? '–' : `${formatPercent(share)} ${said}`;
+const shareOf = (share: number | null, label: string): string =>
+  share === null ? '–' : `${formatPercent(share)} ${label}`;
 
 const daysOf = (group: FingerprintGroup): string | null => {
   const { firstDay, lastDay } = group;

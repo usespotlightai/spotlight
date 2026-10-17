@@ -186,7 +186,7 @@ const REMEDIES: Partial<Record<StackProblemCode, string>> = {
     'move the few changes a failing layer needs instead, and join layers only where that cannot work',
 };
 
-export const told = (problem: StackProblem): string => {
+export const describeProblem = (problem: StackProblem): string => {
   const remedy = REMEDIES[problem.code];
 
   return remedy ? `${problem.message}; ${remedy}` : problem.message;
@@ -221,7 +221,7 @@ export class OpenRouterChangeStackDrafter implements ChangeStackDrafterPort {
       described(diff, facts),
       revision ? revised(revision) : null,
       problems.length > 0
-        ? `A previous stack for this diff had these problems, so fix them:\n${problems.map((each) => `- ${told(each)}`).join('\n')}`
+        ? `A previous stack for this diff had these problems, so fix them:\n${problems.map((each) => `- ${describeProblem(each)}`).join('\n')}`
         : null,
     ]
       .filter(Boolean)

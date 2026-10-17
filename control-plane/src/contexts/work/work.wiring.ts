@@ -6,7 +6,6 @@ import {
   PULL_REQUESTS,
   type PullRequestPort,
 } from '@github/application/ports/pull-request.port';
-import { REMARKS } from '@github/application/ports/remarks.port';
 import {
   REPOSITORY_CATALOG,
   type RepositoryCatalogPort,
@@ -15,6 +14,7 @@ import {
   REPOSITORY_GIT,
   type RepositoryGitPort,
 } from '@github/application/ports/repository-git.port';
+import { REVIEW_COMMENTS } from '@github/application/ports/review-comments.port';
 import {
   WORKSPACE_CONNECTIONS,
   type WorkspaceConnectionsPort,
@@ -102,22 +102,21 @@ import {
   TRANSACTION,
   type TransactionPort,
 } from '@shared-kernel/application/ports/transaction.port';
+import { AckMessagesCommand } from '@work/application/commands/ack-messages.command';
 import { AddTaskCommand } from '@work/application/commands/add-task.command';
 import { AnswerInboxItemCommand } from '@work/application/commands/answer-inbox-item.command';
-import { AnswerRemarkCommand } from '@work/application/commands/answer-remark.command';
 import { AskPermissionCommand } from '@work/application/commands/ask-permission.command';
 import { AssignTaskCommand } from '@work/application/commands/assign-task.command';
 import {
   AcceptProposalCommand,
   DismissProposalCommand,
-  SayInChatCommand,
+  SendChatMessageCommand,
   StartChatCommand,
   StopChatCommand,
 } from '@work/application/commands/chat.commands';
 import { CreateLineCommand } from '@work/application/commands/create-line.command';
 import { DeleteLineCommand } from '@work/application/commands/delete-line.command';
 import { DeleteTaskCommand } from '@work/application/commands/delete-task.command';
-import { DeliverSaidCommand } from '@work/application/commands/deliver-said.command';
 import {
   AdmitThroughEgressCommand,
   CheckActiveRunsCommand,
@@ -127,11 +126,11 @@ import {
 } from '@work/application/commands/egress.commands';
 import { GrantAttachmentUploadCommand } from '@work/application/commands/grant-attachment-upload.command';
 import { AcceptProposalHandler } from '@work/application/commands/handlers/accept-proposal.handler';
+import { AckMessagesHandler } from '@work/application/commands/handlers/ack-messages.handler';
 import { AddTaskHandler } from '@work/application/commands/handlers/add-task.handler';
 import { AdmitThroughEgressHandler } from '@work/application/commands/handlers/admit-through-egress.handler';
 import { AnswerHostCallHandler } from '@work/application/commands/handlers/answer-host-call.handler';
 import { AnswerInboxItemHandler } from '@work/application/commands/handlers/answer-inbox-item.handler';
-import { AnswerRemarkHandler } from '@work/application/commands/handlers/answer-remark.handler';
 import { AppendRunJournalHandler } from '@work/application/commands/handlers/append-run-journal.handler';
 import { AskPermissionHandler } from '@work/application/commands/handlers/ask-permission.handler';
 import { AssignTaskHandler } from '@work/application/commands/handlers/assign-task.handler';
@@ -143,7 +142,6 @@ import { CompleteRunHandler } from '@work/application/commands/handlers/complete
 import { CreateLineHandler } from '@work/application/commands/handlers/create-line.handler';
 import { DeleteLineHandler } from '@work/application/commands/handlers/delete-line.handler';
 import { DeleteTaskHandler } from '@work/application/commands/handlers/delete-task.handler';
-import { DeliverSaidHandler } from '@work/application/commands/handlers/deliver-said.handler';
 import { DismissProposalHandler } from '@work/application/commands/handlers/dismiss-proposal.handler';
 import { EnqueueRunHandler } from '@work/application/commands/handlers/enqueue-run.handler';
 import { FetchRunSecretsHandler } from '@work/application/commands/handlers/fetch-run-secrets.handler';
@@ -158,10 +156,11 @@ import { RecordRunImageHandler } from '@work/application/commands/handlers/recor
 import { RecordStartingPointHandler } from '@work/application/commands/handlers/record-starting-point.handler';
 import { RenewCheckLeaseHandler } from '@work/application/commands/handlers/renew-check-lease.handler';
 import { RenewLeaseHandler } from '@work/application/commands/handlers/renew-lease.handler';
+import { ReplyToReviewCommentHandler } from '@work/application/commands/handlers/reply-to-review-comment.handler';
 import { ResolveNoticeHandler } from '@work/application/commands/handlers/resolve-notice.handler';
-import { SayInChatHandler } from '@work/application/commands/handlers/say-in-chat.handler';
-import { SayToRunHandler } from '@work/application/commands/handlers/say-to-run.handler';
 import { SealWorkspaceArchiveHandler } from '@work/application/commands/handlers/seal-workspace-archive.handler';
+import { SendChatMessageHandler } from '@work/application/commands/handlers/send-chat-message.handler';
+import { SendMessageHandler } from '@work/application/commands/handlers/send-message.handler';
 import { StartChatHandler } from '@work/application/commands/handlers/start-chat.handler';
 import { StopChatHandler } from '@work/application/commands/handlers/stop-chat.handler';
 import { StopRunHandler } from '@work/application/commands/handlers/stop-run.handler';
@@ -175,6 +174,7 @@ import {
 import { MoveTaskCommand } from '@work/application/commands/move-task.command';
 import { ReadInboxAsideCommand } from '@work/application/commands/read-inbox-aside.command';
 import { ReadInboxItemCommand } from '@work/application/commands/read-inbox-item.command';
+import { ReplyToReviewCommentCommand } from '@work/application/commands/reply-to-review-comment.command';
 import { ResolveNoticeCommand } from '@work/application/commands/resolve-notice.command';
 import {
   AppendRunJournalCommand,
@@ -188,7 +188,7 @@ import {
   RenewLeaseCommand,
   SuspendRunCommand,
 } from '@work/application/commands/runner.commands';
-import { SayToRunCommand } from '@work/application/commands/say-to-run.command';
+import { SendMessageCommand } from '@work/application/commands/send-message.command';
 import { StopRunCommand } from '@work/application/commands/stop-run.command';
 import { UpdateLineCommand } from '@work/application/commands/update-line.command';
 import { UseToolCommand } from '@work/application/commands/use-tool.command';
@@ -2205,7 +2205,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     TRANSACTION,
   ]),
 
-  ...bindCommandHandler(SayInChatCommand, SayInChatHandler, [
+  ...bindCommandHandler(SendChatMessageCommand, SendChatMessageHandler, [
     ChatLoader,
     DrizzleChatRepository,
     FilesLoader,
@@ -2233,15 +2233,19 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     CLOCK,
   ]),
 
-  ...bindCommandHandler(AnswerRemarkCommand, AnswerRemarkHandler, [
-    RunLoader,
-    DrizzleTaskRepository,
-    DrizzleLineRepository,
-    REMARKS,
-    CLOCK,
-  ]),
+  ...bindCommandHandler(
+    ReplyToReviewCommentCommand,
+    ReplyToReviewCommentHandler,
+    [
+      RunLoader,
+      DrizzleTaskRepository,
+      DrizzleLineRepository,
+      REVIEW_COMMENTS,
+      CLOCK,
+    ],
+  ),
 
-  ...bindCommandHandler(SayToRunCommand, SayToRunHandler, [
+  ...bindCommandHandler(SendMessageCommand, SendMessageHandler, [
     DrizzleRunRepository,
     DrizzleTaskRepository,
     DrizzleLineRepository,
@@ -2257,7 +2261,7 @@ export const WORK_PROVIDERS: readonly Provider[] = [
     CLOCK,
   ]),
 
-  ...bindCommandHandler(DeliverSaidCommand, DeliverSaidHandler, [
+  ...bindCommandHandler(AckMessagesCommand, AckMessagesHandler, [
     RunWorks,
     CLOCK,
   ]),

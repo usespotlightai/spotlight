@@ -12,13 +12,13 @@ const later = (ms: number) => new Date(NOW.getTime() + ms);
 const MOVED = {
   kind: 'event' as const,
   key: 'task.moved:task_1:triage → build',
-  saying: 'task.moved of Add a column (triage → build)',
+  description: 'task.moved of Add a column (triage → build)',
 };
 
 const AUDIT = {
   kind: 'hook' as const,
   key: `hook:audit_id:${MOVED.key}`,
-  saying: 'the hook audit',
+  description: 'the hook audit',
 };
 
 const LOOP = HookFailure.of('loop', 'The hook audit was stopped: again');
@@ -316,21 +316,23 @@ describe('HookFiring', () => {
       ).toThrow(InvalidHookFiringTransitionError);
     });
 
-    it('ends as a loop once told of, or superseded when nobody is there to tell', () => {
+    it('ends as a loop once notified, or superseded when nobody is there to notify', () => {
       const stopped = working().stopForLoop(LOOP);
 
-      expect(stopped.toldOfLoop(NOW, false).failure).toBe(LOOP);
-      expect(stopped.toldOfLoop(NOW, false).progress.kind).toBe('failed');
-      expect(stopped.toldOfLoop(NOW, true).progress.kind).toBe('superseded');
+      expect(stopped.markLoopNotified(NOW, false).failure).toBe(LOOP);
+      expect(stopped.markLoopNotified(NOW, false).progress.kind).toBe('failed');
+      expect(stopped.markLoopNotified(NOW, true).progress.kind).toBe(
+        'superseded',
+      );
     });
 
-    it('is not told of as a loop before it is stopped for one', () => {
-      expect(() => working().toldOfLoop(NOW, false)).toThrow(
+    it('is not marked as notified of a loop before it is stopped for one', () => {
+      expect(() => working().markLoopNotified(NOW, false)).toThrow(
         InvalidHookFiringTransitionError,
       );
     });
 
-    it('keeps its stop to tell of again when something fails before it is told', () => {
+    it('keeps its stop to notify again when something fails before the notice', () => {
       const stopped = working().stopForLoop(LOOP);
       const again = stopped.failedWith(
         HookFailure.of('errored', 'db went away'),
@@ -342,7 +344,7 @@ describe('HookFiring', () => {
       expect(again.failure).toBe(LOOP);
     });
 
-    it('ends as a loop when it could never be told of', () => {
+    it('ends as a loop when it could never be notified', () => {
       const stopped = HookFiring.rehydrate({
         ...stateOf(working().stopForLoop(LOOP)),
         attempts: 7,
@@ -354,7 +356,7 @@ describe('HookFiring', () => {
       ).toBe(LOOP);
     });
 
-    it('lets a failure that may never be retried end a stop still to be told of', () => {
+    it('lets a failure that may never be retried end a stop still to be notified', () => {
       const stopped = working().stopForLoop(LOOP);
 
       expect(

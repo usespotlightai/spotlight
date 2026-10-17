@@ -11,7 +11,7 @@ import {
   ReplayedPointMark,
   type ReplayedPointMarkProps,
 } from '@/components/features/insights/candidates/ReplayedPointMark';
-import { ReplayedPointSaid } from '@/components/features/insights/candidates/ReplayedPointSaid';
+import { ReplayedPointTip } from '@/components/features/insights/candidates/ReplayedPointTip';
 import { PointLabels } from '@/components/shared/chart/PointLabels';
 import { type TipPlacement, useCursorTooltip } from '@/hooks/useCursorTooltip';
 import { useDotHover } from '@/hooks/useDotHover';
@@ -28,7 +28,7 @@ const LIVE_CONFIG = 'Live config';
 
 const TICKS = [0, 0.25, 0.5, 0.75, 1];
 
-const Said = ({
+const TipContent = ({
   placement,
   active,
   payload,
@@ -42,11 +42,7 @@ const Said = ({
   const point = payload?.[0]?.payload;
 
   return active && point ? (
-    <ReplayedPointSaid
-      point={point}
-      currency={currency}
-      placement={placement}
-    />
+    <ReplayedPointTip point={point} currency={currency} placement={placement} />
   ) : null;
 };
 
@@ -122,7 +118,10 @@ export function ReplayedScatter({ points, currency }: ReplayedScatterProps) {
                 {...cursor.tooltip}
                 {...hover.tooltip}
                 content={
-                  <Said placement={cursor.placement} currency={currency} />
+                  <TipContent
+                    placement={cursor.placement}
+                    currency={currency}
+                  />
                 }
                 cursor={false}
               />

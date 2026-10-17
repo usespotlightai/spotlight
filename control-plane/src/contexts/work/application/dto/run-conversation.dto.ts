@@ -1,5 +1,5 @@
 import type { AttachmentDto } from '@work/application/dto/attachment.dto';
-import type { InboxMessageDto } from '@work/application/dto/inbox.dto';
+import type { NoteDto } from '@work/application/dto/inbox.dto';
 import type { RunStationDto } from '@work/application/dto/task-run.dto';
 
 export interface RunSpendDto {
@@ -21,6 +21,6 @@ export interface RunConversationDto {
   readonly createdAt: string;
   readonly briefing: string;
   readonly working: boolean;
-  readonly notes: readonly InboxMessageDto[];
+  readonly notes: readonly NoteDto[];
   readonly spend: RunSpendDto | null;
 }

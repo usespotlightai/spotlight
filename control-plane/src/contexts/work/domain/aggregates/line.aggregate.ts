@@ -533,10 +533,10 @@ export class Line extends EventRecorder {
     reactions: readonly Reaction[],
     raised: readonly Happening[],
   ): void {
-    const said = new Set(raised.map((each) => each.value));
+    const raisedKeys = new Set(raised.map((each) => each.value));
 
     for (const reaction of reactions) {
-      if (!said.has(reaction.happening.value)) {
+      if (!raisedKeys.has(reaction.happening.value)) {
         throw new UnknownHappeningError(reaction.happening.value);
       }
     }

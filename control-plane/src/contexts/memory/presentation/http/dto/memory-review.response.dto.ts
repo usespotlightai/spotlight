@@ -22,7 +22,7 @@ export class MemoryGroundStepResponseDto {
 
   @ApiProperty({
     example: 'thought',
-    description: 'said, thought, planned, handover, or remember',
+    description: 'message, thought, planned, handover, or remember',
   })
   readonly kind: string;
 
@@ -75,7 +75,7 @@ export class MemoryGroundNoteResponseDto {
     type: MemoryPersonResponseDto,
     nullable: true,
     description:
-      'The teammate who said it; absent for words from another tool, which carry no author',
+      'The teammate who wrote it; absent for a note from another tool, which carries no author',
   })
   readonly author: MemoryPersonResponseDto | null;
 
@@ -123,7 +123,7 @@ export class ProposedMemoryResponseDto {
     enum: MEMORY_SOURCE_NAMES,
     example: 'person',
     description:
-      'person: only what a teammate said; outside: input the team does not control, approved one at a time; run: anything else',
+      'person: only notes by a teammate; outside: input the team does not control, approved one at a time; run: anything else',
   })
   readonly source: string;
 
@@ -183,7 +183,7 @@ export class ProposedMemoryResponseDto {
   @ApiProperty({
     type: MemoryGroundNoteResponseDto,
     isArray: true,
-    description: 'What people said on the task that it rests on',
+    description: 'The notes on the task that it rests on',
   })
   readonly notes: readonly MemoryGroundNoteResponseDto[];
 

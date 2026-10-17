@@ -81,13 +81,13 @@ export class SearchRunResponseDto extends TaskRunResponseDto {
   @ApiProperty({
     type: RunJournalResponseDto,
     isArray: true,
-    description: 'What it did and said, attempt by attempt',
+    description: 'What it did and wrote, attempt by attempt',
   })
   readonly journals: RunJournalResponseDto[];
 
   @ApiProperty({
     description:
-      'What the search told its agent when it dispatched this iteration',
+      'The briefing that the search gave its agent when it dispatched this iteration',
   })
   readonly briefing: string;
 

@@ -241,9 +241,9 @@ func TestBlocksAHostTheListLeavesOut(t *testing.T) {
 		t.Errorf("blocked a listed host: %v %s", response, body)
 	}
 
-	_, said := r.get(t, "https://exfiltrate.example.com/", nil)
-	if !strings.Contains(said, "Forbidden") {
-		t.Errorf("reached a host the list leaves out: %s", said)
+	_, refused := r.get(t, "https://exfiltrate.example.com/", nil)
+	if !strings.Contains(refused, "Forbidden") {
+		t.Errorf("reached a host the list leaves out: %s", refused)
 	}
 
 	response, body := r.get(t, "http://exfiltrate.example.com/", nil)

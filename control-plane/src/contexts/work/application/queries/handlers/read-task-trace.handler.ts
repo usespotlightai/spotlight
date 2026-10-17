@@ -31,16 +31,18 @@ export class ReadTaskTraceHandler
       const taskId = TaskId.of(query.taskId);
       const viewerId = UserId.of(query.viewerId);
 
-      const [found, told] = await Promise.all([
+      const [found, journals] = await Promise.all([
         this.runs.listForTask(taskId, viewerId),
         this.journals.listForTask(taskId, viewerId),
       ]);
 
-      if (told === null) {
+      if (journals === null) {
         return null;
       }
 
-      const byRun = new Map(told.map((journal) => [journal.runId, journal]));
+      const byRun = new Map(
+        journals.map((journal) => [journal.runId, journal]),
+      );
       const errors = await this.connections.errorsIn(
         found.map((run) => run.id),
       );

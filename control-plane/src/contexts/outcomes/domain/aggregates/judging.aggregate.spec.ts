@@ -17,7 +17,7 @@ const evidenceFor = (runId = 'run_1') =>
     steps: [
       {
         index: 4,
-        kind: 'said',
+        kind: 'message',
         tool: null,
         text: 'Retrying in the request.',
         given: null,

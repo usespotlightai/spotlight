@@ -70,7 +70,7 @@ const setUp = async (
   };
 };
 
-const told = (
+const reported = (
   archiveId: string | null,
   checkouts: readonly ReportedCheckout[] | null = AT_API,
   runner = 'runner_1',
@@ -88,7 +88,7 @@ describe('RecordStartingPointHandler', () => {
   it('rejects a runner it does not know', async () => {
     const { record } = await setUp(undefined, false);
 
-    await expect(record.execute(told(null))).rejects.toMatchObject({
+    await expect(record.execute(reported(null))).rejects.toMatchObject({
       kind: 'not-found',
     });
   });
@@ -97,7 +97,7 @@ describe('RecordStartingPointHandler', () => {
     const { record } = await setUp();
 
     await expect(
-      record.execute(told(null, AT_API, 'runner_1', 2)),
+      record.execute(reported(null, AT_API, 'runner_1', 2)),
     ).rejects.toMatchObject({ kind: 'conflict' });
   });
 
@@ -109,9 +109,9 @@ describe('RecordStartingPointHandler', () => {
     }));
 
     for (const invalid of [
-      told(null, null),
-      told(null, many),
-      told(null, AT_API, 'runner_1', Number.NaN),
+      reported(null, null),
+      reported(null, many),
+      reported(null, AT_API, 'runner_1', Number.NaN),
     ]) {
       await expect(record.execute(invalid)).rejects.toMatchObject({
         kind: 'invalid',
@@ -122,7 +122,7 @@ describe('RecordStartingPointHandler', () => {
   it('records the sealed archive the run restored and where each checkout began', async () => {
     const { stored, record } = await setUp();
 
-    await record.execute(told('archive_1'));
+    await record.execute(reported('archive_1'));
 
     const started = stored.get('run_1')?.startedFrom;
     expect(started?.archive?.value).toBe('archive_1');
@@ -133,7 +133,7 @@ describe('RecordStartingPointHandler', () => {
   it('records a run that restored nothing as starting afresh', async () => {
     const { stored, record } = await setUp();
 
-    await record.execute(told(null));
+    await record.execute(reported(null));
 
     expect(stored.get('run_1')?.startedFrom?.archive).toBeNull();
   });
@@ -158,7 +158,7 @@ describe('RecordStartingPointHandler', () => {
       'archive_missing',
       'archive_of_another_task',
     ]) {
-      await expect(record.execute(told(archive))).rejects.toMatchObject({
+      await expect(record.execute(reported(archive))).rejects.toMatchObject({
         kind: 'invalid',
       });
     }
@@ -168,7 +168,7 @@ describe('RecordStartingPointHandler', () => {
     const { record } = await setUp();
 
     await expect(
-      record.execute(told(null, [{ path: 'api', commit: 'abc123' }])),
+      record.execute(reported(null, [{ path: 'api', commit: 'abc123' }])),
     ).rejects.toBeInstanceOf(ApplicationError);
   });
 
@@ -176,7 +176,7 @@ describe('RecordStartingPointHandler', () => {
     const { record } = await setUp();
 
     await expect(
-      record.execute(told(null, [{ path: 'web', commit: COMMIT }])),
+      record.execute(reported(null, [{ path: 'web', commit: COMMIT }])),
     ).rejects.toMatchObject({ kind: 'invalid' });
   });
 
@@ -184,7 +184,7 @@ describe('RecordStartingPointHandler', () => {
     const { record } = await setUp();
 
     await expect(
-      record.execute(told('archive_missing', AT_API, 'runner_2')),
+      record.execute(reported('archive_missing', AT_API, 'runner_2')),
     ).rejects.toMatchObject({ kind: 'conflict' });
   });
 
@@ -193,7 +193,7 @@ describe('RecordStartingPointHandler', () => {
       aLeasedRun({ carriesOn: false, checkouts: ['api'] }),
     );
 
-    await expect(record.execute(told(null))).rejects.toMatchObject({
+    await expect(record.execute(reported(null))).rejects.toMatchObject({
       kind: 'conflict',
     });
   });

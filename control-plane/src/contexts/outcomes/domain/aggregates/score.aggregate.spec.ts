@@ -70,7 +70,7 @@ describe('Score', () => {
         JudgeReason.of({ text: `Reason ${at}.`, citations }),
       ),
       seen: SeenEvidence.of({
-        steps: [{ index: 9, kind: 'said', tool: null, text: 'Uncited.' }],
+        steps: [{ index: 9, kind: 'message', tool: null, text: 'Uncited.' }],
         hunks: Array.from({ length: 12 }, (_, at) => ({
           id: `api/src/big.ts#${at}`,
           path: 'api/src/big.ts',
@@ -102,7 +102,7 @@ describe('Score', () => {
         model: null,
         reasons: [],
         seen: SeenEvidence.of({
-          steps: [{ index: 1, kind: 'said', tool: null, text: 'Seen.' }],
+          steps: [{ index: 1, kind: 'message', tool: null, text: 'Seen.' }],
           hunks: [],
         }),
         by: personGrade('run_1', ScoreScale.yesNo(), 1).by,

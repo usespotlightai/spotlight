@@ -14,7 +14,7 @@ export class PoolRoom {
     private readonly left: ReadonlyMap<string, number | null>,
   ) {}
 
-  static told(rooms: readonly (readonly [PoolId, number | null])[]): PoolRoom {
+  static of(rooms: readonly (readonly [PoolId, number | null])[]): PoolRoom {
     return new PoolRoom(
       new Map(rooms.map(([pool, left]) => [pool.value, left])),
     );

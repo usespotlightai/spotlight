@@ -345,19 +345,19 @@ func TestCheckExitsByTheWorstVerdict(t *testing.T) {
 		verdicts []string
 		post     func(w http.ResponseWriter) bool
 		want     int
-		says     string
+		contains string
 	}{
-		"passed":    {verdicts: []string{"passed"}, want: 0, says: "PASSED"},
-		"failed":    {verdicts: []string{"failed"}, want: regressedExit, says: `REGRESSED task_2 "Drain the queue": failed where the baseline succeeded, check-failed: npm test`},
-		"undecided": {verdicts: []string{"undecided"}, want: undecidedExit, says: "fewer than half the tasks were scored on both sides"},
-		"timed out": {verdicts: nil, want: undecidedExit, says: "still running after 1m0s"},
+		"passed":    {verdicts: []string{"passed"}, want: 0, contains: "PASSED"},
+		"failed":    {verdicts: []string{"failed"}, want: regressedExit, contains: `REGRESSED task_2 "Drain the queue": failed where the baseline succeeded, check-failed: npm test`},
+		"undecided": {verdicts: []string{"undecided"}, want: undecidedExit, contains: "fewer than half the tasks were scored on both sides"},
+		"timed out": {verdicts: nil, want: undecidedExit, contains: "still running after 1m0s"},
 		"conflict": {
 			post: func(w http.ResponseWriter) bool {
 				w.WriteHeader(http.StatusConflict)
 				_, _ = io.WriteString(w, `{"type":"urn:spotlight:problem:conflict","status":409,"title":"conflict","detail":"No replay set guards the changes of the station build"}`)
 				return true
 			},
-			want: errorExit, says: "No replay set guards the changes of the station build",
+			want: errorExit, contains: "No replay set guards the changes of the station build",
 		},
 		"invalid": {
 			post: func(w http.ResponseWriter) bool {
@@ -365,7 +365,7 @@ func TestCheckExitsByTheWorstVerdict(t *testing.T) {
 				_, _ = io.WriteString(w, `{"type":"urn:spotlight:problem:invalid","status":422,"title":"The replay check is not valid","errors":[{"path":"station.effort","message":"is low, medium, high, xhigh or max","severity":"error"}]}`)
 				return true
 			},
-			want: errorExit, says: "station.effort: is low, medium, high, xhigh or max",
+			want: errorExit, contains: "station.effort: is low, medium, high, xhigh or max",
 		},
 		"nothing to replay": {
 			post: func(w http.ResponseWriter) bool {
@@ -373,7 +373,7 @@ func TestCheckExitsByTheWorstVerdict(t *testing.T) {
 				_, _ = io.WriteString(w, `{"type":"urn:spotlight:problem:nothing-to-replay","status":409,"detail":"The plan changes only check of the station"}`)
 				return true
 			},
-			want: 0, says: "UNCHANGED",
+			want: 0, contains: "UNCHANGED",
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -382,7 +382,7 @@ func TestCheckExitsByTheWorstVerdict(t *testing.T) {
 			defer server.Close()
 
 			got := runCheck(t, map[string]string{urlVar: server.URL, tokenVar: token}, onlyBuild, "--timeout", "1m")
-			if got.code != tc.want || !strings.Contains(got.out, tc.says) {
+			if got.code != tc.want || !strings.Contains(got.out, tc.contains) {
 				t.Fatalf("code = %d, want %d; output:\n%s%s", got.code, tc.want, got.out, got.errOut)
 			}
 		})
@@ -721,11 +721,11 @@ func TestReadPlanLeavesUndecidedStationsWhoseIntegrationsHooksOrSecretsThePlanCh
 	for name, tc := range map[string]struct {
 		resource map[string]any
 		want     string
-		says     string
+		contains string
 	}{
 		"an integration a station's tools come from": {
 			resource: catalogResource("spotlight_integration.core_linear", "spotlight_integration", map[string]any{"team_id": coreTeam, "source": "linear"}),
-			want:     "review", says: "integration spotlight_integration.core_linear",
+			want:     "review", contains: "integration spotlight_integration.core_linear",
 		},
 		"an integration of another team": {
 			resource: catalogResource("spotlight_integration.other_linear", "spotlight_integration", map[string]any{"team_id": "another-team", "source": "linear"}),
@@ -733,7 +733,7 @@ func TestReadPlanLeavesUndecidedStationsWhoseIntegrationsHooksOrSecretsThePlanCh
 		},
 		"a hook matching one station": {
 			resource: catalogResource("spotlight_hook.core_notify", "spotlight_hook", map[string]any{"team_id": coreTeam, "key": "notify", "match": map[string]any{"stations": []any{"build"}}}),
-			want:     "build", says: "hook spotlight_hook.core_notify",
+			want:     "build", contains: "hook spotlight_hook.core_notify",
 		},
 		"a hook matching every station": {
 			resource: catalogResource("spotlight_hook.core_audit", "spotlight_hook", map[string]any{"team_id": coreTeam, "key": "audit", "match": map[string]any{}}),
@@ -741,7 +741,7 @@ func TestReadPlanLeavesUndecidedStationsWhoseIntegrationsHooksOrSecretsThePlanCh
 		},
 		"a secret, which any station may use": {
 			resource: catalogResource("spotlight_secret.linear_key", "spotlight_secret", map[string]any{"workspace_id": "ws", "name": "LINEAR_KEY"}),
-			want:     "build,review", says: "secret spotlight_secret.linear_key",
+			want:     "build,review", contains: "secret spotlight_secret.linear_key",
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
@@ -754,7 +754,7 @@ func TestReadPlanLeavesUndecidedStationsWhoseIntegrationsHooksOrSecretsThePlanCh
 				t.Fatalf("undecided = %q, want %q: %+v", got, tc.want, stations)
 			}
 			for _, each := range stations {
-				if each.Undecided && tc.says != "" && !strings.Contains(each.Because, tc.says) {
+				if each.Undecided && tc.contains != "" && !strings.Contains(each.Because, tc.contains) {
 					t.Fatalf("%s: %s", each.Key, each.Because)
 				}
 			}
@@ -795,7 +795,7 @@ func TestReadPlanLeavesUndecidedTheWorkStationsOfAReplacedLine(t *testing.T) {
 }
 
 func TestUndecidedSaysWhyThereIsNoBaseline(t *testing.T) {
-	if !strings.Contains(undecidedSays("no-baseline"), "none can come") {
-		t.Fatal(undecidedSays("no-baseline"))
+	if !strings.Contains(describeUndecided("no-baseline"), "none can come") {
+		t.Fatal(describeUndecided("no-baseline"))
 	}
 }

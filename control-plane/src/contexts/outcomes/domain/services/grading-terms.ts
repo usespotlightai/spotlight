@@ -51,14 +51,14 @@ export const gradingTermsOf = (
   const judge = latestJudgeOf(scores);
 
   if (judge) {
-    const told = judgedBy?.version === judge.rubricVersion ? judgedBy : null;
+    const rubric = judgedBy?.version === judge.rubricVersion ? judgedBy : null;
 
     return {
       scale: judge.scale,
       rubricVersion: judge.rubricVersion,
-      rubricBody: told?.body ?? null,
+      rubricBody: rubric?.body ?? null,
       claims: (judge.marks ?? []).map(
-        (_, at) => told?.criteria.claims[at] ?? null,
+        (_, at) => rubric?.criteria.claims[at] ?? null,
       ),
     };
   }

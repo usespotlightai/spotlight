@@ -47,7 +47,7 @@ export class HappeningController {
           each.happening,
           each.source,
           each.label,
-          each.told,
+          each.summary,
         ),
     );
   }

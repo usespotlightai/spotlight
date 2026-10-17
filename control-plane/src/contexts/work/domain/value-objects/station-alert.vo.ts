@@ -25,7 +25,7 @@ type Threshold = (typeof THRESHOLDS)[number];
 
 const MOVES: ReadonlySet<Threshold> = new Set(['risesBy', 'fallsBy']);
 
-const SAID: Record<Threshold, string> = {
+const THRESHOLD_DESCRIPTION: Record<Threshold, string> = {
   risesBy: 'rises by',
   above: 'is above',
   fallsBy: 'falls by',
@@ -96,7 +96,7 @@ export class StationAlert {
     if (!bounded(measure, threshold, value)) {
       throw new InvalidStationAlertError(
         threshold,
-        `"${SAID[threshold]}" value must be ${bounds(measure, threshold)}`,
+        `"${THRESHOLD_DESCRIPTION[threshold]}" value must be ${bounds(measure, threshold)}`,
       );
     }
     if (!Number.isInteger(input.over) || input.over < 1) {
@@ -135,7 +135,7 @@ export class StationAlert {
     if (earlier.some((each) => each.watchesAsWell(this))) {
       throw new InvalidStationAlertError(
         null,
-        `for "${this.measure} ${SAID[this.threshold]}" already exists on this station`,
+        `for "${this.measure} ${THRESHOLD_DESCRIPTION[this.threshold]}" already exists on this station`,
       );
     }
 

@@ -5,7 +5,7 @@ export interface HookFailureReport {
   readonly stationKey: string;
   readonly hook: string;
   readonly code: string;
-  readonly saying: string;
+  readonly reason: string;
   readonly heardAs: string;
 }
 

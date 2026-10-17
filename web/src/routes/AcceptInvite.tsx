@@ -11,7 +11,7 @@ import { failed, loading } from '@/lib/query';
 
 const WIDTH = 'w-80';
 
-const SAYS: Record<string, string> = {
+const STATUS_TEXT: Record<string, string> = {
   accepted: 'This invitation is already accepted.',
   revoked: 'This invitation is withdrawn.',
   expired: 'This invitation has expired. Please ask for a new one.',
@@ -63,7 +63,7 @@ export function AcceptInvite() {
 
       {closed ? (
         <p role="alert" className="text-center text-muted-foreground text-sm">
-          {SAYS[invite.status]}
+          {STATUS_TEXT[invite.status]}
         </p>
       ) : session?.user ? (
         <AcceptAsSignedIn

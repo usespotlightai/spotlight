@@ -11,12 +11,17 @@ export class HappeningResponseDto {
   readonly label: string;
 
   @ApiProperty({ example: 'The pull request was commented on.' })
-  readonly told: string;
+  readonly summary: string;
 
-  constructor(happening: string, source: string, label: string, told: string) {
+  constructor(
+    happening: string,
+    source: string,
+    label: string,
+    summary: string,
+  ) {
     this.happening = happening;
     this.source = source;
     this.label = label;
-    this.told = told;
+    this.summary = summary;
   }
 }

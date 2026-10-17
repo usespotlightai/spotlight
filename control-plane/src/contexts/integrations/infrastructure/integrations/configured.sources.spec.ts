@@ -37,7 +37,7 @@ webhook:
       raise:
         happening: ${source}.issue.completed
         label: Issue completed
-        told: Done.
+        summary: Done.
         marks:
           - kind: ${source}.issue
             value: \${{ body.data.identifier }}

@@ -202,7 +202,7 @@ const BRIEFED = BriefedTask.of({
   reviewing: null,
   attachments: [SCREENSHOT],
   notes: [],
-  openRemarks: [],
+  openReviewComments: [],
   decisions: [
     {
       kind: 'assumption',
@@ -486,7 +486,7 @@ describe('DispatchReplay', () => {
         body: TaskNoteBody.of('Drain oldest first.'),
         at: NOW,
         voice: Voice.person(UserId.of('user_maya')),
-        kind: 'said',
+        kind: 'message',
       }),
     ];
 

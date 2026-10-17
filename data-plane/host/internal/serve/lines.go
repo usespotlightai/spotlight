@@ -14,8 +14,8 @@ type lines struct {
 func (l *lines) Write(p []byte) (int, error) { return l.buffer.Write(p) }
 
 func (l *lines) last() string {
-	said := strings.Split(strings.TrimSpace(l.buffer.String()), "\n")
-	return said[len(said)-1]
+	all := strings.Split(strings.TrimSpace(l.buffer.String()), "\n")
+	return all[len(all)-1]
 }
 
 type echo struct {
@@ -37,7 +37,7 @@ func (e *echo) Write(p []byte) (int, error) {
 		}
 
 		if line := strings.TrimSpace(string(e.pending[:end])); line != "" {
-			e.log.Info("sandbox", "said", line)
+			e.log.Info("sandbox", "line", line)
 		}
 		e.pending = e.pending[end+1:]
 	}

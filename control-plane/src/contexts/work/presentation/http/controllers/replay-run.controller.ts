@@ -24,7 +24,7 @@ export class ReplayRunController {
   @ApiOperation({
     operationId: 'readReplayRun',
     summary:
-      'A replay run: the past run it replays, what it did and said, and what it spent',
+      'A replay run: the past run it replays, what it did and wrote, and what it spent',
   })
   @ApiParam({ name: 'runId', type: String })
   @ApiOkResponse({ type: ReplayRunResponseDto })
@@ -50,7 +50,7 @@ export class ReplayRunController {
   @ApiOperation({
     operationId: 'readSearchRun',
     summary:
-      'A search’s agent run: its search and iteration, the agent it ran, what it did and said, and what it spent',
+      'A search’s agent run: its search and iteration, the agent it ran, what it did and wrote, and what it spent',
   })
   @ApiParam({ name: 'runId', type: String })
   @ApiOkResponse({ type: SearchRunResponseDto })

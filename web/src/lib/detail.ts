@@ -1,18 +1,18 @@
 import type { TraceNode } from '@/lib/trace';
 
-export interface Told {
+export interface Description {
   readonly title: string;
   readonly body: string;
   readonly prose: boolean;
   readonly command?: boolean;
 }
 
-const SPOKEN: Record<string, string> = {
-  said: 'Message',
+const PROSE_TITLES: Record<string, string> = {
+  message: 'Message',
   thought: 'Reasoning',
 };
 
-export const askedOf = (node: TraceNode): Told | null => {
+export const askedOf = (node: TraceNode): Description | null => {
   const step = node.step;
 
   if (!step?.given) {
@@ -24,19 +24,19 @@ export const askedOf = (node: TraceNode): Told | null => {
   return { title: 'Input', body: step.given, prose: false, command };
 };
 
-export const answeredBy = (node: TraceNode): Told | null => {
+export const answeredBy = (node: TraceNode): Description | null => {
   const step = node.step;
 
   if (!step) {
     return null;
   }
 
-  const spoken = SPOKEN[step.kind];
+  const title = PROSE_TITLES[step.kind];
 
-  if (spoken) {
+  if (title) {
     return step.text === node.name
       ? null
-      : { title: spoken, body: step.text, prose: true };
+      : { title, body: step.text, prose: true };
   }
 
   const back = step.detail ?? step.returned;
@@ -98,7 +98,7 @@ export const shaped = (body: string): Field[] | null => {
 };
 
 const LABELS: Record<string, string> = {
-  said: 'Said',
+  message: 'Messages',
   thought: 'Thoughts',
   tool: 'Tools',
   planned: 'Plans',

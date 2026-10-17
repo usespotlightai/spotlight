@@ -44,10 +44,10 @@ const reason = (
   detail: string | null = null,
 ): EntryReasonResponseDto => ({ code, detail, steps: [], hunks: [] });
 
-const worded = (said: string, code: string) => {
-  expect(said, code).toBeTruthy();
-  expect(said, code).not.toBe(code);
-  expect(said.endsWith(`: ${code}`), `${code} has no words`).toBe(false);
+const worded = (text: string, code: string) => {
+  expect(text, code).toBeTruthy();
+  expect(text, code).not.toBe(code);
+  expect(text.endsWith(`: ${code}`), `${code} has no words`).toBe(false);
 };
 
 describe('replay words cover every code the API can answer', () => {

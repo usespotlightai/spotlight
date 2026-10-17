@@ -3,7 +3,7 @@ import {
   type PullRequestType,
 } from '@outcomes/domain/value-objects/pull-request-type';
 
-export interface PullRequestSaid {
+export interface PullRequestText {
   readonly changeTitles: readonly string[];
   readonly changeIntents: readonly string[];
   readonly title: string;
@@ -98,17 +98,19 @@ const mostOf = (types: readonly PullRequestType[]): PullRequestType | null => {
   return commonest;
 };
 
-const typeOfChanges = (said: PullRequestSaid): PullRequestType | null =>
+const typeOfChanges = (pullRequest: PullRequestText): PullRequestType | null =>
   mostOf(
-    said.changeTitles.flatMap((title, at) => {
+    pullRequest.changeTitles.flatMap((title, at) => {
       const typed =
-        typeOfTitle(title) ?? typeOfTitle(said.changeIntents[at] ?? '');
+        typeOfTitle(title) ?? typeOfTitle(pullRequest.changeIntents[at] ?? '');
       return typed ? [typed] : [];
     }),
   );
 
-export const pullRequestTypeOf = (said: PullRequestSaid): PullRequestType =>
-  typeOfChanges(said) ??
-  typeOfTitle(said.title) ??
-  typeOfBranch(said.branch) ??
+export const pullRequestTypeOf = (
+  pullRequest: PullRequestText,
+): PullRequestType =>
+  typeOfChanges(pullRequest) ??
+  typeOfTitle(pullRequest.title) ??
+  typeOfBranch(pullRequest.branch) ??
   UNMATCHED;

@@ -57,7 +57,7 @@ const groundingStep = (at: RememberedAt): number => {
 
   if (!step) {
     throw new InvalidMemoryError(
-      'rests on a step of its run, and this run has not said anything yet',
+      'rests on a step of its run, and this run has no steps yet',
     );
   }
 

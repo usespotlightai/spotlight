@@ -27,7 +27,7 @@ const evidenceOf = (runId: string, line: string): RunEvidence => ({
   steps: [
     {
       index: 2,
-      kind: 'said',
+      kind: 'message',
       tool: null,
       text: 'Draining it in order.',
       given: null,

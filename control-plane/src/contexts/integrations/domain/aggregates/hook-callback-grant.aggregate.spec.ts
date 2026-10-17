@@ -56,7 +56,7 @@ describe('HookCallbackGrant', () => {
     expect(grant().causeLink).toEqual({
       kind: 'callback',
       key: 'callback:dba-review:task_1',
-      saying: 'a note by callback from the hook dba-review',
+      description: 'a note by callback from the hook dba-review',
     });
   });
 });
