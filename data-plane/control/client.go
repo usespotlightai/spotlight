@@ -602,6 +602,51 @@ func (c *Client) RedeemEgress(ctx context.Context, recipient string) (protocol.E
 	return redeemed, nil
 }
 
+func (c *Client) AdmitEgress(ctx context.Context, proxyCredential string) (protocol.EgressAdmitted, error) {
+	var admitted protocol.EgressAdmitted
+	asked := protocol.EgressAdmit{ProxyCredential: proxyCredential}
+	if err := c.do(ctx, http.MethodPost, "/api/egress/admit", asked, &admitted); err != nil {
+		return protocol.EgressAdmitted{}, fmt.Errorf("admit a sandbox: %w", err)
+	}
+
+	return admitted, nil
+}
+
+func (c *Client) RedeemEgressFor(
+	ctx context.Context, proxyCredential, recipient string,
+) (protocol.EgressRedemption, error) {
+	var redeemed protocol.EgressRedemption
+	asked := protocol.EgressRedeem{ProxyCredential: proxyCredential, Recipient: recipient}
+	if err := c.do(ctx, http.MethodPost, "/api/egress/redeem", asked, &redeemed); err != nil {
+		return protocol.EgressRedemption{}, fmt.Errorf("redeem a run's secrets: %w", err)
+	}
+
+	return redeemed, nil
+}
+
+func (c *Client) EgressHolds(ctx context.Context, proxyCredentials []string) ([]string, error) {
+	var held protocol.EgressHeld
+	asked := protocol.EgressHolds{ProxyCredentials: proxyCredentials}
+	if err := c.do(ctx, http.MethodPost, "/api/egress/holds", asked, &held); err != nil {
+		return nil, fmt.Errorf("ask which runs are held: %w", err)
+	}
+
+	return held.Held, nil
+}
+
+func (c *Client) RecordConnections(ctx context.Context, records []protocol.EgressConnection) error {
+	asked := protocol.EgressConnections{Records: records}
+	if err := c.do(ctx, http.MethodPost, "/api/egress/connections", asked, nil); err != nil {
+		return fmt.Errorf("record connections: %w", err)
+	}
+
+	return nil
+}
+
+func (c *Client) Through(transport http.RoundTripper) {
+	c.http.Transport = transport
+}
+
 func (c *Client) do(ctx context.Context, method, path string, in, out any) error {
 	_, err := c.request(ctx, method, path, in, out)
 	return err

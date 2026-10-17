@@ -118,7 +118,7 @@ export const holdings = (node: TraceNode): Holding => {
     for (const child of each.children) {
       rows += 1;
 
-      if (child.tone === 'failed') {
+      if (child.tone === 'failed' && child.kind !== 'connection') {
         faults += 1;
       }
 

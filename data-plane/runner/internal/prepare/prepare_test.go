@@ -342,7 +342,7 @@ func TestFailsOnARemoteItCannotReach(t *testing.T) {
 func TestSetupRunsInTheCheckout(t *testing.T) {
 	tree := t.TempDir()
 
-	said, err := prepare.Setup(context.Background(), tree, "echo installing && touch installed", nil, 0)
+	said, err := prepare.Setup(context.Background(), tree, "echo installing && touch installed", nil, 0, nil)
 	if err != nil {
 		t.Fatalf("setup: %v", err)
 	}
@@ -355,8 +355,16 @@ func TestSetupRunsInTheCheckout(t *testing.T) {
 	}
 }
 
+func TestSetupGoesOutThroughTheWayOut(t *testing.T) {
+	said, err := prepare.Setup(context.Background(), t.TempDir(), "echo $HTTPS_PROXY", nil, 0,
+		map[string]string{"HTTPS_PROXY": "http://127.0.0.1:3128"})
+	if err != nil || said != "http://127.0.0.1:3128" {
+		t.Errorf("said %q: %v", said, err)
+	}
+}
+
 func TestSetupThatTakesTooLongIsStopped(t *testing.T) {
-	_, err := prepare.Setup(context.Background(), t.TempDir(), "sleep 5", nil, 100*time.Millisecond)
+	_, err := prepare.Setup(context.Background(), t.TempDir(), "sleep 5", nil, 100*time.Millisecond, nil)
 	if err == nil || !strings.Contains(err.Error(), "did not finish") {
 		t.Fatalf("got %v", err)
 	}

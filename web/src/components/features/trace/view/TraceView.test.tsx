@@ -13,6 +13,15 @@ import { runScoresOf } from '@/test/fixtures/run-scores';
 
 const scores = vi.fn();
 
+vi.mock('@/hooks/api/useRunNetwork', () => ({
+  useRunNetwork: () => ({
+    data: { runId: 'run_1', attempt: 1, egress: null, connections: [] },
+    isPending: false,
+    isFetching: false,
+    errorUpdateCount: 0,
+  }),
+}));
+
 vi.mock('@/hooks/api/useRunScores', () => ({
   useRunScores: (_teamId: string, runId: string) => ({
     data: scores(runId),
@@ -276,6 +285,103 @@ describe('TraceView', () => {
         'The change retries a 410 Gone like any other failure.',
       ),
     ).toBeVisible();
+  });
+
+  describe('network', () => {
+    const blocked = (): Trace => ({
+      startedAt: iso(0),
+      ms: 60_000,
+      rows: 3,
+      faults: 1,
+      roots: [
+        node({
+          id: 'run:run_1',
+          name: 'Implementation',
+          kind: 'run',
+          ms: 60_000,
+          egress: 'not-enforced',
+          children: [
+            node({
+              id: 'run_1:step:0',
+              name: 'npm test',
+              startedAt: iso(20_000),
+              ms: 5_000,
+              children: [
+                node({
+                  id: 'run_1:connection:0',
+                  name: 'paste.example.net',
+                  kind: 'connection',
+                  tone: 'failed',
+                  startedAt: iso(21_000),
+                  ms: 1_000,
+                  connection: {
+                    host: 'paste.example.net',
+                    port: 443,
+                    outcome: 'blocked',
+                    status: null,
+                    reason: 'not-allowed',
+                    trouble: 'blocked',
+                    times: 3,
+                  },
+                }),
+                node({
+                  id: 'run_1:connection:1',
+                  name: 'mcp.linear.app',
+                  kind: 'connection',
+                  tone: 'failed',
+                  startedAt: iso(22_000),
+                  ms: 200,
+                  connection: {
+                    host: 'mcp.linear.app',
+                    port: 443,
+                    outcome: 'forwarded',
+                    status: 401,
+                    reason: null,
+                    trouble: 'refused',
+                    times: 1,
+                  },
+                }),
+              ],
+            }),
+          ],
+        }),
+      ],
+    });
+
+    const viewNetwork = () => {
+      scores.mockReturnValue(undefined);
+      return render(<TraceView trace={blocked()} teamId="team_1" />);
+    };
+
+    it('draws a connection that went wrong under its step as a failure, with how often', () => {
+      viewNetwork();
+
+      const [, , paste, linear] = rows();
+      expect(paste).toHaveTextContent('paste.example.net×3');
+      expect(
+        screen.getByRole('button', { name: 'paste.example.net' }),
+      ).toHaveClass('text-destructive');
+      expect(linear).toHaveTextContent('mcp.linear.app');
+      expect(linear).not.toHaveTextContent('×');
+    });
+
+    it('marks the run row when egress was not enforced', () => {
+      viewNetwork();
+
+      expect(rows()[0]).toHaveTextContent('Egress not enforced');
+    });
+
+    it('says why a connection went wrong when it is picked', async () => {
+      const user = userEvent.setup();
+      viewNetwork();
+
+      await user.click(screen.getByRole('button', { name: 'mcp.linear.app' }));
+
+      expect(screen.getByText('Cause')).toBeInTheDocument();
+      expect(
+        screen.getByText(/refused the request with status 401/),
+      ).toBeInTheDocument();
+    });
   });
 
   it('folds a row away', async () => {

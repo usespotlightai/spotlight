@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"maps"
 	"os"
 	"path/filepath"
 	"strings"
@@ -39,6 +40,7 @@ type Options struct {
 	Remote  string
 	Mirrors string
 	RunAs   *account.User
+	Env     map[string]string
 	Log     *slog.Logger
 	Step    time.Duration
 	Setup   time.Duration
@@ -256,7 +258,7 @@ func (o Options) step(
 
 	// Run setup after the patch, so the step installs what it asks for.
 	if check.Setup != "" && step.RunsSetup {
-		if output, err := prepare.Setup(ctx, tree, check.Setup, o.RunAs, o.Setup); err != nil {
+		if output, err := prepare.Setup(ctx, tree, check.Setup, o.RunAs, o.Setup, o.Env); err != nil {
 			o.Log.Warn("could not make the checkout ready", "step", step.ID, "error", err)
 			return failed("The setup command failed in this checkout.\n\n" + output), false
 		}
@@ -286,7 +288,13 @@ func (o Options) git(ctx context.Context, dir, stdin string, args ...string) (st
 func (o Options) run(
 	ctx context.Context, dir, stdin string, extra map[string]string, name string, args ...string,
 ) (string, error) {
-	return shell.Run(ctx, shell.Command{Dir: dir, Stdin: stdin, Env: extra, RunAs: o.RunAs, Name: name, Args: args})
+	env := maps.Clone(o.Env)
+	if env == nil {
+		env = map[string]string{}
+	}
+	maps.Copy(env, extra)
+
+	return shell.Run(ctx, shell.Command{Dir: dir, Stdin: stdin, Env: env, RunAs: o.RunAs, Name: name, Args: args})
 }
 
 func (o Options) own(path string) error {

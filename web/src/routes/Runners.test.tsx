@@ -9,6 +9,8 @@ const failing = vi.fn();
 const refetch = vi.fn();
 const role = vi.fn();
 
+const pools = vi.fn(() => [] as unknown[]);
+
 vi.mock('@/hooks/api/useRunners', () => ({
   runnerKeys: {
     all: ['runners'],
@@ -25,6 +27,10 @@ vi.mock('@/hooks/api/useRunners', () => ({
 
 vi.mock('@/hooks/api/useWorkspace', () => ({
   useWorkspace: () => ({ data: { id: 'workspace_acme', role: role() } }),
+}));
+
+vi.mock('@/hooks/api/useRunnerPools', () => ({
+  useRunnerPools: () => ({ data: pools() }),
 }));
 
 vi.mock('@/hooks/api/useHarnesses', () => ({
@@ -375,6 +381,17 @@ describe('Runners', () => {
     );
     expect(nested.getByText('A search run')).toBeInTheDocument();
     expect(nested.queryByRole('link')).not.toBeInTheDocument();
+  });
+
+  it('says when a push pool goes out through an egress', () => {
+    pools.mockReturnValueOnce([
+      { key: 'ephemeral', provision: { egress: 'spotlight' } },
+    ]);
+    holding([host()], [pushPool()]);
+
+    renderPage();
+
+    expect(screen.getByText('Push pool · egress')).toBeInTheDocument();
   });
 
   it('shows only the hosts in the chosen filter, and remembers it', async () => {

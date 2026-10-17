@@ -19,7 +19,7 @@ type Serving struct {
 	server   *http.Server
 }
 
-func Serve(controlPlane, token, runID string, fetchOnly bool) (*Serving, error) {
+func Serve(controlPlane, token, runID string, fetchOnly bool, transport http.RoundTripper) (*Serving, error) {
 	base, err := url.Parse(controlPlane)
 	if err != nil || !base.IsAbs() {
 		return nil, fmt.Errorf("control plane url %q is not absolute", controlPlane)
@@ -36,7 +36,7 @@ func Serve(controlPlane, token, runID string, fetchOnly bool) (*Serving, error) 
 		Remote:   fmt.Sprintf("http://%s/%s", listener.Addr().String(), runID),
 		listener: listener,
 		server: &http.Server{
-			Handler:           forwarding(base, token, prefix, fetchOnly),
+			Handler:           forwarding(base, token, prefix, fetchOnly, transport),
 			ReadHeaderTimeout: 30 * time.Second,
 		},
 	}
@@ -69,8 +69,8 @@ func pushes(r *http.Request) bool {
 	return strings.HasSuffix(r.URL.Path, "/"+receivePack) || r.URL.Query().Get("service") == receivePack
 }
 
-func forwarding(base *url.URL, token, prefix string, fetchOnly bool) http.Handler {
-	client := &http.Client{}
+func forwarding(base *url.URL, token, prefix string, fetchOnly bool, transport http.RoundTripper) http.Handler {
+	client := &http.Client{Transport: transport}
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !strings.HasPrefix(r.URL.Path, prefix) {

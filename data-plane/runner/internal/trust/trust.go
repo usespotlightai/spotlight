@@ -19,6 +19,23 @@ func Install(authority, bundle string) error {
 	return installed(authority, bundle, systemBundles)
 }
 
+func Trust(pem []byte, authority, bundle string) error {
+	return trusting(pem, authority, bundle, systemBundles)
+}
+
+func trusting(pem []byte, authority, bundle string, system []string) error {
+	for _, dir := range []string{filepath.Dir(authority), filepath.Dir(bundle)} {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return fmt.Errorf("make a place for the way out's authority: %w", err)
+		}
+	}
+	if err := replaced(authority, pem, 0o644); err != nil {
+		return fmt.Errorf("write the way out's authority: %w", err)
+	}
+
+	return installed(authority, bundle, system)
+}
+
 func installed(authority, bundle string, system []string) error {
 	pem, err := os.ReadFile(authority)
 	if errors.Is(err, os.ErrNotExist) {

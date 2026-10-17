@@ -8,6 +8,7 @@ import (
 	"io"
 	"log/slog"
 	"maps"
+	"net/http"
 	"os"
 	"path/filepath"
 	"slices"
@@ -77,6 +78,10 @@ type Options struct {
 	SetupTimeout time.Duration
 	AnswerWait   time.Duration
 	Heartbeat    time.Duration
+	Transport    http.RoundTripper
+	WayOut       map[string]string
+	Enforced     func(ctx context.Context) bool
+	Unready      error
 }
 
 func Execute(ctx context.Context, run protocol.Run, opts Options) error {
@@ -92,12 +97,16 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 
 	lifecycle := &progress{state: Preparing}
 
+	if opts.Unready != nil {
+		return unprepared(ctx, run.ID, journal, lifecycle, opts.Journal, log, opts.Unready)
+	}
+
 	space, err := workspace.Open(opts.Workspace)
 	if err != nil {
 		return unprepared(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
 
-	keeper := newKeeper(run, space, journal, opts.Journal, log)
+	keeper := newKeeper(run, space, journal, opts.Journal, opts.Transport, log)
 	if err := keeper.restore(ctx); err != nil {
 		return unprepared(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 	}
@@ -107,7 +116,7 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 	}
 
 	if len(run.Spec.Checkouts) > 0 {
-		serving, err := gitproxy.Serve(opts.ControlPlane, opts.Token, run.ID, replays(run))
+		serving, err := gitproxy.Serve(opts.ControlPlane, opts.Token, run.ID, replays(run), opts.Transport)
 		if err != nil {
 			return unprepared(ctx, run.ID, journal, lifecycle, opts.Journal, log, err)
 		}
@@ -276,10 +285,15 @@ func Execute(ctx context.Context, run protocol.Run, opts Options) error {
 
 	var putToPerson atomic.Bool
 
+	opts.checkEgress(ctx, journal)
+
+	env := granted(run.Spec.Command.Env, channel, state, telemetry.URL, reachingAPI(run.Spec, opts.ControlPlane))
+	maps.Copy(env, opts.WayOut)
+
 	harness, err := acp.Start(ctx, acp.Options{
 		Executable: run.Spec.Command.Executable,
 		Args:       run.Spec.Command.Args,
-		Env:        granted(run.Spec.Command.Env, channel, state, telemetry.URL, reachingAPI(run.Spec, opts.ControlPlane)),
+		Env:        env,
 		Root:       cwd,
 		RunAs:      opts.AgentUser,
 		Answer:     answering(run, opts.Journal, journal, &putToPerson, log),
@@ -396,7 +410,7 @@ func (o Options) draftStacks(
 		return
 	}
 
-	checking := stackcheck.Options{Dir: dir, RunAs: o.AgentUser, Log: log}
+	checking := stackcheck.Options{Dir: dir, RunAs: o.AgentUser, Log: log, Env: o.WayOut}
 
 	for _, checkout := range run.Spec.Checkouts {
 		diffing := checking.Diff
@@ -758,6 +772,18 @@ func (o Options) prepare(ctx context.Context, dir string, run protocol.Run, jour
 	return nil
 }
 
+func (o Options) checkEgress(ctx context.Context, journal *journalWriter) {
+	if o.Enforced == nil {
+		return
+	}
+
+	checked, err := json.Marshal(protocol.EgressChecked{Enforced: o.Enforced(ctx)})
+	if err != nil {
+		return
+	}
+	journal.append(protocol.Event{Type: protocol.EventEgressChecked, Data: checked})
+}
+
 func (o Options) setUp(
 	ctx context.Context, dir string, checkouts []protocol.Checkout, journal *journalWriter, log *slog.Logger,
 ) {
@@ -766,7 +792,7 @@ func (o Options) setUp(
 			continue
 		}
 
-		output, err := prepare.Setup(ctx, filepath.Join(dir, checkout.Path), checkout.Setup, o.AgentUser, o.SetupTimeout)
+		output, err := prepare.Setup(ctx, filepath.Join(dir, checkout.Path), checkout.Setup, o.AgentUser, o.SetupTimeout, o.WayOut)
 		if err != nil {
 			log.Warn("could not set up a checkout", "path", checkout.Path, "error", err)
 			output = strings.TrimSpace(fmt.Sprintf("%s\n\nSetup failed for %s. Error: %v", output, checkout.Path, err))

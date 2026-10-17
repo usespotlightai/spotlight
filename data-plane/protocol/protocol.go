@@ -243,6 +243,7 @@ const (
 	EventSpan           EventType = "span"
 	EventUsage          EventType = "usage"
 	EventToolRefused    EventType = "tool.refused"
+	EventEgressChecked  EventType = "egress.checked"
 )
 
 type Event struct {

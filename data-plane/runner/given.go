@@ -14,6 +14,7 @@ import (
 	"usespotlight.ai/data-plane/protocol"
 	"usespotlight.ai/data-plane/runner/internal/config"
 	"usespotlight.ai/data-plane/runner/internal/harness"
+	"usespotlight.ai/data-plane/runner/internal/wayout"
 )
 
 const (
@@ -22,12 +23,14 @@ const (
 	retryCeiling    = 20 * time.Second
 )
 
-func given(ctx context.Context, cfg config.Config, release string, log *slog.Logger) (*protocol.Handed, error) {
+func given(
+	ctx context.Context, cfg config.Config, release string, egress *wayout.Egress, log *slog.Logger,
+) (*protocol.Handed, error) {
 	if cfg.WasHanded() {
 		return handedIn(cfg.Handed)
 	}
 
-	return reserved(ctx, cfg, release, log)
+	return reserved(ctx, cfg, release, egress, log)
 }
 
 func handedIn(path string) (*protocol.Handed, error) {
@@ -51,10 +54,15 @@ func handedIn(path string) (*protocol.Handed, error) {
 	return &handed, nil
 }
 
-func reserved(ctx context.Context, cfg config.Config, release string, log *slog.Logger) (*protocol.Handed, error) {
+func reserved(
+	ctx context.Context, cfg config.Config, release string, egress *wayout.Egress, log *slog.Logger,
+) (*protocol.Handed, error) {
 	client, err := control.New(cfg.URL, cfg.Token)
 	if err != nil {
 		return nil, err
+	}
+	if egress != nil {
+		client.Through(egress.Transport(nil))
 	}
 
 	if err := retried(ctx, log, "could not register, still trying", func() error {
