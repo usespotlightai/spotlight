@@ -1,9 +1,9 @@
 import { InvalidScoreError } from '@outcomes/domain/exceptions/invalid-score.error';
 import type { Citation } from '@outcomes/domain/value-objects/citation.vo';
 
-const MOST_SAID = 1_000;
+const MAX_SAID = 1_000;
 
-const MOST_CITED = 10;
+const MAX_CITED = 10;
 
 export class JudgeReason {
   private constructor(
@@ -24,15 +24,15 @@ export class JudgeReason {
       (each, at, all) => all.findIndex((one) => one.equals(each)) === at,
     );
 
-    if (!text || text.length > MOST_SAID) {
+    if (!text || text.length > MAX_SAID) {
       throw new InvalidScoreError(
-        `must be 1 to ${MOST_SAID} characters`,
+        `must be 1 to ${MAX_SAID} characters`,
         'reason',
       );
     }
-    if (citations.length === 0 || citations.length > MOST_CITED) {
+    if (citations.length === 0 || citations.length > MAX_CITED) {
       throw new InvalidScoreError(
-        `must cite 1 to ${MOST_CITED} steps or hunks of its run`,
+        `must cite 1 to ${MAX_CITED} steps or hunks of its run`,
         'reason',
       );
     }

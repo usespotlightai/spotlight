@@ -113,7 +113,7 @@ export class DrizzleRunnerPoolRepository implements RunnerPoolRepository {
   ) {}
 
   async add(added: RunnerPool): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       try {
         await this.context.db.insert(runnerPool).values({
           id: added.id.value,
@@ -130,7 +130,7 @@ export class DrizzleRunnerPoolRepository implements RunnerPoolRepository {
   }
 
   async save(saved: RunnerPool): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       const matching = and(
         eq(runnerPool.id, saved.id.value),
         eq(runnerPool.version, saved.version),

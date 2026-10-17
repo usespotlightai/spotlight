@@ -39,16 +39,16 @@ describe('dispatchedInTurn', () => {
     const waiting = aReplay({ id: 'replay_b', count: 3, at: later(2) });
     const neverQueued = aReplay({ id: 'replay_a', count: 1 })
       .reserving(1, runIds())
-      .stopped(later(1), BY);
+      .stop(later(1), BY);
     const stillRunning = aReplay({ id: 'replay_c', count: 1 })
       .reserving(1, runIds())
-      .confirmed(RunId.of('replay_run_0'), FINGERPRINT, later(1))
-      .stopped(later(2), BY);
+      .confirm(RunId.of('replay_run_0'), FINGERPRINT, later(1))
+      .stop(later(2), BY);
 
     expect(roomAmong([neverQueued, waiting])).toBe(REPLAY_RUNS_AT_ONCE - 1);
     expect(
       roomAmong([
-        neverQueued.forgone(RunId.of('replay_run_0'), later(2)),
+        neverQueued.forgo(RunId.of('replay_run_0'), later(2)),
         waiting,
       ]),
     ).toBe(REPLAY_RUNS_AT_ONCE);

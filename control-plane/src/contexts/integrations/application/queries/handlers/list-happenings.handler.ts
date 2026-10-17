@@ -2,7 +2,7 @@ import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-
 import type { HappeningDto } from '@integrations/application/dto/happening.dto';
 import type { ListHappeningsQuery } from '@integrations/application/queries/list-happenings.query';
 import type { WebhookSources } from '@integrations/application/services/webhook-sources.service';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
@@ -32,7 +32,7 @@ export class ListHappeningsHandler
         told: each.told,
       }));
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

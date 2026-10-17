@@ -229,7 +229,7 @@ const listAt = (workspaceId: string, teamId: string) =>
   new ListStationOutcomesHandler(
     new OutcomesAccess({
       namesOf: async () => new Map(),
-      clearedOnTeam: async (_teamId, principal) => ({
+      membershipOnTeam: async (_teamId, principal) => ({
         workspaceId: WorkspaceId.of(workspaceId),
         by: principal.userId,
       }),
@@ -399,7 +399,7 @@ beforeAll(async () => {
   listing = new ListStationOutcomesHandler(
     new OutcomesAccess({
       namesOf: async () => new Map(),
-      clearedOnTeam: async (_teamId, principal) =>
+      membershipOnTeam: async (_teamId, principal) =>
         principal.userId.equals(UserId.of('user_ada'))
           ? { workspaceId: WorkspaceId.of(WORKSPACE), by: principal.userId }
           : null,
@@ -724,10 +724,10 @@ describe('how a station’s runs turned out', () => {
       throw new Error('not stored');
     }
 
-    await records.save(read.checked('passed', HEARD_AT));
+    await records.save(read.recordCheck('passed', HEARD_AT));
 
     await expect(
-      records.save(read.checked('failed', HEARD_AT)),
+      records.save(read.recordCheck('failed', HEARD_AT)),
     ).rejects.toBeInstanceOf(RunRecordVersionConflictError);
   });
 
@@ -792,7 +792,7 @@ describe('how a station’s runs turned out', () => {
     const released = new Promise<void>((resolve) => {
       release = resolve;
     });
-    const forgetting = context.run(async () => {
+    const forgetting = context.inTransaction(async () => {
       await forgotten.forgetTask(
         WorkspaceId.of(WORKSPACE),
         TaskId.of('task_9'),
@@ -995,7 +995,7 @@ describe('the config runs a station’s runs make', () => {
       teamId = 'team_1',
     ) => {
       const fromSql = (
-        await context.run(() =>
+        await context.inTransaction(() =>
           stretches.lastConfigRunsBefore(TeamId.of(teamId), bounds),
         )
       )

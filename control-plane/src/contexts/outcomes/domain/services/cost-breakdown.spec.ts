@@ -20,7 +20,7 @@ const tokened = (
   cacheRead: number | null,
   cacheWrite: number | null = null,
 ) =>
-  endedRecord(runId, { stationId, endedAt: day('2026-09-28') }).digested(
+  endedRecord(runId, { stationId, endedAt: day('2026-09-28') }).recordDigest(
     RunCost.of({
       ms: 1_000,
       steps: 1,

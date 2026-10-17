@@ -278,7 +278,7 @@ describe('HandOver', () => {
   });
 
   it('keeps a failure on a finished task from the inbox', async () => {
-    const finished = task().finishedHere(RunId.of('run_1'), line(), {
+    const finished = task().finishHere(RunId.of('run_1'), line(), {
       station: StationName.of('Triage'),
       body: TaskNoteBody.of('Done by hand.'),
       at: NOW,
@@ -387,7 +387,7 @@ describe('HandOver', () => {
 
   describe('a run that ends while its task waits on a person', () => {
     const asked = () =>
-      task().putToAPersonBy(RunId.of('run_1'), {
+      task().putToAPerson(RunId.of('run_1'), {
         station: StationName.of('Triage'),
         body: TaskNoteBody.of('Approve linear.comment?'),
         at: NOW,
@@ -535,7 +535,7 @@ describe('HandOver', () => {
         null,
       ).task;
 
-      return asked.answered(
+      return asked.answer(
         NotePosition.of(1),
         {
           station: StationName.of('Triage'),

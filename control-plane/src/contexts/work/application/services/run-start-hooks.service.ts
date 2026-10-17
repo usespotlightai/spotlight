@@ -14,7 +14,7 @@ const ATTEMPTS = 3;
 
 const PAST_THE_POLL_MS = 5_000;
 
-const MOST_HOOK_MS = 12_000;
+const MAX_HOOK_MS = 12_000;
 
 type Heard =
   | HookVerdict
@@ -86,7 +86,7 @@ export class RunStartHooks {
     return new Date(
       Math.min(
         pollUntil.getTime() + PAST_THE_POLL_MS,
-        this.clock.now().getTime() + MOST_HOOK_MS,
+        this.clock.now().getTime() + MAX_HOOK_MS,
       ),
     );
   }

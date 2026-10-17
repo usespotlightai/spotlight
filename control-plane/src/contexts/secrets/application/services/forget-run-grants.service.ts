@@ -6,7 +6,7 @@ import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-const MOST_AT_ONCE = 50;
+const MAX_AT_ONCE = 50;
 
 export class ForgetRunGrants {
   readonly name = 'Forgetting the secret grants of long-ended runs';
@@ -25,7 +25,7 @@ export class ForgetRunGrants {
     let forgotten = 0;
 
     for (;;) {
-      const ended = await this.grants.endedBy(endedBy, after, MOST_AT_ONCE);
+      const ended = await this.grants.endedBy(endedBy, after, MAX_AT_ONCE);
 
       for (const runId of ended) {
         if (await this.forgot(runId, now)) {
@@ -33,7 +33,7 @@ export class ForgetRunGrants {
         }
       }
 
-      if (ended.length < MOST_AT_ONCE) {
+      if (ended.length < MAX_AT_ONCE) {
         return forgotten;
       }
 
@@ -44,7 +44,7 @@ export class ForgetRunGrants {
   async ofWorkspace(workspaceId: WorkspaceId): Promise<void> {
     for (const runId of await this.grants.runsIn(workspaceId)) {
       if (await this.readable(runId)) {
-        await this.kept.changedIfHeld(runId, (kept) => kept.abandoned());
+        await this.kept.changedIfHeld(runId, (kept) => kept.abandon());
       }
     }
   }
@@ -56,7 +56,7 @@ export class ForgetRunGrants {
       return false;
     }
 
-    return this.kept.settled(held, held.forgotten(now));
+    return this.kept.settled(held, held.purge(now));
   }
 
   private async readable(runId: RunId): Promise<RunGrants | null> {

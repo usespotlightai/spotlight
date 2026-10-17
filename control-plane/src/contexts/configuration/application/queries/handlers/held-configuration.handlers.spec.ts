@@ -1,12 +1,12 @@
 import type {
+  HarnessProfileRecord,
   HarnessProfileResourcesPort,
-  KeptProfile,
 } from '@configuration/application/ports/harness-profile-resources.port';
 import type {
-  HeldHook,
-  HeldHooksPort,
-} from '@configuration/application/ports/held-hooks.port';
-import type { HeldIntegrationsPort } from '@configuration/application/ports/held-integrations.port';
+  HookConfig,
+  HookConfigsPort,
+} from '@configuration/application/ports/hook-configs.port';
+import type { IntegrationConfigsPort } from '@configuration/application/ports/integration-configs.port';
 import type { SkillResourcesPort } from '@configuration/application/ports/skill-resources.port';
 import { ResourceConfigurationHandler } from '@configuration/application/queries/handlers/resource-configuration.handler';
 import { WorkspaceConfigurationHandler } from '@configuration/application/queries/handlers/workspace-configuration.handler';
@@ -30,7 +30,7 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { WorkspaceTokenId } from '@shared-kernel/domain/value-objects/workspace-token-id.vo';
 import type {
-  KeptLine,
+  LineRecord,
   LineResourcesPort,
 } from '@work/application/ports/line-resources.port';
 import { describe, expect, it, vi } from 'vitest';
@@ -110,10 +110,10 @@ const DECLARED = {
   pools: ['burst'],
 };
 
-const handlers = (over: { cleared?: boolean } = {}) => {
+const handlers = (over: { permitted?: boolean } = {}) => {
   const access = {
-    clearanceIn: vi.fn(async () =>
-      over.cleared === false
+    permissionsIn: vi.fn(async () =>
+      over.permitted === false
         ? null
         : {
             workspaceId: WORKSPACE,
@@ -153,7 +153,7 @@ const handlers = (over: { cleared?: boolean } = {}) => {
     definition,
     secretsWorn: [],
   });
-  const lineOf = (teamId: TeamId, key: string): KeptLine => ({
+  const lineOf = (teamId: TeamId, key: string): LineRecord => ({
     id: `line_${key}`,
     version: 1,
     teamId,
@@ -219,8 +219,8 @@ const handlers = (over: { cleared?: boolean } = {}) => {
             ]
           : [],
     ),
-  } satisfies HeldIntegrationsPort;
-  const hookOf = (id: string, team: TeamProfile, key: string): HeldHook => ({
+  } satisfies IntegrationConfigsPort;
+  const hookOf = (id: string, team: TeamProfile, key: string): HookConfig => ({
     id,
     address: `${team.key}/${key}`,
     teamId: team.id,
@@ -241,8 +241,8 @@ const handlers = (over: { cleared?: boolean } = {}) => {
     ofTeam: vi.fn(async (teamId: TeamId) =>
       teamId.equals(CORE.id) ? [hookOf('hook_audit', CORE, 'audit')] : [],
     ),
-  } satisfies HeldHooksPort;
-  const profileOf = (id: string, key: string): KeptProfile => ({
+  } satisfies HookConfigsPort;
+  const profileOf = (id: string, key: string): HarnessProfileRecord => ({
     id,
     version: 1,
     teamId: CORE.id,
@@ -263,7 +263,7 @@ const handlers = (over: { cleared?: boolean } = {}) => {
     ),
   } satisfies HarnessProfileResourcesPort;
   const profileViews = {
-    onTeam: vi.fn((kept: KeptProfile, teamKey: string) => ({
+    onTeam: vi.fn((kept: HarnessProfileRecord, teamKey: string) => ({
       id: kept.id,
       version: kept.version,
       address: `${teamKey}/${String(kept.definition.key)}`,
@@ -383,11 +383,11 @@ describe('WorkspaceConfigurationHandler', () => {
         new WorkspaceConfigurationQuery(WORKSPACE.value, READ_TOKEN),
       ),
     ).not.toBeNull();
-    expect(access.clearanceIn).toHaveBeenCalledWith(WORKSPACE, READ_TOKEN);
+    expect(access.permissionsIn).toHaveBeenCalledWith(WORKSPACE, READ_TOKEN);
   });
 
   it('holds nothing for someone who may not read the workspace', async () => {
-    expect(await exported({ cleared: false })).toBeNull();
+    expect(await exported({ permitted: false })).toBeNull();
   });
 });
 
@@ -446,7 +446,7 @@ describe('ResourceConfigurationHandler', () => {
   });
 
   it('holds nothing for someone who may not read the workspace', async () => {
-    expect(await one('line', 'line_delivery', { cleared: false })).toBeNull();
+    expect(await one('line', 'line_delivery', { permitted: false })).toBeNull();
   });
 
   it('holds nothing its workspace does not hold', async () => {

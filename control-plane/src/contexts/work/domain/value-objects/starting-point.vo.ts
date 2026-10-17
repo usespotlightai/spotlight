@@ -18,7 +18,7 @@ export interface StartingPointParts {
   readonly at: Date;
 }
 
-export const MOST_STARTED_CHECKOUTS = 100;
+export const MAX_STARTED_CHECKOUTS = 100;
 
 const byPath = (a: StartedCheckout, b: StartedCheckout): number =>
   a.path < b.path ? -1 : a.path > b.path ? 1 : 0;
@@ -34,9 +34,9 @@ export class StartingPoint {
   static of(
     input: ReportedStart & { attempt: number; at: Date },
   ): StartingPoint {
-    if (input.checkouts.length > MOST_STARTED_CHECKOUTS) {
+    if (input.checkouts.length > MAX_STARTED_CHECKOUTS) {
       throw new InvalidStartingPointError(
-        `can name at most ${MOST_STARTED_CHECKOUTS} checkouts`,
+        `can name at most ${MAX_STARTED_CHECKOUTS} checkouts`,
       );
     }
 

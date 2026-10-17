@@ -53,7 +53,7 @@ const reading = async (agreeing: boolean, scoredBy = RUBRIC_VERSION) => {
     askedJudging('run_1', rubricOf('scores: yes-no\nDid it retry?', scoredBy)),
   );
   await scores.add(
-    Score.judged({
+    Score.judge({
       id: ScoreId.of('score_1'),
       runId: RunId.of('run_1'),
       workspaceId: WORKSPACE,
@@ -94,7 +94,7 @@ const reading = async (agreeing: boolean, scoredBy = RUBRIC_VERSION) => {
     const runId = `run_other_${at}`;
     const yes = at % 2 === 0;
     await records.add(
-      endedRecord(runId, { taskId: `task_${runId}` }).actedOn(
+      endedRecord(runId, { taskId: `task_${runId}` }).recordAction(
         NextAct.of(yes === agreeing ? 'closed' : 'sent-back', AT),
       ),
     );
@@ -113,7 +113,7 @@ const reading = async (agreeing: boolean, scoredBy = RUBRIC_VERSION) => {
   return new ReadRunScoresHandler(
     new OutcomesAccess({
       ...NOBODY_ELSE,
-      clearedOnTeam: async (_teamId, principal) => ({
+      membershipOnTeam: async (_teamId, principal) => ({
         workspaceId: WORKSPACE,
         by: principal.userId,
       }),

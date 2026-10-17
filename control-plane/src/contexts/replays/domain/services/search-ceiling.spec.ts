@@ -59,10 +59,10 @@ const replayed = (
       const cost = priced(place++);
 
       held = held
-        .confirmed(run, FINGERPRINT, NOW)
-        .ended(run, endOf('completed'))
-        .reviewed(run, PASSED, null, later(1))
-        .measured(run, measuresOf(cost), later(2));
+        .confirm(run, FINGERPRINT, NOW)
+        .recordRunEnd(run, endOf('completed'))
+        .recordReview(run, PASSED, null, later(1))
+        .measure(run, measuresOf(cost), later(2));
     }
   }
 
@@ -76,7 +76,7 @@ const started = (
   ceiling: Spend,
   among?: readonly RunId[],
 ): Replay =>
-  Replay.started({
+  Replay.start({
     id: ReplayId.of(id),
     set: SET,
     candidate: candidateOf(id === SEED ? 'live' : 'proposed', candidate),
@@ -109,7 +109,7 @@ const searched = (
   );
   const replays = [seed];
 
-  search = search.replayEnded(
+  search = search.recordReplayEnd(
     seed.id,
     ended(seed),
     chargeOf(seed),
@@ -123,7 +123,7 @@ const searched = (
     const run = iteration.runId;
     const proposed: Replay[] = [];
 
-    search = search.runQueued(run);
+    search = search.queueRun(run);
     for (let each = 0; each < budget.perIteration; each += 1) {
       const name = `c${iteration.number}-${each}`;
       const replay = started(
@@ -142,11 +142,11 @@ const searched = (
       proposed.push(replayed(replay, budget.concurrency, priced));
     }
     search = search
-      .runEnded(run, { failed: false, started: true }, later(4), runIds)
-      .spentByAgent(run, agentSpend(iteration.number), later(4), runIds);
+      .recordRunEnd(run, { failed: false, started: true }, later(4), runIds)
+      .recordAgentSpend(run, agentSpend(iteration.number), later(4), runIds);
     for (const replay of proposed) {
       replays.push(replay);
-      search = search.replayEnded(
+      search = search.recordReplayEnd(
         replay.id,
         ended(replay),
         chargeOf(replay),
@@ -177,7 +177,7 @@ const searched = (
         priced,
       );
 
-      search = search.replayEnded(
+      search = search.recordReplayEnd(
         replay.id,
         ended(replay),
         chargeOf(replay),

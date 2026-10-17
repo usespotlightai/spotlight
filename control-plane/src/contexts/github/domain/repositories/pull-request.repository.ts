@@ -24,13 +24,13 @@ export interface PullRequestRepository {
   lastHeardBefore(
     before: Date,
     after: PullRequest | null,
-    most: number,
+    max: number,
   ): Promise<readonly PullRequest[]>;
 
   ofWorkspace(
     workspaceId: WorkspaceId,
     after: PullRequestUrl | null,
-    most: number,
+    max: number,
   ): Promise<readonly PullRequest[]>;
 
   lockedAt(

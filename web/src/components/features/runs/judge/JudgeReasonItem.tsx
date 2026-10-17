@@ -4,9 +4,9 @@ import { CitedHunk } from '@/components/features/runs/judge/CitedHunk';
 import { CitedStep } from '@/components/features/runs/judge/CitedStep';
 import {
   type Citation,
-  hunkShown,
+  formatHunk,
+  formatStep,
   type JudgeReason,
-  stepShown,
 } from '@/lib/judge';
 import { useStepAnchors } from '@/lib/step-anchors';
 
@@ -49,7 +49,7 @@ export function JudgeReasonItem({ reason }: JudgeReasonItemProps) {
               pressed={keyOf(citation) === unfolded}
               onClick={() => follow(citation)}
             >
-              {citation.hunk ? hunkShown(citation.hunk) : stepShown(citation)}
+              {citation.hunk ? formatHunk(citation.hunk) : formatStep(citation)}
             </CitationChip>
           </li>
         ))}

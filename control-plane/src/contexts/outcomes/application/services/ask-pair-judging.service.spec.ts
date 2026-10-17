@@ -15,7 +15,7 @@ const ASK = {
   claims: ['It drains.'] as readonly string[],
   passShare: 1,
   reference: 'original_1',
-  mostAttempts: 2,
+  maxAttempts: 2,
 };
 
 const asking = (available = true) => {

@@ -103,10 +103,7 @@ export class OpenConfigPullRequests implements OwedWorkPort {
     }
 
     const committed = async (commit: string) => {
-      const next = (held as ConfigPullRequest).committed(
-        commit,
-        this.clock.now(),
-      );
+      const next = (held as ConfigPullRequest).commit(commit, this.clock.now());
 
       await this.saved(next);
       held = (await this.pullRequests.find(next.id)) ?? next;
@@ -130,13 +127,15 @@ export class OpenConfigPullRequests implements OwedWorkPort {
 
     await this.saved(
       'url' in opened
-        ? held.opened(opened.url, opened.proposing, this.clock.now())
+        ? held.open(opened.url, opened.proposing, this.clock.now())
         : held.refused(opened.reason, this.clock.now()),
     );
   }
 
   private saved(pullRequest: ConfigPullRequest): Promise<void> {
-    return this.transaction.run(() => this.pullRequests.save(pullRequest));
+    return this.transaction.inTransaction(() =>
+      this.pullRequests.save(pullRequest),
+    );
   }
 
   private async opening(

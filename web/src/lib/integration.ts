@@ -1,12 +1,12 @@
 import type {
-  ConfiguredIntegrationResponseDto,
+  IntegrationViewResponseDto,
   MemberResponseDto,
   MyConnectionResponseDto,
   PersonConnectionResponseDto,
 } from '@/lib/api';
 import { toolsCounted } from '@/lib/described';
 
-export type Integration = ConfiguredIntegrationResponseDto;
+export type Integration = IntegrationViewResponseDto;
 
 export type MyConnection = MyConnectionResponseDto;
 
@@ -16,7 +16,7 @@ export const actsAsEachPerson = (integration: Integration): boolean =>
 export const usesTeamAccount = (integration: Integration): boolean =>
   integration.standing !== 'listens';
 
-const toolsShown = ({ described }: Integration): string | null => {
+const formatTools = ({ described }: Integration): string | null => {
   if (!described || described.problem) {
     return null;
   }
@@ -24,13 +24,13 @@ const toolsShown = ({ described }: Integration): string | null => {
   return toolsCounted(described.tools);
 };
 
-export const usedForShown = (integration: Integration): string => {
+export const formatUsedFor = (integration: Integration): string => {
   const acting = !usesTeamAccount(integration)
     ? 'Receives events'
     : actsAsEachPerson(integration)
       ? 'Acts as each person'
       : 'Acts as the team';
-  const tools = toolsShown(integration);
+  const tools = formatTools(integration);
 
   return tools ? `${acting} · ${tools}` : acting;
 };

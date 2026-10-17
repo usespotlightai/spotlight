@@ -17,12 +17,12 @@ export class RunGrantEndings implements RunGrantsPort {
   holdLost(lost: RunHoldDto): Promise<void> {
     const run = heldRun(lost);
 
-    return this.kept.changed(run, (held) => held.lostHold(run.hold));
+    return this.kept.changed(run, (held) => held.loseHold(run.hold));
   }
 
   endedFor(ended: RunHoldDto): Promise<void> {
     return this.kept.changed(heldRun(ended), (held) =>
-      held.ended(this.clock.now()),
+      held.end(this.clock.now()),
     );
   }
 }

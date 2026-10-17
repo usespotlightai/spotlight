@@ -3,7 +3,7 @@ import type {
   StationJudgeResponseDto,
 } from '@/lib/api';
 import { amountIn } from '@/lib/inbox';
-import { pointsShown } from '@/lib/replay-words';
+import { formatPoints } from '@/lib/replay-words';
 
 export type JudgeSettings = StationJudgeResponseDto;
 
@@ -82,7 +82,7 @@ const readingOf = (alert: AlertThreshold): AlertReading => {
 const isChange = (trigger: AlertTrigger): boolean =>
   trigger === 'rises' || trigger === 'falls';
 
-const thresholdShown = (
+const formatThreshold = (
   alert: AlertThreshold,
   { trigger, amount }: AlertReading,
   currency: string | null,
@@ -120,7 +120,7 @@ export const alertFace = (
   return {
     measure: MEASURES[alert.measure],
     trigger: reading.trigger,
-    threshold: `${BOUNDS[reading.trigger]}${thresholdShown(alert, reading, currency, pointsShown)}`,
+    threshold: `${BOUNDS[reading.trigger]}${formatThreshold(alert, reading, currency, formatPoints)}`,
     window: isChange(reading.trigger)
       ? changeOverRuns(alert.over)
       : overRuns(alert.over),
@@ -132,7 +132,7 @@ export const alertPhrase = (
   currency: string | null = null,
 ): string => {
   const { measure, trigger, window } = alertFace(alert, currency);
-  const threshold = thresholdShown(
+  const threshold = formatThreshold(
     alert,
     readingOf(alert),
     currency,

@@ -30,7 +30,7 @@ export class RunGrants extends EventRecorder {
     super();
   }
 
-  static begun(hold: RunHold, workspaceId: WorkspaceId): RunGrants {
+  static start(hold: RunHold, workspaceId: WorkspaceId): RunGrants {
     return new RunGrants({
       hold,
       workspaceId,
@@ -64,7 +64,7 @@ export class RunGrants extends EventRecorder {
     return new Date(now.getTime() - KEPT_MS);
   }
 
-  granted(hold: RunHold, grants: readonly SecretGrant[]): RunGrants {
+  grant(hold: RunHold, grants: readonly SecretGrant[]): RunGrants {
     const held = this.heldAt(hold);
     const fresh: SecretGrant[] = [];
 
@@ -89,7 +89,7 @@ export class RunGrants extends EventRecorder {
     );
   }
 
-  redeemedFor(hold: RunHold, redeemer: Redeemer): RunGrants {
+  redeemFor(hold: RunHold, redeemer: Redeemer): RunGrants {
     const held = this.heldAt(hold);
     const pinned = held.state.redeemer;
 
@@ -104,7 +104,7 @@ export class RunGrants extends EventRecorder {
     return pinned.equals(redeemer) ? held : held.with({ redeemer });
   }
 
-  lostHold(hold: RunHold): RunGrants {
+  loseHold(hold: RunHold): RunGrants {
     this.guardRun(hold);
 
     if (
@@ -118,7 +118,7 @@ export class RunGrants extends EventRecorder {
     return this.with({ hold, grants: [], redeemer: null, holdLost: true });
   }
 
-  ended(now: Date): RunGrants {
+  end(now: Date): RunGrants {
     return this.isEnded ? this : this.with({ grants: [], endedAt: now });
   }
 
@@ -128,7 +128,7 @@ export class RunGrants extends EventRecorder {
     return endedAt !== null && now.getTime() >= endedAt.getTime() + KEPT_MS;
   }
 
-  forgotten(now: Date): RunGrants {
+  purge(now: Date): RunGrants {
     if (!this.isForgettableAt(now)) {
       throw new InconsistentStateError(
         'run grants',
@@ -139,7 +139,7 @@ export class RunGrants extends EventRecorder {
     return this.discarded();
   }
 
-  abandoned(): RunGrants {
+  abandon(): RunGrants {
     return this.discarded();
   }
 

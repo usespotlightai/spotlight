@@ -257,13 +257,13 @@ describe('recalling what the team remembers from inside a run', () => {
 
     const proposedIn = RunId.of(randomUUID());
     await app.get(DrizzleMemoryDraftRepository).add(
-      MemoryDraft.opened({
+      MemoryDraft.open({
         id: MemoryDraftId.of(randomUUID()),
         taskId: team.list.id,
         workspaceId: team.workspaceId,
       })
         .asked(proposedIn, new Date())
-        .drafted({
+        .recordDraft({
           runId: proposedIn,
           proposed: [
             {

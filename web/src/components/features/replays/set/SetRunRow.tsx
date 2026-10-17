@@ -12,14 +12,14 @@ import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { Button } from '@/components/ui/button';
 import { useRemoveReplaySetEntry } from '@/hooks/api/useRemoveReplaySetEntry';
 import {
+  formatTitle,
   type ReplayedStation,
   type ReplaySetEntry,
-  titleShown,
 } from '@/lib/replay';
 import {
+  formatReplayable,
+  formatRunState,
   RUNS_HELD_BY_SEARCH,
-  replayableShown,
-  runStateShown,
 } from '@/lib/replay-words';
 import { runPath } from '@/lib/run';
 import { since } from '@/lib/since';
@@ -34,7 +34,7 @@ type SetRunRowProps = {
 
 export function SetRunRow({ at, setId, entry, frozen }: SetRunRowProps) {
   const remove = useRemoveReplaySetEntry();
-  const title = titleShown(entry.title);
+  const title = formatTitle(entry.title);
 
   return (
     <li data-slot="set-run" className={cn(TABLE_ROW, ROW_DIVIDER, 'group/run')}>
@@ -48,14 +48,14 @@ export function SetRunRow({ at, setId, entry, frozen }: SetRunRowProps) {
         {entry.refusal && (
           <NotedWarning
             tone="destructive"
-            label={replayableShown(entry.refusal)}
-            note={replayableShown(entry.refusal)}
+            label={formatReplayable(entry.refusal)}
+            note={formatReplayable(entry.refusal)}
             className="relative z-10"
           />
         )}
       </span>
       <NestedCell heading="State" numeric={false}>
-        {entry.state ? runStateShown(entry.state) : 'Unknown run'}
+        {entry.state ? formatRunState(entry.state) : 'Unknown run'}
       </NestedCell>
       <NestedCell heading="Ended">
         {entry.endedAt ? since(entry.endedAt) : '–'}

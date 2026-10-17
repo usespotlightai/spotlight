@@ -2,23 +2,23 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import {
-  bestTermShown,
-  causeActionShown,
-  causeMeaningShown,
-  causeTitleShown,
-  endingShown,
+  formatBestTerm,
+  formatCauseAction,
+  formatCauseMeaning,
+  formatCauseTitle,
+  formatEnding,
+  formatIterationState,
+  formatNoBest,
+  formatObjective,
+  formatPullRequestReason,
+  formatPullRequestState,
+  formatReflectionOutcome,
+  formatSearchState,
+  formatVerdict,
+  formatWarning,
   frontierNote,
-  iterationStateShown,
-  noBestShown,
   objectiveNote,
-  objectiveShown,
   type PullRequestReason,
-  pullRequestReasonShown,
-  pullRequestStateShown,
-  reflectionOutcomeShown,
-  searchStateShown,
-  verdictShown,
-  warningShown,
 } from '@/lib/search-words';
 
 type Schema = {
@@ -64,14 +64,14 @@ describe('search words cover every code the API can answer', () => {
   it('words every state and ending of a search, and every iteration state', () => {
     for (const schema of ['SearchResponseDto', 'SearchDetailResponseDto']) {
       for (const state of codesOf(schema, 'state')) {
-        worded(searchStateShown(state as never), state);
+        worded(formatSearchState(state as never), state);
       }
       for (const ending of codesOf(schema, 'ending')) {
-        worded(endingShown(ending as never), ending);
+        worded(formatEnding(ending as never), ending);
       }
     }
     for (const state of codesOf('SearchIterationResponseDto', 'state')) {
-      worded(iterationStateShown(state as never), state);
+      worded(formatIterationState(state as never), state);
     }
   });
 
@@ -81,27 +81,27 @@ describe('search words cover every code the API can answer', () => {
       'ConfigPullRequestResponseDto',
     ]) {
       for (const state of codesOf(schema, 'state')) {
-        worded(pullRequestStateShown(state as never), state);
+        worded(formatPullRequestState(state as never), state);
       }
     }
     for (const code of codesOf('ConfigPullRequestReasonResponseDto', 'code')) {
-      worded(pullRequestReasonShown(reason(code)), code);
+      worded(formatPullRequestReason(reason(code)), code);
     }
   });
 
   it('words every verdict of a replay check, and every reason it went undecided', () => {
     for (const verdict of codesOf('ReplayCheckResponseDto', 'verdict')) {
-      worded(verdictShown(verdict as never), verdict);
+      worded(formatVerdict(verdict as never), verdict);
     }
     for (const why of codesOf('ReplayCheckResponseDto', 'undecidedBecause')) {
-      worded(verdictShown('undecided', why as never), why);
+      worded(formatVerdict('undecided', why as never), why);
     }
   });
 
   it('words every warning a search estimate can give', () => {
-    worded(warningShown({ kind: 'noise-unmeasured' }), 'noise-unmeasured');
+    worded(formatWarning({ kind: 'noise-unmeasured' }), 'noise-unmeasured');
     worded(
-      warningShown({
+      formatWarning({
         kind: 'noisy',
         spread: 0.2,
         minGain: 0.05,
@@ -110,17 +110,17 @@ describe('search words cover every code the API can answer', () => {
       }),
       'noisy',
     );
-    worded(warningShown({ kind: 'saturated', rate: 0.97 }), 'saturated');
+    worded(formatWarning({ kind: 'saturated', rate: 0.97 }), 'saturated');
     worded(
-      warningShown({ kind: 'judge-unstable', agreement: 0.6, compared: 10 }),
+      formatWarning({ kind: 'judge-unstable', agreement: 0.6, compared: 10 }),
       'judge-unstable',
     );
     worded(
-      warningShown({ kind: 'flaky-checks', flaky: 2, rechecked: 9 }),
+      formatWarning({ kind: 'flaky-checks', flaky: 2, rechecked: 9 }),
       'flaky-checks',
     );
     worded(
-      warningShown({
+      formatWarning({
         kind: 'no-headroom',
         gain: 0,
         low: -0.1,
@@ -152,22 +152,22 @@ describe('search words cover every code the API can answer', () => {
 
   it('words every objective a search can aim for', () => {
     for (const objective of codesOf('SearchEstimateResponseDto', 'objective')) {
-      worded(objectiveShown(objective as never), objective);
+      worded(formatObjective(objective as never), objective);
       worded(objectiveNote(objective as never), objective);
-      worded(bestTermShown(objective as never), objective);
+      worded(formatBestTerm(objective as never), objective);
       worded(frontierNote(objective as never), objective);
-      worded(noBestShown(objective as never), objective);
+      worded(formatNoBest(objective as never), objective);
     }
   });
 
   it('words every cause a reflection can find, with what a person can do', () => {
     for (const cause of codesOf('SearchCauseResponseDto', 'cause')) {
-      worded(causeTitleShown(cause as never), cause);
-      worded(causeMeaningShown(cause as never), cause);
-      worded(causeActionShown(cause as never), cause);
+      worded(formatCauseTitle(cause as never), cause);
+      worded(formatCauseMeaning(cause as never), cause);
+      worded(formatCauseAction(cause as never), cause);
     }
     for (const outcome of codesOf('SearchReflectionResponseDto', 'outcome')) {
-      worded(reflectionOutcomeShown(outcome as never), outcome);
+      worded(formatReflectionOutcome(outcome as never), outcome);
     }
   });
 });

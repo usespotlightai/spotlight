@@ -10,7 +10,7 @@ import type { CandidateRepository } from '@replays/domain/repositories/candidate
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
 import { baselineOf } from '@replays/domain/services/baseline';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
@@ -26,12 +26,9 @@ export class ReadReplayOfRunHandler
 
   async execute(query: ReadReplayOfRunQuery): Promise<ReplayOfRunDto> {
     try {
-      const clearance = await this.access.clearance(
-        query.teamId,
-        query.principal,
-      );
+      const access = await this.access.forTeam(query.teamId, query.principal);
       const run = RunId.of(query.runId);
-      const replay = await this.access.replayRanAs(clearance, run);
+      const replay = await this.access.replayRanAs(access, run);
       const entry = replay.entries.find((each) => each.ranAs(run));
       const [set, candidate, ofSet] = await Promise.all([
         this.sets.find(replay.setId),
@@ -53,7 +50,7 @@ export class ReadReplayOfRunHandler
         entry: entry ? entryView(entry, replay.scoring) : null,
       };
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

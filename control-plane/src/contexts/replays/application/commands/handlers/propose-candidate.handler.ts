@@ -15,7 +15,7 @@ import {
   forbiddenTo,
   type ResourceCreated,
 } from '@shared-kernel/application/dto/resource-outcomes.dto';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
@@ -100,7 +100,7 @@ export class ProposeCandidateHandler
       const named = nameOf(written);
 
       try {
-        return await this.transaction.run(() =>
+        return await this.transaction.inTransaction(() =>
           createdOnce(
             this.creates,
             {
@@ -131,7 +131,7 @@ export class ProposeCandidateHandler
                 ]);
               }
 
-              const proposed = Candidate.proposed({
+              const proposed = Candidate.propose({
                 id: CandidateId.of(this.ids.generate()),
                 station,
                 address,
@@ -162,7 +162,7 @@ export class ProposeCandidateHandler
         throw error;
       }
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

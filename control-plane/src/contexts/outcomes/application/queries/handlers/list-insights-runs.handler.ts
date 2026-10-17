@@ -14,7 +14,7 @@ import {
 } from '@outcomes/application/services/team-scopes.service';
 import { runFilterOf } from '@outcomes/domain/services/run-filter';
 import { pageAskedOf, pageWithin } from '@outcomes/domain/services/run-page';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
 export class ListInsightsRunsHandler
@@ -28,7 +28,7 @@ export class ListInsightsRunsHandler
 
   async execute(query: ListInsightsRunsQuery): Promise<InsightsRunsDto> {
     try {
-      const { clearance, period } = await this.scopes.scope(
+      const { access, period } = await this.scopes.scope(
         query.teamId,
         query.principal,
         query.period,
@@ -37,7 +37,7 @@ export class ListInsightsRunsHandler
       const size = sizeOf(query.size);
       const page = pageAskedOf(pageOf(query.page));
       const listed = await this.reader.runPage({
-        window: windowOf(clearance, period.current),
+        window: windowOf(access, period.current),
         filter,
         offset: (page - 1) * size,
         limit: size,
@@ -58,7 +58,7 @@ export class ListInsightsRunsHandler
         people: namedOf(ids, await this.people.namesOf(ids)),
       };
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

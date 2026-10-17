@@ -111,7 +111,7 @@ describe('WorkspaceToken', () => {
   });
 
   it('takes a new description, and says so', () => {
-    const redescribed = kept().redescribed(
+    const redescribed = kept().redescribe(
       terms({ description: 'Applies from main' }),
       BY,
     );
@@ -132,10 +132,10 @@ describe('WorkspaceToken', () => {
     ['scopes', terms({ scopes: ['plan', 'secrets'] })],
     ['expiresAt', terms({ expiresAt: null })],
   ])('keeps its %s as issued', (field, changed) => {
-    expect(() => kept().redescribed(changed, BY)).toThrow(
+    expect(() => kept().redescribe(changed, BY)).toThrow(
       expect.objectContaining({ field }),
     );
-    expect(() => kept().redescribed(changed, BY)).toThrow(
+    expect(() => kept().redescribe(changed, BY)).toThrow(
       WorkspaceTokenTermsFixedError,
     );
   });
@@ -147,7 +147,7 @@ describe('WorkspaceToken', () => {
   });
 
   it('admits nobody once revoked, and cannot change after', () => {
-    const revoked = kept().revoked(BY);
+    const revoked = kept().revoke(BY);
 
     expect(revoked.admitsAt(NOW)).toBe(false);
     expect(revoked.pullEvents()).toEqual([
@@ -158,7 +158,7 @@ describe('WorkspaceToken', () => {
         ConfigurationChange.deleted(CI, BY),
       ),
     ]);
-    expect(() => revoked.revoked(BY)).toThrow(InconsistentStateError);
+    expect(() => revoked.revoke(BY)).toThrow(InconsistentStateError);
   });
 
   describe('minted for a run', () => {

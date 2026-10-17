@@ -7,12 +7,12 @@ import {
   OUTER_GUIDE,
 } from '@/components/shared/nested-table/nested-rows';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
-import { countShown } from '@/lib/insights';
+import { formatCount } from '@/lib/insights';
 import type { CandidatesSet } from '@/lib/insights-candidates';
-import { percentShown } from '@/lib/judge';
+import { formatPercent } from '@/lib/judge';
 import { pillClass } from '@/lib/pill';
 import { type ReplayedStation, replayPath } from '@/lib/replay';
-import { costPerRunShown } from '@/lib/search';
+import { formatCostPerRun } from '@/lib/search';
 import { cn } from '@/lib/utils';
 
 type BaselineRowProps = {
@@ -49,15 +49,15 @@ export function BaselineRow({ at, baseline, heldOut }: BaselineRowProps) {
       </div>
       <NestedCell heading="Candidate">–</NestedCell>
       <NestedCell heading="Live" strong>
-        {percentShown(baseline.successRate)}
+        {formatPercent(baseline.successRate)}
       </NestedCell>
       <span className="hidden @4xl:block" />
       <NestedCell heading="Cost per run">–</NestedCell>
       <NestedCell heading="Live cost" strong>
-        {costPerRunShown(baseline.costPerRun, baseline.currency)}
+        {formatCostPerRun(baseline.costPerRun, baseline.currency)}
       </NestedCell>
       {heldOut && <span className="hidden @4xl:block" />}
-      <NestedCell heading="Runs">{countShown(baseline.scored)}</NestedCell>
+      <NestedCell heading="Runs">{formatCount(baseline.scored)}</NestedCell>
       <TrailLink
         to={replayPath(at, baseline.replayId)}
         className={pillClass(

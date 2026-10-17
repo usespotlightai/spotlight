@@ -39,12 +39,12 @@ export class LetSearchGo {
   }
 
   private stop(replayId: ReplayId): Promise<void> {
-    return this.transaction.run(async () => {
+    return this.transaction.inTransaction(async () => {
       const replay = await this.replays.find(replayId);
 
       if (replay?.isDispatching && !replay.stoppedAt) {
         await this.replays.save(
-          replay.stopped(
+          replay.stop(
             this.clock.now(),
             Attribution.spotlight(replay.workspaceId),
           ),

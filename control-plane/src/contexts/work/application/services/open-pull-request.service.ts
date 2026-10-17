@@ -90,14 +90,14 @@ export class OpenPullRequest {
       body: asked.body,
     });
 
-    return this.transaction.run(async () => {
+    return this.transaction.inTransaction(async () => {
       const current = await this.found(target.taskId);
 
       if (current.pullRequest) {
         return { url: current.pullRequest.value };
       }
 
-      const marked = current.openedAt(
+      const marked = current.recordPullRequest(
         target.runId,
         PullRequestUrl.of(opened.url),
         this.clock.now(),

@@ -1,6 +1,6 @@
 import { RateWithInterval } from '@/components/features/replays/RateWithInterval';
 import type { RateInterval } from '@/lib/replay';
-import { NOT_SCORED_YET, runsScoredShown } from '@/lib/replay-words';
+import { formatRunsScored, NOT_SCORED_YET } from '@/lib/replay-words';
 
 type ScoredRateProps = {
   rate: number | null;
@@ -16,7 +16,7 @@ export function ScoredRate({ rate, interval, scored }: ScoredRateProps) {
   return (
     <span data-slot="scored-rate" className="tabular-nums">
       <RateWithInterval rate={rate} interval={interval} />
-      <span className="text-muted-foreground"> {runsScoredShown(scored)}</span>
+      <span className="text-muted-foreground"> {formatRunsScored(scored)}</span>
     </span>
   );
 }

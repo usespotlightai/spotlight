@@ -16,11 +16,11 @@ import { type TipPlacement, useCursorTooltip } from '@/hooks/useCursorTooltip';
 import { spentIn } from '@/lib/inbox';
 import {
   type DayOutput,
+  formatStation,
   type StationNames,
-  stationShown,
 } from '@/lib/insights';
 import { changeKey } from '@/lib/insights-changes';
-import { dayShown } from '@/lib/judge';
+import { formatDay } from '@/lib/judge';
 
 const HEIGHT = 200;
 
@@ -49,7 +49,7 @@ const Said = ({
 
   return (
     <ChartTip placement={placement}>
-      <p className="text-muted-foreground">{dayShown(day.day)}</p>
+      <p className="text-muted-foreground">{formatDay(day.day)}</p>
       <p className="pt-0.5 text-foreground">
         {day.spend && currency ? spentIn(day.spend.amount, currency) : '–'}{' '}
         spent over {day.runs} {day.runs === 1 ? 'run' : 'runs'}
@@ -59,7 +59,7 @@ const Said = ({
       </p>
       {day.changes.map((change) => (
         <p key={changeKey(change)} className="text-muted-foreground">
-          Config changed at {stationShown(names, change.stationId)}
+          Config changed at {formatStation(names, change.stationId)}
         </p>
       ))}
     </ChartTip>
@@ -130,7 +130,7 @@ export function OutputAgainstCost({
                   tickLine={false}
                   axisLine={{ stroke: 'var(--chart-grid)' }}
                   tick={{ fill: 'var(--chart-axis)', fontSize: 10 }}
-                  tickFormatter={dayShown}
+                  tickFormatter={formatDay}
                   minTickGap={24}
                 />
                 <YAxis yAxisId="merged" hide allowDecimals={false} />

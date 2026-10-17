@@ -17,7 +17,7 @@ export class NotePullRequestClosed {
   ) {}
 
   closed(closing: PullRequestClosing): Promise<void> {
-    return this.transaction.run(async () => {
+    return this.transaction.inTransaction(async () => {
       const held = await this.deliveries.forPullRequest(
         closing.workspaceId,
         closing.pullRequest,
@@ -27,7 +27,7 @@ export class NotePullRequestClosed {
         return;
       }
 
-      const closed = held.closed(closing);
+      const closed = held.close(closing);
 
       if (closed !== held) {
         await this.deliveries.save(closed);

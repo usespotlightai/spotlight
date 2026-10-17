@@ -9,8 +9,8 @@ import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import type {
-  CompiledLine,
   LineCompilerPort,
+  ParsedLine,
 } from '@work/application/ports/line-compiler.port';
 import { LINES, lineAt } from '@work/application/rendering/line-problems';
 import { InvalidConfigSourceError } from '@work/domain/exceptions/invalid-config-source.error';
@@ -281,7 +281,7 @@ const placed = (definition: LineFields, part: LinePart): FieldPath => {
   }
 };
 
-export const compileLine = (held: unknown): CompiledLine => {
+export const compileLine = (held: unknown): ParsedLine => {
   const read = lineSchema.safeParse(held);
 
   if (!read.success) {
@@ -450,7 +450,7 @@ export const compileLine = (held: unknown): CompiledLine => {
 };
 
 export class LineCompiler implements LineCompilerPort {
-  compile(held: unknown): CompiledLine {
+  compile(held: unknown): ParsedLine {
     return compileLine(held);
   }
 }

@@ -33,8 +33,8 @@ const KINDS = [
   'correction',
 ] as const;
 
-const MOST_BODY = 1_000;
-const MOST_REASON = 500;
+const MAX_BODY = 1_000;
+const MAX_REASON = 500;
 const TITLE_LENGTH = 60;
 
 let minted = 0;
@@ -104,7 +104,7 @@ const nextHandle = (): string => {
   const highest = Object.values(teamMemories())
     .flat()
     .map((memory) => Number(memory.handle.slice(2)))
-    .reduce((most, each) => Math.max(most, each), 0);
+    .reduce((max, each) => Math.max(max, each), 0);
 
   return `M-${highest + 1}`;
 };
@@ -122,8 +122,8 @@ const placedFrom = (
   if (!isKind(writing.kind)) {
     return 'Sorry, that is not a kind of memory.';
   }
-  if (!body || body.length > MOST_BODY) {
-    return `A memory needs between 1 and ${MOST_BODY} characters.`;
+  if (!body || body.length > MAX_BODY) {
+    return `A memory needs between 1 and ${MAX_BODY} characters.`;
   }
 
   const lines = world().lines[teamId] ?? [];
@@ -276,10 +276,10 @@ const memoryHandlers = [
 
       const { reason } = (await request.json()) as RetireMemoryRequestDto;
       const why = reason?.trim() ?? '';
-      if (!why || why.length > MOST_REASON) {
+      if (!why || why.length > MAX_REASON) {
         return problem(
           422,
-          `A reason needs between 1 and ${MOST_REASON} characters.`,
+          `A reason needs between 1 and ${MAX_REASON} characters.`,
         );
       }
 

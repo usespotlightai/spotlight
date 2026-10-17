@@ -9,7 +9,7 @@ import {
   forbiddenTo,
   type ResourceCreated,
 } from '@shared-kernel/application/dto/resource-outcomes.dto';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type {
@@ -39,16 +39,16 @@ export class CreateRunnerTrustHandler
     command: CreateRunnerTrustCommand,
   ): Promise<ResourceCreated | null> {
     try {
-      const cleared = await this.access.clearanceIn(
+      const permissions = await this.access.permissionsIn(
         WorkspaceId.of(command.workspaceId),
         command.actor.principal,
       );
 
-      if (!cleared) {
+      if (!permissions) {
         return null;
       }
 
-      if (!cleared.managesRunners) {
+      if (!permissions.managesRunners) {
         return forbiddenTo('manage-runners');
       }
 
@@ -69,12 +69,12 @@ export class CreateRunnerTrustHandler
       };
 
       try {
-        return await this.transaction.run(() =>
+        return await this.transaction.inTransaction(() =>
           createdOnce(this.creates, create, async () => {
             const defined = RunnerTrust.define({
               id: RunnerTrustId.of(this.ids.generate()),
-              workspaceId: cleared.workspaceId,
-              by: Attribution.of(command.actor, cleared.workspaceId),
+              workspaceId: permissions.workspaceId,
+              by: Attribution.of(command.actor, permissions.workspaceId),
               key: compiled.key,
               workload: compiled.workload,
               labels: compiled.labels,
@@ -93,7 +93,7 @@ export class CreateRunnerTrustHandler
         throw error;
       }
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

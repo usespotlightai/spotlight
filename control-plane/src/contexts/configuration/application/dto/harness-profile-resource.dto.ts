@@ -1,4 +1,4 @@
-import type { WornSecret } from '@configuration/application/ports/held-integrations.port';
+import type { WornSecret } from '@configuration/application/ports/integration-configs.port';
 import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 
 export interface McpServerDto {

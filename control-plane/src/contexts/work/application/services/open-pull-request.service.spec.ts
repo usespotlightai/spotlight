@@ -155,7 +155,7 @@ const opening = (
     tasks,
     { holding: async () => line } as unknown as LineRepository,
     pullRequests,
-    { run: (work) => work() } satisfies TransactionPort,
+    { inTransaction: (work) => work() } satisfies TransactionPort,
     {
       of: async (taskId: string, runId: string | null) =>
         over.hooked === false
@@ -282,7 +282,7 @@ describe('OpenPullRequest', () => {
       newId: () => 'task_0',
     })
       .handedTo(RunId.of('run_0'), delivery())
-      .openedAt(
+      .recordPullRequest(
         RunId.of('run_0'),
         PullRequestUrl.of('https://github.com/acme/widgets/pull/7'),
         NOW,
@@ -301,7 +301,7 @@ describe('OpenPullRequest', () => {
   });
 
   it('answers with the one already open rather than opening another', async () => {
-    const already = task().openedAt(
+    const already = task().recordPullRequest(
       RUN,
       PullRequestUrl.of('https://github.com/acme/widgets/pull/1'),
       NOW,
@@ -338,7 +338,7 @@ describe('OpenPullRequest', () => {
   it('answers with the pull request recorded while GitHub was being asked', async () => {
     const { open, saved } = opening({
       meanwhile: (task) =>
-        task.openedAt(
+        task.recordPullRequest(
           RUN,
           PullRequestUrl.of('https://github.com/acme/widgets/pull/5'),
           NOW,
@@ -404,7 +404,7 @@ describe('OpenPullRequest', () => {
       const { open, asked } = opening();
 
       await open(
-        task().openedAt(
+        task().recordPullRequest(
           RUN,
           PullRequestUrl.of('https://github.com/acme/widgets/pull/3'),
           NOW,

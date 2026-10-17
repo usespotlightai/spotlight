@@ -193,11 +193,11 @@ describe('IntegrationDefinition', () => {
   });
 
   it('is retired only once no station gives what it offers', () => {
-    expect(() => standing(['linear.comment']).retired(GIVEN, BY)).toThrow(
+    expect(() => standing(['linear.comment']).retire(GIVEN, BY)).toThrow(
       /linear.comment \(used by the station delivery\/implementation\)/,
     );
 
-    const retired = standing(['linear.comment']).retired(ToolUses.none(), BY);
+    const retired = standing(['linear.comment']).retire(ToolUses.none(), BY);
 
     expect(retired.isRetired).toBe(true);
     expect(retired.pullEvents()).toEqual([
@@ -212,12 +212,12 @@ describe('IntegrationDefinition', () => {
   });
 
   it('changes nothing once retired', () => {
-    const retired = standing().retired(ToolUses.none(), BY);
+    const retired = standing().retire(ToolUses.none(), BY);
 
     expect(() =>
       retired.redefinedAs(compiled('linear'), null, ToolUses.none(), BY),
     ).toThrow(InconsistentStateError);
-    expect(() => retired.retired(ToolUses.none(), BY)).toThrow(
+    expect(() => retired.retire(ToolUses.none(), BY)).toThrow(
       InconsistentStateError,
     );
   });
@@ -395,7 +395,7 @@ describe('IntegrationDefinition', () => {
   });
 
   it('is abandoned with its team, whatever its tools are given to', () => {
-    const abandoned = standing(['linear.comment']).abandoned(BY);
+    const abandoned = standing(['linear.comment']).abandon(BY);
 
     expect(abandoned.isRetired).toBe(true);
     expect(abandoned.pullEvents()).toEqual([

@@ -9,7 +9,7 @@ import (
 	"usespotlight.ai/data-plane/protocol"
 )
 
-const mostPending = 10_000
+const maxPending = 10_000
 
 type records struct {
 	control ControlPlane
@@ -24,7 +24,7 @@ func (r *records) add(record protocol.EgressConnection) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if len(r.pending) >= mostPending {
+	if len(r.pending) >= maxPending {
 		r.pending = r.pending[1:]
 	}
 	r.pending = append(r.pending, record)
@@ -39,8 +39,8 @@ func (r *records) flush(ctx context.Context) {
 	r.pending = nil
 	r.mu.Unlock()
 
-	for at := 0; at < len(batch); at += protocol.MostRecordsAtOnce {
-		sending := batch[at:min(at+protocol.MostRecordsAtOnce, len(batch))]
+	for at := 0; at < len(batch); at += protocol.MaxRecordsAtOnce {
+		sending := batch[at:min(at+protocol.MaxRecordsAtOnce, len(batch))]
 
 		err := r.control.RecordConnections(ctx, sending)
 		if refused(err) {
@@ -60,7 +60,7 @@ func (r *records) again(unsent []protocol.EgressConnection) {
 	defer r.mu.Unlock()
 
 	r.pending = append(slices.Clone(unsent), r.pending...)
-	if over := len(r.pending) - mostPending; over > 0 {
+	if over := len(r.pending) - maxPending; over > 0 {
 		r.pending = r.pending[over:]
 	}
 }

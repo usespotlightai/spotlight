@@ -15,11 +15,11 @@ import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import { ReplayedPeriod } from '@replays/domain/value-objects/replayed-period.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
-export const MOST_REPLAYED = 500;
+export const MAX_REPLAYED = 500;
 
 const distinct = (values: readonly string[]): readonly string[] => [
   ...new Set(values),
@@ -45,19 +45,16 @@ export class ReadReplayedCandidatesHandler
     query: ReadReplayedCandidatesQuery,
   ): Promise<ReplayedCandidatesDto> {
     try {
-      const clearance = await this.access.clearance(
-        query.teamId,
-        query.principal,
-      );
+      const access = await this.access.forTeam(query.teamId, query.principal);
       const period = ReplayedPeriod.of(query.period, this.clock.now());
       const found = await this.replays.ofTeamStartedSince(
-        clearance.teamId,
+        access.teamId,
         period.from,
-        MOST_REPLAYED + 1,
+        MAX_REPLAYED + 1,
       );
       const recent = found
-        .slice(0, MOST_REPLAYED)
-        .filter((each) => clearance.sees(each.station));
+        .slice(0, MAX_REPLAYED)
+        .filter((each) => access.sees(each.station));
       const setIds = distinct(recent.map((each) => each.setId.value)).map(
         (each) => ReplaySetId.of(each),
       );
@@ -75,11 +72,11 @@ export class ReadReplayedCandidatesHandler
       const searches = [
         ...new Map(
           [...linked, ...startedIn]
-            .filter((each) => clearance.sees(each.station))
+            .filter((each) => access.sees(each.station))
             .map((each) => [each.id.value, each]),
         ).values(),
       ];
-      const seen = sets.filter((each) => clearance.sees(each.station));
+      const seen = sets.filter((each) => access.sees(each.station));
       const [searchReplays, baselines, pullRequests] = await Promise.all([
         this.replays.ofSearches(searches.map((each) => each.id)),
         this.replays.baselinesOfSets(seen.map((each) => each.id)),
@@ -96,7 +93,7 @@ export class ReadReplayedCandidatesHandler
           ]).map((each) => CandidateId.of(each)),
         ),
         this.work.standing(
-          clearance.workspaceId,
+          access.workspaceId,
           seen.flatMap((each) => each.runs),
         ),
       ]);
@@ -118,7 +115,7 @@ export class ReadReplayedCandidatesHandler
 
       return replayedCandidatesView({
         period,
-        truncated: found.length > MOST_REPLAYED,
+        truncated: found.length > MAX_REPLAYED,
         recent,
         searches,
         searchReplays,
@@ -130,7 +127,7 @@ export class ReadReplayedCandidatesHandler
         standards,
       });
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

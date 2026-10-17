@@ -3,9 +3,9 @@ import { InvalidSpendError } from '@replays/domain/exceptions/invalid-spend.erro
 import { aBudget } from '@replays/domain/replays.fake-spec';
 import { HeldOutSplit } from '@replays/domain/value-objects/held-out-split.vo';
 import {
-  MOST_CONCURRENCY,
-  MOST_ITERATIONS,
-  MOST_PER_ITERATION,
+  MAX_CONCURRENCY,
+  MAX_ITERATIONS,
+  MAX_PER_ITERATION,
   SEARCH_CONCURRENCY,
   SearchBudget,
 } from '@replays/domain/value-objects/search-budget.vo';
@@ -34,8 +34,8 @@ const CEILINGS = [1, 3.33, 10, 47.123457, 250, 1000];
 const RUN_COUNTS = [5, 6, 8, 13, 21, 34, 50];
 
 const everyBudget = function* () {
-  for (let iterations = 1; iterations <= MOST_ITERATIONS; iterations += 1) {
-    for (let k = 1; k <= MOST_PER_ITERATION; k += 1) {
+  for (let iterations = 1; iterations <= MAX_ITERATIONS; iterations += 1) {
+    for (let k = 1; k <= MAX_PER_ITERATION; k += 1) {
       for (const ceiling of CEILINGS) {
         for (const runs of RUN_COUNTS) {
           yield {
@@ -58,21 +58,21 @@ const allottedOrRefused = (budget: SearchBudget, split: HeldOutSplit) => {
 };
 
 describe('SearchBudget', () => {
-  it(`runs its agent 1 to ${MOST_ITERATIONS} times, taking 1 to ${MOST_PER_ITERATION} candidates from each, ${SEARCH_CONCURRENCY} replay runs at once unless told`, () => {
+  it(`runs its agent 1 to ${MAX_ITERATIONS} times, taking 1 to ${MAX_PER_ITERATION} candidates from each, ${SEARCH_CONCURRENCY} replay runs at once unless told`, () => {
     expect(aBudget().concurrency).toBe(SEARCH_CONCURRENCY);
     expect(aBudget().repeats).toBe(1);
     expect(aBudget({ repeats: 5 }).repeats).toBe(5);
-    expect(aBudget({ concurrency: MOST_CONCURRENCY }).concurrency).toBe(
-      MOST_CONCURRENCY,
+    expect(aBudget({ concurrency: MAX_CONCURRENCY }).concurrency).toBe(
+      MAX_CONCURRENCY,
     );
 
     for (const refused of [
       { iterations: 0 },
-      { iterations: MOST_ITERATIONS + 1 },
+      { iterations: MAX_ITERATIONS + 1 },
       { iterations: 1.5 },
       { perIteration: 0 },
-      { perIteration: MOST_PER_ITERATION + 1 },
-      { concurrency: MOST_CONCURRENCY + 1 },
+      { perIteration: MAX_PER_ITERATION + 1 },
+      { concurrency: MAX_CONCURRENCY + 1 },
       { repeats: 6 },
       { repeats: 1.5 },
     ]) {

@@ -18,7 +18,7 @@ const BOB = UserId.of('user_bob');
 const TASK = TaskId.of('task_1');
 
 const draftBy = (author: UserId, id = 'comment_1', task = TASK) =>
-  ReviewComment.drafted({
+  ReviewComment.draft({
     id: ReviewCommentId.of(id),
     workspaceId: WorkspaceId.of('workspace_1'),
     taskId: task,
@@ -160,10 +160,10 @@ describe('Review', () => {
     review.pullEvents();
 
     expect(review.silentWith([held])).toBe(false);
-    expect(() => review.withdrawn([held])).toThrow(InvalidReviewError);
+    expect(() => review.withdraw([held])).toThrow(InvalidReviewError);
     expect(review.silentWith([])).toBe(true);
 
-    const withdrawn = review.withdrawn([]);
+    const withdrawn = review.withdraw([]);
 
     expect(withdrawn.state).toBe('withdrawn');
     expect(withdrawn.pullEvents()).toEqual([

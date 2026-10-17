@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type {
-  KeptLine,
+  LineRecord,
   LineResourcesPort,
 } from '@work/application/ports/line-resources.port';
 import { renderLineRows } from '@work/infrastructure/lines/line-rows.render';
@@ -46,13 +46,13 @@ const byLine = <T>(
 export class DrizzleLineResources implements LineResourcesPort {
   constructor(private readonly context: DrizzleContext) {}
 
-  async withId(id: string): Promise<KeptLine | null> {
+  async withId(id: string): Promise<LineRecord | null> {
     const [found] = await this.kept(eq(line.id, id));
 
     return found ?? null;
   }
 
-  async at(teamId: TeamId, key: string): Promise<KeptLine | null> {
+  async at(teamId: TeamId, key: string): Promise<LineRecord | null> {
     const [found] = await this.kept(
       and(eq(line.teamId, teamId.value), eq(line.key, key)),
     );
@@ -60,11 +60,11 @@ export class DrizzleLineResources implements LineResourcesPort {
     return found ?? null;
   }
 
-  ofTeam(teamId: TeamId): Promise<readonly KeptLine[]> {
+  ofTeam(teamId: TeamId): Promise<readonly LineRecord[]> {
     return this.kept(eq(line.teamId, teamId.value));
   }
 
-  ofTeams(teamIds: readonly TeamId[]): Promise<readonly KeptLine[]> {
+  ofTeams(teamIds: readonly TeamId[]): Promise<readonly LineRecord[]> {
     if (teamIds.length === 0) {
       return Promise.resolve([]);
     }
@@ -77,7 +77,7 @@ export class DrizzleLineResources implements LineResourcesPort {
     );
   }
 
-  private async kept(where: SQL | undefined): Promise<KeptLine[]> {
+  private async kept(where: SQL | undefined): Promise<LineRecord[]> {
     const db = this.context.db;
     const lines = await db.select().from(line).where(where);
 

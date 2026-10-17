@@ -593,7 +593,7 @@ export const pairJudging = pgTable(
     claims: jsonb('claims').$type<string[]>().notNull(),
     passShare: doublePrecision('pass_share').notNull(),
     referenceRunId: text('reference_run_id').notNull(),
-    mostAttempts: integer('most_attempts').notNull(),
+    maxAttempts: integer('most_attempts').notNull(),
     shownOrder: pairOrder('shown_order').notNull(),
     spent: jsonb('spent').$type<StoredModelSpend>().notNull(),
     askedAt: timestamp('asked_at').notNull(),

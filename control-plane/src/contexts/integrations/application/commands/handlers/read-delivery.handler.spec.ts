@@ -13,7 +13,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 const MERGED = 'github.pull_request.merged';
 
-const word = (ourOwn = false): Happened => ({
+const payloadOf = (ourOwn = false): Happened => ({
   happening: MERGED,
   told: 'The pull request was merged.',
   spoken: false,
@@ -83,7 +83,7 @@ const FIRED = CausalChain.none().followedBy({
 
 describe('ReadDeliveryHandler', () => {
   it('reacts in the chain of causes of the firing a delivery names', async () => {
-    const { handler, chains } = reading([word()]);
+    const { handler, chains } = reading([payloadOf()]);
 
     await handler.execute(
       new ReadDeliveryCommand({
@@ -96,7 +96,7 @@ describe('ReadDeliveryHandler', () => {
   });
 
   it('starts a chain of its own for a delivery that names no firing it knows', async () => {
-    const { handler, chains } = reading([word()]);
+    const { handler, chains } = reading([payloadOf()]);
 
     await handler.execute(
       new ReadDeliveryCommand({
@@ -110,20 +110,20 @@ describe('ReadDeliveryHandler', () => {
   });
 
   it('hands what a host said to the workspace it came from', async () => {
-    const { handler, react } = reading([word()]);
+    const { handler, react } = reading([payloadOf()]);
 
     await handler.execute(new ReadDeliveryCommand(stored));
 
     expect(react).toHaveBeenCalledWith(
       WorkspaceId.of('ws_1'),
       null,
-      [word()],
+      [payloadOf()],
       'delivery:github::delivery_1',
     );
   });
 
   it('says nothing about what Spotlight itself did', async () => {
-    const { handler, react } = reading([word(true)]);
+    const { handler, react } = reading([payloadOf(true)]);
 
     await handler.execute(new ReadDeliveryCommand(stored));
 
@@ -131,7 +131,7 @@ describe('ReadDeliveryHandler', () => {
   });
 
   it('says nothing for an installation no workspace has claimed', async () => {
-    const { handler, react } = reading([word()], { workspaceId: null });
+    const { handler, react } = reading([payloadOf()], { workspaceId: null });
 
     await handler.execute(new ReadDeliveryCommand(stored));
 

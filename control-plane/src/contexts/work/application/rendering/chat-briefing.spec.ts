@@ -94,7 +94,7 @@ const DELIVERY = Line.rehydrate({
 const followingUp = (chat: Chat, traces: readonly TraceReference[]) => {
   const handed = chat
     .handedTo(RunId.of('run_1'), NOW)
-    .endedRun(RunId.of('run_1'))
+    .endRun(RunId.of('run_1'))
     .said({
       by: LEON,
       body: ChatMessageBody.given('And this one?'),

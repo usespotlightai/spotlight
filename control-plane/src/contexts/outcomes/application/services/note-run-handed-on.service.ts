@@ -28,7 +28,7 @@ export class NoteRunHandedOn {
     const workspaceId = WorkspaceId.of(heard.workspaceId);
     const taskId = TaskId.of(heard.taskId);
 
-    return this.transaction.run(async () => {
+    return this.transaction.inTransaction(async () => {
       await this.forgotten.holding(workspaceId, taskId);
       const runId = RunId.of(heard.runId);
       const held = await this.records.of(runId);

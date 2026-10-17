@@ -16,7 +16,7 @@ import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import { HunkId } from '@change-review/domain/value-objects/stack-ids';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import {
-  MOST_WORK_ATTEMPTS,
+  MAX_WORK_ATTEMPTS,
   WORK_LEASE_MS,
 } from '@shared-kernel/domain/value-objects/owed-work.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -130,7 +130,7 @@ const working = (
   const service = new WorkChangeStacks(
     stacks,
     checks,
-    { run: <T>(work: () => Promise<T>) => work() },
+    { inTransaction: <T>(work: () => Promise<T>) => work() },
     new DraftChangeStack(
       stacks,
       drafter,
@@ -147,13 +147,13 @@ const working = (
     { report: () => undefined },
   );
 
-  const turn = async (at: Date) => {
+  const tick = async (at: Date) => {
     now = at;
     await service.workDue();
     await service.idle();
   };
 
-  return { turn, draft, stored: () => stored };
+  return { tick, draft, stored: () => stored };
 };
 
 describe('WorkChangeStacks', () => {
@@ -166,11 +166,11 @@ describe('WorkChangeStacks', () => {
       false,
     );
 
-    for (let day = 0; day < MOST_WORK_ATTEMPTS; day += 1) {
-      await worked.turn(new Date(NOW.getTime() + day * DAY));
+    for (let day = 0; day < MAX_WORK_ATTEMPTS; day += 1) {
+      await worked.tick(new Date(NOW.getTime() + day * DAY));
     }
 
-    expect(worked.draft).toHaveBeenCalledTimes(MOST_WORK_ATTEMPTS);
+    expect(worked.draft).toHaveBeenCalledTimes(MAX_WORK_ATTEMPTS);
     expect(worked.stored().state).toBe('failed');
   });
 
@@ -181,7 +181,7 @@ describe('WorkChangeStacks', () => {
       return layered([['h1'], ['h2']]);
     });
 
-    await worked.turn(NOW);
+    await worked.tick(NOW);
 
     expect(leasedWhileDrafting).toBe(true);
     expect(worked.stored().state).toBe('ready');
@@ -193,17 +193,17 @@ describe('WorkChangeStacks', () => {
       throw new Error('overloaded');
     });
 
-    await worked.turn(NOW);
-    await worked.turn(NOW);
+    await worked.tick(NOW);
+    await worked.tick(NOW);
 
     expect(worked.draft).toHaveBeenCalledTimes(1);
     expect(worked.stored().state).toBe('drafting');
 
-    for (let day = 1; day < MOST_WORK_ATTEMPTS; day += 1) {
-      await worked.turn(new Date(NOW.getTime() + day * DAY));
+    for (let day = 1; day < MAX_WORK_ATTEMPTS; day += 1) {
+      await worked.tick(new Date(NOW.getTime() + day * DAY));
     }
 
-    expect(worked.draft).toHaveBeenCalledTimes(MOST_WORK_ATTEMPTS);
+    expect(worked.draft).toHaveBeenCalledTimes(MAX_WORK_ATTEMPTS);
     expect(worked.stored().state).toBe('failed');
   });
 
@@ -212,21 +212,21 @@ describe('WorkChangeStacks', () => {
       layered([['h1', 'h2']]),
     );
 
-    await worked.turn(new Date(NOW.getTime() + 60_000));
+    await worked.tick(new Date(NOW.getTime() + 60_000));
     expect(worked.draft).not.toHaveBeenCalled();
 
-    await worked.turn(new Date(NOW.getTime() + WORK_LEASE_MS + 1));
+    await worked.tick(new Date(NOW.getTime() + WORK_LEASE_MS + 1));
     expect(worked.stored().state).toBe('ready');
   });
 
   it('gives up without asking again on work interrupted every time', async () => {
     let interrupted = drafting();
-    for (let day = 0; day < MOST_WORK_ATTEMPTS; day += 1) {
+    for (let day = 0; day < MAX_WORK_ATTEMPTS; day += 1) {
       interrupted = interrupted.leased(new Date(NOW.getTime() + day * DAY));
     }
     const worked = working(interrupted, async () => layered([['h1', 'h2']]));
 
-    await worked.turn(new Date(NOW.getTime() + MOST_WORK_ATTEMPTS * DAY));
+    await worked.tick(new Date(NOW.getTime() + MAX_WORK_ATTEMPTS * DAY));
 
     expect(worked.draft).not.toHaveBeenCalled();
     expect(worked.stored().state).toBe('failed');
@@ -238,7 +238,7 @@ describe('WorkChangeStacks', () => {
       .askedToReorder();
     const worked = working(reordering, async () => layered([['h2'], ['h1']]));
 
-    await worked.turn(NOW);
+    await worked.tick(NOW);
 
     expect(worked.stored().reordering).toBe(false);
     expect(worked.stored().owesWork).toBe(false);

@@ -11,11 +11,11 @@ import { measureAround } from '@outcomes/domain/services/station-measures';
 import { AlertId } from '@outcomes/domain/value-objects/alert-id.vo';
 import type { AlertRule } from '@outcomes/domain/value-objects/alert-rule.vo';
 import { InsightsPeriod } from '@outcomes/domain/value-objects/insights-period.vo';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
-const MOST_AROUND = 500;
+const MAX_AROUND = 500;
 
 const thresholdOf = (rule: AlertRule) => {
   const at = (threshold: AlertRule['threshold']): number | null =>
@@ -44,10 +44,7 @@ export class ReadStationAlertHandler
 
   async execute(query: ReadStationAlertQuery): Promise<StationAlertDto> {
     try {
-      const clearance = await this.access.clearanceFor(
-        query.teamId,
-        query.principal,
-      );
+      const access = await this.access.accessFor(query.teamId, query.principal);
       const alertId = AlertId.of(query.alertId);
       const watch = await this.watches.raising(alertId);
       const crossing = watch?.crossing(alertId);
@@ -55,8 +52,8 @@ export class ReadStationAlertHandler
       if (
         !watch ||
         !crossing ||
-        !watch.station.teamId.equals(clearance.teamId) ||
-        !watch.station.workspaceId.equals(clearance.workspaceId)
+        !watch.station.teamId.equals(access.teamId) ||
+        !watch.station.workspaceId.equals(access.workspaceId)
       ) {
         throw new UnknownAlertError(query.alertId);
       }
@@ -67,7 +64,7 @@ export class ReadStationAlertHandler
         teamId: station.teamId,
         lineId: station.lineId,
         stationId: station.stationId,
-        last: MOST_AROUND,
+        last: MAX_AROUND,
       });
       const deliveries = await this.deliveries.forTasks(
         records.flatMap((each) => (each.taskId ? [each.taskId] : [])),
@@ -104,7 +101,7 @@ export class ReadStationAlertHandler
         })),
       };
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

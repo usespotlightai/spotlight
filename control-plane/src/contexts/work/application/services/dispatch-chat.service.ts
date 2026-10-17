@@ -1,8 +1,8 @@
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
-import type { IsolationPort } from '@shared-kernel/application/ports/isolation.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import type { SavepointPort } from '@shared-kernel/application/ports/savepoint.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import {
   RunSpecContract,
@@ -48,7 +48,7 @@ export class DispatchChat implements ChatDispatching {
     private readonly clock: ClockPort,
     private readonly memories: TeamMemoriesPort,
     private readonly logger: LoggerPort,
-    private readonly isolation: IsolationPort,
+    private readonly savepoint: SavepointPort,
   ) {}
 
   async takenUp(chat: Chat): Promise<Chat> {
@@ -88,8 +88,8 @@ export class DispatchChat implements ChatDispatching {
 
     const memories = continuity.sessionId
       ? NOTHING_REMEMBERED
-      : await this.isolation
-          .isolated(() =>
+      : await this.savepoint
+          .inSavepoint(() =>
             this.memories.forBriefing({
               teamId: chat.teamId,
               lineId: null,

@@ -4,7 +4,7 @@ import { Review } from '@change-review/domain/aggregates/review.aggregate';
 import type { ReviewRepository } from '@change-review/domain/repositories/review.repository';
 import type { ReviewCommentRepository } from '@change-review/domain/repositories/review-comment.repository';
 import { ReviewId } from '@change-review/domain/value-objects/review-id.vo';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
@@ -31,7 +31,7 @@ export class SubmitReviewHandler
         command.viewerId,
       );
 
-      return await this.transaction.run(async () => {
+      return await this.transaction.inTransaction(async () => {
         const drafts = await this.comments.draftsBy(task.id, author);
         const { review, claimed } = Review.submit({
           id: ReviewId.of(this.ids.generate()),
@@ -52,7 +52,7 @@ export class SubmitReviewHandler
         return review.id.value;
       });
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

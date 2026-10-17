@@ -55,7 +55,7 @@ const STANCES: Record<ReviewVerdict, string> = {
 
 const FILES_PER_PAGE = 100;
 
-const MOST_FILE_PAGES = 30;
+const MAX_FILE_PAGES = 30;
 
 class UnheardError extends UpstreamRefusedError {}
 
@@ -226,7 +226,7 @@ export class GitHubPullRequestReviews implements PullRequestReviewsPort {
   ): Promise<ChangedFile[]> {
     const files: ChangedFile[] = [];
 
-    for (let page = 1; page <= MOST_FILE_PAGES; page += 1) {
+    for (let page = 1; page <= MAX_FILE_PAGES; page += 1) {
       const listed = await heard<ChangedFile[]>(
         await call(
           `/repos/${repo}/pulls/${number}/files?per_page=${FILES_PER_PAGE}&page=${page}`,

@@ -94,7 +94,7 @@ export class OAuth2ClientResolution implements OAuth2ClientsPort {
       return null;
     }
 
-    const registered = OAuth2ClientRegistration.registered({
+    const registered = OAuth2ClientRegistration.register({
       workspaceId: team.workspaceId,
       teamId,
       source,
@@ -106,7 +106,7 @@ export class OAuth2ClientResolution implements OAuth2ClientsPort {
 
     try {
       await this.registrations.save(
-        held ? held.replacedBy(registered) : registered,
+        held ? held.replaceWith(registered) : registered,
       );
     } catch (error) {
       if (!(error instanceof OAuth2ClientRegistrationVersionConflictError)) {

@@ -1,4 +1,4 @@
-import { HELD_INTEGRATIONS } from '@configuration/application/ports/held-integrations.port';
+import { INTEGRATION_CONFIGS } from '@configuration/application/ports/integration-configs.port';
 import { INTEGRATION_READER } from '@configuration/application/ports/integration-reader.port';
 import {
   GITHUB_WEBHOOKS,
@@ -46,7 +46,7 @@ import { ReadDeliveryCommand } from '@integrations/application/commands/read-del
 import { RereadIntegrationSourceCommand } from '@integrations/application/commands/reread-integration-source.command';
 import { SetPersonToolRuleCommand } from '@integrations/application/commands/set-person-tool-rule.command';
 import { UpdateIntegrationCommand } from '@integrations/application/commands/update-integration.command';
-import { INTEGRATIONS_PUBLICATIONS } from '@integrations/application/integration-events/integrations.publications';
+import { INTEGRATIONS_EVENT_MAPPERS } from '@integrations/application/integration-events/integrations.event-mappers';
 import {
   CONFIGURED_OAUTH2_CLIENTS,
   type ConfiguredOAuth2ClientsPort,
@@ -141,15 +141,15 @@ import { IntegrationViews } from '@integrations/application/services/integration
 import { LearnOutputShapes } from '@integrations/application/services/learn-output-shapes.service';
 import { OAuth2ClientResolution } from '@integrations/application/services/oauth2-client-resolution.service';
 import { PersonToolRules } from '@integrations/application/services/person-tool-rules.service';
+import { ProcessDueDeliveries } from '@integrations/application/services/process-due-deliveries.service';
+import { ProcessDuePolls } from '@integrations/application/services/process-due-polls.service';
 import { RefreshConnections } from '@integrations/application/services/refresh-connections.service';
 import { RelistServers } from '@integrations/application/services/relist-servers.service';
 import { RunSchedules } from '@integrations/application/services/run-schedules.service';
 import { SourceForDelivery } from '@integrations/application/services/source-for-delivery.service';
 import { ToolsGiven } from '@integrations/application/services/tools-given.service';
 import { WebhookSources } from '@integrations/application/services/webhook-sources.service';
-import { WorkOffDeliveries } from '@integrations/application/services/work-off-deliveries.service';
-import { WorkOffPolls } from '@integrations/application/services/work-off-polls.service';
-import { INTEGRATIONS_EVENT_TYPES } from '@integrations/domain/event-types';
+import { INTEGRATIONS_PAYLOAD_TYPES } from '@integrations/domain/payload-types';
 import {
   DESCRIBED_DOCUMENTS,
   type DescribedDocumentRepository,
@@ -176,7 +176,7 @@ import {
   PERSON_TOOL_POLICIES,
   type PersonToolPolicyRepository,
 } from '@integrations/domain/repositories/person-tool-policy.repository';
-import { HeldIntegrations } from '@integrations/infrastructure/acl/held-integrations.adapter';
+import { IntegrationConfigs } from '@integrations/infrastructure/acl/integration-configs.adapter';
 import { IntegrationReadings } from '@integrations/infrastructure/acl/integration-readings.adapter';
 import { IntegrationToolCalls } from '@integrations/infrastructure/acl/integration-tool-calls.adapter';
 import { IntegrationSecretUses } from '@integrations/infrastructure/acl/secret-uses.adapter';
@@ -238,9 +238,9 @@ import { publicUrlOf } from '@platform/config/env';
 import { type Env } from '@platform/config/env.schema';
 import { bindCommandHandler } from '@platform/cqrs/bind-command-handler';
 import { bindQueryHandler } from '@platform/cqrs/bind-query-handler';
-import { EventPublications } from '@platform/events/event-publications';
 import { EventSubscribers } from '@platform/events/event-subscribers';
-import { EventTypes } from '@platform/events/event-types';
+import { IntegrationEventMappers } from '@platform/events/integration-event-mappers';
+import { PayloadTypes } from '@platform/events/payload-types';
 import {
   EXPRESSION_ENGINE,
   type ExpressionEnginePort,
@@ -307,8 +307,8 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
   {
     provide: INTEGRATIONS_EVENTS,
     inject: [
-      EventTypes,
-      EventPublications,
+      PayloadTypes,
+      IntegrationEventMappers,
       EventSubscribers,
       INTEGRATION_DEFINITIONS,
       HOOK_DEFINITIONS,
@@ -320,8 +320,8 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       RereadIntegrationSourceHandler,
     ],
     useFactory: (
-      types: EventTypes,
-      publications: EventPublications,
+      types: PayloadTypes,
+      mappers: IntegrationEventMappers,
       subscribers: EventSubscribers,
       definitions: IntegrationDefinitionRepository,
       hooks: HookDefinitionRepository,
@@ -332,8 +332,8 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       hooked: HookedHappenings,
       rereading: RereadIntegrationSourceHandler,
     ) => {
-      types.register('integrations', INTEGRATIONS_EVENT_TYPES);
-      publications.register(INTEGRATIONS_PUBLICATIONS);
+      types.register('integrations', INTEGRATIONS_PAYLOAD_TYPES);
+      mappers.register(INTEGRATIONS_EVENT_MAPPERS);
       subscribers.register(
         integrationsSubscribers(
           new AbandonTeamIntegrations(
@@ -569,16 +569,16 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
   },
 
   {
-    provide: WorkOffDeliveries,
+    provide: ProcessDueDeliveries,
     inject: [DELIVERY_INBOX, ReadDeliveryHandler, CLOCK],
     useFactory: (
       inbox: DeliveryInboxPort,
       reacting: ReadDeliveryHandler,
       clock: ClockPort,
-    ) => new WorkOffDeliveries(inbox, reacting, clock),
+    ) => new ProcessDueDeliveries(inbox, reacting, clock),
   },
 
-  { provide: DELIVERY_WORK, useExisting: WorkOffDeliveries },
+  { provide: DELIVERY_WORK, useExisting: ProcessDueDeliveries },
 
   {
     provide: DeliveryWorker,
@@ -597,7 +597,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
   { provide: INTEGRATION_CURSORS, useClass: DrizzleIntegrationCursors },
 
   {
-    provide: WorkOffPolls,
+    provide: ProcessDuePolls,
     inject: [
       DEFINED_INTEGRATIONS,
       INTEGRATION_RUNTIME,
@@ -618,7 +618,7 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
       clock: ClockPort,
       logger: LoggerPort,
     ) =>
-      new WorkOffPolls(
+      new ProcessDuePolls(
         defined,
         runtime,
         teams,
@@ -632,8 +632,8 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
 
   {
     provide: PollWorker,
-    inject: [WorkOffPolls, LOGGER],
-    useFactory: (polls: WorkOffPolls, logger: LoggerPort) =>
+    inject: [ProcessDuePolls, LOGGER],
+    useFactory: (polls: ProcessDuePolls, logger: LoggerPort) =>
       new PollWorker(polls, logger),
   },
 
@@ -906,12 +906,12 @@ export const INTEGRATIONS_PROVIDERS: readonly Provider[] = [
   },
 
   {
-    provide: HELD_INTEGRATIONS,
+    provide: INTEGRATION_CONFIGS,
     inject: [INTEGRATION_RESOURCES, TEAM_DIRECTORY],
     useFactory: (
       resources: IntegrationResourcesPort,
       teams: TeamDirectoryPort,
-    ) => new HeldIntegrations(resources, teams),
+    ) => new IntegrationConfigs(resources, teams),
   },
 
   { provide: JwksCache, useFactory: () => new JwksCache() },

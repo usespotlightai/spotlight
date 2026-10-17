@@ -50,7 +50,7 @@ export class AbandonTeamIntegrations {
     const hook = await this.hooks.withId(id);
 
     if (hook) {
-      await this.hooks.save(hook.abandoned(Attribution.spotlight(workspaceId)));
+      await this.hooks.save(hook.abandon(Attribution.spotlight(workspaceId)));
     }
   }
 
@@ -62,7 +62,7 @@ export class AbandonTeamIntegrations {
 
     if (integration) {
       await this.definitions.save(
-        integration.abandoned(Attribution.spotlight(workspaceId)),
+        integration.abandon(Attribution.spotlight(workspaceId)),
       );
     }
   }

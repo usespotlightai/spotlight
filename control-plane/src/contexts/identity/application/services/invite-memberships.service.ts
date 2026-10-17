@@ -17,7 +17,7 @@ export class InviteMemberships {
       return;
     }
 
-    const workspace = found.joinedBy(accepted.userId, accepted.terms.role);
+    const workspace = found.join(accepted.userId, accepted.terms.role);
 
     if (workspace !== found) {
       await this.workspaces.save(workspace);
@@ -30,7 +30,7 @@ export class InviteMemberships {
         continue;
       }
 
-      const joined = team.joinedBy(accepted.userId, workspace);
+      const joined = team.join(accepted.userId, workspace);
 
       if (joined !== team) {
         await this.teams.save(joined);

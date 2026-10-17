@@ -1,6 +1,6 @@
 import type {
-  CompiledProfile,
   HarnessProfileCompilerPort,
+  ParsedProfile,
 } from '@configuration/application/ports/harness-profile-compiler.port';
 import type {
   HarnessReviewPort,
@@ -57,7 +57,7 @@ const problemOf = (
 export class HarnessProfileCompiler implements HarnessProfileCompilerPort {
   constructor(private readonly harnesses: HarnessReviewPort) {}
 
-  compile(held: unknown): CompiledProfile {
+  compile(held: unknown): ParsedProfile {
     const read = this.read(held);
 
     if (!read.ok) {
@@ -71,7 +71,7 @@ export class HarnessProfileCompiler implements HarnessProfileCompilerPort {
     return problems.length > 0 ? { ok: false, problems } : read;
   }
 
-  read(held: unknown): CompiledProfile {
+  read(held: unknown): ParsedProfile {
     const read = profileSchema.safeParse(held);
 
     if (!read.success) {

@@ -29,16 +29,16 @@ describe('PullRequestRecord', () => {
   });
 
   it('is Spotlight’s once a task owns it, whenever that is heard', () => {
-    const owned = noted().ownedBy(OWNER).seenAs(seenOf());
+    const owned = noted().assignOwner(OWNER).seenAs(seenOf());
 
     expect(owned.owner).toEqual(OWNER);
-    expect(owned.ownedBy(OWNER)).toBe(owned);
+    expect(owned.assignOwner(OWNER)).toBe(owned);
   });
 
   it('remembers each review task that ran on it once', () => {
     const reviewed = noted()
-      .reviewedBy(TaskId.of('task_2'))
-      .reviewedBy(TaskId.of('task_2'));
+      .recordReview(TaskId.of('task_2'))
+      .recordReview(TaskId.of('task_2'));
 
     expect(reviewed.reviewTasks).toEqual([TaskId.of('task_2')]);
   });
@@ -47,15 +47,15 @@ describe('PullRequestRecord', () => {
     const people = noted().seenAs(seenOf());
 
     expect(people.forgottenByGitHub(SEEN_AT)).toBeNull();
-    expect(people.ownedBy(OWNER).forgottenByGitHub(SEEN_AT)).not.toBeNull();
+    expect(people.assignOwner(OWNER).forgottenByGitHub(SEEN_AT)).not.toBeNull();
     expect(
-      people.reviewedBy(TaskId.of('task_2')).forgottenByGitHub(SEEN_AT),
+      people.recordReview(TaskId.of('task_2')).forgottenByGitHub(SEEN_AT),
     ).not.toBeNull();
   });
 
   it('hears GitHub anew from its first version once GitHub forgot it and recorded it again later', () => {
     const kept = noted()
-      .ownedBy(OWNER)
+      .assignOwner(OWNER)
       .seenAs(seenOf({ version: 6 }))
       .forgottenByGitHub(SEEN_AT);
     const back = kept?.seenAs(
@@ -69,7 +69,7 @@ describe('PullRequestRecord', () => {
 
   it('turns away what GitHub said no later than when it forgot the pull request', () => {
     const kept = noted()
-      .ownedBy(OWNER)
+      .assignOwner(OWNER)
       .seenAs(seenOf({ version: 6 }))
       .forgottenByGitHub(SEEN_AT);
 
@@ -80,7 +80,7 @@ describe('PullRequestRecord', () => {
 
   it('ignores GitHub forgetting an older record of a pull request it has heard of since', () => {
     const owned = noted()
-      .ownedBy(OWNER)
+      .assignOwner(OWNER)
       .seenAs(seenOf({ updatedAt: LATER }));
     const people = noted().seenAs(seenOf({ updatedAt: LATER }));
 
@@ -89,16 +89,16 @@ describe('PullRequestRecord', () => {
   });
 
   it('keeps the latest time GitHub forgot it', () => {
-    const kept = noted().ownedBy(OWNER).forgottenByGitHub(LATER);
+    const kept = noted().assignOwner(OWNER).forgottenByGitHub(LATER);
 
     expect(kept?.forgottenByGitHub(SEEN_AT)).toBe(kept);
     expect(kept?.forgottenByGitHub(LATER)).toBe(kept);
   });
 
   it('lets go of a task, and of itself once nothing holds it and GitHub forgot it', () => {
-    const owned = noted().ownedBy(OWNER).seenAs(seenOf());
+    const owned = noted().assignOwner(OWNER).seenAs(seenOf());
     const forgotten = owned.forgottenByGitHub(SEEN_AT);
-    const unseen = noted().reviewedBy(TaskId.of('task_2'));
+    const unseen = noted().recordReview(TaskId.of('task_2'));
 
     expect(owned.withoutTask(OWNER.taskId)?.owner).toBeNull();
     expect(owned.withoutTask(OWNER.taskId)?.seen).not.toBeNull();
@@ -106,13 +106,13 @@ describe('PullRequestRecord', () => {
     expect(forgotten?.withoutTask(OWNER.taskId)).toBeNull();
     expect(unseen.withoutTask(TaskId.of('task_2'))).toBeNull();
     expect(
-      forgotten?.reviewedBy(TaskId.of('task_2')).withoutTask(OWNER.taskId)
+      forgotten?.recordReview(TaskId.of('task_2')).withoutTask(OWNER.taskId)
         ?.reviewTasks,
     ).toEqual([TaskId.of('task_2')]);
   });
 
   it('lets go of a disbanded team, and of itself once GitHub forgot it', () => {
-    const owned = noted().ownedBy(OWNER).seenAs(seenOf());
+    const owned = noted().assignOwner(OWNER).seenAs(seenOf());
 
     expect(owned.withoutTeam(OWNER.teamId)?.owner).toBeNull();
     expect(owned.withoutTeam(TeamId.of('team_2'))).toBe(owned);

@@ -1,5 +1,5 @@
 import { Pill } from '@/components/shared/Pill';
-import { type ReplayState, stateNote, stateShown } from '@/lib/replay-words';
+import { formatState, type ReplayState, stateNote } from '@/lib/replay-words';
 import { cn } from '@/lib/utils';
 
 const INK: Record<ReplayState, string> = {
@@ -18,7 +18,7 @@ type ReplayStatePillProps = {
 export function ReplayStatePill({ state, className }: ReplayStatePillProps) {
   return (
     <Pill className={cn(INK[state], className)}>
-      <span title={stateNote(state) ?? undefined}>{stateShown(state)}</span>
+      <span title={stateNote(state) ?? undefined}>{formatState(state)}</span>
     </Pill>
   );
 }

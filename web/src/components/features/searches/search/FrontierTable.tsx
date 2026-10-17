@@ -9,8 +9,8 @@ import { OnlyOnSeenTasksBadge } from '@/components/features/searches/OnlyOnSeenT
 import { THE_SEARCH_START } from '@/lib/replay-words';
 import {
   candidateName,
-  costPerRunShown,
-  heldOutShown,
+  formatCostPerRun,
+  formatHeldOut,
   type SearchCandidate,
 } from '@/lib/search';
 
@@ -76,7 +76,7 @@ export function FrontierTable({ candidates, currency }: FrontierTableProps) {
         <HeldOutScore
           rate={candidate.heldOutScore}
           interval={candidate.heldOutInterval}
-          unscored={heldOutShown(candidate)}
+          unscored={formatHeldOut(candidate)}
         />
       ),
     },
@@ -95,7 +95,7 @@ export function FrontierTable({ candidates, currency }: FrontierTableProps) {
       id: 'cost',
       header: 'Cost per run',
       numeric: true,
-      cell: (candidate) => costPerRunShown(candidate.costPerRun, currency),
+      cell: (candidate) => formatCostPerRun(candidate.costPerRun, currency),
     },
   ];
 

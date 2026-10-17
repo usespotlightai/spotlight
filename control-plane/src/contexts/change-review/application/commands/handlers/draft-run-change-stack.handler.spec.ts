@@ -6,7 +6,7 @@ import {
   type CheckingPlan,
   CheckRequest,
 } from '@change-review/domain/value-objects/check-request.vo';
-import { UseCaseFault } from '@shared-kernel/application/errors/use-case.fault';
+import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerImage } from '@shared-kernel/domain/value-objects/runner-image.vo';
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
@@ -151,7 +151,7 @@ describe('DraftRunChangeStackHandler', () => {
   it('drafts nothing for a run this runner did not work', async () => {
     const { handler, begin } = drafting({ worked: false });
 
-    await expect(handler.execute(handed())).rejects.toThrow(UseCaseFault);
+    await expect(handler.execute(handed())).rejects.toThrow(ApplicationError);
     expect(begin).not.toHaveBeenCalled();
   });
 

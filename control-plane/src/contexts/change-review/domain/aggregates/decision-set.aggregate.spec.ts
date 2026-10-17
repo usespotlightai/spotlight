@@ -14,7 +14,7 @@ import { DecisionSetId } from '@change-review/domain/value-objects/decision-set-
 import { DecisionStanding } from '@change-review/domain/value-objects/decision-standing.vo';
 import { FilePath } from '@change-review/domain/value-objects/file-path.vo';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
-import { MOST_WORK_ATTEMPTS } from '@shared-kernel/domain/value-objects/owed-work.vo';
+import { MAX_WORK_ATTEMPTS } from '@shared-kernel/domain/value-objects/owed-work.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -58,7 +58,7 @@ const counting = (prefix: string) => {
 };
 
 const opened = () =>
-  DecisionSet.opened({
+  DecisionSet.open({
     id: DecisionSetId.of('set-1'),
     taskId: TaskId.of('task-1'),
     workspaceId: WorkspaceId.of('workspace-1'),
@@ -69,7 +69,7 @@ const drafting = (
   runId: RunId,
   decisions: readonly ProposedDecision[],
 ): DecisionSet =>
-  set.drafted({
+  set.recordDraft({
     runId,
     proposed: decisions,
     grounds: GROUNDS,
@@ -297,7 +297,7 @@ describe('a decision set, failing to draft', () => {
   it('tries again later, then gives up', () => {
     let set = opened().asked(FIRST, NOW);
 
-    for (let attempt = 0; attempt < MOST_WORK_ATTEMPTS; attempt += 1) {
+    for (let attempt = 0; attempt < MAX_WORK_ATTEMPTS; attempt += 1) {
       const due = set.draft?.work.dueAt ?? NOW;
       set = set.leased(due).triedAgainLater(due);
     }
@@ -309,7 +309,7 @@ describe('a decision set, failing to draft', () => {
   it('says its work is exhausted once every attempt is spent', () => {
     let set = opened().asked(FIRST, NOW);
 
-    for (let attempt = 0; attempt < MOST_WORK_ATTEMPTS; attempt += 1) {
+    for (let attempt = 0; attempt < MAX_WORK_ATTEMPTS; attempt += 1) {
       set = set.leased(set.draft?.work.dueAt ?? NOW);
     }
 
@@ -376,7 +376,7 @@ describe('a decision set, closed without a merge', () => {
   it('is discarded', () => {
     const discarded = drafting(opened().asked(FIRST, NOW), FIRST, [
       proposed(),
-    ]).closedUnmerged();
+    ]).closeUnmerged();
 
     expect(discarded.discarded).toBe(true);
     expect(kinds(discarded)).toContain('decisions.discarded');
@@ -386,7 +386,7 @@ describe('a decision set, closed without a merge', () => {
     const stood = opened().stood(MERGE);
     stood.pullEvents();
 
-    const closed = stood.closedUnmerged();
+    const closed = stood.closeUnmerged();
 
     expect(closed.discarded).toBe(false);
     expect(kinds(closed)).toEqual([]);
@@ -408,7 +408,7 @@ describe('a decision set, disputed', () => {
       reason?: string;
     } = {},
   ) =>
-    set.disputed({
+    set.dispute({
       id: DecisionDisputeId.of(over.id ?? 'dispute_1'),
       decisionId: over.decisionId ?? (set.decisions[1]?.id as DecisionId),
       path: FilePath.of(over.path ?? 'src/uploads.ts'),

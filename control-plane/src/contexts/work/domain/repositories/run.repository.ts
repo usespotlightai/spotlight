@@ -16,12 +16,12 @@ export interface Claimant {
   readonly claims: Claims;
 }
 
-export interface KeptWithRun {
+export interface RunExtras {
   readonly briefed?: BriefedTask;
 }
 
 export interface RunRepository {
-  add(run: Run, kept?: KeptWithRun): Promise<void>;
+  add(run: Run, kept?: RunExtras): Promise<void>;
 
   // Must be atomic and follow ClaimOrder. Two runners must never claim the same run.
   claimNext(by: Claimant, now: Date): Promise<Run | null>;
@@ -39,7 +39,7 @@ export interface RunRepository {
     now: Date,
     page: {
       readonly skip: number;
-      readonly most: number;
+      readonly max: number;
       readonly withSecrets: boolean;
     },
   ): Promise<readonly Run[]>;

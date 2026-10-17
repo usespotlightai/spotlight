@@ -3,7 +3,7 @@ import {
   ALERT_LEVEL,
   BEFORE_LEVEL,
   CROSSING_RUN,
-  measureValueShown,
+  formatMeasureValue,
   type StationAlertCrossing,
   thresholdLine,
 } from '@/lib/station-alert';
@@ -11,7 +11,7 @@ import {
 export function AlertChartLegend({ alert }: { alert: StationAlertCrossing }) {
   const level = thresholdLine(alert);
   const shown = (value: number) =>
-    measureValueShown(alert.threshold.measure, value, alert.currency);
+    formatMeasureValue(alert.threshold.measure, value, alert.currency);
 
   return (
     <ul

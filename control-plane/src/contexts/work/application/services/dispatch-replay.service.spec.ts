@@ -260,7 +260,7 @@ const SIZE = ArchiveSize.of(1_024);
 const DIGEST = ArchiveDigest.of('a'.repeat(64));
 
 const sealed = (workspace = 'ws_1') =>
-  WorkspaceArchive.granted({
+  WorkspaceArchive.grant({
     id: ARCHIVE,
     workspaceId: WorkspaceId.of(workspace),
     continuity: ContinuityKey.forTask('task_1'),
@@ -269,7 +269,7 @@ const sealed = (workspace = 'ws_1') =>
     size: SIZE,
     digest: DIGEST,
     at: NOW,
-  }).sealed({ size: SIZE, digest: DIGEST }, NOW);
+  }).seal({ size: SIZE, digest: DIGEST }, NOW);
 
 let gone: string[] = [];
 let taskGone = false;

@@ -3,7 +3,7 @@ import {
   holds,
   type TeamDirectoryPort,
 } from '@identity/application/ports/team-directory.port';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -30,12 +30,12 @@ export class AssignTaskHandler
     try {
       return await this.assign(command);
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 
   private async assign(command: AssignTaskCommand): Promise<TaskDto> {
-    return await this.transaction.run(async () => {
+    return await this.transaction.inTransaction(async () => {
       const team = await this.teams.find(TeamId.of(command.teamId));
 
       if (!team || !holds(team, UserId.of(command.viewerId))) {
@@ -56,7 +56,7 @@ export class AssignTaskHandler
         throw new UnknownTaskError(command.taskId);
       }
 
-      const assigned = assignee ? task.assignedTo(assignee) : task.unassigned();
+      const assigned = assignee ? task.assign(assignee) : task.unassign();
 
       await this.tasks.save(assigned);
 

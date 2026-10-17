@@ -1,10 +1,10 @@
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 import {
-  areWords,
   CATALOG_SOURCE,
   catalogReferenceParts,
   isCatalogReference,
-  LONGEST_WORDS,
+  isSlug,
+  MAX_SLUG_LENGTH,
   unversioned,
 } from '@shared-kernel/domain/value-objects/identifier-shapes';
 
@@ -14,10 +14,10 @@ export class SkillKey {
   static of(raw: string): SkillKey {
     const trimmed = raw.trim();
 
-    if (!areWords(trimmed) && !isCatalogReference(trimmed)) {
+    if (!isSlug(trimmed) && !isCatalogReference(trimmed)) {
       throw new InvalidIdentifierError(
         'skill',
-        `must be lowercase words joined by dashes, at most ${LONGEST_WORDS} characters (e.g. spotlight-handover), or a catalog skill id (e.g. catalog.research@1.0.0)`,
+        `must be lowercase words joined by dashes, at most ${MAX_SLUG_LENGTH} characters (e.g. spotlight-handover), or a catalog skill id (e.g. catalog.research@1.0.0)`,
       );
     }
 

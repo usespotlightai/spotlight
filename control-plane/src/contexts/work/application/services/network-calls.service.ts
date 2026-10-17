@@ -15,7 +15,7 @@ import { NetworkRequest } from '@work/domain/value-objects/network-request.vo';
 
 const POLL_INTERVAL_MS = 250;
 
-const MOST_AT_ONCE = 50;
+const MAX_AT_ONCE = 50;
 
 export class NetworkCalls implements NetworkCallsPort {
   constructor(
@@ -72,7 +72,7 @@ export class NetworkCalls implements NetworkCallsPort {
     const now = this.clock.now();
     let lapsed = 0;
 
-    for (const call of await this.calls.lapsingBy(now, MOST_AT_ONCE)) {
+    for (const call of await this.calls.lapsingBy(now, MAX_AT_ONCE)) {
       if (await this.settledAs(call, call.lapsed(now))) {
         lapsed += 1;
       }
@@ -87,7 +87,7 @@ export class NetworkCalls implements NetworkCallsPort {
 
     for (const call of await this.calls.settledBy(
       NetworkCall.settledForgettablyBy(now),
-      MOST_AT_ONCE,
+      MAX_AT_ONCE,
     )) {
       if (
         call.isForgettableAt(now) &&

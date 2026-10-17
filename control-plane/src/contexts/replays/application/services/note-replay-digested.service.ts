@@ -28,14 +28,14 @@ export class NoteReplayDigested {
   digested(event: ReplayRunDigested): Promise<void> {
     const run = RunId.of(event.runId);
 
-    return this.transaction.run(async () => {
+    return this.transaction.inTransaction(async () => {
       const replay = await this.replays.ranAs(run);
 
       if (!replay) {
         return;
       }
 
-      const measured = replay.measured(
+      const measured = replay.measure(
         run,
         EntryMeasures.of({
           ms: event.ms,

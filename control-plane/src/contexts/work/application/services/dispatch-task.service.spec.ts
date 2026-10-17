@@ -38,7 +38,7 @@ import type { Run } from '@work/domain/aggregates/run.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { Station } from '@work/domain/entities/station.entity';
 import type {
-  KeptWithRun,
+  RunExtras,
   RunRepository,
 } from '@work/domain/repositories/run.repository';
 import {
@@ -193,10 +193,10 @@ const task = (stationId: string, title = 'Fix the queue') =>
   });
 
 let queued: Run[] = [];
-let kept: KeptWithRun[] = [];
+let kept: RunExtras[] = [];
 
 const runs = {
-  add: async (run: Run, alongside: KeptWithRun = {}) => {
+  add: async (run: Run, alongside: RunExtras = {}) => {
     queued.push(run);
     kept.push(alongside);
   },
@@ -359,7 +359,7 @@ const dispatch = async (
       warn: () => undefined,
       error: () => undefined,
     },
-    { isolated: (work) => work() },
+    { inSavepoint: (work) => work() },
     new Sha256ContentDigest(),
   );
   const working = standing ?? task(station.id.value);
@@ -837,7 +837,7 @@ describe('DispatchTask', () => {
     };
 
     const worked = (station: Station) =>
-      task(station.id.value).workedIn(
+      task(station.id.value).recordSession(
         HarnessSession.of('session_1'),
         RunnerId.of('runner_1'),
       );

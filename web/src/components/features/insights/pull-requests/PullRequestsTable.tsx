@@ -5,13 +5,13 @@ import {
   InsightsTable,
 } from '@/components/features/insights/InsightsTable';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
-import { countShown, lastedOrNone, spendShown } from '@/lib/insights';
+import { formatCount, formatSpend, lastedOrNone } from '@/lib/insights';
 import {
-  authorShown,
+  formatAuthor,
+  formatSize,
+  formatState,
+  formatType,
   type InsightsPullRequest,
-  sizeShown,
-  stateShown,
-  typeShown,
 } from '@/lib/insights-pull-requests';
 import { since } from '@/lib/since';
 import { taskPath } from '@/lib/task';
@@ -35,7 +35,7 @@ export function PullRequestsTable({
             to={taskPath(slug, teamId, pullRequest.taskId)}
             className="hover:underline"
           >
-            {authorShown('spotlight')}
+            {formatAuthor('spotlight')}
           </TrailLink>
           <InsightsLink
             tab="runs"
@@ -94,15 +94,15 @@ export function PullRequestsTable({
     {
       id: 'type',
       header: 'Type',
-      cell: (pullRequest) => typeShown(pullRequest.type),
+      cell: (pullRequest) => formatType(pullRequest.type),
     },
     {
       id: 'state',
       header: 'State',
       cell: (pullRequest) =>
         pullRequest.reverted
-          ? `${stateShown(pullRequest.state)}, reverted`
-          : stateShown(pullRequest.state),
+          ? `${formatState(pullRequest.state)}, reverted`
+          : formatState(pullRequest.state),
     },
     {
       id: 'opened',
@@ -126,26 +126,26 @@ export function PullRequestsTable({
       id: 'rounds',
       header: 'Rounds',
       numeric: true,
-      cell: (pullRequest) => countShown(pullRequest.reviewRounds),
+      cell: (pullRequest) => formatCount(pullRequest.reviewRounds),
     },
     {
       id: 'comments',
       header: 'Comments',
       numeric: true,
-      cell: (pullRequest) => countShown(pullRequest.reviewComments),
+      cell: (pullRequest) => formatCount(pullRequest.reviewComments),
     },
     {
       id: 'size',
       header: 'Size',
       numeric: true,
-      cell: sizeShown,
+      cell: formatSize,
     },
     {
       id: 'cost',
       header: 'Cost',
       numeric: true,
       cell: (pullRequest) =>
-        pullRequest.by === 'spotlight' ? spendShown(pullRequest.spend) : '–',
+        pullRequest.by === 'spotlight' ? formatSpend(pullRequest.spend) : '–',
     },
   ];
 

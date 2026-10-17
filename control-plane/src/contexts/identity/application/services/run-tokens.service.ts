@@ -44,7 +44,7 @@ export class RunTokens implements RunTokensPort {
       now: this.clock.now(),
     });
 
-    await this.transaction.run(() => this.tokens.add(token));
+    await this.transaction.inTransaction(() => this.tokens.add(token));
 
     return { id, token: minted.token };
   }
@@ -73,9 +73,9 @@ export class RunTokens implements RunTokensPort {
 
   private async revoked(token: WorkspaceToken): Promise<void> {
     try {
-      await this.transaction.run(() =>
+      await this.transaction.inTransaction(() =>
         this.tokens.save(
-          token.revoked(Attribution.spotlight(token.workspaceId)),
+          token.revoke(Attribution.spotlight(token.workspaceId)),
         ),
       );
     } catch (error) {

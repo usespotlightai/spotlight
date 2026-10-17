@@ -4,14 +4,14 @@ import {
   type InsightsColumn,
   InsightsTable,
 } from '@/components/features/insights/InsightsTable';
-import { countShown, shareShown } from '@/lib/insights';
+import { formatCount, formatShare } from '@/lib/insights';
 import {
   mergedPullRequestsFilter,
   type RepositoryPenetration as Repository,
   type WeekShare,
   weekFilter,
 } from '@/lib/insights-pull-requests';
-import { dayShown } from '@/lib/judge';
+import { formatDay } from '@/lib/judge';
 
 type RepositoryPenetrationProps = {
   weeks: readonly string[];
@@ -27,7 +27,7 @@ const weekCell = (repository: Repository, week: WeekShare | undefined) =>
       <span
         title={`${week.spotlight} of ${week.merged} made or reviewed by Spotlight`}
       >
-        {shareShown(week.share)}
+        {formatShare(week.share)}
       </span>
     </InsightsLink>
   ) : (
@@ -47,7 +47,7 @@ export function RepositoryPenetration({
     ...weeks.map(
       (week): InsightsColumn<Repository> => ({
         id: week,
-        header: dayShown(week),
+        header: formatDay(week),
         numeric: true,
         cell: (repository) =>
           weekCell(
@@ -68,17 +68,17 @@ export function RepositoryPenetration({
               repository: repository.repository,
             })}
           >
-            {countShown(repository.merged)}
+            {formatCount(repository.merged)}
           </InsightsLink>
         ) : (
-          countShown(0)
+          formatCount(0)
         ),
     },
     {
       id: 'share',
       header: 'Share',
       numeric: true,
-      cell: (repository) => shareShown(repository.share),
+      cell: (repository) => formatShare(repository.share),
     },
   ];
 

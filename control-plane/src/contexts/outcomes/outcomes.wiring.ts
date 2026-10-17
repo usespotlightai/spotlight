@@ -13,7 +13,7 @@ import {
 import type { Provider, Type } from '@nestjs/common';
 import { GradeRunCommand } from '@outcomes/application/commands/grade-run.command';
 import { GradeRunHandler } from '@outcomes/application/commands/handlers/grade-run.handler';
-import { OUTCOMES_PUBLICATIONS } from '@outcomes/application/integration-events/outcomes.publications';
+import { OUTCOMES_EVENT_MAPPERS } from '@outcomes/application/integration-events/outcomes.event-mappers';
 import {
   ALERT_ASIDES,
   type AlertAsidesPort,
@@ -125,7 +125,7 @@ import { WatchStations } from '@outcomes/application/services/watch-stations.ser
 import { WorkChangeJudgings } from '@outcomes/application/services/work-change-judgings.service';
 import { WorkJudgings } from '@outcomes/application/services/work-judgings.service';
 import { WorkPairJudgings } from '@outcomes/application/services/work-pair-judgings.service';
-import { OUTCOMES_EVENT_TYPES } from '@outcomes/domain/event-types';
+import { OUTCOMES_PAYLOAD_TYPES } from '@outcomes/domain/payload-types';
 import { AlertAsides } from '@outcomes/infrastructure/acl/alert-asides.adapter';
 import { Evidence } from '@outcomes/infrastructure/acl/evidence.adapter';
 import { Grades } from '@outcomes/infrastructure/acl/grades.adapter';
@@ -162,9 +162,9 @@ import { ENV } from '@platform/config/config.constants';
 import type { Env } from '@platform/config/env.schema';
 import { bindCommandHandler } from '@platform/cqrs/bind-command-handler';
 import { bindQueryHandler } from '@platform/cqrs/bind-query-handler';
-import { EventPublications } from '@platform/events/event-publications';
 import { EventSubscribers } from '@platform/events/event-subscribers';
-import { EventTypes } from '@platform/events/event-types';
+import { IntegrationEventMappers } from '@platform/events/integration-event-mappers';
+import { PayloadTypes } from '@platform/events/payload-types';
 import { OwedWorkWorker } from '@platform/workers/owed-work.worker';
 import {
   CLOCK,
@@ -931,8 +931,8 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
   {
     provide: OUTCOMES_EVENTS,
     inject: [
-      EventTypes,
-      EventPublications,
+      PayloadTypes,
+      IntegrationEventMappers,
       EventSubscribers,
       NoteRunEnded,
       NoteRunSuperseded,
@@ -958,8 +958,8 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
       NoteConfigPullRequestOpened,
     ],
     useFactory: (
-      types: EventTypes,
-      publications: EventPublications,
+      types: PayloadTypes,
+      mappers: IntegrationEventMappers,
       subscribers: EventSubscribers,
       ending: NoteRunEnded,
       superseding: NoteRunSuperseded,
@@ -984,8 +984,8 @@ export const OUTCOMES_PROVIDERS: readonly Provider[] = [
       alerting: AlertInbox,
       openingConfigPullRequests: NoteConfigPullRequestOpened,
     ) => {
-      types.register('outcomes', OUTCOMES_EVENT_TYPES);
-      publications.register(OUTCOMES_PUBLICATIONS);
+      types.register('outcomes', OUTCOMES_PAYLOAD_TYPES);
+      mappers.register(OUTCOMES_EVENT_MAPPERS);
       subscribers.register(
         outcomesSubscribers({
           ending,

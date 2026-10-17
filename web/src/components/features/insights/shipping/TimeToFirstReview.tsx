@@ -46,7 +46,7 @@ export function TimeToFirstReview({ days }: { days: readonly ReviewDay[] }) {
             as: 'line',
           },
         ]}
-        shown={lasted}
+        format={lasted}
         durations
         legend={false}
       />

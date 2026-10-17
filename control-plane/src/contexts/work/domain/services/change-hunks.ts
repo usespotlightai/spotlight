@@ -15,7 +15,7 @@ interface Edit {
 
 const CONTEXT = 3;
 
-const MOST_COMPARED = 1_000_000;
+const MAX_COMPARED = 1_000_000;
 
 const linesOf = (text: string): string[] => {
   if (text === '') {
@@ -57,7 +57,7 @@ const middleEdits = (
 ): Edit[] => {
   const edits: Edit[] = [];
   const lengths =
-    before.length * after.length <= MOST_COMPARED
+    before.length * after.length <= MAX_COMPARED
       ? sharedLengths(before, after)
       : null;
   let old = 0;

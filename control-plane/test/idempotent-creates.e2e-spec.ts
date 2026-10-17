@@ -50,7 +50,7 @@ describe('idempotent creates, claimed in the caller’s transaction (e2e)', () =
       claimed = resolve;
     });
     const done = context
-      .run(async () => {
+      .inTransaction(async () => {
         await creates.claim(made);
         await creates.created(made, 'created_first');
         claimed();
@@ -89,7 +89,7 @@ describe('idempotent creates, claimed in the caller’s transaction (e2e)', () =
 
     await first.hasClaimed;
 
-    const second = context.run(() => creates.claim(made));
+    const second = context.inTransaction(() => creates.claim(made));
 
     expect(await settled(second, 300)).toBe('waiting');
 
@@ -108,7 +108,7 @@ describe('idempotent creates, claimed in the caller’s transaction (e2e)', () =
 
     await first.hasClaimed;
 
-    const second = context.run(() => creates.claim(made));
+    const second = context.inTransaction(() => creates.claim(made));
 
     first.release();
     await first.done;
@@ -119,7 +119,7 @@ describe('idempotent creates, claimed in the caller’s transaction (e2e)', () =
   it('refuses the key for a different request', async () => {
     const made = create();
 
-    await context.run(async () => {
+    await context.inTransaction(async () => {
       await creates.claim(made);
       await creates.created(made, 'created_first');
     });
@@ -132,7 +132,7 @@ describe('idempotent creates, claimed in the caller’s transaction (e2e)', () =
   it('forgets a key a day after it was used', async () => {
     const made = create();
 
-    await context.run(async () => {
+    await context.inTransaction(async () => {
       await creates.claim(made);
       await creates.created(made, 'created_first');
     });
@@ -149,7 +149,7 @@ describe('idempotent creates, claimed in the caller’s transaction (e2e)', () =
 
     expect(await recalls.recall(made)).toEqual({ kind: 'unseen' });
 
-    await context.run(async () => {
+    await context.inTransaction(async () => {
       await creates.claim(made);
       await creates.created(made, 'created_first');
     });

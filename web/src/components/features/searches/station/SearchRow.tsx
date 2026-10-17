@@ -10,7 +10,7 @@ import {
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { type ReplayedStation, spendOfCeiling } from '@/lib/replay';
 import { ongoing, type Search, searchLabel, searchPath } from '@/lib/search';
-import { endingShown, searchStateShown } from '@/lib/search-words';
+import { formatEnding, formatSearchState } from '@/lib/search-words';
 import { since } from '@/lib/since';
 import { cn } from '@/lib/utils';
 
@@ -34,12 +34,12 @@ export function SearchRow({ at, search, number, setName }: SearchRowProps) {
       </span>
       <NestedCell heading="State" numeric={false}>
         <span
-          title={search.ending ? endingShown(search.ending) : undefined}
+          title={search.ending ? formatEnding(search.ending) : undefined}
           className={
             ongoing(search.state) ? 'text-foreground' : 'text-muted-foreground'
           }
         >
-          {searchStateShown(search.state)}
+          {formatSearchState(search.state)}
         </span>
       </NestedCell>
       <NestedCell heading="Replay set" numeric={false}>

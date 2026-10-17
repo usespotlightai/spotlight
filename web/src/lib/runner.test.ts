@@ -2,11 +2,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { HostResponseDto, LiveRunnerResponseDto } from '@/lib/api';
 import {
   answeringCount,
+  formatRun,
   type Host,
   heldRunPath,
   hiddenFromViewer,
   runnerStanding,
-  runShown,
   seenAt,
   standing,
   through,
@@ -126,16 +126,16 @@ describe('withActivity', () => {
   });
 });
 
-describe('runShown', () => {
+describe('formatRun', () => {
   it('names the run, or says what kind it is where it cannot', () => {
-    expect(runShown(HELD)).toBe('Drain the stuck retry queues');
-    expect(runShown({ ...HELD, kind: 'search', title: null })).toBe(
+    expect(formatRun(HELD)).toBe('Drain the stuck retry queues');
+    expect(formatRun({ ...HELD, kind: 'search', title: null })).toBe(
       'A search run',
     );
-    expect(runShown({ ...HELD, kind: 'spec', teamId: null, title: null })).toBe(
-      'A run queued by hand',
-    );
-    expect(runShown(null)).toBe('No run yet');
+    expect(
+      formatRun({ ...HELD, kind: 'spec', teamId: null, title: null }),
+    ).toBe('A run queued by hand');
+    expect(formatRun(null)).toBe('No run yet');
   });
 });
 

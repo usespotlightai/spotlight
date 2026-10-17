@@ -3,7 +3,7 @@ import {
   type OriginalOutcome,
 } from '@replays/domain/services/composition';
 
-export const MOST_SUGGESTED = 5;
+export const MAX_SUGGESTED = 5;
 
 const SUGGESTED_FIRST: readonly OriginalOutcome[] = [
   'accepted',
@@ -32,7 +32,7 @@ interface Suggestible {
 export const balancingPicks = <T extends Suggestible>(
   held: readonly OriginalOutcome[],
   newestFirst: readonly T[],
-  most: number,
+  max: number,
 ): readonly T[] => {
   const counts = new Map(
     countsOf(held).map((each) => [each.outcome, each.count]),
@@ -42,7 +42,7 @@ export const balancingPicks = <T extends Suggestible>(
   const left = [...newestFirst];
   const picks: T[] = [];
 
-  while (picks.length < most) {
+  while (picks.length < max) {
     const ceiling = Math.max(...counts.values());
     const [short] = SUGGESTED_FIRST.filter(
       (outcome) =>

@@ -11,7 +11,7 @@ import {
   uniqueIndex,
 } from 'drizzle-orm/pg-core';
 
-export interface HeldImage {
+export interface HostImageRecord {
   readonly image: string;
   readonly digest?: string;
   readonly usual: boolean;
@@ -193,7 +193,7 @@ export const runnerHost = pgTable(
     executor: text('executor').notNull(),
     capacity: integer('capacity').notNull(),
     running: jsonb('running').$type<string[]>().notNull().default([]),
-    images: jsonb('images').$type<HeldImage[]>().notNull().default([]),
+    images: jsonb('images').$type<HostImageRecord[]>().notNull().default([]),
     session: text('session').notNull(),
     firstSeenAt: timestamp('first_seen_at').notNull(),
     upSince: timestamp('up_since').notNull(),

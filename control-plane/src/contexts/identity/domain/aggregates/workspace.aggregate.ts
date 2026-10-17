@@ -15,9 +15,9 @@ import {
   refusalToGive,
   rolesGivable,
 } from '@identity/domain/services/role-giving';
-import { Clearance } from '@identity/domain/value-objects/clearance.vo';
 import { Holdings } from '@identity/domain/value-objects/holdings.vo';
 import { InviteTerms } from '@identity/domain/value-objects/invite-terms.vo';
+import { Permissions } from '@identity/domain/value-objects/permissions.vo';
 import type { TeamKey } from '@identity/domain/value-objects/team-key.vo';
 import type { TeamName } from '@identity/domain/value-objects/team-name.vo';
 import type { TokenName } from '@identity/domain/value-objects/token-name.vo';
@@ -141,7 +141,7 @@ export class Workspace extends EventRecorder {
     return redefined;
   }
 
-  closed(
+  close(
     teams: readonly TeamKey[],
     tokens: readonly TokenName[],
     trusts: readonly TokenTrustKey[],
@@ -191,27 +191,27 @@ export class Workspace extends EventRecorder {
   }
 
   holds(userId: UserId): boolean {
-    return this.clearanceFor(PersonPrincipal.of(userId)).reads;
+    return this.permissionsFor(PersonPrincipal.of(userId)).reads;
   }
 
   administeredBy(userId: UserId): boolean {
-    return this.clearanceFor(PersonPrincipal.of(userId)).administers;
+    return this.permissionsFor(PersonPrincipal.of(userId)).administers;
   }
 
-  clearanceFor(principal: Principal): Clearance {
+  permissionsFor(principal: Principal): Permissions {
     if (this.isClosed) {
-      return Clearance.none;
+      return Permissions.none;
     }
 
     if (principal.kind === 'token') {
       return principal.workspaceId.equals(this.id)
-        ? Clearance.ofScopes(principal.scopes)
-        : Clearance.none;
+        ? Permissions.ofScopes(principal.scopes)
+        : Permissions.none;
     }
 
     const role = this.roleOf(principal.userId);
 
-    return role ? Clearance.ofRole(role) : Clearance.none;
+    return role ? Permissions.ofRole(role) : Permissions.none;
   }
 
   private get whatChanged() {
@@ -241,7 +241,7 @@ export class Workspace extends EventRecorder {
     return rolesGivable(this.positionsBetween(target, by));
   }
 
-  roleChangedTo(target: UserId, role: WorkspaceRole, by: UserId): Workspace {
+  changeRole(target: UserId, role: WorkspaceRole, by: UserId): Workspace {
     const positions = this.positionsBetween(target, by);
     const refusal = refusalToGive(positions, role);
 
@@ -271,7 +271,7 @@ export class Workspace extends EventRecorder {
     return changed;
   }
 
-  joinedBy(userId: UserId, role: WorkspaceRole): Workspace {
+  join(userId: UserId, role: WorkspaceRole): Workspace {
     if (this.holds(userId)) {
       return this;
     }

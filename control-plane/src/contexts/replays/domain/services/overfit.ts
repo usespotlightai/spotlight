@@ -1,6 +1,6 @@
 import {
-  FEWEST_PAIRED_TASKS,
   type GainReading,
+  MIN_PAIRED_TASKS,
 } from '@replays/domain/services/gain-reading';
 
 export const ONLY_ON_SEEN_TASKS = ['marked', 'too-few-held-out'] as const;
@@ -14,7 +14,7 @@ export const overfitOf = (
   if (searchedGain?.verdict !== 'better' || heldOutGain === null) {
     return null;
   }
-  if (heldOutGain.tasks < FEWEST_PAIRED_TASKS) {
+  if (heldOutGain.tasks < MIN_PAIRED_TASKS) {
     return 'too-few-held-out';
   }
 

@@ -1,5 +1,5 @@
 import {
-  MOST_REPLAYED,
+  MAX_REPLAYED,
   ReadReplayedCandidatesHandler,
 } from '@replays/application/queries/handlers/read-replayed-candidates.handler';
 import { ReadReplayedCandidatesQuery } from '@replays/application/queries/read-replayed-candidates.query';
@@ -35,7 +35,7 @@ import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import { ReplaySetName } from '@replays/domain/value-objects/replay-set-name.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { StationChanges } from '@replays/domain/value-objects/station-changes.vo';
-import { UseCaseFault } from '@shared-kernel/application/errors/use-case.fault';
+import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -129,7 +129,7 @@ describe('ReadReplayedCandidatesHandler', () => {
   });
 
   it('leaves out candidates a pull-request check replayed', async () => {
-    const planned = Candidate.planned({
+    const planned = Candidate.plan({
       ...made,
       id: CandidateId.of('candidate_planned'),
       changedFrom: StationChanges.none(LIVE_FINGERPRINT),
@@ -147,7 +147,7 @@ describe('ReadReplayedCandidatesHandler', () => {
 
   it('shows nothing of another team', async () => {
     const other = { ...STATION, teamId: TeamId.of('team_2') };
-    const set = ReplaySet.opened({
+    const set = ReplaySet.open({
       id: ReplaySetId.of('set_other'),
       station: other,
       name: ReplaySetName.of('Theirs'),
@@ -163,7 +163,7 @@ describe('ReadReplayedCandidatesHandler', () => {
       NOW,
       false,
     );
-    const theirs = Candidate.proposed({
+    const theirs = Candidate.propose({
       ...made,
       station: other,
       id: CandidateId.of('candidate_theirs'),
@@ -184,7 +184,7 @@ describe('ReadReplayedCandidatesHandler', () => {
     expect((await read()).stations[0]?.sets.map((each) => each.setId)).toEqual([
       'set_1',
     ]);
-    await expect(read('30d', null)).rejects.toThrow(UseCaseFault);
+    await expect(read('30d', null)).rejects.toThrow(ApplicationError);
   });
 
   it('covers the newest replays of the period, saying when it left older ones out, yet keeps the searches its sets started in it', async () => {
@@ -193,7 +193,7 @@ describe('ReadReplayedCandidatesHandler', () => {
     )) as ReplaySet;
     const proposed = candidateOf('proposed');
 
-    for (let each = 0; each < MOST_REPLAYED; each += 1) {
+    for (let each = 0; each < MAX_REPLAYED; each += 1) {
       await memory.replayRepository.add(
         replayOf(
           set,
@@ -212,12 +212,12 @@ describe('ReadReplayedCandidatesHandler', () => {
       answer.stations[0]?.sets[0]?.candidates.find(
         (each) => each.kind === 'proposed',
       )?.replayId,
-    ).toBe(`replay_again_${MOST_REPLAYED - 1}`);
+    ).toBe(`replay_again_${MAX_REPLAYED - 1}`);
   });
 
   it('links each searched candidate to the pull request picking it opened, and no other search’s', async () => {
     const pick = (id: string, searchId: string) =>
-      ConfigPullRequest.picked({
+      ConfigPullRequest.pick({
         id: ConfigPullRequestId.of(id),
         searchId: SearchId.of(searchId),
         candidateId: CandidateId.of('candidate_terse'),
@@ -244,6 +244,6 @@ describe('ReadReplayedCandidatesHandler', () => {
   });
 
   it('refuses a period it does not take', async () => {
-    await expect(read('14d')).rejects.toThrow(UseCaseFault);
+    await expect(read('14d')).rejects.toThrow(ApplicationError);
   });
 });

@@ -42,7 +42,7 @@ export class ClaimChangeStackCheck implements CheckWorkPort {
     terms: RunnerTerms,
     now: Date,
   ): Promise<ClaimedCheck | null> {
-    return this.transaction.run(async () => {
+    return this.transaction.inTransaction(async () => {
       const due = await this.checks.dueForCheck(
         { workspaceId, runner, terms },
         now,
@@ -59,7 +59,7 @@ export class ClaimChangeStackCheck implements CheckWorkPort {
     terms: RunnerTerms,
     now: Date,
   ): Promise<ClaimedCheck | null> {
-    return this.transaction.run(async () => {
+    return this.transaction.inTransaction(async () => {
       const due = await this.checks.reservedTo(runner, now);
 
       return due?.claimableBy(runner, terms, now)

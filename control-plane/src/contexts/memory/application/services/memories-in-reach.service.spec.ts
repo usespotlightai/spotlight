@@ -27,7 +27,7 @@ const SITE: RunSite = {
 };
 
 const kept = (id: number, scope: { teamId?: TeamId; lineId?: string } = {}) =>
-  Memory.written({
+  Memory.write({
     id: MemoryId.of(`memory_${id}`),
     handle: MemoryHandle.of(id),
     workspaceId: WorkspaceId.of('ws_1'),
@@ -42,7 +42,7 @@ const kept = (id: number, scope: { teamId?: TeamId; lineId?: string } = {}) =>
   });
 
 const correcting = (old: Memory, id: number, lineId: string | null = null) =>
-  old.correctedAs({
+  old.correct({
     id: MemoryId.of(`memory_${id}`),
     handle: MemoryHandle.of(id),
     kind: old.kind,
@@ -87,7 +87,7 @@ describe('MemoriesInReach', () => {
         kept(1),
         kept(2, { lineId: 'line_other' }),
         kept(3, { teamId: ELSEWHERE }),
-        kept(4).retired({ by: UserId.of('user_1'), reason: 'Stale.', at: AT }),
+        kept(4).retire({ by: UserId.of('user_1'), reason: 'Stale.', at: AT }),
       ],
     });
 
@@ -107,7 +107,7 @@ describe('MemoriesInReach', () => {
   it('recalls in the order of relevance, only what stands on the team and is not yet corrected', async () => {
     const old = kept(1);
     const correction = correcting(old, 2);
-    const retired = kept(3).retired({
+    const retired = kept(3).retire({
       by: UserId.of('user_1'),
       reason: 'Stale.',
       at: AT,
@@ -134,7 +134,7 @@ describe('MemoriesInReach', () => {
     const later = (hours: number) =>
       new Date(AT.getTime() + hours * 60 * 60_000);
     const old = kept(1);
-    const correction = old.correctedAs({
+    const correction = old.correct({
       id: MemoryId.of('memory_2'),
       handle: MemoryHandle.of(2),
       kind: old.kind,
@@ -142,7 +142,7 @@ describe('MemoriesInReach', () => {
       scope: old.scope,
       by: MemoryDecision.of({ by: UserId.of('user_1'), at: later(2) }),
     });
-    const superseded = old.supersededBy(correction.id, later(2));
+    const superseded = old.supersedeWith(correction.id, later(2));
     const { memories, recall } = inReach({
       held: [superseded, correction],
       successors: [correction],

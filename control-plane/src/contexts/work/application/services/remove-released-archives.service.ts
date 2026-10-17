@@ -6,7 +6,7 @@ import { WorkspaceArchive } from '@work/domain/aggregates/workspace-archive.aggr
 import { WorkspaceArchiveVersionConflictError } from '@work/domain/exceptions/workspace-archive-version-conflict.error';
 import type { WorkspaceArchiveRepository } from '@work/domain/repositories/workspace-archive.repository';
 
-const MOST_AT_ONCE = 50;
+const MAX_AT_ONCE = 50;
 
 export class RemoveReleasedArchives {
   readonly name = 'Removing workspace archives no later run will restore';
@@ -24,7 +24,7 @@ export class RemoveReleasedArchives {
 
     const due = await this.standings.due(
       WorkspaceArchive.removalCutoffs(now),
-      MOST_AT_ONCE,
+      MAX_AT_ONCE,
     );
 
     for (const each of due) {
@@ -35,7 +35,7 @@ export class RemoveReleasedArchives {
           continue;
         }
 
-        await this.archives.save(archive.removed(now, each.facts));
+        await this.archives.save(archive.remove(now, each.facts));
         await this.removeStored(archive);
       } catch (error) {
         if (!(error instanceof WorkspaceArchiveVersionConflictError)) {

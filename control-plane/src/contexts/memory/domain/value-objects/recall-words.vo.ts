@@ -1,6 +1,6 @@
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
 
-const MOST_WORDS = 500;
+const MAX_CHARACTERS = 500;
 
 export class RecallWords {
   private readonly kind = 'recall-words';
@@ -10,9 +10,9 @@ export class RecallWords {
   static of(raw: string): RecallWords {
     const words = raw.trim();
 
-    if (!words || words.length > MOST_WORDS) {
+    if (!words || words.length > MAX_CHARACTERS) {
       throw new InvalidMemoryError(
-        `is recalled by at most ${MOST_WORDS} characters of words it holds, or by its handle, like M-12`,
+        `is recalled by at most ${MAX_CHARACTERS} characters of words it holds, or by its handle, like M-12`,
       );
     }
 

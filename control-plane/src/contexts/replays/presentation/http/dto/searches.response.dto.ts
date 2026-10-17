@@ -27,16 +27,16 @@ import type {
 } from '@replays/application/dto/searches.dto';
 import { ONLY_ON_SEEN_TASKS } from '@replays/domain/services/overfit';
 import { REFLECTION_OUTCOMES } from '@replays/domain/value-objects/reflection-outcome';
-import { MOST_REPEATS } from '@replays/domain/value-objects/replay-repeats';
+import { MAX_REPEATS } from '@replays/domain/value-objects/replay-repeats';
 import { REPLAY_STATES } from '@replays/domain/value-objects/replay-state';
 import {
-  MOST_CONCURRENCY,
-  MOST_ITERATIONS,
-  MOST_PER_ITERATION,
+  MAX_CONCURRENCY,
+  MAX_ITERATIONS,
+  MAX_PER_ITERATION,
   SEARCH_CONCURRENCY,
 } from '@replays/domain/value-objects/search-budget.vo';
 import {
-  MOST_CAUSE_TEXT,
+  MAX_CAUSE_TEXT,
   SEARCH_CAUSES,
 } from '@replays/domain/value-objects/search-cause.vo';
 import { SEARCH_ENDINGS } from '@replays/domain/value-objects/search-ending';
@@ -96,7 +96,7 @@ export class SearchBudgetRequestDto {
   @ApiProperty({
     example: 3,
     minimum: 1,
-    maximum: MOST_ITERATIONS,
+    maximum: MAX_ITERATIONS,
     description: 'How many times the search runs its agent',
   })
   readonly iterations!: number;
@@ -104,7 +104,7 @@ export class SearchBudgetRequestDto {
   @ApiProperty({
     example: 2,
     minimum: 1,
-    maximum: MOST_PER_ITERATION,
+    maximum: MAX_PER_ITERATION,
     description: 'How many candidates each agent run may propose',
   })
   readonly perIteration!: number;
@@ -119,7 +119,7 @@ export class SearchBudgetRequestDto {
   @ApiPropertyOptional({
     example: SEARCH_CONCURRENCY,
     minimum: 1,
-    maximum: MOST_CONCURRENCY,
+    maximum: MAX_CONCURRENCY,
     description: `How many of its replay runs it runs at once, beside the team’s own; ${SEARCH_CONCURRENCY} unless told`,
   })
   readonly concurrency?: number;
@@ -127,7 +127,7 @@ export class SearchBudgetRequestDto {
   @ApiPropertyOptional({
     example: 1,
     minimum: 1,
-    maximum: MOST_REPEATS,
+    maximum: MAX_REPEATS,
     description:
       'How many times each of its replays replays each run: the seed, every candidate and the held-out replays; 1 unless told. Runs and cost grow with it',
   })
@@ -1244,14 +1244,14 @@ export class RecordSearchCauseRequestDto {
   readonly cause!: string;
 
   @ApiProperty({
-    description: `What in the runs shows the cause, in 1 to ${MOST_CAUSE_TEXT} characters`,
+    description: `What in the runs shows the cause, in 1 to ${MAX_CAUSE_TEXT} characters`,
   })
   readonly evidence!: string;
 
   @ApiPropertyOptional({
     nullable: true,
     type: String,
-    description: `What a person, or the next iteration, should change, in at most ${MOST_CAUSE_TEXT} characters`,
+    description: `What a person, or the next iteration, should change, in at most ${MAX_CAUSE_TEXT} characters`,
   })
   readonly suggestion?: string | null;
 }

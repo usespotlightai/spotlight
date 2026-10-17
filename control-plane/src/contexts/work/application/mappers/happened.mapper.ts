@@ -3,11 +3,14 @@ import type {
   Arriving,
   Happened,
   MarkWorn,
-  ReviewWord,
+  ReviewPayload,
 } from '@work/application/contracts/happenings.contract';
 import { Branch } from '@work/domain/value-objects/branch.vo';
 import { Concerns } from '@work/domain/value-objects/concerns.vo';
-import { Happening, type Word } from '@work/domain/value-objects/happening.vo';
+import {
+  Happening,
+  type HappeningPayload,
+} from '@work/domain/value-objects/happening.vo';
 import { LineRole } from '@work/domain/value-objects/line-role.vo';
 import { Mark } from '@work/domain/value-objects/mark.vo';
 import type { OpensWith } from '@work/domain/value-objects/opens-with';
@@ -20,7 +23,7 @@ import { Said } from '@work/domain/value-objects/said.vo';
 import { StationKey } from '@work/domain/value-objects/station-key.vo';
 
 export interface Heard {
-  readonly word: Word;
+  readonly payload: HappeningPayload;
   readonly concerns: Concerns;
   readonly said: Said | null;
   readonly ourOwn: boolean;
@@ -29,20 +32,20 @@ export interface Heard {
 }
 
 const reviewOf = (
-  word: ReviewWord | null | undefined,
+  review: ReviewPayload | null | undefined,
 ): ReviewRequest | null => {
-  if (!word) {
+  if (!review) {
     return null;
   }
 
   return reviewRequested({
-    asking: reviewAsking(word.asking),
-    label: word.label?.trim() || null,
-    pullRequest: PullRequestUrl.of(word.pullRequest),
-    author: word.author?.trim() || null,
-    outside: word.outside !== false,
-    draft: word.draft,
-    branch: word.branch ? Branch.of(word.branch) : null,
+    asking: reviewAsking(review.asking),
+    label: review.label?.trim() || null,
+    pullRequest: PullRequestUrl.of(review.pullRequest),
+    author: review.author?.trim() || null,
+    outside: review.outside !== false,
+    draft: review.draft,
+    branch: review.branch ? Branch.of(review.branch) : null,
   });
 };
 
@@ -64,7 +67,7 @@ export const HappenedMapper = {
     const opens = happened.opens;
 
     return {
-      word: {
+      payload: {
         happening: Happening.of(happened.happening),
         told: happened.told,
         spoken: happened.spoken,

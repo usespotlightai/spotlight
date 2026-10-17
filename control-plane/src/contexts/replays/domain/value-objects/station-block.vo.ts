@@ -1,7 +1,7 @@
 import { InvalidCandidateError } from '@replays/domain/exceptions/invalid-candidate.error';
 import { type Block, isBlock } from '@replays/domain/value-objects/block-shape';
 
-const MOST_CHARACTERS = 256_000;
+const MAX_CHARACTERS = 256_000;
 
 export class StationBlock {
   private constructor(
@@ -16,9 +16,9 @@ export class StationBlock {
 
     const written = JSON.stringify(held);
 
-    if (written.length > MOST_CHARACTERS) {
+    if (written.length > MAX_CHARACTERS) {
       throw new InvalidCandidateError(
-        `station block must be at most ${MOST_CHARACTERS} characters`,
+        `station block must be at most ${MAX_CHARACTERS} characters`,
       );
     }
 

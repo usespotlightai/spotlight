@@ -44,13 +44,13 @@ const grant = (
     host,
   });
 
-const begun = () => RunGrants.begun(FIRST, WORKSPACE);
+const begun = () => RunGrants.start(FIRST, WORKSPACE);
 
 const endedAfter = (ms: number) => new Date(ENDED_AT.getTime() + ms);
 
 describe('RunGrants', () => {
   it('allows a secret toward each host its hold was granted, once however often granted', () => {
-    const granted = begun().granted(FIRST, [
+    const granted = begun().grant(FIRST, [
       grant(),
       grant(),
       grant('mcp.linear.app'),
@@ -65,128 +65,126 @@ describe('RunGrants', () => {
   });
 
   it('changes nothing when granted what it already holds', () => {
-    const granted = begun().granted(FIRST, [grant()]);
+    const granted = begun().grant(FIRST, [grant()]);
 
-    expect(granted.granted(FIRST, [grant()])).toBe(granted);
+    expect(granted.grant(FIRST, [grant()])).toBe(granted);
   });
 
   it('holds only grants to its own run, for holds of its own run', () => {
     expect(() =>
-      begun().granted(FIRST, [grant('api.linear.app', { runId: 'run_2' })]),
+      begun().grant(FIRST, [grant('api.linear.app', { runId: 'run_2' })]),
     ).toThrow(InconsistentStateError);
     expect(() =>
-      begun().granted(RunHold.of(RunId.of('run_2'), 1), [grant()]),
+      begun().grant(RunHold.of(RunId.of('run_2'), 1), [grant()]),
     ).toThrow(InconsistentStateError);
   });
 
   it('pins the recipient a hold first redeems for, answering it again and refusing any other', () => {
-    const pinned = begun().redeemedFor(FIRST, EGRESS);
+    const pinned = begun().redeemFor(FIRST, EGRESS);
 
     expect(pinned.redeemer).toEqual(EGRESS);
-    expect(pinned.redeemedFor(FIRST, EGRESS)).toBe(pinned);
-    expect(() => pinned.redeemedFor(FIRST, RESTARTED)).toThrow(
+    expect(pinned.redeemFor(FIRST, EGRESS)).toBe(pinned);
+    expect(() => pinned.redeemFor(FIRST, RESTARTED)).toThrow(
       RedemptionRecipientPinnedError,
     );
-    expect(() => pinned.redeemedFor(FIRST, SHARED)).toThrow(
+    expect(() => pinned.redeemFor(FIRST, SHARED)).toThrow(
       RedemptionRecipientPinnedError,
     );
   });
 
   it('pins a shared egress, not its key, so another node of that egress can redeem again', () => {
-    const pinned = begun().redeemedFor(FIRST, SHARED);
+    const pinned = begun().redeemFor(FIRST, SHARED);
 
-    expect(pinned.redeemedFor(FIRST, SHARED)).toBe(pinned);
-    expect(pinned.redeemedFor(FIRST, ANOTHER_NODE).recipient).toEqual(
+    expect(pinned.redeemFor(FIRST, SHARED)).toBe(pinned);
+    expect(pinned.redeemFor(FIRST, ANOTHER_NODE).recipient).toEqual(
       RedemptionRecipient.of('another-key'),
     );
-    expect(() => pinned.redeemedFor(FIRST, ANOTHER_EGRESS)).toThrow(
+    expect(() => pinned.redeemFor(FIRST, ANOTHER_EGRESS)).toThrow(
       RedemptionRecipientPinnedError,
     );
-    expect(() => pinned.redeemedFor(FIRST, EGRESS)).toThrow(
+    expect(() => pinned.redeemFor(FIRST, EGRESS)).toThrow(
       RedemptionRecipientPinnedError,
     );
   });
 
   it('starts afresh when the run is held again, dropping the earlier hold’s grants and pin', () => {
-    const held = begun().granted(FIRST, [grant()]).redeemedFor(FIRST, EGRESS);
+    const held = begun().grant(FIRST, [grant()]).redeemFor(FIRST, EGRESS);
 
-    const again = held.redeemedFor(SECOND, RESTARTED);
+    const again = held.redeemFor(SECOND, RESTARTED);
 
     expect(again.hold).toEqual(SECOND);
     expect(again.redeemer).toEqual(RESTARTED);
     expect(again.grants).toEqual([]);
-    expect(again.granted(SECOND, [grant()]).allows(SECOND, grant())).toBe(true);
+    expect(again.grant(SECOND, [grant()]).allows(SECOND, grant())).toBe(true);
   });
 
   it('allows nothing to, and grants and redeems nothing for, a hold the run has moved past', () => {
-    const moved = begun().granted(FIRST, [grant()]).granted(SECOND, [grant()]);
+    const moved = begun().grant(FIRST, [grant()]).grant(SECOND, [grant()]);
 
     expect(moved.allows(FIRST, grant())).toBe(false);
-    expect(() => moved.granted(FIRST, [grant()])).toThrow(RunHoldOverError);
-    expect(() => moved.redeemedFor(FIRST, EGRESS)).toThrow(RunHoldOverError);
+    expect(() => moved.grant(FIRST, [grant()])).toThrow(RunHoldOverError);
+    expect(() => moved.redeemFor(FIRST, EGRESS)).toThrow(RunHoldOverError);
   });
 
   it('lets a lost hold’s grants go without ending the run, so its next hold is granted afresh', () => {
     const lost = begun()
-      .granted(FIRST, [grant()])
-      .redeemedFor(FIRST, EGRESS)
-      .lostHold(FIRST);
+      .grant(FIRST, [grant()])
+      .redeemFor(FIRST, EGRESS)
+      .loseHold(FIRST);
 
     expect(lost.isHoldLost).toBe(true);
     expect(lost.isEnded).toBe(false);
     expect(lost.grants).toEqual([]);
     expect(lost.allows(FIRST, grant())).toBe(false);
-    expect(lost.lostHold(FIRST)).toBe(lost);
-    expect(() => lost.granted(FIRST, [grant()])).toThrow(RunHoldOverError);
-    expect(() => lost.redeemedFor(FIRST, EGRESS)).toThrow(RunHoldOverError);
+    expect(lost.loseHold(FIRST)).toBe(lost);
+    expect(() => lost.grant(FIRST, [grant()])).toThrow(RunHoldOverError);
+    expect(() => lost.redeemFor(FIRST, EGRESS)).toThrow(RunHoldOverError);
 
     const regranted = lost
-      .redeemedFor(SECOND, RESTARTED)
-      .granted(SECOND, [grant()]);
+      .redeemFor(SECOND, RESTARTED)
+      .grant(SECOND, [grant()]);
 
     expect(regranted.isHoldLost).toBe(false);
     expect(regranted.allows(SECOND, grant())).toBe(true);
   });
 
   it('keeps a later hold when an earlier one is lost', () => {
-    const later = begun().granted(SECOND, [grant()]);
+    const later = begun().grant(SECOND, [grant()]);
 
-    expect(later.lostHold(FIRST)).toBe(later);
+    expect(later.loseHold(FIRST)).toBe(later);
   });
 
   it('lets every grant go once its run ends, and grants and redeems nothing after, whatever the hold', () => {
     const ended = begun()
-      .granted(FIRST, [grant()])
-      .redeemedFor(FIRST, EGRESS)
-      .ended(ENDED_AT);
+      .grant(FIRST, [grant()])
+      .redeemFor(FIRST, EGRESS)
+      .end(ENDED_AT);
 
     expect(ended.isEnded).toBe(true);
     expect(ended.grants).toEqual([]);
     expect(ended.allows(FIRST, grant())).toBe(false);
-    expect(ended.ended(endedAfter(1))).toBe(ended);
-    expect(ended.lostHold(SECOND)).toBe(ended);
-    expect(() => ended.granted(SECOND, [grant()])).toThrow(RunGrantsEndedError);
-    expect(() => ended.redeemedFor(SECOND, RESTARTED)).toThrow(
+    expect(ended.end(endedAfter(1))).toBe(ended);
+    expect(ended.loseHold(SECOND)).toBe(ended);
+    expect(() => ended.grant(SECOND, [grant()])).toThrow(RunGrantsEndedError);
+    expect(() => ended.redeemFor(SECOND, RESTARTED)).toThrow(
       RunGrantsEndedError,
     );
   });
 
   it('is forgotten a week after its run ends, and not before', () => {
-    const ended = begun().granted(FIRST, [grant()]).ended(ENDED_AT);
+    const ended = begun().grant(FIRST, [grant()]).end(ENDED_AT);
 
     expect(begun().isForgettableAt(endedAfter(WEEK * 52))).toBe(false);
     expect(ended.isForgettableAt(endedAfter(WEEK - 1))).toBe(false);
-    expect(() => ended.forgotten(endedAfter(WEEK - 1))).toThrow(
+    expect(() => ended.purge(endedAfter(WEEK - 1))).toThrow(
       InconsistentStateError,
     );
-    expect(ended.forgotten(endedAfter(WEEK)).isDiscarded).toBe(true);
+    expect(ended.purge(endedAfter(WEEK)).isDiscarded).toBe(true);
     expect(RunGrants.endedForgettablyBy(endedAfter(WEEK))).toEqual(ENDED_AT);
   });
 
   it('is forgotten at once when its workspace is abandoned, ended or not', () => {
-    expect(begun().granted(FIRST, [grant()]).abandoned().isDiscarded).toBe(
-      true,
-    );
+    expect(begun().grant(FIRST, [grant()]).abandon().isDiscarded).toBe(true);
   });
 
   it('is kept only at a version it could have been saved at, never granted past its hold', () => {
@@ -220,7 +218,7 @@ describe('RunGrants', () => {
   });
 
   it('hands out a copy of its grants, never its own list', () => {
-    const granted = begun().granted(FIRST, [grant()]);
+    const granted = begun().grant(FIRST, [grant()]);
 
     (granted.grants as SecretGrant[]).push(grant('uploads.linear.app'));
 

@@ -13,9 +13,9 @@ import type { Memory } from '@memory/domain/aggregates/memory.aggregate';
 import { UnknownRunError } from '@memory/domain/exceptions/unknown-run.error';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import type { MemoryDraftRepository } from '@memory/domain/repositories/memory-draft.repository';
-import type { MemoryClearance } from '@memory/domain/services/memory-clearance';
+import type { TeamAccess } from '@memory/domain/services/team-access';
 import { MemoryId } from '@memory/domain/value-objects/memory-id.vo';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -36,17 +36,14 @@ export class ReadRunMemoriesHandler
 
   async execute(query: ReadRunMemoriesQuery): Promise<RunMemoriesDto> {
     try {
-      const clearance = await this.access.clearance(
-        query.teamId,
-        query.viewerId,
-      );
+      const access = await this.access.forTeam(query.teamId, query.viewerId);
       const runId = RunId.of(query.runId);
       const [run, site] = await Promise.all([
         this.work.run(runId),
         this.work.siteOfRun(runId),
       ]);
 
-      if (!run || !site || !clearance.sees(site)) {
+      if (!run || !site || !access.sees(site)) {
         throw new UnknownRunError(query.runId);
       }
 
@@ -54,9 +51,9 @@ export class ReadRunMemoriesHandler
         .filter((each) => each.way === 'recalled')
         .map((each) => each.memoryId.value);
       const [briefed, cut, remembered, proposed] = await Promise.all([
-        this.held(clearance, run.briefed),
-        this.held(clearance, run.cut),
-        this.held(clearance, recalled),
+        this.held(access, run.briefed),
+        this.held(access, run.cut),
+        this.held(access, recalled),
         run.taskId ? this.proposedIn(run.taskId, runId) : [],
       ]);
       const reviewItemId =
@@ -72,19 +69,19 @@ export class ReadRunMemoriesHandler
         reviewItemId,
       };
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 
   private async held(
-    clearance: MemoryClearance,
+    access: TeamAccess,
     ids: readonly string[],
   ): Promise<readonly Memory[]> {
     const found = await this.memories.findAll(
       [...new Set(ids)].map((each) => MemoryId.of(each)),
     );
 
-    return found.filter((each) => clearance.holds(each));
+    return found.filter((each) => access.holds(each));
   }
 
   private async proposedIn(

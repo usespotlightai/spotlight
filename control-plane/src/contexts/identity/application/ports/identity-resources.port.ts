@@ -6,14 +6,14 @@ import type { WorkspaceTokenTrustId } from '@shared-kernel/domain/value-objects/
 
 export const IDENTITY_RESOURCES = Symbol('IDENTITY_RESOURCES');
 
-export interface KeptWorkspace {
+export interface WorkspaceRecord {
   readonly id: WorkspaceId;
   readonly version: number;
   readonly name: string;
   readonly slug: string;
 }
 
-export interface KeptTeam {
+export interface TeamRecord {
   readonly id: TeamId;
   readonly version: number;
   readonly workspaceId: WorkspaceId;
@@ -21,7 +21,7 @@ export interface KeptTeam {
   readonly name: string;
 }
 
-export interface KeptWorkspaceToken {
+export interface WorkspaceTokenRecord {
   readonly id: WorkspaceTokenId;
   readonly version: number;
   readonly workspaceId: WorkspaceId;
@@ -33,7 +33,7 @@ export interface KeptWorkspaceToken {
   readonly expiresAt: Date | null;
 }
 
-export interface KeptWorkspaceTokenTrust {
+export interface WorkspaceTokenTrustRecord {
   readonly id: WorkspaceTokenTrustId;
   readonly version: number;
   readonly workspaceId: WorkspaceId;
@@ -48,17 +48,17 @@ export interface KeptWorkspaceTokenTrust {
 }
 
 export interface IdentityResourcesPort {
-  workspaceWithId(id: WorkspaceId): Promise<KeptWorkspace | null>;
+  workspaceWithId(id: WorkspaceId): Promise<WorkspaceRecord | null>;
 
-  workspaceWithSlug(slug: string): Promise<KeptWorkspace | null>;
+  workspaceWithSlug(slug: string): Promise<WorkspaceRecord | null>;
 
-  workspacesJoinedBy(userId: UserId): Promise<readonly KeptWorkspace[]>;
+  workspacesJoinedBy(userId: UserId): Promise<readonly WorkspaceRecord[]>;
 
-  teamWithId(id: TeamId): Promise<KeptTeam | null>;
+  teamWithId(id: TeamId): Promise<TeamRecord | null>;
 
-  teamAt(workspaceId: WorkspaceId, key: string): Promise<KeptTeam | null>;
+  teamAt(workspaceId: WorkspaceId, key: string): Promise<TeamRecord | null>;
 
-  teamsIn(workspaceId: WorkspaceId): Promise<readonly KeptTeam[]>;
+  teamsIn(workspaceId: WorkspaceId): Promise<readonly TeamRecord[]>;
 
   teamKeysIn(workspaceId: WorkspaceId): Promise<readonly string[]>;
 
@@ -66,27 +66,27 @@ export interface IdentityResourcesPort {
 
   mintingTrustKeysIn(workspaceId: WorkspaceId): Promise<readonly string[]>;
 
-  tokensIn(workspaceId: WorkspaceId): Promise<readonly KeptWorkspaceToken[]>;
+  tokensIn(workspaceId: WorkspaceId): Promise<readonly WorkspaceTokenRecord[]>;
 
-  tokenWithId(id: WorkspaceTokenId): Promise<KeptWorkspaceToken | null>;
+  tokenWithId(id: WorkspaceTokenId): Promise<WorkspaceTokenRecord | null>;
 
   tokenAt(
     workspaceId: WorkspaceId,
     name: string,
-  ): Promise<KeptWorkspaceToken | null>;
+  ): Promise<WorkspaceTokenRecord | null>;
 
   tokenTrustWithId(
     id: WorkspaceTokenTrustId,
-  ): Promise<KeptWorkspaceTokenTrust | null>;
+  ): Promise<WorkspaceTokenTrustRecord | null>;
 
   tokenTrustAt(
     workspaceId: WorkspaceId,
     key: string,
-  ): Promise<KeptWorkspaceTokenTrust | null>;
+  ): Promise<WorkspaceTokenTrustRecord | null>;
 
   tokenTrustsIn(
     workspaceId: WorkspaceId,
-  ): Promise<readonly KeptWorkspaceTokenTrust[]>;
+  ): Promise<readonly WorkspaceTokenTrustRecord[]>;
 
   tokenTrustKeysIn(workspaceId: WorkspaceId): Promise<readonly string[]>;
 }

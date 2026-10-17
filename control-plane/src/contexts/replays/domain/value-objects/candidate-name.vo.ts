@@ -1,6 +1,6 @@
 import { InvalidCandidateError } from '@replays/domain/exceptions/invalid-candidate.error';
 
-const MOST_LENGTH = 100;
+const MAX_LENGTH = 100;
 
 const LIVE_PREFIX = 'Live config';
 
@@ -14,10 +14,10 @@ const SEARCHED = /^[a-z0-9][a-z0-9-]{0,62}$/;
 
 export const SEED_NAME = 'seed';
 
-const CANDIDATE_NAME_SAYS = `name must be 1 to ${MOST_LENGTH} characters`;
+const CANDIDATE_NAME_SAYS = `name must be 1 to ${MAX_LENGTH} characters`;
 
 const refusalOf = (raw: string): string | null => {
-  if (raw.length === 0 || raw.length > MOST_LENGTH) {
+  if (raw.length === 0 || raw.length > MAX_LENGTH) {
     return CANDIDATE_NAME_SAYS;
   }
   if (raw.trim() !== raw) {

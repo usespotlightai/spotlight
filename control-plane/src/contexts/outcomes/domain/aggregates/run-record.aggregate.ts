@@ -183,7 +183,7 @@ export class RunRecord extends EventRecorder {
     return 'other';
   }
 
-  ended(end: RunEnd): RunRecord {
+  recordEnd(end: RunEnd): RunRecord {
     if (this.end) {
       return this;
     }
@@ -199,7 +199,7 @@ export class RunRecord extends EventRecorder {
     return this.superseded ? this : this.with({ supersededAt: at });
   }
 
-  checked(verdict: CheckVerdict, at: Date): RunRecord {
+  recordCheck(verdict: CheckVerdict, at: Date): RunRecord {
     if (
       this.checks === null ||
       (this.checks === 'skipped' && verdict !== 'skipped')
@@ -210,7 +210,7 @@ export class RunRecord extends EventRecorder {
     return this;
   }
 
-  actedOn(act: NextAct): RunRecord {
+  recordAction(act: NextAct): RunRecord {
     if (act.answersApproval) {
       return this.approvalAnsweredAt &&
         this.approvalAnsweredAt.getTime() <= act.at.getTime()
@@ -223,7 +223,7 @@ export class RunRecord extends EventRecorder {
       : this.settledWith({ next: act });
   }
 
-  digested(cost: RunCost, tools: RunTools): RunRecord {
+  recordDigest(cost: RunCost, tools: RunTools): RunRecord {
     return this.cost ? this : this.settledWith({ cost, tools });
   }
 
@@ -233,7 +233,7 @@ export class RunRecord extends EventRecorder {
       : this.with({ refusals: [...this.refusals, refusal] });
   }
 
-  usedMemories(way: MemoryWay, memories: readonly string[]): RunRecord {
+  recordMemories(way: MemoryWay, memories: readonly string[]): RunRecord {
     const used = this.memories.with(way, memories);
 
     return used === this.memories ? this : this.with({ memories: used });

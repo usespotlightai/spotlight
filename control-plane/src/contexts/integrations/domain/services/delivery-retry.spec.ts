@@ -1,5 +1,5 @@
 import {
-  MOST_DELIVERY_ATTEMPTS,
+  MAX_DELIVERY_ATTEMPTS,
   nextDeliveryAttempt,
 } from '@integrations/domain/services/delivery-retry';
 import { describe, expect, it } from 'vitest';
@@ -20,11 +20,11 @@ describe('nextDeliveryAttempt', () => {
     const inner = new Date(NOW.getTime() + 60 * 60 * 1000);
 
     expect(
-      nextDeliveryAttempt(MOST_DELIVERY_ATTEMPTS - 1, NOW)?.getTime(),
+      nextDeliveryAttempt(MAX_DELIVERY_ATTEMPTS - 1, NOW)?.getTime(),
     ).toBeLessThanOrEqual(inner.getTime());
   });
 
   it('gives up once the delivery has had its attempts', () => {
-    expect(nextDeliveryAttempt(MOST_DELIVERY_ATTEMPTS, NOW)).toBeNull();
+    expect(nextDeliveryAttempt(MAX_DELIVERY_ATTEMPTS, NOW)).toBeNull();
   });
 });

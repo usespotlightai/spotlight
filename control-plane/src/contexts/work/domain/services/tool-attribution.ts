@@ -1,6 +1,6 @@
 import {
-  areWords,
-  WORDS,
+  isSlug,
+  SLUG_SHAPE,
 } from '@shared-kernel/domain/value-objects/identifier-shapes';
 import { LatencyHistogram } from '@shared-kernel/domain/value-objects/latency-histogram.vo';
 import { BUILT_IN_SKILL_KEYS } from '@work/domain/services/built-in-skills';
@@ -25,14 +25,14 @@ const BUILT_IN = new Set(BUILT_IN_SKILL_KEYS.map((each) => each.value));
 const escaped = (text: string): string =>
   text.replace(/[.*+?^${}()|[\]\\]/g, (found) => `\\${found}`);
 
-const teamSkill = (key: string): boolean => areWords(key) && !BUILT_IN.has(key);
+const teamSkill = (key: string): boolean => isSlug(key) && !BUILT_IN.has(key);
 
 const readUnder = (text: string, homes: readonly string[]): readonly string[] =>
   homes.flatMap((home) =>
     [
       ...text.matchAll(
         new RegExp(
-          `(?:^|[\\s/"'=:])${escaped(home.replace(/\/+$/, ''))}/(${WORDS})/`,
+          `(?:^|[\\s/"'=:])${escaped(home.replace(/\/+$/, ''))}/(${SLUG_SHAPE})/`,
           'g',
         ),
       ),

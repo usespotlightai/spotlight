@@ -147,8 +147,8 @@ describe('PullRequest', () => {
 
   it('records each change once, at the version it will be stored as', () => {
     const changed = opened()
-      .reviewedBy(review(1, 'commented', 9))
-      .reviewedBy(review(2, 'approved', 10));
+      .recordReview(review(1, 'commented', 9))
+      .recordReview(review(2, 'approved', 10));
 
     const events = changed.pullEvents();
 
@@ -161,17 +161,17 @@ describe('PullRequest', () => {
 
   it('changes nothing where it hears what it already holds', () => {
     const held = opened();
-    const reviewed = stored(held.reviewedBy(review(1, 'approved', 9)));
+    const reviewed = stored(held.recordReview(review(1, 'approved', 9)));
 
-    expect(held.described(factsOf())).toBe(held);
-    expect(reviewed.reviewedBy(review(1, 'approved', 9))).toBe(reviewed);
+    expect(held.describe(factsOf())).toBe(held);
+    expect(reviewed.recordReview(review(1, 'approved', 9))).toBe(reviewed);
   });
 
   it('keeps a merged pull request merged, whatever it hears after', () => {
-    const merged = opened().described(
+    const merged = opened().describe(
       factsOf({ state: 'merged', closedAt: MERGED }),
     );
-    const after = stored(merged).described(
+    const after = stored(merged).describe(
       factsOf({ state: 'closed', closedAt: at(23), title: 'Renamed' }),
     );
 
@@ -182,7 +182,7 @@ describe('PullRequest', () => {
 
   it('keeps the size it knows where it later hears none', () => {
     expect(
-      opened().described(factsOf({ size: null, title: 'New' })).size,
+      opened().describe(factsOf({ size: null, title: 'New' })).size,
     ).toEqual({ additions: 40, deletions: 3, changedFiles: 2 });
   });
 
@@ -195,16 +195,16 @@ describe('PullRequest', () => {
   it('ignores what GitHub said before what it already heard, however late it arrives', () => {
     const newer = opened({ title: 'Newer', updatedAt: at(12) });
 
+    expect(newer.describe(factsOf({ title: 'Older', updatedAt: at(11) }))).toBe(
+      newer,
+    );
     expect(
-      newer.described(factsOf({ title: 'Older', updatedAt: at(11) })),
-    ).toBe(newer);
-    expect(
-      newer.described(factsOf({ title: 'Newest', updatedAt: at(13) })).title,
+      newer.describe(factsOf({ title: 'Newest', updatedAt: at(13) })).title,
     ).toBe('Newest');
   });
 
   it('remembers GitHub touching it without saying anything new', () => {
-    const touched = opened({ updatedAt: at(12) }).described(
+    const touched = opened({ updatedAt: at(12) }).describe(
       factsOf({ updatedAt: at(14) }),
     );
 
@@ -214,8 +214,8 @@ describe('PullRequest', () => {
 
   it('forgets when it closed once it opens again', () => {
     const reopened = stored(
-      opened().described(factsOf({ state: 'closed', closedAt: at(12) })),
-    ).described(factsOf({ state: 'open', closedAt: null, updatedAt: at(13) }));
+      opened().describe(factsOf({ state: 'closed', closedAt: at(12) })),
+    ).describe(factsOf({ state: 'open', closedAt: null, updatedAt: at(13) }));
 
     expect(reopened.state).toBe('open');
     expect(reopened.closedAt).toBeNull();
@@ -223,16 +223,16 @@ describe('PullRequest', () => {
 
   it('stays closed when told it is open no later than it closed', () => {
     const closed = stored(
-      opened().described(
+      opened().describe(
         factsOf({ state: 'closed', closedAt: at(12), updatedAt: at(12) }),
       ),
     );
 
     expect(
-      closed.described(factsOf({ state: 'open', updatedAt: at(12) })).state,
+      closed.describe(factsOf({ state: 'open', updatedAt: at(12) })).state,
     ).toBe('closed');
     expect(
-      closed.described(factsOf({ state: 'open', updatedAt: null })).state,
+      closed.describe(factsOf({ state: 'open', updatedAt: null })).state,
     ).toBe('closed');
   });
 
@@ -243,34 +243,34 @@ describe('PullRequest', () => {
 
     it('counts each approval or request for changes by a person as a round', () => {
       const reviewed = opened()
-        .reviewedBy(review(1, 'changes-requested', 9))
-        .reviewedBy(review(2, 'commented', 10))
-        .reviewedBy(review(3, 'approved', 11));
+        .recordReview(review(1, 'changes-requested', 9))
+        .recordReview(review(2, 'commented', 10))
+        .recordReview(review(3, 'approved', 11));
 
       expect(reviewed.reviewRounds).toBe(2);
     });
 
     it('counts comments after the last verdict as a round still open', () => {
       const reviewed = opened()
-        .reviewedBy(review(1, 'changes-requested', 9))
-        .reviewedBy(review(2, 'commented', 10));
+        .recordReview(review(1, 'changes-requested', 9))
+        .recordReview(review(2, 'commented', 10));
 
       expect(reviewed.reviewRounds).toBe(2);
     });
 
     it('counts comments with no verdict as one round', () => {
       const reviewed = opened()
-        .reviewedBy(review(1, 'commented', 9))
-        .reviewedBy(review(2, 'commented', 10));
+        .recordReview(review(1, 'commented', 9))
+        .recordReview(review(2, 'commented', 10));
 
       expect(reviewed.reviewRounds).toBe(1);
     });
 
     it('leaves out what bots said, and hears each review once', () => {
       const reviewed = opened()
-        .reviewedBy(review(1, 'approved', 9, true))
-        .reviewedBy(review(2, 'approved', 10))
-        .reviewedBy(review(2, 'approved', 10));
+        .recordReview(review(1, 'approved', 9, true))
+        .recordReview(review(2, 'approved', 10))
+        .recordReview(review(2, 'approved', 10));
 
       expect(reviewed.reviewRounds).toBe(1);
       expect(reviewed.firstReviewAt).toEqual(at(10));
@@ -278,10 +278,10 @@ describe('PullRequest', () => {
 
     it('leaves out a dismissed review, whichever is heard first', () => {
       const dismissedAfter = opened()
-        .reviewedBy(review(1, 'changes-requested', 9))
-        .reviewedBy(review(2, 'approved', 10))
-        .reviewDismissed(1);
-      const dismissedBefore = stored(opened().reviewDismissed(1)).reviewedBy(
+        .recordReview(review(1, 'changes-requested', 9))
+        .recordReview(review(2, 'approved', 10))
+        .dismissReview(1);
+      const dismissedBefore = stored(opened().dismissReview(1)).recordReview(
         review(1, 'changes-requested', 9),
       );
 
@@ -298,8 +298,8 @@ describe('PullRequest', () => {
 
     it('takes the earliest review by a person as the first, however late it is heard', () => {
       const reviewed = opened()
-        .reviewedBy(review(1, 'approved', 11))
-        .reviewedBy(review(2, 'commented', 9));
+        .recordReview(review(1, 'approved', 11))
+        .recordReview(review(2, 'commented', 9));
 
       expect(reviewed.firstReviewAt).toEqual(at(9));
     });
@@ -308,13 +308,13 @@ describe('PullRequest', () => {
   describe('review comments', () => {
     it('counts each comment a person made once, and forgets a deleted one', () => {
       const commented = opened()
-        .commentedOn(comment(1, 'created'))
-        .commentedOn(comment(1, 'created'))
-        .commentedOn(comment(2, 'created'))
-        .commentedOn(comment(3, 'created', { byBot: true }))
-        .commentedOn(comment(4, 'created', { on: 'conversation' }))
-        .commentedOn(comment(2, 'deleted'))
-        .commentedOn(comment(1, 'edited'));
+        .recordComment(comment(1, 'created'))
+        .recordComment(comment(1, 'created'))
+        .recordComment(comment(2, 'created'))
+        .recordComment(comment(3, 'created', { byBot: true }))
+        .recordComment(comment(4, 'created', { on: 'conversation' }))
+        .recordComment(comment(2, 'deleted'))
+        .recordComment(comment(1, 'edited'));
 
       expect(commented.comments).toEqual([1]);
     });
@@ -322,13 +322,15 @@ describe('PullRequest', () => {
     it('does not count a deleted comment again when its creation is heard after', () => {
       const deleted = stored(
         opened()
-          .commentedOn(comment(1, 'created'))
-          .commentedOn(comment(1, 'deleted')),
+          .recordComment(comment(1, 'created'))
+          .recordComment(comment(1, 'deleted')),
       );
-      const deletedFirst = stored(opened().commentedOn(comment(2, 'deleted')));
+      const deletedFirst = stored(
+        opened().recordComment(comment(2, 'deleted')),
+      );
 
-      expect(deleted.commentedOn(comment(1, 'created'))).toBe(deleted);
-      expect(deletedFirst.commentedOn(comment(2, 'created'))).toBe(
+      expect(deleted.recordComment(comment(1, 'created'))).toBe(deleted);
+      expect(deletedFirst.recordComment(comment(2, 'created'))).toBe(
         deletedFirst,
       );
       expect(deletedFirst.comments).toEqual([]);
@@ -344,7 +346,7 @@ describe('PullRequest', () => {
     });
 
     it('becomes ready for review when GitHub marks the draft ready', () => {
-      const ready = opened({ draft: true }).described(
+      const ready = opened({ draft: true }).describe(
         factsOf({ markedReadyAt: at(11), updatedAt: at(11) }),
       );
 
@@ -354,21 +356,21 @@ describe('PullRequest', () => {
 
     it('takes the time GitHub last changed it where it missed the draft being marked ready', () => {
       expect(
-        opened({ draft: true }).described(factsOf({ updatedAt: at(12) }))
+        opened({ draft: true }).describe(factsOf({ updatedAt: at(12) }))
           .readyForReviewAt,
       ).toEqual(at(12));
     });
 
     it('was first ready for review even after it turns back into a draft', () => {
       const ready = stored(
-        opened({ draft: true }).described(
+        opened({ draft: true }).describe(
           factsOf({ markedReadyAt: at(11), updatedAt: at(11) }),
         ),
       );
       const draftAgain = stored(
-        ready.described(factsOf({ draft: true, updatedAt: at(12) })),
+        ready.describe(factsOf({ draft: true, updatedAt: at(12) })),
       );
-      const readyAgain = draftAgain.described(
+      const readyAgain = draftAgain.describe(
         factsOf({ markedReadyAt: at(13), updatedAt: at(13) }),
       );
 
@@ -379,16 +381,16 @@ describe('PullRequest', () => {
 
     it('keeps each spell back as a draft after it was first ready', () => {
       const ready = stored(
-        opened({ draft: true }).described(
+        opened({ draft: true }).describe(
           factsOf({ markedReadyAt: at(11), updatedAt: at(11) }),
         ),
       );
       const draftAgain = stored(
-        ready.described(
+        ready.describe(
           factsOf({ draft: true, markedDraftAt: at(12), updatedAt: at(12) }),
         ),
       );
-      const readyAgain = draftAgain.described(
+      const readyAgain = draftAgain.describe(
         factsOf({ markedReadyAt: at(13), updatedAt: at(13) }),
       );
 
@@ -399,18 +401,17 @@ describe('PullRequest', () => {
         draftSpells: [{ from: at(12), to: at(13) }],
       });
       expect(
-        stored(readyAgain).described(factsOf({ updatedAt: at(14) }))
-          .draftSpells,
+        stored(readyAgain).describe(factsOf({ updatedAt: at(14) })).draftSpells,
       ).toEqual([{ from: at(12), to: at(13) }]);
     });
 
     it('opens a spell when GitHub turns it back into a draft before the word that it was ready arrives', () => {
       const draftAgain = stored(
-        opened({ draft: true }).described(
+        opened({ draft: true }).describe(
           factsOf({ draft: true, markedDraftAt: at(12), updatedAt: at(12) }),
         ),
       );
-      const lateReady = draftAgain.described(
+      const lateReady = draftAgain.describe(
         factsOf({ markedReadyAt: at(11), updatedAt: at(11) }),
       );
 
@@ -430,7 +431,7 @@ describe('PullRequest', () => {
       expect(draft.readyForReviewAt).toBeNull();
       expect(draft.draftSpells).toEqual([{ from: at(12), to: null }]);
       expect(
-        stored(draft).described(
+        stored(draft).describe(
           factsOf({ markedReadyAt: at(14), updatedAt: at(14) }),
         ).draftSpells,
       ).toEqual([{ from: at(12), to: at(14) }]);
@@ -438,39 +439,39 @@ describe('PullRequest', () => {
 
     it('closes a spell at the time GitHub last changed it where it missed the draft being marked ready', () => {
       const draftAgain = stored(
-        opened().described(
+        opened().describe(
           factsOf({ draft: true, markedDraftAt: at(10), updatedAt: at(10) }),
         ),
       );
 
       expect(
-        draftAgain.described(factsOf({ updatedAt: at(13) })).draftSpells,
+        draftAgain.describe(factsOf({ updatedAt: at(13) })).draftSpells,
       ).toEqual([{ from: at(10), to: at(13) }]);
     });
 
     it('keeps one spell open however often it hears the pull request is a draft', () => {
       const draftAgain = stored(
-        opened().described(
+        opened().describe(
           factsOf({ draft: true, markedDraftAt: at(10), updatedAt: at(10) }),
         ),
       );
 
       expect(
-        draftAgain.described(
+        draftAgain.describe(
           factsOf({ draft: true, markedDraftAt: at(10), updatedAt: at(10) }),
         ),
       ).toBe(draftAgain);
       expect(
-        draftAgain.described(factsOf({ draft: true, updatedAt: at(11) }))
+        draftAgain.describe(factsOf({ draft: true, updatedAt: at(11) }))
           .draftSpells,
       ).toEqual([{ from: at(10), to: null }]);
     });
 
     it('misses a spell whose turn back into a draft arrives after a later word', () => {
-      const later = stored(opened().described(factsOf({ updatedAt: at(13) })));
+      const later = stored(opened().describe(factsOf({ updatedAt: at(13) })));
 
       expect(
-        later.described(
+        later.describe(
           factsOf({ draft: true, markedDraftAt: at(10), updatedAt: at(10) }),
         ),
       ).toBe(later);
@@ -478,14 +479,14 @@ describe('PullRequest', () => {
 
     it('keeps its spells when an earlier mark of ready arrives late', () => {
       const guessed = stored(
-        opened({ draft: true }).described(factsOf({ updatedAt: at(10) })),
+        opened({ draft: true }).describe(factsOf({ updatedAt: at(10) })),
       );
       const drafted = stored(
-        guessed.described(
+        guessed.describe(
           factsOf({ draft: true, markedDraftAt: at(12), updatedAt: at(12) }),
         ),
       );
-      const marked = drafted.described(
+      const marked = drafted.describe(
         factsOf({ markedReadyAt: at(9), updatedAt: at(9) }),
       );
 
@@ -495,9 +496,9 @@ describe('PullRequest', () => {
 
     it('takes the time GitHub marked the draft ready even when it arrives after a later change', () => {
       const guessed = stored(
-        opened({ draft: true }).described(factsOf({ updatedAt: at(12) })),
+        opened({ draft: true }).describe(factsOf({ updatedAt: at(12) })),
       );
-      const marked = guessed.described(
+      const marked = guessed.describe(
         factsOf({ markedReadyAt: at(11), updatedAt: at(11) }),
       );
 
@@ -511,10 +512,10 @@ describe('PullRequest', () => {
   describe('review times', () => {
     it('is first unblocked by the earliest review of anyone but its author, bots and dismissed reviews included', () => {
       const reviewed = opened()
-        .reviewedBy(review(1, 'commented', 8, false, 'ada'))
-        .reviewedBy(review(2, 'commented', 9, true))
-        .reviewedBy(review(3, 'approved', 10))
-        .reviewDismissed(2);
+        .recordReview(review(1, 'commented', 8, false, 'ada'))
+        .recordReview(review(2, 'commented', 9, true))
+        .recordReview(review(3, 'approved', 10))
+        .dismissReview(2);
 
       expect(recorded(reviewed)).toMatchObject({
         firstUnblockingReviewAt: at(9),
@@ -524,18 +525,18 @@ describe('PullRequest', () => {
 
     it('is not unblocked by its author reviewing it', () => {
       expect(
-        opened().reviewedBy(review(1, 'commented', 9, false, 'ada'))
+        opened().recordReview(review(1, 'commented', 9, false, 'ada'))
           .firstUnblockingReviewAt,
       ).toBeNull();
     });
 
     it('was first approved at the earliest approval still standing', () => {
       const reviewed = opened()
-        .reviewedBy(review(1, 'approved', 9))
-        .reviewedBy(review(2, 'changes-requested', 10))
-        .reviewedBy(review(3, 'approved', 11, true))
-        .reviewedBy(review(4, 'approved', 12))
-        .reviewDismissed(1);
+        .recordReview(review(1, 'approved', 9))
+        .recordReview(review(2, 'changes-requested', 10))
+        .recordReview(review(3, 'approved', 11, true))
+        .recordReview(review(4, 'approved', 12))
+        .dismissReview(1);
 
       expect(reviewed.firstApprovedAt).toEqual(at(11));
       expect(opened().firstApprovedAt).toBeNull();
@@ -543,11 +544,11 @@ describe('PullRequest', () => {
 
     it('says when each person reviewed it, in order, leaving out bots and dismissed reviews', () => {
       const reviewed = opened()
-        .reviewedBy(review(1, 'approved', 12))
-        .reviewedBy(review(2, 'commented', 9))
-        .reviewedBy(review(3, 'commented', 10, true))
-        .reviewedBy(review(4, 'changes-requested', 11))
-        .reviewDismissed(4);
+        .recordReview(review(1, 'approved', 12))
+        .recordReview(review(2, 'commented', 9))
+        .recordReview(review(3, 'commented', 10, true))
+        .recordReview(review(4, 'changes-requested', 11))
+        .dismissReview(4);
 
       expect(recorded(reviewed)).toMatchObject({
         humanReviewedAt: [at(9), at(12)],
@@ -560,13 +561,13 @@ describe('PullRequest', () => {
 
     it('counts what each bot did on it, by login', () => {
       const busy = opened()
-        .reviewedBy(review(1, 'commented', 9, true))
-        .reviewedBy(review(2, 'approved', 10, true, 'renovate[bot]'))
-        .reviewedBy(review(3, 'approved', 11))
-        .commentedOn(comment(10, 'created', bot))
-        .commentedOn(comment(11, 'created', { ...bot, answers: 10 }))
-        .commentedOn(comment(12, 'created', { ...bot, on: 'conversation' }))
-        .commentedOn(
+        .recordReview(review(1, 'commented', 9, true))
+        .recordReview(review(2, 'approved', 10, true, 'renovate[bot]'))
+        .recordReview(review(3, 'approved', 11))
+        .recordComment(comment(10, 'created', bot))
+        .recordComment(comment(11, 'created', { ...bot, answers: 10 }))
+        .recordComment(comment(12, 'created', { ...bot, on: 'conversation' }))
+        .recordComment(
           comment(13, 'created', { ...bot, login: 'renovate[bot]' }),
         );
 
@@ -592,16 +593,18 @@ describe('PullRequest', () => {
     it('counts a bot comment once, and forgets a deleted one however late its creation is heard', () => {
       const commented = stored(
         opened()
-          .commentedOn(comment(10, 'created', bot))
-          .commentedOn(comment(10, 'created', bot))
-          .commentedOn(comment(10, 'edited', bot))
-          .commentedOn(comment(10, 'created', { ...bot, on: 'conversation' })),
+          .recordComment(comment(10, 'created', bot))
+          .recordComment(comment(10, 'created', bot))
+          .recordComment(comment(10, 'edited', bot))
+          .recordComment(
+            comment(10, 'created', { ...bot, on: 'conversation' }),
+          ),
       );
       const deleted = stored(
-        commented.commentedOn(comment(10, 'deleted', bot)),
+        commented.recordComment(comment(10, 'deleted', bot)),
       );
       const deletedFirst = stored(
-        opened().commentedOn(comment(11, 'deleted', bot)),
+        opened().recordComment(comment(11, 'deleted', bot)),
       );
 
       expect(recorded(commented)?.botActivity).toBeUndefined();
@@ -610,20 +613,20 @@ describe('PullRequest', () => {
       expect(deleted.botComments.filter((each) => !each.deleted)).toHaveLength(
         1,
       );
-      expect(deleted.commentedOn(comment(10, 'created', bot))).toBe(deleted);
+      expect(deleted.recordComment(comment(10, 'created', bot))).toBe(deleted);
       expect(deletedFirst.hasEvents).toBe(false);
-      expect(deletedFirst.commentedOn(comment(11, 'created', bot))).toBe(
+      expect(deletedFirst.recordComment(comment(11, 'created', bot))).toBe(
         deletedFirst,
       );
     });
 
     it('counts the threads a bot opened and how many of them are resolved now', () => {
       const threaded = opened()
-        .commentedOn(comment(10, 'created', bot))
-        .threadResolved(thread('PRRT_1', true, { opener: 10 }))
-        .threadResolved(thread('PRRT_2', true))
-        .threadResolved(thread('PRRT_2', false))
-        .threadResolved(thread('PRRT_3', true));
+        .recordComment(comment(10, 'created', bot))
+        .resolveThread(thread('PRRT_1', true, { opener: 10 }))
+        .resolveThread(thread('PRRT_2', true))
+        .resolveThread(thread('PRRT_2', false))
+        .resolveThread(thread('PRRT_3', true));
 
       expect(recorded(threaded)?.botActivity).toEqual([
         {
@@ -637,12 +640,12 @@ describe('PullRequest', () => {
     });
 
     it('hears a thread resolved again as nothing new, and leaves a person’s thread out', () => {
-      const resolved = stored(opened().threadResolved(thread('PRRT_1', true)));
-      const byPerson = opened().threadResolved(
+      const resolved = stored(opened().resolveThread(thread('PRRT_1', true)));
+      const byPerson = opened().resolveThread(
         thread('PRRT_2', true, { login: 'grace', byBot: false }),
       );
 
-      expect(resolved.threadResolved(thread('PRRT_1', true))).toBe(resolved);
+      expect(resolved.resolveThread(thread('PRRT_1', true))).toBe(resolved);
       expect(byPerson.threads).toHaveLength(0);
       expect(byPerson.hasEvents).toBe(false);
     });
@@ -659,7 +662,7 @@ describe('PullRequest', () => {
       });
 
     it('says which pull request a revert reverts once it merges', () => {
-      const merged = revert().described(
+      const merged = revert().describe(
         factsOf({
           url: PullRequestUrl.of('https://github.com/acme/api/pull/9'),
           number: 9,
@@ -688,24 +691,24 @@ describe('PullRequest', () => {
     it('marks a merged pull request reverted, once', () => {
       const merged = opened({ state: 'merged', closedAt: MERGED });
       const by = PullRequestUrl.of('https://github.com/acme/api/pull/9');
-      const reverted = merged.revertedWith(by);
+      const reverted = merged.recordRevert(by);
 
       expect(reverted.revertedBy).toEqual(by);
       expect(recorded(reverted)).toMatchObject({ revertedBy: by.value });
-      expect(stored(reverted).revertedWith(by).hasEvents).toBe(false);
+      expect(stored(reverted).recordRevert(by).hasEvents).toBe(false);
     });
 
     it('marks no open pull request reverted, nor one reverting itself', () => {
       const held = opened();
 
       expect(
-        held.revertedWith(
+        held.recordRevert(
           PullRequestUrl.of('https://github.com/acme/api/pull/9'),
         ),
       ).toBe(held);
 
       const merged = opened({ state: 'merged', closedAt: MERGED });
-      expect(merged.revertedWith(URL_7)).toBe(merged);
+      expect(merged.recordRevert(URL_7)).toBe(merged);
     });
   });
 

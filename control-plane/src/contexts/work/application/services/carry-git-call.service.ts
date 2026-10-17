@@ -4,7 +4,7 @@ import type {
   RepositoryGitPort,
 } from '@github/application/ports/repository-git.port';
 import type { WorkspaceConnectionsPort } from '@github/application/ports/workspace-connections.port';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
@@ -35,7 +35,7 @@ export class CarryGitCall implements GitGatewayPort {
     call: GitCall,
   ): Promise<GitAnswer | null> {
     const reached = await this.reaching(runId, runnerId, repo, service).catch(
-      rethrowAsFault,
+      rethrowAsApplicationError,
     );
 
     if (!reached) {

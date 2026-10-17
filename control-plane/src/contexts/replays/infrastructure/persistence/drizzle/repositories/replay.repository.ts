@@ -515,7 +515,7 @@ export class DrizzleReplayRepository implements ReplayRepository {
   async ofTeamStartedSince(
     teamId: TeamId,
     since: Date,
-    most: number,
+    max: number,
   ): Promise<readonly Replay[]> {
     return this.hydrated(
       await this.context.db
@@ -525,7 +525,7 @@ export class DrizzleReplayRepository implements ReplayRepository {
           and(eq(replay.teamId, teamId.value), gte(replay.startedAt, since)),
         )
         .orderBy(desc(replay.startedAt), desc(replay.id))
-        .limit(most),
+        .limit(max),
     );
   }
 
@@ -578,7 +578,7 @@ export class DrizzleReplayRepository implements ReplayRepository {
   }
 
   async add(added: Replay): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       await this.context.db.insert(replay).values({
         ...this.columnsOf(added),
         version: added.version,
@@ -589,7 +589,7 @@ export class DrizzleReplayRepository implements ReplayRepository {
   }
 
   async save(saved: Replay): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       const at = and(
         eq(replay.id, saved.id.value),
         eq(replay.version, saved.version),

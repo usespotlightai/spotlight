@@ -12,7 +12,7 @@ import { AutoGrowTextarea } from '@/components/shared/form/AutoGrowTextarea';
 import { PillButton } from '@/components/shared/PillButton';
 import { useRetireMemory } from '@/hooks/api/useRetireMemory';
 import { useSession } from '@/hooks/api/useSession';
-import { MOST_RETIRE_REASON } from '@/lib/memory';
+import { MAX_RETIRE_REASON } from '@/lib/memory';
 
 type RetireInPlaceProps = {
   teamId: string;
@@ -70,7 +70,7 @@ export function RetireInPlace({
             onKeyDown={onKeyDown}
             placeholder="Why it no longer holds"
             aria-label="Why it no longer holds"
-            maxLength={MOST_RETIRE_REASON}
+            maxLength={MAX_RETIRE_REASON}
             className="max-h-72 text-foreground text-sm leading-5"
           />
         </SaidCard>

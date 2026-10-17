@@ -45,7 +45,7 @@ export class DecisionSet
     super();
   }
 
-  static opened(input: {
+  static open(input: {
     id: DecisionSetId;
     taskId: TaskId;
     workspaceId: WorkspaceId;
@@ -162,7 +162,7 @@ export class DecisionSet
     return kept;
   }
 
-  drafted(input: {
+  recordDraft(input: {
     runId: RunId;
     proposed: readonly ProposedDecision[];
     grounds: DecisionGrounds;
@@ -201,7 +201,7 @@ export class DecisionSet
     return recorded;
   }
 
-  disputed(input: {
+  dispute(input: {
     id: DecisionDisputeId;
     decisionId: DecisionId;
     path: FilePath;
@@ -217,7 +217,7 @@ export class DecisionSet
       throw new UnknownDecisionError();
     }
 
-    const disputed = held.disputed(
+    const disputed = held.dispute(
       DecisionDispute.of({
         id: input.id,
         path: input.path,
@@ -247,7 +247,7 @@ export class DecisionSet
     return stood;
   }
 
-  closedUnmerged(): DecisionSet {
+  closeUnmerged(): DecisionSet {
     if (this.standing.stands || this.discarded) {
       return this;
     }

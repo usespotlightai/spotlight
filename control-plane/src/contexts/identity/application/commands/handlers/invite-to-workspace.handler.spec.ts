@@ -376,7 +376,7 @@ describe('InviteToWorkspaceHandler', () => {
     const { handler } = inviting();
 
     await expect(handler.execute(invite([]))).rejects.toMatchObject({
-      kind: 'invalid-input',
+      kind: 'invalid',
     });
   });
 

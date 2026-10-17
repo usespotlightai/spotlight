@@ -45,7 +45,7 @@ const holding = async () => {
   );
 
   await grants.save(
-    RunGrants.begun(RunHold.of(RunId.of('run_1'), 1), WORKSPACE),
+    RunGrants.start(RunHold.of(RunId.of('run_1'), 1), WORKSPACE),
   );
 
   const subscribers = secretsSubscribers({

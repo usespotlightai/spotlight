@@ -3,12 +3,12 @@ import {
   type InsightsColumn,
   InsightsTable,
 } from '@/components/features/insights/InsightsTable';
-import { countShown, spendShown, whyNoSpend } from '@/lib/insights';
+import { formatCount, formatSpend, whyNoSpend } from '@/lib/insights';
 import {
+  formatType,
   type PullRequestAuthor,
   type TypeShare,
   typeFilter,
-  typeShown,
 } from '@/lib/insights-pull-requests';
 
 export function PullRequestTypesTable({
@@ -23,14 +23,14 @@ export function PullRequestTypesTable({
   ) =>
     count > 0 ? (
       <InsightsLink tab="productivity" filter={typeFilter(share.type, author)}>
-        {countShown(count)}
+        {formatCount(count)}
       </InsightsLink>
     ) : (
-      countShown(0)
+      formatCount(0)
     );
 
   const columns: InsightsColumn<TypeShare>[] = [
-    { id: 'type', header: 'Type', cell: (share) => typeShown(share.type) },
+    { id: 'type', header: 'Type', cell: (share) => formatType(share.type) },
     {
       id: 'spotlight',
       header: 'Spotlight’s',
@@ -49,7 +49,7 @@ export function PullRequestTypesTable({
       numeric: true,
       cell: (share) =>
         share.spend || share.spotlight === 0 ? (
-          spendShown(share.spend)
+          formatSpend(share.spend)
         ) : (
           <span title={whyNoSpend(share.mixedCurrencies)}>–</span>
         ),

@@ -213,7 +213,7 @@ export class Review extends EventRecorder {
     return posted;
   }
 
-  withdrawn(standing: readonly ReviewComment[]): Review {
+  withdraw(standing: readonly ReviewComment[]): Review {
     if (this.state !== 'submitted') {
       throw new InvalidReviewError('cannot be withdrawn after it is posted');
     }

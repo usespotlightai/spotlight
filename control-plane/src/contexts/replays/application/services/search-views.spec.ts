@@ -29,7 +29,7 @@ const heldOutWorld = (
   const set = aSet(tasks);
   const ids = searchRunIds();
   const searching = aSearch({ set })
-    .replayEnded(
+    .recordReplayEnd(
       ReplayId.of('replay_seed'),
       'finished',
       { spent: Spend.of(10, 'USD'), unpriced: 0 },

@@ -1,4 +1,4 @@
-import { UseCaseFault } from '@shared-kernel/application/errors/use-case.fault';
+import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import { GrantWorkspaceArchiveHandler } from '@work/application/commands/handlers/grant-workspace-archive.handler';
 import { SealWorkspaceArchiveHandler } from '@work/application/commands/handlers/seal-workspace-archive.handler';
 import {
@@ -79,7 +79,7 @@ describe('keeping a workspace between runs', () => {
       grant.execute(
         new GrantWorkspaceArchiveCommand('run_1', 'runner_1', 1_024, SHA256),
       ),
-    ).rejects.toThrow(UseCaseFault);
+    ).rejects.toThrow(ApplicationError);
     await expect(
       grant.execute(
         new GrantWorkspaceArchiveCommand(
@@ -89,7 +89,7 @@ describe('keeping a workspace between runs', () => {
           SHA256,
         ),
       ),
-    ).rejects.toThrow(UseCaseFault);
+    ).rejects.toThrow(ApplicationError);
     expect(archives.kept.size).toBe(0);
   });
 
@@ -103,7 +103,7 @@ describe('keeping a workspace between runs', () => {
       grant.execute(
         new GrantWorkspaceArchiveCommand('run_1', 'runner_1', 1_024, SHA256),
       ),
-    ).rejects.toThrow(UseCaseFault);
+    ).rejects.toThrow(ApplicationError);
     expect(archives.kept.size).toBe(0);
   });
 
@@ -145,7 +145,7 @@ describe('keeping a workspace between runs', () => {
       seal.execute(
         new SealWorkspaceArchiveCommand('run_1', 'runner_1', 'archive_1'),
       ),
-    ).rejects.toThrow(UseCaseFault);
+    ).rejects.toThrow(ApplicationError);
 
     store.uploaded.set('archive_1', storedAs(512));
 
@@ -153,7 +153,7 @@ describe('keeping a workspace between runs', () => {
       seal.execute(
         new SealWorkspaceArchiveCommand('run_1', 'runner_1', 'archive_1'),
       ),
-    ).rejects.toThrow(UseCaseFault);
+    ).rejects.toThrow(ApplicationError);
   });
 
   it('seals only an archive granted to the run sealing it', async () => {

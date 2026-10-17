@@ -69,7 +69,9 @@ const abandoning = () => {
       inWorkspace: async () => [egress],
       save,
     } as unknown as EgressRepository,
-    { run: (work: () => Promise<unknown>) => work() } as TransactionPort,
+    {
+      inTransaction: (work: () => Promise<unknown>) => work(),
+    } as TransactionPort,
   );
 
   const changes = () =>

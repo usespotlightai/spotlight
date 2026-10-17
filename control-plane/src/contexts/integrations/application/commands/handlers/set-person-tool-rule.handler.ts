@@ -7,7 +7,7 @@ import type { PersonToolPolicyRepository } from '@integrations/domain/repositori
 import { PersonToolRule } from '@integrations/domain/value-objects/person-tool-rule.vo';
 import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
 import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -55,7 +55,7 @@ export class SetPersonToolRuleHandler
 
       return true;
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

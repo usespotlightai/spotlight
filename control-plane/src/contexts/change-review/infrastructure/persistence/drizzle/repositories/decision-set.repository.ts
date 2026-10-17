@@ -153,7 +153,7 @@ export class DrizzleDecisionSetRepository implements DecisionSetRepository {
   ) {}
 
   async add(added: DecisionSet): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       await this.context.db.insert(decisionSet).values({
         id: added.id.value,
         taskId: added.taskId.value,
@@ -172,7 +172,7 @@ export class DrizzleDecisionSetRepository implements DecisionSetRepository {
       return;
     }
 
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       const written = await this.context.db
         .update(decisionSet)
         .set({ version: saved.version + 1, ...columnsOf(saved) })
@@ -194,7 +194,7 @@ export class DrizzleDecisionSetRepository implements DecisionSetRepository {
   }
 
   private async removed(set: DecisionSet): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       const removed = await this.context.db
         .delete(decisionSet)
         .where(

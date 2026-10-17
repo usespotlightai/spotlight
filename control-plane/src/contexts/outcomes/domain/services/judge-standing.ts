@@ -5,7 +5,7 @@ import {
 } from '@outcomes/domain/services/judge-agreement';
 import type { ScoreScale } from '@outcomes/domain/value-objects/score-scale.vo';
 
-export const FEWEST_PAIRS = 10;
+export const MIN_PAIRS = 10;
 
 export const HIDING_REASONS = [
   'no-judge',
@@ -69,7 +69,7 @@ export const standingOf = (
     trust: judge.trust,
   };
 
-  if (judge.agreement.pairs < FEWEST_PAIRS) {
+  if (judge.agreement.pairs < MIN_PAIRS) {
     return hidden('too-few-pairs', known);
   }
   if (agreement === null) {

@@ -23,7 +23,7 @@ export interface PairedSuccess {
   readonly baseline: number;
 }
 
-export const FEWEST_PAIRED_TASKS = 5;
+export const MIN_PAIRED_TASKS = 5;
 
 const verdictOf = (
   gain: number,
@@ -32,7 +32,7 @@ const verdictOf = (
   minGain: number,
   tasks: number,
 ): GainVerdict => {
-  if (tasks < FEWEST_PAIRED_TASKS) {
+  if (tasks < MIN_PAIRED_TASKS) {
     return 'within-noise';
   }
   if (low > 0 && gain >= minGain) {

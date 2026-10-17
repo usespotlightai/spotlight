@@ -5,7 +5,7 @@ import type {
 import type { WorkspaceConnectionsPort } from '@github/application/ports/workspace-connections.port';
 import type { ListRepositoriesQuery } from '@github/application/queries/list-repositories.query';
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -38,7 +38,7 @@ export class ListRepositoriesHandler
         ? await this.catalog.list(workspaceId)
         : [];
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

@@ -97,7 +97,7 @@ export class HostWorkController {
     }
 
     return new HostRequirementsResponseDto(
-      new RunnerReleaseResponseDto(required.runnerAtLeast),
+      new RunnerReleaseResponseDto(required.runnerMinimum),
       required.harnesses.map(
         (harness) =>
           new InstallableHarnessResponseDto(

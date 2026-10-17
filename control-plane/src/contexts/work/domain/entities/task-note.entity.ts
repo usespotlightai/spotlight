@@ -133,7 +133,7 @@ export class TaskNote {
       : this;
   }
 
-  approvalReturned(): TaskNote {
+  returnApproval(): TaskNote {
     return this.approval
       ? this.with({ approval: this.approval.returned() })
       : this;

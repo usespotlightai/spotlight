@@ -45,14 +45,14 @@ import { ReadInsightsShippingQuery } from '@outcomes/application/queries/read-in
 import { ReadInsightsStationsQuery } from '@outcomes/application/queries/read-insights-stations.query';
 import { ReadInsightsToolsQuery } from '@outcomes/application/queries/read-insights-tools.query';
 import { ReadStationAlertQuery } from '@outcomes/application/queries/read-station-alert.query';
-import { MOST_FILTERED_REPOSITORIES } from '@outcomes/domain/services/pull-request-filter';
+import { MAX_FILTERED_REPOSITORIES } from '@outcomes/domain/services/pull-request-filter';
 import {
   HARNESS_DEFAULT_MODEL,
-  MOST_FILTERED_TASKS,
+  MAX_FILTERED_TASKS,
   NO_REPOSITORY,
   NO_SERVER,
 } from '@outcomes/domain/services/run-filter';
-import { MOST_RUN_PAGE } from '@outcomes/domain/services/run-page';
+import { MAX_RUN_PAGE } from '@outcomes/domain/services/run-page';
 import { RUN_SIZES } from '@outcomes/domain/services/run-size';
 import {
   PULL_REQUEST_AUTHORS,
@@ -411,7 +411,7 @@ export class TeamInsightsController {
   @PeriodQuery()
   @FilterQuery(
     'repository',
-    `Only pull requests in these repositories, comma-separated or repeated, at most ${MOST_FILTERED_REPOSITORIES}`,
+    `Only pull requests in these repositories, comma-separated or repeated, at most ${MAX_FILTERED_REPOSITORIES}`,
   )
   @ApiQuery({
     name: 'author',
@@ -529,7 +529,7 @@ export class TeamInsightsController {
   @FilterQuery('taskId', 'Only runs of this task')
   @FilterQuery(
     'taskIds',
-    `Only runs of these tasks, comma-separated, at most ${MOST_FILTERED_TASKS}`,
+    `Only runs of these tasks, comma-separated, at most ${MAX_FILTERED_TASKS}`,
   )
   @FilterQuery('personId', 'Only runs of tasks this person opened')
   @FilterQuery('day', 'Only runs that ended on this UTC day, as YYYY-MM-DD')
@@ -576,7 +576,7 @@ export class TeamInsightsController {
     name: 'page',
     required: false,
     type: Number,
-    description: `Which page, from 1 to the last with runs, ${MOST_RUN_PAGE} at most`,
+    description: `Which page, from 1 to the last with runs, ${MAX_RUN_PAGE} at most`,
   })
   @ApiQuery({
     name: 'size',

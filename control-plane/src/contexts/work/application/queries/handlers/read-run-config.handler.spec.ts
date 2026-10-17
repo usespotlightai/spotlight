@@ -2,8 +2,8 @@ import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import type {
-  ConfiguredRun,
   RunConfigSummary,
+  RunConfigView,
   RunReaderPort,
 } from '@work/application/ports/run-reader.port';
 import { ReadRunConfigHandler } from '@work/application/queries/handlers/read-run-config.handler';
@@ -29,7 +29,7 @@ const configured = (
   runId: string,
   fingerprint: string,
   parts: Partial<StationConfigParts> = {},
-): ConfiguredRun => ({
+): RunConfigView => ({
   runId,
   taskId: `task_of_${runId}`,
   fingerprint: fingerprint.repeat(64),
@@ -38,7 +38,7 @@ const configured = (
 
 const readerOf = (teamId: string | null) =>
   ({
-    clearanceAsTeamReader: vi
+    permissionsAsTeamReader: vi
       .fn()
       .mockResolvedValue(
         teamId

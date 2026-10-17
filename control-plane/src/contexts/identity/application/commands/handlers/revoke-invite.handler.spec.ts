@@ -79,7 +79,7 @@ describe('RevokeInviteHandler', () => {
 
   it('writes and records nothing for an invite already taken back', async () => {
     const taken = WorkspaceInvite.rehydrate({
-      ...offered().revoked(UserId.of('user_owner'), NOW),
+      ...offered().revoke(UserId.of('user_owner'), NOW),
       version: 2,
     });
     const { handler, save } = revoking({ invite: taken });

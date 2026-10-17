@@ -15,9 +15,10 @@ const at = (hour: number) =>
   new Date(`2026-09-30T${String(hour).padStart(2, '0')}:00:00.000Z`);
 
 const actedOn = (runId: string, hour: number, act: 'closed' | 'sent-back') =>
-  endedRecord(runId, { taskId: `task_${runId}`, endedAt: at(hour) }).actedOn(
-    NextAct.of(act, at(hour)),
-  );
+  endedRecord(runId, {
+    taskId: `task_${runId}`,
+    endedAt: at(hour),
+  }).recordAction(NextAct.of(act, at(hour)));
 
 const runs = (prefix: string, acts: readonly ('closed' | 'sent-back')[]) =>
   acts.map((act, index) => actedOn(`${prefix}${index}`, index + 1, act));
@@ -191,7 +192,7 @@ describe('verdictsFrom', () => {
       taskId: 'task_withdrawn',
       ending: 'withdrawn',
       endedAt: at(10),
-    }).actedOn(NextAct.of('closed', at(10)));
+    }).recordAction(NextAct.of('closed', at(10)));
     const verdicts = changeVerdictOf(
       runs('b', FIVE_CLOSED),
       [...runs('a', FIVE_CLOSED), withdrawn],

@@ -52,7 +52,9 @@ const parking = (reads: (Run | null)[], conflictsFirst = false) => {
         saved.push(run);
       },
     } as unknown as RunRepository,
-    { run: (work: () => Promise<unknown>) => work() } as TransactionPort,
+    {
+      inTransaction: (work: () => Promise<unknown>) => work(),
+    } as TransactionPort,
     { now: () => NOW, sleep: async () => {} },
   );
 

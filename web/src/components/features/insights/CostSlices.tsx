@@ -5,7 +5,7 @@ import { spentIn } from '@/lib/inbox';
 import {
   type CostDimension,
   type CostSlice,
-  countShown,
+  formatCount,
   type SliceNamer,
   sliceFilter,
 } from '@/lib/insights';
@@ -25,7 +25,7 @@ export function CostSlices({
   currency,
   named,
 }: CostSlicesProps) {
-  const most = Math.max(...slices.map((slice) => slice.amount), 0);
+  const max = Math.max(...slices.map((slice) => slice.amount), 0);
 
   return (
     <InsightsCard title={title}>
@@ -44,11 +44,11 @@ export function CostSlices({
               <BarRow
                 key={slice.key ?? 'none'}
                 slot="cost-slice"
-                share={most > 0 ? slice.amount / most : 0}
+                share={max > 0 ? slice.amount / max : 0}
                 values={
                   <>
                     <span className="text-muted-foreground tabular-nums">
-                      {countShown(slice.runs)}{' '}
+                      {formatCount(slice.runs)}{' '}
                       {slice.runs === 1 ? 'run' : 'runs'}
                     </span>
                     <span className="w-16 text-right text-foreground tabular-nums">

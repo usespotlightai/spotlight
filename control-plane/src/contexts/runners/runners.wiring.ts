@@ -13,9 +13,9 @@ import { publicUrlOf } from '@platform/config/env';
 import type { Env } from '@platform/config/env.schema';
 import { bindCommandHandler } from '@platform/cqrs/bind-command-handler';
 import { bindQueryHandler } from '@platform/cqrs/bind-query-handler';
-import { EventPublications } from '@platform/events/event-publications';
 import { EventSubscribers } from '@platform/events/event-subscribers';
-import { EventTypes } from '@platform/events/event-types';
+import { IntegrationEventMappers } from '@platform/events/integration-event-mappers';
+import { PayloadTypes } from '@platform/events/payload-types';
 import { OutboundHosts } from '@platform/outbound/outbound-hosts';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
@@ -53,7 +53,7 @@ import {
   UpdateRunnerTrustCommand,
   UpdateWorkspaceRunnersCommand,
 } from '@runners/application/commands/runner-resource.commands';
-import { RUNNERS_PUBLICATIONS } from '@runners/application/integration-events/runners.publications';
+import { RUNNERS_EVENT_MAPPERS } from '@runners/application/integration-events/runners.event-mappers';
 import { INSTALLER_ASSETS } from '@runners/application/ports/installer-assets.port';
 import type { PlatformEgressSettings } from '@runners/application/ports/platform-egress-settings.port';
 import {
@@ -113,7 +113,7 @@ import { RunnerHoldings } from '@runners/application/services/runner-holdings.se
 import { RunnerPools } from '@runners/application/services/runner-pools.service';
 import { RunnerPresence } from '@runners/application/services/runner-presence.service';
 import { Runners } from '@runners/application/services/runners.service';
-import { RUNNERS_EVENT_TYPES } from '@runners/domain/event-types';
+import { RUNNERS_PAYLOAD_TYPES } from '@runners/domain/payload-types';
 import { EgressUrl } from '@runners/domain/value-objects/egress-url.vo';
 import { RunnerTokenAuth } from '@runners/infrastructure/auth/runner-token.auth';
 import { RunnerDefinitions } from '@runners/infrastructure/definitions/runner-definitions';
@@ -205,8 +205,8 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
   {
     provide: RUNNERS_EVENTS,
     inject: [
-      EventTypes,
-      EventPublications,
+      PayloadTypes,
+      IntegrationEventMappers,
       EventSubscribers,
       DrizzleRunnerTrustRepository,
       DrizzleWorkspaceRunnersRepository,
@@ -216,8 +216,8 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
       TRANSACTION,
     ],
     useFactory: (
-      types: EventTypes,
-      publications: EventPublications,
+      types: PayloadTypes,
+      mappers: IntegrationEventMappers,
       subscribers: EventSubscribers,
       trusts: DrizzleRunnerTrustRepository,
       declarations: DrizzleWorkspaceRunnersRepository,
@@ -226,8 +226,8 @@ export const RUNNERS_PROVIDERS: readonly Provider[] = [
       forgetting: ForgetHosts,
       transaction: TransactionPort,
     ) => {
-      types.register('runners', RUNNERS_EVENT_TYPES);
-      publications.register(RUNNERS_PUBLICATIONS);
+      types.register('runners', RUNNERS_PAYLOAD_TYPES);
+      mappers.register(RUNNERS_EVENT_MAPPERS);
       subscribers.register(
         runnersSubscribers({
           abandoning: new AbandonWorkspaceRunners(

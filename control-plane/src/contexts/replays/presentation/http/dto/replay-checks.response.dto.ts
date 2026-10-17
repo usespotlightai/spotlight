@@ -10,7 +10,7 @@ import {
   CHECK_VERDICTS,
   UNDECIDED_BECAUSE,
 } from '@replays/domain/services/replay-check-verdict';
-import { MOST_REPEATS } from '@replays/domain/value-objects/replay-repeats';
+import { MAX_REPEATS } from '@replays/domain/value-objects/replay-repeats';
 import { REPLAY_STATES } from '@replays/domain/value-objects/replay-state';
 import {
   GainReadingResponseDto,
@@ -81,7 +81,7 @@ export class StartReplayCheckRequestDto {
     required: false,
     example: 1,
     minimum: 1,
-    maximum: MOST_REPEATS,
+    maximum: MAX_REPEATS,
     description:
       'How many times the check replays each run of the set, 1 when left out; the line’s ceiling covers all of them',
   })
@@ -94,7 +94,7 @@ export class ReplayCheckThresholdResponseDto {
     description:
       'How many tasks the change may regress on and still pass, taken from the live line’s replay_check when the check started',
   })
-  readonly mostRegressions: number;
+  readonly maxRegressions: number;
 
   @ApiProperty({
     example: 0.05,
@@ -119,7 +119,7 @@ export class ReplayCheckThresholdResponseDto {
   readonly unpricedRun: SpendResponseDto | null;
 
   constructor(threshold: ReplayCheckDto['threshold']) {
-    this.mostRegressions = threshold.mostRegressions;
+    this.maxRegressions = threshold.maxRegressions;
     this.minGain = threshold.minGain;
     this.ceiling = new SpendResponseDto(threshold.ceiling);
     this.unpricedRun =

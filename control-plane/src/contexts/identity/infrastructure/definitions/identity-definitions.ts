@@ -1,9 +1,9 @@
 import type {
-  CompiledTeam,
-  CompiledWorkspace,
-  CompiledWorkspaceToken,
-  CompiledWorkspaceTokenTrust,
   IdentityDefinitionsPort,
+  ParsedTeam,
+  ParsedWorkspace,
+  ParsedWorkspaceToken,
+  ParsedWorkspaceTokenTrust,
 } from '@identity/application/ports/identity-definitions.port';
 import {
   TEAM,
@@ -99,7 +99,7 @@ const workspaceTokenTrustSchema = z
   });
 
 export class IdentityDefinitions implements IdentityDefinitionsPort {
-  workspace(held: unknown): CompiledWorkspace {
+  workspace(held: unknown): ParsedWorkspace {
     const read = workspaceSchema.safeParse(held);
 
     return read.success
@@ -111,7 +111,7 @@ export class IdentityDefinitions implements IdentityDefinitionsPort {
       : { ok: false, problems: problemsIn(WORKSPACE, read.error) };
   }
 
-  team(held: unknown): CompiledTeam {
+  team(held: unknown): ParsedTeam {
     const read = teamSchema.safeParse(held);
 
     return read.success
@@ -123,7 +123,7 @@ export class IdentityDefinitions implements IdentityDefinitionsPort {
       : { ok: false, problems: problemsIn(TEAM, read.error) };
   }
 
-  workspaceToken(held: unknown): CompiledWorkspaceToken {
+  workspaceToken(held: unknown): ParsedWorkspaceToken {
     const read = workspaceTokenSchema.safeParse(held);
 
     return read.success
@@ -142,7 +142,7 @@ export class IdentityDefinitions implements IdentityDefinitionsPort {
       : { ok: false, problems: problemsIn(WORKSPACE_TOKEN, read.error) };
   }
 
-  workspaceTokenTrust(held: unknown): CompiledWorkspaceTokenTrust {
+  workspaceTokenTrust(held: unknown): ParsedWorkspaceTokenTrust {
     const read = workspaceTokenTrustSchema.safeParse(held);
 
     return read.success

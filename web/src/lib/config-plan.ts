@@ -41,12 +41,12 @@ const LISTS: Partial<Record<ConfigChange['part'], string>> = {
   tool: 'tools',
 };
 
-const MOST_INLINE = 48;
+const MAX_INLINE = 48;
 
 const CONTEXT = 2;
 
 const inline = (value: string | null): boolean =>
-  value === null || (value.length <= MOST_INLINE && !value.includes('\n'));
+  value === null || (value.length <= MAX_INLINE && !value.includes('\n'));
 
 const quoted = (value: string | null): string | null => {
   if (value === null) {

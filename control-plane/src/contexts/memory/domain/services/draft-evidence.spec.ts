@@ -23,7 +23,7 @@ const TEAM = TeamId.of('team_1');
 let handles = 0;
 const kept = (id: string, scope: MemoryScope, at = NOW) => {
   handles += 1;
-  return Memory.written({
+  return Memory.write({
     id: MemoryId.of(id),
     handle: MemoryHandle.of(handles),
     workspaceId: WorkspaceId.of('ws_1'),
@@ -41,7 +41,7 @@ const KNOWN = [
     'memory_other_station',
     MemoryScope.of({ teamId: TEAM, lineId: 'line_1', stationId: 'station_9' }),
   ),
-  kept('memory_retired', MemoryScope.of({ teamId: TEAM })).retired({
+  kept('memory_retired', MemoryScope.of({ teamId: TEAM })).retire({
     by: UserId.of('user_1'),
     reason: 'Gone.',
     at: NOW,

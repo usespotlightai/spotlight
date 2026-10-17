@@ -34,7 +34,7 @@ const judged = (
   value: boolean | number,
   reasons = GROUNDED,
 ) =>
-  judging.judged({
+  judging.recordVerdict({
     verdict: { value, reasons },
     evidence: evidenceFor(),
     model: 'some/model',
@@ -74,7 +74,7 @@ describe('Judging', () => {
       'run_1',
       rubricOf(null, undefined, ['It retries.', 'It adds a test.'], 0.5),
     );
-    const done = asked.judged({
+    const done = asked.recordVerdict({
       verdict: {
         claims: [
           { index: 0, met: true, reasons: GROUNDED },
@@ -108,15 +108,17 @@ describe('Judging', () => {
       ...GROUNDED,
       { text: 'Made up.', steps: [99], hunks: [] },
     ]);
-    const most = judged(askedJudging(), true, [
+    const mostlyGrounded = judged(askedJudging(), true, [
       ...GROUNDED,
       ...GROUNDED,
       { text: 'Made up.', steps: [99], hunks: [] },
     ]);
 
     expect(half.owesWork).toBe(true);
-    expect(most.owesWork).toBe(false);
-    expect((most.pullEvents()[0] as RunJudged).reasons).toHaveLength(2);
+    expect(mostlyGrounded.owesWork).toBe(false);
+    expect((mostlyGrounded.pullEvents()[0] as RunJudged).reasons).toHaveLength(
+      2,
+    );
   });
 
   it('keeps what each cited step said, as the judge read it', () => {
@@ -147,7 +149,7 @@ describe('Judging', () => {
 
   it('is judged only on its own run’s evidence', () => {
     expect(() =>
-      askedJudging().judged({
+      askedJudging().recordVerdict({
         verdict: { value: true, reasons: GROUNDED },
         evidence: evidenceFor('run_2'),
         model: 'some/model',

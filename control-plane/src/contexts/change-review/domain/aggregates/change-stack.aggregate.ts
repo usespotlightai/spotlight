@@ -279,7 +279,7 @@ export class ChangeStack
     });
   }
 
-  usedModel(call: ModelCall | null): ChangeStack {
+  recordModel(call: ModelCall | null): ChangeStack {
     return call ? this.with({ spent: this.spent.with(call) }) : this;
   }
 

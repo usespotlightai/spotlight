@@ -8,11 +8,11 @@ import {
   TABLE_ROW,
 } from '@/components/shared/nested-table/nested-rows';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
-import { percentShown } from '@/lib/judge';
+import { formatPercent } from '@/lib/judge';
 import {
-  candidateShown,
   counterpartRateOf,
-  counterpartShown,
+  formatCandidate,
+  formatCounterpart,
   type Replay,
   type ReplayedStation,
   replayPath,
@@ -20,15 +20,15 @@ import {
 } from '@/lib/replay';
 import {
   BASELINE_LABEL,
-  gainRangeShown,
-  gainShown,
-  gainVerdictShown,
-  intervalShown,
+  formatGain,
+  formatGainRange,
+  formatGainVerdict,
+  formatInterval,
+  formatPairTally,
+  formatRepeats,
+  formatState,
   pairsJudged,
-  pairTallyShown,
-  repeatsShown,
   stateNote,
-  stateShown,
 } from '@/lib/replay-words';
 import { since } from '@/lib/since';
 import { cn } from '@/lib/utils';
@@ -50,13 +50,13 @@ const gainNoteOf = (replay: Replay, baselineId: string | null): string => {
   const against = counterpartRateOf(replay, baselineId);
   const lines = [
     gain
-      ? `${gainVerdictShown(gain.verdict)}. Likely range: ${gainRangeShown(gain)} pts`
+      ? `${formatGainVerdict(gain.verdict)}. Likely range: ${formatGainRange(gain)} pts`
       : null,
     against?.successRate != null
-      ? `${against.label}: ${percentShown(against.successRate)}`
+      ? `${against.label}: ${formatPercent(against.successRate)}`
       : null,
     replay.pairedWith && pairsJudged(replay.pairsAgainstBaseline)
-      ? `Side by side with ${counterpartShown(replay.pairedWith, replay.candidate, baselineId)}: ${pairTallyShown(replay.pairsAgainstBaseline)}`
+      ? `Side by side with ${formatCounterpart(replay.pairedWith, replay.candidate, baselineId)}: ${formatPairTally(replay.pairsAgainstBaseline)}`
       : null,
   ];
 
@@ -76,7 +76,7 @@ function Gain({ replay, baselineId }: Omit<ReplayRowProps, 'at'>) {
 
   return (
     <Noted note={gainNoteOf(replay, baselineId)}>
-      <span className={GAIN_TONES[gain.verdict]}>{gainShown(gain)}</span>
+      <span className={GAIN_TONES[gain.verdict]}>{formatGain(gain)}</span>
     </Noted>
   );
 }
@@ -93,11 +93,11 @@ export function ReplayRow({ at, replay, baselineId }: ReplayRowProps) {
           to={replayPath(at, replay.id)}
           className="truncate font-medium text-foreground outline-none after:absolute after:inset-0 focus-visible:underline"
         >
-          {candidateShown(replay.candidate)}
+          {formatCandidate(replay.candidate)}
         </TrailLink>
         {replay.repeats > 1 && (
           <span className="shrink-0 text-muted-foreground">
-            {repeatsShown(replay.repeats)}
+            {formatRepeats(replay.repeats)}
           </span>
         )}
       </span>
@@ -109,7 +109,7 @@ export function ReplayRow({ at, replay, baselineId }: ReplayRowProps) {
             replay.state === 'over-budget' && 'text-destructive',
           )}
         >
-          {stateShown(replay.state)}
+          {formatState(replay.state)}
         </span>
       </NestedCell>
       <NestedCell heading="Success" strong>
@@ -125,11 +125,13 @@ export function ReplayRow({ at, replay, baselineId }: ReplayRowProps) {
           {successRate === null ? (
             <span className="text-muted-foreground">–</span>
           ) : interval ? (
-            <Noted note={`Likely range: ${intervalShown(interval)}`}>
-              <span className="relative z-10">{percentShown(successRate)}</span>
+            <Noted note={`Likely range: ${formatInterval(interval)}`}>
+              <span className="relative z-10">
+                {formatPercent(successRate)}
+              </span>
             </Noted>
           ) : (
-            percentShown(successRate)
+            formatPercent(successRate)
           )}
         </span>
       </NestedCell>

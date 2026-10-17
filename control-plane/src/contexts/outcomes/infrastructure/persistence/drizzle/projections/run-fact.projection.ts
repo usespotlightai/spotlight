@@ -197,7 +197,7 @@ export class DrizzleRunFactProjection implements RunFactsPort {
       return;
     }
 
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       await this.holdFactsOf(scope);
       await this.upsert(within(runRecord, scope));
       await this.dropStale(scope);
@@ -205,7 +205,7 @@ export class DrizzleRunFactProjection implements RunFactsPort {
   }
 
   async forgetRuns(holding: RunFactHolding): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       await this.lock('exclusive', [workspaceKey(holding.workspaceId)]);
       await this.dropStale(holding);
     });
@@ -251,7 +251,7 @@ export class DrizzleRunFactProjection implements RunFactsPort {
       after = last;
     }
 
-    await this.context.run(() => this.dropStale(scope));
+    await this.context.inTransaction(() => this.dropStale(scope));
 
     return rebuilt;
   }
@@ -304,7 +304,7 @@ export class DrizzleRunFactProjection implements RunFactsPort {
   ): Promise<void> {
     const inWorkspace = eq(runFact.workspaceId, forgotten.workspaceId);
 
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       await this.lock('exclusive', [workspaceKey(forgotten.workspaceId)]);
 
       if (forgotten.kind === 'workspace') {

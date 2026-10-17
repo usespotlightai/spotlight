@@ -35,12 +35,12 @@ export class SecretInjection implements SecretInjectionPort {
     const granted: SecretGrant[] = [];
 
     for (const secret of await this.held(grant.workspaceId, grant.secrets)) {
-      granted.push(...secret.grantedTo(hold.runId));
+      granted.push(...secret.grantTo(hold.runId));
     }
 
     await this.kept.changed(
       { hold, workspaceId: WorkspaceId.of(grant.workspaceId) },
-      (held) => held.granted(hold, granted),
+      (held) => held.grant(hold, granted),
     );
   }
 

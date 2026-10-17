@@ -32,6 +32,6 @@ export class EnqueueTaskRun {
       return;
     }
 
-    await this.tasks.save(task.runNeverStarted(event.runId));
+    await this.tasks.save(task.dropUnstartedRun(event.runId));
   }
 }

@@ -2,7 +2,7 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 
 export const RUNNER_CONFIGURATION = Symbol('RUNNER_CONFIGURATION');
 
-export interface ConfiguredRunnerTrust {
+export interface RunnerTrustView {
   readonly id: string;
   readonly address: string;
   readonly workspaceId: WorkspaceId;
@@ -13,7 +13,7 @@ export interface ConfiguredRunnerTrust {
   readonly labels: readonly string[];
 }
 
-export interface ConfiguredRunnerPool {
+export interface RunnerPoolView {
   readonly id: string;
   readonly address: string;
   readonly workspaceId: WorkspaceId;
@@ -29,7 +29,7 @@ export interface ConfiguredRunnerPool {
   } | null;
 }
 
-export interface ConfiguredEgress {
+export interface EgressView {
   readonly id: string;
   readonly address: string;
   readonly workspaceId: WorkspaceId;
@@ -38,7 +38,7 @@ export interface ConfiguredEgress {
   readonly tokenVersion: number | null;
 }
 
-export interface ConfiguredWorkspaceRunners {
+export interface WorkspaceRunnersView {
   readonly id: string;
   readonly address: string;
   readonly workspaceId: WorkspaceId;
@@ -46,21 +46,21 @@ export interface ConfiguredWorkspaceRunners {
   readonly pools: readonly string[];
 }
 
-export interface ConfiguredRunners {
-  readonly trusts: readonly ConfiguredRunnerTrust[];
-  readonly pools: readonly ConfiguredRunnerPool[];
-  readonly egresses: readonly ConfiguredEgress[];
-  readonly declared: ConfiguredWorkspaceRunners | null;
+export interface RunnersView {
+  readonly trusts: readonly RunnerTrustView[];
+  readonly pools: readonly RunnerPoolView[];
+  readonly egresses: readonly EgressView[];
+  readonly declared: WorkspaceRunnersView | null;
 }
 
 export interface RunnerConfigurationPort {
-  in(workspaceId: WorkspaceId): Promise<ConfiguredRunners>;
+  in(workspaceId: WorkspaceId): Promise<RunnersView>;
 
-  trustWithId(id: string): Promise<ConfiguredRunnerTrust | null>;
+  trustWithId(id: string): Promise<RunnerTrustView | null>;
 
-  poolWithId(id: string): Promise<ConfiguredRunnerPool | null>;
+  poolWithId(id: string): Promise<RunnerPoolView | null>;
 
-  egressWithId(id: string): Promise<ConfiguredEgress | null>;
+  egressWithId(id: string): Promise<EgressView | null>;
 
-  declaredWithId(id: string): Promise<ConfiguredWorkspaceRunners | null>;
+  declaredWithId(id: string): Promise<WorkspaceRunnersView | null>;
 }

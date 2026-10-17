@@ -11,7 +11,7 @@ import type {
   Reach,
   ReachableTool,
   Renewed,
-  TaskWord,
+  TaskPayload,
   ToolOutput,
 } from '@integrations/application/ports/integration-runtime.port';
 import type { OAuth2ClientsPort } from '@integrations/application/ports/oauth2-clients.port';
@@ -58,14 +58,14 @@ import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { MarkWorn } from '@work/application/contracts/happenings.contract';
 
-const SAID_AT_MOST = 500;
+const MAX_SAID = 500;
 
 const plainJson = (output: unknown): ToolOutput =>
   JSON.parse(asJson(output ?? null)) as ToolOutput;
 
 const refusalOf = (result: OutboundResult): HostRefusal => ({
   status: result.status,
-  said: asJson(result.response ?? null).slice(0, SAID_AT_MOST),
+  said: asJson(result.response ?? null).slice(0, MAX_SAID),
 });
 
 const refusedUsing = (
@@ -75,7 +75,7 @@ const refusedUsing = (
 ): UpstreamRefusedError =>
   new UpstreamRefusedError(
     `using ${tool}`,
-    `the integration answered ${status}: ${asJson(response ?? null).slice(0, SAID_AT_MOST)}`,
+    `the integration answered ${status}: ${asJson(response ?? null).slice(0, MAX_SAID)}`,
   );
 
 const fieldOf = (held: unknown, field: string): unknown =>
@@ -215,7 +215,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     definitions: readonly DefinedIntegration[],
     integration: Integration,
     event: string,
-    word: TaskWord,
+    payload: TaskPayload,
     reach: Reach,
   ): Promise<Posted> {
     const readable = this.find(definitions, integration.source);
@@ -229,7 +229,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
       return { kind: 'unaddressed' };
     }
 
-    const against = { task: taskBinding(word.task), ask: word.ask };
+    const against = { task: taskBinding(payload.task), ask: payload.ask };
     const target: Record<string, string> = {};
 
     for (const each of binding.to) {
@@ -240,7 +240,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     }
 
     if (!target.channel) {
-      const routed = binding.routes.get(word.task.line);
+      const routed = binding.routes.get(payload.task.line);
       if (routed) {
         target.channel = routed;
       }

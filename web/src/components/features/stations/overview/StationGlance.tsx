@@ -83,7 +83,7 @@ export function StationGlance({
           <GlanceTile
             key={column.label}
             label={column.label}
-            value={column.shown(tally)}
+            value={column.render(tally)}
             detail={column.counted ? `of ${tally.runs} runs` : undefined}
           >
             {visualOf(column)}

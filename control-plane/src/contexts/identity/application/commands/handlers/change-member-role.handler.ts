@@ -2,7 +2,7 @@ import type { ChangeMemberRoleCommand } from '@identity/application/commands/cha
 import type { WorkspaceRepository } from '@identity/domain/repositories/workspace.repository';
 import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
 import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
@@ -23,17 +23,13 @@ export class ChangeMemberRoleHandler
         return false;
       }
 
-      const changed = workspace.roleChangedTo(
-        UserId.of(command.userId),
-        role,
-        by,
-      );
+      const changed = workspace.changeRole(UserId.of(command.userId), role, by);
 
       await this.workspaces.save(changed);
 
       return true;
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

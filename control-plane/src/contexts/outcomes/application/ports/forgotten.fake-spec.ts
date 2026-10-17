@@ -53,10 +53,10 @@ export const forgottenInMemory = (): ForgottenPort & {
     },
     tombstoneOf: async (workspaceId, pullRequest) =>
       pullRequests.get(`${workspaceId.value} ${pullRequest.value}`) ?? null,
-    dropTombstonesBefore: async (before, most) => {
+    dropTombstonesBefore: async (before, max) => {
       const dropped = [...pullRequests.entries()]
         .filter(([, each]) => each.updatedAt.getTime() < before.getTime())
-        .slice(0, most);
+        .slice(0, max);
 
       for (const [key] of dropped) {
         pullRequests.delete(key);

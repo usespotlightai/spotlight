@@ -35,7 +35,7 @@ export class DrizzleDeliveryInbox implements DeliveryInboxPort {
   }
 
   async claimNext(now: Date): Promise<StoredDelivery | null> {
-    const found = await this.context.run(async () => {
+    const found = await this.context.inTransaction(async () => {
       const lapsed = new Date(now.getTime() - LEASE_MS);
       const [waiting] = await this.context.db
         .select()

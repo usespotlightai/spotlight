@@ -7,10 +7,10 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { SayInChatCommand } from '@work/application/commands/chat.commands';
 import { SayInChatHandler } from '@work/application/commands/handlers/say-in-chat.handler';
-import type { ChatAtHand } from '@work/application/services/chat-at-hand.service';
 import type { ChatDispatching } from '@work/application/services/chat-dispatch';
-import type { FilesAtHand } from '@work/application/services/files-at-hand.service';
-import type { TracesAtHand } from '@work/application/services/traces-at-hand.service';
+import type { ChatLoader } from '@work/application/services/chat-loader.service';
+import type { FilesLoader } from '@work/application/services/files-loader.service';
+import type { TracesLoader } from '@work/application/services/traces-loader.service';
 import { Chat } from '@work/domain/aggregates/chat.aggregate';
 import type { ChatRepository } from '@work/domain/repositories/chat.repository';
 import { ChatMessageBody } from '@work/domain/value-objects/chat-message-body.vo';
@@ -36,7 +36,7 @@ const saying = async (model?: string | null, effort?: string | null) => {
   const saved: Chat[] = [];
 
   await new SayInChatHandler(
-    { inTeam: async () => chatOnOpus() } as unknown as ChatAtHand,
+    { inTeam: async () => chatOnOpus() } as unknown as ChatLoader,
     {
       save: async (chat: Chat) => {
         saved.push(chat);
@@ -45,11 +45,11 @@ const saying = async (model?: string | null, effort?: string | null) => {
     {
       handedOver: async () => [],
       takenIn: async () => undefined,
-    } as unknown as FilesAtHand,
-    { shared: async () => [] } as unknown as TracesAtHand,
+    } as unknown as FilesLoader,
+    { shared: async () => [] } as unknown as TracesLoader,
     { takenUp: async (chat: Chat) => chat } as unknown as ChatDispatching,
     { now: () => NOW } as ClockPort,
-    { run: (work: () => Promise<void>) => work() } as TransactionPort,
+    { inTransaction: (work: () => Promise<void>) => work() } as TransactionPort,
   ).execute(
     new SayInChatCommand(
       'team_1',
@@ -87,9 +87,9 @@ describe('SayInChatHandler', () => {
   });
 
   it('refuses an empty model or an effort that is no level at all', async () => {
-    await expect(saying('')).rejects.toMatchObject({ kind: 'invalid-input' });
+    await expect(saying('')).rejects.toMatchObject({ kind: 'invalid' });
     await expect(saying(undefined, 'enormous')).rejects.toMatchObject({
-      kind: 'invalid-input',
+      kind: 'invalid',
     });
   });
 });

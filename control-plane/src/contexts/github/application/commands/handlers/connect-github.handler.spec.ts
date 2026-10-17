@@ -12,7 +12,7 @@ import type {
   WorkspaceAccessPort,
   WorkspaceMembership,
 } from '@identity/application/ports/workspace-access.port';
-import { UseCaseFault } from '@shared-kernel/application/errors/use-case.fault';
+import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -36,7 +36,7 @@ const connecting = (
   const events = { dispatch: vi.fn().mockResolvedValue(undefined) };
   const inTransaction = vi.fn();
   const transaction: TransactionPort = {
-    run: async (work) => {
+    inTransaction: async (work) => {
       inTransaction(true);
       try {
         return await work();
@@ -60,9 +60,9 @@ const connecting = (
       inWorkspace: vi.fn(async () =>
         over.membership === undefined ? membership() : over.membership,
       ),
-      clearanceIn: vi.fn(),
-      clearanceOnTeam: vi.fn(),
-      clearanceAsTeamReader: vi.fn(),
+      permissionsIn: vi.fn(),
+      permissionsOnTeam: vi.fn(),
+      permissionsAsTeamReader: vi.fn(),
       mayPlan: vi.fn(),
     } satisfies WorkspaceAccessPort,
     {
@@ -129,7 +129,7 @@ describe('ConnectGitHubHandler', () => {
     });
 
     await expect(handler.execute(command())).rejects.toBeInstanceOf(
-      UseCaseFault,
+      ApplicationError,
     );
     expect(save).not.toHaveBeenCalled();
     expect(administration.of).not.toHaveBeenCalled();
@@ -139,7 +139,7 @@ describe('ConnectGitHubHandler', () => {
     const { handler, save } = connecting({ administration: 'does-not' });
 
     await expect(handler.execute(command())).rejects.toBeInstanceOf(
-      UseCaseFault,
+      ApplicationError,
     );
     expect(save).not.toHaveBeenCalled();
   });
@@ -168,7 +168,7 @@ describe('ConnectGitHubHandler', () => {
     const { handler, save } = connecting();
 
     await expect(handler.execute(command('../../etc'))).rejects.toBeInstanceOf(
-      UseCaseFault,
+      ApplicationError,
     );
     expect(save).not.toHaveBeenCalled();
   });

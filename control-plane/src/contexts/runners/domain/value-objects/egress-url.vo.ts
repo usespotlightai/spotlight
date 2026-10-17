@@ -1,6 +1,6 @@
 import { InvalidEgressError } from '@runners/domain/exceptions/invalid-egress.error';
 
-const MOST_LENGTH = 2048;
+const MAX_LENGTH = 2048;
 
 export class EgressUrl {
   private readonly kind = 'egress-url';
@@ -31,10 +31,10 @@ export class EgressUrl {
       );
     }
 
-    if (url.hash || url.search || given.length > MOST_LENGTH) {
+    if (url.hash || url.search || given.length > MAX_LENGTH) {
       throw new InvalidEgressError(
         'url',
-        `must be at most ${MOST_LENGTH} characters, with no query and no fragment`,
+        `must be at most ${MAX_LENGTH} characters, with no query and no fragment`,
       );
     }
 

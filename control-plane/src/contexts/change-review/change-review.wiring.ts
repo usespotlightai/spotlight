@@ -16,7 +16,7 @@ import { ChangeStackReactions } from '@change-review/application/events/handlers
 import { DecisionReactions } from '@change-review/application/events/handlers/decision-reactions.handler';
 import { ReviewReactions } from '@change-review/application/events/handlers/review-reactions.handler';
 import { StackCheckReactions } from '@change-review/application/events/handlers/stack-check-reactions.handler';
-import { CHANGE_REVIEW_PUBLICATIONS } from '@change-review/application/integration-events/change-review.publications';
+import { CHANGE_REVIEW_EVENT_MAPPERS } from '@change-review/application/integration-events/change-review.event-mappers';
 import {
   CHANGE_STACK_ANNOUNCER,
   type ChangeStackAnnouncerPort,
@@ -117,7 +117,7 @@ import { SignalReviewing } from '@change-review/application/services/signal-revi
 import { SyncReviews } from '@change-review/application/services/sync-reviews.service';
 import { WorkChangeStacks } from '@change-review/application/services/work-change-stacks.service';
 import { WorkDecisionSets } from '@change-review/application/services/work-decision-sets.service';
-import { CHANGE_REVIEW_EVENT_TYPES } from '@change-review/domain/event-types';
+import { CHANGE_REVIEW_PAYLOAD_TYPES } from '@change-review/domain/payload-types';
 import { CheckRunners } from '@change-review/infrastructure/acl/check-runners.adapter';
 import { GitHubConnections } from '@change-review/infrastructure/acl/github-connections.adapter';
 import { People } from '@change-review/infrastructure/acl/people.adapter';
@@ -180,9 +180,9 @@ import { publicUrlOf } from '@platform/config/env';
 import type { Env } from '@platform/config/env.schema';
 import { bindCommandHandler } from '@platform/cqrs/bind-command-handler';
 import { bindQueryHandler } from '@platform/cqrs/bind-query-handler';
-import { EventPublications } from '@platform/events/event-publications';
 import { EventSubscribers } from '@platform/events/event-subscribers';
-import { EventTypes } from '@platform/events/event-types';
+import { IntegrationEventMappers } from '@platform/events/integration-event-mappers';
+import { PayloadTypes } from '@platform/events/payload-types';
 import { OwedWorkWorker } from '@platform/workers/owed-work.worker';
 import {
   CLOCK,
@@ -811,8 +811,8 @@ const published: Provider[] = [
   {
     provide: CHANGE_REVIEW_EVENTS,
     inject: [
-      EventTypes,
-      EventPublications,
+      PayloadTypes,
+      IntegrationEventMappers,
       EventSubscribers,
       ChangeStackReactions,
       CHANGE_STACK_ANNOUNCER,
@@ -830,8 +830,8 @@ const published: Provider[] = [
       CHECK_RUNNERS,
     ],
     useFactory: (
-      types: EventTypes,
-      publications: EventPublications,
+      types: PayloadTypes,
+      mappers: IntegrationEventMappers,
       subscribers: EventSubscribers,
       reactions: ChangeStackReactions,
       announcer: ChangeStackAnnouncerPort,
@@ -848,8 +848,8 @@ const published: Provider[] = [
       decisions: DecisionReactions,
       runners: CheckRunnersPort,
     ) => {
-      types.register('change-review', CHANGE_REVIEW_EVENT_TYPES);
-      publications.register(CHANGE_REVIEW_PUBLICATIONS);
+      types.register('change-review', CHANGE_REVIEW_PAYLOAD_TYPES);
+      mappers.register(CHANGE_REVIEW_EVENT_MAPPERS);
       subscribers.register(
         changeReviewSubscribers(
           reactions,

@@ -47,7 +47,7 @@ export const PULL_REQUEST_STATES: readonly PullRequestState[] = [
 
 const ROUND_BUCKETS: readonly RoundBucket[] = ['0', '1', '2', '3+'];
 
-const MOST_REPOSITORIES = 50;
+const MAX_REPOSITORIES = 50;
 
 const WEEK = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -84,7 +84,7 @@ const valid = (key: PullRequestFilterKey, value: string): boolean => {
     case 'week':
       return WEEK.test(value);
     case 'repository':
-      return value.split(',').filter(Boolean).length <= MOST_REPOSITORIES;
+      return value.split(',').filter(Boolean).length <= MAX_REPOSITORIES;
   }
 };
 
@@ -144,19 +144,19 @@ const FILTER_LABELS: Record<PullRequestFilterKey, string> = {
   compared: 'Repositories',
 };
 
-export const authorShown = (author: PullRequestAuthor): string =>
+export const formatAuthor = (author: PullRequestAuthor): string =>
   AUTHORS[author];
 
-export const typeShown = (type: PullRequestType): string => TYPES[type];
+export const formatType = (type: PullRequestType): string => TYPES[type];
 
-export const stateShown = (state: PullRequestState): string => STATES[state];
+export const formatState = (state: PullRequestState): string => STATES[state];
 
-export const roundsShown = (rounds: RoundBucket): string => ROUNDS[rounds];
+export const formatRounds = (rounds: RoundBucket): string => ROUNDS[rounds];
 
 export const pullRequestFilterLabel = (key: PullRequestFilterKey): string =>
   FILTER_LABELS[key];
 
-export const pullRequestFilterValueShown = (
+export const formatPullRequestFilterValue = (
   key: PullRequestFilterKey,
   value: string,
 ): string => {
@@ -191,7 +191,7 @@ const repositoriesFilter = (
     return {};
   }
 
-  return repositories.length <= MOST_REPOSITORIES
+  return repositories.length <= MAX_REPOSITORIES
     ? { repository: repositories.join(',') }
     : { compared: 'true' };
 };
@@ -227,10 +227,10 @@ export const typeFilter = (
   author: PullRequestAuthor,
 ): PullRequestFilter => mergedPullRequestsFilter({ type, author });
 
-export const meanShown = (mean: number | null): string =>
+export const formatMean = (mean: number | null): string =>
   mean === null ? '–' : mean.toFixed(1);
 
-export const sizeShown = (pullRequest: InsightsPullRequest): string =>
+export const formatSize = (pullRequest: InsightsPullRequest): string =>
   pullRequest.additions === null || pullRequest.deletions === null
     ? '–'
     : `+${pullRequest.additions.toLocaleString()} −${pullRequest.deletions.toLocaleString()}`;

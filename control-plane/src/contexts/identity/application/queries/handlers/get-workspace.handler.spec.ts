@@ -82,7 +82,7 @@ describe('GetWorkspaceHandler', () => {
       new GetWorkspaceHandler(workspaces, settled).execute(
         new GetWorkspaceQuery('not a slug', 'user_1'),
       ),
-    ).rejects.toMatchObject({ kind: 'invalid-input' });
+    ).rejects.toMatchObject({ kind: 'invalid' });
     expect(workspaces.findForMember).not.toHaveBeenCalled();
   });
 });

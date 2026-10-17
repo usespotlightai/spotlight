@@ -14,7 +14,7 @@ import {
   humanLoadChangesOf,
   humanLoadFrom,
 } from '@outcomes/domain/services/human-load';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
 export class ReadInsightsPeopleHandler
@@ -29,25 +29,21 @@ export class ReadInsightsPeopleHandler
 
   async execute(query: ReadInsightsPeopleQuery): Promise<InsightsPeopleDto> {
     try {
-      const { clearance, period } = await this.scopes.scope(
+      const { access, period } = await this.scopes.scope(
         query.teamId,
         query.principal,
         query.period,
       );
       const counts = await this.reader.peopleCounts({
-        workspaceId: clearance.workspaceId,
-        teamId: clearance.teamId,
+        workspaceId: access.workspaceId,
+        teamId: access.teamId,
         period,
       });
       const active = counts.adoption.people.map((each) => each.personId);
       const adoption = adoptionFrom(
         counts.adoption,
         period,
-        await this.firstSeen.onTeam(
-          clearance.workspaceId,
-          clearance.teamId,
-          active,
-        ),
+        await this.firstSeen.onTeam(access.workspaceId, access.teamId, active),
       );
       const names = await this.people.namesOf(active);
       const load = humanLoadFrom(counts.load.current);
@@ -62,7 +58,7 @@ export class ReadInsightsPeopleHandler
         adoption: adoptionDtoOf(adoption, names),
       };
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

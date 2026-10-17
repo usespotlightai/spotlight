@@ -4,7 +4,7 @@ import { NoSuchWorkspaceError } from '@identity/domain/exceptions/no-such-worksp
 import { WorkloadNotAdmittedError } from '@identity/domain/exceptions/workload-not-admitted.error';
 import type { WorkspaceTokenRepository } from '@identity/domain/repositories/workspace-token.repository';
 import type { WorkspaceTokenTrustRepository } from '@identity/domain/repositories/workspace-token-trust.repository';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
@@ -56,7 +56,7 @@ export class ExchangeWorkloadTokenHandler
 
       const minted = this.mint.mint();
       const now = this.clock.now();
-      const exchanged = await this.transaction.run(async () => {
+      const exchanged = await this.transaction.inTransaction(async () => {
         const held = await this.trusts.holding(trust.id);
 
         if (!held) {
@@ -92,7 +92,7 @@ export class ExchangeWorkloadTokenHandler
         return null;
       }
 
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

@@ -329,11 +329,11 @@ describe('compileLine', () => {
   it('reads the threshold a planned change is checked against, filling in what it leaves out', () => {
     const compiled = compileLine({
       ...DELIVERY,
-      replayCheck: { mostRegressions: 2, currency: 'eur' },
+      replayCheck: { maxRegressions: 2, currency: 'eur' },
     });
 
     expect(compiled.ok && compiled.line.replayCheck).toMatchObject({
-      mostRegressions: 2,
+      maxRegressions: 2,
       ceiling: 10,
       currency: 'EUR',
     });
@@ -345,10 +345,10 @@ describe('compileLine', () => {
   it('points at the threshold setting it refuses', () => {
     expect(
       dottedOf(
-        refused({ ...DELIVERY, replayCheck: { mostRegressions: 1.5 } })[0]
+        refused({ ...DELIVERY, replayCheck: { maxRegressions: 1.5 } })[0]
           ?.field,
       ),
-    ).toBe('replayCheck.mostRegressions');
+    ).toBe('replayCheck.maxRegressions');
     expect(
       dottedOf(
         refused({ ...DELIVERY, replayCheck: { ceiling: 1_001 } })[0]?.field,

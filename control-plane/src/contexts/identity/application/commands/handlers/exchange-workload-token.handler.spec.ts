@@ -73,7 +73,7 @@ const exchanging = (
       mint: () => ({ token: 'minted-token', hash: 'c'.repeat(64) }),
     } as unknown as TokenMintPort,
     { now: () => NOW, sleep: async () => {} },
-    { run: (work) => work() },
+    { inTransaction: (work) => work() },
   );
 
   return {

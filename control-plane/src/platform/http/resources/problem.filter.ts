@@ -8,7 +8,7 @@ import {
   Injectable,
 } from '@nestjs/common';
 import { HttpAdapterHost } from '@nestjs/core';
-import { httpExceptionOf } from '@platform/http/filters/use-case-fault.filter';
+import { httpExceptionOf } from '@platform/http/filters/application-error.filter';
 import {
   type Problem,
   ProblemException,
@@ -20,7 +20,7 @@ import {
   entityTagOf,
   PROBLEM_CONTENT_TYPE,
 } from '@platform/http/resources/resource-headers';
-import { UseCaseFault } from '@shared-kernel/application/errors/use-case.fault';
+import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import {
   ERROR_REPORTS,
   type ErrorReportsPort,
@@ -41,7 +41,9 @@ const problemOf = (exception: unknown): Problem => {
   }
 
   const http =
-    exception instanceof UseCaseFault ? httpExceptionOf(exception) : exception;
+    exception instanceof ApplicationError
+      ? httpExceptionOf(exception)
+      : exception;
 
   if (http instanceof HttpException) {
     return ProblemException.withStatus(http.getStatus(), http.message).problem;
@@ -67,7 +69,7 @@ export class ProblemFilter implements ExceptionFilter {
     const problem = problemOf(exception);
 
     if (problem.status >= HttpStatus.INTERNAL_SERVER_ERROR) {
-      if (!(exception instanceof UseCaseFault)) {
+      if (!(exception instanceof ApplicationError)) {
         this.reports.report(exception, { source: 'http' });
       }
       const request = http.getRequest<LoggableRequest>();
@@ -79,7 +81,7 @@ export class ProblemFilter implements ExceptionFilter {
           method: request.method,
           url: request.url,
         },
-        'Server fault',
+        'Internal error',
       );
     }
 

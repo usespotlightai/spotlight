@@ -1,16 +1,16 @@
-import type { HeldSecretsPort } from '@configuration/application/ports/held-secrets.port';
+import type { SecretNamesPort } from '@configuration/application/ports/secret-names.port';
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
 import type { DefinedSecretsPort } from '@secrets/application/ports/defined-secrets.port';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
-export class WorkspaceSecrets implements HeldSecretsPort {
+export class WorkspaceSecrets implements SecretNamesPort {
   constructor(
     private readonly teams: TeamDirectoryPort,
     private readonly secrets: DefinedSecretsPort,
   ) {}
 
-  async held(teamId: TeamId): Promise<readonly SecretName[]> {
+  async ofTeam(teamId: TeamId): Promise<readonly SecretName[]> {
     const team = await this.teams.find(teamId);
 
     return team

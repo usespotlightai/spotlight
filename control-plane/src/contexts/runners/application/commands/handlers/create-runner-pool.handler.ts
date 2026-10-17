@@ -21,7 +21,7 @@ import type { GivenPoolTokensRepository } from '@runners/domain/repositories/giv
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
 import { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
 import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type {
@@ -57,16 +57,16 @@ export class CreateRunnerPoolHandler
     command: CreateRunnerPoolCommand,
   ): Promise<RunnerPoolCreatedDto | null> {
     try {
-      const cleared = await this.access.clearanceIn(
+      const permissions = await this.access.permissionsIn(
         WorkspaceId.of(command.workspaceId),
         command.actor.principal,
       );
 
-      if (!cleared) {
+      if (!permissions) {
         return null;
       }
 
-      if (!cleared.managesRunners) {
+      if (!permissions.managesRunners) {
         return { created: forbiddenTo('manage-runners'), token: null };
       }
 
@@ -113,12 +113,12 @@ export class CreateRunnerPoolHandler
       };
 
       try {
-        const created = await this.transaction.run(() =>
+        const created = await this.transaction.inTransaction(() =>
           createdOnce(this.creates, create, async () => {
             if (supplied.mode === 'push') {
               await refuseUnknownEgress(
                 supplied.egress,
-                cleared.workspaceId,
+                permissions.workspaceId,
                 this.egresses,
                 this.platform,
               );
@@ -127,14 +127,14 @@ export class CreateRunnerPoolHandler
             const id = RunnerPoolId.of(this.ids.generate());
             const given = await givenAccess(
               supplied,
-              { id, workspaceId: cleared.workspaceId },
+              { id, workspaceId: permissions.workspaceId },
               this.tokens,
               this.secrets,
             );
             const defined = RunnerPool.define({
               id,
-              workspaceId: cleared.workspaceId,
-              by: Attribution.of(command.actor, cleared.workspaceId),
+              workspaceId: permissions.workspaceId,
+              by: Attribution.of(command.actor, permissions.workspaceId),
               key: compiled.key,
               labels: compiled.labels,
               maxRuns: compiled.maxRuns,
@@ -180,7 +180,7 @@ export class CreateRunnerPoolHandler
         throw error;
       }
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

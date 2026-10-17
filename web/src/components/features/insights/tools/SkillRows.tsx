@@ -13,10 +13,10 @@ import {
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import type { Folds } from '@/hooks/useFolds';
 import {
-  countShown,
+  formatCount,
+  formatStation,
   insightsPath,
   type StationNames,
-  stationShown,
   viewOf,
 } from '@/lib/insights';
 import {
@@ -76,12 +76,12 @@ export function SkillRows({
             <span aria-hidden className="hidden @4xl:block" />
             <NestedCell heading="Given" strong>
               <InsightsLink tab="runs" filter={skillGivenFilter(skill.key)}>
-                {countShown(skill.given)}
+                {formatCount(skill.given)}
               </InsightsLink>
             </NestedCell>
             <NestedCell heading="Read" strong>
               <InsightsLink tab="runs" filter={skillUsedFilter(skill.key)}>
-                {countShown(skill.used)}
+                {formatCount(skill.used)}
               </InsightsLink>
             </NestedCell>
             <NestedCell heading="Trend" numeric={false}>
@@ -129,15 +129,19 @@ export function SkillRows({
                   })}
                   className="text-foreground"
                 >
-                  {stationShown(names, station.stationId)}
+                  {formatStation(names, station.stationId)}
                 </InsightsLink>
               </span>
               <span aria-hidden className="hidden @4xl:block" />
-              <NestedCell heading="Runs">{countShown(station.runs)}</NestedCell>
-              <NestedCell heading="Given">
-                {countShown(station.given)}
+              <NestedCell heading="Runs">
+                {formatCount(station.runs)}
               </NestedCell>
-              <NestedCell heading="Read">{countShown(station.used)}</NestedCell>
+              <NestedCell heading="Given">
+                {formatCount(station.given)}
+              </NestedCell>
+              <NestedCell heading="Read">
+                {formatCount(station.used)}
+              </NestedCell>
               <NestedCell heading="Trend" numeric={false}>
                 <SkillTrendMark trend={station.trend} />
               </NestedCell>

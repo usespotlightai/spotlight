@@ -25,7 +25,7 @@ export class Notices implements NoticesPort {
 
   async raise(asked: NoticeOf): Promise<void> {
     const form = noticeForm(asked.form);
-    const raised = Notice.raised({
+    const raised = Notice.raise({
       id: NoticeId.of(this.ids.generate()),
       workspaceId: asked.workspaceId,
       teamId: asked.teamId,
@@ -44,7 +44,7 @@ export class Notices implements NoticesPort {
       return;
     }
 
-    return this.transaction.run(async () => {
+    return this.transaction.inTransaction(async () => {
       if (!(await this.notices.about(raised.addressee, form, raised.subject))) {
         await this.notices.add(raised);
       }

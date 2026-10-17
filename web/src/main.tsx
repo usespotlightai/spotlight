@@ -7,7 +7,7 @@ import { Toaster } from '@/components/ui/toast';
 import { client } from '@/lib/api/client.gen';
 import {
   startErrorReporting,
-  withServerFaultReported,
+  withGatewayErrorReported,
 } from '@/lib/error-reporting';
 import { failuresToasted } from '@/lib/failure-toasts';
 import { withSentRequest } from '@/lib/request-failure';
@@ -20,7 +20,7 @@ if (!root) {
 }
 
 client.interceptors.error.use(withSentRequest);
-client.interceptors.error.use(withServerFaultReported);
+client.interceptors.error.use(withGatewayErrorReported);
 
 const queryClient = new QueryClient({
   mutationCache: failuresToasted(),

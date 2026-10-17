@@ -8,7 +8,10 @@ import { Station } from '@work/domain/entities/station.entity';
 import { type Outcome, ReactionFor } from '@work/domain/services/reaction-for';
 import { Approval } from '@work/domain/value-objects/approval.vo';
 import { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
-import { Happening, type Word } from '@work/domain/value-objects/happening.vo';
+import {
+  Happening,
+  type HappeningPayload,
+} from '@work/domain/value-objects/happening.vo';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import { LineKey } from '@work/domain/value-objects/line-key.vo';
 import { LineName } from '@work/domain/value-objects/line-name.vo';
@@ -91,18 +94,21 @@ const standing = (stationId: string) =>
     newId: () => 'task_1',
   });
 
-const word = (happening: Happening, told: string): Word => ({
+const payloadOf = (happening: Happening, told: string): HappeningPayload => ({
   happening,
   told,
   spoken: happening.equals(COMMENTED),
   state: 'raised',
 });
 
-const merged = word(MERGED, 'The pull request was merged.');
-const commented = word(COMMENTED, 'The pull request was commented on.');
+const merged = payloadOf(MERGED, 'The pull request was merged.');
+const commented = payloadOf(COMMENTED, 'The pull request was commented on.');
 
-const reaction = (task: Task, heard: Word, said: Said | null = null) =>
-  ReactionFor.happened({ task, line: LINE, word: heard, said });
+const reaction = (
+  task: Task,
+  heard: HappeningPayload,
+  said: Said | null = null,
+) => ReactionFor.happened({ task, line: LINE, payload: heard, said });
 
 const destination = (outcome: Outcome) =>
   outcome.kind === 'moves' || outcome.kind === 'heldBack'
@@ -112,7 +118,7 @@ const destination = (outcome: Outcome) =>
 const held = (stationId: string) => standing(stationId).handedTo(RUN, LINE);
 
 const paused = (stationId: string) =>
-  held(stationId).putToAPersonBy(RUN, {
+  held(stationId).putToAPerson(RUN, {
     station: StationName.of('Implementation'),
     body: TaskNoteBody.of('Which queue should I drain?'),
     at: NOW,
@@ -179,7 +185,7 @@ describe('ReactionFor.happened', () => {
   it('says what closed the pull request when it interrupts a run', () => {
     const outcome = reaction(
       held('station_1'),
-      word(CLOSED, 'The pull request was closed without being merged.'),
+      payloadOf(CLOSED, 'The pull request was closed without being merged.'),
     );
 
     expect(outcome.kind === 'interrupts' && outcome.body.value).toBe(
@@ -204,7 +210,7 @@ describe('ReactionFor.happened', () => {
   });
 
   it('says the station was working where the task awaits only a tool approval', () => {
-    const asking = held('station_2').putToAPersonBy(RUN, {
+    const asking = held('station_2').putToAPerson(RUN, {
       station: StationName.of('Code Review'),
       body: TaskNoteBody.of('Approve linear.comment?'),
       at: NOW,

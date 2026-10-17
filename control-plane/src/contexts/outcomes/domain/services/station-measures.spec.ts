@@ -21,14 +21,16 @@ const through = (
 ) => ({ value, baseline, runId: RunId.of(runId), taskId: expect.anything() });
 
 const sentBack = (runId: string, hour: number) =>
-  endedRecord(runId, { taskId: `task_${runId}`, endedAt: at(hour) }).actedOn(
-    NextAct.of('sent-back', at(hour)),
-  );
+  endedRecord(runId, {
+    taskId: `task_${runId}`,
+    endedAt: at(hour),
+  }).recordAction(NextAct.of('sent-back', at(hour)));
 
 const accepted = (runId: string, hour: number) =>
-  endedRecord(runId, { taskId: `task_${runId}`, endedAt: at(hour) }).actedOn(
-    NextAct.of('closed', at(hour)),
-  );
+  endedRecord(runId, {
+    taskId: `task_${runId}`,
+    endedAt: at(hour),
+  }).recordAction(NextAct.of('closed', at(hour)));
 
 describe('measureOf', () => {
   it('measures the share of runs sent back, accepted and failed', () => {
@@ -46,11 +48,11 @@ describe('measureOf', () => {
 
   it('measures failed checks among checked runs, and merges among tasks', () => {
     const records = [
-      endedRecord('run_1', { taskId: 'task_1', endedAt: at(1) }).checked(
+      endedRecord('run_1', { taskId: 'task_1', endedAt: at(1) }).recordCheck(
         'failed',
         HEARD_AT,
       ),
-      endedRecord('run_2', { taskId: 'task_1', endedAt: at(2) }).checked(
+      endedRecord('run_2', { taskId: 'task_1', endedAt: at(2) }).recordCheck(
         'passed',
         HEARD_AT,
       ),
@@ -180,11 +182,11 @@ describe('readingOf, among settled runs', () => {
     });
     const cost = AlertRule.of({ measure: 'cost_per_run', above: 1, over: 1 });
     const records = [
-      endedRecord('run_3', { taskId: 'task_3', endedAt: at(3) }).checked(
+      endedRecord('run_3', { taskId: 'task_3', endedAt: at(3) }).recordCheck(
         'skipped',
         HEARD_AT,
       ),
-      costedRecord('run_2', { amount: 3, endedAt: at(2) }).checked(
+      costedRecord('run_2', { amount: 3, endedAt: at(2) }).recordCheck(
         'failed',
         HEARD_AT,
       ),

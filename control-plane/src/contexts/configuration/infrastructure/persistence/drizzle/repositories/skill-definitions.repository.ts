@@ -73,7 +73,7 @@ export class DrizzleSkillDefinitions implements SkillDefinitionRepository {
   }
 
   async save(definition: SkillDefinition): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       await this.stored(definition);
       await this.events.dispatch(definition.pullEvents());
     });

@@ -86,18 +86,18 @@ var (
 	)
 )
 
-func RunnerRefusal(release, atLeast string) string {
+func RunnerRefusal(release, minimum string) string {
 	if release == "" {
-		return fmt.Sprintf("Runner doesn't report its release number. Minimum version required: %s", atLeast)
+		return fmt.Sprintf("Runner doesn't report its release number. Minimum version required: %s", minimum)
 	}
 
-	have, need := datedRelease.FindStringSubmatch(release), datedRelease.FindStringSubmatch(atLeast)
+	have, need := datedRelease.FindStringSubmatch(release), datedRelease.FindStringSubmatch(minimum)
 	if have == nil || need == nil {
 		return ""
 	}
 
 	if have[1] < need[1] || (have[1] == need[1] && number(have[2]) < number(need[2])) {
-		return fmt.Sprintf("Runner is on release %s. Minimum version required: %s", release, atLeast)
+		return fmt.Sprintf("Runner is on release %s. Minimum version required: %s", release, minimum)
 	}
 
 	return ""

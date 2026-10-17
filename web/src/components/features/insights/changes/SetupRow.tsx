@@ -6,12 +6,12 @@ import {
   OUTER_INDENT,
 } from '@/components/shared/nested-table/nested-rows';
 import { spentIn } from '@/lib/inbox';
-import { countShown } from '@/lib/insights';
+import { formatCount } from '@/lib/insights';
 import {
+  formatOutcome,
+  formatSetupWithin,
   type OutcomeMeasure,
-  outcomeShown,
   type SetupOutcome,
-  setupWithinShown,
   shownMeasures,
 } from '@/lib/insights-changes';
 import { cn } from '@/lib/utils';
@@ -39,11 +39,11 @@ export function SetupRow({ setup, measure, judged }: SetupRowProps) {
         )}
       >
         <span className="min-w-0 truncate font-medium text-foreground text-xs">
-          {setupWithinShown(setup)}
+          {formatSetupWithin(setup)}
         </span>
         {setup.frontier.includes(measure) && <BestValueMark />}
       </div>
-      <NestedCell heading="Runs">{countShown(setup.tally.runs)}</NestedCell>
+      <NestedCell heading="Runs">{formatCount(setup.tally.runs)}</NestedCell>
       <NestedCell heading="Cost per run" strong>
         {setup.costPerRun === null || !setup.currency
           ? '–'
@@ -55,7 +55,7 @@ export function SetupRow({ setup, measure, judged }: SetupRowProps) {
           heading={each.label}
           strong={each.id === measure}
         >
-          {outcomeShown(setup.outcomes[each.id])}
+          {formatOutcome(setup.outcomes[each.id])}
         </NestedCell>
       ))}
     </li>

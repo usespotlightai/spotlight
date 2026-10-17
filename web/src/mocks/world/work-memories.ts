@@ -113,7 +113,7 @@ const RUN_MEMORIES: Record<string, Partial<RunMemoriesResponseDto>> = {
   },
 };
 
-const BRIEFED_AT_MOST = 4;
+const MAX_BRIEFED = 4;
 
 const heldAt = (memory: MemoryRecord, at: string): boolean =>
   memory.approvedAt <= at &&
@@ -157,7 +157,7 @@ const briefedFor = (runId: string): TeamMemoryResponseDto[] => {
         .filter(
           (memory) => heldAt(memory, run.startedAt) && reaches(memory, run),
         )
-        .slice(0, BRIEFED_AT_MOST)
+        .slice(0, MAX_BRIEFED)
         .map(briefedOf)
     : [];
 };

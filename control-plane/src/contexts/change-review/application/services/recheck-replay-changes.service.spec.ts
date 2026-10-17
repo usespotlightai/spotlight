@@ -73,7 +73,7 @@ const rechecking = (held: StackCheck[]) => {
     added,
     service: new RecheckReplayChanges(
       checks,
-      { run: (work) => work() },
+      { inTransaction: (work) => work() },
       { now: () => NOW, sleep: async () => undefined },
     ),
   };

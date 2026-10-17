@@ -53,7 +53,7 @@ export class DrizzleRunnerTrustRepository implements RunnerTrustRepository {
   ) {}
 
   async add(added: RunnerTrust): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       try {
         await this.context.db.insert(runnerTrust).values({
           id: added.id.value,
@@ -74,7 +74,7 @@ export class DrizzleRunnerTrustRepository implements RunnerTrustRepository {
   }
 
   async save(saved: RunnerTrust): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       const matching = and(
         eq(runnerTrust.id, saved.id.value),
         eq(runnerTrust.version, saved.version),

@@ -11,13 +11,13 @@ import { NoteReplayDigested } from '@replays/application/services/note-replay-di
 import { NoteReplayEnded } from '@replays/application/services/note-replay-ended.service';
 import { NoteReplayJudged } from '@replays/application/services/note-replay-judged.service';
 import {
-  AT_HAND,
   CLOCK,
   FakeChangeReview,
   FakeOutcomes,
   FakeWork,
   IDS,
   InMemoryReplays,
+  STATION_VIEW,
   TRANSACTION,
 } from '@replays/application/services/replays.fake-spec';
 import { Candidate } from '@replays/domain/aggregates/candidate.aggregate';
@@ -53,7 +53,7 @@ import { ChangeChecks } from '@replays/domain/value-objects/change-checks.vo';
 import { JudgeCriteria } from '@replays/domain/value-objects/judge-criteria.vo';
 import { JudgeVerdict } from '@replays/domain/value-objects/judge-verdict.vo';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
-import { MOST_QUEUE_ATTEMPTS } from '@replays/domain/value-objects/replay-entry.vo';
+import { MAX_QUEUE_ATTEMPTS } from '@replays/domain/value-objects/replay-entry.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { Spend } from '@replays/domain/value-objects/spend.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -88,7 +88,7 @@ beforeEach(async () => {
 });
 
 const handedTheAnswer = (oracle: Candidate) => {
-  const replay = Replay.started({
+  const replay = Replay.start({
     id: ReplayId.of('replay_oracle'),
     set: aSet(3),
     candidate: oracle,
@@ -190,7 +190,7 @@ describe('DispatchReplayRuns', () => {
     expect(queued('replay_team')).toBe(REPLAY_RUNS_AT_ONCE);
     expect(queued('replay_search')).toBe(3);
 
-    await memory.searchRepository.save(search.stopped(NOW, BY));
+    await memory.searchRepository.save(search.stop(NOW, BY));
     await memory.replayRepository.add(
       aReplay({ id: 'replay_late', count: 2, searchId: search.id }),
     );
@@ -230,7 +230,7 @@ describe('DispatchReplayRuns when Work fails', () => {
     await dispatching().workDue();
     const replay = memory.replays.get('replay_1');
     await memory.replayRepository.save(
-      (replay as NonNullable<typeof replay>).stopped(later(1), BY),
+      (replay as NonNullable<typeof replay>).stop(later(1), BY),
     );
     const kept = memory.replays.get('replay_1')?.entries[0]?.run?.value ?? '';
     work.queuedRuns.add(kept);
@@ -243,13 +243,13 @@ describe('DispatchReplayRuns when Work fails', () => {
     expect(after?.occupying[0]?.fingerprint).not.toBeNull();
   });
 
-  it(`gives up on a run Work failed to queue ${MOST_QUEUE_ATTEMPTS} times only once Work says it never queued it, and keeps one it did`, async () => {
+  it(`gives up on a run Work failed to queue ${MAX_QUEUE_ATTEMPTS} times only once Work says it never queued it, and keeps one it did`, async () => {
     await memory.replayRepository.add(aReplay({ count: 2 }));
     work.dispatch = async () => {
       throw new Error('down');
     };
 
-    for (let turn = 0; turn < MOST_QUEUE_ATTEMPTS; turn += 1) {
+    for (let turn = 0; turn < MAX_QUEUE_ATTEMPTS; turn += 1) {
       await dispatching().workDue();
     }
     expect(work.forgone).toEqual([]);
@@ -332,7 +332,7 @@ describe('NoteLineRedefined', () => {
     let asked = 0;
     work.station = async (lineId, stationId) => {
       asked += 1;
-      return asked === 1 ? null : { ...AT_HAND, lineId, stationId };
+      return asked === 1 ? null : { ...STATION_VIEW, lineId, stationId };
     };
     await redefining.check(set.id);
     expect(memory.sets.get('set_1')?.isAtGoneStation).toBe(false);
@@ -718,11 +718,11 @@ describe('probing a set', () => {
       const run = entry.run as RunId;
 
       return held
-        .confirmed(run, FINGERPRINT, NOW)
-        .ended(run, endOf('completed'))
-        .measured(run, measuresOf(1), later(61_000))
-        .reviewed(run, ChangeChecks.of(PASSED), null, later(62_000))
-        .judged(
+        .confirm(run, FINGERPRINT, NOW)
+        .recordRunEnd(run, endOf('completed'))
+        .measure(run, measuresOf(1), later(61_000))
+        .recordReview(run, ChangeChecks.of(PASSED), null, later(62_000))
+        .recordVerdict(
           run,
           JudgeVerdict.of({
             scale: 'yes-no',

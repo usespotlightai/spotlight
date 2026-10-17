@@ -8,7 +8,7 @@ import type { SetHealths } from '@replays/application/services/set-healths.servi
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
 import { DEFAULT_MIN_GAIN } from '@replays/domain/services/gain-reading';
 import { UNREAD_HEALTH } from '@replays/domain/services/set-health';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
 export class ListTeamReplaySetsHandler
@@ -26,24 +26,21 @@ export class ListTeamReplaySetsHandler
     query: ListTeamReplaySetsQuery,
   ): Promise<readonly ReplaySetDto[]> {
     try {
-      const clearance = await this.access.clearance(
-        query.teamId,
-        query.principal,
-      );
+      const access = await this.access.forTeam(query.teamId, query.principal);
       const at = query.at
         ? await this.access.keyedStationOn(
-            clearance,
+            access,
             query.at.lineId,
             query.at.key,
           )
         : null;
-      const sets = (await this.sets.ofTeam(clearance.teamId)).filter(
+      const sets = (await this.sets.ofTeam(access.teamId)).filter(
         (each) =>
-          clearance.sees(each.station) &&
+          access.sees(each.station) &&
           (!at || each.station.stationId === at.stationId),
       );
       const standing = await this.work.standing(
-        clearance.workspaceId,
+        access.workspaceId,
         sets.flatMap((each) => each.runs),
       );
       const turnouts = await this.outcomes.turnedOut(
@@ -65,7 +62,7 @@ export class ListTeamReplaySetsHandler
         ),
       );
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

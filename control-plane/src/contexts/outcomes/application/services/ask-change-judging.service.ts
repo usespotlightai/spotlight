@@ -50,7 +50,7 @@ export class AskChangeJudging implements ChangeJudgingPort {
       throw error;
     }
 
-    await this.transaction.run(async () => {
+    await this.transaction.inTransaction(async () => {
       if (!(await this.judgings.of(judging.runId, judging.round))) {
         await this.judgings.add(judging);
       }
@@ -66,7 +66,7 @@ export class AskChangeJudging implements ChangeJudgingPort {
 
     const run = RunId.of(runId);
 
-    return this.transaction.run(async () => {
+    return this.transaction.inTransaction(async () => {
       const first = await this.judgings.of(run, 1);
 
       if (!first?.judgedAt) {

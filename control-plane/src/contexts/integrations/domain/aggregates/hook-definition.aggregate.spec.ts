@@ -273,7 +273,7 @@ describe('HookDefinition', () => {
   });
 
   it('is retired once', () => {
-    const retired = standing().retired(BY);
+    const retired = standing().retire(BY);
 
     expect(retired.isRetired).toBe(true);
     expect(retired.pullEvents()).toEqual([
@@ -284,7 +284,7 @@ describe('HookDefinition', () => {
         ConfigurationChange.deleted(CHANGED, BY),
       ),
     ]);
-    expect(() => retired.retired(BY)).toThrow(InconsistentStateError);
+    expect(() => retired.retire(BY)).toThrow(InconsistentStateError);
   });
 
   it('blocks on failure only where it was written to', () => {

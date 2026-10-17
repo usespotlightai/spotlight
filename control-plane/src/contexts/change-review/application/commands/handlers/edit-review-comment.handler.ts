@@ -3,7 +3,7 @@ import type { ReviewAccess } from '@change-review/application/services/review-ac
 import { UnknownReviewCommentError } from '@change-review/domain/exceptions/unknown-review-comment.error';
 import type { ReviewCommentRepository } from '@change-review/domain/repositories/review-comment.repository';
 import { ReviewCommentId } from '@change-review/domain/value-objects/review-comment-id.vo';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 
@@ -35,7 +35,7 @@ export class EditReviewCommentHandler
         comment.rewritten(command.body, by, this.clock.now()),
       );
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

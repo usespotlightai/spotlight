@@ -68,7 +68,7 @@ export const openLine = (input: {
   newId: () => string;
   by: Attribution;
 }): Line =>
-  Line.laidOut({
+  Line.layOut({
     ...input.identity,
     by: input.by,
     ...assemble(input.plan, () => null, input.newId),

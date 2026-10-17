@@ -22,9 +22,9 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { ErrorReportsPort } from '@shared-kernel/application/ports/error-reports.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 
-export const MOST_ATTEMPTS = 6;
+export const MAX_ATTEMPTS = 6;
 
-export const MOST_WAITS_FOR_THREAD = 30;
+export const MAX_WAITS_FOR_THREAD = 30;
 
 const AT_A_TIME = 10;
 
@@ -98,7 +98,7 @@ export class SyncReviews implements ReviewSyncWorkPort {
     now: Date,
   ): Promise<void> {
     if (error instanceof NotYet) {
-      if (!error.counted || sync.attempts + 1 < MOST_WAITS_FOR_THREAD) {
+      if (!error.counted || sync.attempts + 1 < MAX_WAITS_FOR_THREAD) {
         await this.outbox.later(
           sync.id,
           new Date(now.getTime() + WAIT_FOR_PULL_REQUEST_MS),
@@ -122,7 +122,7 @@ export class SyncReviews implements ReviewSyncWorkPort {
     if (
       error instanceof GaveUp ||
       error instanceof NotYet ||
-      sync.attempts + 1 >= MOST_ATTEMPTS
+      sync.attempts + 1 >= MAX_ATTEMPTS
     ) {
       await this.abandon(sync);
       await this.outbox.failed(sync.id, failure);
@@ -255,7 +255,7 @@ export class SyncReviews implements ReviewSyncWorkPort {
     const withdrawn = held.filter((comment) => comment.state === 'deleted');
 
     if (review.silentWith(sent)) {
-      await this.reviews.save(review.withdrawn(sent));
+      await this.reviews.save(review.withdraw(sent));
       return;
     }
 

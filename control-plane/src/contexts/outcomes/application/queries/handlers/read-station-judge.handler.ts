@@ -5,7 +5,7 @@ import {
 import type { ReadStationJudgeQuery } from '@outcomes/application/queries/read-station-judge.query';
 import type { OutcomesAccess } from '@outcomes/application/services/outcomes-access.service';
 import type { StationJudgeReports } from '@outcomes/application/services/station-judge-reports.service';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
 export class ReadStationJudgeHandler
@@ -18,13 +18,10 @@ export class ReadStationJudgeHandler
 
   async execute(query: ReadStationJudgeQuery): Promise<StationJudgeDto> {
     try {
-      const clearance = await this.access.clearance(
-        query.teamId,
-        query.viewerId,
-      );
+      const access = await this.access.forTeam(query.teamId, query.viewerId);
       const { judge, report, standing } = await this.reports.at({
-        workspaceId: clearance.workspaceId,
-        teamId: clearance.teamId,
+        workspaceId: access.workspaceId,
+        teamId: access.teamId,
         lineId: query.lineId,
         stationId: query.stationId,
       });
@@ -49,7 +46,7 @@ export class ReadStationJudgeHandler
         coverage: report.coverage,
       };
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

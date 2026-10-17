@@ -7,7 +7,7 @@ import { UnknownChangeStackError } from '@change-review/domain/exceptions/unknow
 import type { ChangeStackRepository } from '@change-review/domain/repositories/change-stack.repository';
 import type { StackCheckRepository } from '@change-review/domain/repositories/stack-check.repository';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
-import { MOST_HOLD_MS } from '@change-review/domain/value-objects/check-claim.vo';
+import { MAX_HOLD_MS } from '@change-review/domain/value-objects/check-claim.vo';
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
 import { Diff } from '@change-review/domain/value-objects/diff.vo';
 import {
@@ -114,7 +114,7 @@ const claimingReserved = (found: StackCheck | null) => {
       } as unknown as StackCheckRepository,
       { find: async () => settled() } as unknown as ChangeStackRepository,
       { patchOf: () => 'diff' } as PatchWriterPort,
-      { run: (work) => work() } as TransactionPort,
+      { inTransaction: (work) => work() } as TransactionPort,
     ),
   };
 };
@@ -130,7 +130,7 @@ describe('ClaimChangeStackCheck', () => {
       { dueForCheck } as unknown as StackCheckRepository,
       { find } as unknown as ChangeStackRepository,
       {} as PatchWriterPort,
-      { run: (work) => work() } as TransactionPort,
+      { inTransaction: (work) => work() } as TransactionPort,
     ).claimNext(WorkspaceId.of('ws_1'), RunnerId.of('runner_1'), LAPTOP, NOW);
 
     expect(claimed).toBeNull();
@@ -216,7 +216,7 @@ describe('ClaimChangeStackCheck', () => {
           } as unknown as StackCheckRepository,
           { find: async () => null } as unknown as ChangeStackRepository,
           { patchOf: () => 'diff' } as PatchWriterPort,
-          { run: (work) => work() } as TransactionPort,
+          { inTransaction: (work) => work() } as TransactionPort,
         ),
       };
     };
@@ -264,7 +264,7 @@ describe('ClaimChangeStackCheck', () => {
           } as unknown as StackCheckRepository,
           {} as ChangeStackRepository,
           {} as PatchWriterPort,
-          { run: (work) => work() } as TransactionPort,
+          { inTransaction: (work) => work() } as TransactionPort,
         ),
       };
     };
@@ -327,7 +327,7 @@ describe('ClaimChangeStackCheck', () => {
           } as unknown as StackCheckRepository,
           {} as ChangeStackRepository,
           {} as PatchWriterPort,
-          { run: (work) => work() } as TransactionPort,
+          { inTransaction: (work) => work() } as TransactionPort,
         ),
       };
     };
@@ -399,7 +399,7 @@ describe('ClaimChangeStackCheck', () => {
 
     it('tells the runner to stop once the check was settled, or its lease lapsed past the hour', async () => {
       const skipped = renewing(
-        held().skipped(RUNNER, skipOf('no-room', null), NOW),
+        held().skip(RUNNER, skipOf('no-room', null), NOW),
       );
       const overdue = renewing(held());
 
@@ -451,7 +451,7 @@ describe('ClaimChangeStackCheck', () => {
     });
 
     it('tells a runner that kept renewing past the most a check may be held to stop', async () => {
-      const ceiling = NOW.getTime() + MOST_HOLD_MS;
+      const ceiling = NOW.getTime() + MAX_HOLD_MS;
       let check = held();
       for (let at = NOW.getTime(); at < ceiling; at += 5 * 60_000) {
         check = check.renewedFor(RUNNER, new Date(at));

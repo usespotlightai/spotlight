@@ -1,6 +1,6 @@
 import { InvalidWorkspaceArchiveError } from '@work/domain/exceptions/invalid-workspace-archive.error';
 
-const MOST_BYTES = 2 * 1024 ** 3;
+const MAX_BYTES = 2 * 1024 ** 3;
 
 export class ArchiveSize {
   private constructor(readonly bytes: number) {}
@@ -12,9 +12,9 @@ export class ArchiveSize {
       );
     }
 
-    if (bytes > MOST_BYTES) {
+    if (bytes > MAX_BYTES) {
       throw new InvalidWorkspaceArchiveError(
-        `can be at most ${MOST_BYTES} bytes, not ${bytes}`,
+        `can be at most ${MAX_BYTES} bytes, not ${bytes}`,
       );
     }
 

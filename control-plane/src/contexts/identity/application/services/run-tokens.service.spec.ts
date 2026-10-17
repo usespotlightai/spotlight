@@ -32,7 +32,9 @@ const using = () => {
     } as unknown as TokenMintPort,
     { generate: () => 'Token_1' } as IdGeneratorPort,
     { now: () => NOW } as ClockPort,
-    { run: (work: () => Promise<unknown>) => work() } as TransactionPort,
+    {
+      inTransaction: (work: () => Promise<unknown>) => work(),
+    } as TransactionPort,
   );
 
   return { service, tokens, held, saved };

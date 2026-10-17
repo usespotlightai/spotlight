@@ -2,7 +2,7 @@ import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 export const HARNESS_PROFILE_RESOURCES = Symbol('HARNESS_PROFILE_RESOURCES');
 
-export interface KeptProfile {
+export interface HarnessProfileRecord {
   readonly id: string;
   readonly version: number;
   readonly teamId: TeamId;
@@ -10,9 +10,9 @@ export interface KeptProfile {
 }
 
 export interface HarnessProfileResourcesPort {
-  withId(id: string): Promise<KeptProfile | null>;
+  withId(id: string): Promise<HarnessProfileRecord | null>;
 
-  at(teamId: TeamId, key: string): Promise<KeptProfile | null>;
+  at(teamId: TeamId, key: string): Promise<HarnessProfileRecord | null>;
 
-  ofTeam(teamId: TeamId): Promise<readonly KeptProfile[]>;
+  ofTeam(teamId: TeamId): Promise<readonly HarnessProfileRecord[]>;
 }

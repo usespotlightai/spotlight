@@ -46,13 +46,13 @@ import {
   type ApprovalDecision,
   type ApprovalEdits,
 } from '@work/domain/value-objects/approval.vo';
+import type { ApprovalCheck } from '@work/domain/value-objects/approval-check';
 import type { ApprovalIntent } from '@work/domain/value-objects/approval-intent.vo';
 import type { ApprovalNeeded } from '@work/domain/value-objects/approval-needed.vo';
 import type { ApprovalSubject } from '@work/domain/value-objects/approval-subject.vo';
 import type { Attachment } from '@work/domain/value-objects/attachment.vo';
 import { Branch } from '@work/domain/value-objects/branch.vo';
 import { BriefedTask } from '@work/domain/value-objects/briefed-task.vo';
-import type { Clearance } from '@work/domain/value-objects/clearance';
 import type { ConnectionAsk } from '@work/domain/value-objects/connection-ask.vo';
 import { Continuity } from '@work/domain/value-objects/continuity.vo';
 import { ContinuityKey } from '@work/domain/value-objects/continuity-key.vo';
@@ -118,7 +118,7 @@ export interface AskedToConnect {
 
 export interface Cleared {
   readonly task: Task;
-  readonly clearance: Clearance;
+  readonly check: ApprovalCheck;
 }
 
 export class Task extends EventRecorder {
@@ -315,7 +315,7 @@ export class Task extends EventRecorder {
     return moved;
   }
 
-  reactedTo(line: Line, to: StationId, rank: TaskRank, saying: Saying): Task {
+  react(line: Line, to: StationId, rank: TaskRank, saying: Saying): Task {
     if (this.running) {
       throw new InvalidTaskTransitionError(
         `Task ${this.id.value} is being worked by a run. A happening cannot move it.`,
@@ -427,7 +427,7 @@ export class Task extends EventRecorder {
       : undefined;
   }
 
-  interrupted(saying: Saying): Task {
+  interrupt(saying: Saying): Task {
     if (!this.running) {
       throw new InvalidTaskTransitionError(
         `Task ${this.id.value} is not being worked by a run.`,
@@ -487,11 +487,11 @@ export class Task extends EventRecorder {
     return this.with({ rank });
   }
 
-  assignedTo(userId: UserId): Task {
+  assign(userId: UserId): Task {
     return this.with({ assignee: userId });
   }
 
-  unassigned(): Task {
+  unassign(): Task {
     return this.with({ assignee: null });
   }
 
@@ -503,7 +503,12 @@ export class Task extends EventRecorder {
     return Branch.for(this.id);
   }
 
-  openedAt(by: RunId, url: PullRequestUrl, at: Date, line: Line): Task {
+  recordPullRequest(
+    by: RunId,
+    url: PullRequestUrl,
+    at: Date,
+    line: Line,
+  ): Task {
     this.refuseAnotherRun(by, 'open a pull request for it');
 
     if (this.pullRequest) {
@@ -632,7 +637,7 @@ export class Task extends EventRecorder {
     const owed = answering ? this.owedConversation : null;
 
     if (owed && !this.owesADecision) {
-      return this.answered(NotePosition.of(owed.from), saying);
+      return this.answer(NotePosition.of(owed.from), saying);
     }
 
     const heard = this.heard(saying, at);
@@ -710,7 +715,7 @@ export class Task extends EventRecorder {
     return passed;
   }
 
-  finishedHere(by: RunId, line: Line, saying: Saying): Task {
+  finishHere(by: RunId, line: Line, saying: Saying): Task {
     this.refuseAnotherRun(by, 'finish it');
 
     if (!line.endsAt(this.stationId)) {
@@ -762,11 +767,11 @@ export class Task extends EventRecorder {
     return this.idle && Boolean(line.stationAt(this.stationId)?.harness);
   }
 
-  runNeverStarted(runId: RunId): Task {
+  dropUnstartedRun(runId: RunId): Task {
     return this.heldBy(runId) ? this.with({ currentRunId: null }) : this;
   }
 
-  leftBy(runId: RunId, at: Date): Task {
+  leaveRun(runId: RunId, at: Date): Task {
     return this.heldBy(runId)
       ? this.with({ currentRunId: null }).handedOnAt(at)
       : this;
@@ -775,10 +780,10 @@ export class Task extends EventRecorder {
   private handedOnAt(at: Date): Task {
     return this.notes.length === 0
       ? this
-      : this.deliveredUpTo(NotePosition.of(this.notes.length - 1), at);
+      : this.markDeliveredUpTo(NotePosition.of(this.notes.length - 1), at);
   }
 
-  workedIn(sessionId: HarnessSession, runnerId: RunnerId | null): Task {
+  recordSession(sessionId: HarnessSession, runnerId: RunnerId | null): Task {
     return this.with({ sessionId, runnerId });
   }
 
@@ -935,7 +940,7 @@ export class Task extends EventRecorder {
     ];
   }
 
-  deliveredUpTo(position: NotePosition, at: Date): Task {
+  markDeliveredUpTo(position: NotePosition, at: Date): Task {
     return this.with({
       notes: this.notes.map((note) =>
         note.position.isAtOrBefore(position) ? note.delivered(at) : note,
@@ -947,7 +952,7 @@ export class Task extends EventRecorder {
     return this.asked(saying, by, null);
   }
 
-  putToAPersonBy(by: RunId, saying: Saying): Task {
+  putToAPerson(by: RunId, saying: Saying): Task {
     return this.asked(saying, by, by);
   }
 
@@ -1107,7 +1112,7 @@ export class Task extends EventRecorder {
     if (standing?.approval.refuses) {
       return {
         task: this,
-        clearance: {
+        check: {
           kind: 'refused',
           reason: standing.approval.decided?.reason ?? '',
         },
@@ -1119,7 +1124,7 @@ export class Task extends EventRecorder {
         task: this.withApprovalAt(standing.at, (note) =>
           note.approvalClaimed(),
         ),
-        clearance: {
+        check: {
           kind: 'given',
           claimed: standing.at,
           edited: standing.approval.goesAheadWith,
@@ -1128,13 +1133,13 @@ export class Task extends EventRecorder {
     }
 
     if (this.awaitingReview) {
-      return { task: this, clearance: { kind: 'asked' } };
+      return { task: this, check: { kind: 'asked' } };
     }
 
     const askedOf = needed.askedOf;
 
     return {
-      task: (askedOf ? this.with({ assignee: askedOf }) : this).putToAPersonBy(
+      task: (askedOf ? this.with({ assignee: askedOf }) : this).putToAPerson(
         by,
         {
           ...asking,
@@ -1148,7 +1153,7 @@ export class Task extends EventRecorder {
           ),
         },
       ),
-      clearance: { kind: 'asked' },
+      check: { kind: 'asked' },
     };
   }
 
@@ -1167,7 +1172,7 @@ export class Task extends EventRecorder {
     }
 
     return {
-      task: this.with({ assignee: ask.personId }).putToAPersonBy(by, {
+      task: this.with({ assignee: ask.personId }).putToAPerson(by, {
         ...asking,
         form: 'connection',
         connectionAsk: ask,
@@ -1193,7 +1198,7 @@ export class Task extends EventRecorder {
       return null;
     }
 
-    const answered = this.answered(NotePosition.of(open.from), saying);
+    const answered = this.answer(NotePosition.of(open.from), saying);
 
     return answered.with({
       notes: answered.notes.map((note) =>
@@ -1202,8 +1207,8 @@ export class Task extends EventRecorder {
     });
   }
 
-  approvalReturned(at: NotePosition): Task {
-    return this.withApprovalAt(at, (note) => note.approvalReturned());
+  returnApproval(at: NotePosition): Task {
+    return this.withApprovalAt(at, (note) => note.returnApproval());
   }
 
   approvalFor(subject: ApprovalSubject): StandingApproval | null {
@@ -1235,7 +1240,7 @@ export class Task extends EventRecorder {
     return this.notes[from.value]?.approval?.changedBy(edits) ?? null;
   }
 
-  answered(
+  answer(
     from: NotePosition,
     saying: Saying,
     decision: ApprovalDecision | null = null,

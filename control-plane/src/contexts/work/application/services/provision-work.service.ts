@@ -27,11 +27,11 @@ import {
   poolChoiceFor,
 } from '@work/domain/services/pool-choice';
 
-const MOST_AT_ONCE = 20;
+const MAX_AT_ONCE = 20;
 
 const PAGE = 200;
 
-const MOST_PAGES = 10;
+const MAX_PAGES = 10;
 
 type Provisioned = 'settled' | 'try-another';
 
@@ -146,7 +146,7 @@ export class ProvisionWork {
       );
       const [chosen] = fitting;
 
-      if (chosen && placed.length < MOST_AT_ONCE) {
+      if (chosen && placed.length < MAX_AT_ONCE) {
         room = room.afterTaking(chosen.pool);
         placed.push({ provisionable, fitting });
       }
@@ -157,20 +157,20 @@ export class ProvisionWork {
         this.runs
           .awaitingProvision(first.workspaceId, this.clock.now(), {
             skip,
-            most: PAGE,
+            max: PAGE,
             withSecrets: pools.some((offered) => offered.egress),
           })
           .then((runs) => runs.map((run) => this.provisionableRun(run))),
       (skip: number) =>
         this.checks
-          .awaiting(first.workspaceId, this.clock.now(), { skip, most: PAGE })
+          .awaiting(first.workspaceId, this.clock.now(), { skip, max: PAGE })
           .then((checks) =>
             checks.map((check) => this.provisionableCheck(check)),
           ),
     ]) {
       for (
         let at = 0;
-        at < MOST_PAGES && placed.length < MOST_AT_ONCE && room.anyLeft;
+        at < MAX_PAGES && placed.length < MAX_AT_ONCE && room.anyLeft;
         at++
       ) {
         const found = await page(at * PAGE);

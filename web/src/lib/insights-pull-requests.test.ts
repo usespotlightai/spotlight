@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  formatPullRequestFilterValue,
   groupFilter,
   mergedPullRequestsFilter,
-  pullRequestFilterValueShown,
   typeFilter,
   weekFilter,
 } from '@/lib/insights-pull-requests';
@@ -51,20 +51,20 @@ describe('the filters behind each pull request number', () => {
   });
 });
 
-describe('pullRequestFilterValueShown', () => {
+describe('formatPullRequestFilterValue', () => {
   it('names what a filter narrows by in words', () => {
-    expect(pullRequestFilterValueShown('author', 'touched')).toBe(
+    expect(formatPullRequestFilterValue('author', 'touched')).toBe(
       'Others, with a Spotlight review task',
     );
-    expect(pullRequestFilterValueShown('author', 'bots')).toBe('Bots alone');
-    expect(pullRequestFilterValueShown('compared', 'true')).toBe(
+    expect(formatPullRequestFilterValue('author', 'bots')).toBe('Bots alone');
+    expect(formatPullRequestFilterValue('compared', 'true')).toBe(
       'Where Spotlight merged',
     );
-    expect(pullRequestFilterValueShown('rounds', '3+')).toBe(
+    expect(formatPullRequestFilterValue('rounds', '3+')).toBe(
       '3 or more rounds',
     );
-    expect(pullRequestFilterValueShown('repository', 'acme/api,acme/web')).toBe(
-      '2 repositories',
-    );
+    expect(
+      formatPullRequestFilterValue('repository', 'acme/api,acme/web'),
+    ).toBe('2 repositories');
   });
 });

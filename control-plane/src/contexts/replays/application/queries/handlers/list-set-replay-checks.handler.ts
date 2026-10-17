@@ -6,7 +6,7 @@ import { replayUrlOf } from '@replays/application/services/replay-check-views';
 import type { ReplaysAccess } from '@replays/application/services/replays-access.service';
 import type { ReplayCheckRepository } from '@replays/domain/repositories/replay-check.repository';
 import { ReplayCheckId } from '@replays/domain/value-objects/replay-check-id.vo';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
 export class ListSetReplayChecksHandler
@@ -25,11 +25,8 @@ export class ListSetReplayChecksHandler
     query: ListSetReplayChecksQuery,
   ): Promise<readonly ReplayCheckSummaryDto[]> {
     try {
-      const clearance = await this.access.clearance(
-        query.teamId,
-        query.principal,
-      );
-      const set = await this.access.setOn(clearance, query.setId);
+      const access = await this.access.forTeam(query.teamId, query.principal);
+      const set = await this.access.setOn(access, query.setId);
       const [page, slug] = await Promise.all([
         this.checks.pageOfSet(set.id, {
           before: query.page.before
@@ -62,7 +59,7 @@ export class ListSetReplayChecksHandler
         }),
       );
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

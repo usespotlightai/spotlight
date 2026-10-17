@@ -11,7 +11,7 @@ type WorkIds = Omit<ErrorAbout, 'source'>;
 
 export interface OwedWorkSource<Owing extends OwesWork<Owing>, Key> {
   readonly name: string;
-  readonly mostAtOnce: number;
+  readonly maxAtOnce: number;
   due(now: Date): Promise<Owing | null>;
   find(key: Key): Promise<Owing | null>;
   save(owing: Owing): Promise<void>;
@@ -34,7 +34,7 @@ export class OwedWorkPool<Owing extends OwesWork<Owing>, Key> {
   ) {}
 
   async workDue(): Promise<void> {
-    while (this.#working.size < this.source.mostAtOnce) {
+    while (this.#working.size < this.source.maxAtOnce) {
       const claimed = await this.claim();
 
       if (claimed === null) {
@@ -62,7 +62,7 @@ export class OwedWorkPool<Owing extends OwesWork<Owing>, Key> {
   }
 
   private claim(): Promise<{ key: Key; gaveUp: Owing | null } | null> {
-    return this.transaction.run(async () => {
+    return this.transaction.inTransaction(async () => {
       const now = this.clock.now();
       const due = await this.source.due(now);
 

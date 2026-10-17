@@ -105,8 +105,8 @@ type EgressAdmitted struct {
 }
 
 const (
-	MostHoldsAtOnce   = 500
-	MostRecordsAtOnce = 2000
+	MaxHoldsAtOnce   = 500
+	MaxRecordsAtOnce = 2000
 )
 
 type EgressHolds struct {

@@ -3,7 +3,7 @@ import { ResourceMapper } from '@identity/application/mappers/resource.mapper';
 import type { IdentityResourcesPort } from '@identity/application/ports/identity-resources.port';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type { ReadWorkspaceQuery } from '@identity/application/queries/read-workspace.query';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -23,11 +23,11 @@ export class ReadWorkspaceHandler
         WorkspaceId.of(query.workspaceId),
       );
 
-      return kept && (await this.access.clearanceIn(kept.id, query.principal))
+      return kept && (await this.access.permissionsIn(kept.id, query.principal))
         ? ResourceMapper.workspace(kept)
         : null;
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

@@ -413,7 +413,7 @@ type pool struct {
 	refuse   chan struct{}
 	offered  chan protocol.HostClaim
 	named    []string
-	atLeast  string
+	minimum  string
 	unoffer  bool
 	worker   *worker
 	mu       sync.Mutex
@@ -447,15 +447,15 @@ func (p *pool) Requirements(context.Context) (protocol.HostRequirements, error) 
 	defer p.mu.Unlock()
 
 	return protocol.HostRequirements{
-		Runner:    protocol.RunnerRequirement{AtLeast: p.atLeastOr()},
+		Runner:    protocol.RunnerRequirement{Minimum: p.minimumOr()},
 		Harnesses: []protocol.Installable{{ID: "claude-code", Executable: "claude"}},
 		Images:    slices.Clone(p.named),
 	}, nil
 }
 
-func (p *pool) atLeastOr() string {
-	if p.atLeast != "" {
-		return p.atLeast
+func (p *pool) minimumOr() string {
+	if p.minimum != "" {
+		return p.minimum
 	}
 	return leastRelease
 }
@@ -463,7 +463,7 @@ func (p *pool) atLeastOr() string {
 func (p *pool) need(release string) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	p.atLeast = release
+	p.minimum = release
 }
 
 func (p *pool) name(images ...string) {

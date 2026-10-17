@@ -78,7 +78,7 @@ export class NoteRunDigested {
     const run = await this.work.endedRun(heard.runId);
     const teamId = run ? TeamId.of(run.teamId) : null;
 
-    await this.transaction.run(async () => {
+    await this.transaction.inTransaction(async () => {
       await this.forgotten.holding(workspaceId, taskId, teamId);
       const runId = RunId.of(heard.runId);
       const held = await this.records.of(runId);
@@ -92,12 +92,15 @@ export class NoteRunDigested {
 
       if (!held) {
         await this.records.add(
-          RunRecord.heardOf(runId, workspaceId, taskId).digested(cost, tools),
+          RunRecord.heardOf(runId, workspaceId, taskId).recordDigest(
+            cost,
+            tools,
+          ),
         );
         return;
       }
 
-      const digested = held.digested(cost, tools);
+      const digested = held.recordDigest(cost, tools);
 
       if (digested !== held) {
         await this.records.save(digested);

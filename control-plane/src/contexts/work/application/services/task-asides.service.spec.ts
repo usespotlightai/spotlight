@@ -41,7 +41,7 @@ const asiding = (input: { task?: boolean } = {}) => {
           ? ({ id: TASK, workspaceId: WorkspaceId.of('ws_1') } as Task)
           : null,
     } as unknown as TaskRepository,
-    { run: <T>(work: () => Promise<T>) => work() },
+    { inTransaction: <T>(work: () => Promise<T>) => work() },
     { generate: () => 'aside_1' },
     { now: () => NOW, sleep: async () => undefined },
   );

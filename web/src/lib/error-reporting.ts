@@ -8,10 +8,10 @@ import {
 } from '@sentry/react';
 import { type ErrorReportingResponseDto, getErrorReporting } from '@/lib/api';
 
-const GATEWAY_FAULTS = new Set([502, 503, 504]);
+const GATEWAY_ERRORS = new Set([502, 503, 504]);
 
-export class ServerFault extends Error {
-  override readonly name = 'ServerFault';
+export class GatewayError extends Error {
+  override readonly name = 'GatewayError';
 }
 
 export async function startErrorReporting(): Promise<void> {
@@ -45,17 +45,17 @@ export function reportAs(userId: string | null): void {
   setUser(userId ? { id: userId } : null);
 }
 
-export function withServerFaultReported(
+export function withGatewayErrorReported(
   thrown: unknown,
   response: Response | undefined,
   request: Request | undefined,
 ): unknown {
-  if (request && response && GATEWAY_FAULTS.has(response.status)) {
+  if (request && response && GATEWAY_ERRORS.has(response.status)) {
     const path = routeOf(request.url);
 
     captureException(
-      new ServerFault(`${request.method} ${path} answered ${response.status}`),
-      { fingerprint: ['server-fault', request.method, path] },
+      new GatewayError(`${request.method} ${path} answered ${response.status}`),
+      { fingerprint: ['gateway-error', request.method, path] },
     );
   }
 

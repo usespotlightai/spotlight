@@ -28,7 +28,7 @@ const asked = () =>
     teamId: TeamId.of('team_1'),
     criteria: claimsCriteria(),
     reference: RunId.of('original_1'),
-    mostAttempts: 2,
+    maxAttempts: 2,
     now: NOW,
   });
 
@@ -76,7 +76,7 @@ describe('PairJudging', () => {
         teamId: TeamId.of('team_1'),
         criteria: claimsCriteria(),
         reference: RunId.of('original_1'),
-        mostAttempts: 2,
+        maxAttempts: 2,
         now: NOW,
       }),
     ).toThrow(InvalidScoreError);
@@ -88,7 +88,7 @@ describe('PairJudging', () => {
         teamId: TeamId.of('team_1'),
         criteria: claimsCriteria(),
         reference: AGAINST,
-        mostAttempts: 2,
+        maxAttempts: 2,
         now: NOW,
       }),
     ).toThrow(InvalidScoreError);
@@ -105,12 +105,12 @@ describe('PairJudging', () => {
   });
 
   it('names the winner by its run when both readings agree, whatever label it was shown under, keeping both readings', () => {
-    const judging = leased().usedModel({
+    const judging = leased().recordModel({
       inputTokens: 100,
       outputTokens: 10,
       cost: { amount: 0.02, currency: 'USD' },
     });
-    const judged = judging.judged({
+    const judged = judging.recordVerdict({
       readings: preferring(judging, runLabelIn),
       model: 'some/model',
       now: NOW,
@@ -131,7 +131,7 @@ describe('PairJudging', () => {
   it('calls the pair a tie where the two readings disagree, as when the judge always prefers what it saw first', () => {
     const judging = leased();
     const [event] = judging
-      .judged({
+      .recordVerdict({
         readings: preferring(judging, () => 'A'),
         model: 'some/model',
         now: NOW,
@@ -152,7 +152,7 @@ describe('PairJudging', () => {
       () => [],
       () => [{ text: 'Like the reference.', hunks: ['reference:api/q.ts#1'] }],
     ]) {
-      const tried = judging.judged({
+      const tried = judging.recordVerdict({
         readings: preferring(judging, runLabelIn, reasons),
         model: 'some/model',
         now: NOW,
@@ -168,14 +168,14 @@ describe('PairJudging', () => {
     const [first] = preferring(judging, runLabelIn);
 
     expect(() =>
-      judging.judged({
+      judging.recordVerdict({
         readings: [first as PairShown, first as PairShown],
         model: 'some/model',
         now: NOW,
       }),
     ).toThrow(InvalidScoreError);
     expect(() =>
-      judging.judged({
+      judging.recordVerdict({
         readings: [first as PairShown],
         model: 'some/model',
         now: NOW,
@@ -200,7 +200,7 @@ describe('PairJudging', () => {
       teamId: TeamId.of('team_1'),
       criteria: claimsCriteria(),
       reference: RunId.of('original_1'),
-      mostAttempts: 1,
+      maxAttempts: 1,
       now: NOW,
     }).leased(NOW);
 

@@ -1,4 +1,4 @@
-import { MOST_HOLD_MS } from '@change-review/domain/value-objects/check-claim.vo';
+import { MAX_HOLD_MS } from '@change-review/domain/value-objects/check-claim.vo';
 import {
   type CheckStanding,
   checkStateAt,
@@ -35,7 +35,7 @@ describe('checkStateAt', () => {
   });
 
   it('counts a check held past the ceiling as not held, however far its lease reaches', () => {
-    const ceiling = new Date(SINCE.getTime() + MOST_HOLD_MS);
+    const ceiling = new Date(SINCE.getTime() + MAX_HOLD_MS);
     const hold = {
       leaseExpiresAt: new Date(ceiling.getTime() + 10 * 60_000),
       claimedAt: SINCE,

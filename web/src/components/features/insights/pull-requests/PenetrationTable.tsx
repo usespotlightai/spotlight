@@ -3,9 +3,9 @@ import {
   type InsightsColumn,
   InsightsTable,
 } from '@/components/features/insights/InsightsTable';
-import { countShown, shareShown } from '@/lib/insights';
+import { formatCount, formatShare } from '@/lib/insights';
 import { type WeekShare, weekFilter } from '@/lib/insights-pull-requests';
-import { dayShown } from '@/lib/judge';
+import { formatDay } from '@/lib/judge';
 
 type PenetrationTableProps = {
   weeks: readonly WeekShare[];
@@ -23,17 +23,17 @@ export function PenetrationTable({ weeks, repository }: PenetrationTableProps) {
         tab="productivity"
         filter={weekFilter(week.week, repository, author)}
       >
-        {countShown(count)}
+        {formatCount(count)}
       </InsightsLink>
     ) : (
-      countShown(count)
+      formatCount(count)
     );
 
   const columns: InsightsColumn<WeekShare>[] = [
     {
       id: 'week',
       header: 'Week of',
-      cell: (week) => dayShown(week.week),
+      cell: (week) => formatDay(week.week),
     },
     {
       id: 'merged',
@@ -63,7 +63,7 @@ export function PenetrationTable({ weeks, repository }: PenetrationTableProps) {
       id: 'share',
       header: 'Share',
       numeric: true,
-      cell: (week) => shareShown(week.share),
+      cell: (week) => formatShare(week.share),
     },
   ];
 

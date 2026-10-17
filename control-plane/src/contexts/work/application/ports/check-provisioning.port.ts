@@ -22,7 +22,7 @@ export interface CheckProvisioningPort {
   awaiting(
     workspaceId: WorkspaceId,
     now: Date,
-    page: { readonly skip: number; readonly most: number },
+    page: { readonly skip: number; readonly max: number },
   ): Promise<readonly WaitingCheck[]>;
 
   reserve(

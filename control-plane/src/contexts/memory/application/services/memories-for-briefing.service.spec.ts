@@ -20,7 +20,7 @@ const TEAM = TeamId.of('team_1');
 const API = Repository.of('acme/api');
 
 const kept = (id: number, paths: string[] = []) =>
-  Memory.written({
+  Memory.write({
     id: MemoryId.of(`memory_${id}`),
     handle: MemoryHandle.of(id),
     workspaceId: WorkspaceId.of('ws_1'),

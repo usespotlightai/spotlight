@@ -19,7 +19,7 @@ import (
 	"usespotlight.ai/data-plane/protocol"
 )
 
-const mostInput = 8 << 20
+const maxInput = 8 << 20
 
 type Tooler func(ctx context.Context, name string, input json.RawMessage) (json.RawMessage, error)
 
@@ -266,8 +266,8 @@ func (s *Server) tool(writer http.ResponseWriter, request *http.Request, name st
 		return
 	}
 
-	input, err := io.ReadAll(io.LimitReader(request.Body, mostInput+1))
-	if err != nil || len(input) > mostInput || !json.Valid(input) {
+	input, err := io.ReadAll(io.LimitReader(request.Body, maxInput+1))
+	if err != nil || len(input) > maxInput || !json.Valid(input) {
 		refuse(writer, http.StatusBadRequest, "unreadable input: hand the tool JSON")
 		return
 	}
@@ -378,7 +378,7 @@ func (s *Server) historyOf(writer http.ResponseWriter, request *http.Request) {
 	}
 
 	var asked protocol.HistoryRequest
-	if err := json.NewDecoder(io.LimitReader(request.Body, mostInput)).Decode(&asked); err != nil {
+	if err := json.NewDecoder(io.LimitReader(request.Body, maxInput)).Decode(&asked); err != nil {
 		refuse(writer, http.StatusBadRequest, "unreadable history request")
 		return
 	}
@@ -398,7 +398,7 @@ func (s *Server) recalled(writer http.ResponseWriter, request *http.Request) {
 	}
 
 	var asked protocol.RecallRequest
-	if err := json.NewDecoder(io.LimitReader(request.Body, mostInput)).Decode(&asked); err != nil {
+	if err := json.NewDecoder(io.LimitReader(request.Body, maxInput)).Decode(&asked); err != nil {
 		refuse(writer, http.StatusBadRequest, "unreadable recall")
 		return
 	}
@@ -418,7 +418,7 @@ func (s *Server) remembered(writer http.ResponseWriter, request *http.Request) {
 	}
 
 	var remembered protocol.Remembering
-	if err := json.NewDecoder(io.LimitReader(request.Body, mostInput)).Decode(&remembered); err != nil {
+	if err := json.NewDecoder(io.LimitReader(request.Body, maxInput)).Decode(&remembered); err != nil {
 		refuse(writer, http.StatusBadRequest, "unreadable memory")
 		return
 	}
@@ -438,7 +438,7 @@ func (s *Server) proposed(writer http.ResponseWriter, request *http.Request) {
 	}
 
 	var proposal protocol.CandidateProposal
-	if err := json.NewDecoder(io.LimitReader(request.Body, mostInput)).Decode(&proposal); err != nil {
+	if err := json.NewDecoder(io.LimitReader(request.Body, maxInput)).Decode(&proposal); err != nil {
 		refuse(writer, http.StatusBadRequest, "unreadable candidate")
 		return
 	}
@@ -482,7 +482,7 @@ func (s *Server) caused(writer http.ResponseWriter, request *http.Request) {
 	}
 
 	var record protocol.CauseRecord
-	if err := json.NewDecoder(io.LimitReader(request.Body, mostInput)).Decode(&record); err != nil {
+	if err := json.NewDecoder(io.LimitReader(request.Body, maxInput)).Decode(&record); err != nil {
 		refuse(writer, http.StatusBadRequest, "unreadable cause")
 		return
 	}

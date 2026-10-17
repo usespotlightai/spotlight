@@ -30,7 +30,7 @@ export class NotifyOutsideTools {
       return;
     }
 
-    await this.transaction.run(async () => {
+    await this.transaction.inTransaction(async () => {
       const current = await this.tasks.find(event.taskId);
 
       if (!current) {

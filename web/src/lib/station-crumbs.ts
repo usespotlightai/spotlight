@@ -1,6 +1,6 @@
 import type { BreadcrumbSegment } from '@/components/shell/layout/Breadcrumbs';
 import {
-  candidateShown,
+  formatCandidate,
   type Replay,
   type ReplayedStation,
   type ReplaySet,
@@ -38,7 +38,7 @@ export const replayCrumbs = (
     ...(replay
       ? [
           {
-            label: candidateShown(replay.candidate),
+            label: formatCandidate(replay.candidate),
             to: replayPath(at, replay.id),
           },
         ]

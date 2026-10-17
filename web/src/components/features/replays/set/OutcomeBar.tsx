@@ -1,8 +1,8 @@
 import type { SetComposition } from '@/lib/replay';
 import {
+  formatTurnedOut,
   TURNED_OUT_LABEL,
   type TurnedOut,
-  turnedOutShown,
 } from '@/lib/replay-words';
 import { cn } from '@/lib/utils';
 
@@ -56,7 +56,7 @@ export function OutcomeBar({ outcomes }: OutcomeBarProps) {
                 className={cn('size-2 rounded-sm', SWATCHES[each.outcome])}
               />
               <span className="text-foreground">
-                {turnedOutShown(each.outcome)}
+                {formatTurnedOut(each.outcome)}
               </span>
               <span className="tabular-nums">{each.count}</span>
             </li>

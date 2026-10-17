@@ -19,7 +19,7 @@ describe('poolsNaming', () => {
     expect(
       poolsNaming(anEgress(), [
         naming,
-        naming.retired(attributedIn()),
+        naming.retire(attributedIn()),
         aPushPool({ egress: EgressReference.platform() }),
         aPushPool({ egress: EgressReference.to(EgressId.of('egress_2')) }),
         aPushPool(),

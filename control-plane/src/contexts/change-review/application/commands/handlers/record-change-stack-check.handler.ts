@@ -5,7 +5,7 @@ import type { ChangeStackRepository } from '@change-review/domain/repositories/c
 import type { StackCheckRepository } from '@change-review/domain/repositories/stack-check.repository';
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import { skipOf } from '@change-review/domain/value-objects/stack-check.vo';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -37,7 +37,7 @@ export class RecordChangeStackCheckHandler
 
       if (command.skipped) {
         await this.checks.save(
-          check.skipped(
+          check.skip(
             runner,
             skipOf(command.skipped.code, command.skipped.detail),
             now,
@@ -55,7 +55,7 @@ export class RecordChangeStackCheckHandler
       }
 
       await this.checks.save(
-        check.recorded(
+        check.recordResult(
           runner,
           {
             steps: stack.checkSteps(check.entries),
@@ -66,7 +66,7 @@ export class RecordChangeStackCheckHandler
         ),
       );
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

@@ -4,7 +4,7 @@ import { RunnerResourceMapper } from '@runners/application/mappers/runner-resour
 import type { RunnerResourcesPort } from '@runners/application/ports/runner-resources.port';
 import type { ImportEgressQuery } from '@runners/application/queries/runner-resource.queries';
 import { EgressKey } from '@runners/domain/value-objects/egress-key.vo';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -18,20 +18,20 @@ export class ImportEgressHandler
 
   async execute(query: ImportEgressQuery): Promise<EgressResourceDto | null> {
     try {
-      const cleared = await this.access.clearanceIn(
+      const permissions = await this.access.permissionsIn(
         WorkspaceId.of(query.workspaceId),
         query.principal,
       );
-      const kept = cleared
+      const kept = permissions
         ? await this.resources.egressAt(
-            cleared.workspaceId,
+            permissions.workspaceId,
             EgressKey.of(query.address).value,
           )
         : null;
 
       return kept ? RunnerResourceMapper.egress(kept) : null;
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

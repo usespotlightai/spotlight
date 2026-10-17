@@ -12,7 +12,7 @@ import { describe, expect, it } from 'vitest';
 const LATER = new Date(STARTED_AT.getTime() + 30_000);
 
 const reported = (host: ReturnType<typeof aHost>) =>
-  host.reportedThrough({
+  host.reportThrough({
     admission: host.admission,
     workspaceId: host.workspaceId,
     session: host.session,

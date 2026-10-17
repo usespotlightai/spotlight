@@ -42,7 +42,7 @@ import { describe, expect, it, vi } from 'vitest';
 const NOW = new Date('2026-09-18T12:00:00.000Z');
 const PULL = 'https://github.com/acme/api/pull/7';
 const clock: ClockPort = { now: () => NOW, sleep: async () => {} };
-const transaction: TransactionPort = { run: async (work) => work() };
+const transaction: TransactionPort = { inTransaction: async (work) => work() };
 const members: MemberDirectoryPort = {
   byEmail: async () => null,
 };

@@ -123,7 +123,7 @@ describe('the setup lists a team still has standing', () => {
     const { teamId, list } = await openTeam('root');
 
     await tasks.save(
-      list.answered(NotePosition.of(0), {
+      list.answer(NotePosition.of(0), {
         station: StationName.of('Backlog'),
         body: TaskNoteBody.of('Working on it.'),
         at: NOW,

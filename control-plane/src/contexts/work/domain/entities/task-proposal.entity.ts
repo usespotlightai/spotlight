@@ -66,7 +66,7 @@ export class TaskProposal {
     return this.state === 'open';
   }
 
-  accepted(at: Date): TaskProposal {
+  accept(at: Date): TaskProposal {
     this.require('open', 'accepted');
 
     return this.with({ state: 'accepted', settledAt: at });
@@ -78,13 +78,13 @@ export class TaskProposal {
     return this.with({ state: 'created', taskId, settledAt: at });
   }
 
-  reopened(): TaskProposal {
+  reopen(): TaskProposal {
     this.require('accepted', 'reopened');
 
     return this.with({ state: 'open', settledAt: null });
   }
 
-  dismissed(at: Date): TaskProposal {
+  dismiss(at: Date): TaskProposal {
     this.require('open', 'dismissed');
 
     return this.with({ state: 'dismissed', settledAt: at });

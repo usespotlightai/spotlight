@@ -1,6 +1,6 @@
 import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
-import { areWords } from '@shared-kernel/domain/value-objects/identifier-shapes';
+import { isSlug } from '@shared-kernel/domain/value-objects/identifier-shapes';
 
 const SEPARATOR = '/';
 
@@ -20,7 +20,7 @@ export class IntegrationAddress {
   ) {}
 
   static of(teamKey: string, source: SourceKey): IntegrationAddress {
-    return areWords(teamKey)
+    return isSlug(teamKey)
       ? new IntegrationAddress(teamKey, source)
       : refused();
   }

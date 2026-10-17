@@ -26,7 +26,7 @@ export class HookCallbackGrants {
 
     await this.grants.forgetExpiringBefore(HookCallbackGrant.lapsedBefore(now));
     await this.grants.add(
-      HookCallbackGrant.issuedFor(
+      HookCallbackGrant.issueFor(
         {
           ...holder,
           workspaceId: WorkspaceId.of(holder.workspaceId),

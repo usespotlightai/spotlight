@@ -4,17 +4,17 @@ import { Pill } from '@/components/shared/Pill';
 import type { LineResponseDto } from '@/lib/api';
 import {
   filterLabel,
-  filterValueShown,
+  formatFilterValue,
+  formatPerson,
   narrowedBy,
   type PersonName,
-  personShown,
   RUN_ENDINGS,
   type RunFilter,
   type RunFilterKey,
   type StationNames,
 } from '@/lib/insights';
-import { dayShown } from '@/lib/judge';
-import { endingShown } from '@/lib/station-outcomes';
+import { formatDay } from '@/lib/judge';
+import { formatEnding } from '@/lib/station-outcomes';
 
 const PICKED: readonly RunFilterKey[] = ['stationId', 'outcome'];
 
@@ -36,17 +36,17 @@ export function RunsFilters({
   const change = (key: RunFilterKey, value: string | null) =>
     onChange({ ...filter, [key]: value ?? undefined });
 
-  const valueShown = (key: RunFilterKey, value: string): string => {
+  const formatValue = (key: RunFilterKey, value: string): string => {
     switch (key) {
       case 'personId':
-        return personShown(people, value);
+        return formatPerson(people, value);
       case 'day':
       case 'week':
-        return dayShown(value);
+        return formatDay(value);
       case 'lineId':
         return lines.find((line) => line.id === value)?.name ?? value;
       default:
-        return filterValueShown(key, value);
+        return formatFilterValue(key, value);
     }
   };
 
@@ -75,7 +75,7 @@ export function RunsFilters({
         label="Outcome"
         choices={RUN_ENDINGS.map((ending) => ({
           value: ending,
-          label: endingShown(ending),
+          label: formatEnding(ending),
         }))}
         value={filter.outcome ?? null}
         placeholder="Every outcome"
@@ -85,7 +85,7 @@ export function RunsFilters({
       {others.map((key) => (
         <Pill key={key} className="h-6 text-[0.7rem] text-foreground">
           <span className="text-muted-foreground">{filterLabel(key)}</span>
-          {valueShown(key, filter[key] ?? '')}
+          {formatValue(key, filter[key] ?? '')}
           <button
             type="button"
             aria-label={`Stop narrowing by ${filterLabel(key).toLowerCase()}`}

@@ -1,14 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import {
+  formatSetup,
+  formatSetupWithin,
+  formatSizeRule,
   frontierOf,
   harnessGroupsOf,
   type InsightsChanges,
   markerOf,
   type SetupOutcome,
   setupPoints,
-  setupShown,
-  setupWithinShown,
-  sizeRuleShown,
 } from '@/lib/insights-changes';
 
 const setup = (over: Partial<SetupOutcome>): SetupOutcome =>
@@ -44,10 +44,10 @@ const HARNESSES = [
   },
 ];
 
-describe('setupShown', () => {
+describe('formatSetup', () => {
   it('names the harness, model, effort and profile it ran with', () => {
     expect(
-      setupShown(
+      formatSetup(
         setup({ model: null, effort: 'high', profileKey: 'careful' }),
         HARNESSES,
       ),
@@ -55,7 +55,7 @@ describe('setupShown', () => {
   });
 });
 
-describe('harnessGroupsOf and setupWithinShown', () => {
+describe('harnessGroupsOf and formatSetupWithin', () => {
   it('groups setups by harness in the order they come, naming each within its harness', () => {
     const groups = harnessGroupsOf([
       setup({ model: 'sonnet' }),
@@ -66,7 +66,7 @@ describe('harnessGroupsOf and setupWithinShown', () => {
     expect(
       groups.map((group) => [
         group.harness,
-        group.setups.map(setupWithinShown),
+        group.setups.map(formatSetupWithin),
       ]),
     ).toEqual([
       ['claude-code', ['sonnet', 'opus · high effort']],
@@ -125,13 +125,13 @@ describe('frontierOf', () => {
   });
 });
 
-describe('sizeRuleShown', () => {
+describe('formatSizeRule', () => {
   it('says each size’s bound in lines and steps, and that the largest has none', () => {
-    expect(sizeRuleShown({ size: 'small', mostLines: 50, mostSteps: 20 })).toBe(
+    expect(formatSizeRule({ size: 'small', maxLines: 50, maxSteps: 20 })).toBe(
       'Small: up to 50 changed lines, or 20 steps for a run that changed none',
     );
     expect(
-      sizeRuleShown({ size: 'large', mostLines: null, mostSteps: null }),
+      formatSizeRule({ size: 'large', maxLines: null, maxSteps: null }),
     ).toBe('Large: anything bigger');
   });
 });

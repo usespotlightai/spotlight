@@ -36,8 +36,8 @@ const working = () =>
 
 const handedAgain = () =>
   working()
-    .workedIn(HarnessSession.of('session_1'), RunnerId.of('runner_1'))
-    .endedRun(RunId.of('run_1'))
+    .recordSession(HarnessSession.of('session_1'), RunnerId.of('runner_1'))
+    .endRun(RunId.of('run_1'))
     .said({
       by: UserId.of('user_1'),
       body: ChatMessageBody.of('Split it.'),

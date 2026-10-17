@@ -1,7 +1,7 @@
 import { InvalidRunPageError } from '@outcomes/domain/exceptions/invalid-run-page.error';
 import {
   lastPageOf,
-  MOST_RUN_PAGE,
+  MAX_RUN_PAGE,
   pageAskedOf,
   pageWithin,
 } from '@outcomes/domain/services/run-page';
@@ -20,7 +20,7 @@ describe('run pages', () => {
   });
 
   it('refuses a page past the most it ever pages to before reading any runs', () => {
-    expect(pageAskedOf(MOST_RUN_PAGE)).toBe(MOST_RUN_PAGE);
-    expect(() => pageAskedOf(MOST_RUN_PAGE + 1)).toThrow(InvalidRunPageError);
+    expect(pageAskedOf(MAX_RUN_PAGE)).toBe(MAX_RUN_PAGE);
+    expect(() => pageAskedOf(MAX_RUN_PAGE + 1)).toThrow(InvalidRunPageError);
   });
 });

@@ -4,7 +4,7 @@ import type { ListSkillResourcesQuery } from '@configuration/application/queries
 import type { SkillViews } from '@configuration/application/services/skill-views.service';
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -26,7 +26,7 @@ export class ListSkillResourcesHandler
     query: ListSkillResourcesQuery,
   ): Promise<readonly SkillResourceDto[] | null> {
     try {
-      const workspace = await this.access.clearanceIn(
+      const workspace = await this.access.permissionsIn(
         WorkspaceId.of(query.workspaceId),
         query.principal,
       );
@@ -46,7 +46,7 @@ export class ListSkillResourcesHandler
 
       return held.flat();
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

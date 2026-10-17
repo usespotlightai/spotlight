@@ -271,7 +271,7 @@ describe('runner pools (e2e)', () => {
         .expect(200);
 
       expect(required.body).toEqual({
-        runner: { atLeast: expect.any(String) },
+        runner: { minimum: expect.any(String) },
         harnesses: expect.arrayContaining([
           expect.objectContaining({ id: 'claude-code' }),
         ]),
@@ -517,7 +517,7 @@ describe('runner pools (e2e)', () => {
       const given = new DrizzleGivenPoolTokensRepository(context);
 
       await expect(
-        context.run(() =>
+        context.inTransaction(() =>
           given.give(
             TokenHash.of(sha256Of(token)),
             RunnerPoolId.of(randomUUID()),

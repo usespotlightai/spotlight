@@ -1,9 +1,9 @@
 import { InvalidDiffError } from '@change-review/domain/exceptions/invalid-diff.error';
 import { HunkId } from '@change-review/domain/value-objects/stack-ids';
 
-const MOST_HUNKS = 2_000;
+const MAX_HUNKS = 2_000;
 
-const MOST_DIFF_LENGTH = 6 * 1024 * 1024;
+const MAX_DIFF_LENGTH = 6 * 1024 * 1024;
 
 const CONTEXT_LINES = 3;
 
@@ -196,9 +196,9 @@ export class Diff {
   private constructor(readonly files: readonly DiffFile[]) {}
 
   static readable(text: string): string {
-    if (text.length > MOST_DIFF_LENGTH) {
+    if (text.length > MAX_DIFF_LENGTH) {
       throw new InvalidDiffError(
-        `must be at most ${MOST_DIFF_LENGTH / 1024 / 1024} MiB`,
+        `must be at most ${MAX_DIFF_LENGTH / 1024 / 1024} MiB`,
       );
     }
 
@@ -242,8 +242,8 @@ export class Diff {
       }
     }
 
-    if (ids.size > MOST_HUNKS) {
-      throw new InvalidDiffError(`must have at most ${MOST_HUNKS} changes`);
+    if (ids.size > MAX_HUNKS) {
+      throw new InvalidDiffError(`must have at most ${MAX_HUNKS} changes`);
     }
 
     return new Diff(files);

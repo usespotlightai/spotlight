@@ -1,5 +1,5 @@
 import { ClaimVerdicts } from '@/components/features/runs/judge/ClaimVerdicts';
-import { passShareShown } from '@/lib/judge';
+import { formatPassShare } from '@/lib/judge';
 import type { ReplayEntry } from '@/lib/replay';
 
 type EntryJudgeClaimsProps = {
@@ -17,7 +17,7 @@ export function EntryJudgeClaims({ judge, marks }: EntryJudgeClaimsProps) {
       />
       {judge.passShare !== null && (
         <p className="text-muted-foreground">
-          {passShareShown(judge.passShare)}
+          {formatPassShare(judge.passShare)}
         </p>
       )}
     </div>

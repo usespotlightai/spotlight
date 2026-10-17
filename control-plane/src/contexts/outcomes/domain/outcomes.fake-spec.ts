@@ -116,14 +116,14 @@ export const endedRecord = (
   runId: string,
   change: Parameters<typeof endOf>[0] = {},
 ): RunRecord =>
-  RunRecord.heardOf(RunId.of(runId), WORKSPACE).ended(endOf(change));
+  RunRecord.heardOf(RunId.of(runId), WORKSPACE).recordEnd(endOf(change));
 
 export const costedRecord = (
   runId: string,
   change: NonNullable<Parameters<typeof endOf>[0]> &
     NonNullable<Parameters<typeof costOf>[0]> & { tools?: RunTools } = {},
 ): RunRecord =>
-  endedRecord(runId, change).digested(
+  endedRecord(runId, change).recordDigest(
     costOf(change),
     change.tools ?? RunTools.NONE,
   );
@@ -270,11 +270,11 @@ export class RunRecordsInMemory implements RunRecordRepository {
 
   async endedForTeam(
     window: TeamWindow,
-    most: number,
+    max: number,
   ): Promise<readonly RunRecord[]> {
     return [...this.endedIn(window)]
       .sort((one, other) => inStartOrder(startOf(other), startOf(one)))
-      .slice(0, most)
+      .slice(0, max)
       .sort(inEndOrder);
   }
 
@@ -384,7 +384,7 @@ export class TaskDeliveriesInMemory implements TaskDeliveryRepository {
 
   async ofTeamBetween(
     window: TeamWindow,
-    most: number,
+    max: number,
   ): Promise<readonly TaskDelivery[]> {
     return [...this.held.values()]
       .filter(
@@ -398,7 +398,7 @@ export class TaskDeliveriesInMemory implements TaskDeliveryRepository {
             : each.closedAt.getTime() >= window.from.getTime()),
       )
       .sort((a, b) => b.openedAt.getTime() - a.openedAt.getTime())
-      .slice(0, most);
+      .slice(0, max);
   }
 
   async ofTeam(
@@ -457,10 +457,10 @@ export const SET_UP = {
 };
 
 export const NOBODY_ELSE = {
-  clearedOnTeam: async () => null,
+  membershipOnTeam: async () => null,
   namesOf: async () => new Map<string, string>(),
 };
 
 export const inTransaction = {
-  run: <T>(work: () => Promise<T>): Promise<T> => work(),
+  inTransaction: <T>(work: () => Promise<T>): Promise<T> => work(),
 };

@@ -31,7 +31,7 @@ const runsAt = (stationId: string, when: string, count: number, sentBack = 0) =>
     });
 
     return at < sentBack
-      ? ended.actedOn(NextAct.of('sent-back', day(when, 20)))
+      ? ended.recordAction(NextAct.of('sent-back', day(when, 20)))
       : ended;
   });
 

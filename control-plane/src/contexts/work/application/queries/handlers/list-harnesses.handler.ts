@@ -1,6 +1,6 @@
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
 import type { RunnerReaderPort } from '@runners/application/ports/runner-reader.port';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { HarnessDto } from '@work/application/dto/harness.dto';
@@ -41,7 +41,7 @@ export class ListHarnessesHandler
           HarnessMapper.toDto(entry, advertised.get(entry.id) ?? []),
         );
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

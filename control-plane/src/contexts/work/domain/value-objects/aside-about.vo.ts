@@ -1,6 +1,6 @@
 import { InvalidTaskAsideError } from '@work/domain/exceptions/invalid-task-aside.error';
 
-const MOST_ABOUT = 200;
+const MAX_ABOUT = 200;
 
 export class AsideAbout {
   private constructor(readonly value: string) {}
@@ -8,9 +8,9 @@ export class AsideAbout {
   static of(raw: string): AsideAbout {
     const about = raw.trim();
 
-    if (!about || about.length > MOST_ABOUT) {
+    if (!about || about.length > MAX_ABOUT) {
       throw new InvalidTaskAsideError(
-        `subject must be 1 to ${MOST_ABOUT} characters`,
+        `subject must be 1 to ${MAX_ABOUT} characters`,
       );
     }
 

@@ -1,8 +1,8 @@
 import { HeldOutScore } from '@/components/features/replays/HeldOutScore';
 import { ScoredRate } from '@/components/features/replays/ScoredRate';
 import {
-  costPerRunShown,
-  heldOutShown,
+  formatCostPerRun,
+  formatHeldOut,
   type SearchCandidate,
 } from '@/lib/search';
 
@@ -30,14 +30,14 @@ export function CandidateScores({ candidate, currency }: CandidateScoresProps) {
           <HeldOutScore
             rate={candidate.heldOutScore}
             interval={candidate.heldOutInterval}
-            unscored={heldOutShown(candidate)}
+            unscored={formatHeldOut(candidate)}
           />
         </dd>
       </div>
       <div className="flex gap-1">
         <dt>Cost per run</dt>
         <dd className="text-foreground tabular-nums">
-          {costPerRunShown(candidate.costPerRun, currency)}
+          {formatCostPerRun(candidate.costPerRun, currency)}
         </dd>
       </div>
     </dl>

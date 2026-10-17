@@ -2,11 +2,11 @@ import { Inject, Injectable } from '@nestjs/common';
 import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.client';
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import type {
-  KeptEgress,
-  KeptPool,
-  KeptTrust,
-  KeptWorkspaceRunners,
+  EgressRecord,
+  RunnerPoolRecord,
   RunnerResourcesPort,
+  RunnerTrustRecord,
+  WorkspaceRunnersRecord,
 } from '@runners/application/ports/runner-resources.port';
 import type { WaysIn } from '@runners/domain/services/runner-drift';
 import {
@@ -23,7 +23,7 @@ type DeclaredRow = typeof workspaceRunners.$inferSelect;
 type PoolRow = typeof runnerPool.$inferSelect;
 type EgressRow = typeof egress.$inferSelect;
 
-const keptPool = (row: PoolRow): KeptPool => ({
+const poolRecord = (row: PoolRow): RunnerPoolRecord => ({
   id: row.id,
   version: row.version,
   workspaceId: WorkspaceId.of(row.workspaceId),
@@ -41,7 +41,7 @@ const keptPool = (row: PoolRow): KeptPool => ({
     : null,
 });
 
-const keptEgress = (row: EgressRow): KeptEgress => ({
+const egressRecord = (row: EgressRow): EgressRecord => ({
   id: row.id,
   version: row.version,
   workspaceId: WorkspaceId.of(row.workspaceId),
@@ -50,7 +50,7 @@ const keptEgress = (row: EgressRow): KeptEgress => ({
   tokenVersion: row.tokenVersion,
 });
 
-const keptTrust = (row: TrustRow): KeptTrust => ({
+const trustRecord = (row: TrustRow): RunnerTrustRecord => ({
   id: row.id,
   version: row.version,
   workspaceId: WorkspaceId.of(row.workspaceId),
@@ -61,7 +61,7 @@ const keptTrust = (row: TrustRow): KeptTrust => ({
   labels: row.labels,
 });
 
-const keptDeclared = (row: DeclaredRow): KeptWorkspaceRunners => ({
+const declaredRecord = (row: DeclaredRow): WorkspaceRunnersRecord => ({
   id: row.id,
   version: row.version,
   workspaceId: WorkspaceId.of(row.workspaceId),
@@ -73,20 +73,20 @@ const keptDeclared = (row: DeclaredRow): KeptWorkspaceRunners => ({
 export class DrizzleRunnerResources implements RunnerResourcesPort {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDatabase) {}
 
-  async trustWithId(id: string): Promise<KeptTrust | null> {
+  async trustWithId(id: string): Promise<RunnerTrustRecord | null> {
     const [found] = await this.db
       .select()
       .from(runnerTrust)
       .where(eq(runnerTrust.id, id))
       .limit(1);
 
-    return found ? keptTrust(found) : null;
+    return found ? trustRecord(found) : null;
   }
 
   async trustAt(
     workspaceId: WorkspaceId,
     key: string,
-  ): Promise<KeptTrust | null> {
+  ): Promise<RunnerTrustRecord | null> {
     const [found] = await this.db
       .select()
       .from(runnerTrust)
@@ -98,32 +98,34 @@ export class DrizzleRunnerResources implements RunnerResourcesPort {
       )
       .limit(1);
 
-    return found ? keptTrust(found) : null;
+    return found ? trustRecord(found) : null;
   }
 
-  async trustsIn(workspaceId: WorkspaceId): Promise<readonly KeptTrust[]> {
+  async trustsIn(
+    workspaceId: WorkspaceId,
+  ): Promise<readonly RunnerTrustRecord[]> {
     return (
       await this.db
         .select()
         .from(runnerTrust)
         .where(eq(runnerTrust.workspaceId, workspaceId.value))
-    ).map(keptTrust);
+    ).map(trustRecord);
   }
 
-  async poolWithId(id: string): Promise<KeptPool | null> {
+  async poolWithId(id: string): Promise<RunnerPoolRecord | null> {
     const [found] = await this.db
       .select()
       .from(runnerPool)
       .where(eq(runnerPool.id, id))
       .limit(1);
 
-    return found ? keptPool(found) : null;
+    return found ? poolRecord(found) : null;
   }
 
   async poolAt(
     workspaceId: WorkspaceId,
     key: string,
-  ): Promise<KeptPool | null> {
+  ): Promise<RunnerPoolRecord | null> {
     const [found] = await this.db
       .select()
       .from(runnerPool)
@@ -135,41 +137,43 @@ export class DrizzleRunnerResources implements RunnerResourcesPort {
       )
       .limit(1);
 
-    return found ? keptPool(found) : null;
+    return found ? poolRecord(found) : null;
   }
 
-  async poolsIn(workspaceId: WorkspaceId): Promise<readonly KeptPool[]> {
+  async poolsIn(
+    workspaceId: WorkspaceId,
+  ): Promise<readonly RunnerPoolRecord[]> {
     return (
       await this.db
         .select()
         .from(runnerPool)
         .where(eq(runnerPool.workspaceId, workspaceId.value))
-    ).map(keptPool);
+    ).map(poolRecord);
   }
 
-  async provisioningPools(): Promise<readonly KeptPool[]> {
+  async provisioningPools(): Promise<readonly RunnerPoolRecord[]> {
     return (
       await this.db
         .select()
         .from(runnerPool)
         .where(isNotNull(runnerPool.provisionUrl))
-    ).map(keptPool);
+    ).map(poolRecord);
   }
 
-  async egressWithId(id: string): Promise<KeptEgress | null> {
+  async egressWithId(id: string): Promise<EgressRecord | null> {
     const [found] = await this.db
       .select()
       .from(egress)
       .where(eq(egress.id, id))
       .limit(1);
 
-    return found ? keptEgress(found) : null;
+    return found ? egressRecord(found) : null;
   }
 
   async egressAt(
     workspaceId: WorkspaceId,
     key: string,
-  ): Promise<KeptEgress | null> {
+  ): Promise<EgressRecord | null> {
     const [found] = await this.db
       .select()
       .from(egress)
@@ -178,38 +182,38 @@ export class DrizzleRunnerResources implements RunnerResourcesPort {
       )
       .limit(1);
 
-    return found ? keptEgress(found) : null;
+    return found ? egressRecord(found) : null;
   }
 
-  async egressesIn(workspaceId: WorkspaceId): Promise<readonly KeptEgress[]> {
+  async egressesIn(workspaceId: WorkspaceId): Promise<readonly EgressRecord[]> {
     return (
       await this.db
         .select()
         .from(egress)
         .where(eq(egress.workspaceId, workspaceId.value))
-    ).map(keptEgress);
+    ).map(egressRecord);
   }
 
-  async declaredWithId(id: string): Promise<KeptWorkspaceRunners | null> {
+  async declaredWithId(id: string): Promise<WorkspaceRunnersRecord | null> {
     const [found] = await this.db
       .select()
       .from(workspaceRunners)
       .where(eq(workspaceRunners.id, id))
       .limit(1);
 
-    return found ? keptDeclared(found) : null;
+    return found ? declaredRecord(found) : null;
   }
 
   async declaredIn(
     workspaceId: WorkspaceId,
-  ): Promise<KeptWorkspaceRunners | null> {
+  ): Promise<WorkspaceRunnersRecord | null> {
     const [found] = await this.db
       .select()
       .from(workspaceRunners)
       .where(eq(workspaceRunners.workspaceId, workspaceId.value))
       .limit(1);
 
-    return found ? keptDeclared(found) : null;
+    return found ? declaredRecord(found) : null;
   }
 
   async waysIn(workspaceId: WorkspaceId): Promise<WaysIn> {

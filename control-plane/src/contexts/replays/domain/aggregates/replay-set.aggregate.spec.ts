@@ -1,5 +1,5 @@
 import {
-  MOST_SET_ENTRIES,
+  MAX_SET_ENTRIES,
   ReplaySet,
 } from '@replays/domain/aggregates/replay-set.aggregate';
 import { ReplaySetDeleted } from '@replays/domain/events/replay-set-deleted.event';
@@ -48,10 +48,10 @@ describe('ReplaySet', () => {
     );
   });
 
-  it(`holds at most ${MOST_SET_ENTRIES} runs`, () => {
-    const full = aSet(MOST_SET_ENTRIES);
+  it(`holds at most ${MAX_SET_ENTRIES} runs`, () => {
+    const full = aSet(MAX_SET_ENTRIES);
 
-    expect(full.entries).toHaveLength(MOST_SET_ENTRIES);
+    expect(full.entries).toHaveLength(MAX_SET_ENTRIES);
     expect(() => full.withEntry(replayable('one_more'), NOW, false)).toThrow(
       ReplaySetFullError,
     );
@@ -105,8 +105,8 @@ describe('ReplaySet', () => {
   it('is renamed, and stays as it is when given the same name', () => {
     const set = aSet();
 
-    expect(set.renamed(ReplaySetName.of('Queue fixes'))).toBe(set);
-    expect(set.renamed(ReplaySetName.of('Hard ones')).name.value).toBe(
+    expect(set.rename(ReplaySetName.of('Queue fixes'))).toBe(set);
+    expect(set.rename(ReplaySetName.of('Hard ones')).name.value).toBe(
       'Hard ones',
     );
   });
@@ -156,12 +156,12 @@ describe('ReplaySet', () => {
   it('is marked as searched, so a writer holding an older copy moves on', () => {
     const set = aSet(2);
     set.pullEvents();
-    const searched = set.searched();
+    const searched = set.recordSearch();
 
     expect(searched).not.toBe(set);
     expect(searched.runs).toEqual(set.runs);
     expect(searched.pullEvents()).toEqual([]);
-    expect(() => set.stationLeft(NOW).searched()).toThrow(
+    expect(() => set.stationLeft(NOW).recordSearch()).toThrow(
       ReplaySetStationGoneError,
     );
   });
@@ -182,7 +182,7 @@ describe('ReplaySet', () => {
 
   describe('checking changes', () => {
     const atStation = (id: string) =>
-      ReplaySet.opened({
+      ReplaySet.open({
         id: ReplaySetId.of(id),
         station: STATION,
         name: ReplaySetName.of(id),
@@ -202,7 +202,7 @@ describe('ReplaySet', () => {
 
     it('refuses while another set at its station checks them', () => {
       const other = atStation('set_b').guardingChanges([], BY);
-      const elsewhere = ReplaySet.opened({
+      const elsewhere = ReplaySet.open({
         id: ReplaySetId.of('set_c'),
         station: { ...STATION, stationId: 'station_ship' },
         name: ReplaySetName.of('Ship'),

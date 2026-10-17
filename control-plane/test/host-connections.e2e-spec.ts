@@ -78,7 +78,7 @@ const linked = (
   holder: ConnectionHolder,
   accessToken: string,
 ) =>
-  HostConnection.linkedFrom({
+  HostConnection.linkFrom({
     workspaceId: WorkspaceId.of('ws_1'),
     teamId,
     source: LINEAR,
@@ -199,14 +199,14 @@ describe('host connections kept per holder', () => {
     const again = await connections.of(teamId, LINEAR, alice);
     expect(again?.accessToken.value).toBe('alice-again');
 
-    await connections.remove((again as HostConnection).disconnected());
+    await connections.remove((again as HostConnection).disconnect());
     expect(await connections.of(teamId, LINEAR, alice)).toBeNull();
   });
 });
 
 describe('OAuth client registrations', () => {
   const registered = (teamId: TeamId, clientId: string) =>
-    OAuth2ClientRegistration.registered({
+    OAuth2ClientRegistration.register({
       workspaceId: WorkspaceId.of('ws_1'),
       teamId,
       source: LINEAR,
@@ -231,7 +231,7 @@ describe('OAuth client registrations', () => {
     expect(kept?.clientSecret?.value).toBe('client-1-secret');
 
     await registrations.save(
-      (kept as OAuth2ClientRegistration).replacedBy(
+      (kept as OAuth2ClientRegistration).replaceWith(
         registered(teamId, 'client-3'),
       ),
     );

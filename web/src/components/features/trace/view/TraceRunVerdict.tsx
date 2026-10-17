@@ -1,5 +1,5 @@
 import { useRunScores } from '@/hooks/api/useRunScores';
-import { scoreShown } from '@/lib/judge';
+import { formatScore } from '@/lib/judge';
 
 type TraceRunVerdictProps = {
   teamId: string;
@@ -19,7 +19,7 @@ export function TraceRunVerdict({ teamId, runId }: TraceRunVerdictProps) {
       className="ml-1 shrink-0 text-muted-foreground text-xs"
     >
       <span className="sr-only">Judged </span>
-      {scoreShown(judge)}
+      {formatScore(judge)}
     </span>
   );
 }

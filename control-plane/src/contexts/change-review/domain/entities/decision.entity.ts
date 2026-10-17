@@ -14,12 +14,12 @@ export const DECISION_KINDS = [
 
 export type DecisionKind = (typeof DECISION_KINDS)[number];
 
-const MOST_TITLE = 120;
-const MOST_WHY = 2_000;
-const MOST_ALTERNATIVES = 5;
-const MOST_ALTERNATIVE = 300;
-const MOST_PATHS = 20;
-const MOST_STEPS = 20;
+const MAX_TITLE = 120;
+const MAX_WHY = 2_000;
+const MAX_ALTERNATIVES = 5;
+const MAX_ALTERNATIVE = 300;
+const MAX_PATHS = 20;
+const MAX_STEPS = 20;
 
 export interface ProposedDecision {
   readonly kind: string;
@@ -30,13 +30,11 @@ export interface ProposedDecision {
   readonly steps: readonly number[];
 }
 
-const text = (raw: string, most: number, what: string): string => {
+const text = (raw: string, max: number, what: string): string => {
   const trimmed = raw.trim();
 
-  if (!trimmed || trimmed.length > most) {
-    throw new InvalidDecisionError(
-      `${what} must be at most ${most} characters`,
-    );
+  if (!trimmed || trimmed.length > max) {
+    throw new InvalidDecisionError(`${what} must be at most ${max} characters`);
   }
 
   return trimmed;
@@ -64,12 +62,12 @@ export class Decision {
     }
 
     const alternatives = proposed.alternatives.map((each) =>
-      text(each, MOST_ALTERNATIVE, 'alternative'),
+      text(each, MAX_ALTERNATIVE, 'alternative'),
     );
 
-    if (alternatives.length > MOST_ALTERNATIVES) {
+    if (alternatives.length > MAX_ALTERNATIVES) {
       throw new InvalidDecisionError(
-        `can weigh at most ${MOST_ALTERNATIVES} alternatives`,
+        `can weigh at most ${MAX_ALTERNATIVES} alternatives`,
       );
     }
 
@@ -79,9 +77,9 @@ export class Decision {
         .map((each) => FilePath.of(each).value),
     ).map(FilePath.of);
 
-    if (paths.length === 0 || paths.length > MOST_PATHS) {
+    if (paths.length === 0 || paths.length > MAX_PATHS) {
       throw new InvalidDecisionError(
-        `must name between 1 and ${MOST_PATHS} paths`,
+        `must name between 1 and ${MAX_PATHS} paths`,
       );
     }
 
@@ -89,19 +87,19 @@ export class Decision {
 
     if (
       steps.length === 0 ||
-      steps.length > MOST_STEPS ||
+      steps.length > MAX_STEPS ||
       steps.some((each) => !Number.isInteger(each) || each < 0)
     ) {
       throw new InvalidDecisionError(
-        `must cite between 1 and ${MOST_STEPS} steps of its run`,
+        `must cite between 1 and ${MAX_STEPS} steps of its run`,
       );
     }
 
     return new Decision(
       id,
       proposed.kind as DecisionKind,
-      text(proposed.title, MOST_TITLE, 'title'),
-      text(proposed.why, MOST_WHY, 'reason'),
+      text(proposed.title, MAX_TITLE, 'title'),
+      text(proposed.why, MAX_WHY, 'reason'),
       alternatives,
       paths,
       steps,
@@ -148,7 +146,7 @@ export class Decision {
     return this.paths.some((each) => each.equals(path));
   }
 
-  disputed(dispute: DecisionDispute): Decision {
+  dispute(dispute: DecisionDispute): Decision {
     if (!this.bearsOn(dispute.path)) {
       throw new InvalidDecisionError(
         `can only be disputed on a file it covers, not ${dispute.path.value}`,

@@ -22,7 +22,7 @@ export class NoteChatStarted {
   ) {}
 
   started(heard: ChatStartedHeard): Promise<void> {
-    return this.transaction.run(async () => {
+    return this.transaction.inTransaction(async () => {
       const workspaceId = WorkspaceId.of(heard.workspaceId);
       const teamId = TeamId.of(heard.teamId);
 
@@ -36,7 +36,7 @@ export class NoteChatStarted {
       }
 
       await this.chats.add(
-        ChatRecord.started({
+        ChatRecord.start({
           chatId: heard.chatId,
           workspaceId,
           teamId,

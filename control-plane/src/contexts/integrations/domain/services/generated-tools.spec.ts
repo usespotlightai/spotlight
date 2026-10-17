@@ -1,6 +1,6 @@
 import {
-  GENERATED_AT_MOST,
   generatedTools,
+  MAX_GENERATED,
 } from '@integrations/domain/services/generated-tools';
 import { ApprovalNeeded } from '@integrations/domain/value-objects/approval-needed.vo';
 import { ContentHash } from '@integrations/domain/value-objects/content-hash.vo';
@@ -153,7 +153,7 @@ describe('generatedTools', () => {
   });
 
   it('refuses more tools than a station can choose between, asking for a filter', () => {
-    const many = Array.from({ length: GENERATED_AT_MOST + 1 }, (_, at) =>
+    const many = Array.from({ length: MAX_GENERATED + 1 }, (_, at) =>
       operation(`op-${at}`),
     );
 
@@ -165,6 +165,6 @@ describe('generatedTools', () => {
         operations: many,
         filter: OperationFilter.of({ include: ['op-1*'] }),
       }).tools.length,
-    ).toBeLessThan(GENERATED_AT_MOST);
+    ).toBeLessThan(MAX_GENERATED);
   });
 });

@@ -4,7 +4,7 @@ import type { ReadCandidateQuery } from '@replays/application/queries/read-candi
 import { candidateResourceView } from '@replays/application/services/replay-views';
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
 export class ReadCandidateHandler
@@ -30,7 +30,7 @@ export class ReadCandidateHandler
         ? candidateResourceView(candidate)
         : null;
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

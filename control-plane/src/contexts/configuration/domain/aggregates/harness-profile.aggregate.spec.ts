@@ -106,12 +106,12 @@ describe('HarnessProfile', () => {
   });
 
   it('will not retire while a station names it', () => {
-    expect(() => kept().retired(NAMED, BY)).toThrow(HarnessProfileInUseError);
-    expect(() => kept().retired(NAMED, BY)).toThrow(/delivery\/implementation/);
+    expect(() => kept().retire(NAMED, BY)).toThrow(HarnessProfileInUseError);
+    expect(() => kept().retire(NAMED, BY)).toThrow(/delivery\/implementation/);
   });
 
   it('retires when no station names it, and cannot change after', () => {
-    const retired = kept().retired(
+    const retired = kept().retire(
       StationUses.of([{ name: 'bold', by: 'delivery/implementation' }]),
       BY,
     );
@@ -131,7 +131,7 @@ describe('HarnessProfile', () => {
   });
 
   it('is abandoned with its team, whoever still names it', () => {
-    const abandoned = kept().abandoned(BY);
+    const abandoned = kept().abandon(BY);
 
     expect(abandoned.isRetired).toBe(true);
     expect(abandoned.pullEvents()).toEqual([

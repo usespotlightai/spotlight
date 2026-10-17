@@ -44,7 +44,7 @@ export class NotePullRequestRecords {
   ) {}
 
   seen(seen: PullRequestSeen): Promise<void> {
-    return this.transaction.run(async () => {
+    return this.transaction.inTransaction(async () => {
       await this.forgotten.holding(seen.workspaceId, null);
       await this.forgotten.holdingPullRequest(
         seen.workspaceId,
@@ -71,7 +71,7 @@ export class NotePullRequestRecords {
   }
 
   forgottenByGitHub(forgotten: PullRequestForgottenByGitHub): Promise<void> {
-    return this.transaction.run(async () => {
+    return this.transaction.inTransaction(async () => {
       await this.forgotten.holding(forgotten.workspaceId, null);
       await this.forgotten.holdingPullRequest(
         forgotten.workspaceId,
@@ -107,7 +107,7 @@ export class NotePullRequestRecords {
   }
 
   owned(owned: PullRequestOwned): Promise<void> {
-    return this.transaction.run(async () => {
+    return this.transaction.inTransaction(async () => {
       await this.forgotten.holding(
         owned.workspaceId,
         owned.taskId,
@@ -129,13 +129,13 @@ export class NotePullRequestRecords {
       }
 
       await this.changing(owned.workspaceId, owned.pullRequest, (record) =>
-        record.ownedBy({ taskId: owned.taskId, teamId: owned.teamId }),
+        record.assignOwner({ taskId: owned.taskId, teamId: owned.teamId }),
       );
     });
   }
 
   reviewed(reviewed: PullRequestReviewed): Promise<void> {
-    return this.transaction.run(async () => {
+    return this.transaction.inTransaction(async () => {
       await this.forgotten.holding(reviewed.workspaceId, reviewed.taskId);
       await this.forgotten.holdingPullRequest(
         reviewed.workspaceId,
@@ -149,7 +149,7 @@ export class NotePullRequestRecords {
       await this.changing(
         reviewed.workspaceId,
         reviewed.pullRequest,
-        (record) => record.reviewedBy(reviewed.taskId),
+        (record) => record.recordReview(reviewed.taskId),
       );
     });
   }

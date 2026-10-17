@@ -6,7 +6,7 @@ import {
 import { lastedOrNone } from '@/lib/insights';
 import {
   type FlowStage,
-  partShown,
+  formatPart,
   STATION_PARTS,
 } from '@/lib/insights-shipping';
 import { cn } from '@/lib/utils';
@@ -52,7 +52,7 @@ export function PipelineStageLabel({
             <span className="text-foreground">{stage.label}</span>
             {STATION_PARTS.map((part) => (
               <span key={part} className="text-muted-foreground">
-                {partShown(part)}{' '}
+                {formatPart(part)}{' '}
                 <span className="font-mono">{lastedOrNone(parts[part])}</span>
               </span>
             ))}

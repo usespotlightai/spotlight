@@ -21,7 +21,7 @@ let held: TestDatabase;
 let comments: DrizzleReviewCommentRepository;
 
 const drafted = (id: string, anchor: ReviewAnchor) =>
-  ReviewComment.drafted({
+  ReviewComment.draft({
     id: ReviewCommentId.of(id),
     workspaceId: WorkspaceId.of('ws_1'),
     taskId: TASK,
@@ -68,7 +68,7 @@ describe('storing review comments', () => {
       locking.lockThreadsOnFile(TASK, FilePath.of('src/a.ts')),
     ).rejects.toThrow('needs a transaction');
     await expect(
-      context.run(() =>
+      context.inTransaction(() =>
         locking.lockThreadsOnFile(TASK, FilePath.of('src/a.ts')),
       ),
     ).resolves.toBeUndefined();

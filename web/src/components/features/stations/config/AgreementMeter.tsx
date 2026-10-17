@@ -2,10 +2,10 @@ import { ShieldCheck, ShieldQuestion } from 'lucide-react';
 import { MeterLabel } from '@/components/features/stations/config/MeterLabel';
 import { MeterBar } from '@/components/features/stations/MeterBar';
 import {
+  formatMeasure,
+  formatStanding,
+  formatStat,
   type JudgeStanding,
-  measureShown,
-  standingShown,
-  statShown,
 } from '@/lib/judge';
 
 export function AgreementMeter({ standing }: { standing: JudgeStanding }) {
@@ -21,14 +21,14 @@ export function AgreementMeter({ standing }: { standing: JudgeStanding }) {
       {measured && (
         <>
           <MeterLabel
-            label={measureShown(standing.measure)}
-            value={statShown(standing.agreement)}
+            label={formatMeasure(standing.measure)}
+            value={formatStat(standing.agreement)}
           />
           <MeterBar
             share={standing.agreement ?? 0}
-            label={`${measureShown(standing.measure)} ${statShown(standing.agreement)}. Minimum required: ${statShown(standing.trust)}`}
+            label={`${formatMeasure(standing.measure)} ${formatStat(standing.agreement)}. Minimum required: ${formatStat(standing.trust)}`}
             mark={standing.trust ?? 0}
-            markTitle={`Minimum required: ${statShown(standing.trust)}`}
+            markTitle={`Minimum required: ${formatStat(standing.trust)}`}
           />
         </>
       )}
@@ -36,8 +36,8 @@ export function AgreementMeter({ standing }: { standing: JudgeStanding }) {
       <p className="flex items-start gap-1.5 text-[0.7rem] text-muted-foreground leading-4">
         <Icon aria-hidden className="mt-px size-3 shrink-0" />
         {standing.trusted && measured
-          ? `Trusted above ${statShown(standing.trust)} over ${standing.pairs} runs`
-          : standingShown(standing)}
+          ? `Trusted above ${formatStat(standing.trust)} over ${standing.pairs} runs`
+          : formatStanding(standing)}
       </p>
     </div>
   );

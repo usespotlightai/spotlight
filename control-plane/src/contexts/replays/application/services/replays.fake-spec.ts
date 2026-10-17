@@ -19,7 +19,7 @@ import type {
   SearchRunOrder,
   SearchRunQueued,
   SearchRunStanding,
-  StationAtHand,
+  StationView,
   UnclaimedWithdrawal,
   WorkPort,
 } from '@replays/application/ports/work.port';
@@ -76,7 +76,7 @@ export const PERSON: Principal = PersonPrincipal.of(UserId.of('user_1'));
 
 export const ACTOR: Actor = actorFor('user_1');
 
-export const AT_HAND: StationAtHand = {
+export const STATION_VIEW: StationView = {
   ...STATION,
   lineKey: 'delivery',
   key: 'build',
@@ -195,7 +195,7 @@ export class InMemoryReplays {
       [...this.replays.values()].filter((each) =>
         setIds.some((id) => each.setId.equals(id)),
       ),
-    ofTeamStartedSince: async (teamId, since, most) =>
+    ofTeamStartedSince: async (teamId, since, max) =>
       [...this.replays.values()]
         .filter(
           (each) =>
@@ -207,7 +207,7 @@ export class InMemoryReplays {
             other.startedAt.getTime() - one.startedAt.getTime() ||
             (one.id.value < other.id.value ? 1 : -1),
         )
-        .slice(0, most),
+        .slice(0, max),
     teamsDispatching: async () => {
       const teams = new Map<string, TeamId>();
       for (const each of this.replays.values()) {
@@ -325,12 +325,14 @@ export class FakeWork implements WorkPort {
   refusing: ReplayRunQueued | null = null;
 
   station = async (lineId: string, stationId: string) =>
-    lineId === AT_HAND.lineId && stationId === AT_HAND.stationId
-      ? AT_HAND
+    lineId === STATION_VIEW.lineId && stationId === STATION_VIEW.stationId
+      ? STATION_VIEW
       : null;
 
   keyed = async (lineId: string, key: string) =>
-    lineId === AT_HAND.lineId && key === AT_HAND.key ? AT_HAND : null;
+    lineId === STATION_VIEW.lineId && key === STATION_VIEW.key
+      ? STATION_VIEW
+      : null;
 
   replayable = async (_workspace: unknown, runs: readonly RunId[]) =>
     runs.flatMap((run) => {
@@ -586,7 +588,7 @@ export const IDS = {
 };
 
 export const TRANSACTION = {
-  run: <T>(work: () => Promise<T>) => work(),
+  inTransaction: <T>(work: () => Promise<T>) => work(),
 };
 
 export const stationsFor = (memory: InMemoryReplays, work: FakeWork) =>

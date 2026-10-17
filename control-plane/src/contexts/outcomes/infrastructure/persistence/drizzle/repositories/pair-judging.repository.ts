@@ -45,7 +45,7 @@ const toPairJudging = (row: Row): PairJudging =>
       passShare: row.passShare,
     }),
     reference: RunId.of(row.referenceRunId),
-    mostAttempts: row.mostAttempts,
+    maxAttempts: row.maxAttempts,
     order: row.shownOrder,
     askedAt: row.askedAt,
     work: row.owed
@@ -85,7 +85,7 @@ export class DrizzlePairJudgingRepository implements PairJudgingRepository {
   ) {}
 
   async add(added: PairJudging): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       const written = await this.context.db
         .insert(pairJudging)
         .values({
@@ -97,7 +97,7 @@ export class DrizzlePairJudgingRepository implements PairJudgingRepository {
           claims: [...added.criteria.claims],
           passShare: added.criteria.passShare,
           referenceRunId: added.reference.value,
-          mostAttempts: added.mostAttempts,
+          maxAttempts: added.maxAttempts,
           shownOrder: added.order,
           askedAt: added.askedAt,
           version: added.version,
@@ -120,7 +120,7 @@ export class DrizzlePairJudgingRepository implements PairJudgingRepository {
   }
 
   async save(saved: PairJudging): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       const written = await this.context.db
         .update(pairJudging)
         .set({ version: saved.version + 1, ...columnsOf(saved) })

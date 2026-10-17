@@ -28,7 +28,7 @@ const RUN = {
 };
 
 const held = (handle: MemoryHandle, stands: boolean, applies: boolean) => {
-  const memory = Memory.written({
+  const memory = Memory.write({
     id: MemoryId.of(`memory_${handle.number}`),
     handle,
     workspaceId: WorkspaceId.of('ws_1'),
@@ -42,9 +42,7 @@ const held = (handle: MemoryHandle, stands: boolean, applies: boolean) => {
     by: MemoryDecision.of({ by: ADA, at: NOW }),
   });
 
-  return stands
-    ? memory
-    : memory.retired({ by: ADA, reason: 'Gone.', at: NOW });
+  return stands ? memory : memory.retire({ by: ADA, reason: 'Gone.', at: NOW });
 };
 
 const noting = (
@@ -63,7 +61,7 @@ const noting = (
           dispatched.push(...events);
         },
       },
-      { run: (work) => work() },
+      { inTransaction: (work) => work() },
       { now: () => NOW, sleep: async () => undefined },
     ),
     {

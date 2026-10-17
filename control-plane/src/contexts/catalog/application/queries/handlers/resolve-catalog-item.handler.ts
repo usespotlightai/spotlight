@@ -13,7 +13,7 @@ import { newestAdmitted } from '@catalog/domain/services/newest-admitted';
 import { CatalogName } from '@catalog/domain/value-objects/catalog-name.vo';
 import { VersionConstraint } from '@catalog/domain/value-objects/version-constraint.vo';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -62,12 +62,12 @@ export class ResolveCatalogItemHandler
     query: ResolveCatalogItemQuery,
   ): Promise<CatalogResolution | null> {
     try {
-      const cleared = await this.access.clearanceIn(
+      const permissions = await this.access.permissionsIn(
         WorkspaceId.of(query.workspaceId),
         query.principal,
       );
 
-      if (!cleared) {
+      if (!permissions) {
         return null;
       }
 
@@ -100,7 +100,7 @@ export class ResolveCatalogItemHandler
 
       const giving = givingOfItem(
         admission.item,
-        await this.plans.of(cleared.workspaceId),
+        await this.plans.of(permissions.workspaceId),
         this.clock.now(),
       );
 
@@ -108,7 +108,7 @@ export class ResolveCatalogItemHandler
         ? { outcome: 'resolved', item: itemDto(giving.item, constraint) }
         : { outcome: 'not-entitled', because: giving.refusal.because };
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

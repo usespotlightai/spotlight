@@ -89,7 +89,7 @@ describe('AddTeamMemberHandler', () => {
     const { handler, save } = adding();
 
     await expect(handler.execute(add('user_stranger'))).rejects.toMatchObject({
-      kind: 'invalid-input',
+      kind: 'invalid',
     });
     expect(save).not.toHaveBeenCalled();
   });

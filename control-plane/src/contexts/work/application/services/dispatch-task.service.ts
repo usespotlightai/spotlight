@@ -1,6 +1,6 @@
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
-import type { IsolationPort } from '@shared-kernel/application/ports/isolation.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
+import type { SavepointPort } from '@shared-kernel/application/ports/savepoint.port';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunId as RunIdOf } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { ReadySkillMapper } from '@work/application/mappers/ready-skill.mapper';
@@ -53,7 +53,7 @@ export class DispatchTask implements TaskDispatching {
     private readonly memories: TeamMemoriesPort,
     private readonly touched: TouchedFiles,
     private readonly logger: LoggerPort,
-    private readonly isolation: IsolationPort,
+    private readonly savepoint: SavepointPort,
     digest: ContentDigestPort,
   ) {
     this.ordering = new StationOrdering(
@@ -125,8 +125,8 @@ export class DispatchTask implements TaskDispatching {
 
     const id = runId;
 
-    const memories = await this.isolation
-      .isolated(() =>
+    const memories = await this.savepoint
+      .inSavepoint(() =>
         this.memories.forBriefing({
           teamId: line.teamId,
           lineId: line.id.value,

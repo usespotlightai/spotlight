@@ -45,7 +45,7 @@ export class NotePersonAct {
         ? Refusal.of({ tool: heard.tool, server: heard.server, at: next.at })
         : null;
     const noted = (record: RunRecord): RunRecord => {
-      const acted = record.actedOn(next);
+      const acted = record.recordAction(next);
 
       return refusal ? acted.refused(refusal) : acted;
     };
@@ -55,7 +55,7 @@ export class NotePersonAct {
     const run = heard.after ? await this.work.endedRun(heard.after) : null;
     const teamId = run ? TeamId.of(run.teamId) : null;
 
-    await this.transaction.run(async () => {
+    await this.transaction.inTransaction(async () => {
       await this.forgotten.holding(workspaceId, taskId, teamId);
       const held = heard.after
         ? await this.records.of(RunId.of(heard.after))

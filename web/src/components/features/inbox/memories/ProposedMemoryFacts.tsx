@@ -4,7 +4,7 @@ import { FACT_LABEL, FACT_VALUE, FactRow } from '@/components/shared/FactRow';
 import { InPlaceTextarea } from '@/components/shared/form/InPlaceTextarea';
 import {
   citesAnything,
-  MOST_MEMORY_BODY,
+  MAX_MEMORY_BODY,
   type ProposedMemory,
 } from '@/lib/memory';
 
@@ -36,7 +36,7 @@ export function ProposedMemoryFacts({
               value={body}
               disabled={pending}
               autoFocus
-              maxLength={MOST_MEMORY_BODY}
+              maxLength={MAX_MEMORY_BODY}
               onChange={(event) => onBody(event.target.value)}
               aria-label="The memory as it should stand"
             />

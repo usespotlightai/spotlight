@@ -117,7 +117,7 @@ describe('setting a team up as code (e2e)', () => {
     expect(found?.setup?.folder).toBe('spotlight');
 
     await chats().save(
-      (found as Chat).setupOpened(
+      (found as Chat).openSetup(
         RunId.of(runId),
         Branch.of('spotlight-configuration'),
         PullRequestUrl.of(PULL_REQUEST),

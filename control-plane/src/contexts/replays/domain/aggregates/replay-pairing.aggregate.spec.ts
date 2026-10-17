@@ -62,13 +62,18 @@ describe('Replay, set side by side with its baseline', () => {
     const run = runOf('replay_1', 0);
 
     replay = replay
-      .confirmed(run, FINGERPRINT, NOW)
-      .ended(run, endOf('completed'))
-      .measured(run, measuresOf(1), later(61_000))
-      .reviewed(run, CONCLUDING_CHECKS, null, later(62_000));
+      .confirm(run, FINGERPRINT, NOW)
+      .recordRunEnd(run, endOf('completed'))
+      .measure(run, measuresOf(1), later(61_000))
+      .recordReview(run, CONCLUDING_CHECKS, null, later(62_000));
     replay.pullEvents();
 
-    const judged = replay.judged(run, CONCLUDING_VERDICT, null, later(63_000));
+    const judged = replay.recordVerdict(
+      run,
+      CONCLUDING_VERDICT,
+      null,
+      later(63_000),
+    );
 
     expect(judged.pullEvents()).toContainEqual(
       new ReplayEntryConcluded(
@@ -84,7 +89,7 @@ describe('Replay, set side by side with its baseline', () => {
     const replay = concludedAll(judging('replay_1'));
     const against = concludedAll(baseline());
 
-    const paired = replay.pairedAgainst(against, everyOriginal);
+    const paired = replay.pairAgainst(against, everyOriginal);
 
     expect(paired.pullEvents()).toEqual(
       [0, 1].map(
@@ -100,11 +105,11 @@ describe('Replay, set side by side with its baseline', () => {
       ),
     );
     expect(paired.entries.every((each) => each.pairing?.pending)).toBe(true);
-    expect(paired.pairedAgainst(against, everyOriginal)).toBe(paired);
+    expect(paired.pairAgainst(against, everyOriginal)).toBe(paired);
   });
 
   it('sets copy k beside the baseline’s copy k, else beside its first copy', () => {
-    const paired = concludedAll(judging('replay_1', 2)).pairedAgainst(
+    const paired = concludedAll(judging('replay_1', 2)).pairAgainst(
       concludedAll(baseline(1)),
       everyOriginal,
     );
@@ -127,24 +132,24 @@ describe('Replay, set side by side with its baseline', () => {
     const replay = concludedAll(judging('replay_1'));
 
     expect(
-      replay.pairedAgainst(concludedAll(baseline()), (original) =>
+      replay.pairAgainst(concludedAll(baseline()), (original) =>
         original.equals(RunId.of('original_0')),
       ).entries[1]?.pairing,
     ).toBeNull();
     expect(
-      replay.pairedAgainst(
+      replay.pairAgainst(
         concludedAll(baseline(), { changedLines: 0 }),
         everyOriginal,
       ),
     ).toBe(replay);
     expect(
-      concludedAll(judging('replay_1'), { changedLines: 0 }).pairedAgainst(
+      concludedAll(judging('replay_1'), { changedLines: 0 }).pairAgainst(
         concludedAll(baseline()),
         everyOriginal,
       ).entries[0]?.pairing,
     ).toBeNull();
     expect(
-      replay.pairedAgainst(
+      replay.pairAgainst(
         concludedAll(baseline(), { judged: false }),
         everyOriginal,
       ),
@@ -155,10 +160,10 @@ describe('Replay, set side by side with its baseline', () => {
     const replay = concludedAll(judging('replay_1'));
     const against = concludedAll(baseline());
 
-    expect(replay.pairedAgainst(replay, everyOriginal)).toBe(replay);
-    expect(against.pairedAgainst(replay, everyOriginal)).toBe(against);
+    expect(replay.pairAgainst(replay, everyOriginal)).toBe(replay);
+    expect(against.pairAgainst(replay, everyOriginal)).toBe(against);
     expect(
-      concludedAll(aReplay({ id: 'unjudged', count: 2 })).pairedAgainst(
+      concludedAll(aReplay({ id: 'unjudged', count: 2 })).pairAgainst(
         against,
         everyOriginal,
       ).entries[0]?.pairing,
@@ -168,7 +173,7 @@ describe('Replay, set side by side with its baseline', () => {
   it('asks nothing once its spend reached its ceiling', () => {
     const replay = concludedAll(judging('replay_1', 1, 2));
 
-    expect(replay.pairedAgainst(concludedAll(baseline()), everyOriginal)).toBe(
+    expect(replay.pairAgainst(concludedAll(baseline()), everyOriginal)).toBe(
       replay,
     );
   });
@@ -179,14 +184,14 @@ describe('Replay, set side by side with its baseline', () => {
     });
     const against = concludedAll(baseline());
 
-    const paired = replay.pairedAgainst(against, everyOriginal);
+    const paired = replay.pairAgainst(against, everyOriginal);
 
     expect(paired.entries.map((each) => each.pairing?.pending ?? null)).toEqual(
       [true, null],
     );
-    expect(paired.pairedAgainst(against, everyOriginal)).toBe(paired);
+    expect(paired.pairAgainst(against, everyOriginal)).toBe(paired);
 
-    const answered = paired.paired(
+    const answered = paired.pair(
       runOf('replay_1', 0),
       runOf('baseline_1', 0),
       pairVerdictOf('run'),
@@ -197,8 +202,7 @@ describe('Replay, set side by side with its baseline', () => {
       new ReplayPairingDue(answered.id, answered.workspaceId),
     );
     expect(
-      answered.pairedAgainst(against, everyOriginal).entries[1]?.pairing
-        ?.pending,
+      answered.pairAgainst(against, everyOriginal).entries[1]?.pairing?.pending,
     ).toBe(true);
   });
 
@@ -209,7 +213,7 @@ describe('Replay, set side by side with its baseline', () => {
 
     expect(
       replay
-        .pairedAgainst(concludedAll(baseline()), everyOriginal)
+        .pairAgainst(concludedAll(baseline()), everyOriginal)
         .entries.map((each) => each.pairing?.unpaired),
     ).toEqual(['budget', 'budget']);
   });
@@ -226,7 +230,7 @@ describe('Replay, set side by side with its baseline', () => {
 
     expect(
       concludedAll(judging('replay_1'))
-        .pairedAgainst(other, everyOriginal)
+        .pairAgainst(other, everyOriginal)
         .entries.map((each) => each.pairing?.unpaired),
     ).toEqual(['other-rubric', 'other-rubric']);
   });
@@ -237,17 +241,17 @@ describe('Replay, set side by side with its baseline', () => {
     );
 
     expect(running.takesPairings).toBe(false);
-    expect(running.pairedAgainst(concludedAll(baseline()), everyOriginal)).toBe(
+    expect(running.pairAgainst(concludedAll(baseline()), everyOriginal)).toBe(
       running,
     );
   });
 
   it('keeps what pairing spent in its charge against the ceiling, but out of what it spent on its runs', () => {
-    const asked = concludedAll(judging('replay_1')).pairedAgainst(
+    const asked = concludedAll(judging('replay_1')).pairAgainst(
       concludedAll(baseline()),
       everyOriginal,
     );
-    const paired = asked.paired(
+    const paired = asked.pair(
       runOf('replay_1', 0),
       runOf('baseline_1', 0),
       pairVerdictOf('run'),
@@ -269,18 +273,18 @@ describe('Replay, set side by side with its baseline', () => {
       }),
     );
 
-    expect(replay.pairedAgainst(other, everyOriginal)).toBe(replay);
+    expect(replay.pairAgainst(other, everyOriginal)).toBe(replay);
     expect(replay.pairsWith?.value).toBe('baseline_1');
   });
 
   it('takes no pairing once stopped or over its budget, but still once finished', () => {
     const finished = concludedAll(judging('replay_1'));
-    const stopped = judging('replay_1').stopped(NOW, BY);
+    const stopped = judging('replay_1').stop(NOW, BY);
 
     expect(finished.current).toBe('finished');
     expect(finished.takesPairings).toBe(true);
     expect(stopped.takesPairings).toBe(false);
-    expect(stopped.pairedAgainst(concludedAll(baseline()), everyOriginal)).toBe(
+    expect(stopped.pairAgainst(concludedAll(baseline()), everyOriginal)).toBe(
       stopped,
     );
   });
@@ -298,7 +302,7 @@ describe('Replay, set side by side with its baseline', () => {
   });
 
   it('keeps the verdict and what it cost against its ceiling, without changing whether the run succeeded', () => {
-    const asked = concludedAll(judging('replay_1')).pairedAgainst(
+    const asked = concludedAll(judging('replay_1')).pairAgainst(
       concludedAll(baseline()),
       everyOriginal,
     );
@@ -306,7 +310,7 @@ describe('Replay, set side by side with its baseline', () => {
     const succeeded = asked.entries[0]?.succeeded;
     const chargedBefore = asked.charged.amount;
 
-    const paired = asked.paired(
+    const paired = asked.pair(
       run,
       runOf('baseline_1', 0),
       pairVerdictOf('run'),
@@ -317,19 +321,14 @@ describe('Replay, set side by side with its baseline', () => {
     expect(paired.entries[0]?.succeeded).toBe(succeeded);
     expect(paired.charged.amount).toBeCloseTo(chargedBefore + 0.25);
     expect(
-      paired.paired(
-        run,
-        runOf('baseline_1', 1),
-        pairVerdictOf('against'),
-        null,
-      ),
+      paired.pair(run, runOf('baseline_1', 1), pairVerdictOf('against'), null),
     ).toBe(paired);
   });
 
   it('keeps why a side-by-side judging failed', () => {
     const failed = concludedAll(judging('replay_1'))
-      .pairedAgainst(concludedAll(baseline()), everyOriginal)
-      .pairingFailed(
+      .pairAgainst(concludedAll(baseline()), everyOriginal)
+      .recordPairingFailure(
         runOf('replay_1', 1),
         runOf('baseline_1', 1),
         'no-evidence',
@@ -346,11 +345,11 @@ const pairedAs = (
   against: Replay,
   winners: readonly ('run' | 'against' | 'tie')[],
 ): Replay => {
-  const asked = replay.pairedAgainst(against, everyOriginal);
+  const asked = replay.pairAgainst(against, everyOriginal);
 
   return asked.entries.reduce(
     (held, entry, at) =>
-      held.paired(
+      held.pair(
         entry.run as RunId,
         entry.pairing?.against as RunId,
         pairVerdictOf(winners[at] ?? 'tie'),

@@ -43,7 +43,7 @@ describe('tokenGivenTo', () => {
   });
 
   it('gives no token to a pool being retired', () => {
-    expect(tokenGivenTo(pool.retired(attributedIn()), pool)).toBeNull();
+    expect(tokenGivenTo(pool.retire(attributedIn()), pool)).toBeNull();
   });
 });
 

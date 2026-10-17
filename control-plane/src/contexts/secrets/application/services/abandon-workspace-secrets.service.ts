@@ -13,7 +13,9 @@ export class AbandonWorkspaceSecrets {
     const by = Attribution.spotlight(workspaceId);
 
     for (const secret of await this.secrets.inWorkspace(workspaceId)) {
-      await this.transaction.run(() => this.secrets.save(secret.abandoned(by)));
+      await this.transaction.inTransaction(() =>
+        this.secrets.save(secret.abandon(by)),
+      );
     }
   }
 }

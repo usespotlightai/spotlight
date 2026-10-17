@@ -1,8 +1,8 @@
 import { NotedWarning } from '@/components/shared/NotedWarning';
 import type { SearchCandidate } from '@/lib/search';
 import {
-  pullRequestCellShown,
-  pullRequestReasonShown,
+  formatPullRequestCell,
+  formatPullRequestReason,
 } from '@/lib/search-words';
 
 export function CandidatePullRequest({
@@ -24,7 +24,7 @@ export function CandidatePullRequest({
         rel="noreferrer"
         className="relative z-10 text-foreground underline-offset-2 hover:underline"
       >
-        {pullRequestCellShown('opened')}
+        {formatPullRequestCell('opened')}
       </a>
     );
   }
@@ -32,12 +32,12 @@ export function CandidatePullRequest({
   if (opened.state === 'refused') {
     return (
       <span className="inline-flex items-center gap-1.5 text-destructive">
-        {pullRequestCellShown('refused')}
+        {formatPullRequestCell('refused')}
         {opened.reason && (
           <NotedWarning
             tone="destructive"
             label="Why"
-            note={`${pullRequestReasonShown(opened.reason)}. ${opened.reason.message}`}
+            note={`${formatPullRequestReason(opened.reason)}. ${opened.reason.message}`}
             className="relative z-10"
           />
         )}
@@ -45,5 +45,5 @@ export function CandidatePullRequest({
     );
   }
 
-  return pullRequestCellShown(opened.state);
+  return formatPullRequestCell(opened.state);
 }

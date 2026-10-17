@@ -119,7 +119,7 @@ export class Runners implements RunnersPort {
     const minted = this.tokens.mint();
     const egress = this.tokens.mint();
     const starting: Starting = (through) =>
-      Runner.started({
+      Runner.start({
         id: runnerId,
         through,
         host: hostId,
@@ -168,7 +168,7 @@ export class Runners implements RunnersPort {
       (through) => {
         credential = through.egress ? this.tokens.mint() : null;
 
-        return Runner.started({
+        return Runner.start({
           id: request.runnerId,
           through,
           host: null,
@@ -374,7 +374,7 @@ export class Runners implements RunnersPort {
     mode: PoolMode,
     starting: Starting,
   ): Promise<Began<RunnerTrust>> {
-    return this.transaction.run(async () => {
+    return this.transaction.inTransaction(async () => {
       const trust = await this.trusts.find(id);
 
       if (trust?.startVerdict(mode) !== 'open') {
@@ -393,7 +393,7 @@ export class Runners implements RunnersPort {
     at: Date,
     starting: (through: RunnerPool) => Runner,
   ): Promise<Began<RunnerPool>> {
-    return this.transaction.run(async () => {
+    return this.transaction.inTransaction(async () => {
       const pool = await this.pools.findForStart(id);
 
       if (!pool) {

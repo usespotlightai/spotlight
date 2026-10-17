@@ -15,11 +15,11 @@ import {
 } from '@platform/openrouter/openrouter-json';
 import { z } from 'zod';
 
-const MOST_OUTPUT = 8_000;
+const MAX_OUTPUT = 8_000;
 
-const MOST_STEP = 2_000;
+const MAX_STEP = 2_000;
 
-const MOST_ASKED = 120_000;
+const MAX_ASKED = 120_000;
 
 const DECISIONS = new JsonShape(
   'decisions',
@@ -58,7 +58,7 @@ Rules:
 Order decisions by how much a reviewer needs to know them, deviations and limitations first.`;
 
 const clipped = (text: string): string =>
-  text.length > MOST_STEP ? `${text.slice(0, MOST_STEP)} …` : text;
+  text.length > MAX_STEP ? `${text.slice(0, MAX_STEP)} …` : text;
 
 const line = (step: ReasonedStep): string =>
   `[${step.index}] ${step.kind}: ${clipped(step.text.trim())}`;
@@ -79,7 +79,7 @@ export class OpenRouterDecisionDrafter implements DecisionDrafterPort {
       throw new Error('No OpenRouter API key is set for decisions');
     }
 
-    const told = latestWithin(reasoning.steps.map(line), MOST_ASKED);
+    const told = latestWithin(reasoning.steps.map(line), MAX_ASKED);
     const asked = [
       `The files changed on this task so far:\n${reasoning.changed.map((each) => `- ${each}`).join('\n')}`,
       told.length < reasoning.steps.length
@@ -97,7 +97,7 @@ export class OpenRouterDecisionDrafter implements DecisionDrafterPort {
       shape: DECISIONS,
       system: SYSTEM,
       asked,
-      most: MOST_OUTPUT,
+      max: MAX_OUTPUT,
     });
 
     return decisions;

@@ -84,10 +84,10 @@ const insights = async () => {
   const touches = new TaskTouchesInMemory(records);
   const failures = new TaskFailuresInMemory();
   const chats = new ChatRecordsInMemory();
-  const cleared: Principal[] = [];
+  const checked: Principal[] = [];
   const people: PeoplePort = {
-    clearedOnTeam: async (_teamId, principal) => {
-      cleared.push(principal);
+    membershipOnTeam: async (_teamId, principal) => {
+      checked.push(principal);
       return principal.kind === 'token' ||
         principal.userId.equals(UserId.of('user_ada'))
         ? { workspaceId: WorkspaceId.of('ws_1'), by: principal.userId }
@@ -128,12 +128,12 @@ const insights = async () => {
     chats,
   });
 
-  return { scopes, reader, people, cleared, records, touches, deliveries };
+  return { scopes, reader, people, checked, records, touches, deliveries };
 };
 
 describe('the team’s insights', () => {
   it('answers a workspace token that may read the workspace', async () => {
-    const { scopes, reader, people, cleared } = await insights();
+    const { scopes, reader, people, checked } = await insights();
 
     const overview = await new ReadInsightsOverviewHandler(
       scopes,
@@ -141,7 +141,7 @@ describe('the team’s insights', () => {
       people,
     ).execute(new ReadInsightsOverviewQuery('team_1', READ_TOKEN, '7d'));
 
-    expect(cleared).toEqual([READ_TOKEN]);
+    expect(checked).toEqual([READ_TOKEN]);
     expect(overview.period.name).toBe('7d');
     expect(overview.headline).toMatchObject({
       runs: 3,
@@ -180,7 +180,7 @@ describe('the team’s insights', () => {
       new ReadInsightsOverviewHandler(scopes, reader, people).execute(
         new ReadInsightsOverviewQuery('team_1', READ_TOKEN, '14d'),
       ),
-    ).rejects.toMatchObject({ kind: 'invalid-input' });
+    ).rejects.toMatchObject({ kind: 'invalid' });
   });
 
   it('tallies each station the way the Station page does', async () => {
@@ -304,7 +304,7 @@ describe('the team’s insights', () => {
     expect(tools.weeks).toEqual(['2026-09-21', '2026-09-28']);
     expect(tools.trendRule).toEqual({
       recentWeeks: 2,
-      fewestRuns: 5,
+      minRuns: 5,
       shiftPoints: 20,
     });
     expect(tools.skills.map((each) => [each.key, each.used])).toEqual([

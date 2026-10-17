@@ -52,7 +52,7 @@ export class ChatMessage {
     );
   }
 
-  static proposed(input: {
+  static propose(input: {
     position: MessagePosition;
     runId: RunId;
     placement: ProposalPlacement;

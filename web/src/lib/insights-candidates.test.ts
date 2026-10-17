@@ -3,12 +3,12 @@ import {
   type CandidatesSet,
   changeLinkOf,
   costBasisNote,
+  formatSource,
   type ReplayedPoint,
   replayedFrontiersOf,
   replayedPoints,
   replayedSetsOf,
   type SetCandidate,
-  sourceShown,
   stationReplayedPoints,
 } from '@/lib/insights-candidates';
 import { CANDIDATES } from '@/test/fixtures/insights-candidates';
@@ -27,11 +27,11 @@ const proposed = review.candidates.find(
   (each) => each.candidateId === 'candidate_spec_review',
 ) as SetCandidate;
 
-describe('sourceShown', () => {
+describe('formatSource', () => {
   it('names each kind of replayed point', () => {
-    expect(sourceShown('searched')).toBe('Search');
-    expect(sourceShown('proposed')).toBe('Proposed');
-    expect(sourceShown('baseline')).toBe('Live');
+    expect(formatSource('searched')).toBe('Search');
+    expect(formatSource('proposed')).toBe('Proposed');
+    expect(formatSource('baseline')).toBe('Live');
   });
 });
 

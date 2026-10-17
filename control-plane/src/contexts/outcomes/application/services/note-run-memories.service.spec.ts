@@ -42,7 +42,7 @@ describe('NoteRunMemories', () => {
     await heard('briefed', ['mem_2', 'mem_1']);
     const briefed = await records.of(RUN);
     await records.save(
-      (briefed as NonNullable<typeof briefed>).ended(
+      (briefed as NonNullable<typeof briefed>).recordEnd(
         endOf({ taskId: 'task_1' }),
       ),
     );

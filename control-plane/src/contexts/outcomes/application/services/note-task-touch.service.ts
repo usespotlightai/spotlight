@@ -53,7 +53,11 @@ export class NoteTaskTouch {
       at: new Date(heard.at),
     });
 
-    return this.touched(heard, (held) => held.opened(opening), opening.teamId);
+    return this.touched(
+      heard,
+      (held) => held.recordOpen(opening),
+      opening.teamId,
+    );
   }
 
   asked(heard: TaskAskedHeard): Promise<void> {
@@ -76,7 +80,7 @@ export class NoteTaskTouch {
       at: new Date(heard.at),
     });
 
-    return this.touched(heard, (held) => held.actedOn(touch));
+    return this.touched(heard, (held) => held.recordAction(touch));
   }
 
   private touched(
@@ -87,7 +91,7 @@ export class NoteTaskTouch {
     const taskId = TaskId.of(heard.taskId);
     const workspaceId = WorkspaceId.of(heard.workspaceId);
 
-    return this.transaction.run(async () => {
+    return this.transaction.inTransaction(async () => {
       await this.forgotten.holding(workspaceId, taskId, teamId);
       const held = await this.touches.of(taskId);
 

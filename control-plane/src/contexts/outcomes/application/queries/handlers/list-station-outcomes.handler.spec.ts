@@ -19,7 +19,7 @@ import {
   TEAM,
   WORKSPACE,
 } from '@outcomes/domain/outcomes.fake-spec';
-import { UseCaseFault } from '@shared-kernel/application/errors/use-case.fault';
+import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -88,7 +88,7 @@ const listing = async (member = true) => {
   };
   const access = new OutcomesAccess({
     ...NOBODY_ELSE,
-    clearedOnTeam: async () =>
+    membershipOnTeam: async () =>
       member ? { workspaceId: WORKSPACE, by: UserId.of('user_ada') } : null,
   });
 
@@ -197,13 +197,13 @@ describe('listing how a station’s runs turned out', () => {
     await listed.records.add(endedRecord('run_1'));
     const pullRequest = PullRequestUrl.of('https://github.com/acme/api/pull/1');
     await listed.deliveries.add(
-      TaskDelivery.opened({
+      TaskDelivery.open({
         taskId: TaskId.of('task_1'),
         workspaceId: WORKSPACE,
         teamId: TEAM,
         pullRequest,
         at: at(4),
-      }).closed({ pullRequest, merged: true, at: at(5) }),
+      }).close({ pullRequest, merged: true, at: at(5) }),
     );
 
     const outcomes = await listed.list();
@@ -384,13 +384,13 @@ describe('listing how a station’s runs turned out', () => {
         `https://github.com/acme/api/pull/${number}`,
       );
       await listed.deliveries.add(
-        TaskDelivery.opened({
+        TaskDelivery.open({
           taskId: TaskId.of(taskId),
           workspaceId: WORKSPACE,
           teamId: TEAM,
           pullRequest,
           at: at(5),
-        }).closed({ pullRequest, merged: true, at: at(6) }),
+        }).close({ pullRequest, merged: true, at: at(6) }),
       );
     }
 
@@ -662,6 +662,6 @@ describe('listing how a station’s runs turned out', () => {
     await expect(listed.list()).rejects.toMatchObject({
       kind: 'not-found',
     });
-    await expect(listed.list()).rejects.toBeInstanceOf(UseCaseFault);
+    await expect(listed.list()).rejects.toBeInstanceOf(ApplicationError);
   });
 });

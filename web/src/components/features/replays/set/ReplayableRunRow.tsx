@@ -1,6 +1,6 @@
 import { Button } from '@/components/ui/button';
-import { type ReplayableRun, titleShown } from '@/lib/replay';
-import { refusalShown, runStateShown } from '@/lib/replay-words';
+import { formatTitle, type ReplayableRun } from '@/lib/replay';
+import { formatRefusal, formatRunState } from '@/lib/replay-words';
 import { since } from '@/lib/since';
 
 type ReplayableRunRowProps = {
@@ -25,15 +25,15 @@ export function ReplayableRunRow({
     >
       <div className="flex min-w-0 flex-1 flex-col gap-0.5">
         <span className="truncate text-foreground">
-          {titleShown(run.title)}
+          {formatTitle(run.title)}
         </span>
         <span className="flex flex-wrap gap-x-1.5 text-muted-foreground text-xs">
-          <span>{runStateShown(run.state)}</span>
+          <span>{formatRunState(run.state)}</span>
           {note && <span>· {note}</span>}
           <span>· ended {since(run.endedAt)}</span>
           {run.refusal && (
             <span className="text-destructive">
-              · {refusalShown(run.refusal)}
+              · {formatRefusal(run.refusal)}
             </span>
           )}
         </span>
@@ -53,7 +53,7 @@ export function ReplayableRunRow({
           variant="outline"
           size="sm"
           className="shrink-0 rounded-full bg-card shadow-none"
-          aria-label={`Add ${titleShown(run.title)}`}
+          aria-label={`Add ${formatTitle(run.title)}`}
           disabled={adding}
           onClick={onAdd}
         >

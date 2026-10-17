@@ -4,8 +4,8 @@ import type {
 } from '@configuration/application/dto/held-configuration.dto';
 import { HeldResourceMapper } from '@configuration/application/mappers/held-resource.mapper';
 import type { HarnessProfileResourcesPort } from '@configuration/application/ports/harness-profile-resources.port';
-import type { HeldHooksPort } from '@configuration/application/ports/held-hooks.port';
-import type { HeldIntegrationsPort } from '@configuration/application/ports/held-integrations.port';
+import type { HookConfigsPort } from '@configuration/application/ports/hook-configs.port';
+import type { IntegrationConfigsPort } from '@configuration/application/ports/integration-configs.port';
 import type { SkillResourcesPort } from '@configuration/application/ports/skill-resources.port';
 import type { HarnessProfileViews } from '@configuration/application/services/harness-profile-views.service';
 import type {
@@ -24,8 +24,8 @@ export class HeldConfigurations {
     private readonly teams: TeamDirectoryPort,
     private readonly lines: LineResourcesPort,
     private readonly skills: SkillResourcesPort,
-    private readonly integrations: HeldIntegrationsPort,
-    private readonly hooks: HeldHooksPort,
+    private readonly integrations: IntegrationConfigsPort,
+    private readonly hooks: HookConfigsPort,
     private readonly profiles: HarnessProfileResourcesPort,
     private readonly profileViews: HarnessProfileViews,
     private readonly secrets: SecretConfigurationPort,

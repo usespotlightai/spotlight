@@ -46,7 +46,7 @@ beforeEach(async () => {
   memory = new InMemoryReplays();
   await memory.candidateRepository.add(candidateOf('proposed'));
   await memory.candidateRepository.add(
-    Candidate.searched({
+    Candidate.fromSearch({
       ...made,
       id: CandidateId.of('candidate_searched'),
       name: 'terse',
@@ -58,7 +58,7 @@ beforeEach(async () => {
     }),
   );
   await memory.candidateRepository.add(
-    Candidate.planned({
+    Candidate.plan({
       ...made,
       id: CandidateId.of('candidate_planned'),
       reference: PlannedReference.of({ pullRequest: 3 }),

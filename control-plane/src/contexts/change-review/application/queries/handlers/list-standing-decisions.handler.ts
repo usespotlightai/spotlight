@@ -5,12 +5,12 @@ import type { PeoplePort } from '@change-review/application/ports/people.port';
 import type { WorkspacesPort } from '@change-review/application/ports/workspaces.port';
 import type { ListStandingDecisionsQuery } from '@change-review/application/queries/list-standing-decisions.query';
 import { InvalidDecisionError } from '@change-review/domain/exceptions/invalid-decision.error';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
-const MOST_SETS = 50;
+const MAX_SETS = 50;
 
 const refused = (subject: string, reason: string): InvalidDecisionError =>
   new InvalidDecisionError(reason, subject);
@@ -93,7 +93,7 @@ export class ListStandingDecisionsHandler
         within: withinOf(query.paths, repository),
         since: timeOf(query.since),
         until: timeOf(query.until),
-        most: MOST_SETS,
+        max: MAX_SETS,
       });
 
       return Promise.all(
@@ -103,7 +103,7 @@ export class ListStandingDecisionsHandler
         })),
       );
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

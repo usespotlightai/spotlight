@@ -127,15 +127,15 @@ func TestReadPlanIgnoresAThresholdChangedInThePlan(t *testing.T) {
 	for _, each := range shown["resource_changes"].([]any) {
 		change := each.(map[string]any)["change"].(map[string]any)
 		if before, ok := change["before"].(map[string]any); ok && before["key"] == "delivery" {
-			before["replay_check"] = map[string]any{"most_regressions": 0, "ceiling": 10, "currency": "USD"}
-			change["after"].(map[string]any)["replay_check"] = map[string]any{"most_regressions": 5, "ceiling": 900, "currency": "USD"}
+			before["replay_check"] = map[string]any{"max_regressions": 0, "ceiling": 10, "currency": "USD"}
+			change["after"].(map[string]any)["replay_check"] = map[string]any{"max_regressions": 5, "ceiling": 900, "currency": "USD"}
 		}
 	}
 
 	written, _ := json.Marshal(shown)
 	for _, each := range parsedFixture(t, written).Stations {
 		for key := range each.Block {
-			if strings.Contains(strings.ToLower(key), "replay") || key == "mostRegressions" {
+			if strings.Contains(strings.ToLower(key), "replay") || key == "maxRegressions" {
 				t.Fatalf("station %s sends %s", each.Key, key)
 			}
 		}
@@ -209,7 +209,7 @@ func checkAnswer(verdict string) string {
 
 	return `{"id":"check_1","setName":"Queue fixes","replayId":"replay_1","keptLive":["check","judge"],
   "verdict":"` + verdict + `","undecidedBecause":` + undecided + `,"tasks":3,"compared":3,
-  "threshold":{"mostRegressions":0,"minGain":0.05,"ceiling":{"amount":10,"currency":"USD"}},
+  "threshold":{"maxRegressions":0,"minGain":0.05,"ceiling":{"amount":10,"currency":"USD"}},
   "repeats":3,"gain":{"gain":-0.3333,"low":-1,"high":0,"verdict":"within-noise","minGain":0.05,"tasks":3},
   "candidate":{"state":"finished","entries":9,"scored":9,"succeeded":6,"successRate":0.6667,"interval":{"rate":0.6667,"low":0.3333,"high":1},"tasksScored":3,"spent":{"amount":1.5,"currency":"USD"}},
   "baseline":{"state":"finished","entries":3,"scored":3,"succeeded":3,"successRate":1,"interval":{"rate":1,"low":1,"high":1},"tasksScored":3,"spent":{"amount":1.2,"currency":"USD"}},

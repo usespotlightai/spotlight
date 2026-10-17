@@ -1,6 +1,6 @@
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
 
-const MOST_BODY = 1_000;
+const MAX_BODY = 1_000;
 
 export class MemoryBody {
   private readonly kind = 'memory-body';
@@ -10,8 +10,8 @@ export class MemoryBody {
   static of(raw: string): MemoryBody {
     const body = raw.trim();
 
-    if (!body || body.length > MOST_BODY) {
-      throw new InvalidMemoryError(`must be at most ${MOST_BODY} characters`);
+    if (!body || body.length > MAX_BODY) {
+      throw new InvalidMemoryError(`must be at most ${MAX_BODY} characters`);
     }
 
     return new MemoryBody(body);

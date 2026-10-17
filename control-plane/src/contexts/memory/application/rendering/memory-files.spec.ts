@@ -19,7 +19,7 @@ const TEAM = TeamId.of('team_1');
 const ADA = UserId.of('user_1');
 const AT = new Date('2026-09-21T10:00:00.000Z');
 
-const old = Memory.written({
+const old = Memory.write({
   id: MemoryId.of('memory_old'),
   handle: MemoryHandle.of(7),
   workspaceId: WorkspaceId.of('ws_1'),

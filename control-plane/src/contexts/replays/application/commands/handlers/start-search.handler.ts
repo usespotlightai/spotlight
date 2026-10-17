@@ -26,7 +26,7 @@ import { HeldOutSplit } from '@replays/domain/value-objects/held-out-split.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
@@ -53,22 +53,22 @@ export class StartSearchHandler
 
   async execute(command: StartSearchCommand): Promise<SearchStartedOutcome> {
     try {
-      const clearance = await this.access.clearance(
+      const access = await this.access.forTeam(
         command.teamId,
         command.actor.principal,
       );
       const station = await this.access.stationOn(
-        clearance,
+        access,
         command.lineId,
         command.stationId,
       );
-      const seen = await this.access.setOn(clearance, command.setId);
+      const seen = await this.access.setOn(access, command.setId);
 
       if (!seen.isAtStation(station.stationId)) {
         throw new UnknownReplaySetError(command.setId);
       }
 
-      if (!clearance.mayPlan) {
+      if (!access.mayPlan) {
         return forbiddenTo('plan');
       }
 
@@ -85,7 +85,7 @@ export class StartSearchHandler
       const live = await this.snapshots.taken(seen);
 
       try {
-        await this.transaction.run(async () => {
+        await this.transaction.inTransaction(async () => {
           const set = await this.sets.locked(seen.id);
 
           if (!set) {
@@ -110,7 +110,7 @@ export class StartSearchHandler
           const by = Attribution.of(command.actor, set.workspaceId);
 
           await this.searches.add(
-            Search.started({
+            Search.start({
               id,
               set,
               agent,
@@ -123,7 +123,7 @@ export class StartSearchHandler
             }),
           );
           await this.replays.add(
-            Replay.started({
+            Replay.start({
               id: seedId,
               set,
               candidate: live,
@@ -136,7 +136,7 @@ export class StartSearchHandler
               searchId: id,
             }),
           );
-          await this.sets.save(set.searched());
+          await this.sets.save(set.recordSearch());
         });
       } catch (error) {
         await this.snapshots.letGo(live);
@@ -154,7 +154,7 @@ export class StartSearchHandler
       if (error instanceof SearchTermsRefusedError) {
         return { outcome: 'invalid', problems: error.problems };
       }
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

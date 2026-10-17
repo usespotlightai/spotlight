@@ -16,7 +16,7 @@ import { PointLabels } from '@/components/shared/chart/PointLabels';
 import { type TipPlacement, useCursorTooltip } from '@/hooks/useCursorTooltip';
 import { useDotHover } from '@/hooks/useDotHover';
 import { AXIS_TITLE, costTick } from '@/lib/chart';
-import { shareShown } from '@/lib/insights';
+import { formatShare } from '@/lib/insights';
 import {
   type ReplayedPoint,
   replayedFrontiersOf,
@@ -116,7 +116,7 @@ export function ReplayedScatter({ points, currency }: ReplayedScatterProps) {
                   style: { textAnchor: 'middle' },
                 }}
                 tick={{ fill: 'var(--chart-axis)', fontSize: 10 }}
-                tickFormatter={(value: number) => shareShown(value)}
+                tickFormatter={(value: number) => formatShare(value)}
               />
               <Tooltip
                 {...cursor.tooltip}

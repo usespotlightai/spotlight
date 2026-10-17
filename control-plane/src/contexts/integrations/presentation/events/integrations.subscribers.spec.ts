@@ -13,7 +13,7 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { describe, expect, it, vi } from 'vitest';
 
 const connected = (holder: ConnectionHolder) =>
-  HostConnection.linkedFrom({
+  HostConnection.linkFrom({
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),
     source: SourceKey.of('linear'),

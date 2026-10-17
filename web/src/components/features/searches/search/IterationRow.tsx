@@ -1,9 +1,9 @@
 import { IterationFacts } from '@/components/features/searches/search/IterationFacts';
 import { Noted } from '@/components/shared/Noted';
 import type { SearchIterationResponseDto } from '@/lib/api';
-import { spendShown } from '@/lib/insights';
+import { formatSpend } from '@/lib/insights';
 import type { ReplayedStation } from '@/lib/replay';
-import { iterationNoteShown } from '@/lib/search-words';
+import { formatIterationNote } from '@/lib/search-words';
 
 type IterationRowProps = {
   at: ReplayedStation;
@@ -22,9 +22,9 @@ export function IterationRow({ at, title, iteration }: IterationRowProps) {
     >
       {iteration ? (
         <Noted
-          note={iterationNoteShown(
+          note={formatIterationNote(
             iteration,
-            (iteration.agentSpent?.spends ?? []).map(spendShown),
+            (iteration.agentSpent?.spends ?? []).map(formatSpend),
           )}
         >
           {label}

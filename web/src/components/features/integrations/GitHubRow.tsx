@@ -6,7 +6,7 @@ import GithubMark from '@/components/shared/icons/GithubMark';
 import { NotedWarning } from '@/components/shared/NotedWarning';
 import { useLines } from '@/hooks/api/useLines';
 import { useRepositories } from '@/hooks/api/useRepositories';
-import { installUrlFor, reposShown, unreachedOf } from '@/lib/github';
+import { formatRepos, installUrlFor, unreachedOf } from '@/lib/github';
 
 type GitHubRowProps = {
   slug: string;
@@ -58,7 +58,7 @@ export function GitHubRow({
         !connected
           ? 'Not installed on this team’s repositories'
           : repositories.data
-            ? `Reaches ${reposShown(reached.length)}`
+            ? `Reaches ${formatRepos(reached.length)}`
             : 'Works in this team’s repositories'
       }
       need={

@@ -76,9 +76,9 @@ describe('WorkspaceArchive', () => {
 
   it('is granted only for work that carries on in a later run', () => {
     const granted = (
-      part: Partial<Parameters<typeof WorkspaceArchive.granted>[0]>,
+      part: Partial<Parameters<typeof WorkspaceArchive.grant>[0]>,
     ) =>
-      WorkspaceArchive.granted({
+      WorkspaceArchive.grant({
         id: WorkspaceArchiveId.of('archive_1'),
         workspaceId: WorkspaceId.of('ws_1'),
         continuity: ContinuityKey.forChat('chat_1'),
@@ -100,28 +100,28 @@ describe('WorkspaceArchive', () => {
   });
 
   it('is sealed once storage holds exactly what was granted', () => {
-    const sealed = anArchive().sealed(storedAs(1_024), later(5_000));
+    const sealed = anArchive().seal(storedAs(1_024), later(5_000));
 
     expect(sealed.isSealed).toBe(true);
     expect(sealed.sealedAt).toEqual(later(5_000));
   });
 
   it('refuses to be sealed when nothing was uploaded, or something else was', () => {
-    expect(() => anArchive().sealed(null, later(0))).toThrow(
+    expect(() => anArchive().seal(null, later(0))).toThrow(
       WorkspaceArchiveNotUploadedError,
     );
-    expect(() => anArchive().sealed(storedAs(2_048), later(0))).toThrow(
+    expect(() => anArchive().seal(storedAs(2_048), later(0))).toThrow(
       WorkspaceArchiveNotUploadedError,
     );
     expect(() =>
-      anArchive().sealed(storedAs(1_024, 'b'.repeat(64)), later(0)),
+      anArchive().seal(storedAs(1_024, 'b'.repeat(64)), later(0)),
     ).toThrow(WorkspaceArchiveNotUploadedError);
   });
 
   it('stays as it was sealed when sealed again', () => {
     const sealed = aSealedArchive();
 
-    expect(sealed.sealed(null, later(DAY))).toBe(sealed);
+    expect(sealed.seal(null, later(DAY))).toBe(sealed);
   });
 
   it('is removed a day after it was granted, if it was never sealed', () => {
@@ -161,7 +161,7 @@ describe('WorkspaceArchive', () => {
     );
     expect(aSealedArchive().removableAt(later(9 * DAY), finished)).toBe(true);
 
-    const sealedLater = anArchive().sealed(storedAs(1_024), later(3 * DAY));
+    const sealedLater = anArchive().seal(storedAs(1_024), later(3 * DAY));
 
     expect(sealedLater.removableAt(later(9 * DAY), finished)).toBe(false);
     expect(sealedLater.removableAt(later(10 * DAY), finished)).toBe(true);
@@ -283,10 +283,7 @@ describe('WorkspaceArchive', () => {
 
   it('vouches for itself as restored into a run of the same workspace and work, once sealed', () => {
     const work = ContinuityKey.forTask('task_1');
-    const restored = aSealedArchive().restoredInto(
-      WorkspaceId.of('ws_1'),
-      work,
-    );
+    const restored = aSealedArchive().restoreInto(WorkspaceId.of('ws_1'), work);
 
     expect(restored.id.value).toBe('archive_1');
     expect(restored.restores(WorkspaceId.of('ws_1'), work)).toBe(true);
@@ -296,14 +293,14 @@ describe('WorkspaceArchive', () => {
     const work = ContinuityKey.forTask('task_1');
 
     for (const refused of [
-      () => anArchive().restoredInto(WorkspaceId.of('ws_1'), work),
-      () => aSealedArchive().restoredInto(WorkspaceId.of('ws_2'), work),
+      () => anArchive().restoreInto(WorkspaceId.of('ws_1'), work),
+      () => aSealedArchive().restoreInto(WorkspaceId.of('ws_2'), work),
       () =>
-        aSealedArchive().restoredInto(
+        aSealedArchive().restoreInto(
           WorkspaceId.of('ws_1'),
           ContinuityKey.forTask('task_2'),
         ),
-      () => aSealedArchive().restoredInto(WorkspaceId.of('ws_1'), null),
+      () => aSealedArchive().restoreInto(WorkspaceId.of('ws_1'), null),
     ]) {
       expect(refused).toThrow(InvalidStartingPointError);
     }
@@ -317,14 +314,14 @@ describe('WorkspaceArchive', () => {
       pinned: false,
     };
 
-    expect(aSealedArchive().removed(later(1), gone).isDiscarded).toBe(true);
+    expect(aSealedArchive().remove(later(1), gone).isDiscarded).toBe(true);
   });
 
   it('refuses to be removed while a later run may still restore it', () => {
-    expect(() => aSealedArchive().removed(later(365 * DAY), held)).toThrow(
+    expect(() => aSealedArchive().remove(later(365 * DAY), held)).toThrow(
       InvalidWorkspaceArchiveTransitionError,
     );
-    expect(() => anArchive().removed(later(DAY - 1), held)).toThrow(
+    expect(() => anArchive().remove(later(DAY - 1), held)).toThrow(
       InvalidWorkspaceArchiveTransitionError,
     );
   });

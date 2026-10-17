@@ -1,20 +1,20 @@
 import { Noted } from '@/components/shared/Noted';
 import { copiesTally, RESULT_INK, type ReplayEntry } from '@/lib/replay';
 import {
-  copyShown,
+  formatCopy,
+  formatReason,
+  formatResult,
   NOT_SCORED_YET,
-  reasonShown,
-  resultShown,
 } from '@/lib/replay-words';
 import { cn } from '@/lib/utils';
 
 const reasonsOf = (entry: ReplayEntry): string =>
-  entry.reasons.map(reasonShown).join(' · ');
+  entry.reasons.map(formatReason).join(' · ');
 
 const copyNote = (entry: ReplayEntry): string => {
   const reasons = reasonsOf(entry);
 
-  return `${copyShown(entry.repeat)}: ${resultShown(entry.result)}${reasons ? ` (${reasons})` : ''}`;
+  return `${formatCopy(entry.repeat)}: ${formatResult(entry.result)}${reasons ? ` (${reasons})` : ''}`;
 };
 
 export function EntrySide({ copies }: { copies: readonly ReplayEntry[] }) {
@@ -27,7 +27,7 @@ export function EntrySide({ copies }: { copies: readonly ReplayEntry[] }) {
         data-slot="entry-side"
         className={cn('relative z-10 font-medium', RESULT_INK[only.result])}
       >
-        {resultShown(only.result)}
+        {formatResult(only.result)}
       </span>
     );
 

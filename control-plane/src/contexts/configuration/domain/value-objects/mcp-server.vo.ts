@@ -1,5 +1,5 @@
 import { InvalidHarnessProfileError } from '@configuration/domain/exceptions/invalid-harness-profile.error';
-import { areWords } from '@shared-kernel/domain/value-objects/identifier-shapes';
+import { isSlug } from '@shared-kernel/domain/value-objects/identifier-shapes';
 import { SecretName } from '@shared-kernel/domain/value-objects/secret-name.vo';
 
 const ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
@@ -24,7 +24,7 @@ export class McpServer {
     const name = input.name.trim();
     const command = input.command.trim();
 
-    if (!areWords(name)) {
+    if (!isSlug(name)) {
       throw new InvalidHarnessProfileError(
         ['mcpServers', at, 'name'],
         'MCP server name must be lowercase words joined by dashes, as in linear',

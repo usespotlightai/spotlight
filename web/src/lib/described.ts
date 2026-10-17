@@ -1,8 +1,8 @@
-import type { ConfiguredDescriptionResponseDto } from '@/lib/api';
+import type { DescriptionViewResponseDto } from '@/lib/api';
 import { since } from '@/lib/since';
 
 const DESCRIPTIONS: Readonly<
-  Record<ConfiguredDescriptionResponseDto['kind'], string>
+  Record<DescriptionViewResponseDto['kind'], string>
 > = {
   openapi: 'OpenAPI description',
   graphql: 'GraphQL schema',
@@ -12,15 +12,15 @@ const DESCRIPTIONS: Readonly<
 export const toolsCounted = (tools: number): string =>
   tools === 1 ? '1 tool' : `${tools} tools`;
 
-export const readProblemShown = ({
+export const formatReadProblem = ({
   kind,
   problem,
-}: ConfiguredDescriptionResponseDto): string | null =>
+}: DescriptionViewResponseDto): string | null =>
   problem ? `Its ${DESCRIPTIONS[kind]} ${problem}.` : null;
 
-export const toolsReadShown = ({
+export const formatToolsRead = ({
   kind,
   tools,
   readAt,
-}: ConfiguredDescriptionResponseDto): string =>
+}: DescriptionViewResponseDto): string =>
   `${toolsCounted(tools)} from its ${DESCRIPTIONS[kind]}, read ${since(readAt)}`;

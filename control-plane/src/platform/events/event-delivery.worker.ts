@@ -16,7 +16,7 @@ const EVERY_MS = 1000;
 
 @Injectable()
 export class EventDeliveryWorker implements OnModuleInit, OnModuleDestroy {
-  #turning: Promise<void> | null = null;
+  #ticking: Promise<void> | null = null;
   #again = false;
   #stopped = false;
   #unsubscribe: (() => void) | null = null;
@@ -29,37 +29,37 @@ export class EventDeliveryWorker implements OnModuleInit, OnModuleDestroy {
 
   onModuleInit(): void {
     this.#unsubscribe = this.outbox.onRecorded(() => {
-      setImmediate(() => void this.turn());
+      setImmediate(() => void this.tick());
     });
   }
 
   async onModuleDestroy(): Promise<void> {
     this.#stopped = true;
     this.#unsubscribe?.();
-    await this.#turning;
+    await this.#ticking;
   }
 
   @Interval(EVERY_MS)
-  async turn(): Promise<void> {
+  async tick(): Promise<void> {
     if (this.#stopped) {
       return;
     }
 
-    if (this.#turning) {
+    if (this.#ticking) {
       this.#again = true;
       return;
     }
 
-    this.#turning = this.workOff();
-    await this.#turning;
-    this.#turning = null;
+    this.#ticking = this.processDue();
+    await this.#ticking;
+    this.#ticking = null;
   }
 
-  private async workOff(): Promise<void> {
+  private async processDue(): Promise<void> {
     try {
       do {
         this.#again = false;
-        await this.delivery.workOff();
+        await this.delivery.processDue();
       } while (this.#again && !this.#stopped);
     } catch (error) {
       this.logger.error({ err: error }, 'Delivering domain events');

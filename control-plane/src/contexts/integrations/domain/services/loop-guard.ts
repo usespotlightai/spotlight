@@ -3,9 +3,9 @@ import type {
   CauseLink,
 } from '@shared-kernel/domain/value-objects/causal-chain.vo';
 
-export const MOST_DEPTH = 8;
+export const MAX_DEPTH = 8;
 
-const MOST_RECENT_REPEATS = 3;
+const MAX_RECENT_REPEATS = 3;
 
 export const RECENT_MS = 10 * 60 * 1000;
 
@@ -30,14 +30,14 @@ export const loopStopFor = (input: {
     };
   }
 
-  if (input.chain.depth >= MOST_DEPTH) {
+  if (input.chain.depth >= MAX_DEPTH) {
     return {
       kind: 'too-deep',
-      saying: `Its chain of causes would be ${input.chain.depth + 1} deep. Maximum depth: ${MOST_DEPTH}. Cause chain: ${named}`,
+      saying: `Its chain of causes would be ${input.chain.depth + 1} deep. Maximum depth: ${MAX_DEPTH}. Cause chain: ${named}`,
     };
   }
 
-  if (input.recentRepeats >= MOST_RECENT_REPEATS) {
+  if (input.recentRepeats >= MAX_RECENT_REPEATS) {
     return {
       kind: 'recurring',
       saying: `It fired ${input.recentRepeats} times for the same change in the last ${RECENT_MS / 60_000} minutes. Cause chain: ${named}`,

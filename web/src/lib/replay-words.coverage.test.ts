@@ -3,15 +3,15 @@ import { resolve } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import type { EntryReasonResponseDto } from '@/lib/api';
 import {
-  checksShown,
-  gainVerdictShown,
-  reasonShown,
-  refusalShown,
-  resultShown,
-  stateShown,
-  turnedOutShown,
-  uncomparedShown,
-  unpairedShown,
+  formatChecks,
+  formatGainVerdict,
+  formatReason,
+  formatRefusal,
+  formatResult,
+  formatState,
+  formatTurnedOut,
+  formatUncompared,
+  formatUnpaired,
 } from '@/lib/replay-words';
 
 type Schema = {
@@ -53,43 +53,46 @@ const worded = (said: string, code: string) => {
 describe('replay words cover every code the API can answer', () => {
   it('words every reason a change was not judged side by side', () => {
     for (const code of codesOf('EntryPairResponseDto', 'unpaired')) {
-      worded(unpairedShown(code as never), code);
+      worded(formatUnpaired(code as never), code);
     }
   });
 
   it('words every reason, and every detail a reason carries as a code', () => {
     for (const code of codesOf('EntryReasonResponseDto', 'code')) {
-      worded(reasonShown(reason(code as EntryReasonResponseDto['code'])), code);
+      worded(
+        formatReason(reason(code as EntryReasonResponseDto['code'])),
+        code,
+      );
     }
     for (const skip of codesOf('EntryChecksResponseDto', 'why')) {
-      worded(reasonShown(reason('check-skipped', skip)), skip);
+      worded(formatReason(reason('check-skipped', skip)), skip);
       worded(
-        checksShown({ state: 'unchecked', failedAt: [], why: skip as never }),
+        formatChecks({ state: 'unchecked', failedAt: [], why: skip as never }),
         skip,
       );
     }
     for (const refusal of codesOf('ReplayEntryResponseDto', 'refusal')) {
-      worded(reasonShown(reason('unreplayable', refusal)), refusal);
-      worded(refusalShown(refusal as never), refusal);
+      worded(formatReason(reason('unreplayable', refusal)), refusal);
+      worded(formatRefusal(refusal as never), refusal);
     }
     for (const failure of codesOf('ReplayEntryResponseDto', 'failure')) {
-      worded(reasonShown(reason('run-failed', failure)), failure);
+      worded(formatReason(reason('run-failed', failure)), failure);
     }
     for (const unjudged of codesOf('EntryJudgeResponseDto', 'unjudged')) {
-      worded(reasonShown(reason('unjudged', unjudged)), unjudged);
+      worded(formatReason(reason('unjudged', unjudged)), unjudged);
     }
   });
 
   it('words every state, result, check state and reason a score went uncompared', () => {
     for (const state of codesOf('ReplayResponseDto', 'state')) {
-      worded(stateShown(state as never), state);
+      worded(formatState(state as never), state);
     }
     for (const result of codesOf('ReplayEntryResponseDto', 'result')) {
-      expect(resultShown(result as never), result).toBeTruthy();
+      expect(formatResult(result as never), result).toBeTruthy();
     }
     for (const state of codesOf('EntryChecksResponseDto', 'state')) {
       expect(
-        checksShown({ state: state as never, failedAt: [], why: null }),
+        formatChecks({ state: state as never, failedAt: [], why: null }),
         state,
       ).toBeTruthy();
     }
@@ -97,19 +100,19 @@ describe('replay words cover every code the API can answer', () => {
       'EntryComparisonResponseDto',
       'scoreUncompared',
     )) {
-      worded(uncomparedShown(why as never), why);
+      worded(formatUncompared(why as never), why);
     }
   });
 
   it('words every way a set’s run can have turned out', () => {
     for (const outcome of codesOf('ReplaySetEntryResponseDto', 'outcome')) {
-      worded(turnedOutShown(outcome as never), outcome);
+      worded(formatTurnedOut(outcome as never), outcome);
     }
   });
 
   it('words every verdict a gain reading can give', () => {
     for (const verdict of codesOf('GainReadingResponseDto', 'verdict')) {
-      worded(gainVerdictShown(verdict as never), verdict);
+      worded(formatGainVerdict(verdict as never), verdict);
     }
   });
 });

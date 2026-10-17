@@ -17,7 +17,7 @@ export class TaskChangeShape {
     readonly version: number,
   ) {}
 
-  static shaped(input: {
+  static create(input: {
     taskId: TaskId;
     workspaceId: WorkspaceId;
     teamId: TeamId;
@@ -48,7 +48,7 @@ export class TaskChangeShape {
     );
   }
 
-  reshaped(shape: ChangeShape): TaskChangeShape {
+  withShape(shape: ChangeShape): TaskChangeShape {
     if (shape.at.getTime() <= this.shape.at.getTime()) {
       return this;
     }

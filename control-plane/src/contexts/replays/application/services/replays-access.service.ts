@@ -1,6 +1,6 @@
 import type { PeoplePort } from '@replays/application/ports/people.port';
 import type {
-  StationAtHand,
+  StationView,
   WorkPort,
 } from '@replays/application/ports/work.port';
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
@@ -14,7 +14,7 @@ import { UnknownStationError } from '@replays/domain/exceptions/unknown-station.
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import type { ReplaySetRepository } from '@replays/domain/repositories/replay-set.repository';
 import type { SearchRepository } from '@replays/domain/repositories/search.repository';
-import { ReplaysClearance } from '@replays/domain/services/replays-clearance';
+import { TeamAccess } from '@replays/domain/services/team-access';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
@@ -30,24 +30,21 @@ export class ReplaysAccess {
     private readonly searches: SearchRepository,
   ) {}
 
-  async clearance(
-    teamId: string,
-    principal: Principal,
-  ): Promise<ReplaysClearance> {
-    return ReplaysClearance.onTeam(
+  async forTeam(teamId: string, principal: Principal): Promise<TeamAccess> {
+    return TeamAccess.onTeam(
       teamId,
       await this.people.standingOn(teamId, principal),
     );
   }
 
   async stationOn(
-    clearance: ReplaysClearance,
+    access: TeamAccess,
     lineId: string,
     stationId: string,
-  ): Promise<StationAtHand> {
+  ): Promise<StationView> {
     const station = await this.work.station(lineId, stationId);
 
-    if (!station || !clearance.sees(station)) {
+    if (!station || !access.sees(station)) {
       throw new UnknownStationError(stationId);
     }
 
@@ -55,59 +52,53 @@ export class ReplaysAccess {
   }
 
   async keyedStationOn(
-    clearance: ReplaysClearance,
+    access: TeamAccess,
     lineId: string,
     key: string,
-  ): Promise<StationAtHand> {
+  ): Promise<StationView> {
     const station = await this.work.keyed(lineId, key);
 
-    if (!station || !clearance.sees(station)) {
+    if (!station || !access.sees(station)) {
       throw new UnknownStationError(key);
     }
 
     return station;
   }
 
-  async setOn(clearance: ReplaysClearance, setId: string): Promise<ReplaySet> {
+  async setOn(access: TeamAccess, setId: string): Promise<ReplaySet> {
     const set = await this.sets.find(ReplaySetId.of(setId));
 
-    if (!set || !clearance.sees(set.station)) {
+    if (!set || !access.sees(set.station)) {
       throw new UnknownReplaySetError(setId);
     }
 
     return set;
   }
 
-  async replayOn(
-    clearance: ReplaysClearance,
-    replayId: string,
-  ): Promise<Replay> {
+  async replayOn(access: TeamAccess, replayId: string): Promise<Replay> {
     const replay = await this.replays.find(ReplayId.of(replayId));
 
-    if (!replay || !clearance.sees(replay.station)) {
+    if (!replay || !access.sees(replay.station)) {
       throw new UnknownReplayError(replayId);
     }
 
     return replay;
   }
 
-  async searchOn(
-    clearance: ReplaysClearance,
-    searchId: string,
-  ): Promise<Search> {
+  async searchOn(access: TeamAccess, searchId: string): Promise<Search> {
     const search = await this.searches.find(SearchId.of(searchId));
 
-    if (!search || !clearance.sees(search.station)) {
+    if (!search || !access.sees(search.station)) {
       throw new UnknownSearchError(searchId);
     }
 
     return search;
   }
 
-  async replayRanAs(clearance: ReplaysClearance, run: RunId): Promise<Replay> {
+  async replayRanAs(access: TeamAccess, run: RunId): Promise<Replay> {
     const replay = await this.replays.ranAs(run);
 
-    if (!replay || !clearance.sees(replay.station)) {
+    if (!replay || !access.sees(replay.station)) {
       throw new UnknownReplayRunError(run.value);
     }
 

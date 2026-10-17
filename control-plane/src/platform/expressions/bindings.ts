@@ -1,8 +1,8 @@
 import { ExpressionError } from '@platform/expressions/expression.errors';
 
-const MOST_DEPTH = 24;
-const MOST_NODES = 20_000;
-const MOST_KEYS = 512;
+const MAX_DEPTH = 24;
+const MAX_NODES = 20_000;
+const MAX_KEYS = 512;
 
 const RESERVED = new Set(['__proto__', 'constructor', 'prototype']);
 
@@ -13,11 +13,11 @@ export const bound = (value: unknown): unknown => {
   let nodes = 0;
 
   const walk = (held: unknown, depth: number): unknown => {
-    if (++nodes > MOST_NODES) {
+    if (++nodes > MAX_NODES) {
       throw new ExpressionError('the delivery', 'holds more than can be read');
     }
 
-    if (depth > MOST_DEPTH) {
+    if (depth > MAX_DEPTH) {
       throw new ExpressionError(
         'the delivery',
         'is nested deeper than can be read',
@@ -29,7 +29,7 @@ export const bound = (value: unknown): unknown => {
     }
 
     if (Array.isArray(held)) {
-      if (held.length > MOST_KEYS) {
+      if (held.length > MAX_KEYS) {
         throw new ExpressionError(
           'the delivery',
           'holds a longer list than can be read',
@@ -41,7 +41,7 @@ export const bound = (value: unknown): unknown => {
 
     const plain: Record<string, unknown> = Object.create(null);
 
-    for (const [key, each] of Object.entries(held).slice(0, MOST_KEYS)) {
+    for (const [key, each] of Object.entries(held).slice(0, MAX_KEYS)) {
       if (!RESERVED.has(key)) {
         plain[key] = walk(each, depth + 1);
       }

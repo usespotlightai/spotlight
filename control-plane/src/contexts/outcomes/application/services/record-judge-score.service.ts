@@ -15,7 +15,7 @@ export class RecordJudgeScore {
   ) {}
 
   judged(event: RunJudged): Promise<void> {
-    return this.transaction.run(async () => {
+    return this.transaction.inTransaction(async () => {
       if (
         !(await this.judgings.ofForScoring(event.runId)) ||
         (await this.scores.judgeOf(event.runId, event.rubricVersion))
@@ -24,7 +24,7 @@ export class RecordJudgeScore {
       }
 
       await this.scores.add(
-        Score.judged({
+        Score.judge({
           id: ScoreId.of(this.ids.generate()),
           runId: event.runId,
           workspaceId: event.workspaceId,

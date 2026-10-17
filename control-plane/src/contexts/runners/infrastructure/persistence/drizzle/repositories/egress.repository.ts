@@ -62,7 +62,7 @@ export class DrizzleEgressRepository implements EgressRepository {
   ) {}
 
   async add(added: Egress): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       try {
         await this.context.db.insert(egress).values({
           id: added.id.value,
@@ -79,7 +79,7 @@ export class DrizzleEgressRepository implements EgressRepository {
   }
 
   async save(saved: Egress): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       const matching = and(
         eq(egress.id, saved.id.value),
         eq(egress.version, saved.version),

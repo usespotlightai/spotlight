@@ -1,7 +1,7 @@
 import type { HarnessProfileResourceDto } from '@configuration/application/dto/harness-profile-resource.dto';
 import { HarnessProfileMapper } from '@configuration/application/mappers/harness-profile.mapper';
 import type { HarnessProfileCompilerPort } from '@configuration/application/ports/harness-profile-compiler.port';
-import type { KeptProfile } from '@configuration/application/ports/harness-profile-resources.port';
+import type { HarnessProfileRecord } from '@configuration/application/ports/harness-profile-resources.port';
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
@@ -13,13 +13,18 @@ export class HarnessProfileViews {
     private readonly compiler: HarnessProfileCompilerPort,
   ) {}
 
-  async of(kept: KeptProfile): Promise<HarnessProfileResourceDto | null> {
+  async of(
+    kept: HarnessProfileRecord,
+  ): Promise<HarnessProfileResourceDto | null> {
     const team = await this.teams.find(kept.teamId);
 
     return team ? this.onTeam(kept, team.key) : null;
   }
 
-  onTeam(kept: KeptProfile, teamKey: string): HarnessProfileResourceDto {
+  onTeam(
+    kept: HarnessProfileRecord,
+    teamKey: string,
+  ): HarnessProfileResourceDto {
     const read = this.compiler.read(kept.definition);
 
     if (!read.ok) {

@@ -7,7 +7,7 @@ import type { DecisionReaderPort } from '@change-review/application/ports/decisi
 import type { PeoplePort } from '@change-review/application/ports/people.port';
 import type { ReadTaskDecisionsQuery } from '@change-review/application/queries/read-task-decisions.query';
 import type { DecisionAccess } from '@change-review/application/services/decision-access.service';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
 export class ReadTaskDecisionsHandler
@@ -44,7 +44,7 @@ export class ReadTaskDecisionsHandler
         decisions: await namedDisputes(found.decisions, this.people),
       };
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

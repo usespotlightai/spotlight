@@ -1,35 +1,35 @@
 import { InsightsTile } from '@/components/features/insights/InsightsTile';
 import { InsightsTiles } from '@/components/features/insights/InsightsTiles';
-import { spendShown } from '@/lib/insights';
-import { percentShown } from '@/lib/judge';
+import { formatSpend } from '@/lib/insights';
+import { formatPercent } from '@/lib/judge';
 import {
   counterpartNoun,
   counterpartRateOf,
-  counterpartShown,
+  formatCounterpart,
   overCeiling,
   type ReplayDetail,
   spendBreakdown,
 } from '@/lib/replay';
 import {
   capitalised,
-  gainRangeShown,
-  gainShown,
+  formatGain,
+  formatGainRange,
+  formatGainVerdict,
+  formatInterval,
+  formatPairTiles,
+  formatRepeats,
+  formatSpendNote,
+  formatSuccessDetail,
   gainVerdictNote,
-  gainVerdictShown,
-  intervalShown,
   NO_SCORE_YET,
   PAIRING_SPEND_LABEL,
   pairsJudged,
   pairTallyNote,
-  pairTilesShown,
-  repeatsShown,
-  spendNoteShown,
-  successDetailShown,
 } from '@/lib/replay-words';
 
 const NONE = '–';
 
-const scoringShown = (replay: ReplayDetail): string => {
+const formatScoring = (replay: ReplayDetail): string => {
   if (replay.checks && replay.judges) {
     return 'by checks and judge';
   }
@@ -60,18 +60,18 @@ export function ReplayTiles({ replay }: ReplayTilesProps) {
       <InsightsTile
         label="Success"
         value={
-          totals.successRate === null ? NONE : percentShown(totals.successRate)
+          totals.successRate === null ? NONE : formatPercent(totals.successRate)
         }
         detail={
           totals.successRate === null
             ? NO_SCORE_YET
-            : successDetailShown(totals, scoringShown(replay))
+            : formatSuccessDetail(totals, formatScoring(replay))
         }
         note={
           [
             totals.interval &&
-              `Likely range: ${intervalShown(totals.interval)}.`,
-            replay.repeats > 1 && `${repeatsShown(replay.repeats)}.`,
+              `Likely range: ${formatInterval(totals.interval)}.`,
+            replay.repeats > 1 && `${formatRepeats(replay.repeats)}.`,
           ]
             .filter(Boolean)
             .join(' ') || undefined
@@ -81,24 +81,24 @@ export function ReplayTiles({ replay }: ReplayTilesProps) {
       {gain && (
         <InsightsTile
           label="Gain"
-          value={gainShown(gain)}
+          value={formatGain(gain)}
           detail={[
-            capitalised(gainVerdictShown(gain.verdict)),
+            capitalised(formatGainVerdict(gain.verdict)),
             against?.successRate != null &&
-              `${counterpartNoun(against)} ${percentShown(against.successRate)}`,
+              `${counterpartNoun(against)} ${formatPercent(against.successRate)}`,
           ]
             .filter(Boolean)
             .join(' · ')}
-          note={`Likely range: ${gainRangeShown(gain)} pts. ${gainVerdictNote(gain)}`}
+          note={`Likely range: ${formatGainRange(gain)} pts. ${gainVerdictNote(gain)}`}
         />
       )}
 
       {pairs && replay.pairedWith && (
         <InsightsTile
           label={PAIRING_SPEND_LABEL}
-          {...pairTilesShown(pairs)}
+          {...formatPairTiles(pairs)}
           note={pairTallyNote(
-            counterpartShown(
+            formatCounterpart(
               replay.pairedWith,
               replay.candidate,
               replay.baselineReplayId,
@@ -109,18 +109,18 @@ export function ReplayTiles({ replay }: ReplayTilesProps) {
 
       <InsightsTile
         label="Spent"
-        value={spendShown(totals.spent)}
+        value={formatSpend(totals.spent)}
         detail={
           over
-            ? `Over the ceiling by ${spendShown(over)}`
-            : `of ${spendShown(replay.ceiling)}`
+            ? `Over the ceiling by ${formatSpend(over)}`
+            : `of ${formatSpend(replay.ceiling)}`
         }
-        note={spendNoteShown({
-          runs: spendShown(parts.runs),
-          drafting: spendShown(parts.drafting),
-          judging: spendShown(parts.judging),
-          pairing: parts.pairing.amount > 0 ? spendShown(parts.pairing) : null,
-          elsewhere: totals.spentElsewhere.map(spendShown),
+        note={formatSpendNote({
+          runs: formatSpend(parts.runs),
+          drafting: formatSpend(parts.drafting),
+          judging: formatSpend(parts.judging),
+          pairing: parts.pairing.amount > 0 ? formatSpend(parts.pairing) : null,
+          elsewhere: totals.spentElsewhere.map(formatSpend),
           unpricedRuns: totals.unpriced,
           unpricedCalls: totals.unpricedCalls,
           over: over !== null,

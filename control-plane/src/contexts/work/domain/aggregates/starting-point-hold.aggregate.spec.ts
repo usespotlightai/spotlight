@@ -1,7 +1,7 @@
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import {
-  MOST_HELD_RUNS,
+  MAX_HELD_RUNS,
   StartingPointHold,
 } from '@work/domain/aggregates/starting-point-hold.aggregate';
 import { InvalidStartingPointHoldError } from '@work/domain/exceptions/invalid-starting-point-hold.error';
@@ -10,7 +10,7 @@ import { describe, expect, it } from 'vitest';
 const runs = (...ids: string[]) => ids.map((each) => RunId.of(each));
 
 const taken = () =>
-  StartingPointHold.taken('replay-set:set_1', WorkspaceId.of('ws_1'));
+  StartingPointHold.take('replay-set:set_1', WorkspaceId.of('ws_1'));
 
 describe('StartingPointHold', () => {
   it('holds exactly the runs it is given, once each', () => {
@@ -23,10 +23,10 @@ describe('StartingPointHold', () => {
     expect(hold.holds(RunId.of('run_3'))).toBe(true);
   });
 
-  it(`holds at most ${MOST_HELD_RUNS} runs`, () => {
+  it(`holds at most ${MAX_HELD_RUNS} runs`, () => {
     expect(() =>
       taken().holding(
-        Array.from({ length: MOST_HELD_RUNS + 1 }, (_, at) =>
+        Array.from({ length: MAX_HELD_RUNS + 1 }, (_, at) =>
           RunId.of(`run_${at}`),
         ),
       ),
@@ -41,7 +41,7 @@ describe('StartingPointHold', () => {
   });
 
   it('is held by someone named', () => {
-    expect(() => StartingPointHold.taken(' ', WorkspaceId.of('ws_1'))).toThrow(
+    expect(() => StartingPointHold.take(' ', WorkspaceId.of('ws_1'))).toThrow(
       InvalidStartingPointHoldError,
     );
   });

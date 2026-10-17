@@ -32,7 +32,7 @@ import type { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
 import type { ReplayRefusal } from '@replays/domain/value-objects/replay-refusal';
 import {
   holdsRepeats,
-  MOST_REPEATS,
+  MAX_REPEATS,
 } from '@replays/domain/value-objects/replay-repeats';
 import type { ReplaySetEntry } from '@replays/domain/value-objects/replay-set-entry.vo';
 import type { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
@@ -142,7 +142,7 @@ export class Replay extends EventRecorder {
     super();
   }
 
-  static started(input: {
+  static start(input: {
     id: ReplayId;
     set: ReplaySet;
     candidate: ReplayedCandidate;
@@ -200,7 +200,7 @@ export class Replay extends EventRecorder {
       );
     }
     if (!holdsRepeats(repeats)) {
-      throw new InvalidReplayError(`repeats must be from 1 to ${MOST_REPEATS}`);
+      throw new InvalidReplayError(`repeats must be from 1 to ${MAX_REPEATS}`);
     }
     if (
       input.candidate.isOracle !== (oracle !== null) ||
@@ -451,7 +451,7 @@ export class Replay extends EventRecorder {
     );
   }
 
-  pairedAgainst(
+  pairAgainst(
     counterpart: Replay,
     accepted: (original: RunId) => boolean,
   ): Replay {
@@ -535,7 +535,7 @@ export class Replay extends EventRecorder {
     return asked;
   }
 
-  paired(
+  pair(
     run: RunId,
     against: RunId,
     verdict: PairVerdict,
@@ -546,7 +546,7 @@ export class Replay extends EventRecorder {
     );
   }
 
-  pairingFailed(
+  recordPairingFailure(
     run: RunId,
     against: RunId,
     why: string,
@@ -811,7 +811,7 @@ export class Replay extends EventRecorder {
     return left === room ? this : this.with({ entries, state: 'running' });
   }
 
-  confirmed(
+  confirm(
     run: RunId,
     fingerprint: StationFingerprint | null,
     at: Date,
@@ -819,7 +819,7 @@ export class Replay extends EventRecorder {
     return this.changing(run, (entry) => entry.confirmed(fingerprint), at);
   }
 
-  queueFailed(run: RunId, at: Date): Replay {
+  recordQueueFailure(run: RunId, at: Date): Replay {
     return this.changing(run, (entry) => entry.queueFailed(), at);
   }
 
@@ -827,7 +827,7 @@ export class Replay extends EventRecorder {
     return this.changing(run, (entry) => entry.gaveUp(), at);
   }
 
-  forgone(run: RunId, at: Date): Replay {
+  forgo(run: RunId, at: Date): Replay {
     return this.changing(run, (entry) => entry.forgone(), at);
   }
 
@@ -835,15 +835,15 @@ export class Replay extends EventRecorder {
     return this.changing(run, (entry) => entry.refused(refusal), at);
   }
 
-  ended(run: RunId, end: RunEnd): Replay {
-    return this.changing(run, (entry) => entry.ended(end), end.at);
+  recordRunEnd(run: RunId, runEnd: RunEnd): Replay {
+    return this.changing(run, (entry) => entry.ended(runEnd), runEnd.at);
   }
 
-  measured(run: RunId, measures: EntryMeasures, at: Date): Replay {
+  measure(run: RunId, measures: EntryMeasures, at: Date): Replay {
     return this.changing(run, (entry) => entry.measured(measures), at);
   }
 
-  reviewed(
+  recordReview(
     run: RunId,
     checks: ChangeChecks,
     drafting: ModelSpent | null,
@@ -852,7 +852,7 @@ export class Replay extends EventRecorder {
     return this.changing(run, (entry) => entry.reviewed(checks, drafting), at);
   }
 
-  judged(
+  recordVerdict(
     run: RunId,
     verdict: JudgeVerdict,
     spent: ModelSpent | null,
@@ -861,7 +861,7 @@ export class Replay extends EventRecorder {
     return this.changing(run, (entry) => entry.judged(verdict, spent), at);
   }
 
-  judgingFailed(
+  recordJudgingFailure(
     run: RunId,
     why: string,
     spent: ModelSpent | null,
@@ -870,7 +870,7 @@ export class Replay extends EventRecorder {
     return this.changing(run, (entry) => entry.judgingFailed(why, spent), at);
   }
 
-  rejudged(
+  recordRejudgment(
     run: RunId,
     verdict: JudgeVerdict,
     spent: ModelSpent | null,
@@ -878,11 +878,15 @@ export class Replay extends EventRecorder {
     return this.secondRound(run, (entry) => entry.rejudged(verdict, spent));
   }
 
-  rejudgingFailed(run: RunId, why: string, spent: ModelSpent | null): Replay {
+  recordRejudgingFailure(
+    run: RunId,
+    why: string,
+    spent: ModelSpent | null,
+  ): Replay {
     return this.secondRound(run, (entry) => entry.rejudgingFailed(why, spent));
   }
 
-  rechecked(run: RunId, checks: ChangeChecks): Replay {
+  recheck(run: RunId, checks: ChangeChecks): Replay {
     return this.secondRound(run, (entry) => entry.rechecked(checks));
   }
 
@@ -899,7 +903,7 @@ export class Replay extends EventRecorder {
       : this.with({ entries });
   }
 
-  stopped(at: Date, by: Attribution): Replay {
+  stop(at: Date, by: Attribution): Replay {
     if (this.state.stoppedAt || !this.isUnderway) {
       throw new ReplayEndedError(this.id.value);
     }
@@ -929,7 +933,7 @@ export class Replay extends EventRecorder {
     return stopped;
   }
 
-  abandoned(): Replay {
+  abandon(): Replay {
     const letGo =
       this.isUnderway && !this.state.stoppedAt ? this.runsInFlight : [];
     const abandoned = new Replay(this.state, true);

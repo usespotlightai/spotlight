@@ -28,14 +28,14 @@ export class AbandonSearches {
   }
 
   async search(id: SearchId): Promise<void> {
-    const held = await this.transaction.run(async () => {
+    const held = await this.transaction.inTransaction(async () => {
       const search = await this.searches.locked(id);
 
       if (!search) {
         return null;
       }
 
-      await this.searches.save(search.abandoned());
+      await this.searches.save(search.abandon());
 
       return search.heldRun;
     });
@@ -46,7 +46,7 @@ export class AbandonSearches {
   }
 
   setGone(setId: ReplaySetId): Promise<void> {
-    return this.endingOf(setId, (search, at) => search.setGone(at));
+    return this.endingOf(setId, (search, at) => search.recordSetGone(at));
   }
 
   stationGone(setId: ReplaySetId): Promise<void> {
@@ -63,7 +63,7 @@ export class AbandonSearches {
       return;
     }
 
-    await this.transaction.run(async () => {
+    await this.transaction.inTransaction(async () => {
       const search = await this.searches.locked(seen.id);
 
       if (!search) {

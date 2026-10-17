@@ -4,7 +4,7 @@ import type { WorkPort } from '@replays/application/ports/work.port';
 import { SearchRunNotHeldError } from '@replays/domain/exceptions/search-run-not-held.error';
 import { UnknownSearchTaskError } from '@replays/domain/exceptions/unknown-search-task.error';
 import type { SearchRepository } from '@replays/domain/repositories/search.repository';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
@@ -44,14 +44,14 @@ export class RecordSearchCauseHandler
 
       const taskId = taskOf(command.taskId);
 
-      return await this.transaction.run(async () => {
+      return await this.transaction.inTransaction(async () => {
         const search = await this.searches.locked(held.searchId);
 
         if (!search) {
           throw new SearchRunNotHeldError();
         }
 
-        const recorded = search.causeRecorded(
+        const recorded = search.recordCause(
           run,
           {
             taskId,
@@ -78,7 +78,7 @@ export class RecordSearchCauseHandler
         };
       });
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

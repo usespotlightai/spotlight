@@ -3,7 +3,7 @@ import type { MemberReaderPort } from '@identity/application/ports/member-reader
 import type { ListWorkspaceMembersQuery } from '@identity/application/queries/list-workspace-members.query';
 import type { WorkspaceRepository } from '@identity/domain/repositories/workspace.repository';
 import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
@@ -44,7 +44,7 @@ export class ListWorkspaceMembersHandler
           .map((role) => role.value),
       }));
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

@@ -26,8 +26,8 @@ import {
   USUAL_CURRENCY,
 } from '@/lib/replay';
 import {
-  baselineNoteShown,
   checksSetOf,
+  formatBaselineNote,
   REPEATS_HINT,
 } from '@/lib/replay-words';
 import { useForwardTrail } from '@/lib/trail';
@@ -151,7 +151,7 @@ export function StartReplayDialog({
                 The most that this replay can spend. Its runs count, and so do
                 the drafting and judging of their changes. Nothing more starts
                 after the replay spends it.{' '}
-                {baselineNoteShown(
+                {formatBaselineNote(
                   candidate !== LIVE,
                   baseline?.repeats ?? null,
                   typeof repeats === 'number' ? repeats : null,

@@ -55,7 +55,9 @@ const using = (given: { setup?: boolean } = {}) => {
   const tool = new SetupPullRequestToolUse(
     { find: async () => chat, save } as unknown as ChatRepository,
     { open } as unknown as PullRequestPort,
-    { run: (work: () => Promise<unknown>) => work() } as TransactionPort,
+    {
+      inTransaction: (work: () => Promise<unknown>) => work(),
+    } as TransactionPort,
     { now: () => NOW } as ClockPort,
   );
   const context: ChatToolContext = {

@@ -1,9 +1,9 @@
 import type {
   IdentityResourcesPort,
-  KeptTeam,
-  KeptWorkspace,
-  KeptWorkspaceToken,
-  KeptWorkspaceTokenTrust,
+  TeamRecord,
+  WorkspaceRecord,
+  WorkspaceTokenRecord,
+  WorkspaceTokenTrustRecord,
 } from '@identity/application/ports/identity-resources.port';
 import {
   team,
@@ -73,24 +73,24 @@ type Row<Kept> = Omit<Kept, 'id' | 'workspaceId'> & {
 };
 
 const keptWorkspace = (
-  row: Omit<KeptWorkspace, 'id'> & { readonly id: string },
-): KeptWorkspace => ({ ...row, id: WorkspaceId.of(row.id) });
+  row: Omit<WorkspaceRecord, 'id'> & { readonly id: string },
+): WorkspaceRecord => ({ ...row, id: WorkspaceId.of(row.id) });
 
-const keptTeam = (row: Row<KeptTeam>): KeptTeam => ({
+const keptTeam = (row: Row<TeamRecord>): TeamRecord => ({
   ...row,
   id: TeamId.of(row.id),
   workspaceId: WorkspaceId.of(row.workspaceId),
 });
 
-const keptToken = (row: Row<KeptWorkspaceToken>): KeptWorkspaceToken => ({
+const keptToken = (row: Row<WorkspaceTokenRecord>): WorkspaceTokenRecord => ({
   ...row,
   id: WorkspaceTokenId.of(row.id),
   workspaceId: WorkspaceId.of(row.workspaceId),
 });
 
 const keptTrust = (
-  row: Row<KeptWorkspaceTokenTrust>,
-): KeptWorkspaceTokenTrust => ({
+  row: Row<WorkspaceTokenTrustRecord>,
+): WorkspaceTokenTrustRecord => ({
   ...row,
   id: WorkspaceTokenTrustId.of(row.id),
   workspaceId: WorkspaceId.of(row.workspaceId),
@@ -100,15 +100,17 @@ const keptTrust = (
 export class DrizzleIdentityResources implements IdentityResourcesPort {
   constructor(private readonly context: DrizzleContext) {}
 
-  workspaceWithId(id: WorkspaceId): Promise<KeptWorkspace | null> {
+  workspaceWithId(id: WorkspaceId): Promise<WorkspaceRecord | null> {
     return this.workspace(eq(workspace.id, id.value));
   }
 
-  workspaceWithSlug(slug: string): Promise<KeptWorkspace | null> {
+  workspaceWithSlug(slug: string): Promise<WorkspaceRecord | null> {
     return this.workspace(eq(workspace.slug, slug));
   }
 
-  async workspacesJoinedBy(userId: UserId): Promise<readonly KeptWorkspace[]> {
+  async workspacesJoinedBy(
+    userId: UserId,
+  ): Promise<readonly WorkspaceRecord[]> {
     return (
       await this.context.db
         .select(KEPT_WORKSPACE)
@@ -121,17 +123,17 @@ export class DrizzleIdentityResources implements IdentityResourcesPort {
     ).map(keptWorkspace);
   }
 
-  teamWithId(id: TeamId): Promise<KeptTeam | null> {
+  teamWithId(id: TeamId): Promise<TeamRecord | null> {
     return this.team(eq(team.id, id.value));
   }
 
-  teamAt(workspaceId: WorkspaceId, key: string): Promise<KeptTeam | null> {
+  teamAt(workspaceId: WorkspaceId, key: string): Promise<TeamRecord | null> {
     return this.team(
       and(eq(team.workspaceId, workspaceId.value), eq(team.key, key)),
     );
   }
 
-  async teamsIn(workspaceId: WorkspaceId): Promise<readonly KeptTeam[]> {
+  async teamsIn(workspaceId: WorkspaceId): Promise<readonly TeamRecord[]> {
     return (
       await this.context.db
         .select(KEPT_TEAM)
@@ -181,7 +183,7 @@ export class DrizzleIdentityResources implements IdentityResourcesPort {
 
   async tokensIn(
     workspaceId: WorkspaceId,
-  ): Promise<readonly KeptWorkspaceToken[]> {
+  ): Promise<readonly WorkspaceTokenRecord[]> {
     return (
       await this.context.db
         .select(KEPT_TOKEN)
@@ -192,14 +194,14 @@ export class DrizzleIdentityResources implements IdentityResourcesPort {
     ).map(keptToken);
   }
 
-  tokenWithId(id: WorkspaceTokenId): Promise<KeptWorkspaceToken | null> {
+  tokenWithId(id: WorkspaceTokenId): Promise<WorkspaceTokenRecord | null> {
     return this.token(eq(workspaceToken.id, id.value));
   }
 
   tokenAt(
     workspaceId: WorkspaceId,
     name: string,
-  ): Promise<KeptWorkspaceToken | null> {
+  ): Promise<WorkspaceTokenRecord | null> {
     return this.token(
       and(
         eq(workspaceToken.workspaceId, workspaceId.value),
@@ -211,7 +213,7 @@ export class DrizzleIdentityResources implements IdentityResourcesPort {
 
   private async token(
     where: SQL | undefined,
-  ): Promise<KeptWorkspaceToken | null> {
+  ): Promise<WorkspaceTokenRecord | null> {
     const [found] = await this.context.db
       .select(KEPT_TOKEN)
       .from(workspaceToken)
@@ -223,14 +225,14 @@ export class DrizzleIdentityResources implements IdentityResourcesPort {
 
   tokenTrustWithId(
     id: WorkspaceTokenTrustId,
-  ): Promise<KeptWorkspaceTokenTrust | null> {
+  ): Promise<WorkspaceTokenTrustRecord | null> {
     return this.tokenTrust(eq(workspaceTokenTrust.id, id.value));
   }
 
   tokenTrustAt(
     workspaceId: WorkspaceId,
     key: string,
-  ): Promise<KeptWorkspaceTokenTrust | null> {
+  ): Promise<WorkspaceTokenTrustRecord | null> {
     return this.tokenTrust(
       and(
         eq(workspaceTokenTrust.workspaceId, workspaceId.value),
@@ -241,7 +243,7 @@ export class DrizzleIdentityResources implements IdentityResourcesPort {
 
   async tokenTrustsIn(
     workspaceId: WorkspaceId,
-  ): Promise<readonly KeptWorkspaceTokenTrust[]> {
+  ): Promise<readonly WorkspaceTokenTrustRecord[]> {
     return (
       await this.context.db
         .select(KEPT_TRUST)
@@ -262,7 +264,7 @@ export class DrizzleIdentityResources implements IdentityResourcesPort {
 
   private async tokenTrust(
     where: SQL | undefined,
-  ): Promise<KeptWorkspaceTokenTrust | null> {
+  ): Promise<WorkspaceTokenTrustRecord | null> {
     const [found] = await this.context.db
       .select(KEPT_TRUST)
       .from(workspaceTokenTrust)
@@ -272,7 +274,7 @@ export class DrizzleIdentityResources implements IdentityResourcesPort {
     return found ? keptTrust(found) : null;
   }
 
-  private async workspace(where: SQL): Promise<KeptWorkspace | null> {
+  private async workspace(where: SQL): Promise<WorkspaceRecord | null> {
     const [found] = await this.context.db
       .select(KEPT_WORKSPACE)
       .from(workspace)
@@ -282,7 +284,7 @@ export class DrizzleIdentityResources implements IdentityResourcesPort {
     return found ? keptWorkspace(found) : null;
   }
 
-  private async team(where: SQL | undefined): Promise<KeptTeam | null> {
+  private async team(where: SQL | undefined): Promise<TeamRecord | null> {
     const [found] = await this.context.db
       .select(KEPT_TEAM)
       .from(team)

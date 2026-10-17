@@ -1,7 +1,7 @@
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 import {
-  areWords,
-  LONGEST_WORDS,
+  isSlug,
+  MAX_SLUG_LENGTH,
 } from '@shared-kernel/domain/value-objects/identifier-shapes';
 
 export class TokenTrustKey {
@@ -12,10 +12,10 @@ export class TokenTrustKey {
   static of(raw: string): TokenTrustKey {
     const named = raw.trim();
 
-    if (!areWords(named)) {
+    if (!isSlug(named)) {
       throw new InvalidIdentifierError(
         'token trust key',
-        `is lowercase words joined by dashes, at most ${LONGEST_WORDS} characters, as in github-main`,
+        `is lowercase words joined by dashes, at most ${MAX_SLUG_LENGTH} characters, as in github-main`,
       );
     }
 

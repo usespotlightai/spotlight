@@ -5,14 +5,14 @@ import type { ToolBacking } from '@integrations/domain/value-objects/tool-backin
 import { APPROVAL_INTENT_INPUT } from '@shared-kernel/domain/value-objects/approval-intent-input';
 import {
   INPUT_NAME,
+  SLUG_SHAPE,
   WHOLE_CALL_INPUT,
-  WORDS,
 } from '@shared-kernel/domain/value-objects/identifier-shapes';
 import type { InputSchema } from '@shared-kernel/domain/value-objects/input-schema.vo';
 
 export const TOOL_INPUT_NAME = new RegExp(`^${INPUT_NAME}$`);
 
-const TOOL_NAME = new RegExp(`^${WORDS}$`);
+const TOOL_NAME = new RegExp(`^${SLUG_SHAPE}$`);
 
 export interface OfferedToolInput {
   readonly name: string;

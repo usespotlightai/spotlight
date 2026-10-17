@@ -33,7 +33,7 @@ export class AgentReviews implements PullRequestReviewingPort {
 
   async comment(on: ReviewingRun, left: LeftComment): Promise<string> {
     const task = await this.reviewed(on);
-    const draft = ReviewComment.drafted({
+    const draft = ReviewComment.draft({
       id: ReviewCommentId.of(this.ids.generate()),
       workspaceId: task.workspaceId,
       taskId: task.id,
@@ -58,7 +58,7 @@ export class AgentReviews implements PullRequestReviewingPort {
     const task = await this.reviewed(on);
     const author = ReviewAuthor.agent(on.runId);
 
-    return this.transaction.run(async () => {
+    return this.transaction.inTransaction(async () => {
       const { review, claimed } = Review.submit({
         id: ReviewId.of(this.ids.generate()),
         workspaceId: task.workspaceId,

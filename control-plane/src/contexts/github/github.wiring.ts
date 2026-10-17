@@ -1,6 +1,6 @@
 import { ConnectGitHubCommand } from '@github/application/commands/connect-github.command';
 import { ConnectGitHubHandler } from '@github/application/commands/handlers/connect-github.handler';
-import { GITHUB_PUBLICATIONS } from '@github/application/integration-events/github.publications';
+import { GITHUB_EVENT_MAPPERS } from '@github/application/integration-events/github.event-mappers';
 import { GITHUB_APP } from '@github/application/ports/github-app.port';
 import { GITHUB_WEBHOOKS } from '@github/application/ports/github-webhooks.port';
 import { INSTALLATION_ADMINISTRATION } from '@github/application/ports/installation-administration.port';
@@ -37,7 +37,7 @@ import { GitHubWebhooks } from '@github/application/services/github-webhooks.ser
 import { Installations } from '@github/application/services/installations.service';
 import { RecordPullRequests } from '@github/application/services/record-pull-requests.service';
 import { WorkspaceConnections } from '@github/application/services/workspace-connections.service';
-import { GITHUB_EVENT_TYPES } from '@github/domain/event-types';
+import { GITHUB_PAYLOAD_TYPES } from '@github/domain/payload-types';
 import { GitHubAppAccess } from '@github/infrastructure/github/github-app.access';
 import { GitHubAppIdentity } from '@github/infrastructure/github/github-app.identity';
 import { GitHubGitTransport } from '@github/infrastructure/github/github-git.transport';
@@ -68,9 +68,9 @@ import { ENV } from '@platform/config/config.constants';
 import { type Env } from '@platform/config/env.schema';
 import { bindCommandHandler } from '@platform/cqrs/bind-command-handler';
 import { bindQueryHandler } from '@platform/cqrs/bind-query-handler';
-import { EventPublications } from '@platform/events/event-publications';
 import { EventSubscribers } from '@platform/events/event-subscribers';
-import { EventTypes } from '@platform/events/event-types';
+import { IntegrationEventMappers } from '@platform/events/integration-event-mappers';
+import { PayloadTypes } from '@platform/events/payload-types';
 import {
   CLOCK,
   type ClockPort,
@@ -99,19 +99,19 @@ export const GITHUB_PROVIDERS: readonly Provider[] = [
   {
     provide: GITHUB_EVENTS,
     inject: [
-      EventTypes,
-      EventPublications,
+      PayloadTypes,
+      IntegrationEventMappers,
       EventSubscribers,
       RecordPullRequests,
     ],
     useFactory: (
-      types: EventTypes,
-      publications: EventPublications,
+      types: PayloadTypes,
+      mappers: IntegrationEventMappers,
       subscribers: EventSubscribers,
       recording: RecordPullRequests,
     ) => {
-      types.register('github', GITHUB_EVENT_TYPES);
-      publications.register(GITHUB_PUBLICATIONS);
+      types.register('github', GITHUB_PAYLOAD_TYPES);
+      mappers.register(GITHUB_EVENT_MAPPERS);
       subscribers.register(githubSubscribers(recording));
       return true;
     },

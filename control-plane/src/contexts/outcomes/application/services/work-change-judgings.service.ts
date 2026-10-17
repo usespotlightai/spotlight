@@ -20,7 +20,7 @@ interface JudgingKey {
   readonly round: JudgingRound;
 }
 
-const MOST_JUDGED_AT_ONCE = 4;
+const MAX_JUDGED_AT_ONCE = 4;
 
 export class WorkChangeJudgings implements OwedWorkPort {
   readonly name = 'Judging changes';
@@ -39,7 +39,7 @@ export class WorkChangeJudgings implements OwedWorkPort {
     this.#pool = new OwedWorkPool<ChangeJudging, JudgingKey>(
       {
         name: this.name,
-        mostAtOnce: MOST_JUDGED_AT_ONCE,
+        maxAtOnce: MAX_JUDGED_AT_ONCE,
         due: (now) => this.judgings.dueForWork(now),
         find: (key) => this.judgings.of(key.runId, key.round),
         save: (judging) => this.judgings.save(judging),
@@ -112,7 +112,7 @@ export class WorkChangeJudgings implements OwedWorkPort {
         reference: evidence.reference,
       });
 
-      return judging.judged({
+      return judging.recordVerdict({
         verdict,
         usage,
         evidence,
@@ -122,7 +122,7 @@ export class WorkChangeJudgings implements OwedWorkPort {
     } catch (error) {
       if (error instanceof JudgingError) {
         return judging
-          .usedModel(error.usage)
+          .recordModel(error.usage)
           .failed(JudgingFailure.of(error.trouble, this.clock.now()));
       }
       throw error;

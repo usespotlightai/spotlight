@@ -49,7 +49,7 @@ export class TaskRunWork implements RunWork {
 
   async deliverUpTo(position: number, at: Date): Promise<void> {
     await this.tasks.save(
-      this.task.deliveredUpTo(NotePosition.of(position), at),
+      this.task.markDeliveredUpTo(NotePosition.of(position), at),
     );
   }
 
@@ -82,7 +82,7 @@ export class TaskRunWork implements RunWork {
     }
 
     const line = await this.lines.holding(this.task.stationId);
-    const { task, clearance } = this.task.clearFor(
+    const { task, check } = this.task.clearFor(
       ApprovalSubject.toolCall(call),
       needed,
       {
@@ -96,18 +96,18 @@ export class TaskRunWork implements RunWork {
       intent,
     );
 
-    if (clearance.kind === 'refused') {
-      return clearance;
+    if (check.kind === 'refused') {
+      return check;
     }
 
     await this.tasks.save(task);
 
-    return clearance.kind === 'asked'
-      ? clearance
+    return check.kind === 'asked'
+      ? check
       : {
           kind: 'given',
-          edited: clearance.edited,
-          returned: () => this.returned(task, clearance.claimed),
+          edited: check.edited,
+          returned: () => this.returned(task, check.claimed),
         };
   }
 
@@ -173,9 +173,9 @@ export class TaskRunWork implements RunWork {
     );
     const worked =
       session && this.run.claimedBy
-        ? this.task.workedIn(session, this.run.claimedBy)
+        ? this.task.recordSession(session, this.run.claimedBy)
         : this.task;
-    const { task, clearance } = worked.clearFor(
+    const { task, check } = worked.clearFor(
       subject,
       needed,
       {
@@ -188,16 +188,16 @@ export class TaskRunWork implements RunWork {
       null,
     );
 
-    if (clearance.kind !== 'refused') {
+    if (check.kind !== 'refused') {
       await this.tasks.save(task);
     }
 
-    return clearance.kind;
+    return check.kind;
   }
 
   private async returned(claimed: Task, at: NotePosition): Promise<void> {
     try {
-      await this.tasks.save(claimed.approvalReturned(at));
+      await this.tasks.save(claimed.returnApproval(at));
     } catch (error) {
       if (!(error instanceof TaskVersionConflictError)) {
         throw error;

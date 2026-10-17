@@ -7,7 +7,7 @@ const EVERY_MS = 60_000;
 
 @Injectable()
 export class ConnectionRefreshWorker implements OnModuleDestroy {
-  #turning = false;
+  #ticking = false;
   #stopped = false;
 
   constructor(
@@ -20,19 +20,19 @@ export class ConnectionRefreshWorker implements OnModuleDestroy {
   }
 
   @Interval(EVERY_MS)
-  async turn(): Promise<void> {
-    if (this.#turning || this.#stopped) {
+  async tick(): Promise<void> {
+    if (this.#ticking || this.#stopped) {
       return;
     }
 
-    this.#turning = true;
+    this.#ticking = true;
 
     try {
       await this.connections.refresh();
     } catch (error) {
       this.logger.error({ err: error }, 'Renewing connections');
     } finally {
-      this.#turning = false;
+      this.#ticking = false;
     }
   }
 }

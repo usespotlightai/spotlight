@@ -7,10 +7,10 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { useReplays } from '@/hooks/api/useReplays';
-import { percentShown } from '@/lib/judge';
+import { formatPercent } from '@/lib/judge';
 import { COMPACT_PILL } from '@/lib/pill';
 import { loading } from '@/lib/query';
-import { baselineIn, candidateShown, latestOf } from '@/lib/replay';
+import { baselineIn, formatCandidate, latestOf } from '@/lib/replay';
 import { NO_SCORE_YET, SUCCEEDED } from '@/lib/replay-words';
 import { cn } from '@/lib/utils';
 
@@ -55,11 +55,11 @@ export function LatestReplay({ teamId, setId, className }: LatestReplayProps) {
         >
           {successRate === null
             ? NO_SCORE_YET
-            : `${percentShown(successRate)} ${SUCCEEDED}`}
+            : `${formatPercent(successRate)} ${SUCCEEDED}`}
         </TooltipTrigger>
         <TooltipContent className="flex max-w-xs flex-col gap-1 text-xs">
           <span className="text-foreground">
-            {candidateShown(latest.candidate)}
+            {formatCandidate(latest.candidate)}
           </span>
           <SuccessAgainstBaseline
             replay={latest}

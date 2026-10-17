@@ -29,7 +29,7 @@ export const replayCheckRow = (
 ): ReplayCheckRow | null =>
   policy
     ? {
-        mostRegressions: policy.mostRegressions,
+        maxRegressions: policy.maxRegressions,
         ceiling: policy.ceiling,
         currency: policy.currency,
         minGain: policy.minGain,

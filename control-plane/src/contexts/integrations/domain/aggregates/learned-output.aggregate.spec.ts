@@ -29,7 +29,7 @@ describe('LearnedOutput', () => {
 
   it('merges each later call into what it learned', () => {
     const later = new Date('2026-10-05T13:00:00.000Z');
-    const learned = first().learnedFrom({ url: 'y', id: 'c_1' }, later);
+    const learned = first().learnFrom({ url: 'y', id: 'c_1' }, later);
 
     expect(learned.calls).toBe(2);
     expect(learned.learnedAt).toEqual(later);

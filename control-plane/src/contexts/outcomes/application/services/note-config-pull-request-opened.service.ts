@@ -13,7 +13,7 @@ export class NoteConfigPullRequestOpened {
   ) {}
 
   opened(pullRequest: StationConfigPullRequest): Promise<void> {
-    return this.transaction.run(async () => {
+    return this.transaction.inTransaction(async () => {
       const { workspaceId, teamId } = pullRequest;
 
       await this.forgotten.holding(workspaceId, null, teamId);

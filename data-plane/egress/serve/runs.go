@@ -28,7 +28,7 @@ const (
 	redeemBudget = time.Minute
 	admitBudget  = 30 * time.Second
 	refusedFor   = 10 * time.Second
-	mostRefused  = 10_000
+	maxRefused   = 10_000
 	admitRate    = 50
 )
 
@@ -156,7 +156,7 @@ func (e *Egress) refusedRecently(credential string) (refusal, bool) {
 }
 
 func (e *Egress) rememberRefused(credential string, err error) {
-	if len(e.refused) >= mostRefused {
+	if len(e.refused) >= maxRefused {
 		clear(e.refused)
 	}
 	e.refused[credential] = refusal{at: e.now(), err: err}
@@ -373,7 +373,7 @@ func (e *Egress) admittedRuns() []*run {
 }
 
 func (e *Egress) checkHolds(ctx context.Context) {
-	for asked := range slices.Chunk(e.admittedRuns(), protocol.MostHoldsAtOnce) {
+	for asked := range slices.Chunk(e.admittedRuns(), protocol.MaxHoldsAtOnce) {
 		credentials := make([]string, len(asked))
 		for at, found := range asked {
 			credentials[at] = found.credential

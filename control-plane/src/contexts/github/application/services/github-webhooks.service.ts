@@ -94,7 +94,7 @@ export class GitHubWebhooks implements GitHubWebhooksPort {
 
     if (heard.kind === 'installation-removed') {
       await this.connections.save(
-        (await this.connections.of(workspaceId)).disconnectedFrom(installation),
+        (await this.connections.of(workspaceId)).disconnectFrom(installation),
       );
     }
 

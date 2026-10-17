@@ -347,7 +347,7 @@ export class DrizzleRunRecordRepository implements RunRecordRepository {
   ) {}
 
   async add(added: RunRecord): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       const written = await this.context.db
         .insert(runRecord)
         .values({
@@ -370,7 +370,7 @@ export class DrizzleRunRecordRepository implements RunRecordRepository {
   }
 
   async save(saved: RunRecord): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       const written = await this.context.db
         .update(runRecord)
         .set({ version: saved.version + 1, ...columnsOf(saved) })
@@ -509,7 +509,7 @@ export class DrizzleRunRecordRepository implements RunRecordRepository {
   }
 
   async removeForTask(taskId: TaskId): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       await this.context.db
         .delete(runRecord)
         .where(eq(runRecord.taskId, taskId.value));
@@ -519,7 +519,7 @@ export class DrizzleRunRecordRepository implements RunRecordRepository {
   }
 
   async removeForTeam(workspaceId: WorkspaceId, teamId: TeamId): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       await this.context.db
         .delete(runRecord)
         .where(
@@ -538,7 +538,7 @@ export class DrizzleRunRecordRepository implements RunRecordRepository {
   }
 
   async removeForWorkspace(workspaceId: WorkspaceId): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       await this.context.db
         .delete(runRecord)
         .where(eq(runRecord.workspaceId, workspaceId.value));

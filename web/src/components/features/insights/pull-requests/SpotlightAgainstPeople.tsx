@@ -6,19 +6,24 @@ import {
   InsightsTable,
 } from '@/components/features/insights/InsightsTable';
 import { SpreadShown } from '@/components/features/insights/SpreadShown';
-import { countShown, medianShown, shareShown, tailShown } from '@/lib/insights';
 import {
+  formatCount,
+  formatMedian,
+  formatShare,
+  formatTail,
+} from '@/lib/insights';
+import {
+  formatMean,
   type GroupMeasures,
   groupFilter,
   type InsightsPullRequests,
-  meanShown,
   type PullRequestFilter,
 } from '@/lib/insights-pull-requests';
 
 type Measure = {
   readonly id: string;
   readonly label: string;
-  readonly shown: (measures: GroupMeasures) => string;
+  readonly render: (measures: GroupMeasures) => string;
   readonly tail?: (measures: GroupMeasures) => string | null;
   readonly narrowed?: PullRequestFilter;
 };
@@ -27,35 +32,35 @@ const MEASURES: readonly Measure[] = [
   {
     id: 'merged',
     label: 'Merged',
-    shown: (measures) => countShown(measures.merged),
+    render: (measures) => formatCount(measures.merged),
   },
   {
     id: 'to-merge',
     label: 'Time to merge',
-    shown: (measures) => medianShown(measures.toMerge),
-    tail: (measures) => tailShown(measures.toMerge),
+    render: (measures) => formatMedian(measures.toMerge),
+    tail: (measures) => formatTail(measures.toMerge),
   },
   {
     id: 'in-review',
     label: 'Time in review',
-    shown: (measures) => medianShown(measures.inReview),
-    tail: (measures) => tailShown(measures.inReview),
+    render: (measures) => formatMedian(measures.inReview),
+    tail: (measures) => formatTail(measures.inReview),
   },
   {
     id: 'rounds',
     label: 'Review rounds',
-    shown: (measures) => meanShown(measures.meanRounds),
+    render: (measures) => formatMean(measures.meanRounds),
   },
   {
     id: 'comments',
     label: 'Review comments',
-    shown: (measures) => meanShown(measures.meanComments),
+    render: (measures) => formatMean(measures.meanComments),
   },
   {
     id: 'reverted',
     label: 'Revert rate',
-    shown: (measures) =>
-      `${shareShown(measures.revertRate)} · ${countShown(measures.reverted)}`,
+    render: (measures) =>
+      `${formatShare(measures.revertRate)} · ${formatCount(measures.reverted)}`,
     narrowed: { reverted: 'true' },
   },
 ];
@@ -81,10 +86,10 @@ export function SpotlightAgainstPeople({
               measure.narrowed,
             )}
           >
-            {measure.shown(measures)}
+            {measure.render(measures)}
           </InsightsLink>
         ) : (
-          measure.shown(measures)
+          measure.render(measures)
         );
 
       return (

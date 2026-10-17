@@ -1,7 +1,7 @@
 import type {
-  CompiledIntegration,
   DescribedOperations,
   IntegrationCompilerPort,
+  ParsedIntegration,
 } from '@integrations/application/ports/integration-compiler.port';
 import type { SourceReaderPort } from '@integrations/application/ports/source-reader.port';
 import type { HostReach } from '@integrations/application/services/host-reach.service';
@@ -19,7 +19,7 @@ interface SourceForDefinition {
 }
 
 export interface SourcedIntegration {
-  readonly compiled: CompiledIntegration;
+  readonly compiled: ParsedIntegration;
   readonly reading: SourceReading | null;
 }
 

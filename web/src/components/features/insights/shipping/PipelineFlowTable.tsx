@@ -13,7 +13,7 @@ import { useFolds } from '@/hooks/useFolds';
 import { lastedOrNone } from '@/lib/insights';
 import {
   type FlowStage,
-  partShown,
+  formatPart,
   STATION_PARTS,
 } from '@/lib/insights-shipping';
 import { SPREAD } from '@/lib/nested-table';
@@ -25,7 +25,7 @@ const GROUPS = [
 ] as const;
 
 const partHeading = (part: (typeof STATION_PARTS)[number]): string =>
-  partShown(part).replace(/^./, (first) => first.toUpperCase());
+  formatPart(part).replace(/^./, (first) => first.toUpperCase());
 
 export function PipelineFlowTable({
   stages,

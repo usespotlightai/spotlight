@@ -52,8 +52,8 @@ export class SetupPullRequestToolUse
       body: inputs.text('body') ?? '',
     });
 
-    return this.transaction.run(async () => {
-      const saved = (await this.found(chatId)).setupOpened(
+    return this.transaction.inTransaction(async () => {
+      const saved = (await this.found(chatId)).openSetup(
         runId,
         branch,
         PullRequestUrl.of(opened.url),

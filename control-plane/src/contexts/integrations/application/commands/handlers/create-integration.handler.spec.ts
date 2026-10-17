@@ -40,7 +40,7 @@ const creating = (
     recalls(over.recall),
     { generate: () => 'integration_new' },
     {
-      run: async (work) => {
+      inTransaction: async (work) => {
         open = true;
         try {
           return await work();

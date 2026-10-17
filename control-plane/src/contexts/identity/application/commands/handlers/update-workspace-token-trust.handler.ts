@@ -11,7 +11,7 @@ import {
   forbiddenTo,
   type ResourceUpdated,
 } from '@shared-kernel/application/dto/resource-outcomes.dto';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
@@ -35,18 +35,18 @@ export class UpdateWorkspaceTokenTrustHandler
 
     try {
       const standing = await this.trusts.find(id);
-      const cleared = standing
-        ? await this.access.clearanceIn(
+      const permissions = standing
+        ? await this.access.permissionsIn(
             standing.workspaceId,
             command.actor.principal,
           )
         : null;
 
-      if (!standing || !cleared) {
+      if (!standing || !permissions) {
         return null;
       }
 
-      if (!cleared.managesTokenTrusts) {
+      if (!permissions.managesTokenTrusts) {
         return forbiddenTo('manage-token-trusts');
       }
 
@@ -61,11 +61,11 @@ export class UpdateWorkspaceTokenTrustHandler
       const redefined = standing.redefinedAs(
         compiled.terms,
         Grantor.of(command.actor.principal),
-        Attribution.of(command.actor, cleared.workspaceId),
+        Attribution.of(command.actor, permissions.workspaceId),
       );
 
       if (redefined !== standing) {
-        await this.transaction.run(() => this.trusts.save(redefined));
+        await this.transaction.inTransaction(() => this.trusts.save(redefined));
       }
 
       return { outcome: 'updated', id: id.value };
@@ -89,7 +89,7 @@ export class UpdateWorkspaceTokenTrustHandler
         };
       }
 
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

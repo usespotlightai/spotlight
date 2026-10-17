@@ -170,18 +170,18 @@ const happenedIn = (heard: PullRequestActivity): readonly Happened[] => {
   }
 
   const mentioned = mentions(heard) ? askedFor(heard, 'mentioned') : null;
-  const word = happened({ ...heard, activity: heard.activity });
+  const payload = happened({ ...heard, activity: heard.activity });
 
   return [
-    word,
-    ...(heard.pullRequest ? [toItsReview(word, heard.pullRequest)] : []),
+    payload,
+    ...(heard.pullRequest ? [toItsReview(payload, heard.pullRequest)] : []),
     ...(mentioned ? [mentioned] : []),
   ];
 };
 
 // The task that opened a pull request and the task that reviews it each hear the word through their own mark.
-const toItsReview = (word: Happened, pullRequest: string): Happened => ({
-  ...word,
+const toItsReview = (payload: Happened, pullRequest: string): Happened => ({
+  ...payload,
   concerns: {
     branch: null,
     marks: [{ kind: REVIEW_MARK, value: PullRequestUrl.of(pullRequest).value }],

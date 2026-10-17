@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
-import { countShown, spendShown } from '@/lib/insights';
-import { repeatsShown } from '@/lib/replay-words';
-import { durationShown, type SearchEstimate } from '@/lib/search';
+import { formatCount, formatSpend } from '@/lib/insights';
+import { formatRepeats } from '@/lib/replay-words';
+import { formatDuration, type SearchEstimate } from '@/lib/search';
 
 type SearchEstimateSummaryProps = {
   estimate: SearchEstimate | undefined;
@@ -50,42 +50,42 @@ export function SearchEstimateSummary({
         <div className={ROW}>
           <dt className="text-muted-foreground">Tasks</dt>
           <dd className="text-foreground tabular-nums">
-            {countShown(estimate.searchedTasks)} searched ·{' '}
-            {countShown(estimate.heldOutTasks)} held out
+            {formatCount(estimate.searchedTasks)} searched ·{' '}
+            {formatCount(estimate.heldOutTasks)} held out
           </dd>
         </div>
         <div className={ROW}>
           <dt className="text-muted-foreground">Copies</dt>
-          <dd className="text-foreground">{repeatsShown(repeats)}</dd>
+          <dd className="text-foreground">{formatRepeats(repeats)}</dd>
         </div>
         <div className={ROW}>
           <dt className="text-muted-foreground">At most</dt>
           <dd className="text-right text-foreground tabular-nums">
-            {countShown(runs.total)} runs
+            {formatCount(runs.total)} runs
             <span className="block text-muted-foreground">
-              {countShown(runs.seed)} of the live config ·{' '}
-              {countShown(runs.searchReplays)} of candidates ·{' '}
-              {countShown(runs.heldOutReplays)} held out ·{' '}
-              {countShown(runs.agent)} of the agent
+              {formatCount(runs.seed)} of the live config ·{' '}
+              {formatCount(runs.searchReplays)} of candidates ·{' '}
+              {formatCount(runs.heldOutReplays)} held out ·{' '}
+              {formatCount(runs.agent)} of the agent
             </span>
           </dd>
         </div>
         <div className={ROW}>
           <dt className="text-muted-foreground">Spends at most</dt>
           <dd className="text-right text-foreground tabular-nums">
-            {spendShown(estimate.ceiling)}
+            {formatSpend(estimate.ceiling)}
             <span className="block text-muted-foreground">
-              {spendShown(allotted.seed)} for the live config ·{' '}
-              {spendShown(allotted.searchReplay)} per candidate ·{' '}
-              {spendShown(allotted.heldOutReplay)} per held-out replay ·{' '}
-              {spendShown(allotted.agentRun)} per agent run
+              {formatSpend(allotted.seed)} for the live config ·{' '}
+              {formatSpend(allotted.searchReplay)} per candidate ·{' '}
+              {formatSpend(allotted.heldOutReplay)} per held-out replay ·{' '}
+              {formatSpend(allotted.agentRun)} per agent run
             </span>
           </dd>
         </div>
         <div className={ROW}>
           <dt className="text-muted-foreground">Takes</dt>
           <dd className="text-right text-foreground">
-            {durationShown(estimate.estimatedDuration)}
+            {formatDuration(estimate.estimatedDuration)}
           </dd>
         </div>
       </dl>

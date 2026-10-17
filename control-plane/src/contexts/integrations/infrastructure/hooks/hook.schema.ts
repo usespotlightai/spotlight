@@ -3,12 +3,12 @@ import {
   Hook,
 } from '@integrations/domain/entities/hook.entity';
 import { HOOK_EVENTS } from '@integrations/domain/value-objects/hook-event.vo';
-import { WORDS } from '@shared-kernel/domain/value-objects/identifier-shapes';
+import { SLUG_SHAPE } from '@shared-kernel/domain/value-objects/identifier-shapes';
 import { z } from 'zod';
 
-const KEY = new RegExp(`^${WORDS}$`);
+const KEY = new RegExp(`^${SLUG_SHAPE}$`);
 
-const TOOL = new RegExp(`^[a-z0-9]+\\.${WORDS}$`);
+const TOOL = new RegExp(`^[a-z0-9]+\\.${SLUG_SHAPE}$`);
 
 const REPOSITORY = /^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/;
 

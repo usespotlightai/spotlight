@@ -4,17 +4,17 @@ import type { WorkPort } from '@memory/application/ports/work.port';
 import type { ReadMemoryFilesQuery } from '@memory/application/queries/read-memory-files.query';
 import { memoryFilesOf } from '@memory/application/rendering/memory-files';
 import type { MemoriesInReach } from '@memory/application/services/memories-in-reach.service';
-import type { RunnerMemoryAtHand } from '@memory/application/services/runner-memory-at-hand.service';
+import type { RunnerMemoryLoader } from '@memory/application/services/runner-memory-loader.service';
 import type { MemoryRepository } from '@memory/domain/repositories/memory.repository';
 import { reachesMemories } from '@memory/domain/services/search-reach';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
 export class ReadMemoryFilesHandler
   implements QueryHandlerPort<ReadMemoryFilesQuery, MemoryFileDto[]>
 {
   constructor(
-    private readonly atHand: RunnerMemoryAtHand,
+    private readonly loader: RunnerMemoryLoader,
     private readonly inReach: MemoriesInReach,
     private readonly memories: MemoryRepository,
     private readonly work: WorkPort,
@@ -23,7 +23,7 @@ export class ReadMemoryFilesHandler
 
   async execute(query: ReadMemoryFilesQuery): Promise<MemoryFileDto[]> {
     try {
-      const held = await this.atHand.held(query.runId, query.runnerId);
+      const held = await this.loader.held(query.runId, query.runnerId);
 
       if (!reachesMemories(held)) {
         return [];
@@ -63,7 +63,7 @@ export class ReadMemoryFilesHandler
         names,
       });
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

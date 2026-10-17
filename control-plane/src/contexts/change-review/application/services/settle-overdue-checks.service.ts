@@ -4,7 +4,7 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import type { OwedWorkPort } from '@shared-kernel/application/ports/owed-work.port';
 
-const MOST_AT_ONCE = 50;
+const MAX_AT_ONCE = 50;
 
 export class SettleOverdueChecks implements OwedWorkPort {
   readonly name = 'Settling change stack checks nobody took up in time';
@@ -18,7 +18,7 @@ export class SettleOverdueChecks implements OwedWorkPort {
   async workDue(): Promise<void> {
     const now = this.clock.now();
 
-    for (const check of await this.checks.overdue(now, MOST_AT_ONCE)) {
+    for (const check of await this.checks.overdue(now, MAX_AT_ONCE)) {
       if (!check.overdueAt(now)) {
         continue;
       }

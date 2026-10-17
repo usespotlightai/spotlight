@@ -9,9 +9,9 @@ const PREFIX = 'whsec_';
 
 const BASE64 = /^[A-Za-z0-9+/]+={0,2}$/;
 
-const FEWEST_BYTES = 24;
+const MIN_BYTES = 24;
 
-const MOST_BYTES = 64;
+const MAX_BYTES = 64;
 
 const WITHHELD = '[secret]';
 
@@ -28,10 +28,10 @@ export class HookSigningSecret implements Secret {
       ? Buffer.from(encoded, 'base64').length
       : 0;
 
-    if (bytes < FEWEST_BYTES || bytes > MOST_BYTES) {
+    if (bytes < MIN_BYTES || bytes > MAX_BYTES) {
       throw new InvalidHookError(
         FieldPath.of(['signing', 'secret']),
-        `must be whsec_ followed by ${FEWEST_BYTES} to ${MOST_BYTES} base64-encoded random bytes`,
+        `must be whsec_ followed by ${MIN_BYTES} to ${MAX_BYTES} base64-encoded random bytes`,
       );
     }
 

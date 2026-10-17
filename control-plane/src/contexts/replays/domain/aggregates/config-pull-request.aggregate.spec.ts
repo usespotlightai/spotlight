@@ -1,6 +1,6 @@
 import {
   ConfigPullRequest,
-  MOST_TRIES,
+  MAX_TRIES,
 } from '@replays/domain/aggregates/config-pull-request.aggregate';
 import type { Search } from '@replays/domain/aggregates/search.aggregate';
 import { ConfigPullRequestOpened } from '@replays/domain/events/config-pull-request-opened.event';
@@ -40,7 +40,7 @@ const SOURCE = {
 
 const withCandidates = (finished: boolean): Search => {
   const runIds = searchRunIds();
-  const seeded = aSearch().replayEnded(
+  const seeded = aSearch().recordReplayEnd(
     ReplayId.of('replay_seed'),
     'finished',
     charged,
@@ -59,7 +59,7 @@ const withCandidates = (finished: boolean): Search => {
   );
 
   return finished
-    ? admitted.replayEnded(
+    ? admitted.recordReplayEnd(
         ReplayId.of('replay_terse'),
         'finished',
         charged,
@@ -71,7 +71,7 @@ const withCandidates = (finished: boolean): Search => {
 };
 
 const picked = (source: typeof SOURCE | null = SOURCE) =>
-  ConfigPullRequest.picked({
+  ConfigPullRequest.pick({
     id: ConfigPullRequestId.of('pr_1'),
     searchId: SearchId.of('5d1e2f3a-4b5c-4d6e'),
     candidateId: CandidateId.of('candidate_terse'),
@@ -142,7 +142,7 @@ describe('ConfigPullRequest', () => {
     expect(pullRequest.isDue(NOW)).toBe(false);
     expect(pullRequest.isDue(later(30_000))).toBe(true);
 
-    for (let tries = 1; tries < MOST_TRIES; tries += 1) {
+    for (let tries = 1; tries < MAX_TRIES; tries += 1) {
       pullRequest = pullRequest.tried('GitHub is down', NOW);
     }
 
@@ -158,7 +158,7 @@ describe('ConfigPullRequest', () => {
 
     opening.pullEvents();
 
-    const opened = opening.opened(
+    const opened = opening.open(
       PullRequestUrl.of('https://github.com/acme/platform/pull/7'),
       PROPOSED,
       later(5),

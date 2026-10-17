@@ -1,6 +1,6 @@
 import { InvalidMemoryError } from '@memory/domain/exceptions/invalid-memory.error';
 
-const MOST_PATH = 500;
+const MAX_PATH = 500;
 
 export class MemoryPath {
   private readonly kind = 'memory-path';
@@ -15,9 +15,9 @@ export class MemoryPath {
       .filter((each) => each !== '' && each !== '.');
     const value = parts.join('/');
 
-    if (!value || value.length > MOST_PATH || parts.includes('..')) {
+    if (!value || value.length > MAX_PATH || parts.includes('..')) {
       throw new InvalidMemoryError(
-        `path must be at most ${MOST_PATH} characters`,
+        `path must be at most ${MAX_PATH} characters`,
       );
     }
 

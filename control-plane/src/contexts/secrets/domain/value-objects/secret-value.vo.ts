@@ -4,7 +4,7 @@ import {
   type Secret,
 } from '@shared-kernel/domain/value-objects/secret';
 
-const MOST_BYTES = 64 * 1024;
+const MAX_BYTES = 64 * 1024;
 
 const WITHHELD = '[secret]';
 
@@ -20,11 +20,8 @@ export class SecretValue implements Secret {
       throw new InvalidSecretError(field, 'must not be empty');
     }
 
-    if (Buffer.byteLength(raw, 'utf8') > MOST_BYTES) {
-      throw new InvalidSecretError(
-        field,
-        `must be at most ${MOST_BYTES} bytes`,
-      );
+    if (Buffer.byteLength(raw, 'utf8') > MAX_BYTES) {
+      throw new InvalidSecretError(field, `must be at most ${MAX_BYTES} bytes`);
     }
 
     return new SecretValue(raw);

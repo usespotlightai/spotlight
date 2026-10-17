@@ -68,7 +68,7 @@ const SPOKEN: readonly SpokenNote[] = [
 ];
 
 const kept = (id: string, scope: MemoryScope, at = NOW) =>
-  Memory.written({
+  Memory.write({
     id: MemoryId.of(id),
     handle: MemoryHandle.of(id.length),
     workspaceId: WorkspaceId.of('ws_1'),
@@ -140,7 +140,7 @@ const working = (input: {
 }) => {
   let stored =
     input.held ??
-    MemoryDraft.opened({
+    MemoryDraft.open({
       id: MemoryDraftId.of('draft_1'),
       taskId: TASK,
       workspaceId: WorkspaceId.of('ws_1'),
@@ -197,24 +197,24 @@ const working = (input: {
       },
     },
     { now: () => NOW, sleep: async () => undefined },
-    { run: <T>(work: () => Promise<T>) => work() },
+    { inTransaction: <T>(work: () => Promise<T>) => work() },
     QUIET,
     { report: () => undefined },
   );
 
-  const turn = async () => {
+  const tick = async () => {
     await service.workDue();
     await service.idle();
   };
 
-  return { turn, draft, since, stored: () => stored };
+  return { tick, draft, since, stored: () => stored };
 };
 
 describe('drafting what a run should leave the team remembering', () => {
   it('proposes what its evidence grounds, from a person where only a person said it', async () => {
     const worked = working({});
 
-    await worked.turn();
+    await worked.tick();
 
     const [proposal] = worked.stored().proposals;
     expect(worked.stored().owesWork).toBe(false);
@@ -229,7 +229,7 @@ describe('drafting what a run should leave the team remembering', () => {
   it('asks with the agent’s own words, what people said, and what the team keeps or turned down where the run worked', async () => {
     const worked = working({});
 
-    await worked.turn();
+    await worked.tick();
 
     expect(worked.draft).toHaveBeenCalledWith({
       lineName: 'Delivery',
@@ -251,7 +251,7 @@ describe('drafting what a run should leave the team remembering', () => {
   it('never tells the drafter what a tool returned', async () => {
     const worked = working({});
 
-    await worked.turn();
+    await worked.tick();
 
     const [ask] = worked.draft.mock.calls[0] ?? [];
     expect(JSON.stringify(ask)).not.toMatch(/"returned"|"detail"|"given"/);
@@ -260,7 +260,7 @@ describe('drafting what a run should leave the team remembering', () => {
 
   it('reads again only the notes people added since the last draft', async () => {
     const first = working({});
-    await first.turn();
+    await first.tick();
 
     const later = working({
       held: first.stored().asked(RunId.of('run_2'), NOW),
@@ -270,7 +270,7 @@ describe('drafting what a run should leave the team remembering', () => {
       ],
       answer: async () => [],
     });
-    await later.turn();
+    await later.tick();
 
     expect(
       later.draft.mock.calls[0]?.[0].notes.map((each) => each.position),
@@ -280,7 +280,7 @@ describe('drafting what a run should leave the team remembering', () => {
   it('marks what it proposes from a task that came from outside the team', async () => {
     const worked = working({ fromOutside: true });
 
-    await worked.turn();
+    await worked.tick();
 
     expect(worked.stored().proposals[0]?.source).toBe('outside');
   });
@@ -288,7 +288,7 @@ describe('drafting what a run should leave the team remembering', () => {
   it('proposes nothing, asking no model, when the run said nothing and nobody spoke', async () => {
     const worked = working({ steps: [], spoken: [] });
 
-    await worked.turn();
+    await worked.tick();
 
     expect(worked.draft).not.toHaveBeenCalled();
     expect(worked.stored().proposals).toEqual([]);
@@ -298,7 +298,7 @@ describe('drafting what a run should leave the team remembering', () => {
   it('keeps nothing and says so when the run’s evidence is gone', async () => {
     const worked = working({ site: null });
 
-    await worked.turn();
+    await worked.tick();
 
     expect(worked.stored().owesWork).toBe(false);
     expect(worked.stored().failure?.code).toBe('no-evidence');
@@ -312,7 +312,7 @@ describe('drafting what a run should leave the team remembering', () => {
       },
     });
 
-    await worked.turn();
+    await worked.tick();
 
     expect(worked.stored().owesWork).toBe(true);
     expect(worked.stored().drafting?.work.dueAt).toEqual(
@@ -328,7 +328,7 @@ describe('drafting what a run should leave the team remembering', () => {
       },
     });
 
-    await worked.turn();
+    await worked.tick();
 
     expect(worked.stored().owesWork).toBe(true);
     expect(worked.stored().drafting?.work.attempts).toBe(1);

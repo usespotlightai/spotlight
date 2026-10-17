@@ -9,10 +9,10 @@ import { type PaneConfig, SidePane } from '@/components/shared/SidePane';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import {
   type EntryComparison,
+  formatTitle,
   type ReplayEntry,
-  titleShown,
 } from '@/lib/replay';
-import { copyShown } from '@/lib/replay-words';
+import { formatCopy } from '@/lib/replay-words';
 import { runPath } from '@/lib/run';
 
 const ENTRY_PANE: PaneConfig = {
@@ -72,7 +72,7 @@ export function EntryDetail({
     copies.map((entry) =>
       side(
         copies.length > 1
-          ? `${title}, ${copyShown(entry.repeat).toLowerCase()}`
+          ? `${title}, ${formatCopy(entry.repeat).toLowerCase()}`
           : title,
         entry,
       ),
@@ -82,7 +82,7 @@ export function EntryDetail({
     <SidePane pane={ENTRY_PANE} open={open} ref={ref}>
       <div className="flex items-center gap-2 px-4 py-2">
         <h2 className="min-w-0 flex-1 truncate font-medium text-foreground text-sm">
-          {titleShown(row.title)}
+          {formatTitle(row.title)}
         </h2>
         <TrailLink
           to={runPath(slug, teamId, row.originalRunId)}

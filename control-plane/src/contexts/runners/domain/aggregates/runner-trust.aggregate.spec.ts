@@ -83,7 +83,7 @@ describe('RunnerTrust', () => {
   });
 
   it('admits nothing once withdrawn, and says it was withdrawn', () => {
-    const withdrawn = standing().withdrawn(BY);
+    const withdrawn = standing().withdraw(BY);
 
     expect(
       withdrawn.admits({
@@ -94,13 +94,13 @@ describe('RunnerTrust', () => {
       }),
     ).toBe(false);
     expect(kinds(withdrawn)).toEqual(['runner-trust.withdrawn']);
-    expect(() => withdrawn.withdrawn(BY)).toThrow(InconsistentStateError);
+    expect(() => withdrawn.withdraw(BY)).toThrow(InconsistentStateError);
   });
 
   it('lets runners start through it only by pulling, and only while it stands', () => {
     expect(standing().startVerdict('pull')).toBe('open');
     expect(standing().startVerdict('push')).toBe('gone');
-    expect(standing().withdrawn(BY).startVerdict('pull')).toBe('gone');
+    expect(standing().withdraw(BY).startVerdict('pull')).toBe('gone');
   });
 
   it('takes another workload and labels under the same key', () => {

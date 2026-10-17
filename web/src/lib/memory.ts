@@ -50,9 +50,9 @@ export type MemoryGround = Pick<
 
 export type MemoryGroundNote = MemoryGround['notes'][number];
 
-export const MOST_MEMORY_BODY = 1_000;
+export const MAX_MEMORY_BODY = 1_000;
 
-export const MOST_RETIRE_REASON = 500;
+export const MAX_RETIRE_REASON = 500;
 
 export const KIND_LABELS: Record<MemoryKind, string> = {
   rationale: 'Rationale',
@@ -244,7 +244,7 @@ export const proposalStateOf = (proposal: RunProposal): string => {
   return 'Waiting for you';
 };
 
-export const SOURCE_SHOWN: Record<TeamMemory['source'], string> = {
+export const SOURCE_LABELS: Record<TeamMemory['source'], string> = {
   person: 'Person',
   run: 'Run',
   outside: 'Outside the team',

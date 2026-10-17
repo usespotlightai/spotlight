@@ -105,7 +105,7 @@ describe('RunnerAdmissions', () => {
     it('admits no host to a pool that is retired', async () => {
       await expect(
         admitting({
-          pool: aPullPool().retired(attributedIn()),
+          pool: aPullPool().retire(attributedIn()),
         }).admissions.admit(pooled),
       ).resolves.toBeNull();
     });
@@ -153,7 +153,7 @@ describe('RunnerAdmissions', () => {
       ).resolves.toBeNull();
       await expect(
         admitting({
-          trust: aTrust().withdrawn(attributedIn()),
+          trust: aTrust().withdraw(attributedIn()),
         }).admissions.admit(trusted),
       ).resolves.toBeNull();
     });

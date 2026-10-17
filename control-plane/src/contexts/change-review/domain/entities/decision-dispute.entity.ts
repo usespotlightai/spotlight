@@ -3,7 +3,7 @@ import type { DecisionDisputeId } from '@change-review/domain/value-objects/deci
 import type { FilePath } from '@change-review/domain/value-objects/file-path.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
-const MOST_REASON = 1_000;
+const MAX_REASON = 1_000;
 
 export class DecisionDispute {
   private constructor(
@@ -23,9 +23,9 @@ export class DecisionDispute {
   }): DecisionDispute {
     const reason = input.reason.trim();
 
-    if (!reason || reason.length > MOST_REASON) {
+    if (!reason || reason.length > MAX_REASON) {
       throw new InvalidDecisionError(
-        `dispute reason must be at most ${MOST_REASON} characters`,
+        `dispute reason must be at most ${MAX_REASON} characters`,
       );
     }
 

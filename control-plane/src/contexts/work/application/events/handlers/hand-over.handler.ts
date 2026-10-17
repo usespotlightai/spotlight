@@ -51,7 +51,7 @@ export class HandOver implements RunOutcomes {
     });
 
     const worked = event.session
-      ? task.workedIn(event.session, event.workedBy)
+      ? task.recordSession(event.session, event.workedBy)
       : task;
 
     await this.saved(await this.applied(handover, worked, line, event.runId));
@@ -140,13 +140,13 @@ export class HandOver implements RunOutcomes {
     const routing = routeAfterRun(handover, line, task);
 
     if (routing.kind === 'finish') {
-      return task.finishedHere(run, routing.line, saying);
+      return task.finishHere(run, routing.line, saying);
     }
 
     if (routing.kind === 'let-go') {
       return (
         routing.failure ? task.failed(routing.failure, saying, run, line) : task
-      ).leftBy(run, saying.at);
+      ).leaveRun(run, saying.at);
     }
 
     if (routing.kind === 'ask') {

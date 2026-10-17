@@ -7,11 +7,11 @@ import {
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { since } from '@/lib/since';
 import {
-  checksShown,
-  deliveryShown,
   endedBadly,
-  endingShown,
-  nextShown,
+  formatChecks,
+  formatDelivery,
+  formatEnding,
+  formatNext,
   runSpent,
   runTook,
   type StationRunOutcome,
@@ -46,7 +46,7 @@ export function OutcomeTableRow({ run, to }: OutcomeTableRowProps) {
             endedBadly(run.ending) ? 'text-destructive' : 'text-foreground',
           )}
         >
-          {endingShown(run.ending)}
+          {formatEnding(run.ending)}
         </TrailLink>
         {run.failure && (
           <span className="truncate text-muted-foreground" title={run.failure}>
@@ -58,13 +58,13 @@ export function OutcomeTableRow({ run, to }: OutcomeTableRowProps) {
         {run.round}
       </NestedCell>
       <NestedCell heading="Checks" numeric={false}>
-        {checksShown(run.checks)}
+        {formatChecks(run.checks)}
       </NestedCell>
       <NestedCell heading="Next" numeric={false}>
-        {nextShown(run.next)}
+        {formatNext(run.next)}
       </NestedCell>
       <NestedCell heading="Delivery" numeric={false}>
-        {deliveryShown(run.delivery)}
+        {formatDelivery(run.delivery)}
       </NestedCell>
       <NestedCell heading="Took">{runTook(run.cost)}</NestedCell>
       <NestedCell heading="Cost">{runSpent(run.cost)}</NestedCell>

@@ -164,7 +164,7 @@ export const PLATFORM_LINES: LineResponseDto[] = [
     repositories: ['acme/api', 'acme/worker'],
     source: { repository: 'acme/config', path: 'lines/delivery.tf' },
     replayCheck: {
-      mostRegressions: 0,
+      maxRegressions: 0,
       ceiling: 10,
       currency: 'USD',
       minGain: 0.05,

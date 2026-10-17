@@ -705,12 +705,12 @@ func (c *Client) send(ctx context.Context, method, path string, in any) (*http.R
 }
 
 const (
-	mostDetail  = 4096
-	mostProblem = 1 << 20
+	maxDetail  = 4096
+	maxProblem = 1 << 20
 )
 
 func rejection(method, path string, response *http.Response) error {
-	read, _ := io.ReadAll(io.LimitReader(response.Body, mostProblem))
+	read, _ := io.ReadAll(io.LimitReader(response.Body, maxProblem))
 
 	var said struct {
 		Reason  string                `json:"reason"`
@@ -721,8 +721,8 @@ func rejection(method, path string, response *http.Response) error {
 	_ = json.Unmarshal(read, &said)
 
 	detail := read
-	if len(detail) > mostDetail {
-		detail = detail[:mostDetail]
+	if len(detail) > maxDetail {
+		detail = detail[:maxDetail]
 	}
 
 	err := fmt.Errorf("%s %s: %s: %s", method, path, response.Status, strings.TrimSpace(string(detail)))

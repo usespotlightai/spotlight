@@ -4,11 +4,11 @@ import type {
   ReplayedSetResponseDto,
   ReplayedStationResponseDto,
 } from '@/lib/api';
-import { countShown } from '@/lib/insights';
-import { dayShown, percentShown } from '@/lib/judge';
+import { formatCount } from '@/lib/insights';
+import { formatDay, formatPercent } from '@/lib/judge';
 import { type NestedHeading, SPREAD } from '@/lib/nested-table';
 import { type ReplayedStation, replayPath } from '@/lib/replay';
-import { heldOutRunsShown } from '@/lib/replay-words';
+import { formatHeldOutRuns } from '@/lib/replay-words';
 import { searchCandidatePath } from '@/lib/search';
 
 export type InsightsCandidates = ReplayedCandidatesResponseDto;
@@ -24,7 +24,7 @@ const LIVE_OVER_SET = `${LIVE_REPLAYED} (whole set)`;
 const liveOverSearch = (startedAt: string, searches: number): string =>
   searches === 1
     ? `${LIVE_REPLAYED} (the search’s tasks)`
-    : `${LIVE_REPLAYED} (tasks of the search on ${dayShown(startedAt.slice(0, 10))})`;
+    : `${LIVE_REPLAYED} (tasks of the search on ${formatDay(startedAt.slice(0, 10))})`;
 
 export type ReplayedMark = 'baseline' | CandidateKind;
 
@@ -34,7 +34,7 @@ const SOURCES: Record<ReplayedMark, string> = {
   proposed: 'Proposed',
 };
 
-export const sourceShown = (mark: ReplayedMark): string => SOURCES[mark];
+export const formatSource = (mark: ReplayedMark): string => SOURCES[mark];
 
 export type ReplayedSet = {
   readonly name: string;
@@ -66,12 +66,12 @@ export type ReplayedPoint = {
   readonly heldOut: string | null;
 };
 
-const heldOutScoreShown = (candidate: SetCandidate): string | null => {
+const formatHeldOutScore = (candidate: SetCandidate): string | null => {
   const heldOut = candidate.heldOut;
 
   return heldOut?.score == null
     ? null
-    : `${percentShown(heldOut.score)} ${heldOutRunsShown(heldOut.runs)}`;
+    : `${formatPercent(heldOut.score)} ${formatHeldOutRuns(heldOut.runs)}`;
 };
 
 type Charted = {
@@ -141,7 +141,7 @@ const chartedOf = (set: CandidatesSet): Charted[] => [
     cost: candidate.costPerRun,
     scored: candidate.scored,
     frontier: candidate.onFrontier === true,
-    heldOut: heldOutScoreShown(candidate),
+    heldOut: formatHeldOutScore(candidate),
     charted: candidate.charted,
   })),
 ];
@@ -244,16 +244,16 @@ export const changeLinkOf = (
   };
 };
 
-const runsShown = (runs: number): string =>
-  `${countShown(runs)} ${runs === 1 ? 'run' : 'runs'}`;
+const formatRuns = (runs: number): string =>
+  `${formatCount(runs)} ${runs === 1 ? 'run' : 'runs'}`;
 
-export const tasksShown = (tasks: number, runs: number): string =>
-  `${countShown(tasks)} ${tasks === 1 ? 'task' : 'tasks'}${runs === tasks ? '' : ` (${runsShown(runs)})`}`;
+export const formatTasks = (tasks: number, runs: number): string =>
+  `${formatCount(tasks)} ${tasks === 1 ? 'task' : 'tasks'}${runs === tasks ? '' : ` (${formatRuns(runs)})`}`;
 
 export const replayedNote = (points: readonly ReplayedPoint[]): string => {
   const scored = Math.max(0, ...points.map((each) => each.scored));
 
-  return `Replayed points show replay success on up to ${runsShown(scored)} of past tasks, not live outcomes. Each candidate’s own checks and judge score it. The task-size filter doesn’t apply.`;
+  return `Replayed points show replay success on up to ${formatRuns(scored)} of past tasks, not live outcomes. Each candidate’s own checks and judge score it. The task-size filter doesn’t apply.`;
 };
 
 export const CANDIDATES_TRUNCATED =
@@ -266,7 +266,7 @@ export const heldOutBrief = (candidate: SetCandidate): string => {
     return '–';
   }
   if (heldOut.score !== null) {
-    return percentShown(heldOut.score);
+    return formatPercent(heldOut.score);
   }
 
   return heldOut.state === 'queued' || heldOut.state === 'running'
@@ -279,7 +279,7 @@ export const costBasisNote = ({ shown }: SetCandidate): string | null =>
     ? null
     : 'Cost is over all its scored runs. The live config is priced in another currency.';
 
-export const originShown = (candidate: SetCandidate): string =>
+export const formatOrigin = (candidate: SetCandidate): string =>
   candidate.kind === 'proposed' ? 'Proposed' : 'Search';
 
 const SOURCES_NOTE =

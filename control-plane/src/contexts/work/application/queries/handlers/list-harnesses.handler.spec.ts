@@ -15,7 +15,7 @@ import {
 } from '@work/application/queries/handlers/list-harnesses.handler';
 import { HostRequirementsQuery } from '@work/application/queries/host.queries';
 import { ListHarnessesQuery } from '@work/application/queries/list-harnesses.query';
-import { LEAST_RUNNER_RELEASE } from '@work/application/services/least-runner-release';
+import { MIN_RUNNER_RELEASE } from '@work/application/services/least-runner-release';
 import { describe, expect, it, vi } from 'vitest';
 
 const launch = {
@@ -112,7 +112,7 @@ describe('listing harnesses for a workspace', () => {
           new HostRequirementsQuery({ bearer: 'pool-token', trust: undefined }),
         ),
       ).toEqual({
-        runnerAtLeast: LEAST_RUNNER_RELEASE,
+        runnerMinimum: MIN_RUNNER_RELEASE,
         harnesses: [expect.objectContaining({ id: 'claude-code', models: [] })],
         images: ['ghcr.io/acme/widgets:1'],
       });

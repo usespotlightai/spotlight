@@ -1,6 +1,6 @@
 import type {
   SearchRunQueued,
-  StationAtHand,
+  StationView,
   WorkPort,
 } from '@replays/application/ports/work.port';
 import { ReflectionBriefing } from '@replays/application/rendering/reflection-briefing';
@@ -35,7 +35,7 @@ interface HeldReflection {
 }
 
 interface Grounds {
-  readonly station: StationAtHand;
+  readonly station: StationView;
   readonly seed: Candidate;
 }
 
@@ -71,7 +71,7 @@ export class DispatchSearchIteration {
           briefing,
         })
       : UNBRIEFED;
-    const stillWanted = await this.transaction.run(async () => {
+    const stillWanted = await this.transaction.inTransaction(async () => {
       const fresh = await this.searches.locked(search.id);
 
       if (!fresh) {
@@ -79,8 +79,8 @@ export class DispatchSearchIteration {
       }
 
       const changed = queued.queued
-        ? fresh.runQueued(iteration.runId)
-        : fresh.runEnded(
+        ? fresh.queueRun(iteration.runId)
+        : fresh.recordRunEnd(
             iteration.runId,
             { failed: true, started: false },
             this.clock.now(),
@@ -190,7 +190,7 @@ export class DispatchSearchIteration {
     const { minGain } = await this.healths.standardAt(seen.station);
     const replays = await this.replays.ofSearch(seen.id);
 
-    return this.transaction.run(async () => {
+    return this.transaction.inTransaction(async () => {
       const search = await this.searches.locked(seen.id);
       const held = search?.iterationOf(reflection.runId);
 

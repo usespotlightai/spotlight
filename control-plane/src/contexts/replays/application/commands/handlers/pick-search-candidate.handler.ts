@@ -10,7 +10,7 @@ import { pickedFrom } from '@replays/domain/services/search-picks';
 import { CandidateId } from '@replays/domain/value-objects/candidate-id.vo';
 import { ConfigPullRequestId } from '@replays/domain/value-objects/config-pull-request-id.vo';
 import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
@@ -31,13 +31,13 @@ export class PickSearchCandidateHandler
 
   async execute(command: PickSearchCandidateCommand): Promise<CandidatePicked> {
     try {
-      const clearance = await this.access.clearance(
+      const access = await this.access.forTeam(
         command.teamId,
         command.actor.principal,
       );
-      const search = await this.access.searchOn(clearance, command.searchId);
+      const search = await this.access.searchOn(access, command.searchId);
 
-      if (!clearance.mayPlan) {
+      if (!access.mayPlan) {
         return forbiddenTo('plan');
       }
 
@@ -74,7 +74,9 @@ export class PickSearchCandidateHandler
           by,
         });
 
-        await this.transaction.run(() => this.pullRequests.save(retried));
+        await this.transaction.inTransaction(() =>
+          this.pullRequests.save(retried),
+        );
 
         return {
           outcome: 'picked',
@@ -82,7 +84,7 @@ export class PickSearchCandidateHandler
         };
       }
 
-      const fresh = ConfigPullRequest.picked({
+      const fresh = ConfigPullRequest.pick({
         id: ConfigPullRequestId.of(this.ids.generate()),
         searchId: search.id,
         candidateId: proposal.candidateId,
@@ -94,7 +96,7 @@ export class PickSearchCandidateHandler
         at,
         by,
       });
-      const kept = await this.transaction.run(() =>
+      const kept = await this.transaction.inTransaction(() =>
         this.pullRequests.add(fresh),
       );
 
@@ -103,7 +105,7 @@ export class PickSearchCandidateHandler
         pullRequest: configPullRequestView(kept),
       };
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

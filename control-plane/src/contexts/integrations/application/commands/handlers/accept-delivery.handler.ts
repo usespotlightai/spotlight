@@ -1,7 +1,7 @@
 import type { AcceptDeliveryCommand } from '@integrations/application/commands/accept-delivery.command';
 import type { DeliveryInboxPort } from '@integrations/application/ports/delivery-inbox.port';
 import type { SourceForDelivery } from '@integrations/application/services/source-for-delivery.service';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 
 export class AcceptDeliveryHandler
@@ -36,7 +36,7 @@ export class AcceptDeliveryHandler
         attempts: 0,
       });
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

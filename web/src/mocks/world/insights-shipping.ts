@@ -126,11 +126,11 @@ const timesOf = (
   };
   const longest = (percentile: Percentile) =>
     (['queued', 'running', 'inbox'] as const).reduce<StationPart>(
-      (most, part) =>
+      (max, part) =>
         (partTimes?.[part][PERCENTILE_MS[percentile]] ?? 0) >
-        (partTimes?.[most][PERCENTILE_MS[percentile]] ?? 0)
+        (partTimes?.[max][PERCENTILE_MS[percentile]] ?? 0)
           ? part
-          : most,
+          : max,
       'queued',
     );
 
@@ -204,8 +204,8 @@ const jammed = (
     return {
       ...times,
       jam: of((lasted) => {
-        const most = Math.max(0, ...lasted);
-        return most === 0 ? 0 : (lasted[at] ?? 0) / most;
+        const max = Math.max(0, ...lasted);
+        return max === 0 ? 0 : (lasted[at] ?? 0) / max;
       }),
       worst: of((lasted) => lasted.indexOf(Math.max(...lasted)) === at),
     };

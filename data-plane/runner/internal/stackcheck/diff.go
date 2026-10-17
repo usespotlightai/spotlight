@@ -10,7 +10,7 @@ import (
 
 const (
 	wholeContext = "--unified=100000"
-	mostDiff     = 5 * 1024 * 1024
+	maxDiff      = 5 * 1024 * 1024
 )
 
 func (o Options) Diff(ctx context.Context, checkout string) (string, error) {
@@ -46,7 +46,7 @@ func (o Options) Diff(ctx context.Context, checkout string) (string, error) {
 		return "", fmt.Errorf("diff the checkout: %w", err)
 	}
 
-	if len(diff) > mostDiff {
+	if len(diff) > maxDiff {
 		diff, err = o.gitWith(ctx, checkout, staged, "diff", "--cached", "-M", BaseRef)
 		if err != nil {
 			return "", fmt.Errorf("diff the checkout: %w", err)
@@ -69,7 +69,7 @@ func (o Options) Committed(ctx context.Context, checkout string) (string, error)
 		return "", fmt.Errorf("diff the checkout: %w", err)
 	}
 
-	if len(diff) > mostDiff {
+	if len(diff) > maxDiff {
 		diff, err = o.gitWith(ctx, checkout, unstaged, "diff", "-M", BaseRef, "HEAD")
 		if err != nil {
 			return "", fmt.Errorf("diff the checkout: %w", err)

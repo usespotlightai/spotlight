@@ -1,6 +1,6 @@
 import { InvalidSearchError } from '@replays/domain/exceptions/invalid-search.error';
 
-const MOST_LENGTH = 200;
+const MAX_LENGTH = 200;
 
 const named = (raw: string | null, what: string): string | null => {
   if (raw === null) {
@@ -9,9 +9,9 @@ const named = (raw: string | null, what: string): string | null => {
 
   const held = raw.trim();
 
-  if (held.length === 0 || held.length > MOST_LENGTH) {
+  if (held.length === 0 || held.length > MAX_LENGTH) {
     throw new InvalidSearchError(
-      `agent ${what} must be 1 to ${MOST_LENGTH} characters, or left out`,
+      `agent ${what} must be 1 to ${MAX_LENGTH} characters, or left out`,
     );
   }
 

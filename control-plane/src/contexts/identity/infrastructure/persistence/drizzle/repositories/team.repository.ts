@@ -42,14 +42,14 @@ export class DrizzleTeamRepository implements TeamRepository {
   ) {}
 
   async add(added: Team): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       await this.inserted(added);
       await this.events.dispatch(added.pullEvents());
     });
   }
 
   private async inserted(added: Team): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       try {
         await this.context.db.insert(team).values(this.written(added));
       } catch (error) {
@@ -76,14 +76,14 @@ export class DrizzleTeamRepository implements TeamRepository {
   }
 
   async save(saved: Team): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       await this.stored(saved);
       await this.events.dispatch(saved.pullEvents());
     });
   }
 
   private async stored(saved: Team): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       if (saved.isDisbanded) {
         const removed = await this.context.db
           .delete(team)

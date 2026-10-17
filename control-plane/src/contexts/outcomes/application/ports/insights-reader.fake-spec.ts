@@ -67,7 +67,7 @@ const ALL = Number.MAX_SAFE_INTEGER;
 
 type TeamBetween<T> = (
   window: TeamWindow,
-  most: number,
+  max: number,
 ) => Promise<readonly T[]>;
 
 export interface HistoryHeld {
@@ -133,14 +133,14 @@ const openingsFor = async (held: HistoryHeld, history: TeamHistory) =>
 export interface PullRequestReach {
   readonly repositories: readonly string[];
   readonly from: Date;
-  readonly most: number;
+  readonly max: number;
 }
 
 export interface PullRequestsHeld {
   readonly records: {
     readonly seenForTeamBetween: (
       window: TeamPullRequestWindow,
-      most: number,
+      max: number,
     ) => Promise<readonly PullRequestRecord[]>;
   };
   readonly shapes: {
@@ -192,7 +192,7 @@ export const pullRequestsHeldIn = async (
       from: reach.from,
       to: period.current.to,
     },
-    reach.most,
+    reach.max,
   );
   const owners = records.flatMap((each) =>
     each.owner ? [each.owner.taskId] : [],
@@ -224,7 +224,7 @@ const reachFrom = (
 ): PullRequestReach => ({
   repositories,
   from,
-  most: Number.MAX_SAFE_INTEGER,
+  max: Number.MAX_SAFE_INTEGER,
 });
 
 const listedRunOf = (

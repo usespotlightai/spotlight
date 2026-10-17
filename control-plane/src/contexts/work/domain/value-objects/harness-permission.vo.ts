@@ -1,5 +1,5 @@
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
-import { wordsFrom } from '@shared-kernel/domain/value-objects/identifier-shapes';
+import { slugify } from '@shared-kernel/domain/value-objects/identifier-shapes';
 import type { CalledTool } from '@work/domain/value-objects/called-tool.vo';
 
 const PROSE = new Set(['description']);
@@ -45,7 +45,7 @@ export class HarnessPermission {
   }): HarnessPermission {
     return new HarnessPermission(
       input.harness,
-      wordsFrom(input.kind) || 'other',
+      slugify(input.kind) || 'other',
       input.title.trim(),
       input.input === undefined
         ? ''

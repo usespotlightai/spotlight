@@ -5,7 +5,7 @@ import { WorkspaceRegistration } from '@identity/domain/services/workspace-regis
 import { TeamName } from '@identity/domain/value-objects/team-name.vo';
 import { WorkspaceName } from '@identity/domain/value-objects/workspace-name.vo';
 import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
@@ -49,7 +49,7 @@ export class OpenWorkspaceHandler
         teams: [{ id: firstTeam.id.value, name: firstTeam.name.value }],
       };
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

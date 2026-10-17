@@ -26,7 +26,7 @@ import {
   sql,
 } from 'drizzle-orm';
 
-export const MOST_WENT_WRONG_FOR_A_RUN = 500;
+export const MAX_WENT_WRONG_FOR_A_RUN = 500;
 
 const wentWrong = or(
   inArray(runConnection.outcome, [...STOPPED_OUTCOMES]),
@@ -105,7 +105,7 @@ export class DrizzleRunConnections implements RunConnectionsPort {
       .with(ranked)
       .select()
       .from(ranked)
-      .where(lte(ranked.place, MOST_WENT_WRONG_FOR_A_RUN))
+      .where(lte(ranked.place, MAX_WENT_WRONG_FOR_A_RUN))
       .orderBy(asc(ranked.at), asc(ranked.id));
 
     return rows.map((row) => ({
@@ -115,12 +115,12 @@ export class DrizzleRunConnections implements RunConnectionsPort {
     }));
   }
 
-  async forgetBefore(before: Date, most: number): Promise<number> {
+  async forgetBefore(before: Date, max: number): Promise<number> {
     const doomed = this.context.db
       .select({ id: runConnection.id })
       .from(runConnection)
       .where(lt(runConnection.at, before))
-      .limit(most);
+      .limit(max);
     const forgotten = await this.context.db
       .delete(runConnection)
       .where(inArray(runConnection.id, doomed))

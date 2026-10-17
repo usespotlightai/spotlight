@@ -1,19 +1,19 @@
 import { InvalidSearchError } from '@replays/domain/exceptions/invalid-search.error';
 import type { HeldOutSplit } from '@replays/domain/value-objects/held-out-split.vo';
-import { MOST_REPEATS } from '@replays/domain/value-objects/replay-repeats';
+import { MAX_REPEATS } from '@replays/domain/value-objects/replay-repeats';
 import { Spend } from '@replays/domain/value-objects/spend.vo';
 
-export const MOST_ITERATIONS = 10;
+export const MAX_ITERATIONS = 10;
 
-export const MOST_PER_ITERATION = 5;
+export const MAX_PER_ITERATION = 5;
 
-export const MOST_CONCURRENCY = 10;
+export const MAX_CONCURRENCY = 10;
 
 export const SEARCH_CONCURRENCY = 4;
 
 const AGENT_SLACK = { parts: 1, of: 10 } as const;
 
-const LEAST_RUN = 0.01;
+const MIN_RUN = 0.01;
 
 export interface SearchAllotment {
   readonly perRun: Spend;
@@ -26,14 +26,9 @@ export interface SearchAllotment {
   readonly iteration: Spend;
 }
 
-const counted = (
-  value: number,
-  most: number,
-  what: string,
-  least = 1,
-): number => {
-  if (!Number.isInteger(value) || value < least || value > most) {
-    throw new InvalidSearchError(`${what} must be from ${least} to ${most}`);
+const counted = (value: number, max: number, what: string, min = 1): number => {
+  if (!Number.isInteger(value) || value < min || value > max) {
+    throw new InvalidSearchError(`${what} must be from ${min} to ${max}`);
   }
 
   return value;
@@ -56,19 +51,19 @@ export class SearchBudget {
     repeats?: number;
   }): SearchBudget {
     return new SearchBudget(
-      counted(input.iterations, MOST_ITERATIONS, 'iterations'),
+      counted(input.iterations, MAX_ITERATIONS, 'iterations'),
       counted(
         input.perIteration,
-        MOST_PER_ITERATION,
+        MAX_PER_ITERATION,
         'candidates per iteration',
       ),
       Spend.ceiling(input.ceiling.amount, input.ceiling.currency),
       counted(
         input.concurrency ?? SEARCH_CONCURRENCY,
-        MOST_CONCURRENCY,
+        MAX_CONCURRENCY,
         'concurrency',
       ),
-      counted(input.repeats ?? 1, MOST_REPEATS, 'repeats'),
+      counted(input.repeats ?? 1, MAX_REPEATS, 'repeats'),
     );
   }
 
@@ -86,9 +81,9 @@ export class SearchBudget {
     const units = this.unitsFor(split.searched.length, split.heldOut.length);
     const perRun = pool.scaled(1, units);
 
-    if (perRun.amount < LEAST_RUN) {
+    if (perRun.amount < MIN_RUN) {
       throw new InvalidSearchError(
-        `ceiling must allow at least ${LEAST_RUN} ${this.ceiling.currency} for each replay run. Please raise the ceiling, or lower the iterations or candidates per iteration`,
+        `ceiling must allow at least ${MIN_RUN} ${this.ceiling.currency} for each replay run. Please raise the ceiling, or lower the iterations or candidates per iteration`,
       );
     }
 

@@ -3,10 +3,10 @@ import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/c
 
 export const SKILL_COMPILER = Symbol('SKILL_COMPILER');
 
-export type CompiledSkill =
+export type ParsedSkill =
   | ({ readonly ok: true } & ReadSkill)
   | { readonly ok: false; readonly problems: readonly ConfigurationProblem[] };
 
 export interface SkillCompilerPort {
-  compile(held: unknown): CompiledSkill;
+  compile(held: unknown): ParsedSkill;
 }

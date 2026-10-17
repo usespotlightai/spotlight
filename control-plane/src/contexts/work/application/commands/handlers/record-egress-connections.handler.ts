@@ -1,5 +1,5 @@
 import type { RunnerEgressPort } from '@runners/application/ports/runner-egress.port';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -14,14 +14,14 @@ import type { EgressRedemptions } from '@work/application/services/egress-redemp
 import { InvalidRunConnectionError } from '@work/domain/exceptions/invalid-run-connection.error';
 import { RunConnection } from '@work/domain/value-objects/run-connection.vo';
 
-export const MOST_CONNECTIONS_AT_ONCE = 2_000;
+export const MAX_CONNECTIONS_AT_ONCE = 2_000;
 
 const connectionOf = (
   record: EgressConnectionRecord,
   now: Date,
 ): RunConnection | null => {
   try {
-    return RunConnection.recordedAt(
+    return RunConnection.record(
       {
         ...record,
         status: record.status ?? null,
@@ -63,8 +63,8 @@ export class RecordEgressConnectionsHandler
         return { outcome: 'refused' };
       }
 
-      if (command.records.length > MOST_CONNECTIONS_AT_ONCE) {
-        return { outcome: 'too-many', most: MOST_CONNECTIONS_AT_ONCE };
+      if (command.records.length > MAX_CONNECTIONS_AT_ONCE) {
+        return { outcome: 'too-many', max: MAX_CONNECTIONS_AT_ONCE };
       }
 
       const byCredential = new Map<string, EgressConnectionRecord[]>();
@@ -110,7 +110,7 @@ export class RecordEgressConnectionsHandler
         dropped: command.records.length - recorded,
       };
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

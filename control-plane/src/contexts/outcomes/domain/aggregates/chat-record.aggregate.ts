@@ -12,7 +12,7 @@ export class ChatRecord {
     readonly version: number,
   ) {}
 
-  static started(input: {
+  static start(input: {
     chatId: string;
     workspaceId: WorkspaceId;
     teamId: TeamId;

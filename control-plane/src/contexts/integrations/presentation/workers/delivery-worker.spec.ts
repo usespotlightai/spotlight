@@ -12,65 +12,65 @@ const held = () => {
   return { holding, release: () => release() };
 };
 
-const turning = (workOff: () => Promise<number>) => {
+const ticking = (processDue: () => Promise<number>) => {
   const logger = { error: vi.fn() } as unknown as LoggerPort;
-  const work = { workOff: vi.fn(workOff) } as unknown as DeliveryWorkPort;
+  const work = { processDue: vi.fn(processDue) } as unknown as DeliveryWorkPort;
 
   return { worker: new DeliveryWorker(work, logger), work, logger };
 };
 
 describe('DeliveryWorker', () => {
   it('works off what is waiting when its turn comes', async () => {
-    const { worker, work } = turning(async () => 2);
+    const { worker, work } = ticking(async () => 2);
 
-    await worker.turn();
+    await worker.tick();
 
-    expect(work.workOff).toHaveBeenCalledTimes(1);
+    expect(work.processDue).toHaveBeenCalledTimes(1);
   });
 
   it('lets one turn finish before another starts', async () => {
     const { holding, release } = held();
-    const { worker, work } = turning(async () => {
+    const { worker, work } = ticking(async () => {
       await holding;
       return 1;
     });
 
-    const first = worker.turn();
-    await worker.turn();
+    const first = worker.tick();
+    await worker.tick();
 
-    expect(work.workOff).toHaveBeenCalledTimes(1);
+    expect(work.processDue).toHaveBeenCalledTimes(1);
 
     release();
     await first;
   });
 
   it('takes its next turn once the last one is done', async () => {
-    const { worker, work } = turning(async () => 0);
+    const { worker, work } = ticking(async () => 0);
 
-    await worker.turn();
-    await worker.turn();
+    await worker.tick();
+    await worker.tick();
 
-    expect(work.workOff).toHaveBeenCalledTimes(2);
+    expect(work.processDue).toHaveBeenCalledTimes(2);
   });
 
   it('starts no new turn once it is going down', async () => {
-    const { worker, work } = turning(async () => 1);
+    const { worker, work } = ticking(async () => 1);
 
     worker.onModuleDestroy();
-    await worker.turn();
+    await worker.tick();
 
-    expect(work.workOff).not.toHaveBeenCalled();
+    expect(work.processDue).not.toHaveBeenCalled();
   });
 
   it('says what went wrong and takes its next turn anyway', async () => {
     let turns = 0;
-    const { worker, logger } = turning(async () => {
+    const { worker, logger } = ticking(async () => {
       turns += 1;
       throw new Error('the database was away');
     });
 
-    await expect(worker.turn()).resolves.toBeUndefined();
-    await worker.turn();
+    await expect(worker.tick()).resolves.toBeUndefined();
+    await worker.tick();
 
     expect(turns).toBe(2);
     expect(logger.error).toHaveBeenCalledTimes(2);

@@ -201,7 +201,7 @@ export class SizeBoundResponseDto {
     description:
       'The most lines a run’s changes may take out and put in to be this size; none for no limit',
   })
-  readonly mostLines: number | null;
+  readonly maxLines: number | null;
 
   @ApiProperty({
     nullable: true,
@@ -210,12 +210,12 @@ export class SizeBoundResponseDto {
     description:
       'For a run that changed no lines, the most steps it may take to be this size; none for no limit',
   })
-  readonly mostSteps: number | null;
+  readonly maxSteps: number | null;
 
   constructor(bound: SizeBound) {
     this.size = bound.size;
-    this.mostLines = bound.mostLines;
-    this.mostSteps = bound.mostSteps;
+    this.maxLines = bound.maxLines;
+    this.maxSteps = bound.maxSteps;
   }
 }
 
@@ -375,9 +375,10 @@ export class InsightsSetupsResponseDto {
 
   @ApiProperty({
     example: 3,
-    description: 'The fewest runs a setup needs to sit on the frontier',
+    description:
+      'The minimum number of runs a setup needs to sit on the frontier',
   })
-  readonly fewestRuns: number;
+  readonly minRuns: number;
 
   @ApiProperty({
     nullable: true,
@@ -417,7 +418,7 @@ export class InsightsSetupsResponseDto {
     this.stationId = setups.stationId;
     this.size = setups.size;
     this.sizes = setups.sizes.map((each) => new SizeBoundResponseDto(each));
-    this.fewestRuns = setups.fewestRuns;
+    this.minRuns = setups.minRuns;
     this.currency = setups.currency;
     this.setups = setups.setups.map(
       (each) => new SetupOutcomeResponseDto(each),

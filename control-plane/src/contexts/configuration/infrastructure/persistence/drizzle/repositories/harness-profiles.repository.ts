@@ -72,7 +72,7 @@ export class DrizzleHarnessProfiles implements HarnessProfileRepository {
   }
 
   async save(profile: HarnessProfile): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       await this.stored(profile);
       await this.events.dispatch(profile.pullEvents());
     });

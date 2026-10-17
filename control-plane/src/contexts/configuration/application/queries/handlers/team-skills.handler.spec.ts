@@ -13,7 +13,7 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { describe, expect, it, vi } from 'vitest';
 
 const GRAFANA: SkillFolder = {
-  skill: Skill.defined({
+  skill: Skill.define({
     key: SkillKey.of('grafana-dashboards'),
     description: 'Reading this team’s dashboards.',
     instructions: 'Dashboards are at https://grafana.acme.dev.',

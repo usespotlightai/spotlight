@@ -7,7 +7,7 @@ import { InvalidScoreError } from '@outcomes/domain/exceptions/invalid-score.err
 import type { ScoreRepository } from '@outcomes/domain/repositories/score.repository';
 import type { GradingTerms } from '@outcomes/domain/services/grading-terms';
 import { ScoreId } from '@outcomes/domain/value-objects/score-id.vo';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
@@ -50,13 +50,13 @@ export class GradeRunHandler
 
   async execute(command: GradeRunCommand): Promise<RunScoresDto> {
     try {
-      const clearance = await this.access.clearance(
+      const access = await this.access.forTeam(
         command.teamId,
         command.viewerId,
       );
-      const run = await this.views.onTeam(clearance, command.runId);
+      const run = await this.views.onTeam(access, command.runId);
 
-      await this.transaction.run(async () => {
+      await this.transaction.inTransaction(async () => {
         const terms = await this.views.gradingTerms(
           run,
           await this.scores.ofRuns([run.record.runId]),
@@ -67,10 +67,10 @@ export class GradeRunHandler
           rubricVersion: terms.rubricVersion,
           at: this.clock.now(),
         };
-        const held = await this.scores.gradeBy(run.record.runId, clearance.by);
+        const held = await this.scores.gradeBy(run.record.runId, access.by);
 
         if (held) {
-          const regraded = held.regraded(graded);
+          const regraded = held.regrade(graded);
 
           if (regraded !== held) {
             await this.scores.save(regraded);
@@ -79,21 +79,21 @@ export class GradeRunHandler
         }
 
         await this.scores.add(
-          Score.graded({
+          Score.grade({
             ...graded,
             id: ScoreId.of(this.ids.generate()),
             runId: run.record.runId,
             workspaceId: run.record.workspaceId,
             place: run.end.place,
             fingerprint: run.end.fingerprint,
-            by: clearance.by,
+            by: access.by,
           }),
         );
       });
 
-      return await this.views.of(clearance, run);
+      return await this.views.of(access, run);
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

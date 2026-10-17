@@ -1,6 +1,6 @@
 import { InvalidRunnerPoolError } from '@runners/domain/exceptions/invalid-runner-pool.error';
 
-const MOST_LENGTH = 2048;
+const MAX_LENGTH = 2048;
 
 export class ProvisionUrl {
   private readonly kind = 'provision-url';
@@ -34,10 +34,10 @@ export class ProvisionUrl {
       );
     }
 
-    if (url.hash || given.length > MOST_LENGTH) {
+    if (url.hash || given.length > MAX_LENGTH) {
       throw new InvalidRunnerPoolError(
         'provision.url',
-        `must be at most ${MOST_LENGTH} characters, with no fragment`,
+        `must be at most ${MAX_LENGTH} characters, with no fragment`,
       );
     }
 

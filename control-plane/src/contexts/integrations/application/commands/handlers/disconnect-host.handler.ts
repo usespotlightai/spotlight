@@ -3,7 +3,7 @@ import type { DisconnectHostCommand } from '@integrations/application/commands/d
 import type { HostConnectionRepository } from '@integrations/domain/repositories/host-connection.repository';
 import { ConnectionHolder } from '@integrations/domain/value-objects/connection-holder.vo';
 import { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
@@ -33,14 +33,14 @@ export class DisconnectHostHandler
       );
 
       if (connection) {
-        await this.transaction.run(() =>
-          this.connections.remove(connection.disconnected()),
+        await this.transaction.inTransaction(() =>
+          this.connections.remove(connection.disconnect()),
         );
       }
 
       return true;
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

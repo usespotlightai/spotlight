@@ -7,11 +7,11 @@ import {
   asOutcome,
   asSize,
   DEFAULT_OUTCOME,
+  formatSize,
   OUTCOME_MEASURES,
   type OutcomeMeasure,
   outcomeLabel,
   RUN_SIZES,
-  sizeShown,
 } from '@/lib/insights-changes';
 
 const CONTROL = 'w-32';
@@ -89,7 +89,7 @@ export function SetupFilters({
           label="Task size"
           choices={RUN_SIZES.map((size) => ({
             value: size,
-            label: sizeShown(size),
+            label: formatSize(size),
           }))}
           value={narrowed.size}
           placeholder="Every size"

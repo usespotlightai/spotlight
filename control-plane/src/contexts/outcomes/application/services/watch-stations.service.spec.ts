@@ -65,7 +65,7 @@ const watching = (initially: readonly AlertRule[] | null) => {
     const record = endedRecord(`run_${hour}`, {
       taskId: `task_${hour}`,
       endedAt: day('2026-09-30', hour),
-    }).actedOn(NextAct.of(act, day('2026-09-30', hour)));
+    }).recordAction(NextAct.of(act, day('2026-09-30', hour)));
     const [ended] = record.pullEvents();
     await records.add(record);
     await service.runEnded(ended as RunRecordEnded);
@@ -83,7 +83,9 @@ const watching = (initially: readonly AlertRule[] | null) => {
 
   const actedOn = async (hour: number, act: 'closed' | 'sent-back') => {
     const held = await records.of(RunId.of(`run_${hour}`));
-    const acted = held?.actedOn(NextAct.of(act, day('2026-09-30', hour + 1)));
+    const acted = held?.recordAction(
+      NextAct.of(act, day('2026-09-30', hour + 1)),
+    );
     const [event] = acted?.pullEvents() ?? [];
     expect(event).toBeInstanceOf(RunRecordSettled);
     await records.save(acted as RunRecord);
@@ -333,7 +335,7 @@ describe('WatchStations', () => {
 
     await expect(
       station.watches.save(
-        (stale as StationWatch).checked([], day('2026-09-30', 23), () =>
+        (stale as StationWatch).check([], day('2026-09-30', 23), () =>
           AlertId.of('alert_9'),
         ),
       ),

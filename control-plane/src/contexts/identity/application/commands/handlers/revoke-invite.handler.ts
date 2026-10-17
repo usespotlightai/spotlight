@@ -2,7 +2,7 @@ import type { RevokeInviteCommand } from '@identity/application/commands/revoke-
 import type { WorkspaceAdministration } from '@identity/application/services/workspace-administration.service';
 import type { WorkspaceInviteRepository } from '@identity/domain/repositories/workspace-invite.repository';
 import { InviteId } from '@identity/domain/value-objects/invite-id.vo';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 
@@ -32,7 +32,7 @@ export class RevokeInviteHandler
         return false;
       }
 
-      const revoked = invite.revoked(administered.by, this.clock.now());
+      const revoked = invite.revoke(administered.by, this.clock.now());
 
       if (revoked !== invite) {
         await this.invites.save(revoked);
@@ -40,7 +40,7 @@ export class RevokeInviteHandler
 
       return true;
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

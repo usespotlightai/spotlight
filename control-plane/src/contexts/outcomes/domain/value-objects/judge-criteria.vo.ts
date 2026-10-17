@@ -3,7 +3,7 @@ import { ScoreScale } from '@outcomes/domain/value-objects/score-scale.vo';
 import { InvalidRubricScaleError } from '@shared-kernel/domain/exceptions/invalid-rubric-scale.error';
 import { RubricScale } from '@shared-kernel/domain/value-objects/rubric-scale.vo';
 
-const MOST_CLAIMS = 20;
+const MAX_CLAIMS = 20;
 
 const scaleOfRubric = (text: string): ScoreScale => {
   try {
@@ -38,9 +38,9 @@ export class JudgeCriteria {
     if (rubric === null && claims.length === 0) {
       throw InvalidScoreError.ofJudging('needs a rubric or claims');
     }
-    if (claims.length > MOST_CLAIMS || claims.some((each) => !each)) {
+    if (claims.length > MAX_CLAIMS || claims.some((each) => !each)) {
       throw InvalidScoreError.ofJudging(
-        `claims must be at most ${MOST_CLAIMS}, none empty`,
+        `claims must be at most ${MAX_CLAIMS}, none empty`,
       );
     }
     if (!Number.isFinite(passShare) || passShare < 0 || passShare > 1) {

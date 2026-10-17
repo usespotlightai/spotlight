@@ -4,7 +4,7 @@ export type SkillTrend = (typeof SKILL_TRENDS)[number];
 
 export const TREND_RECENT_WEEKS = 2;
 
-export const TREND_FEWEST_RUNS = 5;
+export const TREND_MIN_RUNS = 5;
 
 export const TREND_SHIFT_POINTS = 20;
 
@@ -27,7 +27,7 @@ export const skillTrendOf = (weeks: readonly WeekUse[]): SkillTrend | null => {
   const recent = together(weeks.slice(-TREND_RECENT_WEEKS));
   const earlier = together(weeks.slice(0, -TREND_RECENT_WEEKS));
 
-  if (recent.runs < TREND_FEWEST_RUNS || earlier.runs < TREND_FEWEST_RUNS) {
+  if (recent.runs < TREND_MIN_RUNS || earlier.runs < TREND_MIN_RUNS) {
     return null;
   }
 

@@ -40,7 +40,7 @@ const withReplays = (
 
     if (!replay) {
       return unended && known.some((each) => each.equals(replayId))
-        ? held.replayEnded(
+        ? held.recordReplayEnd(
             replayId,
             'abandoned',
             { spent: Spend.none(held.budget.ceiling.currency), unpriced: 0 },
@@ -55,7 +55,7 @@ const withReplays = (
     const end = endOf(replay);
 
     return end && unended
-      ? held.replayEnded(
+      ? held.recordReplayEnd(
           replayId,
           end,
           charge,
@@ -107,21 +107,26 @@ export const reconciled = (
     : undefined;
 
   if (holding && running?.phase === 'ended') {
-    held = held.runEnded(
+    held = held.recordRunEnd(
       holding,
       { failed: running.failed, started: running.started },
       at,
       runIds,
     );
   } else if (holding && !running && !held.isActive) {
-    held = held.runEnded(holding, { failed: true, started: false }, at, runIds);
+    held = held.recordRunEnd(
+      holding,
+      { failed: true, started: false },
+      at,
+      runIds,
+    );
   }
 
   for (const iteration of held.awaitingAgentSpend) {
     const ended = runs.find((each) => each.run.equals(iteration.runId));
 
     if (past(ended?.endedAt ?? null, DIGEST_WAIT_MS, at)) {
-      held = held.spentByAgent(iteration.runId, UNPRICED_RUN, at, runIds);
+      held = held.recordAgentSpend(iteration.runId, UNPRICED_RUN, at, runIds);
     }
   }
 

@@ -15,7 +15,7 @@ import {
 } from '@platform/openrouter/openrouter-json';
 import { z } from 'zod';
 
-const MOST_OUTPUT = 8_000;
+const MAX_OUTPUT = 8_000;
 
 const MEMORIES = new JsonShape(
   'memories',
@@ -64,10 +64,10 @@ Rules:
 7. Never propose again what people recently turned down, nor what the agent already proposed itself.
 8. Prefer a few memories that matter to many that do not. When nothing is worth remembering, give none.`;
 
-const MOST_KNOWN = 1_000;
+const MAX_KNOWN = 1_000;
 
 const known = (body: string): string =>
-  body.length > MOST_KNOWN ? `${body.slice(0, MOST_KNOWN)} …` : body;
+  body.length > MAX_KNOWN ? `${body.slice(0, MAX_KNOWN)} …` : body;
 
 const listed = (lines: readonly string[], none: string): string =>
   lines.length > 0 ? lines.join('\n') : none;
@@ -137,7 +137,7 @@ export class OpenRouterMemoryDrafter implements MemoryDrafterPort {
         shape: MEMORIES,
         system: SYSTEM,
         asked: told(ask),
-        most: MOST_OUTPUT,
+        max: MAX_OUTPUT,
       });
 
       return memories;

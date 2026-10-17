@@ -14,7 +14,7 @@ import type { TransactionPort } from '@shared-kernel/application/ports/transacti
 import { OwedWorkPool } from '@shared-kernel/application/services/owed-work-pool';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
-const MOST_JUDGED_AT_ONCE = 4;
+const MAX_JUDGED_AT_ONCE = 4;
 
 export class WorkJudgings implements OwedWorkPort {
   readonly name = 'Judging runs';
@@ -33,7 +33,7 @@ export class WorkJudgings implements OwedWorkPort {
     this.#pool = new OwedWorkPool<Judging, RunId>(
       {
         name: this.name,
-        mostAtOnce: MOST_JUDGED_AT_ONCE,
+        maxAtOnce: MAX_JUDGED_AT_ONCE,
         due: (now) => this.judgings.dueForWork(now),
         find: (runId) => this.judgings.of(runId),
         save: (judging) => this.judgings.save(judging),
@@ -96,7 +96,7 @@ export class WorkJudgings implements OwedWorkPort {
         reference: null,
       });
 
-      return judging.judged({
+      return judging.recordVerdict({
         verdict,
         evidence,
         model: this.judge.model,

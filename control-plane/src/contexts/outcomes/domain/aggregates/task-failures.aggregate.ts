@@ -43,7 +43,7 @@ export class TaskFailures {
     return this.occurrences[this.occurrences.length - 1]?.at ?? null;
   }
 
-  raised(occurrence: FailureOccurrence): TaskFailures {
+  raise(occurrence: FailureOccurrence): TaskFailures {
     if (this.occurrences.some((each) => each.sameAs(occurrence))) {
       return this;
     }

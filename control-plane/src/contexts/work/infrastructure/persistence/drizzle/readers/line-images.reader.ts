@@ -9,7 +9,7 @@ import {
 } from '@work/infrastructure/persistence/drizzle/schemas/line.schema';
 import { and, asc, eq, isNotNull } from 'drizzle-orm';
 
-const MOST_NAMED = 400;
+const MAX_NAMED = 400;
 
 @Injectable()
 export class DrizzleLineImages implements LineImagesPort {
@@ -27,7 +27,7 @@ export class DrizzleLineImages implements LineImagesPort {
         ),
       )
       .orderBy(asc(lineRepository.image))
-      .limit(MOST_NAMED);
+      .limit(MAX_NAMED);
 
     return rows.flatMap((row) => (row.image ? [row.image] : []));
   }

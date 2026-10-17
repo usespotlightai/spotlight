@@ -5,7 +5,7 @@ import type { IntegrationResourcesPort } from '@integrations/application/ports/i
 import type { ImportIntegrationQuery } from '@integrations/application/queries/import-integration.query';
 import type { IntegrationViews } from '@integrations/application/services/integration-views.service';
 import { IntegrationAddress } from '@integrations/domain/value-objects/integration-address.vo';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -25,7 +25,7 @@ export class ImportIntegrationHandler
   ): Promise<IntegrationResourceDto | null> {
     try {
       const address = IntegrationAddress.parse(query.address);
-      const workspace = await this.access.clearanceIn(
+      const workspace = await this.access.permissionsIn(
         WorkspaceId.of(query.workspaceId),
         query.principal,
       );
@@ -40,7 +40,7 @@ export class ImportIntegrationHandler
 
       return kept ? this.views.of(kept) : null;
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

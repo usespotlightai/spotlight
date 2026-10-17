@@ -143,10 +143,10 @@ describe('DrizzleNetworkCallRepository', () => {
       throw new Error('nothing was claimed');
     }
 
-    await calls.save(claimed.answeredWith(HOST, answer, later(1_000)));
+    await calls.save(claimed.answerWith(HOST, answer, later(1_000)));
 
     await expect(
-      calls.save(claimed.answeredWith(HOST, answer, later(2_000))),
+      calls.save(claimed.answerWith(HOST, answer, later(2_000))),
     ).rejects.toThrow(NetworkCallVersionConflictError);
 
     const clock = { now: () => later(1_500), sleep: async () => {} };
@@ -178,7 +178,7 @@ describe('DrizzleNetworkCallRepository', () => {
     }
 
     await calls.save(
-      claimed.answeredWith(
+      claimed.answerWith(
         HOST,
         NetworkAnswer.of({ status: 204, ms: 3 }),
         later(1_000),

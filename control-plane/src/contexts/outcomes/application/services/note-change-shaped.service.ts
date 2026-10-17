@@ -40,7 +40,7 @@ export class NoteChangeShaped {
     const workspaceId = WorkspaceId.of(shaped.workspaceId);
     const teamId = TeamId.of(run.teamId);
 
-    await this.transaction.run(async () => {
+    await this.transaction.inTransaction(async () => {
       await this.forgotten.holding(workspaceId, taskId, teamId);
 
       if (await this.forgotten.forgot(workspaceId, taskId, teamId)) {
@@ -51,7 +51,7 @@ export class NoteChangeShaped {
 
       if (!held) {
         await this.shapes.add(
-          TaskChangeShape.shaped({
+          TaskChangeShape.create({
             taskId,
             workspaceId,
             teamId,
@@ -61,10 +61,10 @@ export class NoteChangeShaped {
         return;
       }
 
-      const reshaped = held.reshaped(shaped.shape);
+      const latest = held.withShape(shaped.shape);
 
-      if (reshaped !== held) {
-        await this.shapes.save(reshaped);
+      if (latest !== held) {
+        await this.shapes.save(latest);
       }
     });
   }

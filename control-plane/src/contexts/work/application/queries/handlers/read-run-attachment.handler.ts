@@ -1,4 +1,4 @@
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import type {
   AttachmentContent,
@@ -26,7 +26,7 @@ export class ReadRunAttachmentHandler
         ? await this.files.open(work.workspaceId, given)
         : null;
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

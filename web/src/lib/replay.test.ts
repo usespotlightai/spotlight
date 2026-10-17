@@ -10,17 +10,17 @@ import {
   ceilingShare,
   comparisonInOrder,
   copiesTally,
-  costDeltaShown,
   counterpartLabel,
   counterpartNoun,
   counterpartRateOf,
-  counterpartShown,
   flippedTitles,
-  judgeScoreShown,
+  formatCostDelta,
+  formatCounterpart,
+  formatJudgeScore,
+  formatMsDelta,
   latestOf,
   meanCostOf,
   meanMsOf,
-  msDeltaShown,
   repeatsFrom,
   replayPath,
   replaySetPath,
@@ -200,22 +200,22 @@ describe('replays', () => {
   });
 
   it('signs deltas, and shows none where there is none', () => {
-    expect(costDeltaShown(-0.1, 'USD')).toBe('−$0.10');
-    expect(costDeltaShown(null, 'USD')).toBe('–');
-    expect(msDeltaShown(90_000)).toBe('+1m 30s');
+    expect(formatCostDelta(-0.1, 'USD')).toBe('−$0.10');
+    expect(formatCostDelta(null, 'USD')).toBe('–');
+    expect(formatMsDelta(90_000)).toBe('+1m 30s');
   });
 
   it('names what a replay was set beside: the baseline, the search’s starting config, the live config or an earlier baseline', () => {
-    expect(counterpartShown('base', candidate('proposed'), 'base')).toBe(
+    expect(formatCounterpart('base', candidate('proposed'), 'base')).toBe(
       'the baseline',
     );
-    expect(counterpartShown('seed', candidate('searched'), 'base')).toBe(
+    expect(formatCounterpart('seed', candidate('searched'), 'base')).toBe(
       'the search’s starting config',
     );
-    expect(counterpartShown('live', candidate('oracle'), 'base')).toBe(
+    expect(formatCounterpart('live', candidate('oracle'), 'base')).toBe(
       'the live config',
     );
-    expect(counterpartShown('older', candidate('proposed'), 'base')).toBe(
+    expect(formatCounterpart('older', candidate('proposed'), 'base')).toBe(
       'an earlier baseline',
     );
   });
@@ -251,11 +251,11 @@ describe('replays', () => {
       reasons: [],
     });
 
-    expect(judgeScoreShown(judged('yes-no', 1))).toBe('Yes');
-    expect(judgeScoreShown(judged('number', 4))).toBe('4/5');
-    expect(judgeScoreShown(null)).toBe('–');
+    expect(formatJudgeScore(judged('yes-no', 1))).toBe('Yes');
+    expect(formatJudgeScore(judged('number', 4))).toBe('4/5');
+    expect(formatJudgeScore(null)).toBe('–');
     expect(
-      judgeScoreShown({
+      formatJudgeScore({
         ...judged('number', 2 / 3),
         scale: 'claims',
         marks: [true, true, false],

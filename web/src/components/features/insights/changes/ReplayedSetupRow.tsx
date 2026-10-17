@@ -7,8 +7,8 @@ import {
   OUTER_INDENT,
 } from '@/components/shared/nested-table/nested-rows';
 import { spentIn } from '@/lib/inbox';
-import { countShown, shareShown } from '@/lib/insights';
-import { type ReplayedPoint, sourceShown } from '@/lib/insights-candidates';
+import { formatCount, formatShare } from '@/lib/insights';
+import { formatSource, type ReplayedPoint } from '@/lib/insights-candidates';
 import { cn } from '@/lib/utils';
 
 type ReplayedSetupRowProps = {
@@ -46,14 +46,14 @@ export function ReplayedSetupRow({ point, currency }: ReplayedSetupRowProps) {
         {point.frontier && <BestValueMark />}
       </div>
       <NestedCell heading="Source" numeric={false}>
-        {sourceShown(point.mark)}
+        {formatSource(point.mark)}
       </NestedCell>
-      <NestedCell heading="Runs scored">{countShown(point.scored)}</NestedCell>
+      <NestedCell heading="Runs scored">{formatCount(point.scored)}</NestedCell>
       <NestedCell heading="Cost per run" strong>
         {spentIn(point.cost, currency)}
       </NestedCell>
       <NestedCell heading="Replay success" strong>
-        {shareShown(point.value)}
+        {formatShare(point.value)}
       </NestedCell>
       <NestedCell heading="Held out">{point.heldOut ?? '–'}</NestedCell>
     </li>

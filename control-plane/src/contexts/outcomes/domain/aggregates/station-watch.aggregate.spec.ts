@@ -21,7 +21,7 @@ const RISING = AlertRule.of({
 const PRICEY = AlertRule.of({ measure: 'cost_per_run', above: 2, over: 3 });
 
 const begun = () =>
-  StationWatch.begun({
+  StationWatch.start({
     workspaceId: WORKSPACE,
     teamId: TEAM,
     lineId: 'line_1',
@@ -67,7 +67,7 @@ const checkedAlong = (
 ): StationWatch =>
   readings.reduce(
     (held, each) =>
-      held.checked(
+      held.check(
         [each],
         atRun(Number(each.reading?.runId.value.slice(4))),
         next,
@@ -77,7 +77,7 @@ const checkedAlong = (
 
 describe('StationWatch', () => {
   it('raises an alert on the newest settled run whose reading crosses a threshold', () => {
-    const watch = begun().checked([rising(1, 0.6, 0.3)], atRun(1), ids());
+    const watch = begun().check([rising(1, 0.6, 0.3)], atRun(1), ids());
 
     const [raised] = watch.pullEvents();
     expect(raised).toBeInstanceOf(StationAlertRaised);
@@ -89,10 +89,10 @@ describe('StationWatch', () => {
 
   it('raises once while the station stays past the threshold', () => {
     const next = ids();
-    const raised = begun().checked([rising(1, 0.6, 0.3)], atRun(1), next);
+    const raised = begun().check([rising(1, 0.6, 0.3)], atRun(1), next);
     raised.pullEvents();
 
-    const again = raised.checked([rising(2, 0.7, 0.3)], atRun(2), next);
+    const again = raised.check([rising(2, 0.7, 0.3)], atRun(2), next);
 
     expect(again).toBe(raised);
     expect(again.open).toHaveLength(1);
@@ -100,16 +100,16 @@ describe('StationWatch', () => {
 
   it('recovers only once the reading has stayed clear for as many further settled runs as it compares', () => {
     const next = ids();
-    const raised = begun().checked([rising(1, 0.6, 0.3)], atRun(1), next);
+    const raised = begun().check([rising(1, 0.6, 0.3)], atRun(1), next);
     raised.pullEvents();
 
-    const once = raised.checked([rising(2, 0.3, 0.3)], atRun(2), next);
+    const once = raised.check([rising(2, 0.3, 0.3)], atRun(2), next);
 
     expect(kinds(once)).toEqual([]);
     expect(once.open).toHaveLength(1);
     expect(once.open[0]?.clearRuns).toBe(1);
 
-    const twice = once.checked([rising(3, 0.3, 0.3)], atRun(3), next);
+    const twice = once.check([rising(3, 0.3, 0.3)], atRun(3), next);
 
     expect(kinds(twice)).toEqual(['station-alert.recovered']);
     expect(twice.open).toEqual([]);
@@ -118,10 +118,10 @@ describe('StationWatch', () => {
 
   it('counts a settled run once however often it is read', () => {
     const next = ids();
-    const raised = begun().checked([rising(1, 0.6, 0.3)], atRun(1), next);
-    const once = raised.checked([rising(2, 0.3, 0.3)], atRun(2), next);
+    const raised = begun().check([rising(1, 0.6, 0.3)], atRun(1), next);
+    const once = raised.check([rising(2, 0.3, 0.3)], atRun(2), next);
 
-    const again = once.checked([rising(2, 0.3, 0.3)], atRun(3), next);
+    const again = once.check([rising(2, 0.3, 0.3)], atRun(3), next);
 
     expect(again).toBe(once);
     expect(again.open[0]?.clearRuns).toBe(1);
@@ -198,30 +198,30 @@ describe('StationWatch', () => {
 
   it('leaves an alert as it stands while there are too few runs to read', () => {
     const next = ids();
-    const raised = begun().checked([rising(1, 0.6, 0.3)], atRun(1), next);
+    const raised = begun().check([rising(1, 0.6, 0.3)], atRun(1), next);
 
     expect(
-      raised.checked([{ rule: RISING, reading: null }], atRun(2), next),
+      raised.check([{ rule: RISING, reading: null }], atRun(2), next),
     ).toBe(raised);
   });
 
   it('recovers at once an alert whose threshold the station no longer sets, and raises anew if it comes back', () => {
     const next = ids();
-    const raised = begun().checked([rising(1, 0.6, 0.3)], atRun(1), next);
+    const raised = begun().check([rising(1, 0.6, 0.3)], atRun(1), next);
     raised.pullEvents();
 
-    const withdrawn = raised.checked([], atRun(2), next);
+    const withdrawn = raised.check([], atRun(2), next);
 
     expect(withdrawn.open).toEqual([]);
     expect(kinds(withdrawn)).toEqual(['station-alert.recovered']);
 
-    const back = withdrawn.checked([rising(3, 0.6, 0.3)], atRun(3), next);
+    const back = withdrawn.check([rising(3, 0.6, 0.3)], atRun(3), next);
 
     expect(back.open.map((each) => each.id.value)).toEqual(['alert_2']);
   });
 
   it('watches each threshold apart', () => {
-    const watch = begun().checked(
+    const watch = begun().check(
       [rising(1, 0.6, 0.3), read(PRICEY, 1, 1.5)],
       atRun(1),
       ids(),
@@ -233,7 +233,7 @@ describe('StationWatch', () => {
   });
 
   it('raises once for two identical thresholds', () => {
-    const watch = begun().checked(
+    const watch = begun().check(
       [rising(1, 0.6, 0.3), rising(1, 0.6, 0.3)],
       atRun(1),
       ids(),
@@ -245,7 +245,7 @@ describe('StationWatch', () => {
 
   it('keeps an alert open, judged by the new amount, when its threshold is edited and still crossed', () => {
     const next = ids();
-    const raised = begun().checked([rising(1, 0.6, 0.3)], atRun(1), next);
+    const raised = begun().check([rising(1, 0.6, 0.3)], atRun(1), next);
     raised.pullEvents();
     const edited = AlertRule.of({
       measure: 'sent_back_rate',
@@ -253,11 +253,7 @@ describe('StationWatch', () => {
       over: 2,
     });
 
-    const rejudged = raised.checked(
-      [read(edited, 2, 0.65, 0.3)],
-      atRun(2),
-      next,
-    );
+    const rejudged = raised.check([read(edited, 2, 0.65, 0.3)], atRun(2), next);
 
     expect(kinds(rejudged)).toEqual([]);
     expect(rejudged.open.map((each) => each.id.value)).toEqual(['alert_1']);
@@ -269,7 +265,7 @@ describe('StationWatch', () => {
 
   it('recovers an alert once its edited threshold has stayed uncrossed long enough', () => {
     const next = ids();
-    const raised = begun().checked([rising(1, 0.6, 0.3)], atRun(1), next);
+    const raised = begun().check([rising(1, 0.6, 0.3)], atRun(1), next);
     raised.pullEvents();
     const edited = AlertRule.of({
       measure: 'sent_back_rate',
@@ -290,12 +286,11 @@ describe('StationWatch', () => {
     const next = ids();
     const held = StationWatch.rehydrate({
       station: begun().station,
-      crossings: begun().checked([rising(1, 0.6, 0.3)], atRun(1), next)
-        .crossings,
+      crossings: begun().check([rising(1, 0.6, 0.3)], atRun(1), next).crossings,
       version: 1,
     });
 
-    const priced = held.checked(
+    const priced = held.check(
       [rising(2, 0.7, 0.3), read(PRICEY, 2, 3)],
       atRun(2),
       next,
@@ -308,8 +303,8 @@ describe('StationWatch', () => {
   it('lets go of every alert raised on a forgotten task, naming them to drop', () => {
     const next = ids();
     const watch = begun()
-      .checked([rising(1, 0.6, 0.3)], atRun(1), next)
-      .checked([rising(2, 0.6, 0.3), read(PRICEY, 2, 3)], atRun(2), next);
+      .check([rising(1, 0.6, 0.3)], atRun(1), next)
+      .check([rising(2, 0.6, 0.3), read(PRICEY, 2, 3)], atRun(2), next);
     watch.pullEvents();
 
     const forgotten = watch.withoutTask(TaskId.of('task_1'));
@@ -325,7 +320,7 @@ describe('StationWatch', () => {
 
   it('refuses to stand crossed twice for one threshold', () => {
     const next = ids();
-    const raised = begun().checked([rising(1, 0.6, 0.3)], atRun(1), next);
+    const raised = begun().check([rising(1, 0.6, 0.3)], atRun(1), next);
     const open = raised.open[0];
 
     expect(() =>

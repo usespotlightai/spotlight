@@ -1,4 +1,4 @@
-import { HELD_HOOKS } from '@configuration/application/ports/held-hooks.port';
+import { HOOK_CONFIGS } from '@configuration/application/ports/hook-configs.port';
 import {
   PULL_REQUESTS,
   type PullRequestPort,
@@ -89,8 +89,8 @@ import {
   INTEGRATION_DEFINITIONS,
   type IntegrationDefinitionRepository,
 } from '@integrations/domain/repositories/integration-definition.repository';
-import { HeldHooks } from '@integrations/infrastructure/acl/held-hooks.adapter';
 import { HookCalls } from '@integrations/infrastructure/acl/hook-calls.adapter';
+import { HookConfigs } from '@integrations/infrastructure/acl/hook-configs.adapter';
 import { LifecycleHooks } from '@integrations/infrastructure/acl/lifecycle-hooks.adapter';
 import { TasksForHooks } from '@integrations/infrastructure/acl/tasks-for-hooks.adapter';
 import { CompiledHookRuntime } from '@integrations/infrastructure/hooks/hook.runtime';
@@ -196,10 +196,10 @@ export const HOOKS_PROVIDERS: readonly Provider[] = [
   },
 
   {
-    provide: HELD_HOOKS,
+    provide: HOOK_CONFIGS,
     inject: [HOOK_RESOURCES, TEAM_DIRECTORY],
     useFactory: (resources: HookResourcesPort, teams: TeamDirectoryPort) =>
-      new HeldHooks(resources, teams),
+      new HookConfigs(resources, teams),
   },
 
   {

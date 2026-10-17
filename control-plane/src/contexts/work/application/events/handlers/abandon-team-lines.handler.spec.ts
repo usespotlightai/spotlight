@@ -47,7 +47,7 @@ const abandoning = (tasks: number) => {
       standingAt: vi.fn(tally),
       lockedStandingAt: vi.fn(tally),
     } satisfies StationTalliesPort,
-    { run: (work) => work() },
+    { inTransaction: (work) => work() },
     { debug: vi.fn(), info: vi.fn(), warn, error: vi.fn() },
   );
 

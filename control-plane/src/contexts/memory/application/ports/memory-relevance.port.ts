@@ -13,7 +13,7 @@ export interface MemoryRelevancePort {
   recall(
     teamId: TeamId,
     words: RecallWords,
-    most: number,
+    max: number,
     standingAt?: Date | null,
   ): Promise<readonly MemoryId[]>;
 }

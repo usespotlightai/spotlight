@@ -103,7 +103,7 @@ describe('ChangeStackComment', () => {
       now: NOW,
     })
       .claimedFor(CHECKER, RunnerTerms.none(), NOW)
-      .recorded(
+      .recordResult(
         CHECKER,
         { steps: stack.checkSteps(stack.entries()), layers: stack.layers() },
         [

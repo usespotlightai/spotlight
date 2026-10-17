@@ -1,7 +1,7 @@
 import type { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
 import type { Station } from '@work/domain/entities/station.entity';
-import type { Word } from '@work/domain/value-objects/happening.vo';
+import type { HappeningPayload } from '@work/domain/value-objects/happening.vo';
 import type { Mark } from '@work/domain/value-objects/mark.vo';
 import { NotePosition } from '@work/domain/value-objects/note-position.vo';
 import type { OpensWith } from '@work/domain/value-objects/opens-with';
@@ -54,7 +54,7 @@ export const ReactionFor = {
   happened(input: {
     task: Task;
     line: Line;
-    word: Word;
+    payload: HappeningPayload;
     said: Said | null;
   }): Outcome {
     if (input.line.completed.id.equals(input.task.stationId)) {
@@ -62,14 +62,14 @@ export const ReactionFor = {
     }
 
     const rule = input.line.reactionTo(
-      input.word.happening,
+      input.payload.happening,
       input.task.stationId,
     );
     const here = input.line.stationAt(input.task.stationId);
 
     const note = (
       station: StationName,
-      body = TaskNoteBody.heard(input.word.told, input.said),
+      body = TaskNoteBody.heard(input.payload.told, input.said),
     ): Told => ({ station, body, said: input.said });
 
     if (rule) {
@@ -93,11 +93,11 @@ export const ReactionFor = {
                 station,
                 input.task.awaitsAnAnswer
                   ? TaskNoteBody.interruptedWhileWaiting(
-                      input.word.told,
+                      input.payload.told,
                       here?.name ?? null,
                     )
                   : TaskNoteBody.interrupted(
-                      input.word.told,
+                      input.payload.told,
                       here?.name ?? null,
                     ),
               ),
@@ -108,7 +108,7 @@ export const ReactionFor = {
               ...note(
                 station,
                 TaskNoteBody.heldBack(
-                  input.word.told,
+                  input.payload.told,
                   input.said,
                   destination.name,
                 ),
@@ -118,7 +118,7 @@ export const ReactionFor = {
     }
 
     const owed = input.task.owedConversation;
-    if (here && owed && input.word.spoken && input.said) {
+    if (here && owed && input.payload.spoken && input.said) {
       return {
         kind: 'answers',
         to: NotePosition.of(owed.from),
@@ -126,7 +126,7 @@ export const ReactionFor = {
       };
     }
 
-    return rule && here && !(input.word.spoken && !input.said)
+    return rule && here && !(input.payload.spoken && !input.said)
       ? { kind: 'stays', ...note(here.name) }
       : { kind: 'nothing' };
   },

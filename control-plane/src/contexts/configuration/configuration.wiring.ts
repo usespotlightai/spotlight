@@ -28,21 +28,21 @@ import {
   type HarnessReviewPort,
 } from '@configuration/application/ports/harness-review.port';
 import {
-  HELD_HOOKS,
-  type HeldHooksPort,
-} from '@configuration/application/ports/held-hooks.port';
+  HOOK_CONFIGS,
+  type HookConfigsPort,
+} from '@configuration/application/ports/hook-configs.port';
 import {
-  HELD_INTEGRATIONS,
-  type HeldIntegrationsPort,
-} from '@configuration/application/ports/held-integrations.port';
-import {
-  HELD_SECRETS,
-  type HeldSecretsPort,
-} from '@configuration/application/ports/held-secrets.port';
+  INTEGRATION_CONFIGS,
+  type IntegrationConfigsPort,
+} from '@configuration/application/ports/integration-configs.port';
 import {
   INTEGRATION_READER,
   type IntegrationReaderPort,
 } from '@configuration/application/ports/integration-reader.port';
+import {
+  SECRET_NAMES,
+  type SecretNamesPort,
+} from '@configuration/application/ports/secret-names.port';
 import {
   SKILL_COMPILER,
   type SkillCompilerPort,
@@ -83,7 +83,7 @@ import { HeldConfigurations } from '@configuration/application/services/held-con
 import { ProfileSecretUses } from '@configuration/application/services/profile-secret-uses.service';
 import { SkillViews } from '@configuration/application/services/skill-views.service';
 import { StationGifts } from '@configuration/application/services/station-gifts.service';
-import { CONFIGURATION_EVENT_TYPES } from '@configuration/domain/event-types';
+import { CONFIGURATION_PAYLOAD_TYPES } from '@configuration/domain/payload-types';
 import {
   HARNESS_PROFILES,
   type HarnessProfileRepository,
@@ -135,7 +135,7 @@ import type { Provider, Type } from '@nestjs/common';
 import { bindCommandHandler } from '@platform/cqrs/bind-command-handler';
 import { bindQueryHandler } from '@platform/cqrs/bind-query-handler';
 import { EventSubscribers } from '@platform/events/event-subscribers';
-import { EventTypes } from '@platform/events/event-types';
+import { PayloadTypes } from '@platform/events/payload-types';
 import {
   RUNNER_CONFIGURATION,
   type RunnerConfigurationPort,
@@ -206,7 +206,7 @@ const adapters: Provider[] = [
   },
   { provide: SKILL_READER, useFactory: () => new TeamSkillFiles() },
   {
-    provide: HELD_SECRETS,
+    provide: SECRET_NAMES,
     inject: [TEAM_DIRECTORY, DEFINED_SECRETS],
     useFactory: (teams: TeamDirectoryPort, secrets: DefinedSecretsPort) =>
       new WorkspaceSecrets(teams, secrets),
@@ -256,8 +256,8 @@ const adapters: Provider[] = [
       TEAM_DIRECTORY,
       LINE_RESOURCES,
       SKILL_RESOURCES,
-      HELD_INTEGRATIONS,
-      HELD_HOOKS,
+      INTEGRATION_CONFIGS,
+      HOOK_CONFIGS,
       HARNESS_PROFILE_RESOURCES,
       HarnessProfileViews,
       SECRET_CONFIGURATION,
@@ -268,8 +268,8 @@ const adapters: Provider[] = [
       teams: TeamDirectoryPort,
       lines: LineResourcesPort,
       skills: SkillResourcesPort,
-      integrations: HeldIntegrationsPort,
-      hooks: HeldHooksPort,
+      integrations: IntegrationConfigsPort,
+      hooks: HookConfigsPort,
       profiles: HarnessProfileResourcesPort,
       profileViews: HarnessProfileViews,
       secrets: SecretConfigurationPort,
@@ -335,7 +335,7 @@ const handlers: Provider[] = [
       WORKSPACE_ACCESS,
       TEAM_DIRECTORY,
       HARNESS_PROFILE_COMPILER,
-      HELD_SECRETS,
+      SECRET_NAMES,
       HARNESS_PROFILES,
       IDEMPOTENT_CREATES,
       ID_GENERATOR,
@@ -348,7 +348,7 @@ const handlers: Provider[] = [
     [
       WORKSPACE_ACCESS,
       HARNESS_PROFILE_COMPILER,
-      HELD_SECRETS,
+      SECRET_NAMES,
       HARNESS_PROFILES,
       TRANSACTION,
     ],
@@ -398,8 +398,8 @@ const handlers: Provider[] = [
       TEAM_DIRECTORY,
       LINE_RESOURCES,
       SKILL_RESOURCES,
-      HELD_INTEGRATIONS,
-      HELD_HOOKS,
+      INTEGRATION_CONFIGS,
+      HOOK_CONFIGS,
       HARNESS_PROFILE_RESOURCES,
       SECRET_CONFIGURATION,
       RUNNER_CONFIGURATION,
@@ -460,11 +460,11 @@ const published: Provider[] = [
   },
   {
     provide: TEAM_SKILLS,
-    inject: [APPLIED_CONFIGURATION, SKILL_READER, HELD_SECRETS],
+    inject: [APPLIED_CONFIGURATION, SKILL_READER, SECRET_NAMES],
     useFactory: (
       applied: AppliedConfigurationPort,
       reader: SkillReaderPort,
-      secrets: HeldSecretsPort,
+      secrets: SecretNamesPort,
     ) => new TeamSkills(applied, reader, secrets),
   },
 ];
@@ -473,20 +473,20 @@ export const CONFIGURATION_PROVIDERS: readonly Provider[] = [
   {
     provide: CONFIGURATION_EVENTS,
     inject: [
-      EventTypes,
+      PayloadTypes,
       EventSubscribers,
       SKILL_DEFINITIONS,
       HARNESS_PROFILES,
       TRANSACTION,
     ],
     useFactory: (
-      types: EventTypes,
+      types: PayloadTypes,
       subscribers: EventSubscribers,
       skills: SkillDefinitionRepository,
       profiles: HarnessProfileRepository,
       transaction: TransactionPort,
     ) => {
-      types.register('configuration', CONFIGURATION_EVENT_TYPES);
+      types.register('configuration', CONFIGURATION_PAYLOAD_TYPES);
       subscribers.register(
         configurationSubscribers(
           new AbandonTeamSkills(skills, transaction),

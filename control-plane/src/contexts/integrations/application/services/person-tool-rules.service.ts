@@ -7,7 +7,7 @@ import { ToolName } from '@integrations/domain/value-objects/tool-name.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
-export interface HeldRule {
+export interface PersonToolRuleRecord {
   readonly rule: PersonToolRule;
   readonly personId: UserId;
   readonly personName: string;
@@ -24,7 +24,7 @@ export class PersonToolRules {
     source: SourceKey,
     holder: ConnectionHolder,
     tool: string,
-  ): Promise<HeldRule | null> {
+  ): Promise<PersonToolRuleRecord | null> {
     const personId = holder.personId;
 
     if (!personId) {

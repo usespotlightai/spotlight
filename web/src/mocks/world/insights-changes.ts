@@ -106,12 +106,12 @@ export const changesOf = (
 };
 
 const SIZES: InsightsSetupsResponseDto['sizes'] = [
-  { size: 'small', mostLines: 50, mostSteps: 20 },
-  { size: 'medium', mostLines: 400, mostSteps: 80 },
-  { size: 'large', mostLines: null, mostSteps: null },
+  { size: 'small', maxLines: 50, maxSteps: 20 },
+  { size: 'medium', maxLines: 400, maxSteps: 80 },
+  { size: 'large', maxLines: null, maxSteps: null },
 ];
 
-const FEWEST_RUNS = 3;
+const MIN_RUNS = 3;
 
 type Outcome = SetupOutcomeResponseDto['frontier'][number];
 
@@ -178,7 +178,7 @@ const onFrontier = (
   if (
     score === null ||
     setup.costPerRun === null ||
-    setup.tally.runs < FEWEST_RUNS
+    setup.tally.runs < MIN_RUNS
   ) {
     return false;
   }
@@ -187,7 +187,7 @@ const onFrontier = (
     const otherScore = scoreOf(other, outcome);
     return (
       other !== setup &&
-      other.tally.runs >= FEWEST_RUNS &&
+      other.tally.runs >= MIN_RUNS &&
       other.costPerRun !== null &&
       otherScore !== null &&
       other.costPerRun <= (setup.costPerRun ?? 0) &&
@@ -224,7 +224,7 @@ export const setupsOf = (
     stationId,
     size,
     sizes: SIZES,
-    fewestRuns: FEWEST_RUNS,
+    minRuns: MIN_RUNS,
     currency: setups.some((setup) => setup.priced) ? CURRENCY : null,
     setups: setups.map((setup) => ({
       ...setup,

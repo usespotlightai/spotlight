@@ -45,17 +45,17 @@ export class AbandonReplays {
   }
 
   replay(id: ReplayId): Promise<void> {
-    return this.transaction.run(async () => {
+    return this.transaction.inTransaction(async () => {
       const replay = await this.replays.find(id);
 
       if (replay) {
-        await this.replays.save(replay.abandoned());
+        await this.replays.save(replay.abandon());
       }
     });
   }
 
   set(id: ReplaySetId): Promise<void> {
-    return this.transaction.run(async () => {
+    return this.transaction.inTransaction(async () => {
       const set = await this.sets.find(id);
 
       if (set) {
@@ -65,11 +65,11 @@ export class AbandonReplays {
   }
 
   candidate(id: CandidateId): Promise<void> {
-    return this.transaction.run(async () => {
+    return this.transaction.inTransaction(async () => {
       const candidate = await this.candidates.find(id);
 
       if (candidate) {
-        await this.candidates.save(candidate.abandoned());
+        await this.candidates.save(candidate.abandon());
       }
     });
   }

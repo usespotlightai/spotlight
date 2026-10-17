@@ -23,7 +23,7 @@ interface PairKey {
   readonly against: RunId;
 }
 
-const MOST_JUDGED_AT_ONCE = 4;
+const MAX_JUDGED_AT_ONCE = 4;
 
 export class WorkPairJudgings implements OwedWorkPort {
   readonly name = 'Judging changes side by side';
@@ -42,7 +42,7 @@ export class WorkPairJudgings implements OwedWorkPort {
     this.#pool = new OwedWorkPool<PairJudging, PairKey>(
       {
         name: this.name,
-        mostAtOnce: MOST_JUDGED_AT_ONCE,
+        maxAtOnce: MAX_JUDGED_AT_ONCE,
         due: (now) => this.judgings.dueForWork(now),
         find: (key) => this.judgings.of(key.runId, key.against),
         save: (judging) => this.judgings.save(judging),
@@ -130,18 +130,18 @@ export class WorkPairJudgings implements OwedWorkPort {
           reference,
         });
 
-        spending = spending.usedModel(usage);
+        spending = spending.recordModel(usage);
         readings.push({ verdict, evidence });
       }
     } catch (error) {
       return error instanceof JudgingError
         ? spending
-            .usedModel(error.usage)
+            .recordModel(error.usage)
             .failed(JudgingFailure.of(error.trouble, this.clock.now()))
         : spending.triedAgainLater(this.clock.now());
     }
 
-    return spending.judged({
+    return spending.recordVerdict({
       readings,
       model: this.judge.model,
       now: this.clock.now(),

@@ -129,7 +129,7 @@ export class Judging extends EventRecorder implements OwesWork<Judging> {
       : this.ended(failure);
   }
 
-  judged(input: {
+  recordVerdict(input: {
     verdict: Verdict;
     evidence: JudgeEvidence;
     model: string;

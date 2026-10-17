@@ -2,10 +2,10 @@ import { Minus, Triangle } from 'lucide-react';
 import { Noted } from '@/components/shared/Noted';
 import type { GainReading } from '@/lib/replay';
 import {
+  formatGain,
+  formatGainVerdict,
   type GainVerdictCode,
-  gainShown,
   gainVerdictNote,
-  gainVerdictShown,
 } from '@/lib/replay-words';
 import { cn } from '@/lib/utils';
 
@@ -39,14 +39,14 @@ export function GainSaid({ gain }: { gain: GainReading | null }) {
             className={cn(icon, 'fill-current', points < 0 && 'rotate-180')}
           />
         )}
-        <span className="sr-only">{gainVerdictShown(gain.verdict)}</span>
+        <span className="sr-only">{formatGainVerdict(gain.verdict)}</span>
         <span
           className={cn(
             'font-medium',
             noise ? 'text-muted-foreground' : 'text-foreground',
           )}
         >
-          {gainShown(gain)}
+          {formatGain(gain)}
         </span>
       </span>
     </Noted>

@@ -3,7 +3,7 @@ import type { InboxLinksPort } from '@integrations/application/ports/inbox-links
 import type {
   BoundTask,
   IntegrationRuntimePort,
-  TaskWord,
+  TaskPayload,
 } from '@integrations/application/ports/integration-runtime.port';
 import type { HostReach } from '@integrations/application/services/host-reach.service';
 import { BoundTaskMapper } from '@integrations/infrastructure/acl/bound-task.mapper';
@@ -48,7 +48,7 @@ export class TaskNotices implements TaskNoticesPort {
     }
 
     const bound = BoundTaskMapper.toBound(task);
-    const word: TaskWord = { task: bound, ask: await this.asking(bound) };
+    const payload: TaskPayload = { task: bound, ask: await this.asking(bound) };
     const kept: MarkWorn[] = [];
 
     for (const integration of posting) {
@@ -57,7 +57,7 @@ export class TaskNotices implements TaskNoticesPort {
           definitions,
           integration,
           event,
-          word,
+          payload,
           await this.reach.of(teamId, integration),
         );
 
@@ -87,7 +87,7 @@ export class TaskNotices implements TaskNoticesPort {
     return kept;
   }
 
-  private async asking(task: BoundTask): Promise<TaskWord['ask']> {
+  private async asking(task: BoundTask): Promise<TaskPayload['ask']> {
     const { station, waiting: open } = task;
 
     if (!open) {

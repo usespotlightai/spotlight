@@ -15,10 +15,10 @@ import {
   type SetComposition,
 } from '@/lib/replay';
 import {
-  balanceWarningShown,
-  endedSpanShown,
+  formatBalanceWarning,
+  formatEndedSpan,
+  formatOrigin,
   ORIGINS_LABEL,
-  originShown,
 } from '@/lib/replay-words';
 
 const RUNS_NOTE = 'Past runs of the station. Each replay reruns all of them.';
@@ -26,9 +26,9 @@ const RUNS_NOTE = 'Past runs of the station. Each replay reruns all of them.';
 const compositionNote = (composition: SetComposition): string =>
   [
     RUNS_NOTE,
-    endedSpanShown(composition),
+    formatEndedSpan(composition),
     `${ORIGINS_LABEL}: ${composition.origins
-      .map((each) => `${originShown(each.origin)} ${each.count}`)
+      .map((each) => `${formatOrigin(each.origin)} ${each.count}`)
       .join(' · ')}`,
   ]
     .filter(Boolean)
@@ -58,7 +58,7 @@ export function SetRuns({ at, set, frozen }: SetRunsProps) {
           <NotedWarning
             tone="warning"
             label="Unbalanced set"
-            note={balanceWarningShown(composition.balanceWarning)}
+            note={formatBalanceWarning(composition.balanceWarning)}
           />
         )
       }

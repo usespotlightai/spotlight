@@ -126,12 +126,12 @@ export class DraftChangeStack {
           'Drafting a change stack failed; trying again later',
         );
         return drafting
-          .usedModel(attempt.usage)
+          .recordModel(attempt.usage)
           .triedAgainLater(this.clock.now());
       }
 
       const { cohorts, usage } = attempt.answer;
-      drafting = drafting.usedModel(usage);
+      drafting = drafting.recordModel(usage);
 
       try {
         return drafting.propose(cohorts, this.clock.now());

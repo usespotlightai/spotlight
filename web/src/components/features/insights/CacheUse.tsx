@@ -7,13 +7,13 @@ import {
 } from '@/components/shared/nested-table/nested-rows';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import {
-  cacheShown,
+  formatCache,
+  formatStation,
   type InsightsCost,
   type StationNames,
-  stationShown,
 } from '@/lib/insights';
 import { SPREAD } from '@/lib/nested-table';
-import { tokensShown } from '@/lib/run';
+import { formatTokens } from '@/lib/run';
 import { stationPath } from '@/lib/station';
 import { cn } from '@/lib/utils';
 
@@ -78,20 +78,20 @@ export function CacheUse({ slug, teamId, stations, names }: CacheUseProps) {
                       {named.stationName}
                     </TrailLink>
                   ) : (
-                    stationShown(names, station.stationId)
+                    formatStation(names, station.stationId)
                   )}
                 </span>
                 <NestedCell heading="Cache share" strong>
-                  {cacheShown(station.cacheShare)}
+                  {formatCache(station.cacheShare)}
                 </NestedCell>
                 <NestedCell heading="Cache read">
-                  {tokensShown(station.cacheRead)}
+                  {formatTokens(station.cacheRead)}
                 </NestedCell>
                 <NestedCell heading="Cache write">
-                  {tokensShown(station.cacheWrite)}
+                  {formatTokens(station.cacheWrite)}
                 </NestedCell>
                 <NestedCell heading="Input">
-                  {tokensShown(station.input)}
+                  {formatTokens(station.input)}
                 </NestedCell>
               </li>
             );

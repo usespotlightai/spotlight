@@ -26,7 +26,7 @@ const DEEPEST = 8;
 
 const DECIMAL = /^-?(\d+(\.\d*)?|\.\d+)([eE][+-]?\d+)?$/;
 
-const SHOWN_AT_MOST = 80;
+const MAX_SHOWN = 80;
 
 const TYPE_WORDS: Readonly<Record<InputType, string>> = {
   string: 'text',
@@ -272,8 +272,8 @@ const isOfType = (type: InputType, value: JsonValue): boolean => {
 const shown = (value: JsonValue): string => {
   const written = JSON.stringify(value);
 
-  return written.length > SHOWN_AT_MOST
-    ? `${written.slice(0, SHOWN_AT_MOST - 1)}…`
+  return written.length > MAX_SHOWN
+    ? `${written.slice(0, MAX_SHOWN - 1)}…`
     : written;
 };
 

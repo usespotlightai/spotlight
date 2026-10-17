@@ -20,7 +20,7 @@ export class ProvisionChangeStackChecks implements CheckProvisioningPort {
   async awaiting(
     workspaceId: WorkspaceId,
     now: Date,
-    page: { readonly skip: number; readonly most: number },
+    page: { readonly skip: number; readonly max: number },
   ): Promise<readonly WaitingCheck[]> {
     return (await this.checks.awaitingProvision(workspaceId, now, page))
       .filter((each) => each.provisionableAt(now))

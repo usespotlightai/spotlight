@@ -1,6 +1,6 @@
 import type { SkillResourceDto } from '@configuration/application/dto/skill-resource.dto';
 import type { SkillCompilerPort } from '@configuration/application/ports/skill-compiler.port';
-import type { KeptSkill } from '@configuration/application/ports/skill-resources.port';
+import type { SkillRecord } from '@configuration/application/ports/skill-resources.port';
 import type { TeamDirectoryPort } from '@identity/application/ports/team-directory.port';
 import { TeamAddress } from '@shared-kernel/domain/value-objects/team-address.vo';
 
@@ -10,13 +10,13 @@ export class SkillViews {
     private readonly compiler: SkillCompilerPort,
   ) {}
 
-  async of(kept: KeptSkill): Promise<SkillResourceDto | null> {
+  async of(kept: SkillRecord): Promise<SkillResourceDto | null> {
     const team = await this.teams.find(kept.teamId);
 
     return team ? this.onTeam(kept, team.key) : null;
   }
 
-  onTeam(kept: KeptSkill, teamKey: string): SkillResourceDto {
+  onTeam(kept: SkillRecord, teamKey: string): SkillResourceDto {
     const read = this.compiler.compile({ key: kept.key, files: kept.files });
 
     return {

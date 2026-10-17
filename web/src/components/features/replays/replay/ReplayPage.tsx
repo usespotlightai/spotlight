@@ -27,7 +27,7 @@ import {
   underway,
 } from '@/lib/replay';
 
-import { tasksNoteShown } from '@/lib/replay-words';
+import { formatTasksNote } from '@/lib/replay-words';
 import { TrailContext } from '@/lib/trail';
 import { cn } from '@/lib/utils';
 
@@ -92,7 +92,7 @@ export function ReplayPage({
         <InsightsCard
           tableOnly
           title="Tasks"
-          description={tasksNoteShown(compared ? counterpart : null)}
+          description={formatTasksNote(compared ? counterpart : null)}
         >
           {replay.comparison.length === 0 ? (
             <StateBox flat>

@@ -7,13 +7,13 @@ import {
 import { SpreadShown } from '@/components/features/insights/SpreadShown';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import {
-  changeShown,
-  countShown,
-  medianShown,
+  changeDelta,
+  formatCount,
+  formatMedian,
+  formatStation,
+  formatTail,
   type StationFlow,
   type StationNames,
-  stationShown,
-  tailShown,
 } from '@/lib/insights';
 import { stationPath } from '@/lib/station';
 
@@ -39,7 +39,7 @@ export function StationWaitsTable({
           to={stationPath(slug, teamId, station.lineId, station.stationId)}
           className="hover:underline"
         >
-          {stationShown(names, station.stationId)}
+          {formatStation(names, station.stationId)}
         </TrailLink>
       ),
     },
@@ -48,12 +48,12 @@ export function StationWaitsTable({
       header: 'Tasks',
       numeric: true,
       cell: (station) => {
-        const delta = changeShown(station.tasksChange);
+        const delta = changeDelta(station.tasksChange);
 
         return (
           <span className="inline-flex items-center gap-2">
             <InsightsLink tab="runs" filter={{ stationId: station.stationId }}>
-              {countShown(station.tasks)}
+              {formatCount(station.tasks)}
             </InsightsLink>
             {delta && <DeltaMark delta={delta} />}
           </span>
@@ -64,15 +64,15 @@ export function StationWaitsTable({
       id: 'runs',
       header: 'Runs',
       numeric: true,
-      cell: (station) => countShown(station.runs),
+      cell: (station) => formatCount(station.runs),
     },
     {
       id: 'queued',
       header: 'Queued',
       numeric: true,
       cell: (station) => (
-        <SpreadShown tail={tailShown(station.queued)}>
-          {medianShown(station.queued)}
+        <SpreadShown tail={formatTail(station.queued)}>
+          {formatMedian(station.queued)}
         </SpreadShown>
       ),
     },
@@ -81,8 +81,8 @@ export function StationWaitsTable({
       header: 'Running',
       numeric: true,
       cell: (station) => (
-        <SpreadShown tail={tailShown(station.running)}>
-          {medianShown(station.running)}
+        <SpreadShown tail={formatTail(station.running)}>
+          {formatMedian(station.running)}
         </SpreadShown>
       ),
     },
@@ -91,8 +91,8 @@ export function StationWaitsTable({
       header: 'In the inbox',
       numeric: true,
       cell: (station) => (
-        <SpreadShown tail={tailShown(station.inbox)}>
-          {medianShown(station.inbox)}
+        <SpreadShown tail={formatTail(station.inbox)}>
+          {formatMedian(station.inbox)}
         </SpreadShown>
       ),
     },
@@ -100,13 +100,13 @@ export function StationWaitsTable({
       id: 'asks',
       header: 'Asks',
       numeric: true,
-      cell: (station) => countShown(station.asks),
+      cell: (station) => formatCount(station.asks),
     },
     {
       id: 'unanswered',
       header: 'Unanswered',
       numeric: true,
-      cell: (station) => countShown(station.unanswered),
+      cell: (station) => formatCount(station.unanswered),
     },
   ];
 

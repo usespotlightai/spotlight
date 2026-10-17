@@ -1,5 +1,5 @@
 import { EventCodec } from '@platform/events/event-codec';
-import { EventTypes } from '@platform/events/event-types';
+import { PayloadTypes } from '@platform/events/payload-types';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import {
   SECRET,
@@ -57,7 +57,7 @@ class Unregistered {
 }
 
 const codec = () => {
-  const types = new EventTypes();
+  const types = new PayloadTypes();
   types.register('test', [Named, Happened, Password, Leaked]);
   return new EventCodec(types);
 };
@@ -101,9 +101,9 @@ describe('EventCodec', () => {
   });
 });
 
-describe('EventTypes', () => {
+describe('PayloadTypes', () => {
   it('refuses two types that share a name', () => {
-    const types = new EventTypes();
+    const types = new PayloadTypes();
     types.register('test', [Named]);
 
     const Impostor = class Named {};
@@ -114,7 +114,7 @@ describe('EventTypes', () => {
   });
 
   it('keeps apart two contexts that name a type alike', () => {
-    const types = new EventTypes();
+    const types = new PayloadTypes();
     const Elsewhere = class Named {};
 
     types.register('one', [Named]);

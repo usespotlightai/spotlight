@@ -1,6 +1,6 @@
 import type { PersonReaderPort } from '@identity/application/ports/person-reader.port';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
-import { UseCaseFault } from '@shared-kernel/application/errors/use-case.fault';
+import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
@@ -14,8 +14,8 @@ import { AddTaskHandler } from '@work/application/commands/handlers/add-task.han
 import type { AttachmentStorePort } from '@work/application/ports/attachment-store.port';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
 import { TaskBriefing } from '@work/application/rendering/task-briefing';
-import { FilesAtHand } from '@work/application/services/files-at-hand.service';
-import { LineAtHand } from '@work/application/services/line-at-hand.service';
+import { FilesLoader } from '@work/application/services/files-loader.service';
+import { LineLoader } from '@work/application/services/line-loader.service';
 import { RaiseTask } from '@work/application/services/raise-task';
 import type { TaskDispatching } from '@work/application/services/task-dispatch';
 import { Line } from '@work/domain/aggregates/line.aggregate';
@@ -136,7 +136,7 @@ const access = (teamId = 'team_1') =>
     ),
   }) as unknown as WorkspaceAccessPort;
 
-const transaction: TransactionPort = { run: (work) => work() };
+const transaction: TransactionPort = { inTransaction: (work) => work() };
 
 const lines = (found: Line | null = line()) =>
   ({
@@ -166,12 +166,12 @@ const store = {
   open: vi.fn(),
 } satisfies AttachmentStorePort;
 
-const files = new FilesAtHand(store);
+const files = new FilesLoader(store);
 
 const addTask = (command: AddTaskCommand, board: LineRepository = lines()) =>
   new AddTaskHandler(
     tasks(),
-    new LineAtHand(access(), board),
+    new LineLoader(access(), board),
     ids,
     clock,
     new RaiseTask(tasks(), dispatch(), transaction, files),
@@ -321,7 +321,7 @@ describe('AddTaskHandler', () => {
           'user_1',
         ),
       ),
-    ).rejects.toThrow(UseCaseFault);
+    ).rejects.toThrow(ApplicationError);
   });
 
   it('refuses a line that does not exist', async () => {
@@ -337,7 +337,7 @@ describe('AddTaskHandler', () => {
         ),
         lines(null),
       ),
-    ).rejects.toThrow(UseCaseFault);
+    ).rejects.toThrow(ApplicationError);
   });
 
   it('refuses a task with no title', async () => {
@@ -352,6 +352,6 @@ describe('AddTaskHandler', () => {
           'user_1',
         ),
       ),
-    ).rejects.toThrow(UseCaseFault);
+    ).rejects.toThrow(ApplicationError);
   });
 });

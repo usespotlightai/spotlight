@@ -19,15 +19,15 @@ import {
   fingerprintGroupsNewestFirst,
 } from '@outcomes/domain/services/fingerprint-groups';
 import { runTally, tallySharesOf } from '@outcomes/domain/services/run-tally';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
 const DEFAULT_LAST = 50;
-const MOST_LAST = 200;
+const MAX_LAST = 200;
 
 const lastOf = (asked: number | null): number =>
   asked !== null && Number.isInteger(asked) && asked > 0
-    ? Math.min(asked, MOST_LAST)
+    ? Math.min(asked, MAX_LAST)
     : DEFAULT_LAST;
 
 export class ListStationOutcomesHandler
@@ -43,13 +43,10 @@ export class ListStationOutcomesHandler
 
   async execute(query: ListStationOutcomesQuery): Promise<StationOutcomesDto> {
     try {
-      const clearance = await this.access.clearance(
-        query.teamId,
-        query.viewerId,
-      );
+      const access = await this.access.forTeam(query.teamId, query.viewerId);
       const records = await this.records.latestStartedAtStation({
-        workspaceId: clearance.workspaceId,
-        teamId: clearance.teamId,
+        workspaceId: access.workspaceId,
+        teamId: access.teamId,
         lineId: query.lineId,
         stationId: query.stationId,
         last: lastOf(query.last),
@@ -59,7 +56,7 @@ export class ListStationOutcomesHandler
       );
       const oldest = records[records.length - 1];
       const carried = oldest?.end
-        ? await this.records.lastConfigRunsBefore(clearance.teamId, [
+        ? await this.records.lastConfigRunsBefore(access.teamId, [
             {
               stationId: query.stationId,
               from: oldest.end.beganAt,
@@ -77,8 +74,8 @@ export class ListStationOutcomesHandler
       );
       const pullRequests = await this.pullRequests.newestFor(
         {
-          workspaceId: clearance.workspaceId,
-          teamId: clearance.teamId,
+          workspaceId: access.workspaceId,
+          teamId: access.teamId,
           stationId: query.stationId,
         },
         [
@@ -124,7 +121,7 @@ export class ListStationOutcomesHandler
           : null,
       };
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

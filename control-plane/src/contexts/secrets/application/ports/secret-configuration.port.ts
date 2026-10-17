@@ -2,7 +2,7 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 
 export const SECRET_CONFIGURATION = Symbol('SECRET_CONFIGURATION');
 
-export interface ConfiguredSecret {
+export interface SecretView {
   readonly id: string;
   readonly address: string;
   readonly workspaceId: WorkspaceId;
@@ -23,7 +23,7 @@ export interface ConfiguredSecret {
 }
 
 export interface SecretConfigurationPort {
-  in(workspaceId: WorkspaceId): Promise<readonly ConfiguredSecret[]>;
+  in(workspaceId: WorkspaceId): Promise<readonly SecretView[]>;
 
-  withId(id: string): Promise<ConfiguredSecret | null>;
+  withId(id: string): Promise<SecretView | null>;
 }

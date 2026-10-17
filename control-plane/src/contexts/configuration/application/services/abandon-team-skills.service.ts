@@ -14,8 +14,8 @@ export class AbandonTeamSkills {
     const by = Attribution.spotlight(workspaceId);
 
     for (const skill of await this.definitions.ofTeam(teamId)) {
-      await this.transaction.run(() =>
-        this.definitions.save(skill.abandoned(by)),
+      await this.transaction.inTransaction(() =>
+        this.definitions.save(skill.abandon(by)),
       );
     }
   }

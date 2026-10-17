@@ -1,6 +1,6 @@
 import { HookKey } from '@integrations/domain/value-objects/hook-key.vo';
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
-import { areWords } from '@shared-kernel/domain/value-objects/identifier-shapes';
+import { isSlug } from '@shared-kernel/domain/value-objects/identifier-shapes';
 
 const SEPARATOR = '/';
 
@@ -20,7 +20,7 @@ export class HookAddress {
   ) {}
 
   static of(teamKey: string, key: HookKey): HookAddress {
-    return areWords(teamKey) ? new HookAddress(teamKey, key) : refused();
+    return isSlug(teamKey) ? new HookAddress(teamKey, key) : refused();
   }
 
   static parse(held: string): HookAddress {

@@ -134,7 +134,7 @@ export class MemoryProposal {
     return this.kind === other.kind && this.body.equals(other.body);
   }
 
-  approved(decision: MemoryDecision, body?: string): MemoryProposal {
+  approve(decision: MemoryDecision, body?: string): MemoryProposal {
     return this.decided(
       'approved',
       decision,
@@ -142,7 +142,7 @@ export class MemoryProposal {
     );
   }
 
-  rejected(decision: MemoryDecision): MemoryProposal {
+  reject(decision: MemoryDecision): MemoryProposal {
     return this.decided('rejected', decision, this.body);
   }
 

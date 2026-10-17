@@ -75,7 +75,7 @@ const replayRuns = () =>
     {
       has: async (_original: Run, answer: string) => answer === 'accepted',
     } as unknown as ReplayAnswers,
-    { run: (work) => work() },
+    { inTransaction: (work) => work() },
     { now: () => new Date(), sleep: async () => {} },
   );
 

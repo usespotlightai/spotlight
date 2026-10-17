@@ -5,16 +5,16 @@ import type {
   WorkspaceRunnersResourceDto,
 } from '@runners/application/dto/runner-resource.dto';
 import type {
-  ConfiguredEgress,
-  ConfiguredRunnerPool,
-  ConfiguredRunnerTrust,
-  ConfiguredWorkspaceRunners,
+  EgressView,
+  RunnerPoolView,
+  RunnerTrustView,
+  WorkspaceRunnersView,
 } from '@runners/application/ports/runner-configuration.port';
 import type {
-  KeptEgress,
-  KeptPool,
-  KeptTrust,
-  KeptWorkspaceRunners,
+  EgressRecord,
+  RunnerPoolRecord,
+  RunnerTrustRecord,
+  WorkspaceRunnersRecord,
 } from '@runners/application/ports/runner-resources.port';
 import { RunnerProblems } from '@runners/application/rendering/runner-problems';
 import type { Egress } from '@runners/domain/aggregates/egress.aggregate';
@@ -29,7 +29,7 @@ import { EgressUrl } from '@runners/domain/value-objects/egress-url.vo';
 import { ProvisionUrl } from '@runners/domain/value-objects/provision-url.vo';
 
 export const RunnerResourceMapper = {
-  trust(trust: KeptTrust): RunnerTrustResourceDto {
+  trust(trust: RunnerTrustRecord): RunnerTrustResourceDto {
     return {
       id: trust.id,
       version: trust.version,
@@ -44,7 +44,7 @@ export const RunnerResourceMapper = {
     };
   },
 
-  pool(pool: KeptPool): RunnerPoolResourceDto {
+  pool(pool: RunnerPoolRecord): RunnerPoolResourceDto {
     return {
       id: pool.id,
       version: pool.version,
@@ -63,7 +63,7 @@ export const RunnerResourceMapper = {
     };
   },
 
-  configuredPool(pool: RunnerPool): ConfiguredRunnerPool {
+  configuredPool(pool: RunnerPool): RunnerPoolView {
     const { access } = pool;
 
     return {
@@ -86,7 +86,7 @@ export const RunnerResourceMapper = {
     };
   },
 
-  egress(egress: KeptEgress): EgressResourceDto {
+  egress(egress: EgressRecord): EgressResourceDto {
     return {
       id: egress.id,
       version: egress.version,
@@ -101,7 +101,7 @@ export const RunnerResourceMapper = {
     };
   },
 
-  configuredEgress(egress: Egress): ConfiguredEgress {
+  configuredEgress(egress: Egress): EgressView {
     return {
       id: egress.id.value,
       address: egress.key.value,
@@ -112,7 +112,7 @@ export const RunnerResourceMapper = {
     };
   },
 
-  configuredTrust(trust: RunnerTrust): ConfiguredRunnerTrust {
+  configuredTrust(trust: RunnerTrust): RunnerTrustView {
     return {
       id: trust.id.value,
       address: trust.key.value,
@@ -128,7 +128,7 @@ export const RunnerResourceMapper = {
   configuredDeclaration(
     declared: WorkspaceRunners,
     slug: string,
-  ): ConfiguredWorkspaceRunners {
+  ): WorkspaceRunnersView {
     return {
       id: declared.id.value,
       address: slug,
@@ -139,7 +139,7 @@ export const RunnerResourceMapper = {
   },
 
   workspaceRunners(
-    declared: KeptWorkspaceRunners,
+    declared: WorkspaceRunnersRecord,
     slug: string,
     waysIn: WaysIn,
   ): WorkspaceRunnersResourceDto {

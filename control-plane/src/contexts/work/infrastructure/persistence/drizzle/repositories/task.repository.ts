@@ -211,7 +211,7 @@ export class DrizzleTaskRepository implements TaskRepository {
   ) {}
 
   async add(added: Task): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       await this.inserted(added);
       await this.events.dispatch(added.pullEvents());
     });
@@ -248,7 +248,7 @@ export class DrizzleTaskRepository implements TaskRepository {
   }
 
   async save(saved: Task): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       await this.stored(saved);
       await this.events.dispatch(saved.pullEvents());
     });
@@ -461,7 +461,7 @@ export class DrizzleTaskRepository implements TaskRepository {
   }
 
   async remove(removed: Task): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       await this.context.db.delete(task).where(eq(task.id, removed.id.value));
       await this.events.dispatch(removed.pullEvents());
     });

@@ -9,7 +9,7 @@ import type { DecisionSetRepository } from '@change-review/domain/repositories/d
 import { DecisionDisputeId } from '@change-review/domain/value-objects/decision-dispute-id.vo';
 import { DecisionId } from '@change-review/domain/value-objects/decision-id.vo';
 import { FilePath } from '@change-review/domain/value-objects/file-path.vo';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
@@ -42,7 +42,7 @@ export class DisputeDecisionHandler
 
       const { task, by } = deciding;
 
-      await this.transaction.run(async () => {
+      await this.transaction.inTransaction(async () => {
         const set = await this.sets.forTask(task.id);
 
         if (!set) {
@@ -50,7 +50,7 @@ export class DisputeDecisionHandler
         }
 
         await this.sets.save(
-          set.disputed({
+          set.dispute({
             id: DecisionDisputeId.of(this.ids.generate()),
             decisionId: DecisionId.of(command.decisionId),
             path: FilePath.of(command.path),
@@ -72,7 +72,7 @@ export class DisputeDecisionHandler
         decisions: await namedDisputes(found.decisions, this.people),
       };
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

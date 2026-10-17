@@ -12,7 +12,7 @@ import type { OwedWorkPort } from '@shared-kernel/application/ports/owed-work.po
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { OwedWorkPool } from '@shared-kernel/application/services/owed-work-pool';
 
-const MOST_STACKS_AT_ONCE = 4;
+const MAX_STACKS_AT_ONCE = 4;
 
 export class WorkChangeStacks implements OwedWorkPort {
   readonly name = 'Drafting and reordering change stacks';
@@ -32,7 +32,7 @@ export class WorkChangeStacks implements OwedWorkPort {
     this.#pool = new OwedWorkPool<ChangeStack, ChangeStackId>(
       {
         name: this.name,
-        mostAtOnce: MOST_STACKS_AT_ONCE,
+        maxAtOnce: MAX_STACKS_AT_ONCE,
         due: (now) => this.stacks.dueForWork(now),
         find: (id) => this.stacks.find(id),
         save: (stack) => this.stacks.save(stack),

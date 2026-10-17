@@ -1,5 +1,5 @@
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { ReplayRunDto } from '@work/application/dto/replay-run.dto';
@@ -24,7 +24,7 @@ export class ReadReplayRunHandler
   async execute(query: ReadReplayRunQuery): Promise<ReplayRunDto | null> {
     try {
       const runId = RunId.of(query.runId);
-      const reader = await this.access.clearanceAsTeamReader(
+      const reader = await this.access.permissionsAsTeamReader(
         query.teamId,
         query.principal,
       );
@@ -52,7 +52,7 @@ export class ReadReplayRunHandler
         repositories: found.repositories,
       };
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

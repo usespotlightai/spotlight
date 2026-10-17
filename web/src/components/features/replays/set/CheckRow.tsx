@@ -8,10 +8,10 @@ import {
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import {
   appPathOf,
+  formatReference,
   type ReplayCheckSummary,
-  referenceShown,
 } from '@/lib/search';
-import { verdictShown } from '@/lib/search-words';
+import { formatVerdict } from '@/lib/search-words';
 import { since } from '@/lib/since';
 import { cn } from '@/lib/utils';
 
@@ -27,7 +27,7 @@ type CheckRowProps = {
 };
 
 export function CheckRow({ check }: CheckRowProps) {
-  const reference = referenceShown(check.reference) ?? 'A planned change';
+  const reference = formatReference(check.reference) ?? 'A planned change';
 
   return (
     <li data-slot="replay-check" className={cn(TABLE_ROW, ROW_DIVIDER)}>
@@ -52,10 +52,10 @@ export function CheckRow({ check }: CheckRowProps) {
       </span>
       <NestedCell heading="Verdict" numeric={false}>
         <span
-          title={verdictShown(check.verdict, check.undecidedBecause)}
+          title={formatVerdict(check.verdict, check.undecidedBecause)}
           className={cn('block truncate', INK[check.verdict])}
         >
-          {verdictShown(check.verdict, check.undecidedBecause)}
+          {formatVerdict(check.verdict, check.undecidedBecause)}
         </span>
       </NestedCell>
       <NestedCell heading="Regressions">{check.regressions}</NestedCell>

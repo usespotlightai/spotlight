@@ -8,11 +8,11 @@ import {
 import { useBeforeAfterPanel } from '@/lib/before-after-panel';
 import {
   type DayOutput,
+  formatStation,
   type StationNames,
-  stationShown,
 } from '@/lib/insights';
 import { changeKey } from '@/lib/insights-changes';
-import { dayShown } from '@/lib/judge';
+import { formatDay } from '@/lib/judge';
 import { stationPath } from '@/lib/station';
 
 type ConfigMarkersProps = {
@@ -46,8 +46,8 @@ export function ConfigMarkers({
             <Popover>
               <PopoverTrigger
                 openOnHover
-                aria-label={`Config changed on ${dayShown(day.day)}: ${day.changes
-                  .map((change) => stationShown(names, change.stationId))
+                aria-label={`Config changed on ${formatDay(day.day)}: ${day.changes
+                  .map((change) => formatStation(names, change.stationId))
                   .join(', ')}`}
                 className="flex size-5 items-center justify-center rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
               >
@@ -58,7 +58,7 @@ export function ConfigMarkers({
               </PopoverTrigger>
               <PopoverContent className="flex min-w-48 flex-col gap-1 p-2 text-xs">
                 <p className="text-muted-foreground">
-                  Config changed on {dayShown(day.day)}
+                  Config changed on {formatDay(day.day)}
                 </p>
                 <ul className="flex flex-col gap-1">
                   {day.changes.map((change) => (
@@ -72,7 +72,7 @@ export function ConfigMarkers({
                         )}
                         className="font-medium text-foreground hover:underline"
                       >
-                        {stationShown(names, change.stationId)}
+                        {formatStation(names, change.stationId)}
                       </TrailLink>
                       <button
                         type="button"

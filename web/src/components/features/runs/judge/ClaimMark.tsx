@@ -1,5 +1,5 @@
 import { Check, X } from 'lucide-react';
-import { markShown } from '@/lib/judge';
+import { formatMark } from '@/lib/judge';
 import { cn } from '@/lib/utils';
 
 export function ClaimMark({ met }: { met: boolean }) {
@@ -15,7 +15,7 @@ export function ClaimMark({ met }: { met: boolean }) {
       )}
     >
       <Icon aria-hidden className="size-3.5" />
-      {markShown(met)}
+      {formatMark(met)}
     </span>
   );
 }

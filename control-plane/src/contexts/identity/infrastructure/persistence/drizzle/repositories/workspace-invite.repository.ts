@@ -41,7 +41,7 @@ export class DrizzleWorkspaceInviteRepository
   ) {}
 
   async add(added: WorkspaceInvite): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       await this.inserted(added);
       await this.teamsWritten(added);
       await this.events.dispatch(added.pullEvents());
@@ -62,7 +62,7 @@ export class DrizzleWorkspaceInviteRepository
   }
 
   async save(saved: WorkspaceInvite): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       const events = saved.pullEvents();
 
       await this.stored(saved);

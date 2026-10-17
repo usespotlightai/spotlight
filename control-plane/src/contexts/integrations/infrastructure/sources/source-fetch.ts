@@ -12,7 +12,7 @@ import { WornSecrets } from '@secrets/application/contracts/worn-secrets.contrac
 
 type Fetch = typeof globalThis.fetch;
 
-export const READ_AT_MOST_BYTES = 64 * 1024 * 1024;
+export const MAX_READ_BYTES = 64 * 1024 * 1024;
 
 export const READ_WITHIN_MS = 30_000;
 
@@ -92,10 +92,10 @@ export class SourceFetch {
 
       return await cappedText(
         reply,
-        READ_AT_MOST_BYTES,
+        MAX_READ_BYTES,
         () =>
           new DescriptionUnreadable(
-            `is larger than the ${READ_AT_MOST_BYTES / 1024 / 1024} MB Spotlight reads`,
+            `is larger than the ${MAX_READ_BYTES / 1024 / 1024} MB Spotlight reads`,
           ),
       );
     } catch (error) {

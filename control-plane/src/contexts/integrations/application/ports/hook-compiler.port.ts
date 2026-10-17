@@ -9,7 +9,7 @@ export interface GivenSigningSecret {
   readonly version: number;
 }
 
-export type CompiledHookDefinition =
+export type ParsedHookDefinition =
   | {
       readonly ok: true;
       readonly hook: Hook;
@@ -19,5 +19,5 @@ export type CompiledHookDefinition =
   | { readonly ok: false; readonly problems: readonly ConfigurationProblem[] };
 
 export interface HookCompilerPort {
-  compile(held: unknown): CompiledHookDefinition;
+  compile(held: unknown): ParsedHookDefinition;
 }

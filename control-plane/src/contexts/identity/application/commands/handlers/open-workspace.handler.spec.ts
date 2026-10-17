@@ -5,7 +5,7 @@ import { WorkspaceOpened } from '@identity/domain/events/workspace-opened.event'
 import { WorkspaceSlugTakenError } from '@identity/domain/exceptions/workspace-slug-taken.error';
 import type { WorkspaceRepository } from '@identity/domain/repositories/workspace.repository';
 import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
-import { UseCaseFault } from '@shared-kernel/application/errors/use-case.fault';
+import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import { actorFor } from '@shared-kernel/domain/value-objects/attribution.fake-spec';
@@ -78,10 +78,10 @@ describe('OpenWorkspaceHandler', () => {
   it('reports a taken slug as a conflict, without writing', async () => {
     repository.isTaken = vi.fn().mockResolvedValue(true);
 
-    const fault = await handle().catch((error: unknown) => error);
+    const error = await handle().catch((caught: unknown) => caught);
 
-    expect(fault).toBeInstanceOf(UseCaseFault);
-    expect(fault).toMatchObject({ kind: 'conflict' });
+    expect(error).toBeInstanceOf(ApplicationError);
+    expect(error).toMatchObject({ kind: 'conflict' });
     expect(repository.add).not.toHaveBeenCalled();
   });
 
@@ -95,13 +95,13 @@ describe('OpenWorkspaceHandler', () => {
 
   it('reports an unusable slug as invalid input', async () => {
     await expect(handle('Acme', 'not a slug')).rejects.toMatchObject({
-      kind: 'invalid-input',
+      kind: 'invalid',
     });
   });
 
   it('reports a blank name as invalid input', async () => {
     await expect(handle('   ')).rejects.toMatchObject({
-      kind: 'invalid-input',
+      kind: 'invalid',
     });
   });
 });

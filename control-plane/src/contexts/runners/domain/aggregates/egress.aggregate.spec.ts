@@ -89,11 +89,11 @@ describe('Egress', () => {
     const egress = anEgress();
     egress.pullEvents();
 
-    expect(() => egress.retired([PoolKey.of('sandboxes')], BY)).toThrow(
+    expect(() => egress.retire([PoolKey.of('sandboxes')], BY)).toThrow(
       EgressInUseError,
     );
 
-    const retired = egress.retired([], BY);
+    const retired = egress.retire([], BY);
     const [event] = retired.pullEvents();
 
     expect(retired.isRetired).toBe(true);

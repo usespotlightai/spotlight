@@ -1,4 +1,4 @@
-import { countShown } from '@/lib/insights';
+import { formatCount } from '@/lib/insights';
 import { dotRadius, type RunsScale } from '@/lib/insights-changes';
 
 export function RunsSizeLegend({ scale }: { scale: RunsScale }) {
@@ -6,7 +6,7 @@ export function RunsSizeLegend({ scale }: { scale: RunsScale }) {
     <span
       data-slot="runs-size-legend"
       role="img"
-      aria-label={`Dot size shows runs, from ${countShown(scale.domain[0])} to ${countShown(scale.domain[1])}`}
+      aria-label={`Dot size shows runs, from ${formatCount(scale.domain[0])} to ${formatCount(scale.domain[1])}`}
       className="flex items-center gap-3"
     >
       <span>Runs</span>
@@ -26,7 +26,7 @@ export function RunsSizeLegend({ scale }: { scale: RunsScale }) {
                 strokeWidth="1"
               />
             </svg>
-            <span className="tabular-nums">{countShown(runs)}</span>
+            <span className="tabular-nums">{formatCount(runs)}</span>
           </span>
         );
       })}

@@ -21,7 +21,7 @@ export const since = (at: string): string => {
   });
 };
 
-export const ranShown = (startedAt: string, endedAt: string | null): string =>
+export const formatRan = (startedAt: string, endedAt: string | null): string =>
   endedAt
     ? `Started ${since(startedAt)}, ended ${since(endedAt)}`
     : `Started ${since(startedAt)}`;

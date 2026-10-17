@@ -71,14 +71,14 @@ export class Candidate extends EventRecorder {
     super();
   }
 
-  static proposed(
+  static propose(
     input: Proposal & {
       name: CandidateName;
       changedFrom: StationChanges;
       by: Attribution;
     },
   ): Candidate {
-    const proposed = Candidate.made(
+    const proposed = Candidate.make(
       input,
       input.name,
       'proposed',
@@ -97,7 +97,7 @@ export class Candidate extends EventRecorder {
   }
 
   static live(input: Proposal): Candidate {
-    return Candidate.made(
+    return Candidate.make(
       input,
       CandidateName.live(input.at),
       'live',
@@ -105,7 +105,7 @@ export class Candidate extends EventRecorder {
     );
   }
 
-  static searched(
+  static fromSearch(
     input: Proposal & {
       name: string;
       changedFrom: StationChanges;
@@ -121,7 +121,7 @@ export class Candidate extends EventRecorder {
       );
     }
 
-    return Candidate.made(
+    return Candidate.make(
       input,
       CandidateName.searched(input.name),
       'searched',
@@ -140,7 +140,7 @@ export class Candidate extends EventRecorder {
       );
     }
 
-    return Candidate.made(
+    return Candidate.make(
       {
         id: input.id,
         station: live.station,
@@ -157,14 +157,14 @@ export class Candidate extends EventRecorder {
     );
   }
 
-  static planned(
+  static plan(
     input: Proposal & {
       changedFrom: StationChanges;
       reference: PlannedReference;
       line: PlannedLine | null;
     },
   ): Candidate {
-    return Candidate.made(
+    return Candidate.make(
       input,
       CandidateName.planned(input.reference.label, input.at),
       'planned',
@@ -173,7 +173,7 @@ export class Candidate extends EventRecorder {
     );
   }
 
-  private static made(
+  private static make(
     input: Proposal,
     name: CandidateName,
     kind: CandidateKind,
@@ -346,7 +346,7 @@ export class Candidate extends EventRecorder {
     }
   }
 
-  withdrawn(underway: boolean, by: Attribution): Candidate {
+  withdraw(underway: boolean, by: Attribution): Candidate {
     if (this.isLive) {
       throw new CandidateIsLiveError(this.id.value);
     }
@@ -360,7 +360,7 @@ export class Candidate extends EventRecorder {
     return this.gone(by);
   }
 
-  abandoned(): Candidate {
+  abandon(): Candidate {
     return this.isProposed
       ? this.gone(Attribution.spotlight(this.workspaceId))
       : new Candidate(this.state, true);

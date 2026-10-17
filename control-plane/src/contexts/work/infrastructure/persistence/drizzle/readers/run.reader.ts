@@ -17,9 +17,9 @@ import type { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { RunSpecContract } from '@work/application/contracts/run-spec.contract';
 import type {
-  ConfiguredRun,
   ReplayRunSummary,
   RunConfigSummary,
+  RunConfigView,
   RunConversationSummary,
   RunReaderPort,
   RunStationSummary,
@@ -473,7 +473,7 @@ const configured = (row: {
   taskId: string | null;
   fingerprint: string | null;
   parts: StationConfigParts | null;
-}): ConfiguredRun | null =>
+}): RunConfigView | null =>
   row.taskId && row.fingerprint && row.parts
     ? {
         runId: row.runId,

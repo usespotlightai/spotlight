@@ -63,7 +63,7 @@ export class WorkspaceArchive extends EventRecorder {
     super();
   }
 
-  static granted(input: {
+  static grant(input: {
     id: WorkspaceArchiveId;
     workspaceId: WorkspaceId;
     continuity: ContinuityKey | null;
@@ -171,7 +171,7 @@ export class WorkspaceArchive extends EventRecorder {
     return this.state.version;
   }
 
-  restoredInto(
+  restoreInto(
     workspaceId: WorkspaceId,
     continuity: ContinuityKey | null,
   ): RestoredArchive {
@@ -202,7 +202,7 @@ export class WorkspaceArchive extends EventRecorder {
     return this.state.grantedTo.equals(run);
   }
 
-  sealed(stored: StoredArchive | null, at: Date): WorkspaceArchive {
+  seal(stored: StoredArchive | null, at: Date): WorkspaceArchive {
     if (this.isSealed) {
       return this;
     }
@@ -273,7 +273,7 @@ export class WorkspaceArchive extends EventRecorder {
     return now.kind === 'task' ? now.finished : !now.conversing;
   }
 
-  removed(now: Date, facts: ArchiveFacts): WorkspaceArchive {
+  remove(now: Date, facts: ArchiveFacts): WorkspaceArchive {
     if (!this.removableAt(now, facts)) {
       throw new InvalidWorkspaceArchiveTransitionError(
         'can be removed only when no later run will restore it',

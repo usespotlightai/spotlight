@@ -4,7 +4,7 @@ import type { DigestPort } from '@replays/application/ports/digest.port';
 import type { PeoplePort } from '@replays/application/ports/people.port';
 import type {
   LiveConfig,
-  StationAtHand,
+  StationView,
   WorkPort,
 } from '@replays/application/ports/work.port';
 import type { CheckReadings } from '@replays/application/services/check-readings.service';
@@ -39,7 +39,7 @@ import type { ReplayThreshold } from '@replays/domain/value-objects/replay-thres
 import { StationAddress } from '@replays/domain/value-objects/station-address.vo';
 import { StationBlock } from '@replays/domain/value-objects/station-block.vo';
 import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { IdGeneratorPort } from '@shared-kernel/application/ports/id-generator.port';
@@ -65,7 +65,7 @@ class NothingToReplayError extends Error {
 }
 
 interface Guarded {
-  readonly station: StationAtHand;
+  readonly station: StationView;
   readonly address: StationAddress;
   readonly live: LiveConfig;
   readonly threshold: ReplayThreshold;
@@ -104,17 +104,17 @@ export class StartReplayCheckHandler
     command: StartReplayCheckCommand,
   ): Promise<ReplayCheckStartedOutcome> {
     try {
-      const clearance = await this.access.clearance(
+      const access = await this.access.forTeam(
         command.teamId,
         command.actor.principal,
       );
       const station = await this.access.keyedStationOn(
-        clearance,
+        access,
         command.change.lineId,
         command.change.stationKey,
       );
 
-      if (!clearance.mayPlan) {
+      if (!access.mayPlan) {
         return forbiddenTo('plan');
       }
 
@@ -130,7 +130,7 @@ export class StartReplayCheckHandler
       let reused = false;
 
       try {
-        const created = await this.transaction.run(() =>
+        const created = await this.transaction.inTransaction(() =>
           createdOnce(
             this.creates,
             {
@@ -178,11 +178,11 @@ export class StartReplayCheckHandler
         throw error;
       }
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 
-  private async guarded(station: StationAtHand): Promise<Guarded> {
+  private async guarded(station: StationView): Promise<Guarded> {
     const live = await this.work.live(station.lineId, station.stationId);
     const teamKey = await this.people.teamKey(station.teamId);
     const atStation = await this.sets.atStation(station.stationId);
@@ -273,7 +273,7 @@ export class StartReplayCheckHandler
     }
 
     const at = this.clock.now();
-    const candidate = Candidate.planned({
+    const candidate = Candidate.plan({
       id: CandidateId.of(this.ids.generate()),
       station,
       address: guarded.address,
@@ -305,7 +305,7 @@ export class StartReplayCheckHandler
 
     await this.candidates.add(candidate);
     await this.replays.add(
-      Replay.started({
+      Replay.start({
         id: replayId,
         set,
         candidate,
@@ -329,7 +329,7 @@ export class StartReplayCheckHandler
       }),
     );
 
-    const check = ReplayCheck.started({
+    const check = ReplayCheck.start({
       id: ReplayCheckId.of(this.ids.generate()),
       station: set.station,
       stationKey: station.key,

@@ -44,9 +44,9 @@ import { publicUrlOf } from '@platform/config/env';
 import type { Env } from '@platform/config/env.schema';
 import { bindCommandHandler } from '@platform/cqrs/bind-command-handler';
 import { bindQueryHandler } from '@platform/cqrs/bind-query-handler';
-import { EventPublications } from '@platform/events/event-publications';
 import { EventSubscribers } from '@platform/events/event-subscribers';
-import { EventTypes } from '@platform/events/event-types';
+import { IntegrationEventMappers } from '@platform/events/integration-event-mappers';
+import { PayloadTypes } from '@platform/events/payload-types';
 import { OwedWorkWorker } from '@platform/workers/owed-work.worker';
 import { AddReplaySetEntryCommand } from '@replays/application/commands/add-replay-set-entry.command';
 import { DeleteReplaySetCommand } from '@replays/application/commands/delete-replay-set.command';
@@ -80,7 +80,7 @@ import { StartSearchCommand } from '@replays/application/commands/start-search.c
 import { StopReplayCommand } from '@replays/application/commands/stop-replay.command';
 import { StopSearchCommand } from '@replays/application/commands/stop-search.command';
 import { WithdrawCandidateCommand } from '@replays/application/commands/withdraw-candidate.command';
-import { REPLAYS_PUBLICATIONS } from '@replays/application/integration-events/replays.publications';
+import { REPLAYS_EVENT_MAPPERS } from '@replays/application/integration-events/replays.event-mappers';
 import {
   CHANGE_REVIEW,
   type ChangeReviewPort,
@@ -178,7 +178,7 @@ import { SetHealths } from '@replays/application/services/set-healths.service';
 import { SetStations } from '@replays/application/services/set-stations.service';
 import { StartOracleReplay } from '@replays/application/services/start-oracle-replay.service';
 import { StartWantedBaseline } from '@replays/application/services/start-wanted-baseline.service';
-import { REPLAYS_EVENT_TYPES } from '@replays/domain/event-types';
+import { REPLAYS_PAYLOAD_TYPES } from '@replays/domain/payload-types';
 import { ChangeReview } from '@replays/infrastructure/acl/change-review.adapter';
 import { ConfigRepository } from '@replays/infrastructure/acl/config-repository.adapter';
 import { Outcomes } from '@replays/infrastructure/acl/outcomes.adapter';
@@ -1205,8 +1205,8 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
   {
     provide: REPLAYS_EVENTS,
     inject: [
-      EventTypes,
-      EventPublications,
+      PayloadTypes,
+      IntegrationEventMappers,
       EventSubscribers,
       NoteReplayEnded,
       NoteReplayDigested,
@@ -1234,8 +1234,8 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       NoticeSearchReflections,
     ],
     useFactory: (
-      types: EventTypes,
-      publications: EventPublications,
+      types: PayloadTypes,
+      mappers: IntegrationEventMappers,
       subscribers: EventSubscribers,
       ending: NoteReplayEnded,
       digesting: NoteReplayDigested,
@@ -1262,8 +1262,8 @@ export const REPLAYS_PROVIDERS: readonly Provider[] = [
       abandoningPullRequests: AbandonConfigPullRequests,
       noticingReflections: NoticeSearchReflections,
     ) => {
-      types.register('replays', REPLAYS_EVENT_TYPES);
-      publications.register(REPLAYS_PUBLICATIONS);
+      types.register('replays', REPLAYS_PAYLOAD_TYPES);
+      mappers.register(REPLAYS_EVENT_MAPPERS);
       subscribers.register(
         replaysSubscribers({
           ending,

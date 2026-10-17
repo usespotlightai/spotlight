@@ -3,8 +3,8 @@ import type {
   ReviewSync,
 } from '@change-review/application/ports/review-outbox.port';
 import {
-  MOST_ATTEMPTS,
-  MOST_WAITS_FOR_THREAD,
+  MAX_ATTEMPTS,
+  MAX_WAITS_FOR_THREAD,
   SyncReviews,
 } from '@change-review/application/services/sync-reviews.service';
 import { Review } from '@change-review/domain/aggregates/review.aggregate';
@@ -34,7 +34,7 @@ const TASK = TaskId.of('task_1');
 const PULL = PullRequestUrl.of('https://github.com/acme/web/pull/7');
 
 const draft = (id: string, line: number) =>
-  ReviewComment.drafted({
+  ReviewComment.draft({
     id: ReviewCommentId.of(id),
     workspaceId: WORKSPACE,
     taskId: TASK,
@@ -237,7 +237,7 @@ describe('SyncReviews', () => {
       verdict: 'comment',
       body: 'One thing',
       drafts: [
-        ReviewComment.drafted({
+        ReviewComment.draft({
           id: ReviewCommentId.of('comment_1'),
           workspaceId: WORKSPACE,
           taskId: TASK,
@@ -348,7 +348,7 @@ describe('SyncReviews', () => {
       sync: {
         kind: 'review',
         subjectId: 'review_1',
-        attempts: MOST_ATTEMPTS - 1,
+        attempts: MAX_ATTEMPTS - 1,
       },
       reviews: [review],
       comments,
@@ -444,7 +444,7 @@ describe('SyncReviews', () => {
       sync: {
         kind: 'reply',
         subjectId: 'comment_2',
-        attempts: MOST_WAITS_FOR_THREAD - 1,
+        attempts: MAX_WAITS_FOR_THREAD - 1,
       },
       comments: [sending, reply],
     });
@@ -455,7 +455,7 @@ describe('SyncReviews', () => {
   });
 
   it('posts a review with its comments on lines, and owes each comment on a whole file a post of its own', async () => {
-    const onFile = ReviewComment.drafted({
+    const onFile = ReviewComment.draft({
       id: ReviewCommentId.of('comment_3'),
       workspaceId: WORKSPACE,
       taskId: TASK,
@@ -497,7 +497,7 @@ describe('SyncReviews', () => {
   });
 
   it('posts a comment on a whole file on its own, and keeps where GitHub put it', async () => {
-    const onFile = ReviewComment.drafted({
+    const onFile = ReviewComment.draft({
       id: ReviewCommentId.of('comment_3'),
       workspaceId: WORKSPACE,
       taskId: TASK,
@@ -698,7 +698,7 @@ describe('SyncReviews', () => {
       .postedAs({ id: 77, url: 'https://github.com/c/77' })
       .rewritten('Clearer', ADA, NOW);
     const synced = syncing({
-      sync: { kind: 'edit', subjectId: 'comment_1', attempts: MOST_ATTEMPTS },
+      sync: { kind: 'edit', subjectId: 'comment_1', attempts: MAX_ATTEMPTS },
       comments: [owed],
       github: {
         edit: vi.fn(async () => {

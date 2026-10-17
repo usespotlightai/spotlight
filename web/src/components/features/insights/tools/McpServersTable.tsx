@@ -8,14 +8,14 @@ import {
   ROW_DIVIDER,
 } from '@/components/shared/nested-table/nested-rows';
 import {
-  countShown,
+  formatCount,
+  formatPer,
+  formatShare,
   type InsightsFilter,
-  perShown,
-  shareShown,
 } from '@/lib/insights';
 import {
   failedAfterFilter,
-  latencyShown,
+  formatLatency,
   refusedServerFilter,
   SERVER_HEADINGS,
   type ServerReport,
@@ -58,16 +58,16 @@ export function McpServersTable({
               {server.server}
             </span>
             <NestedCell heading="Runs" strong>
-              {toRuns(countShown(server.runs), runs)}
+              {toRuns(formatCount(server.runs), runs)}
             </NestedCell>
             <NestedCell heading="Calls per run">
-              {toRuns(perShown(server.callsPerRun), runs)}
+              {toRuns(formatPer(server.callsPerRun), runs)}
             </NestedCell>
             <NestedCell heading="p50">
-              {toRuns(latencyShown(server.p50Ms), runs)}
+              {toRuns(formatLatency(server.p50Ms), runs)}
             </NestedCell>
             <NestedCell heading="p95">
-              {toRuns(latencyShown(server.p95Ms), runs)}
+              {toRuns(formatLatency(server.p95Ms), runs)}
             </NestedCell>
             <NestedCell heading="Error rate" strong>
               {server.failedCalls > 0 ? (
@@ -76,30 +76,30 @@ export function McpServersTable({
                 >
                   <span>
                     {toRuns(
-                      shareShown(server.errorRate),
+                      formatShare(server.errorRate),
                       serverFailedFilter(server.server),
                     )}
                   </span>
                 </Noted>
               ) : (
-                shareShown(server.errorRate)
+                formatShare(server.errorRate)
               )}
             </NestedCell>
             <NestedCell heading="Failing runs">
               {server.failingRuns > 0
                 ? toRuns(
-                    countShown(server.failingRuns),
+                    formatCount(server.failingRuns),
                     failedAfterFilter(server.server),
                   )
-                : countShown(0)}
+                : formatCount(0)}
             </NestedCell>
             <NestedCell heading="Refused">
               {server.refused > 0
                 ? toRuns(
-                    countShown(server.refused),
+                    formatCount(server.refused),
                     refusedServerFilter(server.server),
                   )
-                : countShown(0)}
+                : formatCount(0)}
             </NestedCell>
           </li>
         );

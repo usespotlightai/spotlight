@@ -1,5 +1,5 @@
 import type { PersonReaderPort } from '@identity/application/ports/person-reader.port';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
@@ -9,7 +9,7 @@ import type { MoveTaskCommand } from '@work/application/commands/move-task.comma
 import type { TaskDto } from '@work/application/dto/task.dto';
 import { TaskMapper } from '@work/application/mappers/task.mapper';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
-import type { LineAtHand } from '@work/application/services/line-at-hand.service';
+import type { LineLoader } from '@work/application/services/line-loader.service';
 import type { TaskDispatching } from '@work/application/services/task-dispatch';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
 import { UnknownTaskError } from '@work/domain/exceptions/unknown-task.error';
@@ -26,7 +26,7 @@ export class MoveTaskHandler
   constructor(
     private readonly tasks: TaskRepository,
     private readonly placements: TaskPlacementsPort,
-    private readonly lines: LineAtHand,
+    private readonly lines: LineLoader,
     private readonly transaction: TransactionPort,
     private readonly dispatch: TaskDispatching,
     private readonly clock: ClockPort,
@@ -37,14 +37,14 @@ export class MoveTaskHandler
     try {
       return await this.move(command);
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 
   private async move(command: MoveTaskCommand): Promise<TaskDto> {
     const stationId = StationId.of(command.stationId);
 
-    return await this.transaction.run(async () => {
+    return await this.transaction.inTransaction(async () => {
       const line = await this.lines.onTeam(
         command.teamId,
         command.lineId,

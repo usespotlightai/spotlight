@@ -59,7 +59,7 @@ const forgetting = (checks: readonly StackCheck[]) => {
       } as unknown as StackCheckRepository,
       { removeForTask: step('stacks') } as unknown as ChangeStackRepository,
       { removeForTask: step('decisions') } as unknown as DecisionSetRepository,
-      { run: (work) => work() } as TransactionPort,
+      { inTransaction: (work) => work() } as TransactionPort,
       { now: () => NOW, sleep: async () => {} },
     ),
   };

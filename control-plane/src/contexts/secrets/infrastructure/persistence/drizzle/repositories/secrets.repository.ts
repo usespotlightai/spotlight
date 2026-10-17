@@ -88,7 +88,7 @@ export class DrizzleSecrets implements SecretRepository {
   }
 
   async save(held: Secret): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       await this.stored(held);
       await this.settled(held);
 

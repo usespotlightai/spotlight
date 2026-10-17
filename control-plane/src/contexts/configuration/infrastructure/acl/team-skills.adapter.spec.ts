@@ -1,5 +1,5 @@
 import type { AppliedConfigurationPort } from '@configuration/application/ports/applied-configuration.port';
-import type { HeldSecretsPort } from '@configuration/application/ports/held-secrets.port';
+import type { SecretNamesPort } from '@configuration/application/ports/secret-names.port';
 import type {
   SkillFolder,
   SkillReaderPort,
@@ -16,7 +16,7 @@ import { describe, expect, it, vi } from 'vitest';
 const TEAM = TeamId.of('team_1');
 
 const GRAFANA: SkillFolder = {
-  skill: Skill.defined({
+  skill: Skill.define({
     key: SkillKey.of('grafana-dashboards'),
     description: 'Reading this team’s dashboards.',
     instructions: 'Find one with spotlight grafana search.',
@@ -32,7 +32,7 @@ const GRAFANA: SkillFolder = {
 };
 
 const MIGRATIONS: SkillFolder = {
-  skill: Skill.defined({
+  skill: Skill.define({
     key: SkillKey.of('our-migrations'),
     description: 'Writing a migration here.',
     instructions: 'Generate it; never write the SQL.',
@@ -46,7 +46,7 @@ const MIGRATIONS: SkillFolder = {
 };
 
 const FRONTEND: SkillFolder = {
-  skill: Skill.defined({
+  skill: Skill.define({
     key: SkillKey.of('frontend'),
     description: 'Working on the web app.',
     instructions: 'Keep components small.',
@@ -63,8 +63,8 @@ const keeping = (
   held: readonly string[] = [],
 ) => {
   const secrets = {
-    held: vi.fn(async () => held.map((each) => SecretName.of(each))),
-  } satisfies HeldSecretsPort;
+    ofTeam: vi.fn(async () => held.map((each) => SecretName.of(each))),
+  } satisfies SecretNamesPort;
   const reader: SkillReaderPort = {
     read: () => ({ skills: folders, problems: [] }),
     folder: vi.fn(),

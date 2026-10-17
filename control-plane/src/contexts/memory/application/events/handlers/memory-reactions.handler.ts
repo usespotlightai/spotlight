@@ -27,7 +27,7 @@ export class MemoryReactions {
   }
 
   async onApproved(event: MemoryApproved): Promise<void> {
-    await this.transaction.run(async () => {
+    await this.transaction.inTransaction(async () => {
       if (await this.memories.find(event.memoryId)) {
         return;
       }
@@ -60,12 +60,12 @@ export class MemoryReactions {
       return;
     }
 
-    await this.transaction.run(async () => {
+    await this.transaction.inTransaction(async () => {
       const superseded = await this.memories.find(supersedes);
 
       if (superseded?.stands) {
         await this.memories.save(
-          superseded.supersededBy(event.memoryId, this.clock.now()),
+          superseded.supersedeWith(event.memoryId, this.clock.now()),
         );
       }
     });

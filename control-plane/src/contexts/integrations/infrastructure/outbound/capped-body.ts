@@ -1,11 +1,11 @@
 export const cappedText = async (
   reply: Response,
-  most: number,
+  max: number,
   tooLarge: () => Error,
 ): Promise<string> => {
   const declared = Number(reply.headers.get('content-length'));
 
-  if (Number.isFinite(declared) && declared > most) {
+  if (Number.isFinite(declared) && declared > max) {
     await reply.body?.cancel();
     throw tooLarge();
   }
@@ -23,7 +23,7 @@ export const cappedText = async (
 
     size += value.byteLength;
 
-    if (size > most) {
+    if (size > max) {
       await reader.cancel();
       throw tooLarge();
     }
@@ -36,7 +36,7 @@ export const cappedText = async (
 
 export const cappedReply = (
   reply: Response,
-  most: number,
+  max: number,
   tooLarge: () => Error,
 ): Response => {
   if (!reply.body) {
@@ -45,7 +45,7 @@ export const cappedReply = (
 
   const declared = Number(reply.headers.get('content-length'));
 
-  if (Number.isFinite(declared) && declared > most) {
+  if (Number.isFinite(declared) && declared > max) {
     void reply.body.cancel();
     throw tooLarge();
   }
@@ -56,7 +56,7 @@ export const cappedReply = (
       transform(chunk, controller) {
         size += chunk.byteLength;
 
-        if (size > most) {
+        if (size > max) {
           controller.error(tooLarge());
           return;
         }

@@ -142,7 +142,7 @@ describe('Workspace', () => {
     const ADA = UserId.of('user_ada');
 
     it('puts them on the roster at what they were offered', () => {
-      const joined = build().joinedBy(ADA, WorkspaceRole.member);
+      const joined = build().join(ADA, WorkspaceRole.member);
 
       expect(joined.roleOf(ADA)).toBe(WorkspaceRole.member);
       expect(joined.holds(ADA)).toBe(true);
@@ -151,7 +151,7 @@ describe('Workspace', () => {
     it('says so', () => {
       const opened = build();
       opened.pullEvents();
-      const joined = opened.joinedBy(ADA, WorkspaceRole.member);
+      const joined = opened.join(ADA, WorkspaceRole.member);
 
       expect(joined.pullEvents()).toMatchObject([
         { kind: 'workspace.member-joined', userId: ADA },
@@ -159,9 +159,9 @@ describe('Workspace', () => {
     });
 
     it('leaves somebody already of it exactly as they were', () => {
-      const workspace = build().joinedBy(ADA, WorkspaceRole.admin);
+      const workspace = build().join(ADA, WorkspaceRole.admin);
 
-      expect(workspace.joinedBy(ADA, WorkspaceRole.member)).toBe(workspace);
+      expect(workspace.join(ADA, WorkspaceRole.member)).toBe(workspace);
       expect(workspace.roleOf(ADA)).toBe(WorkspaceRole.admin);
     });
   });
@@ -233,15 +233,13 @@ describe('Workspace', () => {
 
     it('lets an owner raise somebody', () => {
       expect(
-        staff()
-          .roleChangedTo(MEMBER, WorkspaceRole.admin, OWNER)
-          .roleOf(MEMBER),
+        staff().changeRole(MEMBER, WorkspaceRole.admin, OWNER).roleOf(MEMBER),
       ).toBe(WorkspaceRole.admin);
     });
 
     it('lets an owner lower somebody', () => {
       expect(
-        staff().roleChangedTo(ADMIN, WorkspaceRole.member, OWNER).roleOf(ADMIN),
+        staff().changeRole(ADMIN, WorkspaceRole.member, OWNER).roleOf(ADMIN),
       ).toBe(WorkspaceRole.member);
     });
 
@@ -252,7 +250,7 @@ describe('Workspace', () => {
       );
 
       expect(
-        two.roleChangedTo(ADMIN, WorkspaceRole.member, OWNER).roleOf(ADMIN),
+        two.changeRole(ADMIN, WorkspaceRole.member, OWNER).roleOf(ADMIN),
       ).toBe(WorkspaceRole.member);
     });
 
@@ -263,27 +261,25 @@ describe('Workspace', () => {
       );
 
       expect(
-        two.roleChangedTo(OWNER, WorkspaceRole.admin, OWNER).roleOf(OWNER),
+        two.changeRole(OWNER, WorkspaceRole.admin, OWNER).roleOf(OWNER),
       ).toBe(WorkspaceRole.admin);
     });
 
     it('lets an admin set the role of somebody below them', () => {
       expect(
-        staff()
-          .roleChangedTo(MEMBER, WorkspaceRole.admin, ADMIN)
-          .roleOf(MEMBER),
+        staff().changeRole(MEMBER, WorkspaceRole.admin, ADMIN).roleOf(MEMBER),
       ).toBe(WorkspaceRole.admin);
     });
 
     it('refuses an admin reaching an owner', () => {
       expect(() =>
-        staff().roleChangedTo(OWNER, WorkspaceRole.member, ADMIN),
+        staff().changeRole(OWNER, WorkspaceRole.member, ADMIN),
       ).toThrow(NotYoursToGiveError);
     });
 
     it('refuses an admin handing out a rank they do not hold', () => {
       expect(() =>
-        staff().roleChangedTo(MEMBER, WorkspaceRole.owner, ADMIN),
+        staff().changeRole(MEMBER, WorkspaceRole.owner, ADMIN),
       ).toThrow(/cannot give a role above your own/);
     });
 
@@ -294,59 +290,51 @@ describe('Workspace', () => {
         { id: MEMBER, role: WorkspaceRole.admin },
       );
 
-      expect(() =>
-        two.roleChangedTo(MEMBER, WorkspaceRole.member, ADMIN),
-      ).toThrow(/people below you/);
+      expect(() => two.changeRole(MEMBER, WorkspaceRole.member, ADMIN)).toThrow(
+        /people below you/,
+      );
     });
 
     it('refuses an admin changing their own', () => {
       expect(() =>
-        staff().roleChangedTo(ADMIN, WorkspaceRole.member, ADMIN),
+        staff().changeRole(ADMIN, WorkspaceRole.member, ADMIN),
       ).toThrow(/cannot change your own role/);
     });
 
     it('refuses a plain member setting anybody’s', () => {
       expect(() =>
-        staff().roleChangedTo(ADMIN, WorkspaceRole.member, MEMBER),
+        staff().changeRole(ADMIN, WorkspaceRole.member, MEMBER),
       ).toThrow(/Only an owner or an admin/);
     });
 
     it('refuses somebody who is not of the workspace at all', () => {
       expect(() =>
-        staff().roleChangedTo(
-          MEMBER,
-          WorkspaceRole.admin,
-          UserId.of('stranger'),
-        ),
+        staff().changeRole(MEMBER, WorkspaceRole.admin, UserId.of('stranger')),
       ).toThrow(/Only an owner or an admin/);
     });
 
     it('refuses a role for somebody who is not of the workspace', () => {
       expect(() =>
-        staff().roleChangedTo(
-          UserId.of('stranger'),
-          WorkspaceRole.admin,
-          OWNER,
-        ),
+        staff().changeRole(UserId.of('stranger'), WorkspaceRole.admin, OWNER),
       ).toThrow(/not a member of this workspace/);
     });
 
     it('keeps the last owner, who is all that can put anything right', () => {
       expect(() =>
-        staff().roleChangedTo(OWNER, WorkspaceRole.admin, OWNER),
+        staff().changeRole(OWNER, WorkspaceRole.admin, OWNER),
       ).toThrow(LastOwnerError);
     });
 
     it('is no change where they already stand there', () => {
       const workspace = staff();
 
-      expect(workspace.roleChangedTo(MEMBER, WorkspaceRole.member, ADMIN)).toBe(
+      expect(workspace.changeRole(MEMBER, WorkspaceRole.member, ADMIN)).toBe(
         workspace,
       );
     });
 
     it('says whose standing changed, and from what to what', () => {
-      const changed = staff().roleChangedTo(MEMBER, WorkspaceRole.admin, OWNER);
+      const changed = staff().changeRole(MEMBER, WorkspaceRole.admin, OWNER);
 
       expect(changed.pullEvents()).toMatchObject([
         {
@@ -361,7 +349,7 @@ describe('Workspace', () => {
 
     it('announces nothing where nothing changed', () => {
       expect(
-        staff().roleChangedTo(MEMBER, WorkspaceRole.member, ADMIN).pullEvents(),
+        staff().changeRole(MEMBER, WorkspaceRole.member, ADMIN).pullEvents(),
       ).toEqual([]);
     });
 
@@ -386,7 +374,7 @@ describe('Workspace', () => {
     });
 
     it('leaves everybody else where they were', () => {
-      const changed = staff().roleChangedTo(MEMBER, WorkspaceRole.admin, OWNER);
+      const changed = staff().changeRole(MEMBER, WorkspaceRole.admin, OWNER);
 
       expect(changed.roleOf(OWNER)).toBe(WorkspaceRole.owner);
       expect(changed.roleOf(ADMIN)).toBe(WorkspaceRole.admin);
@@ -455,13 +443,13 @@ describe('Workspace', () => {
 
     it('closes only once it holds no team, no token, no token trust, no token minted and nothing else', () => {
       expect(() =>
-        kept().closed([TeamKey.of('core')], [], [], [], Holdings.none(), BY),
+        kept().close([TeamKey.of('core')], [], [], [], Holdings.none(), BY),
       ).toThrow(/Still holds: team core/);
       expect(() =>
-        kept().closed([], [TokenName.of('ci')], [], [], Holdings.none(), BY),
+        kept().close([], [TokenName.of('ci')], [], [], Holdings.none(), BY),
       ).toThrow(/Still holds: token ci/);
       expect(() =>
-        kept().closed(
+        kept().close(
           [],
           [],
           [TokenTrustKey.of('github-main')],
@@ -471,7 +459,7 @@ describe('Workspace', () => {
         ),
       ).toThrow(/Still holds: token trust github-main/);
       expect(() =>
-        kept().closed(
+        kept().close(
           [],
           [],
           [],
@@ -481,7 +469,7 @@ describe('Workspace', () => {
         ),
       ).toThrow(/Still holds: tokens minted through github-main/);
       expect(() =>
-        kept().closed(
+        kept().close(
           [],
           [],
           [],
@@ -491,7 +479,7 @@ describe('Workspace', () => {
         ),
       ).toThrow(/Still holds: secret LINEAR_API_KEY/);
 
-      const closed = kept().closed([], [], [], [], Holdings.none(), BY);
+      const closed = kept().close([], [], [], [], Holdings.none(), BY);
 
       expect(closed.isClosed).toBe(true);
       expect(closed.pullEvents()).toEqual([
@@ -504,7 +492,7 @@ describe('Workspace', () => {
     });
   });
 
-  describe('what a principal is cleared to do in it', () => {
+  describe('what a principal may do in it', () => {
     const acme = Workspace.rehydrate({
       id: WorkspaceId.of('ws_1'),
       name: WorkspaceName.of('Acme Inc.'),
@@ -527,17 +515,17 @@ describe('Workspace', () => {
         issuedBy: UserId.of('admin'),
       });
 
-    const cleared = (principal: PersonPrincipal | TokenPrincipal) => {
-      const clearance = acme.clearanceFor(principal);
+    const permissionsOf = (principal: PersonPrincipal | TokenPrincipal) => {
+      const permissions = acme.permissionsFor(principal);
 
       return {
-        reads: clearance.reads,
-        plans: clearance.plans,
-        configures: clearance.configures,
-        managesSecrets: clearance.managesSecrets,
-        managesRunners: clearance.managesRunners,
-        managesTokenTrusts: clearance.managesTokenTrusts,
-        administers: clearance.administers,
+        reads: permissions.reads,
+        plans: permissions.plans,
+        configures: permissions.configures,
+        managesSecrets: permissions.managesSecrets,
+        managesRunners: permissions.managesRunners,
+        managesTokenTrusts: permissions.managesTokenTrusts,
+        administers: permissions.administers,
       };
     };
 
@@ -548,7 +536,7 @@ describe('Workspace', () => {
     ])(
       'lets its %s read and plan, configuring, managing secrets, runners and token trusts, and administering only as an admin',
       (who, configures, administers) => {
-        expect(cleared(person(who))).toEqual({
+        expect(permissionsOf(person(who))).toEqual({
           reads: true,
           plans: true,
           configures,
@@ -561,7 +549,7 @@ describe('Workspace', () => {
     );
 
     it('clears nothing for someone outside it', () => {
-      expect(cleared(person('stranger'))).toEqual({
+      expect(permissionsOf(person('stranger'))).toEqual({
         reads: false,
         plans: false,
         configures: false,
@@ -582,7 +570,7 @@ describe('Workspace', () => {
     ])(
       'lets a %j token of its own read, and never administer',
       (scopes, plans, configures, managesSecrets, managesRunners, managesTokenTrusts) => {
-        expect(cleared(token(scopes))).toEqual({
+        expect(permissionsOf(token(scopes))).toEqual({
           reads: true,
           plans,
           configures,
@@ -595,7 +583,7 @@ describe('Workspace', () => {
     );
 
     it('clears nothing for a token of another workspace, whatever its scope', () => {
-      expect(cleared(token(['configure', 'secrets'], 'ws_2'))).toEqual({
+      expect(permissionsOf(token(['configure', 'secrets'], 'ws_2'))).toEqual({
         reads: false,
         plans: false,
         configures: false,
@@ -609,8 +597,8 @@ describe('Workspace', () => {
     it('clears nothing once it has closed', () => {
       expect(
         acme
-          .closed([], [], [], [], Holdings.none(), BY)
-          .clearanceFor(person('owner')).reads,
+          .close([], [], [], [], Holdings.none(), BY)
+          .permissionsFor(person('owner')).reads,
       ).toBe(false);
     });
   });

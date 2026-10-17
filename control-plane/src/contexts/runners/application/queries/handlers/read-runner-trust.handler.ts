@@ -3,7 +3,7 @@ import type { RunnerTrustResourceDto } from '@runners/application/dto/runner-res
 import { RunnerResourceMapper } from '@runners/application/mappers/runner-resource.mapper';
 import type { RunnerResourcesPort } from '@runners/application/ports/runner-resources.port';
 import type { ReadRunnerTrustQuery } from '@runners/application/queries/runner-resource.queries';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
 export class ReadRunnerTrustHandler
@@ -22,11 +22,11 @@ export class ReadRunnerTrustHandler
       const kept = await this.resources.trustWithId(query.trustId);
 
       return kept &&
-        (await this.access.clearanceIn(kept.workspaceId, query.principal))
+        (await this.access.permissionsIn(kept.workspaceId, query.principal))
         ? RunnerResourceMapper.trust(kept)
         : null;
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

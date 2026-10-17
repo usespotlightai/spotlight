@@ -16,12 +16,12 @@ import { describe, expect, it } from 'vitest';
 const WEEK = 7 * 24 * 60 * 60_000;
 
 const kept = (runId: string, workspaceId = 'ws_1') =>
-  RunGrants.begun(RunHold.of(RunId.of(runId), 1), WorkspaceId.of(workspaceId));
+  RunGrants.start(RunHold.of(RunId.of(runId), 1), WorkspaceId.of(workspaceId));
 
 const keeping = async () => {
   const grants = new InMemoryGrants();
 
-  await grants.save(kept('run_ended').ended(NOW));
+  await grants.save(kept('run_ended').end(NOW));
   await grants.save(kept('run_going'));
   await grants.save(kept('run_elsewhere', 'ws_2'));
 
@@ -60,9 +60,7 @@ describe('ForgetRunGrants', () => {
     const grants = new InMemoryGrants();
 
     for (let each = 0; each < 120; each += 1) {
-      await grants.save(
-        kept(`run_${String(each).padStart(3, '0')}`).ended(NOW),
-      );
+      await grants.save(kept(`run_${String(each).padStart(3, '0')}`).end(NOW));
     }
 
     expect(await forgettingBy(grants).longEnded()).toBe(120);
@@ -74,7 +72,7 @@ describe('ForgetRunGrants', () => {
     const logger = new RecordingLogger();
     const found = grants.find.bind(grants);
 
-    await grants.save(kept('run_broken').ended(NOW));
+    await grants.save(kept('run_broken').end(NOW));
     grants.find = async (runId) => {
       if (runId.value === 'run_broken') {
         throw new InconsistentStateError('run grants', 'is unreadable');

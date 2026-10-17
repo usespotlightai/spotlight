@@ -1,7 +1,7 @@
 import { InvalidCandidateError } from '@replays/domain/exceptions/invalid-candidate.error';
 import { type Block, isBlock } from '@replays/domain/value-objects/block-shape';
 
-const MOST_CHARACTERS = 64_000;
+const MAX_CHARACTERS = 64_000;
 
 export class PlannedLine {
   private constructor(private readonly written: string) {}
@@ -17,9 +17,9 @@ export class PlannedLine {
 
     const written = JSON.stringify({ repositories });
 
-    if (written.length > MOST_CHARACTERS) {
+    if (written.length > MAX_CHARACTERS) {
       throw new InvalidCandidateError(
-        `planned line must be at most ${MOST_CHARACTERS} characters`,
+        `planned line must be at most ${MAX_CHARACTERS} characters`,
       );
     }
 

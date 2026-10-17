@@ -1,7 +1,7 @@
 import { InvalidCatalogEntryError } from '@catalog/domain/exceptions/invalid-catalog-entry.error';
 import {
-  areWords,
-  LONGEST_WORDS,
+  isSlug,
+  MAX_SLUG_LENGTH,
 } from '@shared-kernel/domain/value-objects/identifier-shapes';
 
 export class CatalogName {
@@ -10,10 +10,10 @@ export class CatalogName {
   static of(raw: string): CatalogName {
     const trimmed = raw.trim();
 
-    if (!areWords(trimmed)) {
+    if (!isSlug(trimmed)) {
       throw new InvalidCatalogEntryError(
         'name',
-        `Catalog name "${trimmed}" must be lowercase words joined by dashes, such as web-search. Maximum length: ${LONGEST_WORDS} characters`,
+        `Catalog name "${trimmed}" must be lowercase words joined by dashes, such as web-search. Maximum length: ${MAX_SLUG_LENGTH} characters`,
       );
     }
 

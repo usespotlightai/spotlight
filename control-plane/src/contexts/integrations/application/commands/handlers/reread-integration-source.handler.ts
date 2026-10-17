@@ -41,7 +41,7 @@ export class RereadIntegrationSourceHandler
       return;
     }
 
-    await this.transaction.run(() =>
+    await this.transaction.inTransaction(() =>
       this.definitions.save(
         standing.reread(
           compiled,

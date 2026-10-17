@@ -126,7 +126,7 @@ const judgedAs = async (
     throw new Error('the judging went');
   }
   await judgings.save(
-    leased.judged({
+    leased.recordVerdict({
       verdict: {
         value,
         reasons: [{ text: 'It drains.', steps: [2], hunks: [] }],

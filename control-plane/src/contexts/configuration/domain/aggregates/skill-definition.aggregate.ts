@@ -16,7 +16,7 @@ import type { Attribution } from '@shared-kernel/domain/value-objects/attributio
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
-interface Kept {
+interface Props {
   readonly id: SkillDefinitionId;
   readonly teamId: TeamId;
   readonly key: SkillKey;
@@ -24,7 +24,7 @@ interface Kept {
   readonly version: number;
 }
 
-interface State extends Kept {
+interface State extends Props {
   readonly retired: boolean;
 }
 
@@ -77,7 +77,7 @@ export class SkillDefinition extends EventRecorder {
     return defined;
   }
 
-  static rehydrate(input: Kept): SkillDefinition {
+  static rehydrate(input: Props): SkillDefinition {
     if (input.version < 1) {
       throw new InconsistentStateError(
         'skill definition',
@@ -119,7 +119,7 @@ export class SkillDefinition extends EventRecorder {
     return redefined;
   }
 
-  retired(given: StationUses, by: Attribution): SkillDefinition {
+  retire(given: StationUses, by: Attribution): SkillDefinition {
     this.guardLive();
 
     const using = given.of(this.key);
@@ -135,7 +135,7 @@ export class SkillDefinition extends EventRecorder {
     return retired;
   }
 
-  abandoned(by: Attribution): SkillDefinition {
+  abandon(by: Attribution): SkillDefinition {
     this.guardLive();
 
     const abandoned = this.with({ retired: true });

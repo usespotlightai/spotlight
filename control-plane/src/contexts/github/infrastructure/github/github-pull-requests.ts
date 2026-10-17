@@ -23,7 +23,7 @@ const UNPROCESSABLE = 422;
 
 const FILES_PER_PAGE = 100;
 
-const MOST_CHANGED = 3_000;
+const MAX_CHANGED = 3_000;
 
 interface Opened {
   readonly html_url?: string;
@@ -110,7 +110,7 @@ export class GitHubPullRequests implements PullRequestPort {
   ): Promise<readonly string[]> {
     const changed = new Set<string>();
 
-    for (let page = 1; changed.size < MOST_CHANGED; page += 1) {
+    for (let page = 1; changed.size < MAX_CHANGED; page += 1) {
       const files = await filesIn(await call(pageAt(page), token));
       const before = changed.size;
 
@@ -125,7 +125,7 @@ export class GitHubPullRequests implements PullRequestPort {
       }
     }
 
-    return [...changed].slice(0, MOST_CHANGED);
+    return [...changed].slice(0, MAX_CHANGED);
   }
 
   private async pullRequestFor(

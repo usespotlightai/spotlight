@@ -43,7 +43,7 @@ export class LineResourceResponseDto extends ResourceResponseDto {
       ],
       reactions: [],
       replayCheck: {
-        mostRegressions: 0,
+        maxRegressions: 0,
         ceiling: 10,
         currency: 'USD',
         minGain: 0.05,

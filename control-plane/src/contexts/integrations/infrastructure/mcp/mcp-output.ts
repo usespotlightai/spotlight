@@ -3,7 +3,7 @@ import { asJson } from '@integrations/infrastructure/integrations/templating';
 import type { CallToolResult } from '@modelcontextprotocol/sdk/types.js';
 import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
 
-const SAID_AT_MOST = 500;
+const MAX_SAID = 500;
 
 const plainJson = (output: unknown): ToolOutput =>
   JSON.parse(asJson(output ?? null)) as ToolOutput;
@@ -23,7 +23,7 @@ const parsedOr = (text: string): ToolOutput => {
 };
 
 const saidIn = (result: CallToolResult): string =>
-  (textOf(result) ?? asJson(result.content)).slice(0, SAID_AT_MOST);
+  (textOf(result) ?? asJson(result.content)).slice(0, MAX_SAID);
 
 export const mcpOutput = (result: CallToolResult, tool: string): ToolOutput => {
   if (result.isError) {

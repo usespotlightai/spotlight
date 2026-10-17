@@ -1,4 +1,4 @@
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
@@ -27,7 +27,7 @@ export class ParkRunHandler
 
       for (let attempt = 1; ; attempt++) {
         try {
-          return await this.transaction.run(() =>
+          return await this.transaction.inTransaction(() =>
             this.parked(RunId.of(command.runId), runner, command.cold),
           );
         } catch (error) {
@@ -40,7 +40,7 @@ export class ParkRunHandler
         }
       }
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 

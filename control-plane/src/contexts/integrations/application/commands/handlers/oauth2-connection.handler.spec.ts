@@ -39,9 +39,9 @@ const authorizing = (allowed: boolean, member = true) =>
           }
         : null,
     ),
-    clearanceIn: vi.fn(),
-    clearanceOnTeam: vi.fn(),
-    clearanceAsTeamReader: vi.fn(),
+    permissionsIn: vi.fn(),
+    permissionsOnTeam: vi.fn(),
+    permissionsAsTeamReader: vi.fn(),
     mayPlan: vi.fn(),
   }) satisfies WorkspaceAccessPort;
 
@@ -201,7 +201,9 @@ describe('FinishOAuth2ConnectionHandler', () => {
       {
         integrations: () => [integration],
       } as unknown as IntegrationRuntimePort,
-      { run: (work: () => Promise<unknown>) => work() } as TransactionPort,
+      {
+        inTransaction: (work: () => Promise<unknown>) => work(),
+      } as TransactionPort,
     );
 
     return { handler, save, dispatch, returned, landingFor };

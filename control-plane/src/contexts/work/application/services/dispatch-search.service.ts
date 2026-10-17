@@ -38,7 +38,7 @@ const ENDED: UnclaimedWithdrawal = { outcome: 'ended' };
 
 const CLAIMED: UnclaimedWithdrawal = { outcome: 'claimed' };
 
-const MOST_MODEL = 60;
+const MAX_MODEL = 60;
 
 const unstartable = (reason: string): SearchDispatched => ({
   outcome: 'unstartable',
@@ -78,7 +78,7 @@ export class DispatchSearch implements SearchDispatchPort {
     if (model !== null && !holds(() => HarnessModel.of(model))) {
       return {
         field: 'model',
-        reason: `Model must be 1 to ${MOST_MODEL} characters, or empty.`,
+        reason: `Model must be 1 to ${MAX_MODEL} characters, or empty.`,
       };
     }
     if (effort !== null && !holds(() => Effort.of(effort))) {
@@ -92,7 +92,7 @@ export class DispatchSearch implements SearchDispatchPort {
   }
 
   enqueue(order: SearchOrder): Promise<SearchDispatched> {
-    return this.transaction.run(async () => {
+    return this.transaction.inTransaction(async () => {
       const id = RunId.of(order.id);
       const searchId = SearchId.of(order.searchId);
       const iteration = SearchIteration.of(order.iteration);
@@ -150,7 +150,7 @@ export class DispatchSearch implements SearchDispatchPort {
   }
 
   withdraw(runId: string): Promise<void> {
-    return this.transaction.run(async () => {
+    return this.transaction.inTransaction(async () => {
       const run = await this.runs.findById(RunId.of(runId));
 
       if (!run?.isSearch || run.hasEnded) {
@@ -169,7 +169,7 @@ export class DispatchSearch implements SearchDispatchPort {
   }
 
   withdrawUnclaimed(runId: string): Promise<UnclaimedWithdrawal> {
-    return this.transaction.run(async () => {
+    return this.transaction.inTransaction(async () => {
       const run = await this.runs.findById(RunId.of(runId));
 
       if (!run?.isSearch || run.hasEnded) {

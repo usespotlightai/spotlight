@@ -51,7 +51,7 @@ export const fileAt = (
     return own === path || own.endsWith(`/${path}`) || path.endsWith(`/${own}`);
   }) ?? null;
 
-export const hunkShown = (hunk: CitedHunk): string =>
+export const formatHunk = (hunk: CitedHunk): string =>
   hunk.lines.start === hunk.lines.end
     ? `${fileName(hunk.path)}, line ${hunk.lines.start}`
     : `${fileName(hunk.path)}, lines ${hunk.lines.start}–${hunk.lines.end}`;

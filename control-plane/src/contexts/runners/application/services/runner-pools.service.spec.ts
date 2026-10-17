@@ -3,7 +3,7 @@ import type {
   RunnerAdmissionsPort,
 } from '@runners/application/ports/runner-admissions.port';
 import type {
-  KeptPool,
+  RunnerPoolRecord,
   RunnerResourcesPort,
 } from '@runners/application/ports/runner-resources.port';
 import { RunnerPools } from '@runners/application/services/runner-pools.service';
@@ -29,7 +29,7 @@ const pooling = (
   held: {
     pool?: RunnerPool | null;
     standing?: readonly Runner[];
-    provisioning?: readonly KeptPool[];
+    provisioning?: readonly RunnerPoolRecord[];
     platform?: boolean;
   } = {},
 ) => {
@@ -110,7 +110,7 @@ describe('RunnerPools', () => {
   });
 
   describe('the pools that provision', () => {
-    const kept = (egress: string | null): KeptPool => ({
+    const kept = (egress: string | null): RunnerPoolRecord => ({
       id: `pool_${egress ?? 'none'}`,
       version: 0,
       workspaceId: WORKSPACE,
@@ -173,7 +173,7 @@ describe('RunnerPools', () => {
       ).resolves.toBe(0);
       await expect(
         pooling(null, {
-          pool: aPullPool().retired(attributedIn()),
+          pool: aPullPool().retire(attributedIn()),
         }).pools.roomIn(POOL_ID.value, NOW),
       ).resolves.toBe(0);
     });

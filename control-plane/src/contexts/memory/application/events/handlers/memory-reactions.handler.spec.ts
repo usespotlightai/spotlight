@@ -76,7 +76,7 @@ const reacting = (held: Memory[] = []) => {
     reactions: new MemoryReactions(
       reviews as unknown as ReviewsPort,
       memories as unknown as MemoryRepository,
-      { run: <T>(work: () => Promise<T>) => work() },
+      { inTransaction: <T>(work: () => Promise<T>) => work() },
       { now: () => NOW, sleep: async () => undefined },
     ),
     reviews,
@@ -133,7 +133,7 @@ describe('reacting to memories being proposed and decided', () => {
       source: 'run',
       supersedes: null,
       approval: ADA,
-    }).retired({ by: UserId.of('user_bea'), reason: 'Wrong.', at: NOW });
+    }).retire({ by: UserId.of('user_bea'), reason: 'Wrong.', at: NOW });
     const { reactions, held } = reacting([gone]);
 
     await reactions.onApproved(approved(OLD));
@@ -174,7 +174,7 @@ describe('reacting to memories being proposed and decided', () => {
       source: 'run',
       supersedes: null,
       approval: ADA,
-    }).supersededBy(MemoryId.of('memory_first'), NOW);
+    }).supersedeWith(MemoryId.of('memory_first'), NOW);
     const { reactions, memories, held } = reacting([old]);
 
     await reactions.onStood(new MemoryStood(NEW, OLD));

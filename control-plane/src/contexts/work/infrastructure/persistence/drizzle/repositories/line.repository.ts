@@ -165,7 +165,7 @@ export class DrizzleLineRepository implements LineRepository {
   ) {}
 
   async add(added: Line): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       await this.inserted(added);
       await this.events.dispatch(added.pullEvents());
     });
@@ -198,7 +198,7 @@ export class DrizzleLineRepository implements LineRepository {
   }
 
   async save(saved: Line): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       await this.stored(saved);
       await this.events.dispatch(saved.pullEvents());
     });

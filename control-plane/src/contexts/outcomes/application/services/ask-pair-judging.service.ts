@@ -42,7 +42,7 @@ export class AskPairJudging implements PairJudgingPort {
           passShare: asked.passShare,
         }),
         reference: RunId.of(asked.reference),
-        mostAttempts: asked.mostAttempts,
+        maxAttempts: asked.maxAttempts,
         now: this.clock.now(),
       });
     } catch (error) {
@@ -53,7 +53,7 @@ export class AskPairJudging implements PairJudgingPort {
     }
 
     try {
-      await this.transaction.run(() => this.judgings.add(judging));
+      await this.transaction.inTransaction(() => this.judgings.add(judging));
     } catch (error) {
       if (!(error instanceof PairJudgingVersionConflictError)) {
         throw error;

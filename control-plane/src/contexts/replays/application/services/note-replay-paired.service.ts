@@ -34,7 +34,7 @@ export class NoteReplayPaired {
     const against = RunId.of(event.againstRunId);
 
     return this.changing(event.runId, (replay, run) =>
-      replay.paired(run, against, verdict, event.spent),
+      replay.pair(run, against, verdict, event.spent),
     );
   }
 
@@ -47,13 +47,13 @@ export class NoteReplayPaired {
     const against = RunId.of(againstRunId);
 
     return this.changing(runId, (replay, run) =>
-      replay.pairingFailed(run, against, failure, spent),
+      replay.recordPairingFailure(run, against, failure, spent),
     );
   }
 
   refused(event: ReplayPairingRefused): Promise<void> {
     return this.changing(event.run.value, (replay, run) =>
-      replay.pairingFailed(run, event.against, event.why, null),
+      replay.recordPairingFailure(run, event.against, event.why, null),
     );
   }
 
@@ -63,7 +63,7 @@ export class NoteReplayPaired {
   ): Promise<void> {
     const run = RunId.of(runId);
 
-    return this.transaction.run(async () => {
+    return this.transaction.inTransaction(async () => {
       const replay = await this.replays.ranAs(run);
 
       if (!replay) {

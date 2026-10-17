@@ -83,7 +83,7 @@ const checkOf = (built = stack()) =>
     now: NOW,
   })
     .claimedFor(CHECKER, RunnerTerms.none(), NOW)
-    .recorded(
+    .recordResult(
       CHECKER,
       { steps: built.checkSteps(built.entries()), layers: built.layers() },
       [

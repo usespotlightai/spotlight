@@ -1,4 +1,4 @@
-import { UseCaseFault } from '@shared-kernel/application/errors/use-case.fault';
+import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -114,7 +114,7 @@ describe('RecordStartingPointHandler', () => {
       told(null, AT_API, 'runner_1', Number.NaN),
     ]) {
       await expect(record.execute(refused)).rejects.toMatchObject({
-        kind: 'invalid-input',
+        kind: 'invalid',
       });
     }
   });
@@ -141,7 +141,7 @@ describe('RecordStartingPointHandler', () => {
   it('refuses an archive the run could not have restored', async () => {
     const { archives, record } = await setUp();
     await archives.add(
-      WorkspaceArchive.granted({
+      WorkspaceArchive.grant({
         id: WorkspaceArchiveId.of('archive_of_another_task'),
         workspaceId: WorkspaceId.of('ws_1'),
         continuity: ContinuityKey.forTask('task_2'),
@@ -150,7 +150,7 @@ describe('RecordStartingPointHandler', () => {
         size: ArchiveSize.of(1_024),
         digest: ArchiveDigest.of(SHA256),
         at: GRANTED_AT,
-      }).sealed(storedAs(1_024), GRANTED_AT),
+      }).seal(storedAs(1_024), GRANTED_AT),
     );
 
     for (const archive of [
@@ -159,7 +159,7 @@ describe('RecordStartingPointHandler', () => {
       'archive_of_another_task',
     ]) {
       await expect(record.execute(told(archive))).rejects.toMatchObject({
-        kind: 'invalid-input',
+        kind: 'invalid',
       });
     }
   });
@@ -169,7 +169,7 @@ describe('RecordStartingPointHandler', () => {
 
     await expect(
       record.execute(told(null, [{ path: 'api', commit: 'abc123' }])),
-    ).rejects.toBeInstanceOf(UseCaseFault);
+    ).rejects.toBeInstanceOf(ApplicationError);
   });
 
   it('refuses checkouts other than the ones the run was given', async () => {
@@ -177,7 +177,7 @@ describe('RecordStartingPointHandler', () => {
 
     await expect(
       record.execute(told(null, [{ path: 'web', commit: COMMIT }])),
-    ).rejects.toMatchObject({ kind: 'invalid-input' });
+    ).rejects.toMatchObject({ kind: 'invalid' });
   });
 
   it('refuses a runner that does not hold the run, before looking at the archive', async () => {

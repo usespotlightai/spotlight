@@ -6,13 +6,13 @@ import {
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { spentIn } from '@/lib/inbox';
 import {
-  countShown,
   type DayOutput,
+  formatCount,
+  formatStation,
   type StationNames,
-  stationShown,
 } from '@/lib/insights';
 import { changeKey } from '@/lib/insights-changes';
-import { dayShown } from '@/lib/judge';
+import { formatDay } from '@/lib/judge';
 import { stationPath } from '@/lib/station';
 
 type OutputTableProps = {
@@ -34,7 +34,7 @@ export function OutputTable({
     {
       id: 'day',
       header: 'Day',
-      cell: (day) => dayShown(day.day),
+      cell: (day) => formatDay(day.day),
     },
     {
       id: 'runs',
@@ -43,7 +43,7 @@ export function OutputTable({
       cell: (day) =>
         day.runs > 0 ? (
           <InsightsLink tab="runs" filter={{ day: day.day }}>
-            {countShown(day.runs)}
+            {formatCount(day.runs)}
           </InsightsLink>
         ) : (
           '0'
@@ -60,7 +60,7 @@ export function OutputTable({
       id: 'merged',
       header: 'PRs merged',
       numeric: true,
-      cell: (day) => countShown(day.merged),
+      cell: (day) => formatCount(day.merged),
     },
     {
       id: 'changes',
@@ -76,7 +76,7 @@ export function OutputTable({
                 to={stationPath(slug, teamId, change.lineId, change.stationId)}
                 className="hover:underline"
               >
-                {stationShown(names, change.stationId)}
+                {formatStation(names, change.stationId)}
               </TrailLink>
             ))}
           </span>

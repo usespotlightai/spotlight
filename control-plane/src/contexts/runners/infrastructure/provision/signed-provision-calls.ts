@@ -10,7 +10,7 @@ type Fetch = typeof globalThis.fetch;
 
 const TIMEOUT_MS = 10_000;
 
-const MOST_DETAIL = 500;
+const MAX_DETAIL = 500;
 
 export interface ProvisionSettings {
   readonly spotlightUrl: string;
@@ -97,7 +97,7 @@ export class SignedProvisionCalls implements ProvisionCallsPort {
       return { outcome: 'unreachable', detail: described(error) };
     }
 
-    const said = (await answered.text().catch(() => '')).slice(0, MOST_DETAIL);
+    const said = (await answered.text().catch(() => '')).slice(0, MAX_DETAIL);
 
     if (answered.status >= 200 && answered.status < 300) {
       return { outcome: 'accepted' };

@@ -1,4 +1,4 @@
-const MOST_TOOL_OUTPUT = 16_000;
+const MAX_TOOL_OUTPUT = 16_000;
 
 const NOTHING = 'null';
 
@@ -17,7 +17,7 @@ export class ToolOutput {
     const json = jsonOf(answer);
 
     return new ToolOutput(
-      json === null || json.length > MOST_TOOL_OUTPUT ? NOTHING : json,
+      json === null || json.length > MAX_TOOL_OUTPUT ? NOTHING : json,
     );
   }
 

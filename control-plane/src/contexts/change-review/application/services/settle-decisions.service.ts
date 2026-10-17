@@ -33,7 +33,7 @@ export class SettleDecisions {
       return;
     }
 
-    await this.transaction.run(async () => {
+    await this.transaction.inTransaction(async () => {
       const set = await this.sets.forTask(task.id);
 
       if (!set) {
@@ -49,7 +49,7 @@ export class SettleDecisions {
                 at: closed.closedAt ?? this.clock.now(),
               }),
             )
-          : set.closedUnmerged(),
+          : set.closeUnmerged(),
       );
     });
   }

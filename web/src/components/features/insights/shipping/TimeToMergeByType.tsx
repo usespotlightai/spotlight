@@ -4,8 +4,8 @@ import { ChartLegend } from '@/components/features/insights/shipping/ChartLegend
 import { PercentilePicker } from '@/components/features/insights/shipping/PercentilePicker';
 import { lastedOrNone } from '@/lib/insights';
 import {
+  formatType,
   PULL_REQUEST_TYPE_SOURCE,
-  typeShown,
 } from '@/lib/insights-pull-requests';
 import {
   DEFAULT_PERCENTILE,
@@ -14,8 +14,8 @@ import {
   slowestFirst,
 } from '@/lib/insights-shipping';
 
-const widthOf = (ms: number | null, most: number): string =>
-  ms === null || most === 0 ? '0%' : `${(ms / most) * 100}%`;
+const widthOf = (ms: number | null, max: number): string =>
+  ms === null || max === 0 ? '0%' : `${(ms / max) * 100}%`;
 
 export function TimeToMergeByType({
   merges,
@@ -24,7 +24,7 @@ export function TimeToMergeByType({
 }) {
   const [percentile, setPercentile] = useState<Percentile>(DEFAULT_PERCENTILE);
   const rows = slowestFirst(merges, percentile);
-  const most = Math.max(
+  const max = Math.max(
     0,
     ...rows.flatMap((row) => [
       row.toMerge.spotlight[percentile] ?? 0,
@@ -43,7 +43,7 @@ export function TimeToMergeByType({
           <li key={row.type} className="flex flex-col gap-1">
             <div className="flex items-baseline justify-between gap-2 text-xs">
               <span className="text-foreground">
-                {typeShown(row.type)}{' '}
+                {formatType(row.type)}{' '}
                 <span className="text-[0.7rem] text-muted-foreground">
                   {row.merged} merged
                 </span>
@@ -61,7 +61,7 @@ export function TimeToMergeByType({
                 <span
                   className="block h-full rounded-full bg-chart-primary"
                   style={{
-                    width: widthOf(row.toMerge.spotlight[percentile], most),
+                    width: widthOf(row.toMerge.spotlight[percentile], max),
                   }}
                 />
               </span>
@@ -69,7 +69,7 @@ export function TimeToMergeByType({
                 <span
                   className="block h-full rounded-full bg-chart-2"
                   style={{
-                    width: widthOf(row.toMerge.people[percentile], most),
+                    width: widthOf(row.toMerge.people[percentile], max),
                   }}
                 />
               </span>

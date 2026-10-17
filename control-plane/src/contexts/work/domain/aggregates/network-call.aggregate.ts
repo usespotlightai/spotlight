@@ -197,11 +197,7 @@ export class NetworkCall extends EventRecorder {
     return this.with({ progress: { kind: 'claimed', by: host, at: now } });
   }
 
-  answeredWith(
-    host: CallingHost,
-    answer: NetworkAnswer,
-    now: Date,
-  ): NetworkCall {
+  answerWith(host: CallingHost, answer: NetworkAnswer, now: Date): NetworkCall {
     const { progress } = this.state;
     const standing = this.stateAt(now);
 

@@ -20,7 +20,9 @@ export class AbandonWorkspaceRunners {
     const by = Attribution.spotlight(workspaceId);
 
     for (const trust of await this.trusts.inWorkspace(workspaceId)) {
-      await this.transaction.run(() => this.trusts.save(trust.withdrawn(by)));
+      await this.transaction.inTransaction(() =>
+        this.trusts.save(trust.withdraw(by)),
+      );
     }
   }
 
@@ -28,7 +30,9 @@ export class AbandonWorkspaceRunners {
     const by = Attribution.spotlight(workspaceId);
 
     for (const pool of await this.pools.inWorkspace(workspaceId)) {
-      await this.transaction.run(() => this.pools.save(pool.retired(by)));
+      await this.transaction.inTransaction(() =>
+        this.pools.save(pool.retire(by)),
+      );
     }
   }
 
@@ -37,8 +41,8 @@ export class AbandonWorkspaceRunners {
     const pools = await this.pools.inWorkspace(workspaceId);
 
     for (const egress of await this.egresses.inWorkspace(workspaceId)) {
-      await this.transaction.run(() =>
-        this.egresses.save(egress.retired(poolsNaming(egress, pools), by)),
+      await this.transaction.inTransaction(() =>
+        this.egresses.save(egress.retire(poolsNaming(egress, pools), by)),
       );
     }
   }
@@ -47,9 +51,9 @@ export class AbandonWorkspaceRunners {
     const declared = await this.declarations.declaredIn(workspaceId);
 
     if (declared) {
-      await this.transaction.run(() =>
+      await this.transaction.inTransaction(() =>
         this.declarations.save(
-          declared.dropped(Attribution.spotlight(workspaceId)),
+          declared.drop(Attribution.spotlight(workspaceId)),
         ),
       );
     }

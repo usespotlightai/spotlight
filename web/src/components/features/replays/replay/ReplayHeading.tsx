@@ -5,14 +5,14 @@ import { Pill } from '@/components/shared/Pill';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import type { LineResponseDto, StationResponseDto } from '@/lib/api';
 import {
-  candidateShown,
+  formatCandidate,
   type ReplayDetail,
   type ReplayedStation,
   replaySetPath,
 } from '@/lib/replay';
 import { BASELINE_LABEL, BASELINE_NOTE } from '@/lib/replay-words';
 import { searchPath } from '@/lib/search';
-import { ranShown, since } from '@/lib/since';
+import { formatRan, since } from '@/lib/since';
 
 const UNUSUAL: ReadonlySet<ReplayDetail['state']> = new Set([
   'stopped',
@@ -40,7 +40,7 @@ export function ReplayHeading({
     <StationItemHeading
       line={line}
       station={station}
-      title={candidateShown(replay.candidate)}
+      title={formatCandidate(replay.candidate)}
       marks={
         <>
           {UNUSUAL.has(replay.state) && (
@@ -71,7 +71,7 @@ export function ReplayHeading({
         </>
       )}
       {' · '}
-      <Noted note={ranShown(replay.startedAt, replay.endedAt)}>
+      <Noted note={formatRan(replay.startedAt, replay.endedAt)}>
         <span>{since(replay.endedAt ?? replay.startedAt)}</span>
       </Noted>
     </StationItemHeading>

@@ -2,7 +2,7 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 
 export const TOKEN_TRUST_CONFIGURATION = Symbol('TOKEN_TRUST_CONFIGURATION');
 
-export interface ConfiguredTokenTrust {
+export interface TokenTrustView {
   readonly id: string;
   readonly address: string;
   readonly workspaceId: WorkspaceId;
@@ -16,7 +16,7 @@ export interface ConfiguredTokenTrust {
 }
 
 export interface TokenTrustConfigurationPort {
-  in(workspaceId: WorkspaceId): Promise<readonly ConfiguredTokenTrust[]>;
+  in(workspaceId: WorkspaceId): Promise<readonly TokenTrustView[]>;
 
-  withId(id: string): Promise<ConfiguredTokenTrust | null>;
+  withId(id: string): Promise<TokenTrustView | null>;
 }

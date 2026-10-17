@@ -69,10 +69,10 @@ export const gradeOptions = (kind: RatedKind): readonly GradeOption[] =>
 export const valueOfGrade = (kind: RatedKind, value: GradeValue): number =>
   kind === 'yes-no' ? (value ? 1 : 0) : Number(value);
 
-export const claimsMetShown = (marks: readonly boolean[]): string =>
+export const formatClaimsMet = (marks: readonly boolean[]): string =>
   `${marks.filter(Boolean).length} of ${marks.length} claims met`;
 
-export const scoreShown = (score: {
+export const formatScore = (score: {
   readonly kind: ScoreKind;
   readonly label: string;
   readonly marks?: readonly boolean[] | null;
@@ -83,7 +83,7 @@ export const scoreShown = (score: {
     case 'number':
       return `${score.label} of 5`;
     case 'claims':
-      return score.marks ? claimsMetShown(score.marks) : score.label;
+      return score.marks ? formatClaimsMet(score.marks) : score.label;
   }
 };
 
@@ -95,20 +95,20 @@ const TREND_CAPTIONS: Record<ScoreKind, string> = {
   claims: 'share of claims met, by day',
 };
 
-export const trendCaptionShown = (kind: ScoreKind): string =>
+export const formatTrendCaption = (kind: ScoreKind): string =>
   TREND_CAPTIONS[kind];
 
-export const claimShown = (
+export const formatClaim = (
   claims: readonly (string | null)[],
   index: number,
 ): string => claims[index] ?? `Claim ${index + 1}`;
 
-export const markShown = (met: boolean): string => (met ? 'Met' : 'Not met');
+export const formatMark = (met: boolean): string => (met ? 'Met' : 'Not met');
 
-export const passShareShown = (passShare: number): string =>
+export const formatPassShare = (passShare: number): string =>
   passShare >= 1
     ? 'A run passes when it meets every claim.'
-    : `A run passes when it meets at least ${percentShown(passShare)} of its claims.`;
+    : `A run passes when it meets at least ${formatPercent(passShare)} of its claims.`;
 
 export const CLAIMS_LABEL = 'Claims';
 
@@ -148,10 +148,10 @@ const MEASURES: Record<NonNullable<JudgeStanding['measure']>, string> = {
   spearman: 'Spearman’s ρ',
 };
 
-export const measureShown = (measure: JudgeStanding['measure']): string =>
+export const formatMeasure = (measure: JudgeStanding['measure']): string =>
   measure ? MEASURES[measure] : 'Agreement';
 
-export const statShown = (value: number | null): string =>
+export const formatStat = (value: number | null): string =>
   value === null ? '–' : value.toFixed(2);
 
 const PERCENT = new Intl.NumberFormat('en', {
@@ -159,13 +159,13 @@ const PERCENT = new Intl.NumberFormat('en', {
   maximumFractionDigits: 0,
 });
 
-export const percentShown = (share: number | null): string =>
+export const formatPercent = (share: number | null): string =>
   share === null ? '–' : PERCENT.format(share);
 
-export const standingShown = (standing: JudgeStanding): string => {
+export const formatStanding = (standing: JudgeStanding): string => {
   switch (standing.hiddenBecause) {
     case null:
-      return `Trusted. ${measureShown(standing.measure)}: ${statShown(standing.agreement)} over ${standing.pairs} runs. Minimum required: ${statShown(standing.trust)}`;
+      return `Trusted. ${formatMeasure(standing.measure)}: ${formatStat(standing.agreement)} over ${standing.pairs} runs. Minimum required: ${formatStat(standing.trust)}`;
     case 'no-judge':
       return 'This station has no judge. There are no scores to trust.';
     case 'unreadable-rubric':
@@ -175,23 +175,23 @@ export const standingShown = (standing: JudgeStanding): string => {
     case 'no-agreement':
       return 'Hidden. Agreement can’t be measured while all scores are identical.';
     case 'below-trust':
-      return `Hidden. ${measureShown(standing.measure)}: ${statShown(standing.agreement)}. Minimum required: ${statShown(standing.trust)}`;
+      return `Hidden. ${formatMeasure(standing.measure)}: ${formatStat(standing.agreement)}. Minimum required: ${formatStat(standing.trust)}`;
   }
 };
 
-export const dayShown = (day: string): string =>
+export const formatDay = (day: string): string =>
   new Date(`${day}T00:00:00Z`).toLocaleDateString(undefined, {
     month: 'short',
     day: 'numeric',
     timeZone: 'UTC',
   });
 
-export const hunkShown = (hunk: CitedHunk): string =>
+export const formatHunk = (hunk: CitedHunk): string =>
   hunk.path
     ? `${hunk.path.slice(hunk.path.lastIndexOf('/') + 1)} ${hunk.header ?? ''}`.trim()
     : hunk.id;
 
-export const stepShown = (citation: Citation): string =>
+export const formatStep = (citation: Citation): string =>
   `Step ${citation.step?.index ?? ''}`.trim();
 
 const COVERAGE_PARTS = [
@@ -214,17 +214,17 @@ export const judgeTiles = (
 ): JudgeTile[] => [
   {
     id: 'agreement',
-    label: measureShown(standing.measure),
-    value: statShown(standing.agreement),
+    label: formatMeasure(standing.measure),
+    value: formatStat(standing.agreement),
     detail: standing.trusted
-      ? `Trusted. Minimum required: ${statShown(standing.trust)}`
-      : standingShown(standing),
+      ? `Trusted. Minimum required: ${formatStat(standing.trust)}`
+      : formatStanding(standing),
   },
   ...COVERAGE_PARTS.map((part) => ({
     id: part.label,
     label: part.label,
     value: `${coverage[part.key]}`,
-    detail: `${percentShown(coverage.shares[part.key])} of the last ${coverage.runs}`,
+    detail: `${formatPercent(coverage.shares[part.key])} of the last ${coverage.runs}`,
   })),
 ];
 
@@ -282,22 +282,22 @@ export const comparisonStats = (version: RubricVersion): ComparisonStat[] => {
     return [
       {
         label: 'Pearson correlation',
-        value: statShown(agreement.pearson),
+        value: formatStat(agreement.pearson),
         note: correlationRead(readings.pearson, false),
       },
       {
         label: 'Spearman correlation',
-        value: statShown(agreement.spearman),
+        value: formatStat(agreement.spearman),
         note: correlationRead(readings.spearman, true),
       },
       {
         label: 'Mean absolute error',
-        value: statShown(agreement.mae),
+        value: formatStat(agreement.mae),
         note: 'How far the judge’s score is from people’s on average, in points on the rubric’s scale. Lower is better.',
       },
       {
         label: 'Root mean square error',
-        value: statShown(agreement.rmse),
+        value: formatStat(agreement.rmse),
         note: 'This is like mean absolute error, but large misses count for more. Lower is better.',
       },
     ];
@@ -306,7 +306,7 @@ export const comparisonStats = (version: RubricVersion): ComparisonStat[] => {
   return [
     {
       label: 'Cohen’s kappa',
-      value: statShown(agreement.kappa),
+      value: formatStat(agreement.kappa),
       note: kappaRead(
         readings.kappa,
         version.kind === 'claims'
@@ -316,21 +316,21 @@ export const comparisonStats = (version: RubricVersion): ComparisonStat[] => {
     },
     {
       label: 'F1 score',
-      value: statShown(agreement.f1),
+      value: formatStat(agreement.f1),
       note: 'How well the judge’s yes matches people’s yes. A perfect match misses none, adds none and scores 1. Higher is better.',
     },
     {
       label: 'Overall agreement',
-      value: percentShown(agreement.observed),
+      value: formatPercent(agreement.observed),
       note: 'The share of runs where the judge and people gave the same score. Agreement by chance counts.',
     },
   ];
 };
 
-export const rubricShown = (version: RubricVersion): string =>
+export const formatRubric = (version: RubricVersion): string =>
   version.current
     ? 'Current version'
-    : `Version until ${dayShown(version.lastAt.slice(0, 10))}`;
+    : `Version until ${formatDay(version.lastAt.slice(0, 10))}`;
 
 export const CLAIM_HEADINGS: readonly NestedHeading[] = [
   { label: CLAIM_COLUMN, indent: 'edge', size: 'minmax(12rem,3fr)' },

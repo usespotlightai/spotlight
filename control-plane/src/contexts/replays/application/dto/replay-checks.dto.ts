@@ -53,7 +53,7 @@ export interface ReplayCheckDto {
   readonly candidateFingerprint: string;
   readonly keptLive: readonly string[];
   readonly threshold: {
-    readonly mostRegressions: number;
+    readonly maxRegressions: number;
     readonly minGain: number;
     readonly ceiling: SpendDto;
     readonly unpricedRun: SpendDto | null;

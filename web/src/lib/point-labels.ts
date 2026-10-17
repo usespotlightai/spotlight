@@ -24,7 +24,7 @@ export const LABEL_SIZE = 11;
 const CHARACTER_WIDTH = 6.2;
 const GAP = 15;
 const SIDE_GAP = 14;
-const CLEARANCE = 2;
+const ACCESS = 2;
 
 const LINE = LABEL_SIZE + 2;
 
@@ -57,10 +57,10 @@ const boxOf = (label: PlacedLabel): Box => {
 };
 
 const overlap = (a: Box, b: Box): boolean =>
-  a.left < b.right + CLEARANCE &&
-  b.left < a.right + CLEARANCE &&
-  a.top < b.bottom + CLEARANCE &&
-  b.top < a.bottom + CLEARANCE;
+  a.left < b.right + ACCESS &&
+  b.left < a.right + ACCESS &&
+  a.top < b.bottom + ACCESS &&
+  b.top < a.bottom + ACCESS;
 
 export const placeLabels = (
   points: readonly LabelledPoint[],

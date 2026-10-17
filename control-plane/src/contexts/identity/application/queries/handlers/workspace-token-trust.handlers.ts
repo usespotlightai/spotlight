@@ -8,7 +8,7 @@ import type {
   ReadWorkspaceTokenTrustQuery,
 } from '@identity/application/queries/workspace-token-trust.queries';
 import { TokenTrustKey } from '@identity/domain/value-objects/token-trust-key.vo';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { WorkspaceTokenTrustId } from '@shared-kernel/domain/value-objects/workspace-token-trust-id.vo';
@@ -34,11 +34,11 @@ export class ReadWorkspaceTokenTrustHandler
       );
 
       return kept &&
-        (await this.access.clearanceIn(kept.workspaceId, query.principal))
+        (await this.access.permissionsIn(kept.workspaceId, query.principal))
         ? ResourceMapper.workspaceTokenTrust(kept)
         : null;
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }
@@ -59,20 +59,20 @@ export class ImportWorkspaceTokenTrustHandler
     query: ImportWorkspaceTokenTrustQuery,
   ): Promise<WorkspaceTokenTrustResourceDto | null> {
     try {
-      const cleared = await this.access.clearanceIn(
+      const permissions = await this.access.permissionsIn(
         WorkspaceId.of(query.workspaceId),
         query.principal,
       );
-      const kept = cleared
+      const kept = permissions
         ? await this.resources.tokenTrustAt(
-            cleared.workspaceId,
+            permissions.workspaceId,
             TokenTrustKey.of(query.address).value,
           )
         : null;
 
       return kept ? ResourceMapper.workspaceTokenTrust(kept) : null;
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }
@@ -93,18 +93,18 @@ export class ListWorkspaceTokenTrustResourcesHandler
     query: ListWorkspaceTokenTrustResourcesQuery,
   ): Promise<readonly WorkspaceTokenTrustResourceDto[] | null> {
     try {
-      const cleared = await this.access.clearanceIn(
+      const permissions = await this.access.permissionsIn(
         WorkspaceId.of(query.workspaceId),
         query.principal,
       );
 
-      return cleared
-        ? (await this.resources.tokenTrustsIn(cleared.workspaceId)).map(
+      return permissions
+        ? (await this.resources.tokenTrustsIn(permissions.workspaceId)).map(
             ResourceMapper.workspaceTokenTrust,
           )
         : null;
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

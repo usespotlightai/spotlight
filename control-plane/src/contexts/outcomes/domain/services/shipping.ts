@@ -591,9 +591,9 @@ const jammedOf = (stages: readonly Stage<Timed>[]): readonly FlowStage[] => {
       ...times,
       jam: byPercentile((percentile) => {
         const lasted = lastedAt(percentile);
-        const most = Math.max(0, ...lasted.map((each) => each ?? 0));
+        const max = Math.max(0, ...lasted.map((each) => each ?? 0));
 
-        return most === 0 ? 0 : (lasted[at] ?? 0) / most;
+        return max === 0 ? 0 : (lasted[at] ?? 0) / max;
       }),
       worst: byPercentile((percentile) => worstOf(lastedAt(percentile)) === at),
       longestPart: longestPartOf(times.parts),

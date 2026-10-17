@@ -15,12 +15,12 @@ import (
 )
 
 const (
-	MostBytes         int64 = 2 << 30
-	MostUnpackedBytes int64 = 8 << 30
+	MaxBytes         int64 = 2 << 30
+	MaxUnpackedBytes int64 = 8 << 30
 )
 
 var ErrTooLarge = fmt.Errorf(
-	"the workspace is larger than %d bytes packed, or %d unpacked", MostBytes, MostUnpackedBytes,
+	"the workspace is larger than %d bytes packed, or %d unpacked", MaxBytes, MaxUnpackedBytes,
 )
 
 const skipped = fs.ModeSocket | fs.ModeDevice | fs.ModeCharDevice | fs.ModeNamedPipe | fs.ModeIrregular
@@ -166,7 +166,7 @@ func (p *packing) file(name string) error {
 	}
 
 	p.unpacked += info.Size()
-	if p.unpacked > MostUnpackedBytes {
+	if p.unpacked > MaxUnpackedBytes {
 		return ErrTooLarge
 	}
 
@@ -197,7 +197,7 @@ type counter struct {
 }
 
 func (c *counter) Write(p []byte) (int, error) {
-	if c.bytes+int64(len(p)) > MostBytes {
+	if c.bytes+int64(len(p)) > MaxBytes {
 		return 0, ErrTooLarge
 	}
 

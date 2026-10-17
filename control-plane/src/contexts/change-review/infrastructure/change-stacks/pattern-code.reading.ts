@@ -51,7 +51,7 @@ const TESTS = [
   /(^|\/)(__tests__|tests?)\//,
 ];
 
-const LEAST_DEFINITION = 3;
+const MIN_DEFINITION = 3;
 
 const IGNORED = new Set(
   (
@@ -163,7 +163,7 @@ export class PatternCodeReading implements CodeReadingPort {
           ...new Set(
             matchesIn(added, language.definitions).filter(
               (symbol) =>
-                symbol.length >= LEAST_DEFINITION && !IGNORED.has(symbol),
+                symbol.length >= MIN_DEFINITION && !IGNORED.has(symbol),
             ),
           ),
         ]

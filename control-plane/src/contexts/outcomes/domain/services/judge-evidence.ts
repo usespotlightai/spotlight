@@ -4,19 +4,19 @@ import { JudgeReason } from '@outcomes/domain/value-objects/judge-reason.vo';
 import { SeenEvidence } from '@outcomes/domain/value-objects/seen-evidence.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 
-const MOST_STEPS_TOLD = 80_000;
+const MAX_STEPS_TOLD = 80_000;
 
-const MOST_HUNKS_TOLD = 60_000;
+const MAX_HUNKS_TOLD = 60_000;
 
-const MOST_LINE_TOLD = 500;
+const MAX_LINE_TOLD = 500;
 
-const MOST_HUNK_LINES_TOLD = 200;
+const MAX_HUNK_LINES_TOLD = 200;
 
 const ITEM_OVERHEAD = 64;
 
-const MOST_TITLE_TOLD = 300;
+const MAX_TITLE_TOLD = 300;
 
-const MOST_DESCRIPTION_TOLD = 4_000;
+const MAX_DESCRIPTION_TOLD = 4_000;
 
 const REFERENCE = 'reference:';
 
@@ -47,8 +47,8 @@ export interface CitedReason {
   readonly hunks: readonly string[];
 }
 
-const clipped = (text: string, most: number): string =>
-  text.length > most ? `${text.slice(0, most)} …` : text;
+const clipped = (text: string, max: number): string =>
+  text.length > max ? `${text.slice(0, max)} …` : text;
 
 const sizeOfStep = (step: JudgedStep): number =>
   ITEM_OVERHEAD +
@@ -66,8 +66,8 @@ const sizeOfHunk = (hunk: JudgedHunk): number =>
 
 const linesTold = (lines: readonly string[]): string[] => {
   const told = lines
-    .slice(0, MOST_HUNK_LINES_TOLD)
-    .map((line) => clipped(line, MOST_LINE_TOLD));
+    .slice(0, MAX_HUNK_LINES_TOLD)
+    .map((line) => clipped(line, MAX_LINE_TOLD));
   const left = lines.length - told.length;
 
   return left > 0 ? [...told, `… ${left} more lines`] : told;
@@ -78,7 +78,7 @@ const latestWithin = (steps: readonly JudgedStep[]): JudgedStep[] => {
   let used = 0;
 
   for (const step of [...steps].reverse()) {
-    if (used + sizeOfStep(step) > MOST_STEPS_TOLD) {
+    if (used + sizeOfStep(step) > MAX_STEPS_TOLD) {
       break;
     }
 
@@ -96,7 +96,7 @@ const firstWithin = (hunks: readonly JudgedHunk[]): JudgedHunk[] => {
   for (const hunk of hunks) {
     const told = { ...hunk, lines: linesTold(hunk.lines) };
 
-    if (used + sizeOfHunk(told) > MOST_HUNKS_TOLD) {
+    if (used + sizeOfHunk(told) > MAX_HUNKS_TOLD) {
       continue;
     }
 
@@ -131,10 +131,10 @@ export class JudgeEvidence {
 
     return new JudgeEvidence(
       input.runId,
-      clipped(input.title, MOST_TITLE_TOLD),
+      clipped(input.title, MAX_TITLE_TOLD),
       input.description === null
         ? null
-        : clipped(input.description, MOST_DESCRIPTION_TOLD),
+        : clipped(input.description, MAX_DESCRIPTION_TOLD),
       steps,
       input.steps.length - steps.length,
       hunks,

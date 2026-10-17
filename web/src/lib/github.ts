@@ -31,7 +31,7 @@ export const installUrlFor = (base: string, whence: Whence): string => {
   return url.toString();
 };
 
-export const reposShown = (count: number): string =>
+export const formatRepos = (count: number): string =>
   count === 1 ? '1 repository' : `${count} repositories`;
 
 export const unreachedOf = (

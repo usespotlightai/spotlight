@@ -21,7 +21,7 @@ import {
 } from '@work/infrastructure/persistence/drizzle/schemas/run.schema';
 import { and, asc, desc, eq, gt, lte } from 'drizzle-orm';
 
-const MOST_ASIDE = 200;
+const MAX_ASIDE = 200;
 
 const inPlace = (
   events: readonly RunEventView[],
@@ -95,7 +95,7 @@ export class DrizzleRunEventReader implements RunEventReaderPort {
       return false;
     }
 
-    const reader = await this.access.clearanceAsTeamReader(
+    const reader = await this.access.permissionsAsTeamReader(
       found.ranForTeamId,
       PersonPrincipal.of(viewerId),
     );
@@ -107,7 +107,7 @@ export class DrizzleRunEventReader implements RunEventReaderPort {
     runId: RunId,
     attempt: number,
     afterSeq: number,
-    most: number,
+    max: number,
   ): Promise<RunEventView[]> {
     const columns = {
       attempt: runJournalEntry.attempt,
@@ -127,14 +127,14 @@ export class DrizzleRunEventReader implements RunEventReaderPort {
       .from(runJournalEntry)
       .where(and(ofAttempt, gt(runJournalEntry.seq, afterSeq)))
       .orderBy(desc(runJournalEntry.seq))
-      .limit(most);
+      .limit(max);
 
     const aside = await this.db
       .select(columns)
       .from(runJournalEntry)
       .where(and(ofAttempt, lte(runJournalEntry.seq, ASIDE_SEQ)))
       .orderBy(desc(runJournalEntry.at), asc(runJournalEntry.seq))
-      .limit(MOST_ASIDE);
+      .limit(MAX_ASIDE);
 
     return aside
       .reverse()

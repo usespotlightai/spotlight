@@ -23,7 +23,7 @@ import { RememberCommand } from '@memory/application/commands/remember.command';
 import { RetireMemoryCommand } from '@memory/application/commands/retire-memory.command';
 import { WriteMemoryCommand } from '@memory/application/commands/write-memory.command';
 import { MemoryReactions } from '@memory/application/events/handlers/memory-reactions.handler';
-import { MEMORY_PUBLICATIONS } from '@memory/application/integration-events/memory.publications';
+import { MEMORY_EVENT_MAPPERS } from '@memory/application/integration-events/memory.event-mappers';
 import {
   MEMORY_DRAFTER,
   type MemoryDrafterPort,
@@ -65,11 +65,11 @@ import { MemoryAccess } from '@memory/application/services/memory-access.service
 import { MemoryReviews } from '@memory/application/services/memory-reviews.service';
 import { NoteMemoryUses } from '@memory/application/services/note-memory-uses.service';
 import { RecordMemoryUses } from '@memory/application/services/record-memory-uses.service';
-import { RunnerMemoryAtHand } from '@memory/application/services/runner-memory-at-hand.service';
-import { TeamMemoryAtHand } from '@memory/application/services/team-memory-at-hand.service';
+import { RunnerMemoryLoader } from '@memory/application/services/runner-memory-loader.service';
+import { TeamMemoryLoader } from '@memory/application/services/team-memory-loader.service';
 import { TeamMemoryViews } from '@memory/application/services/team-memory-views.service';
 import { WorkMemoryDrafts } from '@memory/application/services/work-memory-drafts.service';
-import { MEMORY_EVENT_TYPES } from '@memory/domain/event-types';
+import { MEMORY_PAYLOAD_TYPES } from '@memory/domain/payload-types';
 import { People } from '@memory/infrastructure/acl/people.adapter';
 import { Reviews } from '@memory/infrastructure/acl/reviews.adapter';
 import { Work } from '@memory/infrastructure/acl/work.adapter';
@@ -91,9 +91,9 @@ import { ENV } from '@platform/config/config.constants';
 import type { Env } from '@platform/config/env.schema';
 import { bindCommandHandler } from '@platform/cqrs/bind-command-handler';
 import { bindQueryHandler } from '@platform/cqrs/bind-query-handler';
-import { EventPublications } from '@platform/events/event-publications';
 import { EventSubscribers } from '@platform/events/event-subscribers';
-import { EventTypes } from '@platform/events/event-types';
+import { IntegrationEventMappers } from '@platform/events/integration-event-mappers';
+import { PayloadTypes } from '@platform/events/payload-types';
 import { OwedWorkWorker } from '@platform/workers/owed-work.worker';
 import {
   CLOCK,
@@ -222,10 +222,10 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
     CLOCK,
   ]),
   {
-    provide: TeamMemoryAtHand,
+    provide: TeamMemoryLoader,
     inject: [DrizzleMemoryRepository, WORK],
     useFactory: (memories: DrizzleMemoryRepository, work: WorkPort) =>
-      new TeamMemoryAtHand(memories, work),
+      new TeamMemoryLoader(memories, work),
   },
   { provide: MEMORY_USES, useClass: DrizzleMemoryUses },
   { provide: TEAM_MEMORY_USE, useClass: DrizzleTeamMemoryUse },
@@ -259,7 +259,7 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
     ) => new NoteMemoryUses(recording, work, memories),
   },
   ...bindQueryHandler(ReadMemoryFilesQuery, ReadMemoryFilesHandler, [
-    RunnerMemoryAtHand,
+    RunnerMemoryLoader,
     MemoriesInReach,
     DrizzleMemoryRepository,
     WORK,
@@ -267,7 +267,7 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
   ]),
   ...bindCommandHandler(WriteMemoryCommand, WriteMemoryHandler, [
     MemoryAccess,
-    TeamMemoryAtHand,
+    TeamMemoryLoader,
     DrizzleMemoryRepository,
     TeamMemoryViews,
     ID_GENERATOR,
@@ -275,7 +275,7 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
   ]),
   ...bindCommandHandler(EditMemoryCommand, EditMemoryHandler, [
     MemoryAccess,
-    TeamMemoryAtHand,
+    TeamMemoryLoader,
     DrizzleMemoryRepository,
     TeamMemoryViews,
     ID_GENERATOR,
@@ -283,7 +283,7 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
   ]),
   ...bindCommandHandler(RetireMemoryCommand, RetireMemoryHandler, [
     MemoryAccess,
-    TeamMemoryAtHand,
+    TeamMemoryLoader,
     DrizzleMemoryRepository,
     TeamMemoryViews,
     TRANSACTION,
@@ -306,7 +306,7 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
   ]),
   ...bindQueryHandler(ReadTeamMemoryQuery, ReadTeamMemoryHandler, [
     MemoryAccess,
-    TeamMemoryAtHand,
+    TeamMemoryLoader,
     TeamMemoryViews,
   ]),
   ...bindQueryHandler(ReadMemoryReviewQuery, ReadMemoryReviewHandler, [
@@ -315,23 +315,23 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
     MemoryReviews,
   ]),
   {
-    provide: RunnerMemoryAtHand,
+    provide: RunnerMemoryLoader,
     inject: [WORK, RecordMemoryUses],
     useFactory: (work: WorkPort, recording: RecordMemoryUses) =>
-      new RunnerMemoryAtHand(work, recording),
+      new RunnerMemoryLoader(work, recording),
   },
   ...bindCommandHandler(RecallMemoriesCommand, RecallMemoriesHandler, [
-    RunnerMemoryAtHand,
+    RunnerMemoryLoader,
     MemoriesInReach,
     TeamMemoryViews,
   ]),
   ...bindCommandHandler(RecallMemoryCommand, RecallMemoryHandler, [
-    RunnerMemoryAtHand,
+    RunnerMemoryLoader,
     DrizzleMemoryRepository,
     TeamMemoryViews,
   ]),
   ...bindCommandHandler(RememberCommand, RememberHandler, [
-    RunnerMemoryAtHand,
+    RunnerMemoryLoader,
     WORK,
     DrizzleMemoryDraftRepository,
     DrizzleMemoryRepository,
@@ -420,8 +420,8 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
   {
     provide: MEMORY_EVENTS,
     inject: [
-      EventTypes,
-      EventPublications,
+      PayloadTypes,
+      IntegrationEventMappers,
       EventSubscribers,
       AskForMemories,
       ForgetMemoryDraft,
@@ -429,16 +429,16 @@ export const MEMORY_PROVIDERS: readonly Provider[] = [
       NoteMemoryUses,
     ],
     useFactory: (
-      types: EventTypes,
-      publications: EventPublications,
+      types: PayloadTypes,
+      mappers: IntegrationEventMappers,
       subscribers: EventSubscribers,
       asking: AskForMemories,
       forgetting: ForgetMemoryDraft,
       reactions: MemoryReactions,
       noting: NoteMemoryUses,
     ) => {
-      types.register('memory', MEMORY_EVENT_TYPES);
-      publications.register(MEMORY_PUBLICATIONS);
+      types.register('memory', MEMORY_PAYLOAD_TYPES);
+      mappers.register(MEMORY_EVENT_MAPPERS);
       subscribers.register(
         memorySubscribers(asking, forgetting, reactions, noting),
       );

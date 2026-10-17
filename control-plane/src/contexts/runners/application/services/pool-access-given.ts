@@ -1,5 +1,5 @@
 import type { ProvisionSecretsPort } from '@runners/application/ports/provision-secrets.port';
-import type { CompiledPoolAccess } from '@runners/application/ports/runner-definitions.port';
+import type { ParsedPoolAccess } from '@runners/application/ports/runner-definitions.port';
 import type { GivenAccess } from '@runners/domain/aggregates/runner-pool.aggregate';
 import type { RunnerPoolId } from '@runners/domain/value-objects/runner-pool-id.vo';
 import type { TokenMintPort } from '@shared-kernel/application/ports/token-mint.port';
@@ -7,7 +7,7 @@ import { TokenHash } from '@shared-kernel/domain/value-objects/token-hash.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 export const givenAccess = async (
-  access: CompiledPoolAccess,
+  access: ParsedPoolAccess,
   to: { readonly id: RunnerPoolId; readonly workspaceId: WorkspaceId },
   tokens: TokenMintPort,
   secrets: ProvisionSecretsPort,

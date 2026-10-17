@@ -1,15 +1,15 @@
 import { NotedWarning } from '@/components/shared/NotedWarning';
-import type { ConfiguredDescriptionResponseDto } from '@/lib/api';
-import { readProblemShown } from '@/lib/described';
+import type { DescriptionViewResponseDto } from '@/lib/api';
+import { formatReadProblem } from '@/lib/described';
 
 type IntegrationReadProblemProps = {
-  described: ConfiguredDescriptionResponseDto;
+  described: DescriptionViewResponseDto;
 };
 
 export function IntegrationReadProblem({
   described,
 }: IntegrationReadProblemProps) {
-  const problem = readProblemShown(described);
+  const problem = formatReadProblem(described);
 
   if (!problem) {
     return null;

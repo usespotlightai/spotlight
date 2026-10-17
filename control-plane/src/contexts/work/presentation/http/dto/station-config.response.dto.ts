@@ -4,7 +4,7 @@ import type {
   StationConfigShape,
 } from '@work/application/contracts/station-config.contract';
 
-export class ConfiguredProfileResponseDto {
+export class ProfileViewResponseDto {
   @ApiProperty({ example: 'careful' })
   readonly key: string;
 
@@ -24,7 +24,7 @@ export class ConfiguredProfileResponseDto {
   }
 }
 
-export class ConfiguredRepositoryResponseDto {
+export class RepositoryViewResponseDto {
   @ApiProperty({ example: 'api' })
   readonly name: string;
 
@@ -37,7 +37,7 @@ export class ConfiguredRepositoryResponseDto {
   }
 }
 
-export class ConfiguredSkillResponseDto {
+export class SkillViewResponseDto {
   @ApiProperty({ example: 'reviewing' })
   readonly key: string;
 
@@ -50,7 +50,7 @@ export class ConfiguredSkillResponseDto {
   }
 }
 
-export class ConfiguredJudgeResponseDto {
+export class JudgeViewResponseDto {
   @ApiProperty({ description: "The SHA-256 of the judge's rubric" })
   readonly rubricDigest: string;
 
@@ -83,17 +83,17 @@ export class StationConfigResponseDto {
   @ApiProperty({ nullable: true, type: String, example: 'high' })
   readonly effort: string | null;
 
-  @ApiProperty({ nullable: true, type: () => ConfiguredProfileResponseDto })
-  readonly profile: ConfiguredProfileResponseDto | null;
+  @ApiProperty({ nullable: true, type: () => ProfileViewResponseDto })
+  readonly profile: ProfileViewResponseDto | null;
 
   @ApiProperty({ nullable: true, type: String, example: 'ghcr.io/acme/api:1' })
   readonly image: string | null;
 
-  @ApiProperty({ type: () => [ConfiguredRepositoryResponseDto] })
-  readonly repositories: ConfiguredRepositoryResponseDto[];
+  @ApiProperty({ type: () => [RepositoryViewResponseDto] })
+  readonly repositories: RepositoryViewResponseDto[];
 
-  @ApiProperty({ type: () => [ConfiguredSkillResponseDto] })
-  readonly skills: ConfiguredSkillResponseDto[];
+  @ApiProperty({ type: () => [SkillViewResponseDto] })
+  readonly skills: SkillViewResponseDto[];
 
   @ApiProperty({ type: [String], example: ['pull-request'] })
   readonly tools: string[];
@@ -104,8 +104,8 @@ export class StationConfigResponseDto {
   @ApiProperty()
   readonly memories: boolean;
 
-  @ApiProperty({ nullable: true, type: () => ConfiguredJudgeResponseDto })
-  readonly judge: ConfiguredJudgeResponseDto | null;
+  @ApiProperty({ nullable: true, type: () => JudgeViewResponseDto })
+  readonly judge: JudgeViewResponseDto | null;
 
   constructor(from: StationConfigShape) {
     this.prompt = from.prompt;
@@ -113,19 +113,17 @@ export class StationConfigResponseDto {
     this.model = from.model;
     this.effort = from.effort;
     this.profile = from.profile
-      ? new ConfiguredProfileResponseDto(from.profile)
+      ? new ProfileViewResponseDto(from.profile)
       : null;
     this.image = from.image;
     this.repositories = from.repositories.map(
-      (each) => new ConfiguredRepositoryResponseDto(each),
+      (each) => new RepositoryViewResponseDto(each),
     );
-    this.skills = from.skills.map(
-      (each) => new ConfiguredSkillResponseDto(each),
-    );
+    this.skills = from.skills.map((each) => new SkillViewResponseDto(each));
     this.tools = [...from.tools];
     this.decisions = from.decisions;
     this.memories = from.memories;
-    this.judge = from.judge ? new ConfiguredJudgeResponseDto(from.judge) : null;
+    this.judge = from.judge ? new JudgeViewResponseDto(from.judge) : null;
   }
 }
 

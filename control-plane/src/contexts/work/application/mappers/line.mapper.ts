@@ -79,7 +79,7 @@ export const LineMapper = {
         : null,
       replayCheck: line.replayCheck
         ? {
-            mostRegressions: line.replayCheck.mostRegressions,
+            maxRegressions: line.replayCheck.maxRegressions,
             ceiling: line.replayCheck.ceiling,
             currency: line.replayCheck.currency,
             minGain: line.replayCheck.minGain,

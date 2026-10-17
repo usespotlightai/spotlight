@@ -3,7 +3,7 @@ import type { DrizzleDatabase } from '@platform/persistence/drizzle/drizzle.clie
 import { DRIZZLE } from '@platform/persistence/drizzle/drizzle.constants';
 import type {
   AttachmentReaderPort,
-  HeldAttachment,
+  AttachmentRecord,
 } from '@work/application/ports/attachment-reader.port';
 import { attachmentClaim } from '@work/infrastructure/persistence/drizzle/schemas/attachment.schema';
 import { chatAttachment } from '@work/infrastructure/persistence/drizzle/schemas/chat.schema';
@@ -14,7 +14,7 @@ import { eq } from 'drizzle-orm';
 export class DrizzleAttachmentReader implements AttachmentReaderPort {
   constructor(@Inject(DRIZZLE) private readonly db: DrizzleDatabase) {}
 
-  async find(id: string): Promise<HeldAttachment | null> {
+  async find(id: string): Promise<AttachmentRecord | null> {
     const [found] = await this.db
       .select({
         workspaceId: attachmentClaim.workspaceId,

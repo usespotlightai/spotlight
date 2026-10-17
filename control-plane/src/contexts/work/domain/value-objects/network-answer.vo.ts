@@ -1,8 +1,8 @@
 import { InvalidNetworkCallError } from '@work/domain/exceptions/invalid-network-call.error';
 
-const MOST_BODY_BYTES = 16 * 1024;
+const MAX_BODY_BYTES = 16 * 1024;
 
-const MOST_ERROR = 1_000;
+const MAX_ERROR = 1_000;
 
 export class NetworkAnswer {
   private constructor(
@@ -36,7 +36,7 @@ export class NetworkAnswer {
       );
     }
 
-    const error = input.error?.trim().slice(0, MOST_ERROR) || null;
+    const error = input.error?.trim().slice(0, MAX_ERROR) || null;
 
     if (input.status === 0 && !error) {
       throw new InvalidNetworkCallError('with no answer must say why');
@@ -45,7 +45,7 @@ export class NetworkAnswer {
     return new NetworkAnswer(
       input.status,
       { ...(input.headers ?? {}) },
-      (input.body ?? new Uint8Array()).slice(0, MOST_BODY_BYTES),
+      (input.body ?? new Uint8Array()).slice(0, MAX_BODY_BYTES),
       input.ms,
       error,
     );

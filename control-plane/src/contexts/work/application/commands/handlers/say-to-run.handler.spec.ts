@@ -8,7 +8,7 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { SayToRunHandler } from '@work/application/commands/handlers/say-to-run.handler';
 import { SayToRunCommand } from '@work/application/commands/say-to-run.command';
-import type { FilesAtHand } from '@work/application/services/files-at-hand.service';
+import type { FilesLoader } from '@work/application/services/files-loader.service';
 import type { TaskDispatching } from '@work/application/services/task-dispatch';
 import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Run } from '@work/domain/aggregates/run.aggregate';
@@ -103,13 +103,13 @@ const held = () =>
   }).handedTo(RUN, line);
 
 const finished = () =>
-  held().finishedHere(RUN, line, stationSaid('Opened the pull request.'));
+  held().finishHere(RUN, line, stationSaid('Opened the pull request.'));
 
 const paused = () =>
-  held().putToAPersonBy(RUN, stationSaid('Which queue should I drain?'));
+  held().putToAPerson(RUN, stationSaid('Which queue should I drain?'));
 
 const interrupted = () =>
-  held().interrupted({
+  held().interrupt({
     station: StationName.of('Code Review'),
     body: TaskNoteBody.of(
       'The pull request was merged while Code Review was working. Close the task, or reply to carry on.',
@@ -143,13 +143,13 @@ const saying = (
       }),
     } as unknown as TaskRepository,
     { holding: vi.fn(async () => line) } as unknown as LineRepository,
-    { run: (work) => work() } satisfies TransactionPort,
+    { inTransaction: (work) => work() } satisfies TransactionPort,
     dispatch,
     { now: () => NOW } as ClockPort,
     {
       handedOver: async () => [],
       takenIn: async () => undefined,
-    } as unknown as FilesAtHand,
+    } as unknown as FilesLoader,
   ).execute(new SayToRunCommand(RUN.value, saidBy, body, []));
 };
 

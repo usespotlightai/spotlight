@@ -1,9 +1,9 @@
 import { createHash } from 'node:crypto';
 import type { ExpressionErrorDto } from '@integrations/application/dto/expression-check.dto';
 import type {
-  CompiledIntegration,
   DescribedOperations,
   IntegrationCompilerPort,
+  ParsedIntegration,
 } from '@integrations/application/ports/integration-compiler.port';
 import {
   INTEGRATIONS,
@@ -1292,7 +1292,7 @@ export class IntegrationCompiler implements IntegrationCompilerPort {
   compile(
     held: unknown,
     described: DescribedOperations | null = null,
-  ): CompiledIntegration {
+  ): ParsedIntegration {
     const compiled = compileIntegration(held, this.expressions, described);
 
     return compiled.ok

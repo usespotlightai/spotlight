@@ -1,9 +1,9 @@
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import type { ReadInboxAsideCommand } from '@work/application/commands/read-inbox-aside.command';
-import type { AsideAtHand } from '@work/application/services/aside-at-hand.service';
+import type { AsideLoader } from '@work/application/services/aside-loader.service';
 import { TaskAsideVersionConflictError } from '@work/domain/exceptions/task-aside-version-conflict.error';
 import type { TaskAsideRepository } from '@work/domain/repositories/task-aside.repository';
 
@@ -11,7 +11,7 @@ export class ReadInboxAsideHandler
   implements CommandHandlerPort<ReadInboxAsideCommand, void>
 {
   constructor(
-    private readonly asides: AsideAtHand,
+    private readonly asides: AsideLoader,
     private readonly held: TaskAsideRepository,
     private readonly clock: ClockPort,
   ) {}
@@ -25,7 +25,7 @@ export class ReadInboxAsideHandler
         throw error;
       });
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 

@@ -37,7 +37,7 @@ const access = (input: {
 
 describe('MemoryAccess', () => {
   it('lets anyone on the task’s team review its memories', async () => {
-    expect((await access({}))?.clearance.by.value).toBe('user_ada');
+    expect((await access({}))?.access.by.value).toBe('user_ada');
   });
 
   it('keeps out anyone not on the team, saying there is no such team for them', async () => {

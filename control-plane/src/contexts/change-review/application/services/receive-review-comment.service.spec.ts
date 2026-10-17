@@ -71,7 +71,7 @@ const receiving = (held: ReviewComment[] = []) => {
       }),
     },
     repository,
-    { run: (work) => work() },
+    { inTransaction: (work) => work() },
     { generate: () => `comment_new_${++generated}` },
     { now: () => NOW, sleep: async () => {} },
   );
@@ -80,7 +80,7 @@ const receiving = (held: ReviewComment[] = []) => {
 };
 
 const onGitHub = (githubId: number, body = 'Earlier') =>
-  ReviewComment.arrived({
+  ReviewComment.receive({
     id: ReviewCommentId.of(`comment_${githubId}`),
     workspaceId: WORKSPACE,
     taskId: TASK,
@@ -123,7 +123,7 @@ describe('ReceiveReviewComment', () => {
   });
 
   it('ignores the echo of a comment edited while Spotlight was posting it', async () => {
-    const posting = ReviewComment.drafted({
+    const posting = ReviewComment.draft({
       id: ReviewCommentId.of('comment_mine'),
       workspaceId: WORKSPACE,
       taskId: TASK,
@@ -144,7 +144,7 @@ describe('ReceiveReviewComment', () => {
   });
 
   it('ignores the echo of a comment Spotlight is posting itself', async () => {
-    const posting = ReviewComment.drafted({
+    const posting = ReviewComment.draft({
       id: ReviewCommentId.of('comment_mine'),
       workspaceId: WORKSPACE,
       taskId: TASK,
@@ -173,7 +173,7 @@ describe('ReceiveReviewComment', () => {
   });
 
   it('keeps an edit made in Spotlight when the echo of an earlier one arrives', async () => {
-    const mine = ReviewComment.drafted({
+    const mine = ReviewComment.draft({
       id: ReviewCommentId.of('comment_mine'),
       workspaceId: WORKSPACE,
       taskId: TASK,

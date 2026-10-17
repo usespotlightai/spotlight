@@ -685,7 +685,7 @@ describe('the team’s insights (e2e)', () => {
     expect(answer.body.runs).toBe(1);
     expect(answer.body.trendRule).toEqual({
       recentWeeks: 2,
-      fewestRuns: 5,
+      minRuns: 5,
       shiftPoints: 20,
     });
     expect(answer.body.skills).toEqual([
@@ -761,7 +761,7 @@ describe('the team’s insights (e2e)', () => {
           source: 'hook:notify',
           code: 'loop',
           occurrences: 2,
-          mostInARow: 2,
+          maxInARow: 2,
           taskIds: [TASK.value],
         },
       ],

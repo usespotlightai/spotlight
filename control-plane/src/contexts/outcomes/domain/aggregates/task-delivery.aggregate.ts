@@ -33,7 +33,7 @@ export class TaskDelivery extends EventRecorder {
     super();
   }
 
-  static opened(input: {
+  static open(input: {
     taskId: TaskId;
     workspaceId: WorkspaceId;
     teamId: TeamId;
@@ -108,7 +108,7 @@ export class TaskDelivery extends EventRecorder {
     return this.state !== 'open';
   }
 
-  reopenedAs(pullRequest: PullRequestUrl, at: Date): TaskDelivery {
+  reopen(pullRequest: PullRequestUrl, at: Date): TaskDelivery {
     if (pullRequest.equals(this.pullRequest)) {
       return this;
     }
@@ -128,7 +128,7 @@ export class TaskDelivery extends EventRecorder {
     );
   }
 
-  reviewed(review: PullRequestReview): TaskDelivery {
+  recordReview(review: PullRequestReview): TaskDelivery {
     if (
       !countsAsReview(review) ||
       !review.pullRequest.equals(this.pullRequest) ||
@@ -153,7 +153,7 @@ export class TaskDelivery extends EventRecorder {
     );
   }
 
-  closed(input: {
+  close(input: {
     pullRequest: PullRequestUrl;
     merged: boolean;
     at: Date | null;

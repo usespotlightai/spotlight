@@ -73,7 +73,7 @@ const standing = (
     now: new Date('2026-09-01T09:00:00.000Z'),
   });
   const invite = over.revoked
-    ? offered.revoked(UserId.of('user_leon'), NOW)
+    ? offered.revoke(UserId.of('user_leon'), NOW)
     : offered;
 
   return WorkspaceInvite.rehydrate({ ...invite, version: 1 });

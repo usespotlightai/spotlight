@@ -76,7 +76,7 @@ export class LearnedOutput {
     return this.state.version === 0;
   }
 
-  learnedFrom(answer: JsonValue, at: Date): LearnedOutput {
+  learnFrom(answer: JsonValue, at: Date): LearnedOutput {
     return new LearnedOutput({
       ...this.state,
       shape: this.state.shape.mergedWith(OutputShape.of(answer)),

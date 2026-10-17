@@ -18,7 +18,7 @@ import {
   headlineFrom,
 } from '@outcomes/domain/services/headline';
 import { stationsWorthImprovingFrom } from '@outcomes/domain/services/station-ranking';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
 export class ReadInsightsOverviewHandler
@@ -34,14 +34,14 @@ export class ReadInsightsOverviewHandler
     query: ReadInsightsOverviewQuery,
   ): Promise<InsightsOverviewDto> {
     try {
-      const { clearance, period } = await this.scopes.scope(
+      const { access, period } = await this.scopes.scope(
         query.teamId,
         query.principal,
         query.period,
       );
       const counts = await this.reader.overviewCounts({
-        workspaceId: clearance.workspaceId,
-        teamId: clearance.teamId,
+        workspaceId: access.workspaceId,
+        teamId: access.teamId,
         period,
       });
       const headline = headlineFrom(
@@ -75,7 +75,7 @@ export class ReadInsightsOverviewHandler
         people: namedOf(ids, await this.people.namesOf(ids)),
       };
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

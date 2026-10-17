@@ -1,7 +1,7 @@
 import { InvalidIntegrationError } from '@integrations/domain/exceptions/invalid-integration.error';
 import type { HappeningName } from '@integrations/domain/value-objects/happening-name.vo';
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
-import { isSourceWord } from '@shared-kernel/domain/value-objects/identifier-shapes';
+import { isSourceKey } from '@shared-kernel/domain/value-objects/identifier-shapes';
 
 export class SourceKey {
   private readonly kind = 'source-key';
@@ -11,7 +11,7 @@ export class SourceKey {
   static of(raw: string): SourceKey {
     const named = raw.trim();
 
-    if (!isSourceWord(named)) {
+    if (!isSourceKey(named)) {
       throw new InvalidIdentifierError(
         'source',
         'is the one word a host is addressed by, as in github',

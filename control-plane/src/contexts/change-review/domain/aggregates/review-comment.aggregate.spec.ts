@@ -23,7 +23,7 @@ const ANCHOR = ReviewAnchor.onLines({
 });
 
 const drafted = (body = 'Should this expire?') =>
-  ReviewComment.drafted({
+  ReviewComment.draft({
     id: ReviewCommentId.of('comment_1'),
     workspaceId: WorkspaceId.of('workspace_1'),
     taskId: TaskId.of('task_1'),
@@ -263,7 +263,7 @@ describe('ReviewComment', () => {
   });
 
   it('follows edits and deletions made on GitHub', () => {
-    const posted = ReviewComment.arrived({
+    const posted = ReviewComment.receive({
       id: ReviewCommentId.of('comment_9'),
       workspaceId: WorkspaceId.of('workspace_1'),
       taskId: TaskId.of('task_1'),

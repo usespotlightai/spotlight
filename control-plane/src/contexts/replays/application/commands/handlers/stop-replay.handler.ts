@@ -3,7 +3,7 @@ import type { ReplayStoppedOutcome } from '@replays/application/dto/replay-outco
 import type { ReplaysAccess } from '@replays/application/services/replays-access.service';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import { forbiddenTo } from '@shared-kernel/application/dto/resource-outcomes.dto';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
@@ -19,18 +19,18 @@ export class StopReplayHandler
 
   async execute(command: StopReplayCommand): Promise<ReplayStoppedOutcome> {
     try {
-      const clearance = await this.access.clearance(
+      const access = await this.access.forTeam(
         command.teamId,
         command.actor.principal,
       );
-      const replay = await this.access.replayOn(clearance, command.replayId);
+      const replay = await this.access.replayOn(access, command.replayId);
 
-      if (!clearance.mayPlan) {
+      if (!access.mayPlan) {
         return forbiddenTo('plan');
       }
 
       await this.replays.save(
-        replay.stopped(
+        replay.stop(
           this.clock.now(),
           Attribution.of(command.actor, replay.workspaceId),
         ),
@@ -38,7 +38,7 @@ export class StopReplayHandler
 
       return { outcome: 'stopped' };
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

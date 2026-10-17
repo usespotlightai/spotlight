@@ -5,9 +5,9 @@ import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import type { useReplaySetSuggestions } from '@/hooks/api/useReplaySetSuggestions';
 import { failed, loading } from '@/lib/query';
 import {
+  formatTurnedOut,
   SUGGESTIONS_LABEL,
   SUGGESTIONS_NOTE,
-  turnedOutShown,
 } from '@/lib/replay-words';
 
 type SuggestedRunsProps = {
@@ -75,7 +75,7 @@ export function SuggestedRuns({
           <ReplayableRunRow
             key={run.runId}
             run={run}
-            note={turnedOutShown(run.outcome)}
+            note={formatTurnedOut(run.outcome)}
             inSet={held.has(run.runId)}
             adding={adding(run.runId)}
             onAdd={() => onAdd(run.runId)}

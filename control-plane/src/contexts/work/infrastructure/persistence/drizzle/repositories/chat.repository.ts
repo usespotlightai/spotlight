@@ -177,7 +177,7 @@ export class DrizzleChatRepository implements ChatRepository {
   ) {}
 
   async add(added: Chat): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       await this.inserted(added);
       await this.events.dispatch(added.pullEvents());
     });
@@ -215,7 +215,7 @@ export class DrizzleChatRepository implements ChatRepository {
   }
 
   async save(saved: Chat): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       await this.stored(saved);
       await this.events.dispatch(saved.pullEvents());
     });

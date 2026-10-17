@@ -1,9 +1,9 @@
 import { Noted } from '@/components/shared/Noted';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import {
+  formatPairTally,
   pairsJudged,
   pairTallyNote,
-  pairTallyShown,
   SIDE_BY_SIDE_WITH,
   type PairTally as Tally,
 } from '@/lib/replay-words';
@@ -44,7 +44,7 @@ export function PairTally({
       )}
       :{' '}
       <Noted note={pairTallyNote(against)}>
-        <span className="text-foreground">{pairTallyShown(tally)}</span>
+        <span className="text-foreground">{formatPairTally(tally)}</span>
       </Noted>
     </span>
   );

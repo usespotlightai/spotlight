@@ -33,7 +33,7 @@ const kept = (
   kind: MemoryKind = 'preference',
 ) => {
   made += 1;
-  return Memory.written({
+  return Memory.write({
     id: MemoryId.of(`memory_${made}`),
     handle: MemoryHandle.of(made),
     workspaceId: WorkspaceId.of('ws_1'),
@@ -170,7 +170,7 @@ describe('selecting what to brief a run with', () => {
   });
 
   it('never gives a retired memory', () => {
-    const retired = kept({}, 'Retired.').retired({
+    const retired = kept({}, 'Retired.').retire({
       by: UserId.of('user_1'),
       reason: 'Wrong.',
       at: new Date('2026-09-21T10:00:00.000Z'),
@@ -246,7 +246,7 @@ describe('selecting what to brief a run with', () => {
 
   it('never briefs a memory beside the correction replacing it', () => {
     const old = kept({}, 'Name branches after people.');
-    const correction = old.correctedAs({
+    const correction = old.correct({
       id: MemoryId.of('memory_correction'),
       handle: MemoryHandle.of(900),
       kind: old.kind,

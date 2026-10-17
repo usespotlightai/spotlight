@@ -165,7 +165,7 @@ describe('StackCheckReactions', () => {
     const stack = stackWith(CheckRequest.of('npm test', null));
     const reordering = checkFor(stack)
       .claimedFor(CHECKER, RunnerTerms.none(), LATER)
-      .recorded(
+      .recordResult(
         CHECKER,
         { steps: stack.checkSteps(stack.entries()), layers: stack.layers() },
         [
@@ -186,7 +186,7 @@ describe('StackCheckReactions', () => {
     const stack = stackWith(CheckRequest.of('npm test', null));
     const reordering = checkFor(stack)
       .claimedFor(CHECKER, RunnerTerms.none(), LATER)
-      .recorded(
+      .recordResult(
         CHECKER,
         { steps: stack.checkSteps(stack.entries()), layers: stack.layers() },
         [

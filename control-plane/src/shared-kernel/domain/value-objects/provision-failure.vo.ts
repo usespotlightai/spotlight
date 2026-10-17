@@ -2,7 +2,7 @@ import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsi
 import { Retry } from '@shared-kernel/domain/value-objects/retry.vo';
 
 const BACKING_OFF = Retry.backoff({
-  most: 5,
+  max: 5,
   firstMs: 5_000,
   longestMs: 120_000,
 });
@@ -21,7 +21,7 @@ export type ProvisionFailureKind = keyof typeof PROVISION_FAILURES;
 const isKind = (kind: string): kind is ProvisionFailureKind =>
   Object.keys(PROVISION_FAILURES).includes(kind);
 
-const MOST_DETAIL = 1_000;
+const MAX_DETAIL = 1_000;
 
 export class ProvisionFailure {
   private constructor(
@@ -37,7 +37,7 @@ export class ProvisionFailure {
       );
     }
 
-    return new ProvisionFailure(kind, detail.trim().slice(0, MOST_DETAIL));
+    return new ProvisionFailure(kind, detail.trim().slice(0, MAX_DETAIL));
   }
 
   static lapsed(until: Date): ProvisionFailure {

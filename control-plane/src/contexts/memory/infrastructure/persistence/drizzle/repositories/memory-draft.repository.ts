@@ -163,7 +163,7 @@ export class DrizzleMemoryDraftRepository implements MemoryDraftRepository {
   ) {}
 
   async add(added: MemoryDraft): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       const written = await this.context.db
         .insert(memoryDraft)
         .values({
@@ -186,7 +186,7 @@ export class DrizzleMemoryDraftRepository implements MemoryDraftRepository {
   }
 
   async save(saved: MemoryDraft): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       const written = await this.context.db
         .update(memoryDraft)
         .set({ version: saved.version + 1, ...columnsOf(saved) })

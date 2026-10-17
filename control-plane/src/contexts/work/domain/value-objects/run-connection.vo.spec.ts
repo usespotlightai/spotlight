@@ -101,14 +101,12 @@ describe('RunConnection', () => {
   it('keeps the time egress tells only when it is near the time the record arrives', () => {
     const now = new Date('2026-10-16T13:00:00.000Z');
 
-    expect(RunConnection.recordedAt(parts, now).at).toEqual(AT);
+    expect(RunConnection.record(parts, now).at).toEqual(AT);
     for (const told of [
       new Date('2026-10-16T11:59:59.000Z'),
       new Date('2026-10-16T13:01:01.000Z'),
     ]) {
-      expect(RunConnection.recordedAt({ ...parts, at: told }, now).at).toEqual(
-        now,
-      );
+      expect(RunConnection.record({ ...parts, at: told }, now).at).toEqual(now);
     }
   });
 });

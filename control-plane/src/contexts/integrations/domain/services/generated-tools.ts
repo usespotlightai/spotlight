@@ -9,7 +9,7 @@ import type { SourceKey } from '@integrations/domain/value-objects/source-key.vo
 import { ToolBacking } from '@integrations/domain/value-objects/tool-backing.vo';
 import { APPROVAL_INTENT_INPUT } from '@shared-kernel/domain/value-objects/approval-intent-input';
 
-export const GENERATED_AT_MOST = 1000;
+export const MAX_GENERATED = 1000;
 
 export type ApprovalOverride = ApprovalNeeded | false;
 
@@ -51,10 +51,10 @@ export const generatedTools = (input: {
       input.filter.admits(each.name) && !input.handWritten.includes(each.name),
   );
 
-  if (chosen.length > GENERATED_AT_MOST) {
+  if (chosen.length > MAX_GENERATED) {
     throw new InvalidIntegrationError(
       input.source.value,
-      `offers ${chosen.length} tools from its ${input.described.described}. A station can choose between at most ${GENERATED_AT_MOST} tools. Please name the tools to offer in ${kind}.tools.include`,
+      `offers ${chosen.length} tools from its ${input.described.described}. A station can choose between at most ${MAX_GENERATED} tools. Please name the tools to offer in ${kind}.tools.include`,
     );
   }
 

@@ -8,7 +8,7 @@ import { MarkdownEditor } from '@/components/shared/form/MarkdownEditor';
 import { SectionLink } from '@/components/shared/SectionLink';
 import { Skeleton } from '@/components/shared/skeleton/Skeleton';
 import { useStationJudge } from '@/hooks/api/useStationJudge';
-import { statShown } from '@/lib/judge';
+import { formatStat } from '@/lib/judge';
 import { failed, loading } from '@/lib/query';
 import { JUDGE_ANCHOR, judgeAgreementPath } from '@/lib/station';
 import { type JudgeSettings, sharePercent } from '@/lib/station-watch';
@@ -65,7 +65,7 @@ export function JudgeInstrument({
       <div className="mt-auto flex flex-col gap-3 pt-2">
         {failed(agreement) ? (
           <p className="text-[0.7rem] text-muted-foreground">
-            Trusted from {statShown(judge.trust)} agreement
+            Trusted from {formatStat(judge.trust)} agreement
           </p>
         ) : loading(agreement) || !agreement.data ? (
           <Skeleton className="h-9 w-full rounded-md" />

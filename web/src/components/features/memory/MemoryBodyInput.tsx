@@ -1,6 +1,6 @@
 import type { KeyboardEvent } from 'react';
 import { AutoGrowTextarea } from '@/components/shared/form/AutoGrowTextarea';
-import { MOST_MEMORY_BODY } from '@/lib/memory';
+import { MAX_MEMORY_BODY } from '@/lib/memory';
 
 type MemoryBodyInputProps = {
   value: string;
@@ -32,7 +32,7 @@ export function MemoryBodyInput({
       onKeyDown={onKeyDown}
       placeholder="What the team should remember"
       aria-label="What the team should remember"
-      maxLength={MOST_MEMORY_BODY}
+      maxLength={MAX_MEMORY_BODY}
       className="-mx-1.5 -my-0.5 min-w-0 rounded-md bg-card px-1.5 py-0.5 text-foreground text-sm leading-5 outline-none ring-1 ring-border placeholder:text-muted-foreground focus-visible:ring-ring/50"
     />
   );

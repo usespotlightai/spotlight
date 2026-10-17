@@ -1,6 +1,6 @@
 import { InvalidSpendError } from '@replays/domain/exceptions/invalid-spend.error';
 
-export const MOST_CEILING = 1_000;
+export const MAX_CEILING = 1_000;
 
 const countedIn = (currency: string): string => {
   const counted = currency.trim().toUpperCase();
@@ -33,9 +33,9 @@ export class Spend {
   }
 
   static ceiling(amount: number, currency: string): Spend {
-    if (!Number.isFinite(amount) || amount <= 0 || amount > MOST_CEILING) {
+    if (!Number.isFinite(amount) || amount <= 0 || amount > MAX_CEILING) {
       throw new InvalidSpendError(
-        `ceiling must be above 0 and at most ${MOST_CEILING.toLocaleString('en-US')}`,
+        `ceiling must be above 0 and at most ${MAX_CEILING.toLocaleString('en-US')}`,
       );
     }
 
@@ -74,8 +74,8 @@ export class Spend {
   scaledCeiling(parts: number, of: number): Spend {
     const scaled = this.scaled(parts, of);
 
-    return scaled.amount > MOST_CEILING
-      ? Spend.ceiling(MOST_CEILING, this.currency)
+    return scaled.amount > MAX_CEILING
+      ? Spend.ceiling(MAX_CEILING, this.currency)
       : scaled;
   }
 

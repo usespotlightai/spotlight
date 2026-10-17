@@ -24,7 +24,7 @@ export class TaskAsides implements TaskAsidesPort {
   raise(asked: AsideOf): Promise<void> {
     const aside = { ...asked, about: AsideAbout.of(asked.about) };
 
-    return this.transaction.run(async () => {
+    return this.transaction.inTransaction(async () => {
       const task = await this.tasks.find(aside.taskId);
 
       if (
@@ -39,7 +39,7 @@ export class TaskAsides implements TaskAsidesPort {
       }
 
       await this.asides.add(
-        TaskAside.raised({
+        TaskAside.raise({
           id: TaskAsideId.of(this.ids.generate()),
           workspaceId: task.workspaceId,
           taskId: task.id,
@@ -54,7 +54,7 @@ export class TaskAsides implements TaskAsidesPort {
   reopen(asked: AsideOf): Promise<void> {
     const aside = { ...asked, about: AsideAbout.of(asked.about) };
 
-    return this.transaction.run(async () => {
+    return this.transaction.inTransaction(async () => {
       const held = await this.asides.about(
         aside.taskId,
         asideForm(aside.form),
@@ -63,7 +63,7 @@ export class TaskAsides implements TaskAsidesPort {
 
       if (held) {
         if (!held.open) {
-          await this.asides.save(held.reopened(this.clock.now()));
+          await this.asides.save(held.reopen(this.clock.now()));
         }
         return;
       }
@@ -72,7 +72,7 @@ export class TaskAsides implements TaskAsidesPort {
 
       if (task) {
         await this.asides.add(
-          TaskAside.raised({
+          TaskAside.raise({
             id: TaskAsideId.of(this.ids.generate()),
             workspaceId: task.workspaceId,
             taskId: task.id,
@@ -98,7 +98,7 @@ export class TaskAsides implements TaskAsidesPort {
   settle(asked: AsideOf): Promise<void> {
     const aside = { ...asked, about: AsideAbout.of(asked.about) };
 
-    return this.transaction.run(async () => {
+    return this.transaction.inTransaction(async () => {
       const held = await this.asides.about(
         aside.taskId,
         asideForm(aside.form),
@@ -118,7 +118,7 @@ export class TaskAsides implements TaskAsidesPort {
         const now = this.clock.now();
 
         await this.asides.add(
-          TaskAside.raised({
+          TaskAside.raise({
             id: TaskAsideId.of(this.ids.generate()),
             workspaceId: task.workspaceId,
             taskId: task.id,

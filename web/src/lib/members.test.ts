@@ -4,12 +4,12 @@ import {
   invitedByTold,
   inviterNamed,
   joiningAs,
-  membersShown,
   outcomesTold,
   parseEmails,
   rolesOffered,
   sameAddress,
   showOf,
+  visibleMembers,
 } from '@/lib/members';
 
 const NOW = Date.parse('2026-10-10T12:00:00.000Z');
@@ -88,9 +88,9 @@ describe('the members filter', () => {
   });
 
   it('shows everyone, one role, or no members at all for the invites', () => {
-    expect(membersShown(people, null)).toHaveLength(3);
-    expect(membersShown(people, 'admin')).toEqual([{ role: 'admin' }]);
-    expect(membersShown(people, 'invited')).toBeNull();
+    expect(visibleMembers(people, null)).toHaveLength(3);
+    expect(visibleMembers(people, 'admin')).toEqual([{ role: 'admin' }]);
+    expect(visibleMembers(people, 'invited')).toBeNull();
   });
 });
 

@@ -1,12 +1,12 @@
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { RunEventReaderPort } from '@work/application/ports/run-event-reader.port';
 import type { RunEventView } from '@work/application/ports/run-stream.port';
 import type { ReadRunEventsQuery } from '@work/application/queries/read-run-events.query';
 
-const MOST_TO_REPLAY_BYTES = 256 * 1024;
-const MOST_TO_REPLAY_ENTRIES = 400;
+const MAX_TO_REPLAY_BYTES = 256 * 1024;
+const MAX_TO_REPLAY_ENTRIES = 400;
 
 export class ReadRunEventsHandler
   implements QueryHandlerPort<ReadRunEventsQuery, RunEventView[]>
@@ -19,12 +19,12 @@ export class ReadRunEventsHandler
         RunId.of(query.runId),
         query.attempt,
         Math.max(0, query.afterSeq),
-        MOST_TO_REPLAY_ENTRIES,
+        MAX_TO_REPLAY_ENTRIES,
       );
 
-      return newestWithin(found, MOST_TO_REPLAY_BYTES);
+      return newestWithin(found, MAX_TO_REPLAY_BYTES);
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

@@ -3,7 +3,7 @@ import type { SkillResourcesPort } from '@configuration/application/ports/skill-
 import type { ReadSkillQuery } from '@configuration/application/queries/read-skill.query';
 import type { SkillViews } from '@configuration/application/services/skill-views.service';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
 export class ReadSkillHandler
@@ -21,14 +21,17 @@ export class ReadSkillHandler
 
       if (
         !kept ||
-        !(await this.access.clearanceOnTeam(kept.teamId.value, query.principal))
+        !(await this.access.permissionsOnTeam(
+          kept.teamId.value,
+          query.principal,
+        ))
       ) {
         return null;
       }
 
       return this.views.of(kept);
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

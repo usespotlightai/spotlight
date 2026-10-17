@@ -10,7 +10,7 @@ const defined = (over: {
   files?: number;
   characters?: number;
 }) =>
-  Skill.defined({
+  Skill.define({
     key: SkillKey.of('frontend'),
     ...('named' in over ? { named: over.named } : {}),
     description: 'Building the web app.',

@@ -104,7 +104,7 @@ export function TraceVolume({
   const buckets = [...volume];
   const spanMs = Date.parse(to) - Date.parse(from);
   const cursor = useCursorTooltip();
-  const most = Math.max(
+  const max = Math.max(
     ...buckets.map((each) => Math.max(each.faults, each.count)),
     1,
   );
@@ -136,7 +136,7 @@ export function TraceVolume({
               tick={<DateTick spanMs={spanMs} />}
             />
 
-            <YAxis hide domain={[0, Math.max(most, 1)]} />
+            <YAxis hide domain={[0, Math.max(max, 1)]} />
 
             <Tooltip
               {...cursor.tooltip}

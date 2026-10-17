@@ -47,7 +47,7 @@ const teams = {
   inWorkspace: vi.fn(async () => []),
 } satisfies TeamDirectoryPort;
 
-const transaction: TransactionPort = { run: (work) => work() };
+const transaction: TransactionPort = { inTransaction: (work) => work() };
 
 const standingAt = (version: number) =>
   SkillDefinition.rehydrate({

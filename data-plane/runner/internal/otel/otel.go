@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-const mostPerExport = 8 << 20
+const maxPerExport = 8 << 20
 
 type Serving struct {
 	URL string
@@ -74,7 +74,7 @@ func taking(record Recorder) http.Handler {
 			return
 		}
 
-		body, err := io.ReadAll(io.LimitReader(r.Body, mostPerExport))
+		body, err := io.ReadAll(io.LimitReader(r.Body, maxPerExport))
 		if err != nil {
 			answer(w)
 			return

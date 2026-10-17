@@ -8,17 +8,17 @@ import {
   whyItStalledAnchor,
 } from '@/lib/search';
 import {
-  causeActionShown,
-  causeTitleShown,
+  formatCauseAction,
+  formatCauseTitle,
+  formatReflectionIteration,
+  formatReflectionOutcome,
+  formatStanding,
+  formatWhyItStalled,
   OPEN_FAILED_REPLAY,
   REFLECTION_KIND,
   REFLECTION_LOOKING,
-  reflectionIterationShown,
-  reflectionOutcomeShown,
   SEE_WHY_IT_STALLED,
-  standingShown,
   UNCAUSED_TITLE,
-  whyItStalledShown,
 } from '@/lib/search-words';
 import { Search } from '@/routes/Search';
 
@@ -651,14 +651,14 @@ describe('Search', () => {
 
       const { container } = renderSearch();
 
-      const why = screen.getByRole('region', { name: whyItStalledShown(3) });
+      const why = screen.getByRole('region', { name: formatWhyItStalled(3) });
       expect(why).toBe(whyAt(container, 3));
       expect(
         why.querySelector('[data-slot="reflection-standing"]'),
-      ).toHaveTextContent(standingShown({ seed: false, name: 'tests-first' }));
+      ).toHaveTextContent(formatStanding({ seed: false, name: 'tests-first' }));
       expect(
         why.querySelector('[data-slot="reflection-outcome"]'),
-      ).toHaveTextContent(reflectionOutcomeShown('no-config-cause'));
+      ).toHaveTextContent(formatReflectionOutcome('no-config-cause'));
 
       const groups = why.querySelectorAll('[data-slot="cause-group"]');
       expect(
@@ -666,10 +666,10 @@ describe('Search', () => {
       ).toEqual(['task', 'judge', 'none']);
 
       const judge = within(why).getByRole('region', {
-        name: causeTitleShown('judge'),
+        name: formatCauseTitle('judge'),
       });
       expect(
-        within(judge).getByText(causeActionShown('judge')),
+        within(judge).getByText(formatCauseAction('judge')),
       ).toBeInTheDocument();
       expect(
         within(judge).getByText('Ask for tests only where behaviour changes.'),
@@ -681,10 +681,10 @@ describe('Search', () => {
       ).toHaveAttribute('href', '/w/acme/team/team_1/runs/run_r1');
 
       const task = within(why).getByRole('region', {
-        name: causeTitleShown('task'),
+        name: formatCauseTitle('task'),
       });
       expect(
-        within(task).getByText(causeActionShown('task')),
+        within(task).getByText(formatCauseAction('task')),
       ).toBeInTheDocument();
 
       const none = within(why).getByRole('region', { name: UNCAUSED_TITLE });
@@ -725,9 +725,9 @@ describe('Search', () => {
       const why = whyAt(container, 3);
       expect(
         why.querySelector('[data-slot="reflection-outcome"]'),
-      ).toHaveTextContent(reflectionOutcomeShown('went-on'));
+      ).toHaveTextContent(formatReflectionOutcome('went-on'));
       expect(
-        within(why).getByText(causeActionShown('config')),
+        within(why).getByText(formatCauseAction('config')),
       ).toBeInTheDocument();
     });
 
@@ -775,7 +775,7 @@ describe('Search', () => {
       ).not.toBeInTheDocument();
       expect(note).toHaveAttribute('data-slot', 'iteration-note');
       expect(
-        within(note).getByText(reflectionIterationShown(3, 2)),
+        within(note).getByText(formatReflectionIteration(3, 2)),
       ).toBeInTheDocument();
       expect(
         within(note).getByRole('link', { name: SEE_WHY_IT_STALLED }),
@@ -805,7 +805,7 @@ describe('Search', () => {
       expect(
         [...sections].map((each) => each.getAttribute('data-iteration')),
       ).toEqual(['6', '3']);
-      expect(screen.getByRole('region', { name: whyItStalledShown(6) })).toBe(
+      expect(screen.getByRole('region', { name: formatWhyItStalled(6) })).toBe(
         whyAt(container, 6),
       );
 
@@ -841,10 +841,10 @@ describe('Search', () => {
       const why = whyAt(container, 3);
       expect(
         why.querySelector('[data-slot="reflection-standing"]'),
-      ).toHaveTextContent(standingShown({ seed: true, name: 'seed' }));
+      ).toHaveTextContent(formatStanding({ seed: true, name: 'seed' }));
       expect(
         why.querySelector('[data-slot="reflection-outcome"]'),
-      ).toHaveTextContent(reflectionOutcomeShown('did-not-run'));
+      ).toHaveTextContent(formatReflectionOutcome('did-not-run'));
     });
   });
 

@@ -20,7 +20,7 @@ import { runsIn } from '@/mocks/world/insights-tally';
 
 const TREND_RULE: TrendRuleResponseDto = {
   recentWeeks: 2,
-  fewestRuns: 5,
+  minRuns: 5,
   shiftPoints: 20,
 };
 
@@ -40,8 +40,8 @@ const trendOf = (
   const latest = runs.filter((run) => recent.has(weekOf(run.at)));
   const earlier = runs.filter((run) => !recent.has(weekOf(run.at)));
   if (
-    latest.length < TREND_RULE.fewestRuns ||
-    earlier.length < TREND_RULE.fewestRuns
+    latest.length < TREND_RULE.minRuns ||
+    earlier.length < TREND_RULE.minRuns
   ) {
     return null;
   }

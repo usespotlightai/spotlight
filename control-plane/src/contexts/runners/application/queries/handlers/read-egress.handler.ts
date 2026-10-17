@@ -3,7 +3,7 @@ import type { EgressResourceDto } from '@runners/application/dto/runner-resource
 import { RunnerResourceMapper } from '@runners/application/mappers/runner-resource.mapper';
 import type { RunnerResourcesPort } from '@runners/application/ports/runner-resources.port';
 import type { ReadEgressQuery } from '@runners/application/queries/runner-resource.queries';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
 export class ReadEgressHandler
@@ -19,11 +19,11 @@ export class ReadEgressHandler
       const kept = await this.resources.egressWithId(query.egressId);
 
       return kept &&
-        (await this.access.clearanceIn(kept.workspaceId, query.principal))
+        (await this.access.permissionsIn(kept.workspaceId, query.principal))
         ? RunnerResourceMapper.egress(kept)
         : null;
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

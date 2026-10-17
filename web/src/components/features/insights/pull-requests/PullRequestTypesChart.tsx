@@ -8,8 +8,8 @@ import {
 } from 'recharts';
 import { ChartTip } from '@/components/shared/chart/ChartTip';
 import { type TipPlacement, useCursorTooltip } from '@/hooks/useCursorTooltip';
-import { spendShown } from '@/lib/insights';
-import { type TypeShare, typeShown } from '@/lib/insights-pull-requests';
+import { formatSpend } from '@/lib/insights';
+import { formatType, type TypeShare } from '@/lib/insights-pull-requests';
 
 const HEIGHT = 180;
 
@@ -36,7 +36,7 @@ const Said = ({
       <p className="text-foreground">{bar.spotlight} by Spotlight</p>
       <p className="text-foreground">{bar.people} by people alone</p>
       <p className="text-muted-foreground">
-        Spotlight spent {spendShown(bar.spend)}
+        Spotlight spent {formatSpend(bar.spend)}
       </p>
     </ChartTip>
   );
@@ -67,7 +67,7 @@ export function PullRequestTypesChart({
             <BarChart
               data={types.map((each) => ({
                 ...each,
-                label: typeShown(each.type),
+                label: formatType(each.type),
               }))}
               margin={{ top: 8, right: 8, bottom: 0, left: 8 }}
             >

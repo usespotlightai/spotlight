@@ -12,15 +12,15 @@ import { PillLink } from '@/components/shared/PillLink';
 import { useLines } from '@/hooks/api/useLines';
 import { useStationAlert } from '@/hooks/api/useStationAlert';
 import { notFound } from '@/lib/error';
-import { improvingOf, stationNamesOf, stationShown } from '@/lib/insights';
-import { dayShown } from '@/lib/judge';
+import { formatStation, improvingOf, stationNamesOf } from '@/lib/insights';
+import { formatDay } from '@/lib/judge';
 import { failed, loading } from '@/lib/query';
 import { stationPath } from '@/lib/station';
 import {
   alertOnInsightsPath,
-  crossingShown,
-  limitShown,
-  recoveredShown,
+  formatCrossing,
+  formatLimit,
+  formatRecovered,
 } from '@/lib/station-alert';
 
 type StationAlertCardProps = {
@@ -64,25 +64,25 @@ export function StationAlertCard({
       <DecisionHeader
         title={
           <DecisionTitle as="h2" icon={BellRing}>
-            Alert raised at {stationShown(names, crossed.stationId)}
+            Alert raised at {formatStation(names, crossed.stationId)}
           </DecisionTitle>
         }
         trailing={
           <p className="shrink-0 text-muted-foreground text-xs tabular-nums">
-            {dayShown(crossed.raisedAt.slice(0, 10))}
+            {formatDay(crossed.raisedAt.slice(0, 10))}
           </p>
         }
       />
 
       <div className="mb-2 flex flex-col">
         <p className="break-words text-foreground text-sm">
-          {crossingShown(crossed)} {limitShown(crossed)}
+          {formatCrossing(crossed)} {formatLimit(crossed)}
         </p>
         {crossed.recoveredAt && (
           <p className="text-muted-foreground text-sm">
-            {recoveredShown(
+            {formatRecovered(
               crossed,
-              dayShown(crossed.recoveredAt.slice(0, 10)),
+              formatDay(crossed.recoveredAt.slice(0, 10)),
             )}
           </p>
         )}

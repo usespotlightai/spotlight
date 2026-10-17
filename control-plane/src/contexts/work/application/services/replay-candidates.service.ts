@@ -48,7 +48,7 @@ const thresholdOf = (
   policy: ReplayCheckPolicy | null,
 ): ReplayThreshold | null =>
   policy && {
-    mostRegressions: policy.mostRegressions,
+    maxRegressions: policy.maxRegressions,
     ceiling: policy.ceiling,
     currency: policy.currency,
     minGain: policy.minGain,

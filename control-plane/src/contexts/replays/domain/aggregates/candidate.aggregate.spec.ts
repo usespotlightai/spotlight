@@ -82,7 +82,7 @@ describe('Candidate', () => {
 
   it('keeps the key of the station it is for', () => {
     expect(() =>
-      Candidate.proposed({
+      Candidate.propose({
         id: CandidateId.of('candidate_1'),
         station: STATION,
         address: AT,
@@ -105,9 +105,9 @@ describe('Candidate', () => {
     expect(() => proposed.assertVersion(1)).toThrow(
       CandidateVersionConflictError,
     );
-    expect(() => proposed.withdrawn(true, BY)).toThrow(CandidateUnderwayError);
+    expect(() => proposed.withdraw(true, BY)).toThrow(CandidateUnderwayError);
 
-    const withdrawn = proposed.withdrawn(false, BY);
+    const withdrawn = proposed.withdraw(false, BY);
 
     expect(withdrawn.isAbandoned).toBe(true);
     expect(changeOf(withdrawn)).toMatchObject({
@@ -118,7 +118,7 @@ describe('Candidate', () => {
   });
 
   it('is never withdrawn when it is the live config Spotlight replays', () => {
-    expect(() => candidateOf('live').withdrawn(false, BY)).toThrow(
+    expect(() => candidateOf('live').withdraw(false, BY)).toThrow(
       CandidateIsLiveError,
     );
   });
@@ -126,12 +126,12 @@ describe('Candidate', () => {
   it('is abandoned by Spotlight, recording the withdrawal only of a proposal', () => {
     const proposed = candidateOf('proposed');
     proposed.pullEvents();
-    const live = candidateOf('live').abandoned();
+    const live = candidateOf('live').abandon();
 
     expect(live.isAbandoned).toBe(true);
     expect(live.pullEvents()).toEqual([]);
 
-    const abandoned = proposed.abandoned();
+    const abandoned = proposed.abandon();
     const [event] = abandoned.pullEvents();
 
     expect(event).toBeInstanceOf(CandidateWithdrawn);
@@ -205,7 +205,7 @@ describe('Candidate', () => {
     };
 
     const searched = (name = 'terse-prompt', iteration = 2) =>
-      Candidate.searched({
+      Candidate.fromSearch({
         ...made,
         id: CandidateId.of('candidate_searched'),
         name,
@@ -218,7 +218,7 @@ describe('Candidate', () => {
       });
 
     const planned = (reference = PlannedReference.of({ pullRequest: 42 })) =>
-      Candidate.planned({
+      Candidate.plan({
         ...made,
         id: CandidateId.of('candidate_planned'),
         changedFrom: StationChanges.none(LIVE_FINGERPRINT),
@@ -291,11 +291,11 @@ describe('Candidate', () => {
 
     it('is never withdrawn by a person, and goes quietly when abandoned', () => {
       for (const candidate of [searched(), planned()]) {
-        expect(() => candidate.withdrawn(false, BY)).toThrow(
+        expect(() => candidate.withdraw(false, BY)).toThrow(
           CandidateKeptBySpotlightError,
         );
 
-        const abandoned = candidate.abandoned();
+        const abandoned = candidate.abandon();
 
         expect(abandoned.isAbandoned).toBe(true);
         expect(abandoned.pullEvents()).toEqual([]);

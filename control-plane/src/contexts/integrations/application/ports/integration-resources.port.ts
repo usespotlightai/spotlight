@@ -3,14 +3,14 @@ import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 
 export const INTEGRATION_RESOURCES = Symbol('INTEGRATION_RESOURCES');
 
-export interface KeptIntegration extends DefinedIntegration {
+export interface IntegrationRecord extends DefinedIntegration {
   readonly teamId: TeamId;
 }
 
 export interface IntegrationResourcesPort {
-  withId(id: string): Promise<KeptIntegration | null>;
+  withId(id: string): Promise<IntegrationRecord | null>;
 
-  at(teamId: TeamId, source: string): Promise<KeptIntegration | null>;
+  at(teamId: TeamId, source: string): Promise<IntegrationRecord | null>;
 
-  ofTeam(teamId: TeamId): Promise<readonly KeptIntegration[]>;
+  ofTeam(teamId: TeamId): Promise<readonly IntegrationRecord[]>;
 }

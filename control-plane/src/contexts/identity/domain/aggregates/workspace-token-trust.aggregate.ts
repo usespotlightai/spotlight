@@ -31,14 +31,14 @@ export interface TokenTrustTerms {
   readonly lifetime: TokenLifetime;
 }
 
-interface Kept extends TokenTrustTerms {
+interface Props extends TokenTrustTerms {
   readonly id: WorkspaceTokenTrustId;
   readonly workspaceId: WorkspaceId;
   readonly definedBy: UserId;
   readonly version: number;
 }
 
-interface State extends Kept {
+interface State extends Props {
   readonly withdrawn: boolean;
 }
 
@@ -84,7 +84,7 @@ export class WorkspaceTokenTrust extends EventRecorder {
     return defined;
   }
 
-  static rehydrate(input: Kept): WorkspaceTokenTrust {
+  static rehydrate(input: Props): WorkspaceTokenTrust {
     if (!Number.isInteger(input.version) || input.version < 0) {
       throw new InconsistentStateError(
         'workspace token trust',
@@ -142,7 +142,7 @@ export class WorkspaceTokenTrust extends EventRecorder {
     return redefined;
   }
 
-  withdrawn(grantor: Grantor, by: Attribution): WorkspaceTokenTrust {
+  withdraw(grantor: Grantor, by: Attribution): WorkspaceTokenTrust {
     this.guardStanding();
     this.guardWithin(grantor);
 

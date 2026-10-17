@@ -23,7 +23,7 @@ type Registered = Omit<State, 'version'>;
 export class OAuth2ClientRegistration {
   private constructor(private readonly state: State) {}
 
-  static registered(input: Registered): OAuth2ClientRegistration {
+  static register(input: Registered): OAuth2ClientRegistration {
     if (input.clientId.trim().length === 0) {
       throw new InconsistentStateError(
         'oauth2 client registration',
@@ -121,7 +121,7 @@ export class OAuth2ClientRegistration {
       : pinned.equals(server);
   }
 
-  replacedBy(next: OAuth2ClientRegistration): OAuth2ClientRegistration {
+  replaceWith(next: OAuth2ClientRegistration): OAuth2ClientRegistration {
     if (!next.teamId.equals(this.teamId) || !next.source.equals(this.source)) {
       throw new InconsistentStateError(
         'oauth2 client registration',

@@ -585,7 +585,7 @@ describe('UseToolHandler', () => {
 
     await expect(
       reach('pull-request', { title: 'Fix', colour: 'red' }),
-    ).rejects.toMatchObject({ kind: 'invalid-input' });
+    ).rejects.toMatchObject({ kind: 'invalid' });
     expect(called).toEqual([]);
   });
 
@@ -664,7 +664,7 @@ describe('UseToolHandler', () => {
     const { reach } = using();
 
     await expect(reach('Pull Request')).rejects.toMatchObject({
-      kind: 'invalid-input',
+      kind: 'invalid',
     });
   });
 
@@ -830,7 +830,7 @@ describe('UseToolHandler', () => {
     const { reach, called, standing } = using(claimed(['linear.comment']), {
       approval: NEEDS_APPROVAL,
       task: Task.rehydrate({
-        ...approved.answered(
+        ...approved.answer(
           NotePosition.of(approved.notes.length - 1),
           {
             station: StationName.of('Backlog'),
@@ -876,7 +876,7 @@ describe('UseToolHandler', () => {
     const { reach, called } = using(claimed(['linear.comment']), {
       approval: NEEDS_APPROVAL,
       task: Task.rehydrate({
-        ...approved.answered(
+        ...approved.answer(
           NotePosition.of(approved.notes.length - 1),
           {
             station: StationName.of('Backlog'),
@@ -916,7 +916,7 @@ describe('UseToolHandler', () => {
       RunId.of('run_1'),
       null,
     ).task;
-    const granted = asked.answered(
+    const granted = asked.answer(
       NotePosition.of(asked.notes.length - 1),
       {
         station: StationName.of('Backlog'),
@@ -964,7 +964,7 @@ describe('UseToolHandler', () => {
       RunId.of('run_1'),
       null,
     ).task;
-    const granted = asked.answered(
+    const granted = asked.answer(
       NotePosition.of(asked.notes.length - 1),
       {
         station: StationName.of('Backlog'),
@@ -983,7 +983,7 @@ describe('UseToolHandler', () => {
 
     await expect(
       reach('linear.comment', { body: 'Fixed.' }),
-    ).rejects.toMatchObject({ kind: 'refused-upstream' });
+    ).rejects.toMatchObject({ kind: 'refused' });
     expect(called).toHaveLength(1);
     expect(
       standing().notes.find((note) => note.approval)?.approval?.grants,
@@ -1008,7 +1008,7 @@ describe('UseToolHandler', () => {
       RunId.of('run_1'),
       null,
     ).task;
-    const rejected = asked.answered(
+    const rejected = asked.answer(
       NotePosition.of(asked.notes.length - 1),
       {
         station: StationName.of('Backlog'),
@@ -1050,7 +1050,7 @@ describe('UseToolHandler', () => {
       RunId.of('run_1'),
       null,
     ).task;
-    const talkedBack = asked.answered(NotePosition.of(asked.notes.length - 1), {
+    const talkedBack = asked.answer(NotePosition.of(asked.notes.length - 1), {
       station: StationName.of('Backlog'),
       body: TaskNoteBody.of('Mention the ticket too.'),
       at: NOW,
@@ -1090,7 +1090,7 @@ describe('UseToolHandler', () => {
       RunId.of('run_1'),
       null,
     ).task;
-    const granted = asked.answered(
+    const granted = asked.answer(
       NotePosition.of(asked.notes.length - 1),
       {
         station: StationName.of('Backlog'),
@@ -1191,7 +1191,7 @@ describe('UseToolHandler', () => {
         RunId.of('run_1'),
         null,
       ).task;
-      const granted = asked.answered(
+      const granted = asked.answer(
         NotePosition.of(asked.notes.length - 1),
         {
           station: StationName.of('Backlog'),
@@ -1239,7 +1239,7 @@ describe('UseToolHandler', () => {
         RunId.of('run_1'),
         null,
       ).task;
-      const granted = asked.answered(
+      const granted = asked.answer(
         NotePosition.of(asked.notes.length - 1),
         {
           station: StationName.of('Backlog'),
@@ -1299,7 +1299,7 @@ describe('UseToolHandler', () => {
         RunId.of('run_1'),
         null,
       ).task;
-      const granted = asked.answered(
+      const granted = asked.answer(
         NotePosition.of(asked.notes.length - 1),
         {
           station: StationName.of('Backlog'),
@@ -1363,7 +1363,7 @@ describe('UseToolHandler', () => {
 
       await expect(
         reach('linear.comment', { body: 'Fixed.' }),
-      ).rejects.toMatchObject({ kind: 'refused-upstream' });
+      ).rejects.toMatchObject({ kind: 'refused' });
       expect(hooked.after[0]?.moment.failed).toBe(true);
       expect(hooked.after[0]?.moment.output).toMatch(/down/);
     });

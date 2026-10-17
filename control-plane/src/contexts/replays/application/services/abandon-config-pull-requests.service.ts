@@ -22,11 +22,11 @@ export class AbandonConfigPullRequests {
   }
 
   pullRequest(id: ConfigPullRequestId): Promise<void> {
-    return this.transaction.run(async () => {
+    return this.transaction.inTransaction(async () => {
       const found = await this.pullRequests.find(id);
 
       if (found) {
-        await this.pullRequests.save(found.abandoned());
+        await this.pullRequests.save(found.abandon());
       }
     });
   }

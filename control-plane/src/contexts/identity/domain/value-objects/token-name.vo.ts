@@ -1,7 +1,7 @@
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 import {
-  areWords,
-  LONGEST_WORDS,
+  isSlug,
+  MAX_SLUG_LENGTH,
 } from '@shared-kernel/domain/value-objects/identifier-shapes';
 
 export class TokenName {
@@ -12,10 +12,10 @@ export class TokenName {
   static of(raw: string): TokenName {
     const named = raw.trim();
 
-    if (!areWords(named)) {
+    if (!isSlug(named)) {
       throw new InvalidIdentifierError(
         'token name',
-        `is lowercase words joined by dashes, at most ${LONGEST_WORDS} characters, as in ci`,
+        `is lowercase words joined by dashes, at most ${MAX_SLUG_LENGTH} characters, as in ci`,
       );
     }
 

@@ -4,7 +4,7 @@ import type { InstallationAdministrationPort } from '@github/application/ports/i
 import type { GitHubConnectionRepository } from '@github/domain/repositories/github-connection.repository';
 import { GitHubInstallation } from '@github/domain/value-objects/github-installation.vo';
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -37,12 +37,12 @@ export class ConnectGitHubHandler
         throw new InstallationUnverifiableError();
       }
 
-      await this.transaction.run(async () => {
+      await this.transaction.inTransaction(async () => {
         const claimedBy = await this.connections.claimantOf(installation);
         const connection = await this.connections.of(membership.workspaceId);
 
         await this.connections.save(
-          connection.connectedTo(installation, {
+          connection.connectTo(installation, {
             workspaceAdministered: membership.administers,
             installationAdministered: administration === 'administers',
             claimedBy,
@@ -52,7 +52,7 @@ export class ConnectGitHubHandler
 
       return membership.workspaceId.value;
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

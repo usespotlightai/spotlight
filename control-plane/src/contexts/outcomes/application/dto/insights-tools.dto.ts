@@ -7,7 +7,7 @@ import type {
 
 export interface TrendRuleDto {
   readonly recentWeeks: number;
-  readonly fewestRuns: number;
+  readonly minRuns: number;
   readonly shiftPoints: number;
 }
 

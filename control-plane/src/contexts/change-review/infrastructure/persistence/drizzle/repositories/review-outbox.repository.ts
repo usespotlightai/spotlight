@@ -30,7 +30,7 @@ export class DrizzleReviewOutbox implements ReviewOutboxPort {
   }
 
   async claimDue(now: Date, leaseUntil: Date): Promise<ReviewSync | null> {
-    const found = await this.context.run(async () => {
+    const found = await this.context.inTransaction(async () => {
       const [due] = await this.context.db
         .select()
         .from(reviewSync)

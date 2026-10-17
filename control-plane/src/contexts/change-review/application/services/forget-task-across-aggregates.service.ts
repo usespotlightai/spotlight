@@ -21,7 +21,7 @@ export class ForgetTaskAcrossAggregates {
   ) {}
 
   async forget(taskId: TaskId): Promise<void> {
-    await this.transaction.run(async () => {
+    await this.transaction.inTransaction(async () => {
       await this.outbox.forgetTask(taskId);
       await this.comments.removeForTask(taskId);
       await this.reviews.removeForTask(taskId);

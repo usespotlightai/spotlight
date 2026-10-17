@@ -18,7 +18,7 @@ const integration = (holding = ConnectionHolding.requester()) =>
   Integration.of({ source: LINEAR, name: 'Linear', connects: true, holding });
 
 const connected = (holder: ConnectionHolder) =>
-  HostConnection.linkedFrom({
+  HostConnection.linkFrom({
     workspaceId: WorkspaceId.of('ws_1'),
     teamId: TeamId.of('team_1'),
     source: LINEAR,

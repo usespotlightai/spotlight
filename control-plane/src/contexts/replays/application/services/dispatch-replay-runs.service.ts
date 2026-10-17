@@ -47,7 +47,7 @@ export class DispatchReplayRuns implements OwedWorkPort {
   }
 
   private reserveFor(team: TeamId): Promise<void> {
-    return this.transaction.run(async () => {
+    return this.transaction.inTransaction(async () => {
       const underway = await this.replays.underwayOfTeamLocked(team);
       const searches = await this.searches.findMany(
         underway.flatMap((each) => (each.searchId ? [each.searchId] : [])),
@@ -103,7 +103,7 @@ export class DispatchReplayRuns implements OwedWorkPort {
 
     const held = await this.changed(replay, (fresh, now) =>
       queued.queued
-        ? fresh.confirmed(run, queued.fingerprint, now)
+        ? fresh.confirm(run, queued.fingerprint, now)
         : fresh.refused(run, queued.refusal, now),
     );
 
@@ -128,13 +128,13 @@ export class DispatchReplayRuns implements OwedWorkPort {
 
     await this.changed(replay, (fresh, now) => {
       if (forgone.queued) {
-        return fresh.confirmed(run, forgone.fingerprint, now);
+        return fresh.confirm(run, forgone.fingerprint, now);
       }
       if (neverQueued) {
         return neverQueued(fresh, now);
       }
 
-      return keep ? fresh.gaveUp(run, now) : fresh.forgone(run, now);
+      return keep ? fresh.gaveUp(run, now) : fresh.forgo(run, now);
     });
   }
 
@@ -157,7 +157,7 @@ export class DispatchReplayRuns implements OwedWorkPort {
 
     if (run) {
       await this.changed(replay, (fresh, now) =>
-        fresh.queueFailed(run, now),
+        fresh.recordQueueFailure(run, now),
       ).catch((again: unknown) =>
         this.logger.warn(
           { err: again, replayId: replay.id.value },
@@ -171,7 +171,7 @@ export class DispatchReplayRuns implements OwedWorkPort {
     replay: Replay,
     change: (fresh: Replay, now: Date) => Replay,
   ): Promise<Replay | null> {
-    return this.transaction.run(async () => {
+    return this.transaction.inTransaction(async () => {
       const fresh = await this.replays.find(replay.id);
 
       if (!fresh) {

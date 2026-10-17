@@ -3,8 +3,8 @@ import type {
   InsightsMemoryResponseDto,
   MemoryBenchmarkResponseDto,
 } from '@/lib/api';
-import { countShown, shareShown } from '@/lib/insights';
-import { dayShown } from '@/lib/judge';
+import { formatCount, formatShare } from '@/lib/insights';
+import { formatDay } from '@/lib/judge';
 
 export type InsightsMemory = InsightsMemoryResponseDto;
 export type FlaggedMemory = FlaggedMemoryResponseDto;
@@ -18,15 +18,15 @@ export type MemoryTile = {
 };
 
 const runs = (count: number): string =>
-  `${countShown(count)} ${count === 1 ? 'run' : 'runs'}`;
+  `${formatCount(count)} ${count === 1 ? 'run' : 'runs'}`;
 
 const benchmarkTile = (benchmark: MemoryBenchmark | null): MemoryTile =>
   benchmark
     ? {
         id: 'benchmark',
         label: 'Solved with memories',
-        value: shareShown(benchmark.withMemories),
-        detail: `${shareShown(benchmark.withoutMemories)} without, ${countShown(benchmark.cases)} cases, ${dayShown(benchmark.ranAt.slice(0, 10))}`,
+        value: formatShare(benchmark.withMemories),
+        detail: `${formatShare(benchmark.withoutMemories)} without, ${formatCount(benchmark.cases)} cases, ${formatDay(benchmark.ranAt.slice(0, 10))}`,
       }
     : {
         id: 'benchmark',
@@ -39,25 +39,25 @@ export const memoryTiles = (memory: InsightsMemory): MemoryTile[] => [
   {
     id: 'standing',
     label: 'Standing memories',
-    value: countShown(memory.standing),
+    value: formatCount(memory.standing),
     detail: 'Kept by the team now',
   },
   {
     id: 'briefed',
     label: 'Briefed',
-    value: countShown(memory.memoriesBriefed),
+    value: formatCount(memory.memoriesBriefed),
     detail: `to ${runs(memory.runsBriefed)}`,
   },
   {
     id: 'read',
     label: 'Read',
-    value: countShown(memory.memoriesRecalled),
+    value: formatCount(memory.memoriesRecalled),
     detail: `by ${runs(memory.runsRecalled)}`,
   },
   {
     id: 'flagged',
     label: 'Flagged wrong',
-    value: countShown(memory.flagged.length),
+    value: formatCount(memory.flagged.length),
     detail: 'Retired by people in this period',
   },
   benchmarkTile(memory.benchmark),

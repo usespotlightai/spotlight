@@ -1,7 +1,7 @@
 import type { InviteOfferDto } from '@identity/application/dto/invite.dto';
 import type { InviteReaderPort } from '@identity/application/ports/invite-reader.port';
 import type { ReadInviteQuery } from '@identity/application/queries/read-invite.query';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import type { TokenMintPort } from '@shared-kernel/application/ports/token-mint.port';
@@ -23,7 +23,7 @@ export class ReadInviteHandler
         this.clock.now(),
       );
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

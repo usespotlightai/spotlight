@@ -6,7 +6,7 @@ import type {
 import type { PollState } from '@integrations/application/ports/integration-cursors.port';
 import type { Credentials } from '@integrations/application/ports/integration-runtime.port';
 import type { OAuth2ClientsPort } from '@integrations/application/ports/oauth2-clients.port';
-import { WorkOffPolls } from '@integrations/application/services/work-off-polls.service';
+import { ProcessDuePolls } from '@integrations/application/services/process-due-polls.service';
 import { CompiledIntegrationRuntime } from '@integrations/infrastructure/integrations/compiled-integration.runtime';
 import { IntegrationReader } from '@integrations/infrastructure/integrations/integration.reader';
 import type { OAuth2Exchange } from '@integrations/infrastructure/integrations/oauth2-exchange';
@@ -107,7 +107,7 @@ const polling = (
   file = poll(),
   injection: SecretInjectionPort = injecting().injection,
 ) =>
-  new WorkOffPolls(
+  new ProcessDuePolls(
     {
       everywhere: async () => [config(file)],
     } as unknown as DefinedIntegrationsPort,
@@ -148,11 +148,11 @@ const working = (state: PollState = { cursor: null, ranAt: null }) => {
   return { polls: polling(cursors, run, react), run, react, cursors };
 };
 
-describe('WorkOffPolls', () => {
+describe('ProcessDuePolls', () => {
   it('polls the host with the cursor it last kept', async () => {
     const { polls, run } = working({ cursor: 'ENG-0', ranAt: null });
 
-    await polls.workOff();
+    await polls.processDue();
 
     const against = run.mock.calls[0]?.[1];
     expect(against?.cursor).toBe('ENG-0');
@@ -161,7 +161,7 @@ describe('WorkOffPolls', () => {
   it('raises one word per matching item in the response', async () => {
     const { polls, react } = working();
 
-    await polls.workOff();
+    await polls.processDue();
 
     const raised = react.mock.calls[0]?.[2];
     expect(raised).toHaveLength(1);
@@ -173,7 +173,7 @@ describe('WorkOffPolls', () => {
   it('names what it heard by the cursor it polled from, so a poll taken again acts once', async () => {
     const { polls, react } = working({ cursor: 'ENG-0', ranAt: null });
 
-    await polls.workOff();
+    await polls.processDue();
 
     expect(react.mock.calls[0]?.[3]).toBe('poll:linear:team_1:ENG-0');
   });
@@ -181,7 +181,7 @@ describe('WorkOffPolls', () => {
   it('keeps the cursor the response named, and marks it run', async () => {
     const { polls, cursors } = working();
 
-    await polls.workOff();
+    await polls.processDue();
 
     expect(cursors.kept(TEAM, 'linear')).toEqual({
       cursor: 'ENG-2',
@@ -195,7 +195,7 @@ describe('WorkOffPolls', () => {
       ranAt: new Date(NOW.getTime() - 30_000),
     });
 
-    await polls.workOff();
+    await polls.processDue();
 
     expect(run).not.toHaveBeenCalled();
   });
@@ -206,7 +206,7 @@ describe('WorkOffPolls', () => {
       ranAt: new Date(NOW.getTime() - 61_000),
     });
 
-    await polls.workOff();
+    await polls.processDue();
 
     expect(run).toHaveBeenCalledTimes(1);
   });
@@ -220,7 +220,7 @@ describe('WorkOffPolls', () => {
       cursors,
       async () => ({ ok: false, status: 500, response: null, capture: {} }),
       react,
-    ).workOff();
+    ).processDue();
 
     expect(react).not.toHaveBeenCalled();
     expect(cursors.kept(TEAM, 'linear')).toEqual({
@@ -247,7 +247,7 @@ describe('WorkOffPolls', () => {
       vi.fn(async () => undefined),
       poll(READS_A_SECRET),
       injection,
-    ).workOff();
+    ).processDue();
 
     const credentials = run.mock.calls[0]?.[2] as Credentials;
     await credentials.wornToward('https://api.linear.app/issues', [
@@ -278,8 +278,8 @@ describe('WorkOffPolls', () => {
     const react = vi.fn(async () => undefined);
 
     await Promise.all([
-      polling(cursors, run, react).workOff(),
-      polling(cursors, run, react).workOff(),
+      polling(cursors, run, react).processDue(),
+      polling(cursors, run, react).processDue(),
     ]);
 
     expect(run).toHaveBeenCalledTimes(1);
@@ -295,7 +295,7 @@ describe('WorkOffPolls', () => {
       return REPLY;
     });
 
-    await polling(cursors, run, react).workOff();
+    await polling(cursors, run, react).processDue();
 
     expect(cursors.kept(TEAM, 'linear')).toEqual({
       cursor: 'ENG-9',

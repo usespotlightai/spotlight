@@ -18,12 +18,12 @@ import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-
 
 export const WORK = Symbol('REPLAYS_WORK');
 
-interface ConfigSourceAtHand {
+interface ConfigSourceView {
   readonly repository: Repository;
   readonly path: string;
 }
 
-export interface StationAtHand {
+export interface StationView {
   readonly workspaceId: WorkspaceId;
   readonly teamId: TeamId;
   readonly lineId: string;
@@ -31,7 +31,7 @@ export interface StationAtHand {
   readonly stationId: string;
   readonly key: string;
   readonly name: string;
-  readonly source: ConfigSourceAtHand | null;
+  readonly source: ConfigSourceView | null;
 }
 
 export interface RunReplayability {
@@ -140,9 +140,9 @@ export interface AgentRefusal {
 }
 
 export interface WorkPort {
-  station(lineId: string, stationId: string): Promise<StationAtHand | null>;
+  station(lineId: string, stationId: string): Promise<StationView | null>;
 
-  keyed(lineId: string, key: string): Promise<StationAtHand | null>;
+  keyed(lineId: string, key: string): Promise<StationView | null>;
 
   replayable(
     workspaceId: WorkspaceId,
@@ -157,7 +157,7 @@ export interface WorkPort {
   recentAt(
     workspaceId: WorkspaceId,
     stationId: string,
-    most: number,
+    max: number,
   ): Promise<readonly PickableRun[]>;
 
   examine(

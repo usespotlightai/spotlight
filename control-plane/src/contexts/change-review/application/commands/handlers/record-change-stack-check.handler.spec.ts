@@ -13,7 +13,7 @@ import {
 import type { ProposedCohort } from '@change-review/domain/value-objects/stack-cohort.vo';
 import { StackFacts } from '@change-review/domain/value-objects/stack-facts.vo';
 import { HunkId } from '@change-review/domain/value-objects/stack-ids';
-import { UseCaseFault } from '@shared-kernel/application/errors/use-case.fault';
+import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { RunnerId } from '@shared-kernel/domain/value-objects/runner-id.vo';
 import { RunnerTerms } from '@shared-kernel/domain/value-objects/runner-terms.vo';
@@ -168,7 +168,7 @@ describe('RecordChangeStackCheckHandler', () => {
     const { handler, saved } = recording(stack, checkFor(stack));
 
     await expect(handler.execute(reported('runner_1'))).rejects.toThrow(
-      UseCaseFault,
+      ApplicationError,
     );
     expect(saved).toEqual([]);
   });
@@ -177,7 +177,7 @@ describe('RecordChangeStackCheckHandler', () => {
     const { handler } = recording(ready(), null);
 
     await expect(handler.execute(reported('runner_1'))).rejects.toThrow(
-      UseCaseFault,
+      ApplicationError,
     );
   });
 });

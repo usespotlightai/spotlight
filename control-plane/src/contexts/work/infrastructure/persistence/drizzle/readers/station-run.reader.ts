@@ -174,7 +174,7 @@ export class DrizzleStationRunReader implements StationRunReaderPort {
         ),
       )
       .orderBy(desc(run.createdAt))
-      .limit(wanted.most);
+      .limit(wanted.max);
 
     return rows.flatMap((row) =>
       row.taskId && row.endedAt

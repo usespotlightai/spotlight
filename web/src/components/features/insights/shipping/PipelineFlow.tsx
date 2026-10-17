@@ -7,8 +7,8 @@ import { PipelineFlowLegend } from '@/components/features/insights/shipping/Pipe
 import { PipelineFlowTable } from '@/components/features/insights/shipping/PipelineFlowTable';
 import { Segmented } from '@/components/shared/Segmented';
 import { Button } from '@/components/ui/button';
-import { countShown, lastedOrNone } from '@/lib/insights';
-import { type PullRequestType, typeShown } from '@/lib/insights-pull-requests';
+import { formatCount, lastedOrNone } from '@/lib/insights';
+import { formatType, type PullRequestType } from '@/lib/insights-pull-requests';
 import {
   DEFAULT_PERCENTILE,
   FLOW_LAYOUTS,
@@ -32,7 +32,7 @@ export function PipelineFlow({ flow }: { flow: Flow }) {
   const merged = focus
     ? (flow.types.find((each) => each.type === focus)?.merged ?? 0)
     : flow.merged;
-  const which = focus ? `${typeShown(focus).toLowerCase()} ` : '';
+  const which = focus ? `${formatType(focus).toLowerCase()} ` : '';
 
   return (
     <InsightsCard
@@ -42,7 +42,7 @@ export function PipelineFlow({ flow }: { flow: Flow }) {
       actions={
         <div className="flex items-center gap-1.5">
           <span className="text-[0.7rem] text-muted-foreground tabular-nums">
-            {countShown(merged)} {which}PRs merged
+            {formatCount(merged)} {which}PRs merged
           </span>
           <Segmented
             label="Show coding as"
@@ -69,7 +69,7 @@ export function PipelineFlow({ flow }: { flow: Flow }) {
         shares={flow.types}
         focus={focus}
         playing={playing}
-        label={`${countShown(merged)} merged ${which}pull requests at ${percentile}: ${stages
+        label={`${formatCount(merged)} merged ${which}pull requests at ${percentile}: ${stages
           .map((stage) => `${stage.label} ${lastedOrNone(stage.ms)}`)
           .join(', ')}.${worst ? ` The worst jam is ${worst.label}.` : ''}`}
       />

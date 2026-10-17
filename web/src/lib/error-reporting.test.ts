@@ -15,9 +15,9 @@ const {
   errorReportingOptions,
   reportAs,
   scrubbed,
-  ServerFault,
+  GatewayError,
   startErrorReporting,
-  withServerFaultReported,
+  withGatewayErrorReported,
 } = await import('@/lib/error-reporting');
 
 const REPORTING = {
@@ -88,17 +88,17 @@ describe('scrubbed', () => {
   });
 });
 
-describe('withServerFaultReported', () => {
+describe('withGatewayErrorReported', () => {
   const request = new Request(
     'https://app.test/api/workspaces/acme/teams/core/runs/run_8f2c1d?cursor=secret',
     { method: 'GET' },
   );
 
-  it('reports a gateway fault once, grouped by its route without names or ids', () => {
+  it('reports a gateway error once, grouped by its route without names or ids', () => {
     const thrown = { message: 'boom' };
 
     expect(
-      withServerFaultReported(
+      withGatewayErrorReported(
         thrown,
         new Response(null, { status: 503 }),
         request,
@@ -106,12 +106,12 @@ describe('withServerFaultReported', () => {
     ).toBe(thrown);
 
     expect(sentry.captureException).toHaveBeenCalledExactlyOnceWith(
-      new ServerFault(
+      new GatewayError(
         'GET /api/workspaces/:id/teams/:id/runs/:id answered 503',
       ),
       {
         fingerprint: [
-          'server-fault',
+          'gateway-error',
           'GET',
           '/api/workspaces/:id/teams/:id/runs/:id',
         ],
@@ -120,9 +120,9 @@ describe('withServerFaultReported', () => {
   });
 
   it('leaves a 500 to the server, and reports no answer a caller caused or network failure', () => {
-    withServerFaultReported({}, new Response(null, { status: 500 }), request);
-    withServerFaultReported({}, new Response(null, { status: 404 }), request);
-    withServerFaultReported({}, undefined, request);
+    withGatewayErrorReported({}, new Response(null, { status: 500 }), request);
+    withGatewayErrorReported({}, new Response(null, { status: 404 }), request);
+    withGatewayErrorReported({}, undefined, request);
 
     expect(sentry.captureException).not.toHaveBeenCalled();
   });

@@ -473,7 +473,7 @@ const stored = (
 ): HookFiring =>
   HookFiring.rehydrate({
     ...stateOf(
-      HookFiring.fired({
+      HookFiring.fire({
         id: 'firing_1',
         hookId: 'audit_id',
         workspaceId: 'workspace_1',

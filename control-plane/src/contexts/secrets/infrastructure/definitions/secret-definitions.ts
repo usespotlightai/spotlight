@@ -1,6 +1,6 @@
 import { madeBy, problemsIn } from '@platform/definitions/definition-schema';
 import type {
-  CompiledSecret,
+  ParsedSecret,
   SecretDefinitionsPort,
 } from '@secrets/application/ports/secret-definitions.port';
 import {
@@ -43,7 +43,7 @@ const secretSchema = z.object({
 });
 
 export class SecretDefinitions implements SecretDefinitionsPort {
-  secret(held: unknown): CompiledSecret {
+  secret(held: unknown): ParsedSecret {
     const read = secretSchema.safeParse(held);
 
     if (!read.success) {

@@ -48,14 +48,14 @@ export const SEARCHES_ANCHOR = 'searches';
 
 export const SEED_NAME = 'seed';
 
-const LEAST_TASKS = 5;
+const MIN_TASKS = 5;
 
 export const DEFAULT_CONCURRENCY = 4;
 
 const BOUNDS = {
-  iterations: { least: 1, most: 10 },
-  perIteration: { least: 1, most: 5 },
-  concurrency: { least: 1, most: 10 },
+  iterations: { min: 1, max: 10 },
+  perIteration: { min: 1, max: 5 },
+  concurrency: { min: 1, max: 10 },
   repeats: REPEAT_BOUNDS,
 } as const satisfies Record<string, CountBounds>;
 
@@ -142,7 +142,7 @@ export const iterationTitle = (
 export const tasksIn = (set: ReplaySet): number =>
   new Set(set.entries.map((each) => each.taskId)).size;
 
-const tasksShown = (count: number): string =>
+const formatTasks = (count: number): string =>
   count === 1 ? '1 task' : `${count} tasks`;
 
 export const setRefusal = (set: ReplaySet): string | null => {
@@ -152,8 +152,8 @@ export const setRefusal = (set: ReplaySet): string | null => {
 
   const tasks = tasksIn(set);
 
-  return tasks < LEAST_TASKS
-    ? `The set covers ${tasksShown(tasks)}. A search holds some tasks out. Minimum different tasks: ${LEAST_TASKS}`
+  return tasks < MIN_TASKS
+    ? `The set covers ${formatTasks(tasks)}. A search holds some tasks out. Minimum different tasks: ${MIN_TASKS}`
     : null;
 };
 
@@ -170,7 +170,7 @@ export const startRefusal = (
 
   return sets.some((set) => setRefusal(set) === null)
     ? null
-    : `No replay set covers ${LEAST_TASKS} different tasks yet.`;
+    : `No replay set covers ${MIN_TASKS} different tasks yet.`;
 };
 
 export const budgetFrom = (
@@ -269,12 +269,12 @@ export const refusalsOf = (
   };
 };
 
-export const costPerRunShown = (
+export const formatCostPerRun = (
   cost: number | null,
   currency: string,
 ): string => (cost === null ? 'Unpriced' : spentIn(cost, currency));
 
-export const heldOutShown = (candidate: SearchCandidate): string => {
+export const formatHeldOut = (candidate: SearchCandidate): string => {
   if (candidate.seed) {
     return '–';
   }
@@ -288,7 +288,7 @@ export const heldOutShown = (candidate: SearchCandidate): string => {
   return candidate.heldOutReplayId ? '–' : 'Not held out';
 };
 
-export const durationShown = (ms: number | null): string =>
+export const formatDuration = (ms: number | null): string =>
   ms === null
     ? 'Unknown. None of the set’s runs was timed.'
     : `About ${lasted(ms)}`;
@@ -457,7 +457,7 @@ export const agentOf = (
   ...(effort ? { effort: effort as SearchAgent['effort'] } : {}),
 });
 
-export const referenceShown = (
+export const formatReference = (
   reference: ReplayCheckSummary['reference'],
 ): string | null => {
   if (reference.pullRequest !== null) {
@@ -467,7 +467,7 @@ export const referenceShown = (
   return reference.commit ? `Commit ${reference.commit.slice(0, 7)}` : null;
 };
 
-const regressionsShown = (count: number): string =>
+const formatRegressions = (count: number): string =>
   count === 1 ? '1 regression' : `${count} regressions`;
 
 export const appPathOf = (url: string): string => {
@@ -514,7 +514,7 @@ export const replayCheckNote = (
     return `${GUARD_NOTE} Line sets no replay_check. Its pull requests aren’t checked.`;
   }
 
-  return `${GUARD_NOTE} Fails past ${regressionsShown(replayCheck.mostRegressions)}. Ceiling per check: ${spentIn(replayCheck.ceiling, replayCheck.currency)} · ${minGainSentence(replayCheck.minGain)}`;
+  return `${GUARD_NOTE} Fails past ${formatRegressions(replayCheck.maxRegressions)}. Ceiling per check: ${spentIn(replayCheck.ceiling, replayCheck.currency)} · ${minGainSentence(replayCheck.minGain)}`;
 };
 
 export const SEARCH_CANDIDATE_HEADINGS: readonly NestedHeading[] = [

@@ -90,7 +90,7 @@ describe('renderLineRows', () => {
       line: {
         ...ROWS.line,
         replayCheck: {
-          mostRegressions: 1,
+          maxRegressions: 1,
           ceiling: 12.5,
           currency: 'USD',
           minGain: 0.05,
@@ -99,7 +99,7 @@ describe('renderLineRows', () => {
     });
 
     expect(rendered.replayCheck).toEqual({
-      mostRegressions: 1,
+      maxRegressions: 1,
       ceiling: 12.5,
       currency: 'USD',
       minGain: 0.05,

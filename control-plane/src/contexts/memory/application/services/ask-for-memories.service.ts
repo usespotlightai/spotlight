@@ -37,7 +37,7 @@ export class AskForMemories {
       return;
     }
 
-    await this.transaction.run(async () => {
+    await this.transaction.inTransaction(async () => {
       const now = this.clock.now();
       const held = await this.drafts.forTask(taskId);
 
@@ -51,7 +51,7 @@ export class AskForMemories {
       }
 
       await this.drafts.add(
-        MemoryDraft.opened({
+        MemoryDraft.open({
           id: MemoryDraftId.of(this.ids.generate()),
           taskId,
           workspaceId: task.workspaceId,

@@ -63,7 +63,9 @@ export class RecordPullRequests {
     const url = urlOf(pullRequest);
 
     if (url) {
-      await this.changing(from, url, facts, (held) => held.reviewedBy(review));
+      await this.changing(from, url, facts, (held) =>
+        held.recordReview(review),
+      );
     }
   }
 
@@ -77,7 +79,7 @@ export class RecordPullRequests {
 
     if (url) {
       await this.changing(from, url, facts, (held) =>
-        held.reviewDismissed(review),
+        held.dismissReview(review),
       );
     }
   }
@@ -92,7 +94,7 @@ export class RecordPullRequests {
 
     if (url) {
       await this.changing(from, url, facts, (held) =>
-        held.commentedOn(comment),
+        held.recordComment(comment),
       );
     }
   }
@@ -107,7 +109,7 @@ export class RecordPullRequests {
 
     if (url) {
       await this.changing(from, url, facts, (held) =>
-        held.threadResolved(thread),
+        held.resolveThread(thread),
       );
     }
   }
@@ -122,7 +124,7 @@ export class RecordPullRequests {
     const repository = Repository.of(event.repository);
 
     await this.retrying(() =>
-      this.transaction.run(async () => {
+      this.transaction.inTransaction(async () => {
         const target =
           event.reverts.kind === 'number'
             ? await this.pullRequests.numbered(
@@ -140,7 +142,7 @@ export class RecordPullRequests {
           return;
         }
 
-        const reverted = target.revertedWith(revert);
+        const reverted = target.recordRevert(revert);
 
         if (reverted !== target) {
           await this.pullRequests.save(reverted);
@@ -212,12 +214,12 @@ export class RecordPullRequests {
   }
 
   async workspaceClosed(workspaceId: WorkspaceId): Promise<void> {
-    await this.transaction.run(async () => {
+    await this.transaction.inTransaction(async () => {
       const connection = await this.connections.of(workspaceId);
 
       if (connection.installation) {
         await this.connections.save(
-          connection.disconnectedFrom(connection.installation),
+          connection.disconnectFrom(connection.installation),
         );
       }
     });
@@ -234,7 +236,7 @@ export class RecordPullRequests {
 
     for (const candidate of candidates) {
       try {
-        await this.transaction.run(async () => {
+        await this.transaction.inTransaction(async () => {
           const held = await locked(candidate);
 
           if (held && forgettable(held)) {
@@ -264,7 +266,7 @@ export class RecordPullRequests {
     const { workspaceId } = from;
 
     return this.retrying(() =>
-      this.transaction.run(async () => {
+      this.transaction.inTransaction(async () => {
         const claimant = await this.connections.heldClaimantOf(
           from.installation,
         );
@@ -276,7 +278,7 @@ export class RecordPullRequests {
         const held = await this.pullRequests.lockedAt(workspaceId, url);
 
         if (held) {
-          const changed = change(heard ? held.described(heard) : held);
+          const changed = change(heard ? held.describe(heard) : held);
 
           if (changed !== held) {
             await this.pullRequests.save(changed);

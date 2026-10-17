@@ -1,4 +1,4 @@
-import { areWords } from '@shared-kernel/domain/value-objects/identifier-shapes';
+import { isSlug } from '@shared-kernel/domain/value-objects/identifier-shapes';
 
 const SEPARATOR = '/';
 
@@ -16,7 +16,7 @@ export class StationAddress {
     lineKey: string,
     stationKey: string,
   ): StationAddress | null {
-    return areWords(teamKey) && areWords(lineKey) && areWords(stationKey)
+    return isSlug(teamKey) && isSlug(lineKey) && isSlug(stationKey)
       ? new StationAddress(teamKey, lineKey, stationKey)
       : null;
   }

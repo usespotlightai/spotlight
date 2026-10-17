@@ -3,7 +3,7 @@ import { InsightsTile } from '@/components/features/insights/InsightsTile';
 import { InsightsTiles } from '@/components/features/insights/InsightsTiles';
 import { PenetrationChart } from '@/components/features/insights/pull-requests/PenetrationChart';
 import { PenetrationTable } from '@/components/features/insights/pull-requests/PenetrationTable';
-import { countShown, shareShown } from '@/lib/insights';
+import { formatCount, formatShare } from '@/lib/insights';
 import {
   type InsightsPullRequests,
   mergedPullRequestsFilter,
@@ -24,24 +24,24 @@ export function Penetration({ penetration }: PenetrationProps) {
       <InsightsTiles label="Merged pull requests">
         <InsightsTile
           label="PRs merged"
-          value={countShown(penetration.merged)}
+          value={formatCount(penetration.merged)}
           detail="In the team’s repositories"
           drill={drill({})}
         />
         <InsightsTile
           label="Made by Spotlight"
-          value={countShown(penetration.made)}
+          value={formatCount(penetration.made)}
           drill={drill({ author: 'spotlight' })}
         />
         <InsightsTile
           label="Reviewed by Spotlight"
-          value={countShown(penetration.touched)}
+          value={formatCount(penetration.touched)}
           detail="Others’ pull requests with a Spotlight review task"
           drill={drill({ author: 'touched' })}
         />
         <InsightsTile
           label="Spotlight’s share"
-          value={shareShown(penetration.share)}
+          value={formatShare(penetration.share)}
           detail="Share of all merged pull requests that Spotlight made or reviewed. Bots’ pull requests count."
         />
       </InsightsTiles>

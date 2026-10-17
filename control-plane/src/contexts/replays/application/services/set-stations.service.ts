@@ -21,7 +21,7 @@ export class SetStations {
       return;
     }
 
-    const left = await this.transaction.run(async () => {
+    const left = await this.transaction.inTransaction(async () => {
       const fresh = await this.sets.find(set.id);
       const gone = (fresh ?? set).stationLeft(this.clock.now());
 

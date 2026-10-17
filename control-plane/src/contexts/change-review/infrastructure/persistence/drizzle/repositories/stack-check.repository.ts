@@ -7,8 +7,8 @@ import type {
 import { ChangeStackId } from '@change-review/domain/value-objects/change-stack-id.vo';
 import {
   CheckClaim,
-  MOST_CHECK_ATTEMPTS,
-  MOST_HOLD_MS,
+  MAX_CHECK_ATTEMPTS,
+  MAX_HOLD_MS,
 } from '@change-review/domain/value-objects/check-claim.vo';
 import { CheckRequest } from '@change-review/domain/value-objects/check-request.vo';
 import {
@@ -125,7 +125,7 @@ export class DrizzleStackCheckRepository implements StackCheckRepository {
   ) {}
 
   async add(added: StackCheck): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       await this.context.db
         .insert(stackCheck)
         .values({
@@ -149,7 +149,7 @@ export class DrizzleStackCheckRepository implements StackCheckRepository {
   }
 
   async save(saved: StackCheck): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       const written = await this.context.db
         .update(stackCheck)
         .set({ version: saved.version + 1, ...valuesOf(saved) })
@@ -218,7 +218,7 @@ export class DrizzleStackCheckRepository implements StackCheckRepository {
   }
 
   async remove(removed: StackCheck): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       const deleted = await this.context.db
         .delete(stackCheck)
         .where(
@@ -254,7 +254,7 @@ export class DrizzleStackCheckRepository implements StackCheckRepository {
             isNull(stackCheck.leaseExpiresAt),
             lte(stackCheck.leaseExpiresAt, now),
           ),
-          lt(stackCheck.attempts, MOST_CHECK_ATTEMPTS),
+          lt(stackCheck.attempts, MAX_CHECK_ATTEMPTS),
           or(
             isNull(stackCheck.reservedFor),
             eq(stackCheck.reservedFor, by.runner.value),
@@ -294,7 +294,7 @@ export class DrizzleStackCheckRepository implements StackCheckRepository {
   async awaitingProvision(
     workspaceId: WorkspaceId,
     now: Date,
-    page: { readonly skip: number; readonly most: number },
+    page: { readonly skip: number; readonly max: number },
   ): Promise<readonly StackCheck[]> {
     const rows = await this.context.db
       .select()
@@ -312,7 +312,7 @@ export class DrizzleStackCheckRepository implements StackCheckRepository {
             isNull(stackCheck.leaseExpiresAt),
             lte(stackCheck.leaseExpiresAt, now),
           ),
-          lt(stackCheck.attempts, MOST_CHECK_ATTEMPTS),
+          lt(stackCheck.attempts, MAX_CHECK_ATTEMPTS),
           or(
             isNull(stackCheck.nextProvisionAt),
             lte(stackCheck.nextProvisionAt, now),
@@ -324,13 +324,13 @@ export class DrizzleStackCheckRepository implements StackCheckRepository {
         asc(stackCheck.stackId),
         asc(stackCheck.recheck),
       )
-      .limit(page.most)
+      .limit(page.max)
       .offset(page.skip);
 
     return rows.map(toStackCheck);
   }
 
-  async overdue(now: Date, most: number): Promise<readonly StackCheck[]> {
+  async overdue(now: Date, max: number): Promise<readonly StackCheck[]> {
     const rows = await this.context.db
       .select()
       .from(stackCheck)
@@ -344,12 +344,12 @@ export class DrizzleStackCheckRepository implements StackCheckRepository {
           or(
             isNull(stackCheck.leaseExpiresAt),
             lte(stackCheck.leaseExpiresAt, now),
-            lte(stackCheck.claimedAt, new Date(now.getTime() - MOST_HOLD_MS)),
+            lte(stackCheck.claimedAt, new Date(now.getTime() - MAX_HOLD_MS)),
           ),
         ),
       )
       .orderBy(asc(stackCheck.waitingSince))
-      .limit(most);
+      .limit(max);
 
     return rows.map(toStackCheck);
   }

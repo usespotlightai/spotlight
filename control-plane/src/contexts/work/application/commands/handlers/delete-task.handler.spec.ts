@@ -1,5 +1,5 @@
 import type { WorkspaceAccessPort } from '@identity/application/ports/workspace-access.port';
-import { UseCaseFault } from '@shared-kernel/application/errors/use-case.fault';
+import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
@@ -7,7 +7,7 @@ import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo
 import { DeleteTaskCommand } from '@work/application/commands/delete-task.command';
 import { DeleteTaskHandler } from '@work/application/commands/handlers/delete-task.handler';
 import type { TaskPlacementsPort } from '@work/application/ports/task-placements.port';
-import { LineAtHand } from '@work/application/services/line-at-hand.service';
+import { LineLoader } from '@work/application/services/line-loader.service';
 import { Line } from '@work/domain/aggregates/line.aggregate';
 import { Task } from '@work/domain/aggregates/task.aggregate';
 import { Station } from '@work/domain/entities/station.entity';
@@ -93,7 +93,7 @@ const access = (teamId = 'team_1') =>
   }) as unknown as WorkspaceAccessPort;
 
 const lines = (teamId = 'team_1') =>
-  new LineAtHand(access(), {
+  new LineLoader(access(), {
     holding: vi.fn(async () => ({ teamId: TeamId.of(teamId) }) as Line),
   } as unknown as LineRepository);
 
@@ -126,7 +126,7 @@ describe('DeleteTaskHandler', () => {
       new DeleteTaskHandler(tasks(null), lines()).execute(
         new DeleteTaskCommand('team_1', 'task_missing', 'user_1'),
       ),
-    ).rejects.toThrow(UseCaseFault);
+    ).rejects.toThrow(ApplicationError);
   });
 
   it('leaves nothing behind when there was nothing to take', async () => {
@@ -146,7 +146,7 @@ describe('DeleteTaskHandler', () => {
       new DeleteTaskHandler(held, lines('team_2')).execute(
         new DeleteTaskCommand('team_1', 'task_1', 'user_1'),
       ),
-    ).rejects.toThrow(UseCaseFault);
+    ).rejects.toThrow(ApplicationError);
     expect(held.remove).not.toHaveBeenCalled();
   });
 });

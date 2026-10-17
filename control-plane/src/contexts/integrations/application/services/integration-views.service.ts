@@ -4,7 +4,7 @@ import type {
   IntegrationResourceDto,
 } from '@integrations/application/dto/integration-resource.dto';
 import type { IntegrationCompilerPort } from '@integrations/application/ports/integration-compiler.port';
-import type { KeptIntegration } from '@integrations/application/ports/integration-resources.port';
+import type { IntegrationRecord } from '@integrations/application/ports/integration-resources.port';
 import { integrationAt } from '@integrations/application/rendering/integration-problems';
 import type { DescribedSource } from '@integrations/domain/value-objects/described-source.vo';
 import { IntegrationAddress } from '@integrations/domain/value-objects/integration-address.vo';
@@ -13,7 +13,7 @@ import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/config
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 
 const readingWarnings = (
-  kept: KeptIntegration,
+  kept: IntegrationRecord,
   source: DescribedSource,
 ): readonly ConfigurationProblem[] => {
   const reading = kept.reading;
@@ -46,13 +46,13 @@ export class IntegrationViews {
     private readonly compiler: IntegrationCompilerPort,
   ) {}
 
-  async of(kept: KeptIntegration): Promise<IntegrationResourceDto | null> {
+  async of(kept: IntegrationRecord): Promise<IntegrationResourceDto | null> {
     const team = await this.teams.find(kept.teamId);
 
     return team ? this.onTeam(kept, team.key) : null;
   }
 
-  onTeam(kept: KeptIntegration, teamKey: string): IntegrationResourceDto {
+  onTeam(kept: IntegrationRecord, teamKey: string): IntegrationResourceDto {
     const compiled = this.compiler.compile(kept.definition);
     const source = compiled.ok ? compiled.source : null;
     const handWritten = compiled.ok

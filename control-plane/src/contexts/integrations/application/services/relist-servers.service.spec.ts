@@ -36,7 +36,7 @@ describe('RelistServers', () => {
   it('claims the servers listed longer ago than the interval, as of now', async () => {
     const { servers, claimListedBefore } = relisting([]);
 
-    await servers.workOff();
+    await servers.processDue();
 
     expect(claimListedBefore).toHaveBeenCalledWith(
       new Date('2026-10-05T09:50:00.000Z'),
@@ -50,7 +50,7 @@ describe('RelistServers', () => {
       server('notes'),
     ]);
 
-    await servers.workOff();
+    await servers.processDue();
 
     expect(execute.mock.calls.map(([command]) => command.source)).toEqual([
       'tracker',
@@ -65,7 +65,7 @@ describe('RelistServers', () => {
     ]);
     execute.mockRejectedValueOnce(new Error('moved on'));
 
-    await expect(servers.workOff()).resolves.toBeUndefined();
+    await expect(servers.processDue()).resolves.toBeUndefined();
     expect(execute).toHaveBeenCalledTimes(2);
     expect(log.error).toHaveBeenCalledOnce();
   });

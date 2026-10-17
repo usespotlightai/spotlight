@@ -10,7 +10,7 @@ import {
   stationReportsFrom,
   teamReportFrom,
 } from '@outcomes/domain/services/station-reports';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
 export class ReadInsightsStationsHandler
@@ -25,14 +25,14 @@ export class ReadInsightsStationsHandler
     query: ReadInsightsStationsQuery,
   ): Promise<InsightsStationsDto> {
     try {
-      const { clearance, period } = await this.scopes.scope(
+      const { access, period } = await this.scopes.scope(
         query.teamId,
         query.principal,
         query.period,
       );
       const counts = await this.reader.stationCounts({
-        workspaceId: clearance.workspaceId,
-        teamId: clearance.teamId,
+        workspaceId: access.workspaceId,
+        teamId: access.teamId,
         period,
       });
       const team = teamReportFrom(counts, period);
@@ -47,7 +47,7 @@ export class ReadInsightsStationsHandler
         stations: stationReportsFrom(counts, period),
       };
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

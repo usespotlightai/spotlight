@@ -8,10 +8,10 @@ import {
 } from '@/components/shared/nested-table/nested-rows';
 import type { TallyCountedResponseDto } from '@/lib/api';
 import {
+  formatStation,
   type StationNames,
   type StationReport,
   stationAnchor,
-  stationShown,
 } from '@/lib/insights';
 import { type NestedHeading, SPREAD } from '@/lib/nested-table';
 import { countedColumnsOf } from '@/lib/station-outcomes';
@@ -62,7 +62,7 @@ export function StationsTable({
               filter={{ stationId: report.stationId }}
               className="truncate font-medium text-foreground hover:underline"
             >
-              {stationShown(names, report.stationId)}
+              {formatStation(names, report.stationId)}
             </InsightsLink>
             <span className="truncate text-muted-foreground">
               {names.get(report.stationId)?.lineName}
@@ -85,7 +85,7 @@ export function StationsTable({
                       : 'text-foreground',
                   )}
                 >
-                  {column.shown(report.tally)}
+                  {column.render(report.tally)}
                 </InsightsLink>
               </NestedCell>
             ) : (
@@ -94,7 +94,7 @@ export function StationsTable({
                 heading={column.label}
                 strong={column.label === 'Cost'}
               >
-                {column.shown(report.tally)}
+                {column.render(report.tally)}
               </NestedCell>
             ),
           )}

@@ -45,9 +45,12 @@ const checksOf = (state: StackState) =>
 
 const settled = (replay: Replay, at: number, how: Ran, cost: number) => {
   const confirmed = replay
-    .confirmed(run(at), FINGERPRINT, NOW)
-    .ended(run(at), endOf(how === 'failed-run' ? 'failed' : 'completed'));
-  const reviewed = confirmed.reviewed(
+    .confirm(run(at), FINGERPRINT, NOW)
+    .recordRunEnd(
+      run(at),
+      endOf(how === 'failed-run' ? 'failed' : 'completed'),
+    );
+  const reviewed = confirmed.recordReview(
     run(at),
     how === 'passed'
       ? checksOf('passed')
@@ -58,7 +61,7 @@ const settled = (replay: Replay, at: number, how: Ran, cost: number) => {
     later(60_000),
   );
 
-  return reviewed.measured(run(at), measuresOf(cost), later(61_000));
+  return reviewed.measure(run(at), measuresOf(cost), later(61_000));
 };
 
 const ran = (
@@ -101,13 +104,13 @@ describe('totalsOf', () => {
   it('counts what it spent in other currencies and the calls nobody priced, beside what counts against the ceiling', () => {
     const replay = aReplay({ count: 3, ceiling: 100 })
       .reserving(3, runIds())
-      .confirmed(run(0), FINGERPRINT, NOW)
-      .confirmed(run(1), FINGERPRINT, NOW)
-      .confirmed(run(2), FINGERPRINT, NOW)
-      .measured(run(0), measuresOf(1), later(1))
-      .measured(run(1), measuresOf(2, 60_000, 10, 'EUR'), later(1))
-      .measured(run(2), measuresOf(null), later(1))
-      .reviewed(
+      .confirm(run(0), FINGERPRINT, NOW)
+      .confirm(run(1), FINGERPRINT, NOW)
+      .confirm(run(2), FINGERPRINT, NOW)
+      .measure(run(0), measuresOf(1), later(1))
+      .measure(run(1), measuresOf(2, 60_000, 10, 'EUR'), later(1))
+      .measure(run(2), measuresOf(null), later(1))
+      .recordReview(
         run(0),
         checksOf('passed'),
         ModelSpent.of([Spend.of(0.5, 'USD'), Spend.of(0.3, 'GBP')], 2),
@@ -176,7 +179,7 @@ describe('totalsOf', () => {
   it('counts runs whose cost was not reported as unpriced', () => {
     const replay = aReplay({ count: 1 })
       .reserving(1, runIds())
-      .measured(run(0), measuresOf(null), NOW);
+      .measure(run(0), measuresOf(null), NOW);
 
     expect(totalsOf(replay).settled).toBe(0);
   });
@@ -213,7 +216,7 @@ describe('comparedWith', () => {
     const judged = (replay: Replay, scores: readonly number[]) =>
       scores.reduce(
         (held, score, at) =>
-          held.judged(run(at), scoredAs(score), null, later(90_000)),
+          held.recordVerdict(run(at), scoredAs(score), null, later(90_000)),
         replay,
       );
     const baseline = judged(
@@ -242,7 +245,7 @@ describe('comparedWith', () => {
 
   it('compares no scores the two judged by other rubrics, or against a reference only one had, and says why', () => {
     const judged = (replay: Replay, referenced: boolean) =>
-      replay.judged(
+      replay.recordVerdict(
         run(0),
         JudgeVerdict.of({
           scale: 'number',

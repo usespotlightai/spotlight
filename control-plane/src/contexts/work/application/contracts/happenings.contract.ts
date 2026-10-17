@@ -13,7 +13,7 @@ export interface MarkWorn {
   readonly value: string;
 }
 
-interface SaidWord {
+interface SaidPayload {
   readonly body: string;
   readonly path?: string | null;
   readonly from?: number | null;
@@ -21,12 +21,12 @@ interface SaidWord {
   readonly remark?: string | null;
 }
 
-interface ConcernsWord {
+interface ConcernsPayload {
   readonly branch: string | null;
   readonly marks: readonly MarkWorn[];
 }
 
-export interface ReviewWord {
+export interface ReviewPayload {
   readonly asking: ReviewAsking;
   readonly label?: string | null;
   readonly pullRequest: string;
@@ -36,14 +36,14 @@ export interface ReviewWord {
   readonly branch: string | null;
 }
 
-interface OpensWord {
+interface OpensPayload {
   readonly onto: string;
   readonly at: string | null;
   readonly title: string;
   readonly description: string | null;
   readonly assignEmail: string | null;
   readonly marks: readonly MarkWorn[];
-  readonly review?: ReviewWord | null;
+  readonly review?: ReviewPayload | null;
 }
 
 export interface Arriving {
@@ -58,9 +58,9 @@ export interface Happened {
   readonly told: string;
   readonly spoken: boolean;
   readonly state: HappeningState;
-  readonly concerns: ConcernsWord;
-  readonly said: SaidWord | null;
+  readonly concerns: ConcernsPayload;
+  readonly said: SaidPayload | null;
   readonly ourOwn: boolean;
-  readonly opens: OpensWord | null;
+  readonly opens: OpensPayload | null;
   readonly attachments?: readonly Arriving[];
 }

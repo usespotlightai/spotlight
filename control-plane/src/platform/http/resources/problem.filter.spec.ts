@@ -8,7 +8,7 @@ import type { HttpAdapterHost } from '@nestjs/core';
 import { ProblemException } from '@platform/http/resources/problem.exception';
 import { ProblemFilter } from '@platform/http/resources/problem.filter';
 import { API_VERSION } from '@platform/http/resources/resource-headers';
-import { UseCaseFault } from '@shared-kernel/application/errors/use-case.fault';
+import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import type { LoggerPort } from '@shared-kernel/application/ports/logger.port';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
@@ -85,14 +85,14 @@ describe('ProblemFilter', () => {
     });
     expect(answering(new NotFoundException()).status).toBe(404);
     expect(
-      answering(new UseCaseFault('conflict', 'it moved')).body,
+      answering(new ApplicationError('conflict', 'it moved')).body,
     ).toMatchObject({ status: 409, detail: 'it moved' });
   });
 
   it('answers a guard or use case that refuses as a forbidden problem', () => {
     for (const refusal of [
       new ForbiddenException(),
-      new UseCaseFault('not-allowed', 'not yours'),
+      new ApplicationError('not-allowed', 'not yours'),
     ]) {
       const { body, status, headers } = answering(refusal);
 
@@ -113,16 +113,16 @@ describe('ProblemFilter', () => {
     expect(JSON.stringify(body)).not.toContain('melted');
     expect(error).toHaveBeenCalledWith(
       expect.objectContaining({ err: surprise }),
-      'Server fault',
+      'Internal error',
     );
     expect(report).toHaveBeenCalledExactlyOnceWith(surprise, {
       source: 'http',
     });
   });
 
-  it('reports no fault of a service upstream, which UseCaseFaultFilter does not report either', () => {
+  it('reports no fault of a service upstream, which ApplicationErrorFilter does not report either', () => {
     const { status, report } = answering(
-      new UseCaseFault('refused-upstream', 'GitHub refused'),
+      new ApplicationError('refused', 'GitHub refused'),
     );
 
     expect(status).toBe(502);

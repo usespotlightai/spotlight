@@ -21,7 +21,7 @@ const LIFE_MS = 15 * 60 * 1000;
 export class HookCallbackGrant {
   private constructor(private readonly granted: Granted) {}
 
-  static issuedFor(holder: Holder, now: Date): HookCallbackGrant {
+  static issueFor(holder: Holder, now: Date): HookCallbackGrant {
     return new HookCallbackGrant({
       ...holder,
       expiresAt: new Date(now.getTime() + LIFE_MS),

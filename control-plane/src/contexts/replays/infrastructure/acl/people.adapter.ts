@@ -5,7 +5,7 @@ import type {
   PeoplePort,
   ReadableTeam,
 } from '@replays/application/ports/people.port';
-import type { TeamStanding } from '@replays/domain/services/replays-clearance';
+import type { TeamStanding } from '@replays/domain/services/team-access';
 import type { Principal } from '@shared-kernel/domain/value-objects/principal.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -21,11 +21,14 @@ export class People implements PeoplePort {
     teamId: string,
     principal: Principal,
   ): Promise<TeamStanding | null> {
-    const cleared = await this.access.clearanceAsTeamReader(teamId, principal);
+    const permissions = await this.access.permissionsAsTeamReader(
+      teamId,
+      principal,
+    );
 
-    return cleared
+    return permissions
       ? {
-          workspaceId: cleared.workspaceId,
+          workspaceId: permissions.workspaceId,
           mayPlan: this.access.mayPlan(principal),
         }
       : null;
@@ -43,7 +46,7 @@ export class People implements PeoplePort {
     workspaceId: string,
     principal: Principal,
   ): Promise<readonly ReadableTeam[] | null> {
-    const workspace = await this.access.clearanceIn(
+    const workspace = await this.access.permissionsIn(
       WorkspaceId.of(workspaceId),
       principal,
     );
@@ -55,7 +58,7 @@ export class People implements PeoplePort {
     const teams = await this.teams.inWorkspace(workspace.workspaceId);
     const read = await Promise.all(
       teams.map(async (team) =>
-        (await this.access.clearanceAsTeamReader(team.id.value, principal))
+        (await this.access.permissionsAsTeamReader(team.id.value, principal))
           ? [{ teamId: team.id, workspaceId: team.workspaceId, key: team.key }]
           : [],
       ),

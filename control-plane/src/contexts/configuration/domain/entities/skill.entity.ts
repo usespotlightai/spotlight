@@ -40,15 +40,15 @@ export class Skill {
     readonly isShipped: boolean,
   ) {}
 
-  static defined(input: SkillInput): Skill {
+  static define(input: SkillInput): Skill {
     if (input.key.isSpotlights) {
       throw new SkillKeyReservedError(input.key.value);
     }
 
-    return Skill.made(input, false);
+    return Skill.make(input, false);
   }
 
-  static shipped(input: SkillInput): Skill {
+  static ship(input: SkillInput): Skill {
     if (!input.key.isSpotlights) {
       throw new InvalidSkillError(
         input.key.value,
@@ -56,10 +56,10 @@ export class Skill {
       );
     }
 
-    return Skill.made(input, true);
+    return Skill.make(input, true);
   }
 
-  private static made(input: SkillInput, isShipped: boolean): Skill {
+  private static make(input: SkillInput, isShipped: boolean): Skill {
     const description = input.description.trim();
     const instructions = input.instructions.trim();
     const folder = input.folder;

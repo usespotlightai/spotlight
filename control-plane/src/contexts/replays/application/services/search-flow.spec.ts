@@ -698,7 +698,7 @@ describe('a stalled search looking into why', () => {
     });
     await expect(
       cause(run, searchedAt(0).taskId.value, 'luck'),
-    ).rejects.toMatchObject({ kind: 'invalid-input' });
+    ).rejects.toMatchObject({ kind: 'invalid' });
     await expect(propose(run, 'late')).rejects.toMatchObject({
       kind: 'conflict',
     });

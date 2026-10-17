@@ -11,7 +11,7 @@ import {
   forbiddenTo,
   type ResourceUpdated,
 } from '@shared-kernel/application/dto/resource-outcomes.dto';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
@@ -33,18 +33,18 @@ export class UpdateSecretHandler
 
     try {
       const standing = await this.secrets.withId(id);
-      const cleared = standing
-        ? await this.access.clearanceIn(
+      const permissions = standing
+        ? await this.access.permissionsIn(
             standing.workspaceId,
             command.actor.principal,
           )
         : null;
 
-      if (!standing || !cleared) {
+      if (!standing || !permissions) {
         return null;
       }
 
-      if (!cleared.managesSecrets) {
+      if (!permissions.managesSecrets) {
         return forbiddenTo('manage-secrets');
       }
 
@@ -62,7 +62,7 @@ export class UpdateSecretHandler
         this.clock.now(),
       );
 
-      await this.transaction.run(() => this.secrets.save(redefined));
+      await this.transaction.inTransaction(() => this.secrets.save(redefined));
 
       return { outcome: 'updated', id: id.value };
     } catch (error) {
@@ -88,7 +88,7 @@ export class UpdateSecretHandler
         };
       }
 
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

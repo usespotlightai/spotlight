@@ -61,7 +61,7 @@ describe('Memory', () => {
   });
 
   it('supersedes only a memory that still stands', () => {
-    const retired = old().retired({
+    const retired = old().retire({
       by: UserId.of('user_bea'),
       reason: 'Wrong.',
       at: LATER,
@@ -90,7 +90,7 @@ describe('Memory', () => {
     expect(atLine.appliesAt({ ...site, lineId: 'line_2' })).toBe(false);
     expect(
       atLine
-        .retired({ by: UserId.of('user_bea'), reason: 'Gone.', at: LATER })
+        .retire({ by: UserId.of('user_bea'), reason: 'Gone.', at: LATER })
         .appliesAt(site),
     ).toBe(false);
   });
@@ -99,7 +99,7 @@ describe('Memory', () => {
     const memory = stood();
     memory.pullEvents();
 
-    const retired = memory.supersededBy(OLD, LATER);
+    const retired = memory.supersedeWith(OLD, LATER);
 
     expect(retired.standing).toBe('retired');
     expect(retired.retirement?.supersededBy?.equals(OLD)).toBe(true);
@@ -108,15 +108,15 @@ describe('Memory', () => {
   });
 
   it('retires once', () => {
-    const retired = stood().supersededBy(OLD, LATER);
+    const retired = stood().supersedeWith(OLD, LATER);
 
-    expect(retired.supersededBy(MemoryId.of('memory_other'), NOW)).toBe(
+    expect(retired.supersedeWith(MemoryId.of('memory_other'), NOW)).toBe(
       retired,
     );
   });
 
   it('stands at once when a person writes it, as theirs and resting on nothing', () => {
-    const written = Memory.written({
+    const written = Memory.write({
       id: NEW,
       handle: MemoryHandle.of(2),
       workspaceId: WorkspaceId.of('ws_1'),
@@ -134,7 +134,7 @@ describe('Memory', () => {
   });
 
   it('retires with a reason, saying who retired it', () => {
-    const retired = stood().retired({
+    const retired = stood().retire({
       by: UserId.of('user_bea'),
       reason: ' The retry worker was removed. ',
       at: LATER,
@@ -148,16 +148,16 @@ describe('Memory', () => {
 
   it('refuses to retire without a reason, or twice', () => {
     expect(() =>
-      stood().retired({ by: UserId.of('user_bea'), reason: '  ', at: LATER }),
+      stood().retire({ by: UserId.of('user_bea'), reason: '  ', at: LATER }),
     ).toThrow(InvalidMemoryError);
 
-    const retired = stood().retired({
+    const retired = stood().retire({
       by: UserId.of('user_bea'),
       reason: 'Gone.',
       at: LATER,
     });
     expect(() =>
-      retired.retired({
+      retired.retire({
         by: UserId.of('user_bea'),
         reason: 'Again.',
         at: LATER,
@@ -169,7 +169,7 @@ describe('Memory', () => {
     const held = stood();
     held.pullEvents();
 
-    const successor = held.correctedAs({
+    const successor = held.correct({
       id: OLD,
       handle: MemoryHandle.of(3),
       kind: 'preference',
@@ -187,14 +187,14 @@ describe('Memory', () => {
   });
 
   it('refuses to correct a memory that was already retired', () => {
-    const retired = stood().retired({
+    const retired = stood().retire({
       by: UserId.of('user_bea'),
       reason: 'Gone.',
       at: LATER,
     });
 
     expect(() =>
-      retired.correctedAs({
+      retired.correct({
         id: OLD,
         handle: MemoryHandle.of(4),
         kind: 'preference',

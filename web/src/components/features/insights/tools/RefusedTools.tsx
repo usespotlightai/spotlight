@@ -6,7 +6,7 @@ import {
   EDGE_INDENT,
   ROW_DIVIDER,
 } from '@/components/shared/nested-table/nested-rows';
-import { countShown } from '@/lib/insights';
+import { formatCount } from '@/lib/insights';
 import {
   REFUSAL_HEADINGS,
   refusedToolFilter,
@@ -51,7 +51,7 @@ export function RefusedTools({
             </NestedCell>
             <NestedCell heading="Refused" strong>
               <InsightsLink tab="runs" filter={refusedToolFilter(refused)}>
-                {countShown(refused.refused)}
+                {formatCount(refused.refused)}
               </InsightsLink>
             </NestedCell>
           </li>

@@ -6,7 +6,7 @@ import { CouldNotLoad } from '@/components/shared/CouldNotLoad';
 import { SkeletonLine } from '@/components/shared/skeleton/SkeletonLine';
 import { useRunScores } from '@/hooks/api/useRunScores';
 import { notFound } from '@/lib/error';
-import { scoreShown, standingShown } from '@/lib/judge';
+import { formatScore, formatStanding } from '@/lib/judge';
 import { failed, loading } from '@/lib/query';
 
 type RunJudgeScoreProps = {
@@ -63,7 +63,7 @@ export function RunJudgeScore({ teamId, runId }: RunJudgeScoreProps) {
         <dl>
           <DetailProperty name="Score">
             {judge ? (
-              <span data-slot="judge-verdict">{scoreShown(judge)}</span>
+              <span data-slot="judge-verdict">{formatScore(judge)}</span>
             ) : (
               <span className="text-muted-foreground">Hidden</span>
             )}
@@ -72,7 +72,7 @@ export function RunJudgeScore({ teamId, runId }: RunJudgeScoreProps) {
             <DetailProperty name="People">
               {grades
                 .map(
-                  (each) => `${scoreShown(each)}${each.mine ? ' (you)' : ''}`,
+                  (each) => `${formatScore(each)}${each.mine ? ' (you)' : ''}`,
                 )
                 .join(', ')}
             </DetailProperty>
@@ -81,7 +81,7 @@ export function RunJudgeScore({ teamId, runId }: RunJudgeScoreProps) {
 
         {!standing.trusted && (
           <p className="text-muted-foreground text-xs leading-5">
-            {standingShown(standing)}
+            {formatStanding(standing)}
           </p>
         )}
 

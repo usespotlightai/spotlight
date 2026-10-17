@@ -3,7 +3,7 @@ import type { SecretResourceDto } from '@secrets/application/dto/secret-resource
 import { SecretResourceMapper } from '@secrets/application/mappers/secret-resource.mapper';
 import type { SecretResourcesPort } from '@secrets/application/ports/secret-resources.port';
 import type { ReadSecretQuery } from '@secrets/application/queries/read-secret.query';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
 export class ReadSecretHandler
@@ -19,11 +19,11 @@ export class ReadSecretHandler
       const kept = await this.resources.withId(query.secretId);
 
       return kept &&
-        (await this.access.clearanceIn(kept.workspaceId, query.principal))
+        (await this.access.permissionsIn(kept.workspaceId, query.principal))
         ? SecretResourceMapper.toDto(kept)
         : null;
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

@@ -9,7 +9,7 @@ import { Admission } from '@runners/domain/value-objects/admission.vo';
 import { HostId } from '@runners/domain/value-objects/host-id.vo';
 import { HostReport } from '@runners/domain/value-objects/host-report.vo';
 import { HostSession } from '@runners/domain/value-objects/host-session.vo';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 
@@ -38,7 +38,7 @@ export class ReportHostPresenceHandler
 
       await reviseHost(this.hosts, id, (known) =>
         known
-          ? known.reportedThrough({
+          ? known.reportThrough({
               admission,
               workspaceId: admitted.workspaceId,
               session,
@@ -60,7 +60,7 @@ export class ReportHostPresenceHandler
       if (error instanceof HostTakenError) {
         return { outcome: 'taken' };
       }
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

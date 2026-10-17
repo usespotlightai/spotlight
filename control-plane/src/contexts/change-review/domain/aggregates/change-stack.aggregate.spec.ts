@@ -18,7 +18,7 @@ import { StackProgress } from '@change-review/domain/value-objects/stack-progres
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import { ModelUsage } from '@shared-kernel/domain/value-objects/model-usage.vo';
 import {
-  MOST_WORK_ATTEMPTS,
+  MAX_WORK_ATTEMPTS,
   WORK_BACKOFF_MS,
   WORK_LEASE_MS,
 } from '@shared-kernel/domain/value-objects/owed-work.vo';
@@ -312,7 +312,7 @@ describe('ChangeStack', () => {
     );
 
     let exhausted = drafting();
-    for (let day = 0; day < MOST_WORK_ATTEMPTS; day += 1) {
+    for (let day = 0; day < MAX_WORK_ATTEMPTS; day += 1) {
       exhausted = exhausted.leased(at(day)).triedAgainLater(at(day));
     }
 

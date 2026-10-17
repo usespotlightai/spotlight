@@ -1,9 +1,9 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { EventCodec } from '@platform/events/event-codec';
 import { EventProjections } from '@platform/events/event-projections';
-import { EventPublications } from '@platform/events/event-publications';
 import { EventSubscribers } from '@platform/events/event-subscribers';
-import { EventTypes } from '@platform/events/event-types';
+import { IntegrationEventMappers } from '@platform/events/integration-event-mappers';
+import { PayloadTypes } from '@platform/events/payload-types';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
   eventDelivery,
@@ -32,8 +32,8 @@ export class EventOutbox implements DomainEventDispatcher {
   constructor(
     private readonly context: DrizzleContext,
     private readonly subscribers: EventSubscribers,
-    types: EventTypes,
-    private readonly publications: EventPublications,
+    types: PayloadTypes,
+    private readonly mappers: IntegrationEventMappers,
     private readonly projections: EventProjections,
     @Inject(ID_GENERATOR) private readonly ids: IdGeneratorPort,
     @Inject(CLOCK) private readonly clock: ClockPort,
@@ -60,14 +60,14 @@ export class EventOutbox implements DomainEventDispatcher {
     const chain = this.causation.current();
     const cause = chain.started ? chain.stored : null;
 
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       for (const event of events) {
         await this.projections.project(event);
       }
 
       for (const event of events.flatMap((each) => [
         each,
-        ...this.publications.of(each, at),
+        ...this.mappers.of(each, at),
       ])) {
         const id = this.ids.generate();
         const listening = this.subscribers.listeningTo(event.kind);

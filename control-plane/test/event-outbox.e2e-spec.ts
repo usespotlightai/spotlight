@@ -3,13 +3,13 @@ import { DrizzleConfigurationAudit } from '@identity/infrastructure/persistence/
 import { configurationChange } from '@identity/infrastructure/persistence/drizzle/schemas/configuration-change.schema';
 import { identityProjections } from '@identity/presentation/events/identity.projections';
 import { AmbientCausation } from '@platform/events/ambient-causation';
-import { EventDelivery, MOST_ATTEMPTS } from '@platform/events/event-delivery';
+import { EventDelivery, MAX_ATTEMPTS } from '@platform/events/event-delivery';
 import { EventOutbox } from '@platform/events/event-outbox';
 import { EventProjections } from '@platform/events/event-projections';
-import { EventPublications } from '@platform/events/event-publications';
 import { EventReactions } from '@platform/events/event-reactions';
 import { EventSubscribers } from '@platform/events/event-subscribers';
-import { EventTypes } from '@platform/events/event-types';
+import { IntegrationEventMappers } from '@platform/events/integration-event-mappers';
+import { PayloadTypes } from '@platform/events/payload-types';
 import { DrizzleContext } from '@platform/persistence/drizzle/drizzle.context';
 import {
   eventDelivery,
@@ -17,10 +17,10 @@ import {
 } from '@platform/persistence/drizzle/schemas/event.schema';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { subscribing } from '@shared-kernel/application/ports/domain-event-subscriber.port';
-import { publishing } from '@shared-kernel/application/ports/event-publication.port';
-import { SHARED_KERNEL_EVENT_TYPES } from '@shared-kernel/domain/event-types';
+import { mapping } from '@shared-kernel/application/ports/integration-event-mapper.port';
 import type { ConfigurationChanged } from '@shared-kernel/domain/events/configuration-changed';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
+import { SHARED_KERNEL_PAYLOAD_TYPES } from '@shared-kernel/domain/payload-types';
 import {
   actorFor,
   attributedIn,
@@ -74,9 +74,9 @@ const logger = {
 };
 
 const outboxWith = () => {
-  const types = new EventTypes();
+  const types = new PayloadTypes();
   types.register('test', [Marker, Rang, Answered, Reconfigured]);
-  types.register('shared-kernel', SHARED_KERNEL_EVENT_TYPES);
+  types.register('shared-kernel', SHARED_KERNEL_PAYLOAD_TYPES);
   const subscribers = new EventSubscribers();
   subscribers.register([
     subscribing<Rang>('test.answer', ['bell.rang'], async (event) => {
@@ -115,9 +115,9 @@ const outboxWith = () => {
       heard.push(`flaky ${event.marker.value}`);
     }),
   ]);
-  const publications = new EventPublications();
-  publications.register([
-    publishing<Rang>('bell.rang', (event) => ({
+  const mappers = new IntegrationEventMappers();
+  mappers.register([
+    mapping<Rang>('bell.rang', (event) => ({
       kind: 'bell.published-rang.v1',
       marker: event.marker.value,
     })),
@@ -131,7 +131,7 @@ const outboxWith = () => {
     context,
     subscribers,
     types,
-    publications,
+    mappers,
     projections,
     { generate: () => randomUUID() },
     clock,
@@ -165,12 +165,12 @@ describe('the event outbox', () => {
     const { outbox, delivery } = outboxWith();
 
     await context
-      .run(async () => {
+      .inTransaction(async () => {
         await outbox.record([new Rang(Marker.of('lost'))]);
         throw new Error('the command failed');
       })
       .catch(() => undefined);
-    await delivery.workOff();
+    await delivery.processDue();
 
     expect(heard).toEqual([]);
   });
@@ -186,7 +186,7 @@ describe('the event outbox', () => {
       );
 
     await context
-      .run(async () => {
+      .inTransaction(async () => {
         await outbox.record([changedBy('lost')]);
         throw new Error('the command failed');
       })
@@ -212,7 +212,7 @@ describe('the event outbox', () => {
     const { outbox, delivery } = outboxWith();
 
     await outbox.record([new Rang(Marker.of('one'))]);
-    await delivery.workOff();
+    await delivery.processDue();
 
     expect(heard).toEqual(
       expect.arrayContaining(['rang one', 'answered one', 'flaky one']),
@@ -232,7 +232,7 @@ describe('the event outbox', () => {
     await causation.within(chain, () =>
       outbox.record([new Rang(Marker.of('caused'))]),
     );
-    await delivery.workOff();
+    await delivery.processDue();
 
     expect(causes).toEqual(['the hook bell']);
     expect(
@@ -247,7 +247,7 @@ describe('the event outbox', () => {
     const { outbox, delivery } = outboxWith();
 
     await outbox.record([new Rang(Marker.of('plain'))]);
-    await delivery.workOff();
+    await delivery.processDue();
 
     expect(heard).toContain('published string plain');
   });
@@ -258,25 +258,25 @@ describe('the event outbox', () => {
     const { outbox, delivery } = outboxWith();
 
     await outbox.record([new Rang(Marker.of('two'))]);
-    await delivery.workOff();
+    await delivery.processDue();
 
     expect(heard).not.toContain('flaky two');
     expect(heard).toContain('rang two');
 
     now = new Date(now.getTime() + 60_000);
-    await delivery.workOff();
+    await delivery.processDue();
 
     expect(heard).toContain('flaky two');
   });
 
   it('gives up on a subscriber that keeps failing, and reports only the last failure', async () => {
-    failing = MOST_ATTEMPTS + 5;
+    failing = MAX_ATTEMPTS + 5;
     const { outbox, delivery, reports } = outboxWith();
 
     await outbox.record([new Rang(Marker.of('three'))]);
 
-    for (let attempt = 0; attempt < MOST_ATTEMPTS + 2; attempt += 1) {
-      await delivery.workOff();
+    for (let attempt = 0; attempt < MAX_ATTEMPTS + 2; attempt += 1) {
+      await delivery.processDue();
       now = new Date(now.getTime() + 2 * 60 * 60 * 1000);
     }
 
@@ -287,7 +287,7 @@ describe('the event outbox', () => {
     const given = rows.filter((each) => each.failedAt !== null);
 
     expect(given).toHaveLength(1);
-    expect(given[0]?.attempts).toBe(MOST_ATTEMPTS);
+    expect(given[0]?.attempts).toBe(MAX_ATTEMPTS);
     expect(given[0]?.lastError).toBe('not yet');
     expect(reports.report).toHaveBeenCalledExactlyOnceWith(
       new Error('not yet'),
@@ -309,7 +309,7 @@ describe('the event outbox', () => {
     await expect(owed('tracked')).resolves.toEqual({ owed: 1, givenUp: 0 });
     await expect(owed('never-rang')).resolves.toEqual({ owed: 0, givenUp: 0 });
 
-    await delivery.workOff();
+    await delivery.processDue();
 
     await expect(owed('tracked')).resolves.toEqual({ owed: 0, givenUp: 0 });
   });
@@ -349,13 +349,13 @@ describe('the event outbox', () => {
       });
 
     await outbox.record([new Rang(Marker.of('refused'))]);
-    await delivery.workOff();
+    await delivery.processDue();
 
     await expect(owed()).resolves.toEqual({ owed: 1, givenUp: 0 });
 
-    for (let attempt = 0; attempt < MOST_ATTEMPTS; attempt += 1) {
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt += 1) {
       now = new Date(now.getTime() + 2 * 60 * 60 * 1000);
-      await delivery.workOff();
+      await delivery.processDue();
     }
 
     await expect(owed()).resolves.toEqual({ owed: 1, givenUp: 1 });

@@ -103,7 +103,7 @@ describe('Team', () => {
   });
 
   it('takes somebody on once, and says so', () => {
-    const joined = open().joinedBy(SECOND, acme()).joinedBy(SECOND, acme());
+    const joined = open().join(SECOND, acme()).join(SECOND, acme());
 
     expect(joined.members).toEqual([OWNER, SECOND]);
     expect(joined.pullEvents().map((each) => each.kind)).toEqual([
@@ -113,19 +113,19 @@ describe('Team', () => {
   });
 
   it('takes on only somebody already in its workspace', () => {
-    expect(() => open().joinedBy(UserId.of('stranger'), acme())).toThrow(
+    expect(() => open().join(UserId.of('stranger'), acme())).toThrow(
       NotInTheWorkspaceError,
     );
-    expect(() => open().joinedBy(SECOND, acme(WorkspaceId.of('ws_2')))).toThrow(
+    expect(() => open().join(SECOND, acme(WorkspaceId.of('ws_2')))).toThrow(
       TeamOutsideWorkspaceError,
     );
   });
 
   it('refuses to add somebody already on it', () => {
-    const joined = open().memberAdded(SECOND, acme());
+    const joined = open().addMember(SECOND, acme());
 
     expect(joined.holds(SECOND)).toBe(true);
-    expect(() => joined.memberAdded(SECOND, acme())).toThrow(
+    expect(() => joined.addMember(SECOND, acme())).toThrow(
       AlreadyOnTheTeamError,
     );
   });
@@ -140,8 +140,8 @@ describe('Team', () => {
       version: 4,
     });
 
-    expect(read.renamedTo(TeamName.of('Core')).version).toBe(4);
-    expect(read.joinedBy(SECOND, acme()).version).toBe(4);
+    expect(read.rename(TeamName.of('Core')).version).toBe(4);
+    expect(read.join(SECOND, acme()).version).toBe(4);
   });
 
   it('refuses to read back a team nobody is on', () => {
@@ -160,7 +160,7 @@ describe('Team', () => {
   it('is the same team as another holding its identity', () => {
     const held = open();
 
-    expect(held.equals(held.renamedTo(TeamName.of('Renamed')))).toBe(true);
+    expect(held.equals(held.rename(TeamName.of('Renamed')))).toBe(true);
   });
 
   describe('as a resource', () => {
@@ -233,10 +233,10 @@ describe('Team', () => {
 
     it('disbands only once it holds nothing', () => {
       expect(() =>
-        kept().disbanded(Holdings.of(['line delivery', 'skill grafana']), BY),
+        kept().disband(Holdings.of(['line delivery', 'skill grafana']), BY),
       ).toThrow(/Still holds: line delivery, skill grafana/);
 
-      const disbanded = kept().disbanded(Holdings.none(), BY);
+      const disbanded = kept().disband(Holdings.none(), BY);
 
       expect(disbanded.isDisbanded).toBe(true);
       expect(disbanded.pullEvents()).toEqual([
@@ -247,7 +247,7 @@ describe('Team', () => {
           ConfigurationChange.deleted(CORE, BY),
         ),
       ]);
-      expect(() => disbanded.disbanded(Holdings.none(), BY)).toThrow(
+      expect(() => disbanded.disband(Holdings.none(), BY)).toThrow(
         InconsistentStateError,
       );
     });

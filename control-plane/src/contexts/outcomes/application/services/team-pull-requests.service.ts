@@ -28,8 +28,8 @@ export interface TeamShippingCounts extends TeamScope {
 }
 
 const teamOf = (scope: TeamScope): TeamInPeriod => ({
-  workspaceId: scope.clearance.workspaceId,
-  teamId: scope.clearance.teamId,
+  workspaceId: scope.access.workspaceId,
+  teamId: scope.access.teamId,
   period: scope.period,
 });
 
@@ -98,9 +98,7 @@ export class TeamPullRequests {
 
     return {
       ...scope,
-      repositories: await this.work.teamRepositories(
-        scope.clearance.teamId.value,
-      ),
+      repositories: await this.work.teamRepositories(scope.access.teamId.value),
     };
   }
 }

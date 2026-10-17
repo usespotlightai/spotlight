@@ -1,5 +1,5 @@
 import type { RunnerPresencePort } from '@runners/application/ports/runner-presence.port';
-import { UseCaseFault } from '@shared-kernel/application/errors/use-case.fault';
+import { ApplicationError } from '@shared-kernel/application/errors/application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -107,12 +107,12 @@ describe('RecordRunImageHandler', () => {
           'ghcr.io/acme/widgets:1',
         ),
       ),
-    ).rejects.toThrow(UseCaseFault);
+    ).rejects.toThrow(ApplicationError);
     await expect(
       handler.execute(
         new RecordRunImageCommand('run_1', 'runner_1', 'Not An Image'),
       ),
-    ).rejects.toMatchObject({ kind: 'invalid-input' });
+    ).rejects.toMatchObject({ kind: 'invalid' });
     expect(save).not.toHaveBeenCalled();
   });
 });

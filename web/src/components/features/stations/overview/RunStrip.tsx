@@ -1,6 +1,6 @@
 import {
   endedBadly,
-  endingShown,
+  formatEnding,
   type StationRunOutcome,
 } from '@/lib/station-outcomes';
 import { cn } from '@/lib/utils';
@@ -8,7 +8,7 @@ import { cn } from '@/lib/utils';
 const summaryOf = (runs: readonly StationRunOutcome[]): string => {
   const counts = new Map<string, number>();
   for (const run of runs) {
-    const shown = endingShown(run.ending);
+    const shown = formatEnding(run.ending);
     counts.set(shown, (counts.get(shown) ?? 0) + 1);
   }
 
@@ -27,7 +27,7 @@ export function RunStrip({ runs }: { runs: readonly StationRunOutcome[] }) {
       {runs.map((run) => (
         <span
           key={run.runId}
-          title={endingShown(run.ending)}
+          title={formatEnding(run.ending)}
           className={cn(
             'size-3.5 rounded-[3px]',
             run.ending === 'completed'

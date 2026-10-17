@@ -76,7 +76,7 @@ const accepted = () =>
     newId: () => 'chat_1',
   })
     .handedTo(RunId.of('run_1'), NOW)
-    .proposed({
+    .propose({
       runId: RunId.of('run_1'),
       placement: PLACED,
       title: TaskTitle.of('Back off exponentially'),

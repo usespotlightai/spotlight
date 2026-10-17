@@ -9,9 +9,9 @@ import {
 } from '@/components/shared/nested-table/nested-rows';
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { useBeforeAfterPanel } from '@/lib/before-after-panel';
-import { countShown, type StationNames, stationShown } from '@/lib/insights';
+import { formatCount, formatStation, type StationNames } from '@/lib/insights';
 import { type ChangeMarker, changeKey } from '@/lib/insights-changes';
-import { dayShown } from '@/lib/judge';
+import { formatDay } from '@/lib/judge';
 import { pillClass } from '@/lib/pill';
 import { stationPath } from '@/lib/station';
 import { linePath } from '@/lib/team';
@@ -45,7 +45,7 @@ export function ChangeMarkerRow({
             )}
           >
             <ExpandToggle expansion={expansion}>
-              {dayShown(marker.firstRunAt.slice(0, 10))}
+              {formatDay(marker.firstRunAt.slice(0, 10))}
             </ExpandToggle>
           </div>
 
@@ -60,7 +60,7 @@ export function ChangeMarkerRow({
             to={stationPath(slug, teamId, marker.lineId, marker.stationId)}
             className="min-w-0 truncate font-medium text-foreground text-xs hover:underline"
           >
-            {stationShown(names, marker.stationId)}
+            {formatStation(names, marker.stationId)}
           </TrailLink>
 
           <ClampedCell expansion={expansion}>
@@ -74,10 +74,10 @@ export function ChangeMarkerRow({
           </ClampedCell>
 
           <NestedCell heading="Runs before">
-            {countShown(marker.before.runs)}
+            {formatCount(marker.before.runs)}
           </NestedCell>
           <NestedCell heading="Runs after">
-            {countShown(marker.after.runs)}
+            {formatCount(marker.after.runs)}
           </NestedCell>
 
           <button

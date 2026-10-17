@@ -13,13 +13,16 @@ export class People implements PeoplePort {
     private readonly people: PersonReaderPort,
   ) {}
 
-  async clearedOnTeam(
+  async membershipOnTeam(
     teamId: string,
     principal: Principal,
   ): Promise<Membership | null> {
-    const cleared = await this.access.clearanceAsTeamReader(teamId, principal);
-    return cleared
-      ? { workspaceId: cleared.workspaceId, by: principal.userId }
+    const permissions = await this.access.permissionsAsTeamReader(
+      teamId,
+      principal,
+    );
+    return permissions
+      ? { workspaceId: permissions.workspaceId, by: principal.userId }
       : null;
   }
 

@@ -37,10 +37,10 @@ const offered = (to = 'ada@example.com') =>
   });
 
 const acceptedBy = (invite: WorkspaceInvite, as = 'ada@example.com') =>
-  invite.acceptedBySomeone(ada, EmailAddress.of(as), LATER);
+  invite.acceptBySomeone(ada, EmailAddress.of(as), LATER);
 
 const sentAgain = (invite: WorkspaceInvite, now = LATER) =>
-  invite.sentAgain({
+  invite.resend({
     terms: terms(WorkspaceRole.admin, ['team_2']),
     tokenHash: hash('b'),
     by: ada,
@@ -119,7 +119,7 @@ describe('WorkspaceInvite', () => {
 
   it('cannot be taken up once it has run out', () => {
     expect(() =>
-      offered().acceptedBySomeone(
+      offered().acceptBySomeone(
         ada,
         EmailAddress.of('ada@example.com'),
         AFTER_IT_RUNS_OUT,
@@ -128,15 +128,15 @@ describe('WorkspaceInvite', () => {
   });
 
   it('cannot be taken up once it has been taken back', () => {
-    expect(() => acceptedBy(offered().revoked(asker, LATER))).toThrow(
+    expect(() => acceptedBy(offered().revoke(asker, LATER))).toThrow(
       /been revoked/,
     );
   });
 
   it('is revoked once however often it is asked, and says so once, naming who took it back', () => {
-    const revoked = offered().revoked(ada, LATER);
+    const revoked = offered().revoke(ada, LATER);
 
-    expect(revoked.revoked(asker, AFTER_IT_RUNS_OUT)).toBe(revoked);
+    expect(revoked.revoke(asker, AFTER_IT_RUNS_OUT)).toBe(revoked);
     expect(revoked.statusAt(LATER)).toBe('revoked');
     expect(revoked.pullEvents()).toMatchObject([
       { kind: 'workspace-invite.offered' },
@@ -145,7 +145,7 @@ describe('WorkspaceInvite', () => {
   });
 
   it('cannot be taken back once it has been accepted', () => {
-    expect(() => acceptedBy(offered()).revoked(asker, LATER)).toThrow(
+    expect(() => acceptedBy(offered()).revoke(asker, LATER)).toThrow(
       /already been accepted/,
     );
   });
@@ -171,14 +171,14 @@ describe('WorkspaceInvite', () => {
 
   it('refuses to be sent again once accepted or revoked', () => {
     expect(() => sentAgain(acceptedBy(offered()))).toThrow(InviteClosedError);
-    expect(() => sentAgain(offered().revoked(asker, LATER))).toThrow(
+    expect(() => sentAgain(offered().revoke(asker, LATER))).toThrow(
       InviteClosedError,
     );
   });
 
   it('counts as closed only once accepted or revoked, not once run out', () => {
     expect(offered().isClosedAt(AFTER_IT_RUNS_OUT)).toBe(false);
-    expect(offered().revoked(asker, LATER).isClosedAt(LATER)).toBe(true);
+    expect(offered().revoke(asker, LATER).isClosedAt(LATER)).toBe(true);
     expect(acceptedBy(offered()).isClosedAt(LATER)).toBe(true);
   });
 
@@ -213,12 +213,12 @@ describe('WorkspaceInvite', () => {
     const read = kept({ version: 4, expiresAt: AFTER_IT_RUNS_OUT });
 
     expect(acceptedBy(read).version).toBe(4);
-    expect(read.revoked(asker, NOW).version).toBe(4);
+    expect(read.revoke(asker, NOW).version).toBe(4);
     expect(sentAgain(read).version).toBe(4);
   });
 
   it('opens a new invite where there is no open one', () => {
-    const { invite, again } = WorkspaceInvite.offeredTo(null, {
+    const { invite, again } = WorkspaceInvite.offerTo(null, {
       id: InviteId.of('invite_2'),
       workspaceId: acme,
       email: EmailAddress.of('ada@example.com'),
@@ -235,7 +235,7 @@ describe('WorkspaceInvite', () => {
 
   it('sends the open invite again, on the terms asked now, rather than opening a second', () => {
     const open = kept({ expiresAt: NOW });
-    const { invite, again } = WorkspaceInvite.offeredTo(open, {
+    const { invite, again } = WorkspaceInvite.offerTo(open, {
       id: InviteId.of('invite_2'),
       workspaceId: acme,
       email: EmailAddress.of('ada@example.com'),

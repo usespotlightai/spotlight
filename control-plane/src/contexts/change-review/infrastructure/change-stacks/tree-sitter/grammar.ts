@@ -111,10 +111,10 @@ export const firstEndingIn = (
   return [];
 };
 
-export const suffixes = (parts: readonly string[], least: number): string[] =>
+export const suffixes = (parts: readonly string[], min: number): string[] =>
   parts
     .map((_, at) => parts.slice(at).join('/'))
-    .filter((_, at) => at === 0 || parts.length - at >= least);
+    .filter((_, at) => at === 0 || parts.length - at >= min);
 
 export const HTTP_VERBS = new Set([
   'get',

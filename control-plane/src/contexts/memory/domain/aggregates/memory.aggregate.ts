@@ -72,7 +72,7 @@ export class Memory extends EventRecorder {
     });
   }
 
-  static written(input: {
+  static write(input: {
     id: MemoryId;
     handle: MemoryHandle;
     workspaceId: WorkspaceId;
@@ -205,7 +205,7 @@ export class Memory extends EventRecorder {
     return this.stands && this.state.scope.appliesAt(site);
   }
 
-  supersededBy(successor: MemoryId, at: Date): Memory {
+  supersedeWith(successor: MemoryId, at: Date): Memory {
     if (successor.equals(this.state.id)) {
       throw new InvalidMemoryError('cannot supersede itself');
     }
@@ -213,7 +213,7 @@ export class Memory extends EventRecorder {
     return this.retiring(MemoryRetirement.superseded(successor, at));
   }
 
-  correctedAs(input: {
+  correct(input: {
     id: MemoryId;
     handle: MemoryHandle;
     kind: MemoryKind;
@@ -235,7 +235,7 @@ export class Memory extends EventRecorder {
     });
   }
 
-  retired(input: { by: UserId; reason: string; at: Date }): Memory {
+  retire(input: { by: UserId; reason: string; at: Date }): Memory {
     if (this.state.retirement) {
       throw new MemoryAlreadyRetiredError(this.state.id.value);
     }

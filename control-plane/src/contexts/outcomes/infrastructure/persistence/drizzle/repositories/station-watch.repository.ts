@@ -90,7 +90,7 @@ export class DrizzleStationWatchRepository implements StationWatchRepository {
   ) {}
 
   async add(added: StationWatch): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       const written = await this.context.db
         .insert(stationWatch)
         .values({
@@ -113,7 +113,7 @@ export class DrizzleStationWatchRepository implements StationWatchRepository {
   }
 
   async save(saved: StationWatch): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       const written = await this.context.db
         .update(stationWatch)
         .set({ version: saved.version + 1, lineId: saved.station.lineId })

@@ -97,7 +97,7 @@ export class ProblemException extends HttpException {
     const [slug, title] =
       TITLES[status] ??
       (status >= HttpStatus.INTERNAL_SERVER_ERROR
-        ? ['server-fault', 'The server failed']
+        ? ['internal-error', 'The server failed']
         : ['error', 'The request failed']);
 
     return ProblemException.of({ slug, title, status, detail });

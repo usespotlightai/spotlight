@@ -66,7 +66,7 @@ const asking = (
     work,
     sets,
     { available: over.available ?? true } as DecisionDrafterPort,
-    { run: <T>(work: () => Promise<T>) => work() },
+    { inTransaction: <T>(work: () => Promise<T>) => work() },
     { generate: () => 'set_1' },
     { now: () => NOW, sleep: async () => undefined },
   );
@@ -85,7 +85,7 @@ describe('asking for the decisions a run made', () => {
   });
 
   it('drafts a later run into the set the task already holds', async () => {
-    const held = DecisionSet.opened({
+    const held = DecisionSet.open({
       id: DecisionSetId.of('set_0'),
       taskId: TASK,
       workspaceId: WORKSPACE,

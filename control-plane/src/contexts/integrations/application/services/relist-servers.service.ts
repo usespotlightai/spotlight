@@ -16,7 +16,7 @@ export class RelistServers {
     private readonly everyMs: number,
   ) {}
 
-  async workOff(): Promise<void> {
+  async processDue(): Promise<void> {
     const now = this.clock.now();
     const due = new Date(now.getTime() - this.everyMs);
 

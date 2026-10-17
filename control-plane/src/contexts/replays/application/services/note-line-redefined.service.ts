@@ -38,7 +38,7 @@ export class NoteLineRedefined {
       return;
     }
 
-    await this.transaction.run(async () => {
+    await this.transaction.inTransaction(async () => {
       const set = await this.sets.find(setId);
 
       if (
@@ -54,7 +54,7 @@ export class NoteLineRedefined {
   }
 
   private staleOraclesStopped(set: ReplaySet): Promise<void> {
-    return this.transaction.run(async () => {
+    return this.transaction.inTransaction(async () => {
       const locked = await this.sets.locked(set.id);
 
       if (!locked) {
@@ -79,7 +79,7 @@ export class NoteLineRedefined {
 
         if (!live || !config?.basedOn.equals(live.fingerprint)) {
           await this.replays.save(
-            oracle.stopped(
+            oracle.stop(
               this.clock.now(),
               Attribution.spotlight(oracle.workspaceId),
             ),

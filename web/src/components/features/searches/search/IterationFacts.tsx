@@ -2,7 +2,7 @@ import { TrailLink } from '@/components/shell/layout/TrailLink';
 import type { SearchIterationResponseDto } from '@/lib/api';
 import type { ReplayedStation } from '@/lib/replay';
 import { runPath } from '@/lib/run';
-import { iterationStateShown, REFLECTION_KIND } from '@/lib/search-words';
+import { formatIterationState, REFLECTION_KIND } from '@/lib/search-words';
 
 type IterationFactsProps = {
   at: ReplayedStation;
@@ -17,7 +17,7 @@ export function IterationFacts({ at, iteration }: IterationFactsProps) {
       )}
       {iteration.state !== 'ended' && (
         <span className="text-muted-foreground">
-          · {iterationStateShown(iteration.state)}
+          · {formatIterationState(iteration.state)}
         </span>
       )}
       <TrailLink

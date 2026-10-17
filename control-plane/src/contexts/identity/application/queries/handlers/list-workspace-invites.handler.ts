@@ -2,7 +2,7 @@ import type { WorkspaceInviteDto } from '@identity/application/dto/invite.dto';
 import type { InviteReaderPort } from '@identity/application/ports/invite-reader.port';
 import type { ListWorkspaceInvitesQuery } from '@identity/application/queries/list-workspace-invites.query';
 import type { WorkspaceAdministration } from '@identity/application/services/workspace-administration.service';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
@@ -44,7 +44,7 @@ export class ListWorkspaceInvitesHandler
         expiresAt: invite.expiresAt.toISOString(),
       }));
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

@@ -8,7 +8,7 @@ import type { NoticeId } from '@work/domain/value-objects/notice-id.vo';
 import type { NoticeLink } from '@work/domain/value-objects/notice-link.vo';
 import type { NoticeWording } from '@work/domain/value-objects/notice-wording.vo';
 
-const MOST_SUBJECT = 200;
+const MAX_SUBJECT = 200;
 
 const SETTLED_SHOWN_FOR_DAYS = 30;
 
@@ -31,7 +31,7 @@ interface NoticeState {
 export class Notice {
   private constructor(private readonly state: NoticeState) {}
 
-  static raised(input: {
+  static raise(input: {
     id: NoticeId;
     workspaceId: WorkspaceId;
     teamId: TeamId;
@@ -44,9 +44,9 @@ export class Notice {
   }): Notice {
     const subject = input.subject.trim();
 
-    if (!subject || subject.length > MOST_SUBJECT) {
+    if (!subject || subject.length > MAX_SUBJECT) {
       throw new InvalidNoticeError(
-        `subject must be 1 to ${MOST_SUBJECT} characters`,
+        `subject must be 1 to ${MAX_SUBJECT} characters`,
       );
     }
 

@@ -8,7 +8,7 @@ export const teamAccess = (
   teamId: TeamId,
   configures = true,
 ): WorkspaceAccessPort => {
-  const cleared = {
+  const permissions = {
     workspaceId: WorkspaceId.of('ws_1'),
     teamId,
     slug: 'acme',
@@ -16,12 +16,12 @@ export const teamAccess = (
 
   return {
     onTeam: vi.fn(async () => ({
-      ...cleared,
+      ...permissions,
       viewer: UserId.of('user_1'),
       administers: configures,
     })),
-    clearanceOnTeam: vi.fn(async () => ({
-      ...cleared,
+    permissionsOnTeam: vi.fn(async () => ({
+      ...permissions,
       configures,
       administers: configures,
     })),

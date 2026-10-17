@@ -4,7 +4,7 @@ import type { WorkspaceProvisioningPort } from '@identity/application/ports/work
 import type { WorkspaceReaderPort } from '@identity/application/ports/workspace-reader.port';
 import type { GetWorkspaceQuery } from '@identity/application/queries/get-workspace.query';
 import { WorkspaceSlug } from '@identity/domain/value-objects/workspace-slug.vo';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -35,7 +35,7 @@ export class GetWorkspaceHandler
 
       return detail ? WorkspaceMapper.detailToDto(detail, provisioning) : null;
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

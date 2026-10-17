@@ -23,7 +23,7 @@ import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export const MOST_SET_ENTRIES = 50;
+export const MAX_SET_ENTRIES = 50;
 
 export interface ReplayedStation {
   readonly workspaceId: WorkspaceId;
@@ -61,7 +61,7 @@ export class ReplaySet extends EventRecorder {
     super();
   }
 
-  static opened(input: {
+  static open(input: {
     id: ReplaySetId;
     station: ReplayedStation;
     name: ReplaySetName;
@@ -150,7 +150,7 @@ export class ReplaySet extends EventRecorder {
     return this.state.station.stationId === stationId;
   }
 
-  renamed(name: ReplaySetName): ReplaySet {
+  rename(name: ReplaySetName): ReplaySet {
     return name.equals(this.state.name) ? this : this.with({ name });
   }
 
@@ -172,7 +172,7 @@ export class ReplaySet extends EventRecorder {
     }
   }
 
-  searched(): ReplaySet {
+  recordSearch(): ReplaySet {
     this.stillAtItsStation();
 
     return this.with({});
@@ -235,8 +235,8 @@ export class ReplaySet extends EventRecorder {
       throw new ReplaySetEntryTakenError(run.value);
     }
 
-    if (this.state.entries.length >= MOST_SET_ENTRIES) {
-      throw new ReplaySetFullError(MOST_SET_ENTRIES);
+    if (this.state.entries.length >= MAX_SET_ENTRIES) {
+      throw new ReplaySetFullError(MAX_SET_ENTRIES);
     }
 
     if (replayable.refusal !== null || replayable.taskId === null) {

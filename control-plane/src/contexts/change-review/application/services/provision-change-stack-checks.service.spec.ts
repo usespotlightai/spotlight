@@ -79,12 +79,12 @@ describe('ProvisionChangeStackChecks', () => {
       backedOff,
       waiting('stack_4')
         .claimedFor(OTHER, RunnerTerms.none(), NOW)
-        .skipped(OTHER, skipOf('no-room', null), NOW),
+        .skip(OTHER, skipOf('no-room', null), NOW),
     ]);
 
     const offered = await service.awaiting(WorkspaceId.of('ws_1'), NOW, {
       skip: 0,
-      most: 200,
+      max: 200,
     });
 
     expect(offered).toEqual([
@@ -99,7 +99,7 @@ describe('ProvisionChangeStackChecks', () => {
       NOW,
       {
         skip: 0,
-        most: 200,
+        max: 200,
       },
     );
   });
@@ -206,7 +206,7 @@ describe('ProvisionChangeStackChecks', () => {
     const { service, save } = provisioning([
       waiting('stack_1')
         .claimedFor(OTHER, RunnerTerms.none(), NOW)
-        .skipped(OTHER, skipOf('no-room', null), NOW),
+        .skip(OTHER, skipOf('no-room', null), NOW),
     ]);
 
     await service.failed('stack_1', RUNNER, REFUSED, NOW);

@@ -8,16 +8,16 @@ import { EventDelivery } from '@platform/events/event-delivery';
 import { EventDeliveryWorker } from '@platform/events/event-delivery.worker';
 import { EventOutbox } from '@platform/events/event-outbox';
 import { EventProjections } from '@platform/events/event-projections';
-import { EventPublications } from '@platform/events/event-publications';
 import { EventReactions } from '@platform/events/event-reactions';
 import { EventSubscribers } from '@platform/events/event-subscribers';
-import { EventTypes } from '@platform/events/event-types';
+import { IntegrationEventMappers } from '@platform/events/integration-event-mappers';
+import { PayloadTypes } from '@platform/events/payload-types';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import { EXPRESSION_ENGINE } from '@platform/expressions/expression-engine.port';
 import { ErrorReportingController } from '@platform/http/controllers/error-reporting.controller';
 import { HealthController } from '@platform/http/controllers/health.controller';
-import { ServerFaultFilter } from '@platform/http/filters/server-fault.filter';
-import { UseCaseFaultFilter } from '@platform/http/filters/use-case-fault.filter';
+import { ApplicationErrorFilter } from '@platform/http/filters/application-error.filter';
+import { InternalErrorFilter } from '@platform/http/filters/internal-error.filter';
 import { DrizzleIdempotentCreates } from '@platform/idempotency/drizzle-idempotent-creates';
 import { CryptoIdGenerator } from '@platform/ids/crypto-id.generator';
 import { GracefulShutdown } from '@platform/lifecycle/graceful-shutdown';
@@ -36,15 +36,15 @@ import { ERROR_REPORTS } from '@shared-kernel/application/ports/error-reports.po
 import { ID_GENERATOR } from '@shared-kernel/application/ports/id-generator.port';
 import { IDEMPOTENT_CREATES } from '@shared-kernel/application/ports/idempotent-creates.port';
 import { IDEMPOTENT_RECALLS } from '@shared-kernel/application/ports/idempotent-recalls.port';
-import { ISOLATION } from '@shared-kernel/application/ports/isolation.port';
 import {
   LOGGER,
   type LoggerPort,
 } from '@shared-kernel/application/ports/logger.port';
+import { SAVEPOINT } from '@shared-kernel/application/ports/savepoint.port';
 import { TOKEN_MINT } from '@shared-kernel/application/ports/token-mint.port';
 import { TRANSACTION } from '@shared-kernel/application/ports/transaction.port';
 import { WORKLOAD_TOKENS } from '@shared-kernel/application/ports/workload-tokens.port';
-import { SHARED_KERNEL_EVENT_TYPES } from '@shared-kernel/domain/event-types';
+import { SHARED_KERNEL_PAYLOAD_TYPES } from '@shared-kernel/domain/payload-types';
 
 @Global()
 @Module({
@@ -58,23 +58,23 @@ import { SHARED_KERNEL_EVENT_TYPES } from '@shared-kernel/domain/event-types';
         new GracefulShutdown(adapters, logger),
     },
     { provide: APP_FILTER, useClass: SentryGlobalFilter },
-    { provide: APP_FILTER, useClass: ServerFaultFilter },
-    { provide: APP_FILTER, useClass: UseCaseFaultFilter },
+    { provide: APP_FILTER, useClass: InternalErrorFilter },
+    { provide: APP_FILTER, useClass: ApplicationErrorFilter },
     DrizzleContext,
     DrizzleReading,
     { provide: TRANSACTION, useExisting: DrizzleContext },
-    { provide: ISOLATION, useExisting: DrizzleContext },
+    { provide: SAVEPOINT, useExisting: DrizzleContext },
     { provide: CAUSATION, useClass: AmbientCausation },
     {
-      provide: EventTypes,
+      provide: PayloadTypes,
       useFactory: () => {
-        const types = new EventTypes();
-        types.register('shared-kernel', SHARED_KERNEL_EVENT_TYPES);
+        const types = new PayloadTypes();
+        types.register('shared-kernel', SHARED_KERNEL_PAYLOAD_TYPES);
         return types;
       },
     },
     EventSubscribers,
-    EventPublications,
+    IntegrationEventMappers,
     EventProjections,
     EventOutbox,
     { provide: DOMAIN_EVENT_DISPATCHER, useExisting: EventOutbox },
@@ -100,11 +100,11 @@ import { SHARED_KERNEL_EVENT_TYPES } from '@shared-kernel/domain/event-types';
     DrizzleContext,
     DrizzleReading,
     TRANSACTION,
-    ISOLATION,
+    SAVEPOINT,
     CAUSATION,
-    EventTypes,
+    PayloadTypes,
     EventSubscribers,
-    EventPublications,
+    IntegrationEventMappers,
     EventProjections,
     EventOutbox,
     DOMAIN_EVENT_DISPATCHER,

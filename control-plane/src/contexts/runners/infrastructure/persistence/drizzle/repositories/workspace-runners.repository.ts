@@ -35,7 +35,7 @@ export class DrizzleWorkspaceRunnersRepository
   ) {}
 
   async add(added: WorkspaceRunners): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       try {
         await this.context.db.insert(workspaceRunners).values({
           id: added.id.value,
@@ -58,7 +58,7 @@ export class DrizzleWorkspaceRunnersRepository
   }
 
   async save(saved: WorkspaceRunners): Promise<void> {
-    await this.context.run(async () => {
+    await this.context.inTransaction(async () => {
       const matching = and(
         eq(workspaceRunners.id, saved.id.value),
         eq(workspaceRunners.version, saved.version),

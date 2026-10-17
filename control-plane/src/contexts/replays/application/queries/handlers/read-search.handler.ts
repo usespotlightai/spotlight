@@ -6,7 +6,7 @@ import type { SetHealths } from '@replays/application/services/set-healths.servi
 import type { CandidateRepository } from '@replays/domain/repositories/candidate.repository';
 import type { ConfigPullRequestRepository } from '@replays/domain/repositories/config-pull-request.repository';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 
 export class ReadSearchHandler
@@ -22,11 +22,8 @@ export class ReadSearchHandler
 
   async execute(query: ReadSearchQuery): Promise<SearchDetailDto> {
     try {
-      const clearance = await this.access.clearance(
-        query.teamId,
-        query.principal,
-      );
-      const search = await this.access.searchOn(clearance, query.searchId);
+      const access = await this.access.forTeam(query.teamId, query.principal);
+      const search = await this.access.searchOn(access, query.searchId);
       const replays = await this.replays.ofSearch(search.id);
       const [candidates, pullRequests, standard] = await Promise.all([
         this.candidates.findMany(
@@ -44,7 +41,7 @@ export class ReadSearchHandler
         standard.minGain,
       );
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

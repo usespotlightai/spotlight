@@ -23,12 +23,12 @@ export class MemoriesInReach {
   async recalled(
     teamId: TeamId,
     words: RecallWords,
-    most: number,
+    max: number,
     standingAt: Date | null = null,
   ): Promise<Memory[]> {
     const found = (
       await this.memories.findAll(
-        await this.relevance.recall(teamId, words, most, standingAt),
+        await this.relevance.recall(teamId, words, max, standingAt),
       )
     ).filter((each) =>
       standingAt ? each.stoodOn(teamId, standingAt) : each.standsOn(teamId),

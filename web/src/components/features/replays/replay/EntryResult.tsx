@@ -1,6 +1,6 @@
 import { TrailLink } from '@/components/shell/layout/TrailLink';
 import { RESULT_INK, type ReplayEntry } from '@/lib/replay';
-import { reasonShown, resultShown } from '@/lib/replay-words';
+import { formatReason, formatResult } from '@/lib/replay-words';
 import { cn } from '@/lib/utils';
 
 type EntryResultProps = {
@@ -14,13 +14,13 @@ export function EntryResult({
   runTo,
   reasons: shown = true,
 }: EntryResultProps) {
-  const reasons = shown ? entry.reasons.map(reasonShown) : [];
+  const reasons = shown ? entry.reasons.map(formatReason) : [];
 
   return (
     <span data-slot="entry-result" className="flex min-w-0 flex-col">
       <span className="flex items-center gap-1.5">
         <span className={cn('font-medium', RESULT_INK[entry.result])}>
-          {resultShown(entry.result)}
+          {formatResult(entry.result)}
         </span>
         {runTo && (
           <TrailLink

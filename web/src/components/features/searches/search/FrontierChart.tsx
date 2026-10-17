@@ -11,7 +11,7 @@ import { ScatterMark } from '@/components/shared/ScatterMark';
 import { type TipPlacement, useCursorTooltip } from '@/hooks/useCursorTooltip';
 import { useDotHover } from '@/hooks/useDotHover';
 import { spentIn } from '@/lib/inbox';
-import { shareShown } from '@/lib/insights';
+import { formatShare } from '@/lib/insights';
 import type { FrontierPoint } from '@/lib/search';
 
 const HEIGHT = 240;
@@ -37,7 +37,7 @@ const Said = ({
     <ChartTip placement={placement}>
       <p className="text-foreground">{point.name}</p>
       <p className="text-muted-foreground">
-        {shareShown(point.success)} succeeded · {spentIn(point.cost, currency)}{' '}
+        {formatShare(point.success)} succeeded · {spentIn(point.cost, currency)}{' '}
         a run
       </p>
       {(point.frontier || point.seed) && (
@@ -110,7 +110,7 @@ export function FrontierChart({ points, currency }: FrontierChartProps) {
                 axisLine={false}
                 width={40}
                 tick={{ fill: 'var(--chart-axis)', fontSize: 10 }}
-                tickFormatter={(value: number) => shareShown(value)}
+                tickFormatter={(value: number) => formatShare(value)}
               />
               <Tooltip
                 {...cursor.tooltip}

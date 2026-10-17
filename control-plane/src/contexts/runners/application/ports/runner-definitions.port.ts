@@ -20,7 +20,7 @@ type Refused = {
   readonly problems: readonly ConfigurationProblem[];
 };
 
-export type CompiledTrust =
+export type ParsedTrust =
   | {
       readonly ok: true;
       readonly key: TrustKey;
@@ -29,7 +29,7 @@ export type CompiledTrust =
     }
   | Refused;
 
-export type CompiledPoolAccess =
+export type ParsedPoolAccess =
   | {
       readonly mode: 'pull';
       readonly token: PoolToken | null;
@@ -44,17 +44,17 @@ export type CompiledPoolAccess =
       readonly egressTraffic: EgressTraffic;
     };
 
-export type CompiledPool =
+export type ParsedPool =
   | {
       readonly ok: true;
       readonly key: PoolKey;
       readonly labels: RunnerLabels;
       readonly maxRuns: MaxRuns | null;
-      readonly access: CompiledPoolAccess;
+      readonly access: ParsedPoolAccess;
     }
   | Refused;
 
-export type CompiledEgress =
+export type ParsedEgress =
   | {
       readonly ok: true;
       readonly key: EgressKey;
@@ -64,7 +64,7 @@ export type CompiledEgress =
     }
   | Refused;
 
-export type CompiledWorkspaceRunners =
+export type ParsedWorkspaceRunners =
   | {
       readonly ok: true;
       readonly trusts: readonly TrustKey[];
@@ -73,11 +73,11 @@ export type CompiledWorkspaceRunners =
   | Refused;
 
 export interface RunnerDefinitionsPort {
-  trust(held: unknown): CompiledTrust;
+  trust(held: unknown): ParsedTrust;
 
-  pool(held: unknown): CompiledPool;
+  pool(held: unknown): ParsedPool;
 
-  egress(held: unknown): CompiledEgress;
+  egress(held: unknown): ParsedEgress;
 
-  workspaceRunners(held: unknown): CompiledWorkspaceRunners;
+  workspaceRunners(held: unknown): ParsedWorkspaceRunners;
 }

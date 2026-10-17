@@ -1,5 +1,5 @@
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
-import type { FilesAtHand } from '@work/application/services/files-at-hand.service';
+import type { FilesLoader } from '@work/application/services/files-loader.service';
 import type { TaskDispatching } from '@work/application/services/task-dispatch';
 import type { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Task } from '@work/domain/aggregates/task.aggregate';
@@ -10,11 +10,11 @@ export class RaiseTask {
     private readonly tasks: TaskRepository,
     private readonly dispatch: TaskDispatching,
     private readonly transaction: TransactionPort,
-    private readonly files: FilesAtHand,
+    private readonly files: FilesLoader,
   ) {}
 
   async raise(input: { task: Task; line: Line }): Promise<Task> {
-    return this.transaction.run(async () => {
+    return this.transaction.inTransaction(async () => {
       const runId = input.task.wantsRun(input.line)
         ? await this.dispatch.runIdFor(input)
         : null;

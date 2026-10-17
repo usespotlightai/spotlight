@@ -4,7 +4,7 @@ import type { HookResourceDto } from '@integrations/application/dto/hook-resourc
 import type { HookResourcesPort } from '@integrations/application/ports/hook-resources.port';
 import type { ListHookResourcesQuery } from '@integrations/application/queries/list-hook-resources.query';
 import type { HookViews } from '@integrations/application/services/hook-views.service';
-import { rethrowAsFault } from '@shared-kernel/application/errors/rethrow-as-fault';
+import { rethrowAsApplicationError } from '@shared-kernel/application/errors/rethrow-as-application-error';
 import type { QueryHandlerPort } from '@shared-kernel/application/ports/query-handler.port';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -23,7 +23,7 @@ export class ListHookResourcesHandler
     query: ListHookResourcesQuery,
   ): Promise<readonly HookResourceDto[] | null> {
     try {
-      const workspace = await this.access.clearanceIn(
+      const workspace = await this.access.permissionsIn(
         WorkspaceId.of(query.workspaceId),
         query.principal,
       );
@@ -43,7 +43,7 @@ export class ListHookResourcesHandler
 
       return held.flat();
     } catch (error) {
-      rethrowAsFault(error);
+      rethrowAsApplicationError(error);
     }
   }
 }

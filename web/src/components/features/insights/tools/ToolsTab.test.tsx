@@ -46,7 +46,7 @@ const TOOLS = {
   period: { name: '30d' },
   weeks: ['2026-09-21', '2026-09-28'],
   runs: 12,
-  trendRule: { recentWeeks: 2, fewestRuns: 5, shiftPoints: 20 },
+  trendRule: { recentWeeks: 2, minRuns: 5, shiftPoints: 20 },
   skills: [
     {
       key: 'our-migrations',
