@@ -35,7 +35,7 @@ describe('useAttachments', () => {
   });
 
   it('keeps a failed upload in view, with nothing to send for it', async () => {
-    uploaded.mockRejectedValue(new Error('refused'));
+    uploaded.mockRejectedValue(new Error('failed'));
     const { result } = renderHook(() => useAttachments('acme'));
 
     act(() => result.current.add([text()]));

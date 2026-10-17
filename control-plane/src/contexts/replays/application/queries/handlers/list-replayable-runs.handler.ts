@@ -39,7 +39,7 @@ export class ListReplayableRunsHandler
         title: each.title,
         state: each.state,
         endedAt: each.endedAt.toISOString(),
-        refusal: each.refusal,
+        unreplayableReason: each.unreplayableReason,
         reason: each.reason,
       }));
     } catch (error) {

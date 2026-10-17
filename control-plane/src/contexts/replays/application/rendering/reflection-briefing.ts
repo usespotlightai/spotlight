@@ -30,7 +30,7 @@ export const ReflectionBriefing = {
     return [
       '# Looking into why a search stalled',
       `You are iteration ${facts.iteration} of ${facts.iterations} of a search for a better config of the ${facts.stationName} station (\`${key}\`) on the \`${line}\` line. Its last two iterations proposed nothing that beat the best config before them. Before it spends more, find out why the tasks below still fail, and whether a change to the station’s config could fix them at all.`,
-      '## Propose nothing\n\nThis run proposes no candidates: Spotlight refuses `spotlight candidate` from it. It records one cause for each failing task.',
+      '## Propose nothing\n\nThis run proposes no candidates: Spotlight rejects `spotlight candidate` from it. It records one cause for each failing task.',
       [
         '## The failing tasks',
         '',

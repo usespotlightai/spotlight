@@ -1,8 +1,8 @@
-import type { RefusalToGive } from '@identity/domain/services/role-giving';
+import type { RoleAssignmentDenial } from '@identity/domain/services/role-giving';
 
-export type RefusalNotYoursToGive = Exclude<RefusalToGive, 'last-owner'>;
+export type NotYoursToGiveDenial = Exclude<RoleAssignmentDenial, 'last-owner'>;
 
-const SAYING: Record<RefusalNotYoursToGive, string> = {
+const SAYING: Record<NotYoursToGiveDenial, string> = {
   'not-a-member': 'This person is not a member of this workspace.',
   'not-yours-to-give': 'Only an owner or an admin can set roles.',
   'not-below-you': 'You can only set roles for people below you.',
@@ -13,8 +13,8 @@ const SAYING: Record<RefusalNotYoursToGive, string> = {
 export class NotYoursToGiveError extends Error {
   readonly violation = 'not-allowed' as const;
 
-  constructor(readonly refusal: RefusalNotYoursToGive) {
-    super(SAYING[refusal]);
+  constructor(readonly denial: NotYoursToGiveDenial) {
+    super(SAYING[denial]);
     this.name = 'NotYoursToGiveError';
   }
 }

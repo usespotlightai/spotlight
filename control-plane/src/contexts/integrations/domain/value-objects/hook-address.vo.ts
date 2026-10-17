@@ -4,7 +4,7 @@ import { isSlug } from '@shared-kernel/domain/value-objects/identifier-shapes';
 
 const SEPARATOR = '/';
 
-const refused = (): never => {
+const invalid = (): never => {
   throw new InvalidIdentifierError(
     'hook address',
     'is the team key and the hook key, as in core/migrations-need-a-dba',
@@ -20,7 +20,7 @@ export class HookAddress {
   ) {}
 
   static of(teamKey: string, key: HookKey): HookAddress {
-    return isSlug(teamKey) ? new HookAddress(teamKey, key) : refused();
+    return isSlug(teamKey) ? new HookAddress(teamKey, key) : invalid();
   }
 
   static parse(raw: string): HookAddress {
@@ -28,7 +28,7 @@ export class HookAddress {
 
     return teamKey && key && rest.length === 0
       ? HookAddress.of(teamKey, HookKey.of(key))
-      : refused();
+      : invalid();
   }
 
   equals(other: HookAddress): boolean {

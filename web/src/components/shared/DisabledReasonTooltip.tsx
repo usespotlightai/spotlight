@@ -5,12 +5,15 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 
-type RefusalTooltipProps = {
+type DisabledReasonTooltipProps = {
   reason: ReactNode;
   children: (describedBy: string | undefined) => ReactNode;
 };
 
-export function RefusalTooltip({ reason, children }: RefusalTooltipProps) {
+export function DisabledReasonTooltip({
+  reason,
+  children,
+}: DisabledReasonTooltipProps) {
   const reasonId = useId();
 
   if (reason === null || reason === undefined || reason === false) {

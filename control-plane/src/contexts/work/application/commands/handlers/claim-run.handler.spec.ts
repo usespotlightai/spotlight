@@ -85,7 +85,7 @@ const claiming = (
     reservedFor?: Run | null;
     reservedCheck?: ClaimedCheck | null;
     starts?: RunStart;
-    tookRefuses?: boolean;
+    tookFails?: boolean;
   } = {},
 ) => {
   const mayStart = vi.fn(
@@ -96,7 +96,7 @@ const claiming = (
   );
   const pooled = {
     took: vi.fn(async () => {
-      if (over.tookRefuses) {
+      if (over.tookFails) {
         throw new Error('runner_1 is spent');
       }
     }),
@@ -205,7 +205,7 @@ describe('ClaimRunHandler', () => {
     expect(overTheWire.run.spec.command.executable).toBe('claude-agent-acp');
   });
 
-  it('refuses a runner that is not alive', async () => {
+  it('rejects a runner that is not alive', async () => {
     await expect(
       claiming(undefined, undefined, { seen: null }).execute(
         new ClaimRunCommand('runner_1'),
@@ -255,7 +255,7 @@ describe('ClaimRunHandler', () => {
         {
           seen: seenAs('reserved'),
           reservedFor: reservedForPooled(),
-          tookRefuses: true,
+          tookFails: true,
         },
       );
 
@@ -275,7 +275,7 @@ describe('ClaimRunHandler', () => {
         {
           seen: seenAs('reserved'),
           reservedCheck: aCheck,
-          tookRefuses: true,
+          tookFails: true,
         },
       );
 
@@ -364,8 +364,8 @@ describe('ClaimRunHandler', () => {
     });
   });
 
-  it('hands over no run a hook refused to start', async () => {
-    const handler = claiming(undefined, undefined, { starts: 'refused' });
+  it('hands over no run whose start a hook denied', async () => {
+    const handler = claiming(undefined, undefined, { starts: 'denied' });
 
     expect(await handler.execute(new ClaimRunCommand('runner_1'))).toBeNull();
     expect(handler.mayStart).toHaveBeenCalledWith(

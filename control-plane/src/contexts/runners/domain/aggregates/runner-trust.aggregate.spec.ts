@@ -132,7 +132,7 @@ describe('RunnerTrust', () => {
     ).toThrow(RunnerTrustKeyFixedError);
   });
 
-  it('refuses a change to a version no longer current', () => {
+  it('rejects a change to a version no longer current', () => {
     expect(() => persisted().assertVersion(3)).toThrow(
       RunnerTrustVersionConflictError,
     );

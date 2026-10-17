@@ -5,7 +5,7 @@ const AGAIN = Retry.backoff({ max: 4, firstMs: 30_000, longestMs: 600_000 });
 
 export const MEMORY_DRAFTING_FAILURES = {
   'no-evidence': Retry.never(),
-  refused: AGAIN,
+  'request-failed': AGAIN,
   unreadable: Retry.backoff({ max: 3, firstMs: 30_000, longestMs: 300_000 }),
   errored: AGAIN,
   interrupted: Retry.never(),

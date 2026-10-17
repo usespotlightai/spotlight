@@ -26,7 +26,7 @@ export class WorkloadRule {
 
   static issuerOf(raw: string): string {
     const trimmed = raw.trim();
-    const refused = new InvalidTokenTrustError(
+    const invalid = new InvalidTokenTrustError(
       'issuer',
       'must be an https URL with no query or fragment, as in https://token.actions.githubusercontent.com',
     );
@@ -35,7 +35,7 @@ export class WorkloadRule {
     try {
       url = new URL(trimmed);
     } catch {
-      throw refused;
+      throw invalid;
     }
 
     const secure =
@@ -50,7 +50,7 @@ export class WorkloadRule {
       url.password ||
       trimmed.length > LONGEST
     ) {
-      throw refused;
+      throw invalid;
     }
 
     return trimmed;

@@ -446,7 +446,7 @@ const WAITING: Omit<
   repeat: 1,
   phase: 'waiting',
   ending: null,
-  refusal: null,
+  unreplayableReason: null,
   failure: null,
   next: null,
   ms: null,

@@ -62,7 +62,7 @@ describe('UpdateIntegrationHandler', () => {
     expect(saved.document.says('name', 'Linear')).toBe(true);
   });
 
-  it('refuses a change based on a version no longer current, naming the current one', async () => {
+  it('rejects a change based on a version no longer current, naming the current one', async () => {
     const { update, kept } = updating();
 
     expect(await update(LINEAR, 2)).toEqual({
@@ -74,7 +74,7 @@ describe('UpdateIntegrationHandler', () => {
 
   it('names the version that won when another change got there first', async () => {
     const { update } = updating({
-      refusing: new IntegrationDefinitionVersionConflictError('linear'),
+      failing: new IntegrationDefinitionVersionConflictError('linear'),
       thenAt: storedAt(4),
     });
 
@@ -86,7 +86,7 @@ describe('UpdateIntegrationHandler', () => {
 
   it('answers nothing when the integration was deleted while it changed it', async () => {
     const { update } = updating({
-      refusing: new IntegrationDefinitionVersionConflictError('linear'),
+      failing: new IntegrationDefinitionVersionConflictError('linear'),
       thenAt: null,
     });
 

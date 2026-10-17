@@ -196,20 +196,20 @@ export class DrizzleForgotten implements ForgottenPort {
   }
 
   private async lock(key: string): Promise<void> {
-    this.refuseOutsideTransaction();
+    this.assertInTransaction();
     await this.context.db.execute(
       sql`select pg_advisory_xact_lock(hashtextextended(${key}, 0))`,
     );
   }
 
   private async share(key: string): Promise<void> {
-    this.refuseOutsideTransaction();
+    this.assertInTransaction();
     await this.context.db.execute(
       sql`select pg_advisory_xact_lock_shared(hashtextextended(${key}, 0))`,
     );
   }
 
-  private refuseOutsideTransaction(): void {
+  private assertInTransaction(): void {
     if (!this.context.transacting) {
       throw new Error('A lock on what outcomes forgot needs a transaction');
     }

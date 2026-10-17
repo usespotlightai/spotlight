@@ -241,7 +241,7 @@ describe('AnswerInboxItem', () => {
     expect(saved?.currentRunId).toEqual(RunId.of('run_1'));
   });
 
-  it('refuses to answer a task nobody was asked about', async () => {
+  it('does not answer a task nobody was asked about', async () => {
     const untouched = Task.add({
       line: line(),
       at: StationId.of('station_1'),
@@ -311,7 +311,7 @@ describe('AnswerInboxItem', () => {
     );
   });
 
-  it('refuses changes to a rejection as a rejection, saving nothing', async () => {
+  it('rejects changes to a dismissed request, saving nothing', async () => {
     await expect(
       answer(
         asking(),
@@ -411,7 +411,7 @@ describe('AnswerInboxItem', () => {
     });
   });
 
-  it('refuses a decision where nothing was put up to be approved', async () => {
+  it('rejects a decision where nothing was put up to be approved', async () => {
     await expect(
       answer(
         waiting(),

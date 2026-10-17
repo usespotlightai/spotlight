@@ -112,7 +112,7 @@ const heardBy = async (
 const scored = (ended: ReplayRunEnded) =>
   resultOf(
     {
-      refusal: null,
+      unreplayableReason: null,
       notRun: false,
       end: RunEnd.of({ ...ended, at: NOW }),
       measures: null,

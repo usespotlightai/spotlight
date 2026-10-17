@@ -15,7 +15,7 @@ const (
 	unitName = "spotlight-host"
 	label    = "ai.usespotlight.host"
 
-	RefusedExit = 3
+	StopExit = 3
 )
 
 type Service struct {
@@ -111,7 +111,7 @@ func SystemdUnit(s Service, system bool) string {
 		"Environment=" + settingQuoted("SPOTLIGHT_HOST_CONFIG="+s.Config),
 		"Restart=always",
 		"RestartSec=5",
-		"RestartPreventExitStatus=" + strconv.Itoa(RefusedExit),
+		"RestartPreventExitStatus=" + strconv.Itoa(StopExit),
 		"TimeoutStopSec=90",
 		"",
 		"[Install]",

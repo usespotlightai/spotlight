@@ -215,7 +215,7 @@ describe('Run', () => {
     ).toBe(true);
   });
 
-  it('refuses to be requeued while its lease is still valid', () => {
+  it('cannot be requeued while its lease is still valid', () => {
     const run = claimed();
 
     expect(() => run.requeue(noon)).toThrow(InvalidRunTransitionError);
@@ -231,7 +231,7 @@ describe('Run', () => {
     );
   });
 
-  it('refuses a lease renewal from a runner that does not lease it', () => {
+  it('rejects a lease renewal from a runner that does not lease it', () => {
     const run = claimed();
 
     expect(() => run.renewLease(runner('someone_else'), noon)).toThrow(
@@ -239,7 +239,7 @@ describe('Run', () => {
     );
   });
 
-  it('refuses to be completed by a runner that does not lease it', () => {
+  it('cannot be completed by a runner that does not lease it', () => {
     const run = claimed();
 
     expect(() =>
@@ -290,7 +290,7 @@ describe('Run', () => {
     );
   });
 
-  it('refuses anyone but its runner to act on it', () => {
+  it('lets nobody but its runner act on it', () => {
     const run = claimed(runner('runner_1'));
 
     expect(() => run.assertLeasedBy(runner('runner_2'))).toThrow(
@@ -299,7 +299,7 @@ describe('Run', () => {
     expect(() => run.assertLeasedBy(runner('runner_1'))).not.toThrow();
   });
 
-  it('refuses anyone to act on a run nobody leases', () => {
+  it('lets nobody act on a run nobody leases', () => {
     expect(() => queued().assertLeasedBy(runner())).toThrow(
       InvalidRunTransitionError,
     );
@@ -336,13 +336,13 @@ describe('Run', () => {
       expect(journal.number).toBe(1);
     });
 
-    it('refuses a journal from a runner that does not lease it', () => {
+    it('rejects a journal from a runner that does not lease it', () => {
       expect(() => claimed().journalFor(runner('runner_2'))).toThrow(
         InvalidRunTransitionError,
       );
     });
 
-    it('refuses a journal for a run nobody leases', () => {
+    it('rejects a journal for a run nobody leases', () => {
       expect(() => queued().journalFor(runner())).toThrow(
         InvalidRunTransitionError,
       );
@@ -734,31 +734,31 @@ describe('Run', () => {
     });
   });
 
-  describe('being refused to start by a hook', () => {
-    const REASON = 'The hook core/freeze refused: deploys are frozen.';
+  describe('having its start denied by a hook', () => {
+    const REASON = 'The hook core/freeze denied the start: deploys are frozen.';
 
     it('ends failed with the hook’s reason, worked by nobody', () => {
-      const refused = claimed().refusedToStart(runner(), REASON);
+      const denied = claimed().deniedStart(runner(), REASON);
 
-      expect(refused.state).toBe('failed');
-      expect(refused.outcome?.message).toBe(REASON);
-      expect(refused.claimedBy).toBeNull();
-      expect(refused.wasWorkedBy(runner())).toBe(false);
+      expect(denied.state).toBe('failed');
+      expect(denied.outcome?.message).toBe(REASON);
+      expect(denied.claimedBy).toBeNull();
+      expect(denied.wasWorkedBy(runner())).toBe(false);
 
-      const [completed] = refused.pullEvents();
+      const [completed] = denied.pullEvents();
       expect(completed).toBeInstanceOf(RunCompleted);
       expect((completed as RunCompleted).outcome.failed).toBe(true);
       expect((completed as RunCompleted).workedBy).toBeNull();
     });
 
-    it('is refused only by the runner that claimed it', () => {
-      expect(() =>
-        claimed().refusedToStart(runner('runner_2'), REASON),
-      ).toThrow(InvalidRunTransitionError);
+    it('has its start denied only by the runner that claimed it', () => {
+      expect(() => claimed().deniedStart(runner('runner_2'), REASON)).toThrow(
+        InvalidRunTransitionError,
+      );
     });
 
-    it('cannot be refused before a runner claims it', () => {
-      expect(() => queued().refusedToStart(runner(), REASON)).toThrow(
+    it('cannot have its start denied before a runner claims it', () => {
+      expect(() => queued().deniedStart(runner(), REASON)).toThrow(
         InvalidRunTransitionError,
       );
     });
@@ -777,7 +777,7 @@ describe('Run', () => {
       ]);
     });
 
-    it('refuses to withdraw a run that is already being worked', () => {
+    it('does not withdraw a run that is already being worked', () => {
       expect(() => claimed().withdrawn('The task moved on.')).toThrow(
         InvalidRunTransitionError,
       );
@@ -805,7 +805,7 @@ describe('Run', () => {
       expect(claimed().stopRequested).toBe(false);
     });
 
-    it('refuses to stop a run that is not being worked', () => {
+    it('does not stop a run that is not being worked', () => {
       expect(() => queued().requestStop(noon)).toThrow(
         InvalidRunTransitionError,
       );
@@ -926,19 +926,19 @@ describe('Run', () => {
       expect(claimed().provisionableAt(noon)).toBe(false);
     });
 
-    it('refuses to be reserved twice', () => {
+    it('cannot be reserved twice', () => {
       expect(() =>
         reserved().reservedFor(runner('pooled_2'), PoolId.of('burst'), noon),
       ).toThrow(InvalidRunTransitionError);
     });
 
-    it('refuses to be reserved once a runner leases it', () => {
+    it('cannot be reserved once a runner leases it', () => {
       expect(() =>
         claimed().reservedFor(runner('pooled_1'), PoolId.of('burst'), noon),
       ).toThrow(InvalidRunTransitionError);
     });
 
-    it('refuses another runner while the reservation is active', () => {
+    it('rejects another runner while the reservation is active', () => {
       expect(() => reserved().claim(runner('runner_9'), later(1_000))).toThrow(
         InvalidRunTransitionError,
       );
@@ -1030,14 +1030,14 @@ describe('Run', () => {
 
   describe('failing to be provisioned', () => {
     const later = (ms: number) => new Date(noon.getTime() + ms);
-    const refused = ProvisionFailure.of('refused', 'the pool said no');
+    const failure = ProvisionFailure.of('http-error', 'the pool said no');
     const pooled = runner('pooled_1');
     const failedAgain = (run: Run) => {
       const due = run.provisioning.nextAt ?? noon;
 
       return run
         .reservedFor(pooled, PoolId.of('burst'), due)
-        .provisionFailed(pooled, refused, due);
+        .provisionFailed(pooled, failure, due);
     };
 
     it('stays queued, unreserved and backs off before the next try', () => {
@@ -1066,9 +1066,9 @@ describe('Run', () => {
       expect(run.state).toBe('failed');
       expect(run.hasEnded).toBe(true);
       expect(run.outcome?.failed).toBe(true);
-      expect(run.outcome).toEqual(RunOutcome.unprovisioned(refused, 5));
+      expect(run.outcome).toEqual(RunOutcome.unprovisioned(failure, 5));
       expect(run.outcome?.message).toBe(
-        'No runner was provisioned after 5 attempts. Last failure: refused: the pool said no',
+        'No runner was provisioned after 5 attempts. Last failure: http-error: the pool said no',
       );
 
       const completed = run
@@ -1088,39 +1088,39 @@ describe('Run', () => {
       ]);
     });
 
-    it('is refused by a provisioned runner without its harness, and by no other', () => {
+    it('fails to provision on a runner without its harness, and on no other', () => {
       const run = queued().reservedFor(pooled, PoolId.of('burst'), noon);
 
       expect(
-        run.provisionRefusedBy(pooled, [HarnessId.of('claude-code')]),
+        run.provisionFailureFor(pooled, [HarnessId.of('claude-code')]),
       ).toEqual(ProvisionFailure.harnessMissing('dev'));
-      expect(run.provisionRefusedBy(pooled, [HarnessId.of('dev')])).toBeNull();
+      expect(run.provisionFailureFor(pooled, [HarnessId.of('dev')])).toBeNull();
       expect(
-        run.provisionRefusedBy(runner('pooled_2'), [
+        run.provisionFailureFor(runner('pooled_2'), [
           HarnessId.of('claude-code'),
         ]),
       ).toBeNull();
       expect(
-        queued().provisionRefusedBy(pooled, [HarnessId.of('claude-code')]),
+        queued().provisionFailureFor(pooled, [HarnessId.of('claude-code')]),
       ).toBeNull();
     });
 
     it('counts no failure when another runner reports one', () => {
       const run = queued().reservedFor(pooled, PoolId.of('burst'), noon);
 
-      expect(run.provisionFailed(runner('pooled_2'), refused, noon)).toBe(run);
+      expect(run.provisionFailed(runner('pooled_2'), failure, noon)).toBe(run);
     });
 
     it('counts no failure when nothing is reserved for it', () => {
       const run = queued();
 
-      expect(run.provisionFailed(pooled, refused, noon)).toBe(run);
+      expect(run.provisionFailed(pooled, failure, noon)).toBe(run);
     });
 
     it('counts no failure once a runner leases it', () => {
       const run = claimed(pooled);
 
-      expect(run.provisionFailed(pooled, refused, noon)).toBe(run);
+      expect(run.provisionFailed(pooled, failure, noon)).toBe(run);
     });
 
     it('starts provisioning afresh when requeued', () => {
@@ -1148,7 +1148,7 @@ describe('Run', () => {
       expect(claimed().startedIn(runner(), pinned, noon).ranIn).toBe(pinned);
     });
 
-    it('refuses the image from a runner that does not lease it, or while nobody does', () => {
+    it('rejects the image from a runner that does not lease it, or while nobody does', () => {
       expect(() =>
         claimed().startedIn(runner('runner_2'), pinned, noon),
       ).toThrow(InvalidRunTransitionError);
@@ -1157,7 +1157,7 @@ describe('Run', () => {
       );
     });
 
-    it('refuses an image not named by its digest', () => {
+    it('rejects an image not named by its digest', () => {
       expect(() =>
         claimed().startedIn(
           runner(),
@@ -1167,7 +1167,7 @@ describe('Run', () => {
       ).toThrow(/by digest/);
     });
 
-    it('refuses a digest of another image than its line names', () => {
+    it('rejects a digest of another image than its line names', () => {
       const inWidgets = Run.enqueue({
         id: RunId.of('run_1'),
         workspaceId: WorkspaceId.of('ws_1'),

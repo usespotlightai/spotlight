@@ -98,7 +98,7 @@ describe('RunNetwork', () => {
     expect(rows[0]).toHaveTextContent('Failed');
   });
 
-  it('shows an injected request that the host refused as auth failed', () => {
+  it('shows an injected request that the host did not accept as auth failed', () => {
     network.mockReturnValue({
       runId: 'run_1',
       attempt: 1,

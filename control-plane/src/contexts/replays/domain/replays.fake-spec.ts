@@ -176,7 +176,7 @@ export const aSet = (count = 0, id = 'set_1'): ReplaySet =>
           runId: entry.runId,
           taskId: entry.taskId,
           stationId: STATION.stationId,
-          refusal: null,
+          unreplayableReason: null,
           reason: null,
         },
         NOW,

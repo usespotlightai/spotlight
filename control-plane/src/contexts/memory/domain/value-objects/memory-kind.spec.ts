@@ -11,7 +11,7 @@ describe('reading what kind of memory, how far it reaches and whether it is acti
     expect(parseMemoryStatus('retired')).toBe('retired');
   });
 
-  it('refuses one it does not know, naming those it does', () => {
+  it('rejects one it does not know, naming those it does', () => {
     expect(() => parseMemoryKind('gossip')).toThrow(
       /one of rationale, rejected-approach, failure, environment, preference, correction, not gossip/,
     );

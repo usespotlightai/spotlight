@@ -58,7 +58,7 @@ describe('unsearchableChanges', () => {
     ['judge', { rubric: 'scores: 1-5', sample: 1, trust: 0.6 }],
     ['check', 'npm run lint'],
     ['runners', { pool: 'gpu' }],
-  ])('refuses a change to %s, naming its path', (field, value) => {
+  ])('rejects a change to %s, naming its path', (field, value) => {
     const problems = changed({ [field]: value });
 
     expect(problems).toHaveLength(1);
@@ -66,7 +66,7 @@ describe('unsearchableChanges', () => {
     expect(problems[0]?.reason).toContain(field);
   });
 
-  it('refuses taking away a field the live config has', () => {
+  it('rejects taking away a field the live config has', () => {
     const { judge: _, ...withoutJudge } = SEED;
 
     expect(

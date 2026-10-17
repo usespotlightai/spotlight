@@ -1,5 +1,5 @@
 import { SpotlightCredentials } from '@integrations/application/services/spotlight-credentials';
-import { OutboundRefusedError } from '@integrations/domain/exceptions/outbound-refused.error';
+import { EgressBlockedError } from '@integrations/domain/exceptions/egress-blocked.error';
 import {
   compileIntegration,
   type RequestIR,
@@ -14,7 +14,7 @@ import {
 } from '@integrations/integrations.secrets.fake-spec';
 import { CelExpressionEngine } from '@platform/expressions/cel-expression.engine';
 import { ExpressionFailedError } from '@platform/expressions/expression.errors';
-import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
+import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
 import { describe, expect, it, vi } from 'vitest';
 import { parse as parseYaml } from 'yaml';
 
@@ -183,7 +183,7 @@ actions:
         against,
         new SpotlightCredentials(injection, async () => 'ws_1'),
       ),
-    ).rejects.toBeInstanceOf(OutboundRefusedError);
+    ).rejects.toBeInstanceOf(EgressBlockedError);
     expect(forSpotlight).not.toHaveBeenCalled();
   });
 
@@ -246,11 +246,11 @@ actions:
 
     await expect(
       new HttpOutbound(['slack.com'], fetch).run(action(), against, SLACK),
-    ).rejects.toBeInstanceOf(OutboundRefusedError);
+    ).rejects.toBeInstanceOf(EgressBlockedError);
     expect(fetch).toHaveBeenCalledTimes(1);
   });
 
-  it('refuses an answer larger than it reads from a tool', async () => {
+  it('rejects an answer larger than it reads from a tool', async () => {
     const fetch = vi.fn(
       async () =>
         new Response('{}', {
@@ -268,12 +268,12 @@ actions:
     ).rejects.toThrow(/larger than the 4 MB/);
   });
 
-  it('refuses a host the deployment did not allow', async () => {
+  it('blocks a host the deployment did not allow', async () => {
     const fetch = replying({ ok: true });
     const out = new HttpOutbound(['example.com'], fetch);
 
     await expect(out.run(action(), against, SLACK)).rejects.toBeInstanceOf(
-      OutboundRefusedError,
+      EgressBlockedError,
     );
     expect(fetch).not.toHaveBeenCalled();
   });
@@ -374,7 +374,7 @@ actions:
       );
     });
 
-    it('refuses a page in place of the file', async () => {
+    it('rejects a page in place of the file', async () => {
       const fetch = answering(
         '<html>Sign in</html>',
         'text/html; charset=utf-8',
@@ -382,17 +382,17 @@ actions:
 
       await expect(
         new HttpOutbound(['slack.com'], fetch).bytes(fetching(), named, FILES),
-      ).rejects.toThrow(UpstreamRefusedError);
+      ).rejects.toThrow(UpstreamError);
     });
 
-    it('refuses a host the deployment does not allow', async () => {
+    it('blocks a host the deployment does not allow', async () => {
       await expect(
         new HttpOutbound(['github.com'], vi.fn()).bytes(
           fetching(),
           named,
           FILES,
         ),
-      ).rejects.toThrow(OutboundRefusedError);
+      ).rejects.toThrow(EgressBlockedError);
     });
   });
 });
@@ -524,12 +524,12 @@ describe('HttpOutbound, a secret injected in the query', () => {
     });
     const out = new HttpOutbound(['maps.googleapis.com'], fetch);
 
-    const refused = await out
+    const failed = await out
       .answer(geocode, auth, null, GOOGLE)
       .catch((error: unknown) => error);
 
-    expect(refused).toBeInstanceOf(UpstreamRefusedError);
-    expect((refused as Error).message).not.toContain('AIza');
+    expect(failed).toBeInstanceOf(UpstreamError);
+    expect((failed as Error).message).not.toContain('AIza');
   });
 
   it('injects nothing for another host that a redirect sends it to, even where the redirect echoes the key', async () => {

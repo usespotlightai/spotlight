@@ -108,7 +108,7 @@ describe('AuthenticatedGuard', () => {
     expect(request[REQUEST_PRINCIPAL]).toBe(TOKEN);
   });
 
-  it('refuses a token it does not know, rather than falling back to the session', async () => {
+  it('does not accept a token it does not know, rather than falling back to the session', async () => {
     const { guard, context } = setup({
       admitsTokens: true,
       bearer: 'revoked',

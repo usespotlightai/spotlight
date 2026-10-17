@@ -24,8 +24,8 @@ import { describe, expect, it } from 'vitest';
 const CORE = { key: 'core', name: 'Core' };
 
 describe('CreateTeamHandler', () => {
-  const creating = (over: { administers?: boolean; refusing?: Error } = {}) => {
-    const kept = teams({ refusing: over.refusing });
+  const creating = (over: { administers?: boolean; throwing?: Error } = {}) => {
+    const kept = teams({ throwing: over.throwing });
     const handler = new CreateTeamHandler(
       access(over.administers),
       new IdentityDefinitions(),
@@ -67,7 +67,7 @@ describe('CreateTeamHandler', () => {
 
   it('says a key the workspace already has is taken', async () => {
     expect(
-      await creating({ refusing: new TeamAlreadyDefinedError('core') }).create(
+      await creating({ throwing: new TeamAlreadyDefinedError('core') }).create(
         CORE,
       ),
     ).toEqual({ outcome: 'taken', address: 'core' });
@@ -117,11 +117,11 @@ describe('UpdateTeamHandler', () => {
   });
 
   it('points at the key when asked to change it', async () => {
-    const refused = await updating().update({ key: 'platform', name: 'Core' });
+    const rejected = await updating().update({ key: 'platform', name: 'Core' });
 
     expect(
-      refused?.outcome === 'invalid' &&
-        refused.problems.map((each) => dottedOf(each.field)),
+      rejected?.outcome === 'invalid' &&
+        rejected.problems.map((each) => dottedOf(each.field)),
     ).toEqual(['key']);
   });
 

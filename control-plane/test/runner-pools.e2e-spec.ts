@@ -254,7 +254,7 @@ describe('runner pools (e2e)', () => {
       expect(started?.poolId).toEqual(expect.any(String));
     });
 
-    it('tells a host how new its runner must be, what harnesses to look for and which images to serve, and refuses a token it does not know', async () => {
+    it('tells a host how new its runner must be, what harnesses to look for and which images to serve, and does not accept a token it does not know', async () => {
       const token = tokenOf('i');
       await define({ key: 'ephemeral', token }).expect(201);
       await http()
@@ -329,7 +329,7 @@ describe('runner pools (e2e)', () => {
       await claimWith(issued).expect(200);
     });
 
-    it('answers nothing when no run fits, and refuses a token it does not know', async () => {
+    it('answers nothing when no run fits, and does not accept a token it does not know', async () => {
       const token = tokenOf('b');
       await define({ key: 'ephemeral', labels: ['linux'], token }).expect(201);
       await report(token).expect(200);
@@ -353,7 +353,7 @@ describe('runner pools (e2e)', () => {
       expect(Date.now() - asked).toBeGreaterThanOrEqual(E2E_LONG_POLL_MS);
     });
 
-    it('rotates its token in place: the pool keeps its id, the old token is refused at once, and a claimed run finishes', async () => {
+    it('rotates its token in place: the pool keeps its id, the old token stops working at once, and a claimed run finishes', async () => {
       const old = tokenOf('d');
       const made = await define({
         key: 'ephemeral',
@@ -380,20 +380,20 @@ describe('runner pools (e2e)', () => {
       );
     });
 
-    it('refuses to rotate its token without a new one', async () => {
+    it('does not rotate its token without a new one', async () => {
       const made = await define({
         key: 'ephemeral',
         token: tokenOf('f'),
         tokenVersion: 1,
       }).expect(201);
 
-      const refused = await redefine(made.body.id, made.body.version, {
+      const rejected = await redefine(made.body.id, made.body.version, {
         key: 'ephemeral',
         tokenVersion: 2,
       }).expect(422);
       await queue();
 
-      expect(refused.body.errors).toEqual([
+      expect(rejected.body.errors).toEqual([
         expect.objectContaining({ path: 'token' }),
       ]);
       await report(tokenOf('f')).expect(200);
@@ -422,8 +422,8 @@ describe('runner pools (e2e)', () => {
         422,
       );
 
-      for (const refused of [back, elsewhere]) {
-        expect(refused.body.errors).toEqual([
+      for (const rejected of [back, elsewhere]) {
+        expect(rejected.body.errors).toEqual([
           expect.objectContaining({
             path: 'token',
             message: expect.stringContaining('Pool tokens work once only'),
@@ -452,7 +452,7 @@ describe('runner pools (e2e)', () => {
       ]);
     });
 
-    it('refuses the token a live pool has as taken, while letting that pool be given it again', async () => {
+    it('rejects the token a live pool has as taken, while letting that pool be given it again', async () => {
       const token = tokenOf('used');
       const holder = await define({
         key: 'ephemeral',
@@ -472,8 +472,8 @@ describe('runner pools (e2e)', () => {
         tokenVersion: 2,
       }).expect(422);
 
-      for (const refused of [created, rotated]) {
-        expect(refused.body.errors).toEqual([
+      for (const rejected of [created, rotated]) {
+        expect(rejected.body.errors).toEqual([
           expect.objectContaining({
             path: 'token',
             message: expect.stringContaining('belongs to another pool'),
@@ -503,7 +503,7 @@ describe('runner pools (e2e)', () => {
       ]);
     });
 
-    it('refuses a spent token by the ledger’s key alone, as a give racing past the check would be', async () => {
+    it('rejects a spent token by the ledger’s key alone, as a give racing past the check would be', async () => {
       const token = tokenOf('ledgered');
       const made = await define({
         key: 'ephemeral',
@@ -655,13 +655,13 @@ describe('runner pools (e2e)', () => {
       const workspace = await http()
         .get(`/api/resources/workspaces/${workspaceId}`)
         .set(TEST_USER_HEADER, owner);
-      const refused = await http()
+      const rejected = await http()
         .delete(`/api/resources/workspaces/${workspaceId}`)
         .set(TEST_USER_HEADER, owner)
         .set('If-Match', `"${workspace.body.version}"`);
 
-      expect(refused.status).toBe(409);
-      expect(JSON.stringify(refused.body)).toContain('runner pool ephemeral');
+      expect(rejected.status).toBe(409);
+      expect(JSON.stringify(rejected.body)).toContain('runner pool ephemeral');
 
       const changes = (
         await http()
@@ -728,7 +728,7 @@ describe('runner pools (e2e)', () => {
       );
     });
 
-    it('keeps one way in for its life, refusing the same host id through another pool', async () => {
+    it('keeps one way in for its life, rejecting the same host id through another pool', async () => {
       const token = tokenOf('k');
       const other = tokenOf('l');
       await define({ key: 'ephemeral', token }).expect(201);
@@ -819,7 +819,7 @@ describe('runner pools (e2e)', () => {
       ]);
     });
 
-    it('refuses a report that does not add up', async () => {
+    it('rejects a report that does not add up', async () => {
       const token = tokenOf('m');
       await define({ key: 'ephemeral', token }).expect(201);
 
@@ -905,7 +905,7 @@ describe('runner pools (e2e)', () => {
                 usual: true,
                 release: null,
                 harnesses: [{ id: 'dev', version: null }],
-                refused: null,
+                unavailableReason: null,
               },
               {
                 image: WIDGETS,
@@ -913,7 +913,7 @@ describe('runner pools (e2e)', () => {
                 usual: false,
                 release: null,
                 harnesses: [{ id: 'dev', version: null }],
-                refused: null,
+                unavailableReason: null,
               },
             ],
             firstSeenAt: expect.any(String),

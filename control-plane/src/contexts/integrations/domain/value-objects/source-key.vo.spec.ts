@@ -18,7 +18,7 @@ describe('SourceKey', () => {
     expect(linear.raises(HappeningName.of('github.checks.failed'))).toBe(false);
   });
 
-  it('refuses anything but one lowercase word', () => {
+  it('rejects anything but one lowercase word', () => {
     for (const named of ['GitHub', 'git hub', 'git.hub', 'git/hub', '', '-']) {
       expect(() => SourceKey.of(named)).toThrow(InvalidIdentifierError);
     }

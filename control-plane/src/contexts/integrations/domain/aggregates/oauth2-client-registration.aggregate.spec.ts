@@ -88,7 +88,7 @@ describe('OAuth2ClientRegistration', () => {
     expect(replaced.version).toBe(2);
   });
 
-  it('refuses an answer without a client id', () => {
+  it('rejects an answer without a client id', () => {
     expect(() =>
       OAuth2ClientRegistration.register({
         workspaceId: WorkspaceId.of('ws_1'),

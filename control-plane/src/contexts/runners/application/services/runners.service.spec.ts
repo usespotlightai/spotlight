@@ -471,12 +471,12 @@ describe('Runners', () => {
     it('never sends a proxy credential to an egress in the clear unless the deployment allows it', async () => {
       const pool = aPushPool({ egress: EgressReference.to(EGRESS_ID) });
       const egress = anEgress({ url: 'http://egress.example.com' });
-      const refusing = running(pool, { egress });
+      const blocked = running(pool, { egress });
 
       await expect(
-        refusing.service.provision(request, STARTED_AT),
+        blocked.service.provision(request, STARTED_AT),
       ).resolves.toMatchObject({ outcome: 'failed', kind: 'not-allowed' });
-      expect(refusing.called).toEqual([]);
+      expect(blocked.called).toEqual([]);
 
       await expect(
         running(pool, { egress, insecureAllowed: true }).service.provision(
@@ -516,12 +516,15 @@ describe('Runners', () => {
 
     it('lets the runner go and says why when provision fails', async () => {
       const { service, saved } = running(aPushPool(), {
-        answer: { outcome: 'refused', detail: 'Provision URL answered 500.' },
+        answer: {
+          outcome: 'http-error',
+          detail: 'Provision URL answered 500.',
+        },
       });
 
       await expect(service.provision(request, STARTED_AT)).resolves.toEqual({
         outcome: 'failed',
-        kind: 'refused',
+        kind: 'http-error',
         detail: 'Provision URL answered 500.',
       });
       expect(saved[0]?.isDiscarded).toBe(true);
@@ -530,13 +533,16 @@ describe('Runners', () => {
     it('still says why provision failed when letting the runner go fails, and logs it', async () => {
       const lost = new Error('the database is down');
       const { service, logged } = running(aPushPool(), {
-        answer: { outcome: 'refused', detail: 'Provision URL answered 500.' },
+        answer: {
+          outcome: 'http-error',
+          detail: 'Provision URL answered 500.',
+        },
         unsaved: lost,
       });
 
       await expect(service.provision(request, STARTED_AT)).resolves.toEqual({
         outcome: 'failed',
-        kind: 'refused',
+        kind: 'http-error',
         detail: 'Provision URL answered 500.',
       });
       expect(logged).toEqual([{ err: lost, runner: 'pooled_1' }]);
@@ -567,13 +573,13 @@ describe('Runners', () => {
 
     it('never sends a one-run token in the clear unless the deployment allows it', async () => {
       const clear = aPushPool({ url: 'http://provision.example.com/runs' });
-      const refusing = running(clear);
+      const blocked = running(clear);
 
       await expect(
-        refusing.service.provision(request, STARTED_AT),
+        blocked.service.provision(request, STARTED_AT),
       ).resolves.toMatchObject({ outcome: 'failed', kind: 'not-allowed' });
-      expect(refusing.called).toEqual([]);
-      expect(refusing.saved[0]?.isDiscarded).toBe(true);
+      expect(blocked.called).toEqual([]);
+      expect(blocked.saved[0]?.isDiscarded).toBe(true);
 
       const allowing = running(clear, { insecureAllowed: true });
 

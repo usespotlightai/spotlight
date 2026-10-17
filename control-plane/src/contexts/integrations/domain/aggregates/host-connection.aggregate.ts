@@ -1,6 +1,6 @@
 import { HostConnected } from '@integrations/domain/events/host-connected.event';
 import { HostDisconnected } from '@integrations/domain/events/host-disconnected.event';
-import { HostRenewalRefused } from '@integrations/domain/events/host-renewal-refused.event';
+import { HostRefreshFailed } from '@integrations/domain/events/host-refresh-failed.event';
 import { RenewalClaimedError } from '@integrations/domain/exceptions/renewal-claimed.error';
 import type { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
 import type { ConnectionHolder } from '@integrations/domain/value-objects/connection-holder.vo';
@@ -24,7 +24,7 @@ interface State {
   readonly expiresAt: Date | null;
   readonly scopes: readonly string[];
   readonly handle: string | null;
-  readonly renewalRefusedAt: Date | null;
+  readonly refreshFailedAt: Date | null;
   readonly renewalClaim: RenewalClaim | null;
   readonly version: number;
 }
@@ -51,7 +51,7 @@ export class HostConnection extends EventRecorder {
       expiresAt: input.grant.expiresAt,
       scopes: input.grant.scopes,
       handle: input.grant.handle,
-      renewalRefusedAt: null,
+      refreshFailedAt: null,
       renewalClaim: null,
       version: 0,
     });
@@ -77,10 +77,10 @@ export class HostConnection extends EventRecorder {
       );
     }
 
-    if (input.renewalRefusedAt !== null && input.refreshToken === null) {
+    if (input.refreshFailedAt !== null && input.refreshToken === null) {
       throw new InconsistentStateError(
         'host connection',
-        'had a renewal refused without a way to renew',
+        'had a failed refresh without a way to renew',
       );
     }
 
@@ -134,8 +134,8 @@ export class HostConnection extends EventRecorder {
     return this.state.handle;
   }
 
-  get renewalRefusedAt(): Date | null {
-    return this.state.renewalRefusedAt;
+  get refreshFailedAt(): Date | null {
+    return this.state.refreshFailedAt;
   }
 
   get renewalClaim(): RenewalClaim | null {
@@ -143,7 +143,7 @@ export class HostConnection extends EventRecorder {
   }
 
   get usable(): boolean {
-    return this.state.renewalRefusedAt === null;
+    return this.state.refreshFailedAt === null;
   }
 
   get renewable(): boolean {
@@ -159,13 +159,13 @@ export class HostConnection extends EventRecorder {
   }
 
   needsRenewal(now: Date): boolean {
-    const { expiresAt, refreshToken, renewalRefusedAt } = this.state;
+    const { expiresAt, refreshToken, refreshFailedAt } = this.state;
 
     if (expiresAt === null || refreshToken === null) {
       return false;
     }
 
-    if (renewalRefusedAt !== null || this.isClaimedAt(now)) {
+    if (refreshFailedAt !== null || this.isClaimedAt(now)) {
       return false;
     }
 
@@ -176,7 +176,7 @@ export class HostConnection extends EventRecorder {
     return this.state.renewalClaim?.isActiveAt(now) ?? false;
   }
 
-  refusedToken(token: AccessToken): boolean {
+  hasToken(token: AccessToken): boolean {
     return this.state.accessToken.equals(token);
   }
 
@@ -208,23 +208,23 @@ export class HostConnection extends EventRecorder {
       expiresAt: grant.expiresAt,
       scopes: grant.scopes,
       handle: grant.handle ?? this.state.handle,
-      renewalRefusedAt: null,
+      refreshFailedAt: null,
       renewalClaim: null,
     });
   }
 
-  renewalRefused(at: Date): HostConnection {
-    if (this.state.renewalRefusedAt !== null) {
+  refreshFailed(at: Date): HostConnection {
+    if (this.state.refreshFailedAt !== null) {
       return this.renewalReleased();
     }
 
-    const refused = this.with({ renewalRefusedAt: at, renewalClaim: null });
+    const failed = this.with({ refreshFailedAt: at, renewalClaim: null });
 
-    refused.record(
-      new HostRenewalRefused(this.teamId, this.source, this.holder, at),
+    failed.record(
+      new HostRefreshFailed(this.teamId, this.source, this.holder, at),
     );
 
-    return refused;
+    return failed;
   }
 
   disconnect(): HostConnection {

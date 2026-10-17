@@ -344,7 +344,7 @@ describe('InviteToWorkspaceHandler', () => {
     expect(add).toHaveBeenCalledTimes(1);
   });
 
-  it('refuses to invite an owner, and sends nothing', async () => {
+  it('does not invite an owner, and sends nothing', async () => {
     const { handler, add, send } = inviting();
 
     await expect(
@@ -354,7 +354,7 @@ describe('InviteToWorkspaceHandler', () => {
     expect(send).not.toHaveBeenCalled();
   });
 
-  it('refuses a team that is not in the workspace, and sends nothing', async () => {
+  it('rejects a team that is not in the workspace, and sends nothing', async () => {
     const { handler, send } = inviting();
 
     await expect(
@@ -363,7 +363,7 @@ describe('InviteToWorkspaceHandler', () => {
     expect(send).not.toHaveBeenCalled();
   });
 
-  it('refuses something that is not an address before sending anything', async () => {
+  it('rejects something that is not an address before sending anything', async () => {
     const { handler, send } = inviting();
 
     await expect(
@@ -372,7 +372,7 @@ describe('InviteToWorkspaceHandler', () => {
     expect(send).not.toHaveBeenCalled();
   });
 
-  it('refuses to invite nobody', async () => {
+  it('rejects an invite to nobody', async () => {
     const { handler } = inviting();
 
     await expect(handler.execute(invite([]))).rejects.toMatchObject({

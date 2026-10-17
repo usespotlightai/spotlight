@@ -23,7 +23,7 @@ export class TraceConnectionResponseDto {
   @ApiProperty({
     enum: CONNECTION_OUTCOMES,
     description:
-      'blocked: egress stopped it. failed: egress could not open it. injected: the host refused or failed a request that egress injected a secret into',
+      'blocked: egress stopped it. failed: egress could not open it. injected: egress injected a secret into the request',
   })
   readonly outcome: string;
 

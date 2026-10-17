@@ -7,7 +7,7 @@ describe('CallbackNote', () => {
     expect(CallbackNote.of('  Looks safe.  ').body).toBe('Looks safe.');
   });
 
-  it('refuses a note that says nothing, or too much', () => {
+  it('rejects a note that says nothing, or too much', () => {
     expect(() => CallbackNote.of('   ')).toThrow(InvalidCallbackNoteError);
     expect(() => CallbackNote.of('x'.repeat(20_001))).toThrow(
       InvalidCallbackNoteError,

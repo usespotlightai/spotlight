@@ -75,7 +75,7 @@ describe('AddTeamMemberHandler', () => {
     ]);
   });
 
-  it('refuses somebody already on the team', async () => {
+  it('rejects somebody already on the team', async () => {
     const { handler, save } = adding();
 
     await expect(handler.execute(add('user_bea'))).rejects.toMatchObject({
@@ -85,7 +85,7 @@ describe('AddTeamMemberHandler', () => {
     expect(save).not.toHaveBeenCalled();
   });
 
-  it('refuses somebody outside the workspace', async () => {
+  it('rejects somebody outside the workspace', async () => {
     const { handler, save } = adding();
 
     await expect(handler.execute(add('user_stranger'))).rejects.toMatchObject({

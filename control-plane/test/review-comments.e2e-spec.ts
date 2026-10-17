@@ -77,7 +77,7 @@ describe('storing review comments', () => {
     ).resolves.toBeUndefined();
   });
 
-  it('refuses a comment on a line that names no side', async () => {
+  it('rejects a comment on a line that names no side', async () => {
     await expect(
       database.db.execute(
         sql`update review_comment set side = null where id = 'on_lines'`,

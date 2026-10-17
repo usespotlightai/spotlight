@@ -104,13 +104,13 @@ func (gone) Error() string {
 	return "409 Conflict: a run cannot renew the lease on a run that is completed"
 }
 
-func (gone) Lost() bool { return true }
+func (gone) RunNoLongerLeased() bool { return true }
 
 type conflict struct{}
 
 func (conflict) Error() string { return "409 Conflict: the run changed while its lease was renewed" }
 
-func (conflict) Lost() bool { return false }
+func (conflict) RunNoLongerLeased() bool { return false }
 
 func (j *journal) Complete(_ context.Context, _ string, done protocol.Completion) (protocol.Completed, error) {
 	j.mu.Lock()

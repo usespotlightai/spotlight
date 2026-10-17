@@ -33,7 +33,7 @@ export const IdentityProblems = {
     });
   },
 
-  tokenRefused(
+  tokenInvalid(
     error:
       | InvalidWorkspaceTokenError
       | WorkspaceTokenTermsFixedError
@@ -46,7 +46,7 @@ export const IdentityProblems = {
     });
   },
 
-  trustRefused(
+  trustInvalid(
     error: InvalidTokenTrustError | TokenTrustKeyFixedError,
   ): ConfigurationProblem {
     return ConfigurationProblem.of({

@@ -54,7 +54,7 @@ const SET: ReplaySet = {
       state: 'completed',
       endedAt: '2026-10-02T09:00:00.000Z',
       addedAt: '2026-10-03T09:00:00.000Z',
-      refusal: null,
+      unreplayableReason: null,
       reason: null,
       outcome: 'accepted',
       origin: null,
@@ -86,7 +86,7 @@ describe('SetRuns', () => {
     ).toBeEnabled();
   });
 
-  it('refuses to add or take out runs while a search uses the set, saying why on each', () => {
+  it('does not add or take out runs while a search uses the set, saying why on each', () => {
     renderRuns(true);
 
     const adding = screen.getByRole('button', { name: 'Add runs' });

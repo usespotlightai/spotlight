@@ -89,10 +89,10 @@ describe('LeaveAsHostHandler', () => {
     expect(hosts.remove).not.toHaveBeenCalled();
   });
 
-  it('refuses a host no pool or trust admits', async () => {
+  it('does not accept a host no pool or trust admits', async () => {
     const { leave, hosts } = leaving(null);
 
-    await expect(leave()).resolves.toEqual({ outcome: 'refused' });
+    await expect(leave()).resolves.toEqual({ outcome: 'unauthorized' });
     expect(hosts.remove).not.toHaveBeenCalled();
   });
 });

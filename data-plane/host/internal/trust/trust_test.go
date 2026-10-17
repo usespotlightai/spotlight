@@ -33,7 +33,7 @@ func TestReadsTheWorkloadTokenAfreshForEveryCall(t *testing.T) {
 	}
 }
 
-func TestRefusesToCallWithAnEmptyToken(t *testing.T) {
+func TestDoesNotCallWithAnEmptyToken(t *testing.T) {
 	file := filepath.Join(t.TempDir(), "token")
 	if err := os.WriteFile(file, []byte("  \n"), 0o600); err != nil {
 		t.Fatal(err)
@@ -41,6 +41,6 @@ func TestRefusesToCallWithAnEmptyToken(t *testing.T) {
 
 	request, _ := http.NewRequest(http.MethodGet, "https://spotlight.test", nil)
 	if err := (trust.Workload{Trust: "trust_1", TokenFile: file}).Authorize(request); err == nil {
-		t.Fatal("expected an empty token to be refused")
+		t.Fatal("expected an empty token to be rejected")
 	}
 }

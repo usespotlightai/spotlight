@@ -2,7 +2,7 @@ import type { ClockPort } from '@shared-kernel/application/ports/clock.port';
 import type { TransactionPort } from '@shared-kernel/application/ports/transaction.port';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
-import type { ReplayRefusalCode } from '@work/application/contracts/replay-refusal.contract';
+import type { UnreplayableReasonCode } from '@work/application/contracts/unreplayable-reason.contract';
 import type {
   AnswerAsked,
   ReplayDispatched,
@@ -23,9 +23,13 @@ const OVER_BUDGET = 'Replay reached its budget before a runner took the run.';
 const STOPPED = 'Replay stopped before a runner took the run.';
 
 const unreplayable = (
-  refusal: ReplayRefusalCode,
+  unreplayableReason: UnreplayableReasonCode,
   reason: string,
-): ReplayDispatched => ({ outcome: 'unreplayable', refusal, reason });
+): ReplayDispatched => ({
+  outcome: 'unreplayable',
+  unreplayableReason,
+  reason,
+});
 
 export class ReplayRuns implements ReplayDispatchPort {
   constructor(
@@ -45,8 +49,11 @@ export class ReplayRuns implements ReplayDispatchPort {
       const claim = await this.claims.claim(ReplayRunClaim.toQueue(id));
 
       if (!claim.mayQueue) {
-        return claim.refusal
-          ? unreplayable(claim.refusal, claim.reason ?? claim.refusal)
+        return claim.unreplayableReason
+          ? unreplayable(
+              claim.unreplayableReason,
+              claim.reason ?? claim.unreplayableReason,
+            )
           : unreplayable(
               'forgone',
               'its replay let it go before it was queued',
@@ -61,7 +68,7 @@ export class ReplayRuns implements ReplayDispatchPort {
 
       if (dispatched.outcome === 'unreplayable') {
         await this.claims.save(
-          claim.refused(dispatched.refusal, dispatched.reason),
+          claim.unreplayable(dispatched.unreplayableReason, dispatched.reason),
         );
       }
 
@@ -160,7 +167,7 @@ export class ReplayRuns implements ReplayDispatchPort {
       });
     } catch (error) {
       if (error instanceof UnreplayableRunError) {
-        return unreplayable(error.refusal, error.message);
+        return unreplayable(error.unreplayableReason, error.message);
       }
       throw error;
     }

@@ -333,7 +333,7 @@ describe('forgetting the checks of a deleted task', () => {
     );
   });
 
-  it('refuses to remove a check that changed since it was read', async () => {
+  it('does not remove a check that changed since it was read', async () => {
     const repository = forgetting();
     const task = TaskId.of(randomUUID());
     await repository.add(begun(task));

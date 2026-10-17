@@ -11,7 +11,7 @@ export class TracesLoader {
   async shared(taskIds: readonly string[]): Promise<TraceReference[]> {
     const asked = [...new Set(taskIds)];
 
-    TraceReference.refuseTooMany(asked.length);
+    TraceReference.assertNotTooMany(asked.length);
 
     const found = await this.tasks.of(asked.map((each) => TaskId.of(each)));
 

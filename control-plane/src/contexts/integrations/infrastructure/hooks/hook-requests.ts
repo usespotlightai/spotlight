@@ -167,7 +167,7 @@ export class HookRequests {
     try {
       headers = await this.headers(request, started);
     } catch (error) {
-      return this.refused(
+      return this.notSent(
         request,
         HookFailure.of('not-allowed', described(error)),
         started,
@@ -181,7 +181,7 @@ export class HookRequests {
     try {
       this.policy.allow(request.url);
     } catch (error) {
-      return this.refused(
+      return this.notSent(
         request,
         HookFailure.of('not-allowed', described(error)),
         started,
@@ -310,7 +310,7 @@ export class HookRequests {
           call,
           until: patience.toISOString(),
         },
-        refusal: null,
+        denyReason: null,
         trace: null,
       };
     }
@@ -342,7 +342,7 @@ export class HookRequests {
     const state = await this.network.stateOf(waiting.call);
 
     if (state.kind === 'waiting' && new Date(waiting.until) > now) {
-      return { outcome: waiting, refusal: null, trace: null };
+      return { outcome: waiting, denyReason: null, trace: null };
     }
 
     const answered: Answered =
@@ -386,7 +386,7 @@ export class HookRequests {
               reason,
               output: reply.body,
             },
-      refusal: reply.refusal,
+      denyReason: reply.denyReason,
       trace: {
         hook: request.hook.key,
         step: request.step,
@@ -402,7 +402,7 @@ export class HookRequests {
     };
   }
 
-  refused(
+  notSent(
     request: HookRequest,
     failure: HookFailure,
     started: Date,
@@ -415,7 +415,7 @@ export class HookRequests {
         reason: failure.reason,
         output: null,
       },
-      refusal: null,
+      denyReason: null,
       trace: {
         hook: request.hook.key,
         step: request.step,

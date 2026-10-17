@@ -15,14 +15,16 @@ describe('MemoryDraftingFailure', () => {
     }
   });
 
-  it('tries again after a refusal, but never once the evidence is gone', () => {
-    expect(MemoryDraftingFailure.of('refused', NOW).retry.retries).toBe(true);
+  it('tries again after a failed request, but never once the evidence is gone', () => {
+    expect(MemoryDraftingFailure.of('request-failed', NOW).retry.retries).toBe(
+      true,
+    );
     expect(MemoryDraftingFailure.of('no-evidence', NOW).retry.retries).toBe(
       false,
     );
   });
 
-  it('refuses a failure nobody knows', () => {
+  it('rejects a failure nobody knows', () => {
     expect(() => MemoryDraftingFailure.of('melted', NOW)).toThrow(
       InvalidMemoryError,
     );

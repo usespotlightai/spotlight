@@ -68,23 +68,23 @@ func TestClaimTreatsAnEmptyQueueAsOrdinary(t *testing.T) {
 	}
 }
 
-func TestClaimRefusesWorkWithNoCredential(t *testing.T) {
+func TestClaimRejectsWorkWithNoCredential(t *testing.T) {
 	client := serve(t, func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(protocol.Handed{Work: protocol.Claimed{Kind: protocol.ClaimedRun}})
 	})
 
 	if _, err := client.Claim(context.Background(), protocol.HostClaim{}); err == nil {
-		t.Fatal("expected work with no credential to be refused")
+		t.Fatal("expected work with no credential to be rejected")
 	}
 }
 
-func TestARefusedCredentialSaysSo(t *testing.T) {
+func TestAnUnauthorizedCredentialSaysSo(t *testing.T) {
 	client := serve(t, func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "unknown pool token", http.StatusUnauthorized)
 	})
 
-	if _, err := client.Claim(context.Background(), protocol.HostClaim{}); !errors.Is(err, control.ErrRefused) {
-		t.Fatalf("expected a refusal, got %v", err)
+	if _, err := client.Claim(context.Background(), protocol.HostClaim{}); !errors.Is(err, control.ErrUnauthorized) {
+		t.Fatalf("expected an unauthorized error, got %v", err)
 	}
 }
 

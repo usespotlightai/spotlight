@@ -96,7 +96,7 @@ export class UpdateEgressHandler
       ) {
         return {
           outcome: 'invalid',
-          problems: [RunnerProblems.egressRefused(error)],
+          problems: [RunnerProblems.egressInvalid(error)],
         };
       }
 

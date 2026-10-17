@@ -29,7 +29,7 @@ interface Bound {
   readonly value: string;
 }
 
-const refused = (message: string) =>
+const denied = (message: string) =>
   Object.assign(new Error(message), { violation: 'not-allowed' as const });
 
 export const injecting = (bound: Readonly<Record<string, Bound>> = {}) => {
@@ -49,11 +49,11 @@ export const injecting = (bound: Readonly<Record<string, Bound>> = {}) => {
         }
 
         if (secret.host !== host) {
-          throw refused(`The ${name} secret is not bound to ${host}`);
+          throw denied(`The ${name} secret is not bound to ${host}`);
         }
 
         if (run !== null && !granted.has(`${run}:${name}`)) {
-          throw refused(`This run was not granted the ${name} secret`);
+          throw denied(`This run was not granted the ${name} secret`);
         }
 
         return {
@@ -143,5 +143,5 @@ export const reachFor = (
     } satisfies TeamDirectoryPort,
     { onTeam: async () => null } as unknown as WorkspaceAccessPort,
     injection,
-    { afterRefusal: async () => null } as unknown as ConnectionRenewal,
+    { afterUnauthorized: async () => null } as unknown as ConnectionRenewal,
   );

@@ -141,14 +141,14 @@ describe('a skill, created through the resource API (e2e)', () => {
     ]);
   });
 
-  it('refuses a file outside the skill’s folder', async () => {
-    const refused = await create({
+  it('rejects a file outside the skill’s folder', async () => {
+    const rejected = await create({
       ...GRAFANA,
       files: { ...GRAFANA.files, '../escape.sh': 'rm -rf /' },
     });
 
-    expect(refused.status).toBe(422);
-    expect(refused.body.errors).toEqual([
+    expect(rejected.status).toBe(422);
+    expect(rejected.body.errors).toEqual([
       expect.objectContaining({ path: 'files["../escape.sh"]' }),
     ]);
   });
@@ -177,13 +177,13 @@ describe('a skill, created through the resource API (e2e)', () => {
       .insert(schema.stationSkill)
       .values({ stationId, skill: 'grafana', position: 0 });
 
-    const refused = await served(app)
+    const rejected = await served(app)
       .delete(fixture.item(made.body.id))
       .set(TEST_USER_HEADER, fixture.admin)
       .set('If-Match', `"${made.body.version}"`);
 
-    expect(refused.status).toBe(409);
-    expect(refused.body).toMatchObject({
+    expect(rejected.status).toBe(409);
+    expect(rejected.body).toMatchObject({
       type: 'urn:spotlight:problem:in-use',
       detail: expect.stringContaining('delivery/implementation'),
     });

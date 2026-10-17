@@ -8,7 +8,7 @@ import { assertionFor } from '@github/infrastructure/github/app-assertion';
 import { Inject, Injectable } from '@nestjs/common';
 import { ENV } from '@platform/config/config.constants';
 import type { Env } from '@platform/config/env.schema';
-import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
+import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
 const API = 'https://api.github.com';
@@ -60,7 +60,7 @@ export class GitHubAppAccess implements RepositoryAccessPort {
     );
 
     if (!response.ok) {
-      throw new UpstreamRefusedError(
+      throw new UpstreamError(
         'GitHub would not mint an installation token',
         `${response.status}`,
       );
@@ -72,7 +72,7 @@ export class GitHubAppAccess implements RepositoryAccessPort {
     };
 
     if (!minted.token || !minted.expires_at) {
-      throw new UpstreamRefusedError(
+      throw new UpstreamError(
         'GitHub would not mint an installation token',
         'The answer had no token',
       );

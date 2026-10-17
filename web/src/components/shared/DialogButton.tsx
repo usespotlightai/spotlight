@@ -1,13 +1,13 @@
 import type { LucideIcon } from 'lucide-react';
 import { type ReactNode, useState } from 'react';
-import { RefusalTooltip } from '@/components/shared/RefusalTooltip';
+import { DisabledReasonTooltip } from '@/components/shared/DisabledReasonTooltip';
 import { Button } from '@/components/ui/button';
 
 type DialogButtonProps = {
   label: string;
   icon?: LucideIcon;
   variant?: 'default' | 'outline';
-  refusedBecause: ReactNode;
+  disabledBecause: ReactNode;
   waiting?: boolean;
   dialog: (open: boolean, onOpenChange: (open: boolean) => void) => ReactNode;
 };
@@ -16,16 +16,16 @@ export function DialogButton({
   label,
   icon: Icon,
   variant = 'default',
-  refusedBecause,
+  disabledBecause,
   waiting = false,
   dialog,
 }: DialogButtonProps) {
   const [open, setOpen] = useState(false);
-  const refused = refusedBecause !== null && refusedBecause !== undefined;
+  const disabled = disabledBecause !== null && disabledBecause !== undefined;
 
   return (
     <>
-      <RefusalTooltip reason={refused ? refusedBecause : null}>
+      <DisabledReasonTooltip reason={disabled ? disabledBecause : null}>
         {(describedBy) => (
           <Button
             type="button"
@@ -36,7 +36,7 @@ export function DialogButton({
                 ? 'rounded-full bg-card shadow-none'
                 : 'rounded-full'
             }
-            disabled={refused || waiting}
+            disabled={disabled || waiting}
             aria-describedby={describedBy}
             onClick={() => setOpen(true)}
           >
@@ -44,7 +44,7 @@ export function DialogButton({
             {label}
           </Button>
         )}
-      </RefusalTooltip>
+      </DisabledReasonTooltip>
 
       {dialog(open, setOpen)}
     </>

@@ -4,7 +4,7 @@ import type {
 } from '@secrets/application/contracts/run-secret-fetch.contract';
 
 export type EgressSecretsDto =
-  | { readonly outcome: 'refused' }
+  | { readonly outcome: 'unauthorized' }
   | { readonly outcome: 'waiting' }
   | {
       readonly outcome: 'fetched';

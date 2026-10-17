@@ -49,7 +49,7 @@ describe('ChatMessageBody.given', () => {
     );
   });
 
-  it('refuses a message that says nothing, attaches nothing and names nothing', () => {
+  it('rejects a message that says nothing, attaches nothing and names nothing', () => {
     expect(() => ChatMessageBody.given('   ')).toThrow(InvalidChatMessageError);
   });
 });

@@ -52,7 +52,7 @@ const because = (error: unknown): string =>
 
 const failed = (name: string, reason: string): StepTaken => ({
   outcome: { name, status: 'failed', code: 'errored', reason, output: null },
-  refusal: null,
+  denyReason: null,
   trace: null,
 });
 
@@ -135,7 +135,7 @@ export class FireHooks {
           hook.blocks,
         );
 
-        if (verdict.refuses) {
+        if (verdict.denies) {
           return verdict;
         }
 
@@ -148,7 +148,7 @@ export class FireHooks {
 
       const verdict = await this.ranBefore(hook, moment, budget);
 
-      if (verdict.refuses) {
+      if (verdict.denies) {
         return verdict;
       }
     }
@@ -364,7 +364,7 @@ export class FireHooks {
       const failedBecause =
         taken.outcome.status === 'done' ? null : reasonOf(taken.outcome);
 
-      if (failedBecause !== null && taken.refusal === null) {
+      if (failedBecause !== null && taken.denyReason === null) {
         this.logger.warn(
           { hook: hook.key, step, reason: failedBecause },
           'A hook before an event failed',
@@ -373,7 +373,7 @@ export class FireHooks {
 
       const verdict =
         hook.written?.verdictOn(step, {
-          refusal: taken.refusal,
+          denyReason: taken.denyReason,
           failedBecause,
         }) ?? null;
 

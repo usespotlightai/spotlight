@@ -145,7 +145,7 @@ export const tasksIn = (set: ReplaySet): number =>
 const formatTasks = (count: number): string =>
   count === 1 ? '1 task' : `${count} tasks`;
 
-export const setRefusal = (set: ReplaySet): string | null => {
+export const setProblemOf = (set: ReplaySet): string | null => {
   if (set.stationGone) {
     return STATION_GONE_FROM_LINE;
   }
@@ -157,7 +157,7 @@ export const setRefusal = (set: ReplaySet): string | null => {
     : null;
 };
 
-export const startRefusal = (
+export const startProblem = (
   sets: readonly ReplaySet[],
   underway: Search | null,
 ): string | null => {
@@ -168,7 +168,7 @@ export const startRefusal = (
     return 'Create a replay set first.';
   }
 
-  return sets.some((set) => setRefusal(set) === null)
+  return sets.some((set) => setProblemOf(set) === null)
     ? null
     : `No replay set covers ${MIN_TASKS} different tasks yet.`;
 };
@@ -229,7 +229,7 @@ const fieldErrorsOf = (thrown: unknown): FieldErrorResponseDto[] => {
   return Array.isArray(errors) ? (errors as FieldErrorResponseDto[]) : [];
 };
 
-export const refusalsOf = (
+export const problemsOf = (
   thrown: unknown,
 ): { fields: FieldProblems; general: string | null } => {
   if (!thrown) {
@@ -296,7 +296,7 @@ export const formatDuration = (ms: number | null): string =>
 export const searchChanges = (candidate: SearchCandidate): ConfigChange[] =>
   configChangesOf(candidate.changes);
 
-export const pickRefusal = (candidate: SearchCandidate): string | null => {
+export const pickProblem = (candidate: SearchCandidate): string | null => {
   if (candidate.seed) {
     return 'The station already runs the live config.';
   }

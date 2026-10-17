@@ -9,7 +9,7 @@ import { describe, expect, it } from 'vitest';
 
 const definitions = new IdentityDefinitions();
 
-const refusedAt = (
+const invalidAt = (
   compiled: ParsedWorkspace | ParsedTeam | ParsedWorkspaceToken,
 ): (string | undefined)[] =>
   compiled.ok ? [] : compiled.problems.map((each) => dottedOf(each.field));
@@ -26,13 +26,13 @@ describe('IdentityDefinitions', () => {
 
   it('points at each workspace field it cannot read', () => {
     expect(
-      refusedAt(definitions.workspace({ name: '', slug: 'Acme Inc' })),
+      invalidAt(definitions.workspace({ name: '', slug: 'Acme Inc' })),
     ).toEqual(['name', 'slug']);
   });
 
-  it('refuses a slug that is not written the way it is kept', () => {
+  it('rejects a slug that is not written the way it is kept', () => {
     expect(
-      refusedAt(definitions.workspace({ name: 'Acme', slug: 'ACME' })),
+      invalidAt(definitions.workspace({ name: 'Acme', slug: 'ACME' })),
     ).toEqual(['slug']);
   });
 
@@ -47,7 +47,7 @@ describe('IdentityDefinitions', () => {
 
   it('points at the team key when it is not lowercase words', () => {
     expect(
-      refusedAt(definitions.team({ key: 'Core Team', name: 'Core' })),
+      invalidAt(definitions.team({ key: 'Core Team', name: 'Core' })),
     ).toEqual(['key']);
   });
 
@@ -81,7 +81,7 @@ describe('IdentityDefinitions', () => {
 
   it('points at each workspace token field it cannot read', () => {
     expect(
-      refusedAt(
+      invalidAt(
         definitions.workspaceToken({
           name: 'CI token',
           scopes: ['plan', 'apply'],
@@ -97,7 +97,7 @@ describe('IdentityDefinitions', () => {
     [['trusts'], /need one of them/],
     [['plan', 'plan'], /each scope once/],
     [[], /need one of them/],
-  ])('refuses a token whose scopes are %j', (scopes, reason) => {
+  ])('rejects a token whose scopes are %j', (scopes, reason) => {
     const compiled = definitions.workspaceToken({ name: 'ci', scopes });
 
     expect(

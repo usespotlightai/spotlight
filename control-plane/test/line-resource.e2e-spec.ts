@@ -253,7 +253,7 @@ describe('a line, created through the resource API (e2e)', () => {
     expect(dropped.body.definition.stations[1].alerts).toEqual([]);
   });
 
-  it('refuses a wrong alert at its field, an alert repeating one before it, a rubric whose scale it cannot read, and a judge or alerts where nothing runs', async () => {
+  it('rejects a wrong alert at its field, an alert repeating one before it, a rubric whose scale it cannot read, and a judge or alerts where nothing runs', async () => {
     const wrongAlert = await create(
       judged(JUDGE, [
         ALERTS[0] as object,
@@ -284,7 +284,7 @@ describe('a line, created through the resource API (e2e)', () => {
       judged(undefined, ALERTS, DELIVERY.stations.length - 1),
     );
 
-    for (const [refused, path] of [
+    for (const [rejected, path] of [
       [wrongAlert, 'stations[1].alerts[1].below'],
       [neither, 'stations[1].alerts[0]'],
       [several, 'stations[1].alerts[1]'],
@@ -293,8 +293,8 @@ describe('a line, created through the resource API (e2e)', () => {
       [unknownScale, 'stations[1].judge.rubric'],
       [atCompleted, `stations[${DELIVERY.stations.length - 1}].alerts`],
     ] as const) {
-      expect(refused.status).toBe(422);
-      expect(refused.body.errors).toEqual([expect.objectContaining({ path })]);
+      expect(rejected.status).toBe(422);
+      expect(rejected.body.errors).toEqual([expect.objectContaining({ path })]);
     }
   });
 
@@ -327,7 +327,7 @@ describe('a line, created through the resource API (e2e)', () => {
     });
   });
 
-  it('refuses a judge with neither a rubric nor claims, too many or too long claims, a pass share out of bounds, and a pass share without claims', async () => {
+  it('rejects a judge with neither a rubric nor claims, too many or too long claims, a pass share out of bounds, and a pass share without claims', async () => {
     const claims = ['The change adds a test.'];
     const neither = await create(judged({ sample: 0.2, trust: 0.6 }, []));
     const none = await create(
@@ -354,7 +354,7 @@ describe('a line, created through the resource API (e2e)', () => {
     );
     const shareAlone = await create(judged({ ...JUDGE, passShare: 0.5 }, []));
 
-    for (const [refused, path] of [
+    for (const [rejected, path] of [
       [neither, 'stations[1].judge.rubric'],
       [none, 'stations[1].judge.claims'],
       [tooMany, 'stations[1].judge.claims'],
@@ -363,8 +363,8 @@ describe('a line, created through the resource API (e2e)', () => {
       [share, 'stations[1].judge.passShare'],
       [shareAlone, 'stations[1].judge.passShare'],
     ] as const) {
-      expect(refused.status).toBe(422);
-      expect(refused.body.errors).toEqual([expect.objectContaining({ path })]);
+      expect(rejected.status).toBe(422);
+      expect(rejected.body.errors).toEqual([expect.objectContaining({ path })]);
     }
   });
 
@@ -386,7 +386,7 @@ describe('a line, created through the resource API (e2e)', () => {
     expect(dropped.body.definition).not.toHaveProperty('replayCheck');
   });
 
-  it('refuses a threshold setting at its field', async () => {
+  it('rejects a threshold setting at its field', async () => {
     for (const [replayCheck, path] of [
       [{ maxRegressions: -1 }, 'replayCheck.maxRegressions'],
       [{ ceiling: 0 }, 'replayCheck.ceiling'],
@@ -394,28 +394,28 @@ describe('a line, created through the resource API (e2e)', () => {
       [{ minGain: 0 }, 'replayCheck.minGain'],
       [{ minGain: 1.5 }, 'replayCheck.minGain'],
     ] as const) {
-      const refused = await create({ ...DELIVERY, replayCheck });
+      const rejected = await create({ ...DELIVERY, replayCheck });
 
-      expect(refused.status).toBe(422);
-      expect(refused.body.errors).toEqual([expect.objectContaining({ path })]);
+      expect(rejected.status).toBe(422);
+      expect(rejected.body.errors).toEqual([expect.objectContaining({ path })]);
     }
   });
 
-  it('refuses a station’s harness, model or name at its field', async () => {
+  it('rejects a station’s harness, model or name at its field', async () => {
     for (const [setting, path] of [
       [{ harness: 'h'.repeat(61) }, 'stations[1].harness'],
       [{ model: 'm'.repeat(61) }, 'stations[1].model'],
       [{ name: '   ' }, 'stations[1].name'],
     ] as const) {
-      const refused = await create({
+      const rejected = await create({
         ...DELIVERY,
         stations: DELIVERY.stations.map((each, place) =>
           place === 1 ? { ...each, ...setting } : each,
         ),
       });
 
-      expect(refused.status).toBe(422);
-      expect(refused.body.errors).toEqual([expect.objectContaining({ path })]);
+      expect(rejected.status).toBe(422);
+      expect(rejected.body.errors).toEqual([expect.objectContaining({ path })]);
     }
   });
 
@@ -445,16 +445,16 @@ describe('a line, created through the resource API (e2e)', () => {
     expect(dropped.body.definition).not.toHaveProperty('source');
   });
 
-  it('refuses a source setting at its field', async () => {
+  it('rejects a source setting at its field', async () => {
     for (const [source, path] of [
       [{ repository: 'platform', path: 'main.tf' }, 'source.repository'],
       [{ repository: 'acme/platform', path: '../main.tf' }, 'source.path'],
       [{ repository: 'acme/platform', path: 'main.hcl' }, 'source.path'],
     ] as const) {
-      const refused = await create({ ...DELIVERY, source });
+      const rejected = await create({ ...DELIVERY, source });
 
-      expect(refused.status).toBe(422);
-      expect(refused.body.errors).toEqual([expect.objectContaining({ path })]);
+      expect(rejected.status).toBe(422);
+      expect(rejected.body.errors).toEqual([expect.objectContaining({ path })]);
     }
   });
 
@@ -480,7 +480,7 @@ describe('a line, created through the resource API (e2e)', () => {
     expect(again.body.definition).toEqual(made.body.definition);
   });
 
-  it('refuses repositories naming different images, and a station checking its layers while a repository says no setup', async () => {
+  it('rejects repositories naming different images, and a station checking its layers while a repository says no setup', async () => {
     const mixed = await create({
       ...DELIVERY,
       repositories: [
@@ -540,9 +540,9 @@ describe('a line, created through the resource API (e2e)', () => {
     });
     const deleted = await remove(made.body.id, made.body.version);
 
-    for (const refused of [dropped, deleted]) {
-      expect(refused.status).toBe(409);
-      expect(refused.body).toMatchObject({
+    for (const rejected of [dropped, deleted]) {
+      expect(rejected.status).toBe(409);
+      expect(rejected.body).toMatchObject({
         type: 'urn:spotlight:problem:in-use',
         detail: expect.stringContaining('(1)'),
       });

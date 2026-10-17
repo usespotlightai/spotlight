@@ -100,7 +100,7 @@ const searchAt = (id: string): Search => {
           runId: entry.runId,
           taskId: entry.taskId,
           stationId: STATION.stationId,
-          refusal: null,
+          unreplayableReason: null,
           reason: null,
         },
         NOW,
@@ -122,7 +122,7 @@ const travelled = (search: Search): Search => {
       name: CandidateName.searched('terse'),
       replayId: ReplayId.of('replay_terse'),
     })
-    .proposalRefused(RunId.of('search_run_1'))
+    .proposalRejected(RunId.of('search_run_1'))
     .recordAgentSpend(
       RunId.of('search_run_1'),
       ModelSpent.of([usd(0.75)], 0),
@@ -274,7 +274,7 @@ describe('DrizzleSearchRepository', () => {
     ).toHaveLength(2);
   });
 
-  it('refuses a write from a search that changed, and deletes an abandoned one', async () => {
+  it('rejects a write from a search that changed, and deletes an abandoned one', async () => {
     const started = aSearch();
 
     await searches.add(started);
@@ -350,7 +350,7 @@ describe('replays, candidates and sets a search keeps', () => {
     expect(two?.search).toBeNull();
   });
 
-  it('refuses a second candidate of one name in one search, but not in another', async () => {
+  it('rejects a second candidate of one name in one search, but not in another', async () => {
     await candidates.add(searched('candidate_a', 'terse'));
 
     await expect(
@@ -392,7 +392,7 @@ describe('replays, candidates and sets a search keeps', () => {
     expect(await replays.ofSearch(SEARCH_ID)).toHaveLength(1);
   });
 
-  it('moves a set on when a search starts on it, so a writer with an older copy is refused', async () => {
+  it('moves a set on when a search starts on it, so a writer with an older copy is rejected', async () => {
     const set = aSet(10);
 
     await sets.add(set);

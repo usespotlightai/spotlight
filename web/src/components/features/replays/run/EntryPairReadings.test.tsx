@@ -80,13 +80,13 @@ describe('EntryPairReadings', () => {
       pair({
         state: 'unpaired',
         outcome: null,
-        unpaired: 'refused',
+        unpaired: 'request-failed',
         readings: [],
       }),
     );
 
     expect(
-      screen.getByText('Not judged side by side: judge declined.'),
+      screen.getByText('Not judged side by side: judge request failed.'),
     ).toBeInTheDocument();
   });
 });

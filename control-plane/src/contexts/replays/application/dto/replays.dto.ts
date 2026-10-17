@@ -8,7 +8,7 @@ export interface ReplaySetEntryDto {
   readonly state: string | null;
   readonly endedAt: string | null;
   readonly addedAt: string;
-  readonly refusal: string | null;
+  readonly unreplayableReason: string | null;
   readonly reason: string | null;
   readonly outcome: OriginalOutcome;
   readonly origin: string | null;
@@ -139,7 +139,7 @@ export interface ReplayableRunDto {
   readonly title: string;
   readonly state: string;
   readonly endedAt: string;
-  readonly refusal: string | null;
+  readonly unreplayableReason: string | null;
   readonly reason: string | null;
 }
 
@@ -248,7 +248,7 @@ export interface ReplayEntryDto {
   readonly fingerprint: string | null;
   readonly phase: 'waiting' | 'dispatched' | 'settled';
   readonly ending: string | null;
-  readonly refusal: string | null;
+  readonly unreplayableReason: string | null;
   readonly failure: string | null;
   readonly next: string | null;
   readonly ms: number | null;

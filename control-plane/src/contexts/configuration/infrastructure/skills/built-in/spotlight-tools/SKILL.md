@@ -58,7 +58,7 @@ id=$(spotlight linear issue-create --title "…" --team-id ENG | jq -r '.id')
 spotlight linear comment --issue "$id" --body "…"
 ```
 
-When a tool refuses, it says why on standard error and exits with a failure:
+When a tool fails, it says why on standard error and exits with a failure:
 read what it says, fix the inputs, and call it again.
 
 ## Tools a person approves

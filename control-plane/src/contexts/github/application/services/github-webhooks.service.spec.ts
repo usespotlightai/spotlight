@@ -125,7 +125,7 @@ describe('GitHubWebhooks', () => {
       expect(signature.signs).toHaveBeenCalledWith(DELIVERY.raw, 'sha256=abc');
     });
 
-    it('refuses a delivery without its bytes, or with a bad signature', () => {
+    it('rejects a delivery without its bytes, or with a bad signature', () => {
       expect(
         hooks({ installation: null, heard: [] }).service.verifies({
           ...DELIVERY,

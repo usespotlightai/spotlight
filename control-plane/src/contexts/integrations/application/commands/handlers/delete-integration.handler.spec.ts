@@ -52,7 +52,7 @@ describe('DeleteIntegrationHandler', () => {
     expect(saved.isRetired).toBe(true);
   });
 
-  it('refuses to delete a version no longer current, naming the current one', async () => {
+  it('does not delete a version no longer current, naming the current one', async () => {
     const { remove, kept } = deleting();
 
     expect(await remove(2)).toEqual({
@@ -64,7 +64,7 @@ describe('DeleteIntegrationHandler', () => {
 
   it('names the version that won when a change got there first', async () => {
     const { remove } = deleting({
-      refusing: new IntegrationDefinitionVersionConflictError('linear'),
+      failing: new IntegrationDefinitionVersionConflictError('linear'),
       thenAt: storedAt(4),
     });
 

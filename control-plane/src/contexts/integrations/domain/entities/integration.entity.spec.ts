@@ -53,13 +53,13 @@ describe('Integration', () => {
     expect(integration([]).declares).toHaveLength(0);
   });
 
-  it('refuses a word belonging to another source', () => {
+  it('rejects a word belonging to another source', () => {
     expect(() => integration([declared('github.issue.completed')])).toThrow(
       /without the linear\. prefix/,
     );
   });
 
-  it('refuses one that says a word twice', () => {
+  it('rejects one that says a word twice', () => {
     expect(() =>
       integration([
         declared('linear.issue.completed'),
@@ -81,7 +81,7 @@ describe('Integration', () => {
     expect(posting.postsOn('task.opened')).toBe(false);
   });
 
-  it('refuses a binding, or a tool, that names an action it does not define', () => {
+  it('rejects a binding, or a tool, that names an action it does not define', () => {
     expect(() =>
       Integration.of({
         source: LINEAR,
@@ -127,7 +127,7 @@ describe('Integration holder rule', () => {
     ).toBe(true);
   });
 
-  it('refuses to take each person’s connection when nobody can connect', () => {
+  it('rejects the requester holder rule when nobody can connect', () => {
     expect(() =>
       Integration.of({
         source: LINEAR,

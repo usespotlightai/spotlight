@@ -4,14 +4,14 @@ import { RepositoryFileUnwritableError } from '@github/application/errors/reposi
 import { RepositoryUnreachableError } from '@github/application/errors/repository-unreachable.error';
 import type { PullRequestPort } from '@github/application/ports/pull-request.port';
 import type { RepositoryContentsPort } from '@github/application/ports/repository-contents.port';
-import { ConfigRepositoryRefusedError } from '@replays/application/errors/config-repository-refused.error';
+import { ConfigRepositoryError } from '@replays/application/errors/config-repository.error';
 import type {
   ConfigCommit,
   ConfigFile,
   ConfigPullRequestOpening,
   ConfigRepositoryPort,
 } from '@replays/application/ports/config-repository.port';
-import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
+import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -23,19 +23,16 @@ const reaching = async <T>(asking: () => Promise<T>): Promise<T> => {
       error instanceof RepositoryUnreachableError ||
       error instanceof NoGitHubInstallationError
     ) {
-      throw new ConfigRepositoryRefusedError(
-        'repository-unreachable',
-        error.message,
-      );
+      throw new ConfigRepositoryError('repository-unreachable', error.message);
     }
     if (error instanceof BranchTakenError) {
-      throw new ConfigRepositoryRefusedError('branch-taken', error.message);
+      throw new ConfigRepositoryError('branch-taken', error.message);
     }
     if (error instanceof RepositoryFileUnwritableError) {
-      throw new ConfigRepositoryRefusedError('file-unwritable', error.message);
+      throw new ConfigRepositoryError('file-unwritable', error.message);
     }
-    if (error instanceof UpstreamRefusedError && !error.retryable) {
-      throw new ConfigRepositoryRefusedError('github-refused', error.message);
+    if (error instanceof UpstreamError && !error.retryable) {
+      throw new ConfigRepositoryError('github-error', error.message);
     }
     throw error;
   }

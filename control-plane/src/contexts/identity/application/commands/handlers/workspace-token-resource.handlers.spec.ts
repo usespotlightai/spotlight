@@ -29,12 +29,12 @@ const issuing = (
   over: {
     administers?: boolean;
     claim?: IdempotentClaim;
-    refusing?: Error;
+    throwing?: Error;
   } = {},
 ) => {
   const add = vi.fn(async (_: WorkspaceToken) => {
-    if (over.refusing) {
-      throw over.refusing;
+    if (over.throwing) {
+      throw over.throwing;
     }
   });
   const mint = new TokenMint();
@@ -109,7 +109,7 @@ describe('CreateWorkspaceTokenHandler', () => {
     expect(add).not.toHaveBeenCalled();
   });
 
-  it('refuses a token that has already expired, pointing at when', async () => {
+  it('rejects a token that has already expired, pointing at when', async () => {
     const { issue } = issuing();
     const issued = await issue({ ...CI, expiresAt: '2026-01-01T00:00:00Z' });
 
@@ -122,7 +122,7 @@ describe('CreateWorkspaceTokenHandler', () => {
 
   it('says the name is taken rather than answering a token', async () => {
     const { issue } = issuing({
-      refusing: new WorkspaceTokenAlreadyIssuedError('ci'),
+      throwing: new WorkspaceTokenAlreadyIssuedError('ci'),
     });
 
     expect(await issue(CI)).toEqual({

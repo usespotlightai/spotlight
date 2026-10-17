@@ -375,7 +375,7 @@ const entryOfSet = (entrySpec: SetEntrySpec): ReplaySetEntryResponseDto => {
     state: run?.state ?? null,
     endedAt: run?.endedAt ?? null,
     addedAt: hoursAgo(entrySpec.addedHoursAgo),
-    refusal: null,
+    unreplayableReason: null,
     reason: null,
     outcome: run?.outcome ?? 'other',
     origin: entrySpec.origin,
@@ -416,7 +416,7 @@ export const replayableRuns = (
       title: run.title,
       state: run.state,
       endedAt: run.endedAt,
-      refusal: gone ? 'archive-gone' : null,
+      unreplayableReason: gone ? 'archive-gone' : null,
       reason: gone
         ? 'The workspace archive that it started from is no longer kept.'
         : null,
@@ -464,7 +464,7 @@ export const suggestionsFor = (spec: SetSpec): SuggestedRunResponseDto[] =>
               title: run.title,
               state: run.state,
               endedAt: run.endedAt,
-              refusal: null,
+              unreplayableReason: null,
               reason: null,
               outcome: run.outcome,
             },

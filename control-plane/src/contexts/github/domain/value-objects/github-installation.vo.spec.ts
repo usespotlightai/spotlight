@@ -12,7 +12,7 @@ describe('GitHubInstallation', () => {
   });
 
   it.each(['', '  ', 'abc', '12a', '-1', '1.0', '12/34', '../../etc'])(
-    'refuses %o, which GitHub would never have named',
+    'rejects %o, which GitHub would never have named',
     (raw) => {
       expect(() => GitHubInstallation.of(raw)).toThrow(InvalidIdentifierError);
     },

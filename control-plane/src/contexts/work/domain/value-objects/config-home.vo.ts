@@ -7,7 +7,7 @@ const LONGEST_FOLDER = 200;
 
 const SEGMENT = /^[A-Za-z0-9._-]+$/;
 
-const folderRefusal = (folder: string): string | null => {
+const folderProblem = (folder: string): string | null => {
   if (folder.length === 0 || folder.length > LONGEST_FOLDER) {
     return `must be 1 to ${LONGEST_FOLDER} characters`;
   }
@@ -46,10 +46,10 @@ export class ConfigHome {
     }
 
     const folder = input.folder.trim().replace(/^\/+|\/+$/g, '');
-    const refused = folderRefusal(folder);
+    const problem = folderProblem(folder);
 
-    if (refused) {
-      throw new InvalidConfigHomeError('folder', refused);
+    if (problem) {
+      throw new InvalidConfigHomeError('folder', problem);
     }
 
     return new ConfigHome(repository, folder, null);

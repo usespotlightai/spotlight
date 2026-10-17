@@ -735,7 +735,7 @@ describe('PullRequest', () => {
       );
     });
 
-    it('refuses to record what is already past retention', () => {
+    it('does not record what is already past retention', () => {
       const long = new Date(NOW.getTime() - 181 * DAY);
 
       expect(

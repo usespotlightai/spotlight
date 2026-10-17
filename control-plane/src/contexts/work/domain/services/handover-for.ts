@@ -2,7 +2,7 @@ import type { RunFailureCode } from '@shared-kernel/domain/value-objects/run-fai
 import type { Line } from '@work/domain/aggregates/line.aggregate';
 import type { Declaration } from '@work/domain/value-objects/declaration.vo';
 import { Handover } from '@work/domain/value-objects/handover.vo';
-import type { PassRefusal } from '@work/domain/value-objects/line-refusal';
+import type { PassDenial } from '@work/domain/value-objects/line-denial';
 import type { RunOutcome } from '@work/domain/value-objects/run-outcome.vo';
 import type { StationId } from '@work/domain/value-objects/station-id.vo';
 import { TaskFailure } from '@work/domain/value-objects/task-failure.vo';
@@ -14,7 +14,7 @@ const spoken = (declaration: Declaration, fallback: string) =>
 const ownWords = (declaration: Declaration): TaskNoteBody | null =>
   declaration.note === '' ? null : TaskNoteBody.of(declaration.note);
 
-const REFUSED: Record<PassRefusal, (key: string) => string> = {
+const DENIALS: Record<PassDenial, (key: string) => string> = {
   'already-there': (key) =>
     `The run asked for station "${key}". The task is already there.`,
   'nothing-runs': (key) =>
@@ -82,11 +82,11 @@ export const HandoverFor = {
       );
     }
 
-    const refused = line.refusalToPass(currentStation, named);
+    const denial = line.passDenial(currentStation, named);
 
-    if (refused) {
+    if (denial) {
       return Handover.review(
-        TaskNoteBody.of(REFUSED[refused](named.key.value)),
+        TaskNoteBody.of(DENIALS[denial](named.key.value)),
         ownWords(declaration),
       );
     }

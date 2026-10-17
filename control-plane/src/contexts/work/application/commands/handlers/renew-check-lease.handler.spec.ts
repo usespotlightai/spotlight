@@ -78,7 +78,7 @@ describe('RenewCheckLeaseHandler', () => {
     expect(renewLease).not.toHaveBeenCalled();
   });
 
-  it('answers a refusal to renew as a fault', async () => {
+  it('answers a renewal that fails as a fault', async () => {
     const notLeased = Object.assign(new Error('not leased'), {
       violation: 'conflict' as const,
     });

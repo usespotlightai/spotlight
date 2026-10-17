@@ -315,7 +315,7 @@ const dispatching = () =>
       givenTo: async () => ({
         tools: [],
         skills: [],
-        refused: [
+        denied: [
           {
             id: 'catalog.web-search@1.1.0',
             reason: 'not-entitled',
@@ -388,14 +388,14 @@ const written = (run?: Run): RunSpecShape => {
   return RunSpecContract.toWire(run.spec);
 };
 
-const refusalOf = async (asked: Promise<unknown>) =>
+const unreplayableReasonOf = async (asked: Promise<unknown>) =>
   asked.then(
     () => {
       throw new Error('the replay was queued');
     },
     (error: unknown) => {
       if (error instanceof UnreplayableRunError) {
-        return error.refusal;
+        return error.unreplayableReason;
       }
       throw error;
     },
@@ -499,11 +499,11 @@ describe('DispatchReplay', () => {
     expect(written(queued[0]).briefing).toContain('> Drain oldest first.');
   });
 
-  it('refuses a replay of the answer whose answer is no longer there, queueing nothing', async () => {
+  it('rejects a replay of the answer whose answer is no longer there, queueing nothing', async () => {
     taskNotes = [];
 
     expect(
-      await refusalOf(
+      await unreplayableReasonOf(
         dispatching().enqueue({
           original: ORIGINAL,
           candidate: LINE,
@@ -514,7 +514,7 @@ describe('DispatchReplay', () => {
     expect(queued).toEqual([]);
   });
 
-  it('refuses no replay for a catalog tool that is denied to its plan, as a replay is given no tools', async () => {
+  it('queues a replay even for a catalog tool that is denied to its plan, as a replay is given no tools', async () => {
     await dispatching().enqueue({ original: ORIGINAL, candidate: LINE });
 
     expect(queued[0]?.hasEnded).toBe(false);
@@ -575,28 +575,28 @@ describe('DispatchReplay', () => {
     });
   });
 
-  it('refuses a run there is no record of', async () => {
+  it('rejects a run there is no record of', async () => {
     stored = null;
 
     expect(
-      await refusalOf(
+      await unreplayableReasonOf(
         dispatching().enqueue({ original: ORIGINAL, candidate: LINE }),
       ),
     ).toBe('unknown-run');
   });
 
-  it('refuses a run that never said where it started', async () => {
+  it('rejects a run that never said where it started', async () => {
     stored = original(null);
 
     expect(
-      await refusalOf(
+      await unreplayableReasonOf(
         dispatching().enqueue({ original: ORIGINAL, candidate: LINE }),
       ),
     ).toBe('no-starting-point');
     expect(queued).toEqual([]);
   });
 
-  it('refuses a run whose archive is no longer kept, naming it', async () => {
+  it('rejects a run whose archive is no longer kept, naming it', async () => {
     for (const gone of [null, sealed('ws_2')]) {
       kept = gone;
 
@@ -607,20 +607,20 @@ describe('DispatchReplay', () => {
     expect(queued).toEqual([]);
   });
 
-  it('refuses a run whose briefed files are no longer kept', async () => {
+  it('rejects a run whose briefed files are no longer kept', async () => {
     gone = [SCREENSHOT.id.value];
 
     expect(
-      await refusalOf(
+      await unreplayableReasonOf(
         dispatching().enqueue({ original: ORIGINAL, candidate: LINE }),
       ),
     ).toBe('attachments-gone');
     expect(queued).toEqual([]);
   });
 
-  it('refuses a candidate no runner can start', async () => {
+  it('rejects a candidate no runner can start', async () => {
     expect(
-      await refusalOf(
+      await unreplayableReasonOf(
         dispatching().enqueue({
           original: ORIGINAL,
           candidate: candidateOf(LINE, BUILD, {
@@ -631,11 +631,11 @@ describe('DispatchReplay', () => {
     ).toBe('cannot-start');
   });
 
-  it('refuses a run whose task was deleted', async () => {
+  it('rejects a run whose task was deleted', async () => {
     taskGone = true;
 
     expect(
-      await refusalOf(
+      await unreplayableReasonOf(
         dispatching().enqueue({ original: ORIGINAL, candidate: LINE }),
       ),
     ).toBe('task-gone');
@@ -657,7 +657,7 @@ describe('DispatchReplay', () => {
     expect(queued.map((each) => each.id.value)).toEqual(['run_9']);
   });
 
-  it('refuses to take a run queued under the id as its replay when it replays another run', async () => {
+  it('does not take a run queued under the id as its replay when it replays another run', async () => {
     const id = RunId.of('run_9');
     await dispatching().enqueue({ original: ORIGINAL, candidate: LINE, id });
 

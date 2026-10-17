@@ -9,7 +9,7 @@ const BACKING_OFF = Retry.backoff({
 
 export const PROVISION_FAILURES = {
   unreachable: BACKING_OFF,
-  refused: BACKING_OFF,
+  'http-error': BACKING_OFF,
   lapsed: BACKING_OFF,
   'not-allowed': Retry.never(),
   unusable: Retry.never(),

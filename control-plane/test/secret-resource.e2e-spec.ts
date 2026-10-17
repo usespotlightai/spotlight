@@ -243,16 +243,16 @@ describe('a secret, set through the resource API (e2e)', () => {
     expect(await injected()).toEqual({ authorization: `Bearer ${VALUE}_2` });
   });
 
-  it('refuses a new valueWoVersion that comes without its value', async () => {
+  it('rejects a new valueWoVersion that comes without its value', async () => {
     const made = await admin().create(LINEAR);
-    const refused = await admin().update(made.body.id, made.body.version, {
+    const rejected = await admin().update(made.body.id, made.body.version, {
       ...LINEAR,
       valueWo: undefined,
       valueWoVersion: 2,
     });
 
-    expect(refused.status).toBe(422);
-    expect(refused.body.errors).toContainEqual(
+    expect(rejected.status).toBe(422);
+    expect(rejected.body.errors).toContainEqual(
       expect.objectContaining({ path: 'valueWo' }),
     );
     expect(await injected()).toEqual({ authorization: `Bearer ${VALUE}` });

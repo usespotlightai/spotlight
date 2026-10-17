@@ -42,13 +42,13 @@ describe('JudgeEvidence', () => {
     expect(reason.citations.map((each) => each.kind)).toEqual(['step', 'hunk']);
   });
 
-  it('refuses a reason citing a step that is not there', () => {
+  it('rejects a reason citing a step that is not there', () => {
     expect(() =>
       evidenceOf().reasonOf({ text: 'It retried.', steps: [99], hunks: [] }),
     ).toThrow(InvalidScoreError);
   });
 
-  it('refuses a reason citing a hunk that is not there', () => {
+  it('rejects a reason citing a hunk that is not there', () => {
     expect(() =>
       evidenceOf().reasonOf({
         text: 'It retried.',
@@ -58,7 +58,7 @@ describe('JudgeEvidence', () => {
     ).toThrow(InvalidScoreError);
   });
 
-  it('refuses a reason citing nothing', () => {
+  it('rejects a reason citing nothing', () => {
     expect(() =>
       evidenceOf().reasonOf({ text: 'It retried.', steps: [], hunks: [] }),
     ).toThrow(InvalidScoreError);

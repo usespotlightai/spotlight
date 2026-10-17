@@ -142,20 +142,20 @@ describe('the team’s memory', () => {
     });
   });
 
-  it('refuses a line, station or repository the team does not have', async () => {
+  it('rejects a line, station or repository the team does not have', async () => {
     for (const where of [
       { lineId: randomUUID() },
       { lineId: LINE, stationId: team.stationId.value },
       { repository: 'acme/elsewhere' },
       { kind: 'gossip' },
     ]) {
-      const refused = await writing({
+      const rejected = await writing({
         kind: 'preference',
         body: 'Anything.',
         ...where,
       });
 
-      expect(refused.status).toBe(422);
+      expect(rejected.status).toBe(422);
     }
   });
 
@@ -244,7 +244,7 @@ describe('the team’s memory', () => {
     expect((await listing()).map((each) => each.id)).not.toContain(memory.id);
   });
 
-  it('keeps one correction when two arrive at once, and refuses correcting a retired memory', async () => {
+  it('keeps one correction when two arrive at once, and rejects a correction of a retired memory', async () => {
     const old = (
       await writing({ kind: 'preference', body: 'Squash every merge.' })
     ).body as MemoryBody;

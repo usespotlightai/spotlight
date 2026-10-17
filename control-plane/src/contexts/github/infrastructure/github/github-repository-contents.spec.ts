@@ -178,7 +178,7 @@ describe('GitHubRepositoryContents', () => {
     ).toBeNull();
   });
 
-  it('refuses a repository the installation cannot reach', async () => {
+  it('rejects a repository the installation cannot reach', async () => {
     github({ unreachable: true });
 
     await expect(
@@ -239,7 +239,7 @@ describe('GitHubRepositoryContents', () => {
     });
   });
 
-  it('refuses to move a branch that has commits Spotlight did not write', async () => {
+  it('does not move a branch that has commits Spotlight did not write', async () => {
     github({ branchTaken: true, head: 'commit_theirs' });
 
     await expect(
@@ -254,7 +254,7 @@ describe('GitHubRepositoryContents', () => {
     expect(sent.some((each) => each.method === 'PATCH')).toBe(false);
   });
 
-  it('keeps an executable file executable and refuses a symbolic link', async () => {
+  it('keeps an executable file executable and rejects a symbolic link', async () => {
     github();
 
     await contents().committed(WORKSPACE, PLATFORM, {
@@ -290,7 +290,7 @@ describe('GitHubRepositoryContents', () => {
     ).rejects.toBeInstanceOf(RepositoryFileUnwritableError);
   });
 
-  it('says whether a refusal is worth trying again', async () => {
+  it('says whether an upstream error is worth trying again', async () => {
     github({ forbidden: { remaining: '12' } });
 
     await expect(

@@ -104,7 +104,7 @@ export class SignedProvisionCalls implements ProvisionCallsPort {
     }
 
     return {
-      outcome: 'refused',
+      outcome: 'http-error',
       detail: `Provision URL answered ${answered.status}.${said ? ` Response: ${said}` : ''}`,
     };
   }

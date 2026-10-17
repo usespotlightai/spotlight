@@ -1,5 +1,5 @@
 import type { Credentials } from '@integrations/application/ports/integration-runtime.port';
-import { OutboundRefusedError } from '@integrations/domain/exceptions/outbound-refused.error';
+import { EgressBlockedError } from '@integrations/domain/exceptions/egress-blocked.error';
 import { cappedText } from '@integrations/infrastructure/outbound/capped-body';
 import {
   type Dressed,
@@ -110,7 +110,7 @@ export class SourceFetch {
 
       if (
         error instanceof DescriptionUnreadable ||
-        error instanceof OutboundRefusedError
+        error instanceof EgressBlockedError
       ) {
         throw error;
       }

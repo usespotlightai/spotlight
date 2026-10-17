@@ -35,11 +35,11 @@ describe('DeclaredTool', () => {
     expect(tool.inputs.map((each) => each.name)).toEqual(['issue', 'body']);
   });
 
-  it('refuses a tool that does not say what it is for', () => {
+  it('rejects a tool that does not say what it is for', () => {
     expect(() => declared([], '  ')).toThrow(InvalidToolError);
   });
 
-  it('refuses an input named twice, or named unlike a flag', () => {
+  it('rejects an input named twice, or named unlike a flag', () => {
     expect(() => declared([input(), input()])).toThrow(/names an input twice/);
     expect(() => declared([input({ name: '$top' })])).toThrow(/underscores/);
     expect(() => declared([input({ name: 'json' })])).toThrow(
@@ -50,7 +50,7 @@ describe('DeclaredTool', () => {
     ).toEqual(['teamId']);
   });
 
-  it('refuses more than one piped input, and one that is not text', () => {
+  it('rejects more than one piped input, and one that is not text', () => {
     expect(() =>
       declared([input({ piped: true }), input({ name: 'note', piped: true })]),
     ).toThrow(/can pipe in only one input/);
@@ -78,7 +78,7 @@ describe('DeclaredTool', () => {
       expect(rest).toEqual({ body: 'Fixed.' });
     });
 
-    it('leaves it to be refused like any input, where nobody approves the call', () => {
+    it('leaves it to be rejected like any input, where nobody approves the call', () => {
       const { intent, rest } = declared([input()]).intentIn({
         body: 'Fixed.',
         intent: 'post it',
@@ -88,7 +88,7 @@ describe('DeclaredTool', () => {
       expect(rest).toEqual({ body: 'Fixed.', intent: 'post it' });
     });
 
-    it('refuses a tool needing approval that takes an input of that name', () => {
+    it('rejects a tool needing approval that takes an input of that name', () => {
       expect(() => approving([input({ name: 'intent' })])).toThrow(
         /reserved for approvals/,
       );
@@ -140,13 +140,13 @@ describe('DeclaredTool', () => {
       ).toEqual({ issue: 'ENG-2', body: 'Fixed.' });
     });
 
-    it('refuses an input it does not take, saying what it does', () => {
+    it('rejects an input it does not take, saying what it does', () => {
       expect(() => commenting.accept({ body: 'x', isue: 'ENG-1' })).toThrow(
         'linear.comment takes no isue; it takes issue, body, count, urgent, filter',
       );
     });
 
-    it('refuses to go without an input it needs, counting blank as left out', () => {
+    it('does not go without an input it needs, counting blank as left out', () => {
       expect(() => commenting.accept({ issue: 'ENG-1' })).toThrow(
         InvalidToolInputError,
       );
@@ -158,7 +158,7 @@ describe('DeclaredTool', () => {
       );
     });
 
-    it('refuses an input that is not the type it takes', () => {
+    it('rejects an input that is not the type it takes', () => {
       expect(() =>
         commenting.accept({ issue: 'ENG-1', body: 'x', count: 'many' }),
       ).toThrow('linear.comment takes count, and "many" is not a number');

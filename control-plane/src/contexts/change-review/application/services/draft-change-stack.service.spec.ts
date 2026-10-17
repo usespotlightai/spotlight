@@ -332,7 +332,7 @@ describe('DraftChangeStack', () => {
     });
   });
 
-  it('refuses where this deployment cannot draft stacks', async () => {
+  it('fails where this deployment cannot draft stacks', async () => {
     const { service } = drafting({ available: false });
 
     await expect(
@@ -345,7 +345,7 @@ describe('DraftChangeStack', () => {
     ).rejects.toThrow(ChangeStacksUnavailableError);
   });
 
-  it('refuses text that is not a diff, keeping nothing', async () => {
+  it('rejects text that is not a diff, keeping nothing', async () => {
     const { service, saved } = drafting();
 
     await expect(

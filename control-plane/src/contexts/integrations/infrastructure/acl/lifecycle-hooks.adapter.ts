@@ -12,9 +12,9 @@ import type {
 const eventOf = ({ on: _, ...event }: BeforeMoment | ToolUsedMoment) => event;
 
 const verdictOf = (verdict: FiredVerdict): HookVerdict =>
-  verdict.refusal === null
+  verdict.denyReason === null
     ? { kind: 'allowed' }
-    : { kind: 'refused', reason: verdict.refusal };
+    : { kind: 'denied', reason: verdict.denyReason };
 
 export class LifecycleHooks implements LifecycleHooksPort {
   constructor(private readonly firings: FireHooks) {}

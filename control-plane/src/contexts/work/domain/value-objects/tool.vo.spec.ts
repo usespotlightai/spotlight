@@ -21,7 +21,7 @@ describe('Tool', () => {
     '-pull',
     'pull-',
     'pull--request',
-  ])('refuses %o, which is not how a tool is named', (raw) => {
+  ])('rejects %o, which is not how a tool is named', (raw) => {
     expect(() => Tool.of(raw)).toThrow(InvalidIdentifierError);
   });
 

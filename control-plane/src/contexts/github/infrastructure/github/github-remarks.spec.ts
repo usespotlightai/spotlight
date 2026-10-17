@@ -1,7 +1,7 @@
 import type { RemarkAnswer } from '@github/application/ports/remarks.port';
 import { GitHubRemarks } from '@github/infrastructure/github/github-remarks';
 import { InvalidPullRequestError } from '@shared-kernel/domain/exceptions/invalid-pull-request.error';
-import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
+import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
@@ -133,16 +133,16 @@ describe('GitHubRemarks', () => {
       expect(asked[1]?.body).toEqual({ body: 'Split out in 4a1c2b0.' });
     });
 
-    it('refuses to resolve what is in no thread', async () => {
+    it('does not resolve what is in no thread', async () => {
       replies = [answered([])];
 
       await expect(
         remarks().answer(answering({ resolve: true })),
-      ).rejects.toThrow(UpstreamRefusedError);
+      ).rejects.toThrow(UpstreamError);
     });
   });
 
-  it('refuses an address that names no pull request', async () => {
+  it('rejects an address that names no pull request', async () => {
     replies = [answered([thread()])];
 
     await expect(
@@ -154,7 +154,7 @@ describe('GitHubRemarks', () => {
     ).rejects.toThrow(InvalidPullRequestError);
   });
 
-  it('carries back what the host refused, so the agent can read it', async () => {
+  it('carries back the host error, so the agent can read it', async () => {
     replies = [
       { errors: [{ message: 'Resource not accessible by integration' }] },
     ];

@@ -35,7 +35,7 @@ describe('givePoolToken', () => {
     expect(given.give).toHaveBeenCalledWith(hashOf('a'), pool.id);
   });
 
-  it('refuses a token another pool uses as taken, and records nothing', async () => {
+  it('rejects a token another pool uses as taken, and records nothing', async () => {
     const { given, pools } = giving({ given: true, inUse: true });
 
     await expect(
@@ -44,7 +44,7 @@ describe('givePoolToken', () => {
     expect(given.give).not.toHaveBeenCalled();
   });
 
-  it('refuses a token given once before as spent, and records nothing', async () => {
+  it('rejects a token given once before as spent, and records nothing', async () => {
     const { given, pools } = giving({ given: true });
 
     await expect(

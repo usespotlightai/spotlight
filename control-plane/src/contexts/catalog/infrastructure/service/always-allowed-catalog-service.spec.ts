@@ -2,7 +2,7 @@ import type { CatalogTool } from '@catalog/domain/entities/catalog-item.entity';
 import { CatalogItemId } from '@catalog/domain/value-objects/catalog-item-id.vo';
 import { CATALOG_ITEMS } from '@catalog/infrastructure/catalog/catalog-items';
 import { AlwaysAllowedCatalogService } from '@catalog/infrastructure/service/always-allowed-catalog-service';
-import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
+import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
 import { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import { describe, expect, it } from 'vitest';
@@ -55,11 +55,11 @@ describe('AlwaysAllowedCatalogService', () => {
     });
   });
 
-  it('says the catalog refused when it answers with anything but an output', async () => {
+  it('says the catalog failed when it answers with anything but an output', async () => {
     const { service } = serving(502, { error: 'down' });
 
     await expect(service.call(webSearch(), {}, ON)).rejects.toThrow(
-      UpstreamRefusedError,
+      UpstreamError,
     );
   });
 });

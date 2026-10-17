@@ -111,7 +111,7 @@ describe('X25519RunSealing', () => {
     expect(once).not.toBe(again);
   });
 
-  it('refuses a recipient that is not a 32-byte key in base64', () => {
+  it('rejects a recipient that is not a 32-byte key in base64', () => {
     for (const written of [
       '',
       'not-base64!',

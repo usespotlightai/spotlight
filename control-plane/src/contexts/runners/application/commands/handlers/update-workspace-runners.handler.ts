@@ -78,7 +78,7 @@ export class UpdateWorkspaceRunnersHandler
       if (error instanceof InvalidWorkspaceRunnersError) {
         return {
           outcome: 'invalid',
-          problems: [RunnerProblems.declarationRefused(error)],
+          problems: [RunnerProblems.declarationInvalid(error)],
         };
       }
 

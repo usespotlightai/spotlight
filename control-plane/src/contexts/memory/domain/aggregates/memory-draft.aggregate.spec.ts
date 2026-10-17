@@ -233,7 +233,7 @@ describe('MemoryDraft', () => {
       );
     });
 
-    it('refuses to draft from the evidence of another task or run', () => {
+    it('does not draft from the evidence of another task or run', () => {
       const asked = opened().asked(FIRST, NOW);
 
       expect(() =>
@@ -281,7 +281,9 @@ describe('MemoryDraft', () => {
     it('tries again later where the failure allows another attempt', () => {
       const leased = opened().asked(FIRST, NOW).leased(NOW);
 
-      const failed = leased.failed(MemoryDraftingFailure.of('refused', NOW));
+      const failed = leased.failed(
+        MemoryDraftingFailure.of('request-failed', NOW),
+      );
 
       expect(failed.owesWork).toBe(true);
       expect(failed.drafting?.work.dueAt?.getTime()).toBe(
@@ -353,7 +355,7 @@ describe('MemoryDraft', () => {
       const waiting = opened()
         .asked(FIRST, NOW)
         .leased(NOW)
-        .failed(MemoryDraftingFailure.of('refused', NOW));
+        .failed(MemoryDraftingFailure.of('request-failed', NOW));
 
       expect(() => waiting.leased(NOW)).toThrow(InvalidMemoryError);
     });
@@ -514,7 +516,7 @@ describe('MemoryDraft', () => {
       ).toThrow(MemoryAlreadyDecidedError);
     });
 
-    it('refuses a memory of another run than the one under review', () => {
+    it('rejects a memory of another run than the one under review', () => {
       const draft = three();
 
       expect(() =>
@@ -522,7 +524,7 @@ describe('MemoryDraft', () => {
       ).toThrow(UnknownMemoryError);
     });
 
-    it('refuses a memory it does not contain, or one named twice', () => {
+    it('rejects a memory it does not contain, or one named twice', () => {
       const draft = three();
 
       expect(() =>
@@ -652,7 +654,7 @@ describe('MemoryDraft', () => {
       expect(draft.findProposal(again)?.id.value).toBe('memory_asked');
     });
 
-    it('refuses a drafted proposal, or one of another task', () => {
+    it('rejects a drafted proposal, or one of another task', () => {
       const [drafted] = drafting(opened().asked(FIRST, NOW), FIRST, [
         remembered(),
       ]).proposals;
@@ -712,7 +714,7 @@ describe('MemoryDraft', () => {
   });
 
   describe('rehydrating', () => {
-    it('refuses a proposal grounded in another task', () => {
+    it('rejects a proposal grounded in another task', () => {
       const other = MemoryProposal.of({
         id: MemoryId.of('memory_other'),
         kind: 'preference',

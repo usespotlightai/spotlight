@@ -43,8 +43,8 @@ func (r *records) flush(ctx context.Context) {
 		sending := batch[at:min(at+protocol.MaxRecordsAtOnce, len(batch))]
 
 		err := r.control.RecordConnections(ctx, sending)
-		if refused(err) {
-			r.log.Warn("the control plane refused connection records", "connections", len(sending), "error", err)
+		if isRejected(err) {
+			r.log.Warn("the control plane did not accept connection records", "connections", len(sending), "error", err)
 			continue
 		}
 		if err != nil {

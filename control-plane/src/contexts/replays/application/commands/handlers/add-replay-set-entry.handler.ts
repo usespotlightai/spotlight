@@ -58,7 +58,7 @@ export class AddReplaySetEntryHandler
               runId: run,
               taskId: null,
               stationId: null,
-              refusal: 'unknown-run',
+              unreplayableReason: 'unknown-run',
               reason: 'run not found',
             },
             this.clock.now(),

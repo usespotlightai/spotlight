@@ -27,7 +27,7 @@ export class ReportHostPresenceHandler
       const admitted = await this.admissions.admit(command.credential);
 
       if (!admitted) {
-        return { outcome: 'refused' };
+        return { outcome: 'unauthorized' };
       }
 
       const id = HostId.of(command.hostId);

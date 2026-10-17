@@ -1,4 +1,4 @@
-import type { ReplayRefusalCode } from '@work/application/contracts/replay-refusal.contract';
+import type { UnreplayableReasonCode } from '@work/application/contracts/unreplayable-reason.contract';
 
 export const REPLAY_DISPATCH = Symbol('REPLAY_DISPATCH');
 
@@ -19,7 +19,7 @@ export type ReplayDispatched =
   | { readonly outcome: 'queued'; readonly fingerprint: string | null }
   | {
       readonly outcome: 'unreplayable';
-      readonly refusal: ReplayRefusalCode;
+      readonly unreplayableReason: UnreplayableReasonCode;
       readonly reason: string;
     };
 

@@ -268,13 +268,13 @@ describe('a search for a better station config', () => {
     ).toBe(true);
 
     const block = await liveBlock();
-    const refused = await proposing(agent, {
+    const rejected = await proposing(agent, {
       name: 'Not a slug',
       hypothesis: '',
       station: { ...block, passesTo: [] },
     }).expect(422);
 
-    expect(refused.body.errors).toEqual(
+    expect(rejected.body.errors).toEqual(
       expect.arrayContaining([
         { path: 'name', message: expect.any(String), severity: 'error' },
         { path: 'hypothesis', message: expect.any(String), severity: 'error' },

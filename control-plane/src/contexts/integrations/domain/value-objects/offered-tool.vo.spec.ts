@@ -46,11 +46,11 @@ describe('OfferedTool', () => {
     expect(tool.inputs.map((each) => each.name)).toEqual(['issue', 'body']);
   });
 
-  it('refuses a tool that does not say what it is for', () => {
+  it('rejects a tool that does not say what it is for', () => {
     expect(() => offered([], '  ')).toThrow(InvalidIntegrationError);
   });
 
-  it('refuses an input named twice, or named unlike a flag', () => {
+  it('rejects an input named twice, or named unlike a flag', () => {
     expect(() => offered([input(), input()])).toThrow(InvalidIntegrationError);
     expect(() => offered([input({ name: '$filter' })])).toThrow(
       InvalidIntegrationError,
@@ -69,7 +69,7 @@ describe('OfferedTool', () => {
     ).toEqual(['teamId', 'team_key']);
   });
 
-  it('refuses a tool needing approval that takes intent, which the agent says what it wants to do in', () => {
+  it('rejects a tool needing approval that takes intent, which the agent says what it wants to do in', () => {
     const offering = (approval: ApprovalNeeded | null) =>
       OfferedTool.of({
         source: SourceKey.of('linear'),
@@ -88,7 +88,7 @@ describe('OfferedTool', () => {
     expect(offering(null).inputs.map((each) => each.name)).toEqual(['intent']);
   });
 
-  it('refuses more than one piped input, or one that is not text', () => {
+  it('rejects more than one piped input, or one that is not text', () => {
     expect(() =>
       offered([
         input({ name: 'one', piped: true }),

@@ -63,20 +63,20 @@ func (s *Sender) Send(ctx context.Context, call protocol.HostCall) protocol.Host
 func (s *Sender) sent(ctx context.Context, call protocol.HostCall, timeout time.Duration) (protocol.HostCallAnswer, error) {
 	address, err := url.Parse(call.URL)
 	if err != nil || address.Hostname() == "" {
-		return protocol.HostCallAnswer{}, &guard.Refusal{Reason: fmt.Sprintf("The call's URL isn't a valid address. URL: %s", call.URL)}
+		return protocol.HostCallAnswer{}, &guard.Blocked{Reason: fmt.Sprintf("The call's URL isn't a valid address. URL: %s", call.URL)}
 	}
 	if address.Scheme != "https" && address.Scheme != "http" {
-		return protocol.HostCallAnswer{}, &guard.Refusal{Reason: fmt.Sprintf("Egress sends only http and https calls. Scheme: %s", address.Scheme)}
+		return protocol.HostCallAnswer{}, &guard.Blocked{Reason: fmt.Sprintf("Egress sends only http and https calls. Scheme: %s", address.Scheme)}
 	}
 
 	host := address.Hostname()
 	if !s.allowed.Admits(host) {
-		return protocol.HostCallAnswer{}, &guard.Refusal{Reason: fmt.Sprintf("The host's allow-list doesn't admit %s.", host)}
+		return protocol.HostCallAnswer{}, &guard.Blocked{Reason: fmt.Sprintf("The host's allow-list doesn't admit %s.", host)}
 	}
 
 	body, err := base64.StdEncoding.DecodeString(call.Body)
 	if err != nil {
-		return protocol.HostCallAnswer{}, &guard.Refusal{Reason: "The call's body isn't base64."}
+		return protocol.HostCallAnswer{}, &guard.Blocked{Reason: "The call's body isn't base64."}
 	}
 
 	sending, cancel := context.WithTimeout(guard.Naming(ctx, s.allowed.Names(host)), timeout)
@@ -124,14 +124,14 @@ func (s *Sender) sent(ctx context.Context, call protocol.HostCall, timeout time.
 
 func plain(err error, timeout time.Duration) string {
 	var (
-		refusal    *guard.Refusal
+		blocked    *guard.Blocked
 		unresolved *net.DNSError
 		unverified *tls.CertificateVerificationError
 	)
 
 	switch {
-	case errors.As(err, &refusal):
-		return refusal.Reason
+	case errors.As(err, &blocked):
+		return blocked.Reason
 	case errors.Is(err, context.DeadlineExceeded) || timedOut(err):
 		return fmt.Sprintf("The call timed out. Time limit: %s", timeout)
 	case errors.Is(err, context.Canceled):

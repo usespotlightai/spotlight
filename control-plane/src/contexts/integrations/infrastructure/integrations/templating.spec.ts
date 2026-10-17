@@ -47,7 +47,7 @@ describe('a templated string', () => {
     expect(textOf(templated(compile('ask.nothing')), against)).toBeNull();
   });
 
-  it('reads what cannot be read as nothing, or refuses it where it is required', () => {
+  it('reads what cannot be read as nothing, or rejects it where it is required', () => {
     const template = templated('Asked: ', compile('ask.nothing', { at }));
 
     expect(textOf(template, against)).toBe('Asked: ');

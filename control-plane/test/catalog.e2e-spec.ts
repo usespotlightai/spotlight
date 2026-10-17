@@ -289,13 +289,13 @@ describe('a station giving catalog tools and skills (e2e)', () => {
       .set('Idempotency-Key', randomUUID())
       .send(body);
 
-  it('refuses to save a line naming a catalog item the plan does not include, pointing at where it is named', async () => {
+  it('rejects a line naming a catalog item the plan does not include, pointing at where it is named', async () => {
     const at = definitionOf(BUILT_IN_LINES[0] as LineOpening).stations[1]?.tools
       .length;
-    const refused = await created(giving(['catalog.web-search@1.1.0'], []));
+    const rejected = await created(giving(['catalog.web-search@1.1.0'], []));
 
-    expect(refused.status).toBe(422);
-    expect(refused.body.errors).toEqual([
+    expect(rejected.status).toBe(422);
+    expect(rejected.body.errors).toEqual([
       expect.objectContaining({
         path: `stations[1].tools[${at}]`,
         message:
@@ -304,13 +304,13 @@ describe('a station giving catalog tools and skills (e2e)', () => {
     ]);
   });
 
-  it('refuses to save a line naming something the catalog does not have', async () => {
+  it('rejects a line naming something the catalog does not have', async () => {
     await onTheTeamPlan();
 
-    const refused = await created(giving([], ['catalog.research@9.0.0']));
+    const rejected = await created(giving([], ['catalog.research@9.0.0']));
 
-    expect(refused.status).toBe(422);
-    expect(refused.body.errors).toEqual([
+    expect(rejected.status).toBe(422);
+    expect(rejected.body.errors).toEqual([
       expect.objectContaining({
         path: 'stations[1].skills[0]',
         message: 'Catalog has no item catalog.research@9.0.0.',
@@ -349,8 +349,8 @@ describe('a station giving catalog tools and skills (e2e)', () => {
     );
   });
 
-  it('refuses one catalog tool named at two versions, pointing at the station', async () => {
-    const refused = await served(app)
+  it('rejects one catalog tool named at two versions, pointing at the station', async () => {
+    const rejected = await served(app)
       .post(`/api/resources/teams/${team}/lines`)
       .set(TEST_USER_HEADER, seat.owner)
       .set('Idempotency-Key', randomUUID())
@@ -358,8 +358,8 @@ describe('a station giving catalog tools and skills (e2e)', () => {
         giving(['catalog.web-search@1.0.0', 'catalog.web-search@1.1.0'], []),
       );
 
-    expect(refused.status).toBe(422);
-    expect(refused.body.detail).toContain('catalog.web-search twice');
+    expect(rejected.status).toBe(422);
+    expect(rejected.body.detail).toContain('catalog.web-search twice');
   });
 });
 

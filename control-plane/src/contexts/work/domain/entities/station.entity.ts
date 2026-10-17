@@ -3,8 +3,8 @@ import type { HarnessModel } from '@shared-kernel/domain/value-objects/harness-m
 import { RunnerPlacement } from '@shared-kernel/domain/value-objects/runner-placement.vo';
 import { InvalidStationChangeError } from '@work/domain/exceptions/invalid-station-change.error';
 import {
-  skillsRefused,
-  toolsRefused,
+  skillsProblem,
+  toolsProblem,
 } from '@work/domain/services/station-gives';
 import type { AgentPrompt } from '@work/domain/value-objects/agent-prompt.vo';
 import type { Effort } from '@work/domain/value-objects/effort.vo';
@@ -170,10 +170,10 @@ export abstract class Station {
     tools: readonly Tool[],
     skills: readonly SkillKey[],
   ): void {
-    const refused = skillsRefused(skills) ?? toolsRefused(tools);
+    const problem = skillsProblem(skills) ?? toolsProblem(tools);
 
-    if (refused) {
-      throw new InvalidStationChangeError(refused);
+    if (problem) {
+      throw new InvalidStationChangeError(problem);
     }
   }
 

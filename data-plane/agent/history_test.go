@@ -315,7 +315,7 @@ func TestHistoryNeedsAStationThatIsOneFolder(t *testing.T) {
 	}
 }
 
-func TestHistoryCarriesSpotlightsRefusalToTheAgent(t *testing.T) {
+func TestHistoryCarriesSpotlightsErrorToTheAgent(t *testing.T) {
 	server, err := serveHandover([]string{"spec"}, nil)
 	if err != nil {
 		t.Fatalf("serve: %v", err)

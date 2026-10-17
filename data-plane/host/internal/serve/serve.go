@@ -335,7 +335,7 @@ func (h *Host) claim(ctx, serving context.Context, image string) error {
 		if !ok {
 			return nil
 		}
-		if current.refused != "" {
+		if current.unavailableReason != "" {
 			if !sleep(ctx, jitter(retryCeiling)) {
 				return nil
 			}
@@ -418,9 +418,9 @@ func Final(err error) bool {
 }
 
 func final(err error) bool {
-	return errors.Is(err, control.ErrRefused) ||
-		control.Rejected(err, "host-taken") ||
-		control.Rejected(err, "host-unreported")
+	return errors.Is(err, control.ErrUnauthorized) ||
+		control.HasReason(err, "host-taken") ||
+		control.HasReason(err, "host-unreported")
 }
 
 func (h *Host) sandbox(ctx context.Context, image string, handed protocol.Handed) {
@@ -614,13 +614,13 @@ func (h *Host) readied(
 	switch {
 	case err != nil:
 		reason = fmt.Sprintf("Runner image %s can't be pulled. Error: %v", image, err)
-	case ready.refused != "":
-		reason = fmt.Sprintf("Runner image %s is refused. %s", image, ready.refused)
+	case ready.unavailableReason != "":
+		reason = fmt.Sprintf("Runner image %s is unavailable. %s", image, ready.unavailableReason)
 	case handed.Work.Run != nil && handed.Work.Run.Harness != "" && !ready.hasHarness(handed.Work.Run.Harness):
 		reason = fmt.Sprintf("Runner image %s no longer has the %s harness.", ready.digest, handed.Work.Run.Harness)
 	}
 
-	if ok && (ready.id != before.id || ready.refused != before.refused) {
+	if ok && (ready.id != before.id || ready.unavailableReason != before.unavailableReason) {
 		if _, err := h.pool.Present(ctx, h.presence()); err != nil {
 			log.Warn("could not report what it serves", "error", err)
 		}

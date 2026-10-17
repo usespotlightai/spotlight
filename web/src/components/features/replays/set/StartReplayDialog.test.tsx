@@ -129,7 +129,7 @@ describe('StartReplayDialog', () => {
     ).toBeInTheDocument();
   });
 
-  it('refuses a ceiling of nothing, saying why', async () => {
+  it('rejects a ceiling of nothing, saying why', async () => {
     await openDialog(1);
 
     await userEvent.click(screen.getByRole('button', { name: 'Start replay' }));

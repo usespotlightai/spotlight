@@ -23,7 +23,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 const NOW = new Date('2026-09-26T09:00:00.000Z');
 const RUNNER = RunnerId.of('runner_1');
-const REASON = 'The hook core/freeze refused: deploys are frozen.';
+const REASON = 'The hook core/freeze denied the run: deploys are frozen.';
 
 const claimed = (
   subject = RunSubject.task(TaskId.of('task_1'), null, TaskRevision.of(0)),
@@ -107,7 +107,7 @@ const starting = (
 };
 
 describe('RunStartHooks', () => {
-  it('lets a run start that no hook refuses, after asking about its task', async () => {
+  it('lets a run start that no hook denies, after asking about its task', async () => {
     const { hooks, asked, of } = starting();
 
     expect(await hooks.mayStart(claimed(), RUNNER, POLL_UNTIL)).toBe('starts');
@@ -115,23 +115,23 @@ describe('RunStartHooks', () => {
     expect(asked).toEqual([{ on: 'run.starting' }]);
   });
 
-  it('ends a run a hook refuses, saying why', async () => {
+  it('ends a run a hook denies, saying why', async () => {
     const { hooks, current } = starting({
-      verdict: { kind: 'refused', reason: REASON },
+      verdict: { kind: 'denied', reason: REASON },
     });
 
-    expect(await hooks.mayStart(claimed(), RUNNER, POLL_UNTIL)).toBe('refused');
+    expect(await hooks.mayStart(claimed(), RUNNER, POLL_UNTIL)).toBe('denied');
     expect(current().state).toBe('failed');
     expect(current().outcome?.message).toBe(REASON);
   });
 
-  it('reads the run again when it changed while being refused', async () => {
+  it('reads the run again when it changed while being denied', async () => {
     const { hooks, current, runs } = starting({
-      verdict: { kind: 'refused', reason: REASON },
+      verdict: { kind: 'denied', reason: REASON },
       clashes: 1,
     });
 
-    expect(await hooks.mayStart(claimed(), RUNNER, POLL_UNTIL)).toBe('refused');
+    expect(await hooks.mayStart(claimed(), RUNNER, POLL_UNTIL)).toBe('denied');
     expect(runs.findById).toHaveBeenCalledTimes(2);
     expect(current().state).toBe('failed');
   });

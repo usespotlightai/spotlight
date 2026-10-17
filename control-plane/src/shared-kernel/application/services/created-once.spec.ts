@@ -49,7 +49,7 @@ describe('createdOnce', () => {
     expect(make).not.toHaveBeenCalled();
   });
 
-  it('refuses a key used for another request', async () => {
+  it('rejects a key used for another request', async () => {
     const { run, make } = claiming({ kind: 'reused' });
 
     expect(await run()).toEqual({ outcome: 'key-reused' });
@@ -85,7 +85,7 @@ describe('createdEarlier', () => {
     });
   });
 
-  it('refuses a key used for another request', async () => {
+  it('rejects a key used for another request', async () => {
     expect(await recalling({ kind: 'reused' })).toEqual({
       outcome: 'key-reused',
     });

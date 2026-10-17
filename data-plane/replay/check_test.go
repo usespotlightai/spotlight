@@ -104,7 +104,7 @@ func TestReadPlanSendsTheStationAsTheProviderWouldApplyIt(t *testing.T) {
 	}
 }
 
-func TestReadPlanRefusesTheStreamingLog(t *testing.T) {
+func TestReadPlanRejectsTheStreamingLog(t *testing.T) {
 	stream, err := os.ReadFile(filepath.Join("testdata", "stream.json"))
 	if err != nil {
 		t.Fatal(err)
@@ -116,7 +116,7 @@ func TestReadPlanRefusesTheStreamingLog(t *testing.T) {
 	}
 
 	if _, err := readPlan(strings.NewReader(`{"resources": []}`)); err == nil || !strings.Contains(err.Error(), "terraform show -json") {
-		t.Fatalf("err = %v, want a refusal naming terraform show", err)
+		t.Fatalf("err = %v, want an error naming terraform show", err)
 	}
 }
 
@@ -318,7 +318,7 @@ func TestCheckReplaysEachRunAsOftenAsAskedAndSaysWhenTheGainIsWithinNoise(t *tes
 		t.Fatalf("summary:\n%s", written)
 	}
 
-	if bad := runCheck(t, env, planFixture(t), "--repeats", "6"); bad.code != refusedExit || !strings.Contains(bad.errOut, "--repeats") {
+	if bad := runCheck(t, env, planFixture(t), "--repeats", "6"); bad.code != errorExit || !strings.Contains(bad.errOut, "--repeats") {
 		t.Fatalf("--repeats 6 answered %d: %s", bad.code, bad.errOut)
 	}
 }
@@ -351,13 +351,13 @@ func TestCheckExitsByTheWorstVerdict(t *testing.T) {
 		"failed":    {verdicts: []string{"failed"}, want: regressedExit, says: `REGRESSED task_2 "Drain the queue": failed where the baseline succeeded, check-failed: npm test`},
 		"undecided": {verdicts: []string{"undecided"}, want: undecidedExit, says: "fewer than half the tasks were scored on both sides"},
 		"timed out": {verdicts: nil, want: undecidedExit, says: "still running after 1m0s"},
-		"refused": {
+		"conflict": {
 			post: func(w http.ResponseWriter) bool {
 				w.WriteHeader(http.StatusConflict)
 				_, _ = io.WriteString(w, `{"type":"urn:spotlight:problem:conflict","status":409,"title":"conflict","detail":"No replay set guards the changes of the station build"}`)
 				return true
 			},
-			want: refusedExit, says: "No replay set guards the changes of the station build",
+			want: errorExit, says: "No replay set guards the changes of the station build",
 		},
 		"invalid": {
 			post: func(w http.ResponseWriter) bool {
@@ -365,7 +365,7 @@ func TestCheckExitsByTheWorstVerdict(t *testing.T) {
 				_, _ = io.WriteString(w, `{"type":"urn:spotlight:problem:invalid","status":422,"title":"The replay check is not valid","errors":[{"path":"station.effort","message":"is low, medium, high, xhigh or max","severity":"error"}]}`)
 				return true
 			},
-			want: refusedExit, says: "station.effort: is low, medium, high, xhigh or max",
+			want: errorExit, says: "station.effort: is low, medium, high, xhigh or max",
 		},
 		"nothing to replay": {
 			post: func(w http.ResponseWriter) bool {
@@ -431,9 +431,9 @@ func TestCheckExchangesTheJobsOIDCTokenThroughATrust(t *testing.T) {
 		t.Fatalf("tokens = %v", s.tokens)
 	}
 
-	refused := runCheck(t, map[string]string{urlVar: server.URL, trustVar: "trust_1", oidcTokenVar: "forged"}, withoutUnknowns(t, planFixture(t)))
-	if refused.code != refusedExit || !strings.Contains(refused.out, "did not admit the OIDC token: No such trust, or a workload it does not admit") || strings.Contains(refused.out, "statusCode") {
-		t.Fatalf("code = %d\n%s%s", refused.code, refused.out, refused.errOut)
+	untrusted := runCheck(t, map[string]string{urlVar: server.URL, trustVar: "trust_1", oidcTokenVar: "forged"}, withoutUnknowns(t, planFixture(t)))
+	if untrusted.code != errorExit || !strings.Contains(untrusted.out, "did not admit the OIDC token: No such trust, or a workload it does not admit") || strings.Contains(untrusted.out, "statusCode") {
+		t.Fatalf("code = %d\n%s%s", untrusted.code, untrusted.out, untrusted.errOut)
 	}
 }
 
@@ -445,10 +445,10 @@ func TestCheckNeedsNoSpotlightWhenNothingIsChecked(t *testing.T) {
 	}
 }
 
-func TestCheckRefusesWithoutCredentials(t *testing.T) {
+func TestCheckRejectsWithoutCredentials(t *testing.T) {
 	got := runCheck(t, map[string]string{urlVar: "http://127.0.0.1:9"}, withoutUnknowns(t, planFixture(t)))
 
-	if got.code != refusedExit || !strings.Contains(got.errOut, tokenVar) || !strings.Contains(got.errOut, trustVar) {
+	if got.code != errorExit || !strings.Contains(got.errOut, tokenVar) || !strings.Contains(got.errOut, trustVar) {
 		t.Fatalf("code = %d\n%s", got.code, got.errOut)
 	}
 }

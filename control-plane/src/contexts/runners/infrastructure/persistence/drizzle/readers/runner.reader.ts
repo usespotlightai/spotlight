@@ -142,7 +142,9 @@ export class DrizzleRunnerReader implements RunnerReaderPort {
     };
 
     for (const row of hosts) {
-      for (const image of row.images.filter((each) => !each.refused)) {
+      for (const image of row.images.filter(
+        (each) => !each.unavailableReason,
+      )) {
         for (const each of image.harnesses) {
           collect(each.id, each.models);
         }
@@ -229,7 +231,7 @@ export class DrizzleRunnerReader implements RunnerReaderPort {
           id: harness.id,
           version: harness.version ?? null,
         })),
-        refused: each.refused ?? null,
+        unavailableReason: each.unavailableReason ?? null,
       })),
       firstSeenAt: host.firstSeenAt,
       upSince: host.upSince,

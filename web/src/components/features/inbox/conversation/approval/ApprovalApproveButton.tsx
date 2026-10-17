@@ -1,22 +1,22 @@
 import { DecisionPill } from '@/components/shared/DecisionPill';
-import { RefusalTooltip } from '@/components/shared/RefusalTooltip';
+import { DisabledReasonTooltip } from '@/components/shared/DisabledReasonTooltip';
 import type { Approval } from '@/lib/approval';
 
 type ApprovalApproveButtonProps = {
   approval: Approval;
   disabled: boolean;
-  refusedBecause?: string | null;
+  disabledBecause?: string | null;
   onApprove?: () => void;
 };
 
 export function ApprovalApproveButton({
   approval,
   disabled,
-  refusedBecause = null,
+  disabledBecause = null,
   onApprove,
 }: ApprovalApproveButtonProps) {
   return (
-    <RefusalTooltip reason={refusedBecause}>
+    <DisabledReasonTooltip reason={disabledBecause}>
       {(describedBy) => (
         <DecisionPill
           variant="default"
@@ -28,6 +28,6 @@ export function ApprovalApproveButton({
           Approve
         </DecisionPill>
       )}
-    </RefusalTooltip>
+    </DisabledReasonTooltip>
   );
 }

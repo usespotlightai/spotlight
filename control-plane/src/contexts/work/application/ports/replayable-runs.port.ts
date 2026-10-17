@@ -1,4 +1,4 @@
-import type { ReplayRefusalCode } from '@work/application/contracts/replay-refusal.contract';
+import type { UnreplayableReasonCode } from '@work/application/contracts/unreplayable-reason.contract';
 
 export const REPLAYABLE_RUNS = Symbol('REPLAYABLE_RUNS');
 
@@ -6,7 +6,7 @@ export interface Replayability {
   readonly runId: string;
   readonly taskId: string | null;
   readonly stationId: string | null;
-  readonly refusal: ReplayRefusalCode | null;
+  readonly unreplayableReason: UnreplayableReasonCode | null;
   readonly reason: string | null;
 }
 

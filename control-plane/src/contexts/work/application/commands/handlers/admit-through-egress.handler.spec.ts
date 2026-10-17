@@ -31,14 +31,14 @@ describe('AdmitThroughEgressHandler', () => {
     });
   });
 
-  it('refuses an unknown egress token or proxy credential', async () => {
+  it('rejects an unknown egress token or proxy credential', async () => {
     for (const [token, credential] of [
       ['other', 'waiting'],
       [SHARED_TOKEN, 'unknown'],
     ]) {
       await expect(
         handler.execute(new AdmitThroughEgressCommand(token, credential)),
-      ).resolves.toEqual({ outcome: 'refused' });
+      ).resolves.toEqual({ outcome: 'unauthorized' });
     }
   });
 });

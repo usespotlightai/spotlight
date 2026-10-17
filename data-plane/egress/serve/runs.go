@@ -20,16 +20,16 @@ import (
 )
 
 const (
-	checkEvery  = 30 * time.Second
-	sweepEvery  = 10 * time.Second
-	recordEvery = 5 * time.Second
-	unusedFor   = 2 * time.Minute
-	fetchAgain  = 5 * time.Second
-	fetchBudget = time.Minute
-	admitBudget = 30 * time.Second
-	refusedFor  = 10 * time.Second
-	maxRefused  = 10_000
-	admitRate   = 50
+	checkEvery    = 30 * time.Second
+	sweepEvery    = 10 * time.Second
+	recordEvery   = 5 * time.Second
+	unusedFor     = 2 * time.Minute
+	fetchAgain    = 5 * time.Second
+	fetchBudget   = time.Minute
+	admitBudget   = 30 * time.Second
+	rejectionTTL  = 10 * time.Second
+	maxRejections = 10_000
+	admitRate     = 50
 )
 
 var errAdmitsTooFast = errors.New("egress admits too many sandboxes at once")
@@ -58,20 +58,20 @@ type run struct {
 	active atomic.Int32
 }
 
-type refusal struct {
+type rejection struct {
 	at  time.Time
 	err error
 }
 
-func refused(err error) bool {
-	var rejection *control.Rejection
-	return errors.As(err, &rejection) && rejection.Status < http.StatusInternalServerError
+func isRejected(err error) bool {
+	var answer *control.ResponseError
+	return errors.As(err, &answer) && answer.Status < http.StatusInternalServerError
 }
 
-func refusedThisEgress(err error) bool {
-	var rejection *control.Rejection
-	return errors.As(err, &rejection) &&
-		(rejection.Status == http.StatusUnauthorized || rejection.Status == http.StatusForbidden)
+func isEgressAuthFailure(err error) bool {
+	var answer *control.ResponseError
+	return errors.As(err, &answer) &&
+		(answer.Status == http.StatusUnauthorized || answer.Status == http.StatusForbidden)
 }
 
 func (e *Egress) admitted(ctx context.Context, credential, source string) (*run, error) {
@@ -86,9 +86,9 @@ func (e *Egress) admitted(ctx context.Context, credential, source string) (*run,
 		return found, found.failed
 	}
 
-	if refused, ok := e.refusedRecently(credential); ok {
+	if failure, ok := e.recentRejection(credential); ok {
 		e.mu.Unlock()
-		return nil, refused.err
+		return nil, failure.err
 	}
 	release, tooFast := e.admits.take(source)
 	if tooFast != "" {
@@ -114,15 +114,15 @@ func (e *Egress) admitted(ctx context.Context, credential, source string) (*run,
 		err = errors.New("the control plane named no port of its own")
 	}
 	if err != nil {
-		if refusedThisEgress(err) {
-			e.log.Warn("the control plane refused this egress; check its token", "error", err)
+		if isEgressAuthFailure(err) {
+			e.log.Warn("the control plane did not accept this egress; check its token", "error", err)
 		}
 		e.mu.Lock()
 		if e.runs[credential] == found {
 			delete(e.runs, credential)
 		}
-		if refused(err) {
-			e.rememberRefused(credential, err)
+		if isRejected(err) {
+			e.rememberRejection(credential, err)
 		}
 		e.mu.Unlock()
 		found.failed = err
@@ -143,23 +143,23 @@ func (e *Egress) admitted(ctx context.Context, credential, source string) (*run,
 	return found, nil
 }
 
-func (e *Egress) refusedRecently(credential string) (refusal, bool) {
-	refused, ok := e.refused[credential]
+func (e *Egress) recentRejection(credential string) (rejection, bool) {
+	failure, ok := e.rejections[credential]
 	if !ok {
-		return refusal{}, false
+		return rejection{}, false
 	}
-	if e.now().Sub(refused.at) >= refusedFor {
-		delete(e.refused, credential)
-		return refusal{}, false
+	if e.now().Sub(failure.at) >= rejectionTTL {
+		delete(e.rejections, credential)
+		return rejection{}, false
 	}
-	return refused, true
+	return failure, true
 }
 
-func (e *Egress) rememberRefused(credential string, err error) {
-	if len(e.refused) >= maxRefused {
-		clear(e.refused)
+func (e *Egress) rememberRejection(credential string, err error) {
+	if len(e.rejections) >= maxRejections {
+		clear(e.rejections)
 	}
-	e.refused[credential] = refusal{at: e.now(), err: err}
+	e.rejections[credential] = rejection{at: e.now(), err: err}
 }
 
 func (e *Egress) leave(found *run) {
@@ -193,12 +193,12 @@ func (e *Egress) fetchedSecrets(ctx context.Context, r *run, now bool) error {
 	defer cancel()
 
 	fetched, err := e.control.FetchRunSecretsFor(fetching, r.credential, e.key.Recipient())
-	if refused(err) {
+	if isRejected(err) {
 		r.mu.Lock()
 		r.triedAt = at
 		r.mu.Unlock()
-		if refusedThisEgress(err) {
-			e.log.Warn("the control plane refused this egress a run's secrets; check its token", "error", err)
+		if isEgressAuthFailure(err) {
+			e.log.Warn("the control plane did not accept this egress when it fetched a run's secrets; check its token", "error", err)
 		} else {
 			e.log.Info("the sandbox has no run to fetch secrets for yet", "error", err)
 		}

@@ -33,14 +33,14 @@ describe('Mark', () => {
     ).toBe(false);
   });
 
-  it('refuses a kind that does not name its source first', () => {
+  it('rejects a kind that does not name its source first', () => {
     expect(() => Mark.of('issue', 'ENG-42')).toThrow(InvalidIdentifierError);
     expect(() => Mark.of('Linear.issue', 'ENG-42')).toThrow(
       InvalidIdentifierError,
     );
   });
 
-  it('refuses a handle that names nothing', () => {
+  it('rejects a handle that names nothing', () => {
     expect(() => Mark.of('linear.issue', '   ')).toThrow(
       InvalidIdentifierError,
     );

@@ -168,12 +168,12 @@ const original = (
         : over.startedFrom,
   });
 
-const refusalOf = (plan: () => unknown) => {
+const unreplayableReasonOf = (plan: () => unknown) => {
   try {
     plan();
   } catch (error) {
     if (error instanceof UnreplayableRunError) {
-      return error.refusal;
+      return error.unreplayableReason;
     }
     throw error;
   }
@@ -224,7 +224,7 @@ describe('planning a replay', () => {
     expect(plan.at.checkouts[0]?.repository.value).toBe('acme/api');
   });
 
-  it('refuses a run that worked no task, says so, and refuses a replay of a replay', () => {
+  it('rejects a run that worked no task, says so, and rejects a replay of a replay', () => {
     for (const subject of [
       RunSubject.chat(ChatId.of('chat_1')),
       RunSubject.replay(
@@ -235,7 +235,7 @@ describe('planning a replay', () => {
       ),
     ]) {
       expect(
-        refusalOf(() =>
+        unreplayableReasonOf(() =>
           replayPlanFor({
             original: original({ subject, startedFrom: null }),
             briefed: briefed(),
@@ -258,9 +258,9 @@ describe('planning a replay', () => {
     expect(plan.replay.movesOnAfter).toEqual(['done']);
   });
 
-  it('refuses a run that has not ended', () => {
+  it('rejects a run that has not ended', () => {
     expect(
-      refusalOf(() =>
+      unreplayableReasonOf(() =>
         replayPlanFor({
           original: original({ state: 'claimed' }),
           briefed: briefed(),
@@ -271,9 +271,9 @@ describe('planning a replay', () => {
     ).toBe('still-running');
   });
 
-  it('refuses a run that never said where it started', () => {
+  it('rejects a run that never said where it started', () => {
     expect(
-      refusalOf(() =>
+      unreplayableReasonOf(() =>
         replayPlanFor({
           original: original({ startedFrom: null }),
           briefed: briefed(),
@@ -284,9 +284,9 @@ describe('planning a replay', () => {
     ).toBe('no-starting-point');
   });
 
-  it('refuses a run whose briefing was never kept', () => {
+  it('rejects a run whose briefing was never kept', () => {
     expect(
-      refusalOf(() =>
+      unreplayableReasonOf(() =>
         replayPlanFor({
           original: original(),
           briefed: null,
@@ -297,7 +297,7 @@ describe('planning a replay', () => {
     ).toBe('no-briefing');
   });
 
-  it('refuses a candidate line without the station the run worked at', () => {
+  it('rejects a candidate line without the station the run worked at', () => {
     const elsewhere = Line.rehydrate({
       id: LineId.of('line_2'),
       workspaceId: WorkspaceId.of('ws_1'),
@@ -308,7 +308,7 @@ describe('planning a replay', () => {
     });
 
     expect(
-      refusalOf(() =>
+      unreplayableReasonOf(() =>
         replayPlanFor({
           original: original(),
           briefed: briefed(),
@@ -319,9 +319,9 @@ describe('planning a replay', () => {
     ).toBe('not-at-the-station');
   });
 
-  it('refuses a run that checked out a repository the line no longer works', () => {
+  it('rejects a run that checked out a repository the line no longer works', () => {
     expect(
-      refusalOf(() =>
+      unreplayableReasonOf(() =>
         replayPlanFor({
           original: original(),
           briefed: briefed(),

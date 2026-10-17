@@ -3,13 +3,13 @@ import { ProblemException } from '@platform/http/resources/problem.exception';
 import { replayed } from '@platform/http/resources/replayed';
 import { inCodePointOrderOf } from '@platform/ordering/code-point-order';
 import type {
-  Refused,
+  Rejected,
   ResourceCreated,
   ResourceDeleted,
   ResourceUpdated,
 } from '@shared-kernel/application/dto/resource-outcomes.dto';
 
-const refused = (kind: string, outcome: Refused): never => {
+const rejected = (kind: string, outcome: Rejected): never => {
   switch (outcome.outcome) {
     case 'version-conflict':
       throw ProblemException.versionConflict(kind, outcome.currentVersion);
@@ -86,7 +86,7 @@ export const answerUpdated = <R>(
     case 'invalid':
       throw ProblemException.invalid(kind, updated.problems);
     default:
-      return refused(kind, updated);
+      return rejected(kind, updated);
   }
 };
 
@@ -99,6 +99,6 @@ export const answerDeleted = (
   }
 
   if (deleted.outcome !== 'deleted') {
-    refused(kind, deleted);
+    rejected(kind, deleted);
   }
 };

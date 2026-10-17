@@ -49,7 +49,7 @@ export const sized = (bytes: number): string => {
   return `${shown} ${UNITS[unit]}`;
 };
 
-export const refused = (file: { readonly size: number }): string | null =>
+export const sizeProblem = (file: { readonly size: number }): string | null =>
   file.size > MAX_ATTACHMENT_BYTES
     ? `The file is too large. Maximum size: ${sized(MAX_ATTACHMENT_BYTES)}`
     : null;

@@ -82,7 +82,7 @@ func TestCauseReadsItsEvidenceAndSuggestionFromFiles(t *testing.T) {
 	}
 }
 
-func TestCauseRefusesMisuseBeforeAskingSpotlight(t *testing.T) {
+func TestCauseRejectsMisuseBeforeAskingSpotlight(t *testing.T) {
 	asked := causer(t, 200, recordedJudge)
 
 	for _, args := range [][]string{
@@ -108,7 +108,7 @@ func TestCauseRefusesMisuseBeforeAskingSpotlight(t *testing.T) {
 	}
 }
 
-func TestCauseCarriesARefusal(t *testing.T) {
+func TestCauseCarriesAnError(t *testing.T) {
 	causer(t, 422, "No failing task task_9 among the tasks this reflection looks into\n")
 
 	err := run([]string{"cause", "--task", "task_9", "--cause", "task", "--evidence", "x"}, strings.NewReader(""), new(bytes.Buffer))

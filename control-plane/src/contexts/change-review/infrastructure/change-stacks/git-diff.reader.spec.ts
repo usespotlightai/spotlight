@@ -118,11 +118,11 @@ describe('GitDiffReader', () => {
     expect(diff.fileOf('h99')).toBeNull();
   });
 
-  it('refuses text that has no changes', () => {
+  it('rejects text that has no changes', () => {
     expect(() => reader.read('nothing to see')).toThrow(InvalidDiffError);
   });
 
-  it('refuses a diff too long to draft', () => {
+  it('rejects a diff too long to draft', () => {
     expect(() => reader.read('x'.repeat(7 * 1024 * 1024))).toThrow(
       InvalidDiffError,
     );

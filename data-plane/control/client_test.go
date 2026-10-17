@@ -29,10 +29,10 @@ func serve(t *testing.T, handler http.HandlerFunc) *control.Client {
 	return client
 }
 
-func TestNewRefusesAnAddressItCannotCall(t *testing.T) {
+func TestNewRejectsAnAddressItCannotCall(t *testing.T) {
 	for _, bad := range []string{"", "localhost:3000", "/api"} {
 		if _, err := control.New(bad, "tok"); err == nil {
-			t.Errorf("%q should be refused", bad)
+			t.Errorf("%q should be rejected", bad)
 		}
 	}
 }
@@ -56,7 +56,7 @@ func TestRegisterCarriesTheBearerTokenAndKeepsTheId(t *testing.T) {
 	}
 }
 
-func TestRegisterRefusesAnAnswerWithoutAnId(t *testing.T) {
+func TestRegisterRejectsAnAnswerWithoutAnId(t *testing.T) {
 	client := serve(t, func(w http.ResponseWriter, _ *http.Request) {
 		_, _ = w.Write([]byte(`{}`))
 	})
@@ -248,7 +248,7 @@ func TestUseToolCarriesTheInputWholeAndAnswersWithWhatCameBack(t *testing.T) {
 	}
 }
 
-func TestUseToolSaysWhichToolTheControlPlaneRefused(t *testing.T) {
+func TestUseToolSaysWhichToolTheControlPlaneRejected(t *testing.T) {
 	client := serve(t, func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, `{"message":"pull-request needs a title"}`, http.StatusUnprocessableEntity)
 	})
@@ -405,7 +405,7 @@ func TestRenewCheckLeaseRejectedWhenTheRunnerHasNoLease(t *testing.T) {
 
 	_, err := client.RenewCheckLease(context.Background(), "run_1", "stack_1", false)
 
-	var rejection *control.Rejection
+	var rejection *control.ResponseError
 	if !errors.As(err, &rejection) || rejection.Status != http.StatusConflict {
 		t.Fatalf("err %v", err)
 	}
@@ -587,11 +587,11 @@ func TestARejectionCarriesTheReasonTheControlPlaneGave(t *testing.T) {
 
 	_, err := client.Request(context.Background(), http.MethodPut, "/api/hosts/x", nil, nil)
 
-	if !control.Rejected(err, "host-taken") || control.Rejected(err, "host-unreported") {
+	if !control.HasReason(err, "host-taken") || control.HasReason(err, "host-unreported") {
 		t.Fatalf("got %v", err)
 	}
-	if errors.Is(err, control.ErrRefused) {
-		t.Error("a conflict read as a refused credential")
+	if errors.Is(err, control.ErrUnauthorized) {
+		t.Error("a conflict read as an unauthorized credential")
 	}
 }
 
@@ -657,24 +657,24 @@ func TestClaimCallGoesThroughATrustLikeAnyHostClaim(t *testing.T) {
 	}
 }
 
-func TestClaimCallTellsARefusedCredentialAndAnUnreportedHost(t *testing.T) {
-	refused := serve(t, func(w http.ResponseWriter, _ *http.Request) {
+func TestClaimCallTellsAnUnauthorizedCredentialAndAnUnreportedHost(t *testing.T) {
+	unauthorized := serve(t, func(w http.ResponseWriter, _ *http.Request) {
 		http.Error(w, "no", http.StatusUnauthorized)
 	})
-	if _, err := refused.ClaimCall(context.Background(), "host_1"); !errors.Is(err, control.ErrRefused) {
-		t.Errorf("a refused credential came back as %v", err)
+	if _, err := unauthorized.ClaimCall(context.Background(), "host_1"); !errors.Is(err, control.ErrUnauthorized) {
+		t.Errorf("an unauthorized credential came back as %v", err)
 	}
 
 	unreported := serve(t, func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusConflict)
 		_, _ = w.Write([]byte(`{"reason":"host-unreported"}`))
 	})
-	if _, err := unreported.ClaimCall(context.Background(), "host_1"); !control.Rejected(err, "host-unreported") {
+	if _, err := unreported.ClaimCall(context.Background(), "host_1"); !control.HasReason(err, "host-unreported") {
 		t.Errorf("an unreported host came back as %v", err)
 	}
 }
 
-func TestClaimCallRefusesACallWithNoAddress(t *testing.T) {
+func TestClaimCallRejectsACallWithNoAddress(t *testing.T) {
 	client := serve(t, func(w http.ResponseWriter, _ *http.Request) {
 		_ = json.NewEncoder(w).Encode(protocol.HostCall{ID: "call_1"})
 	})
@@ -709,7 +709,7 @@ func TestAnswerCallTellsACallAlreadyAnswered(t *testing.T) {
 	})
 
 	err := client.AnswerCall(context.Background(), "call_1", protocol.HostCallAnswer{Error: "timed out after 10s"})
-	var rejection *control.Rejection
+	var rejection *control.ResponseError
 	if !errors.As(err, &rejection) || rejection.Status != http.StatusConflict {
 		t.Errorf("answered with %v", err)
 	}
@@ -739,7 +739,7 @@ func TestRecallsByWordsAndByHandle(t *testing.T) {
 	}
 }
 
-func TestARefusedMemorySaysWhatSpotlightSaid(t *testing.T) {
+func TestARejectedMemorySaysWhatSpotlightSaid(t *testing.T) {
 	client := serve(t, func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusUnprocessableEntity)
@@ -748,16 +748,16 @@ func TestARefusedMemorySaysWhatSpotlightSaid(t *testing.T) {
 
 	_, err := client.Remember(context.Background(), "run_1", protocol.Remembering{Kind: "gossip", Body: "x"})
 
-	var rejection *control.Rejection
+	var rejection *control.ResponseError
 	if !errors.As(err, &rejection) {
 		t.Fatalf("got %v", err)
 	}
-	if said, ok := rejection.Refused(); !ok || said != "A memory is one of rationale, not gossip" {
-		t.Errorf("refused %q, %v", said, ok)
+	if said, ok := rejection.ClientErrorMessage(); !ok || said != "A memory is one of rationale, not gossip" {
+		t.Errorf("rejected with %q, %v", said, ok)
 	}
 }
 
-func TestAnUnreachableSpotlightIsNoRefusal(t *testing.T) {
+func TestAnUnreachableSpotlightIsNoClientError(t *testing.T) {
 	client := serve(t, func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusBadGateway)
 		_, _ = w.Write([]byte(`{"message":"upstream down"}`))
@@ -765,10 +765,10 @@ func TestAnUnreachableSpotlightIsNoRefusal(t *testing.T) {
 
 	_, err := client.Remember(context.Background(), "run_1", protocol.Remembering{Kind: "rationale", Body: "x"})
 
-	var rejection *control.Rejection
+	var rejection *control.ResponseError
 	if errors.As(err, &rejection) {
-		if _, ok := rejection.Refused(); ok {
-			t.Error("a 502 should not read as a refusal")
+		if _, ok := rejection.ClientErrorMessage(); ok {
+			t.Error("a 502 should not read as a client error")
 		}
 	}
 }
@@ -896,7 +896,7 @@ func TestParkColdAsksForTheRunToGoBackOnTheQueue(t *testing.T) {
 	}
 }
 
-func TestARefusedCredentialLosesTheRun(t *testing.T) {
+func TestAnUnauthorizedCredentialLosesTheRun(t *testing.T) {
 	for status, want := range map[int]bool{
 		http.StatusNotFound:     true,
 		http.StatusUnauthorized: true,
@@ -909,9 +909,9 @@ func TestARefusedCredentialLosesTheRun(t *testing.T) {
 		})
 
 		_, err := client.RenewLease(context.Background(), "run_1")
-		var rejection *control.Rejection
-		if !errors.As(err, &rejection) || rejection.Lost() != want {
-			t.Errorf("a %d renewal lost the run %v, wanted %v", status, rejection != nil && rejection.Lost(), want)
+		var rejection *control.ResponseError
+		if !errors.As(err, &rejection) || rejection.RunNoLongerLeased() != want {
+			t.Errorf("a %d renewal lost the run %v, wanted %v", status, rejection != nil && rejection.RunNoLongerLeased(), want)
 		}
 	}
 }
@@ -923,9 +923,9 @@ func TestOnlyAMissingRunIsGone(t *testing.T) {
 		})
 
 		_, err := client.RenewLease(context.Background(), "run_1")
-		var rejection *control.Rejection
-		if !errors.As(err, &rejection) || rejection.Gone() != want {
-			t.Errorf("a %d renewal was gone %v, wanted %v", status, rejection != nil && rejection.Gone(), want)
+		var rejection *control.ResponseError
+		if !errors.As(err, &rejection) || rejection.IsNotFound() != want {
+			t.Errorf("a %d renewal was gone %v, wanted %v", status, rejection != nil && rejection.IsNotFound(), want)
 		}
 	}
 }

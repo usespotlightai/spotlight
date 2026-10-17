@@ -465,7 +465,7 @@ describe('ClaimChangeStackCheck', () => {
       expect(saved).toEqual([]);
     });
 
-    it('refuses the runner with the lease on the check a stack another run drafted', async () => {
+    it('rejects the runner with the lease on the check a stack another run drafted', async () => {
       await expect(
         renewing(leased()).service.renewLease(
           RunId.of('run_2'),

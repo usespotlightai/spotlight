@@ -77,10 +77,10 @@ export class ProcessDuePolls {
         await this.reach.of(teamId, integration),
       );
 
-      if (polled.kind === 'refused') {
+      if (polled.kind === 'failed') {
         this.log.warn(
-          { team: teamId.value, source, refusal: polled.refusal },
-          'A host refused a poll',
+          { team: teamId.value, source, error: polled.error },
+          'A host answered a poll with an error',
         );
         return;
       }

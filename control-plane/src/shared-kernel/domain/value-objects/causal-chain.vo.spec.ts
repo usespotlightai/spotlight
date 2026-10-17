@@ -50,14 +50,14 @@ describe('CausalChain', () => {
     expect(CausalChain.read(null).started).toBe(false);
   });
 
-  it('refuses what is not a chain', () => {
+  it('rejects what is not a chain', () => {
     expect(() => CausalChain.read('nonsense')).toThrow(InconsistentStateError);
     expect(() => CausalChain.read({ depth: 1 })).toThrow(
       InconsistentStateError,
     );
   });
 
-  it('refuses a link that says nothing of what it was', () => {
+  it('rejects a link that says nothing of what it was', () => {
     expect(() =>
       CausalChain.read({ links: [{ kind: 'rumour', key: 'x' }], depth: 1 }),
     ).toThrow(InconsistentStateError);

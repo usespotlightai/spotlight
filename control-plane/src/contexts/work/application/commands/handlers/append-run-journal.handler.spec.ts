@@ -67,7 +67,7 @@ describe('AppendRunJournalHandler', () => {
     expect(published).toEqual(['run_1']);
   });
 
-  it('refuses another runner, and journals and streams nothing', async () => {
+  it('rejects another runner, and journals and streams nothing', async () => {
     const { handler, appended, published } = journalling();
 
     await expect(

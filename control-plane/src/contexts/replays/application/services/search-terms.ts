@@ -16,10 +16,10 @@ import { Spend } from '@replays/domain/value-objects/spend.vo';
 import { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 
-export class SearchTermsRefusedError extends Error {
+export class InvalidSearchTermsError extends Error {
   constructor(readonly problems: readonly ConfigurationProblem[]) {
     super('Search is invalid.');
-    this.name = 'SearchTermsRefusedError';
+    this.name = 'InvalidSearchTermsError';
   }
 }
 
@@ -29,7 +29,7 @@ const problemAt = (
 ): ConfigurationProblem =>
   ConfigurationProblem.of({ path: '', at: FieldPath.of([...path]), reason });
 
-const refusalOf = (
+const problemsOf = (
   made: () => unknown,
   path: readonly string[],
 ): ConfigurationProblem[] => {
@@ -47,9 +47,9 @@ const refusalOf = (
   }
 };
 
-const refused = (problems: readonly ConfigurationProblem[]): void => {
+const reject = (problems: readonly ConfigurationProblem[]): void => {
   if (problems.length > 0) {
-    throw new SearchTermsRefusedError(problems);
+    throw new InvalidSearchTermsError(problems);
   }
 };
 
@@ -61,13 +61,13 @@ export const searchAgentOf = (
   asked: SearchAgentAsked,
   work: WorkPort,
 ): SearchAgent => {
-  refused([
-    ...refusalOf(
+  reject([
+    ...problemsOf(
       () =>
         SearchAgent.of({ harness: asked.harness, model: null, effort: null }),
       ['agent', 'harness'],
     ),
-    ...refusalOf(
+    ...problemsOf(
       () =>
         SearchAgent.of({
           harness: ANY_HARNESS,
@@ -76,7 +76,7 @@ export const searchAgentOf = (
         }),
       ['agent', 'model'],
     ),
-    ...refusalOf(
+    ...problemsOf(
       () =>
         SearchAgent.of({
           harness: ANY_HARNESS,
@@ -88,10 +88,10 @@ export const searchAgentOf = (
   ]);
 
   const agent = SearchAgent.of(asked);
-  const refusal = work.agentRefusal(agent);
+  const problem = work.agentProblem(agent);
 
-  if (refusal) {
-    refused([problemAt(['agent', refusal.field], refusal.reason)]);
+  if (problem) {
+    reject([problemAt(['agent', problem.field], problem.reason)]);
   }
 
   return agent;
@@ -110,32 +110,32 @@ export const searchBudgetOf = (asked: SearchBudgetAsked): SearchBudget => {
         ? {}
         : { repeats: over.repeats }),
     });
-  const currency = refusalOf(
+  const currency = problemsOf(
     () => Spend.none(asked.ceiling.currency),
     ['budget', 'ceiling', 'currency'],
   );
 
-  refused([
+  reject([
     ...currency,
     ...(currency.length > 0
       ? []
-      : refusalOf(
+      : problemsOf(
           () => Spend.ceiling(asked.ceiling.amount, asked.ceiling.currency),
           ['budget', 'ceiling', 'amount'],
         )),
-    ...refusalOf(counts({ iterations: asked.iterations }), [
+    ...problemsOf(counts({ iterations: asked.iterations }), [
       'budget',
       'iterations',
     ]),
-    ...refusalOf(counts({ perIteration: asked.perIteration }), [
+    ...problemsOf(counts({ perIteration: asked.perIteration }), [
       'budget',
       'perIteration',
     ]),
-    ...refusalOf(counts({ concurrency: asked.concurrency }), [
+    ...problemsOf(counts({ concurrency: asked.concurrency }), [
       'budget',
       'concurrency',
     ]),
-    ...refusalOf(counts({ repeats: asked.repeats }), ['budget', 'repeats']),
+    ...problemsOf(counts({ repeats: asked.repeats }), ['budget', 'repeats']),
   ]);
 
   return SearchBudget.of({
@@ -152,7 +152,7 @@ export const splitOf = (drawn: () => HeldOutSplit): HeldOutSplit => {
     return drawn();
   } catch (error) {
     if (error instanceof SearchSetTooSmallError) {
-      throw new SearchTermsRefusedError([problemAt(['setId'], error.message)]);
+      throw new InvalidSearchTermsError([problemAt(['setId'], error.message)]);
     }
     throw error;
   }
@@ -166,7 +166,7 @@ export const allotmentOf = (
     return budget.allot(split);
   } catch (error) {
     if (error instanceof InvalidSearchError) {
-      throw new SearchTermsRefusedError([
+      throw new InvalidSearchTermsError([
         problemAt(['budget', 'ceiling', 'amount'], error.message),
       ]);
     }

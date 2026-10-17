@@ -80,7 +80,7 @@ export class ExpressionPosition {
     );
   }
 
-  refusal(type: string): string | null {
+  problem(type: string): string | null {
     if (this.returns === null || type === OUTSIDE) {
       return null;
     }

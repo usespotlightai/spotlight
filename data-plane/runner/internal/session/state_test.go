@@ -91,7 +91,7 @@ func TestAnythingCanGoWrongUntilItIsOver(t *testing.T) {
 	}
 }
 
-func TestNextRefusesWhatCannotHappen(t *testing.T) {
+func TestNextRejectsWhatCannotHappen(t *testing.T) {
 	for _, impossible := range []struct {
 		from    session.State
 		trigger session.Trigger
@@ -110,7 +110,7 @@ func TestNextRefusesWhatCannotHappen(t *testing.T) {
 		{session.Failed, session.Errored},
 	} {
 		if _, err := session.Next(impossible.from, impossible.trigger); err == nil {
-			t.Errorf("%s while %s should be refused", impossible.trigger, impossible.from)
+			t.Errorf("%s while %s should be rejected", impossible.trigger, impossible.from)
 		}
 	}
 }

@@ -31,13 +31,13 @@ type Egress struct {
 	dialer        *net.Dialer
 }
 
-type Refused struct {
+type HTTPError struct {
 	Status int
 	Text   string
 }
 
-func (r *Refused) Error() string {
-	return fmt.Sprintf("egress answered %d: %s", r.Status, r.Text)
+func (e *HTTPError) Error() string {
+	return fmt.Sprintf("egress answered %d: %s", e.Status, e.Text)
 }
 
 func To(address, credential string, roots *x509.CertPool) (*Egress, error) {
@@ -126,7 +126,7 @@ func (e *Egress) Dial(ctx context.Context, _, address string) (net.Conn, error) 
 		text, _ := io.ReadAll(io.LimitReader(answer.Body, 4096))
 		answer.Body.Close()
 		conn.Close()
-		return nil, &Refused{Status: answer.StatusCode, Text: strings.TrimSpace(string(text))}
+		return nil, &HTTPError{Status: answer.StatusCode, Text: strings.TrimSpace(string(text))}
 	}
 
 	_ = conn.SetDeadline(time.Time{})
@@ -161,7 +161,7 @@ func (e *Egress) Bound(ctx context.Context) ([]string, error) {
 
 	if answer.StatusCode != http.StatusOK {
 		text, _ := io.ReadAll(io.LimitReader(answer.Body, 4096))
-		return nil, fmt.Errorf("ask egress which hosts are bound: %w", &Refused{Status: answer.StatusCode, Text: strings.TrimSpace(string(text))})
+		return nil, fmt.Errorf("ask egress which hosts are bound: %w", &HTTPError{Status: answer.StatusCode, Text: strings.TrimSpace(string(text))})
 	}
 
 	var bound protocol.EgressBound

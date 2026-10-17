@@ -2,7 +2,7 @@ import type { RunnerPool } from '@runners/domain/aggregates/runner-pool.aggregat
 import type { GivenPoolTokensRepository } from '@runners/domain/repositories/given-pool-tokens.repository';
 import type { RunnerPoolRepository } from '@runners/domain/repositories/runner-pool.repository';
 import {
-  refuseTokenGivenBefore,
+  assertPoolTokenUnused,
   tokenGivenTo,
 } from '@runners/domain/services/token-giving';
 import { PoolTokenUsage } from '@runners/domain/value-objects/pool-token-usage.vo';
@@ -21,7 +21,7 @@ export const givePoolToken = async (
 
   const holder = await pools.findByTokenHash(token);
 
-  refuseTokenGivenBefore(
+  assertPoolTokenUnused(
     PoolTokenUsage.of({
       given: await given.wasGiven(token),
       inUse: holder !== null && !holder.id.equals(pool.id),

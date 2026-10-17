@@ -194,7 +194,7 @@ describe('RunRecord', () => {
     expect(approved.recordAction(NextAct.of('refused', LATER))).toBe(approved);
   });
 
-  it('refuses to be read back decided by answering an approval', () => {
+  it('is not read back as decided by an approval answer', () => {
     expect(() =>
       RunRecord.rehydrate({
         runId: RUN,
@@ -271,7 +271,7 @@ describe('RunRecord', () => {
     expect(RunRecord.heardOf(RUN, WORKSPACE).ran).toBe(false);
   });
 
-  it('refuses to end on another task than the one it was heard of for', () => {
+  it('does not end on another task than the one it was heard of for', () => {
     expect(() =>
       RunRecord.heardOf(RUN, WORKSPACE, TaskId.of('task_2')).recordEnd(
         endOf({ taskId: 'task_1' }),

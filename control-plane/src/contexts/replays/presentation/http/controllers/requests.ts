@@ -11,7 +11,7 @@ import { FieldPath } from '@shared-kernel/domain/value-objects/field-path.vo';
 
 const REQUEST = 'request';
 
-const refusedAt = (field: readonly string[], reason: string): never => {
+const rejectAt = (field: readonly string[], reason: string): never => {
   throw ProblemException.invalid(REQUEST, [
     ConfigurationProblem.of({ path: '', at: FieldPath.of(field), reason }),
   ]);
@@ -25,7 +25,7 @@ const fieldsOf = (body: unknown): Record<string, unknown> =>
 export const textAt = (body: unknown, field: string, says: string): string => {
   const value = fieldsOf(body)[field];
 
-  return typeof value === 'string' ? value : refusedAt([field], says);
+  return typeof value === 'string' ? value : rejectAt([field], says);
 };
 
 const ceilingAt = (
@@ -36,7 +36,7 @@ const ceilingAt = (
   const { amount, currency } = fieldsOf(raw);
 
   if (typeof amount !== 'number') {
-    return refusedAt(
+    return rejectAt(
       [...at, 'amount'],
       `Ceiling amount must be a number. It is the most the ${what} may spend.`,
     );
@@ -47,7 +47,7 @@ const ceilingAt = (
     currency:
       typeof currency === 'string'
         ? currency
-        : refusedAt(
+        : rejectAt(
             [...at, 'currency'],
             'Ceiling currency must be a currency code, such as USD.',
           ),
@@ -66,7 +66,7 @@ const countAt = (
 ): number => {
   const count = fields[at[at.length - 1] as string];
 
-  return typeof count === 'number' ? count : refusedAt(at, says);
+  return typeof count === 'number' ? count : rejectAt(at, says);
 };
 
 const optionalTextAt = (
@@ -80,7 +80,7 @@ const optionalTextAt = (
     return null;
   }
 
-  return typeof text === 'string' ? text : refusedAt(at, says);
+  return typeof text === 'string' ? text : rejectAt(at, says);
 };
 
 export const searchBudgetIn = (body: unknown): SearchBudgetAsked => {
@@ -123,7 +123,7 @@ export const searchAgentIn = (body: unknown): SearchAgentAsked => {
     harness:
       typeof harness === 'string'
         ? harness
-        : refusedAt(['agent', 'harness'], 'Agent harness is required.'),
+        : rejectAt(['agent', 'harness'], 'Agent harness is required.'),
     model: optionalTextAt(
       agent,
       ['agent', 'model'],
@@ -146,7 +146,7 @@ export const objectiveIn = (body: unknown): SearchObjectiveAsked => {
 
   return isSearchObjective(value)
     ? value
-    : refusedAt(['objective'], 'Objective must be success, cost or left out.');
+    : rejectAt(['objective'], 'Objective must be success, cost or left out.');
 };
 
 export const repeatsIn = (body: unknown): number => {
@@ -194,7 +194,7 @@ export const keyedIn = (
 
   return line && station
     ? { lineId: line, key: station }
-    : refusedAt(
+    : rejectAt(
         [line ? 'station' : 'line'],
         'Line and station must be given together.',
       );

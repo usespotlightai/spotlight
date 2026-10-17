@@ -65,15 +65,15 @@ export class TaskNotices implements TaskNoticesPort {
           kept.push(...posted.marks);
         }
 
-        if (posted.kind === 'refused') {
+        if (posted.kind === 'failed') {
           this.log.warn(
             {
               task: task.taskId,
-              refusal: posted.refusal,
+              error: posted.error,
               target: posted.target,
               marks: task.marks,
             },
-            'A host refused a task’s word',
+            'A host answered a task’s word with an error',
           );
         }
       } catch (error) {

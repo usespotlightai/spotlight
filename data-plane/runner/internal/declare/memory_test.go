@@ -12,11 +12,13 @@ import (
 	"usespotlight.ai/data-plane/runner/internal/declare"
 )
 
-type refusedUpstream struct{ message string }
+type rejectedUpstream struct{ message string }
 
-func (r refusedUpstream) Error() string { return "remember: POST /api/runs/run_1/memories: 422: {...}" }
+func (r rejectedUpstream) Error() string {
+	return "remember: POST /api/runs/run_1/memories: 422: {...}"
+}
 
-func (r refusedUpstream) Refused() (string, bool) { return r.message, true }
+func (r rejectedUpstream) ClientErrorMessage() (string, bool) { return r.message, true }
 
 func remembering(t *testing.T, remember declare.Rememberer) (*declare.Server, *[]protocol.RecallRequest) {
 	t.Helper()
@@ -47,7 +49,7 @@ func TestCarriesARecallToSpotlight(t *testing.T) {
 	}
 }
 
-func TestRefusesARecallOfNothing(t *testing.T) {
+func TestRejectsARecallOfNothing(t *testing.T) {
 	server, recalled := remembering(t, nil)
 
 	status, _ := postTo(t, server, protocol.HandoverRecallPath, server.Token(), `{"words":"  "}`)
@@ -75,13 +77,13 @@ func TestCarriesAMemoryToSpotlight(t *testing.T) {
 	}
 }
 
-func TestSaysPlainlyWhySpotlightRefusedAMemory(t *testing.T) {
-	for _, refused := range []error{
-		refusedUpstream{message: "A memory is one of rationale, failure, not gossip"},
-		&declare.Refusal{Because: "A memory is one of rationale, failure, not gossip"},
+func TestSaysPlainlyWhySpotlightRejectedAMemory(t *testing.T) {
+	for _, rejected := range []error{
+		rejectedUpstream{message: "A memory is one of rationale, failure, not gossip"},
+		&declare.Error{Because: "A memory is one of rationale, failure, not gossip"},
 	} {
 		server, _ := remembering(t, func(context.Context, protocol.Remembering) (json.RawMessage, error) {
-			return nil, refused
+			return nil, rejected
 		})
 
 		status, body := postTo(t, server, protocol.HandoverRememberPath, server.Token(),
@@ -106,7 +108,7 @@ func TestSaysWhenSpotlightCouldNotBeReachedForAMemory(t *testing.T) {
 	}
 }
 
-func TestRefusesAMemoryWithoutAKindOrABody(t *testing.T) {
+func TestRejectsAMemoryWithoutAKindOrABody(t *testing.T) {
 	server, _ := remembering(t, func(context.Context, protocol.Remembering) (json.RawMessage, error) {
 		t.Error("remembered anyway")
 		return nil, nil

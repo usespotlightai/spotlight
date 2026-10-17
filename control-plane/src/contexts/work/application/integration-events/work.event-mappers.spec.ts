@@ -459,7 +459,9 @@ describe('WORK_EVENT_MAPPERS', () => {
           RUN,
           WORKSPACE,
           SUBJECT,
-          RunOutcome.refused([{ saying: 'The hook core/freeze refused.' }]),
+          RunOutcome.refused([
+            { saying: 'The hook core/freeze denied the run.' },
+          ]),
           null,
           null,
           null,

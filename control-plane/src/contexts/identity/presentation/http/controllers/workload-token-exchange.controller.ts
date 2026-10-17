@@ -22,8 +22,8 @@ import { AllowAnonymous } from '@platform/http/decorators/allow-anonymous.decora
 import { CLIENT_HEADER } from '@platform/http/resources/resource-headers';
 import { Client } from '@shared-kernel/domain/value-objects/client.vo';
 
-const REFUSED =
-  'Spotlight refused the exchange. Possible causes: an unknown trust, a token its issuer did not sign for the trust’s audience, a workload the trust does not admit, or a closed workspace';
+const UNAUTHORIZED =
+  'Spotlight did not accept the exchange. Possible causes: an unknown trust, a token its issuer did not sign for the trust’s audience, a workload the trust does not admit, or a closed workspace';
 
 @ApiTags('workspace-tokens')
 @AllowAnonymous()
@@ -39,7 +39,7 @@ export class WorkloadTokenExchangeController {
       'Exchange the OIDC token a CI platform issued a workload for a short-lived workspace token, through a workspace token trust that admits it',
   })
   @ApiOkResponse({ type: MintedTokenResponseDto })
-  @ApiUnauthorizedResponse({ description: REFUSED })
+  @ApiUnauthorizedResponse({ description: UNAUTHORIZED })
   async exchange(
     @Body() body: ExchangeWorkloadTokenRequestDto,
     @Headers(CLIENT_HEADER) client: string | undefined,
@@ -56,7 +56,7 @@ export class WorkloadTokenExchangeController {
     );
 
     if (!minted) {
-      throw new UnauthorizedException(REFUSED);
+      throw new UnauthorizedException(UNAUTHORIZED);
     }
 
     return new MintedTokenResponseDto(minted);

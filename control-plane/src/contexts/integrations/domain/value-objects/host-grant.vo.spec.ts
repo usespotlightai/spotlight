@@ -40,7 +40,7 @@ describe('HostGrant', () => {
     expect(grant.handle).toBeNull();
   });
 
-  it('refuses a grant with no token to act with', () => {
+  it('rejects a grant with no token to act with', () => {
     expect(() => HostGrant.of({ accessToken: '  ' })).toThrow(
       InvalidIdentifierError,
     );

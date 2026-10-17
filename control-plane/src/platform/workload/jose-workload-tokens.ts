@@ -75,7 +75,7 @@ export class JoseWorkloadTokens implements WorkloadTokensPort {
           issuer: expected.issuer,
           reason: error instanceof Error ? error.message : String(error),
         },
-        'Refused a workload token',
+        'Rejected a workload token',
       );
 
       return null;

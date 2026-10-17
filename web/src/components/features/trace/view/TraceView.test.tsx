@@ -384,7 +384,7 @@ describe('TraceView', () => {
 
       expect(screen.getByText('Cause')).toBeInTheDocument();
       expect(
-        screen.getByText(/refused the request with status 401/),
+        screen.getByText(/did not accept the request\. Status: 401/),
       ).toBeInTheDocument();
     });
   });

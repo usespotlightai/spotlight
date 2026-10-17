@@ -24,10 +24,10 @@ const creating = (
     administers?: boolean;
     claim?: IdempotentClaim;
     recall?: IdempotentRecall;
-    refusing?: Error;
+    failing?: Error;
   } = {},
 ) => {
-  const kept = definitions({ refusing: over.refusing });
+  const kept = definitions({ failing: over.failing });
   const keys = creates(over.claim);
   const within: string[] = [];
   let open = false;
@@ -60,8 +60,8 @@ const creating = (
   kept.save.mockImplementation(async () => {
     noted('save');
 
-    if (over.refusing) {
-      throw over.refusing;
+    if (over.failing) {
+      throw over.failing;
     }
   });
   keys.created.mockImplementation(async () => {
@@ -145,7 +145,7 @@ describe('CreateIntegrationHandler', () => {
     expect(kept.save).not.toHaveBeenCalled();
   });
 
-  it('refuses a key already used for a different request before reading anything', async () => {
+  it('rejects a key already used for a different request before reading anything', async () => {
     const reading = vi.spyOn(sources, 'compiled');
     const { create, kept, keys } = creating({ recall: { kind: 'reused' } });
 
@@ -155,7 +155,7 @@ describe('CreateIntegrationHandler', () => {
     expect(kept.save).not.toHaveBeenCalled();
   });
 
-  it('refuses a key used for a different request', async () => {
+  it('rejects a key used for a different request', async () => {
     const { create, kept } = creating({ claim: { kind: 'reused' } });
 
     expect(await create(LINEAR)).toEqual({ outcome: 'key-reused' });
@@ -164,7 +164,7 @@ describe('CreateIntegrationHandler', () => {
 
   it('answers a create for a host the team already has with its address', async () => {
     const { create, keys } = creating({
-      refusing: new IntegrationAlreadyDefinedError('linear'),
+      failing: new IntegrationAlreadyDefinedError('linear'),
     });
 
     expect(await create(LINEAR)).toEqual({

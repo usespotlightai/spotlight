@@ -98,7 +98,7 @@ describe('BeginOAuth2ConnectionHandler', () => {
     });
   });
 
-  it('refuses someone who may not connect the team', async () => {
+  it('denies someone who may not connect the team', async () => {
     const { handler, begin } = beginning({ allowed: false });
 
     expect(await handler.execute(command())).toBeNull();
@@ -122,14 +122,14 @@ describe('BeginOAuth2ConnectionHandler', () => {
     );
   });
 
-  it('refuses a person’s own connection where the integration acts as the team', async () => {
+  it('rejects a person’s own connection where the integration acts as the team', async () => {
     const { handler, begin } = beginning();
 
     expect(await handler.execute(command('person'))).toBeNull();
     expect(begin).not.toHaveBeenCalled();
   });
 
-  it('refuses someone who is not on the team', async () => {
+  it('denies someone who is not on the team', async () => {
     const { handler, begin } = beginning({
       member: false,
       holderRule: ConnectionHolderRule.requester(),
@@ -242,7 +242,7 @@ describe('FinishOAuth2ConnectionHandler', () => {
     expect(save).not.toHaveBeenCalled();
   });
 
-  it('re-checks the authorizer may still connect, and refuses if not', async () => {
+  it('re-checks the authorizer may still connect, and denies if not', async () => {
     const { handler, save } = finishing({ allowed: false });
 
     expect(await handler.execute(command())).toBeNull();
@@ -269,7 +269,7 @@ describe('FinishOAuth2ConnectionHandler', () => {
     );
   });
 
-  it('refuses a person’s own connection once they left the team', async () => {
+  it('denies a person’s own connection once they left the team', async () => {
     const { handler, save } = finishing({
       member: false,
       authorized: { ...authorized, holder: 'person' },
@@ -279,7 +279,7 @@ describe('FinishOAuth2ConnectionHandler', () => {
     expect(save).not.toHaveBeenCalled();
   });
 
-  it('refuses a person’s own connection once the integration acts as the team', async () => {
+  it('rejects a person’s own connection once the integration acts as the team', async () => {
     const { handler, save } = finishing({
       holderRule: ConnectionHolderRule.team(),
       authorized: { ...authorized, holder: 'person' },

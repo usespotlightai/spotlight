@@ -92,7 +92,7 @@ describe('picking a search candidate', () => {
     ).toBe('terse');
   });
 
-  it('refuses the seed, a candidate the search never proposed and one still replaying', () => {
+  it('rejects the seed, a candidate the search never proposed and one still replaying', () => {
     const search = withCandidates(false);
 
     expect(() => pickedFrom(search, search.seed.candidateId)).toThrow(
@@ -125,10 +125,10 @@ describe('ConfigPullRequest', () => {
     });
   });
 
-  it('is refused at once when the line names no source', () => {
+  it('fails at once when the line names no source', () => {
     const pullRequest = picked(null);
 
-    expect(pullRequest.current).toBe('refused');
+    expect(pullRequest.current).toBe('failed');
     expect(pullRequest.reason?.code).toBe('no-source');
     expect(pullRequest.dueAt).toBeNull();
   });
@@ -146,9 +146,9 @@ describe('ConfigPullRequest', () => {
       pullRequest = pullRequest.tried('GitHub is down', NOW);
     }
 
-    expect(pullRequest.current).toBe('refused');
+    expect(pullRequest.current).toBe('failed');
     expect(pullRequest.reason).toMatchObject({
-      code: 'github-refused',
+      code: 'github-error',
       message: 'GitHub is down',
     });
   });
@@ -180,7 +180,7 @@ describe('ConfigPullRequest', () => {
     });
   });
 
-  it('is tried again only once refused, as a new attempt', () => {
+  it('is tried again only after it failed, as a new attempt', () => {
     const opening = picked();
 
     opening.pullEvents();
@@ -189,11 +189,11 @@ describe('ConfigPullRequest', () => {
       opening.retried({ lineKey: 'delivery', source: SOURCE, at: NOW, by: BY }),
     ).toThrow();
 
-    const refused = opening.refused(
-      ConfigPullRequestReason.of({ code: 'drifted', message: 'moved on' }),
+    const failed = opening.failed(
+      ConfigPullRequestReason.of({ code: 'base-changed', message: 'moved on' }),
       NOW,
     );
-    const retried = refused.retried({
+    const retried = failed.retried({
       lineKey: 'delivery',
       source: SOURCE,
       at: later(5),

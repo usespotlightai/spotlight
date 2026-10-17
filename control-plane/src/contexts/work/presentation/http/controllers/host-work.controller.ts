@@ -56,7 +56,7 @@ interface Answerable {
   status(code: number): unknown;
 }
 
-const REFUSED =
+const UNAUTHORIZED =
   'Missing, rotated or unknown pool token, or a workload the trust does not admit';
 
 @ApiTags('runners')
@@ -67,7 +67,7 @@ const REFUSED =
   description:
     'The runner trust to claim through; the bearer is then the workload’s token',
 })
-@ApiUnauthorizedResponse({ description: REFUSED })
+@ApiUnauthorizedResponse({ description: UNAUTHORIZED })
 @AllowAnonymous()
 @Controller('hosts')
 export class HostWorkController {
@@ -93,7 +93,7 @@ export class HostWorkController {
     >(new HostRequirementsQuery({ bearer: bearerIn(authorization), trust }));
 
     if (!required) {
-      throw new UnauthorizedException(REFUSED);
+      throw new UnauthorizedException(UNAUTHORIZED);
     }
 
     return new HostRequirementsResponseDto(
@@ -146,8 +146,8 @@ export class HostWorkController {
       ),
     );
 
-    if (claimed.outcome === 'refused') {
-      throw new UnauthorizedException(REFUSED);
+    if (claimed.outcome === 'unauthorized') {
+      throw new UnauthorizedException(UNAUTHORIZED);
     }
 
     if (claimed.outcome === 'stranger') {
@@ -212,8 +212,8 @@ export class HostWorkController {
       ),
     );
 
-    if (claimed.outcome === 'refused') {
-      throw new UnauthorizedException(REFUSED);
+    if (claimed.outcome === 'unauthorized') {
+      throw new UnauthorizedException(UNAUTHORIZED);
     }
 
     if (claimed.outcome === 'stranger') {
@@ -279,8 +279,8 @@ export class HostWorkController {
       ),
     );
 
-    if (answered.outcome === 'refused') {
-      throw new UnauthorizedException(REFUSED);
+    if (answered.outcome === 'unauthorized') {
+      throw new UnauthorizedException(UNAUTHORIZED);
     }
 
     if (answered.outcome === 'unknown') {

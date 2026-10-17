@@ -57,7 +57,7 @@ describe('RunSpec', () => {
     );
   });
 
-  it('refuses one that says nothing to do, or nothing to run', () => {
+  it('rejects one that says nothing to do, or nothing to run', () => {
     expect(() => RunSpec.of(parts({ briefing: '  ' }))).toThrow(
       InvalidRunSpecError,
     );
@@ -66,7 +66,7 @@ describe('RunSpec', () => {
     ).toThrow(InvalidRunSpecError);
   });
 
-  it('refuses a note limit it cannot keep to', () => {
+  it('rejects a note limit it cannot keep to', () => {
     for (const noteLimit of [-1, 1.5, Number.NaN]) {
       expect(() =>
         RunSpec.of(parts({ handover: { options: [], noteLimit } })),
@@ -74,7 +74,7 @@ describe('RunSpec', () => {
     }
   });
 
-  it('refuses a checkout that reaches outside the workspace', () => {
+  it('rejects a checkout that reaches outside the workspace', () => {
     for (const path of ['/etc', '../elsewhere', 'a/../../b']) {
       expect(() =>
         RunSpec.of(
@@ -84,13 +84,13 @@ describe('RunSpec', () => {
     }
   });
 
-  it('refuses a checkout that comes from nowhere', () => {
+  it('rejects a checkout that comes from nowhere', () => {
     expect(() =>
       RunSpec.of(parts({ checkouts: [{ remote: '  ', path: 'widgets' }] })),
     ).toThrow(InvalidRunSpecError);
   });
 
-  it('refuses a skill or attachment laid outside the workspace', () => {
+  it('rejects a skill or attachment laid outside the workspace', () => {
     expect(() =>
       RunSpec.of(parts({ skills: [{ path: '/root/SKILL.md', text: '' }] })),
     ).toThrow(InvalidRunSpecError);

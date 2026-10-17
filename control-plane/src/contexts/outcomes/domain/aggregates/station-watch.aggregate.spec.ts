@@ -318,7 +318,7 @@ describe('StationWatch', () => {
     expect(forgotten.withoutTask(TaskId.of('task_9'))).toBe(forgotten);
   });
 
-  it('refuses two open crossings for one threshold', () => {
+  it('rejects two open crossings for one threshold', () => {
     const next = ids();
     const raised = begun().check([rising(1, 0.6, 0.3)], atRun(1), next);
     const open = raised.open[0];

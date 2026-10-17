@@ -87,7 +87,7 @@ describe('StopRunHandler', () => {
     expect(raised.some((each) => each instanceof RunStopRequested)).toBe(true);
   });
 
-  it('refuses anyone the task is not assigned to', async () => {
+  it('rejects anyone the task is not assigned to', async () => {
     const { handler, save } = stopping(claimedRun(), taskAssignedTo('user_1'));
 
     await expect(
@@ -96,7 +96,7 @@ describe('StopRunHandler', () => {
     expect(save).not.toHaveBeenCalled();
   });
 
-  it('refuses to stop a run that is no longer being worked', async () => {
+  it('does not stop a run that is no longer being worked', async () => {
     const ended = claimedRun().complete(
       RunnerId.of('runner_1'),
       RunOutcome.of({ exitCode: 0, failed: false }),

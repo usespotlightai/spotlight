@@ -79,7 +79,7 @@ describe('TeamAdministration', () => {
     ).not.toBeNull();
   });
 
-  it('refuses a plain member', async () => {
+  it('denies a plain member', async () => {
     expect(
       await asking({
         workspace: acme(WorkspaceRole.member),
@@ -87,13 +87,13 @@ describe('TeamAdministration', () => {
     ).toBeNull();
   });
 
-  it('refuses someone who is not of the workspace at all', async () => {
+  it('denies someone who is not of the workspace at all', async () => {
     expect(
       await asking().administration.administeredBy('team_1', 'stranger'),
     ).toBeNull();
   });
 
-  it('refuses where the team cannot be found', async () => {
+  it('fails where the team cannot be found', async () => {
     expect(
       await asking({ team: null }).administration.administeredBy(
         'team_1',
@@ -102,7 +102,7 @@ describe('TeamAdministration', () => {
     ).toBeNull();
   });
 
-  it('refuses where the workspace cannot be found', async () => {
+  it('fails where the workspace cannot be found', async () => {
     expect(
       await asking({ workspace: null }).administration.administeredBy(
         'team_1',

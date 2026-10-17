@@ -61,7 +61,7 @@ const IF_MATCH = ApiHeader({
   name: IF_MATCH_HEADER,
   required: true,
   description:
-    'The ETag of the version this write was based on; a write to any other version is refused with 409',
+    'The ETag of the version this write was based on; a write to any other version fails with 409',
   schema: { type: 'string', example: '"3"' },
 });
 

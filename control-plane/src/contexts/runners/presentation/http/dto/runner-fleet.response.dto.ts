@@ -67,7 +67,7 @@ export class HostImageResponseDto {
     example: null,
     description: 'Why the host will not run it, when it will not',
   })
-  readonly refused: string | null;
+  readonly unavailableReason: string | null;
 
   constructor(fields: HostImageResponseDto) {
     this.image = fields.image;
@@ -77,7 +77,7 @@ export class HostImageResponseDto {
     this.harnesses = fields.harnesses.map(
       (each) => new HostHarnessResponseDto(each),
     );
-    this.refused = fields.refused;
+    this.unavailableReason = fields.unavailableReason;
   }
 }
 
@@ -113,7 +113,7 @@ export class HostResponseDto {
   @ApiProperty({
     type: [HostImageResponseDto],
     description:
-      'The runner images it serves or refused, and what each contains',
+      'The runner images it serves or cannot use, and what each contains',
   })
   readonly images: readonly HostImageResponseDto[];
 

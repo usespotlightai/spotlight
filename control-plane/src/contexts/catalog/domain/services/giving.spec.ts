@@ -74,20 +74,20 @@ describe('givingOf', () => {
     );
   });
 
-  it('refuses an id the catalog cannot read as unknown', () => {
+  it('denies an id the catalog cannot read as unknown', () => {
     expect(
       givingOf('web-search', 'tool', CATALOG, WorkspacePlan.free, NOW),
     ).toEqual({
       given: false,
-      refusal: {
+      denial: {
         id: 'web-search',
         reason: 'unknown',
-        because: 'Catalog has no item web-search.',
+        detail: 'Catalog has no item web-search.',
       },
     });
   });
 
-  it('refuses a version the catalog does not have as unknown', () => {
+  it('denies a version the catalog does not have as unknown', () => {
     expect(
       givingOf(
         'catalog.web-search@9.0.0',
@@ -96,10 +96,10 @@ describe('givingOf', () => {
         WorkspacePlan.of(Plan.enterprise),
         NOW,
       ),
-    ).toMatchObject({ given: false, refusal: { reason: 'unknown' } });
+    ).toMatchObject({ given: false, denial: { reason: 'unknown' } });
   });
 
-  it('refuses a skill named as a tool as the wrong kind', () => {
+  it('denies a skill named as a tool as the wrong kind', () => {
     expect(
       givingOf(
         'catalog.research@1.0.0',
@@ -110,15 +110,15 @@ describe('givingOf', () => {
       ),
     ).toEqual({
       given: false,
-      refusal: {
+      denial: {
         id: 'catalog.research@1.0.0',
         reason: 'wrong-kind',
-        because: 'Catalog item catalog.research@1.0.0 is a skill, not a tool.',
+        detail: 'Catalog item catalog.research@1.0.0 is a skill, not a tool.',
       },
     });
   });
 
-  it('refuses what the plan does not include, naming the plan it needs', () => {
+  it('denies what the plan does not include, naming the plan it needs', () => {
     expect(
       givingOf(
         'catalog.web-search@1.0.0',
@@ -129,16 +129,16 @@ describe('givingOf', () => {
       ),
     ).toEqual({
       given: false,
-      refusal: {
+      denial: {
         id: 'catalog.web-search@1.0.0',
         reason: 'not-entitled',
-        because:
+        detail:
           'Catalog item catalog.web-search@1.0.0 needs the Team plan. Workspace plan: Free',
       },
     });
   });
 
-  it('refuses what a plan past the day it lapses included, as lapsed', () => {
+  it('denies what a plan past the day it lapses included, as lapsed', () => {
     expect(
       givingOf(
         'catalog.web-search@1.0.0',
@@ -147,10 +147,10 @@ describe('givingOf', () => {
         WorkspacePlan.of(Plan.team, LAPSED),
         NOW,
       ),
-    ).toMatchObject({ given: false, refusal: { reason: 'lapsed' } });
+    ).toMatchObject({ given: false, denial: { reason: 'lapsed' } });
   });
 
-  it('refuses what a lapsed plan never included as not entitled, not as lapsed', () => {
+  it('denies what a lapsed plan never included as not entitled, not as lapsed', () => {
     expect(
       givingOf(
         'catalog.web-search@1.0.0',
@@ -159,17 +159,17 @@ describe('givingOf', () => {
         WorkspacePlan.of(Plan.free, LAPSED),
         NOW,
       ),
-    ).toMatchObject({ given: false, refusal: { reason: 'not-entitled' } });
+    ).toMatchObject({ given: false, denial: { reason: 'not-entitled' } });
   });
 });
 
 describe('givingOfItem', () => {
-  it('refuses an item already found by the same entitlement rule', () => {
+  it('denies an item already found by the same entitlement rule', () => {
     expect(
       givingOfItem(tool('web-search', Plan.team), WorkspacePlan.free, NOW),
     ).toMatchObject({
       given: false,
-      refusal: { id: 'catalog.web-search@1.0.0', reason: 'not-entitled' },
+      denial: { id: 'catalog.web-search@1.0.0', reason: 'not-entitled' },
     });
   });
 });
@@ -188,7 +188,7 @@ describe('givingsTo', () => {
       'catalog.web-search@1.0.0',
       'catalog.fetch-page@1.0.0',
     ]);
-    expect(givings.refused).toEqual([]);
+    expect(givings.denied).toEqual([]);
   });
 
   it('checks each tool a skill brings against the plan on its own', () => {
@@ -201,12 +201,12 @@ describe('givingsTo', () => {
 
     expect(ids(givings.skills)).toEqual(['catalog.research@1.0.0']);
     expect(ids(givings.tools)).toEqual(['catalog.fetch-page@1.0.0']);
-    expect(givings.refused).toMatchObject([
+    expect(givings.denied).toMatchObject([
       { id: 'catalog.web-search@1.0.0', reason: 'not-entitled' },
     ]);
   });
 
-  it('brings none of the tools of a skill it refuses', () => {
+  it('brings none of the tools of a skill it denies', () => {
     const givings = givingsTo(
       { tools: [], skills: ['catalog.compliance@1.0.0'] },
       CATALOG,
@@ -216,12 +216,12 @@ describe('givingsTo', () => {
 
     expect(givings.skills).toEqual([]);
     expect(givings.tools).toEqual([]);
-    expect(givings.refused).toMatchObject([
+    expect(givings.denied).toMatchObject([
       { id: 'catalog.compliance@1.0.0', reason: 'not-entitled' },
     ]);
   });
 
-  it('gives or refuses each id once, however often it is named or brought', () => {
+  it('gives or denies each id once, however often it is named or brought', () => {
     const givings = givingsTo(
       {
         tools: [
@@ -242,12 +242,12 @@ describe('givingsTo', () => {
       'catalog.fetch-page@1.0.0',
     ]);
     expect(ids(givings.skills)).toEqual(['catalog.research@1.0.0']);
-    expect(givings.refused.map((each) => each.id)).toEqual([
+    expect(givings.denied.map((each) => each.id)).toEqual([
       'catalog.audit-log@1.0.0',
     ]);
   });
 
-  it('refuses a tool named as a skill and a skill named as a tool as the wrong kind', () => {
+  it('denies a tool named as a skill and a skill named as a tool as the wrong kind', () => {
     const givings = givingsTo(
       {
         tools: ['catalog.research@1.0.0'],
@@ -260,7 +260,7 @@ describe('givingsTo', () => {
 
     expect(givings.tools).toEqual([]);
     expect(givings.skills).toEqual([]);
-    expect(givings.refused.map((each) => each.reason)).toEqual([
+    expect(givings.denied.map((each) => each.reason)).toEqual([
       'wrong-kind',
       'wrong-kind',
     ]);

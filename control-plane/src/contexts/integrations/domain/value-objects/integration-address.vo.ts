@@ -4,7 +4,7 @@ import { isSlug } from '@shared-kernel/domain/value-objects/identifier-shapes';
 
 const SEPARATOR = '/';
 
-const refused = (): never => {
+const invalid = (): never => {
   throw new InvalidIdentifierError(
     'integration address',
     'is the team key and the host it is for, as in core/linear',
@@ -22,7 +22,7 @@ export class IntegrationAddress {
   static of(teamKey: string, source: SourceKey): IntegrationAddress {
     return isSlug(teamKey)
       ? new IntegrationAddress(teamKey, source)
-      : refused();
+      : invalid();
   }
 
   static parse(raw: string): IntegrationAddress {
@@ -30,7 +30,7 @@ export class IntegrationAddress {
 
     return teamKey && source && rest.length === 0
       ? IntegrationAddress.of(teamKey, SourceKey.of(source))
-      : refused();
+      : invalid();
   }
 
   equals(other: IntegrationAddress): boolean {

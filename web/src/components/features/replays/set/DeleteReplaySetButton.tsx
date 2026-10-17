@@ -17,14 +17,14 @@ import type { ReplaySet } from '@/lib/replay';
 type DeleteReplaySetButtonProps = {
   teamId: string;
   set: ReplaySet;
-  refusedBecause: string | null;
+  disabledBecause: string | null;
   deletedTo: string;
 };
 
 export function DeleteReplaySetButton({
   teamId,
   set,
-  refusedBecause,
+  disabledBecause,
   deletedTo,
 }: DeleteReplaySetButtonProps) {
   const deleting = useDeleteReplaySet();
@@ -35,7 +35,7 @@ export function DeleteReplaySetButton({
       label="Delete"
       icon={Trash2}
       variant="outline"
-      refusedBecause={refusedBecause}
+      disabledBecause={disabledBecause}
       dialog={(open, onOpenChange) => (
         <Dialog
           open={open}

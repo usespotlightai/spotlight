@@ -30,7 +30,7 @@ const entry = (
   state: 'completed',
   endedAt: null,
   addedAt: '2026-10-01T09:00:00.000Z',
-  refusal: null,
+  unreplayableReason: null,
   reason: null,
   outcome: 'other',
   origin: 'person',

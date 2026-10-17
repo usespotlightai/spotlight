@@ -3,14 +3,13 @@ import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
-export class ReplayPairingRefused implements DomainEvent {
-  readonly kind = 'replay.pairing-refused';
+export class ReplayRejudgingFailed implements DomainEvent {
+  readonly kind = 'replay.rejudging-failed';
 
   constructor(
     readonly replayId: ReplayId,
     readonly workspaceId: WorkspaceId,
     readonly run: RunId,
-    readonly against: RunId,
     readonly why: string,
   ) {}
 }

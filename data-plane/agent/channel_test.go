@@ -96,7 +96,7 @@ func (h *channel) Declared() *protocol.Outcome {
 
 func (h *channel) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if r.Header.Get("Authorization") != "Bearer "+handoverToken {
-		refuse(w, http.StatusUnauthorized, "not this run's token")
+		fail(w, http.StatusUnauthorized, "not this run's token")
 		return
 	}
 
@@ -120,32 +120,32 @@ func (h *channel) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case r.URL.Path == protocol.HandoverHistoryPath:
 		var asked protocol.HistoryRequest
 		if h.history == nil || json.NewDecoder(r.Body).Decode(&asked) != nil {
-			refuse(w, http.StatusBadRequest, "unreadable history request")
+			fail(w, http.StatusBadRequest, "unreadable history request")
 			return
 		}
 		answered(w)(h.history(asked))
 	case r.URL.Path == protocol.HandoverRecallPath:
 		var asked protocol.RecallRequest
 		if h.recall == nil || json.NewDecoder(r.Body).Decode(&asked) != nil {
-			refuse(w, http.StatusBadRequest, "unreadable recall")
+			fail(w, http.StatusBadRequest, "unreadable recall")
 			return
 		}
 		answered(w)(h.recall(asked))
 	case r.URL.Path == protocol.HandoverRememberPath:
 		var asked protocol.Remembering
 		if h.remember == nil || json.NewDecoder(r.Body).Decode(&asked) != nil {
-			refuse(w, http.StatusBadRequest, "unreadable memory")
+			fail(w, http.StatusBadRequest, "unreadable memory")
 			return
 		}
 		answered(w)(h.remember(asked))
 	case r.URL.Path == protocol.HandoverCandidatePath:
 		if h.propose == nil {
-			refuse(w, http.StatusNotImplemented, "this run cannot propose a candidate: only a search's runs do")
+			fail(w, http.StatusNotImplemented, "this run cannot propose a candidate: only a search's runs do")
 			return
 		}
 		var asked protocol.CandidateProposal
 		if json.NewDecoder(r.Body).Decode(&asked) != nil {
-			refuse(w, http.StatusBadRequest, "unreadable candidate")
+			fail(w, http.StatusBadRequest, "unreadable candidate")
 			return
 		}
 		status, body := h.propose(asked)
@@ -156,12 +156,12 @@ func (h *channel) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		_, _ = w.Write([]byte(body))
 	case r.URL.Path == protocol.HandoverCausePath:
 		if h.cause == nil {
-			refuse(w, http.StatusNotImplemented, "this run cannot record a cause: only a search's runs do")
+			fail(w, http.StatusNotImplemented, "this run cannot record a cause: only a search's runs do")
 			return
 		}
 		var asked protocol.CauseRecord
 		if json.NewDecoder(r.Body).Decode(&asked) != nil {
-			refuse(w, http.StatusBadRequest, "unreadable cause")
+			fail(w, http.StatusBadRequest, "unreadable cause")
 			return
 		}
 		status, body := h.cause(asked)
@@ -174,19 +174,19 @@ func (h *channel) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (h *channel) tool(w http.ResponseWriter, r *http.Request, name string) {
 	if h.use == nil || !slices.Contains(h.granted, name) {
-		refuse(w, http.StatusForbidden, fmt.Sprintf("this run was not given %q", name))
+		fail(w, http.StatusForbidden, fmt.Sprintf("this run was not given %q", name))
 		return
 	}
 
 	input, _ := io.ReadAll(r.Body)
 	if !json.Valid(input) {
-		refuse(w, http.StatusBadRequest, "unreadable input: hand the tool JSON")
+		fail(w, http.StatusBadRequest, "unreadable input: hand the tool JSON")
 		return
 	}
 
 	answered, err := h.use(r.Context(), name, input)
 	if err != nil {
-		refuse(w, http.StatusBadGateway, err.Error())
+		fail(w, http.StatusBadGateway, err.Error())
 		return
 	}
 
@@ -197,17 +197,17 @@ func (h *channel) tool(w http.ResponseWriter, r *http.Request, name string) {
 func (h *channel) remark(w http.ResponseWriter, r *http.Request) {
 	var said protocol.Remark
 	if h.answer == nil || json.NewDecoder(r.Body).Decode(&said) != nil {
-		refuse(w, http.StatusBadRequest, "unreadable answer")
+		fail(w, http.StatusBadRequest, "unreadable answer")
 		return
 	}
 
 	if strings.TrimSpace(said.Handle) == "" {
-		refuse(w, http.StatusUnprocessableEntity, "say which remark")
+		fail(w, http.StatusUnprocessableEntity, "say which remark")
 		return
 	}
 
 	if err := h.answer(r.Context(), said); err != nil {
-		refuse(w, http.StatusBadGateway, err.Error())
+		fail(w, http.StatusBadGateway, err.Error())
 		return
 	}
 
@@ -217,13 +217,13 @@ func (h *channel) remark(w http.ResponseWriter, r *http.Request) {
 func (h *channel) traceOf(w http.ResponseWriter, r *http.Request) {
 	var asked protocol.TraceRequest
 	if h.trace == nil || json.NewDecoder(r.Body).Decode(&asked) != nil {
-		refuse(w, http.StatusBadRequest, "unreadable trace request")
+		fail(w, http.StatusBadRequest, "unreadable trace request")
 		return
 	}
 
 	trace, err := h.trace(r.Context(), asked.Task)
 	if err != nil {
-		refuse(w, http.StatusBadGateway, err.Error())
+		fail(w, http.StatusBadGateway, err.Error())
 		return
 	}
 
@@ -234,7 +234,7 @@ func (h *channel) traceOf(w http.ResponseWriter, r *http.Request) {
 func (h *channel) outcome(w http.ResponseWriter, r *http.Request) {
 	var spoken protocol.Outcome
 	if json.NewDecoder(r.Body).Decode(&spoken) != nil {
-		refuse(w, http.StatusBadRequest, "unreadable handover")
+		fail(w, http.StatusBadRequest, "unreadable handover")
 		return
 	}
 
@@ -242,7 +242,7 @@ func (h *channel) outcome(w http.ResponseWriter, r *http.Request) {
 		return strings.EqualFold(option, spoken.Next)
 	})
 	if at < 0 {
-		refuse(w, http.StatusUnprocessableEntity, fmt.Sprintf(
+		fail(w, http.StatusUnprocessableEntity, fmt.Sprintf(
 			"%q is not one of: %s", spoken.Next, strings.Join(h.options, ", "),
 		))
 		return
@@ -258,7 +258,7 @@ func (h *channel) outcome(w http.ResponseWriter, r *http.Request) {
 func answered(w http.ResponseWriter) func(json.RawMessage, error) {
 	return func(answer json.RawMessage, err error) {
 		if err != nil {
-			refuse(w, http.StatusUnprocessableEntity, err.Error())
+			fail(w, http.StatusUnprocessableEntity, err.Error())
 			return
 		}
 
@@ -272,7 +272,7 @@ func answerJSON(w http.ResponseWriter, body any) {
 	_ = json.NewEncoder(w).Encode(body)
 }
 
-func refuse(w http.ResponseWriter, status int, because string) {
+func fail(w http.ResponseWriter, status int, because string) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	w.WriteHeader(status)
 	_, _ = w.Write([]byte(because + "\n"))

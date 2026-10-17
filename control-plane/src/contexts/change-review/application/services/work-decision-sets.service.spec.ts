@@ -131,7 +131,7 @@ describe('drafting the decisions a run made', () => {
 
   it('tries again later when drafting fails, then gives up', async () => {
     const worked = working(REASONED, async () => {
-      throw new Error('OpenRouter refused to draft: 503');
+      throw new Error('OpenRouter failed to draft: 503');
     });
 
     for (let day = 0; day <= MAX_WORK_ATTEMPTS; day += 1) {

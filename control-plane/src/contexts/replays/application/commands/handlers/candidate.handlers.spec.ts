@@ -83,14 +83,14 @@ describe('ProposeCandidateHandler', () => {
     ).toBeNull();
   });
 
-  it('refuses one who may read but not plan, before looking at what was proposed', async () => {
+  it('denies one who may read but not plan, before looking at what was proposed', async () => {
     expect(await propose({}, false)).toEqual({
       outcome: 'forbidden',
       act: 'plan',
     });
   });
 
-  it('refuses a nameless proposal, and says what the station block gets wrong beside it', async () => {
+  it('rejects a nameless proposal, and says what the station block gets wrong beside it', async () => {
     const wrong = ConfigurationProblem.of({
       path: '',
       at: FieldPath.of(['station', 'harness']),
@@ -98,12 +98,12 @@ describe('ProposeCandidateHandler', () => {
     });
     work.examine = async () => ({ ok: false as const, problems: [wrong] });
 
-    const refused = await propose({ name: '  ', station: BLOCK });
+    const rejected = await propose({ name: '  ', station: BLOCK });
 
-    expect(refused?.outcome).toBe('invalid');
+    expect(rejected?.outcome).toBe('invalid');
     expect(
-      refused?.outcome === 'invalid'
-        ? refused.problems.map((each) => each.field.rendered)
+      rejected?.outcome === 'invalid'
+        ? rejected.problems.map((each) => each.field.rendered)
         : [],
     ).toEqual(['name', 'station.harness']);
   });
@@ -146,14 +146,14 @@ describe('WithdrawCandidateHandler', () => {
     });
   });
 
-  it('refuses a version it is not at, naming the one it is', async () => {
+  it('rejects a version it is not at, naming the one it is', async () => {
     expect(await withdraw('candidate_proposed', 3)).toEqual({
       outcome: 'version-conflict',
       currentVersion: 0,
     });
   });
 
-  it('refuses one who may not plan, and finds nothing for one who cannot see it', async () => {
+  it('denies one who may not plan, and finds nothing for one who cannot see it', async () => {
     expect(await withdraw('candidate_proposed', 0, false)).toEqual({
       outcome: 'forbidden',
       act: 'plan',

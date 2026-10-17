@@ -35,7 +35,7 @@ import type {
 import { HostHeartbeatResponseDto } from '@runners/presentation/http/dto/host-heartbeat.response.dto';
 import { HostPresenceRequestDto } from '@runners/presentation/http/dto/host-presence.request.dto';
 
-const REFUSED =
+const UNAUTHORIZED =
   'Pool token is missing, rotated or unknown, or no trust admits this workload.';
 
 @ApiTags('runners')
@@ -46,7 +46,7 @@ const REFUSED =
   description:
     'The runner trust to claim through; the bearer is then the workload’s token',
 })
-@ApiUnauthorizedResponse({ description: REFUSED })
+@ApiUnauthorizedResponse({ description: UNAUTHORIZED })
 @ApiParam({ name: 'hostId', example: 'K7Q2M4ZC3VYH6N5RB8WX1TDJ9P' })
 @AllowAnonymous()
 @Controller('hosts/:hostId')
@@ -93,14 +93,16 @@ export class HostController {
             })),
             ...(each.digest ? { digest: each.digest } : {}),
             ...(each.release ? { release: each.release } : {}),
-            ...(each.refused ? { refused: each.refused } : {}),
+            ...(each.unavailableReason
+              ? { unavailableReason: each.unavailableReason }
+              : {}),
           })),
         },
       ),
     );
 
-    if (heartbeat.outcome === 'refused') {
-      throw new UnauthorizedException(REFUSED);
+    if (heartbeat.outcome === 'unauthorized') {
+      throw new UnauthorizedException(UNAUTHORIZED);
     }
 
     if (heartbeat.outcome === 'taken') {
@@ -132,8 +134,8 @@ export class HostController {
       ),
     );
 
-    if (left.outcome === 'refused') {
-      throw new UnauthorizedException(REFUSED);
+    if (left.outcome === 'unauthorized') {
+      throw new UnauthorizedException(UNAUTHORIZED);
     }
   }
 }

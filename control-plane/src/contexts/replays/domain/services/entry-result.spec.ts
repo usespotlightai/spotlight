@@ -31,7 +31,7 @@ const JUDGED = { judges: true, checks: true };
 const UNJUDGED = { judges: false, checks: true };
 
 const completed = (more: Partial<EntryFacts> = {}): EntryFacts => ({
-  refusal: null,
+  unreplayableReason: null,
   notRun: false,
   end: endOf('completed'),
   measures: measuresOf(1),
@@ -335,19 +335,19 @@ describe('whether a replayed task succeeded', () => {
       reasons: [{ code: 'run-stopped' }],
     });
 
-    for (const refusal of [
+    for (const reason of [
       'archive-gone',
       'candidate-unfit',
       'dispatch-failed',
       'unchecked',
     ] as const) {
-      expect(resultOf(completed({ refusal, end: null }), JUDGED)).toMatchObject(
-        {
-          succeeded: null,
-          concluded: true,
-          reasons: [{ code: 'unreplayable', detail: refusal }],
-        },
-      );
+      expect(
+        resultOf(completed({ unreplayableReason: reason, end: null }), JUDGED),
+      ).toMatchObject({
+        succeeded: null,
+        concluded: true,
+        reasons: [{ code: 'unreplayable', detail: reason }],
+      });
     }
   });
 

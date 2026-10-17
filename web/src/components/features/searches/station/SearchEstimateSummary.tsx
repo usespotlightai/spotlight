@@ -9,7 +9,7 @@ type SearchEstimateSummaryProps = {
   repeats: number;
   asked: boolean;
   estimating: boolean;
-  refusal: string | null;
+  problem: string | null;
 };
 
 const ROW = 'flex items-baseline justify-between gap-3';
@@ -19,7 +19,7 @@ export function SearchEstimateSummary({
   repeats,
   asked,
   estimating,
-  refusal,
+  problem,
 }: SearchEstimateSummaryProps) {
   let body: ReactNode;
 
@@ -29,10 +29,10 @@ export function SearchEstimateSummary({
         Choose a replay set and budget to see the estimated runs and spend.
       </p>
     );
-  } else if (refusal) {
+  } else if (problem) {
     body = (
       <p role="alert" className="text-destructive text-xs">
-        {refusal}
+        {problem}
       </p>
     );
   } else if (!estimate) {
@@ -100,7 +100,7 @@ export function SearchEstimateSummary({
       className="flex flex-col gap-2 rounded-lg border border-border bg-card px-3 py-2.5"
     >
       {body}
-      {asked && estimate && !refusal && (
+      {asked && estimate && !problem && (
         <p className="text-muted-foreground text-xs leading-5">
           An agent run may slightly overspend. The search may end a little over
           its ceiling.

@@ -1,5 +1,5 @@
 import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
-import type { ReplayPairingRefused } from '@replays/domain/events/replay-pairing-refused.event';
+import type { ReplayPairingFailed } from '@replays/domain/events/replay-pairing-failed.event';
 import type { ReplayRepository } from '@replays/domain/repositories/replay.repository';
 import { PairVerdict } from '@replays/domain/value-objects/entry-pairing.vo';
 import type { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
@@ -51,7 +51,7 @@ export class NoteReplayPaired {
     );
   }
 
-  refused(event: ReplayPairingRefused): Promise<void> {
+  askFailed(event: ReplayPairingFailed): Promise<void> {
     return this.changing(event.run.value, (replay, run) =>
       replay.recordPairingFailure(run, event.against, event.why, null),
     );

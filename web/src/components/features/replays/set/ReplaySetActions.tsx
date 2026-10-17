@@ -24,7 +24,7 @@ export function ReplaySetActions({
       <DeleteReplaySetButton
         teamId={teamId}
         set={set}
-        refusedBecause={running ? UNDELETABLE : null}
+        disabledBecause={running ? UNDELETABLE : null}
         deletedTo={deletedTo}
       />
     </>

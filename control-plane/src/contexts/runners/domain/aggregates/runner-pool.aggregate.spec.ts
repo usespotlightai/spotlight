@@ -217,7 +217,7 @@ describe('RunnerPool', () => {
     expect((retired as RunnerPoolRetired).change.action).toBe('deleted');
   });
 
-  it('refuses a write from a version that is no longer current', () => {
+  it('rejects a write from a version that is no longer current', () => {
     expect(() => aPullPool().assertVersion(3)).toThrow(
       RunnerPoolVersionConflictError,
     );

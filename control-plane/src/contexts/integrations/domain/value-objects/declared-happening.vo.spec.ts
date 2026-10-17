@@ -32,12 +32,12 @@ describe('DeclaredHappening', () => {
     expect(declaring({ findsByBranch: true }).findsByBranch).toBe(true);
   });
 
-  it('refuses one nobody could read in a note', () => {
+  it('rejects one nobody could read in a note', () => {
     expect(() => declaring({ told: '  ' })).toThrow(InvalidIdentifierError);
     expect(() => declaring({ label: '' })).toThrow(InvalidIdentifierError);
   });
 
-  it('refuses one that could never find a task', () => {
+  it('rejects one that could never find a task', () => {
     expect(() => declaring({ finds: [], findsByBranch: false })).toThrow(
       /no task can be found/,
     );

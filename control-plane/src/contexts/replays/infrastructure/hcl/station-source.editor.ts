@@ -1,7 +1,7 @@
 import type { HclLiteral } from '@platform/hcl/hcl.parse';
 import {
   editedHclBlock,
-  type HclEditRefusalCode,
+  type HclEditErrorCode,
   type HclField,
   type HclGuardedBlock,
   type HclReferenceRule,
@@ -13,7 +13,7 @@ import type {
 } from '@replays/application/ports/station-source-editor.port';
 import { SEARCHABLE_FIELDS } from '@replays/domain/services/searchable-changes';
 import { ConfigPullRequestReason } from '@replays/domain/value-objects/config-pull-request-reason.vo';
-import type { ConfigPullRequestRefusal } from '@replays/domain/value-objects/config-pull-request-state';
+import type { ConfigPullRequestError } from '@replays/domain/value-objects/config-pull-request-state';
 
 type Searchable = (typeof SEARCHABLE_FIELDS)[number];
 
@@ -71,16 +71,17 @@ const JUDGE_FIELDS = [
 
 const ALL_CLAIMS = 1;
 
-const REFUSALS: Readonly<Record<HclEditRefusalCode, ConfigPullRequestRefusal>> =
-  {
-    unparsable: 'file-unparsable',
-    'block-not-found': 'block-not-found',
-    'blocks-ambiguous': 'blocks-ambiguous',
-    'computed-attribute': 'computed-attribute',
-    drifted: 'drifted',
-    'file-missing': 'file-missing',
-    'edit-failed': 'edit-failed',
-  };
+const HCL_EDIT_ERRORS: Readonly<
+  Record<HclEditErrorCode, ConfigPullRequestError>
+> = {
+  unparsable: 'file-unparsable',
+  'block-not-found': 'block-not-found',
+  'blocks-ambiguous': 'blocks-ambiguous',
+  'computed-attribute': 'computed-attribute',
+  'base-changed': 'base-changed',
+  'file-missing': 'file-missing',
+  'edit-failed': 'edit-failed',
+};
 
 class UnwritableValue extends Error {}
 
@@ -201,11 +202,11 @@ export class HclStationSourceEditor implements StationSourceEditorPort {
       : {
           ok: false,
           reason: ConfigPullRequestReason.of({
-            code: REFUSALS[edited.refusal.code],
-            message: edited.refusal.message,
-            attribute: edited.refusal.attribute,
-            expression: edited.refusal.expression,
-            wanted: edited.refusal.wanted,
+            code: HCL_EDIT_ERRORS[edited.error.code],
+            message: edited.error.message,
+            attribute: edited.error.attribute,
+            expression: edited.error.expression,
+            wanted: edited.error.wanted,
           }),
         };
   }

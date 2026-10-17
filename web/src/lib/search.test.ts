@@ -7,16 +7,16 @@ import {
   formatHeldOut,
   frontierPoints,
   iterationTitle,
-  pickRefusal,
-  refusalsOf,
+  pickProblem,
+  problemsOf,
   replayCheckNote,
   type Search,
   type SearchCandidate,
   type SearchDetail,
   searchNumber,
   searchPath,
-  setRefusal,
-  startRefusal,
+  setProblemOf,
+  startProblem,
 } from '@/lib/search';
 
 const AT = {
@@ -63,7 +63,7 @@ const setOf = (tasks: number, over: Partial<ReplaySet> = {}): ReplaySet => ({
     state: 'completed',
     endedAt: null,
     addedAt: '2026-10-01T09:00:00.000Z',
-    refusal: null,
+    unreplayableReason: null,
     reason: null,
     outcome: 'other',
     origin: 'person',
@@ -117,24 +117,24 @@ describe('search', () => {
   });
 
   it('counts distinct tasks, not runs, before a set may be searched', () => {
-    expect(setRefusal(setOf(4))).toBe(
+    expect(setProblemOf(setOf(4))).toBe(
       'The set covers 4 tasks. A search holds some tasks out. Minimum different tasks: 5',
     );
-    expect(setRefusal(setOf(5))).toBeNull();
-    expect(setRefusal(setOf(5, { stationGone: true }))).toBe(
+    expect(setProblemOf(setOf(5))).toBeNull();
+    expect(setProblemOf(setOf(5, { stationGone: true }))).toBe(
       'The station is gone from its line.',
     );
   });
 
-  it('refuses to start while a search is under way or no set is big enough', () => {
-    expect(startRefusal([setOf(6)], { state: 'searching' } as Search)).toBe(
+  it('says why a search cannot start while a search is under way or no set is big enough', () => {
+    expect(startProblem([setOf(6)], { state: 'searching' } as Search)).toBe(
       'A search of this station is underway.',
     );
-    expect(startRefusal([], null)).toBe('Create a replay set first.');
-    expect(startRefusal([setOf(2)], null)).toBe(
+    expect(startProblem([], null)).toBe('Create a replay set first.');
+    expect(startProblem([setOf(2)], null)).toBe(
       'No replay set covers 5 different tasks yet.',
     );
-    expect(startRefusal([setOf(2), setOf(6)], null)).toBeNull();
+    expect(startProblem([setOf(2), setOf(6)], null)).toBeNull();
   });
 
   it('numbers searches from the first started', () => {
@@ -177,7 +177,7 @@ describe('search', () => {
     expect(problems.concurrency).toBeUndefined();
   });
 
-  it('places a refusal’s field errors on the fields they name', () => {
+  it('places a rejection’s field errors on the fields they name', () => {
     expect(fieldOf('budget.ceiling.amount')).toBe('ceiling');
     expect(fieldOf('agent.harness')).toBe('agent');
     expect(fieldOf('agent.effort')).toBe('agent');
@@ -188,7 +188,7 @@ describe('search', () => {
     expect(fieldOf('elsewhere')).toBeNull();
 
     expect(
-      refusalsOf({
+      problemsOf({
         detail: 'invalid',
         errors: [
           {
@@ -199,23 +199,23 @@ describe('search', () => {
         ],
       }),
     ).toEqual({ fields: { iterations: 'is how many times' }, general: null });
-    expect(refusalsOf({ status: 409, detail: 'Searched already' })).toEqual({
+    expect(problemsOf({ status: 409, detail: 'Searched already' })).toEqual({
       fields: {},
       general: 'Searched already',
     });
-    expect(refusalsOf(null)).toEqual({ fields: {}, general: null });
+    expect(problemsOf(null)).toEqual({ fields: {}, general: null });
   });
 
   it('may pick only a candidate whose search replay finished, never the seed', () => {
-    expect(pickRefusal(candidate({}))).toBeNull();
-    expect(pickRefusal(candidate({ replayState: 'running' }))).toBe(
+    expect(pickProblem(candidate({}))).toBeNull();
+    expect(pickProblem(candidate({ replayState: 'running' }))).toBe(
       'After its replay on the searched tasks finishes, you can pick this candidate.',
     );
-    expect(pickRefusal(candidate({ seed: true }))).not.toBeNull();
-    expect(pickRefusal(candidate({ replayState: 'stopped' }))).toBe(
+    expect(pickProblem(candidate({ seed: true }))).not.toBeNull();
+    expect(pickProblem(candidate({ replayState: 'stopped' }))).toBe(
       'You can’t pick this candidate. Its replay stopped before it finished.',
     );
-    expect(pickRefusal(candidate({ replayState: 'over-budget' }))).toBe(
+    expect(pickProblem(candidate({ replayState: 'over-budget' }))).toBe(
       'You can’t pick this candidate. Its replay reached its ceiling before it finished.',
     );
   });

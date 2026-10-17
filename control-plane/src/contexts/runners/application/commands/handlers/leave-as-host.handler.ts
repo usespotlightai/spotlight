@@ -21,7 +21,7 @@ export class LeaveAsHostHandler
       const admitted = await this.admissions.admit(command.credential);
 
       if (!admitted) {
-        return { outcome: 'refused' };
+        return { outcome: 'unauthorized' };
       }
 
       const through = Admission.of(admitted.way.kind, admitted.way.id);

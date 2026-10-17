@@ -25,7 +25,7 @@ const replayable = (run: string, stationId = STATION.stationId) => ({
   runId: RunId.of(run),
   taskId: TaskId.of(`task_of_${run}`),
   stationId,
-  refusal: null,
+  unreplayableReason: null,
   reason: null,
 });
 
@@ -40,7 +40,7 @@ describe('ReplaySet', () => {
     ]);
   });
 
-  it('refuses a run it contains already', () => {
+  it('rejects a run it contains already', () => {
     const set = aSet().withEntry(replayable('run_1'), NOW, false);
 
     expect(() => set.withEntry(replayable('run_1'), NOW, false)).toThrow(
@@ -57,18 +57,18 @@ describe('ReplaySet', () => {
     );
   });
 
-  it('refuses a run of another station', () => {
+  it('rejects a run of another station', () => {
     expect(() =>
       aSet().withEntry(replayable('run_1', 'station_ship'), NOW, false),
     ).toThrow(ReplaySetEntryElsewhereError);
   });
 
-  it('refuses a run that cannot be replayed, with the reason Work gave', () => {
+  it('rejects a run that cannot be replayed, with the reason Work gave', () => {
     try {
       aSet().withEntry(
         {
           ...replayable('run_1'),
-          refusal: 'no-starting-point',
+          unreplayableReason: 'no-starting-point',
           reason: 'It never reported a starting point.',
         },
         NOW,
@@ -77,19 +77,19 @@ describe('ReplaySet', () => {
       expect.unreachable();
     } catch (error) {
       expect(error).toBeInstanceOf(UnreplayableEntryError);
-      expect((error as UnreplayableEntryError).refusal).toBe(
+      expect((error as UnreplayableEntryError).unreplayableReason).toBe(
         'no-starting-point',
       );
     }
   });
 
-  it('refuses a run that worked no task', () => {
+  it('rejects a run that worked no task', () => {
     expect(() =>
       aSet().withEntry({ ...replayable('run_1'), taskId: null }, NOW, false),
     ).toThrow(UnreplayableEntryError);
   });
 
-  it('lets a run go, and refuses to let go of one it never contained', () => {
+  it('lets a run go, and rejects letting go of one it never contained', () => {
     const set = aSet(2);
     set.pullEvents();
 
@@ -200,7 +200,7 @@ describe('ReplaySet', () => {
       expect(set.notGuardingChanges(BY)).toBe(set);
     });
 
-    it('refuses while another set at its station checks them', () => {
+    it('rejects while another set at its station checks them', () => {
       const other = atStation('set_b').guardingChanges([], BY);
       const elsewhere = ReplaySet.open({
         id: ReplaySetId.of('set_c'),

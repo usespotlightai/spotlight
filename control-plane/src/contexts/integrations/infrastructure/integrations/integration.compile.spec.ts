@@ -88,7 +88,7 @@ describe('compiling an integration', () => {
       expect(problem?.path).toBe('integrations');
     });
 
-    it('refuses to address a host as catalog, which names Spotlight’s catalog', () => {
+    it('rejects a host addressed as catalog, which names Spotlight’s catalog', () => {
       expect(
         complaining(
           WHOLE.replace('integration: linear', 'integration: catalog'),
@@ -97,7 +97,7 @@ describe('compiling an integration', () => {
       ).not.toHaveLength(0);
     });
 
-    it('refuses what is not an integration at all', () => {
+    it('rejects what is not an integration at all', () => {
       expect(compileIntegration('linear', expressions)).toMatchObject({
         ok: false,
         problems: [{ path: 'integrations', field: FieldPath.root() }],
@@ -120,11 +120,11 @@ describe('compiling an integration', () => {
       );
     });
 
-    it('refuses a webhook that would verify nothing', () => {
+    it('rejects a webhook that would verify nothing', () => {
       expect(complaining(WITHOUT_VERIFY, 'webhook.verify')).not.toHaveLength(0);
     });
 
-    it('refuses an algorithm it does not sign by', () => {
+    it('rejects an algorithm it does not sign by', () => {
       expect(
         complaining(
           WHOLE.replace('algorithm: sha256', 'algorithm: md5'),
@@ -133,7 +133,7 @@ describe('compiling an integration', () => {
       ).toHaveLength(1);
     });
 
-    it('refuses a secret named as anything but a secret reference', () => {
+    it('rejects a secret named as anything but a secret reference', () => {
       expect(
         complaining(
           WHOLE.replace('secret.LINEAR_WEBHOOK_SECRET', 'my-secret'),
@@ -142,7 +142,7 @@ describe('compiling an integration', () => {
       ).toHaveLength(1);
     });
 
-    it('refuses a source named unlike a source', () => {
+    it('rejects a source named unlike a source', () => {
       expect(
         complaining(
           WHOLE.replace('integration: linear', 'integration: Linear'),
@@ -151,7 +151,7 @@ describe('compiling an integration', () => {
       ).toHaveLength(1);
     });
 
-    it('refuses a word named for another source', () => {
+    it('rejects a word named for another source', () => {
       const [problem] = complaining(
         WHOLE.replace('linear.issue.completed', 'github.issue.completed'),
         'webhook.events.0.raise.happening',
@@ -160,7 +160,7 @@ describe('compiling an integration', () => {
       expect(problem?.reason).toMatch(/without the linear\. prefix/);
     });
 
-    it('refuses an expression that will not parse', () => {
+    it('rejects an expression that will not parse', () => {
       const [problem] = complaining(
         WHOLE.replace('body.type == "Issue"', 'body.type =='),
         'webhook.events.0.when',
@@ -169,7 +169,7 @@ describe('compiling an integration', () => {
       expect(problem?.reason).toMatch(/body\.type/);
     });
 
-    it('refuses a rule written as anything but an expression', () => {
+    it('rejects a rule written as anything but an expression', () => {
       expect(
         complaining(
           // biome-ignore lint/suspicious/noTemplateCurlyInString: the file's own expression syntax
@@ -179,7 +179,7 @@ describe('compiling an integration', () => {
       ).toHaveLength(1);
     });
 
-    it('refuses a rule that could never find a task', () => {
+    it('rejects a rule that could never find a task', () => {
       const text = WHOLE.split('\n')
         .filter(
           (each) =>
@@ -192,11 +192,11 @@ describe('compiling an integration', () => {
       expect(complaining(text, 'webhook.events.0.raise')).not.toHaveLength(0);
     });
 
-    it('refuses an integration with no trigger at all', () => {
+    it('rejects an integration with no trigger at all', () => {
       expect(complaining('integration: linear', '')).not.toHaveLength(0);
     });
 
-    it('refuses a mark kind that names no source', () => {
+    it('rejects a mark kind that names no source', () => {
       expect(
         complaining(
           WHOLE.replace('kind: linear.issue', 'kind: issue'),
@@ -205,7 +205,7 @@ describe('compiling an integration', () => {
       ).toHaveLength(1);
     });
 
-    it('refuses an on-binding to an action that is not defined', () => {
+    it('rejects an on-binding to an action that is not defined', () => {
       const text = `${WHOLE}on:
   task.asked:
     do: missing
@@ -214,7 +214,7 @@ describe('compiling an integration', () => {
       expect(complaining(text, 'on.task.asked.do')).toHaveLength(1);
     });
 
-    it('refuses an on-binding to an event Spotlight never raises', () => {
+    it('rejects an on-binding to an event Spotlight never raises', () => {
       const text = `${WHOLE}actions:
   post:
     request:
@@ -314,13 +314,13 @@ actions:
       );
     });
 
-    it('refuses a cron that is not a cron', () => {
+    it('rejects a cron that is not a cron', () => {
       expect(complaining(withCron('not a cron'), 'schedule.cron')).toHaveLength(
         1,
       );
     });
 
-    it('refuses a schedule whose action is not defined', () => {
+    it('rejects a schedule whose action is not defined', () => {
       expect(
         complaining(withCron('0 9 * * *', 'missing'), 'schedule.do'),
       ).toHaveLength(1);
@@ -391,7 +391,7 @@ webhook:
       ).toBe('https://mcp.slack.com/');
     });
 
-    it('refuses to take each requester’s connection without oauth2', () => {
+    it('rejects the requester holder rule without oauth2', () => {
       const read = compileIntegration(
         parseYaml(
           WHOLE_OAUTH.replace(
@@ -531,7 +531,7 @@ webhook:
       ).toEqual(['slack.thread']);
     });
 
-    it('refuses a happening nothing could find a task from', () => {
+    it('rejects a happening nothing could find a task from', () => {
       const onlyAmbient = `integration: slack
 webhook:
   verify:
@@ -706,7 +706,7 @@ actions:
     });
   });
 
-  it('refuses a request that reads a secret’s value, rather than injecting it', () => {
+  it('rejects a request that reads a secret’s value, rather than injecting it', () => {
     const read = compileIntegration(
       parseYaml(
         ACTION.replace(
@@ -725,7 +725,7 @@ actions:
     expect(!read.ok && read.problems[0]?.reason).toMatch(/auth\.secrets/);
   });
 
-  it('refuses a request that authenticates by a token it would have to read', () => {
+  it('rejects a request that authenticates by a token it would have to read', () => {
     const read = compileIntegration(
       parseYaml(
         ACTION.replace(
@@ -839,7 +839,7 @@ tools:
     ).toEqual(['actions.comment.request.body.variables.body']);
   });
 
-  it('refuses a tool whose action is not defined', () => {
+  it('rejects a tool whose action is not defined', () => {
     expect(
       complaining(
         OFFERING.replace('does: comment', 'does: missing'),
@@ -873,7 +873,7 @@ tools:
     ).toBe('It posts publicly, under the team’s name.');
   });
 
-  it('refuses an approval that says nothing about why', () => {
+  it('rejects an approval that says nothing about why', () => {
     expect(
       problems(
         OFFERING.replace(
@@ -884,7 +884,7 @@ tools:
     ).not.toEqual([]);
   });
 
-  it('refuses a tool that does not say what it is for', () => {
+  it('rejects a tool that does not say what it is for', () => {
     expect(
       problems(
         OFFERING.replace(
@@ -1205,7 +1205,7 @@ tools:
     ]);
   });
 
-  it('refuses an input given both a type and a schema', () => {
+  it('rejects an input given both a type and a schema', () => {
     expect(
       compileIntegration(
         parseYaml(`${PETSTORE}actions:
@@ -1229,24 +1229,24 @@ tools:
     });
   });
 
-  it('refuses a description that is both read from a url and written out, or two descriptions', () => {
-    const refusals = (text: string) => {
+  it('rejects a description that is both read from a url and written out, or two descriptions', () => {
+    const problems = (text: string) => {
       const compiled = compileIntegration(parseYaml(text), expressions);
 
       return compiled.ok ? [] : compiled.problems.map((each) => each.reason);
     };
 
     expect(
-      refusals(
+      problems(
         PETSTORE.replace('  auth:', '  document: { openapi: 3.1.0 }\n  auth:'),
       ),
     ).toEqual([expect.stringMatching(/but not both/)]);
     expect(
-      refusals(`${PETSTORE}graphql:\n  url: https://api.linear.app/graphql\n`),
+      problems(`${PETSTORE}graphql:\n  url: https://api.linear.app/graphql\n`),
     ).toEqual([expect.stringMatching(/one source/)]);
   });
 
-  it('refuses more tools than a station can choose between, at the filter', () => {
+  it('rejects more tools than a station can choose between, at the filter', () => {
     const many = {
       hash: HASH,
       operations: Array.from({ length: 1001 }, (_, at) =>
@@ -1364,7 +1364,7 @@ mcp:
     });
   });
 
-  it('refuses to discover how to connect without a server to ask, or with endpoints already named', () => {
+  it('rejects discovery of how to connect without a server to ask, or with endpoints already named', () => {
     expect(
       problems(
         TRACKER.replace(

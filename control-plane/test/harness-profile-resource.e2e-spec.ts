@@ -184,32 +184,32 @@ describe('a harness profile, created through the resource API (e2e)', () => {
     );
   });
 
-  it('refuses native settings for a harness Spotlight does not run', async () => {
-    const refused = await create({ ...CAREFUL, native: { aider: {} } });
+  it('rejects native settings for a harness Spotlight does not run', async () => {
+    const rejected = await create({ ...CAREFUL, native: { aider: {} } });
 
-    expect(refused.status).toBe(422);
-    expect(refused.body.errors).toEqual([
+    expect(rejected.status).toBe(422);
+    expect(rejected.body.errors).toEqual([
       expect.objectContaining({ path: 'native.aider' }),
     ]);
   });
 
-  it('refuses Codex settings that do not read as TOML', async () => {
-    const refused = await create({ ...CAREFUL, native: { codex: 'model =' } });
+  it('rejects Codex settings that do not read as TOML', async () => {
+    const rejected = await create({ ...CAREFUL, native: { codex: 'model =' } });
 
-    expect(refused.status).toBe(422);
-    expect(refused.body.errors).toEqual([
+    expect(rejected.status).toBe(422);
+    expect(rejected.body.errors).toEqual([
       expect.objectContaining({ path: 'native.codex' }),
     ]);
   });
 
-  it('refuses one rule said two ways', async () => {
-    const refused = await create({
+  it('rejects one rule said two ways', async () => {
+    const rejected = await create({
       ...CAREFUL,
       permissions: { allow: ['execute'], ask: [], deny: ['execute'] },
     });
 
-    expect(refused.status).toBe(422);
-    expect(refused.body.errors).toEqual([
+    expect(rejected.status).toBe(422);
+    expect(rejected.body.errors).toEqual([
       expect.objectContaining({ path: 'permissions.deny[0]' }),
     ]);
   });
@@ -288,7 +288,7 @@ describe('a harness profile, created through the resource API (e2e)', () => {
     const read = bearing(await issue(['read']));
 
     const made = await configure.create();
-    const refused = await read.create();
+    const forbidden = await read.create();
     const seen = await read.read(made.body.id);
     const kept = await read.delete(made.body.id, made.body.version);
     const removed = await configure.delete(made.body.id, made.body.version);
@@ -299,8 +299,8 @@ describe('a harness profile, created through the resource API (e2e)', () => {
     ).body as { resource: string; action: string; by: { kind: string } }[];
 
     expect([made.status, seen.status, removed.status]).toEqual([201, 200, 204]);
-    expect([refused.status, kept.status]).toEqual([403, 403]);
-    expect(refused.body.type).toBe('urn:spotlight:problem:forbidden');
+    expect([forbidden.status, kept.status]).toEqual([403, 403]);
+    expect(forbidden.body.type).toBe('urn:spotlight:problem:forbidden');
     expect(
       changes
         .filter((each) => each.resource === 'harness-profile')
@@ -345,11 +345,11 @@ describe('a harness profile, created through the resource API (e2e)', () => {
         .where(eq(schema.secretDataKey.workspaceId, teamId));
     });
 
-    it('refuses a secret the workspace does not have, where it is named', async () => {
-      const refused = await create(WITH_SECRET);
+    it('rejects a secret the workspace does not have, where it is named', async () => {
+      const rejected = await create(WITH_SECRET);
 
-      expect(refused.status).toBe(422);
-      expect(refused.body.errors).toEqual([
+      expect(rejected.status).toBe(422);
+      expect(rejected.body.errors).toEqual([
         expect.objectContaining({
           path: 'mcpServers[0].env.LINEAR_API_KEY',
           message: expect.stringContaining('LINEAR_API_KEY'),
@@ -379,13 +379,13 @@ describe('a harness profile, created through the resource API (e2e)', () => {
         LINEAR_API_KEY: 'spotlight-egress:LINEAR_API_KEY',
       });
 
-      const refused = await served(app)
+      const rejected = await served(app)
         .delete(`/api/resources/secrets/${secret.body.id}`)
         .set(TEST_USER_HEADER, fixture.admin)
         .set('If-Match', `"${secret.body.version}"`);
 
-      expect(refused.status).toBe(409);
-      expect(refused.body.detail).toContain('harness profile team/careful');
+      expect(rejected.status).toBe(409);
+      expect(rejected.body.detail).toContain('harness profile team/careful');
     });
   });
 
@@ -397,13 +397,13 @@ describe('a harness profile, created through the resource API (e2e)', () => {
       line,
     );
 
-    const refused = await served(app)
+    const rejected = await served(app)
       .delete(fixture.item(made.body.id))
       .set(TEST_USER_HEADER, fixture.admin)
       .set('If-Match', `"${made.body.version}"`);
 
-    expect(refused.status).toBe(409);
-    expect(refused.body).toMatchObject({
+    expect(rejected.status).toBe(409);
+    expect(rejected.body).toMatchObject({
       type: 'urn:spotlight:problem:in-use',
       detail: expect.stringContaining(`${line.key}/${first}`),
     });

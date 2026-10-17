@@ -10,7 +10,7 @@ import type { Replay } from '@replays/domain/aggregates/replay.aggregate';
 import { ReplayEntryConcluded } from '@replays/domain/events/replay-entry-concluded.event';
 import type { ReplayPairJudgingWanted } from '@replays/domain/events/replay-pair-judging-wanted.event';
 import type { ReplayPairingDue } from '@replays/domain/events/replay-pairing-due.event';
-import { ReplayPairingRefused } from '@replays/domain/events/replay-pairing-refused.event';
+import { ReplayPairingFailed } from '@replays/domain/events/replay-pairing-failed.event';
 import {
   aReplay,
   BY,
@@ -176,16 +176,16 @@ describe('AskForPairJudging and NoteReplayPaired', () => {
     const event = await wanted();
     outcomes.pairAnswer = 'unavailable';
 
-    const [refused] = (await new AskForPairJudging(
+    const [failed] = (await new AskForPairJudging(
       memory.replayRepository,
       memory.candidateRepository,
       outcomes,
-    ).wanted(event)) as ReplayPairingRefused[];
-    await new NoteReplayPaired(memory.replayRepository, TRANSACTION).refused(
-      refused as ReplayPairingRefused,
+    ).wanted(event)) as ReplayPairingFailed[];
+    await new NoteReplayPaired(memory.replayRepository, TRANSACTION).askFailed(
+      failed as ReplayPairingFailed,
     );
 
-    expect(refused?.why).toBe('unavailable');
+    expect(failed?.why).toBe('unavailable');
     expect(
       (await memory.replayRepository.find(event.replayId))?.entries[0]?.pairing
         ?.unpaired,

@@ -62,7 +62,7 @@ describe('Provisioning', () => {
     expect(Provisioning.rehydrate(3, later(1_000)).exhausted).toBe(false);
   });
 
-  it('refuses an impossible number of failures', () => {
+  it('rejects an impossible number of failures', () => {
     expect(() => Provisioning.rehydrate(-1, null)).toThrow(
       InconsistentStateError,
     );

@@ -1,5 +1,5 @@
 export type EgressAdmissionDto =
-  | { readonly outcome: 'refused' }
+  | { readonly outcome: 'unauthorized' }
   | {
       readonly outcome: 'admitted';
       readonly runnerId: string;
@@ -10,6 +10,6 @@ export type EgressAdmissionDto =
     };
 
 export type EgressActiveRunsDto =
-  | { readonly outcome: 'refused' }
+  | { readonly outcome: 'unauthorized' }
   | { readonly outcome: 'too-many'; readonly max: number }
   | { readonly outcome: 'checked'; readonly active: readonly string[] };

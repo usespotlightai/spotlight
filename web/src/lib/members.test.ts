@@ -41,7 +41,7 @@ describe('parseEmails', () => {
     });
   });
 
-  it('refuses an address longer than 254 characters, as the server does', () => {
+  it('rejects an address longer than 254 characters, as the server does', () => {
     const longest = `${'a'.repeat(245)}@acme.dev`;
     const tooLong = `${'a'.repeat(246)}@acme.dev`;
 

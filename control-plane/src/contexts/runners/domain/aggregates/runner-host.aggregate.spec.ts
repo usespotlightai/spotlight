@@ -278,10 +278,10 @@ describe('RunnerHost', () => {
     expect(kindsOf(host)).toEqual(['runner-host.started-serving']);
   });
 
-  it('does not serve on a report with no image, a refused image or an image without a harness', () => {
+  it('does not serve on a report with no image, an unavailable image or an image without a harness', () => {
     for (const images of [
       [],
-      [{ ...SERVING[0], refused: 'pull access denied' }],
+      [{ ...SERVING[0], unavailableReason: 'pull access denied' }],
       [{ ...SERVING[0], harnesses: [] }],
     ] as Images[]) {
       const host = present(images);

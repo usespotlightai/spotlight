@@ -44,7 +44,7 @@ describe('Retry', () => {
     expect(retry.after(3, noon)).toBeNull();
   });
 
-  it('refuses a backoff that allows no second attempt or waits backwards', () => {
+  it('rejects a backoff that allows no second attempt or waits backwards', () => {
     expect(() => Retry.backoff({ max: 1, firstMs: 0, longestMs: 0 })).toThrow(
       InconsistentStateError,
     );

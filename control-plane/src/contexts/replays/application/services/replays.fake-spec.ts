@@ -8,7 +8,7 @@ import type {
 } from '@replays/application/ports/outcomes.port';
 import type { PeoplePort } from '@replays/application/ports/people.port';
 import type {
-  AgentRefusal,
+  AgentProblem,
   ExaminedCandidate,
   LeasedSearchRun,
   OracleAnswerAsked,
@@ -322,7 +322,7 @@ export class FakeWork implements WorkPort {
   readonly dispatched: ReplayRunOrder[] = [];
   readonly withdrawn: string[] = [];
   readonly startingPointHolds = new Map<string, readonly string[]>();
-  refusing: ReplayRunQueued | null = null;
+  unqueued: ReplayRunQueued | null = null;
 
   station = async (lineId: string, stationId: string) =>
     lineId === STATION_VIEW.lineId && stationId === STATION_VIEW.stationId
@@ -399,7 +399,7 @@ export class FakeWork implements WorkPort {
 
   dispatch = async (order: ReplayRunOrder): Promise<ReplayRunQueued> => {
     this.dispatched.push(order);
-    return this.refusing ?? { queued: true, fingerprint: FINGERPRINT };
+    return this.unqueued ?? { queued: true, fingerprint: FINGERPRINT };
   };
 
   withdraw = async (runs: readonly RunId[]) => {
@@ -416,19 +416,19 @@ export class FakeWork implements WorkPort {
       }),
     );
 
-  refusingAgent: AgentRefusal | null = null;
+  invalidAgent: AgentProblem | null = null;
 
-  agentRefusal = () => this.refusingAgent;
+  agentProblem = () => this.invalidAgent;
 
   readonly searchesDispatched: SearchRunOrder[] = [];
 
-  refusingSearch: string | null = null;
+  searchProblem: string | null = null;
 
   dispatchSearch = async (order: SearchRunOrder): Promise<SearchRunQueued> => {
     this.searchesDispatched.push(order);
-    return this.refusingSearch === null
+    return this.searchProblem === null
       ? { queued: true }
-      : { queued: false, reason: this.refusingSearch };
+      : { queued: false, reason: this.searchProblem };
   };
 
   readonly searchesWithdrawn: string[] = [];

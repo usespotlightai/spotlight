@@ -109,7 +109,7 @@ describe('RevokeInviteHandler', () => {
     expect(save).not.toHaveBeenCalled();
   });
 
-  it('refuses with a conflict where the invite was accepted while it was being revoked', async () => {
+  it('fails with a conflict where the invite was accepted while it was being revoked', async () => {
     const { handler, save } = revoking();
     save.mockImplementationOnce(async () => {
       throw new InviteVersionConflictError('invite_1');

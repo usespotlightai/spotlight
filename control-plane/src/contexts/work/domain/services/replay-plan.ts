@@ -34,12 +34,12 @@ export interface ReplayPlan {
   readonly replay: RunReplay;
 }
 
-const refused = (
+const unreplayable = (
   original: Run,
-  refusal: UnreplayableRunError['refusal'],
+  unreplayableReason: UnreplayableRunError['unreplayableReason'],
   reason: string,
 ): never => {
-  throw new UnreplayableRunError(original.id.value, refusal, reason);
+  throw new UnreplayableRunError(original.id.value, unreplayableReason, reason);
 };
 
 const checkoutsAt = (
@@ -53,7 +53,7 @@ const checkoutsAt = (
   return started.map((each) => {
     const repository =
       worked.find((repository) => repository.name === each.path) ??
-      refused(
+      unreplayable(
         original,
         'repository-gone',
         `The line no longer has repository ${each.path}.`,
@@ -106,27 +106,27 @@ export const replayPlanFor = ({
 }): ReplayPlan => {
   const taskId =
     original.taskId ??
-    refused(original, 'not-a-task-run', 'It worked no task.');
+    unreplayable(original, 'not-a-task-run', 'It worked no task.');
   const stationId =
     original.stationId ??
-    refused(original, 'not-a-task-run', 'It worked at no station.');
+    unreplayable(original, 'not-a-task-run', 'It worked at no station.');
   if (!original.hasEnded) {
-    refused(original, 'still-running', 'It has not ended yet.');
+    unreplayable(original, 'still-running', 'It has not ended yet.');
   }
 
   const started =
     original.startedFrom ??
-    refused(
+    unreplayable(
       original,
       'no-starting-point',
       'It never reported a starting point.',
     );
   const task =
     briefed ??
-    refused(original, 'no-briefing', 'Its task briefing was not kept.');
+    unreplayable(original, 'no-briefing', 'Its task briefing was not kept.');
 
   if (!candidate.stationAt(stationId)) {
-    refused(
+    unreplayable(
       original,
       'not-at-the-station',
       `The candidate line has no station ${stationId.value}.`,

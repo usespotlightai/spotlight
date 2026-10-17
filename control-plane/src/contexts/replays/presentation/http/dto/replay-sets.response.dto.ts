@@ -13,7 +13,7 @@ import {
   ORIGINAL_OUTCOMES,
   type OriginalOutcome,
 } from '@replays/domain/services/composition';
-import { REPLAY_REFUSALS } from '@replays/domain/value-objects/replay-refusal';
+import { UNREPLAYABLE_REASONS } from '@replays/domain/value-objects/unreplayable-reason';
 import { SetHealthResponseDto } from '@replays/presentation/http/dto/replays.response.dto';
 
 export class ReplaySetEntryResponseDto {
@@ -53,12 +53,12 @@ export class ReplaySetEntryResponseDto {
   readonly addedAt: string;
 
   @ApiProperty({
-    enum: [...REPLAY_REFUSALS, null],
+    enum: [...UNREPLAYABLE_REASONS, null],
     nullable: true,
     type: String,
     description: 'Why the run can no longer be replayed; null while it can',
   })
-  readonly refusal: string | null;
+  readonly unreplayableReason: string | null;
 
   @ApiProperty({ nullable: true, type: String })
   readonly reason: string | null;
@@ -86,7 +86,7 @@ export class ReplaySetEntryResponseDto {
     this.state = entry.state;
     this.endedAt = entry.endedAt;
     this.addedAt = entry.addedAt;
-    this.refusal = entry.refusal;
+    this.unreplayableReason = entry.unreplayableReason;
     this.reason = entry.reason;
     this.outcome = entry.outcome;
     this.origin = entry.origin;
@@ -284,12 +284,12 @@ export class ReplayableRunResponseDto {
   readonly endedAt: string;
 
   @ApiProperty({
-    enum: [...REPLAY_REFUSALS, null],
+    enum: [...UNREPLAYABLE_REASONS, null],
     nullable: true,
     type: String,
     description: 'Why it cannot be replayed; null when it can',
   })
-  readonly refusal: string | null;
+  readonly unreplayableReason: string | null;
 
   @ApiProperty({ nullable: true, type: String })
   readonly reason: string | null;
@@ -300,7 +300,7 @@ export class ReplayableRunResponseDto {
     this.title = run.title;
     this.state = run.state;
     this.endedAt = run.endedAt;
-    this.refusal = run.refusal;
+    this.unreplayableReason = run.unreplayableReason;
     this.reason = run.reason;
   }
 }

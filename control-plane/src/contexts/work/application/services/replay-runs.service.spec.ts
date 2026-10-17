@@ -122,26 +122,26 @@ describe('ReplayRuns', () => {
   it('knows no original of another workspace, and answers the same on a retry, leaving no claim to queue it', async () => {
     expect(await replayRuns().enqueue(order('ws_2'))).toMatchObject({
       outcome: 'unreplayable',
-      refusal: 'unknown-run',
+      unreplayableReason: 'unknown-run',
     });
     expect(await replayRuns().enqueue(order())).toMatchObject({
       outcome: 'unreplayable',
-      refusal: 'unknown-run',
+      unreplayableReason: 'unknown-run',
     });
-    expect(claims.get(REPLAY)?.claimedAs).toBe('refused');
+    expect(claims.get(REPLAY)?.claimedAs).toBe('unreplayable');
     expect(await replayRuns().forgo(REPLAY, false)).toEqual({
       outcome: 'never-queued',
     });
     expect(enqueued).toEqual([]);
   });
 
-  it('leaves a tombstone when it forgoes a run never queued, so a later queueing of it is refused', async () => {
+  it('leaves a tombstone when it forgoes a run never queued, so a later queueing of it is unreplayable', async () => {
     expect(await replayRuns().forgo(REPLAY, false)).toEqual({
       outcome: 'never-queued',
     });
     expect(await replayRuns().enqueue(order())).toMatchObject({
       outcome: 'unreplayable',
-      refusal: 'forgone',
+      unreplayableReason: 'forgone',
     });
     expect(enqueued).toEqual([]);
   });
@@ -165,14 +165,14 @@ describe('ReplayRuns', () => {
     expect(saved).toEqual([]);
   });
 
-  it('takes a claim left by a queueing that was refused as never queued, and tombstones it', async () => {
+  it('takes a claim left by a queueing that failed as never queued, and tombstones it', async () => {
     claims.set(REPLAY, ReplayRunClaim.toQueue(RunId.of(REPLAY)));
 
     expect(await replayRuns().forgo(REPLAY, false)).toEqual({
       outcome: 'never-queued',
     });
     expect(await replayRuns().enqueue(order())).toMatchObject({
-      refusal: 'forgone',
+      unreplayableReason: 'forgone',
     });
   });
 });

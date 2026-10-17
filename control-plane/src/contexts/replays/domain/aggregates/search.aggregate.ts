@@ -524,10 +524,10 @@ export class Search extends EventRecorder {
     return this.changingIteration(run, (each) => each.causeRecorded(cause));
   }
 
-  proposalRefused(run: RunId): Search {
+  proposalRejected(run: RunId): Search {
     const iteration = this.proposingIn(run);
 
-    return this.changingIteration(run, () => iteration.refused());
+    return this.changingIteration(run, () => iteration.rejected());
   }
 
   recordReplayEnd(

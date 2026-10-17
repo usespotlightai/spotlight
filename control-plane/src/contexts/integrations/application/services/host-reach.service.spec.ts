@@ -47,7 +47,7 @@ const connected = (token: string, holder: ConnectionHolder) =>
     expiresAt: null,
     scopes: [],
     handle: '@alice',
-    renewalRefusedAt: null,
+    refreshFailedAt: null,
     renewalClaim: null,
     version: 1,
   });
@@ -64,7 +64,7 @@ const reaching = (
   const onTeam = vi.fn(async () =>
     over.member === false ? null : ({} as TeamMembership),
   );
-  const afterRefusal = vi.fn(async () => AccessToken.of('xoxp-renewed'));
+  const afterUnauthorized = vi.fn(async () => AccessToken.of('xoxp-renewed'));
   const find = vi.fn(async () =>
     inWorkspace
       ? {
@@ -84,12 +84,12 @@ const reaching = (
       { find, inWorkspace: vi.fn() } satisfies TeamDirectoryPort,
       { onTeam } as unknown as WorkspaceAccessPort,
       secrets.injection,
-      { afterRefusal } as unknown as ConnectionRenewal,
+      { afterUnauthorized } as unknown as ConnectionRenewal,
     ),
     of,
     find,
     onTeam,
-    afterRefusal,
+    afterUnauthorized,
     ...secrets,
   };
 };
@@ -142,14 +142,16 @@ describe('HostReach', () => {
     );
   });
 
-  it('renews through the single renewal when the host refuses the token', async () => {
-    const { reach, afterRefusal } = reaching('xoxp-2');
+  it('renews through the single renewal when the host does not accept the token', async () => {
+    const { reach, afterUnauthorized } = reaching('xoxp-2');
 
     const reached = await reach.of(TEAM, integration(true));
-    const renewed = await reached.connection?.refused(AccessToken.of('xoxp-2'));
+    const renewed = await reached.connection?.unauthorized(
+      AccessToken.of('xoxp-2'),
+    );
 
     expect(renewed?.value).toBe('xoxp-renewed');
-    expect(afterRefusal).toHaveBeenCalledWith(
+    expect(afterUnauthorized).toHaveBeenCalledWith(
       TEAM,
       SourceKey.of('slack'),
       ConnectionHolder.team(),
@@ -248,7 +250,7 @@ describe('HostReach', () => {
     expect(find).not.toHaveBeenCalled();
   });
 
-  it('refuses to inject secrets for a team that no workspace has', async () => {
+  it('does not inject secrets for a team that no workspace has', async () => {
     const { reach } = reaching(null, false);
 
     const reached = await reach.of(TEAM, integration(false));

@@ -28,7 +28,7 @@ const CheckUsage = `  spotlight replay check [--json] [--timeout 60m] [--every 1
       A station the plan renames, a line it replaces, and a station whose
       skill, profile, integration, hook or secret it changes are undecided.
       Appends a summary to GITHUB_STEP_SUMMARY when set. Exits 1 when a check
-      was refused or failed to run, else 2 when a change regressed past its
+      could not start or failed to run, else 2 when a change regressed past its
       threshold, else 3 when a check is undecided or still running at the
       timeout (it keeps running), else 0`
 
@@ -38,9 +38,9 @@ const (
 	checkUndecided = "undecided"
 	checkRunning   = "running"
 	checkUnchanged = "unchanged"
-	checkRefused   = "refused"
+	checkErrored   = "errored"
 
-	refusedExit   = 1
+	errorExit     = 1
 	undecidedExit = 3
 
 	nothingToReplay = "urn:spotlight:problem:nothing-to-replay"
@@ -171,13 +171,13 @@ func check(args []string, in io.Reader, out, errOut io.Writer, env func(string) 
 	options, err := checkOptionsOf(args)
 	if err != nil {
 		fmt.Fprintln(errOut, "spotlight replay check:", err)
-		return refusedExit
+		return errorExit
 	}
 
 	plan, err := planFrom(options.plan, in)
 	if err != nil {
 		fmt.Fprintln(errOut, "spotlight replay check:", err)
-		return refusedExit
+		return errorExit
 	}
 
 	report := &checkReport{Notes: plan.Notes, Stations: []*stationCheck{}}
@@ -187,7 +187,7 @@ func check(args []string, in io.Reader, out, errOut io.Writer, env func(string) 
 		client, err = checkAPI(env, version, now)
 		if err != nil {
 			fmt.Fprintln(errOut, "spotlight replay check:", err)
-			return refusedExit
+			return errorExit
 		}
 	}
 
@@ -201,7 +201,7 @@ func check(args []string, in io.Reader, out, errOut io.Writer, env func(string) 
 		encoder.SetIndent("", "  ")
 		if err := encoder.Encode(report); err != nil {
 			fmt.Fprintln(errOut, "spotlight replay check:", err)
-			return refusedExit
+			return errorExit
 		}
 	} else {
 		report.print(out)
@@ -313,13 +313,13 @@ func (c *checking) start(checked *stationCheck, each plannedStation, options che
 		c.sleep(backedOff(options.every, failures+1))
 	}
 
-	var refused *answered
+	var answer *answered
 	switch {
-	case errors.As(err, &refused) && refused.said.Type == nothingToReplay:
+	case errors.As(err, &answer) && answer.said.Type == nothingToReplay:
 		checked.Status = checkUnchanged
-		checked.Message = refused.said.Detail
+		checked.Message = answer.said.Detail
 	case err != nil:
-		checked.Status = checkRefused
+		checked.Status = checkErrored
 		checked.Message = err.Error()
 	default:
 		c.settle(checked, read)
@@ -332,14 +332,14 @@ func (c *checking) follow(checked *stationCheck) {
 	if err != nil {
 		if !transient(err) {
 			checked.pending = false
-			checked.Status = checkRefused
+			checked.Status = checkErrored
 			checked.Message = err.Error()
 			return
 		}
 		checked.misses++
 		if checked.misses >= maxFailures {
 			checked.pending = false
-			checked.Status = checkRefused
+			checked.Status = checkErrored
 			checked.Message = fmt.Sprintf("gave up after %d failed tries in a row: %v", checked.misses, err)
 		}
 		return
@@ -369,8 +369,8 @@ func (r *checkReport) exitCode() int {
 	worst := 0
 	for _, each := range r.Stations {
 		switch each.Status {
-		case checkRefused:
-			return refusedExit
+		case checkErrored:
+			return errorExit
 		case checkFailed:
 			worst = regressedExit
 		case checkUndecided, checkRunning:

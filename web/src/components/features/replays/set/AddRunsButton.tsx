@@ -16,7 +16,7 @@ export function AddRunsButton({ at, set, disabled }: AddRunsButtonProps) {
       label="Add runs"
       icon={Plus}
       variant="outline"
-      refusedBecause={disabled ? RUNS_FROZEN_BY_SEARCH : null}
+      disabledBecause={disabled ? RUNS_FROZEN_BY_SEARCH : null}
       dialog={(open, onOpenChange) => (
         <AddRunsDialog
           at={at}

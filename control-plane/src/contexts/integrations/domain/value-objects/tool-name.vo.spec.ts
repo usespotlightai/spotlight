@@ -10,7 +10,7 @@ describe('ToolName', () => {
     ).toBe(true);
   });
 
-  it('refuses a tool that names no integration', () => {
+  it('rejects a tool that names no integration', () => {
     expect(() => ToolName.of('comment')).toThrow(InvalidIdentifierError);
     expect(() => ToolName.of('Linear.Comment')).toThrow(InvalidIdentifierError);
   });

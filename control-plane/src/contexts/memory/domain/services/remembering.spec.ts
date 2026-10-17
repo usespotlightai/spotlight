@@ -146,7 +146,7 @@ describe('Remembering, what an agent asks its team to keep', () => {
     ).toEqual([4]);
   });
 
-  it('refuses a memory from a run that has said nothing yet', () => {
+  it('rejects a memory from a run that has said nothing yet', () => {
     expect(() => proposed({}, { steps: [] })).toThrow(InvalidMemoryError);
   });
 
@@ -185,7 +185,7 @@ describe('Remembering, what an agent asks its team to keep', () => {
     });
   });
 
-  it('refuses a kind or a reach it does not know, naming the ones it does', () => {
+  it('rejects a kind or a reach it does not know, naming the ones it does', () => {
     expect(() => proposed({ kind: 'gossip' })).toThrow(
       /one of rationale, rejected-approach, failure, environment, preference, correction, not gossip/,
     );
@@ -194,7 +194,7 @@ describe('Remembering, what an agent asks its team to keep', () => {
     );
   });
 
-  it('refuses a path outside the run’s repositories, naming the ones it has', () => {
+  it('rejects a path outside the run’s repositories, naming the ones it has', () => {
     expect(() => proposed({ paths: ['docs/readme.md'] })).toThrow(
       /\(api, web\), not docs\/readme\.md/,
     );

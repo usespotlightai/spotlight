@@ -59,7 +59,7 @@ const storedAt = (version: number) =>
   });
 
 const definitions = (
-  over: { stored?: SkillDefinition | null; refusing?: Error } = {},
+  over: { stored?: SkillDefinition | null; throwing?: Error } = {},
 ) => {
   const read = vi.fn(async () => over.stored ?? null);
 
@@ -68,16 +68,16 @@ const definitions = (
     of: read,
     ofTeam: vi.fn(async () => []),
     save: vi.fn(async (_: SkillDefinition) => {
-      if (over.refusing) {
-        throw over.refusing;
+      if (over.throwing) {
+        throw over.throwing;
       }
     }),
   } satisfies SkillDefinitionRepository;
 };
 
 describe('CreateSkillHandler', () => {
-  const creating = (over: { administers?: boolean; refusing?: Error } = {}) => {
-    const kept = definitions({ refusing: over.refusing });
+  const creating = (over: { administers?: boolean; throwing?: Error } = {}) => {
+    const kept = definitions({ throwing: over.throwing });
     const handler = new CreateSkillHandler(
       access(over.administers),
       teams,
@@ -121,18 +121,18 @@ describe('CreateSkillHandler', () => {
   it('says a key the team already has is taken', async () => {
     expect(
       await creating({
-        refusing: new SkillAlreadyDefinedError('grafana'),
+        throwing: new SkillAlreadyDefinedError('grafana'),
       }).create(GRAFANA),
     ).toEqual({ outcome: 'taken', address: 'core/grafana' });
   });
 
   it('says what is wrong, and defines nothing', async () => {
     const { create, kept } = creating();
-    const refused = await create({ key: 'grafana', files: {} });
+    const rejected = await create({ key: 'grafana', files: {} });
 
     expect(
-      refused?.outcome === 'invalid' &&
-        refused.problems.map((each) => dottedOf(each.field)),
+      rejected?.outcome === 'invalid' &&
+        rejected.problems.map((each) => dottedOf(each.field)),
     ).toEqual(['files']);
     expect(kept.save).not.toHaveBeenCalled();
   });
@@ -182,7 +182,7 @@ describe('UpdateSkillHandler', () => {
   });
 
   it('points at the key when asked to change it', async () => {
-    const refused = await updating().update({
+    const rejected = await updating().update({
       key: 'loki',
       files: {
         'SKILL.md':
@@ -191,8 +191,8 @@ describe('UpdateSkillHandler', () => {
     });
 
     expect(
-      refused?.outcome === 'invalid' &&
-        refused.problems.map((each) => dottedOf(each.field)),
+      rejected?.outcome === 'invalid' &&
+        rejected.problems.map((each) => dottedOf(each.field)),
     ).toEqual(['key']);
   });
 

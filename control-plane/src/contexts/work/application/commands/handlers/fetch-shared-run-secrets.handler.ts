@@ -29,7 +29,7 @@ export class FetchSharedRunSecretsHandler
         : null;
 
       if (!admitted) {
-        return { outcome: 'refused' };
+        return { outcome: 'unauthorized' };
       }
 
       const fetched = await this.fetches.fetchFor(

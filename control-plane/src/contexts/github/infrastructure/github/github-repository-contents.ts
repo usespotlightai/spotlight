@@ -12,7 +12,7 @@ import {
   call,
   sending,
 } from '@github/infrastructure/github/github.rest';
-import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
+import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 
@@ -66,7 +66,7 @@ const decoded = (base64: string): string =>
 
 const shaOf = (answer: Sha, asking: string): string => {
   if (!answer.sha) {
-    throw new UpstreamRefusedError(asking, 'GitHub answered without a sha');
+    throw new UpstreamError(asking, 'GitHub answered without a sha');
   }
 
   return answer.sha;

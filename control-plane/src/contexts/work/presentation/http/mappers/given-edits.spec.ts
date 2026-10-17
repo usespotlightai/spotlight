@@ -16,7 +16,7 @@ describe('givenEdits', () => {
     expect(givenEdits([])).toBeNull();
   });
 
-  it('leaves out what is not a name and a text value, for the task to refuse', () => {
+  it('leaves out what is not a name and a text value, for the task to reject', () => {
     expect(
       givenEdits([{ name: 'limit', value: 100 }, 'body', { name: 'queue' }]),
     ).toEqual({});

@@ -84,7 +84,7 @@ const setOf = (tasks: number): ReplaySet => ({
     state: 'completed',
     endedAt: null,
     addedAt: '2026-10-01T09:00:00.000Z',
-    refusal: null,
+    unreplayableReason: null,
     reason: null,
     outcome: 'other',
     origin: 'person',
@@ -183,7 +183,7 @@ describe('StationSearches', () => {
     ).toBeInTheDocument();
   });
 
-  it('lists each search with its progress, spend and best candidate, and refuses a second', () => {
+  it('lists each search with its progress, spend and best candidate, and does not start a second', () => {
     searches.mockReturnValue([SEARCH]);
     sets.mockReturnValue([setOf(6)]);
 

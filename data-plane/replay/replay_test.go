@@ -45,7 +45,7 @@ const (
 )
 
 const sets = `[
-  {"id":"set_1","lineId":"line_1","stationId":"st_build","name":"Queue fixes","createdAt":"2026-10-01T09:00:00.000Z","stationGone":false,"entries":[{"runId":"run_1","taskId":"task_1","refusal":null},{"runId":"run_2","taskId":"task_2","refusal":"archive-gone"}]},
+  {"id":"set_1","lineId":"line_1","stationId":"st_build","name":"Queue fixes","createdAt":"2026-10-01T09:00:00.000Z","stationGone":false,"entries":[{"runId":"run_1","taskId":"task_1","unreplayableReason":null},{"runId":"run_2","taskId":"task_2","unreplayableReason":"archive-gone"}]},
   {"id":"set_2","lineId":"line_1","stationId":"st_build","name":"Flaky","createdAt":"2026-10-01T10:00:00.000Z","stationGone":false,"entries":[]},
   {"id":"set_3","lineId":"line_1","stationId":"st_build","name":"Flaky","createdAt":"2026-10-01T11:00:00.000Z","stationGone":false,"entries":[]}
 ]`
@@ -252,7 +252,7 @@ func TestProposeReadsTheBlockFromStdin(t *testing.T) {
 	}
 }
 
-func TestProposeRefusesHCLAndWhatIsNoObject(t *testing.T) {
+func TestProposeRejectsHCLAndWhatIsNoObject(t *testing.T) {
 	serve(t)
 
 	for file, content := range map[string]string{
@@ -267,7 +267,7 @@ func TestProposeRefusesHCLAndWhatIsNoObject(t *testing.T) {
 
 	_, err := replaying("propose", "--station", "core/delivery/build", "--name", "Faster", writeBlock(t, "build.tf", ""))
 	if err == nil || !strings.Contains(err.Error(), "never reads it") {
-		t.Fatalf("err = %v, want HCL refused", err)
+		t.Fatalf("err = %v, want HCL rejected", err)
 	}
 }
 
@@ -379,7 +379,7 @@ func TestStartReplaysEachRunAsOftenAsAsked(t *testing.T) {
 		t.Fatalf("said %q", said)
 	}
 	if _, err := replaying("start", "--station", "core/delivery/build", "--set", "Queue fixes", "--candidate", "live", "--ceiling", "5", "--repeats", "6"); err == nil || !strings.Contains(err.Error(), "--repeats") {
-		t.Fatalf("err = %v, want --repeats refused", err)
+		t.Fatalf("err = %v, want --repeats rejected", err)
 	}
 }
 
@@ -406,7 +406,7 @@ func TestStatusGivesEachRateItsIntervalAndSaysWhenTheGainIsWithinNoise(t *testin
 	}
 }
 
-func TestStartRefusesAnAmbiguousSetAndANothingCeiling(t *testing.T) {
+func TestStartRejectsAnAmbiguousSetAndANothingCeiling(t *testing.T) {
 	serve(t)
 
 	if _, err := replaying("start", "--station", "core/delivery/build", "--set", "Flaky", "--candidate", "live", "--ceiling", "5"); err == nil || !strings.Contains(err.Error(), "set_2, set_3") {
@@ -530,14 +530,14 @@ func TestWatchRidesOutPassingTroubleBackingOff(t *testing.T) {
 	}
 }
 
-func TestWatchGivesUpOnARefusalAtOnceAndOnTroubleThatLasts(t *testing.T) {
+func TestWatchGivesUpOnAClientErrorAtOnceAndOnTroubleThatLasts(t *testing.T) {
 	spotlight := serve(t)
 	spotlight.replays = []string{replayOf("finished", false)}
 	spotlight.failing["GET /api/teams/team_1/replays/replay_1"] = []int{http.StatusNotFound}
 	c, slept := watcher(t)
 
 	if err := c.watch([]string{"--team", "core", "replay_1"}); err == nil || len(*slept) != 0 {
-		t.Fatalf("err = %v after %d sleeps, want an immediate refusal", err, len(*slept))
+		t.Fatalf("err = %v after %d sleeps, want an immediate error", err, len(*slept))
 	}
 
 	spotlight.failing["GET /api/teams/team_1/replays/replay_1"] = []int{500, 500, 500, 500, 500, 500}
@@ -595,7 +595,7 @@ func TestEveryCommandNeedsTheAddressAndAToken(t *testing.T) {
 	}
 }
 
-func TestATokenSpotlightRefusesIsTold(t *testing.T) {
+func TestATokenSpotlightDoesNotAcceptIsTold(t *testing.T) {
 	serve(t)
 	t.Setenv(tokenVar, "not-the-token")
 

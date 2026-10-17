@@ -202,7 +202,7 @@ export type ProblemResponseDto = {
    */
   currentVersion?: number;
   /**
-   * The permission the caller lacks, when it was refused as forbidden: one its role in the workspace, or its token’s scopes, do not grant
+   * The permission the caller lacks, when the request is forbidden: one its role in the workspace, or its token’s scopes, do not grant
    */
   permission?: 'configure' | 'manage-secrets' | 'manage-runners' | 'manage-token-trusts' | 'administer' | 'open-workspaces' | 'plan';
 };
@@ -439,7 +439,7 @@ export type TraceConnectionResponseDto = {
   host: string;
   port: number;
   /**
-   * blocked: egress stopped it. failed: egress could not open it. injected: the host refused or failed a request that egress injected a secret into
+   * blocked: egress stopped it. failed: egress could not open it. injected: egress injected a secret into the request
    */
   outcome: 'passthrough' | 'injected' | 'blocked' | 'failed';
   /**
@@ -449,7 +449,7 @@ export type TraceConnectionResponseDto = {
   /**
    * Why egress blocked the connection or could not open it
    */
-  reason: 'not-allowed' | 'address-refused' | 'not-bound' | 'no-such-host' | 'timed-out' | 'tls-failed' | 'unreachable' | null;
+  reason: 'not-allowed' | 'private-address' | 'not-bound' | 'no-such-host' | 'timed-out' | 'tls-failed' | 'unreachable' | null;
   /**
    * The error of the connection. blocked: egress stopped it. failed: egress could not open it. auth-failed: the host answered an injected request with 401 or 403. server-error: the host answered it with 500 or more. null: no error
    */
@@ -949,7 +949,7 @@ export type PoolQueueResponseDto = {
 
 export type RunnerReleaseResponseDto = {
   /**
-   * The oldest runner release this control plane works with; a host refuses an image whose runner is older
+   * The oldest runner release this control plane works with; a host cannot use an image whose runner is older
    */
   minimum: string;
 };
@@ -1198,7 +1198,7 @@ export type EgressConnectionRequestDto = {
   /**
    * Why egress blocked the connection or could not open it. Spotlight drops a record whose reason does not fit its outcome
    */
-  reason?: 'not-allowed' | 'address-refused' | 'not-bound' | 'no-such-host' | 'timed-out' | 'tls-failed' | 'unreachable';
+  reason?: 'not-allowed' | 'private-address' | 'not-bound' | 'no-such-host' | 'timed-out' | 'tls-failed' | 'unreachable';
   at: string;
 };
 
@@ -1521,7 +1521,7 @@ export type AnswerInboxItemRequestDto = {
    */
   attachments?: Array<string>;
   /**
-   * Where the conversation asks for a tool call to be approved: true lets it run, false rejects it. Left out, the words answer it and the tool call stays undecided. Refused anywhere else.
+   * Where the conversation asks for a tool call to be approved: true lets it run, false rejects it. Left out, the words answer it and the tool call stays undecided. Rejected anywhere else.
    */
   approve?: boolean;
   /**
@@ -1843,7 +1843,7 @@ export type RunConnectionResponseDto = {
   /**
    * Why egress blocked the connection or could not open it
    */
-  reason: 'not-allowed' | 'address-refused' | 'not-bound' | 'no-such-host' | 'timed-out' | 'tls-failed' | 'unreachable' | null;
+  reason: 'not-allowed' | 'private-address' | 'not-bound' | 'no-such-host' | 'timed-out' | 'tls-failed' | 'unreachable' | null;
   /**
    * The error of the connection. blocked: egress stopped it. failed: egress could not open it. auth-failed: the host answered an injected request with 401 or 403. server-error: the host answered it with 500 or more. null: no error
    */
@@ -2950,7 +2950,7 @@ export type HostPresenceRequestDto = {
    */
   running?: Array<string>;
   /**
-   * The runner images it serves or refused, each with what it found inside
+   * The runner images it serves or cannot use, each with what it found inside
    */
   images?: Array<Array<unknown>>;
 };
@@ -2993,7 +2993,7 @@ export type HostImageResponseDto = {
   /**
    * Why the host will not run it, when it will not
    */
-  refused: string | null;
+  unavailableReason: string | null;
 };
 
 export type HostResponseDto = {
@@ -3014,7 +3014,7 @@ export type HostResponseDto = {
    */
   running: Array<string>;
   /**
-   * The runner images it serves or refused, and what each contains
+   * The runner images it serves or cannot use, and what each contains
    */
   images: Array<HostImageResponseDto>;
   firstSeenAt: string;
@@ -3800,7 +3800,7 @@ export type ReviewCommentResponseDto = {
    */
   replyTo: string | null;
   /**
-   * draft: only its author sees it; sending: on its way to GitHub; posted: on GitHub; failed: GitHub refused it
+   * draft: only its author sees it; sending: on its way to GitHub; posted: on GitHub; failed: GitHub answered with an error
    */
   state: 'draft' | 'sending' | 'posted' | 'failed';
   failure: string | null;
@@ -7386,7 +7386,7 @@ export type ReplaySetEntryResponseDto = {
   /**
    * Why the run can no longer be replayed; null while it can
    */
-  refusal: 'unknown-run' | 'not-a-task-run' | 'task-gone' | 'still-running' | 'no-starting-point' | 'no-briefing' | 'archive-gone' | 'attachments-gone' | 'answer-gone' | 'repository-gone' | 'not-at-the-station' | 'candidate-unfit' | 'cannot-start' | 'unchecked' | 'forgone' | 'dispatch-failed' | null;
+  unreplayableReason: 'unknown-run' | 'not-a-task-run' | 'task-gone' | 'still-running' | 'no-starting-point' | 'no-briefing' | 'archive-gone' | 'attachments-gone' | 'answer-gone' | 'repository-gone' | 'not-at-the-station' | 'candidate-unfit' | 'cannot-start' | 'unchecked' | 'forgone' | 'dispatch-failed' | null;
   reason: string | null;
   /**
    * How the original run turned out: asked when what a person did next was decide an approval it asked for; else accepted or sent back by what a person did next; else failed; else asked when it ended waiting on a person or a person answered it; else other
@@ -7436,7 +7436,7 @@ export type ReplayableRunResponseDto = {
   /**
    * Why it cannot be replayed; null when it can
    */
-  refusal: 'unknown-run' | 'not-a-task-run' | 'task-gone' | 'still-running' | 'no-starting-point' | 'no-briefing' | 'archive-gone' | 'attachments-gone' | 'answer-gone' | 'repository-gone' | 'not-at-the-station' | 'candidate-unfit' | 'cannot-start' | 'unchecked' | 'forgone' | 'dispatch-failed' | null;
+  unreplayableReason: 'unknown-run' | 'not-a-task-run' | 'task-gone' | 'still-running' | 'no-starting-point' | 'no-briefing' | 'archive-gone' | 'attachments-gone' | 'answer-gone' | 'repository-gone' | 'not-at-the-station' | 'candidate-unfit' | 'cannot-start' | 'unchecked' | 'forgone' | 'dispatch-failed' | null;
   reason: string | null;
 };
 
@@ -7449,7 +7449,7 @@ export type SuggestedRunResponseDto = {
   /**
    * Why it cannot be replayed; null when it can
    */
-  refusal: 'unknown-run' | 'not-a-task-run' | 'task-gone' | 'still-running' | 'no-starting-point' | 'no-briefing' | 'archive-gone' | 'attachments-gone' | 'answer-gone' | 'repository-gone' | 'not-at-the-station' | 'candidate-unfit' | 'cannot-start' | 'unchecked' | 'forgone' | 'dispatch-failed' | null;
+  unreplayableReason: 'unknown-run' | 'not-a-task-run' | 'task-gone' | 'still-running' | 'no-starting-point' | 'no-briefing' | 'archive-gone' | 'attachments-gone' | 'answer-gone' | 'repository-gone' | 'not-at-the-station' | 'candidate-unfit' | 'cannot-start' | 'unchecked' | 'forgone' | 'dispatch-failed' | null;
   reason: string | null;
   /**
    * How the run turned out
@@ -7656,7 +7656,7 @@ export type EntryJudgeResponseDto = {
    */
   referenced: boolean | null;
   model: string | null;
-  unjudged: 'unavailable' | 'unreadable-rubric' | 'no-evidence' | 'refused' | 'unreadable' | 'ungrounded' | 'errored' | 'interrupted' | 'stopped-before-judging' | null;
+  unjudged: 'unavailable' | 'unreadable-rubric' | 'no-evidence' | 'request-failed' | 'unreadable' | 'ungrounded' | 'errored' | 'interrupted' | 'stopped-before-judging' | null;
   /**
    * The claims the judge marked, in order, as worded when it judged; empty unless it goes by claims
    */
@@ -7710,7 +7710,7 @@ export type EntryPairResponseDto = {
    */
   outcome: 'win' | 'loss' | 'tie' | null;
   model: string | null;
-  unpaired: 'unavailable' | 'unreadable-rubric' | 'no-evidence' | 'refused' | 'unreadable' | 'ungrounded' | 'errored' | 'interrupted' | 'other-rubric' | 'budget' | null;
+  unpaired: 'unavailable' | 'unreadable-rubric' | 'no-evidence' | 'request-failed' | 'unreadable' | 'ungrounded' | 'errored' | 'interrupted' | 'other-rubric' | 'budget' | null;
   /**
    * The two readings, one with each change shown first; where they disagree the outcome is a tie
    */
@@ -7723,7 +7723,7 @@ export type EntryReasonResponseDto = {
    */
   code: 'unreplayable' | 'not-run' | 'run-failed' | 'run-stopped' | 'asked-a-person' | 'check-failed' | 'check-skipped' | 'change-undrafted' | 'no-change' | 'no-change-stack' | 'judged' | 'judge-failed' | 'unjudged' | 'nothing-judges';
   /**
-   * The refusal, failure or skip code, the failed check step or layer, or what the judge said
+   * The unreplayable reason, the failure or skip code, the failed check step or layer, or what the judge said
    */
   detail: string | null;
   /**
@@ -7757,7 +7757,7 @@ export type ReplayEntryResponseDto = {
   fingerprint: string | null;
   phase: 'waiting' | 'dispatched' | 'settled';
   ending: 'completed' | 'failed' | 'stopped' | 'asked' | 'unreplayable' | 'not-run' | null;
-  refusal: 'unknown-run' | 'not-a-task-run' | 'task-gone' | 'still-running' | 'no-starting-point' | 'no-briefing' | 'archive-gone' | 'attachments-gone' | 'answer-gone' | 'repository-gone' | 'not-at-the-station' | 'candidate-unfit' | 'cannot-start' | 'unchecked' | 'forgone' | 'dispatch-failed' | null;
+  unreplayableReason: 'unknown-run' | 'not-a-task-run' | 'task-gone' | 'still-running' | 'no-starting-point' | 'no-briefing' | 'archive-gone' | 'attachments-gone' | 'answer-gone' | 'repository-gone' | 'not-at-the-station' | 'candidate-unfit' | 'cannot-start' | 'unchecked' | 'forgone' | 'dispatch-failed' | null;
   /**
    * How its run failed: exited, refused and timed-out (it ran past its host’s time limit) count against the candidate; unprepared, unprovisioned, hooks-unanswered, runner-lost and superseded were down to what ran it, and leave the entry unscored
    */
@@ -8470,7 +8470,7 @@ export type SearchIterationResponseDto = {
    */
   state: 'wanted' | 'running' | 'ended' | 'failed';
   /**
-   * How many candidates it tried to propose, those refused included
+   * How many candidates it tried to propose, those rejected included
    */
   attempts: number;
   /**
@@ -8489,9 +8489,9 @@ export type SearchIterationResponseDto = {
 
 export type ConfigPullRequestReasonResponseDto = {
   /**
-   * Why Spotlight would not open it: the line names no source; the GitHub App cannot reach the repository; the file is missing or does not parse; the station’s block was not found exactly once; an attribute it would change is computed in Terraform; the file changed since the search began; or GitHub refused
+   * Why Spotlight would not open it: the line names no source; the GitHub App cannot reach the repository; the file is missing or does not parse; the station’s block was not found exactly once; an attribute it would change is computed in Terraform; the file changed since the search began; or GitHub answered with an error
    */
-  code: 'no-source' | 'repository-unreachable' | 'file-missing' | 'file-unparsable' | 'block-not-found' | 'blocks-ambiguous' | 'computed-attribute' | 'drifted' | 'edit-failed' | 'branch-taken' | 'file-unwritable' | 'github-refused';
+  code: 'no-source' | 'repository-unreachable' | 'file-missing' | 'file-unparsable' | 'block-not-found' | 'blocks-ambiguous' | 'computed-attribute' | 'base-changed' | 'edit-failed' | 'branch-taken' | 'file-unwritable' | 'github-error';
   message: string;
   /**
    * The station attribute it is about, where there is one
@@ -8509,13 +8509,13 @@ export type ConfigPullRequestReasonResponseDto = {
 
 export type CandidatePullRequestResponseDto = {
   id: string;
-  state: 'opening' | 'opened' | 'refused';
+  state: 'opening' | 'opened' | 'failed';
   /**
    * The pull request, once it opened
    */
   url: string | null;
   /**
-   * Why it was refused; null unless it was
+   * Why it failed; null unless it failed
    */
   reason: ConfigPullRequestReasonResponseDto | null;
 };
@@ -8668,13 +8668,13 @@ export type SearchDetailResponseDto = {
 
 export type ConfigPullRequestResponseDto = {
   id: string;
-  state: 'opening' | 'opened' | 'refused';
+  state: 'opening' | 'opened' | 'failed';
   /**
    * The pull request, once it opened
    */
   url: string | null;
   /**
-   * Why it was refused; null unless it was
+   * Why it failed; null unless it failed
    */
   reason: ConfigPullRequestReasonResponseDto | null;
   teamId: string;
@@ -8694,7 +8694,7 @@ export type ConfigPullRequestResponseDto = {
    */
   branch: string;
   /**
-   * How many times a person picked it; each pick after a refusal tries again
+   * How many times a person picked it; each pick after a failure tries again
    */
   attempts: number;
   createdAt: string;
@@ -9451,7 +9451,7 @@ export type DeleteLineData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     * The ETag of the version this write was based on; a write to any other version fails with 409
      */
     'If-Match': string;
   };
@@ -9559,7 +9559,7 @@ export type UpdateLineData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     * The ETag of the version this write was based on; a write to any other version fails with 409
      */
     'If-Match': string;
   };
@@ -10139,7 +10139,7 @@ export type UseToolErrors = {
    */
   422: unknown;
   /**
-   * The integration the tool calls refused
+   * The integration the tool calls answered with an error
    */
   502: unknown;
 };
@@ -11830,7 +11830,7 @@ export type DeleteWorkspaceData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     * The ETag of the version this write was based on; a write to any other version fails with 409
      */
     'If-Match': string;
   };
@@ -11939,7 +11939,7 @@ export type UpdateWorkspaceData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     * The ETag of the version this write was based on; a write to any other version fails with 409
      */
     'If-Match': string;
   };
@@ -12113,7 +12113,7 @@ export type DeleteTeamData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     * The ETag of the version this write was based on; a write to any other version fails with 409
      */
     'If-Match': string;
   };
@@ -12222,7 +12222,7 @@ export type UpdateTeamData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     * The ETag of the version this write was based on; a write to any other version fails with 409
      */
     'If-Match': string;
   };
@@ -12450,7 +12450,7 @@ export type DeleteWorkspaceTokenData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     * The ETag of the version this write was based on; a write to any other version fails with 409
      */
     'If-Match': string;
   };
@@ -12561,7 +12561,7 @@ export type UpdateWorkspaceTokenData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     * The ETag of the version this write was based on; a write to any other version fails with 409
      */
     'If-Match': string;
   };
@@ -12792,7 +12792,7 @@ export type DeleteWorkspaceTokenTrustData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     * The ETag of the version this write was based on; a write to any other version fails with 409
      */
     'If-Match': string;
   };
@@ -12908,7 +12908,7 @@ export type UpdateWorkspaceTokenTrustData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     * The ETag of the version this write was based on; a write to any other version fails with 409
      */
     'If-Match': string;
   };
@@ -13020,7 +13020,7 @@ export type ExchangeWorkloadTokenData = {
 
 export type ExchangeWorkloadTokenErrors = {
   /**
-   * Spotlight refused the exchange. Possible causes: an unknown trust, a token its issuer did not sign for the trust’s audience, a workload the trust does not admit, or a closed workspace
+   * Spotlight did not accept the exchange. Possible causes: an unknown trust, a token its issuer did not sign for the trust’s audience, a workload the trust does not admit, or a closed workspace
    */
   401: unknown;
 };
@@ -13598,7 +13598,7 @@ export type DeleteSecretData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     * The ETag of the version this write was based on; a write to any other version fails with 409
      */
     'If-Match': string;
   };
@@ -13728,7 +13728,7 @@ export type UpdateSecretData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     * The ETag of the version this write was based on; a write to any other version fails with 409
      */
     'If-Match': string;
   };
@@ -14277,7 +14277,7 @@ export type DeleteRunnerTrustData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     * The ETag of the version this write was based on; a write to any other version fails with 409
      */
     'If-Match': string;
   };
@@ -14389,7 +14389,7 @@ export type UpdateRunnerTrustData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     * The ETag of the version this write was based on; a write to any other version fails with 409
      */
     'If-Match': string;
   };
@@ -14550,7 +14550,7 @@ export type CreateRunnerPoolData = {
      */
     token?: string;
     /**
-     * Changed, with a new token, to rotate the pool token in place: the old token is refused at once, while runs already claimed keep their own one-run credentials
+     * Changed, with a new token, to rotate the pool token in place: the old token stops working at once, while runs already claimed keep their own one-run credentials
      */
     tokenVersion?: number | null;
     /**
@@ -14649,7 +14649,7 @@ export type DeleteRunnerPoolData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     * The ETag of the version this write was based on; a write to any other version fails with 409
      */
     'If-Match': string;
   };
@@ -14756,7 +14756,7 @@ export type UpdateRunnerPoolData = {
      */
     token?: string;
     /**
-     * Changed, with a new token, to rotate the pool token in place: the old token is refused at once, while runs already claimed keep their own one-run credentials
+     * Changed, with a new token, to rotate the pool token in place: the old token stops working at once, while runs already claimed keep their own one-run credentials
      */
     tokenVersion?: number | null;
     /**
@@ -14792,7 +14792,7 @@ export type UpdateRunnerPoolData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     * The ETag of the version this write was based on; a write to any other version fails with 409
      */
     'If-Match': string;
   };
@@ -14952,7 +14952,7 @@ export type CreateEgressData = {
      */
     token?: string;
     /**
-     * Changed, with a new token, to rotate the egress token in place: the old token is refused at once
+     * Changed, with a new token, to rotate the egress token in place: the old token stops working at once
      */
     tokenVersion?: number | null;
   };
@@ -15029,7 +15029,7 @@ export type DeleteEgressData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     * The ETag of the version this write was based on; a write to any other version fails with 409
      */
     'If-Match': string;
   };
@@ -15135,7 +15135,7 @@ export type UpdateEgressData = {
      */
     token?: string;
     /**
-     * Changed, with a new token, to rotate the egress token in place: the old token is refused at once
+     * Changed, with a new token, to rotate the egress token in place: the old token stops working at once
      */
     tokenVersion?: number | null;
   };
@@ -15149,7 +15149,7 @@ export type UpdateEgressData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     * The ETag of the version this write was based on; a write to any other version fails with 409
      */
     'If-Match': string;
   };
@@ -15374,7 +15374,7 @@ export type DeleteWorkspaceRunnersData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     * The ETag of the version this write was based on; a write to any other version fails with 409
      */
     'If-Match': string;
   };
@@ -15484,7 +15484,7 @@ export type UpdateWorkspaceRunnersData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     * The ETag of the version this write was based on; a write to any other version fails with 409
      */
     'If-Match': string;
   };
@@ -15717,7 +15717,7 @@ export type DeleteSkillData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     * The ETag of the version this write was based on; a write to any other version fails with 409
      */
     'If-Match': string;
   };
@@ -15828,7 +15828,7 @@ export type UpdateSkillData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     * The ETag of the version this write was based on; a write to any other version fails with 409
      */
     'If-Match': string;
   };
@@ -16070,7 +16070,7 @@ export type DeleteHarnessProfileData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     * The ETag of the version this write was based on; a write to any other version fails with 409
      */
     'If-Match': string;
   };
@@ -16197,7 +16197,7 @@ export type UpdateHarnessProfileData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     * The ETag of the version this write was based on; a write to any other version fails with 409
      */
     'If-Match': string;
   };
@@ -16971,7 +16971,7 @@ export type DeleteIntegrationData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     * The ETag of the version this write was based on; a write to any other version fails with 409
      */
     'If-Match': string;
   };
@@ -17079,7 +17079,7 @@ export type UpdateIntegrationData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     * The ETag of the version this write was based on; a write to any other version fails with 409
      */
     'If-Match': string;
   };
@@ -17409,7 +17409,7 @@ export type DeleteHookData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     * The ETag of the version this write was based on; a write to any other version fails with 409
      */
     'If-Match': string;
   };
@@ -17515,7 +17515,7 @@ export type UpdateHookData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     * The ETag of the version this write was based on; a write to any other version fails with 409
      */
     'If-Match': string;
   };
@@ -18998,7 +18998,7 @@ export type DeleteReplayCandidateData = {
      */
     'Spotlight-Client'?: string;
     /**
-     * The ETag of the version this write was based on; a write to any other version is refused with 409
+     * The ETag of the version this write was based on; a write to any other version fails with 409
      */
     'If-Match': string;
   };
@@ -20279,7 +20279,7 @@ export type PickSearchCandidateResponses = {
    */
   200: ConfigPullRequestResponseDto;
   /**
-   * Picked, or tried again after a refusal
+   * Picked, or tried again after a failure
    */
   201: ConfigPullRequestResponseDto;
 };
@@ -20523,7 +20523,7 @@ export type ProposeSearchCandidateErrors = {
    */
   409: ProblemResponseDto;
   /**
-   * A name that is no slug, no hypothesis, or a station block the line refuses or that changes what a search may not; errors name each problem’s path
+   * A name that is no slug, no hypothesis, or a station block the line rejects or that changes what a search may not; errors name each problem’s path
    */
   422: ProblemResponseDto;
 };

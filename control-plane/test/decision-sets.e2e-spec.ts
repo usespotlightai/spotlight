@@ -174,7 +174,7 @@ describe('storing a task’s decisions', () => {
     expect(read?.status.merge?.at.toISOString()).toBe(NOW.toISOString());
   });
 
-  it('refuses to write over a set that changed since it was read', async () => {
+  it('does not write over a set that changed since it was read', async () => {
     const set = opened();
     await sets.add(set);
     await sets.save(set.asked(FIRST, NOW));
@@ -212,7 +212,7 @@ describe('storing a task’s decisions', () => {
     expect(await sets.forTask(set.taskId)).toBeNull();
   });
 
-  it('refuses to discard a set that changed since it was read', async () => {
+  it('does not discard a set that changed since it was read', async () => {
     const set = opened();
     await sets.add(set);
     await sets.save(set.asked(FIRST, NOW));

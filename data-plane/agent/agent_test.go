@@ -82,12 +82,12 @@ func TestSaysWhatWouldHaveWorked(t *testing.T) {
 
 	err := run([]string{"handover", "--next", "Deployment"}, strings.NewReader(""), new(bytes.Buffer))
 	if err == nil {
-		t.Fatal("expected a refusal")
+		t.Fatal("expected an error")
 	}
 
 	for _, wanted := range []string{"Deployment", "spec", "review"} {
 		if !strings.Contains(err.Error(), wanted) {
-			t.Fatalf("refusal %q never mentions %q", err, wanted)
+			t.Fatalf("error %q never mentions %q", err, wanted)
 		}
 	}
 }
@@ -195,7 +195,7 @@ func TestRepliesToARemark(t *testing.T) {
 	}
 }
 
-func TestRefusesAReplyNamingNoRemark(t *testing.T) {
+func TestRejectsAReplyNamingNoRemark(t *testing.T) {
 	inARun(t)
 
 	err := run([]string{"reply", "--body", "x"}, strings.NewReader(""), new(bytes.Buffer))
@@ -251,7 +251,7 @@ func TestOpensAPullRequestThroughItsTool(t *testing.T) {
 	}
 }
 
-func TestRefusesAPullRequestWithoutATitle(t *testing.T) {
+func TestRejectsAPullRequestWithoutATitle(t *testing.T) {
 	openingPullRequests(t)
 
 	err := run([]string{"pull-request", "--body", "What it does."}, strings.NewReader(""), new(bytes.Buffer))

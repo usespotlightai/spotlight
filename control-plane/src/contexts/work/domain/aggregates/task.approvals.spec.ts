@@ -267,7 +267,7 @@ describe('clearing a tool call that needs approval', () => {
     );
   });
 
-  it('refuses a run that is not the current run of the task', () => {
+  it('rejects a run that is not the current run of the task', () => {
     const { task } = decided('granted');
 
     expect(() => clear(task.leaveRun(RUN, NOW))).toThrow();
@@ -291,7 +291,7 @@ describe('deciding an approval', () => {
     expect(task.notes[task.notes.length - 1]?.form).toBe('approval');
   });
 
-  it('refuses a second decision as a conflict, not a fault', () => {
+  it('rejects a second decision as a conflict, not a fault', () => {
     const { task, at } = decided('granted');
 
     expect(() =>
@@ -369,7 +369,7 @@ describe('deciding an approval', () => {
     );
   });
 
-  it('refuses a decision nobody can be named for', () => {
+  it('rejects a decision nobody can be named for', () => {
     const { asked, at } = askedOnce();
 
     expect(() =>
@@ -532,7 +532,7 @@ describe('approving a tool call with changes', () => {
     });
   });
 
-  it('refuses changes that name other inputs than it asked with', () => {
+  it('rejects changes that name other inputs than it asked with', () => {
     const { asked, at } = askedOnce();
 
     expect(() =>
@@ -547,7 +547,7 @@ describe('approving a tool call with changes', () => {
     ).toThrowError(expect.objectContaining({ violation: 'conflict' }));
   });
 
-  it('refuses an input left blank, which would run with something else', () => {
+  it('rejects an input left blank, which would run with something else', () => {
     const { asked, at } = askedOnce();
 
     expect(() =>
@@ -558,7 +558,7 @@ describe('approving a tool call with changes', () => {
     ).toThrowError(expect.objectContaining({ violation: 'conflict' }));
   });
 
-  it('refuses a change that is not a value of the kind asked', () => {
+  it('rejects a change that is not a value of the kind asked', () => {
     const asked = ApprovalSubject.toolCall(
       ToolCall.of(Tool.of('queue.drain'), ToolInputs.of({ limit: 500 })),
     );
@@ -574,7 +574,7 @@ describe('approving a tool call with changes', () => {
     ).toThrowError(expect.objectContaining({ violation: 'conflict' }));
   });
 
-  it('refuses changes to a rejection, or to words that decide nothing', () => {
+  it('rejects changes to a dismissed request, or to words that decide nothing', () => {
     const { asked, at } = askedOnce();
     const edits = { issue: 'ENG-12', body: 'Hi.' };
 
@@ -586,7 +586,7 @@ describe('approving a tool call with changes', () => {
     );
   });
 
-  it('refuses changes to what a harness asked, which only takes a yes or a no', () => {
+  it('rejects changes to what a harness asked, which only takes a yes or a no', () => {
     const permission = ApprovalSubject.harnessPermission(
       HarnessPermission.asked({
         harness: HarnessId.of('claude-code'),

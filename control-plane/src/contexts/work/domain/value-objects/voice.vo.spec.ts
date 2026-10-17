@@ -33,11 +33,11 @@ describe('Voice', () => {
       );
     });
 
-    it('refuses a person nobody can name', () => {
+    it('rejects a person nobody can name', () => {
       expect(() => Voice.of({ by: 'person' })).toThrow(InvalidVoiceError);
     });
 
-    it('refuses a name on a voice that is not a person’s', () => {
+    it('rejects a name on a voice that is not a person’s', () => {
       expect(() => Voice.of({ by: 'world', author: 'user_1' })).toThrow(
         InvalidVoiceError,
       );
@@ -46,13 +46,13 @@ describe('Voice', () => {
       );
     });
 
-    it('refuses a run behind a voice the station did not speak', () => {
+    it('rejects a run behind a voice the station did not speak', () => {
       expect(() => Voice.of({ by: 'world', run: 'run_1' })).toThrow(
         InvalidVoiceError,
       );
     });
 
-    it('refuses a voice it has never heard of', () => {
+    it('rejects a voice it has never heard of', () => {
       expect(() => Voice.of({ by: 'nobody' })).toThrow(InvalidVoiceError);
     });
   });

@@ -23,7 +23,7 @@ const calling = (
   answerAfter: number | null = null,
   answer = NetworkAnswer.of({
     status: 200,
-    body: new TextEncoder().encode('{"refuse":"not today"}'),
+    body: new TextEncoder().encode('{"deny":"not today"}'),
     ms: 84,
   }),
 ) => {
@@ -95,7 +95,7 @@ describe('NetworkCalls', () => {
       answer: {
         status: 200,
         headers: {},
-        body: new TextEncoder().encode('{"refuse":"not today"}'),
+        body: new TextEncoder().encode('{"deny":"not today"}'),
         ms: 84,
         error: null,
       },

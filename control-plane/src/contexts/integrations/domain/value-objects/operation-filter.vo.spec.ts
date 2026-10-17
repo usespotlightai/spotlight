@@ -27,7 +27,7 @@ describe('OperationFilter', () => {
     );
   });
 
-  it('refuses a pattern that could never match a tool name', () => {
+  it('rejects a pattern that could never match a tool name', () => {
     expect(() => OperationFilter.of({ include: ['Pet.*'] })).toThrow(
       /lowercase words joined by dashes/,
     );

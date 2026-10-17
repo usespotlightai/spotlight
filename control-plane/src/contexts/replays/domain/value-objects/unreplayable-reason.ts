@@ -1,4 +1,4 @@
-export const REPLAY_REFUSALS = [
+export const UNREPLAYABLE_REASONS = [
   'unknown-run',
   'not-a-task-run',
   'task-gone',
@@ -17,7 +17,9 @@ export const REPLAY_REFUSALS = [
   'dispatch-failed',
 ] as const;
 
-export type ReplayRefusal = (typeof REPLAY_REFUSALS)[number];
+export type UnreplayableReason = (typeof UNREPLAYABLE_REASONS)[number];
 
-export const isReplayRefusal = (code: string): code is ReplayRefusal =>
-  (REPLAY_REFUSALS as readonly string[]).includes(code);
+export const isUnreplayableReason = (
+  code: string,
+): code is UnreplayableReason =>
+  (UNREPLAYABLE_REASONS as readonly string[]).includes(code);

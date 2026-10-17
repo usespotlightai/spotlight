@@ -105,7 +105,7 @@ describe('listing the decisions that shipped', () => {
     expect(found?.[0]?.decisions[0]?.disputes[0]?.byName).toBe('Maya Chen');
   });
 
-  it('refuses paths without the repository they lie in', async () => {
+  it('rejects paths without the repository they lie in', async () => {
     const { list } = listing();
 
     await expect(list(null, ['src/uploads.ts'])).rejects.toMatchObject({
@@ -113,7 +113,7 @@ describe('listing the decisions that shipped', () => {
     });
   });
 
-  it('refuses a path that climbs out of the repository, or a time that is no date', async () => {
+  it('rejects a path that climbs out of the repository, or a time that is no date', async () => {
     const { list } = listing();
 
     await expect(list('acme/api', ['../secrets'])).rejects.toMatchObject({

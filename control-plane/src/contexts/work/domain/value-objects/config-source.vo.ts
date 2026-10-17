@@ -6,7 +6,7 @@ const LONGEST_PATH = 1_024;
 
 const TERRAFORM_FILE = /\.tf$/;
 
-const pathRefusal = (path: string): string | null => {
+const pathProblem = (path: string): string | null => {
   if (path.length === 0 || path.length > LONGEST_PATH) {
     return `must be 1 to ${LONGEST_PATH.toLocaleString('en-US')} characters`;
   }
@@ -44,10 +44,10 @@ export class ConfigSource {
       throw error;
     }
 
-    const refused = pathRefusal(input.path);
+    const problem = pathProblem(input.path);
 
-    if (refused) {
-      throw new InvalidConfigSourceError('path', refused);
+    if (problem) {
+      throw new InvalidConfigSourceError('path', problem);
     }
 
     return new ConfigSource(repository, input.path);

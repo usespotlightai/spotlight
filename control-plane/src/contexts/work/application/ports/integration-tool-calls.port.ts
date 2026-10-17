@@ -23,7 +23,7 @@ export interface ConnectionWantedDto {
   readonly personId: string | null;
   readonly because:
     | 'not-connected'
-    | 'renewal-refused'
+    | 'refresh-failed'
     | 'no-requester'
     | 'not-a-member';
 }

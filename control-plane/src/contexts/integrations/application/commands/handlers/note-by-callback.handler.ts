@@ -8,7 +8,7 @@ import type { CausationPort } from '@shared-kernel/application/ports/causation.p
 import type { CommandHandlerPort } from '@shared-kernel/application/ports/command-handler.port';
 import type { TaskNotesFromHooksPort } from '@work/application/ports/task-notes-from-hooks.port';
 
-export type NotedByCallback = 'noted' | 'refused' | 'empty';
+export type NotedByCallback = 'noted' | 'rejected' | 'empty';
 
 const noteIn = (body: string): CallbackNote | null => {
   try {
@@ -43,7 +43,7 @@ export class NoteByCallbackHandler
       const grant = await this.grants.findByToken(command.token);
 
       if (!grant) {
-        return 'refused';
+        return 'rejected';
       }
 
       const fired = grant.firing
@@ -60,7 +60,7 @@ export class NoteByCallbackHandler
           ),
       );
 
-      return noted ? 'noted' : 'refused';
+      return noted ? 'noted' : 'rejected';
     } catch (error) {
       rethrowAsApplicationError(error);
     }

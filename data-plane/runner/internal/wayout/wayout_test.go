@@ -29,7 +29,7 @@ type fakeEgress struct {
 	hosts     []string
 	notYet    int
 	busy      int
-	refuse    int
+	reject    int
 }
 
 func (f *fakeEgress) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -44,8 +44,8 @@ func (f *fakeEgress) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch {
 	case r.Method == http.MethodConnect:
 		f.connects = append(f.connects, r.Host)
-		if strings.HasPrefix(r.Host, "refused.example.com") {
-			http.Error(w, "Egress does not let this sandbox reach refused.example.com.", http.StatusForbidden)
+		if strings.HasPrefix(r.Host, "blocked.example.com") {
+			http.Error(w, "Egress does not let this sandbox reach blocked.example.com.", http.StatusForbidden)
 			return
 		}
 		upstream, err := net.Dial("tcp", f.target)
@@ -69,8 +69,8 @@ func (f *fakeEgress) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		_, _ = fmt.Fprintf(w, "forwarded to %s%s", r.Header.Get(protocol.EgressTargetHeader), r.URL.Path)
 	case r.URL.Path == protocol.EgressBoundPath:
 		switch {
-		case f.refuse != 0:
-			http.Error(w, "Egress does not know this sandbox.", f.refuse)
+		case f.reject != 0:
+			http.Error(w, "Egress does not know this sandbox.", f.reject)
 		case f.busy > 0:
 			f.busy--
 			http.Error(w, "Sorry, this workspace sends too many requests.", http.StatusTooManyRequests)
@@ -174,12 +174,12 @@ func TestTunnelsAnotherHostThroughEgress(t *testing.T) {
 	}
 }
 
-func TestPassesOnWhatEgressRefused(t *testing.T) {
+func TestPassesOnWhatEgressBlocked(t *testing.T) {
 	r := rigged(t, false)
 
-	status, body := r.get(t, "http://refused.example.com/", "")
+	status, body := r.get(t, "http://blocked.example.com/", "")
 
-	if status != http.StatusForbidden || !strings.Contains(body, "does not let this sandbox reach refused.example.com") {
+	if status != http.StatusForbidden || !strings.Contains(body, "does not let this sandbox reach blocked.example.com") {
 		t.Errorf("answered %d: %s", status, body)
 	}
 }
@@ -246,7 +246,7 @@ func TestTellsWhetherTheSandboxCanGoAroundEgress(t *testing.T) {
 	}
 }
 
-func TestRefusesAnEgressWithoutAnAddressOrCredential(t *testing.T) {
+func TestRejectsAnEgressWithoutAnAddressOrCredential(t *testing.T) {
 	for _, given := range [][2]string{{"egress.example.com", "credential"}, {"https://egress.example.com", ""}} {
 		if _, err := wayout.To(given[0], given[1], nil); err == nil {
 			t.Errorf("took %q", given)
@@ -291,8 +291,8 @@ func TestDoesNotOpenWithoutBoundHostsInTime(t *testing.T) {
 	}
 }
 
-func TestDoesNotAskAgainWhenEgressRefusesTheSandbox(t *testing.T) {
-	fake := &fakeEgress{refuse: http.StatusProxyAuthRequired}
+func TestDoesNotAskAgainWhenEgressRejectsTheSandbox(t *testing.T) {
+	fake := &fakeEgress{reject: http.StatusProxyAuthRequired}
 
 	started := time.Now()
 	_, err := wayout.Open(context.Background(), egressOf(t, fake), wayout.Options{Listen: "127.0.0.1:0", Log: quiet})

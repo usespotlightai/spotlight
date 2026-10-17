@@ -258,7 +258,7 @@ describe('each person’s own connections (e2e)', () => {
     expect((await reaching(seat.owner))?.personRule).toBeNull();
   });
 
-  it('refuses a rule that is not one, and a tool the integration does not offer', async () => {
+  it('rejects a rule that is not one, and a tool the integration does not offer', async () => {
     await connect(seat.member, '@bea');
     const mine = `/api/teams/${workspaceId}/integrations/linear/connections/mine/tools`;
 

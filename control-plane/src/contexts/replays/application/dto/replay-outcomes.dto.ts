@@ -38,7 +38,7 @@ export type ReplayStarted = Planned<{
 
 export type ReplayStoppedOutcome = Planned<{ readonly outcome: 'stopped' }>;
 
-export interface SearchRefused {
+export interface SearchRejected {
   readonly outcome: 'invalid';
   readonly problems: readonly ConfigurationProblem[];
 }
@@ -51,7 +51,7 @@ export type SearchStartedOutcome = Planned<
       readonly objective: SearchObjectiveDto;
       readonly warnings: readonly SearchWarningDto[];
     }
-  | SearchRefused
+  | SearchRejected
 >;
 
 export type SearchStoppedOutcome = Planned<{ readonly outcome: 'stopped' }>;

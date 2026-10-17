@@ -1,7 +1,6 @@
 import type { OracleAnswer } from '@replays/domain/services/oracle-answer';
 import type { CandidateScoring } from '@replays/domain/value-objects/candidate-scoring.vo';
 import type { PlannedLine } from '@replays/domain/value-objects/planned-line.vo';
-import type { ReplayRefusal } from '@replays/domain/value-objects/replay-refusal';
 import type { ReplayThreshold } from '@replays/domain/value-objects/replay-threshold.vo';
 import type { SearchAgent } from '@replays/domain/value-objects/search-agent.vo';
 import type { SearchId } from '@replays/domain/value-objects/search-id.vo';
@@ -9,6 +8,7 @@ import type { StationBlock } from '@replays/domain/value-objects/station-block.v
 import type { StationChanges } from '@replays/domain/value-objects/station-changes.vo';
 import type { StationDigests } from '@replays/domain/value-objects/station-digests.vo';
 import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
+import type { UnreplayableReason } from '@replays/domain/value-objects/unreplayable-reason';
 import type { ConfigurationProblem } from '@shared-kernel/domain/value-objects/configuration-problem.vo';
 import type { Repository } from '@shared-kernel/domain/value-objects/repository.vo';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
@@ -38,7 +38,7 @@ export interface RunReplayability {
   readonly runId: RunId;
   readonly taskId: TaskId | null;
   readonly stationId: string | null;
-  readonly refusal: ReplayRefusal | null;
+  readonly unreplayableReason: UnreplayableReason | null;
   readonly reason: string | null;
 }
 
@@ -95,7 +95,7 @@ export interface ReplayRunOrder {
 
 export type ReplayRunQueued =
   | { readonly queued: true; readonly fingerprint: StationFingerprint | null }
-  | { readonly queued: false; readonly refusal: ReplayRefusal };
+  | { readonly queued: false; readonly unreplayableReason: UnreplayableReason };
 
 export type RunForgone =
   | { readonly queued: false }
@@ -134,7 +134,7 @@ export type UnclaimedWithdrawal =
   | { readonly outcome: 'claimed' }
   | { readonly outcome: 'ended' };
 
-export interface AgentRefusal {
+export interface AgentProblem {
   readonly field: 'harness' | 'model' | 'effort';
   readonly reason: string;
 }
@@ -179,7 +179,7 @@ export interface WorkPort {
 
   durations(runs: readonly RunId[]): Promise<ReadonlyMap<string, number>>;
 
-  agentRefusal(agent: SearchAgent): AgentRefusal | null;
+  agentProblem(agent: SearchAgent): AgentProblem | null;
 
   dispatchSearch(order: SearchRunOrder): Promise<SearchRunQueued>;
 

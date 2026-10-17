@@ -78,7 +78,7 @@ const compileStation = (
   at: number,
   station: StationDefinition,
 ): Read<StationPlan> => {
-  const refused = (
+  const invalid = (
     within: readonly FieldSegment[],
     error: unknown,
   ): Read<StationPlan> => ({
@@ -97,7 +97,7 @@ const compileStation = (
   try {
     agentPrompt = station.prompt ? AgentPrompt.of(station.prompt) : null;
   } catch (error) {
-    return refused(['prompt'], error);
+    return invalid(['prompt'], error);
   }
 
   let check: StationCheck | null = null;
@@ -105,7 +105,7 @@ const compileStation = (
   try {
     check = station.check ? StationCheck.of(station.check) : null;
   } catch (error) {
-    return refused(['check'], error);
+    return invalid(['check'], error);
   }
 
   let name: StationName;
@@ -113,7 +113,7 @@ const compileStation = (
   try {
     name = StationName.of(station.name);
   } catch (error) {
-    return refused(['name'], error);
+    return invalid(['name'], error);
   }
 
   let description: StationDescription | null = null;
@@ -123,7 +123,7 @@ const compileStation = (
       ? StationDescription.of(station.description)
       : null;
   } catch (error) {
-    return refused(['description'], error);
+    return invalid(['description'], error);
   }
 
   let harness: HarnessId | null = null;
@@ -131,7 +131,7 @@ const compileStation = (
   try {
     harness = station.harness ? HarnessId.of(station.harness) : null;
   } catch (error) {
-    return refused(['harness'], error);
+    return invalid(['harness'], error);
   }
 
   let model: HarnessModel | null = null;
@@ -139,7 +139,7 @@ const compileStation = (
   try {
     model = station.model ? HarnessModel.of(station.model) : null;
   } catch (error) {
-    return refused(['model'], error);
+    return invalid(['model'], error);
   }
 
   let effort: Effort | null = null;
@@ -147,7 +147,7 @@ const compileStation = (
   try {
     effort = station.effort ? Effort.of(station.effort) : null;
   } catch (error) {
-    return refused(['effort'], error);
+    return invalid(['effort'], error);
   }
 
   let placement = RunnerPlacement.anywhere();
@@ -155,7 +155,7 @@ const compileStation = (
   try {
     placement = RunnerPlacement.of(station.runners ?? []);
   } catch (error) {
-    return refused(['runners'], error);
+    return invalid(['runners'], error);
   }
 
   let judge: StationJudge | null = null;
@@ -163,7 +163,7 @@ const compileStation = (
   try {
     judge = station.judge ? StationJudge.of(station.judge) : null;
   } catch (error) {
-    return refused(
+    return invalid(
       error instanceof InvalidStationJudgeError
         ? ['judge', error.field]
         : ['judge'],
@@ -177,7 +177,7 @@ const compileStation = (
     try {
       alerts.push(StationAlert.of(alert).alongside(alerts));
     } catch (error) {
-      return refused(
+      return invalid(
         error instanceof InvalidStationAlertError && error.field
           ? ['alerts', place, error.field]
           : ['alerts', place],
@@ -221,7 +221,7 @@ const compileRepository = (
   at: number,
   repository: RepositoryDefinition,
 ): Read<WorkedRepository> => {
-  const refused = (field: string, error: unknown): Read<WorkedRepository> => ({
+  const invalid = (field: string, error: unknown): Read<WorkedRepository> => ({
     ok: false,
     problems: [
       ConfigurationProblem.of({
@@ -237,7 +237,7 @@ const compileRepository = (
   try {
     named = Repository.of(repository.name);
   } catch (error) {
-    return refused('name', error);
+    return invalid('name', error);
   }
 
   let image: RunnerImage | null = null;
@@ -245,7 +245,7 @@ const compileRepository = (
   try {
     image = repository.image ? RunnerImage.of(repository.image) : null;
   } catch (error) {
-    return refused('image', error);
+    return invalid('image', error);
   }
 
   let setup: RepositorySetup | null = null;
@@ -253,7 +253,7 @@ const compileRepository = (
   try {
     setup = repository.setup ? RepositorySetup.of(repository.setup) : null;
   } catch (error) {
-    return refused('setup', error);
+    return invalid('setup', error);
   }
 
   return { ok: true, value: WorkedRepository.of(named, { image, setup }) };

@@ -60,7 +60,7 @@ const writtenOf = (value: JsonValue): string =>
 
 export type EditedCall =
   | { readonly call: ToolCall }
-  | { readonly refused: string | null };
+  | { readonly problem: string | null };
 
 type Shapes = Readonly<Record<string, InputSchema>>;
 
@@ -127,7 +127,7 @@ export class ToolCall {
       names.length !== edited.size ||
       names.some((name) => !edited.has(name))
     ) {
-      return { refused: null };
+      return { problem: null };
     }
 
     const typed: Record<string, JsonValue> = {};
@@ -136,14 +136,14 @@ export class ToolCall {
       const value = typedAs(asked[name] as JsonValue, edits[name] ?? '');
 
       if (value === undefined) {
-        return { refused: null };
+        return { problem: null };
       }
 
       const problem = this.shapes[name]?.problemWith(value);
 
       if (problem) {
         return {
-          refused: `${FieldPath.of([name, ...problem.at.segments]).rendered} ${problem.why}`,
+          problem: `${FieldPath.of([name, ...problem.at.segments]).rendered} ${problem.why}`,
         };
       }
 

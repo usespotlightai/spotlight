@@ -6,8 +6,8 @@ class BrokenRule extends Error {
   readonly violation = 'invalid';
 }
 
-class RefusedUpstream extends Error {
-  readonly violation = 'refused';
+class UpstreamFailure extends Error {
+  readonly violation = 'upstream-error';
 }
 
 const thrown = (error: unknown): ApplicationError => {
@@ -28,14 +28,14 @@ describe('rethrowAsApplicationError', () => {
     expect(error.kind).toBe('invalid');
   });
 
-  it('carries what an upstream refused, and why', () => {
+  it('carries the error of an upstream service, and why', () => {
     const error = thrown(
-      new RefusedUpstream(
+      new UpstreamFailure(
         'GitHub would not open the pull request: Resource not accessible by integration',
       ),
     );
 
-    expect(error.kind).toBe('refused');
+    expect(error.kind).toBe('upstream-error');
     expect(error.message).toContain('Resource not accessible by integration');
   });
 

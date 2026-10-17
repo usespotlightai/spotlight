@@ -134,7 +134,7 @@ describe('AssignTaskHandler', () => {
     expect(dto.assignee).toBeNull();
   });
 
-  it('refuses to give work to someone not on the team', async () => {
+  it('does not give work to someone not on the team', async () => {
     await expect(assign('user_stranger')).rejects.toThrow(ApplicationError);
   });
 

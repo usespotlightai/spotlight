@@ -8,7 +8,7 @@ import {
 } from '@github/application/ports/repository-access.port';
 import { Inject, Injectable } from '@nestjs/common';
 import { InvalidPullRequestError } from '@shared-kernel/domain/exceptions/invalid-pull-request.error';
-import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
+import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
 
 const API = 'https://api.github.com';
 
@@ -72,7 +72,7 @@ export class GitHubRemarks implements RemarksPort {
 
     if (!thread) {
       if (answer.resolve) {
-        throw new UpstreamRefusedError(
+        throw new UpstreamError(
           'resolving a remark',
           'it was not said on a line, so it is in no thread',
         );
@@ -133,7 +133,7 @@ export class GitHubRemarks implements RemarksPort {
     );
 
     if (!response.ok) {
-      throw new UpstreamRefusedError(
+      throw new UpstreamError(
         'answering a remark',
         `GitHub answered ${response.status}`,
       );
@@ -157,7 +157,7 @@ export class GitHubRemarks implements RemarksPort {
     };
 
     if (!response.ok || answered.errors?.length) {
-      throw new UpstreamRefusedError(
+      throw new UpstreamError(
         'answering a remark',
         answered.errors?.[0]?.message ?? `GitHub answered ${response.status}`,
       );

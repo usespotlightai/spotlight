@@ -36,7 +36,7 @@ describe('Signing', () => {
     expect(signing({ prefix: 'sha256=' }).prefix).toBe('sha256=');
   });
 
-  it('refuses one that names no header to read', () => {
+  it('rejects one that names no header to read', () => {
     expect(() => signing({ header: '   ' })).toThrow(InvalidIdentifierError);
   });
 });

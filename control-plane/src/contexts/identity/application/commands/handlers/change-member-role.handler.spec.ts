@@ -94,7 +94,7 @@ describe('ChangeMemberRoleHandler', () => {
     );
   });
 
-  it('refuses a role that is not one', async () => {
+  it('rejects a role that is not one', async () => {
     const { handler, save } = changing();
 
     await expect(handler.execute(change({ role: 'wizard' }))).rejects.toThrow(
@@ -103,7 +103,7 @@ describe('ChangeMemberRoleHandler', () => {
     expect(save).not.toHaveBeenCalled();
   });
 
-  it('saves nothing where the workspace refused', async () => {
+  it('saves nothing where the workspace denied the change', async () => {
     const { handler, save } = changing();
 
     await expect(

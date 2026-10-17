@@ -24,12 +24,12 @@ import { JudgeVerdict } from '@replays/domain/value-objects/judge-verdict.vo';
 import { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import { ReplayEntry } from '@replays/domain/value-objects/replay-entry.vo';
 import { ReplayId } from '@replays/domain/value-objects/replay-id.vo';
-import { isReplayRefusal } from '@replays/domain/value-objects/replay-refusal';
 import { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import { RunEnd } from '@replays/domain/value-objects/run-end.vo';
 import { SearchId } from '@replays/domain/value-objects/search-id.vo';
 import { Spend } from '@replays/domain/value-objects/spend.vo';
 import { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
+import { isUnreplayableReason } from '@replays/domain/value-objects/unreplayable-reason';
 import {
   replay,
   replayCandidate,
@@ -76,7 +76,7 @@ const NEWEST_READ_FOR_HEALTH = 3;
 const ofThisReplay = eq(replayEntry.replayId, replay.id);
 
 const unsettled = and(
-  isNull(replayEntry.refusal),
+  isNull(replayEntry.unreplayableReason),
   eq(replayEntry.notRun, false),
 );
 
@@ -100,17 +100,17 @@ const unqueued = and(
   isNull(replayEntry.outcome),
 );
 
-const refusalOf = (row: EntryRow) => {
-  if (row.refusal === null) {
+const unreplayableReasonOf = (row: EntryRow) => {
+  if (row.unreplayableReason === null) {
     return null;
   }
-  if (!isReplayRefusal(row.refusal)) {
+  if (!isUnreplayableReason(row.unreplayableReason)) {
     throw new InconsistentStateError(
       'replay entry',
-      `was refused for a reason no longer known, ${row.refusal}`,
+      `could not be replayed for a reason no longer known, ${row.unreplayableReason}`,
     );
   }
-  return row.refusal;
+  return row.unreplayableReason;
 };
 
 const endOf = (row: EntryRow): RunEnd | null => {
@@ -269,7 +269,7 @@ const toEntry = (row: EntryRow): ReplayEntry =>
       ? StationFingerprint.of(row.fingerprint)
       : null,
     queueAttempts: row.queueAttempts,
-    refusal: refusalOf(row),
+    unreplayableReason: unreplayableReasonOf(row),
     notRun: row.notRun,
     end: endOf(row),
     measures: measuresOf(row),
@@ -340,7 +340,7 @@ const entryRow = (replayId: string, entry: ReplayEntry) => ({
   queued: entry.queued,
   fingerprint: entry.fingerprint?.value ?? null,
   queueAttempts: entry.queueAttempts,
-  refusal: entry.refusal,
+  unreplayableReason: entry.unreplayableReason,
   notRun: entry.notRun,
   outcome: entry.end?.outcome ?? null,
   failure: entry.end?.failure ?? null,

@@ -25,15 +25,15 @@ export interface CatalogSkillGiven {
   readonly tools: readonly string[];
 }
 
-export type CatalogRefusalReason =
+export type CatalogDenialReason =
   | 'unknown'
   | 'wrong-kind'
   | 'not-entitled'
   | 'lapsed';
 
-export interface CatalogRefusal {
+export interface CatalogDenial {
   readonly id: string;
-  readonly reason: CatalogRefusalReason;
+  readonly reason: CatalogDenialReason;
   readonly because: string;
 }
 
@@ -45,11 +45,11 @@ export interface CatalogNamed {
 export interface CatalogGiving {
   readonly tools: readonly CatalogToolGiven[];
   readonly skills: readonly CatalogSkillGiven[];
-  readonly refused: readonly CatalogRefusal[];
+  readonly denied: readonly CatalogDenial[];
 }
 
 export type CatalogInputValues = Readonly<Record<string, JsonValue>>;
 
 export type CatalogCallAnswer =
   | { readonly kind: 'answered'; readonly output: unknown }
-  | { readonly kind: 'refused'; readonly refusal: CatalogRefusal };
+  | { readonly kind: 'denied'; readonly denial: CatalogDenial };

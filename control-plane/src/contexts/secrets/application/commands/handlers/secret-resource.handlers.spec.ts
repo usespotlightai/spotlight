@@ -164,7 +164,7 @@ describe('UpdateSecretHandler', () => {
     expect(await keptValue()).toBe('lin_api_1');
   });
 
-  it('refuses a new valueWoVersion without the value, keeping the old one', async () => {
+  it('rejects a new valueWoVersion without the value, keeping the old one', async () => {
     const { update, keptValue } = await created();
     const answered = await update({
       ...LINEAR,
@@ -179,7 +179,7 @@ describe('UpdateSecretHandler', () => {
     expect(await keptValue()).toBe('lin_api_1');
   });
 
-  it('refuses a rename at the name', async () => {
+  it('rejects a rename at the name', async () => {
     const { update } = await created();
     const answered = await update({ ...LINEAR, name: 'LINEAR_TOKEN' });
 
@@ -189,7 +189,7 @@ describe('UpdateSecretHandler', () => {
     ).toEqual(['name']);
   });
 
-  it('refuses a change to a version no longer current', async () => {
+  it('rejects a change to a version no longer current', async () => {
     const { update } = await created();
 
     expect(await update(LINEAR, 0)).toEqual({

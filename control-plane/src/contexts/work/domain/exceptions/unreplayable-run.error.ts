@@ -1,4 +1,4 @@
-const REPLAY_REFUSALS = [
+const UNREPLAYABLE_REASONS = [
   'unknown-run',
   'not-a-task-run',
   'task-gone',
@@ -16,17 +16,19 @@ const REPLAY_REFUSALS = [
   'forgone',
 ] as const;
 
-export type ReplayRefusal = (typeof REPLAY_REFUSALS)[number];
+export type UnreplayableReason = (typeof UNREPLAYABLE_REASONS)[number];
 
-export const isReplayRefusal = (value: string): value is ReplayRefusal =>
-  (REPLAY_REFUSALS as readonly string[]).includes(value);
+export const isUnreplayableReason = (
+  value: string,
+): value is UnreplayableReason =>
+  (UNREPLAYABLE_REASONS as readonly string[]).includes(value);
 
 export class UnreplayableRunError extends Error {
   readonly violation = 'conflict' as const;
 
   constructor(
     readonly runId: string,
-    readonly refusal: ReplayRefusal,
+    readonly unreplayableReason: UnreplayableReason,
     readonly reason: string,
   ) {
     super(`Run ${runId} cannot be replayed. ${reason}`);

@@ -210,9 +210,9 @@ describe('an integration, created through the resource API (e2e)', () => {
     );
     const deleted = await as().delete(made.body.id, made.body.version);
 
-    for (const refused of [stripped, deleted]) {
-      expect(refused.status).toBe(409);
-      expect(refused.body).toMatchObject({
+    for (const rejected of [stripped, deleted]) {
+      expect(rejected.status).toBe(409);
+      expect(rejected.body).toMatchObject({
         type: 'urn:spotlight:problem:in-use',
         detail: expect.stringContaining('delivery/implementation'),
       });

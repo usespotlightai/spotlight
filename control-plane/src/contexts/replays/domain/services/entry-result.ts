@@ -10,8 +10,8 @@ import {
   type EntryReason,
   reasonOf,
 } from '@replays/domain/value-objects/entry-reason';
-import type { ReplayRefusal } from '@replays/domain/value-objects/replay-refusal';
 import type { RunEnd } from '@replays/domain/value-objects/run-end.vo';
+import type { UnreplayableReason } from '@replays/domain/value-objects/unreplayable-reason';
 
 export interface EntryResult {
   readonly succeeded: boolean | null;
@@ -20,7 +20,7 @@ export interface EntryResult {
 }
 
 export interface EntryFacts {
-  readonly refusal: ReplayRefusal | null;
+  readonly unreplayableReason: UnreplayableReason | null;
   readonly notRun: boolean;
   readonly end: RunEnd | null;
   readonly measures: EntryMeasures | null;
@@ -141,8 +141,8 @@ const judged = (judges: boolean, judging: EntryJudging | null): Part => {
 };
 
 export const resultOf = (facts: EntryFacts, scoring: Scoring): EntryResult => {
-  if (facts.refusal !== null) {
-    return ended(null, reasonOf('unreplayable', facts.refusal));
+  if (facts.unreplayableReason !== null) {
+    return ended(null, reasonOf('unreplayable', facts.unreplayableReason));
   }
   if (facts.notRun) {
     return ended(null, reasonOf('not-run'));

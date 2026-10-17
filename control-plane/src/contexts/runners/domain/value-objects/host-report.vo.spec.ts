@@ -22,7 +22,7 @@ const report = (over: Partial<Parameters<typeof HostReport.of>[0]> = {}) =>
     ...over,
   });
 
-const refusedAt = (over: Partial<Parameters<typeof HostReport.of>[0]>) => {
+const invalidAt = (over: Partial<Parameters<typeof HostReport.of>[0]>) => {
   try {
     report(over);
   } catch (error) {
@@ -53,20 +53,20 @@ describe('HostReport', () => {
     ).toEqual(['runner_1', 'runner_2']);
   });
 
-  it('refuses a capacity that is not a whole number from 1 to 1000', () => {
+  it('rejects a capacity that is not a whole number from 1 to 1000', () => {
     for (const capacity of [0, 1.5, 1_001, Number.NaN]) {
-      expect(refusedAt({ capacity, running: [] })).toBe('capacity');
+      expect(invalidAt({ capacity, running: [] })).toBe('capacity');
     }
-    expect(refusedAt({ capacity: 1_000 })).toBeNull();
+    expect(invalidAt({ capacity: 1_000 })).toBeNull();
   });
 
-  it('refuses to run more runners than its capacity', () => {
-    expect(refusedAt({ capacity: 1, running: ['runner_1', 'runner_2'] })).toBe(
+  it('rejects more runners than its capacity', () => {
+    expect(invalidAt({ capacity: 1, running: ['runner_1', 'runner_2'] })).toBe(
       'running',
     );
   });
 
-  it('refuses more than 500 images', () => {
+  it('rejects more than 500 images', () => {
     const images = (count: number) =>
       Array.from({ length: count }, (_, at) => ({
         image: `ghcr.io/acme/runner-${at}:main`,
@@ -74,11 +74,11 @@ describe('HostReport', () => {
         harnesses: [],
       }));
 
-    expect(refusedAt({ images: images(501) })).toBe('images');
-    expect(refusedAt({ images: images(500) })).toBeNull();
+    expect(invalidAt({ images: images(501) })).toBe('images');
+    expect(invalidAt({ images: images(500) })).toBeNull();
   });
 
-  it('refuses two default images, or one image twice', () => {
+  it('rejects two default images, or one image twice', () => {
     const image = (usual: boolean, name = 'ghcr.io/acme/runner:main') => ({
       image: name,
       usual,
@@ -86,11 +86,11 @@ describe('HostReport', () => {
     });
 
     expect(
-      refusedAt({
+      invalidAt({
         images: [image(true), image(true, 'ghcr.io/acme/other:1')],
       }),
     ).toBe('images');
-    expect(refusedAt({ images: [image(true), image(false)] })).toBe('images');
+    expect(invalidAt({ images: [image(true), image(false)] })).toBe('images');
   });
 
   it('offers only an image it serves', () => {
@@ -106,7 +106,7 @@ describe('HostReport', () => {
           image: 'ghcr.io/acme/old:1',
           usual: false,
           harnesses: [],
-          refused: 'too old',
+          unavailableReason: 'too old',
         },
       ],
     });
@@ -118,11 +118,11 @@ describe('HostReport', () => {
     expect(report.offering(RunnerImage.of('ghcr.io/acme/none:1'))).toBeNull();
   });
 
-  it('refuses a name, release or executor that is blank or too long', () => {
-    expect(refusedAt({ name: '   ' })).toBe('name');
-    expect(refusedAt({ name: 'n'.repeat(121) })).toBe('name');
-    expect(refusedAt({ release: 'r'.repeat(65) })).toBe('release');
-    expect(refusedAt({ executor: '' })).toBe('executor');
-    expect(refusedAt({ executor: 'e'.repeat(201) })).toBe('executor');
+  it('rejects a name, release or executor that is blank or too long', () => {
+    expect(invalidAt({ name: '   ' })).toBe('name');
+    expect(invalidAt({ name: 'n'.repeat(121) })).toBe('name');
+    expect(invalidAt({ release: 'r'.repeat(65) })).toBe('release');
+    expect(invalidAt({ executor: '' })).toBe('executor');
+    expect(invalidAt({ executor: 'e'.repeat(201) })).toBe('executor');
   });
 });

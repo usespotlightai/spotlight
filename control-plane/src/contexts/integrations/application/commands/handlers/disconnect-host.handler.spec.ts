@@ -79,7 +79,7 @@ describe('DisconnectHostHandler', () => {
     ]);
   });
 
-  it('refuses someone off the team', async () => {
+  it('denies someone off the team', async () => {
     const { handler } = disconnecting(false);
 
     expect(

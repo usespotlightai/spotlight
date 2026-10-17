@@ -79,7 +79,7 @@ describe('ReplaySetHeading and ReplaySetActions', () => {
     expect(screen.getByRole('button', { name: 'Delete' })).toBeEnabled();
   });
 
-  it('refuses to delete a set while a replay of it runs, saying why', () => {
+  it('does not delete a set while a replay of it runs, saying why', () => {
     renderHeader(SET, true);
 
     const deleting = screen.getByRole('button', { name: 'Delete' });
@@ -97,7 +97,7 @@ describe('ReplaySetHeading and ReplaySetActions', () => {
     expect(screen.getByRole('button', { name: 'Delete' })).toBeEnabled();
   });
 
-  it('refuses to delete a set a search is using, without marking the heading', () => {
+  it('does not delete a set a search is using, without marking the heading', () => {
     renderHeader(SET, false, true);
 
     expect(screen.queryByText(/frozen/i)).not.toBeInTheDocument();

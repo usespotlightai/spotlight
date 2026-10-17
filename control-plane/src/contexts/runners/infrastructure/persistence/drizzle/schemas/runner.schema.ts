@@ -21,7 +21,7 @@ export interface HostImageRecord {
     readonly models: readonly string[];
     readonly version?: string;
   }[];
-  readonly refused?: string;
+  readonly unavailableReason?: string;
 }
 
 export const runnerTrust = pgTable(

@@ -301,7 +301,7 @@ describe('an integration offering tools from an API description (e2e)', () => {
     expect(upstream.hits('/api/v3/openapi.json')).toBe(1);
   });
 
-  it('calls a generated tool end to end, and refuses input not of its shape before calling anything', async () => {
+  it('calls a generated tool end to end, and rejects input not of its shape before calling anything', async () => {
     const made = await create(petstore());
     hashes.push(made.body.described.hash);
     upstream.heard.length = 0;
@@ -373,7 +373,7 @@ describe('an integration offering tools from an API description (e2e)', () => {
     ]);
   });
 
-  it('refuses a description on a host the deployment does not allow, without asking it', async () => {
+  it('rejects a description on a host the deployment does not allow, without asking it', async () => {
     const made = await create(
       petstore({ url: 'http://169.254.169.254/latest/meta-data' }),
     );

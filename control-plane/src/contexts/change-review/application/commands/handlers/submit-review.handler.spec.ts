@@ -89,7 +89,7 @@ describe('SubmitReviewHandler', () => {
     expect(reviews).toHaveLength(1);
   });
 
-  it('refuses a submit that raced another for the same drafts', async () => {
+  it('rejects a submit that raced another for the same drafts', async () => {
     const { handler, reviews } = submitting({ racing: true });
 
     await expect(handler.execute(command())).rejects.toMatchObject({

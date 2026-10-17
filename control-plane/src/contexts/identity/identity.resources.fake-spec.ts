@@ -48,7 +48,7 @@ export const teamAt = (version: number, key = 'core') =>
 export const workspaces = (
   over: {
     existing?: Workspace | null;
-    refusing?: Error;
+    throwing?: Error;
     thenAt?: Workspace | null;
     taken?: boolean;
   } = {},
@@ -61,9 +61,9 @@ export const workspaces = (
     isTaken: vi.fn(async () => over.taken ?? false),
     add: vi.fn(async (_: Workspace) => {}),
     save: vi.fn(async (_: Workspace) => {
-      if (over.refusing) {
+      if (over.throwing) {
         find.mockResolvedValue(over.thenAt ?? null);
-        throw over.refusing;
+        throw over.throwing;
       }
     }),
   } satisfies WorkspaceRepository;
@@ -73,7 +73,7 @@ export const teams = (
   over: {
     existing?: Team | null;
     inWorkspace?: readonly Team[];
-    refusing?: Error;
+    throwing?: Error;
     thenAt?: Team | null;
   } = {},
 ) => {
@@ -84,14 +84,14 @@ export const teams = (
     named: find,
     ofWorkspace: vi.fn(async () => over.inWorkspace ?? []),
     add: vi.fn(async (_: Team) => {
-      if (over.refusing) {
-        throw over.refusing;
+      if (over.throwing) {
+        throw over.throwing;
       }
     }),
     save: vi.fn(async (_: Team) => {
-      if (over.refusing) {
+      if (over.throwing) {
         find.mockResolvedValue(over.thenAt ?? null);
-        throw over.refusing;
+        throw over.throwing;
       }
     }),
   } satisfies TeamRepository;

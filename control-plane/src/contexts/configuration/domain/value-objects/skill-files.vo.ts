@@ -1,6 +1,6 @@
 import { InvalidIdentifierError } from '@shared-kernel/domain/exceptions/invalid-identifier.error';
 
-export const skillFileRefusal = (path: string): string | null => {
+export const skillFileProblem = (path: string): string | null => {
   if (path.length === 0) {
     return 'must not be empty';
   }
@@ -23,10 +23,10 @@ export class SkillFiles {
 
   static of(files: Readonly<Record<string, string>>): SkillFiles {
     for (const path of Object.keys(files)) {
-      const refused = skillFileRefusal(path);
+      const problem = skillFileProblem(path);
 
-      if (refused) {
-        throw new InvalidIdentifierError('skill file', refused);
+      if (problem) {
+        throw new InvalidIdentifierError('skill file', problem);
       }
     }
 

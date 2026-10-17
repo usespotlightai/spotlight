@@ -110,7 +110,7 @@ func TestAFailedFirstFetchLeavesNoMirrorBehind(t *testing.T) {
 	}
 }
 
-func TestRefusesANameThatWouldLeaveTheMirrors(t *testing.T) {
+func TestRejectsANameThatWouldLeaveTheMirrors(t *testing.T) {
 	mirrors := mirror.At(t.TempDir())
 
 	for _, repository := range []string{"../escape", "a/b", ""} {

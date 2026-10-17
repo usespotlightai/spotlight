@@ -81,7 +81,7 @@ describe('GitHubInstalled', () => {
     expect(screen.getByText('Approval requested')).toBeInTheDocument();
   });
 
-  it('says so when the control-plane refused', () => {
+  it('says so when the control plane denies the installation', () => {
     connectState.isPending = false;
     connectState.errorUpdateCount = 1;
     connectState.error = new Error(

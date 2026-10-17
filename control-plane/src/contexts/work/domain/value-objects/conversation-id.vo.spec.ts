@@ -23,7 +23,7 @@ describe('ConversationId', () => {
     expect(id.from.value).toBe(2);
   });
 
-  it('refuses what does not name a note', () => {
+  it('rejects what does not name a note', () => {
     expect(() => ConversationId.parse('task_1')).toThrow(
       InvalidConversationIdError,
     );

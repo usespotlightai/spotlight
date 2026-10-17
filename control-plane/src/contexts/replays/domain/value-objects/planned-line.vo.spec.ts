@@ -21,7 +21,7 @@ describe('PlannedLine', () => {
     expect(PlannedLine.of({ repositories: [] }).repositories).toEqual([]);
   });
 
-  it('refuses what names no repositories, or repositories that are not blocks', () => {
+  it('rejects what names no repositories, or repositories that are not blocks', () => {
     for (const raw of [
       null,
       [],
@@ -34,7 +34,7 @@ describe('PlannedLine', () => {
     }
   });
 
-  it('refuses a line too long to keep', () => {
+  it('rejects a line too long to keep', () => {
     expect(() =>
       PlannedLine.of({
         repositories: [{ name: 'acme/api', setup: 'x'.repeat(70_000) }],

@@ -35,17 +35,17 @@ const TITLES: Readonly<Record<number, [slug: string, title: string]>> = {
     'precondition-required',
     'The request must be conditional',
   ],
-  [HttpStatus.BAD_GATEWAY]: ['refused-upstream', 'An upstream service refused'],
+  [HttpStatus.BAD_GATEWAY]: ['upstream-error', 'An upstream service failed'],
 };
 
-type Refusal = (kind: string) => [title: string, detail: string];
+type ForbiddenText = (kind: string) => [title: string, detail: string];
 
-const changing: Refusal = (kind) => [
+const changing: ForbiddenText = (kind) => [
   `Not allowed to change the ${kind}`,
   `You can read this ${kind} but not change it. Your workspace role or token scopes do not allow it.`,
 ];
 
-const REFUSALS: Readonly<Record<ForbiddenAct, Refusal>> = {
+const FORBIDDEN_TEXTS: Readonly<Record<ForbiddenAct, ForbiddenText>> = {
   configure: changing,
   'manage-secrets': changing,
   'manage-runners': changing,
@@ -64,7 +64,9 @@ const REFUSALS: Readonly<Record<ForbiddenAct, Refusal>> = {
   ],
 };
 
-export const FORBIDDEN_ACTS = Object.keys(REFUSALS) as readonly ForbiddenAct[];
+export const FORBIDDEN_ACTS = Object.keys(
+  FORBIDDEN_TEXTS,
+) as readonly ForbiddenAct[];
 
 const problemType = (slug: string): string => `urn:spotlight:problem:${slug}`;
 
@@ -153,7 +155,7 @@ export class ProblemException extends HttpException {
   }
 
   static forbidden(kind: string, act: ForbiddenAct): ProblemException {
-    const [title, detail] = REFUSALS[act](kind);
+    const [title, detail] = FORBIDDEN_TEXTS[act](kind);
 
     return new ProblemException({
       type: problemType('forbidden'),

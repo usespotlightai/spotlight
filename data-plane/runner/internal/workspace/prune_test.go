@@ -120,7 +120,7 @@ func TestPruneRemovesALinkWithoutFollowingIt(t *testing.T) {
 	}
 }
 
-func TestPruneRefusesADirectoryThroughALink(t *testing.T) {
+func TestPruneRejectsADirectoryThroughALink(t *testing.T) {
 	outside := t.TempDir()
 	stranger := filepath.Join(outside, "skills", "theirs", "SKILL.md")
 	if err := os.MkdirAll(filepath.Dir(stranger), 0o755); err != nil {
@@ -146,7 +146,7 @@ func TestPruneRefusesADirectoryThroughALink(t *testing.T) {
 	}
 }
 
-func TestPruneRefusesAPathOutOfTheWorkspace(t *testing.T) {
+func TestPruneRejectsAPathOutOfTheWorkspace(t *testing.T) {
 	space, err := workspace.Open(t.TempDir())
 	if err != nil {
 		t.Fatalf("create: %v", err)
@@ -154,10 +154,10 @@ func TestPruneRefusesAPathOutOfTheWorkspace(t *testing.T) {
 
 	for _, escaping := range []string{"../skills", "/etc"} {
 		if err := space.Prune(escaping, nil); err == nil {
-			t.Errorf("%q should be refused", escaping)
+			t.Errorf("%q should be rejected", escaping)
 		}
 	}
 	if err := space.Prune(".claude/skills", []string{"../SKILL.md"}); err == nil {
-		t.Error("a kept path out of the workspace should be refused")
+		t.Error("a kept path out of the workspace should be rejected")
 	}
 }

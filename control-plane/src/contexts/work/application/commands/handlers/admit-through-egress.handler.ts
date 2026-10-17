@@ -39,7 +39,7 @@ export class AdmitThroughEgressHandler
             controlPlanePort: this.controlPlanePort,
             reaches: this.reach.hosts(),
           }
-        : { outcome: 'refused' };
+        : { outcome: 'unauthorized' };
     } catch (error) {
       rethrowAsApplicationError(error);
     }

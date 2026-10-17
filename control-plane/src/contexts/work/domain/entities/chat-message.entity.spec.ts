@@ -41,11 +41,11 @@ describe('ChatMessage', () => {
     expect(back.wasDeliveredTo(RUN)).toBe(false);
   });
 
-  it('refuses to be taken back when it was never delivered to a run', () => {
+  it('cannot be taken back when it was never delivered to a run', () => {
     expect(() => said().takenBack()).toThrow(InconsistentStateError);
   });
 
-  it('refuses to name a run it was delivered to without saying when', () => {
+  it('does not name a run it was delivered to without saying when', () => {
     expect(() =>
       ChatMessage.rehydrate({
         position: MessagePosition.of(0),

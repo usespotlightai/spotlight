@@ -1,5 +1,5 @@
 import type {
-  CatalogRefusal,
+  CatalogDenial,
   CatalogSkillGiven,
   CatalogToolGiven,
 } from '@catalog/application/contracts/catalog.contract';
@@ -33,7 +33,7 @@ export const CatalogGivenMapper = {
     };
   },
 
-  toDenied(refusal: CatalogRefusal): DeniedCatalogItem {
-    return DeniedCatalogItem.of(refusal);
+  toDenied(denial: CatalogDenial): DeniedCatalogItem {
+    return DeniedCatalogItem.of(denial);
   },
 };

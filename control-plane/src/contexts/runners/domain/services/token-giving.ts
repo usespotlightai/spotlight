@@ -13,7 +13,7 @@ export const tokenGivenTo = (
   return current && !before?.tokenHash?.equals(current) ? current : null;
 };
 
-export const refuseTokenGivenBefore = (usage: PoolTokenUsage): void => {
+export const assertPoolTokenUnused = (usage: PoolTokenUsage): void => {
   if (usage.inUse) {
     throw new PoolTokenTakenError();
   }

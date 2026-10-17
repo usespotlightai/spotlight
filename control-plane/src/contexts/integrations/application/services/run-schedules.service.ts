@@ -71,14 +71,14 @@ export class RunSchedules {
         await this.reach.of(teamId, integration),
       );
 
-      if (acted.kind === 'refused') {
+      if (acted.kind === 'failed') {
         this.log.warn(
           {
             team: teamId.value,
             source: integration.source.value,
-            refusal: acted.refusal,
+            error: acted.error,
           },
-          'A scheduled action was refused',
+          'A scheduled action failed',
         );
       }
     } catch (error) {

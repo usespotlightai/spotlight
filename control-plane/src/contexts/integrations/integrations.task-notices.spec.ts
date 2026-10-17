@@ -192,7 +192,7 @@ describe('TaskNotices', () => {
     );
   });
 
-  it('keeps nothing where the host refuses the post', async () => {
+  it('keeps nothing where the host answers the post with an error', async () => {
     const { notifier } = notifying({
       ok: false,
       status: 200,

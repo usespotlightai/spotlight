@@ -51,7 +51,7 @@ import {
   SpotlightApiResponseDto,
 } from '@work/presentation/http/dto/egress.response.dto';
 
-const REFUSED =
+const UNAUTHORIZED =
   'Missing or unknown egress token, or its runner no longer has a lease on work';
 
 const tooMany = (max: number, what: string): string =>
@@ -88,7 +88,7 @@ const records = (
 
 @ApiTags('runners')
 @ApiBearerAuth()
-@ApiUnauthorizedResponse({ description: REFUSED })
+@ApiUnauthorizedResponse({ description: UNAUTHORIZED })
 @AllowAnonymous()
 @Controller('egress')
 export class EgressController {
@@ -127,8 +127,8 @@ export class EgressController {
         : new FetchRunSecretsCommand(token, recipient),
     );
 
-    if (fetched.outcome === 'refused') {
-      throw new UnauthorizedException(REFUSED);
+    if (fetched.outcome === 'unauthorized') {
+      throw new UnauthorizedException(UNAUTHORIZED);
     }
 
     if (fetched.outcome === 'waiting') {
@@ -190,8 +190,8 @@ export class EgressController {
       ),
     );
 
-    if (admitted.outcome === 'refused') {
-      throw new UnauthorizedException(REFUSED);
+    if (admitted.outcome === 'unauthorized') {
+      throw new UnauthorizedException(UNAUTHORIZED);
     }
 
     return new EgressAdmissionResponseDto(
@@ -229,8 +229,8 @@ export class EgressController {
       ),
     );
 
-    if (checked.outcome === 'refused') {
-      throw new UnauthorizedException(REFUSED);
+    if (checked.outcome === 'unauthorized') {
+      throw new UnauthorizedException(UNAUTHORIZED);
     }
 
     if (checked.outcome === 'too-many') {
@@ -268,8 +268,8 @@ export class EgressController {
       ),
     );
 
-    if (recorded.outcome === 'refused') {
-      throw new UnauthorizedException(REFUSED);
+    if (recorded.outcome === 'unauthorized') {
+      throw new UnauthorizedException(UNAUTHORIZED);
     }
 
     if (recorded.outcome === 'too-many') {

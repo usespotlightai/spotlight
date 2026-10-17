@@ -52,9 +52,9 @@ import {
   PASSING_SCORE,
 } from '@replays/domain/value-objects/judge-verdict.vo';
 import { REPLAY_ENDINGS } from '@replays/domain/value-objects/replay-ending';
-import { REPLAY_REFUSALS } from '@replays/domain/value-objects/replay-refusal';
 import { MAX_REPEATS } from '@replays/domain/value-objects/replay-repeats';
 import { REPLAY_STATES } from '@replays/domain/value-objects/replay-state';
+import { UNREPLAYABLE_REASONS } from '@replays/domain/value-objects/unreplayable-reason';
 import { RUN_FAILURE_CODES } from '@shared-kernel/domain/value-objects/run-failure-code';
 
 export class RateIntervalResponseDto {
@@ -506,7 +506,7 @@ export class EntryReasonResponseDto {
     nullable: true,
     type: String,
     description:
-      'The refusal, failure or skip code, the failed check step or layer, or what the judge said',
+      'The unreplayable reason, the failure or skip code, the failed check step or layer, or what the judge said',
   })
   readonly detail: string | null;
 
@@ -921,11 +921,11 @@ export class ReplayEntryResponseDto {
   readonly ending: string | null;
 
   @ApiProperty({
-    enum: [...REPLAY_REFUSALS, null],
+    enum: [...UNREPLAYABLE_REASONS, null],
     nullable: true,
     type: String,
   })
-  readonly refusal: string | null;
+  readonly unreplayableReason: string | null;
 
   @ApiProperty({
     nullable: true,
@@ -1053,7 +1053,7 @@ export class ReplayEntryResponseDto {
     this.fingerprint = entry.fingerprint;
     this.phase = entry.phase;
     this.ending = entry.ending;
-    this.refusal = entry.refusal;
+    this.unreplayableReason = entry.unreplayableReason;
     this.failure = entry.failure;
     this.next = entry.next;
     this.ms = entry.ms;

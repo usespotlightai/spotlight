@@ -4,9 +4,9 @@ import type { PlatformEgressSettings } from '@runners/application/ports/platform
 import type { ProvisionSecretsPort } from '@runners/application/ports/provision-secrets.port';
 import type { RunnerDefinitionsPort } from '@runners/application/ports/runner-definitions.port';
 import { RunnerProblems } from '@runners/application/rendering/runner-problems';
+import { assertKnownEgress } from '@runners/application/services/assert-known-egress';
 import { givePoolToken } from '@runners/application/services/give-pool-token';
 import { givenAccess } from '@runners/application/services/pool-access-given';
-import { refuseUnknownEgress } from '@runners/application/services/refuse-unknown-egress';
 import { InvalidRunnerPoolError } from '@runners/domain/exceptions/invalid-runner-pool.error';
 import { PoolTokenSpentError } from '@runners/domain/exceptions/pool-token-spent.error';
 import { PoolTokenTakenError } from '@runners/domain/exceptions/pool-token-taken.error';
@@ -79,7 +79,7 @@ export class UpdateRunnerPoolHandler
 
       await this.transaction.inTransaction(async () => {
         if (compiled.access.mode === 'push') {
-          await refuseUnknownEgress(
+          await assertKnownEgress(
             compiled.access.egress,
             existing.workspaceId,
             this.egresses,
@@ -109,7 +109,7 @@ export class UpdateRunnerPoolHandler
       ) {
         return {
           outcome: 'invalid',
-          problems: [RunnerProblems.poolRefused(error)],
+          problems: [RunnerProblems.poolInvalid(error)],
         };
       }
 

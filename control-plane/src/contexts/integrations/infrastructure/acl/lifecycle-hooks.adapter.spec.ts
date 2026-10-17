@@ -46,7 +46,7 @@ describe('LifecycleHooks', () => {
     const before = vi
       .fn()
       .mockResolvedValueOnce(HookVerdict.allowed())
-      .mockResolvedValueOnce(HookVerdict.refused('The hook dba refused: no'));
+      .mockResolvedValueOnce(HookVerdict.denied('The hook dba says no'));
     const hooks = new LifecycleHooks({ before } as unknown as FireHooks);
     const starting = { on: 'run.starting' as const };
 
@@ -54,8 +54,8 @@ describe('LifecycleHooks', () => {
       kind: 'allowed',
     });
     await expect(hooks.before(TASK, starting)).resolves.toEqual({
-      kind: 'refused',
-      reason: 'The hook dba refused: no',
+      kind: 'denied',
+      reason: 'The hook dba says no',
     });
     expect(before).toHaveBeenCalledWith(
       expect.objectContaining({ taskId: 'task_1', runId: 'run_1' }),

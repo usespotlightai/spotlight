@@ -119,7 +119,7 @@ func TestClaimsThroughATrustWithAWorkloadToken(t *testing.T) {
 	}
 }
 
-func TestRefusesAmbiguousOrMissingCredentials(t *testing.T) {
+func TestRejectsAmbiguousOrMissingCredentials(t *testing.T) {
 	for name, env := range map[string]map[string]string{
 		"none":          {},
 		"both":          {"SPOTLIGHT_TOKEN": "pool-token", "SPOTLIGHT_TRUST": "trust_1"},
@@ -133,7 +133,7 @@ func TestRefusesAmbiguousOrMissingCredentials(t *testing.T) {
 			}
 
 			if _, err := config.Load("dev"); err == nil {
-				t.Fatal("expected a refusal")
+				t.Fatal("expected an error")
 			}
 		})
 	}
@@ -156,7 +156,7 @@ func TestReadsHowLongARunWaitsWarmForAnAnswer(t *testing.T) {
 	}
 }
 
-func TestRefusesAnAnswerWaitThatIsNoDurationOrIsNegative(t *testing.T) {
+func TestRejectsAnAnswerWaitThatIsNoDurationOrIsNegative(t *testing.T) {
 	for _, raw := range []string{"soon", "5", "-1m"} {
 		isolated(t)
 		t.Setenv("SPOTLIGHT_URL", "https://spotlight.test")
@@ -164,7 +164,7 @@ func TestRefusesAnAnswerWaitThatIsNoDurationOrIsNegative(t *testing.T) {
 		t.Setenv("SPOTLIGHT_ANSWER_WAIT", raw)
 
 		if _, err := config.Load("dev"); err == nil || !strings.Contains(err.Error(), "SPOTLIGHT_ANSWER_WAIT") {
-			t.Errorf("%q: expected a refusal, got %v", raw, err)
+			t.Errorf("%q: expected an error, got %v", raw, err)
 		}
 	}
 }
@@ -186,7 +186,7 @@ func TestPassesTheSandboxEnvironmentButNeverTheHostsCredential(t *testing.T) {
 	for _, leaked := range []string{"SPOTLIGHT_TOKEN=anything\n", "SOMETHING=Bearer pool-token\n", "SPOTLIGHT_ANSWER_WAIT=1h\n"} {
 		write(t, filepath.Join(dir, "sandbox.env"), leaked)
 		if _, err := config.Load("dev"); err == nil || !strings.Contains(err.Error(), "sandbox environment") {
-			t.Errorf("%q: expected a refusal, got %v", leaked, err)
+			t.Errorf("%q: expected an error, got %v", leaked, err)
 		}
 	}
 }
@@ -327,7 +327,7 @@ func TestReadsWhatSandboxesMayReachAndWhatEgressRunsWith(t *testing.T) {
 	}
 }
 
-func TestRefusesAnAllowListThatNamesNoHostAndAnEgressWithTheHostsCredential(t *testing.T) {
+func TestRejectsAnAllowListThatNamesNoHostAndAnEgressWithTheHostsCredential(t *testing.T) {
 	dir := isolated(t)
 	t.Setenv("SPOTLIGHT_URL", "https://spotlight.test")
 	t.Setenv("SPOTLIGHT_TOKEN", "pool-token")

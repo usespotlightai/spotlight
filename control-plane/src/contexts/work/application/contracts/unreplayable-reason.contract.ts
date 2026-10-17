@@ -1,4 +1,4 @@
-export type ReplayRefusalCode =
+export type UnreplayableReasonCode =
   | 'unknown-run'
   | 'not-a-task-run'
   | 'task-gone'

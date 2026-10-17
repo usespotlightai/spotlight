@@ -234,11 +234,11 @@ func TestTheRequestGoesWhereTheSandboxConnectedWhateverItsHostHeaderSays(t *test
 	}
 }
 
-func TestRefusesAHostTheListLeavesOut(t *testing.T) {
+func TestBlocksAHostTheListLeavesOut(t *testing.T) {
 	r := rigged(t, []string{"anthropic.example.com"}, fakeInjector{})
 
 	if response, body := r.get(t, "https://anthropic.example.com/v1/messages", nil); response == nil || response.StatusCode != http.StatusOK {
-		t.Errorf("refused a listed host: %v %s", response, body)
+		t.Errorf("blocked a listed host: %v %s", response, body)
 	}
 
 	_, said := r.get(t, "https://exfiltrate.example.com/", nil)
@@ -251,7 +251,7 @@ func TestRefusesAHostTheListLeavesOut(t *testing.T) {
 		t.Errorf("forwarded plain HTTP to a host the list leaves out: %v %s", response, body)
 	}
 	if r.upstream.last().Host != "anthropic.example.com" {
-		t.Errorf("a refused request reached %q", r.upstream.last().Host)
+		t.Errorf("a blocked request reached %q", r.upstream.last().Host)
 	}
 }
 

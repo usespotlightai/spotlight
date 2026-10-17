@@ -49,7 +49,7 @@ describe('WorkspaceRegistration', () => {
     ]);
   });
 
-  it('refuses a slug already on the register', async () => {
+  it('rejects a slug already on the register', async () => {
     await expect(register(registry(true))).rejects.toThrow(
       WorkspaceSlugTakenError,
     );

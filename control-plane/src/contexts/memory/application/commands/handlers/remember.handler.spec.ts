@@ -121,7 +121,7 @@ describe('RememberHandler', () => {
     ]);
   });
 
-  it('refuses a run of a chat, which has no task to ground a memory in', async () => {
+  it('rejects a run of a chat, which has no task to ground a memory in', async () => {
     const { remember } = remembering({ ...LEASED, taskId: null });
 
     await expect(remember()).rejects.toMatchObject({

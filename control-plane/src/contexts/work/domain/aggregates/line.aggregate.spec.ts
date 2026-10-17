@@ -255,7 +255,7 @@ describe('Line', () => {
       );
     });
 
-    it('refuses to run anything at it', () => {
+    it('does not run anything at it', () => {
       const line = opened();
 
       expect(() =>
@@ -265,7 +265,7 @@ describe('Line', () => {
       ).toThrow(InvalidStationChangeError);
     });
 
-    it('refuses to be told anything, having nothing there to tell', () => {
+    it('cannot be told anything, having nothing there to tell', () => {
       const line = opened();
 
       expect(() =>
@@ -283,17 +283,17 @@ describe('Line', () => {
       expect(renamed.backlog.name.value).toBe('Inbox');
     });
 
-    it('refuses a line without one', () => {
+    it('rejects a line without one', () => {
       expect(() => of([at(0)])).toThrow(InvalidStationLayoutError);
     });
 
-    it('refuses a line with more than one', () => {
+    it('rejects a line with more than one', () => {
       expect(() => of([backlog(), backlog(1)])).toThrow(
         InvalidStationLayoutError,
       );
     });
 
-    it('refuses one that is not first', () => {
+    it('rejects one that is not first', () => {
       expect(() => of([at(0), backlog(1)])).toThrow(InvalidStationLayoutError);
     });
   });
@@ -322,7 +322,7 @@ describe('Line', () => {
       );
     });
 
-    it('refuses to run anything at it', () => {
+    it('does not run anything at it', () => {
       const line = opened();
 
       expect(() =>
@@ -332,7 +332,7 @@ describe('Line', () => {
       ).toThrow(InvalidStationChangeError);
     });
 
-    it('refuses to be told anything, having nothing there to tell', () => {
+    it('cannot be told anything, having nothing there to tell', () => {
       const line = opened();
 
       expect(() =>
@@ -340,17 +340,17 @@ describe('Line', () => {
       ).toThrow(InvalidStationChangeError);
     });
 
-    it('refuses a line without one', () => {
+    it('rejects a line without one', () => {
       expect(() => of([backlog(), at(1)])).toThrow(InvalidStationLayoutError);
     });
 
-    it('refuses a line with more than one', () => {
+    it('rejects a line with more than one', () => {
       expect(() => of([backlog(), completed(1), completed(2)])).toThrow(
         InvalidStationLayoutError,
       );
     });
 
-    it('refuses one that is not last', () => {
+    it('rejects one that is not last', () => {
       expect(() => of([backlog(), completed(1), at(2)])).toThrow(
         InvalidStationLayoutError,
       );
@@ -382,19 +382,19 @@ describe('Line', () => {
       expect(finishing).toEqual(['Code Review']);
     });
 
-    it('refuses a way out that lands off the line', () => {
+    it('rejects a way out that lands off the line', () => {
       expect(() =>
         lineOf([at(1, 'Triage', { passesTo: ['station_elsewhere'] })]),
       ).toThrow(InvalidStationLayoutError);
     });
 
-    it('refuses a station that hands on to itself', () => {
+    it('rejects a station that hands on to itself', () => {
       expect(() =>
         lineOf([at(1, 'Triage', { passesTo: ['station_1'] })]),
       ).toThrow(InvalidStationLayoutError);
     });
 
-    it('refuses a way out of the end of the line', () => {
+    it('rejects a way out of the end of the line', () => {
       expect(() =>
         of([
           backlog(),
@@ -488,7 +488,7 @@ describe('Line', () => {
       ).toBeNull();
     });
 
-    it('refuses two stations waiting for the same word', () => {
+    it('rejects two stations waiting for the same word', () => {
       expect(() =>
         lineOf(
           [at(1, 'Triage'), at(2, 'Spec')],
@@ -497,7 +497,7 @@ describe('Line', () => {
       ).toThrow(InvalidStationLayoutError);
     });
 
-    it('refuses a rule sending a word off the line', () => {
+    it('rejects a rule sending a word off the line', () => {
       expect(() =>
         lineOf([at(1, 'Triage')], [sends('station_nowhere')]),
       ).toThrow(InvalidStationLayoutError);
@@ -545,7 +545,7 @@ describe('Line', () => {
     ]);
   });
 
-  it('refuses to change a station it does not have', () => {
+  it('does not change a station it does not have', () => {
     expect(() =>
       lineOf([at(1)]).changeStationHarness(StationId.of('station_missing'), {
         harness: HarnessId.of('dev'),
@@ -568,19 +568,19 @@ describe('Line', () => {
     ).toEqual([0, 1, 2, 3, 4]);
   });
 
-  it('refuses a board with no stations at all', () => {
+  it('rejects a board with no stations at all', () => {
     expect(() => of([])).toThrow(InvalidStationLayoutError);
   });
 
-  it('refuses a gap in the positions', () => {
+  it('rejects a gap in the positions', () => {
     expect(() => lineOf([at(2)])).toThrow(InvalidStationLayoutError);
   });
 
-  it('refuses two stations claiming the same place', () => {
+  it('rejects two stations claiming the same place', () => {
     expect(() => lineOf([at(1), at(1)])).toThrow(InvalidStationLayoutError);
   });
 
-  it('refuses a station before the start of the board', () => {
+  it('rejects a station before the start of the board', () => {
     expect(() => lineOf([at(-1, 'Before', { key: 'before' }), at(1)])).toThrow(
       InvalidStationLayoutError,
     );
@@ -670,31 +670,31 @@ describe('Line, where work may be handed on to', () => {
     const line = running();
 
     expect(
-      line.refusalToPass(keyed(line, 'triage').id, keyed(line, 'spec')),
+      line.passDenial(keyed(line, 'triage').id, keyed(line, 'spec')),
     ).toBeNull();
   });
 
-  it('refuses to pass work back to where it already is', () => {
+  it('denies passing work back to where it already is', () => {
     const line = running();
 
     expect(
-      line.refusalToPass(keyed(line, 'triage').id, keyed(line, 'triage')),
+      line.passDenial(keyed(line, 'triage').id, keyed(line, 'triage')),
     ).toBe('already-there');
   });
 
-  it('refuses to pass work to a station nothing runs at', () => {
+  it('denies passing work to a station nothing runs at', () => {
     const line = opened();
 
-    expect(
-      line.refusalToPass(keyed(line, 'triage').id, keyed(line, 'spec')),
-    ).toBe('nothing-runs');
+    expect(line.passDenial(keyed(line, 'triage').id, keyed(line, 'spec'))).toBe(
+      'nothing-runs',
+    );
   });
 
-  it('refuses to pass work where no way out leads', () => {
+  it('denies passing work where no way out leads', () => {
     const line = running();
 
     expect(
-      line.refusalToPass(keyed(line, 'triage').id, keyed(line, 'code-review')),
+      line.passDenial(keyed(line, 'triage').id, keyed(line, 'code-review')),
     ).toBe('no-way');
   });
 
@@ -711,31 +711,31 @@ describe('Line, where work may be handed on to', () => {
 
     expect(
       moves.map(([from, to]) =>
-        line.refusalToMove(keyed(line, from), keyed(line, to)),
+        line.moveDenial(keyed(line, from), keyed(line, to)),
       ),
     ).toEqual([null, null, null, null, null, null]);
   });
 
-  it('refuses a person moving work between work stations, which runs pass it along', () => {
+  it('denies a person moving work between work stations, which runs pass it along', () => {
     const line = running();
 
-    expect(line.refusalToMove(keyed(line, 'triage'), keyed(line, 'spec'))).toBe(
+    expect(line.moveDenial(keyed(line, 'triage'), keyed(line, 'spec'))).toBe(
       'between-work-stations',
     );
     expect(
-      line.refusalToMove(keyed(line, 'code-review'), keyed(line, 'spec')),
+      line.moveDenial(keyed(line, 'code-review'), keyed(line, 'spec')),
     ).toBe('between-work-stations');
   });
 
-  it('refuses a person moving work out of completed', () => {
+  it('denies a person moving work out of completed', () => {
     const line = running();
 
     expect(
-      line.refusalToMove(keyed(line, 'completed'), keyed(line, 'backlog')),
+      line.moveDenial(keyed(line, 'completed'), keyed(line, 'backlog')),
     ).toBe('out-of-completed');
-    expect(
-      line.refusalToMove(keyed(line, 'completed'), keyed(line, 'spec')),
-    ).toBe('out-of-completed');
+    expect(line.moveDenial(keyed(line, 'completed'), keyed(line, 'spec'))).toBe(
+      'out-of-completed',
+    );
   });
 
   it('offers the stations work passes to, then a person', () => {
@@ -815,7 +815,7 @@ describe('Line, what it records of its changes', () => {
     ).toEqual([]);
   });
 
-  it('refuses a repository with no setup on a line whose station checks its layers', () => {
+  it('rejects a repository with no setup on a line whose station checks its layers', () => {
     const checking = of([
       backlog(),
       Station.of({
@@ -976,7 +976,7 @@ describe('Line, what it records of its changes', () => {
       ]);
     });
 
-    it('refuses a change made against another version', () => {
+    it('rejects a change made against another version', () => {
       expect(() => kept(3).assertVersion(2)).toThrow(LineVersionConflictError);
       expect(() => kept(3).assertVersion(3)).not.toThrow();
     });

@@ -31,7 +31,7 @@ describe('TeamScopes', () => {
     expect(period).toEqual(InsightsPeriod.of('30d', NOW));
   });
 
-  it('refuses a person off the team', async () => {
+  it('denies a person off the team', async () => {
     await expect(
       scopes(false).scope(
         'team_1',

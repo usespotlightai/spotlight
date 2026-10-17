@@ -1,5 +1,5 @@
 import type {
-  AgentRefusal,
+  AgentProblem,
   ExaminedCandidate,
   LeasedSearchRun,
   LiveConfig,
@@ -70,7 +70,7 @@ const replayabilityOf = (each: Replayability): RunReplayability => ({
   runId: RunId.of(each.runId),
   taskId: each.taskId ? TaskId.of(each.taskId) : null,
   stationId: each.stationId,
-  refusal: each.refusal,
+  unreplayableReason: each.unreplayableReason,
   reason: each.reason,
 });
 
@@ -247,7 +247,7 @@ export class Work implements WorkPort {
         }
       : {
           queued: false,
-          refusal: dispatched.refusal,
+          unreplayableReason: dispatched.unreplayableReason,
         };
   }
 
@@ -272,8 +272,8 @@ export class Work implements WorkPort {
     return this.runs.durations(runs.map((each) => each.value));
   }
 
-  agentRefusal(agent: SearchAgent): AgentRefusal | null {
-    return this.searching.refusalOf({
+  agentProblem(agent: SearchAgent): AgentProblem | null {
+    return this.searching.problemOf({
       harness: agent.harness,
       model: agent.model,
       effort: agent.effort,

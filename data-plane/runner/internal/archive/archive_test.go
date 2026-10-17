@@ -142,7 +142,7 @@ func crafted(t *testing.T, entries ...tar.Header) *bytes.Buffer {
 	return &buffer
 }
 
-func TestRefusesAnythingThatReachesOutsideTheWorkspace(t *testing.T) {
+func TestRejectsAnythingThatReachesOutsideTheWorkspace(t *testing.T) {
 	outside := t.TempDir()
 
 	cases := map[string][]tar.Header{

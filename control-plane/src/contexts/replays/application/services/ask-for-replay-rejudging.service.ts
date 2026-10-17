@@ -1,5 +1,5 @@
 import type { OutcomesPort } from '@replays/application/ports/outcomes.port';
-import { ReplayRejudgingRefused } from '@replays/domain/events/replay-rejudging-refused.event';
+import { ReplayRejudgingFailed } from '@replays/domain/events/replay-rejudging-failed.event';
 import type { ReplayRejudgingWanted } from '@replays/domain/events/replay-rejudging-wanted.event';
 import type { DomainEvent } from '@shared-kernel/domain/events/domain-event';
 
@@ -12,7 +12,7 @@ export class AskForReplayRejudging {
     return asked === 'asked'
       ? []
       : [
-          new ReplayRejudgingRefused(
+          new ReplayRejudgingFailed(
             event.replayId,
             event.workspaceId,
             event.run,

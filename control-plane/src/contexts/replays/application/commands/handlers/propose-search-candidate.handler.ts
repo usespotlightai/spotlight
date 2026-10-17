@@ -40,13 +40,13 @@ type Parsed<T> =
 
 const parsed = <T>(
   made: () => T,
-  refused: (reason: string) => ConfigurationProblem,
+  problemOf: (reason: string) => ConfigurationProblem,
 ): Parsed<T> => {
   try {
     return { ok: true, value: made() };
   } catch (error) {
     if (error instanceof InvalidCandidateError) {
-      return { ok: false, problem: refused(error.reason) };
+      return { ok: false, problem: problemOf(error.reason) };
     }
     throw error;
   }
@@ -132,7 +132,7 @@ export class ProposeSearchCandidateHandler
       ];
 
       if (!name.ok || !hypothesis.ok || !examined.ok || problems.length > 0) {
-        await this.refused(seen, run);
+        await this.rejected(seen, run);
 
         return { outcome: 'invalid', problems };
       }
@@ -166,7 +166,7 @@ export class ProposeSearchCandidateHandler
       : null;
   }
 
-  private refused(seen: Search, run: RunId): Promise<void> {
+  private rejected(seen: Search, run: RunId): Promise<void> {
     return this.transaction.inTransaction(async () => {
       const search = await this.searches.locked(seen.id);
 
@@ -174,7 +174,7 @@ export class ProposeSearchCandidateHandler
         throw new SearchRunNotActiveError();
       }
 
-      await this.searches.save(search.proposalRefused(run));
+      await this.searches.save(search.proposalRejected(run));
     });
   }
 

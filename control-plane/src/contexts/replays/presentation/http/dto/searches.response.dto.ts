@@ -769,7 +769,7 @@ export class SearchIterationResponseDto {
 
   @ApiProperty({
     description:
-      'How many candidates it tried to propose, those refused included',
+      'How many candidates it tried to propose, those rejected included',
   })
   readonly attempts: number;
 

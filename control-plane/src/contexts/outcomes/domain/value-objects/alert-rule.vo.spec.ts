@@ -68,7 +68,7 @@ describe('AlertRule', () => {
     ).toBe(false);
   });
 
-  it('refuses an unknown measure, two thresholds at once, or a broken count of runs', () => {
+  it('rejects an unknown measure, two thresholds at once, or a broken count of runs', () => {
     expect(() => AlertRule.of({ measure: 'joy', above: 1, over: 1 })).toThrow(
       /measure must be one of/,
     );

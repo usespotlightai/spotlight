@@ -216,7 +216,7 @@ describe('the mock members', () => {
     expect((await revokeInvite(at)).response?.status).toBe(404);
   });
 
-  it('refuses a member changing a role, and adding someone already on the team', async () => {
+  it('rejects a member changing a role, and adding someone already on the team', async () => {
     const added = await addTeamMember({
       path: { teamId: PLATFORM_ID },
       body: { userId: 'user_1' },
@@ -237,7 +237,7 @@ describe('the mock members', () => {
     });
   });
 
-  it('refuses an invite for an address that is not one', async () => {
+  it('rejects an invite for an address that is not one', async () => {
     const { response } = await inviteToWorkspace({
       path: { slug: SLUG },
       body: { emails: ['ada'], role: 'member', teamIds: [] },

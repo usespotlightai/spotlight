@@ -89,7 +89,7 @@ const setOf = (id: string, name: string, tasks: number): ReplaySet => ({
     state: 'completed',
     endedAt: null,
     addedAt: '2026-10-01T09:00:00.000Z',
-    refusal: null,
+    unreplayableReason: null,
     reason: null,
     outcome: 'other',
     origin: 'person',
@@ -130,7 +130,7 @@ describe('StartSearchDialog', () => {
     estimateError.mockReturnValue(null);
   });
 
-  it('points to the field an estimate refused rather than waiting on it', () => {
+  it('points to the field an estimate rejected rather than waiting on it', () => {
     estimateError.mockReturnValue({
       status: 422,
       errors: [
@@ -400,7 +400,7 @@ describe('StartSearchDialog', () => {
     );
   });
 
-  it('shows a refusal on the field it names', () => {
+  it('shows a rejection on the field it names', () => {
     startError.mockReturnValue({
       status: 422,
       detail: 'The request is invalid',
@@ -423,7 +423,7 @@ describe('StartSearchDialog', () => {
     ).toBeInTheDocument();
   });
 
-  it('refuses to start without a ceiling', () => {
+  it('does not start without a ceiling', () => {
     renderDialog();
 
     fireEvent.click(screen.getByRole('button', { name: 'Start search' }));

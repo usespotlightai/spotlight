@@ -338,7 +338,7 @@ describe('egress fetching a run’s secrets (e2e)', () => {
     expect(kept?.attempt).toBe(2);
   });
 
-  it('refuses egress once its run has ended, and the run’s grants go with it', async () => {
+  it('does not accept egress once its run has ended, and the run’s grants go with it', async () => {
     const runId = await queue(['LINEAR_API_KEY']);
     const work = await claimed();
     await fetchSecrets(work.egressToken, recipient().written).expect(200);

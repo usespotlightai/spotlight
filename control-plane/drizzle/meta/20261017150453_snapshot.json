@@ -1,5 +1,5 @@
 {
-  "id": "5418ebb8-d971-4980-aea1-47d1bf632a33",
+  "id": "f632ebc6-0ab4-4c48-82d2-375f3ab368dd",
   "prevId": "13322973-768e-4826-b6d5-38308758e05a",
   "version": "7",
   "dialect": "postgresql",
@@ -4124,8 +4124,8 @@
           "primaryKey": false,
           "notNull": false
         },
-        "renewal_refused_at": {
-          "name": "renewal_refused_at",
+        "refresh_failed_at": {
+          "name": "refresh_failed_at",
           "type": "timestamp",
           "primaryKey": false,
           "notNull": false
@@ -8327,33 +8327,33 @@
           "primaryKey": false,
           "notNull": false
         },
-        "refusal": {
-          "name": "refusal",
-          "type": "config_pull_request_refusal",
+        "error_code": {
+          "name": "error_code",
+          "type": "config_pull_request_error",
           "typeSchema": "public",
           "primaryKey": false,
           "notNull": false
         },
-        "refusal_message": {
-          "name": "refusal_message",
+        "error_message": {
+          "name": "error_message",
           "type": "text",
           "primaryKey": false,
           "notNull": false
         },
-        "refusal_attribute": {
-          "name": "refusal_attribute",
+        "error_attribute": {
+          "name": "error_attribute",
           "type": "text",
           "primaryKey": false,
           "notNull": false
         },
-        "refusal_expression": {
-          "name": "refusal_expression",
+        "error_expression": {
+          "name": "error_expression",
           "type": "text",
           "primaryKey": false,
           "notNull": false
         },
-        "refusal_wanted": {
-          "name": "refusal_wanted",
+        "error_wanted": {
+          "name": "error_wanted",
           "type": "jsonb",
           "primaryKey": false,
           "notNull": false
@@ -9336,8 +9336,8 @@
           "notNull": true,
           "default": 0
         },
-        "refusal": {
-          "name": "refusal",
+        "unreplayable_reason": {
+          "name": "unreplayable_reason",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -12997,8 +12997,8 @@
           "primaryKey": false,
           "notNull": true
         },
-        "refusal": {
-          "name": "refusal",
+        "unreplayable_reason": {
+          "name": "unreplayable_reason",
           "type": "text",
           "primaryKey": false,
           "notNull": false
@@ -14980,7 +14980,7 @@
       "schema": "public",
       "values": [
         "no-evidence",
-        "refused",
+        "request-failed",
         "unreadable",
         "errored",
         "interrupted"
@@ -15067,7 +15067,7 @@
       "schema": "public",
       "values": [
         "no-evidence",
-        "refused",
+        "request-failed",
         "unreadable",
         "ungrounded",
         "errored",
@@ -15150,8 +15150,8 @@
         "closed"
       ]
     },
-    "public.config_pull_request_refusal": {
-      "name": "config_pull_request_refusal",
+    "public.config_pull_request_error": {
+      "name": "config_pull_request_error",
       "schema": "public",
       "values": [
         "no-source",
@@ -15161,11 +15161,11 @@
         "block-not-found",
         "blocks-ambiguous",
         "computed-attribute",
-        "drifted",
+        "base-changed",
         "edit-failed",
         "branch-taken",
         "file-unwritable",
-        "github-refused"
+        "github-error"
       ]
     },
     "public.config_pull_request_state": {
@@ -15174,7 +15174,7 @@
       "values": [
         "opening",
         "opened",
-        "refused"
+        "failed"
       ]
     },
     "public.replay_candidate_kind": {
@@ -15293,7 +15293,7 @@
       "values": [
         "queued",
         "forgone",
-        "refused"
+        "unreplayable"
       ]
     },
     "public.run_state": {

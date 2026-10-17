@@ -44,29 +44,29 @@ export class OfferedTool {
     const name = input.name.trim();
     const description = input.description.trim();
     const inputs = input.inputs ?? [];
-    const refuse = (because: string) =>
+    const invalid = (because: string) =>
       new InvalidIntegrationError(
         input.source.value,
         `tool ${input.source.value}.${name} ${because}`,
       );
 
     if (!TOOL_NAME.test(name)) {
-      throw refuse('must be named in lowercase words joined by dashes');
+      throw invalid('must be named in lowercase words joined by dashes');
     }
 
     if (description.length === 0) {
-      throw refuse('needs a description of when to use it');
+      throw invalid('needs a description of when to use it');
     }
 
     for (const each of inputs) {
       if (!TOOL_INPUT_NAME.test(each.name)) {
-        throw refuse(
+        throw invalid(
           `input ${JSON.stringify(each.name)} must be letters, digits, dashes and underscores, as in issue or team_id`,
         );
       }
 
       if (each.name === WHOLE_CALL_INPUT) {
-        throw refuse(
+        throw invalid(
           `cannot take reserved input ${WHOLE_CALL_INPUT}. That input hands a tool every input at once`,
         );
       }
@@ -75,11 +75,11 @@ export class OfferedTool {
     const names = inputs.map((each) => each.name);
 
     if (new Set(names).size !== names.length) {
-      throw refuse('takes an input more than once');
+      throw invalid('takes an input more than once');
     }
 
     if (input.approval && names.includes(APPROVAL_INTENT_INPUT)) {
-      throw refuse(
+      throw invalid(
         `needs approval and cannot take reserved input ${APPROVAL_INTENT_INPUT}`,
       );
     }
@@ -87,11 +87,11 @@ export class OfferedTool {
     const piped = inputs.filter((each) => each.piped);
 
     if (piped.length > 1) {
-      throw refuse('pipes in more than one input');
+      throw invalid('pipes in more than one input');
     }
 
     if (piped.some((each) => !each.schema.takesText)) {
-      throw refuse('pipes in an input that is not text');
+      throw invalid('pipes in an input that is not text');
     }
 
     return new OfferedTool(

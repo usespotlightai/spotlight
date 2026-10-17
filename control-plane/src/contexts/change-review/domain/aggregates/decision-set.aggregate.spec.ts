@@ -449,7 +449,7 @@ describe('a decision set, disputed', () => {
     ]);
   });
 
-  it('refuses a dispute of a file the decision does not bear on, or without a reason', () => {
+  it('rejects a dispute of a file the decision does not bear on, or without a reason', () => {
     expect(() => dispute(decided(), { path: 'src/elsewhere.ts' })).toThrow(
       InvalidDecisionError,
     );

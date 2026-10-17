@@ -11,7 +11,7 @@ import type {
 } from '@integrations/application/ports/webhook-source.port';
 import { HappeningName } from '@integrations/domain/value-objects/happening-name.vo';
 import { WebhookSource } from '@integrations/infrastructure/webhooks/webhook-source.decorator';
-import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
+import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
 import { PullRequestUrl } from '@shared-kernel/domain/value-objects/pull-request-url.vo';
 import type { WorkspaceId } from '@shared-kernel/domain/value-objects/workspace-id.vo';
 import {
@@ -87,8 +87,8 @@ const RAISED: Readonly<
   }),
 };
 
-const refusedUnnamed = (heard: PullRequestActivity): never => {
-  throw new UpstreamRefusedError(
+const failUnnamed = (heard: PullRequestActivity): never => {
+  throw new UpstreamError(
     `reading a GitHub ${heard.activity} delivery`,
     'it names neither a branch nor a pull request',
   );
@@ -155,7 +155,7 @@ const mentions = (heard: PullRequestActivity): boolean =>
 const happenedIn = (heard: PullRequestActivity): readonly Happened[] => {
   if (heard.activity === 'opened') {
     if (!heard.pullRequest) {
-      refusedUnnamed(heard);
+      failUnnamed(heard);
     }
 
     const asked = askedFor(heard, 'opened');
@@ -207,7 +207,7 @@ const happened = (
   };
 
   if (!concerns.branch && concerns.marks.length === 0) {
-    refusedUnnamed(heard);
+    failUnnamed(heard);
   }
 
   return {

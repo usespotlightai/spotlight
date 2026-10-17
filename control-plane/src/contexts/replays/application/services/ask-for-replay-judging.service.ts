@@ -38,15 +38,15 @@ export class AskForReplayJudging {
 
     await this.transaction.inTransaction(async () => {
       const replay = await this.replays.find(event.replayId);
-      const refused = replay?.recordJudgingFailure(
+      const failed = replay?.recordJudgingFailure(
         event.run,
         asked,
         null,
         this.clock.now(),
       );
 
-      if (replay && refused && refused !== replay) {
-        await this.replays.save(refused);
+      if (replay && failed && failed !== replay) {
+        await this.replays.save(failed);
       }
     });
   }

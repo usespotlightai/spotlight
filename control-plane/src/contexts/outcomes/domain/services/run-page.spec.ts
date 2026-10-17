@@ -13,13 +13,13 @@ describe('run pages', () => {
     expect(lastPageOf(101, 50)).toBe(3);
   });
 
-  it('takes the last page with runs, and refuses one past it', () => {
+  it('takes the last page with runs, and rejects one past it', () => {
     expect(() => pageWithin(3, 101, 50)).not.toThrow();
     expect(() => pageWithin(4, 101, 50)).toThrow(InvalidRunPageError);
     expect(() => pageWithin(1, 0, 50)).not.toThrow();
   });
 
-  it('refuses a page past the most it ever pages to before reading any runs', () => {
+  it('rejects a page past the most it ever pages to before reading any runs', () => {
     expect(pageAskedOf(MAX_RUN_PAGE)).toBe(MAX_RUN_PAGE);
     expect(() => pageAskedOf(MAX_RUN_PAGE + 1)).toThrow(InvalidRunPageError);
   });

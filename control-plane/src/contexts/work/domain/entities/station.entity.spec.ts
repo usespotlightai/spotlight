@@ -27,7 +27,7 @@ const furnished = () =>
     .instruct(AgentPrompt.of('## Role'));
 
 describe('Station', () => {
-  it('refuses to watch one measure twice for the same kind of threshold', () => {
+  it('does not watch one measure twice for the same kind of threshold', () => {
     expect(() =>
       Station.of({
         id: StationId.of('station_1'),

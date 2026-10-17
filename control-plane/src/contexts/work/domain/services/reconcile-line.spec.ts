@@ -199,7 +199,7 @@ describe('reconciling a line with the plan describing it', () => {
     );
   });
 
-  it('refuses to remove a station with tasks at it', () => {
+  it('does not remove a station with tasks at it', () => {
     const line = existingLine();
     const plan = asPlan(line);
     const going = plan.stations[1]?.key.value as string;

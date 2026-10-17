@@ -106,7 +106,7 @@ describe('WorkspaceArchive', () => {
     expect(sealed.sealedAt).toEqual(later(5_000));
   });
 
-  it('refuses to be sealed when nothing was uploaded, or something else was', () => {
+  it('cannot be sealed when nothing was uploaded, or something else was', () => {
     expect(() => anArchive().seal(null, later(0))).toThrow(
       WorkspaceArchiveNotUploadedError,
     );
@@ -289,10 +289,10 @@ describe('WorkspaceArchive', () => {
     expect(restored.restores(WorkspaceId.of('ws_1'), work)).toBe(true);
   });
 
-  it('refuses to vouch for a restore it could not have been', () => {
+  it('does not vouch for a restore it could not have been', () => {
     const work = ContinuityKey.forTask('task_1');
 
-    for (const refused of [
+    for (const attempt of [
       () => anArchive().restoreInto(WorkspaceId.of('ws_1'), work),
       () => aSealedArchive().restoreInto(WorkspaceId.of('ws_2'), work),
       () =>
@@ -302,7 +302,7 @@ describe('WorkspaceArchive', () => {
         ),
       () => aSealedArchive().restoreInto(WorkspaceId.of('ws_1'), null),
     ]) {
-      expect(refused).toThrow(InvalidStartingPointError);
+      expect(attempt).toThrow(InvalidStartingPointError);
     }
   });
 
@@ -317,7 +317,7 @@ describe('WorkspaceArchive', () => {
     expect(aSealedArchive().remove(later(1), gone).isDiscarded).toBe(true);
   });
 
-  it('refuses to be removed while a later run may still restore it', () => {
+  it('cannot be removed while a later run may still restore it', () => {
     expect(() => aSealedArchive().remove(later(365 * DAY), owned)).toThrow(
       InvalidWorkspaceArchiveTransitionError,
     );

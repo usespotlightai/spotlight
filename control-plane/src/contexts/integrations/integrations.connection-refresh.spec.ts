@@ -79,7 +79,7 @@ const nearing = (over: { refreshToken?: string | null } = {}) =>
     expiresAt: new Date('2026-09-07T10:02:00.000Z'),
     scopes: ['chat:write'],
     handle: 'Acme',
-    renewalRefusedAt: null,
+    refreshFailedAt: null,
     renewalClaim: null,
     version: 1,
   });
@@ -148,21 +148,21 @@ describe('RefreshConnections', () => {
     expect(connections.saved).toEqual([]);
   });
 
-  it('keeps the old token, and remembers the refusal, when the host refuses to renew', async () => {
+  it('keeps the old token, and remembers the failure, when the token refresh fails', async () => {
     const { it, connections, warn } = refreshing([nearing()], null);
 
     await it.refresh();
 
     const stored = await storedNow(connections);
     expect(stored?.accessToken.value).toBe('xoxb-old');
-    expect(stored?.renewalRefusedAt).toEqual(NOW);
+    expect(stored?.refreshFailedAt).toEqual(NOW);
     expect(stored?.renewalClaim).toBeNull();
     expect(connections.events.map((each) => each.kind)).toEqual([
-      'integrations.host-renewal-refused',
+      'integrations.host-refresh-failed',
     ]);
     expect(warn).toHaveBeenCalledWith(
       { team: 'team_1', source: 'slack', holder: 'team' },
-      'A host refused to renew a connection',
+      'A host did not renew a connection',
     );
   });
 

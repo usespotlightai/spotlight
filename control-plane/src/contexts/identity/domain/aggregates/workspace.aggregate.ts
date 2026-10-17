@@ -12,7 +12,7 @@ import { WorkspaceSlugFixedError } from '@identity/domain/exceptions/workspace-s
 import { WorkspaceVersionConflictError } from '@identity/domain/exceptions/workspace-version-conflict.error';
 import {
   type RolePositions,
-  refusalToGive,
+  roleAssignmentDenial,
   rolesGivable,
 } from '@identity/domain/services/role-giving';
 import { Dependents } from '@identity/domain/value-objects/dependents.vo';
@@ -243,13 +243,13 @@ export class Workspace extends EventRecorder {
 
   changeRole(target: UserId, role: WorkspaceRole, by: UserId): Workspace {
     const positions = this.positionsBetween(target, by);
-    const refusal = refusalToGive(positions, role);
+    const denial = roleAssignmentDenial(positions, role);
 
-    if (refusal === 'last-owner') {
+    if (denial === 'last-owner') {
       throw new LastOwnerError();
     }
-    if (refusal) {
-      throw new NotYoursToGiveError(refusal);
+    if (denial) {
+      throw new NotYoursToGiveError(denial);
     }
 
     const was = positions.theirs;

@@ -24,7 +24,7 @@ export type PermissionCleared = Cleared['kind'];
 
 export type ConnectionAsked =
   | { readonly kind: 'asked' }
-  | { readonly kind: 'refused'; readonly reason: string };
+  | { readonly kind: 'denied'; readonly reason: string };
 
 export interface RunWork {
   readonly workspaceId: WorkspaceId;

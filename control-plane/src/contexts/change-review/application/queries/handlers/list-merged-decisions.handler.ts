@@ -12,7 +12,7 @@ import { UserId } from '@shared-kernel/domain/value-objects/user-id.vo';
 
 const MAX_SETS = 50;
 
-const refused = (subject: string, reason: string): InvalidDecisionError =>
+const invalid = (subject: string, reason: string): InvalidDecisionError =>
   new InvalidDecisionError(reason, subject);
 
 const timeOf = (raw: string | null): Date | null => {
@@ -23,7 +23,7 @@ const timeOf = (raw: string | null): Date | null => {
   const at = new Date(raw);
 
   if (Number.isNaN(at.getTime())) {
-    throw refused(
+    throw invalid(
       'decision lookup time',
       'must be an ISO date, such as 2026-09-21T09:30:00Z',
     );
@@ -43,14 +43,14 @@ const withinOf = (
   }
 
   if (!repository) {
-    throw refused('decision lookup by path', 'must name its repository');
+    throw invalid('decision lookup by path', 'must name its repository');
   }
 
   return given.map((each) => {
     const parts = each.split('/').filter((part) => part && part !== '.');
 
     if (parts.length === 0 || parts.includes('..')) {
-      throw refused(
+      throw invalid(
         'decision lookup path',
         `must be inside the repository, not ${each}`,
       );

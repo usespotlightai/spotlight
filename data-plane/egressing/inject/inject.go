@@ -84,8 +84,8 @@ func From(
 
 	for _, key := range harnessKeys {
 		host, header := reach.Normal(key.Host), http.CanonicalHeaderKey(key.Header)
-		if refusal := harnessKeyRefusal(host, header, key, limits); refusal != "" {
-			log.Warn("egress will not inject a key the host has", "key", key.Name, "host", host, "reason", refusal)
+		if problem := harnessKeyProblem(host, header, key, limits); problem != "" {
+			log.Warn("egress will not inject a key the host has", "key", key.Name, "host", host, "reason", problem)
 			continue
 		}
 		injector.byHost[host] = append(injector.byHost[host], &injected{
@@ -109,8 +109,8 @@ func From(
 		host := reach.Normal(secret.Host)
 		location, name := located(secret.Location, secret.Name)
 
-		if refusal := injector.refusal(host, location, name, secret, limits); refusal != "" {
-			log.Warn("egress will not inject a secret of the run", "secret", secret.Secret, "host", host, "reason", refusal)
+		if problem := injector.problem(host, location, name, secret, limits); problem != "" {
+			log.Warn("egress will not inject a secret of the run", "secret", secret.Secret, "host", host, "reason", problem)
 			continue
 		}
 
@@ -139,7 +139,7 @@ func From(
 	return injector
 }
 
-func harnessKeyRefusal(host, header string, key protocol.HarnessKey, limits Limits) string {
+func harnessKeyProblem(host, header string, key protocol.HarnessKey, limits Limits) string {
 	switch {
 	case !limits.Hosts.Admits(host):
 		return "the host's allow-list does not admit " + host
@@ -150,7 +150,7 @@ func harnessKeyRefusal(host, header string, key protocol.HarnessKey, limits Limi
 	}
 }
 
-func (w *Injector) refusal(host, location, name string, secret protocol.FetchedSecret, limits Limits) string {
+func (w *Injector) problem(host, location, name string, secret protocol.FetchedSecret, limits Limits) string {
 	target := (&injected{location: location, name: name}).target()
 
 	switch {

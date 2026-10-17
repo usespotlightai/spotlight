@@ -97,13 +97,13 @@ const reporting = (
 };
 
 describe('ReportHostPresenceHandler', () => {
-  it('refuses a host no pool or trust admits, and keeps nothing of it', async () => {
+  it('does not accept a host no pool or trust admits, and keeps nothing of it', async () => {
     const { report, hosts, admit } = reporting({ admitted: null });
 
     await expect(
       report({}, { bearer: 'stolen', trust: 'trust_1' }),
     ).resolves.toEqual({
-      outcome: 'refused',
+      outcome: 'unauthorized',
     });
     expect(admit).toHaveBeenCalledWith({
       bearer: 'stolen',
@@ -165,7 +165,7 @@ describe('ReportHostPresenceHandler', () => {
     expect(stored.get(HOST)?.upSince).toEqual(later(45_000));
   });
 
-  it('refuses a host that reports through another pool or trust while it still answers through the first', async () => {
+  it('does not accept a host that reports through another pool or trust while it still answers through the first', async () => {
     const { report, stored, admitThrough, at } = reporting();
 
     await report();
@@ -198,7 +198,7 @@ describe('ReportHostPresenceHandler', () => {
     expect(host?.lastSeenAt).toEqual(later(90_000));
   });
 
-  it('refuses a report it cannot read, or one with no session, as invalid', async () => {
+  it('rejects a report it cannot read, or one with no session, as invalid', async () => {
     const { report, hosts } = reporting();
 
     await expect(report({ capacity: 0 })).rejects.toThrow(ApplicationError);

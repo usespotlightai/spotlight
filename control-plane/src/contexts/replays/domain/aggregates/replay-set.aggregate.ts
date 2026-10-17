@@ -11,10 +11,10 @@ import { ReplaySetUnderwayError } from '@replays/domain/exceptions/replay-set-un
 import { UnknownReplaySetEntryError } from '@replays/domain/exceptions/unknown-replay-set-entry.error';
 import { UnreplayableEntryError } from '@replays/domain/exceptions/unreplayable-entry.error';
 import { ChangesGuardDetail } from '@replays/domain/value-objects/changes-guard-detail.vo';
-import type { ReplayRefusal } from '@replays/domain/value-objects/replay-refusal';
 import { ReplaySetEntry } from '@replays/domain/value-objects/replay-set-entry.vo';
 import type { ReplaySetId } from '@replays/domain/value-objects/replay-set-id.vo';
 import type { ReplaySetName } from '@replays/domain/value-objects/replay-set-name.vo';
+import type { UnreplayableReason } from '@replays/domain/value-objects/unreplayable-reason';
 import { EventRecorder } from '@shared-kernel/domain/event-recorder';
 import type { Attribution } from '@shared-kernel/domain/value-objects/attribution.vo';
 import { ConfigurationChange } from '@shared-kernel/domain/value-objects/configuration-change.vo';
@@ -36,7 +36,7 @@ export interface Replayable {
   readonly runId: RunId;
   readonly taskId: TaskId | null;
   readonly stationId: string | null;
-  readonly refusal: ReplayRefusal | null;
+  readonly unreplayableReason: UnreplayableReason | null;
   readonly reason: string | null;
 }
 
@@ -239,10 +239,10 @@ export class ReplaySet extends EventRecorder {
       throw new ReplaySetFullError(MAX_SET_ENTRIES);
     }
 
-    if (replayable.refusal !== null || replayable.taskId === null) {
+    if (replayable.unreplayableReason !== null || replayable.taskId === null) {
       throw new UnreplayableEntryError(
         run.value,
-        replayable.refusal ?? 'not-a-task-run',
+        replayable.unreplayableReason ?? 'not-a-task-run',
         replayable.reason ?? 'It did not work a task of its own.',
       );
     }

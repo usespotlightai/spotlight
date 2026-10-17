@@ -45,7 +45,7 @@ export class DescribedSource {
     connected?: boolean;
     fingerprint: string;
   }): DescribedSource {
-    const refuse = (because: string) =>
+    const invalid = (because: string) =>
       new InvalidIntegrationPartError(input.kind, because);
     const url = input.url ?? null;
     const document = input.document ?? null;
@@ -53,42 +53,42 @@ export class DescribedSource {
     const depth = input.depth ?? null;
 
     if (url === null && document === null) {
-      throw refuse('is read from a url, or written out as its document');
+      throw invalid('is read from a url, or written out as its document');
     }
 
     if (url !== null && !isWebAddress(url)) {
-      throw refuse('is read from a web address, as in https://…');
+      throw invalid('is read from a web address, as in https://…');
     }
 
     if (document !== null && document.trim() === '') {
-      throw refuse('has a document with nothing in it');
+      throw invalid('has a document with nothing in it');
     }
 
     if (input.kind !== 'openapi' && url === null) {
-      throw refuse('names no url to call');
+      throw invalid('names no url to call');
     }
 
     if (input.kind === 'mcp' && document !== null) {
-      throw refuse(
+      throw invalid(
         'cannot be written out as a document. An MCP server lists its tools when asked',
       );
     }
 
     if (baseUrl !== null && !isWebAddress(baseUrl)) {
-      throw refuse('calls a base URL that is not a web address');
+      throw invalid('calls a base URL that is not a web address');
     }
 
     if (
       depth !== null &&
       (!Number.isInteger(depth) || depth < 1 || depth > DEEPEST_SELECTION)
     ) {
-      throw refuse(
+      throw invalid(
         `selects fields 1 to ${DEEPEST_SELECTION} levels deep in what it answers`,
       );
     }
 
     if (input.fingerprint.trim() === '') {
-      throw refuse('was compiled without a fingerprint');
+      throw invalid('was compiled without a fingerprint');
     }
 
     return new DescribedSource(

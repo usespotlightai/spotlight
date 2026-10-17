@@ -121,7 +121,7 @@ describe('Team', () => {
     );
   });
 
-  it('refuses to add somebody already on it', () => {
+  it('does not add somebody already on it', () => {
     const joined = open().addMember(SECOND, acme());
 
     expect(joined.hasMember(SECOND)).toBe(true);
@@ -144,7 +144,7 @@ describe('Team', () => {
     expect(read.join(SECOND, acme()).version).toBe(4);
   });
 
-  it('refuses to read back a team nobody is on', () => {
+  it('does not read back a team nobody is on', () => {
     expect(() =>
       Team.rehydrate({
         id: TeamId.of('team_1'),
@@ -200,7 +200,7 @@ describe('Team', () => {
       expect(defined().members).toEqual([OWNER]);
     });
 
-    it('refuses a change made against another version', () => {
+    it('rejects a change made against another version', () => {
       expect(() => kept(3).assertVersion(2)).toThrow(TeamVersionConflictError);
       expect(() => kept(3).assertVersion(3)).not.toThrow();
     });

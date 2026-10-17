@@ -19,7 +19,7 @@ import type { TaskLetGoOfRun } from '@work/domain/events/task-let-go-of-run.even
 import { TaskMoved } from '@work/domain/events/task-moved.event';
 import { InvalidTaskRevisionError } from '@work/domain/exceptions/invalid-task-revision.error';
 import { InvalidTaskTransitionError } from '@work/domain/exceptions/invalid-task-transition.error';
-import { MoveRefusedError } from '@work/domain/exceptions/move-refused.error';
+import { MoveDeniedError } from '@work/domain/exceptions/move-denied.error';
 import { NoRepositoryError } from '@work/domain/exceptions/no-repository.error';
 import { StaleTaskRevisionError } from '@work/domain/exceptions/stale-task-revision.error';
 import { UnknownStationError } from '@work/domain/exceptions/unknown-station.error';
@@ -485,7 +485,7 @@ describe('Task, what it is doing', () => {
       expect(passed.openConversation).toBeNull();
     });
 
-    it('refuses an answer to something nobody was asked', () => {
+    it('rejects an answer to something nobody was asked', () => {
       expect(() => added().answer(NotePosition.of(0), saying)).toThrow(
         InvalidTaskTransitionError,
       );
@@ -798,7 +798,7 @@ describe('Task, what it is doing', () => {
     });
   });
 
-  describe('what it refuses', () => {
+  describe('what it rejects', () => {
     it('will not be put to a person twice over', () => {
       expect(() =>
         added().askedAbout(saying, null).askedAbout(saying, null),
@@ -1293,7 +1293,7 @@ describe('Task, what it is doing', () => {
 
     it('will not be moved between work stations, which its runs pass it along', () => {
       expect(() => moved(HERE, StationId.of('station_2'))).toThrow(
-        new MoveRefusedError('between-work-stations', 'Triage', 'Spec'),
+        new MoveDeniedError('between-work-stations', 'Triage', 'Spec'),
       );
     });
 
@@ -1302,10 +1302,10 @@ describe('Task, what it is doing', () => {
 
       expect(() =>
         closed.moveTo(LINE, BACKLOG, TaskRank.of('m'), saying, hand),
-      ).toThrow(MoveRefusedError);
+      ).toThrow(MoveDeniedError);
       expect(() =>
         closed.moveTo(LINE, HERE, TaskRank.of('m'), saying, hand),
-      ).toThrow(MoveRefusedError);
+      ).toThrow(MoveDeniedError);
     });
 
     it('is moved between work stations by a reaction, without a hand', () => {
@@ -1345,7 +1345,7 @@ describe('Task, what it is doing', () => {
   });
 
   describe('its trail', () => {
-    it('refuses a gap in it', () => {
+    it('rejects a gap in it', () => {
       expect(() =>
         Task.rehydrate({
           ...added(),
@@ -1653,7 +1653,7 @@ describe('Task, its revision', () => {
     expect(added().heard(saying).revision.value).toBe(0);
   });
 
-  it('refuses what was decided on a revision it has moved on from', () => {
+  it('rejects what was decided on a revision it has moved on from', () => {
     expect(added().assertRevision(TaskRevision.of(0)).revision.value).toBe(0);
     expect(() => added().assertRevision(TaskRevision.of(1))).toThrow(
       StaleTaskRevisionError,
@@ -1679,7 +1679,7 @@ describe('Task and the happenings heard while it has a current run', () => {
       .filter((each) => each.kind === 'task.let-go-of-run')
       .map((each) => (each as TaskLetGoOfRun).runId);
 
-  it('refuses to be moved by a happening while it has a current run', () => {
+  it('cannot be moved by a happening while it has a current run', () => {
     expect(() => handed().react(LINE, SPEC, TaskRank.of('m'), world)).toThrow(
       InvalidTaskTransitionError,
     );
@@ -1797,7 +1797,7 @@ describe('Task and the happenings heard while it has a current run', () => {
     expect(interrupted.deferredMoveTo).toBeNull();
   });
 
-  it('refuses to defer a move to the end of its line', () => {
+  it('does not defer a move to the end of its line', () => {
     expect(() => handed().deferMove(LINE, COMPLETED, world)).toThrow(
       InvalidTaskTransitionError,
     );
@@ -1967,7 +1967,7 @@ describe('Task and the happenings heard while it has a current run', () => {
       expect(noted.pullEvents()).toEqual([]);
     });
 
-    it('refuses to be moved by a happening', () => {
+    it('cannot be moved by a happening', () => {
       expect(() => paused().react(LINE, SPEC, TaskRank.of('m'), world)).toThrow(
         InvalidTaskTransitionError,
       );

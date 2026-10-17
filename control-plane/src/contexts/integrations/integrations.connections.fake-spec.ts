@@ -20,7 +20,7 @@ const keptAs = (connection: HostConnection, version: number) =>
     expiresAt: connection.expiresAt,
     scopes: connection.scopes,
     handle: connection.handle,
-    renewalRefusedAt: connection.renewalRefusedAt,
+    refreshFailedAt: connection.refreshFailedAt,
     renewalClaim: connection.renewalClaim,
     version,
   });
@@ -91,7 +91,7 @@ export class InMemoryHostConnections implements HostConnectionRepository {
     return [...this.#stored.values()].filter(
       (each) =>
         each.refreshToken !== null &&
-        each.renewalRefusedAt === null &&
+        each.refreshFailedAt === null &&
         each.expiresAt !== null &&
         each.expiresAt.getTime() < horizon.getTime(),
     );

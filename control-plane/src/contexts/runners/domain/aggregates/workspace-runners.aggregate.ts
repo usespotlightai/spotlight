@@ -17,7 +17,7 @@ interface Declaration {
   readonly pools: readonly PoolKey[];
 }
 
-const refuseRepeated = <K extends { readonly value: string }>(
+const rejectRepeated = <K extends { readonly value: string }>(
   field: 'trusts' | 'pools',
   keys: readonly K[],
 ): void => {
@@ -32,9 +32,9 @@ const refuseRepeated = <K extends { readonly value: string }>(
   }
 };
 
-const refuseRepeats = (declaration: Declaration): void => {
-  refuseRepeated('trusts', declaration.trusts);
-  refuseRepeated('pools', declaration.pools);
+const rejectRepeats = (declaration: Declaration): void => {
+  rejectRepeated('trusts', declaration.trusts);
+  rejectRepeated('pools', declaration.pools);
 };
 
 export class WorkspaceRunners extends EventRecorder {
@@ -56,7 +56,7 @@ export class WorkspaceRunners extends EventRecorder {
       by: Attribution;
     },
   ): WorkspaceRunners {
-    refuseRepeats(input);
+    rejectRepeats(input);
 
     const declared = new WorkspaceRunners(
       input.id,
@@ -110,7 +110,7 @@ export class WorkspaceRunners extends EventRecorder {
 
   redeclaredAs(declaration: Declaration, by: Attribution): WorkspaceRunners {
     this.assertNotDeleted();
-    refuseRepeats(declaration);
+    rejectRepeats(declaration);
 
     const redeclared = this.with({
       trusts: declaration.trusts,

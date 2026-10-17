@@ -3,7 +3,7 @@ import { HarnessId } from '@shared-kernel/domain/value-objects/harness-id.vo';
 import { describe, expect, it } from 'vitest';
 
 describe('HarnessId', () => {
-  it('refuses a name that names nothing', () => {
+  it('rejects a name that names nothing', () => {
     expect(() => HarnessId.of('   ')).toThrow(InvalidHarnessIdError);
   });
 

@@ -1,4 +1,4 @@
-export class PullRequestHookRefusedError extends Error {
+export class PullRequestHookDeniedError extends Error {
   readonly violation = 'not-allowed' as const;
 
   constructor(reason: string) {
@@ -10,6 +10,6 @@ export class PullRequestHookRefusedError extends Error {
         .filter(Boolean)
         .join(' '),
     );
-    this.name = 'PullRequestHookRefusedError';
+    this.name = 'PullRequestHookDeniedError';
   }
 }

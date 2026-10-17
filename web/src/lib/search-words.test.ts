@@ -21,7 +21,7 @@ describe('search words', () => {
   it('says why no pull request was opened', () => {
     expect(
       formatPullRequestReason({
-        code: 'drifted',
+        code: 'base-changed',
         message: 'prompt.md changed',
         attribute: null,
         expression: null,

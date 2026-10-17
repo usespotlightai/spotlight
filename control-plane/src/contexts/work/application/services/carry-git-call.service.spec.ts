@@ -268,7 +268,7 @@ describe('CarryGitCall', () => {
     expect(git.call).not.toHaveBeenCalled();
   });
 
-  it('refuses a runner that does not lease the run', async () => {
+  it('rejects a runner that does not lease the run', async () => {
     const { service, git } = carrying(claimedBy('runner_1'), task());
 
     await expect(
@@ -277,7 +277,7 @@ describe('CarryGitCall', () => {
     expect(git.call).not.toHaveBeenCalled();
   });
 
-  it('refuses a run nobody leases', async () => {
+  it('rejects a run nobody leases', async () => {
     const { service, git } = carrying(enqueued(), task());
 
     await expect(
@@ -295,7 +295,7 @@ describe('CarryGitCall', () => {
     expect(git.call).not.toHaveBeenCalled();
   });
 
-  it('refuses a run that does not exist', async () => {
+  it('rejects a run that does not exist', async () => {
     const { service } = carrying(null, null);
 
     await expect(

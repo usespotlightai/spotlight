@@ -43,7 +43,7 @@ describe('DashboardLayout', () => {
     expect(handle()).toHaveAttribute('aria-valuenow', '240');
   });
 
-  it('refuses to go past its bounds', async () => {
+  it('stays within its bounds', async () => {
     const user = userEvent.setup();
     render(<DashboardLayout />);
 

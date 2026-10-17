@@ -9,7 +9,7 @@ describe('HostSession', () => {
     );
   });
 
-  it.each(['', '   ', 'x'.repeat(65)])('refuses %j', (raw) => {
+  it.each(['', '   ', 'x'.repeat(65)])('rejects %j', (raw) => {
     expect(() => HostSession.of(raw)).toThrow(InvalidHostReportError);
   });
 

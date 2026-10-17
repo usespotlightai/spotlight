@@ -160,13 +160,13 @@ describe('SignedProvisionCalls', () => {
     });
   });
 
-  it('says what the endpoint answered when it refuses', async () => {
+  it('says what the endpoint answered when it fails', async () => {
     const { provision } = calls(
       async () => new Response('no capacity', { status: 503 }),
     );
 
     await expect(provision.call(calling())).resolves.toEqual({
-      outcome: 'refused',
+      outcome: 'http-error',
       detail: 'Provision URL answered 503. Response: no capacity',
     });
   });

@@ -63,17 +63,17 @@ const failedAt = (
   reason: string,
 ): StepTaken => ({
   outcome: { name, status: 'failed', code, reason, output: null },
-  refusal: null,
+  denyReason: null,
   trace: null,
 });
 
-class StepRefused extends Error {
+class StepFailure extends Error {
   constructor(
     readonly code: HookFailureCode,
     message: string,
   ) {
     super(message);
-    this.name = 'StepRefused';
+    this.name = 'StepFailure';
   }
 }
 
@@ -322,10 +322,10 @@ export class CompiledHookRuntime implements HookRuntimePort {
       waiting: asked.waiting,
       resuming: asked.resuming,
     };
-    const refused = hook.ir.hook.refusalToRequest(step.name, new URL(url));
+    const denial = hook.ir.hook.requestDenial(step.name, new URL(url));
 
-    return refused
-      ? this.requests.refused(request, refused, now)
+    return denial
+      ? this.requests.notSent(request, denial, now)
       : this.requests.sent(request, now);
   }
 
@@ -351,15 +351,15 @@ export class CompiledHookRuntime implements HookRuntimePort {
         boundTask(moment),
       );
 
-      const refused = hook.ir.hook.refusalToCall(
+      const denial = hook.ir.hook.callDenial(
         ToolName.of(step.tool),
         reachable?.offered ?? null,
       );
 
-      if (refused || !reachable) {
-        throw new StepRefused(
-          refused?.code ?? 'not-allowed',
-          refused?.reason ?? `names ${step.tool}, which no integration offers`,
+      if (denial || !reachable) {
+        throw new StepFailure(
+          denial?.code ?? 'not-allowed',
+          denial?.reason ?? `names ${step.tool}, which no integration offers`,
         );
       }
 
@@ -370,14 +370,14 @@ export class CompiledHookRuntime implements HookRuntimePort {
           (name) => reachable.defaultFor(name),
         );
       } catch (error) {
-        throw new StepRefused(
+        throw new StepFailure(
           'unwritable',
           `could not be written: ${reasoned(error)}`,
         );
       }
 
       if (reachable.integration.holderRule.byRequester) {
-        throw new StepRefused(
+        throw new StepFailure(
           'not-allowed',
           `names ${step.tool}, which acts as the person who started a task. A hook acts as nobody`,
         );
@@ -391,14 +391,14 @@ export class CompiledHookRuntime implements HookRuntimePort {
       output = await within(
         reachable.call(inputs, reach),
         asked.deadline.getTime() - this.clock.now().getTime(),
-        new StepRefused(
+        new StepFailure(
           'timeout',
           `took longer than the hook's ${hook.timeoutSeconds} seconds`,
         ),
       );
     } catch (error) {
       failure = {
-        code: error instanceof StepRefused ? error.code : 'tool-failed',
+        code: error instanceof StepFailure ? error.code : 'tool-failed',
         reason: reasoned(error),
       };
     }
@@ -416,7 +416,7 @@ export class CompiledHookRuntime implements HookRuntimePort {
               reason: failure.reason,
               output: null,
             },
-      refusal: null,
+      denyReason: null,
       trace: {
         hook: hook.key,
         step: step.name,

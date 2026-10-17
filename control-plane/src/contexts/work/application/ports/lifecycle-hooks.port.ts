@@ -32,7 +32,7 @@ export interface ToolUsedMoment {
 
 export type HookVerdict =
   | { readonly kind: 'allowed' }
-  | { readonly kind: 'refused'; readonly reason: string };
+  | { readonly kind: 'denied'; readonly reason: string };
 
 export interface LifecycleHooksPort {
   listens(teamId: string, on: BeforeMoment['on']): Promise<boolean>;

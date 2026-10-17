@@ -320,7 +320,7 @@ describe('the team’s pull requests', () => {
     expect(second.pullRequests.map((each) => each.number)).toEqual([1]);
   });
 
-  it('refuses a filter it does not know, and a person off the team', async () => {
+  it('rejects a filter it does not know, and a person off the team', async () => {
     const { service } = await team();
     const handler = new ListInsightsPullRequestsHandler(service);
 
@@ -400,7 +400,7 @@ describe('what the agents ship', () => {
     ]);
   });
 
-  it('refuses a person off the team', async () => {
+  it('denies a person off the team', async () => {
     const { service } = await team();
 
     await expect(

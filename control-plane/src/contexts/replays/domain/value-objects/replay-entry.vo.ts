@@ -10,9 +10,9 @@ import type { EntryReason } from '@replays/domain/value-objects/entry-reason';
 import type { JudgeVerdict } from '@replays/domain/value-objects/judge-verdict.vo';
 import type { ModelSpent } from '@replays/domain/value-objects/model-spent.vo';
 import type { ReplayEnding } from '@replays/domain/value-objects/replay-ending';
-import type { ReplayRefusal } from '@replays/domain/value-objects/replay-refusal';
 import type { RunEnd } from '@replays/domain/value-objects/run-end.vo';
 import type { StationFingerprint } from '@replays/domain/value-objects/station-fingerprint.vo';
+import type { UnreplayableReason } from '@replays/domain/value-objects/unreplayable-reason';
 import { InconsistentStateError } from '@shared-kernel/domain/exceptions/inconsistent-state.error';
 import type { RunId } from '@shared-kernel/domain/value-objects/run-id.vo';
 import type { TaskId } from '@shared-kernel/domain/value-objects/task-id.vo';
@@ -31,7 +31,7 @@ interface EntryState {
   readonly queued: boolean;
   readonly fingerprint: StationFingerprint | null;
   readonly queueAttempts: number;
-  readonly refusal: ReplayRefusal | null;
+  readonly unreplayableReason: UnreplayableReason | null;
   readonly notRun: boolean;
   readonly end: RunEnd | null;
   readonly measures: EntryMeasures | null;
@@ -74,7 +74,7 @@ export class ReplayEntry {
       queued: false,
       fingerprint: null,
       queueAttempts: 0,
-      refusal: null,
+      unreplayableReason: null,
       notRun: false,
       end: null,
       measures: null,
@@ -99,7 +99,7 @@ export class ReplayEntry {
         'ended or was queued without a run of its own',
       );
     }
-    if (state.refusal !== null && state.end !== null) {
+    if (state.unreplayableReason !== null && state.end !== null) {
       throw new InconsistentStateError(
         'replay entry',
         'both ran and could not be replayed',
@@ -159,8 +159,8 @@ export class ReplayEntry {
     return this.state.queueAttempts;
   }
 
-  get refusal(): ReplayRefusal | null {
-    return this.state.refusal;
+  get unreplayableReason(): UnreplayableReason | null {
+    return this.state.unreplayableReason;
   }
 
   get notRun(): boolean {
@@ -349,7 +349,7 @@ export class ReplayEntry {
     return (
       scoring.judges &&
       this.state.judging === null &&
-      this.state.refusal === null &&
+      this.state.unreplayableReason === null &&
       this.state.end?.ending === 'completed' &&
       (this.state.checks?.drafted ?? false)
     );
@@ -401,13 +401,13 @@ export class ReplayEntry {
   get isWaiting(): boolean {
     return (
       this.state.run === null &&
-      this.state.refusal === null &&
+      this.state.unreplayableReason === null &&
       !this.state.notRun
     );
   }
 
   get isSettled(): boolean {
-    if (this.state.refusal !== null || this.state.notRun) {
+    if (this.state.unreplayableReason !== null || this.state.notRun) {
       return true;
     }
 
@@ -421,7 +421,7 @@ export class ReplayEntry {
   }
 
   get ending(): ReplayEnding | null {
-    if (this.state.refusal !== null) {
+    if (this.state.unreplayableReason !== null) {
       return 'unreplayable';
     }
     if (this.state.notRun) {
@@ -466,7 +466,7 @@ export class ReplayEntry {
   }
 
   gaveUp(): ReplayEntry {
-    return this.isGivenUp ? this.refused('dispatch-failed') : this;
+    return this.isGivenUp ? this.unreplayable('dispatch-failed') : this;
   }
 
   forgone(): ReplayEntry {
@@ -475,10 +475,10 @@ export class ReplayEntry {
       : this;
   }
 
-  refused(refusal: ReplayRefusal): ReplayEntry {
-    return this.state.end || this.state.refusal !== null
+  unreplayable(reason: UnreplayableReason): ReplayEntry {
+    return this.state.end || this.state.unreplayableReason !== null
       ? this
-      : this.with({ refusal, queued: false });
+      : this.with({ unreplayableReason: reason, queued: false });
   }
 
   skipped(): ReplayEntry {
@@ -486,7 +486,7 @@ export class ReplayEntry {
   }
 
   ended(end: RunEnd): ReplayEntry {
-    return this.state.end || this.state.refusal !== null
+    return this.state.end || this.state.unreplayableReason !== null
       ? this
       : this.with({ end, queued: true });
   }

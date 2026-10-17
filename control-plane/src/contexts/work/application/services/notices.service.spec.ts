@@ -100,7 +100,7 @@ describe('Notices', () => {
     expect(memory.stored.size).toBe(2);
   });
 
-  it('refuses a form it does not know', async () => {
+  it('rejects a form it does not know', async () => {
     await expect(
       noticesOver(new InMemoryNotices()).raise({ ...STALLED, form: 'gossip' }),
     ).rejects.toThrow('Notice form must be one of');

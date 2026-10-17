@@ -16,7 +16,7 @@ export const SEED_NAME = 'seed';
 
 const CANDIDATE_NAME_SAYS = `name must be 1 to ${MAX_LENGTH} characters`;
 
-const refusalOf = (raw: string): string | null => {
+const problemOf = (raw: string): string | null => {
   if (raw.length === 0 || raw.length > MAX_LENGTH) {
     return CANDIDATE_NAME_SAYS;
   }
@@ -34,10 +34,10 @@ export class CandidateName {
   private constructor(readonly value: string) {}
 
   static of(raw: string): CandidateName {
-    const refused = refusalOf(raw);
+    const problem = problemOf(raw);
 
-    if (refused) {
-      throw new InvalidCandidateError(refused);
+    if (problem) {
+      throw new InvalidCandidateError(problem);
     }
 
     return new CandidateName(raw);

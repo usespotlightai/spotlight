@@ -1,6 +1,6 @@
 import { PickSearchCandidateHandler } from '@replays/application/commands/handlers/pick-search-candidate.handler';
 import { PickSearchCandidateCommand } from '@replays/application/commands/pick-search-candidate.command';
-import { ConfigRepositoryRefusedError } from '@replays/application/errors/config-repository-refused.error';
+import { ConfigRepositoryError } from '@replays/application/errors/config-repository.error';
 import type {
   ConfigCommit,
   ConfigPullRequestOpening,
@@ -274,7 +274,7 @@ describe('picking a search candidate', () => {
     });
   });
 
-  it('refuses the seed and a reader who may not plan', async () => {
+  it('rejects the seed and denies a reader who may not plan', async () => {
     await expect(pick(search.seed.candidateId.value)).rejects.toThrow(
       'The seed is already the station’s live config.',
     );
@@ -298,7 +298,7 @@ describe('picking a search candidate', () => {
     await pick();
     await opening().workDue();
 
-    expect(only()).toMatchObject({ current: 'refused', attempts: 1 });
+    expect(only()).toMatchObject({ current: 'failed', attempts: 1 });
     expect(only().reason).toMatchObject({
       code: 'computed-attribute',
       wanted: 'Build it.',
@@ -317,8 +317,8 @@ describe('picking a search candidate', () => {
     expect(configs.openings[0]?.body).toContain('`judge.rubric`');
   });
 
-  it('refuses a repository the GitHub App cannot reach, and a file it does not contain', async () => {
-    configs.failing = new ConfigRepositoryRefusedError(
+  it('fails for a repository the GitHub App cannot reach, and for a file it does not contain', async () => {
+    configs.failing = new ConfigRepositoryError(
       'repository-unreachable',
       'not installed',
     );
@@ -338,26 +338,26 @@ describe('picking a search candidate', () => {
     expect(only().reason?.code).toBe('file-missing');
   });
 
-  it('gives up at once on what GitHub refuses for good, and writes over only its own branch on a new attempt', async () => {
+  it('gives up at once on what GitHub rejects for good, and writes over only its own branch on a new attempt', async () => {
     configs.failing = null;
     await pick();
     const opened = configs.opened.bind(configs);
 
     configs.opened = async () => {
-      throw new ConfigRepositoryRefusedError(
-        'github-refused',
+      throw new ConfigRepositoryError(
+        'github-error',
         'Resource not accessible by integration',
       );
     };
     await opening().workDue();
 
     expect(only()).toMatchObject({
-      current: 'refused',
+      current: 'failed',
       tries: 0,
       lastCommit: 'commit_1',
     });
     expect(only().reason).toMatchObject({
-      code: 'github-refused',
+      code: 'github-error',
       message: 'Resource not accessible by integration',
     });
 
@@ -407,14 +407,14 @@ describe('picking a search candidate', () => {
       await opening().workDue();
     }
 
-    expect(only()).toMatchObject({ current: 'refused' });
+    expect(only()).toMatchObject({ current: 'failed' });
     expect(only().reason).toMatchObject({
-      code: 'github-refused',
+      code: 'github-error',
       message: 'GitHub is down',
     });
   });
 
-  it('is refused at once when the line names no source', async () => {
+  it('fails at once when the line names no source', async () => {
     work.station = async () => ({ ...STATION_VIEW, source: null });
     await pick();
     await opening().workDue();

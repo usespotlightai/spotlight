@@ -80,7 +80,9 @@ const columnsOf = (host: RunnerHost) => ({
       })),
       ...(each.digest ? { digest: each.digest.value } : {}),
       ...(each.release ? { release: each.release } : {}),
-      ...(each.refused ? { refused: each.refused } : {}),
+      ...(each.unavailableReason
+        ? { unavailableReason: each.unavailableReason }
+        : {}),
     }),
   ),
   firstSeenAt: host.firstSeenAt,

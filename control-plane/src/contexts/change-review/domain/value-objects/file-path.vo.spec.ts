@@ -10,7 +10,7 @@ describe('FilePath', () => {
     ).toBe(true);
   });
 
-  it('refuses a path that names no file', () => {
+  it('rejects a path that names no file', () => {
     expect(() => FilePath.of('  ')).toThrow(InvalidFilePathError);
     expect(() => FilePath.of('/')).toThrow(InvalidFilePathError);
   });

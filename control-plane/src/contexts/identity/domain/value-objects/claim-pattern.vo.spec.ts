@@ -34,9 +34,9 @@ describe('ClaimPattern', () => {
     expect(ClaimPattern.of('repo:acme/x').isExact).toBe(true);
   });
 
-  it('refuses a blank pattern, one with spaces, or one too long', () => {
-    for (const refused of ['', ' ', 'a b', 'a'.repeat(256)]) {
-      expect(() => ClaimPattern.of(refused)).toThrow(InvalidTokenTrustError);
+  it('rejects a blank pattern, one with spaces, or one too long', () => {
+    for (const invalid of ['', ' ', 'a b', 'a'.repeat(256)]) {
+      expect(() => ClaimPattern.of(invalid)).toThrow(InvalidTokenTrustError);
     }
   });
 });

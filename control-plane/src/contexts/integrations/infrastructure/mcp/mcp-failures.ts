@@ -1,18 +1,18 @@
-import { OutboundRefusedError } from '@integrations/domain/exceptions/outbound-refused.error';
+import { EgressBlockedError } from '@integrations/domain/exceptions/egress-blocked.error';
 import { StreamableHTTPError } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
 import { McpError } from '@modelcontextprotocol/sdk/types.js';
 
-export class McpAuthorizationRefused extends Error {
+export class McpUnauthorizedError extends Error {
   constructor(readonly server: string) {
     super(`${new URL(server).host} answered 401`);
-    this.name = 'McpAuthorizationRefused';
+    this.name = 'McpUnauthorizedError';
   }
 }
 
-export class McpQuestionRefused extends Error {
+export class McpQuestionUnsupportedError extends Error {
   constructor() {
     super('the MCP server asked a question in the middle of the call');
-    this.name = 'McpQuestionRefused';
+    this.name = 'McpQuestionUnsupportedError';
   }
 }
 
@@ -31,7 +31,7 @@ const codeOf = (error: unknown): string => {
       : String(cause);
 };
 
-export const refusedAuthorization = (error: unknown): boolean =>
+export const isUnauthorized = (error: unknown): boolean =>
   error instanceof StreamableHTTPError && error.code === UNAUTHORIZED;
 
 export const sessionGone = (error: unknown): boolean =>
@@ -49,9 +49,9 @@ export const mcpReasonOf = (error: unknown, server: string): string => {
   }
 
   if (
-    error instanceof McpAuthorizationRefused ||
-    error instanceof McpQuestionRefused ||
-    error instanceof OutboundRefusedError
+    error instanceof McpUnauthorizedError ||
+    error instanceof McpQuestionUnsupportedError ||
+    error instanceof EgressBlockedError
   ) {
     return error.message;
   }

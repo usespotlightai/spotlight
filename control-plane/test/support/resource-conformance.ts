@@ -445,7 +445,7 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
       }
     });
 
-    it('refuses a create without an Idempotency-Key, creating nothing', async () => {
+    it('rejects a create without an Idempotency-Key, creating nothing', async () => {
       problem(
         await admin().create(fixture.valid, null),
         400,
@@ -478,7 +478,7 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
       }
     });
 
-    it('refuses an Idempotency-Key used for a different request', async () => {
+    it('rejects an Idempotency-Key used for a different request', async () => {
       const key = randomUUID();
 
       await admin().create(fixture.valid, key);
@@ -490,13 +490,13 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
       );
     });
 
-    it('refuses a second create at an address already taken', async () => {
+    it('rejects a second create at an address already taken', async () => {
       await created();
 
       problem(await admin().create(fixture.valid), 409, 'already-exists');
     });
 
-    it('refuses a change or delete that does not say which version it is of', async () => {
+    it('rejects a change or delete that does not say which version it is of', async () => {
       const made = await created();
 
       if (updates) {
@@ -514,7 +514,7 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
     });
 
     it.skipIf(!updates)(
-      'refuses a change to a version no longer current, naming the current one',
+      'rejects a change to a version no longer current, naming the current one',
       async () => {
         const made = await created();
         const changed = await admin().update(
@@ -548,7 +548,7 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
     );
 
     it.skipIf(!updates)(
-      'lets one of two concurrent writes through, and refuses the other with the current version',
+      'lets one of two concurrent writes through, and rejects the other with the current version',
       async () => {
         const made = await created();
         const writes = await Promise.all([
@@ -566,14 +566,14 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
       },
     );
 
-    it('refuses an invalid create or change, pointing at the field', async () => {
-      const refused = problem(
+    it('rejects an invalid create or change, pointing at the field', async () => {
+      const rejected = problem(
         await admin().create(fixture.invalid.body),
         422,
         'invalid',
       );
 
-      expect(refused.errors).toContainEqual(
+      expect(rejected.errors).toContainEqual(
         expect.objectContaining({ path: fixture.invalid.path }),
       );
 
@@ -632,7 +632,7 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
         listed(await viewer.list(fixture.workspaceOf(made))),
       ).toContainEqual(made);
 
-      const refusals = [
+      const forbidden = [
         ...(fixture.anyoneCreates
           ? []
           : [problem(await viewer.create(fixture.changed), 403, 'forbidden')]),
@@ -648,8 +648,8 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
         problem(await viewer.remove(made.id, made.version), 403, 'forbidden'),
       ];
 
-      for (const refusal of refusals) {
-        expect(FORBIDDEN_ACTS).toContain(refusal.permission);
+      for (const answer of forbidden) {
+        expect(FORBIDDEN_ACTS).toContain(answer.permission);
       }
     });
 
@@ -657,7 +657,7 @@ export function conformsAsResource(resource: ResourceUnderTest): void {
       problem(await as(null).read(randomUUID()), 401, 'unauthenticated');
     });
 
-    it('refuses an API version it does not serve, and names its own on every answer', async () => {
+    it('rejects an API version it does not serve, and names its own on every answer', async () => {
       const made = await created();
       const answer = await admin()
         .read(made.id)

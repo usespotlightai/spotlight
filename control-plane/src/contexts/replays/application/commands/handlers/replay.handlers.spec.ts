@@ -143,7 +143,7 @@ describe('StartReplayHandler', () => {
     expect(baseline?.repeats).toBe(3);
   });
 
-  it('refuses to replay a run more than five times', async () => {
+  it('does not replay a run more than five times', async () => {
     await expect(start('candidate_proposed', true, 6)).rejects.toBeInstanceOf(
       ApplicationError,
     );
@@ -261,7 +261,7 @@ describe('StartReplayHandler', () => {
     ).toHaveLength(1);
   });
 
-  it('refuses to start, to be started again, when the set came to need a baseline after it looked', async () => {
+  it('does not start, to be started again, when the set came to need a baseline after it looked', async () => {
     await start('candidate_proposed');
     await wantedBaselines();
     const baseline = [...memory.replays.values()].find((each) => each.baseline);
@@ -359,7 +359,7 @@ describe('StartReplayHandler', () => {
     );
   });
 
-  it('refuses a ceiling of nothing', async () => {
+  it('rejects a ceiling of nothing', async () => {
     await expect(
       starting().execute(
         new StartReplayCommand(
@@ -374,7 +374,7 @@ describe('StartReplayHandler', () => {
     ).rejects.toMatchObject({ kind: 'invalid' });
   });
 
-  it('refuses one who may not plan', async () => {
+  it('denies one who may not plan', async () => {
     expect(await start('live', false)).toEqual({
       outcome: 'forbidden',
       act: 'plan',

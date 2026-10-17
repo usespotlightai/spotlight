@@ -77,7 +77,7 @@ const DEFINITION = ApiBody({
         minimum: 0,
         nullable: true,
         description:
-          'Changed, with a new token, to rotate the egress token in place: the old token is refused at once',
+          'Changed, with a new token, to rotate the egress token in place: the old token stops working at once',
       },
     },
   },

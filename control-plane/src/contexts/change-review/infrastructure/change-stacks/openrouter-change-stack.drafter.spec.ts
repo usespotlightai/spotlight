@@ -151,7 +151,7 @@ describe('OpenRouterChangeStackDrafter', () => {
     expect(body.messages[1].content).toContain('- leaves h2 out');
   });
 
-  it('says why OpenRouter refused', async () => {
+  it('says why the OpenRouter request failed', async () => {
     const { fetch } = answering(402, {
       error: { message: 'Insufficient credits' },
     });
@@ -159,11 +159,11 @@ describe('OpenRouterChangeStackDrafter', () => {
     await expect(
       draft(new OpenRouterChangeStackDrafter('or-key', DEFAULT_MODEL, fetch)),
     ).rejects.toThrow(
-      'OpenRouter refused the request. Response: 402 Insufficient credits',
+      'The OpenRouter request failed. Response: 402 Insufficient credits',
     );
   });
 
-  it('refuses an answer whose layers leave out their file notes', async () => {
+  it('rejects an answer whose layers leave out their file notes', async () => {
     const { fetch } = answering(200, {
       choices: [
         {
@@ -187,7 +187,7 @@ describe('OpenRouterChangeStackDrafter', () => {
     ).rejects.toThrow();
   });
 
-  it('refuses an answer cut short', async () => {
+  it('rejects an answer cut short', async () => {
     const { fetch } = answering(200, {
       choices: [{ finish_reason: 'length', message: { content: '{"coh' } }],
     });

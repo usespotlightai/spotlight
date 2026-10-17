@@ -75,7 +75,7 @@ describe('search words cover every code the API can answer', () => {
     }
   });
 
-  it('words every state of a config pull request and every reason it was refused', () => {
+  it('words every state of a config pull request and every reason it failed', () => {
     for (const schema of [
       'CandidatePullRequestResponseDto',
       'ConfigPullRequestResponseDto',

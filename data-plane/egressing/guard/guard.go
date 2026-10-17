@@ -10,11 +10,11 @@ import (
 	"time"
 )
 
-type Refusal struct {
+type Blocked struct {
 	Reason string
 }
 
-func (r *Refusal) Error() string { return r.Reason }
+func (b *Blocked) Error() string { return b.Reason }
 
 type named struct{}
 
@@ -28,7 +28,7 @@ func Named(ctx context.Context) bool {
 }
 
 func Dialer() *net.Dialer {
-	return &net.Dialer{Timeout: 30 * time.Second, KeepAlive: 30 * time.Second, ControlContext: refuseUnreachable}
+	return &net.Dialer{Timeout: 30 * time.Second, KeepAlive: 30 * time.Second, ControlContext: blockUnreachable}
 }
 
 var (
@@ -40,7 +40,7 @@ var (
 	}
 )
 
-func refuseUnreachable(ctx context.Context, _, address string, _ syscall.RawConn) error {
+func blockUnreachable(ctx context.Context, _, address string, _ syscall.RawConn) error {
 	host, _, err := net.SplitHostPort(address)
 	if err != nil {
 		return err
@@ -48,19 +48,19 @@ func refuseUnreachable(ctx context.Context, _, address string, _ syscall.RawConn
 
 	ip, err := netip.ParseAddr(host)
 	if err != nil {
-		return &Refusal{fmt.Sprintf("Egress never opens a connection to %s.", host)}
+		return &Blocked{fmt.Sprintf("Egress never opens a connection to %s.", host)}
 	}
 	ip = ip.Unmap()
 
 	if ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() || ip.IsUnspecified() ||
 		ip.IsMulticast() || ip.IsInterfaceLocalMulticast() || nowhere.Contains(ip) {
-		return &Refusal{fmt.Sprintf("Egress never opens a connection to %s.", host)}
+		return &Blocked{fmt.Sprintf("Egress never opens a connection to %s.", host)}
 	}
 
 	if !Named(ctx) && (ip.IsPrivate() || slices.ContainsFunc(inside, func(prefix netip.Prefix) bool {
 		return prefix.Contains(ip)
 	})) {
-		return &Refusal{fmt.Sprintf("Egress opens a connection to private address %s only if the allow-list names the host.", host)}
+		return &Blocked{fmt.Sprintf("Egress opens a connection to private address %s only if the allow-list names the host.", host)}
 	}
 
 	return nil

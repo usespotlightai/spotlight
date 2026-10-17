@@ -37,7 +37,7 @@ const NOTHING: RunFilterAsked = {
 };
 
 describe('runFilterOf', () => {
-  it('narrows to the week that starts on the day asked, and refuses a day it cannot read', () => {
+  it('narrows to the week that starts on the day asked, and rejects a day it cannot read', () => {
     expect(
       runFilterOf({ ...NOTHING, week: '2026-09-28' }, PERIOD).week,
     ).toEqual({
@@ -49,7 +49,7 @@ describe('runFilterOf', () => {
     ).toThrow(InvalidRunFilterError);
   });
 
-  it('refuses a week that is not a real day, or starts on a day other than Monday', () => {
+  it('rejects a week that is not a real day, or starts on a day other than Monday', () => {
     for (const week of ['2026-02-30', '2026-13-01', '2026-09-29']) {
       expect(() => runFilterOf({ ...NOTHING, week }, PERIOD)).toThrow(
         InvalidRunFilterError,
@@ -87,7 +87,7 @@ describe('runFilterOf', () => {
     });
   });
 
-  it('refuses a value longer than two hundred characters', () => {
+  it('rejects a value longer than two hundred characters', () => {
     expect(
       runFilterOf({ ...NOTHING, skillUsed: 'a'.repeat(200) }, PERIOD).skillUsed,
     ).toHaveLength(200);
@@ -142,7 +142,7 @@ describe('runFilterOf', () => {
     ).toEqual(['task_2']);
   });
 
-  it('refuses more than two hundred tasks at once', () => {
+  it('rejects more than two hundred tasks at once', () => {
     expect(() =>
       runFilterOf(
         {
@@ -154,7 +154,7 @@ describe('runFilterOf', () => {
     ).toThrow(InvalidRunFilterError);
   });
 
-  it('refuses an outcome, delivery or next act it does not know', () => {
+  it('rejects an outcome, delivery or next act it does not know', () => {
     for (const asked of [
       { outcome: 'exploded' },
       { delivery: 'shipped' },
@@ -176,7 +176,7 @@ describe('runFilterOf', () => {
     });
   });
 
-  it('narrows to a day of the period, and refuses a day it cannot read or that falls outside the period', () => {
+  it('narrows to a day of the period, and rejects a day it cannot read or that falls outside the period', () => {
     expect(runFilterOf({ ...NOTHING, day: '2026-09-28' }, PERIOD).day).toEqual({
       from: new Date('2026-09-28T00:00:00.000Z'),
       to: new Date('2026-09-29T00:00:00.000Z'),
@@ -194,7 +194,7 @@ describe('runFilterOf', () => {
     }
   });
 
-  it('refuses a value asked more than once where it takes one', () => {
+  it('rejects a value asked more than once where it takes one', () => {
     for (const asked of [
       { stationId: ['station_1', 'station_2'] },
       { model: ['opus', 'sonnet'] },
@@ -207,7 +207,7 @@ describe('runFilterOf', () => {
     }
   });
 
-  it('narrows to tasks that asked someone during the period only when asked true, and refuses anything but true or false', () => {
+  it('narrows to tasks that asked someone during the period only when asked true, and rejects anything but true or false', () => {
     expect(
       runFilterOf({ ...NOTHING, asked: 'true' }, PERIOD).askedWithin,
     ).toEqual(PERIOD);

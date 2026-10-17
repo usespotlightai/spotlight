@@ -31,16 +31,16 @@ describe('Attachment', () => {
     expect(named.endsWith('.png')).toBe(true);
   });
 
-  it('refuses a name that is nothing once cleaned', () => {
+  it('rejects a name that is nothing once cleaned', () => {
     expect(() => file({ name: '...' })).toThrow(InvalidAttachmentError);
   });
 
-  it('refuses an id that could name somewhere else', () => {
+  it('rejects an id that could name somewhere else', () => {
     expect(() => file({ id: '../file_2' })).toThrow(InvalidAttachmentError);
     expect(() => file({ id: '' })).toThrow(InvalidAttachmentError);
   });
 
-  it('refuses a file larger than the most one may weigh', () => {
+  it('rejects a file larger than the most one may weigh', () => {
     expect(file({ size: MAX_ATTACHMENT_BYTES }).size).toBe(
       MAX_ATTACHMENT_BYTES,
     );
@@ -49,7 +49,7 @@ describe('Attachment', () => {
     );
   });
 
-  it('refuses a size that is not a count of bytes', () => {
+  it('rejects a size that is not a count of bytes', () => {
     expect(() => file({ size: -1 })).toThrow(InvalidAttachmentError);
     expect(() => file({ size: 1.5 })).toThrow(InvalidAttachmentError);
   });

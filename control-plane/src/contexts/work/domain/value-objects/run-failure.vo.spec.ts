@@ -40,7 +40,7 @@ describe('RunFailure', () => {
     );
   });
 
-  it('refuses a code nobody knows', () => {
+  it('rejects a code nobody knows', () => {
     expect(() => RunFailure.of('exploded')).toThrow(InvalidRunOutcomeError);
   });
 });

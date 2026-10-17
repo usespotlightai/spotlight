@@ -12,7 +12,7 @@ import {
   askForJson,
   type Fetch,
   JsonShape,
-  OpenRouterRefusedError,
+  OpenRouterRequestError,
   OpenRouterUnansweredError,
 } from '@platform/openrouter/openrouter-json';
 import { z } from 'zod';
@@ -156,7 +156,11 @@ export class OpenRouterJudge implements JudgePort {
 
   async judge(ask: JudgeAsk): Promise<JudgeAnswer> {
     if (!this.apiKey) {
-      throw new JudgingError('refused', 'no OpenRouter API key is set', null);
+      throw new JudgingError(
+        'request-failed',
+        'no OpenRouter API key is set',
+        null,
+      );
     }
 
     const asking = {
@@ -194,8 +198,8 @@ export class OpenRouterJudge implements JudgePort {
         usage,
       };
     } catch (error) {
-      if (error instanceof OpenRouterRefusedError) {
-        throw new JudgingError('refused', error.message, null);
+      if (error instanceof OpenRouterRequestError) {
+        throw new JudgingError('request-failed', error.message, null);
       }
       if (error instanceof OpenRouterUnansweredError) {
         throw new JudgingError('unreadable', error.message, error.usage);

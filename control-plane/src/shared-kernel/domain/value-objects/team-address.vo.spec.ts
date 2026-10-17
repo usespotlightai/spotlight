@@ -21,7 +21,7 @@ describe('TeamAddress', () => {
     '/delivery',
     'core/delivery/more',
     'Core/delivery',
-  ])('refuses %j', (text) => {
+  ])('rejects %j', (text) => {
     expect(() => TeamAddress.parse(text)).toThrow(InvalidIdentifierError);
   });
 });

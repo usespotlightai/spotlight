@@ -16,7 +16,7 @@ export interface SearchOrder {
   readonly briefing: string;
 }
 
-export interface SearchAgentRefusal {
+export interface SearchAgentProblem {
   readonly field: 'harness' | 'model' | 'effort';
   readonly reason: string;
 }
@@ -31,7 +31,7 @@ export type UnclaimedWithdrawal =
   | { readonly outcome: 'ended' };
 
 export interface SearchDispatchPort {
-  refusalOf(agent: SearchAgent): SearchAgentRefusal | null;
+  problemOf(agent: SearchAgent): SearchAgentProblem | null;
 
   enqueue(order: SearchOrder): Promise<SearchDispatched>;
 

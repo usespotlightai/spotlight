@@ -69,6 +69,6 @@ export const ConnectionChoice = {
 
     return found.usable
       ? null
-      : wanted(integration, holder.personId, 'renewal-refused');
+      : wanted(integration, holder.personId, 'refresh-failed');
   },
 };

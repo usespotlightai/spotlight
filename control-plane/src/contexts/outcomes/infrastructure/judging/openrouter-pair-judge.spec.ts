@@ -72,7 +72,7 @@ describe('judging two changes side by side through OpenRouter', () => {
     expect(evidence.reference.hunks[0].lines).toEqual(['+drainInOrder()']);
   });
 
-  it('refuses to judge without an API key', async () => {
+  it('does not judge without an API key', async () => {
     await expect(
       new OpenRouterPairJudge(undefined, 'some/model').judgePair(ASK),
     ).rejects.toBeInstanceOf(JudgingError);

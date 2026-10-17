@@ -9,7 +9,7 @@ describe('IdempotencyKey', () => {
     );
   });
 
-  it('refuses one that is empty, too long, or has spaces', () => {
+  it('rejects one that is empty, too long, or has spaces', () => {
     for (const raw of ['', 'a'.repeat(256), 'two words']) {
       expect(() => IdempotencyKey.of(raw)).toThrow(InvalidIdentifierError);
     }

@@ -717,7 +717,7 @@ describe('how a station’s runs turned out', () => {
     });
   });
 
-  it('refuses to write over a record that changed since it was read', async () => {
+  it('does not write over a record that changed since it was read', async () => {
     const read = await records.of(RunId.of('run_3'));
 
     if (!read) {

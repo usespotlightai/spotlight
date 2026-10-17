@@ -16,14 +16,14 @@ func TestProgressAdvancesThroughLegalSteps(t *testing.T) {
 	}
 }
 
-func TestProgressRefusesAnIllegalStepAndStaysPut(t *testing.T) {
+func TestProgressRejectsAnIllegalStepAndStaysPut(t *testing.T) {
 	lifecycle := &progress{state: Preparing}
 
 	if err := lifecycle.reach(Drained); err == nil {
-		t.Fatal("draining before running should be refused")
+		t.Fatal("draining before running should be rejected")
 	}
 
 	if lifecycle.state != Preparing {
-		t.Errorf("a refused step moved the run to %s", lifecycle.state)
+		t.Errorf("a rejected step moved the run to %s", lifecycle.state)
 	}
 }

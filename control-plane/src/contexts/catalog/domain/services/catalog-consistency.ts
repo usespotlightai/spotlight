@@ -1,6 +1,6 @@
 import type { CatalogItem } from '@catalog/domain/entities/catalog-item.entity';
 
-export const catalogRefused = (
+export const catalogProblem = (
   items: readonly CatalogItem[],
 ): string | null => {
   for (const item of items) {

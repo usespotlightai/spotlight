@@ -204,18 +204,18 @@ describe('setting a team up as code (e2e)', () => {
     expect(await expired(expiresAt)).toContain(minted.id);
   });
 
-  it('refuses a setup that names no repository and folder', async () => {
+  it('rejects a setup that names no repository and folder', async () => {
     await starting({ repository: 'acme/infra' }).expect(400);
     await starting('acme/infra').expect(400);
   });
 
-  it('refuses a setup in a repository the GitHub App cannot reach', async () => {
-    const refused = await starting({
+  it('rejects a setup in a repository the GitHub App cannot reach', async () => {
+    const rejected = await starting({
       repository: 'acme/infra',
       folder: 'spotlight',
     }).expect(422);
 
-    expect(JSON.stringify(refused.body)).toContain("can't reach acme/infra");
+    expect(JSON.stringify(rejected.body)).toContain("can't reach acme/infra");
     await expect(reader().setupOf(TeamId.of(workspaceId))).resolves.toBeNull();
   });
 

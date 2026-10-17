@@ -29,7 +29,7 @@ describe('Poll', () => {
     expect(poll().isDue(new Date(NOW.getTime() - 60_000), NOW)).toBe(true);
   });
 
-  it('refuses one that raises nothing', () => {
+  it('rejects one that raises nothing', () => {
     expect(() => Poll.of({ every: 60, declares: [] })).toThrow(
       /raises no events/,
     );

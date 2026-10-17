@@ -18,9 +18,9 @@ type replaySet struct {
 	CreatedAt   string `json:"createdAt"`
 	StationGone bool   `json:"stationGone"`
 	Entries     []struct {
-		RunID   string  `json:"runId"`
-		TaskID  string  `json:"taskId"`
-		Refusal *string `json:"refusal"`
+		RunID              string  `json:"runId"`
+		TaskID             string  `json:"taskId"`
+		UnreplayableReason *string `json:"unreplayableReason"`
 	} `json:"entries"`
 }
 
@@ -157,7 +157,7 @@ func (c *cli) sets(args []string) error {
 	for _, each := range sets {
 		replayable := 0
 		for _, run := range each.Entries {
-			if run.Refusal == nil {
+			if run.UnreplayableReason == nil {
 				replayable++
 			}
 		}

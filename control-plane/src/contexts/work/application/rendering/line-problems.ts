@@ -27,7 +27,7 @@ export const LineProblems = {
     });
   },
 
-  catalogRefused(
+  catalogDenied(
     key: string,
     at: FieldPath,
     because: string,

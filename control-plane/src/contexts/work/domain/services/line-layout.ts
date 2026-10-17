@@ -36,7 +36,7 @@ export type LinePart =
       readonly field: 'to' | 'from' | null;
     };
 
-interface LayoutRefusal {
+interface LayoutProblem {
   readonly reason: string;
   readonly part: LinePart;
 }
@@ -55,9 +55,9 @@ const reactionAt = (place: number, field: 'to' | 'from' | null): LinePart => ({
   field,
 });
 
-export const stationsRefused = (
+export const stationsProblem = (
   stations: readonly LaidStation[],
-): LayoutRefusal | null => {
+): LayoutProblem | null => {
   if (stations.length === 0) {
     return { reason: 'must include at least one station', part: STATIONS };
   }
@@ -138,10 +138,10 @@ interface CheckingStation {
   readonly diffs: boolean;
 }
 
-export const setupRefused = (
+export const setupProblem = (
   stations: readonly CheckingStation[],
   repositories: LineRepositories,
-): LayoutRefusal | null => {
+): LayoutProblem | null => {
   const checking = stations.find((each) => each.check !== null && each.diffs);
   const unready = repositories.entries.findIndex((each) => !each.setup);
 
@@ -153,10 +153,10 @@ export const setupRefused = (
     : null;
 };
 
-export const reactionsRefused = (
+export const reactionsProblem = (
   reactions: readonly LaidReaction[],
   stationKeys: ReadonlySet<string>,
-): LayoutRefusal | null => {
+): LayoutProblem | null => {
   const claimed = new Set<string>();
 
   for (const [at, reaction] of reactions.entries()) {

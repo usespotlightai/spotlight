@@ -100,7 +100,7 @@ describe('Egress', () => {
     expect(event).toBeInstanceOf(EgressRetired);
   });
 
-  it('refuses a write based on another version', () => {
+  it('rejects a write based on another version', () => {
     expect(() => anEgress().assertVersion(1)).toThrow(
       EgressVersionConflictError,
     );
@@ -114,7 +114,7 @@ describe('EgressUrl', () => {
     expect(EgressUrl.of('http://egress:8443').isSecure).toBe(false);
   });
 
-  it('refuses a URL that is not absolute, has credentials, a query or a fragment', () => {
+  it('rejects a URL that is not absolute, has credentials, a query or a fragment', () => {
     for (const raw of [
       'egress.example.com',
       'ftp://egress.example.com',

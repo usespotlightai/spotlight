@@ -28,9 +28,9 @@ import { UnreadyRepositoryError } from '@work/domain/exceptions/unready-reposito
 import type { LineOpening } from '@work/domain/services/built-in-lines';
 import { entryOf } from '@work/domain/services/line-entry';
 import {
-  reactionsRefused,
-  setupRefused,
-  stationsRefused,
+  reactionsProblem,
+  setupProblem,
+  stationsProblem,
 } from '@work/domain/services/line-layout';
 import type { TaskCounts } from '@work/domain/services/reconcile-line';
 import type { AgentPrompt } from '@work/domain/value-objects/agent-prompt.vo';
@@ -38,13 +38,13 @@ import type { ConfigSource } from '@work/domain/value-objects/config-source.vo';
 import type { Effort } from '@work/domain/value-objects/effort.vo';
 import { HandoverOption } from '@work/domain/value-objects/handover-option.vo';
 import type { Happening } from '@work/domain/value-objects/happening.vo';
+import type {
+  MoveDenial,
+  PassDenial,
+} from '@work/domain/value-objects/line-denial';
 import { LineId } from '@work/domain/value-objects/line-id.vo';
 import type { LineKey } from '@work/domain/value-objects/line-key.vo';
 import type { LineName } from '@work/domain/value-objects/line-name.vo';
-import type {
-  MoveRefusal,
-  PassRefusal,
-} from '@work/domain/value-objects/line-refusal';
 import { LineRepositories } from '@work/domain/value-objects/line-repositories.vo';
 import { LineRole } from '@work/domain/value-objects/line-role.vo';
 import { Reaction } from '@work/domain/value-objects/reaction.vo';
@@ -198,7 +198,7 @@ export class Line extends EventRecorder {
     const keyOf = new Map(
       stations.map((each) => [each.id.value, each.key.value]),
     );
-    const laid = stationsRefused(
+    const laid = stationsProblem(
       stations.map((each) => ({
         key: each.key.value,
         name: each.name.value,
@@ -211,7 +211,7 @@ export class Line extends EventRecorder {
       throw new InvalidStationLayoutError(laid.reason);
     }
 
-    const reacting = reactionsRefused(
+    const reacting = reactionsProblem(
       reactions.map((each) => ({
         happening: each.happening.value,
         from: each.from ? (keyOf.get(each.from.value) ?? '') : null,
@@ -225,7 +225,7 @@ export class Line extends EventRecorder {
     }
 
     const repositories = LineRepositories.of(layout.repositories ?? []);
-    const unready = setupRefused(stations, repositories);
+    const unready = setupProblem(stations, repositories);
 
     if (unready) {
       throw new UnreadyRepositoryError(unready.reason);
@@ -626,16 +626,14 @@ export class Line extends EventRecorder {
 
     return [
       ...this.stations
-        .filter(
-          (station) => from && this.refusalToPass(from.id, station) === null,
-        )
+        .filter((station) => from && this.passDenial(from.id, station) === null)
         .map((station) => HandoverOption.station(station.key, station.name)),
       HandoverOption.review(),
       ...(from?.wayOut.ends ? [HandoverOption.done()] : []),
     ];
   }
 
-  refusalToPass(from: StationId, to: Station): PassRefusal | null {
+  passDenial(from: StationId, to: Station): PassDenial | null {
     if (to.id.equals(from)) {
       return 'already-there';
     }
@@ -648,7 +646,7 @@ export class Line extends EventRecorder {
     return null;
   }
 
-  refusalToMove(from: Station, to: Station): MoveRefusal | null {
+  moveDenial(from: Station, to: Station): MoveDenial | null {
     if (from.id.equals(to.id)) {
       return null;
     }

@@ -228,7 +228,7 @@ describe('ApplyLines', () => {
     expect(tallies.taskCountsAt).not.toHaveBeenCalled();
   });
 
-  it('refuses a change that would strand work that arrived after the tally', async () => {
+  it('rejects a change that would strand work that arrived after the tally', async () => {
     const existing = line();
     const { applied, save } = applying(asPlan(existing), { existing });
 

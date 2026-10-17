@@ -61,9 +61,12 @@ const lastOwner = (person: WorkspacePerson) =>
   person.role === 'owner' &&
   membersWorld().people.filter((each) => each.role === 'owner').length === 1;
 
-type Refusal = readonly [status: number, detail: string];
+type RoleAssignmentDenial = readonly [status: number, detail: string];
 
-const refusalToGive = (person: WorkspacePerson, role: Role): Refusal | null => {
+const roleAssignmentDenial = (
+  person: WorkspacePerson,
+  role: Role,
+): RoleAssignmentDenial | null => {
   const mine = myRole();
 
   if (RANK[mine] < RANK.admin) {
@@ -93,7 +96,7 @@ const teamsOf = (personId: string) =>
   );
 
 const mayBeSetToOf = (person: WorkspacePerson): Role[] => {
-  const givable = ROLES.filter((each) => !refusalToGive(person, each));
+  const givable = ROLES.filter((each) => !roleAssignmentDenial(person, each));
 
   return givable.length > 1 ? givable : [];
 };
@@ -316,9 +319,9 @@ const memberHandlers = [
       }
 
       const { role } = (await request.json()) as ChangeMemberRoleRequestDto;
-      const refusal = refusalToGive(person, role);
-      if (refusal) {
-        return problem(...refusal);
+      const denial = roleAssignmentDenial(person, role);
+      if (denial) {
+        return problem(...denial);
       }
 
       person.role = role;

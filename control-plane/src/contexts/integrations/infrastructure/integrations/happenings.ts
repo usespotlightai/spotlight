@@ -7,7 +7,7 @@ import type {
 } from '@integrations/infrastructure/integrations/integration.compile';
 import { type Bindings, bound } from '@platform/expressions/bindings';
 import { isTrue, reads, value } from '@platform/expressions/readings';
-import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
+import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
 import type {
   Arriving,
   Happened,
@@ -131,7 +131,7 @@ const raiseFrom = (
   const finding = marked.filter((each) => each.finds).map((each) => each.mark);
 
   if (!branch && finding.length === 0) {
-    throw new UpstreamRefusedError(
+    throw new UpstreamError(
       `reading a ${declared.happening.value}`,
       'it names neither a branch nor anything this line knows a task by',
     );

@@ -28,7 +28,7 @@ export const RunnerProblems = {
     });
   },
 
-  poolRefused(
+  poolInvalid(
     error:
       | RunnerPoolFixedError
       | PoolTokenTakenError
@@ -42,7 +42,7 @@ export const RunnerProblems = {
     });
   },
 
-  egressRefused(
+  egressInvalid(
     error:
       | EgressKeyFixedError
       | EgressTokenTakenError
@@ -61,12 +61,12 @@ export const RunnerProblems = {
       path: EGRESS,
       at: FieldPath.of(['url']),
       reason:
-        'is not https. Runners send their proxy credential to it. A production deployment refuses to provision runners that use it',
+        'is not https. Runners send their proxy credential to it. A production deployment does not provision runners that use it',
       severity: 'warning',
     });
   },
 
-  declarationRefused(
+  declarationInvalid(
     error: InvalidWorkspaceRunnersError,
   ): ConfigurationProblem {
     return ConfigurationProblem.of({
@@ -81,7 +81,7 @@ export const RunnerProblems = {
       path: RUNNER_POOL,
       at: FieldPath.of(['provision', 'url']),
       reason:
-        'is not https. Its calls carry a one-run token. A production deployment refuses to make them',
+        'is not https. Its calls carry a one-run token. A production deployment does not make them',
       severity: 'warning',
     });
   },

@@ -1,4 +1,4 @@
-import { OutboundRefusedError } from '@integrations/domain/exceptions/outbound-refused.error';
+import { EgressBlockedError } from '@integrations/domain/exceptions/egress-blocked.error';
 import {
   compileIntegration,
   type OAuth2Endpoints,
@@ -184,7 +184,7 @@ describe('OAuth2Exchange', () => {
     expect(linked?.accessToken.value).toBe('xoxb-2');
   });
 
-  it('refuses a token endpoint the deployment did not allow', async () => {
+  it('blocks a token endpoint the deployment did not allow', async () => {
     const fetch = replying({ access_token: 'xoxb-1' });
     const exchange = new OAuth2Exchange(
       new OutboundPolicy(['example.com']),
@@ -200,11 +200,11 @@ describe('OAuth2Exchange', () => {
         'https://app.example/callback',
         'v',
       ),
-    ).rejects.toBeInstanceOf(OutboundRefusedError);
+    ).rejects.toBeInstanceOf(EgressBlockedError);
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it('keeps nothing from a refusal by the host', async () => {
+  it('keeps nothing when the host answers with an error', async () => {
     const fetch = replying({ error: 'bad_code' }, 400);
     const exchange = new OAuth2Exchange(
       new OutboundPolicy(['slack.com']),

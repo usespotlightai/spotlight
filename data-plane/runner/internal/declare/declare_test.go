@@ -78,7 +78,7 @@ func TestAnswersInTheSpellingTheControlPlaneGave(t *testing.T) {
 	}
 }
 
-func TestRefusesAWordThatIsNotOnOffer(t *testing.T) {
+func TestRejectsAWordThatIsNotOnOffer(t *testing.T) {
 	server := serve(t)
 
 	status, said := post(t, server, server.Token(), `{"next":"Deployment"}`)
@@ -88,12 +88,12 @@ func TestRefusesAWordThatIsNotOnOffer(t *testing.T) {
 
 	for _, wanted := range []string{"Deployment", "spec", "code-review", "review"} {
 		if !strings.Contains(said, wanted) {
-			t.Fatalf("refusal %q never mentions %q", said, wanted)
+			t.Fatalf("error %q never mentions %q", said, wanted)
 		}
 	}
 
 	if declared := server.Take(); declared != nil {
-		t.Fatalf("refused but recorded %+v", declared)
+		t.Fatalf("rejected but recorded %+v", declared)
 	}
 }
 
@@ -139,7 +139,7 @@ func TestAnotherRunsTokenSpeaksForNothing(t *testing.T) {
 	}
 }
 
-func TestUnreadableBodyIsRefused(t *testing.T) {
+func TestUnreadableBodyIsRejected(t *testing.T) {
 	server := serve(t)
 
 	if status, _ := post(t, server, server.Token(), `{`); status != http.StatusBadRequest {
@@ -159,7 +159,7 @@ func serveLimited(t *testing.T, limit int) *declare.Server {
 	return server
 }
 
-func TestRefusesANoteLongerThanTheControlPlaneWillTake(t *testing.T) {
+func TestRejectsANoteLongerThanTheControlPlaneWillTake(t *testing.T) {
 	server := serveLimited(t, 20)
 
 	status, said := post(t, server, server.Token(),
@@ -186,7 +186,7 @@ func TestTakesANoteInsideTheLimit(t *testing.T) {
 	}
 }
 
-func TestRefusesNothingForLengthWhenNoLimitWasGiven(t *testing.T) {
+func TestRejectsNothingForLengthWhenNoLimitWasGiven(t *testing.T) {
 	server := serveLimited(t, 0)
 
 	status, _ := post(t, server, server.Token(),
@@ -220,7 +220,7 @@ func TestCarriesAToolItWasGivenToSpotlight(t *testing.T) {
 	}
 }
 
-func TestRefusesAToolTheRunWasNotGiven(t *testing.T) {
+func TestDeniesAToolTheRunWasNotGiven(t *testing.T) {
 	server := serve(t)
 	server.Tools([]string{"pull-request"}, func(context.Context, string, json.RawMessage) (json.RawMessage, error) {
 		t.Error("carried it to Spotlight anyway")
@@ -237,7 +237,7 @@ func TestRefusesAToolTheRunWasNotGiven(t *testing.T) {
 	}
 }
 
-func TestRefusesEveryToolWhereNoneWereGiven(t *testing.T) {
+func TestDeniesEveryToolWhereNoneWereGiven(t *testing.T) {
 	server := serve(t)
 
 	status, said := postTo(t, server, protocol.HandoverToolsPath+"pull-request", server.Token(), `{"title":"x"}`)
@@ -250,7 +250,7 @@ func TestRefusesEveryToolWhereNoneWereGiven(t *testing.T) {
 	}
 }
 
-func TestRefusesToolInputThatIsNotJSON(t *testing.T) {
+func TestRejectsToolInputThatIsNotJSON(t *testing.T) {
 	server := serve(t)
 	server.Tools([]string{"pull-request"}, func(context.Context, string, json.RawMessage) (json.RawMessage, error) {
 		t.Error("carried it to Spotlight anyway")
@@ -264,7 +264,7 @@ func TestRefusesToolInputThatIsNotJSON(t *testing.T) {
 	}
 }
 
-func TestSaysWhatSpotlightRefusedOfATool(t *testing.T) {
+func TestSaysWhatSpotlightRejectedOfATool(t *testing.T) {
 	server := serve(t)
 	server.Tools([]string{"pull-request"}, func(context.Context, string, json.RawMessage) (json.RawMessage, error) {
 		return nil, errors.New("pull-request needs a title: say what to call it")
@@ -325,7 +325,7 @@ func TestAnswersARemarkThroughSpotlight(t *testing.T) {
 	}
 }
 
-func TestRefusesAnAnswerWithNothingToGoOn(t *testing.T) {
+func TestRejectsAnAnswerWithNothingToGoOn(t *testing.T) {
 	server, err := declare.Serve([]string{"spec"}, 0,
 		func(context.Context, protocol.Remark) error {
 			t.Error("answered anyway")
@@ -396,7 +396,7 @@ func TestDescribesOnlyTheToolsTheRunWasGiven(t *testing.T) {
 	}
 }
 
-func TestRefusesAToolRequestNamingNoTool(t *testing.T) {
+func TestRejectsAToolRequestNamingNoTool(t *testing.T) {
 	server := serve(t)
 	server.Tools([]string{"pull-request"}, func(context.Context, string, json.RawMessage) (json.RawMessage, error) {
 		t.Error("carried it to Spotlight anyway")

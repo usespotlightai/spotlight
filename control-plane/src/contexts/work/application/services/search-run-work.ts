@@ -47,7 +47,7 @@ export class SearchRunWork implements RunWork {
   }
 
   async askToConnect(): Promise<ConnectionAsked> {
-    return { kind: 'refused', reason: NO_TOOLS };
+    return { kind: 'denied', reason: NO_TOOLS };
   }
 
   async clearPermission(): Promise<PermissionCleared> {

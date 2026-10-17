@@ -237,7 +237,7 @@ const copied = (parts: RunSpecParts): RunSpecParts => ({
   ...(parts.search ? { search: {} } : {}),
 });
 
-const replayRefusal = (parts: RunSpecParts): string | null => {
+const replayProblem = (parts: RunSpecParts): string | null => {
   const replay = parts.replay;
 
   if (!replay) {
@@ -284,7 +284,7 @@ const replayRefusal = (parts: RunSpecParts): string | null => {
   return null;
 };
 
-const searchRefusal = (parts: RunSpecParts): string | null => {
+const searchProblem = (parts: RunSpecParts): string | null => {
   if (!parts.search) {
     return null;
   }
@@ -441,10 +441,10 @@ export class RunSpec {
       throw new InvalidRunSpecError('must say what checks its change');
     }
 
-    const refused = replayRefusal(parts) ?? searchRefusal(parts);
+    const problem = replayProblem(parts) ?? searchProblem(parts);
 
-    if (refused) {
-      throw new InvalidRunSpecError(refused);
+    if (problem) {
+      throw new InvalidRunSpecError(problem);
     }
 
     return new RunSpec(copied(parts));

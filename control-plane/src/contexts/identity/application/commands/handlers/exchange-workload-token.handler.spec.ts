@@ -129,7 +129,7 @@ describe('ExchangeWorkloadTokenHandler', () => {
     expect(add).not.toHaveBeenCalled();
   });
 
-  it('mints nothing through a trust withdrawn, or changed to refuse the workload, while it was verified', async () => {
+  it('mints nothing through a trust withdrawn, or changed to deny the workload, while it was verified', async () => {
     expect(await exchanging({ locked: null }).exchange()).toBeNull();
     expect(
       await exchanging({

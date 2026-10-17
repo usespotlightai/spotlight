@@ -130,7 +130,7 @@ export class CreateEgressHandler
           return {
             created: {
               outcome: 'invalid',
-              problems: [RunnerProblems.egressRefused(error)],
+              problems: [RunnerProblems.egressInvalid(error)],
             },
             token: null,
           };

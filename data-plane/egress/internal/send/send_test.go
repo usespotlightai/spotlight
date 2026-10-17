@@ -53,7 +53,7 @@ func TestSendsTheCallOnceAndAnswersWhatTheHostSaid(t *testing.T) {
 		said = string(read)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusAccepted)
-		_, _ = io.WriteString(w, `{"refuse":"no migrations on Fridays"}`)
+		_, _ = io.WriteString(w, `{"deny":"no migrations on Fridays"}`)
 	}))
 	t.Cleanup(server.Close)
 
@@ -76,7 +76,7 @@ func TestSendsTheCallOnceAndAnswersWhatTheHostSaid(t *testing.T) {
 		t.Errorf("the host was sent %v %q", got.Header, said)
 	}
 	body, _ := base64.StdEncoding.DecodeString(answer.Body)
-	if string(body) != `{"refuse":"no migrations on Fridays"}` || answer.Headers["content-type"] != "application/json" {
+	if string(body) != `{"deny":"no migrations on Fridays"}` || answer.Headers["content-type"] != "application/json" {
 		t.Errorf("answered %q with %v", body, answer.Headers)
 	}
 }
@@ -114,7 +114,7 @@ func TestDoesNotFollowARedirect(t *testing.T) {
 	}
 }
 
-func TestRefusesAHostTheAllowListLeavesOut(t *testing.T) {
+func TestBlocksAHostTheAllowListLeavesOut(t *testing.T) {
 	sender := New(listed(t, "grafana.example.com"))
 
 	answer := sender.Send(context.Background(), protocol.HostCall{URL: "https://audit.acme.internal/"})

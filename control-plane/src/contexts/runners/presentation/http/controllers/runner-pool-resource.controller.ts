@@ -88,7 +88,7 @@ const DEFINITION = ApiBody({
       tokenVersion: {
         ...WRITE_ONLY_VERSION,
         description:
-          'Changed, with a new token, to rotate the pool token in place: the old token is refused at once, while runs already claimed keep their own one-run credentials',
+          'Changed, with a new token, to rotate the pool token in place: the old token stops working at once, while runs already claimed keep their own one-run credentials',
       },
       provision: {
         type: 'object',

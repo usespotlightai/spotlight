@@ -27,14 +27,14 @@ type reporter struct {
 	stacks   []string
 	renewals int
 	stop     bool
-	refusal  error
+	renewErr error
 }
 
 func (r *reporter) RenewCheckLease(_ context.Context, _, _ string, _ bool) (bool, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.renewals++
-	return r.stop, r.refusal
+	return r.stop, r.renewErr
 }
 
 func (r *reporter) RecordChangeStackCheck(
@@ -347,7 +347,7 @@ func TestPerformKeepsTheCheckLeasedWhileItRuns(t *testing.T) {
 
 func TestPerformKeepsCheckingThroughARenewalThatCouldNotReachTheControlPlane(t *testing.T) {
 	r := setUp(t)
-	told := &reporter{refusal: errors.New("connection refused")}
+	told := &reporter{renewErr: errors.New("connection refused")}
 
 	check := r.check(whole(r.whole))
 	check.Command = "sleep 0.2"
@@ -365,7 +365,7 @@ func TestPerformKeepsCheckingThroughARenewalThatCouldNotReachTheControlPlane(t *
 func TestPerformStopsACheckItNoLongerLeases(t *testing.T) {
 	for name, told := range map[string]*reporter{
 		"told to stop": {stop: true},
-		"refused": {refusal: &control.Rejection{
+		"not found": {renewErr: &control.ResponseError{
 			Status: http.StatusNotFound, Reason: "not-found", Err: errors.New("404 Not Found"),
 		}},
 	} {
@@ -401,7 +401,7 @@ func TestPerformKeepsCheckingThroughARenewalRejectedForAWhile(t *testing.T) {
 	} {
 		t.Run(name, func(t *testing.T) {
 			r := setUp(t)
-			told := &reporter{refusal: &control.Rejection{
+			told := &reporter{renewErr: &control.ResponseError{
 				Status: status, Err: errors.New(http.StatusText(status)),
 			}}
 
@@ -496,7 +496,7 @@ func TestCommittedDiffsOnlyWhatWasCommittedSinceTheRunBegan(t *testing.T) {
 	}
 }
 
-func TestDiffRefusesACheckoutWithNoRecordOfWhereItBegan(t *testing.T) {
+func TestDiffRejectsACheckoutWithNoRecordOfWhereItBegan(t *testing.T) {
 	r := setUp(t)
 
 	if _, err := r.options().Diff(context.Background(), filepath.Join(r.origin, "widgets")); err == nil {

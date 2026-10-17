@@ -100,7 +100,7 @@ describe('ReadRunnerTraceHandler', () => {
     expect(runsForTask).not.toHaveBeenCalled();
   });
 
-  it('refuses a replay, which may not read what happened after the run it replays', async () => {
+  it('rejects a replay, which may not read what happened after the run it replays', async () => {
     const { handler, runsForTask } = reading({
       replaysFrom: new Date('2026-09-20T00:00:00Z'),
     });

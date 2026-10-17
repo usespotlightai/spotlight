@@ -4,7 +4,7 @@ import type { DefinedIntegration } from '@integrations/application/ports/defined
 import type {
   Acted,
   BoundTask,
-  HostRefusal,
+  HostError,
   IntegrationRuntimePort,
   Polled,
   Posted,
@@ -16,7 +16,7 @@ import type {
 } from '@integrations/application/ports/integration-runtime.port';
 import type { OAuth2ClientsPort } from '@integrations/application/ports/oauth2-clients.port';
 import type { Integration } from '@integrations/domain/entities/integration.entity';
-import { OutboundRefusedError } from '@integrations/domain/exceptions/outbound-refused.error';
+import { EgressBlockedError } from '@integrations/domain/exceptions/egress-blocked.error';
 import { ToolAskedMidCallError } from '@integrations/domain/exceptions/tool-asked-mid-call.error';
 import type { AccessToken } from '@integrations/domain/value-objects/access-token.vo';
 import type { SourceKey } from '@integrations/domain/value-objects/source-key.vo';
@@ -39,8 +39,8 @@ import {
   textOf,
 } from '@integrations/infrastructure/integrations/templating';
 import {
-  McpAuthorizationRefused,
-  McpQuestionRefused,
+  McpQuestionUnsupportedError,
+  McpUnauthorizedError,
   mcpReasonOf,
 } from '@integrations/infrastructure/mcp/mcp-failures';
 import { mcpOutput } from '@integrations/infrastructure/mcp/mcp-output';
@@ -54,7 +54,7 @@ import { operationRequest } from '@integrations/infrastructure/outbound/operatio
 import { taskBinding } from '@integrations/infrastructure/outbound/task-binding';
 import { bound } from '@platform/expressions/bindings';
 import { reads, value } from '@platform/expressions/readings';
-import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
+import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
 import type { TeamId } from '@shared-kernel/domain/value-objects/team-id.vo';
 import type { TaskMark } from '@work/application/contracts/happenings.contract';
 
@@ -63,17 +63,17 @@ const MAX_SAID = 500;
 const plainJson = (output: unknown): ToolOutput =>
   JSON.parse(asJson(output ?? null)) as ToolOutput;
 
-const refusalOf = (result: OutboundResult): HostRefusal => ({
+const hostErrorOf = (result: OutboundResult): HostError => ({
   status: result.status,
   said: asJson(result.response ?? null).slice(0, MAX_SAID),
 });
 
-const refusedUsing = (
+const upstreamErrorUsing = (
   tool: string,
   status: number,
   response: unknown,
-): UpstreamRefusedError =>
-  new UpstreamRefusedError(
+): UpstreamError =>
+  new UpstreamError(
     `using ${tool}`,
     `the integration answered ${status}: ${asJson(response ?? null).slice(0, MAX_SAID)}`,
   );
@@ -110,21 +110,18 @@ const versionOf = (token: AccessToken | null): string =>
     : 'none';
 
 const failedUsing = (tool: string, server: string, error: unknown): Error => {
-  if (error instanceof McpQuestionRefused) {
+  if (error instanceof McpQuestionUnsupportedError) {
     return new ToolAskedMidCallError(tool);
   }
 
-  if (
-    error instanceof UpstreamRefusedError ||
-    error instanceof OutboundRefusedError
-  ) {
+  if (error instanceof UpstreamError || error instanceof EgressBlockedError) {
     return error;
   }
 
-  return new UpstreamRefusedError(
+  return new UpstreamError(
     `using ${tool}`,
     mcpReasonOf(error, server),
-    error instanceof McpAuthorizationRefused ? UNAUTHORIZED : null,
+    error instanceof McpUnauthorizedError ? UNAUTHORIZED : null,
   );
 };
 
@@ -169,7 +166,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     );
 
     if (!result.ok) {
-      return { kind: 'refused', refusal: refusalOf(result) };
+      return { kind: 'failed', error: hostErrorOf(result) };
     }
 
     const against = { body: bound(result.response), cursor: cursor ?? '' };
@@ -208,7 +205,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
 
     return result.ok
       ? { kind: 'done' }
-      : { kind: 'refused', refusal: refusalOf(result) };
+      : { kind: 'failed', error: hostErrorOf(result) };
   }
 
   async post(
@@ -257,7 +254,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
     );
 
     if (!result.ok) {
-      return { kind: 'refused', refusal: refusalOf(result), target };
+      return { kind: 'failed', error: hostErrorOf(result), target };
     }
 
     const beside = {
@@ -336,7 +333,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
         );
 
         if (!result.ok) {
-          throw refusedUsing(tool, result.status, result.response);
+          throw upstreamErrorUsing(tool, result.status, result.response);
         }
 
         return plainJson(
@@ -385,12 +382,12 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
         const first = await answering(connection?.token ?? null);
         const renewed =
           first.status === UNAUTHORIZED && auth?.kind === 'oauth2' && connection
-            ? await connection.refused(connection.token)
+            ? await connection.unauthorized(connection.token)
             : null;
         const answered = renewed ? await answering(renewed) : first;
 
         if (!answered.ok) {
-          throw refusedUsing(tool, answered.status, answered.response);
+          throw upstreamErrorUsing(tool, answered.status, answered.response);
         }
 
         const call = operation.call;
@@ -402,7 +399,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
         const errors = graphqlErrorsOf(answered.response);
 
         if (errors) {
-          throw refusedUsing(tool, answered.status, errors);
+          throw upstreamErrorUsing(tool, answered.status, errors);
         }
 
         return plainJson(dataOf(answered.response, call.field));
@@ -491,7 +488,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
       refreshToken.value,
     );
 
-    return grant ? { kind: 'renewed', grant } : { kind: 'refused' };
+    return grant ? { kind: 'renewed', grant } : { kind: 'failed' };
   }
 
   private async sent(
@@ -511,7 +508,7 @@ export class CompiledIntegrationRuntime implements IntegrationRuntimePort {
       return { result, bindings: first };
     }
 
-    const renewed = await connection.refused(connection.token);
+    const renewed = await connection.unauthorized(connection.token);
 
     if (!renewed) {
       return { result, bindings: first };

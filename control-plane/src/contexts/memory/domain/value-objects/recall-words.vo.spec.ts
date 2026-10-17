@@ -7,7 +7,7 @@ describe('RecallWords', () => {
     expect(RecallWords.of('  upload retries ').value).toBe('upload retries');
   });
 
-  it('refuses nothing to look for, or too much', () => {
+  it('rejects nothing to look for, or too much', () => {
     expect(() => RecallWords.of('   ')).toThrow(InvalidMemoryError);
     expect(() => RecallWords.of('x'.repeat(501))).toThrow(InvalidMemoryError);
   });

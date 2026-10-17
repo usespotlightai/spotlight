@@ -68,7 +68,7 @@ describe('RegisterRunnerHandler', () => {
     ]);
   });
 
-  it('refuses a runner nobody started', async () => {
+  it('rejects a runner nobody started', async () => {
     const { handler } = registering({ runner: () => null });
 
     await expect(handler.execute(register)).rejects.toMatchObject({
@@ -76,7 +76,7 @@ describe('RegisterRunnerHandler', () => {
     });
   });
 
-  it('refuses a runner that has ended', async () => {
+  it('rejects a runner that has ended', async () => {
     const { handler, save } = registering({
       runner: () =>
         aRunner({ id: ID }).took(RunnerWork.run('run_1'), NOW).ended(NOW),

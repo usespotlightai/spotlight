@@ -242,7 +242,7 @@ describe('CI exchanging its OIDC token for a short-lived workspace token (e2e)',
     expect(created.status).toBe(201);
   });
 
-  it('lets a pull request plan but refuses it the apply', async () => {
+  it('lets a pull request plan but denies it the apply', async () => {
     const plans = await define(
       trusting({
         key: 'github-pull-requests',
@@ -273,7 +273,7 @@ describe('CI exchanging its OIDC token for a short-lived workspace token (e2e)',
     });
   });
 
-  it('refuses a workload the trust does not admit, one signed by another key, and a trust that does not exist', async () => {
+  it('does not accept a workload the trust does not admit, one signed by another key, and a trust that does not exist', async () => {
     const trust = await define(trusting());
     const forged = await issuer.forge({
       sub: MAIN,
@@ -321,15 +321,15 @@ describe('CI exchanging its OIDC token for a short-lived workspace token (e2e)',
     expect(lasts).toBeLessThanOrEqual(5 * 60_000 + 1_000);
   });
 
-  it('refuses a lifetime longer than an hour', async () => {
-    const refused = await http()
+  it('rejects a lifetime longer than an hour', async () => {
+    const rejected = await http()
       .post(`/api/resources/workspaces/${seat.workspaceId}/token-trusts`)
       .set(TEST_USER_HEADER, seat.owner)
       .set('Idempotency-Key', randomUUID())
       .send(trusting({ lifetimeMinutes: 61 }));
 
-    expect(refused.status).toBe(422);
-    expect(refused.body.errors).toEqual([
+    expect(rejected.status).toBe(422);
+    expect(rejected.body.errors).toEqual([
       expect.objectContaining({ path: 'lifetimeMinutes' }),
     ]);
   });
@@ -497,13 +497,13 @@ describe('CI exchanging its OIDC token for a short-lived workspace token (e2e)',
       trusting({ scopes: ['configure', 'secrets', 'runners'] }),
     );
     const minted = await exchanged(trust.id, MAIN);
-    const refused = await as(minted.token).post(
+    const forbidden = await as(minted.token).post(
       `/api/resources/workspaces/${seat.workspaceId}/token-trusts`,
       trusting({ key: 'another' }),
     );
 
-    expect(refused.status).toBe(403);
-    expect(refused.body).toMatchObject({ permission: 'manage-token-trusts' });
+    expect(forbidden.status).toBe(403);
+    expect(forbidden.body).toMatchObject({ permission: 'manage-token-trusts' });
     expect(
       (
         await http()
@@ -552,15 +552,15 @@ describe('CI exchanging its OIDC token for a short-lived workspace token (e2e)',
       .set('Authorization', `Bearer ${await issue(['trusts', 'plan'])}`)
       .set('If-Match', '"0"');
 
-    for (const refused of [
+    for (const forbidden of [
       escalating,
       takeover,
       updating,
       removing,
       withdrawing,
     ]) {
-      expect(refused.status).toBe(403);
-      expect(refused.body).toMatchObject({
+      expect(forbidden.status).toBe(403);
+      expect(forbidden.body).toMatchObject({
         permission: 'manage-token-trusts',
       });
     }

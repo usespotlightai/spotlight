@@ -396,7 +396,7 @@ export class Run extends EventRecorder {
     return claimed;
   }
 
-  provisionRefusedBy(
+  provisionFailureFor(
     runner: RunnerId,
     harnesses: readonly HarnessId[],
   ): ProvisionFailure | null {
@@ -961,9 +961,9 @@ export class Run extends EventRecorder {
       );
     }
 
-    const refused = this.endedQueued(outcome);
+    const ended = this.endedQueued(outcome);
 
-    refused.record(
+    ended.record(
       new RunCompleted(
         this.id,
         this.workspaceId,
@@ -973,11 +973,11 @@ export class Run extends EventRecorder {
         null,
         null,
         this.attempt,
-        refused.askedAPerson,
+        ended.askedAPerson,
       ),
     );
 
-    return refused;
+    return ended;
   }
 
   claimableAt(now: Date): boolean {
@@ -1035,8 +1035,8 @@ export class Run extends EventRecorder {
     return ended;
   }
 
-  refusedToStart(by: RunnerId, reason: string): Run {
-    this.requireWorkedBy(by, 'refuse to start');
+  deniedStart(by: RunnerId, reason: string): Run {
+    this.requireWorkedBy(by, 'deny the start of');
 
     return this.endedUnstarted(RunOutcome.refused([{ saying: reason }]));
   }

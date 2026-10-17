@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest';
 const MAIN =
   '---\nname: grafana\ndescription: Look up dashboards\nsecrets:\n  GRAFANA_TOKEN: A read-only token\ntools: [grafana.search]\n---\nSearch before you guess.';
 
-const refusedAt = (input: unknown) => {
+const invalidAt = (input: unknown) => {
   const compiled = compileSkill(input);
 
   return compiled.ok
@@ -33,31 +33,31 @@ describe('compileSkill', () => {
 
   it('points at the files when there is no SKILL.md', () => {
     expect(
-      refusedAt({ key: 'grafana', files: { 'README.md': 'hello' } }),
+      invalidAt({ key: 'grafana', files: { 'README.md': 'hello' } }),
     ).toEqual([['files', expect.stringContaining('SKILL.md')]]);
   });
 
   it('points at SKILL.md when what it says does not make a skill', () => {
     expect(
-      refusedAt({
+      invalidAt({
         key: 'grafana',
         files: { 'SKILL.md': '---\nname: grafana\n---\nNo description.' },
       }),
     ).toEqual([['files.SKILL.md', expect.stringContaining('description')]]);
   });
 
-  it('refuses a file outside the skill’s folder', () => {
+  it('rejects a file outside the skill’s folder', () => {
     expect(
-      refusedAt({
+      invalidAt({
         key: 'grafana',
         files: { 'SKILL.md': MAIN, '../escape': 'x', '/etc/passwd': 'x' },
       }).map(([at]) => at),
     ).toEqual(['files.../escape', 'files./etc/passwd']);
   });
 
-  it('refuses a key Spotlight keeps for the skills it ships', () => {
+  it('rejects a key Spotlight keeps for the skills it ships', () => {
     expect(
-      refusedAt({ key: 'spotlight-review', files: { 'SKILL.md': MAIN } }),
+      invalidAt({ key: 'spotlight-review', files: { 'SKILL.md': MAIN } }),
     ).toEqual([['key', expect.stringContaining('spotlight-')]]);
   });
 });

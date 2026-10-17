@@ -52,7 +52,7 @@ describe('Notice', () => {
     expect(settled.settled(later(4))).toBe(settled);
   });
 
-  it('refuses a subject it cannot name, a form it does not know, a link out of its team or unnamed, and wording out of bounds', () => {
+  it('rejects a subject it cannot name, a form it does not know, a link out of its team or unnamed, and wording out of bounds', () => {
     expect(() => raised(' ')).toThrow(InvalidNoticeError);
     expect(() => noticeForm('gossip')).toThrow(InvalidNoticeError);
     for (const path of ['', '/lines/1', 'lines/../x', 'https://x.test/y']) {
@@ -85,7 +85,7 @@ describe('Notice', () => {
     );
   });
 
-  it('refuses a stored notice settled before it was raised', () => {
+  it('rejects a stored notice settled before it was raised', () => {
     const notice = raised();
     const state = {
       id: notice.id,

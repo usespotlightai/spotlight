@@ -69,7 +69,7 @@ export const OUTCOME_TOLD: Record<ConnectionOutcome, string> = {
   injected:
     'Egress decrypted this traffic, because a secret of the run is bound to this host, and injected the secret.',
   blocked:
-    'Egress stopped this traffic. The host is not on the allow-list, the address is refused, or no secret of the run is bound to the host.',
+    'Egress stopped this traffic. The host is not on the allow-list, the address is private or local, or no secret of the run is bound to the host.',
   failed:
     'Egress could not connect to the host. For example, the host name is unknown, the host did not answer, or TLS failed.',
 };
@@ -84,7 +84,7 @@ export const ERROR_LABELS: Record<ConnectionError, string> = {
 const REASON_TOLD: Record<ConnectionReason, string> = {
   'not-allowed':
     'Egress blocked the connection. The host is not on the allow-list of egress.',
-  'address-refused':
+  'private-address':
     'Egress blocked the connection. The host has a private or local address, and the allow-list of egress does not name the host.',
   'not-bound':
     'Egress blocked the request. Egress injects a secret only for a host that a secret of the run is bound to, and no secret is bound to this host.',
@@ -97,7 +97,7 @@ const REASON_TOLD: Record<ConnectionReason, string> = {
 
 const errorCause = (connection: TraceConnectionResponseDto): string => {
   if (connection.error === 'auth-failed') {
-    return `The host refused the request with status ${connection.status}. Egress injected a secret into the request. The secret can be wrong, expired or without the necessary permission.`;
+    return `The host did not accept the request. Status: ${connection.status}. Egress injected a secret into the request. The secret can be wrong, expired or without the necessary permission.`;
   }
 
   if (connection.error === 'server-error') {
@@ -116,7 +116,7 @@ export const connectionTold = (node: TraceNode): Told | null =>
 
 export const REASON_LABELS: Record<ConnectionReason, string> = {
   'not-allowed': 'Not on the allow-list',
-  'address-refused': 'Private address',
+  'private-address': 'Private address',
   'not-bound': 'No bound secret',
   'no-such-host': 'Unknown host',
   'timed-out': 'Timed out',

@@ -2,7 +2,7 @@ import { InvalidStationAlertError } from '@work/domain/exceptions/invalid-statio
 import { StationAlert } from '@work/domain/value-objects/station-alert.vo';
 import { describe, expect, it } from 'vitest';
 
-const refusal = (input: Parameters<typeof StationAlert.of>[0]) => {
+const errorOf = (input: Parameters<typeof StationAlert.of>[0]) => {
   try {
     StationAlert.of(input);
   } catch (error) {
@@ -60,8 +60,8 @@ describe('StationAlert', () => {
     ['below', { measure: 'cost_per_run', below: -1, over: 5 }],
     ['over', { measure: 'failed_rate', above: 0.1, over: 0 }],
     ['over', { measure: 'failed_rate', above: 0.1, over: 2.5 }],
-  ] as const)('refuses a wrong %s, naming it', (field, input) => {
-    const error = refusal(input);
+  ] as const)('rejects a wrong %s, naming it', (field, input) => {
+    const error = errorOf(input);
 
     expect(error).toBeInstanceOf(InvalidStationAlertError);
     expect((error as InvalidStationAlertError).field).toBe(field);
@@ -86,16 +86,16 @@ describe('StationAlert', () => {
       },
     ],
   ] as const)(
-    'refuses an alert that sets %s of the thresholds, naming no one field',
+    'rejects an alert that sets %s of the thresholds, naming no one field',
     (_, input) => {
-      const error = refusal(input);
+      const error = errorOf(input);
 
       expect(error).toBeInstanceOf(InvalidStationAlertError);
       expect((error as InvalidStationAlertError).field).toBeNull();
     },
   );
 
-  it('refuses a second alert watching the same measure for the same kind of threshold, at no one field', () => {
+  it('rejects a second alert watching the same measure for the same kind of threshold, at no one field', () => {
     const first = StationAlert.of({
       measure: 'cost_per_run',
       above: 5,

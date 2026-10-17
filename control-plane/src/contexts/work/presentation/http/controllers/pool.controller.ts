@@ -20,11 +20,11 @@ import type { PoolQueueDto } from '@work/application/dto/pool.dto';
 import { PoolQueueQuery } from '@work/application/queries/pool.queries';
 import { PoolQueueResponseDto } from '@work/presentation/http/dto/pool.response.dto';
 
-const REFUSED = 'Missing, rotated or unknown pool token';
+const UNAUTHORIZED = 'Missing, rotated or unknown pool token';
 
 @ApiTags('runners')
 @ApiBearerAuth()
-@ApiUnauthorizedResponse({ description: REFUSED })
+@ApiUnauthorizedResponse({ description: UNAUTHORIZED })
 @AllowAnonymous()
 @Controller('pools')
 export class PoolController {
@@ -48,7 +48,7 @@ export class PoolController {
     >(new PoolQueueQuery(bearerIn(authorization), id));
 
     if (!queue) {
-      throw new UnauthorizedException(REFUSED);
+      throw new UnauthorizedException(UNAUTHORIZED);
     }
 
     return new PoolQueueResponseDto(

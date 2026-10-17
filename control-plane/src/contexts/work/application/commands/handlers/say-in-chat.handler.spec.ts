@@ -86,7 +86,7 @@ describe('SayInChatHandler', () => {
     });
   });
 
-  it('refuses an empty model or an effort that is no level at all', async () => {
+  it('rejects an empty model or an effort that is no level at all', async () => {
     await expect(saying('')).rejects.toMatchObject({ kind: 'invalid' });
     await expect(saying(undefined, 'enormous')).rejects.toMatchObject({
       kind: 'invalid',

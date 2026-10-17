@@ -72,7 +72,7 @@ describe('TurnAsksAPersonHandler', () => {
     await expect(asking(waiting).execute(query())).resolves.toBe(true);
   });
 
-  it('refuses a runner that does not lease the run', async () => {
+  it('rejects a runner that does not lease the run', async () => {
     await expect(
       asking(claimed()).execute(query('runner_2')),
     ).rejects.toMatchObject({ kind: 'not-found' });

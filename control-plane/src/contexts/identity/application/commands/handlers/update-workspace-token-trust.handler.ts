@@ -85,7 +85,7 @@ export class UpdateWorkspaceTokenTrustHandler
       if (error instanceof TokenTrustKeyFixedError) {
         return {
           outcome: 'invalid',
-          problems: [IdentityProblems.trustRefused(error)],
+          problems: [IdentityProblems.trustInvalid(error)],
         };
       }
 

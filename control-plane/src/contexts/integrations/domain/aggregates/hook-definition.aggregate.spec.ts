@@ -128,7 +128,7 @@ describe('HookDefinition', () => {
     ]);
   });
 
-  it('refuses a tool it calls that no integration offers, at that step', () => {
+  it('rejects a tool it calls that no integration offers, at that step', () => {
     try {
       HookDefinition.define({
         ...compiled(),
@@ -145,7 +145,7 @@ describe('HookDefinition', () => {
     }
   });
 
-  it('refuses a request to a host this Spotlight does not call', () => {
+  it('rejects a request to a host this Spotlight does not call', () => {
     expect(() =>
       HookDefinition.define({
         ...compiled(),
@@ -159,7 +159,7 @@ describe('HookDefinition', () => {
     ).toThrow(/audit.example.com, which is not an allowed outbound host/);
   });
 
-  it('refuses OIDC signing where no key signs tokens', () => {
+  it('rejects OIDC signing where no key signs tokens', () => {
     expect(() =>
       HookDefinition.define({
         ...compiled({ signing: 'oidc' }),
@@ -173,7 +173,7 @@ describe('HookDefinition', () => {
     ).toThrow(/needs HOOK_SIGNING_KEY/);
   });
 
-  it('refuses a tool no integration of the team offers', () => {
+  it('rejects a tool no integration of the team offers', () => {
     expect(() =>
       HookDefinition.define({
         ...compiled({ tools: ['grafana.search', 'grafana.gone'] }),
@@ -233,7 +233,7 @@ describe('HookDefinition', () => {
     expect(redefined.givenSecret?.equals(secret('b'))).toBe(true);
   });
 
-  it('refuses a moved version without its new secret', () => {
+  it('rejects a moved version without its new secret', () => {
     expect(() =>
       rehydrated().redefinedAs(
         compiled(),
@@ -266,7 +266,7 @@ describe('HookDefinition', () => {
     ).toThrow(HookKeyFixedError);
   });
 
-  it('refuses a stale version', () => {
+  it('rejects a stale version', () => {
     expect(() => rehydrated(3).assertVersion(2)).toThrow(
       HookDefinitionVersionConflictError,
     );

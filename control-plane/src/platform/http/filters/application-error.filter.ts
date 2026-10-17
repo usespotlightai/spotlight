@@ -17,7 +17,7 @@ const AS_HTTP: Record<ErrorKind, (message: string) => HttpException> = {
   invalid: (message) => new UnprocessableEntityException(message),
   'not-allowed': (message) => new ForbiddenException(message),
   'not-found': (message) => new NotFoundException(message),
-  refused: (message) => new BadGatewayException(message),
+  'upstream-error': (message) => new BadGatewayException(message),
 };
 
 export const httpExceptionOf = (error: ApplicationError): HttpException =>

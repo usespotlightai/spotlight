@@ -86,8 +86,8 @@ export class Chat extends EventRecorder {
     now: Date;
     newId: () => string;
   }): Chat {
-    Chat.refuseForeignTraces(input.teamId, input.traces ?? []);
-    Chat.refuseForeignStation(input.teamId, input.improving ?? null);
+    Chat.assertNoForeignTraces(input.teamId, input.traces ?? []);
+    Chat.assertNoForeignStation(input.teamId, input.improving ?? null);
 
     const opening = ChatMessage.said({
       position: MessagePosition.of(0),
@@ -242,8 +242,8 @@ export class Chat extends EventRecorder {
     effort?: Effort | null;
     at: Date;
   }): Chat {
-    this.refuseStranger(input.by);
-    Chat.refuseForeignTraces(this.teamId, input.traces ?? []);
+    this.assertStarter(input.by);
+    Chat.assertNoForeignTraces(this.teamId, input.traces ?? []);
 
     return this.with({
       messages: [
@@ -393,7 +393,7 @@ export class Chat extends EventRecorder {
   }
 
   stoppableBy(by: UserId): RunId {
-    this.refuseStranger(by);
+    this.assertStarter(by);
 
     if (!this.currentRunId) {
       throw new InvalidChatTransitionError(
@@ -448,7 +448,7 @@ export class Chat extends EventRecorder {
   }
 
   accept(position: MessagePosition, by: UserId, at: Date): Chat {
-    this.refuseStranger(by);
+    this.assertStarter(by);
 
     const proposal = this.proposalAt(position).accept(at);
     const next = this.settle(proposal);
@@ -477,7 +477,7 @@ export class Chat extends EventRecorder {
   }
 
   dismiss(position: MessagePosition, by: UserId, at: Date): Chat {
-    this.refuseStranger(by);
+    this.assertStarter(by);
 
     const next = this.settle(this.proposalAt(position).dismiss(at));
 
@@ -490,7 +490,7 @@ export class Chat extends EventRecorder {
     return MessagePosition.of(this.messages.length);
   }
 
-  private static refuseForeignTraces(
+  private static assertNoForeignTraces(
     teamId: TeamId,
     traces: readonly TraceReference[],
   ): void {
@@ -503,7 +503,7 @@ export class Chat extends EventRecorder {
     }
   }
 
-  private static refuseForeignStation(
+  private static assertNoForeignStation(
     teamId: TeamId,
     improving: ImprovedStation | null,
   ): void {
@@ -512,7 +512,7 @@ export class Chat extends EventRecorder {
     }
   }
 
-  private refuseStranger(by: UserId): void {
+  private assertStarter(by: UserId): void {
     if (!this.startedBy.equals(by)) {
       throw new NotTheChatStarterError(this.id.value);
     }

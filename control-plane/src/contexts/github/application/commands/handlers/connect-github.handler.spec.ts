@@ -123,7 +123,7 @@ describe('ConnectGitHubHandler', () => {
     expect(save).not.toHaveBeenCalled();
   });
 
-  it('refuses a member who is neither owner nor admin, without asking GitHub', async () => {
+  it('denies a member who is neither owner nor admin, without asking GitHub', async () => {
     const { handler, save, administration } = connecting({
       membership: membership(false),
     });
@@ -135,7 +135,7 @@ describe('ConnectGitHubHandler', () => {
     expect(administration.of).not.toHaveBeenCalled();
   });
 
-  it('refuses an installation the caller does not administer', async () => {
+  it('denies an installation the caller does not administer', async () => {
     const { handler, save } = connecting({ administration: 'does-not' });
 
     await expect(handler.execute(command())).rejects.toBeInstanceOf(
@@ -144,7 +144,7 @@ describe('ConnectGitHubHandler', () => {
     expect(save).not.toHaveBeenCalled();
   });
 
-  it('refuses an installation another workspace has', async () => {
+  it('denies an installation another workspace has', async () => {
     const { handler, save } = connecting({
       claimedBy: WorkspaceId.of('ws_2'),
     });
@@ -155,7 +155,7 @@ describe('ConnectGitHubHandler', () => {
     expect(save).not.toHaveBeenCalled();
   });
 
-  it('refuses, saying so, where GitHub would not answer at all', async () => {
+  it('fails, saying so, where GitHub would not answer at all', async () => {
     const { handler, save } = connecting({ administration: 'cannot-tell' });
 
     await expect(handler.execute(command())).rejects.toThrow(
@@ -164,7 +164,7 @@ describe('ConnectGitHubHandler', () => {
     expect(save).not.toHaveBeenCalled();
   });
 
-  it('refuses anything that is not a number GitHub could have given', async () => {
+  it('rejects anything that is not a number GitHub could have given', async () => {
     const { handler, save } = connecting();
 
     await expect(handler.execute(command('../../etc'))).rejects.toBeInstanceOf(

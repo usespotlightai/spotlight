@@ -265,9 +265,9 @@ describe('WorkChangeJudgings', () => {
     );
   });
 
-  it('tries again later when the provider refuses', async () => {
+  it('tries again later when the request to the provider fails', async () => {
     const { judging, judgings } = await working(async () => {
-      throw new JudgingError('refused', 'no credits', null);
+      throw new JudgingError('request-failed', 'no credits', null);
     });
 
     expect(judging?.owesWork).toBe(true);

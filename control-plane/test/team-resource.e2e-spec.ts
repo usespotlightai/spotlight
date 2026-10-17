@@ -173,10 +173,10 @@ describe('a team, created through the resource API (e2e)', () => {
       name: 'Delivery',
     });
 
-    const refused = await remove(made.body.id, made.body.version);
+    const rejected = await remove(made.body.id, made.body.version);
 
-    expect(refused.status).toBe(409);
-    expect(refused.body).toMatchObject({
+    expect(rejected.status).toBe(409);
+    expect(rejected.body).toMatchObject({
       type: 'urn:spotlight:problem:in-use',
       detail: expect.stringContaining('line delivery'),
     });

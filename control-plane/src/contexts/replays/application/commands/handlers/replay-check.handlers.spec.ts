@@ -400,7 +400,7 @@ describe('StartReplayCheckHandler', () => {
           runId: RunId.of('original_9'),
           taskId: TaskId.of('task_9'),
           stationId: STATION.stationId,
-          refusal: null,
+          unreplayableReason: null,
           reason: null,
         },
         NOW,
@@ -483,7 +483,7 @@ describe('StartReplayCheckHandler', () => {
     expect((await read(id)).baselineReplayId).toBeNull();
   });
 
-  it('refuses a line with no replay_check, and a station no set guards', async () => {
+  it('rejects a line with no replay_check, and a station no set guards', async () => {
     guarding();
     work.threshold = null;
     expect(await errorOf(start())).toBe('conflict');
@@ -728,7 +728,7 @@ describe('GuardChangesHandler', () => {
     expect(audited[0]?.change.by.actor).toEqual(ACTOR);
   });
 
-  it('refuses a second set guarding the same station', async () => {
+  it('rejects a second set guarding the same station', async () => {
     guarding();
     const other = ReplaySet.open({
       id: ReplaySetId.of('set_2'),

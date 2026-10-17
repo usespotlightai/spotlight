@@ -1,8 +1,8 @@
-export type RefusalToConnect =
+export type ConnectDenial =
   | 'workspace-not-administered'
   | 'installation-not-administered';
 
-const SAYING: Record<RefusalToConnect, string> = {
+const SAYING: Record<ConnectDenial, string> = {
   'workspace-not-administered':
     'Only a workspace owner or admin can connect GitHub.',
   'installation-not-administered':
@@ -12,8 +12,8 @@ const SAYING: Record<RefusalToConnect, string> = {
 export class NotYoursToConnectError extends Error {
   readonly violation = 'not-allowed' as const;
 
-  constructor(readonly refusal: RefusalToConnect) {
-    super(SAYING[refusal]);
+  constructor(readonly denial: ConnectDenial) {
+    super(SAYING[denial]);
     this.name = 'NotYoursToConnectError';
   }
 }

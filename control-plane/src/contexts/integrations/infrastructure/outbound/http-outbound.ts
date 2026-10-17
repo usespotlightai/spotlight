@@ -1,5 +1,5 @@
 import type { Credentials } from '@integrations/application/ports/integration-runtime.port';
-import { OutboundRefusedError } from '@integrations/domain/exceptions/outbound-refused.error';
+import { EgressBlockedError } from '@integrations/domain/exceptions/egress-blocked.error';
 import type {
   AuthIR,
   RequestIR,
@@ -20,7 +20,7 @@ import { OutboundPolicy } from '@integrations/infrastructure/outbound/outbound-p
 import type { Bindings } from '@platform/expressions/bindings';
 import { isTrue, value } from '@platform/expressions/readings';
 import { InjectedSecrets } from '@secrets/application/contracts/injected-secrets.contract';
-import { UpstreamRefusedError } from '@shared-kernel/domain/exceptions/upstream-refused.error';
+import { UpstreamError } from '@shared-kernel/domain/exceptions/upstream.error';
 
 export interface OutboundResult {
   readonly ok: boolean;
@@ -98,7 +98,7 @@ export class HttpOutbound {
     const sent = await this.send(request, against, credentials);
 
     if (!sent) {
-      throw new UpstreamRefusedError(
+      throw new UpstreamError(
         'fetching a file',
         'it names nowhere to fetch it from',
       );
@@ -114,7 +114,7 @@ export class HttpOutbound {
     if (!succeeded(request, beside)) {
       await reply.body?.cancel();
 
-      throw new UpstreamRefusedError(
+      throw new UpstreamError(
         'fetching a file',
         `the host answered ${reply.status} without it`,
       );
@@ -146,7 +146,7 @@ export class HttpOutbound {
             reply,
             MAX_ANSWER_BYTES,
             () =>
-              new UpstreamRefusedError(
+              new UpstreamError(
                 `reading what ${new URL(request.url).host} answered`,
                 `it is larger than the ${MAX_ANSWER_BYTES / 1024 / 1024} MB Spotlight reads from a tool`,
               ),
@@ -246,11 +246,11 @@ export class HttpOutbound {
 
       return { reply, injected };
     } catch (error) {
-      if (injected.isEmpty || error instanceof OutboundRefusedError) {
+      if (injected.isEmpty || error instanceof EgressBlockedError) {
         throw error;
       }
 
-      throw new UpstreamRefusedError(
+      throw new UpstreamError(
         `reaching ${new URL(request.url).host}`,
         injected.redact(error instanceof Error ? error.message : String(error)),
       );

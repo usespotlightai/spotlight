@@ -60,7 +60,7 @@ describe('GitHubConnection', () => {
     expect(connection.installation).toBeNull();
   });
 
-  it('refuses somebody who does not administer the workspace', () => {
+  it('denies somebody who does not administer the workspace', () => {
     expect(() =>
       none().connectTo(INSTALLED, {
         ...allowed,
@@ -69,7 +69,7 @@ describe('GitHubConnection', () => {
     ).toThrow(NotYoursToConnectError);
   });
 
-  it('refuses an installation the caller does not administer on GitHub', () => {
+  it('denies an installation the caller does not administer on GitHub', () => {
     expect(() =>
       none().connectTo(INSTALLED, {
         ...allowed,
@@ -78,7 +78,7 @@ describe('GitHubConnection', () => {
     ).toThrow(NotYoursToConnectError);
   });
 
-  it('refuses an installation another workspace already has', () => {
+  it('denies an installation another workspace already has', () => {
     expect(() =>
       none().connectTo(INSTALLED, { ...allowed, claimedBy: ELSEWHERE }),
     ).toThrow(InstallationClaimedError);
@@ -91,7 +91,7 @@ describe('GitHubConnection', () => {
     ).toEqual(INSTALLED);
   });
 
-  it('refuses to read back a connection that was never written', () => {
+  it('does not read back a connection that was never written', () => {
     expect(() =>
       GitHubConnection.rehydrate({
         workspaceId: WORKSPACE,

@@ -72,7 +72,7 @@ describe('GitHubInstallationAdministration', () => {
     expect(init.headers.authorization).not.toBe('Bearer gho_live');
   });
 
-  it('refuses a plain member of the organisation', async () => {
+  it('denies a plain member of the organisation', async () => {
     github({
       '/app/installations/42': ORG,
       '/user/memberships/orgs/acme': {
@@ -84,7 +84,7 @@ describe('GitHubInstallationAdministration', () => {
     expect(await administration().of(INSTALLED, LEON)).toBe('does-not');
   });
 
-  it('refuses an admin whose membership is still pending', async () => {
+  it('denies an admin whose membership is still pending', async () => {
     github({
       '/app/installations/42': ORG,
       '/user/memberships/orgs/acme': {
@@ -96,7 +96,7 @@ describe('GitHubInstallationAdministration', () => {
     expect(await administration().of(INSTALLED, LEON)).toBe('does-not');
   });
 
-  it('refuses a read-only collaborator who can see the installation', async () => {
+  it('denies a read-only collaborator who can see the installation', async () => {
     github({
       '/app/installations/42': ORG,
       '/user/installations': {
@@ -118,7 +118,7 @@ describe('GitHubInstallationAdministration', () => {
     expect(await administration().of(INSTALLED, LEON)).toBe('administers');
   });
 
-  it('refuses somebody else on a personal account', async () => {
+  it('denies somebody else on a personal account', async () => {
     github({
       '/app/installations/42': PERSONAL,
       '/user': { status: 200, body: { id: 8, login: 'mallory' } },
@@ -142,7 +142,7 @@ describe('GitHubInstallationAdministration', () => {
     expect(await administration().of(INSTALLED, LEON)).toBe('cannot-tell');
   });
 
-  it('refuses an installation GitHub does not know', async () => {
+  it('rejects an installation GitHub does not know', async () => {
     github({});
 
     expect(await administration().of(INSTALLED, LEON)).toBe('does-not');

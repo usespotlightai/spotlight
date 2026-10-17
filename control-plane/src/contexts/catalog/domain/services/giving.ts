@@ -9,12 +9,12 @@ import { entitlementTo } from '@catalog/domain/services/entitlement';
 import { CatalogItemId } from '@catalog/domain/value-objects/catalog-item-id.vo';
 import type { WorkspacePlan } from '@catalog/domain/value-objects/workspace-plan.vo';
 
-type RefusalReason = 'unknown' | 'wrong-kind' | 'not-entitled' | 'lapsed';
+type DenialReason = 'unknown' | 'wrong-kind' | 'not-entitled' | 'lapsed';
 
-interface Refusal {
+export interface Denial {
   readonly id: string;
-  readonly reason: RefusalReason;
-  readonly because: string;
+  readonly reason: DenialReason;
+  readonly detail: string;
 }
 
 interface Given<T extends CatalogItem> {
@@ -22,12 +22,12 @@ interface Given<T extends CatalogItem> {
   readonly item: T;
 }
 
-interface Refused {
+interface Denied {
   readonly given: false;
-  readonly refusal: Refusal;
+  readonly denial: Denial;
 }
 
-export type Giving<T extends CatalogItem> = Given<T> | Refused;
+export type Giving<T extends CatalogItem> = Given<T> | Denied;
 
 export interface Named {
   readonly tools: readonly string[];
@@ -37,18 +37,17 @@ export interface Named {
 export interface Givings {
   readonly tools: readonly CatalogTool[];
   readonly skills: readonly CatalogSkill[];
-  readonly refused: readonly Refusal[];
+  readonly denied: readonly Denial[];
 }
 
 type ItemOf<K extends CatalogKind> = K extends 'tool'
   ? CatalogTool
   : CatalogSkill;
 
-const refused = (
-  id: string,
-  reason: RefusalReason,
-  because: string,
-): Refused => ({ given: false, refusal: { id, reason, because } });
+const denied = (id: string, reason: DenialReason, detail: string): Denied => ({
+  given: false,
+  denial: { id, reason, detail },
+});
 
 export const givingOfItem = <T extends CatalogItem>(
   item: T,
@@ -59,7 +58,7 @@ export const givingOfItem = <T extends CatalogItem>(
 
   return entitlement.entitled
     ? { given: true, item }
-    : refused(item.id.value, entitlement.reason, entitlement.because);
+    : denied(item.id.value, entitlement.reason, entitlement.because);
 };
 
 export const givingOf = <K extends CatalogKind>(
@@ -74,17 +73,17 @@ export const givingOf = <K extends CatalogKind>(
   try {
     parsed = CatalogItemId.parse(id);
   } catch {
-    return refused(id, 'unknown', `Catalog has no item ${id}.`);
+    return denied(id, 'unknown', `Catalog has no item ${id}.`);
   }
 
   const item = catalog.find(parsed);
 
   if (!item) {
-    return refused(id, 'unknown', `Catalog has no item ${id}.`);
+    return denied(id, 'unknown', `Catalog has no item ${id}.`);
   }
 
   if (item.kind !== kind) {
-    return refused(
+    return denied(
       id,
       'wrong-kind',
       `Catalog item ${id} is a ${item.kind}, not a ${kind}.`,
@@ -95,7 +94,7 @@ export const givingOf = <K extends CatalogKind>(
 
   return giving.given
     ? giving
-    : refused(id, giving.refusal.reason, giving.refusal.because);
+    : denied(id, giving.denial.reason, giving.denial.detail);
 };
 
 export const givingsTo = (
@@ -106,7 +105,7 @@ export const givingsTo = (
 ): Givings => {
   const tools: CatalogTool[] = [];
   const skills: CatalogSkill[] = [];
-  const refusals: Refusal[] = [];
+  const denials: Denial[] = [];
   const seen = new Set<string>();
 
   const firstSight = (id: string): boolean => {
@@ -128,7 +127,7 @@ export const givingsTo = (
     if (giving.given) {
       tools.push(giving.item);
     } else {
-      refusals.push(giving.refusal);
+      denials.push(giving.denial);
     }
   };
 
@@ -140,7 +139,7 @@ export const givingsTo = (
     const giving = givingOf(id, 'skill', catalog, plan, now);
 
     if (!giving.given) {
-      refusals.push(giving.refusal);
+      denials.push(giving.denial);
       return;
     }
 
@@ -159,5 +158,5 @@ export const givingsTo = (
     giveSkill(each);
   }
 
-  return { tools, skills, refused: refusals };
+  return { tools, skills, denied: denials };
 };

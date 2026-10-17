@@ -121,13 +121,13 @@ describe('OAuth2Discovery', () => {
     expect(fetch).not.toHaveBeenCalled();
   });
 
-  it('refuses an authorization server that does not take S256 PKCE', async () => {
+  it('rejects an authorization server that does not take S256 PKCE', async () => {
     await expect(
       discovery(answering({ methods: ['plain'] })).endpoints(DISCOVERED),
     ).resolves.toBeNull();
   });
 
-  it('refuses authorization server metadata that names another issuer than the server it was read from', async () => {
+  it('rejects authorization server metadata that names another issuer than the server it was read from', async () => {
     await expect(
       discovery(answering({ issuer: 'https://evil.example' })).endpoints(
         DISCOVERED,
@@ -135,7 +135,7 @@ describe('OAuth2Discovery', () => {
     ).resolves.toBeNull();
   });
 
-  it('refuses metadata naming a resource other than the server', async () => {
+  it('rejects metadata naming a resource other than the server', async () => {
     await expect(
       discovery(answering({ resource: 'https://evil.example/mcp' })).endpoints(
         DISCOVERED,

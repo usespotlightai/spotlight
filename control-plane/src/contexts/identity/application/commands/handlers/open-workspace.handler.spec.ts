@@ -67,7 +67,7 @@ describe('OpenWorkspaceHandler', () => {
     ).toHaveLength(1);
   });
 
-  it('enqueues nothing when the write is refused', async () => {
+  it('enqueues nothing when the write fails', async () => {
     repository.isTaken = vi.fn().mockResolvedValue(true);
 
     await handle().catch(() => undefined);

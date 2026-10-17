@@ -31,7 +31,7 @@ const claimed = () =>
 
 const taking = (
   over: {
-    refuses?: boolean;
+    tookFails?: boolean;
     stored?: Run | null;
     clashes?: number;
     saveFails?: boolean;
@@ -58,7 +58,7 @@ const taking = (
   const checks = { unclaim: vi.fn(async () => {}) };
   const runners = {
     took: vi.fn(async () => {
-      if (over.refuses) {
+      if (over.tookFails) {
         throw new Error('pooled_1 is spent');
       }
     }),
@@ -94,7 +94,7 @@ describe('ClaimsTaken', () => {
   });
 
   it('unclaims the run its runner could not take, and still says why', async () => {
-    const { taken, saved } = taking({ refuses: true });
+    const { taken, saved } = taking({ tookFails: true });
 
     await expect(taken.run(claimed(), RUNNER)).rejects.toThrow(
       'pooled_1 is spent',
@@ -103,7 +103,7 @@ describe('ClaimsTaken', () => {
   });
 
   it('tries again when the run changed while it was unclaimed', async () => {
-    const { taken, saved } = taking({ refuses: true, clashes: 1 });
+    const { taken, saved } = taking({ tookFails: true, clashes: 1 });
 
     await expect(taken.run(claimed(), RUNNER)).rejects.toThrow(
       'pooled_1 is spent',
@@ -112,7 +112,7 @@ describe('ClaimsTaken', () => {
   });
 
   it('leaves a run its runner no longer leases as it is', async () => {
-    const { taken, saved } = taking({ refuses: true, stored: null });
+    const { taken, saved } = taking({ tookFails: true, stored: null });
 
     await expect(taken.run(claimed(), RUNNER)).rejects.toThrow(
       'pooled_1 is spent',
@@ -121,7 +121,7 @@ describe('ClaimsTaken', () => {
   });
 
   it('leaves the run to its lease, saying why, where it cannot be unclaimed', async () => {
-    const { taken, warn } = taking({ refuses: true, saveFails: true });
+    const { taken, warn } = taking({ tookFails: true, saveFails: true });
 
     await expect(taken.run(claimed(), RUNNER)).rejects.toThrow(
       'pooled_1 is spent',
@@ -130,7 +130,7 @@ describe('ClaimsTaken', () => {
   });
 
   it('unclaims the check its runner could not take', async () => {
-    const { taken, checks } = taking({ refuses: true });
+    const { taken, checks } = taking({ tookFails: true });
 
     await expect(
       taken.check(

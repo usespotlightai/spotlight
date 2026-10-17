@@ -27,7 +27,7 @@ describe('LineRepositories', () => {
     ]);
   });
 
-  it('refuses two repositories that share a name', () => {
+  it('rejects two repositories that share a name', () => {
     expect(() => of('acme/api', 'other/api')).toThrow(DuplicateRepositoryError);
   });
 
@@ -45,7 +45,7 @@ describe('LineRepositories', () => {
     expect(repositories.image?.value).toBe('ghcr.io/acme/app:1');
   });
 
-  it('refuses repositories naming different images', () => {
+  it('rejects repositories naming different images', () => {
     expect(() =>
       LineRepositories.of([
         worked('acme/api', 'ghcr.io/acme/api:1'),
@@ -107,19 +107,19 @@ describe('LineRepositories', () => {
       expect(of('acme/api', 'acme/web').opening('web').value).toBe('acme/web');
     });
 
-    it('refuses where several are worked and none is named', () => {
+    it('rejects where several are worked and none is named', () => {
       expect(() => of('acme/api', 'acme/web').opening(null)).toThrow(
         /Please name one/,
       );
     });
 
-    it('refuses a name the line does not work', () => {
+    it('rejects a name the line does not work', () => {
       expect(() => of('acme/api').opening('web')).toThrow(
         /no repository named web/,
       );
     });
 
-    it('refuses where the line works none', () => {
+    it('rejects where the line works none', () => {
       expect(() => LineRepositories.none().opening(null)).toThrow(
         NoRepositoryError,
       );

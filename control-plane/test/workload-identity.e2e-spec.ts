@@ -211,7 +211,7 @@ describe('a host claiming through a runner trust, as a platform workload with no
     });
   });
 
-  it('refuses a token for another workload, another audience, or signed by anyone else', async () => {
+  it('does not accept a token for another workload, another audience, or signed by anyone else', async () => {
     const trust = await trusted();
 
     for (const token of [
@@ -237,7 +237,7 @@ describe('a host claiming through a runner trust, as a platform workload with no
     ).toBe(401);
   });
 
-  it('refuses anyone through a trust once it is withdrawn, and forgets the hosts that came in by it', async () => {
+  it('does not accept anyone through a trust once it is withdrawn, and forgets the hosts that came in by it', async () => {
     const trust = await trusted();
     await queue(['vpc-internal']);
     await present(trust.id, await workload()).expect(200);
@@ -253,7 +253,7 @@ describe('a host claiming through a runner trust, as a platform workload with no
     await eventually(async () => (await hostRow()) === null);
   });
 
-  it('refuses anyone into a workspace that has closed', async () => {
+  it('does not accept anyone into a workspace that has closed', async () => {
     const trust = await trusted();
 
     await unseat();

@@ -32,13 +32,13 @@ describe('PersonToolPolicy', () => {
     );
   });
 
-  it('refuses a rule for a tool another integration offers', () => {
+  it('rejects a rule for a tool another integration offers', () => {
     expect(() =>
       none().set(ToolName.of('github.comment'), PersonToolRule.of('blocked')),
     ).toThrow(InvalidIntegrationPartError);
   });
 
-  it('refuses a rule that is none of allowed, needs-approval and blocked', () => {
+  it('rejects a rule that is none of allowed, needs-approval and blocked', () => {
     expect(() => PersonToolRule.of('sometimes')).toThrow(
       InvalidIntegrationPartError,
     );

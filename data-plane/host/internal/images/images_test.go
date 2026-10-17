@@ -43,20 +43,20 @@ func TestOnlyPatternsNamingOnlyPatternsStillServeTheFallback(t *testing.T) {
 	}
 }
 
-func TestAStarAnywhereButTheEndIsRefused(t *testing.T) {
+func TestAStarAnywhereButTheEndIsRejected(t *testing.T) {
 	if _, err := images.Parse([]string{"ghcr.io/*/runner"}, "fallback:1"); err == nil {
-		t.Fatal("expected a pattern with an inner star to be refused")
+		t.Fatal("expected a pattern with an inner star to be rejected")
 	}
 }
 
-func TestAnEntryThatIsNoImageIsRefused(t *testing.T) {
+func TestAnEntryThatIsNoImageIsRejected(t *testing.T) {
 	for _, entry := range []string{"GHCR.io/Acme/Runner", "runner main", "ghcr.io/acme/runner:main@sha256:short", "Ghcr.io/*"} {
 		if _, err := images.Parse([]string{entry}, "fallback:1"); err == nil {
 			t.Errorf("%q was taken as an image", entry)
 		}
 	}
 	if _, err := images.Parse([]string{"localhost:5001/runner", "registry.local:5000/acme/*"}, "fallback:1"); err != nil {
-		t.Errorf("refused good entries: %v", err)
+		t.Errorf("rejected good entries: %v", err)
 	}
 }
 
@@ -69,15 +69,15 @@ func TestWantsTheDefaultThenEachAdmittedImageOnce(t *testing.T) {
 		wanted[1] != (images.Wanted{Image: "ghcr.io/acme/api:main"}) {
 		t.Errorf("wanted %+v", wanted)
 	}
-	if refused := allowed.Refused([]string{"evil/runner:1", "evil/runner:1"}); len(refused) != 1 {
-		t.Errorf("refused %v", refused)
+	if disallowed := allowed.Disallowed([]string{"evil/runner:1", "evil/runner:1"}); len(disallowed) != 1 {
+		t.Errorf("disallowed %v", disallowed)
 	}
 }
 
-func TestARunnerOlderThanTheControlPlaneNeedsIsRefused(t *testing.T) {
+func TestSaysWhenARunnerIsOlderThanTheControlPlaneNeeds(t *testing.T) {
 	for _, each := range []struct {
 		release string
-		refused bool
+		tooOld  bool
 	}{
 		{"", true},
 		{"20260801-01", true},
@@ -88,12 +88,12 @@ func TestARunnerOlderThanTheControlPlaneNeedsIsRefused(t *testing.T) {
 		{"dev", false},
 		{"3f2c9d1a7b4e", false},
 	} {
-		refusal := images.RunnerRefusal(each.release, "20260925-02")
-		if (refusal != "") != each.refused {
-			t.Errorf("%q: refusal %q", each.release, refusal)
+		tooOld := images.RunnerTooOld(each.release, "20260925-02")
+		if (tooOld != "") != each.tooOld {
+			t.Errorf("%q: too old %q", each.release, tooOld)
 		}
-		if refusal != "" && !strings.Contains(refusal, "20260925-02") {
-			t.Errorf("%q: the refusal does not say what is needed: %q", each.release, refusal)
+		if tooOld != "" && !strings.Contains(tooOld, "20260925-02") {
+			t.Errorf("%q: the reason does not say what is needed: %q", each.release, tooOld)
 		}
 	}
 }

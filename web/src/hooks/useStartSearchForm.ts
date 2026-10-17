@@ -9,12 +9,12 @@ import {
   agentOf,
   type BudgetInputs,
   budgetFrom,
-  refusalsOf,
+  problemsOf,
   type SearchField,
   searchPath,
 } from '@/lib/search';
 import {
-  estimateRefusalOf,
+  estimateProblemOf,
   FIRST_BUDGET,
   firstStartable,
   harnessOf,
@@ -61,8 +61,8 @@ export function useStartSearchForm({
     setId,
     budget,
   );
-  const estimateRefusals = refusalsOf(estimate.error);
-  const startRefusals = refusalsOf(start.error);
+  const estimateProblems = problemsOf(estimate.error);
+  const startProblems = problemsOf(start.error);
   const suggested = estimate.isError ? null : (estimate.data ?? null);
   const saturation = saturationOf(sets, setId);
   const askedObjective = chosenObjective ?? suggested?.objective ?? null;
@@ -72,7 +72,7 @@ export function useStartSearchForm({
       problems,
       inputs,
       tried,
-      refused: [startRefusals.fields, estimateRefusals.fields],
+      rejected: [startProblems.fields, estimateProblems.fields],
     });
 
   const change = (field: keyof BudgetInputs) =>
@@ -136,9 +136,9 @@ export function useStartSearchForm({
     pending: start.isPending,
     shown,
     setProblem: shown('set') ?? (tried && !setId ? NO_SET_CHOSEN : null),
-    estimateRefusal: estimateRefusalOf(
+    estimateProblem: estimateProblemOf(
       estimate.isError,
-      estimateRefusals.general,
+      estimateProblems.general,
     ),
     change,
     chooseSet: andReset(setChosenSet, start.reset),

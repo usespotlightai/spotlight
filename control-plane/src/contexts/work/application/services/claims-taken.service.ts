@@ -48,7 +48,7 @@ export class ClaimsTaken {
   ): Promise<void> {
     try {
       await this.runners.took(runner, work, this.clock.now());
-    } catch (refused) {
+    } catch (notTaken) {
       try {
         await unclaimed();
       } catch (error) {
@@ -62,7 +62,7 @@ export class ClaimsTaken {
         );
       }
 
-      throw refused;
+      throw notTaken;
     }
   }
 

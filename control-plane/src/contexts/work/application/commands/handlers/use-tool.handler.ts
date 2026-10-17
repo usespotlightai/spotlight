@@ -22,8 +22,8 @@ import { ToolApprovalRefusedError } from '@work/domain/exceptions/tool-approval-
 import { ToolAwaitsApprovalError } from '@work/domain/exceptions/tool-awaits-approval.error';
 import { ToolAwaitsConnectionError } from '@work/domain/exceptions/tool-awaits-connection.error';
 import { ToolBlockedByPersonError } from '@work/domain/exceptions/tool-blocked-by-person.error';
-import { ToolConnectionRefusedError } from '@work/domain/exceptions/tool-connection-refused.error';
-import { ToolHookRefusedError } from '@work/domain/exceptions/tool-hook-refused.error';
+import { ToolConnectionDeniedError } from '@work/domain/exceptions/tool-connection-denied.error';
+import { ToolHookDeniedError } from '@work/domain/exceptions/tool-hook-denied.error';
 import { ToolNeedsWorkError } from '@work/domain/exceptions/tool-needs-work.error';
 import { ToolNotGivenError } from '@work/domain/exceptions/tool-not-given.error';
 import { UnknownToolError } from '@work/domain/exceptions/unknown-tool.error';
@@ -86,7 +86,7 @@ export class UseToolHandler
           );
         }
 
-        throw new ToolConnectionRefusedError(tool.value, asked.reason);
+        throw new ToolConnectionDeniedError(tool.value, asked.reason);
       }
 
       const ruled = StricterRule.of(reachable.declared, reachable.personRule);
@@ -135,8 +135,8 @@ export class UseToolHandler
             })
           : { kind: 'allowed' };
 
-        if (verdict.kind === 'refused') {
-          throw new ToolHookRefusedError(tool.value, verdict.reason);
+        if (verdict.kind === 'denied') {
+          throw new ToolHookDeniedError(tool.value, verdict.reason);
         }
 
         await this.works.stillOn(run.currentAttempt, command.runnerId);

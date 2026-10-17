@@ -15,7 +15,7 @@ describe('RunLease', () => {
     expect(RunLease.of(RUN, 2).precedes(RunLease.of(RUN, 2))).toBe(false);
   });
 
-  it('refuses an attempt no run could make', () => {
+  it('rejects an attempt no run could make', () => {
     for (const attempt of [0, -1, 1.5]) {
       expect(() => RunLease.of(RUN, attempt)).toThrow(InconsistentStateError);
     }

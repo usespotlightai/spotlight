@@ -39,7 +39,7 @@ var quiet = slog.New(slog.NewTextHandler(io.Discard, nil))
 func TestTriesAgainWhileTheControlPlaneCannotAnswer(t *testing.T) {
 	asked := &fakeFetcher{answers: []error{
 		errors.New("connection refused"),
-		&control.Rejection{Status: http.StatusBadGateway, Err: errors.New("bad gateway")},
+		&control.ResponseError{Status: http.StatusBadGateway, Err: errors.New("bad gateway")},
 	}}
 
 	if fetched := fetchedBy(context.Background(), asked, "key", quiet); fetched.RunID != "run_1" || asked.asked != 3 {
@@ -47,8 +47,8 @@ func TestTriesAgainWhileTheControlPlaneCannotAnswer(t *testing.T) {
 	}
 }
 
-func TestGoesOutInjectingNothingWhenTheControlPlaneRefuses(t *testing.T) {
-	asked := &fakeFetcher{answers: []error{&control.Rejection{Status: http.StatusUnauthorized, Err: control.ErrRefused}}}
+func TestGoesOutInjectingNothingWhenTheControlPlaneDoesNotAccept(t *testing.T) {
+	asked := &fakeFetcher{answers: []error{&control.ResponseError{Status: http.StatusUnauthorized, Err: control.ErrUnauthorized}}}
 
 	if fetched := fetchedBy(context.Background(), asked, "key", quiet); fetched.RunID != "" || asked.asked != 1 {
 		t.Errorf("fetched %+v after %d asks", fetched, asked.asked)
@@ -71,7 +71,7 @@ func TestReadsWhatTheHostHandedItOnceAndLeavesNoCopy(t *testing.T) {
 	}
 }
 
-func TestRefusesAHandingWithNoControlPlaneOrProxyCredential(t *testing.T) {
+func TestRejectsAHandingWithNoControlPlaneOrProxyCredential(t *testing.T) {
 	for _, handed := range []string{
 		`{"credential":"proxy"}`,
 		`{"url":"http://control-plane:3000","token":"egress-token"}`,

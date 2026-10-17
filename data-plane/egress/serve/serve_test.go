@@ -66,7 +66,7 @@ func (c *controlPlane) AdmitEgress(_ context.Context, credential string) (protoc
 	c.admits++
 	run, ok := c.runs[credential]
 	if !ok {
-		return protocol.EgressAdmitted{}, &control.Rejection{Status: http.StatusNotFound, Err: fmt.Errorf("no runner")}
+		return protocol.EgressAdmitted{}, &control.ResponseError{Status: http.StatusNotFound, Err: fmt.Errorf("no runner")}
 	}
 	return protocol.EgressAdmitted{
 		RunnerID: "runner_" + credential, WorkspaceID: run.workspace, ControlPlaneHost: controlPlaneHost, ControlPlanePort: c.port,
@@ -81,7 +81,7 @@ func (c *controlPlane) FetchRunSecretsFor(_ context.Context, credential, recipie
 	c.fetches++
 	run, ok := c.runs[credential]
 	if !ok || run.noRun {
-		return protocol.EgressSecrets{}, &control.Rejection{Status: http.StatusConflict, Err: fmt.Errorf("no run")}
+		return protocol.EgressSecrets{}, &control.ResponseError{Status: http.StatusConflict, Err: fmt.Errorf("no run")}
 	}
 
 	fetched := protocol.EgressSecrets{RunID: run.runID, Bound: run.bound}
@@ -103,7 +103,7 @@ func (c *controlPlane) ActiveRuns(_ context.Context, credentials []string) ([]st
 
 	c.asked = append(c.asked, len(credentials))
 	if len(credentials) > protocol.MaxRunsAtOnce {
-		return nil, &control.Rejection{Status: http.StatusUnprocessableEntity, Err: fmt.Errorf("too many")}
+		return nil, &control.ResponseError{Status: http.StatusUnprocessableEntity, Err: fmt.Errorf("too many")}
 	}
 	return slices.DeleteFunc(slices.Clone(credentials), func(credential string) bool { return !c.active[credential] }), nil
 }
@@ -115,10 +115,10 @@ func (c *controlPlane) RecordConnections(_ context.Context, records []protocol.E
 	c.sent = append(c.sent, len(records))
 	if c.failSend > 0 {
 		c.failSend--
-		return &control.Rejection{Status: http.StatusServiceUnavailable, Err: fmt.Errorf("busy")}
+		return &control.ResponseError{Status: http.StatusServiceUnavailable, Err: fmt.Errorf("busy")}
 	}
 	if len(records) > protocol.MaxRecordsAtOnce {
-		return &control.Rejection{Status: http.StatusUnprocessableEntity, Err: fmt.Errorf("too many")}
+		return &control.ResponseError{Status: http.StatusUnprocessableEntity, Err: fmt.Errorf("too many")}
 	}
 	c.recorded = append(c.recorded, records...)
 	return nil
@@ -166,7 +166,7 @@ func riggedAllowing(t *testing.T, settings Settings, allow []string) *rig {
 			arrived <- struct{}{}
 			<-answer
 		}
-		if r.URL.Path == "/refused" {
+		if r.URL.Path == "/unauthorized" {
 			w.WriteHeader(http.StatusUnauthorized)
 		}
 		if r.URL.Path == "/cut" {
@@ -353,7 +353,7 @@ func TestTunnelsAnotherHostAndDoesNotOpenItsTraffic(t *testing.T) {
 	}
 }
 
-func TestRefusesToForwardToAHostNoSecretOfTheRunIsBoundTo(t *testing.T) {
+func TestBlocksAForwardToAHostNoSecretOfTheRunIsBoundTo(t *testing.T) {
 	r := rigged(t, Settings{})
 
 	response, body := r.forward(t, "one", "api.example.com:443", "/", standIn())
@@ -404,7 +404,7 @@ func TestBeforeItsRunASandboxReachesOnlyTheControlPlane(t *testing.T) {
 	}
 }
 
-func TestRefusesASandboxWithoutAKnownProxyCredential(t *testing.T) {
+func TestRejectsASandboxWithoutAKnownProxyCredential(t *testing.T) {
 	r := rigged(t, Settings{})
 
 	for name, credential := range map[string]string{"none": "", "unknown": "stranger"} {
@@ -452,19 +452,19 @@ func TestAnswersTooManyRequestsAboveTheWorkspaceLimit(t *testing.T) {
 func TestLimitsOpenConnectionsForEachWorkspace(t *testing.T) {
 	limited := newLimits(0, 1, time.Now)
 
-	release, refusal := limited.take("ws_1")
-	if refusal != "" {
-		t.Fatal(refusal)
+	release, reason := limited.take("ws_1")
+	if reason != "" {
+		t.Fatal(reason)
 	}
-	if _, refusal := limited.take("ws_1"); !strings.Contains(refusal, "more than 1 connections open") {
-		t.Errorf("refusal %q", refusal)
+	if _, reason := limited.take("ws_1"); !strings.Contains(reason, "more than 1 connections open") {
+		t.Errorf("reason %q", reason)
 	}
-	if _, refusal := limited.take("ws_2"); refusal != "" {
-		t.Errorf("another workspace was refused: %s", refusal)
+	if _, reason := limited.take("ws_2"); reason != "" {
+		t.Errorf("another workspace was limited: %s", reason)
 	}
 	release()
-	if _, refusal := limited.take("ws_1"); refusal != "" {
-		t.Errorf("refused after a release: %s", refusal)
+	if _, reason := limited.take("ws_1"); reason != "" {
+		t.Errorf("limited after a release: %s", reason)
 	}
 }
 
@@ -603,7 +603,7 @@ func recorded(t *testing.T, r *rig, count int) []protocol.EgressConnection {
 func TestRecordsTheStatusTheHostAnsweredAForwardedRequestWith(t *testing.T) {
 	r := rigged(t, Settings{})
 
-	response, _ := r.forward(t, "one", "mcp.example.com:443", "/refused", standIn())
+	response, _ := r.forward(t, "one", "mcp.example.com:443", "/unauthorized", standIn())
 
 	if response.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("answered %s", response.Status)
@@ -614,10 +614,10 @@ func TestRecordsTheStatusTheHostAnsweredAForwardedRequestWith(t *testing.T) {
 }
 
 func TestRecordsAConnectionEgressCouldNotOpen(t *testing.T) {
-	refused := func(context.Context, string, string) (net.Conn, error) {
+	closed := func(context.Context, string, string) (net.Conn, error) {
 		return nil, &net.OpError{Op: "dial", Net: "tcp", Err: os.NewSyscallError("connect", syscall.ECONNREFUSED)}
 	}
-	r := rigged(t, Settings{Dial: refused})
+	r := rigged(t, Settings{Dial: closed})
 
 	_, _, _ = r.tunnel(t, "one", "https://api.example.com/", nil)
 	response, _ := r.forward(t, "one", "mcp.example.com:443", "/", standIn())
@@ -656,14 +656,14 @@ func TestDoesNotRecordAConnectionTheSandboxGaveUp(t *testing.T) {
 	}
 }
 
-func TestRecordsAConnectionToAnAddressEgressRefusesAsBlocked(t *testing.T) {
+func TestRecordsAConnectionToAPrivateAddressAsBlocked(t *testing.T) {
 	r := rigged(t, Settings{Dial: func(context.Context, string, string) (net.Conn, error) {
-		return nil, &guard.Refusal{Reason: "Egress never opens a connection to 169.254.169.254."}
+		return nil, &guard.Blocked{Reason: "Egress never opens a connection to 169.254.169.254."}
 	}})
 
 	_, _, _ = r.tunnel(t, "one", "https://api.example.com/", nil)
 
-	if record := recorded(t, r, 1)[0]; record.Outcome != protocol.ConnectionBlocked || record.Reason != protocol.ReasonAddressRefused {
+	if record := recorded(t, r, 1)[0]; record.Outcome != protocol.ConnectionBlocked || record.Reason != protocol.ReasonPrivateAddress {
 		t.Errorf("recorded %+v", record)
 	}
 }
@@ -824,7 +824,7 @@ func TestTrustsTheAuthorityItIsGiven(t *testing.T) {
 	}
 }
 
-func TestRefusesATrustThatHasNoCertificate(t *testing.T) {
+func TestRejectsATrustThatHasNoCertificate(t *testing.T) {
 	path := t.TempDir() + "/empty.pem"
 	if err := os.WriteFile(path, []byte("nothing"), 0o644); err != nil {
 		t.Fatal(err)
@@ -907,11 +907,11 @@ func TestAsksTheControlPlaneOnceAboutAnUnknownCredentialForAWhile(t *testing.T) 
 		t.Errorf("asked the control plane %d times", r.control.admits)
 	}
 
-	later := time.Now().Add(refusedFor + time.Second)
+	later := time.Now().Add(rejectionTTL + time.Second)
 	r.egress.now = func() time.Time { return later }
 	r.forward(t, "stranger", "", protocol.EgressBoundPath, nil)
 	if r.control.admits != 2 {
-		t.Errorf("did not ask again after %s; asked %d times", refusedFor, r.control.admits)
+		t.Errorf("did not ask again after %s; asked %d times", rejectionTTL, r.control.admits)
 	}
 }
 
@@ -940,7 +940,7 @@ func TestTheControlPlaneTunnelIsNotCountedAgainstTheWorkspaceLimit(t *testing.T)
 		t.Fatalf("answered %s", response.Status)
 	}
 	if _, _, err := r.tunnel(t, "one", "https://"+controlPlaneHost+"/", nil); err != nil {
-		t.Errorf("the control plane tunnel was refused: %v", err)
+		t.Errorf("the control plane tunnel was blocked: %v", err)
 	}
 	if _, _, err := r.tunnel(t, "one", "https://api.example.com/", nil); err == nil {
 		t.Error("another tunnel was not limited")
@@ -983,7 +983,7 @@ func TestDoesNotForwardToTheControlPlaneWhenItIsNotOnPort443(t *testing.T) {
 	}
 }
 
-func TestRefusesAnAdmissionThatNamesNoControlPlanePort(t *testing.T) {
+func TestRejectsAnAdmissionThatNamesNoControlPlanePort(t *testing.T) {
 	r := rigged(t, Settings{})
 	r.control.port = 0
 

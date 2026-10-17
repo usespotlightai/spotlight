@@ -1,6 +1,6 @@
 import { WorkspaceRole } from '@identity/domain/value-objects/workspace-role.vo';
 
-export type RefusalToGive =
+export type RoleAssignmentDenial =
   | 'not-a-member'
   | 'not-yours-to-give'
   | 'not-below-you'
@@ -15,10 +15,10 @@ export interface RolePositions {
   readonly isSelf: boolean;
 }
 
-export function refusalToGive(
+export function roleAssignmentDenial(
   positions: RolePositions,
   role: WorkspaceRole,
-): RefusalToGive | null {
+): RoleAssignmentDenial | null {
   const { mine, theirs } = positions;
 
   if (!theirs) {
@@ -53,7 +53,7 @@ export function rolesGivable(
   }
 
   const givable = WorkspaceRole.all.filter(
-    (role) => refusalToGive(positions, role) === null,
+    (role) => roleAssignmentDenial(positions, role) === null,
   );
 
   return givable.length > 1 ? givable : [];

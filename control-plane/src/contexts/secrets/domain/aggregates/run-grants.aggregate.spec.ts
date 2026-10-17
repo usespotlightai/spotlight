@@ -76,7 +76,7 @@ describe('RunGrants', () => {
     ).toThrow(InconsistentStateError);
   });
 
-  it('pins the recipient a lease first fetches for, answering it again and refusing any other', () => {
+  it('pins the recipient a lease first fetches for, answering it again and rejecting any other', () => {
     const pinned = begun().recordFetch(FIRST, SIDECAR);
 
     expect(pinned.fetcher).toEqual(SIDECAR);

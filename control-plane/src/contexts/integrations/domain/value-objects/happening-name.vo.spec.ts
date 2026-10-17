@@ -23,7 +23,7 @@ describe('HappeningName', () => {
   });
 
   it.each(['', '   ', 'merged', 'github.', '.merged', 'github..merged'])(
-    'refuses %o, which names no source',
+    'rejects %o, which names no source',
     (raw) => {
       expect(() => HappeningName.of(raw)).toThrow(InvalidIdentifierError);
     },
@@ -34,7 +34,7 @@ describe('HappeningName', () => {
     'github.Merged',
     'github.pull request.merged',
     'github.-merged',
-  ])('refuses %o, which is not how a word is written', (raw) => {
+  ])('rejects %o, which is not how a word is written', (raw) => {
     expect(() => HappeningName.of(raw)).toThrow(InvalidIdentifierError);
   });
 

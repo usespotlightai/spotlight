@@ -39,7 +39,7 @@ describe('a version constraint, written as Terraform writes one', () => {
     expect(() => VersionConstraint.of('  ')).toThrow(/is required/);
   });
 
-  it('refuses what is not a constraint, naming the part it could not read', () => {
+  it('rejects what is not a constraint, naming the part it could not read', () => {
     expect(() => VersionConstraint.of('>= 1.0, latest')).toThrow(/"latest"/);
     expect(() => VersionConstraint.of('^1.2')).toThrow(/"\^1.2"/);
   });

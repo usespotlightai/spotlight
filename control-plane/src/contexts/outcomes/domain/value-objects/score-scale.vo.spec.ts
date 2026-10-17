@@ -25,7 +25,7 @@ describe('ScoreScale', () => {
     [ScoreScale.oneToFive(), true],
     [ScoreScale.oneToFive(), 0],
     [ScoreScale.oneToFive(), 2.5],
-  ] as const)('refuses a value off its scale', (scale, value) => {
+  ] as const)('rejects a value off its scale', (scale, value) => {
     expect(() => scale.valueOf(value)).toThrow(InvalidScoreError);
   });
 
